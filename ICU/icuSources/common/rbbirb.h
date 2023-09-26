@@ -54,8 +54,8 @@ public:                                       //   of these structs for each ent
     ~RBBISymbolTableEntry();
 
 private:
-    RBBISymbolTableEntry(const RBBISymbolTableEntry &other); // forbid copying of this class
-    RBBISymbolTableEntry &operator=(const RBBISymbolTableEntry &other); // forbid copying of this class
+    RBBISymbolTableEntry(const RBBISymbolTableEntry &other) = delete; // forbid copying of this class
+    RBBISymbolTableEntry &operator=(const RBBISymbolTableEntry &other) = delete; // forbid copying of this class
 };
 
 
@@ -95,8 +95,8 @@ public:
 #endif
 
 private:
-    RBBISymbolTable(const RBBISymbolTable &other) = delete; // forbid copying of this class
-    RBBISymbolTable &operator=(const RBBISymbolTable &other) = delete; // forbid copying of this class
+    RBBISymbolTable(const RBBISymbolTable &other); // forbid copying of this class
+    RBBISymbolTable &operator=(const RBBISymbolTable &other); // forbid copying of this class
 };
 
 

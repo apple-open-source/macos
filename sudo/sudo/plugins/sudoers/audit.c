@@ -32,6 +32,11 @@
 #include "sudoers.h"
 #include "log_client.h"
 
+#ifdef __APPLE__
+#include <errno.h>
+#include <EndpointSecuritySystem/ESSubmitSPI.h>
+#endif /*__APPLE__ */
+
 #ifdef HAVE_BSM_AUDIT
 # include "bsm_audit.h"
 #endif
@@ -43,7 +48,6 @@
 #endif
 
 #ifdef SUDOERS_LOG_CLIENT
-static struct client_closure *client_closure = NULL;
 static struct log_details audit_details;
 #endif
 char *audit_msg = NULL;
@@ -74,6 +78,118 @@ audit_success(char *const argv[])
 
     debug_return_int(rc);
 }
+
+#ifdef __APPLE_AUDIT__
+static void es_parse_command_info(
+    char * const command_info[],
+    char **command_out,
+    char **to_username_out,
+    uid_t *to_uid_out
+)
+{
+    debug_decl(es_parse_command_info, SUDOERS_DEBUG_PLUGIN);
+    char *p = NULL;
+    for (size_t i = 0; command_info[i] != NULL; i++) {
+         p = strstr(command_info[i], "command=");
+        if (NULL != p) {
+            *command_out = &command_info[i][sizeof("command=") - 1];
+        }
+        
+        p = strstr(command_info[i], "runas_user=");
+        if (NULL != p) {
+            *to_username_out = &command_info[i][sizeof("runas_user=") - 1];
+        }
+
+        p = strstr(command_info[i], "runas_uid=");
+        if (NULL != p) {
+            char *to_uid_str = &command_info[i][sizeof("runas_uid=") - 1];
+            char *end;
+            long value = strtol(to_uid_str, &end, 10);
+            if (!(end == to_uid_str || *end != '\0' || errno == ERANGE)) {
+                *to_uid_out = (uid_t)value;
+            }
+        }
+    }
+    debug_return;
+}
+
+API_AVAILABLE(macos(14.0)) API_UNAVAILABLE(ios, tvos, watchos)
+static void
+es_accept(
+    char * const command_info[],
+    char * const run_argv[],
+    char * const run_envp[]
+)
+{
+    debug_decl(es_accept, SUDOERS_DEBUG_PLUGIN);
+    __attribute__((weak_import)) typeof(ess_notify_sudo) ess_notify_sudo;
+    if (ess_notify_sudo == NULL) {
+        sudo_debug_printf(SUDO_DEBUG_INFO,  "%s: failed link ess_notify", __func__);
+        return;
+    }
+
+    char *from_username = sudo_user.name;
+    uid_t from_uid = sudo_user.uid;
+    char *command = NULL;
+    char *to_username = NULL;
+    uid_t to_uid = -1;
+    
+    es_parse_command_info(command_info, &command, &to_username, &to_uid);
+
+    ess_notify_sudo(
+        true, // bool isAccepted
+        NULL, // const ess_sudo_reject_info_t * __nullable reject_info
+        &from_uid, // const uid_t * _Nullable from_uid,
+        from_username, // const char * _Nullable from_username,
+        to_uid == -1 ? NULL: &to_uid, // const uid_t * _Nullable to_uid,
+        to_username, // const char * _Nullable to_username,
+        command // const char* _Nullable command
+    );
+    debug_return;
+}
+
+API_AVAILABLE(macos(14.0)) API_UNAVAILABLE(ios, tvos, watchos)
+static void
+es_reject (
+    const char *plugin_name, 
+    unsigned int plugin_type,
+    const char *message, 
+    char * const command_info[]
+)
+{
+    debug_decl(es_reject, SUDOERS_DEBUG_PLUGIN);
+    __attribute__((weak_import)) typeof(ess_notify_sudo) ess_notify_sudo;
+    if (ess_notify_sudo == NULL) {
+        sudo_debug_printf(SUDO_DEBUG_INFO,  "%s: failed link ess_notify", __func__);
+        return;
+    }
+
+    char *from_username = sudo_user.name;
+    uid_t from_uid = sudo_user.uid;
+    char *command = NULL;
+    char *to_username = NULL;
+    uid_t to_uid = -1;
+    
+    es_parse_command_info(command_info, &command, &to_username, &to_uid);
+
+    ess_sudo_plugin_type_t lastElement = ESS_SUDO_PLUGIN_TYPE_APPROVAL;
+    ess_sudo_reject_info_t reject_info = {};
+    reject_info.failure_message = message;
+    reject_info.plugin_name = plugin_name;
+    reject_info.plugin_type = plugin_type <= lastElement ? plugin_type: ESS_SUDO_PLUGIN_TYPE_UNKNOWN;
+
+    ess_notify_sudo(
+        false, // bool isAccepted
+        &reject_info, // const ess_sudo_reject_info_t * __nullable reject_info
+        &from_uid, // const uid_t * _Nullable from_uid,
+        from_username, // const char * _Nullable from_username,
+        to_uid == -1 ? NULL: &to_uid, // const uid_t * _Nullable to_uid,
+        to_username, // const char * _Nullable to_username,
+        command // const char* _Nullable command
+    );
+    debug_return;
+}
+#endif /* __APPLE_AUDIT__ */
 
 static int
 audit_failure_int(char *const argv[], const char *message)
@@ -157,6 +273,8 @@ sudoers_audit_open(unsigned int version, sudo_conv_t conversation,
 
     sudo_conv = conversation;
     sudo_printf = plugin_printf;
+    if (sudoers_audit.event_alloc != NULL)
+	plugin_event_alloc = sudoers_audit.event_alloc;
 
     bindtextdomain("sudoers", LOCALEDIR);
 
@@ -180,7 +298,7 @@ sudoers_audit_open(unsigned int version, sudo_conv_t conversation,
     info.settings = settings;
     info.user_info = user_info;
     info.plugin_args = plugin_options;
-    ret = sudoers_init(&info, submit_envp);
+    ret = sudoers_init(&info, log_parse_error, submit_envp);
 
     if (ret == true) {
 	/* Unset close function if we don't need it to avoid extra process. */
@@ -197,16 +315,15 @@ sudoers_audit_open(unsigned int version, sudo_conv_t conversation,
     debug_return_int(ret);
 }
 
-#ifdef SUDOERS_LOG_CLIENT
 static void
 audit_to_eventlog(struct eventlog *evlog, char * const command_info[],
-    char * const run_argv[], char * const run_envp[])
+    char * const run_argv[], char * const run_envp[], const char *uuid_str)
 {
     char * const *cur;
     debug_decl(audit_to_eventlog, SUDOERS_DEBUG_PLUGIN);
 
     /* Fill in evlog from sudoers Defaults, run_argv and run_envp. */
-    sudoers_to_eventlog(evlog, run_argv, run_envp);
+    sudoers_to_eventlog(evlog, NULL, run_argv, run_envp, uuid_str);
 
     /* Update iolog and execution environment from command_info[]. */
     if (command_info != NULL) {
@@ -225,9 +342,7 @@ audit_to_eventlog(struct eventlog *evlog, char * const command_info[],
 	    case 'i':
 		if (strncmp(*cur, "iolog_path=", sizeof("iolog_path=") - 1) == 0) {
 		    evlog->iolog_path = *cur + sizeof("iolog_path=") - 1;
-		    evlog->iolog_file = strrchr(evlog->iolog_path, '/');
-		    if (evlog->iolog_file != NULL)
-			evlog->iolog_file++;
+		    evlog->iolog_file = sudo_basename(evlog->iolog_path);
 		    continue;
 		}
 		break;
@@ -244,37 +359,53 @@ audit_to_eventlog(struct eventlog *evlog, char * const command_info[],
     debug_return;
 }
 
+#ifdef SUDOERS_LOG_CLIENT
 static bool
-log_server_accept(char * const command_info[], char * const run_argv[],
-    char * const run_envp[])
+log_server_accept(struct eventlog *evlog)
 {
-    struct eventlog *evlog;
     struct timespec now;
     bool ret = false;
     debug_decl(log_server_accept, SUDOERS_DEBUG_PLUGIN);
 
-    /* Only send accept event to log server if I/O log plugin did not. */
-    if (SLIST_EMPTY(&def_log_servers) || def_log_input || def_log_output)
+    if (SLIST_EMPTY(&def_log_servers))
 	debug_return_bool(true);
+
+    if (client_closure != NULL && ISSET(sudo_mode, MODE_POLICY_INTERCEPTED)) {
+	/* Older servers don't support multiple commands per session. */
+	if (!client_closure->subcommands)
+	    debug_return_bool(true);
+    } else {
+	/* Only send accept event to log server if I/O log plugin did not. */
+	if (iolog_enabled)
+	    debug_return_bool(true);
+    }
 
     if (sudo_gettime_real(&now) == -1) {
 	sudo_warn("%s", U_("unable to get time of day"));
 	goto done;
     }
-    if ((evlog = malloc(sizeof(*evlog))) == NULL) {
-	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-	goto done;
+
+    if (client_closure != NULL) {
+	/* Use existing client closure. */
+	if (fmt_accept_message(client_closure, evlog)) {
+	    if (client_closure->write_ev->add(client_closure->write_ev,
+		    &client_closure->log_details->server_timeout) == -1) {
+		sudo_warn("%s", U_("unable to add event to queue"));
+		goto done;
+	    }
+	    ret = true;
+	}
+    } else {
+	if (!init_log_details(&audit_details, evlog))
+	    goto done;
+
+	/* Open connection to log server, send hello and accept messages. */
+	client_closure = log_server_open(&audit_details, &now, false,
+	    SEND_ACCEPT, NULL);
+	if (client_closure != NULL)
+	    ret = true;
     }
 
-    audit_to_eventlog(evlog, command_info, run_argv, run_envp);
-    if (!init_log_details(&audit_details, evlog))
-	goto done;
-
-    /* Open connection to log server, send hello and accept messages. */
-    client_closure = log_server_open(&audit_details, &now, false,
-	SEND_ACCEPT, NULL, sudoers_audit.event_alloc);
-    if (client_closure != NULL)
-	ret = true;
 done:
     debug_return_bool(ret);
 }
@@ -306,8 +437,7 @@ log_server_exit(int status_type, int status)
 }
 #else
 static bool
-log_server_accept(char * const command_info[], char * const run_argv[],
-    char * const run_envp[])
+log_server_accept(struct eventlog *evlog)
 {
     return true;
 }
@@ -324,25 +454,44 @@ sudoers_audit_accept(const char *plugin_name, unsigned int plugin_type,
     char * const command_info[], char * const run_argv[],
     char * const run_envp[], const char **errstr)
 {
+    const char *uuid_str = NULL;
+    struct eventlog evlog;
+    static bool first = true;
     int ret = true;
     debug_decl(sudoers_audit_accept, SUDOERS_DEBUG_PLUGIN);
 
     /* Only log the accept event from the sudo front-end */
     if (plugin_type != SUDO_FRONT_END)
-	debug_return_int(true);
+        debug_return_int(true);
 
     if (!def_log_allowed)
-	debug_return_int(true);
+        debug_return_int(true);
+#ifdef __APPLE_AUDIT__
+    if (__builtin_available(macOS 14.0, *)) {
+        es_accept(command_info, run_argv, run_envp);
+    }
+#endif /* __APPLE_AUDIT__ */
 
     if (audit_success(run_argv) != 0 && !def_ignore_audit_errors)
-	ret = false;
+    ret = false;
 
-    if (!log_allowed() && !def_ignore_logfile_errors)
-	ret = false;
+    if (!ISSET(sudo_mode, MODE_POLICY_INTERCEPTED))
+    uuid_str = sudo_user.uuid_str;
 
-    if (!log_server_accept(command_info, run_argv, run_envp)) {
-	if (!def_ignore_logfile_errors)
-	    ret = false;
+    audit_to_eventlog(&evlog, command_info, run_argv, run_envp, uuid_str);
+    if (!log_allowed(&evlog) && !def_ignore_logfile_errors)
+    ret = false;
+
+    if (!log_server_accept(&evlog)) {
+    if (!def_ignore_logfile_errors)
+        ret = false;
+    }
+
+    if (first) {
+    /* log_subcmds doesn't go through sudo_policy_main again to set this. */
+    if (def_log_subcmds)
+        SET(sudo_mode, MODE_POLICY_INTERCEPTED);
+    first = false;
     }
 
     debug_return_int(ret);
@@ -355,7 +504,11 @@ sudoers_audit_reject(const char *plugin_name, unsigned int plugin_type,
     struct eventlog evlog;
     int ret = true;
     debug_decl(sudoers_audit_reject, SUDOERS_DEBUG_PLUGIN);
-
+#ifdef __APPLE_AUDIT__
+    if (__builtin_available(macOS 14.0, *)) {
+        es_reject(plugin_name, plugin_type, message, command_info);
+    }
+#endif /* __APPLE_AUDIT__ */
     /* Skip reject events that sudoers generated itself. */
     if (strncmp(plugin_name, "sudoers_", 8) == 0)
 	debug_return_int(true);
@@ -368,11 +521,11 @@ sudoers_audit_reject(const char *plugin_name, unsigned int plugin_type,
 	    ret = false;
     }
 
-    audit_to_eventlog(&evlog, command_info, NewArgv, env_get());
+    audit_to_eventlog(&evlog, command_info, NewArgv, env_get(), NULL);
     if (!eventlog_reject(&evlog, 0, message, NULL, NULL))
 	ret = false;
 
-    if (!log_server_reject(&evlog, message, sudoers_audit.event_alloc))
+    if (!log_server_reject(&evlog, message))
 	ret = false;
 
     debug_return_int(ret);
@@ -401,18 +554,17 @@ sudoers_audit_error(const char *plugin_name, unsigned int plugin_type,
 	debug_return_bool(false);
     }
 
-    audit_to_eventlog(&evlog, command_info, NewArgv, env_get());
+    audit_to_eventlog(&evlog, command_info, NewArgv, env_get(), NULL);
     if (!eventlog_alert(&evlog, 0, &now, message, NULL))
 	ret = false;
 
-    if (!log_server_alert(&evlog, &now, message, NULL,
-	    sudoers_audit.event_alloc))
+    if (!log_server_alert(&evlog, &now, message, NULL))
 	ret = false;
 
     debug_return_int(ret);
 }
 
-void
+static void
 sudoers_audit_close(int status_type, int status)
 {
     log_server_exit(status_type, status);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,6 +28,19 @@
  * - initial revision
  */
 
+/*
+ * Threading: Main thread of configd calls syncNetworkConfigurationToPrebootVolume(),
+ * which loads the DM/DA work on the runloop of a new pthread. Upon completion of the
+ * work and the receipt of the async callback, the main thread pthread_joins. There is
+ * a 1:1 mapping between a thread and a DM/DA session, therefore the whole updater
+ * session and its associated objects are not shared across different activations of
+ * the updater runloop. This approach provides the following solutions:
+ * - Control of the update_in_progress/sync_needed logic stays with the main thread
+ * - The extra pthread isn't kept around needlessly
+ * - Emulates a "dispatched-on-demand" version of the DM/DA APIs (currently only support runloop)
+ * Note: The target product for this file does NOT build with ARC.
+ */
+
 #import "preboot.h"
 #import "prefsmon_log.h"
 #import <os/boot_mode_private.h>
@@ -36,6 +49,8 @@
 #import <sys/types.h>
 #import <sys/sysctl.h>
 #import <string.h>
+#import <pthread.h>
+#import <AssertMacros.h>
 
 #import <SystemConfiguration/SystemConfiguration.h>
 #import <SystemConfiguration/SCPrivate.h>
@@ -46,69 +61,71 @@
 #import <DiskManagement/DMManagerInfo.h>
 
 @interface PrebootUpdater : NSObject<DMAsyncDelegate>
-@property (nonatomic)BOOL		update_in_progress;
-@property (nonatomic)BOOL		request_queued;
 @property (strong,nonatomic)DMManager *	manager;
 @property (nonatomic)DADiskRef		disk;
 @property (strong, nonatomic)DMAPFS *	dmapfs;
+@property (nonatomic) DASessionRef	session;
 @end
 
 #if defined(TEST_PREBOOT)
 static bool S_retry;
 static bool S_exit_on_completion;
 #endif
+static bool update_in_progress;
+static bool sync_needed;
+static CFRunLoopRef G_main_runloop;
+static pthread_t G_sync_thread;
+
+static int syncThreadCreate(void);
+static void cleanupUpdater(PrebootUpdater *);
+static void * syncToPreboot(void * info);
+static void syncComplete(void);
 
 #define _LOG_PREFIX		"syncNetworkConfigurationToPrebootVolume"
 
 @implementation PrebootUpdater
 
 - (instancetype)initWithManager:(DMManager *)manager disk:(DADiskRef)disk
-			 DMAPFS:(DMAPFS *)dmapfs
+			 DMAPFS:(DMAPFS *)dmapfs session:(DASessionRef)session
 {
 	self = [super init];
 	_manager = manager;
 	_disk = disk;
 	_dmapfs = dmapfs;
+	_session = session;
 	[manager setDelegate:self];
 	return (self);
 }
 
 - (void)dealloc
 {
-	if (_manager != nil) {
-		[_manager release];
-	}
 	if (_dmapfs != nil) {
 		[_dmapfs release];
+		_dmapfs = nil;
+	}
+	if (_manager != nil) {
+		[_manager done];
+		[_manager release];
+		_manager = nil;
+	}
+	if (_disk != NULL) {
+		CFRelease(_disk);
+		_disk = NULL;
+	}
+	if (_session != NULL) {
+		DASessionUnscheduleFromRunLoop (_session, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+		CFRelease(_session);
+		_session = NULL;
 	}
 	[super dealloc];
 	return;
 }
 
-- (BOOL) syncNetworkConfiguration
-{
-	DMDiskErrorType		error;
-
-	if (_update_in_progress) {
-		SC_log(LOG_NOTICE, "%s: queueing request", _LOG_PREFIX);
-		_request_queued = YES;
-		return (YES);
-	}
-	error = [_dmapfs updatePrebootForVolume:_disk options:nil];
-	if (error != 0) {
-		SC_log(LOG_NOTICE,
-		       "%s: [DMAPFS updatePrebootForVolume] failed %d",
-		       _LOG_PREFIX, error);
-	}
-	else {
-		SC_log(LOG_NOTICE, "%s: sync started", _LOG_PREFIX);
-		_update_in_progress = YES;
-	}
-	return (_update_in_progress);
-}
-
 - (void)dmAsyncStartedForDisk:(nullable DADiskRef)inDisk
 {
+#if defined(TEST_PREBOOT)
+	SC_log(LOG_DEBUG, "%s: %@", _LOG_PREFIX, NSStringFromSelector(_cmd));
+#endif
 }
 
 - (void)dmAsyncProgressForDisk:(nullable DADiskRef)inDisk
@@ -119,7 +136,10 @@ static bool S_exit_on_completion;
 	if (S_retry && inPercent > 25) {
 		S_retry = false;
 		SC_log(LOG_NOTICE, "Test: scheduling sync again");
-		[self syncNetworkConfiguration];
+		CFRunLoopPerformBlock(G_main_runloop, kCFRunLoopDefaultMode, ^{
+			syncNetworkConfigurationToPrebootVolume();
+		});
+		CFRunLoopWakeUp(G_main_runloop);
 	}
 #endif
 }
@@ -135,18 +155,46 @@ static bool S_exit_on_completion;
 		   detailError:(DMDiskErrorType)inDetailError
 		    dictionary:(nullable NSDictionary *)inDictionary
 {
-	BOOL	sync_started = NO;
+	CFRunLoopPerformBlock(G_main_runloop, kCFRunLoopDefaultMode, ^{
+		syncComplete();
+	});
+	CFRunLoopWakeUp(G_main_runloop);
+	CFRunLoopPerformBlock(CFRunLoopGetCurrent(), kCFRunLoopDefaultMode, ^{
+		cleanupUpdater(self);
+	});
+}
+
+@end
+
+static void
+cleanupUpdater(PrebootUpdater * updater)
+{
+	if (updater != nil) {
+		[updater release];
+		updater = nil;
+	}
+	CFRunLoopStop(CFRunLoopGetCurrent());
+}
+
+static void
+syncComplete(void)
+{
+	bool sync_started = false;
+	int res = 0;
 
 	SC_log(LOG_NOTICE, "%s: sync complete", _LOG_PREFIX);
-	_update_in_progress = NO;
-	if (_request_queued) {
+	res = pthread_join(G_sync_thread, NULL);
+	require_noerr_quiet(res, done);
+	G_sync_thread = NULL;
+	if (!sync_needed) {
+		update_in_progress = false;
+	} else {
 		SC_log(LOG_NOTICE, "%s: starting sync for queued request",
 		       _LOG_PREFIX);
-		_request_queued = NO;
-		sync_started = [self syncNetworkConfiguration];
-		if (sync_started) {
-			return;
-		}
+		sync_needed = false;
+		sync_started = true;
+		res = syncThreadCreate();
+		require_noerr_quiet(res, done);
 	}
 #if defined(TEST_PREBOOT)
 	if (!sync_started && S_exit_on_completion) {
@@ -155,9 +203,12 @@ static bool S_exit_on_completion;
 		exit(0);
 	}
 #endif
+	return;
+done:
+	SC_log(LOG_NOTICE, "%s: Sync failed to complete gracefully with err %d",
+	       _LOG_PREFIX, res);
+	return;
 }
-
-@end
 
 static PrebootUpdater *
 allocateUpdater(void)
@@ -167,16 +218,14 @@ allocateUpdater(void)
 	DMDiskErrorType		error;
 	DMManager *		manager = nil;
 	DASessionRef		session = NULL;
-	static PrebootUpdater * S_updater;
+	PrebootUpdater * 	updater = nil;
 
-	if (S_updater != nil) {
-		return (S_updater);
-	}
 	session = DASessionCreate(kCFAllocatorDefault);
 	if (session == NULL) {
 		SC_log(LOG_NOTICE, "%s: DASessionCreate failed", _LOG_PREFIX);
 		goto failed;
 	}
+	DASessionScheduleWithRunLoop(session, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 	manager = [[DMManager alloc] init];
 	[manager setDefaultDASession:session];
 	disk = [manager copyRootDisk:&error];
@@ -186,28 +235,28 @@ allocateUpdater(void)
 		goto failed;
 	}
 	dmapfs = [[DMAPFS alloc] initWithManager:manager];
-	DASessionScheduleWithRunLoop(session,
-				     CFRunLoopGetCurrent(),
-				     kCFRunLoopDefaultMode);
-	S_updater = [[PrebootUpdater alloc]
-			    initWithManager:manager
-				       disk:disk
-				     DMAPFS:dmapfs];
-	CFRelease(session);
-	return (S_updater);
+	updater = [[PrebootUpdater alloc]
+		   initWithManager:manager
+		   disk:disk
+		   DMAPFS:dmapfs
+		   session:session];
+	
+	return (updater);
 
  failed:
-	if (session != NULL) {
-		CFRelease(session);
-	}
-	if (disk != NULL) {
-		CFRelease(disk);
-	}
 	if (dmapfs != nil) {
 		[dmapfs release];
 	}
 	if (manager != nil) {
+		[manager done];
 		[manager release];
+	}
+	if (disk != NULL) {
+		CFRelease(disk);
+	}
+	if (session != NULL) {
+		DASessionUnscheduleFromRunLoop(session, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+		CFRelease(session);
 	}
 	return (nil);
 }
@@ -226,6 +275,54 @@ get_boot_mode(void)
 	return (mode);
 }
 
+static void *
+syncToPreboot(void * info)
+{
+#pragma unused(info)
+	@autoreleasepool {
+		DMDiskErrorType error = 0;
+		PrebootUpdater *updater = allocateUpdater();
+		require_action_quiet(updater != nil, done,
+				     SC_log(LOG_NOTICE,
+					    "%s: Failed to create <DMAsyncDelegate> instance",
+					    _LOG_PREFIX));
+		error = [[updater dmapfs] updatePrebootForVolume:[updater disk] options:nil];
+		require_noerr_action_quiet(error, done,
+					   SC_log(LOG_NOTICE,
+						  "%s: [DMAPFS updatePrebootForVolume] failed %d",
+						  _LOG_PREFIX, error));
+		SC_log(LOG_NOTICE, "%s: sync started", _LOG_PREFIX);
+		CFRunLoopRun();
+		return nil;
+	}
+done:
+	CFRunLoopPerformBlock(G_main_runloop, kCFRunLoopDefaultMode, ^{
+		syncComplete();
+	});
+	CFRunLoopWakeUp(G_main_runloop);
+	return nil;
+}
+
+static int
+syncThreadCreate(void)
+{
+	int ret = 0;
+	pthread_attr_t threadAttrs = {0};
+
+	ret = pthread_attr_init(&threadAttrs);
+	require_noerr_quiet(ret, done);
+	ret = pthread_attr_setdetachstate(&threadAttrs, PTHREAD_CREATE_JOINABLE);
+	require_noerr_quiet(ret, done);
+	ret = pthread_create(&G_sync_thread, &threadAttrs, syncToPreboot, NULL);
+	require_noerr_quiet(ret, done);
+	ret = pthread_attr_destroy(&threadAttrs);
+	require_noerr_quiet(ret, done);
+	return ret;
+done:
+	SC_log(LOG_NOTICE, "%s: Failed to bring up sync thread with err %d", __func__, ret);
+	return ret;
+}
+
 bool
 syncNetworkConfigurationToPrebootVolume(void)
 {
@@ -239,14 +336,16 @@ syncNetworkConfigurationToPrebootVolume(void)
 		       __func__, boot_mode);
 		goto done;
 	}
-	@autoreleasepool {
-		PrebootUpdater *	updater;
-
-		updater = allocateUpdater();
-		if (updater != nil) {
-			success = [updater syncNetworkConfiguration];
-		}
+	if (G_main_runloop == NULL) {
+		G_main_runloop = CFRunLoopGetCurrent();
 	}
+	if (update_in_progress) {
+		sync_needed = true;
+	} else {
+		update_in_progress = true;
+		require_noerr_quiet(syncThreadCreate(), done);
+	}
+	success = true;
  done:
 	return (success);
 }

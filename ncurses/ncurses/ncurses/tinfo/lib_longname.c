@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2010,2015 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,6 +29,8 @@
 /****************************************************************************
  *  Author: Zeyd M. Ben-Halim <zmbenhal@netcom.com> 1992,1995               *
  *     and: Eric S. Raymond <esr@snark.thyrsus.com>                         *
+ *     and: Thomas E. Dickey                        1996-on                 *
+ *     and: Juergen Pfeifer                         2009                    *
  ****************************************************************************/
 
 /*
@@ -40,7 +42,48 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_longname.c,v 1.9 2000/12/10 02:55:07 tom Exp $")
+MODULE_ID("$Id: lib_longname.c,v 1.13 2015/07/25 20:08:14 tom Exp $")
+
+#if USE_REENTRANT
+NCURSES_EXPORT(char *)
+NCURSES_SP_NAME(longname) (NCURSES_SP_DCL0)
+{
+    static char empty[] =
+    {'\0'};
+    char *ptr;
+
+    T((T_CALLED("longname(%p)"), (void *) SP_PARM));
+
+    if (SP_PARM) {
+	for (ptr = SP_PARM->_ttytype + strlen(SP_PARM->_ttytype);
+	     ptr > SP_PARM->_ttytype;
+	     ptr--)
+	    if (*ptr == '|')
+		returnPtr(ptr + 1);
+	returnPtr(SP_PARM->_ttytype);
+    }
+    return empty;
+}
+
+#if NCURSES_SP_FUNCS
+NCURSES_EXPORT(char *)
+longname(void)
+{
+    return NCURSES_SP_NAME(longname) (CURRENT_SCREEN);
+}
+#endif
+
+#else
+
+/* a dummy entrypoint is simpler than generating a conditional in curses.h */
+#if NCURSES_SP_FUNCS
+NCURSES_EXPORT(char *)
+NCURSES_SP_NAME(longname) (NCURSES_SP_DCL0)
+{
+    (void) SP_PARM;
+    return longname();
+}
+#endif
 
 NCURSES_EXPORT(char *)
 longname(void)
@@ -49,9 +92,11 @@ longname(void)
 
     T((T_CALLED("longname()")));
 
-    for (ptr = ttytype + strlen(ttytype); ptr > ttytype; ptr--)
+    for (ptr = ttytype + strlen(ttytype);
+	 ptr > ttytype;
+	 ptr--)
 	if (*ptr == '|')
 	    returnPtr(ptr + 1);
-
     returnPtr(ttytype);
 }
+#endif

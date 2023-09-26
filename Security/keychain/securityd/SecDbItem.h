@@ -143,6 +143,7 @@ struct SecDbItem {
     const SecDbClass *class;
     keyclass_t keyclass;
     keybag_handle_t keybag;
+    struct backup_keypair* bkp;
     enum SecDbItemState _edataState;
     CFMutableDictionaryRef attributes;
     CFDataRef credHandle;
@@ -167,6 +168,7 @@ SecDbItemRef SecDbItemCreateWithAttributes(CFAllocatorRef allocator, const SecDb
 
 const SecDbClass *SecDbItemGetClass(SecDbItemRef item);
 keybag_handle_t SecDbItemGetKeybag(SecDbItemRef item);
+struct backup_keypair* SecDbItemGetBackupKeypair(SecDbItemRef item);
 bool SecDbItemSetKeybag(SecDbItemRef item, keybag_handle_t keybag, CFErrorRef *error);
 void SecDbItemSetCredHandle(SecDbItemRef item, CFTypeRef cred_handle);
 void SecDbItemSetCallerAccessGroups(SecDbItemRef item, CFArrayRef caller_access_groups);
@@ -242,7 +244,7 @@ SecDbItemRef SecDbItemCreateWithColumnMapper(CFAllocatorRef allocator, const Sec
 SecDbItemRef SecDbItemCreateWithStatement(CFAllocatorRef allocator, const SecDbClass *class, sqlite3_stmt *stmt, keybag_handle_t keybag, CFErrorRef *error, bool (^return_attr)(const SecDbAttr *attr));
 
 SecDbItemRef SecDbItemCreateWithEncryptedData(CFAllocatorRef allocator, const SecDbClass *class,
-                                              CFDataRef edata, keybag_handle_t keybag, CFErrorRef *error);
+                                              CFDataRef edata, keybag_handle_t keybag, struct backup_keypair* bkp, CFErrorRef *error);
 
 SecDbItemRef SecDbItemCreateWithPrimaryKey(CFAllocatorRef allocator, const SecDbClass *class, CFDataRef primary_key);
 
@@ -267,6 +269,7 @@ bool SecDbItemDoInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef 
 
 bool SecDbItemDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, bool tombstone_time_from_item, CFErrorRef *error);
 
+bool SecDbItemDoDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error, bool (^use_attr_in_where)(const SecDbAttr *attr));
 bool SecDbItemDoDeleteSilently(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error);
 
 // Low level update, just do the update

@@ -1,0 +1,12 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index 260ff0f..f096b39 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -56,6 +56,7 @@ WriteMakefile(
+         defined $ENV{'AUTOMATED_TESTING'} ? ( 'Devel::Leak' => 0 ) : (),
+ 
+     },
++    DEFINE => '-DHAVE_STDLIB_H -DHAVE_STRING_H -DHAVE_ALLOCA_H',
+     INC    => '-I.',
+     OBJECT => $c_files,
+     dist   => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },

@@ -1,0 +1,21 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>at</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/at?id=4c0fab716a80c362cbeddc317099229379849e86</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-12-09</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>at.1: run at.man through updatemanpage.sh to insert paths</string>
+			<string>at.c: add posix compatibility mode</string>
+			<string>parsetime.c: support UTC and next</string>
+			<string>parsetime.c: require command before year per posix</string>
+			<string>parsetime.c: long -> int and atol -> atoi to silence errors</string>
+			<string>perm.c: deal w/ size_t/int issue and fgets</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

@@ -43,6 +43,8 @@ The following error codes and their meaning are defined in
 .In netdb.h :
 .Pp
 .Bl -tag -width ".Dv EAI_BADFLAGS" -offset indent -compact
+.It Dv EAI_ADDRFAMILY
+address family for nodename not supported
 .It Dv EAI_AGAIN
 temporary failure in name resolution
 .It Dv EAI_BADFLAGS
@@ -58,6 +60,8 @@ non-recoverable failure in name resolution
 not supported
 .It Dv EAI_MEMORY
 memory allocation failure
+.It Dv EAI_NODATA
+no address associated with nodename
 .It Dv EAI_NONAME
 .Fa hostname
 or

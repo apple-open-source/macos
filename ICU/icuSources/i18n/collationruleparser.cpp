@@ -128,7 +128,7 @@ CollationRuleParser::parse(const UnicodeString &ruleString, UErrorCode &errorCod
 void
 CollationRuleParser::parseRuleChain(UErrorCode &errorCode) {
     int32_t resetStrength = parseResetAndPosition(errorCode);
-    UBool isFirstRelation = TRUE;
+    UBool isFirstRelation = true;
     for(;;) {
         int32_t result = parseRelationOperator(errorCode);
         if(U_FAILURE(errorCode)) { return; }
@@ -165,7 +165,7 @@ CollationRuleParser::parseRuleChain(UErrorCode &errorCode) {
             parseStarredCharacters(strength, i, errorCode);
         }
         if(U_FAILURE(errorCode)) { return; }
-        isFirstRelation = FALSE;
+        isFirstRelation = false;
     }
 }
 
@@ -622,7 +622,12 @@ CollationRuleParser::parseSetting(UErrorCode &errorCode) {
                 setParseError("expected language tag in [import langTag]", errorCode);
                 return;
             }
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
             if(length == 0 || (length == 3 && uprv_memcmp(baseID, "und", 3) == 0)) {
+#else
+            if(length == 0) {
+#endif // APPLE_ICU_CHANGES
                 uprv_strcpy(baseID, "root");
             } else if(*baseID == '_') {
                 uprv_memmove(baseID + 3, baseID, length + 1);

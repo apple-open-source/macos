@@ -1,0 +1,135 @@
+cmake_minimum_required(VERSION 3.19.6)
+
+project("AvailabilityVersions" NONE)
+add_library(${PROJECT_NAME} INTERFACE)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS true)
+
+set(APPLE_INTERNAL        "${DSTROOT}/AppleInternal")
+set(OS_INCLUDE            "${DSTROOT}${DRIVERKITROOT}/usr/include/os")
+set(USR_LOCAL_LIBEXEC     "${DSTROOT}${DRIVERKITROOT}/usr/local/libexec")
+set(USR_LOCAL_INCLUDE     "${DSTROOT}${DRIVERKITROOT}/usr/local/include")
+set(USR_INCLUDE           "${DSTROOT}${DRIVERKITROOT}/usr/include")
+set(RUNTIME               "${DSTROOT}${DRIVERKITROOT}/Runtime/usr/include")
+set(RUNTIME_LOCAL         "${DSTROOT}${DRIVERKITROOT}/Runtime/usr/local/include")
+set(DYLD_HEADERS_LOCATION "${USR_LOCAL_INCLUDE}/dyld")
+
+include(CMakePrintHelpers)
+cmake_print_variables(SRCROOT)
+cmake_print_variables(DSTROOT)
+cmake_print_variables(OBJROOT)
+cmake_print_variables(SYMROOT)
+cmake_print_variables(APPLE_INTERNAL)
+cmake_print_variables(CMAKE_CURRENT_BINARY_DIR)
+cmake_print_variables(USR_LOCAL_LIBEXEC)
+cmake_print_variables(USR_LOCAL_INCLUDE)
+cmake_print_variables(USR_INCLUDE)
+cmake_print_variables(RUNTIME)
+cmake_print_variables(RUNTIME_LOCAL)
+cmake_print_variables(CONFIG_EXCLAVEKIT)
+cmake_print_variables(CONFIG_EXCLAVECORE)
+cmake_print_variables(DRIVERKIT)
+
+list(APPEND TEMPLATE_SOURCES  Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityInternalPrivate.h AvailabilityMacros.h AvailabilityPrivate.modulemap 
+                              AvailabilityProhibitedInternal.h AvailabilityVersions.h VersionMap.h for_dyld_priv.inc os_availability.h )
+
+list(APPEND MODULES           AvailabilityPrivate.modulemap)
+list(APPEND LOCAL_HEADERS     AvailabilityInternalPrivate.h AvailabilityProhibitedInternal.h)
+list(APPEND PUBLIC_HEADERS    Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityMacros.h AvailabilityVersions.h)
+list(APPEND DYLD_HEADERS      VersionMap.h for_dyld_priv.inc)
+
+macro(install_symlink filepath sympath)
+  get_filename_component(parentpath ${sympath} DIRECTORY)
+  make_directory(${parentpath})
+  install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${filepath} ${sympath})")
+  install(CODE "message(\"-- Created symlink: ${sympath} -> ${filepath}\")")
+endmacro(install_symlink)
+
+add_custom_target(
+    phony_target  ALL
+    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/__non-existent-file"
+)
+
+add_custom_command(
+    OUTPUT "${OBJROOT}/dsl.d"
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/__non-existent-file"
+)
+
+add_custom_command(
+   OUTPUT "${OBJROOT}/availability"
+   COMMAND "${SRCROOT}/availability" --preprocess ${SRCROOT}/availability ${OBJROOT}/availability
+   DEPENDS "${SRCROOT}/availability"
+   DEPENDS "${SRCROOT}/availability.dsl"
+)
+
+install(DIRECTORY DESTINATION ${APPLE_INTERNAL})
+
+# Early exit for now so we can get the _exclavekit alias building
+if (CONFIG_EXCLAVEKIT EQUAL "1")
+  return()
+endif()
+
+# Early exit for now so we can get the _exclavecore alias building
+if (CONFIG_EXCLAVECORE EQUAL "1")
+  return()
+endif()
+
+if (DRIVERKIT EQUAL "1")
+  set(DYLD_HEADERS_LOCATION "${RUNTIME_LOCAL}/dyld")
+  foreach(header ${PUBLIC_HEADERS})
+    install(FILES "${OBJROOT}/${header}" DESTINATION ${RUNTIME} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+  endforeach()
+
+  list(REMOVE_ITEM PUBLIC_HEADERS AvailabilityMacros.h)
+  list(REMOVE_ITEM LOCAL_HEADERS  AvailabilityProhibitedInternal.h)
+
+  foreach(header ${PUBLIC_HEADERS})
+    install(FILES "${OBJROOT}/${header}" DESTINATION ${RUNTIME} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+  endforeach()
+
+  install(FILES "${OBJROOT}/os_availability.h" DESTINATION "${RUNTIME}/os" RENAME availability.h PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+
+  foreach(header ${LOCAL_HEADERS})
+    install(FILES "${OBJROOT}/${header}" DESTINATION ${RUNTIME_LOCAL} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+  endforeach()
+elseif(NOT DEFINED(ENV{RC_INDIGO}))
+  foreach(header ${LOCAL_HEADERS})
+    install_symlink("../../../../../../../usr/local/include/${header}" "${DSTROOT}/System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/${header}")
+  endforeach()
+
+  install_symlink("../../../../../../../../usr/include/os/availability.h" "${DSTROOT}/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/os/availability.h")
+
+  foreach(header ${PUBLIC_HEADERS})
+    install_symlink("../../../../../../../usr/include/${header}" "${DSTROOT}/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/${header}")
+  endforeach()
+
+  foreach(header ${MODULES})
+    install(FILES "${OBJROOT}/${header}" DESTINATION ${USR_LOCAL_INCLUDE} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+  endforeach()
+endif()
+
+foreach(template_source ${TEMPLATE_SOURCES})
+  add_custom_target("Generate-${template_source}" ALL DEPENDS "${OBJROOT}/${template_source}")
+  add_custom_command(
+    OUTPUT "${OBJROOT}/${template_source}"
+    COMMAND ${OBJROOT}/availability --preprocess ${SRCROOT}/templates/${template_source}  ${OBJROOT}/${template_source}
+    DEPENDS ${OBJROOT}/availability ${SRCROOT}/templates/${template_source}
+  )
+endforeach()
+
+foreach(header ${DYLD_HEADERS})
+  install(FILES "${OBJROOT}/${header}" DESTINATION ${DYLD_HEADERS_LOCATION} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+endforeach()
+
+foreach(header ${LOCAL_HEADERS})
+  install(FILES "${OBJROOT}/${header}" DESTINATION ${USR_LOCAL_INCLUDE} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+endforeach()
+
+install(FILES "${OBJROOT}/os_availability.h" DESTINATION ${OS_INCLUDE} RENAME availability.h PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+
+foreach(header ${PUBLIC_HEADERS})
+  install(FILES "${OBJROOT}/${header}" DESTINATION ${USR_INCLUDE} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+endforeach()
+
+
+install(FILES "${OBJROOT}/availability"                   DESTINATION ${USR_LOCAL_LIBEXEC} RENAME availability.pl PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)

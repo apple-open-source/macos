@@ -87,6 +87,7 @@ timezoneTypes:table(nofallback){
             "Etc:Universal"{"Etc/UTC"}
             "Etc:Zulu"{"Etc/UTC"}
             "Europe:Belfast"{"Europe/London"}
+            "Europe:Kyiv"{"Europe/Kiev"}
             "Europe:Nicosia"{"Asia/Nicosia"}
             "Europe:Tiraspol"{"Europe/Chisinau"}
             "Mexico:BajaNorte"{"America/Tijuana"}
@@ -235,6 +236,7 @@ timezoneTypes:table(nofallback){
             "America:Cayman"{"kygec"}
             "America:Chicago"{"uschi"}
             "America:Chihuahua"{"mxchi"}
+            "America:Ciudad_Juarez"{"mxcjs"}
             "America:Coral_Harbour"{"cayzs"}
             "America:Cordoba"{"arcor"}
             "America:Costa_Rica"{"crsjo"}

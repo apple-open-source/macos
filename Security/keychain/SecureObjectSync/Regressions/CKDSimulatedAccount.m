@@ -78,8 +78,8 @@
     return peerIDsToTake;
 }
 
-- (bool) syncWithAllPeers: (NSError**) error {
-    return true;
+- (SyncWithAllPeersReason) syncWithAllPeers: (NSError**) error {
+    return kSyncWithAllPeersSuccess;
 }
 
 - (NSDictionary<NSString*, NSObject*>*) extractKeyChanges {

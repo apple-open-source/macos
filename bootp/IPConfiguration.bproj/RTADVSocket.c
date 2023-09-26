@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -259,6 +259,7 @@ RTADVSocketDemux(int if_index, const struct in6_addr * from,
 	    return;
 	}
 	(*sock->receive_func)(sock->receive_arg1, sock->receive_arg2, ra);
+	CFRelease(ra);
     }
     return;
 }

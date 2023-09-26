@@ -1,0 +1,40 @@
+/*
+ * Apple Historical Events
+ */
+
+#ifndef _calendar_apple_
+#define _calendar_apple_
+
+01/03	Apple Computer Company is incorporated as "Apple Computer, Inc.", 1977
+01/09	Steve Jobs announces that "Apple Computer, Inc."  has shifted its focus
+	to consumer electronics and will now be called "Apple, Inc.", 2007
+01/09	The iPhone is announced, 2007
+01/09	The Apple TV is announced, 2007
+01/22	The Macintosh personal computer is introduced in an advertisement during
+	the third quarter of Super Bowl XVIII, 1984
+01/27	The iPad is announced, 2010
+02/02	Gil Amelio becomes the CEO of Apple, 1996
+02/09	Apple's acquisition of NeXT is finalized, 1997
+03/24	Initial announcement of Apple's new modern operating system,
+	Mac OS X, 2001
+04/01	Apple Computer Company founded by Steve Wozniak, Steve Jobs, and
+	Ronald Wayne, 1976
+04/08	John Sculley III becomes the CEO of Apple, 1983
+04/16	The Apple II is introduced at the first West Coast Computer Faire, 1977
+04/28	The iTunes Store is launched, 2003
+05/06	The iMac is introduced, 1998
+05/19	The first Apple Store is opened in Tysons, Virginia, 2001
+06/05	The HomePod is introduced at WWDC, 2017
+06/22	The transition from Intel to Apple Silicon is announced at WWDC, 2020
+07/10	The App Store is launched with an initial set of 500 applications, 2008
+07/21	The iBook is introduced, 1999
+08/24	Steve Jobs resigns from his position at Apple, 2011
+09/09	The Apple Watch is introduced, 2014
+09/16	Steve Jobs is named as interim CEO, 1998
+10/15	Michael Spindler becomes the CEO of Apple, 1993
+10/12	iCloud is launched, 2011
+10/25	The Macintosh TV is released, 1993
+11/10	The Apple Store website is launched, 1997
+12/12	Apple (AAPL) goes public at $22 per share, 1980
+
+#endif /* !_calendar_apple_ */

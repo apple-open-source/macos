@@ -147,3 +147,5 @@
 "com.apple.configurationprofiles.deviceenrollment.install" = "Enroll";
 
 "com.apple.configurationprofiles.deviceenrollment.uninstall" = "Unenroll";
+
+"com.apple.backgroundtaskmanagement.manage-daemons" = "Modify Settings";

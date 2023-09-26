@@ -36,6 +36,10 @@
 	<array>
 		<string>/private/var/Keychains/</string>
 	</array>
+	<key>com.apple.security.exception.files.home-relative-path.read-write</key>
+	<array>
+		<string>/Library/Keychains/</string>
+	</array>
 	<key>com.apple.security.exception.mach-lookup.global-name</key>
 	<array>
 		<string>com.apple.accountsd.accountmanager</string>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,7 +62,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2022 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2023 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " *\n"
@@ -133,10 +133,13 @@ typedef enum {
 	SC_11_0_IPHONE_14_0_PRIVATE,
 	SC_12_0_IPHONE_15_0_PRIVATE,
 	SC_13_0_IPHONE_16_0_PRIVATE,
+	SC_14_0_IPHONE_17_0_PRIVATE,
 	SC_IPHONE_2_0_PRIVATE,
 	SC_IPHONE_7_0_PRIVATE,
 	SC_IPHONE_8_0_PRIVATE,
 	SC_IPHONE_14_PRIVATE,
+	SC_IPHONE_17_PRIVATE,
+	SC_10_13_14_0_IPHONE_10_0_17_0_WITH_REPLACEMENT_PRIVATE, // deprecated with replacement in OSX 14.0, iOS 17.0
 	COMMENT_DEPRECATED,
 	GROUP_DEPRECATED,
 	COMMENT_DEPRECATED_NO_HEADER,
@@ -194,6 +197,7 @@ typedef enum {
 #define ALIVE			"Alive"
 #define ALLOW			"Allow"
 #define ALLOWED			"Allowed"
+#define ALLOWLIST		"AllowList"
 #define ALLOWNETCREATION	"AllowNetCreation"
 #define ALTERNATE		"Alternate"
 #define ALWAYS			"Always"
@@ -220,6 +224,7 @@ typedef enum {
 #define CAPABILITIES		"Capabilities"
 #define CAPABILITY		"Capability"
 #define CAPTIVEPORTAL		"CaptivePortal"
+#define CATEGORIES		"Categories"
 #define CAUSE			"Cause"
 #define CCP			"CCP"
 #define CELLULAR		"Cellular"
@@ -579,6 +584,7 @@ static schemaDefinition names[] = {
 
     { SC_10_15_4_IPHONE_13_4_PRIVATE, PREF, VERSION, "__VERSION__", CFSTRING },
     { SC_10_5_PRIVATE, PREF, VIRTUALNETWORKINTERFACES, NULL, CFDICTIONARY },
+    { SC_IPHONE_17_PRIVATE, PREF, CATEGORIES, NULL, CFDICTIONARY },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, COMP, "Component Keys", NULL, NULL },
@@ -1188,8 +1194,11 @@ static schemaDefinition names[] = {
     { SC_10_13_IPHONE_10_0_PRIVATE, NETPROP QOSMARKING, ENABLED,
 				    QOSMARKING ENABLED,
 				    CFBOOLEAN},
-    { SC_10_13_IPHONE_10_0_PRIVATE, NETPROP QOSMARKING, WHITELISTED APP IDENTIFIERS,
+    { SC_10_13_14_0_IPHONE_10_0_17_0_WITH_REPLACEMENT_PRIVATE, NETPROP QOSMARKING, WHITELISTED APP IDENTIFIERS,
 				    QOSMARKING WHITELISTED APP IDENTIFIERS,
+				    CFARRAY_CFSTRING},
+    { SC_14_0_IPHONE_17_0_PRIVATE, NETPROP QOSMARKING, ALLOWLIST APP IDENTIFIERS,
+				    QOSMARKING ALLOWLIST APP IDENTIFIERS,
 				    CFARRAY_CFSTRING},
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
@@ -1558,6 +1567,9 @@ print_headerdoc(schemaDefinition *def)
 	    case SC_13_0_IPHONE_16_0_PRIVATE:
 		printf("  API_AVAILABLE(macos(13.0)) SPI_AVAILABLE(ios(16.0), tvos(16.0), watchos(9.0), bridgeos(7.0));\n");
 		break;
+	    case SC_14_0_IPHONE_17_0_PRIVATE:
+		printf("  API_AVAILABLE(macos(14.0)) SPI_AVAILABLE(ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0));\n");
+		break;
 	    case SC_IPHONE_2_0_PRIVATE:
 		printf("  SPI_AVAILABLE(macos(10.6), ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
 		break;
@@ -1570,6 +1582,17 @@ print_headerdoc(schemaDefinition *def)
 	    case SC_IPHONE_14_PRIVATE:
 		printf("  SPI_AVAILABLE(macos(11.0), ios(14.0), tvos(14.0), watchos(7.0), bridgeos(5.0));\n");
 		break;
+	    case SC_IPHONE_17_PRIVATE:
+		printf("  SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0));\n");
+		break;
+	    case SC_10_13_14_0_IPHONE_10_0_17_0_WITH_REPLACEMENT_PRIVATE:
+		printf(" "
+		       " API_DEPRECATED_WITH_REPLACEMENT(\"%s\", macos(10.13, 14.0))"
+		       " SPI_DEPRECATED_WITH_REPLACEMENT(\"%s\", ios(10.0, 17.0), tvos(10.0, 17.0), watchos(3.0, 10.0), bridgeos(2.0, 8.0));",
+#define TMP KEY_PREFIX NETPROP QOSMARKING ALLOWLIST APP IDENTIFIERS // "kSCPropNetQoSMarkingAllowListAppIdentifiers"
+		       TMP, TMP
+#undef TMP
+		       );
 	    default:
 		printf("\n");
 		break;
@@ -1731,6 +1754,7 @@ dump_names(int type)
 			    case SC_10_3_10_9:
 			    case SC_10_3_10_15:
 			    case SC_10_4_10_9:
+			    case SC_10_13_14_0_IPHONE_10_0_17_0_WITH_REPLACEMENT_PRIVATE:
 				// don't report deprecated keys
 				break;
 			    case SC_10_5_PRIVATE:
@@ -1753,10 +1777,12 @@ dump_names(int type)
 			    case SC_11_0_IPHONE_14_0_PRIVATE:
 			    case SC_12_0_IPHONE_15_0_PRIVATE:
 			    case SC_13_0_IPHONE_16_0_PRIVATE:
+			    case SC_14_0_IPHONE_17_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
     			    case SC_IPHONE_14_PRIVATE:
+    			    case SC_IPHONE_17_PRIVATE:
 				// don't report private definitions
 				break;
 			    default:
@@ -1775,6 +1801,7 @@ dump_names(int type)
 			    case SC_10_3_10_9:
 			    case SC_10_3_10_15:
 			    case SC_10_4_10_9:
+			    case SC_10_13_14_0_IPHONE_10_0_17_0_WITH_REPLACEMENT_PRIVATE:
 				// don't report deprecated keys
 				break;
 			    case SC_10_5_PRIVATE:
@@ -1797,10 +1824,12 @@ dump_names(int type)
 			    case SC_11_0_IPHONE_14_0_PRIVATE:
 			    case SC_12_0_IPHONE_15_0_PRIVATE:
 			    case SC_13_0_IPHONE_16_0_PRIVATE:
+			    case SC_14_0_IPHONE_17_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
 			    case SC_IPHONE_14_PRIVATE:
+			    case SC_IPHONE_17_PRIVATE:
 				print_comment(&names[i]);
 				break;
 			    default:
@@ -1832,10 +1861,13 @@ dump_names(int type)
 			    case SC_11_0_IPHONE_14_0_PRIVATE:
 			    case SC_12_0_IPHONE_15_0_PRIVATE:
 			    case SC_13_0_IPHONE_16_0_PRIVATE:
+			    case SC_14_0_IPHONE_17_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
 			    case SC_IPHONE_14_PRIVATE:
+			    case SC_IPHONE_17_PRIVATE:
+			    case SC_10_13_14_0_IPHONE_10_0_17_0_WITH_REPLACEMENT_PRIVATE:
 				// don't report private definitions
 				break;
 			    default:
@@ -1865,10 +1897,13 @@ dump_names(int type)
 			    case SC_11_0_IPHONE_14_0_PRIVATE:
 			    case SC_12_0_IPHONE_15_0_PRIVATE:
 			    case SC_13_0_IPHONE_16_0_PRIVATE:
+			    case SC_14_0_IPHONE_17_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
 			    case SC_IPHONE_14_PRIVATE:
+			    case SC_IPHONE_17_PRIVATE:
+			    case SC_10_13_14_0_IPHONE_10_0_17_0_WITH_REPLACEMENT_PRIVATE:
 				print_headerdoc(&names[i]);
 				break;
 			    default:

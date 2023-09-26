@@ -169,6 +169,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)addGenericPassword:(NSString*)password account:(NSString*)account expecting:(OSStatus)status message:(NSString*)message;
 
+- (void)addRandomPrivateKeyWithAccessGroup:(NSString *)accessGroup message:(NSString*)message;
+
 - (void)updateGenericPassword:(NSString*)newPassword account:(NSString*)account;
 - (void)updateAccountOfGenericPassword:(NSString*)newAccount account:(NSString*)account;
 

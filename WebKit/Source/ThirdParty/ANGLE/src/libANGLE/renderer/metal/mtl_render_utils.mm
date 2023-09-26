@@ -712,7 +712,8 @@ void DispatchCompute(ContextMtl *contextMtl,
                      id<MTLComputePipelineState> pipelineState,
                      size_t numThreads)
 {
-    NSUInteger w = std::min<NSUInteger>(pipelineState.threadExecutionWidth, numThreads);
+    ASSERT(numThreads != 0);
+    NSUInteger w = std::clamp<NSUInteger>(numThreads, 1u, pipelineState.threadExecutionWidth);
     MTLSize threadsPerThreadgroup = MTLSizeMake(w, 1, 1);
 
     if (contextMtl->getDisplay()->getFeatures().hasNonUniformDispatch.enabled)
@@ -901,15 +902,14 @@ StencilBlitViaBufferParams::StencilBlitViaBufferParams(const DepthStencilBlitPar
 // RenderUtils implementation
 RenderUtils::RenderUtils(DisplayMtl *display)
     : Context(display),
-      mClearUtils(
-          {ClearUtils("clearIntFS"), ClearUtils("clearUIntFS"), ClearUtils("clearFloatFS")}),
-      mColorBlitUtils({ColorBlitUtils("blitIntFS"), ColorBlitUtils("blitUIntFS"),
-                       ColorBlitUtils("blitFloatFS")}),
+      mClearUtils{ClearUtils("clearIntFS"), ClearUtils("clearUIntFS"), ClearUtils("clearFloatFS")},
+      mColorBlitUtils{ColorBlitUtils("blitIntFS"), ColorBlitUtils("blitUIntFS"),
+                      ColorBlitUtils("blitFloatFS")},
       mCopyTextureFloatToUIntUtils("copyTextureFloatToUIntFS"),
-      mCopyPixelsUtils(
-          {CopyPixelsUtils("readFromBufferToIntTexture", "writeFromIntTextureToBuffer"),
-           CopyPixelsUtils("readFromBufferToUIntTexture", "writeFromUIntTextureToBuffer"),
-           CopyPixelsUtils("readFromBufferToFloatTexture", "writeFromFloatTextureToBuffer")})
+      mCopyPixelsUtils{
+          CopyPixelsUtils("readFromBufferToIntTexture", "writeFromIntTextureToBuffer"),
+          CopyPixelsUtils("readFromBufferToUIntTexture", "writeFromUIntTextureToBuffer"),
+          CopyPixelsUtils("readFromBufferToFloatTexture", "writeFromFloatTextureToBuffer")}
 {}
 
 RenderUtils::~RenderUtils() {}
@@ -1187,8 +1187,6 @@ ClearUtils::ClearUtils(const std::string &fragmentShaderName)
     : mFragmentShaderName(fragmentShaderName)
 {}
 
-ClearUtils::ClearUtils(const ClearUtils &src) : ClearUtils(src.mFragmentShaderName) {}
-
 void ClearUtils::onDestroy()
 {
     ClearRenderPipelineCacheArray(&mClearRenderPipelineCache);
@@ -1391,9 +1389,6 @@ ColorBlitUtils::ColorBlitUtils(const std::string &fragmentShaderName)
     : mFragmentShaderName(fragmentShaderName)
 {}
 
-ColorBlitUtils::ColorBlitUtils(const ColorBlitUtils &src) : ColorBlitUtils(src.mFragmentShaderName)
-{}
-
 void ColorBlitUtils::onDestroy()
 {
     ClearRenderPipelineCache2DArray(&mBlitRenderPipelineCache);
@@ -1578,16 +1573,17 @@ void DepthStencilBlitUtils::onDestroy()
     mStencilCopyBuffer = nullptr;
 }
 
-void DepthStencilBlitUtils::ensureRenderPipelineStateCacheInitialized(ContextMtl *ctx,
-                                                                      int sourceDepthTextureType,
-                                                                      int sourceStencilTextureType,
-                                                                      RenderPipelineCache *cacheOut)
+angle::Result DepthStencilBlitUtils::ensureRenderPipelineStateCacheInitialized(
+    ContextMtl *ctx,
+    int sourceDepthTextureType,
+    int sourceStencilTextureType,
+    RenderPipelineCache *cacheOut)
 {
     RenderPipelineCache &cache = *cacheOut;
     if (cache.getVertexShader() && cache.getFragmentShader())
     {
         // Already initialized.
-        return;
+        return angle::Result::Continue;
     }
 
     ANGLE_MTL_OBJC_SCOPE
@@ -1630,11 +1626,18 @@ void DepthStencilBlitUtils::ensureRenderPipelineStateCacheInitialized(ContextMtl
         id<MTLFunction> fragmentShader =
             [[shaderLib newFunctionWithName:shaderName constantValues:funcConstants
                                       error:&err] ANGLE_MTL_AUTORELEASE];
-        ASSERT(fragmentShader);
+        if (!fragmentShader)
+        {
+            ERR() << "failed to load builtin Metal fragment shader " << shaderName << ": "
+                  << (err ? err.localizedDescription : @"");
+            return angle::Result::Stop;
+        }
 
         cache.setVertexShader(ctx, vertexShader);
         cache.setFragmentShader(ctx, fragmentShader);
     }
+
+    return angle::Result::Continue;
 }
 
 id<MTLComputePipelineState> DepthStencilBlitUtils::getStencilToBufferComputePipelineState(
@@ -1664,10 +1667,11 @@ id<MTLComputePipelineState> DepthStencilBlitUtils::getStencilToBufferComputePipe
     return cache;
 }
 
-id<MTLRenderPipelineState> DepthStencilBlitUtils::getDepthStencilBlitRenderPipelineState(
+angle::Result DepthStencilBlitUtils::getDepthStencilBlitRenderPipelineState(
     const gl::Context *context,
     RenderCommandEncoder *cmdEncoder,
-    const DepthStencilBlitParams &params)
+    const DepthStencilBlitParams &params,
+    id<MTLRenderPipelineState> *outRenderPipelineState)
 {
     ContextMtl *contextMtl = GetImpl(context);
     RenderPipelineDesc pipelineDesc;
@@ -1699,10 +1703,11 @@ id<MTLRenderPipelineState> DepthStencilBlitUtils::getDepthStencilBlitRenderPipel
         pipelineCache = &mStencilBlitRenderPipelineCache[stencilTextureType];
     }
 
-    ensureRenderPipelineStateCacheInitialized(contextMtl, depthTextureType, stencilTextureType,
-                                              pipelineCache);
+    ANGLE_TRY(ensureRenderPipelineStateCacheInitialized(contextMtl, depthTextureType,
+                                                        stencilTextureType, pipelineCache));
 
-    return pipelineCache->getRenderPipelineState(contextMtl, pipelineDesc);
+    *outRenderPipelineState = pipelineCache->getRenderPipelineState(contextMtl, pipelineDesc);
+    return angle::Result::Continue;
 }
 
 angle::Result DepthStencilBlitUtils::setupDepthStencilBlitWithDraw(
@@ -1717,12 +1722,10 @@ angle::Result DepthStencilBlitUtils::setupDepthStencilBlitWithDraw(
     SetupCommonBlitWithDrawStates(context, cmdEncoder, params, false);
 
     // Generate render pipeline state
-    id<MTLRenderPipelineState> renderPipelineState =
-        getDepthStencilBlitRenderPipelineState(context, cmdEncoder, params);
-    if (!renderPipelineState)
-    {
-        return angle::Result::Stop;
-    }
+    id<MTLRenderPipelineState> renderPipelineState;
+    ANGLE_TRY(
+        getDepthStencilBlitRenderPipelineState(context, cmdEncoder, params, &renderPipelineState));
+
     // Setup states
     cmdEncoder->setRenderPipelineState(renderPipelineState);
 
@@ -2094,8 +2097,7 @@ angle::Result IndexGeneratorUtils::generateTriFanBufferFromElementsArray(
              contextMtl->getRenderCommandEncoder()))
         {
             IndexGenerationParams cpuPathParams = params;
-            cpuPathParams.indices =
-                elementBufferMtl->getClientShadowCopyData(contextMtl) + srcOffset;
+            cpuPathParams.indices = elementBufferMtl->getBufferDataReadOnly(contextMtl) + srcOffset;
             return generateTriFanBufferFromElementsArrayCPU(contextMtl, cpuPathParams,
                                                             indicesGenerated);
         }
@@ -2223,8 +2225,7 @@ angle::Result IndexGeneratorUtils::generateLineLoopBufferFromElementsArray(
              contextMtl->getRenderCommandEncoder()))
         {
             IndexGenerationParams cpuPathParams = params;
-            cpuPathParams.indices =
-                elementBufferMtl->getClientShadowCopyData(contextMtl) + srcOffset;
+            cpuPathParams.indices = elementBufferMtl->getBufferDataReadOnly(contextMtl) + srcOffset;
             return generateLineLoopBufferFromElementsArrayCPU(contextMtl, cpuPathParams,
                                                               indicesGenerated);
         }
@@ -2610,7 +2611,7 @@ angle::Result MipmapUtils::generateMipmapCS(ContextMtl *contextMtl,
     MipmapNativeLevel batchSrcLevel = kZeroNativeMipLevel;
     options.srcLevel                = batchSrcLevel.get();
     options.sRGB                    = sRGBMipmap;
-    
+
     cmdEncoder->setTexture(srcTexture, 0);
     cmdEncoder->markResourceBeingWrittenByGPU(srcTexture);
     while (remainMips)
@@ -2658,9 +2659,6 @@ angle::Result MipmapUtils::generateMipmapCS(ContextMtl *contextMtl,
 CopyPixelsUtils::CopyPixelsUtils(const std::string &readShaderName,
                                  const std::string &writeShaderName)
     : mReadShaderName(readShaderName), mWriteShaderName(writeShaderName)
-{}
-CopyPixelsUtils::CopyPixelsUtils(const CopyPixelsUtils &src)
-    : CopyPixelsUtils(src.mReadShaderName, src.mWriteShaderName)
 {}
 
 void CopyPixelsUtils::onDestroy()

@@ -85,4 +85,4 @@ private:
 
 U_NAMESPACE_END
 
-#endif // BYTESINKUTIL_H
+#endif //BYTESINKUTIL_H

@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998-2004,2008 Free Software Foundation, Inc.              --
+-- Copyright (c) 1998-2009,2014 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -35,8 +35,8 @@
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.22 $
---  $Date: 2008/07/26 18:51:11 $
+--  $Revision: 1.25 $
+--  $Date: 2014/09/13 19:10:18 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 with Terminal_Interface.Curses.Aux; use Terminal_Interface.Curses.Aux;
@@ -50,7 +50,7 @@ package body Terminal_Interface.Curses.Mouse is
    function Has_Mouse return Boolean
    is
       function Mouse_Avail return C_Int;
-      pragma Import (C, Mouse_Avail, "_nc_has_mouse");
+      pragma Import (C, Mouse_Avail, "has_mouse");
    begin
       if Has_Key (Key_Mouse) or else Mouse_Avail /= 0 then
          return True;
@@ -74,8 +74,8 @@ package body Terminal_Interface.Curses.Mouse is
       return Event;
    end Get_Mouse;
 
-   procedure Register_Reportable_Event (Button : in Mouse_Button;
-                                        State  : in Button_State;
+   procedure Register_Reportable_Event (Button : Mouse_Button;
+                                        State  : Button_State;
                                         Mask   : in out Event_Mask)
    is
       Button_Nr : constant Natural := Mouse_Button'Pos (Button);
@@ -92,8 +92,8 @@ package body Terminal_Interface.Curses.Mouse is
       end if;
    end Register_Reportable_Event;
 
-   procedure Register_Reportable_Events (Button : in Mouse_Button;
-                                         State  : in Button_States;
+   procedure Register_Reportable_Events (Button : Mouse_Button;
+                                         State  : Button_States;
                                          Mask   : in out Event_Mask)
    is
    begin
@@ -120,7 +120,7 @@ package body Terminal_Interface.Curses.Mouse is
       return Old;
    end Start_Mouse;
 
-   procedure End_Mouse (Mask : in Event_Mask := No_Events)
+   procedure End_Mouse (Mask : Event_Mask := No_Events)
    is
    begin
       if Mask /= No_Events then
@@ -128,11 +128,11 @@ package body Terminal_Interface.Curses.Mouse is
       end if;
    end End_Mouse;
 
-   procedure Dispatch_Event (Mask   : in  Event_Mask;
+   procedure Dispatch_Event (Mask   : Event_Mask;
                              Button : out Mouse_Button;
                              State  : out Button_State);
 
-   procedure Dispatch_Event (Mask   : in  Event_Mask;
+   procedure Dispatch_Event (Mask   : Event_Mask;
                              Button : out Mouse_Button;
                              State  : out Button_State) is
       L : Event_Mask;
@@ -168,7 +168,7 @@ package body Terminal_Interface.Curses.Mouse is
       end if;
    end Dispatch_Event;
 
-   procedure Get_Event (Event  : in  Mouse_Event;
+   procedure Get_Event (Event  : Mouse_Event;
                         Y      : out Line_Position;
                         X      : out Column_Position;
                         Button : out Mouse_Button;
@@ -181,7 +181,7 @@ package body Terminal_Interface.Curses.Mouse is
       Dispatch_Event (Mask, Button, State);
    end Get_Event;
 
-   procedure Unget_Mouse (Event : in Mouse_Event)
+   procedure Unget_Mouse (Event : Mouse_Event)
    is
       function Ungetmouse (Ev : Mouse_Event) return C_Int;
       pragma Import (C, Ungetmouse, "ungetmouse");
@@ -199,7 +199,8 @@ package body Terminal_Interface.Curses.Mouse is
       pragma Import (C, Wenclose, "wenclose");
    begin
       if Wenclose (Win, C_Int (Event.Y), C_Int (Event.X))
-        = Curses_Bool_False then
+        = Curses_Bool_False
+      then
          return False;
       else
          return True;

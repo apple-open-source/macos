@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,13 +37,13 @@
 #include "EventNames.h"
 #include "Exception.h"
 #include "FrameLoader.h"
-#include "FrameLoaderClient.h"
 #include "IDLTypes.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSNavigationPreloadState.h"
 #include "JSPushSubscription.h"
 #include "JSServiceWorkerRegistration.h"
 #include "LegacySchemeRegistry.h"
+#include "LocalFrameLoaderClient.h"
 #include "Logging.h"
 #include "NavigatorBase.h"
 #include "Page.h"
@@ -217,8 +217,12 @@ void ServiceWorkerContainer::willSettleRegistrationPromise(bool success)
     Page* page = is<Document>(context) ? downcast<Document>(*context).page() : nullptr;
     if (!page || !page->isServiceWorkerPage())
         return;
+    
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
+    if (!localMainFrame)
+        return;
 
-    page->mainFrame().loader().client().didFinishServiceWorkerPageRegistration(success);
+    localMainFrame->loader().client().didFinishServiceWorkerPageRegistration(success);
 }
 
 void ServiceWorkerContainer::unregisterRegistration(ServiceWorkerRegistrationIdentifier registrationIdentifier, DOMPromiseDeferred<IDLBoolean>&& promise)
@@ -354,24 +358,13 @@ void ServiceWorkerContainer::startMessages()
         return;
     }
 
-    ensureSWClientConnection().getServiceWorkerClientPendingMessages(context->identifier(), [this, protectedThis = Ref { *this }](Vector<ServiceWorkerClientPendingMessage>&& pendingMessages) {
-        if (!this->context())
-            return;
+    m_shouldDeferMessageEvents = false;
 
-        m_shouldDeferMessageEvents = false;
-
-        // Pending messages that were saved off in the networking process come first.
-        for (auto& message : pendingMessages)
-            postMessage(WTFMove(message.message), WTFMove(message.sourceData), WTFMove(message.sourceOrigin));
-
-        // Then locally deferred messages come next.
-        for (auto&& messageEvent : std::exchange(m_deferredMessageEvents, Vector<MessageEvent::MessageEventWithStrongData> { })) {
-            queueTaskKeepingObjectAlive(*this, TaskSource::DOMManipulation, [this, messageEvent = WTFMove(messageEvent)] {
-                dispatchEvent(messageEvent.event);
-            });
-        }
-
-    });
+    for (auto&& messageEvent : std::exchange(m_deferredMessageEvents, Vector<MessageEvent::MessageEventWithStrongData> { })) {
+        queueTaskKeepingObjectAlive(*this, TaskSource::DOMManipulation, [this, messageEvent = WTFMove(messageEvent)] {
+            dispatchEvent(messageEvent.event);
+        });
+    }
 }
 
 void ServiceWorkerContainer::jobFailedWithException(ServiceWorkerJob& job, const Exception& exception)
@@ -450,6 +443,8 @@ void ServiceWorkerContainer::jobResolvedWithRegistration(ServiceWorkerJob& job, 
                 notifyRegistrationIsSettled(iterator->value);
                 m_ongoingSettledRegistrations.remove(iterator);
             });
+            if (UNLIKELY(promise->needsAbort()))
+                return;
         }
 
         promise->resolve<IDLInterface<ServiceWorkerRegistration>>(WTFMove(registration));
@@ -459,13 +454,25 @@ void ServiceWorkerContainer::jobResolvedWithRegistration(ServiceWorkerJob& job, 
 void ServiceWorkerContainer::postMessage(MessageWithMessagePorts&& message, ServiceWorkerData&& sourceData, String&& sourceOrigin)
 {
     auto& context = *scriptExecutionContext();
+    if (UNLIKELY(context.isJSExecutionForbidden()))
+        return;
+
     auto* globalObject = context.globalObject();
     if (!globalObject)
         return;
 
+    auto& vm = globalObject->vm();
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+
     MessageEventSource source = RefPtr<ServiceWorker> { ServiceWorker::getOrCreate(context, WTFMove(sourceData)) };
 
     auto messageEvent = MessageEvent::create(*globalObject, message.message.releaseNonNull(), sourceOrigin, { }, WTFMove(source), MessagePort::entanglePorts(context, WTFMove(message.transferredPorts)));
+    if (UNLIKELY(scope.exception())) {
+        // Currently, we assume that the only way we can get here is if we have a termination.
+        RELEASE_ASSERT(vm.hasPendingTerminationException());
+        return;
+    }
+
     if (m_shouldDeferMessageEvents)
         m_deferredMessageEvents.append(WTFMove(messageEvent));
     else {

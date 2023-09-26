@@ -36,6 +36,7 @@
 #include "FileReaderLoader.h"
 #include "ScriptExecutionContext.h"
 #include "ScriptWrappable.h"
+#include "SecurityOriginData.h"
 #include "URLKeepingBlobAlive.h"
 #include "URLRegistry.h"
 #include <variant>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,16 +30,19 @@
 
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreeViews.h"
+#import "SystemPreviewController.h"
 #import "UIKitSPI.h"
 #import "WKContentViewInteraction.h"
 #import "WKFullScreenWindowController.h"
 #import "WKWebViewIOS.h"
 #import "WebPageProxy.h"
+#import "WebProcessProxy.h"
 #import "_WKActivatedElementInfoInternal.h"
 #import "_WKTextInputContextInternal.h"
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/ElementContext.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/SortedArrayMap.h>
 #import <wtf/text/TextStream.h>
 
@@ -133,6 +136,14 @@ static void dumpSeparatedLayerProperties(TextStream&, CALayer *) { }
     }];
 }
 
+- (void)applyAutocorrection:(NSString *)newString toString:(NSString *)oldString isCandidate:(BOOL)isCandidate withCompletionHandler:(void (^)(void))completionHandler
+{
+    [_contentView applyAutocorrection:newString toString:oldString isCandidate:isCandidate withCompletionHandler:[capturedCompletionHandler = makeBlockPtr(completionHandler)] (UIWKAutocorrectionRects *rects) {
+        capturedCompletionHandler();
+    }];
+}
+
+
 - (void)dismissFormAccessoryView
 {
     [_contentView accessoryDone];
@@ -212,14 +223,6 @@ static void dumpSeparatedLayerProperties(TextStream&, CALayer *) { }
 - (CGRect)_inputViewBoundsInWindow
 {
     return _inputViewBoundsInWindow;
-}
-
-- (NSArray<NSValue *> *)_uiTextSelectionRects
-{
-    // Force the selection view to update if needed.
-    [_contentView _updateChangedSelection];
-
-    return [_contentView _uiTextSelectionRects];
 }
 
 static String allowListedClassToString(UIView *view)
@@ -315,7 +318,7 @@ static void dumpUIView(TextStream& ts, UIView *view)
 
 - (NSDictionary *)_propertiesOfLayerWithID:(unsigned long long)layerID
 {
-    CALayer* layer = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).layerWithIDForTesting({ makeObjectIdentifier<WebCore::GraphicsLayer::PlatformLayerIDType>(layerID), _page->process().coreProcessIdentifier() });
+    CALayer* layer = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).layerWithIDForTesting({ ObjectIdentifier<WebCore::PlatformLayerIdentifierType>(layerID), _page->process().coreProcessIdentifier() });
     if (!layer)
         return nil;
 
@@ -423,6 +426,11 @@ static void dumpUIView(TextStream& ts, UIView *view)
     return [_contentView imageAnalysisGestureRecognizer];
 }
 
+- (UITapGestureRecognizer *)_singleTapGestureRecognizer
+{
+    return [_contentView singleTapGestureRecognizer];
+}
+
 - (void)_simulateElementAction:(_WKElementActionType)actionType atLocation:(CGPoint)location
 {
     [_contentView _simulateElementAction:actionType atLocation:location];
@@ -460,15 +468,6 @@ static void dumpUIView(TextStream& ts, UIView *view)
 {
     if (_page)
         _page->setDeviceHasAGXCompilerServiceForTesting();
-}
-
-- (NSString *)_serializedSelectionCaretBackgroundColorForTesting
-{
-    UIColor *backgroundColor = [[_contentView textInteractionAssistant].selectionView valueForKeyPath:@"caretView.backgroundColor"];
-    if (!backgroundColor)
-        return nil;
-
-    return serializationForCSS(WebCore::colorFromCocoaColor(backgroundColor));
 }
 
 - (BOOL)_hasResizeAssertion

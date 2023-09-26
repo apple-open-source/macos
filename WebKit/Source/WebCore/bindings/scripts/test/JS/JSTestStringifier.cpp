@@ -110,7 +110,7 @@ template<> void JSTestStringifierDOMConstructor::initializeProperties(VM& vm, JS
 
 static const HashTableValue JSTestStringifierPrototypeTableValues[] =
 {
-    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestStringifierConstructor, 0 } },
+    { "constructor"_s, static_cast<unsigned>(PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestStringifierConstructor, 0 } },
     { "toString"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestStringifierPrototypeFunction_toString, 0 } },
 };
 
@@ -130,18 +130,13 @@ JSTestStringifier::JSTestStringifier(Structure* structure, JSDOMGlobalObject& gl
 {
 }
 
-void JSTestStringifier::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestStringifier>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestStringifier>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestStringifier::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestStringifierPrototype::create(vm, &globalObject, JSTestStringifierPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestStringifierPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestStringifierPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestStringifier::prototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -200,7 +195,7 @@ void JSTestStringifier::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
     auto* thisObject = jsCast<JSTestStringifier*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

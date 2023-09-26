@@ -1,7 +1,6 @@
-/*	$OpenBSD: extern.h,v 1.33 2008/05/06 06:54:28 henning Exp $	*/
-/*	$NetBSD: extern.h,v 1.5 1996/03/26 23:54:16 mrg Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,6 +33,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.2 (Berkeley) 4/18/94
+ * $FreeBSD$
  */
 
 #ifndef _PAX_EXTERN_H_
@@ -44,13 +44,15 @@
  */
 
 #include <sys/cdefs.h>
+#ifdef __APPLE__
+#include <signal.h>
+#endif /* __APPLE__ */
 
 /*
  * ar_io.c
  */
 extern const char *arcname;
 extern const char *gzip_program;
-extern int force_one_volume;
 int ar_open(const char *);
 void ar_close(void);
 void ar_drain(void);
@@ -67,9 +69,11 @@ int ar_next(void);
  * ar_subs.c
  */
 extern u_long flcnt;
+#ifdef __APPLE__
 int updatepath(void);
 int dochdir(const char *);
 int fdochdir(int);
+#endif /* __APPLE__ */
 void list(void);
 void extract(void);
 void append(void);
@@ -110,8 +114,8 @@ int uidtb_start(void);
 int gidtb_start(void);
 int usrtb_start(void);
 int grptb_start(void);
-char * name_uid(uid_t, int);
-char * name_gid(gid_t, int);
+const char * name_uid(uid_t, int);
+const char * name_gid(gid_t, int);
 int uid_name(char *, uid_t *);
 int gid_name(char *, gid_t *);
 
@@ -119,7 +123,7 @@ int gid_name(char *, gid_t *);
  * cpio.c
  */
 int cpio_strd(void);
-int cpio_trail(ARCHD *, char *, int, int *);
+int cpio_trail(ARCHD *);
 int cpio_endwr(void);
 int cpio_id(char *, int);
 int cpio_rd(ARCHD *, char *);
@@ -141,7 +145,9 @@ int bcpio_wr(ARCHD *);
 /*
  * file_subs.c
  */
+#ifdef __APPLE__
 extern char *gnu_name_string, *gnu_link_string;
+#endif /* __APPLE__ */
 int file_creat(ARCHD *);
 void file_close(ARCHD *, int);
 int lnk_creat(ARCHD *);
@@ -149,20 +155,24 @@ int cross_lnk(ARCHD *);
 int chk_same(ARCHD *);
 int node_creat(ARCHD *);
 int unlnk_exist(char *, int);
+#ifdef __APPLE__
 int chk_path(char *, uid_t, gid_t, char **);
 void set_ftime(char *, time_t, time_t, time_t, time_t, int);
-void fset_ftime(char *, int, time_t, time_t, time_t, time_t, int);
+#else
+int chk_path(char *, uid_t, gid_t);
+void set_ftime(char *fnm, time_t mtime, time_t atime, int frc);
+#endif /* __APPLE__ */
 int set_ids(char *, uid_t, gid_t);
-int fset_ids(char *, int, uid_t, gid_t);
 int set_lids(char *, uid_t, gid_t);
 void set_pmode(char *, mode_t);
-void fset_pmode(char *, int, mode_t);
 int file_write(int, char *, int, int *, int *, int, char *);
 void file_flush(int, char *, int);
 void rdfile_close(ARCHD *, int *);
 int set_crc(ARCHD *, int);
+
+#ifdef __APPLE__
 /*
- * for set_ftime() and fset_ftime()
+ * for set_ftime()
  */
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define st_atime_sec    st_atimespec.tv_sec
@@ -175,7 +185,7 @@ int set_crc(ARCHD *, int);
 #define st_mtime_sec    st_mtime
 #define st_mtime_nsec   st_mtimensec
 #endif
-
+#endif /* __APPLE__ */
 /*
  * ftree.c
  */
@@ -183,7 +193,6 @@ int ftree_start(void);
 int ftree_add(char *, int);
 void ftree_sel(ARCHD *);
 void ftree_notsel(void);
-void ftree_skipped_newer(ARCHD *);
 void ftree_chk(void);
 int next_file(ARCHD *);
 
@@ -192,14 +201,14 @@ int next_file(ARCHD *);
  */
 void ls_list(ARCHD *, time_t, FILE *);
 void ls_tty(ARCHD *);
+#ifdef __APPLE__
 void safe_print(const char *, FILE *);
+#endif /* __APPLE__ */
+int l_strncpy(char *, const char *, int);
 u_long asc_ul(char *, int, int);
 int ul_asc(u_long, char *, int, int);
-#ifndef LONG_OFF_T
 u_quad_t asc_uqd(char *, int, int);
 int uqd_asc(u_quad_t, char *, int, int);
-#endif
-size_t fieldcpy(char *, size_t, const char *, size_t);
 
 /*
  * getoldopt.c
@@ -209,14 +218,16 @@ int getoldopt(int, char **, const char *);
 /*
  * options.c
  */
-extern const FSUB fsub[];
+extern FSUB fsub[];
 extern int ford[];
 void options(int, char **);
 OPLIST * opt_next(void);
 int opt_add(const char *);
 int bad_opt(void);
+#ifdef __APPLE__
 int pax_format_opt_add(char *);
 int pax_opt(void);
+#endif /* __APPLE__ */
 extern char *chdname;
 
 /*
@@ -234,7 +245,7 @@ int set_dest(ARCHD *, char *, int);
  * pax.c
  */
 extern int act;
-extern const FSUB *frmt;
+extern FSUB *frmt;
 extern int cflag;
 extern int cwdfd;
 extern int dflag;
@@ -248,10 +259,13 @@ extern int vflag;
 extern int Dflag;
 extern int Hflag;
 extern int Lflag;
+extern int Oflag;
 extern int Xflag;
 extern int Yflag;
 extern int Zflag;
+#ifdef __APPLE__
 extern int zeroflag;
+#endif /* __APPLE__ */
 extern int vfpart;
 extern int patime;
 extern int pmtime;
@@ -259,18 +273,21 @@ extern int nodirs;
 extern int pmode;
 extern int pids;
 extern int rmleadslash;
+#ifdef __APPLE__
 extern int secure;
+#endif /* __APPLE__ */
 extern int exit_val;
 extern int docrc;
 extern char *dirptr;
-extern char *ltmfrmt;
-extern char *argv0;
+extern const char *argv0;
+extern sigset_t s_mask;
 extern FILE *listf;
 extern char *tempfile;
 extern char *tempbase;
+#ifdef __APPLE__
 extern int havechd;
+#endif /* __APPLE__ */
 
-int main(int, char **);
 void sig_cleanup(int);
 
 /*
@@ -298,20 +315,31 @@ int add_dev(ARCHD *);
 int map_dev(ARCHD *, u_long, u_long);
 int atdir_start(void);
 void atdir_end(void);
+#ifdef __APPLE__
 void add_atdir(char *, dev_t, ino_t, time_t, time_t, time_t, time_t);
 int get_atdir(dev_t, ino_t, time_t *, time_t *, time_t *, time_t *);
+#else
+void add_atdir(char *, dev_t, ino_t, time_t, time_t);
+int get_atdir(dev_t, ino_t, time_t *, time_t *);
+#endif /* __APPLE__ */
 int dir_start(void);
+#ifdef __APPLE__
 void add_dir(char *, size_t, struct stat *, int);
+#else
+void add_dir(char *, int, struct stat *, int);
+#endif /* __APPLE__ */
 void proc_dir(void);
 u_int st_hash(char *, int, int);
 
 /*
  * tar.c
  */
+#ifdef __APPLE__
 extern char *gnu_hack_string;
+#endif /* __APPLE__ b*/
 int tar_endwr(void);
 off_t tar_endrd(void);
-int tar_trail(ARCHD *, char *, int, int *);
+int tar_trail(char *, int, int *);
 int tar_id(char *, int);
 int tar_opt(void);
 int tar_rd(ARCHD *, char *);
@@ -322,6 +350,8 @@ int ustar_id(char *, int);
 int ustar_rd(ARCHD *, char *);
 int ustar_wr(ARCHD *);
 
+
+#ifdef __APPLE__
 /*
  * pax_format.c
  */
@@ -348,14 +378,16 @@ int pax_stwr(void);
 int pax_id(char *, int);
 int pax_rd(ARCHD *, char *);
 int pax_wr(ARCHD *);
+#endif /* __APPLE__ */
+
 
 /*
  * tty_subs.c
  */
 int tty_init(void);
-void tty_prnt(const char *, ...) __printflike(1,2);
+void tty_prnt(const char *, ...) __printflike(1, 2);
 int tty_read(char *, int);
-void paxwarn(int, const char *, ...) __printflike(2,3);
-void syswarn(int, int, const char *, ...) __printflike(3,4);
+void paxwarn(int, const char *, ...) __printflike(2, 3);
+void syswarn(int, int, const char *, ...) __printflike(3, 4);
 
 #endif /* _PAX_EXTERN_H_ */

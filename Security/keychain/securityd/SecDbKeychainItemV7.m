@@ -570,13 +570,13 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         secwarning("SecDbKeychainItemV7: item's metadata exceeds reasonable size (%lu bytes) (%@)", (unsigned long)metadata.length, agrp);
     }
 
-    SFAuthenticatedCiphertext* ciphertext = [encryptionOperation encrypt:metadata withKey:key error:error];
+    SFAuthenticatedCiphertext* ciphertext = (SFAuthenticatedCiphertext*)[encryptionOperation encrypt:metadata withKey:key error:error];
 
     SFAESKey* metadataClassKey = [self metadataClassKeyWithKeybag:keybag
                                                       allowWrites:true
                                                             error:error];
     if (metadataClassKey) {
-        SFAuthenticatedCiphertext* wrappedKey = [encryptionOperation encrypt:key.keyData withKey:metadataClassKey error:error];
+        SFAuthenticatedCiphertext* wrappedKey = (SFAuthenticatedCiphertext*)[encryptionOperation encrypt:key.keyData withKey:metadataClassKey error:error];
         _encryptedMetadata = [[SecDbKeychainMetadata alloc] initWithCiphertext:ciphertext wrappedKey:wrappedKey tamperCheck:_tamperCheck error:error];
     }
 
@@ -607,7 +607,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     }
     [secretData appendBytes:paddingBytes length:paddingLength];
 
-    SFAuthenticatedCiphertext* ciphertext = [encryptionOperation encrypt:secretData withKey:key error:error];
+    SFAuthenticatedCiphertext* ciphertext = (SFAuthenticatedCiphertext*)[encryptionOperation encrypt:secretData withKey:key error:error];
     SecDbKeychainAKSWrappedKey* wrappedKey = [self wrapToAKS:key withKeybag:keybag accessControl:accessControl acmContext:acmContext error:error];
 
     _encryptedSecretData = [[SecDbKeychainSecretData alloc] initWithCiphertext:ciphertext

@@ -231,7 +231,7 @@ ja{
             }
             petabyte{
                 dnam{"ペタバイト"}
-                other{"{0} ペタバイト"}
+                other{"{0}ペタバイト"}
             }
             terabit{
                 dnam{"テラビット"}
@@ -282,6 +282,11 @@ ja{
             nanosecond{
                 dnam{"ナノ秒"}
                 other{"{0}ナノ秒"}
+            }
+            quarter{
+                dnam{"四半期"}
+                other{"{0}四半期"}
+                per{"{0}/四半期"}
             }
             second{
                 dnam{"秒"}
@@ -559,10 +564,6 @@ ja{
                 other{"{0}キログラム"}
                 per{"{0}/キログラム"}
             }
-            metric-ton{
-                dnam{"メトリックトン"}
-                other{"{0}メトリックトン"}
-            }
             microgram{
                 dnam{"マイクログラム"}
                 other{"{0}マイクログラム"}
@@ -596,6 +597,10 @@ ja{
             ton{
                 dnam{"米トン"}
                 other{"{0}米トン"}
+            }
+            tonne{
+                dnam{"メトリックトン"}
+                other{"{0}メトリックトン"}
             }
         }
         power{
@@ -1070,6 +1075,11 @@ ja{
                 dnam{"ns"}
                 other{"{0}ns"}
             }
+            quarter{
+                dnam{"四半期"}
+                other{"{0}Q"}
+                per{"{0}/Q"}
+            }
             second{
                 dnam{"秒"}
                 other{"{0}秒"}
@@ -1323,10 +1333,6 @@ ja{
                 other{"{0}kg"}
                 per{"{0}/kg"}
             }
-            metric-ton{
-                dnam{"t"}
-                other{"{0}t"}
-            }
             microgram{
                 dnam{"μg"}
                 other{"{0}μg"}
@@ -1359,6 +1365,10 @@ ja{
             ton{
                 other{"{0}s/t"}
             }
+            tonne{
+                dnam{"t"}
+                other{"{0}t"}
+            }
         }
         power{
             gigawatt{
@@ -1383,6 +1393,9 @@ ja{
             }
         }
         pressure{
+            atmosphere{
+                other{"{0}atm"}
+            }
             bar{
                 other{"{0}bar"}
             }
@@ -1830,6 +1843,11 @@ ja{
                 dnam{"ナノ秒"}
                 other{"{0} ns"}
             }
+            quarter{
+                dnam{"四半期"}
+                other{"{0}四半期"}
+                per{"{0}/四半期"}
+            }
             second{
                 dnam{"秒"}
                 other{"{0}秒"}
@@ -2108,10 +2126,6 @@ ja{
                 other{"{0} kg"}
                 per{"{0}/kg"}
             }
-            metric-ton{
-                dnam{"トン"}
-                other{"{0} t"}
-            }
             microgram{
                 dnam{"マイクログラム"}
                 other{"{0} μg"}
@@ -2145,6 +2159,10 @@ ja{
             ton{
                 dnam{"米トン"}
                 other{"{0} s/t"}
+            }
+            tonne{
+                dnam{"トン"}
+                other{"{0} t"}
             }
         }
         power{

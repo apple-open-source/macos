@@ -272,7 +272,6 @@ exit:
 
 }
 
-
 __private_extern__ IOReturn _pm_connect(mach_port_t *newConnection);
 __private_extern__ IOReturn _pm_disconnect(mach_port_t connection);
 

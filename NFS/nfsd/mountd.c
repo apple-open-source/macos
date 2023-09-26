@@ -111,6 +111,7 @@ typedef long            xdr_long_t;
 
 #include "pathnames.h"
 #include "common.h"
+#include "nfsd_analytics.h"
 
 /*
  * Structure for maintaining list of export IDs for exported volumes
@@ -324,7 +325,7 @@ struct expfs *ex_search(u_char *);
 void    export_error(int, const char *, ...) __attribute__((format(printf, 2, 3)));
 void    export_error_cleanup(struct expfs *);
 struct host *find_group_address_match_in_host_list(struct hosttqh *, struct grouplist *);
-struct host *find_host(struct hosttqh *, struct sockaddr *);
+static struct host *find_host(struct hosttqh *, struct sockaddr *);
 void    free_dirlist(struct dirlist *dl);
 void    free_expdir(struct expdir *);
 void    free_expfs(struct expfs *);
@@ -414,28 +415,6 @@ int  mountticlsock = -1, mountticosock = -1;
 IOPMAssertionID prevent_idle_sleep_assertion = kIOPMNullAssertionID;
 void            prevent_idle_sleep_assertion_update(u_int);
 
-/* export options */
-#define OP_MAPROOT      0x00000001      /* map root credentials */
-#define OP_MAPALL       0x00000002      /* map all credentials */
-#define OP_SECFLAV      0x00000004      /* security flavor(s) specified */
-#define OP_MASK         0x00000008      /* network mask specified */
-#define OP_NET          0x00000010      /* network address specified */
-#define OP_MANGLEDNAMES 0x00000020      /* tell the vfs to mangle names that are > 255 bytes */
-#define OP_ALLDIRS      0x00000040      /* allow mounting subdirs */
-#define OP_READONLY     0x00000080      /* export read-only */
-#define OP_32BITCLIENTS 0x00000100      /* use 32-bit directory cookies */
-#define OP_FSPATH       0x00000200      /* file system path specified */
-#define OP_FSUUID       0x00000400      /* file system UUID specified */
-#define OP_OFFLINE      0x00000800      /* export is offline */
-#define OP_ONLINE       0x04000000      /* export is online */
-#define OP_SHOW         0x08000000      /* show this entry in export list */
-#define OP_MISSING      0x10000000      /* export is missing */
-#define OP_DEFEXP       0x20000000      /* default export for everyone (else) */
-#define OP_ADD          0x40000000      /* tag export for potential addition */
-#define OP_DEL          0x80000000      /* tag export for potential deletion */
-#define OP_EXOPTMASK    0x100009E3      /* export options mask */
-#define OP_EXOPTS(X)    ((X) & OP_EXOPTMASK)
-
 #define RECHECKEXPORTS_TIMEOUT                  600
 #define RECHECKEXPORTS_DELAYED_STARTUP_TIMEOUT  120
 #define RECHECKEXPORTS_DELAYED_STARTUP_INTERVAL 5
@@ -474,7 +453,7 @@ mountd_realpath(const char *file_name, char *resolved_name)
 	return result;
 }
 
-static int
+int
 mountd_statfs(const char *path, struct statfs *sb)
 {
 	char real_mntonname[PATH_MAX];
@@ -1164,6 +1143,10 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 				add_mlist(hostbuf, mlistpath);
 				unlock_mlist();
 			}
+
+			/* Collect mount analytics */
+			nfsd_analytics_mount_send(transp, rqstp->rq_vers);
+
 			log(LOG_INFO, "Mount successful: %s %s", hostbuf, dirpath);
 		} else {
 			if (config.verbose) {
@@ -2366,7 +2349,7 @@ get_exportlist(void)
 	struct uuidlist *ulp, *bestulp;
 	char buf[64], buf2[64];
 	int error, opt_flags, need_export, saved_errors;
-	u_int non_loopback_exports = 0;
+	u_int non_loopback_exports = 0, prev_non_loopback_exports = 0;
 	pid_t nfsd_pid = get_nfsd_pid();
 
 	lock_exports();
@@ -2961,6 +2944,12 @@ prepare_offline_export:
 				}
 				/* Success. Update the data structures.  */
 				DEBUG(1, "kernel export registered for %s/%s", xf->xf_fsdir, xd->xd_xid->xid_path);
+
+				/* Collect exports analytics */
+				if (expcmd == NXA_ADD || expcmd == NXA_REPLACE) {
+					nfsd_analytics_exports_send(hostcount, non_loopback_exports - prev_non_loopback_exports, opt_flags);
+					prev_non_loopback_exports = non_loopback_exports;
+				}
 			} else {
 				DEBUG(2, "kernel export already registered for %s/%s", xf->xf_fsdir, xd->xd_xid->xid_path);
 			}
@@ -4477,7 +4466,7 @@ check_xd_hosts:
 /*
  * search a host list for a match for the given address
  */
-struct host *
+static struct host *
 find_host(struct hosttqh *head, struct sockaddr *sa)
 {
 	struct host *hp;
@@ -5050,6 +5039,7 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 {
 	struct netent *np;
 	uint32_t netaddr;
+	int endnet = 0, err = 0;
 	struct in_addr inetaddr = {}, inetaddr2;
 	struct in6_addr inet6addr = {};
 	const char *name;
@@ -5063,7 +5053,8 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 		family = AF_INET6;
 	} else if (isdigit(*cp)) {
 		if ((netaddr = inet_network(cp)) == INADDR_NONE) {
-			return 1;
+			err = 1;
+			goto out;
 		}
 		inetaddr = inet_makeaddr(netaddr, 0);
 		family = AF_INET;
@@ -5082,17 +5073,19 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 					break;
 				}
 			}
-			endnetent();
+			endnet = 1;
 		}
 	} else {
-		return 1;
+		err = 1;
+		goto out;
 	}
 	if (maskflg) {
 		if (net->nt_family == AF_UNSPEC) {
 			net->nt_family = family;
 		} else if (net->nt_family != family) {
 			log(LOG_ERR, "net mask family (%d) does not match net address family (%d): %s", family, net->nt_family, cp);
-			return 1;
+			err = 1;
+			goto out;
 		}
 		if (family == AF_INET6) {
 			net->nt_mask6 = inet6addr;
@@ -5104,23 +5097,36 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 			net->nt_family = family;
 		} else if (net->nt_family != family) {
 			log(LOG_ERR, "net mask family (%d) does not match net address family (%d): %s", net->nt_family, family, cp);
-			return 1;
+			err = 1;
+			goto out;
 		}
 		if (np) {
 			name = np->n_name;
+			if (!name) {
+				log(LOG_ERR, "netent does not contain official name of net: %s", cp);
+				err = 1;
+				goto out;
+			}
 		} else if (family == AF_INET6) {
 			name = inet_ntop(AF_INET6, &inet6addr, addrbuf, sizeof(addrbuf));
 			if (!name) {
 				log(LOG_ERR, "can't convert IPv6 addr to name: %s", cp);
-				return 1;
+				err = 1;
+				goto out;
 			}
 		} else {
 			name = inet_ntoa(inetaddr);
+			if (!name) {
+				log(LOG_ERR, "can't convert IPv4 addr to name: %s", cp);
+				err = 1;
+				goto out;
+			}
 		}
 		net->nt_name = strdup(name);
 		if (net->nt_name == NULL) {
 			log(LOG_ERR, "can't allocate memory for net: %s", cp);
-			return 1;
+			err = 1;
+			goto out;
 		}
 		if (family == AF_INET6) {
 			net->nt_net6 = inet6addr;
@@ -5129,7 +5135,12 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 		}
 		DEBUG(3, "got net: %s", net->nt_name);
 	}
-	return 0;
+
+out:
+	if (endnet) {
+		endnetent();
+	}
+	return err;
 }
 
 /*

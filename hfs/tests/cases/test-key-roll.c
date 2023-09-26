@@ -73,7 +73,7 @@ int cmp_zero(const void *p, size_t len)
 
 struct append_ctx {
 	int fd;
-	uint8_t digest[CC_MD5_DIGEST_LENGTH];
+	uint8_t digest[CC_SHA256_DIGEST_LENGTH];
 	bool done;
 };
 
@@ -88,8 +88,8 @@ void *append_to_file(void *param)
 {
 	struct append_ctx *ctx = param;
 
-	CC_MD5_CTX md5_ctx;
-	CC_MD5_Init(&md5_ctx);
+	CC_SHA256_CTX sha256_ctx;
+	CC_SHA256_Init(&sha256_ctx);
 
 	uint64_t total = 0;
 
@@ -112,12 +112,12 @@ void *append_to_file(void *param)
 		assert_no_err(msync(p + total - round, todo + round, 
 							MS_ASYNC | MS_INVALIDATE));
 
-		CC_MD5_Update(&md5_ctx, buf1, (CC_LONG)todo);
+		CC_SHA256_Update(&sha256_ctx, buf1, (CC_LONG)todo);
 
 		total += todo;
 	}
 
-	CC_MD5_Final(ctx->digest, &md5_ctx);
+	CC_SHA256_Final(ctx->digest, &sha256_ctx);
 
 	OSMemoryBarrier();
 
@@ -1145,13 +1145,13 @@ int run_key_roll(__unused test_ctx_t *ctx)
 
 	assert_no_err(msync(p, append_test_amount, MS_INVALIDATE));
 
-	CC_MD5_CTX md5_ctx;
-	CC_MD5_Init(&md5_ctx);
+	CC_SHA256_CTX sha256_ctx;
+	CC_SHA256_Init(&sha256_ctx);
 
-	CC_MD5_Update(&md5_ctx, p, append_test_amount);
+	CC_SHA256_Update(&sha256_ctx, p, append_test_amount);
 
-	uint8_t digest[CC_MD5_DIGEST_LENGTH];
-	CC_MD5_Final(digest, &md5_ctx);
+	uint8_t digest[CC_SHA256_DIGEST_LENGTH];
+	CC_SHA256_Final(digest, &sha256_ctx);
 
 	/* 
 	 * Not really necessary, but making the point that we need a barrier
@@ -1159,7 +1159,7 @@ int run_key_roll(__unused test_ctx_t *ctx)
 	 */
 	OSMemoryBarrier();
 
-	assert(!memcmp(digest, actx.digest, CC_MD5_DIGEST_LENGTH));
+	assert(!memcmp(digest, actx.digest, CC_SHA256_DIGEST_LENGTH));
 
 	assert_no_err(munmap(p, append_test_amount));
 
@@ -1185,15 +1185,15 @@ int run_key_roll(__unused test_ctx_t *ctx)
 
 		assert_no_err(msync(p, append_test_amount, MS_INVALIDATE));
 
-		CC_MD5_CTX md5_ctx;
-		CC_MD5_Init(&md5_ctx);
+		CC_SHA256_CTX sha256_ctx;
+		CC_SHA256_Init(&sha256_ctx);
 
-		CC_MD5_Update(&md5_ctx, p, append_test_amount);
+		CC_SHA256_Update(&sha256_ctx, p, append_test_amount);
 
-		uint8_t digest[CC_MD5_DIGEST_LENGTH];
-		CC_MD5_Final(digest, &md5_ctx);
+		uint8_t digest[CC_SHA256_DIGEST_LENGTH];
+		CC_SHA256_Final(digest, &sha256_ctx);
 
-		assert(!memcmp(digest, actx.digest, CC_MD5_DIGEST_LENGTH));
+		assert(!memcmp(digest, actx.digest, CC_SHA256_DIGEST_LENGTH));
 	} while (!finished);
 
 	pthread_join(threads[0], NULL);

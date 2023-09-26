@@ -175,8 +175,10 @@ main(int argc, char *argv[])
     errors += do_tests(check_fill_args, args_data, nitems(args_data));
 
     ntests = nitems(txt_data) + nitems(cmd_data) + nitems(args_data);
-    printf("%s: %d tests run, %d errors, %d%% success rate\n", getprogname(),
-	ntests, errors, (ntests - errors) * 100 / ntests);
+    if (ntests != 0) {
+	printf("%s: %d tests run, %d errors, %d%% success rate\n",
+	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
+    }
 
     exit(errors);
 }
@@ -186,4 +188,18 @@ void
 sudoerserror(const char *s)
 {
     return;
+}
+
+/* STUB */
+bool
+parser_leak_add(enum parser_leak_types type, void *v)
+{
+    return true;
+}
+
+/* STUB */
+bool
+parser_leak_remove(enum parser_leak_types type, void *v)
+{
+    return true;
 }

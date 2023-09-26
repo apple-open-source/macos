@@ -37,6 +37,7 @@
 #include <sys/queue.h>
 #include <sys/priv.h>
 #include <sys/protosw.h>
+#include <sys/persona.h>
 
 #include <kern/clock.h>
 #include <kern/debug.h>
@@ -253,6 +254,16 @@ typedef struct nstat_src {
 	uint64_t                seq;
 } nstat_src;
 
+// The merge structures are intended to give a global picture of what may be asked for by the current set of clients
+// This is to avoid taking locks to check them all individually
+typedef struct nstat_merged_provider_filter {
+	u_int64_t               mf_events;      // So far we only merge the events portion of any filters
+} nstat_merged_provider_filter;
+
+typedef struct nstat_merged_provider_filters {
+	nstat_merged_provider_filter    mpf_filters[NSTAT_PROVIDER_COUNT];
+} nstat_merged_provider_filters;
+
 static errno_t      nstat_control_send_counts(nstat_control_state *, nstat_src *, unsigned long long, u_int16_t, int *);
 static int          nstat_control_send_description(nstat_control_state *state, nstat_src *src, u_int64_t context, u_int16_t hdr_flags);
 static int          nstat_control_send_update(nstat_control_state *state, nstat_src *src, u_int64_t context, u_int64_t event, u_int16_t hdr_flags, int *gone);
@@ -270,6 +281,7 @@ static errno_t nstat_control_send_event(nstat_control_state *state, nstat_src *s
 
 static u_int32_t    nstat_udp_watchers = 0;
 static u_int32_t    nstat_tcp_watchers = 0;
+static nstat_merged_provider_filters merged_filters = {};
 
 static void nstat_control_register(void);
 
@@ -433,6 +445,26 @@ nstat_inpcb_to_flags(
 	}
 	return flags;
 }
+
+static void
+merge_current_event_filters(void)
+{
+	// The nstat_mtx is assumed locked
+	nstat_merged_provider_filters new_merge = {};
+	nstat_provider_type_t provider;
+	nstat_control_state *state;
+
+	for (state = nstat_controls; state; state = state->ncs_next) {
+		for (provider = NSTAT_PROVIDER_NONE; provider <= NSTAT_PROVIDER_LAST; provider++) {
+			new_merge.mpf_filters[provider].mf_events |= state->ncs_provider_filters[provider].npf_events;
+		}
+	}
+	for (provider = NSTAT_PROVIDER_NONE; provider <= NSTAT_PROVIDER_LAST; provider++) {
+		// This should do atomic updates of the 64 bit words, where memcpy would be undefined
+		merged_filters.mpf_filters[provider].mf_events = new_merge.mpf_filters[provider].mf_events;
+	}
+}
+
 
 #pragma mark -- Network Statistic Providers --
 
@@ -737,10 +769,10 @@ nstat_route_counts(
 	}
 
 	if (rt_stats) {
-		atomic_get_64(out_counts->nstat_rxpackets, &rt_stats->nstat_rxpackets);
-		atomic_get_64(out_counts->nstat_rxbytes, &rt_stats->nstat_rxbytes);
-		atomic_get_64(out_counts->nstat_txpackets, &rt_stats->nstat_txpackets);
-		atomic_get_64(out_counts->nstat_txbytes, &rt_stats->nstat_txbytes);
+		out_counts->nstat_rxpackets = os_atomic_load(&rt_stats->nstat_rxpackets, relaxed);
+		out_counts->nstat_rxbytes = os_atomic_load(&rt_stats->nstat_rxbytes, relaxed);
+		out_counts->nstat_txpackets = os_atomic_load(&rt_stats->nstat_txpackets, relaxed);
+		out_counts->nstat_txbytes = os_atomic_load(&rt_stats->nstat_txbytes, relaxed);
 		out_counts->nstat_rxduplicatebytes = rt_stats->nstat_rxduplicatebytes;
 		out_counts->nstat_rxoutoforderbytes = rt_stats->nstat_rxoutoforderbytes;
 		out_counts->nstat_txretransmit = rt_stats->nstat_txretransmit;
@@ -1371,10 +1403,10 @@ nstat_tcp_counts(
 	inp = tucookie->inp;
 	struct tcpcb *tp = intotcpcb(inp);
 
-	atomic_get_64(out_counts->nstat_rxpackets, &inp->inp_stat->rxpackets);
-	atomic_get_64(out_counts->nstat_rxbytes, &inp->inp_stat->rxbytes);
-	atomic_get_64(out_counts->nstat_txpackets, &inp->inp_stat->txpackets);
-	atomic_get_64(out_counts->nstat_txbytes, &inp->inp_stat->txbytes);
+	out_counts->nstat_rxpackets = os_atomic_load(&inp->inp_stat->rxpackets, relaxed);
+	out_counts->nstat_rxbytes = os_atomic_load(&inp->inp_stat->rxbytes, relaxed);
+	out_counts->nstat_txpackets = os_atomic_load(&inp->inp_stat->txpackets, relaxed);
+	out_counts->nstat_txbytes = os_atomic_load(&inp->inp_stat->txbytes, relaxed);
 	out_counts->nstat_rxduplicatebytes = tp->t_stat.rxduplicatebytes;
 	out_counts->nstat_rxoutoforderbytes = tp->t_stat.rxoutoforderbytes;
 	out_counts->nstat_txretransmit = tp->t_stat.txretransmitbytes;
@@ -1386,12 +1418,12 @@ nstat_tcp_counts(
 	if (out_counts->nstat_avg_rtt < out_counts->nstat_min_rtt) {
 		out_counts->nstat_min_rtt = out_counts->nstat_avg_rtt;
 	}
-	atomic_get_64(out_counts->nstat_cell_rxbytes, &inp->inp_cstat->rxbytes);
-	atomic_get_64(out_counts->nstat_cell_txbytes, &inp->inp_cstat->txbytes);
-	atomic_get_64(out_counts->nstat_wifi_rxbytes, &inp->inp_wstat->rxbytes);
-	atomic_get_64(out_counts->nstat_wifi_txbytes, &inp->inp_wstat->txbytes);
-	atomic_get_64(out_counts->nstat_wired_rxbytes, &inp->inp_Wstat->rxbytes);
-	atomic_get_64(out_counts->nstat_wired_txbytes, &inp->inp_Wstat->txbytes);
+	out_counts->nstat_cell_rxbytes = os_atomic_load(&inp->inp_cstat->rxbytes, relaxed);
+	out_counts->nstat_cell_txbytes = os_atomic_load(&inp->inp_cstat->txbytes, relaxed);
+	out_counts->nstat_wifi_rxbytes = os_atomic_load(&inp->inp_wstat->rxbytes, relaxed);
+	out_counts->nstat_wifi_txbytes = os_atomic_load(&inp->inp_wstat->txbytes, relaxed);
+	out_counts->nstat_wired_rxbytes = os_atomic_load(&inp->inp_Wstat->rxbytes, relaxed);
+	out_counts->nstat_wired_txbytes = os_atomic_load(&inp->inp_Wstat->txbytes, relaxed);
 
 	return 0;
 }
@@ -1549,7 +1581,12 @@ nstat_pcb_event(struct inpcb *inp, u_int64_t event)
 	if (inp == NULL || (nstat_tcp_watchers == 0 && nstat_udp_watchers == 0)) {
 		return;
 	}
-
+	if (((merged_filters.mpf_filters[NSTAT_PROVIDER_TCP_KERNEL].mf_events & event) == 0) &&
+	    ((merged_filters.mpf_filters[NSTAT_PROVIDER_UDP_KERNEL].mf_events & event) == 0)) {
+		// There are clients for TCP and UDP, but none are interested in the event
+		// This check saves taking the mutex and scanning the list
+		return;
+	}
 	lck_mtx_lock(&nstat_mtx);
 	for (state = nstat_controls; state; state = state->ncs_next) {
 		if (((state->ncs_provider_filters[NSTAT_PROVIDER_TCP_KERNEL].npf_events & event) == 0) &&
@@ -1701,6 +1738,7 @@ nstat_tcp_copy_descriptor(
 	desc->txunacked = tp->snd_max - tp->snd_una;
 	desc->txwindow = tp->snd_wnd;
 	desc->txcwindow = tp->snd_cwnd;
+	desc->ifnet_properties = nstat_inpcb_to_flags(inp);
 
 	if (CC_ALGO(tp)->name != NULL) {
 		strlcpy(desc->cc_algo, CC_ALGO(tp)->name,
@@ -1719,6 +1757,17 @@ nstat_tcp_copy_descriptor(
 		}
 		if ((so->so_flags1 & SOF1_TRAFFIC_MGT_TCP_RECVBG)) {
 			desc->traffic_mgt_flags |= TRAFFIC_MGT_TCP_RECVBG;
+		}
+		if (so->so_flags1 & SOF1_INBOUND) {
+			desc->ifnet_properties |= NSTAT_SOURCE_IS_INBOUND;
+		} else if (desc->state == TCPS_LISTEN) {
+			desc->ifnet_properties |= NSTAT_SOURCE_IS_LISTENER;
+			tucookie->ifnet_properties = NSTAT_SOURCE_IS_LISTENER;
+		} else if (desc->state != TCPS_CLOSED) {
+			desc->ifnet_properties |= NSTAT_SOURCE_IS_OUTBOUND;
+			tucookie->ifnet_properties = NSTAT_SOURCE_IS_OUTBOUND;
+		} else {
+			desc->ifnet_properties |= tucookie->ifnet_properties;
 		}
 		proc_name(desc->pid, desc->pname, sizeof(desc->pname));
 		if (desc->pname[0] == 0) {
@@ -1741,15 +1790,22 @@ nstat_tcp_copy_descriptor(
 			memcpy(desc->euuid, desc->uuid, sizeof(desc->uuid));
 		}
 		uuid_copy(desc->fuuid, inp->necp_client_uuid);
+		desc->persona_id = so->so_persona_id;
+		desc->uid = kauth_cred_getuid(so->so_cred);
 		desc->sndbufsize = so->so_snd.sb_hiwat;
 		desc->sndbufused = so->so_snd.sb_cc;
 		desc->rcvbufsize = so->so_rcv.sb_hiwat;
 		desc->rcvbufused = so->so_rcv.sb_cc;
 		desc->fallback_mode = so->so_fallback_mode;
+
+		if (nstat_debug) {
+			uuid_string_t euuid_str = { 0 };
+			uuid_unparse(desc->euuid, euuid_str);
+			NSTAT_DEBUG_SOCKET_LOG(so, "NSTAT: TCP - pid %d uid %d euuid %s persona id %d", desc->pid, desc->uid, euuid_str, desc->persona_id);
+		}
 	}
 
 	tcp_get_connectivity_status(tp, &desc->connstatus);
-	desc->ifnet_properties = (uint16_t)nstat_inpcb_to_flags(inp);
 	inp_get_activity_bitmap(inp, &desc->activity_bitmap);
 	desc->start_timestamp = inp->inp_start_timestamp;
 	desc->timestamp = mach_continuous_time();
@@ -1920,16 +1976,16 @@ nstat_udp_counts(
 	}
 	struct inpcb *inp = tucookie->inp;
 
-	atomic_get_64(out_counts->nstat_rxpackets, &inp->inp_stat->rxpackets);
-	atomic_get_64(out_counts->nstat_rxbytes, &inp->inp_stat->rxbytes);
-	atomic_get_64(out_counts->nstat_txpackets, &inp->inp_stat->txpackets);
-	atomic_get_64(out_counts->nstat_txbytes, &inp->inp_stat->txbytes);
-	atomic_get_64(out_counts->nstat_cell_rxbytes, &inp->inp_cstat->rxbytes);
-	atomic_get_64(out_counts->nstat_cell_txbytes, &inp->inp_cstat->txbytes);
-	atomic_get_64(out_counts->nstat_wifi_rxbytes, &inp->inp_wstat->rxbytes);
-	atomic_get_64(out_counts->nstat_wifi_txbytes, &inp->inp_wstat->txbytes);
-	atomic_get_64(out_counts->nstat_wired_rxbytes, &inp->inp_Wstat->rxbytes);
-	atomic_get_64(out_counts->nstat_wired_txbytes, &inp->inp_Wstat->txbytes);
+	out_counts->nstat_rxpackets = os_atomic_load(&inp->inp_stat->rxpackets, relaxed);
+	out_counts->nstat_rxbytes = os_atomic_load(&inp->inp_stat->rxbytes, relaxed);
+	out_counts->nstat_txpackets = os_atomic_load(&inp->inp_stat->txpackets, relaxed);
+	out_counts->nstat_txbytes = os_atomic_load(&inp->inp_stat->txbytes, relaxed);
+	out_counts->nstat_cell_rxbytes = os_atomic_load(&inp->inp_cstat->rxbytes, relaxed);
+	out_counts->nstat_cell_txbytes = os_atomic_load(&inp->inp_cstat->txbytes, relaxed);
+	out_counts->nstat_wifi_rxbytes = os_atomic_load(&inp->inp_wstat->rxbytes, relaxed);
+	out_counts->nstat_wifi_txbytes = os_atomic_load(&inp->inp_wstat->txbytes, relaxed);
+	out_counts->nstat_wired_rxbytes = os_atomic_load(&inp->inp_Wstat->rxbytes, relaxed);
+	out_counts->nstat_wired_txbytes = os_atomic_load(&inp->inp_Wstat->txbytes, relaxed);
 
 	return 0;
 }
@@ -2066,7 +2122,7 @@ nstat_udp_copy_descriptor(
 			nstat_ip_to_sockaddr(&inp->inp_faddr, inp->inp_fport,
 			    &desc->remote.v4, sizeof(desc->remote.v4));
 		}
-		desc->ifnet_properties = (uint16_t)nstat_inpcb_to_flags(inp);
+		desc->ifnet_properties = nstat_inpcb_to_flags(inp);
 	} else {
 		if (inp->inp_vflag & INP_IPV6) {
 			memcpy(&desc->local.v6, &tucookie->local.v6,
@@ -2115,6 +2171,8 @@ nstat_udp_copy_descriptor(
 			memcpy(desc->euuid, desc->uuid, sizeof(desc->uuid));
 		}
 		uuid_copy(desc->fuuid, inp->necp_client_uuid);
+		desc->persona_id = so->so_persona_id;
+		desc->uid = kauth_cred_getuid(so->so_cred);
 		desc->rcvbufsize = so->so_rcv.sb_hiwat;
 		desc->rcvbufused = so->so_rcv.sb_cc;
 		desc->traffic_class = so->so_traffic_class;
@@ -2122,6 +2180,12 @@ nstat_udp_copy_descriptor(
 		inp_get_activity_bitmap(inp, &desc->activity_bitmap);
 		desc->start_timestamp = inp->inp_start_timestamp;
 		desc->timestamp = mach_continuous_time();
+
+		if (nstat_debug) {
+			uuid_string_t euuid_str = { 0 };
+			uuid_unparse(desc->euuid, euuid_str);
+			NSTAT_DEBUG_SOCKET_LOG(so, "NSTAT: UDP - pid %d uid %d euuid %s persona id %d", desc->pid, desc->uid, euuid_str, desc->persona_id);
+		}
 	}
 
 	return 0;
@@ -2288,6 +2352,7 @@ nstat_userland_tu_copy_descriptor(
 			desc->ifnet_properties &= ~NSTAT_IFNET_VIA_CELLFALLBACK;
 			desc->fallback_mode = SO_FALLBACK_MODE_NONE;
 		}
+		desc->ifnet_properties |= (uint32_t)shad->shad_properties;
 		desc->start_timestamp = shad->shad_start_timestamp;
 		desc->timestamp = mach_continuous_time();
 	}
@@ -2306,6 +2371,7 @@ nstat_userland_tu_copy_descriptor(
 			desc->ifnet_properties &= ~NSTAT_IFNET_VIA_CELLFALLBACK;
 			desc->fallback_mode = SO_FALLBACK_MODE_NONE;
 		}
+		desc->ifnet_properties |= (uint32_t)shad->shad_properties;
 		desc->start_timestamp = shad->shad_start_timestamp;
 		desc->timestamp = mach_continuous_time();
 	}
@@ -2324,6 +2390,7 @@ nstat_userland_tu_copy_descriptor(
 			desc->ifnet_properties &= ~NSTAT_IFNET_VIA_CELLFALLBACK;
 			desc->fallback_mode = SO_FALLBACK_MODE_NONE;
 		}
+		desc->ifnet_properties |= (uint32_t)shad->shad_properties;
 		desc->start_timestamp = shad->shad_start_timestamp;
 		desc->timestamp = mach_continuous_time();
 	}
@@ -2993,6 +3060,15 @@ struct nstat_generic_shadow {
 
 static tailq_head_generic_shadow nstat_gshad_head = TAILQ_HEAD_INITIALIZER(nstat_gshad_head);
 
+static inline void
+nstat_retain_gshad(
+	struct nstat_generic_shadow *gshad)
+{
+	assert(gshad->gshad_magic = NSTAT_GENERIC_SHADOW_MAGIC);
+
+	OSIncrementAtomic(&gshad->gshad_refcnt);
+}
+
 static void
 nstat_release_gshad(
 	struct nstat_generic_shadow *gshad)
@@ -3219,13 +3295,13 @@ nstat_generic_provider_add_watcher(
 						continue;
 					}
 				}
+				nstat_retain_gshad(gshad);
 				result = nstat_control_source_add(0, state, provider, gshad);
 				if (result != 0) {
 					printf("%s - nstat_control_source_add returned %d for "
 					    "provider type: %d\n", __func__, result, provider_id);
+					nstat_release_gshad(gshad);
 					break;
-				} else {
-					OSIncrementAtomic(&gshad->gshad_refcnt);
 				}
 			}
 		}
@@ -3315,8 +3391,9 @@ nstat_provider_stats_open(nstat_provider_context ctx,
 	gshad->gshad_procdetails        = procdetails;
 	gshad->gshad_provider           = provider_id;
 	gshad->gshad_start_timestamp    = mach_continuous_time();
-	gshad->gshad_refcnt             = 1;
+	gshad->gshad_refcnt             = 0;
 	gshad->gshad_magic              = NSTAT_GENERIC_SHADOW_MAGIC;
+	nstat_retain_gshad(gshad);
 
 	lck_mtx_lock(&nstat_mtx);
 	nstat_control_state     *state;
@@ -3337,13 +3414,13 @@ nstat_provider_stats_open(nstat_provider_context ctx,
 				}
 			}
 			// this client is watching, so link to it.
+			nstat_retain_gshad(gshad);
 			int result = nstat_control_source_add(0, state, provider, gshad);
 			if (result != 0) {
 				// There should be some kind of statistics for failures like this.
 				// <rdar://problem/31377195> The kernel ntstat component should keep some
 				// internal counters reflecting operational state for eventual AWD reporting
-			} else {
-				OSIncrementAtomic(&gshad->gshad_refcnt);
+				nstat_release_gshad(gshad);
 			}
 		}
 	}
@@ -5438,6 +5515,7 @@ nstat_control_connect(
 		thread_call_func_delayed((thread_call_func_t)nstat_idle_check, NULL, nstat_idle_time);
 	}
 
+	merge_current_event_filters();
 	lck_mtx_unlock(&nstat_mtx);
 
 	return 0;
@@ -5465,6 +5543,7 @@ nstat_control_disconnect(
 			break;
 		}
 	}
+	merge_current_event_filters();
 	lck_mtx_unlock(&nstat_mtx);
 
 	lck_mtx_lock(&state->ncs_mtx);
@@ -6024,7 +6103,7 @@ nstat_set_provider_filter(
 {
 	nstat_provider_id_t provider_id = req->provider;
 
-	u_int32_t prev_ncs_watching = atomic_or_32_ov(&state->ncs_watching, (1 << provider_id));
+	u_int32_t prev_ncs_watching = os_atomic_or_orig(&state->ncs_watching, (1 << provider_id), relaxed);
 
 	// Reject it if the client is already watching all the sources.
 	if ((prev_ncs_watching & (1 << provider_id)) != 0) {
@@ -6873,9 +6952,9 @@ tcp_progress_indicators_for_interface(unsigned int ifindex, uint64_t recentflow_
 				uint64_t flow_count;
 
 				indicators->xp_recentflows++;
-				atomic_get_64(flow_count, &inp->inp_stat->rxbytes);
+				flow_count = os_atomic_load(&inp->inp_stat->rxbytes, relaxed);
 				indicators->xp_recentflows_rxbytes += flow_count;
-				atomic_get_64(flow_count, &inp->inp_stat->txbytes);
+				flow_count = os_atomic_load(&inp->inp_stat->txbytes, relaxed);
 				indicators->xp_recentflows_txbytes += flow_count;
 
 				indicators->xp_recentflows_rxooo += tp->t_stat.rxoutoforderbytes;

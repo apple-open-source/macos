@@ -118,10 +118,10 @@ template<> void JSTestDefaultToJSONFilteredByExposedDOMConstructor::initializePr
 
 static const HashTableValue JSTestDefaultToJSONFilteredByExposedPrototypeTableValues[] =
 {
-    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONFilteredByExposedConstructor, 0 } },
-    { "normalAttribute"_s, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONFilteredByExposed_normalAttribute, 0 } },
-    { "filteredByExposedWindowAttribute"_s, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONFilteredByExposed_filteredByExposedWindowAttribute, 0 } },
-    { "filteredByExposedWorkerAttribute"_s, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONFilteredByExposed_filteredByExposedWorkerAttribute, 0 } },
+    { "constructor"_s, static_cast<unsigned>(PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONFilteredByExposedConstructor, 0 } },
+    { "normalAttribute"_s, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute, NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONFilteredByExposed_normalAttribute, 0 } },
+    { "filteredByExposedWindowAttribute"_s, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute, NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONFilteredByExposed_filteredByExposedWindowAttribute, 0 } },
+    { "filteredByExposedWorkerAttribute"_s, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute, NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONFilteredByExposed_filteredByExposedWorkerAttribute, 0 } },
     { "toJSON"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestDefaultToJSONFilteredByExposedPrototypeFunction_toJSON, 0 } },
 };
 
@@ -158,18 +158,13 @@ JSTestDefaultToJSONFilteredByExposed::JSTestDefaultToJSONFilteredByExposed(Struc
 {
 }
 
-void JSTestDefaultToJSONFilteredByExposed::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSONFilteredByExposed>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSONFilteredByExposed>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestDefaultToJSONFilteredByExposed::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestDefaultToJSONFilteredByExposedPrototype::create(vm, &globalObject, JSTestDefaultToJSONFilteredByExposedPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestDefaultToJSONFilteredByExposedPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestDefaultToJSONFilteredByExposedPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestDefaultToJSONFilteredByExposed::prototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -280,7 +275,7 @@ void JSTestDefaultToJSONFilteredByExposed::analyzeHeap(JSCell* cell, HeapAnalyze
     auto* thisObject = jsCast<JSTestDefaultToJSONFilteredByExposed*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

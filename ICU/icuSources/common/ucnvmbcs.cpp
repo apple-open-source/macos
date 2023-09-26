@@ -373,7 +373,7 @@
  * @param value contains 1..4 bytes of the first byte sequence, right-aligned
  * @param codePoints resulting Unicode code points, or negative if a byte sequence does
  *        not map to anything
- * @return TRUE to continue enumeration, FALSE to stop
+ * @return true to continue enumeration, false to stop
  */
 typedef UBool U_CALLCONV
 UConverterEnumToUCallback(const void *context, uint32_t value, UChar32 codePoints[32]);
@@ -514,7 +514,7 @@ static const UConverterImpl _MBCSImpl={
 
 const UConverterSharedData _MBCSData={
     sizeof(UConverterSharedData), 1,
-    NULL, NULL, FALSE, TRUE, &_MBCSImpl,
+    NULL, NULL, false, true, &_MBCSImpl,
     0, UCNV_MBCS_TABLE_INITIALIZER
 };
 
@@ -540,12 +540,22 @@ const UConverterSharedData _MBCSData={
 static const uint32_t
 gb18030Ranges[14][4]={
     {0x10000, 0x10FFFF, LINEAR(0x90308130), LINEAR(0xE3329A35)},
+#if APPLE_ICU_CHANGES
+// rdar://107702106 update to gb18030-2022
+    {0x9FBC, 0xD7FF, LINEAR(0x82359135), LINEAR(0x8336C738)}, // for -2022 replace beginning of range with explicit mappings
+#else
     {0x9FA6, 0xD7FF, LINEAR(0x82358F33), LINEAR(0x8336C738)},
+#endif  // APPLE_ICU_CHANGES
     {0x0452, 0x1E3E, LINEAR(0x8130D330), LINEAR(0x8135F436)},
     {0x1E40, 0x200F, LINEAR(0x8135F438), LINEAR(0x8136A531)},
     {0xE865, 0xF92B, LINEAR(0x8336D030), LINEAR(0x84308534)},
     {0x2643, 0x2E80, LINEAR(0x8137A839), LINEAR(0x8138FD38)},
+#if APPLE_ICU_CHANGES
+// rdar://107702106 update to gb18030-2022
+    {0xFA2A, 0xFE0F, LINEAR(0x84309C38), LINEAR(0x84318235)}, // for -2022 replace end of range with explicit mappings
+#else
     {0xFA2A, 0xFE2F, LINEAR(0x84309C38), LINEAR(0x84318537)},
+#endif  // APPLE_ICU_CHANGES
     {0x3CE1, 0x4055, LINEAR(0x8231D438), LINEAR(0x8232AF32)},
     {0x361B, 0x3917, LINEAR(0x8230A633), LINEAR(0x8230F237)},
     {0x49B8, 0x4C76, LINEAR(0x8234A131), LINEAR(0x8234E733)},
@@ -668,7 +678,7 @@ enumToU(UConverterMBCSTable *mbcsTable, int8_t stateProps[],
                         value|(uint32_t)b,
                         callback, context,
                         pErrorCode)) {
-                    return FALSE;
+                    return false;
                 }
             }
             codePoints[b&0x1f]=U_SENTINEL;
@@ -719,13 +729,13 @@ enumToU(UConverterMBCSTable *mbcsTable, int8_t stateProps[],
         if(((++b)&0x1f)==0) {
             if(anyCodePoints>=0) {
                 if(!callback(context, value|(uint32_t)(b-0x20), codePoints)) {
-                    return FALSE;
+                    return false;
                 }
                 anyCodePoints=-1;
             }
         }
     }
-    return TRUE;
+    return true;
 }
 
 /*
@@ -1111,7 +1121,7 @@ _extFromU(UConverter *cnv, const UConverterSharedData *sharedData,
           UErrorCode *pErrorCode) {
     const int32_t *cx;
 
-    cnv->useSubChar1=FALSE;
+    cnv->useSubChar1=false;
 
     if( (cx=sharedData->mbcs.extIndexes)!=NULL &&
         ucnv_extInitialMatchFromU(
@@ -1286,7 +1296,7 @@ _EBCDICSwapLFNL(UConverterSharedData *sharedData, UErrorCode *pErrorCode) {
          mbcsTable->stateTable[0][EBCDIC_LF]==MBCS_ENTRY_FINAL(0, MBCS_STATE_VALID_DIRECT_16, U_LF) &&
          mbcsTable->stateTable[0][EBCDIC_NL]==MBCS_ENTRY_FINAL(0, MBCS_STATE_VALID_DIRECT_16, U_NL)
     )) {
-        return FALSE;
+        return false;
     }
 
     if(mbcsTable->outputType==MBCS_OUTPUT_1) {
@@ -1294,7 +1304,7 @@ _EBCDICSwapLFNL(UConverterSharedData *sharedData, UErrorCode *pErrorCode) {
              EBCDIC_RT_LF==MBCS_SINGLE_RESULT_FROM_U(table, results, U_LF) &&
              EBCDIC_RT_NL==MBCS_SINGLE_RESULT_FROM_U(table, results, U_NL)
         )) {
-            return FALSE;
+            return false;
         }
     } else /* MBCS_OUTPUT_2_SISO */ {
         stage2Entry=MBCS_STAGE_2_FROM_U(table, U_LF);
@@ -1302,7 +1312,7 @@ _EBCDICSwapLFNL(UConverterSharedData *sharedData, UErrorCode *pErrorCode) {
              MBCS_FROM_U_IS_ROUNDTRIP(stage2Entry, U_LF)!=0 &&
              EBCDIC_LF==MBCS_VALUE_2_FROM_STAGE_2(bytes, stage2Entry, U_LF)
         )) {
-            return FALSE;
+            return false;
         }
 
         stage2Entry=MBCS_STAGE_2_FROM_U(table, U_NL);
@@ -1310,7 +1320,7 @@ _EBCDICSwapLFNL(UConverterSharedData *sharedData, UErrorCode *pErrorCode) {
              MBCS_FROM_U_IS_ROUNDTRIP(stage2Entry, U_NL)!=0 &&
              EBCDIC_NL==MBCS_VALUE_2_FROM_STAGE_2(bytes, stage2Entry, U_NL)
         )) {
-            return FALSE;
+            return false;
         }
     }
 
@@ -1334,7 +1344,7 @@ _EBCDICSwapLFNL(UConverterSharedData *sharedData, UErrorCode *pErrorCode) {
          * ucnv_MBCSSizeofFromUBytes() function.
          */
         *pErrorCode=U_INVALID_FORMAT_ERROR;
-        return FALSE;
+        return false;
     }
 
     /*
@@ -1351,7 +1361,7 @@ _EBCDICSwapLFNL(UConverterSharedData *sharedData, UErrorCode *pErrorCode) {
     p=(uint8_t *)uprv_malloc(size);
     if(p==NULL) {
         *pErrorCode=U_MEMORY_ALLOCATION_ERROR;
-        return FALSE;
+        return false;
     }
 
     /* copy and modify the to-Unicode state table */
@@ -1397,7 +1407,7 @@ _EBCDICSwapLFNL(UConverterSharedData *sharedData, UErrorCode *pErrorCode) {
     if(newStateTable!=NULL) {
         uprv_free(newStateTable);
     }
-    return TRUE;
+    return true;
 }
 
 /* reconstitute omitted fromUnicode data ------------------------------------ */
@@ -1477,7 +1487,7 @@ writeStage3Roundtrip(const void *context, uint32_t value, UChar32 codePoints[32]
         /* set the roundtrip flag */
         *stage2|=(1UL<<(16+(c&0xf)));
     }
-    return TRUE;
+    return true;
  }
 
 static void
@@ -1561,7 +1571,7 @@ ucnv_MBCSLoad(UConverterSharedData *sharedData,
     _MBCSHeader *header=(_MBCSHeader *)raw;
     uint32_t offset;
     uint32_t headerLength;
-    UBool noFromU=FALSE;
+    UBool noFromU=false;
 
     if(header->version[0]==4) {
         headerLength=MBCS_HEADER_V4_LENGTH;
@@ -1726,7 +1736,7 @@ ucnv_MBCSLoad(UConverterSharedData *sharedData,
                 }
                 mbcsTable->stateTable=(const int32_t (*)[256])newStateTable;
                 mbcsTable->countStates=(uint8_t)(count+1);
-                mbcsTable->stateTableOwned=TRUE;
+                mbcsTable->stateTableOwned=true;
 
                 mbcsTable->outputType=MBCS_OUTPUT_DBCS_ONLY;
             }
@@ -1805,7 +1815,7 @@ ucnv_MBCSLoad(UConverterSharedData *sharedData,
                 (header->version[2]>=(MBCS_FAST_MAX>>8))
             )
         ) {
-            mbcsTable->utf8Friendly=TRUE;
+            mbcsTable->utf8Friendly=true;
 
             if(mbcsTable->countStates==1) {
                 /*
@@ -2411,13 +2421,13 @@ hasValidTrailBytes(const int32_t (*stateTable)[256], uint8_t state) {
     if( !MBCS_ENTRY_IS_TRANSITION(entry) &&
         MBCS_ENTRY_FINAL_ACTION(entry)!=MBCS_STATE_ILLEGAL
     ) {
-        return TRUE;
+        return true;
     }
     entry=row[0x41];
     if( !MBCS_ENTRY_IS_TRANSITION(entry) &&
         MBCS_ENTRY_FINAL_ACTION(entry)!=MBCS_STATE_ILLEGAL
     ) {
-        return TRUE;
+        return true;
     }
     /* Then test for final entries in this state. */
     for(b=0; b<=0xff; ++b) {
@@ -2425,7 +2435,7 @@ hasValidTrailBytes(const int32_t (*stateTable)[256], uint8_t state) {
         if( !MBCS_ENTRY_IS_TRANSITION(entry) &&
             MBCS_ENTRY_FINAL_ACTION(entry)!=MBCS_STATE_ILLEGAL
         ) {
-            return TRUE;
+            return true;
         }
     }
     /* Then recurse for transition entries. */
@@ -2434,10 +2444,10 @@ hasValidTrailBytes(const int32_t (*stateTable)[256], uint8_t state) {
         if( MBCS_ENTRY_IS_TRANSITION(entry) &&
             hasValidTrailBytes(stateTable, (uint8_t)MBCS_ENTRY_TRANSITION_STATE(entry))
         ) {
-            return TRUE;
+            return true;
         }
     }
-    return FALSE;
+    return false;
 }
 
 /*
@@ -2454,7 +2464,7 @@ isSingleOrLead(const int32_t (*stateTable)[256], uint8_t state, UBool isDBCSOnly
     } else {
         uint8_t action=(uint8_t)(MBCS_ENTRY_FINAL_ACTION(entry));
         if(action==MBCS_STATE_CHANGE_ONLY && isDBCSOnly) {
-            return FALSE;   /* SI/SO are illegal for DBCS-only conversion */
+            return false;   /* SI/SO are illegal for DBCS-only conversion */
         } else {
             return action!=MBCS_STATE_ILLEGAL;
         }
@@ -5672,7 +5682,7 @@ ucnv_MBCSWriteSub(UConverterFromUnicodeArgs *pArgs,
     }
 
     /* reset the selector for the next code point */
-    cnv->useSubChar1=FALSE;
+    cnv->useSubChar1=false;
 
     if (cnv->sharedData->mbcs.outputType == MBCS_OUTPUT_2_SISO) {
         p=buffer;

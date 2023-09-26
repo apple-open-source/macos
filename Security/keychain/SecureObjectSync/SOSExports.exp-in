@@ -70,6 +70,11 @@ _SOSCCView
 _SOSCCViewSet
 _SOSCCWaitForInitialSync
 _SOSCCCopyInitialSyncData
+_SOSCCSetCompatibilityMode
+_SOSCCFetchCompatibilityMode
+_SOSCCFetchCompatibilityModeCachedValue
+_SOSCCIsSOSTrustAndSyncingEnabled
+_SOSCCIsSOSTrustAndSyncingEnabledCachedValue
 
 _kSOSCCEngineStateCoderKey
 _kSOSCCEngineStateManifestCountKey
@@ -84,6 +89,7 @@ _kSOSCCHoldLockForInitialSync
 _kSOSCCPeerAvailable
 _kSOSCCRecoveryKeyChanged
 _kSOSCCCircleOctagonKeysChangedNotification
+_kSOSCCSOSIsNowOFF
 
 _SOSCCSetLastDepartureReason
 _SOSCCAccountSetToNew

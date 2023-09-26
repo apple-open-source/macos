@@ -217,7 +217,7 @@ TPCertInfo *tpDbFindIssuerCert(
                         /* We found a new root cert which does not match the old one */
                         break;
                     }
-                    /* else fall through to search for a different one */
+                    [[fallthrough]];
 				default:
 					if(issuerCert != NULL) {
 						/* either holding onto this cert, or done with it. */

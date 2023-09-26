@@ -37,20 +37,17 @@
 #endif
 
 // <rdar://problem/12596555>
-#if MALLOC_TARGET_IOS
-#define CONFIG_MADVISE_PRESSURE_RELIEF 0
-#else // MALLOC_TARGET_IOS
-#define CONFIG_MADVISE_PRESSURE_RELIEF 1
-#endif // MALLOC_TARGET_IOS
-
-// <rdar://problem/12596555>
 #define CONFIG_RECIRC_DEPOT 1
 #define CONFIG_AGGRESSIVE_MADVISE 1
 
 #if MALLOC_TARGET_IOS
-#define DEFAULT_AGGRESSIVE_MADVISE_ENABLED true
+# define DEFAULT_AGGRESSIVE_MADVISE_ENABLED true
+// <rdar://problem/12596555>
+# define CONFIG_MADVISE_PRESSURE_RELIEF 0
 #else // MALLOC_TARGET_IOS
-#define DEFAULT_AGGRESSIVE_MADVISE_ENABLED false
+# define DEFAULT_AGGRESSIVE_MADVISE_ENABLED false
+// <rdar://problem/12596555>
+# define CONFIG_MADVISE_PRESSURE_RELIEF 1
 #endif // MALLOC_TARGET_IOS
 
 // <rdar://problem/10397726>
@@ -133,6 +130,10 @@
 #define CONFIG_DEFERRED_RECLAIM 0
 
 #endif // TARGET_OS_SIMULATOR || (MALLOC_TARGET_IOS && !MALLOC_TARGET_64BIT)
+
+#else // CONFIG_LARGE_CACHE
+#define  CONFIG_DEFERRED_RECLAIM 0
+
 #endif // CONFIG_LARGE_CACHE
 
 #if MALLOC_TARGET_IOS
@@ -157,11 +158,19 @@
 #define CONFIG_FEATUREFLAGS_SIMPLE 0
 #endif
 
-// Quarantine zone, only useful on macOS (+ DriverKit, 64-bit simulators).
-#if (TARGET_OS_OSX || TARGET_OS_DRIVERKIT || TARGET_OS_SIMULATOR) && MALLOC_TARGET_64BIT
-#define CONFIG_QUARANTINE 1
+#if !defined(TARGET_OS_EXCLAVECORE)
+#define TARGET_OS_EXCLAVECORE 0
+#endif
+
+#if !defined(TARGET_OS_EXCLAVEKIT)
+#define TARGET_OS_EXCLAVEKIT 0
+#endif
+
+// Sanitizer zone, only useful on macOS (+ DriverKit, 64-bit simulators) and exclavecore/exclavekit.
+#if (TARGET_OS_EXCLAVECORE || TARGET_OS_EXCLAVEKIT || TARGET_OS_OSX || TARGET_OS_DRIVERKIT || TARGET_OS_SIMULATOR) && MALLOC_TARGET_64BIT
+#define CONFIG_SANITIZER 1
 #else
-#define CONFIG_QUARANTINE 0
+#define CONFIG_SANITIZER 0
 #endif
 
 // presence of commpage memsize
@@ -170,10 +179,17 @@
 // presence of commpage number of cpu count
 #define CONFIG_HAS_COMMPAGE_NCPUS 1
 
+// Distribute magazines by cluster number if nmagazines == nclusters
+#if (TARGET_OS_IOS && !TARGET_OS_SIMULATOR)
+#define CONFIG_MAGAZINE_PER_CLUSTER 1
+#else // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#define CONFIG_MAGAZINE_PER_CLUSTER 0
+#endif
+
+
 // Use of hyper-shift for magazine selection.
 #define CONFIG_NANO_USES_HYPER_SHIFT 0
-#define CONFIG_TINY_USES_HYPER_SHIFT 0
-#define CONFIG_SMALL_USES_HYPER_SHIFT 0
+#define CONFIG_SZONE_USES_HYPER_SHIFT 0
 
 // FIXME: limit number of malloc_create_zone() wrapper zones for watchOS to remove this
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -183,5 +199,27 @@
 #endif
 
 #define MALLOC_ZERO_POLICY_DEFAULT MALLOC_ZERO_ON_FREE
+
+
+#if MALLOC_TARGET_64BIT
+#define CONFIG_EARLY_MALLOC 1
+#else
+#define CONFIG_EARLY_MALLOC 0
+#endif
+
+#if TARGET_OS_IOS
+#define MALLOC_TARGET_IOS_ONLY 1
+#else
+#define MALLOC_TARGET_IOS_ONLY 0
+#endif
+
+
+#if MALLOC_TARGET_IOS_ONLY
+#define CONFIG_MALLOC_PROCESS_IDENTITY 1
+#else
+#define CONFIG_MALLOC_PROCESS_IDENTITY 0
+#endif
+
+#define MALLOC_SECURE_ALLOCATOR_LAUNCHD_ENABLED_DEFAULT true
 
 #endif // __PLATFORM_H

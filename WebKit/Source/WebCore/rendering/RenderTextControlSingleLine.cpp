@@ -1,7 +1,7 @@
 /**
- * Copyright (C) 2006, 2007, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
  *           (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/) 
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2010-2014 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
@@ -27,16 +27,20 @@
 #include "CSSFontSelector.h"
 #include "CSSValueKeywords.h"
 #include "Font.h"
-#include "Frame.h"
 #include "FrameSelection.h"
-#include "FrameView.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "InlineIteratorLineBox.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "LocalizedStrings.h"
+#include "RenderBlockFlowInlines.h"
+#include "RenderBoxInlines.h"
+#include "RenderBoxModelObjectInlines.h"
 #include "RenderLayer.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderScrollbar.h"
+#include "RenderStyleSetters.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "StyleResolver.h"
@@ -65,12 +69,6 @@ RenderTextControlSingleLine::~RenderTextControlSingleLine() = default;
 inline HTMLElement* RenderTextControlSingleLine::innerSpinButtonElement() const
 {
     return inputElement().innerSpinButtonElement();
-}
-
-void RenderTextControlSingleLine::centerRenderer(RenderBox& renderer) const
-{
-    LayoutUnit logicalHeightDiff = renderer.logicalHeight() - contentLogicalHeight();
-    renderer.setLogicalTop(renderer.logicalTop() - logicalHeightDiff / 2);
 }
 
 static void resetOverriddenHeight(RenderBox* box, const RenderObject* ancestor)
@@ -122,23 +120,32 @@ void RenderTextControlSingleLine::layout()
     RenderBlockFlow::layoutBlock(false);
 
     // Set the text block height
-    LayoutUnit desiredLogicalHeight = textBlockLogicalHeight();
+    LayoutUnit inputContentBoxLogicalHeight = logicalHeight() - borderAndPaddingLogicalHeight();
     LayoutUnit logicalHeightLimit = logicalHeight();
     LayoutUnit innerTextLogicalHeight;
     if (innerTextRenderer)
         innerTextLogicalHeight = innerTextRenderer->logicalHeight();
-    if (innerTextRenderer && innerTextLogicalHeight > logicalHeightLimit) {
-        if (desiredLogicalHeight != innerTextLogicalHeight)
+
+    auto shrinkInnerTextRendererIfNeeded = [&] {
+        if (!innerTextRenderer || innerTextLogicalHeight <= logicalHeightLimit)
+            return;
+        // Let the simple (non-container based) inner text overflow (and clip) to be able to center it.
+        if (!containerRenderer)
+            return;
+
+        if (inputContentBoxLogicalHeight != innerTextLogicalHeight)
             setNeedsLayout(MarkOnlyThis);
 
-        innerTextRenderer->mutableStyle().setLogicalHeight(Length(desiredLogicalHeight, LengthType::Fixed));
+        innerTextRenderer->mutableStyle().setLogicalHeight(Length(inputContentBoxLogicalHeight, LengthType::Fixed));
         innerTextRenderer->setNeedsLayout(MarkOnlyThis);
         if (innerBlockRenderer) {
-            innerBlockRenderer->mutableStyle().setLogicalHeight(Length(desiredLogicalHeight, LengthType::Fixed));
+            innerBlockRenderer->mutableStyle().setLogicalHeight(Length(inputContentBoxLogicalHeight, LengthType::Fixed));
             innerBlockRenderer->setNeedsLayout(MarkOnlyThis);
         }
-        innerTextLogicalHeight = desiredLogicalHeight;
-    }
+        innerTextLogicalHeight = inputContentBoxLogicalHeight;
+    };
+    shrinkInnerTextRendererIfNeeded();
+
     // The container might be taller because of decoration elements.
     LayoutUnit oldContainerLogicalTop;
     if (containerRenderer) {
@@ -168,10 +175,23 @@ void RenderTextControlSingleLine::layout()
         containerRenderer->setLogicalTop(oldContainerLogicalTop);
 
     // Center the child block in the block progression direction (vertical centering for horizontal text fields).
-    if (!container && innerTextRenderer && innerTextRenderer->height() != contentLogicalHeight())
-        centerRenderer(*innerTextRenderer);
-    else if (container && containerRenderer && containerRenderer->height() != contentLogicalHeight())
-        centerRenderer(*containerRenderer);
+    auto centerRendererIfNeeded = [&](RenderBox& renderer) {
+        auto height = [&] {
+            if (auto* blockFlow = dynamicDowncast<RenderBlockFlow>(renderer)) {
+                if (auto lineBox = InlineIterator::firstLineBoxFor(*blockFlow))
+                    return LayoutUnit { std::max(lineBox->logicalHeight(), lineBox->contentLogicalHeight()) };
+            }
+            return renderer.logicalHeight();
+        }();
+        auto contentBoxHeight = contentLogicalHeight();
+        if (contentBoxHeight == height)
+            return;
+        renderer.setLogicalTop(renderer.logicalTop() + (contentBoxHeight / 2 - height / 2));
+    };
+    if (!container && innerTextRenderer)
+        centerRendererIfNeeded(*innerTextRenderer);
+    else if (container && containerRenderer)
+        centerRendererIfNeeded(*containerRenderer);
 
     bool innerTextSizeChanged = innerTextRenderer && innerTextRenderer->size() != oldInnerTextSize;
 
@@ -285,16 +305,29 @@ void RenderTextControlSingleLine::styleDidChange(StyleDifference diff, const Ren
 
 bool RenderTextControlSingleLine::hasControlClip() const
 {
-    // Apply control clip for text fields with decorations.
-    return !!containerElement();
+    auto shouldClipInnerContent = [&] {
+        // Apply control clip for text fields with decorations.
+        RenderBox* innerRenderBox = nullptr;
+        if (auto* containerElement = inputElement().containerElement())
+            innerRenderBox = containerElement->renderBox();
+
+        if (!innerRenderBox && inputElement().placeholderElement())
+            innerRenderBox = inputElement().placeholderElement()->renderBox();
+
+        if (!innerRenderBox && inputElement().innerTextElement())
+            innerRenderBox = inputElement().innerTextElement()->renderBox();
+
+        return !!innerRenderBox;
+    };
+    return shouldClipInnerContent();
 }
 
 LayoutRect RenderTextControlSingleLine::controlClipRect(const LayoutPoint& additionalOffset) const
 {
     ASSERT(hasControlClip());
-    LayoutRect clipRect = contentBoxRect();
-    if (containerElement()->renderBox())
-        clipRect = unionRect(clipRect, containerElement()->renderBox()->frameRect());
+    auto clipRect = paddingBoxRect();
+    if (auto* containerElementRenderer = containerElement() ? containerElement()->renderBox() : nullptr)
+        clipRect = unionRect(clipRect, containerElementRenderer->frameRect());
     clipRect.moveBy(additionalOffset);
     return clipRect;
 }
@@ -366,15 +399,21 @@ void RenderTextControlSingleLine::autoscroll(const IntPoint& position)
 
 int RenderTextControlSingleLine::scrollWidth() const
 {
-    if (auto innerTextElement = this->innerTextElement(); innerTextElement && innerTextElement->renderer())
-        return innerTextElement->renderer()->scrollWidth();
+    if (auto* innerTextRenderer = innerTextElement() ? innerTextElement()->renderer() : nullptr) {
+        // Adjust scrollWidth to inculde input element horizontal paddings and decoration width.
+        auto adjustment = clientWidth() - innerTextRenderer->clientWidth();
+        return innerTextRenderer->scrollWidth() + adjustment;
+    }
     return RenderBlockFlow::scrollWidth();
 }
 
 int RenderTextControlSingleLine::scrollHeight() const
 {
-    if (auto innerTextElement = this->innerTextElement(); innerTextElement && innerTextElement->renderer())
-        return innerTextElement->renderer()->scrollHeight();
+    if (auto* innerTextRenderer = innerTextElement() ? innerTextElement()->renderer() : nullptr) {
+        // Adjust scrollHeight to inculde input element vertical paddings and decoration height.
+        auto adjustment = clientHeight() - innerTextRenderer->clientHeight();
+        return innerTextRenderer->scrollHeight() + adjustment;
+    }
     return RenderBlockFlow::scrollHeight();
 }
 
@@ -427,6 +466,11 @@ bool RenderTextControlSingleLine::logicalScroll(ScrollLogicalDirection direction
 HTMLInputElement& RenderTextControlSingleLine::inputElement() const
 {
     return downcast<HTMLInputElement>(RenderTextControl::textFormControlElement());
+}
+
+RenderTextControlInnerBlock::RenderTextControlInnerBlock(Element& element, RenderStyle&& style)
+    : RenderBlockFlow(element, WTFMove(style))
+{
 }
 
 }

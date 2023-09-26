@@ -1,6 +1,7 @@
 {
-    "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 20,
+    "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v4.json",
+    "assetVersion": 21,
+    "assetVersionV2":1001,
     "operators": [
         {
             "email": [
@@ -73,9 +74,9 @@
                     "log_id": "QcjKsd8iRkoQxqE6CUKHXk4xixsD6+tLx2jwkGKWBvY=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2019-06-19T06:31:12Z",
-                            "version": "59"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:29:15Z",
+                            "version": "185"
                         }
                     },
                     "temporal_interval": {
@@ -544,9 +545,9 @@
                     "log_id": "RqVV63X6kSAwtaKJafTzfREsQXS+/Um4havy/HD+bUc=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2019-06-19T06:30:14Z",
-                            "version": "58"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:30:33Z",
+                            "version": "188"
                         }
                     },
                     "temporal_interval": {
@@ -561,9 +562,9 @@
                     "log_id": "KXm+8J45OSHwVnOfY6V35b5XfZxgCvj5TV0mXCVdx4Q=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2019-06-19T06:28:07Z",
-                            "version": "53"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:30:09Z",
+                            "version": "187"
                         }
                     },
                     "temporal_interval": {
@@ -730,9 +731,9 @@
                     "log_id": "UaOw9f0BeZxWbbg3eI8MpHrMGyfL956IQpoN/tSLBeU=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2019-03-18T18:13:27Z",
-                            "version": "46"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:29:53Z",
+                            "version": "186"
                         }
                     },
                     "temporal_interval": {
@@ -773,9 +774,9 @@
                     "log_id": "VhQGmi/XwuzT9eG9RLI+x0Z2ubyZEVzA75SYVdaJ0N0=",
                     "mmd": 86400,
                     "state": {
-                        "retired": {
-                            "timestamp": "2022-01-24T00:00:00Z",
-                            "version": "107"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:33:40Z",
+                            "version": "194"
                         }
                     },
                     "url": "https://ct1.digicert-ct.com/log/"
@@ -786,9 +787,9 @@
                     "log_id": "h3W/51l8+IxDmV+9827/Vo1HVjb/SrVgwbTq/16ggw8=",
                     "mmd": 86400,
                     "state": {
-                        "retired": {
-                            "timestamp": "2020-05-04T00:00:40Z",
-                            "version": "87"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:33:29Z",
+                            "version": "193"
                         }
                     },
                     "url": "https://ct2.digicert-ct.com/log/"
@@ -880,9 +881,9 @@
                     "log_id": "IkVFB1lVJFaWP6Ev8fdthuAjJmOtwEt/XcaDXG7iDwI=",
                     "mmd": 86400,
                     "state": {
-                        "retired": {
-                            "timestamp": "2021-07-21T00:00:00Z",
-                            "version": "100"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:32:44Z",
+                            "version": "191"
                         }
                     },
                     "temporal_interval": {
@@ -965,9 +966,9 @@
                     "log_id": "BZwB0yDgB4QTlYBJjRF8kDJmr69yULWvO0akPhGEDUo=",
                     "mmd": 86400,
                     "state": {
-                        "retired": {
-                            "timestamp": "2022-09-29T00:00:00Z",
-                            "version": "171"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:33:18Z",
+                            "version": "192"
                         }
                     },
                     "temporal_interval": {
@@ -999,9 +1000,9 @@
                     "log_id": "c9meiRtMlnigIH1HneayxhzQUV5xGSqMa4AQesF3crU=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2022-11-13T00:00:00Z",
-                            "version": "177"
+                        "retired": {
+                            "timestamp": "2023-05-30T00:00:00Z",
+                            "version": "195"
                         }
                     },
                     "temporal_interval": {
@@ -1143,9 +1144,9 @@
                     "log_id": "36Veq2iCTx9sre64X04+WurNohKkal6OOxLAIERcKnM=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2019-12-02T18:36:21Z",
-                            "version": "79"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:31:43Z",
+                            "version": "189"
                         }
                     },
                     "temporal_interval": {
@@ -1253,9 +1254,9 @@
                     "log_id": "w2X5s2VPMoPHnamOk9dBj1ure+MlLJjh0vBLuetCfSM=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2021-08-23T21:45:49Z",
-                            "version": "103"
+                        "rejected": {
+                            "timestamp": "2023-07-26T22:32:16Z",
+                            "version": "190"
                         }
                     },
                     "temporal_interval": {
@@ -1280,10 +1281,61 @@
                         "start_inclusive": "2023-01-01T00:00:00Z"
                     },
                     "url": "https://ct.trustasia.com/log2023/"
+                },
+                {
+                    "description": "Trust Asia Log2024-2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEp2TieYE/YdfsxvhlKB2gtGYzwyXVCpV4nI/+pCrYj35y4P6of/ixLYXAjhJ0DS+Mq9d/eh7ZhDM56P2JX5ZICA==",
+                    "log_id": "h0+1DcAp2ZMd5XPp8omejkUzs5LTiwpGJXS/D+6y/B4=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2023-07-26T22:27:54Z",
+                            "version": "184"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2025-01-01T00:00:00Z",
+                        "start_inclusive": "2024-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct2024.trustasia.com/log2024/"
+                },
+                {
+                    "description": "Trust Asia Log2025A",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEcOWxpAl5K534o6DfGO+VXQNse6GRqbiAfexcAgjibi98MnC9loRfpmLpZbV8kFi6ItX59WlUt6iUTjIJriYRTQ==",
+                    "log_id": "KOKBOP2DIUXpqdaqdTdtg3eohRKzwH9yQUgh3L3pjGY=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2023-07-26T22:38:31Z",
+                            "version": "197"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2026-01-01T00:00:00Z",
+                        "start_inclusive": "2025-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct2025-a.trustasia.com/log2025a/"
+                },
+                {
+                    "description": "Trust Asia Log2025B",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEqqCL22cUXZeJHQiNBtfBlI6w+kxG1VMIeCsEU2zz3rHRU0DakFfmGp48xwO4vS+pz+h7XuFLYOU4Q2CXwVsvZQ==",
+                    "log_id": "KCyL3YEP+QkSCs4W1uDsIBvqgqOkrxnZ7/tZ6D/cQmg=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2023-07-26T22:39:56Z",
+                            "version": "199"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2026-01-01T00:00:00Z",
+                        "start_inclusive": "2025-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct2025-b.trustasia.com/log2025b/"
                 }
             ],
             "name": "TrustAsia"
         }
     ],
-    "version": "182"
+    "version": "199"
 }

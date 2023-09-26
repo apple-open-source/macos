@@ -91,7 +91,8 @@ static void tests(void){
 int secd_156_timers(int argc, char *const *argv)
 {
     plan_tests(kTestTestCount);
-    
+    enableSOSCompatibilityForTests();
+
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     
     tests();

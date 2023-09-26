@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,11 +81,6 @@ void WebKitInitialize(void)
     WebCore::initializeHTTPConnectionSettingsOnStartup();
 }
 
-void WebKitSetIsClassic(BOOL flag)
-{
-    // FIXME: Remove this once it stops being called.
-}
-
 float WebKitGetMinimumZoomFontSize(void)
 {
     return DEFAULT_VALUE_FOR_MinimumZoomFontSize;
@@ -95,8 +90,8 @@ int WebKitGetLastLineBreakInBuffer(UChar *characters, int position, int length)
 {
     unsigned lastBreakPos = position;
     unsigned breakPos = 0;
-    LazyLineBreakIterator breakIterator(StringView(characters, length));
-    while (static_cast<int>(breakPos = nextBreakablePosition(breakIterator, breakPos)) < position)
+    CachedLineBreakIteratorFactory lineBreakIteratorFactory(StringView(characters, length));
+    while (static_cast<int>(breakPos = nextBreakablePosition(lineBreakIteratorFactory, breakPos)) < position)
         lastBreakPos = breakPos++;
     return static_cast<int>(lastBreakPos) < position ? lastBreakPos : INT_MAX;
 }

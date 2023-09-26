@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2006,2007 Free Software Foundation, Inc.                   *
+ * Copyright (c) 2006-2011,2012 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: redraw.c,v 1.4 2007/06/30 17:55:06 tom Exp $
+ * $Id: redraw.c,v 1.8 2012/12/08 20:46:02 tom Exp $
  *
  * Demonstrate the redrawwin() and wredrawln() functions.
  * Thomas Dickey - 2006/11/4
@@ -64,6 +64,8 @@ test_redraw(WINDOW *win)
     int ch, y, x;
     int max_y, max_x;
     int beg_y, beg_x;
+
+    assert(win != 0);
 
     scrollok(win, TRUE);
     keypad(win, TRUE);
@@ -111,7 +113,7 @@ test_redraw(WINDOW *win)
 	     * using mvcur().  It is ifdef'd for NCURSES, since X/Open does
 	     * not define the case where the old location is unknown. 
 	     */
-	    system("date");
+	    IGNORE_RC(system("date"));
 	    mvcur(-1, -1, y, x);
 	    break;
 #endif

@@ -1,5 +1,5 @@
 /* inftrees.c -- generate Huffman trees for efficient decoding
- * Copyright (C) 1995-2017 Mark Adler
+ * Copyright (C) 1995-2022 Mark Adler
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
@@ -9,7 +9,7 @@
 #define MAXBITS 15
 
 const char inflate_copyright[] =
-   " inflate 1.2.11 Copyright 1995-2017 Mark Adler ";
+   " inflate 1.2.12 Copyright 1995-2022 Mark Adler ";
 /*
   If you use the zlib library in a product, an acknowledgment is welcome
   in the documentation of your product. If for some reason you cannot
@@ -29,13 +29,14 @@ const char inflate_copyright[] =
    table index bits.  It will differ if the request is greater than the
    longest code or if it is less than the shortest code.
  */
-int ZLIB_INTERNAL inflate_table(type, lens, codes, table, bits, work)
+int ZLIB_INTERNAL inflate_table(type, lens, codes, table, bits, work, enough)
 codetype type;
 unsigned short FAR *lens;
 unsigned codes;
 code FAR * FAR *table;
 unsigned FAR *bits;
 unsigned short FAR *work;
+unsigned enough;
 {
     unsigned len;               /* a code's length in bits */
     unsigned sym;               /* index of code symbols */
@@ -62,7 +63,7 @@ unsigned short FAR *work;
         35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0};
     static const unsigned short lext[31] = { /* Length codes 257..285 extra */
         16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18,
-        19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 77, 202};
+        19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 64, 64};
     static const unsigned short dbase[32] = { /* Distance codes 0..29 base */
         1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
         257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145,
@@ -104,10 +105,27 @@ unsigned short FAR *work;
      */
 
     /* accumulate lengths for codes (assumes lens[] all in 0..MAXBITS) */
+#if defined(INFFAST_OPT)
+    {
+      unsigned short cnt[2][16];
+      
+      __builtin_memset(cnt, 0, sizeof(cnt));
+      for (sym = 0; sym + 2 <= codes; sym += 2)
+      {
+        cnt[0][lens[sym    ]]++;
+        cnt[1][lens[sym + 1]]++;
+      }
+      // AVX usage in the kernel is problematic. Thus, use 16 byte vectors.
+      ((packed_ushort8*)count)[0] = ((packed_ushort8*)cnt[0])[0] + ((packed_ushort8*)cnt[1])[0];
+      ((packed_ushort8*)count)[1] = ((packed_ushort8*)cnt[0])[1] + ((packed_ushort8*)cnt[1])[1];
+      if (sym < codes) count[lens[sym]]++;
+    }
+#else
     for (len = 0; len <= MAXBITS; len++)
         count[len] = 0;
     for (sym = 0; sym < codes; sym++)
         count[lens[sym]]++;
+#endif
 
     /* bound code lengths, force root to be within code lengths */
     root = *bits;
@@ -143,9 +161,20 @@ unsigned short FAR *work;
         offs[len + 1] = offs[len] + count[len];
 
     /* sort symbols by length, by symbol order within each length */
+#if defined(INFFAST_OPT)
+    for (sym = 0; sym + 2 <= codes; sym += 2)
+    {
+      if (lens[sym    ]) work[offs[lens[sym    ]]++] = (unsigned short)sym;
+      if (lens[sym + 1]) work[offs[lens[sym + 1]]++] = (unsigned short)sym + 1;
+    }
+    if ((sym < codes) && (lens[sym]))
+    {
+      work[offs[lens[sym]]] = (unsigned short)sym;
+    }
+#else
     for (sym = 0; sym < codes; sym++)
         if (lens[sym] != 0) work[offs[lens[sym]]++] = (unsigned short)sym;
-
+#endif
     /*
        Create and fill in decoding tables.  In this loop, the table being
        filled is at next and has curr index bits.  The code being used is huff
@@ -206,8 +235,7 @@ unsigned short FAR *work;
     mask = used - 1;            /* mask for comparing low */
 
     /* check available table space */
-    if ((type == LENS && used > ENOUGH_LENS) ||
-        (type == DISTS && used > ENOUGH_DISTS))
+    if (type != CODES && used > enough)
         return 1;
 
     /* process all codes and make table entries */
@@ -221,12 +249,19 @@ unsigned short FAR *work;
         else if (work[sym] >= match) {
             here.op = (unsigned char)(extra[work[sym] - match]);
             here.val = base[work[sym] - match];
+#if defined(INFFAST_OPT)
+            INFLATE_ADD_EXTRA_BITS(here);
+#endif
         }
         else {
             here.op = (unsigned char)(32 + 64);         /* end of block */
             here.val = 0;
         }
 
+#if defined(INFFAST_OPT)
+        min = 1U << curr;
+        next[huff >> drop] = here;
+#else
         /* replicate for those indices with low len bits equal to huff */
         incr = 1U << (len - drop);
         fill = 1U << curr;
@@ -235,7 +270,7 @@ unsigned short FAR *work;
             fill -= incr;
             next[(huff >> drop) + fill] = here;
         } while (fill != 0);
-
+#endif
         /* backwards increment the len-bit code huff */
         incr = 1U << (len - 1);
         while (huff & incr)
@@ -251,7 +286,26 @@ unsigned short FAR *work;
         sym++;
         if (--(count[len]) == 0) {
             if (len == max) break;
+#if defined(INFFAST_OPT)
+            {
+              // Replicate entries?
+              if (len < lens[work[sym]])
+              {
+                uint bits = len - drop; len = lens[work[sym]];
+                uint need = len - drop;
+                
+                // Not full size yet?
+                while (bits < curr)
+                {
+                  // Duplicate low bits
+                  __builtin_memcpy(next + (1 << bits), next, sizeof(code) << bits);
+                  if (++bits == need) break; // Done
+                }
+              }
+            }
+#else
             len = lens[work[sym]];
+#endif
         }
 
         /* create new sub-table if needed */
@@ -275,8 +329,7 @@ unsigned short FAR *work;
 
             /* check for enough space */
             used += 1U << curr;
-            if ((type == LENS && used > ENOUGH_LENS) ||
-                (type == DISTS && used > ENOUGH_DISTS))
+            if (type != CODES && used > enough)
                 return 1;
 
             /* point entry in root table to sub-table */

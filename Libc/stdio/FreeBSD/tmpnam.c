@@ -57,8 +57,7 @@ static void tmpnam_buf_allocate(void)
 }
 
 char *
-tmpnam(s)
-	char *s;
+tmpnam(char *s)
 {
 	static u_long tmpcount;
 

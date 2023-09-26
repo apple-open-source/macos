@@ -44,6 +44,12 @@ static struct def_values def_data_log_format[] = {
     { NULL, 0 },
 };
 
+static struct def_values def_data_intercept_type[] = {
+    { "dso", dso },
+    { "trace", trace },
+    { NULL, 0 },
+};
+
 struct sudo_defs_types sudo_defs_table[] = {
     {
 	"syslog", T_LOGFAC|T_BOOL,
@@ -346,8 +352,28 @@ struct sudo_defs_types sudo_defs_table[] = {
 	N_("Log user's input for the command being run"),
 	NULL,
     }, {
+	"log_stdin", T_FLAG,
+	N_("Log the command's standard input if not connected to a terminal"),
+	NULL,
+    }, {
+	"log_ttyin", T_FLAG,
+	N_("Log the user's terminal input for the command being run"),
+	NULL,
+    }, {
 	"log_output", T_FLAG,
 	N_("Log the output of the command being run"),
+	NULL,
+    }, {
+	"log_stdout", T_FLAG,
+	N_("Log the command's standard output if not connected to a terminal"),
+	NULL,
+    }, {
+	"log_stderr", T_FLAG,
+	N_("Log the command's standard error if not connected to a terminal"),
+	NULL,
+    }, {
+	"log_ttyout", T_FLAG,
+	N_("Log the terminal output of the command being run"),
 	NULL,
     }, {
 	"compress_io", T_FLAG,
@@ -396,6 +422,10 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"pam_login_service", T_STR,
 	N_("PAM service name to use for login shells: %s"),
+	NULL,
+    }, {
+	"pam_askpass_service", T_STR,
+	N_("PAM service name to use when sudo is run with the -A option: %s"),
 	NULL,
     }, {
 	"pam_setcred", T_FLAG,
@@ -572,6 +602,98 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"selinux", T_FLAG,
 	N_("Enable SELinux RBAC support"),
+	NULL,
+    }, {
+	"admin_flag", T_STR|T_BOOL|T_CHPATH,
+	N_("Path to the file that is created the first time sudo is run: %s"),
+	NULL,
+    }, {
+	"intercept", T_FLAG,
+	N_("Intercept further commands and apply sudoers restrictions to them"),
+	NULL,
+    }, {
+	"log_subcmds", T_FLAG,
+	N_("Log sub-commands run by the original command"),
+	NULL,
+    }, {
+	"log_exit_status", T_FLAG,
+	N_("Log the exit status of commands"),
+	NULL,
+    }, {
+	"intercept_authenticate", T_FLAG,
+	N_("Subsequent commands in an intercepted session must be authenticated"),
+	NULL,
+    }, {
+	"intercept_allow_setid", T_FLAG,
+	N_("Allow an intercepted command to run set setuid or setgid programs"),
+	NULL,
+    }, {
+	"rlimit_as", T_RLIMIT|T_BOOL,
+	N_("The maximum size to which the process's address space may grow (in bytes): %s"),
+	NULL,
+    }, {
+	"rlimit_core", T_RLIMIT|T_BOOL,
+	N_("The largest size core dump file that may be created (in bytes): %s"),
+	NULL,
+    }, {
+	"rlimit_cpu", T_RLIMIT|T_BOOL,
+	N_("The maximum amount of CPU time that the process may use (in seconds): %s"),
+	NULL,
+    }, {
+	"rlimit_data", T_RLIMIT|T_BOOL,
+	N_("The maximum size of the data segment for the process (in bytes): %s"),
+	NULL,
+    }, {
+	"rlimit_fsize", T_RLIMIT|T_BOOL,
+	N_("The largest size file that the process may create (in bytes): %s"),
+	NULL,
+    }, {
+	"rlimit_locks", T_RLIMIT|T_BOOL,
+	N_("The maximum number of locks that the process may establish: %s"),
+	NULL,
+    }, {
+	"rlimit_memlock", T_RLIMIT|T_BOOL,
+	N_("The maximum size that the process may lock in memory (in bytes): %s"),
+	NULL,
+    }, {
+	"rlimit_nofile", T_RLIMIT|T_BOOL,
+	N_("The maximum number of files that the process may have open: %s"),
+	NULL,
+    }, {
+	"rlimit_nproc", T_RLIMIT|T_BOOL,
+	N_("The maximum number of processes that the user may run simultaneously: %s"),
+	NULL,
+    }, {
+	"rlimit_rss", T_RLIMIT|T_BOOL,
+	N_("The maximum size to which the process's resident set size may grow (in bytes): %s"),
+	NULL,
+    }, {
+	"rlimit_stack", T_RLIMIT|T_BOOL,
+	N_("The maximum size to which the process's stack may grow (in bytes): %s"),
+	NULL,
+    }, {
+	"noninteractive_auth", T_FLAG,
+	N_("Attempt authentication even when in non-interactive mode"),
+	NULL,
+    }, {
+	"log_passwords", T_FLAG,
+	N_("Store plaintext passwords in I/O log input"),
+	NULL,
+    }, {
+	"passprompt_regex", T_LIST|T_SPACE|T_BOOL,
+	N_("List of regular expressions to use when matching a password prompt"),
+	NULL,
+    }, {
+	"intercept_type", T_TUPLE,
+	N_("The mechanism used by the intercept and log_subcmds options: %s"),
+	def_data_intercept_type,
+    }, {
+	"intercept_verify", T_FLAG,
+	N_("Attempt to verify the command and arguments after execution"),
+	NULL,
+    }, {
+	"apparmor_profile", T_STR,
+	N_("AppArmor profile to use in the new security context: %s"),
 	NULL,
     }, {
 	NULL, 0, NULL

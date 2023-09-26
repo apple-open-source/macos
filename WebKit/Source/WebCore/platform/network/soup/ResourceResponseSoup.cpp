@@ -93,7 +93,7 @@ void ResourceResponse::updateFromSoupMessageHeaders(SoupMessageHeaders* soupHead
         addHTTPHeaderField(String::fromLatin1(headerName), String::fromLatin1(headerValue));
 }
 
-CertificateInfo ResourceResponse::platformCertificateInfo(Span<const std::byte>) const
+CertificateInfo ResourceResponse::platformCertificateInfo(std::span<const std::byte>) const
 {
     return CertificateInfo(m_certificate.get(), m_tlsErrors);
 }
@@ -103,9 +103,9 @@ static String sanitizeFilename(const String& filename)
     if (filename.isEmpty())
         return filename;
 
-    // Strip leading/trailing whitespaces, path separators and dots
-    auto result = filename.stripLeadingAndTrailingCharacters([](UChar character) -> bool {
-        return isSpaceOrNewline(character) || character == '/' || character == '\\' || character == '.';
+    // Trim leading/trailing whitespaces, path separators and dots
+    auto result = filename.trim([](UChar character) -> bool {
+        return deprecatedIsSpaceOrNewline(character) || character == '/' || character == '\\' || character == '.';
     });
 
     if (result.isEmpty())

@@ -77,6 +77,7 @@ namespace SecurityServer {
 	switch (rcode) { \
 	case CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT: \
 		notifyAclChange(key, tag); \
+        break; \
 	case CSSM_OK: \
 		break; \
 	default: \

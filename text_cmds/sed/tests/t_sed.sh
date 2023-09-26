@@ -135,10 +135,29 @@ preserve_leading_ws_ia_body() {
     7 8 9"'
 }
 
+#ifdef __APPLE__
+atf_test_case zerolen
+zerolen_head() {
+	atf_set "descr" "Test that sed(1) handles zero length matches correctly"
+}
+
+zerolen_body() {
+	unset LC_ALL
+
+	str=$'H\xc3\x82Bnc'
+	result=$'`H`\xc3\x82`B`n``c``\n'
+	atf_check -o inline:"${result}" -x \
+	    "echo ${str} | env LANG=C LC_CTYPE=en_US.UTF-8 sed -E 's/[A-Z]*/\`&\`/g'"
+}
+#endif
+
 atf_init_test_cases() {
 	atf_add_test_case c2048
 	atf_add_test_case emptybackref
 	atf_add_test_case longlines
 	atf_add_test_case rangeselection
 	atf_add_test_case preserve_leading_ws_ia
+#ifdef __APPLE__
+	atf_add_test_case zerolen
+#endif
 }

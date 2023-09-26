@@ -24,7 +24,7 @@
 #define ALUTAPI
 #define ALUTAPIENTRY
 
-#include "al.h"
+#include <OpenAL/al.h>
 
 #ifdef __cplusplus
 extern "C" {

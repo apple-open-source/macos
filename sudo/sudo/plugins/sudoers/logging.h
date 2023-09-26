@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1999-2005, 2009-2018
+ * Copyright (c) 1999-2005, 2009-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -21,6 +21,21 @@
 #define SUDOERS_LOGGING_H
 
 #include <stdarg.h>
+
+struct sudoers_str_list;
+struct log_details {
+    struct eventlog *evlog;
+    struct sudoers_str_list *log_servers;
+    struct timespec server_timeout;
+# if defined(HAVE_OPENSSL)
+    char *ca_bundle;
+    char *cert_file;
+    char *key_file;
+# endif /* HAVE_OPENSSL */
+    bool keepalive;
+    bool verify_server;
+    bool ignore_log_errors;
+};
 
 /*
  * Values for sudoers_setlocale()
@@ -42,9 +57,12 @@
 #define SLOG_NO_LOG		0x20	/* do not log via file or syslog */
 #define SLOG_AUDIT		0x40	/* send message to audit as well */
 
+typedef bool (*sudoers_logger_t)(const char *file, int line, int column, const char *fmt, va_list args);
+
 /* XXX - needed for auditing */
 extern int NewArgc;
 extern char **NewArgv;
+extern char **saved_argv;
 extern char *audit_msg;
 
 union sudo_defs_val;
@@ -54,21 +72,24 @@ struct log_details;
 bool sudoers_warn_setlocale(bool restore, int *cookie);
 bool sudoers_setlocale(int locale_type, int *prev_locale);
 int sudoers_getlocale(void);
-int audit_failure(char *const argv[], char const *const fmt, ...) __printflike(2, 3);
-int vaudit_failure(char *const argv[], char const *const fmt, va_list ap) __printflike(2, 0);
-bool log_allowed(void);
+int audit_failure(char *const argv[], char const *const fmt, ...) sudo_printflike(2, 3);
+int vaudit_failure(char *const argv[], char const *const fmt, va_list ap) sudo_printflike(2, 0);
+bool log_allowed(struct eventlog *evlog);
+bool log_exit_status(int exit_status);
 bool log_auth_failure(int status, unsigned int tries);
 bool log_denial(int status, bool inform_user);
 bool log_failure(int status, int flags);
-bool log_server_alert(struct eventlog *evlog, struct timespec *now, const char *message, const char *errstr, struct sudo_plugin_event * (*event_alloc)(void));
-bool log_server_reject(struct eventlog *evlog, const char *message, struct sudo_plugin_event * (*event_alloc)(void));
-bool log_warning(int flags, const char *fmt, ...) __printflike(2, 3);
-bool log_warningx(int flags, const char *fmt, ...) __printflike(2, 3);
-bool gai_log_warning(int flags, int errnum, const char *fmt, ...) __printflike(3, 4);
+bool log_server_alert(struct eventlog *evlog, struct timespec *now, const char *message, const char *errstr);
+bool log_server_reject(struct eventlog *evlog, const char *message);
+bool log_warning(int flags, const char *fmt, ...) sudo_printflike(2, 3);
+bool log_warningx(int flags, const char *fmt, ...) sudo_printflike(2, 3);
+bool gai_log_warning(int flags, int errnum, const char *fmt, ...) sudo_printflike(3, 4);
 bool sudoers_initlocale(const char *ulocale, const char *slocale);
-bool sudoers_locale_callback(const union sudo_defs_val *);
-void sudoers_to_eventlog(struct eventlog *evlog, char * const argv[], char *const envp[]);
+bool sudoers_locale_callback(const char *file, int line, int column, const union sudo_defs_val *sd_un, int op);
+void sudoers_to_eventlog(struct eventlog *evlog, const char *cmnd, char * const argv[], char *const envp[], const char *uuid_str);
 void init_eventlog_config(void);
 bool init_log_details(struct log_details *details, struct eventlog *evlog);
+bool log_parse_error(const char *file, int line, int column, const char *fmt, va_list ap) sudo_printf0like(4, 0);
+bool mail_parse_errors(void);
 
 #endif /* SUDOERS_LOGGING_H */

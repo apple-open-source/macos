@@ -39,7 +39,7 @@ struct ExceptionData;
 struct PublicKeyCredentialCreationOptions;
 struct AuthenticatorResponseData;
 struct PublicKeyCredentialRequestOptions;
-struct SecurityOriginData;
+class SecurityOriginData;
 }
 
 #if HAVE(UNIFIED_ASC_AUTH_UI)
@@ -82,6 +82,7 @@ private:
     WebPageProxy& m_webPageProxy;
 
 #if HAVE(UNIFIED_ASC_AUTH_UI)
+    bool isASCAvailable();
     RetainPtr<ASCCredentialRequestContext> contextForRequest(WebAuthenticationRequestData&&);
     void performRequest(RetainPtr<ASCCredentialRequestContext>, RequestCompletionHandler&&);
     RetainPtr<ASCAuthorizationRemotePresenter> m_presenter;

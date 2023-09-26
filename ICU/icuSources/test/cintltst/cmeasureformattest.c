@@ -22,6 +22,8 @@ static void TestUAMeasureFormat(void);
 static void TestUAMeasFmtOpenAllLocs(void);
 static void TestUAGetUnitsForUsage(void);
 static void TestUAGetCategoryForUnit(void);
+static void TestMeasurementSystemOverride(void);
+static void TestRgSubtag(void);
 
 void addMeasureFormatTest(TestNode** root);
 
@@ -33,6 +35,8 @@ void addMeasureFormatTest(TestNode** root)
     TESTCASE(TestUAMeasFmtOpenAllLocs);
     TESTCASE(TestUAGetUnitsForUsage);
     TESTCASE(TestUAGetCategoryForUnit);
+    TESTCASE(TestMeasurementSystemOverride);
+    TESTCASE(TestRgSubtag);
 }
 
 typedef struct {
@@ -142,11 +146,11 @@ static const SingleUnitFormat fr_singFmt[] = {
     { UAMEASUNIT_DURATION_MINUTE,           0.0,   "0,00 minute",                   "0 minute",                   "0\\u00A0min",      "0,0\\u00A0min",  "0min",        "0min",      0,1,    0,1   },
     { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00 minute",                   "1 minute",                   "1\\u00A0min",      "1,0\\u00A0min",  "1min",        "1min",      0,1,    0,1   },
     { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25 minutes",                  "5 minutes",                  "5,25\\u00A0min",   "5,2\\u00A0min",  "5min",        "5min",      0,1,    0,1   },
-    { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20\\u00A0centim\\u00E8tres", "37\\u00A0centim\\u00E8tres", "37,203\\u202Fcm",  "37,2\\u202Fcm",  "37 cm",       "37 cm",     0,2,    0,2   },
+    { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20\\u00A0centim\\u00E8tres", "37\\u00A0centim\\u00E8tres", "37,203\\u202Fcm",  "37,2\\u202Fcm",  "37\\u202Fcm",  "37\\u202Fcm", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20\\u00A0degr\\u00E9s Celsius","37\\u00A0degr\\u00E9s Celsius", "37,203\\u202F\\u00B0C", "37,2\\u202F\\u00B0C",  "37\\u00B0C",  "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20\\u00A0degr\\u00E9s Fahrenheit", "37\\u00A0degr\\u00E9s Fahrenheit", "37,203\\u202F\\u00B0F",  "37,2\\u202F\\u00B0F",  "37\\u00B0F",  "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37,20\\u00A0degr\\u00E9s",      "37\\u00A0degr\\u00E9s",      "37,203\\u00B0",    "37,2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
-    { UAMEASUNIT_VOLUME_LITER,             37.203, "37,20\\u00A0litres",            "37\\u00A0litres",            "37,203\\u202Fl",   "37,2\\u202Fl",   "37 l",        "37 l",      0,2,    0,2   },
+    { UAMEASUNIT_VOLUME_LITER,             37.203, "37,20\\u00A0litres",            "37\\u00A0litres",            "37,203\\u202Fl",   "37,2\\u202Fl",   "37\\u202Fl",  "37\\u202Fl", 0,2,    0,2   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37,20\\u00A0kilocalories",      "37\\u00A0kilocalories",      "37,203\\u202Fkcal","37,2\\u202Fkcal","37kcal","37kcal", 0,2, 0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -156,7 +160,7 @@ static const SingleUnitFormat fr_CA_singFmt[] = {
     { UAMEASUNIT_DURATION_MINUTE,           0.0,   "0,00 minute",                   "0 minute",                   "0 min",            "0,0 min",        "0m",          "0m",        0,1,    0,1   },
     { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00 minute",                   "1 minute",                   "1 min",            "1,0 min",        "1m",          "1m",        0,1,    0,1   },
     { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25 minutes",                  "5 minutes",                  "5,25 min",         "5,2 min",        "5m",          "5m",        0,1,    0,1   },
-    { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20 centim\\u00E8tres",       "37 centim\\u00E8tres",       "37,203 cm",        "37,2 cm",        "37 cm",       "37 cm",     0,2,    0,2   },
+    { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20 centim\\u00E8tres",       "37 centim\\u00E8tres",       "37,203 cm",        "37,2 cm",        "37\\u202Fcm", "37\\u202Fcm", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20 degr\\u00E9s Celsius",    "37 degr\\u00E9s Celsius",    "37,203\\u00A0\\u00B0C", "37,2\\u00A0\\u00B0C", "37\\u00A0\\u00B0C", "37\\u00B0", 0,2, 0,2 },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20 degr\\u00E9s Fahrenheit", "37 degr\\u00E9s Fahrenheit", "37,203\\u00A0\\u00B0F", "37,2\\u00A0\\u00B0F", "37\\u00B0F", "37\\u00B0", 0,2, 0,2 },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37,20\\u00B0",                  "37\\u00B0",                  "37,203\\u00B0",    "37,2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
@@ -207,10 +211,9 @@ static const SingleUnitFormat nl_singFmt[] = {
 };
 
 static const SingleUnitFormat he_singFmt[] = {
-//    unit                                 value   wide_2                                      wide_0                                   shrt_X                                       shrt_1                                     narr_0
-//      numr_0                                 wide_0  narr_0
-    { UAMEASUNIT_LENGTH_KILOMETER,         37.203, "37.20\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        "37.203\\u202f\\u05e7\\u05f4\\u05de",        "37.2\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",      0,2,    0,2 },
-    { UAMEASUNIT_LENGTH_MILE,              37.203, "37.20\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37.203\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37.2\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc",    0,2,    0,2 },
+//    unit                                 value   wide_2                                      wide_0                                   shrt_X                                       shrt_1                                     narr_0                                   numr_0                                   wide_0  narr_0
+    { UAMEASUNIT_LENGTH_KILOMETER,         37.203, "37.20\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        "37.203\\u202f\\u05e7\\u05f4\\u05de",        "37.2\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        0,2,    0,2 },
+    { UAMEASUNIT_LENGTH_MILE,              37.203, "37.20\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37.203\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37.2\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", 0,2,    0,2 },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -255,6 +258,7 @@ static const SingleUnitFormat ro_singFmt[] = {
 
 static const SingleUnitFormat ru_singFmt[] = {
 //    unit                                 value wide_2                                                             wide_0                                                          shrt_X                      shrt_1                        narr_0                      numr_0                      wide_0  narr_0
+    { UAMEASUNIT_DURATION_DAY,             2.0,	 "2,00 \\u0434\\u043D\\u044F",               				    	"2 \\u0434\\u043D\\u044F",    		           			        "2 \\u0434\\u043D",         "2,0 \\u0434\\u043D",  	      "2 \\u0434\\u002E",         "2 \\u0434\\u002E",         0,1,    0,1 },
     { UAMEASUNIT_SPEED_MILE_PER_HOUR,      1.0,  "1,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "1 \\u043C\\u0438\\u043B\\u044F \\u0432 \\u0447\\u0430\\u0441", "1 \\u043C\\u0438/\\u0447", "1,0 \\u043C\\u0438/\\u0447", "1 \\u043C\\u0438/\\u0447", "1 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
     { UAMEASUNIT_SPEED_MILE_PER_HOUR,      2.0,  "2,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "2 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "2 \\u043C\\u0438/\\u0447", "2,0 \\u043C\\u0438/\\u0447", "2 \\u043C\\u0438/\\u0447", "2 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
     { UAMEASUNIT_SPEED_MILE_PER_HOUR,      5.0,  "5,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "5 \\u043C\\u0438\\u043B\\u044C \\u0432 \\u0447\\u0430\\u0441", "5 \\u043C\\u0438/\\u0447", "5,0 \\u043C\\u0438/\\u0447", "5 \\u043C\\u0438/\\u0447", "5 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
@@ -420,14 +424,21 @@ static const MultipleUnitFormat he_multFmt[] = {
 };
 
 static const MultipleUnitFormat hi_multFmt[] = {
+//  rdar://109458821 - tests below are various formats of Hindi representation of 37 hours, 12.10 minutes, which is 37 घं॰, 12.10 मि॰
 //    measures     count                       wide_2                                                                                       wide_0 
+    { meas_hrMn,   UPRV_LENGTHOF(meas_hrMn),   "37 \\u0918\\u0902\\u091f\\u0947 \\u0914\\u0930 12.10 \\u092e\\u093f\\u0928\\u091f",            "37 \\u0918\\u0902\\u091f\\u0947 \\u0914\\u0930 12 \\u092e\\u093f\\u0928\\u091f",            "37 \\u0918\\u0902\\u0970, 12.1 \\u092e\\u093f\\u0970",            "37 \\u0918\\u0902\\u0970, 12.1 \\u092e\\u093f\\u0970",           "37 \\u0918\\u0902\\u0970 12.1 \\u092e\\u093f\\u0970",         "37 \\u0918\\u0902\\u0970 12 \\u092e\\u093f\\u0970",    "37:12",    "37:12.10",
+        /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,7},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE,11,21},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,11,16}},
+        /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,6},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 7,15},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 7,11}},
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 8},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 8}} },
+//  rdar://109458821 - updated narrow format expected results
     { meas_moDys,  UPRV_LENGTHOF(meas_moDys),  "1 \\u092E\\u0939\\u0940\\u0928\\u093E \\u0914\\u0930 2.00 \\u0926\\u093F\\u0928", "1 \\u092E\\u0939\\u0940\\u0928\\u093E \\u0914\\u0930 2 \\u0926\\u093F\\u0928",
         /* shrt_X, shrt_1*/                    "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2.0 \\u0926\\u093F\\u0928",
-        /* shrtr_1, narr_0, numr_0, numr_2*/   "1 \\u092E\\u093E\\u0939, 2.0 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2.00 \\u0926\\u093F\\u0928",
+        /* shrtr_1, narr_0, numr_0, numr_2*/   "1 \\u092E\\u093E\\u0939 2.0 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939 2.00 \\u0926\\u093F\\u0928",
         /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_MONTH,0,7},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,11,19},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,11,15}},
-        /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,14},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,10}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,12},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,8}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,15},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,11}} },
+        /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,6,13},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,6,9}},
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,6,11},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,6,7}},
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,6,14},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,6,10}} },
     { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }
 };
 
@@ -1088,17 +1099,17 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "fr_FR",           "length",  "large",           1, { UAMEASUNIT_LENGTH_KILOMETER } },
     { "fr_FR",           "length",  "small",           1, { UAMEASUNIT_LENGTH_CENTIMETER } },
     { "en_US",           "xxxxxxxx","yyyyyyyy",        0, { (UAMeasureUnit)0 } },
-    // <rdar://problem/59634873> kcal: default
+    // rdar://59634873 kcal: default
     { "fr_FR",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
     { "es_ES",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
     { "zh_CN",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
-    // <rdar://problem/59634873> kJ: AU NZ
+    // rdar://59634873 kJ: AU NZ
     { "en_AU",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOJOULE } },
     { "en_NZ",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOJOULE } },
-    // <rdar://problem/59634873> Cal: US CA
+    // rdar://59634873 Cal: US CA
     { "en_US",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
     { "en_CA",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
-    // <rdar://problem/59634873> Cal: others as requested by Loc
+    // rdar://59634873 Cal: others as requested by Loc
     { "he_IL",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
     { "pt_BR",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
     { "zh_TW",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
@@ -1195,6 +1206,94 @@ static void TestUAGetCategoryForUnit()
             log_err("FAIL: uameasfmt_getUnitCategory unit %d:%d, expected %s, got %s\n",
                     ((int)itemPtr->unit) >> 8, ((int)itemPtr->unit) & 0xFF, itemPtr->category, category);
         }
+    }
+}
+
+#include "stdio.h"  // for sprintf
+
+static void TestMeasurementSystemOverride(void) {
+    const char* localeIDs[] = {
+        "en_US@xxx=y",    // use uloc_toLegacyKey() and uloc_toLegacyType() to construct locale ID
+        "en-GB-u-ms-metric",
+        "en-US-u-ms-metric",
+        "en_GB@measure=metric",
+        "en_US@measure=metric",
+        "en_GB@ms=metric",
+        "en_US@ms=metric"
+    };
+    UErrorCode err = U_ZERO_ERROR;
+    UAMeasureUnit units[5];
+    for (int32_t i = 0; i < UPRV_LENGTHOF(localeIDs); i++) {
+        const char* localeID = localeIDs[i];
+        char constructedLocale[200];
+        if (uprv_strstr(localeID, "@xxx") != NULL) {
+            uprv_strcpy(constructedLocale, localeIDs[i]);
+            uloc_setKeywordValue("xxx", NULL, constructedLocale, 200, &err);
+            uloc_setKeywordValue(uloc_toLegacyKey("ms"), uloc_toLegacyType("ms", "metric"), constructedLocale, 200, &err);
+            localeID = constructedLocale;
+        }
+        if (uprv_strstr(localeID, "-u-")) {
+            uloc_forLanguageTag(localeID, constructedLocale, 200, NULL, &err);
+            localeID = constructedLocale;
+        }
+        
+        int count = uameasfmt_getUnitsForUsage(localeID, "length", "default", units, 5, &err);
+        char failureMessage[200];
+        sprintf(failureMessage, "Wrong unit for %s", localeIDs[i]);
+        
+        assertIntEquals(failureMessage, 1, count);
+        assertIntEquals(failureMessage, UAMEASUNIT_LENGTH_METER, units[0]);
+    }
+}
+
+// rdar://107276400 and rdar://106566783
+static void TestRgSubtag(void) {
+    UChar* testData[] = {
+        u"en_US",                        u"2", u"2 months",
+        u"en_US@rg=USzzzz",              u"2", u"2 months",
+        u"es_US",                        u"2", u"2 meses",
+        u"es_MX@rg=USzzzz",              u"2", u"2 meses",
+        u"ar_US@numbers=latn",           u"7", u"7 أشهر",
+        u"ar_US@rg=USzzzz;numbers=latn", u"7", u"7 أشهر",
+        u"ar_US",                        u"2", u"شهران",
+        u"ar_SA@rg=USzzzz",              u"2", u"شهران",
+        u"ru_US",                        u"2", u"2 месяца",
+        u"ru_RU@rg=USzzzz",              u"2", u"2 месяца",
+        u"zh_Hans_US",                   u"2", u"2个月",
+        u"zh_CN@rg=USzzzz",              u"2", u"2个月",
+        u"fr_US",                        u"2", u"2\u00a0mois",
+        u"fr_FR@rg=USzzzz",              u"2", u"2\u00a0mois",
+        u"ko_US",                        u"2", u"2개월",
+        u"ko_KR@rg=USzzzz",              u"2", u"2개월",
+        u"pt_BR_US",                     u"2", u"2 meses",
+        u"pt_BR@rg=USzzzz",              u"2", u"2 meses",
+        u"vi_US",                        u"2", u"2 tháng",
+        u"vi_VN@rg=USzzzz",              u"2", u"2 tháng",
+        u"zh_Hant_US",                   u"2", u"2個月",
+        u"zh_TW@rg=USzzzz",              u"2", u"2個月",
+    };
+    
+    UErrorCode err = U_ZERO_ERROR;
+    UChar result[200];
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testData); i+= 3) {
+        char* locale = austrdup(testData[i]);
+        double amount = atof(austrdup(testData[i + 1]));
+        UChar* expectedResult = testData[i + 2];
+        
+        err = U_ZERO_ERROR;
+        UAMeasureFormat* mf = uameasfmt_open(locale, UAMEASFMT_WIDTH_WIDE, unum_open(UNUM_DECIMAL, NULL, 0, locale, NULL, &err), &err);
+        
+        char errorMessage[100];
+        snprintf(errorMessage, 100, "Failed to create measurement formatter for %s", locale);
+        if (assertSuccess(errorMessage, &err)) {
+            uameasfmt_format(mf, amount, UAMEASUNIT_DURATION_MONTH, result, 200, &err);
+            if (assertSuccess("Error formatting", &err)) {
+                snprintf(errorMessage, 100, "Wrong result for %s", locale);
+                assertUEquals(errorMessage, expectedResult, result);
+            }
+        }
+        uameasfmt_close(mf);
     }
 }
 

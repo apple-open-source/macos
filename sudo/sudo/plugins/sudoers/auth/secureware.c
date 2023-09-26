@@ -55,6 +55,10 @@ sudo_secureware_init(struct passwd *pw, sudo_auth *auth)
 {
     debug_decl(sudo_secureware_init, SUDOERS_DEBUG_AUTH);
 
+    /* Only initialize once. */
+    if (auth->data != NULL)
+	debug_return_int(AUTH_SUCCESS);
+
 #ifdef __alpha
     if (crypt_type == INT_MAX)
 	debug_return_int(AUTH_FAILURE);			/* no shadow */
@@ -67,7 +71,7 @@ sudo_secureware_init(struct passwd *pw, sudo_auth *auth)
 }
 
 int
-sudo_secureware_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_secureware_verify(struct passwd *pw, const char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     char *pw_epasswd = auth->data;
     char *epass = NULL;

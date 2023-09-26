@@ -46,8 +46,7 @@ __FBSDID("$FreeBSD: src/lib/libc/inet/inet_makeaddr.c,v 1.4 2007/06/03 17:20:26 
  * building addresses stored in the ifnet structure.
  */
 struct in_addr
-inet_makeaddr(net, host)
-	in_addr_t net, host;
+inet_makeaddr(in_addr_t net, in_addr_t host)
 {
 	struct in_addr a;
 

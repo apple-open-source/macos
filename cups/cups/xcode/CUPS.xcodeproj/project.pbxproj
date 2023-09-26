@@ -903,6 +903,7 @@
 		72D53A3A15B492FA003F877F /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D53A3915B492FA003F877F /* libpam.dylib */; };
 		72D53A3B15B4930A003F877F /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D53A2915B49110003F877F /* GSS.framework */; };
 		72D53A3C15B4930A003F877F /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 278C58E6136B64B000836530 /* Kerberos.framework */; };
+		72F7266A299F1FB200AEC76A /* libManagedConfigurationFiles.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 72F72669299F1FB200AEC76A /* libManagedConfigurationFiles.tbd */; };
 		72F75A5C1336F988004BB496 /* cupstestppd.c in Sources */ = {isa = PBXBuildFile; fileRef = 72F75A5B1336F988004BB496 /* cupstestppd.c */; };
 		72F75A671336FA38004BB496 /* libcups.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72220EAE1333047D00FCA411 /* libcups.dylib */; };
 		AA08F6E627FF5BA600013FEE /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E427063AA4001035DA /* GSS.framework */; };
@@ -925,6 +926,8 @@
 		AA3880E327063A70001035DA /* libgssapi_krb5.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E227063A6F001035DA /* libgssapi_krb5.tbd */; };
 		AA3880E527063AA4001035DA /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E427063AA4001035DA /* GSS.framework */; };
 		AA56E18026FD1867008E2A55 /* libcups.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72220EAE1333047D00FCA411 /* libcups.dylib */; };
+		AAF7F0B929F1BB11009E973D /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2767FC5E1926750C000F61D3 /* SystemConfiguration.framework */; };
+		AAF7F0BA29F1BB18009E973D /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E427063AA4001035DA /* GSS.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -3649,6 +3652,7 @@
 		72E65BE018DCA35700097E89 /* INSTALL.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = INSTALL.md; path = ../INSTALL.md; sourceTree = "<group>"; };
 		72E65BE218DCA35700097E89 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; name = LICENSE; path = ../LICENSE; sourceTree = "<group>"; };
 		72E65BE318DCA35700097E89 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
+		72F72669299F1FB200AEC76A /* libManagedConfigurationFiles.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libManagedConfigurationFiles.tbd; path = usr/local/lib/libManagedConfigurationFiles.tbd; sourceTree = SDKROOT; };
 		72F75A521336F950004BB496 /* cupstestppd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cupstestppd; sourceTree = BUILT_PRODUCTS_DIR; };
 		72F75A5B1336F988004BB496 /* cupstestppd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cupstestppd.c; path = ../systemv/cupstestppd.c; sourceTree = "<group>"; };
 		72F75A611336F9A3004BB496 /* libcupsimage.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcupsimage.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -4254,6 +4258,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72F7266A299F1FB200AEC76A /* libManagedConfigurationFiles.tbd in Frameworks */,
 				72D53A3A15B492FA003F877F /* libpam.dylib in Frameworks */,
 				72220F6613330A7000FCA411 /* libcups.dylib in Frameworks */,
 				72220FBF13330C1000FCA411 /* libcupsmime.dylib in Frameworks */,
@@ -4406,6 +4411,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AAF7F0BA29F1BB18009E973D /* GSS.framework in Frameworks */,
+				AAF7F0B929F1BB11009E973D /* SystemConfiguration.framework in Frameworks */,
 				724FA59C1CC037AA0092477B /* libcups_static.a in Frameworks */,
 				724FA59D1CC037AA0092477B /* CoreFoundation.framework in Frameworks */,
 				724FA59E1CC037AA0092477B /* Kerberos.framework in Frameworks */,
@@ -5197,6 +5204,7 @@
 		72220FB113330B4A00FCA411 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				72F72669299F1FB200AEC76A /* libManagedConfigurationFiles.tbd */,
 				AA3880E427063AA4001035DA /* GSS.framework */,
 				AA3880E227063A6F001035DA /* libgssapi_krb5.tbd */,
 				AA3880E027063A66001035DA /* libiconv.tbd */,
@@ -10917,6 +10925,10 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-D_CUPS_SOURCE",
+					"-Wno-shorten-64-to-32",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -10928,6 +10940,10 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-D_CUPS_SOURCE",
+					"-Wno-shorten-64-to-32",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -11730,6 +11746,7 @@
 				);
 				SDKROOT = macosx.internal;
 				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 			};
 			name = Debug;
 		};
@@ -11781,6 +11798,7 @@
 				);
 				SDKROOT = macosx.internal;
 				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 			};
 			name = Release;
 		};

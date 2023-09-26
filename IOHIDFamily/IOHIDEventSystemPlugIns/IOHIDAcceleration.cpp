@@ -16,7 +16,7 @@
 
 void IOHIDSimpleAccelerator::serialize(CFMutableDictionaryRef dict) const {
     CFMutableDictionaryRefWrap serializer (dict);
-    serializer.SetValueForKey(CFSTR("Class"), CFSTR("IOHIDScrollAccelerator"));
+    serializer.SetValueForKey(CFSTR("Class"), CFSTR("IOHIDSimpleAccelerator"));
     serializer.SetValueForKey(CFSTR("Multiplier"), DOUBLE_TO_FIXED(_multiplier));
 }
 

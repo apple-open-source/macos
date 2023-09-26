@@ -38,13 +38,17 @@
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "HTMLInputElement.h"
 #include "HTMLParserIdioms.h"
+#include "LocalFrame.h"
 #include "MouseEvent.h"
+#include "RenderBoxInlines.h"
 #include "RenderFlexibleBox.h"
 #include "RenderSlider.h"
+#include "RenderStyleInlines.h"
+#include "RenderStyleSetters.h"
 #include "RenderTheme.h"
+#include "ResolvedStyle.h"
 #include "ScriptDisallowedScope.h"
 #include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
@@ -186,9 +190,8 @@ Ref<SliderThumbElement> SliderThumbElement::create(Document& document)
 }
 
 SliderThumbElement::SliderThumbElement(Document& document)
-    : HTMLDivElement(HTMLNames::divTag, document)
+    : HTMLDivElement(HTMLNames::divTag, document, CreateSliderThumbElement)
 {
-    setHasCustomStyleResolveCallbacks();
 }
 
 void SliderThumbElement::setPositionFromValue()
@@ -289,7 +292,7 @@ void SliderThumbElement::setPositionFromPoint(const LayoutPoint& absolutePoint)
 
 void SliderThumbElement::startDragging()
 {
-    if (RefPtr<Frame> frame = document().frame()) {
+    if (RefPtr frame = document().frame()) {
         frame->eventHandler().setCapturingMouseEventsElement(this);
         m_inDragMode = true;
     }
@@ -300,7 +303,7 @@ void SliderThumbElement::stopDragging()
     if (!m_inDragMode)
         return;
 
-    if (RefPtr<Frame> frame = document().frame())
+    if (RefPtr frame = document().frame())
         frame->eventHandler().setCapturingMouseEventsElement(nullptr);
     m_inDragMode = false;
     if (renderer())
@@ -366,7 +369,7 @@ bool SliderThumbElement::willRespondToMouseClickEventsWithEditability(Editabilit
 void SliderThumbElement::willDetachRenderers()
 {
     if (m_inDragMode) {
-        if (RefPtr<Frame> frame = document().frame())
+        if (RefPtr frame = document().frame())
             frame->eventHandler().setCapturingMouseEventsElement(nullptr);
     }
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -582,9 +585,8 @@ Ref<Element> SliderThumbElement::cloneElementWithoutAttributesAndChildren(Docume
 // --------------------------------
 
 inline SliderContainerElement::SliderContainerElement(Document& document)
-    : HTMLDivElement(HTMLNames::divTag, document)
+    : HTMLDivElement(HTMLNames::divTag, document, CreateSliderContainerElement)
 {
-    setHasCustomStyleResolveCallbacks();
 }
 
 Ref<SliderContainerElement> SliderContainerElement::create(Document& document)

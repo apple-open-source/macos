@@ -30,6 +30,8 @@
 #include <WebCore/Scrollbar.h>
 #include <cmath>
 #include <wpe/wpe.h>
+#include <wtf/HashMap.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebKit {
 
@@ -113,7 +115,7 @@ WallTime wallTimeForEventTime(uint64_t msTimeStamp)
     return firstEventWallTime + Seconds(delta / 1000.);
 }
 
-WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(struct wpe_input_keyboard_event* event, const String& text, bool handledByInputMethod, std::optional<Vector<WebCore::CompositionUnderline>>&& preeditUnderlines, std::optional<EditingRange>&& preeditSelectionRange)
+WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(struct wpe_input_keyboard_event* event, const String& text, bool isAutoRepeat, bool handledByInputMethod, std::optional<Vector<WebCore::CompositionUnderline>>&& preeditUnderlines, std::optional<EditingRange>&& preeditSelectionRange)
 {
     return WebKeyboardEvent({ event->pressed ? WebEventType::KeyDown : WebEventType::KeyUp, modifiersForKeyboardEvent(event), wallTimeForEventTime(event->time) },
         text.isNull() ? WebCore::PlatformKeyboardEvent::singleCharacterString(event->key_code) : text,
@@ -125,6 +127,7 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(struct wpe_input_keyboa
         handledByInputMethod,
         WTFMove(preeditUnderlines),
         WTFMove(preeditSelectionRange),
+        isAutoRepeat,
         isWPEKeyCodeFromKeyPad(event->key_code)
         );
 }
@@ -154,7 +157,34 @@ static inline short pressedMouseButtons(uint32_t modifiers)
     return buttons;
 }
 
-WebMouseEvent WebEventFactory::createWebMouseEvent(struct wpe_input_pointer_event* event, float deviceScaleFactor)
+static inline unsigned clickCount(struct wpe_input_pointer_event* event)
+{
+    static const uint32_t doubleClickTime = 500; // Milliseconds.
+    static const unsigned pixelThreshold = 5;
+    static struct wpe_input_pointer_event gLastClickEvent = { };
+    static unsigned gLastClickCount = 1;
+
+    bool cancelPreviousClick = (event->time - gLastClickEvent.time) > doubleClickTime
+        || abs(event->x == gLastClickEvent.x) > pixelThreshold
+        || abs(event->y == gLastClickEvent.y) > pixelThreshold;
+
+    if (event->type == wpe_input_pointer_event_type_button && event->state) {
+        if (!cancelPreviousClick && (event->button == gLastClickEvent.button))
+            ++gLastClickCount;
+        else
+            gLastClickCount = 1;
+        gLastClickEvent = *event;
+    } else if (event->type == wpe_input_pointer_event_type_motion) {
+        if (cancelPreviousClick) {
+            gLastClickCount = 0;
+            gLastClickEvent = { };
+        }
+    }
+
+    return gLastClickCount;
+}
+
+WebMouseEvent WebEventFactory::createWebMouseEvent(struct wpe_input_pointer_event* event, float deviceScaleFactor, WebMouseEventSyntheticClickType syntheticClickType)
 {
     auto type = WebEventType::NoType;
     switch (event->type) {
@@ -183,13 +213,11 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(struct wpe_input_pointer_even
         ASSERT_NOT_REACHED();
     }
 
-    unsigned clickCount = (type == WebEventType::MouseDown) ? 1 : 0;
-
-    // FIXME: Proper button support. deltaX/Y/Z. Click count.
+    // FIXME: Proper button support. deltaX/Y/Z.
     WebCore::IntPoint position(event->x, event->y);
     position.scale(1 / deviceScaleFactor);
     return WebMouseEvent({ type, modifiersForEventModifiers(event->modifiers), wallTimeForEventTime(event->time) }, button, pressedMouseButtons(event->modifiers), position, position,
-        0, 0, 0, clickCount);
+        0, 0, 0, clickCount(event), 0, syntheticClickType);
 }
 
 WebWheelEvent WebEventFactory::createWebWheelEvent(struct wpe_input_axis_event* event, float deviceScaleFactor, WebWheelEvent::Phase phase, WebWheelEvent::Phase momentumPhase)
@@ -258,38 +286,47 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(struct wpe_input_axis_event* 
 }
 
 #if ENABLE(TOUCH_EVENTS)
-static WebKit::WebPlatformTouchPoint::TouchPointState stateForTouchPoint(int mainEventId, const struct wpe_input_touch_event_raw* point)
+static WebKit::WebPlatformTouchPoint::State stateForTouchPoint(int mainEventId, const struct wpe_input_touch_event_raw* point)
 {
     if (point->id != mainEventId)
-        return WebKit::WebPlatformTouchPoint::TouchStationary;
+        return WebKit::WebPlatformTouchPoint::State::Stationary;
 
     switch (point->type) {
     case wpe_input_touch_event_type_down:
-        return WebKit::WebPlatformTouchPoint::TouchPressed;
+        return WebKit::WebPlatformTouchPoint::State::Pressed;
     case wpe_input_touch_event_type_motion:
-        return WebKit::WebPlatformTouchPoint::TouchMoved;
+        return WebKit::WebPlatformTouchPoint::State::Moved;
     case wpe_input_touch_event_type_up:
-        return WebKit::WebPlatformTouchPoint::TouchReleased;
+        return WebKit::WebPlatformTouchPoint::State::Released;
     case wpe_input_touch_event_type_null:
         ASSERT_NOT_REACHED();
         break;
     };
 
-    return WebKit::WebPlatformTouchPoint::TouchStationary;
+    return WebKit::WebPlatformTouchPoint::State::Stationary;
 }
 
 WebTouchEvent WebEventFactory::createWebTouchEvent(struct wpe_input_touch_event* event, float deviceScaleFactor)
 {
     auto type = WebEventType::NoType;
+    static NeverDestroyed<HashMap<int32_t, int32_t>> activeTrackingTouchPoints;
+    static int32_t uniqueTouchPointId = WebCore::mousePointerID + 1;
+    int32_t pointId;
+
     switch (event->type) {
     case wpe_input_touch_event_type_down:
         type = WebEventType::TouchStart;
+        activeTrackingTouchPoints.get().add(event->id, uniqueTouchPointId);
+        pointId = uniqueTouchPointId;
+        uniqueTouchPointId++;
         break;
     case wpe_input_touch_event_type_motion:
         type = WebEventType::TouchMove;
+        pointId = activeTrackingTouchPoints.get().get(event->id);
         break;
     case wpe_input_touch_event_type_up:
         type = WebEventType::TouchEnd;
+        pointId = activeTrackingTouchPoints.get().take(event->id);
         break;
     case wpe_input_touch_event_type_null:
         ASSERT_NOT_REACHED();
@@ -306,7 +343,7 @@ WebTouchEvent WebEventFactory::createWebTouchEvent(struct wpe_input_touch_event*
         WebCore::IntPoint pointCoordinates(point.x, point.y);
         pointCoordinates.scale(1 / deviceScaleFactor);
         touchPoints.uncheckedAppend(
-            WebKit::WebPlatformTouchPoint(point.id, stateForTouchPoint(event->id, &point),
+            WebKit::WebPlatformTouchPoint(pointId, stateForTouchPoint(event->id, &point),
                 pointCoordinates, pointCoordinates));
     }
 

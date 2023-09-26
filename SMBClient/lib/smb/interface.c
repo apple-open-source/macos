@@ -26,6 +26,7 @@
 #include <PrivateHeaders/net/if_var.h>
 #include <PrivateHeaders/net/if.h>
 #include <PrivateHeaders/sys/sockio.h>
+#include <net/if_types.h>
 
 #include <sys/ioctl.h>
 #include <NetFS/NetFS.h>
@@ -228,6 +229,7 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
     *vector_length = 0;
     *extra_data_size = 0;
     uint64_t link_speed = 0;
+    struct ifreq ifr = {0};
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         os_log_error(OS_LOG_DEFAULT,
@@ -260,7 +262,7 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
         }
 
         /* Query interface media */
-        strcpy(ifmr.ifm_name, ifa->ifa_name);
+        strlcpy(ifmr.ifm_name, ifa->ifa_name, sizeof(ifmr.ifm_name));
         if (ioctl(sockfd, SIOCGIFXMEDIA, &ifmr)) {
             continue;
         }
@@ -287,25 +289,49 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
             }
             else {
                 /*
-                 * <102215013> No IFM_SUBTYPE found.
-                 * Is it Ethernet over Thunderbolt bridge ("bridge#")?
+                 * <104620653> No IFM_SUBTYPE found.
+                 * Is it Ethernet over Thunderbolt or is it Ethernet over
+                 * Thunderbolt bridge ("bridge#")?
                  *
-                 * Note: We can possibly remove the check for "bridge" once
-                 * <103029620> gets resolved.
+                 * Note: We can possibly remove this check once <103029620> gets
+                 * resolved and we get back an actual Thunderbolt speed to use
+                 * from IFM_SUBTYPE
                  */
-                if (strncmp("bridge", ifmr.ifm_name, strlen("bridge")) == 0) {
-                    /* Its Ethernet over Thunderbolt, so hardcode to 10 gbps */
-                    link_speed = 10000000000;
+                strlcpy(ifr.ifr_name, ifa->ifa_name, sizeof(ifr.ifr_name));
+
+                if (ioctl(sockfd, SIOCGIFTYPE, &ifr) != -1) {
+                    if ((ifr.ifr_type.ift_type == IFT_ETHER) &&
+                        (ifr.ifr_type.ift_subfamily == IFRTYPE_SUBFAMILY_THUNDERBOLT)) {
+                        /*
+                         * Its Ethernet over Thunderbolt, so hardcode
+                         * to 10 gbps
+                         */
+                        link_speed = 10000000000;
+                    }
+                    else {
+                        if ((ifr.ifr_type.ift_type == IFT_BRIDGE) &&
+                            (ifr.ifr_type.ift_family == IFRTYPE_FAMILY_ETHERNET)) {
+                            /*
+                             * Assume its Ethernet over Thunderbolt bridge, so
+                             * hardcode to 10 gbps
+                             */
+                            link_speed = 10000000000;
+                        }
+                        else {
+                            os_log_error(OS_LOG_DEFAULT, "%s: IFM_SUBTYPE is 0 for interface <%s>?",
+                                         __FUNCTION__, ifa->ifa_name);
+                        }
+                    }
                 }
                 else {
-                    os_log_error(OS_LOG_DEFAULT, "%s: IFM_SUBTYPE is 0 for interface <%s>?",
-                                 __FUNCTION__, ifa->ifa_name);
+                    os_log_error(OS_LOG_DEFAULT, "%s: SIOCGIFTYPE failed %d for interface <%s>",
+                                 __FUNCTION__, errno, ifr.ifr_name);
                 }
             }
         } else if ((IFM_TYPE(ifmr.ifm_active) == IFM_IEEE80211)) {
             link_speed = getWifiLinkSpeed(sockfd, ifa->ifa_name);
         } else {
-            // We currently support only eth and wifi
+            // We currently support only Ethernet and WiFi
             continue;
         }
 

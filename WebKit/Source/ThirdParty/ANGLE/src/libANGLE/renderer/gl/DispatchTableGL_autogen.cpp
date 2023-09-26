@@ -2157,6 +2157,11 @@ void DispatchTableGL::initProcsGLES(const gl::Version &version,
         ASSIGN("glBlitFramebufferNV", blitFramebufferNV);
     }
 
+    if (extensions.count("GL_NV_polygon_mode") != 0)
+    {
+        ASSIGN("glPolygonModeNV", polygonModeNV);
+    }
+
     if (extensions.count("GL_OES_EGL_image") != 0)
     {
         ASSIGN("glEGLImageTargetRenderbufferStorageOES", eGLImageTargetRenderbufferStorageOES);
@@ -2816,6 +2821,11 @@ void DispatchTableGL::initProcsSharedExtensions(const std::set<std::string> &ext
     if (extensions.count("GL_KHR_parallel_shader_compile") != 0)
     {
         ASSIGN("glMaxShaderCompilerThreadsKHR", maxShaderCompilerThreadsKHR);
+    }
+
+    if (extensions.count("GL_MESA_framebuffer_flip_y") != 0)
+    {
+        ASSIGN("glFramebufferParameteriMESA", framebufferParameteriMESA);
     }
 
     if (extensions.count("GL_NV_fence") != 0)
@@ -4973,6 +4983,11 @@ void DispatchTableGL::initProcsGLESNULL(const gl::Version &version,
         blitFramebufferNV = &glBlitFramebufferNVNULL;
     }
 
+    if (extensions.count("GL_NV_polygon_mode") != 0)
+    {
+        polygonModeNV = &glPolygonModeNVNULL;
+    }
+
     if (extensions.count("GL_OES_EGL_image") != 0)
     {
         eGLImageTargetRenderbufferStorageOES = &glEGLImageTargetRenderbufferStorageOESNULL;
@@ -5632,6 +5647,11 @@ void DispatchTableGL::initProcsSharedExtensionsNULL(const std::set<std::string> 
     if (extensions.count("GL_KHR_parallel_shader_compile") != 0)
     {
         maxShaderCompilerThreadsKHR = &glMaxShaderCompilerThreadsKHRNULL;
+    }
+
+    if (extensions.count("GL_MESA_framebuffer_flip_y") != 0)
+    {
+        framebufferParameteriMESA = &glFramebufferParameteriMESANULL;
     }
 
     if (extensions.count("GL_NV_fence") != 0)

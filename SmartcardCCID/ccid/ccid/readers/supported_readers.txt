@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2022-01-27
+# Generated: 2022-10-27
 #
 # DO NOT EDIT BY HAND
 
@@ -127,6 +127,7 @@
 0x0DB5:0x0164:Access IS NFC Smart Module
 0x0DB5:0x0170:Access IS ATR210
 0x0DB5:0x0180:Access IS ATR220
+0x0DB5:0x0184:Access IS ATR220
 
 # ACS
 0x072F:0x1204:ACS ACR101 ICC Reader
@@ -181,6 +182,8 @@
 
 # Alcor Link
 0x2CE3:0x9563:Alcor Link AK9563
+0x2CE3:0x9567:Alcor Link AK9567
+0x2CE3:0x9573:Alcor Link AK9572
 
 # Alcor Micro
 0x058F:0x9522:Alcor Micro AU9522
@@ -220,8 +223,6 @@
 0x15CF:0x0019:Avtor SecureToken
 0x15CF:0x001D:Avtor SC Reader 371
 0x15CF:0x0020:Avtor SecureToken
-0x096E:0x0608:Avtor SC Reader KP382
-0x096E:0x0624:Avtor KP-375BLE
 
 # Axalto
 0x04E6:0x511C:Axalto Reflex USB v3
@@ -258,6 +259,7 @@
 
 # BLUTRONICS
 0x1B0E:0x1079:BLUTRONICS BLUDRIVE II CCID
+0x1B0E:0x5A02:BLUTRONICS TAURUS NFC
 
 # Broadcom Corp
 0x0A5C:0x5802:Broadcom Corp 5880
@@ -302,6 +304,8 @@
 0x046A:0x00A5:Cherry KC 1000 SC/DI Z
 0x046A:0x00A7:Cherry SmartTerminal XX44
 
+# CHERRY
+
 # Cherry GmbH
 0x046A:0x005B:Cherry GmbH SmartBoard XX1X
 0x046A:0x0070:Cherry GmbH SmartTerminal XX1X
@@ -341,12 +345,18 @@
 0x0982:0x0008:COVADIS VEGA-ALPHA
 0x0982:0x0040:COVADIS Auriga
 
+# CREATOR
+0x23D8:0x0603:CREATOR CRT-603(CZ1) CCR
+
 # DC.Ltd
 0x257B:0xC305:DC.Ltd DC4 5CCID READER
 
 # DESKO GmbH
 0x1AC2:0x0300:DESKO GmbH IDenty chrom
 0x1AC2:0x0302:DESKO GmbH PENTA Scanner
+
+# Dexon Tecnologias Digitais LTDA
+0x0483:0xA389:Dexon Tecnologias Digitais LTDA DXToken
 
 # Doctolib
 0x1C34:0xAFD0:Doctolib SR
@@ -370,16 +380,20 @@
 0x1FFA:0x0002:ELYCTIS CL reader
 
 # ESMART
+0x2CE4:0x5001:ESMART Reader ER433x ICC
+0x2CE4:0x5020:ESMART Reader ER773x Dual & 1S
 0x2CE4:0x7479:ESMART Token GOST
 
 # F-Secure Foundry
 0x1209:0x2702:F-Secure Foundry USB Armory Mk II
 
 # Feitian
+0x096E:0x0608:Feitian 502-CL
 0x096E:0x060D:Feitian R502
 0x096E:0x0621:Feitian BLE CCID Dongle
 0x096E:0x0622:Feitian VR504 VHBR Contactless & Contact Card Reader
 0x096E:0x0623:Feitian bR500
+0x096E:0x0624:Feitian bR301
 0x096E:0x062E:Feitian R701
 0x096E:0x0685:Feitian R805
 0x096E:0x0807:Feitian ePass2003
@@ -392,6 +406,9 @@
 
 # Feitian Technologies
 0x096E:0x0505:Feitian Technologies FT SCR310
+
+# Flight system consulting
+0x2925:0x700A:Flight system consulting Incredist
 
 # Free Software Initiative of Japan
 0x234B:0x0000:Free Software Initiative of Japan Gnuk
@@ -607,6 +624,10 @@
 # Ledger
 0x2C97:0x0001:Ledger Nano S
 0x2C97:0x0004:Ledger Nano X
+0x2C97:0x0005:Ledger Nano SP
+0x2C97:0x1009:Ledger Nano S
+0x2C97:0x4009:Ledger Nano X
+0x2C97:0x5009:Ledger Nano S Plus
 
 # Lenovo
 0x17EF:0x6007:Lenovo Lenovo USB Smartcard Keyboard
@@ -727,6 +748,7 @@
 0x08E6:0x34CC:SafeNet eToken 5300
 0x08E6:0x34CE:SafeNet eToken 5300 C
 0x08E6:0x34CF:SafeNet eToken 5110+ FIPS
+0x08E6:0x34D2:SafeNet eToken Fusion
 
 # SafeTech
 0x24A2:0x0102:SafeTech SafeTouch
@@ -755,6 +777,9 @@
 
 # SecuTech
 0x0403:0xC587:SecuTech SecuTech Token
+
+# Sensyl
+0x356F:0x22FC:Sensyl SSC-NFC Reader
 
 # Sitecom
 0x0DF6:0x800A:Sitecom Sitecom USB simcard reader MD-010
@@ -897,6 +922,8 @@
 0x1050:0x0406:Yubico YubiKey FIDO+CCID
 0x1050:0x0407:Yubico YubiKey OTP+FIDO+CCID
 
+# ~Avtor
+
 # ~ELYCTIS
 
 ##########################
@@ -1010,6 +1037,9 @@
 #0x046A:0x0090:Cherry Smart Card Reader USB (Cherry_Smart_Card_Reader_USB.txt)
 #0x046A:0x0090:Cherry Cherry TC 1100 (Cherry_Smart_Card_Reader_USB_2_04.txt)
 
+#0x046A:0x00A7:CHERRY SmartTerminal ST-1144 (Cherry_SmartTerminal_1144.txt)
+#0x046A:0x00A7:Cherry SmartTerminal XX44 (Cherry_SmartTerminal_XX44.txt)
+
 #0x04E6:0x5291:SCM Microsystems Inc. SCL010 Contactless Reader (SCL010.txt)
 #0x04E6:0x5291:SCM Microsystems Inc. SCL010 Contactless Reader (SCM_SCL010.txt)
 
@@ -1067,13 +1097,13 @@
 #0x08E6:0x34C0:Gemalto Ezio Shield (Gemalto_Ezio_Shield.txt)
 #0x08E6:0x34C0:Gemalto Ezio Shield Pro SC (Gemalto_Ezio_Shield_Pro_SC.txt)
 
-#0x096E:0x0608:Avtor SC Reader KP382 (Avtor_SC_Reader_KP382.txt)
+#0x096E:0x0608:~Avtor SC Reader KP382 (Avtor_SC_Reader_KP382.txt)
 #0x096E:0x0608:Feitian 502-CL (Feitian_R502-CL.txt)
 
 #0x096E:0x0622:Feitian VR504 VHBR Contactless & Contact Card Reader (Feitian_vR504.txt)
 #0x096E:0x0622:Feitian vR504 Contactless Reader (Feitian_vR504_Contactless_Reader.txt)
 
-#0x096E:0x0624:Avtor KP-375BLE (Avtor_KP-375BLE.txt)
+#0x096E:0x0624:~Avtor KP-375BLE (Avtor_KP-375BLE.txt)
 #0x096E:0x0624:Feitian bR301 (Feitian_bR301_BLE.txt)
 
 #0x0A5C:0x5802:Broadcom Corp 5880 (Broadcom_5880v3.txt)

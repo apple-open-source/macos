@@ -26,7 +26,7 @@
 #pragma once
 
 #include "Connection.h"
-#include "QuotaManager.h"
+#include "OriginQuotaManager.h"
 #include "WebsiteDataType.h"
 #include <wtf/text/WTFString.h>
 
@@ -37,6 +37,10 @@ struct StorageEstimate;
 
 namespace WebKit {
 
+#if ENABLE(SERVICE_WORKER)
+class BackgroundFetchStoreManager;
+class ServiceWorkerStorageManager;
+#endif
 class CacheStorageManager;
 class CacheStorageRegistry;
 class FileSystemStorageHandleRegistry;
@@ -54,15 +58,13 @@ class OriginStorageManager : public CanMakeWeakPtr<OriginStorageManager> {
 public:
     static String originFileIdentifier();
 
-    OriginStorageManager(uint64_t quota, QuotaManager::IncreaseQuotaFunction&&, String&& path, String&& cusotmLocalStoragePath, String&& customIDBStoragePath, String&& customCacheStoragePath, UnifiedOriginStorageLevel);
+    OriginStorageManager(uint64_t quota, uint64_t standardReportedQuota, OriginQuotaManager::IncreaseQuotaFunction&&, OriginQuotaManager::NotifySpaceGrantedFunction&&, String&& path, String&& cusotmLocalStoragePath, String&& customIDBStoragePath, String&& customCacheStoragePath, UnifiedOriginStorageLevel);
     ~OriginStorageManager();
 
     void connectionClosed(IPC::Connection::UniqueID);
-    bool persisted() const { return m_persisted; }
-    void setPersisted(bool value);
     WebCore::StorageEstimate estimate();
     const String& path() const { return m_path; }
-    QuotaManager& quotaManager();
+    OriginQuotaManager& quotaManager();
     FileSystemStorageManager& fileSystemStorageManager(FileSystemStorageHandleRegistry&);
     FileSystemStorageManager* existingFileSystemStorageManager();
     LocalStorageManager& localStorageManager(StorageAreaRegistry&);
@@ -73,10 +75,15 @@ public:
     IDBStorageManager* existingIDBStorageManager();
     CacheStorageManager& cacheStorageManager(CacheStorageRegistry&, const WebCore::ClientOrigin&, Ref<WorkQueue>&&);
     CacheStorageManager* existingCacheStorageManager();
+#if ENABLE(SERVICE_WORKER)
+    BackgroundFetchStoreManager& backgroundFetchManager(Ref<WTF::WorkQueue>&&);
+    ServiceWorkerStorageManager& serviceWorkerStorageManager();
+#endif
     uint64_t cacheStorageSize();
     void closeCacheStorageManager();
     String resolvedPath(WebsiteDataType);
     bool isActive();
+    bool hasDataInMemory();
     bool isEmpty();
     using DataTypeSizeMap = HashMap<WebsiteDataType, uint64_t, IntHash<WebsiteDataType>, WTF::StrongEnumHashTraits<WebsiteDataType>>;
     DataTypeSizeMap fetchDataTypesInList(OptionSet<WebsiteDataType>, bool shouldComputeSize);
@@ -91,7 +98,7 @@ public:
 #endif
 
 private:
-    Ref<QuotaManager> createQuotaManager();
+    Ref<OriginQuotaManager> createQuotaManager();
     enum class StorageBucketMode : bool;
     class StorageBucket;
     StorageBucket& defaultBucket();
@@ -102,11 +109,12 @@ private:
     String m_customIDBStoragePath;
     String m_customCacheStoragePath;
     uint64_t m_quota;
-    QuotaManager::IncreaseQuotaFunction m_increaseQuotaFunction;
-    RefPtr<QuotaManager> m_quotaManager;
-    bool m_persisted { false };
+    uint64_t m_standardReportedQuota;
+    OriginQuotaManager::IncreaseQuotaFunction m_increaseQuotaFunction;
+    OriginQuotaManager::NotifySpaceGrantedFunction m_notifySpaceGrantedFunction;
+    RefPtr<OriginQuotaManager> m_quotaManager;
     UnifiedOriginStorageLevel m_level;
-    std::optional<WallTime> m_originFileCreationTimestamp;
+    Markable<WallTime> m_originFileCreationTimestamp;
 #if PLATFORM(IOS_FAMILY)
     bool m_includedInBackup { false };
 #endif

@@ -43,8 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fwalk.c,v 1.10 2007/01/09 00:28:06 imp Ex
 #include "glue.h"
 
 int
-_fwalk(function)
-	int (*function)(FILE *);
+_fwalk(int (*function)(FILE *))
 {
 	FILE *fp;
 	int n, ret;

@@ -124,7 +124,7 @@
 		06F44E0AFFE702AD11CA29EB /* IOAudioControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioControl.cpp; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
 		06F44E0BFFE702AD11CA29EB /* IOAudioControlUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioControlUserClient.cpp; sourceTree = "<group>"; };
 		06F44E0CFFE702AD11CA29EB /* IOAudioDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioDevice.cpp; sourceTree = "<group>"; };
-		06F44E0DFFE702AD11CA29EB /* IOAudioEngine.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioEngine.cpp; sourceTree = "<group>"; };
+		06F44E0DFFE702AD11CA29EB /* IOAudioEngine.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioEngine.cpp; sourceTree = "<group>"; usesTabs = 1; };
 		06F44E0EFFE702AD11CA29EB /* IOAudioEngineMixer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioEngineMixer.cpp; sourceTree = "<group>"; };
 		06F44E0FFFE702AD11CA29EB /* IOAudioEngineUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioEngineUserClient.cpp; sourceTree = "<group>"; };
 		06F44E11FFE702AD11CA29EB /* IOAudioLevelControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioLevelControl.cpp; sourceTree = "<group>"; };
@@ -133,7 +133,7 @@
 		06F44E17FFE702AD11CA29EB /* IOAudioControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioControl.h; sourceTree = "<group>"; };
 		06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioControlUserClient.h; sourceTree = "<group>"; };
 		06F44E19FFE702AD11CA29EB /* IOAudioDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioDevice.h; sourceTree = "<group>"; };
-		06F44E1AFFE702AD11CA29EB /* IOAudioEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioEngine.h; sourceTree = "<group>"; };
+		06F44E1AFFE702AD11CA29EB /* IOAudioEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioEngine.h; sourceTree = "<group>"; usesTabs = 1; };
 		06F44E1BFFE702AD11CA29EB /* IOAudioEngineUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioEngineUserClient.h; sourceTree = "<group>"; };
 		06F44E1DFFE702AD11CA29EB /* IOAudioLevelControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioLevelControl.h; sourceTree = "<group>"; };
 		06F44E20FFE702AD11CA29EB /* IOAudioPort.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioPort.h; sourceTree = "<group>"; };
@@ -551,7 +551,6 @@
 				RC_ProjectSourceVersion = 8888.88.88;
 				SDKROOT = macosx.internal;
 				SYMROOT = build;
-				VALID_ARCHS = "armv6 armv7 x86_64";
 			};
 			name = Development;
 		};
@@ -561,7 +560,6 @@
 			buildSettings = {
 				RC_ProjectSourceVersion = 8888.88.88;
 				SDKROOT = macosx.internal;
-				VALID_ARCHS = "armv6 armv7 x86_64";
 			};
 			name = Deployment;
 		};
@@ -571,7 +569,6 @@
 			buildSettings = {
 				RC_ProjectSourceVersion = 8888.88.88;
 				SDKROOT = macosx.internal;
-				VALID_ARCHS = "armv6 armv7 x86_64";
 			};
 			name = Default;
 		};
@@ -597,8 +594,6 @@
 				INFOPLIST_PREPROCESS = YES;
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = DEBUG;
 				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
 				OTHER_CFLAGS = (
@@ -613,7 +608,6 @@
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -642,7 +636,6 @@
 				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-I.";
 				INFOPLIST_PREPROCESS = YES;
 				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Deployment\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
 				OTHER_CFLAGS = (
@@ -656,7 +649,6 @@
 				PRODUCT_NAME = IOAudioFamily;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -684,8 +676,6 @@
 				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-I.";
 				INFOPLIST_PREPROCESS = YES;
 				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
@@ -700,7 +690,6 @@
 				PRODUCT_NAME = IOAudioFamily;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -761,7 +750,6 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				UNSTRIPPED_PRODUCT = YES;
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -818,7 +806,6 @@
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -874,7 +861,6 @@
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

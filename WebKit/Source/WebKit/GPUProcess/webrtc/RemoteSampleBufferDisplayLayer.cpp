@@ -30,6 +30,7 @@
 
 #include "GPUConnectionToWebProcess.h"
 #include "IPCUtilities.h"
+#include "MessageSenderInlines.h"
 #include "RemoteVideoFrameObjectHeap.h"
 #include "SampleBufferDisplayLayerMessages.h"
 #include <WebCore/ImageTransferSessionVT.h>
@@ -87,14 +88,12 @@ void RemoteSampleBufferDisplayLayer::updateDisplayMode(bool hideDisplayLayer, bo
     m_sampleBufferDisplayLayer->updateDisplayMode(hideDisplayLayer, hideRootLayer);
 }
 
-void RemoteSampleBufferDisplayLayer::updateAffineTransform(CGAffineTransform transform)
+void RemoteSampleBufferDisplayLayer::updateBoundsAndPosition(CGRect bounds, std::optional<WTF::MachSendRight>&& fence)
 {
-    m_sampleBufferDisplayLayer->updateRootLayerAffineTransform(transform);
-}
+    if (fence && fence->sendRight())
+        m_layerHostingContext->setFencePort(fence->sendRight());
 
-void RemoteSampleBufferDisplayLayer::updateBoundsAndPosition(CGRect bounds, WebCore::VideoFrame::Rotation rotation)
-{
-    m_sampleBufferDisplayLayer->updateRootLayerBoundsAndPosition(bounds, rotation, LocalSampleBufferDisplayLayer::ShouldUpdateRootLayer::Yes);
+    m_sampleBufferDisplayLayer->updateBoundsAndPosition(bounds, { });
 }
 
 void RemoteSampleBufferDisplayLayer::flush()
@@ -120,7 +119,7 @@ void RemoteSampleBufferDisplayLayer::pause()
 void RemoteSampleBufferDisplayLayer::enqueueVideoFrame(SharedVideoFrame&& frame)
 {
     if (auto videoFrame = m_sharedVideoFrameReader.read(WTFMove(frame)))
-        m_sampleBufferDisplayLayer->enqueueBuffer(videoFrame->pixelBuffer(), videoFrame->presentationTime());
+        m_sampleBufferDisplayLayer->enqueueVideoFrame(*videoFrame);
 }
 
 void RemoteSampleBufferDisplayLayer::clearVideoFrames()
@@ -143,9 +142,9 @@ void RemoteSampleBufferDisplayLayer::setSharedVideoFrameSemaphore(IPC::Semaphore
     m_sharedVideoFrameReader.setSemaphore(WTFMove(semaphore));
 }
 
-void RemoteSampleBufferDisplayLayer::setSharedVideoFrameMemory(const SharedMemory::Handle& handle)
+void RemoteSampleBufferDisplayLayer::setSharedVideoFrameMemory(SharedMemory::Handle&& handle)
 {
-    m_sharedVideoFrameReader.setSharedMemory(handle);
+    m_sharedVideoFrameReader.setSharedMemory(WTFMove(handle));
 }
 
 }

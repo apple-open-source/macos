@@ -941,7 +941,7 @@ static struct Block_byref *_Block_byref_copy(const void *arg) {
             copy2->byref_keep = src2->byref_keep;
             copy2->byref_destroy = src2->byref_destroy;
 
-            if (src->flags & BLOCK_BYREF_LAYOUT_EXTENDED) {
+            if (BLOCK_BYREF_LAYOUT(src) == BLOCK_BYREF_LAYOUT_EXTENDED) {
                 struct Block_byref_3 *src3 = (struct Block_byref_3 *)(src2+1);
                 struct Block_byref_3 *copy3 = (struct Block_byref_3*)(copy2+1);
                 copy3->layout = src3->layout;

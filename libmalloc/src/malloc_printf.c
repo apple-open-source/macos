@@ -41,8 +41,8 @@ static const int default_sleep_time = 3600;
 // Gets the default time to sleep for when reporting an error. Returns 0
 // (meaning do not sleep) if malloc_error_sleep is 0 (that is, if sleeping on
 // error is not configured).
-MALLOC_INLINE MALLOC_ALWAYS_INLINE
-static unsigned _malloc_default_debug_sleep_time()
+unsigned
+_malloc_default_debug_sleep_time(void)
 {
 	return malloc_error_sleep ? default_sleep_time : 0;
 }

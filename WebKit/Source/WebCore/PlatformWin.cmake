@@ -1,13 +1,23 @@
 add_definitions(/bigobj -D__STDC_CONSTANT_MACROS)
 
+include(platform/Adwaita.cmake)
+include(platform/Cairo.cmake)
+include(platform/Curl.cmake)
+include(platform/ImageDecoders.cmake)
+include(platform/OpenSSL.cmake)
+include(platform/TextureMapper.cmake)
+
+if (USE_DAWN)
+    include(platform/Dawn.cmake)
+endif ()
+
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
-    "${CMAKE_BINARY_DIR}/../include/private"
-    "${CMAKE_BINARY_DIR}/../include/private/JavaScriptCore"
     "${WEBCORE_DIR}/accessibility/win"
     "${WEBCORE_DIR}/page/win"
     "${WEBCORE_DIR}/platform/graphics/egl"
     "${WEBCORE_DIR}/platform/graphics/opengl"
     "${WEBCORE_DIR}/platform/graphics/opentype"
+    "${WEBCORE_DIR}/platform/graphics/wc"
     "${WEBCORE_DIR}/platform/graphics/win"
     "${WEBCORE_DIR}/platform/mediacapabilities"
     "${WEBCORE_DIR}/platform/network/win"
@@ -25,7 +35,10 @@ list(APPEND WebCore_SOURCES
 
     page/win/DragControllerWin.cpp
     page/win/EventHandlerWin.cpp
+    page/win/FrameCairoWin.cpp
     page/win/FrameWin.cpp
+    page/win/ResourceUsageOverlayWin.cpp
+    page/win/ResourceUsageThreadWin.cpp
 
     platform/Cursor.cpp
     platform/LocalizedStrings.cpp
@@ -33,55 +46,75 @@ list(APPEND WebCore_SOURCES
 
     platform/audio/PlatformMediaSessionManager.cpp
 
-    platform/graphics/egl/GLContextEGL.cpp
+    platform/generic/KeyedDecoderGeneric.cpp
+    platform/generic/KeyedEncoderGeneric.cpp
 
-    platform/graphics/opengl/TemporaryOpenGLSetting.cpp
+    platform/graphics/PlatformDisplay.cpp
+
+    platform/graphics/angle/PlatformDisplayANGLE.cpp
+
+    platform/graphics/egl/GLContext.cpp
 
     platform/graphics/opentype/OpenTypeUtilities.cpp
 
     platform/graphics/win/ComplexTextControllerUniscribe.cpp
     platform/graphics/win/DIBPixelData.cpp
     platform/graphics/win/DisplayRefreshMonitorWin.cpp
+    platform/graphics/win/DrawGlyphsRecorderWin.cpp
     platform/graphics/win/FloatRectWin.cpp
     platform/graphics/win/FontCacheWin.cpp
+    platform/graphics/win/FontCustomPlatformDataWin.cpp
     platform/graphics/win/FontDescriptionWin.cpp
+    platform/graphics/win/FontPlatformDataCairoWin.cpp
     platform/graphics/win/FontPlatformDataWin.cpp
     platform/graphics/win/FontWin.cpp
     platform/graphics/win/FullScreenController.cpp
     platform/graphics/win/FullScreenWindow.cpp
+    platform/graphics/win/GlyphPageTreeNodeCairoWin.cpp
+    platform/graphics/win/GraphicsContextCairoWin.cpp
     platform/graphics/win/GraphicsContextWin.cpp
     platform/graphics/win/IconWin.cpp
+    platform/graphics/win/ImageCairoWin.cpp
     platform/graphics/win/ImageWin.cpp
     platform/graphics/win/IntPointWin.cpp
     platform/graphics/win/IntRectWin.cpp
     platform/graphics/win/IntSizeWin.cpp
+    platform/graphics/win/MediaPlayerPrivateMediaFoundation.cpp
+    platform/graphics/win/PlatformDisplayWin.cpp
+    platform/graphics/win/SimpleFontDataCairoWin.cpp
     platform/graphics/win/SimpleFontDataWin.cpp
     platform/graphics/win/SystemFontDatabaseWin.cpp
     platform/graphics/win/TransformationMatrixWin.cpp
 
-    platform/network/win/DownloadBundleWin.cpp
+    platform/network/win/CurlSSLHandleWin.cpp
     platform/network/win/NetworkStateNotifierWin.cpp
+
+    platform/text/Hyphenation.cpp
+    platform/text/win/LocaleWin.cpp
 
     platform/win/BString.cpp
     platform/win/BitmapInfo.cpp
     platform/win/ClipboardUtilitiesWin.cpp
     platform/win/CursorWin.cpp
     platform/win/DefWndProcWindowClass.cpp
+    platform/win/DelayLoadedModulesEnumerator.cpp
     platform/win/DragDataWin.cpp
+    platform/win/DragImageCairoWin.cpp
     platform/win/DragImageWin.cpp
     platform/win/GDIObjectCounter.cpp
     platform/win/GDIUtilities.cpp
+    platform/win/ImportedFunctionsEnumerator.cpp
+    platform/win/ImportedModulesEnumerator.cpp
     platform/win/KeyEventWin.cpp
     platform/win/LocalizedStringsWin.cpp
     platform/win/LoggingWin.cpp
     platform/win/MIMETypeRegistryWin.cpp
     platform/win/MainThreadSharedTimerWin.cpp
+    platform/win/PEImage.cpp
     platform/win/PasteboardWin.cpp
     platform/win/PlatformMouseEventWin.cpp
     platform/win/PlatformScreenWin.cpp
-    platform/win/PopupMenuWin.cpp
     platform/win/SearchPopupMenuDB.cpp
-    platform/win/SearchPopupMenuWin.cpp
     platform/win/SystemInfo.cpp
     platform/win/UserAgentWin.cpp
     platform/win/WCDataObject.cpp
@@ -102,11 +135,9 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/opentype/FontMemoryResource.h
 
     platform/graphics/win/DIBPixelData.h
-    platform/graphics/win/FontCustomPlatformData.h
     platform/graphics/win/FullScreenController.h
     platform/graphics/win/FullScreenControllerClient.h
     platform/graphics/win/FullScreenWindow.h
-    platform/graphics/win/GraphicsContextWin.h
     platform/graphics/win/LocalWindowsContext.h
     platform/graphics/win/SharedGDIObject.h
 
@@ -117,9 +148,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/win/GDIObjectCounter.h
     platform/win/GDIUtilities.h
     platform/win/HWndDC.h
-    platform/win/PopupMenuWin.h
     platform/win/SearchPopupMenuDB.h
-    platform/win/SearchPopupMenuWin.h
     platform/win/SystemInfo.h
     platform/win/WCDataObject.h
     platform/win/WebCoreBundleWin.h
@@ -131,122 +160,71 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/win/WindowsTouch.h
 )
 
-if (WTF_PLATFORM_WIN_CAIRO)
-    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
-        ${WEBCORE_DIR}/platform/adwaita
-    )
-    list(APPEND WebCore_SOURCES
-        platform/adwaita/ScrollbarThemeAdwaita.cpp
-        platform/adwaita/ThemeAdwaita.cpp
+list(APPEND WebCore_LIBRARIES
+    crypt32
+    iphlpapi
+    usp10
+)
 
-        rendering/RenderThemeAdwaita.cpp
-    )
-    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
-        platform/adwaita/ScrollbarThemeAdwaita.h
-        platform/adwaita/ThemeAdwaita.h
-    )
-    list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
-        ${WEBCORE_DIR}/css/themeAdwaita.css
-        ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.css
-    )
-    set(WebCore_USER_AGENT_SCRIPTS
-        ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
-    )
-    set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/rendering/RenderThemeAdwaita.cpp)
+set(iconFiles
+    Resources/missingImage.png
+    Resources/missingImage@2x.png
+    Resources/missingImage@3x.png
+    Resources/panIcon.png
+    Resources/textAreaResizeCorner.png
+    Resources/textAreaResizeCorner@2x.png
+)
 
-    file(GLOB icon_files ${WEBCORE_DIR}/Modules/modern-media-controls/images/adwaita/*)
-    file(COPY ${icon_files}
-        DESTINATION
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/media-controls
-    )
-else ()
-    list(APPEND WebCore_SOURCES
-        platform/win/ScrollbarThemeWin.cpp
+file(COPY ${iconFiles} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/icons)
 
-        rendering/RenderThemeWin.cpp
+file(COPY ${ModernMediaControlsImageFiles}
+    DESTINATION
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/media-controls
+)
+
+if (ENABLE_VIDEO AND USE_MEDIA_FOUNDATION)
+    # Define a INTERFACE library for MediaFoundation and link it
+    # explicitly with direct WebCore consumers because /DELAYLOAD causes
+    # linker warnings for modules not using MediaFoundation.
+    #  LINK : warning LNK4199: /DELAYLOAD:mf.dll ignored; no imports found from mf.dll
+    add_library(MediaFoundation INTERFACE)
+    target_link_libraries(MediaFoundation INTERFACE
+        d3d9
+        delayimp
+        dxva2
+        evr
+        mf
+        mfplat
+        mfuuid
+        strmiids
     )
-    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
-        platform/win/ScrollbarThemeWin.h
+    target_link_options(MediaFoundation INTERFACE
+        /DELAYLOAD:d3d9.dll
+        /DELAYLOAD:dxva2.dll
+        /DELAYLOAD:evr.dll
+        /DELAYLOAD:mf.dll
+        /DELAYLOAD:mfplat.dll
     )
-    list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
-        ${WEBCORE_DIR}/css/mediaControls.css
-        ${WEBCORE_DIR}/css/themeWin.css
-        ${WEBCORE_DIR}/css/themeWinQuirks.css
-    )
-    file(COPY
-        ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsApple.css
-        ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsApple.js
-        DESTINATION
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources
-    )
-    file(COPY
-        ${WEBCORE_DIR}/en.lproj/mediaControlsLocalizedStrings.js
-        DESTINATION
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/en.lproj
+
+    list(APPEND WebCore_PRIVATE_LIBRARIES MediaFoundation)
+endif ()
+
+if (USE_WOFF2)
+    # The WOFF2 libraries don't compile as DLLs on Windows, so add in
+    # the additional libraries WOFF2::dec requires
+    list(APPEND WebCore_LIBRARIES
+        Brotli::dec
+        WOFF2::common
     )
 endif ()
 
-if (USE_CF)
-    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
-        "${WEBCORE_DIR}/platform/cf"
-    )
-
-    list(APPEND WebCore_SOURCES
-        editing/SmartReplaceCF.cpp
-
-        loader/archive/cf/LegacyWebArchive.cpp
-
-        platform/cf/SharedBufferCF.cpp
-
-        platform/text/cf/HyphenationCF.cpp
-    )
-
-    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
-        loader/archive/cf/LegacyWebArchive.h
-    )
-
-    list(APPEND WebCore_LIBRARIES Apple::CoreFoundation)
-    list(APPEND WebCoreTestSupport_LIBRARIES Apple::CoreFoundation)
-else ()
-    list(APPEND WebCore_SOURCES
-        platform/text/Hyphenation.cpp
-    )
-endif ()
-
-if (USE_CFURLCONNECTION)
-    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
-        ${WEBCORE_DIR}/platform/cf/win
-    )
-    list(APPEND WebCore_SOURCES
-        platform/cf/win/CertificateCFWin.cpp
-    )
-    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
-        platform/cf/win/CertificateCFWin.h
-    )
-endif ()
-
-if (USE_CF AND NOT WTF_PLATFORM_WIN_CAIRO)
-    list(APPEND WebCore_SOURCES
-        platform/cf/KeyedDecoderCF.cpp
-        platform/cf/KeyedEncoderCF.cpp
-    )
-else ()
-    list(APPEND WebCore_SOURCES
-        platform/generic/KeyedDecoderGeneric.cpp
-        platform/generic/KeyedEncoderGeneric.cpp
-    )
-endif ()
-
-if (${WTF_PLATFORM_WIN_CAIRO})
-    include(PlatformWinCairo.cmake)
-else ()
-    include(PlatformAppleWin.cmake)
-endif ()
+list(APPEND WebCoreTestSupport_LIBRARIES
+    Cairo::Cairo
+    shlwapi
+)
 
 file(COPY
     "${WEBCORE_DIR}/en.lproj/Localizable.strings"
     DESTINATION
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/WebKit.resources/en.lproj
 )
-
-set(WebCore_OUTPUT_NAME WebCore${DEBUG_SUFFIX})

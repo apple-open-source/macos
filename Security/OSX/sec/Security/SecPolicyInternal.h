@@ -50,14 +50,14 @@ struct __SecPolicy {
 	CFDictionaryRef		_options;
 };
 
-SecPolicyRef SecPolicyCreate(CFStringRef oid, CFStringRef name, CFDictionaryRef options);
+CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreate(CFStringRef oid, CFStringRef name, CFDictionaryRef options);
 
 CFDictionaryRef SecPolicyGetOptions(SecPolicyRef policy);
 
-xpc_object_t SecPolicyArrayCopyXPCArray(CFArrayRef policies, CFErrorRef *error);
+XPC_RETURNS_RETAINED xpc_object_t SecPolicyArrayCopyXPCArray(CFArrayRef policies, CFErrorRef *error);
 
-CFArrayRef SecPolicyArrayCreateDeserialized(CFArrayRef serializedPolicies);
-CFArrayRef SecPolicyArrayCreateSerialized(CFArrayRef policies);
+CF_RETURNS_RETAINED CFArrayRef SecPolicyArrayCreateDeserialized(CFArrayRef serializedPolicies);
+CF_RETURNS_RETAINED CFArrayRef SecPolicyArrayCreateSerialized(CFArrayRef policies);
 
 void SecPolicySetOptionsValue_internal(SecPolicyRef policy, CFStringRef key, CFTypeRef value);
 

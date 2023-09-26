@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998, 1999, 2001, 2004, 2005, 2007-2014
+ * Copyright (c) 1996, 1998, 1999, 2001, 2004, 2005, 2007-2021
  *	Todd C. Miller <Todd.Miller@sudo.ws>.
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -135,6 +135,15 @@
 #endif /* _PATH_SUDO_LOGDIR */
 
 /*
+ * Where to store sudo_logsrvd relay temporary files. Defaults to
+ * /var/log/sudo_logsrvd, /var/adm/sudo_logsrvd or /usr/adm/sudo_logsrvd
+ * depending on what exists.
+ */
+#ifndef _PATH_SUDO_RELAY_DIR
+# define _PATH_SUDO_RELAY_DIR "/var/log/sudo_logsrvd"
+#endif /* _PATH_SUDO_RELAY_DIR */
+
+/*
  * Where to put the sudo log file when logging to a file.  Defaults to
  * /var/log/sudo.log if /var/log exists, else /var/adm/sudo.log.
  */
@@ -142,12 +151,24 @@
 # define _PATH_SUDO_LOGFILE "/var/log/sudo.log"
 #endif /* _PATH_SUDO_LOGFILE */
 
+/*
+ * The path to an Ubuntu-style admin flag file that is created the
+ * first time a user runs sudo.
+ */
+#ifndef _PATH_SUDO_ADMIN_FLAG
+/* # undef _PATH_SUDO_ADMIN_FLAG */
+#endif /* _PATH_SUDO_ADMIN_FLAG */
+
 #ifndef _PATH_SUDO_SENDMAIL
 # define _PATH_SUDO_SENDMAIL "/usr/sbin/sendmail"
 #endif /* _PATH_SUDO_SENDMAIL */
 
+#ifndef _PATH_SUDO_INTERCEPT
+# define _PATH_SUDO_INTERCEPT "/usr/local/libexec/sudo/sudo_intercept.so"
+#endif /* _PATH_SUDO_INTERCEPT */
+
 #ifndef _PATH_SUDO_NOEXEC
-# define _PATH_SUDO_NOEXEC NULL
+/* # undef _PATH_SUDO_NOEXEC */
 #endif /* _PATH_SUDO_NOEXEC */
 
 #ifndef _PATH_SUDO_ASKPASS
@@ -161,6 +182,14 @@
 #ifndef _PATH_SUDO_DEVSEARCH
 # define _PATH_SUDO_DEVSEARCH _PATH_DEV "pts:" _PATH_DEV "vt:" _PATH_DEV "term:" _PATH_DEV "zcons:" _PATH_DEV "pty:" _PATH_DEV "" 
 #endif /* _PATH_SUDO_DEVSEARCH */
+
+#ifndef _PATH_SUDOERS_PLUGIN
+# define _PATH_SUDOERS_PLUGIN "sudoers.so"
+#endif /* _PATH_SUDOERS_PLUGIN */
+
+#ifndef _PATH_ASAN_LIB
+/* # undef _PATH_ASAN_LIB */
+#endif /* _PATH_ASAN_LIB */
 
 #ifndef _PATH_VI
 # define _PATH_VI "/usr/bin/vi"

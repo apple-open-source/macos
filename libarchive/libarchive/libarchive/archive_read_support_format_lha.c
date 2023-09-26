@@ -45,6 +45,9 @@
 #include "archive_read_private.h"
 #include "archive_endian.h"
 
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 #define MAXMATCH		256	/* Maximum match length. */
 #define MINMATCH		3	/* Minimum match length. */
@@ -261,6 +264,13 @@ archive_read_support_format_lha(struct archive *_a)
 	struct archive_read *a = (struct archive_read *)_a;
 	struct lha *lha;
 	int r;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("lha")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Format not allow-listed in entitlements");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_format_lha");

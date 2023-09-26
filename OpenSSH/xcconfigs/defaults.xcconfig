@@ -18,7 +18,7 @@ LibresslInclude[sdk=macosx*] = /usr/local/libressl/include
 LibresslLib = /usr/local/libcryptoshim/lib
 LibresslLib[sdk=macosx*] = /usr/local/libressl/lib
 CommonLdflags = -framework Foundation -lbsm -lcrypto -lz -Wl,-pie
-MacosxLdflags = -framework Kerberos -framework OpenDirectory -lpam -weak-lEndpointSecuritySystem
+MacosxLdflags = -framework Kerberos -framework OpenDirectory -lpam -weak-lEndpointSecuritySystem -weak-lManagedConfigurationFiles
 
 HEADER_SEARCH_PATHS = $(LibresslInclude) $(SRCROOT)/openssh
 HEADER_SEARCH_PATHS[sdk=macosx*] = $(LibresslInclude) $(SRCROOT)/openssh
@@ -27,7 +27,7 @@ LIBRARY_SEARCH_PATHS[sdk=macosx*] = $(LibresslLib)
 OTHER_LDFLAGS = $(CommonLdflags)
 OTHER_LDFLAGS[sdk=macosx*] = $(CommonLdflags) $(MacosxLdflags)
 
-AppleSshFeatures = __APPLE_AUDIT_BSM_LOGOUT_FIX__ __APPLE_LAUNCHD__ __APPLE_MEMBERSHIP__ __APPLE_KEYCHAIN__ __APPLE_SANDBOX_NAMED_EXTERNAL__ __APPLE_TMPDIR__ __APPLE_DISPLAY_VAR__ __APPLE_NW_CONNECTION__ __APPLE_CLEAR_LV__
+AppleSshFeatures = __APPLE_AUDIT_BSM_LOGOUT_FIX__ __APPLE_LAUNCHD__ __APPLE_MEMBERSHIP__ __APPLE_KEYCHAIN__ __APPLE_TMPDIR__ __APPLE_DISPLAY_VAR__ __APPLE_NW_CONNECTION__ __APPLE_CLEAR_LV__
 
 CLANG_ENABLE_OBJC_WEAK = YES
 ENABLE_STRICT_OBJC_MSGSEND = YES

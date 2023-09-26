@@ -66,6 +66,7 @@
 #include <sys/vnode.h>
 #include <sys/attr.h>
 #include <os/assumes.h>
+#include <pthread/private.h>
 
 #ifdef __BLOCKS__
 #include <Block.h>
@@ -87,6 +88,7 @@ static FTSENT	*fts_sort(FTS *, FTSENT *, int);
 static u_short	 fts_stat(FTS *, FTSENT *, int, int);
 static u_short   fts_stat2(FTS *, FTSENT *, int, int, struct stat *);
 static int	 fts_safe_changedir(FTS *, FTSENT *, int, char *);
+static int	 fts_fchdir(FTS *, int);
 
 #define	ISDOT(a)	(a[0] == '.' && (!a[1] || (a[1] == '.' && !a[2])))
 
@@ -94,7 +96,7 @@ static int	 fts_safe_changedir(FTS *, FTSENT *, int, char *);
 #define	ISSET(opt)	(sp->fts_options & (opt))
 #define	SET(opt)	(sp->fts_options |= (opt))
 
-#define	FCHDIR(sp, fd)	(!ISSET(FTS_NOCHDIR) && fchdir(fd))
+#define	FCHDIR(sp, fd)	(!ISSET(FTS_NOCHDIR) && fts_fchdir(sp, fd))
 
 /* fts_build flags */
 #define	BCHILD		1		/* fts_children */
@@ -218,6 +220,9 @@ __fts_open(char * const *argv, FTS *sp)
 	    (sp->fts_rfd = open(".", O_RDONLY | O_CLOEXEC)) < 0)
 		SET(FTS_NOCHDIR);
 
+	if (!ISSET(FTS_NOCHDIR) && getenv("FTS_USE_THREAD_FCHDIR") != NULL)
+		SET(FTS_THREAD_FCHDIR);
+
 	if (nitems == 0)
 		fts_free(parent);
 
@@ -334,13 +339,10 @@ fts_close(FTS *sp)
 		Block_release(sp->fts_compar_b);
 #endif /* __BLOCKS__ */
 
-	/* Free up the stream pointer. */
-	free(sp);
-
 	/* Return to original directory, checking for error. */
 	if (rfd != -1) {
 		int saved_errno = errno;
-		if (fchdir(rfd) != 0){
+		if (fts_fchdir(sp, rfd) != 0){
 			error = -1;
 			saved_errno = errno;
 		}
@@ -350,6 +352,9 @@ fts_close(FTS *sp)
 		}
 		errno = saved_errno;
 	}
+
+	/* Free up the stream pointer. */
+	free(sp);
 
 	return (error);
 }
@@ -644,7 +649,7 @@ fts_children(FTS *sp, int instr)
 	sp->fts_child = fts_build(sp, instr);
 	if (errno)
 		p->fts_errno = errno;
-	if (fchdir(fd)) {
+	if (fts_fchdir(sp, fd)) {
 		(void)close(fd);
 		return (NULL);
 	}
@@ -1560,6 +1565,14 @@ fts_maxarglen(char * const *argv)
 	return (max + 1);
 }
 
+static int
+fts_fchdir(FTS *sp, int fd)
+{
+	if (ISSET(FTS_THREAD_FCHDIR))
+		return (pthread_fchdir_np(fd));
+	return (fchdir(fd));
+}
+
 /*
  * Change to dir specified by fd or p->fts_accpath without getting
  * tricked by someone changing the world out from underneath us.
@@ -1631,7 +1644,7 @@ fts_safe_changedir(FTS *sp, FTSENT *p, int fd, char *path)
 		}
 	}
 
-	ret = fchdir(newfd);
+	ret = fts_fchdir(sp, newfd);
 bail:
 	oerrno = errno;
 	if (fd < 0)

@@ -104,6 +104,7 @@ void Connection::beginWork(audit_token_t &auditToken)
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);	//@@@ some state-error code instead?
 	default:
 		assert(false);
+		break;
 	}
 }
 
@@ -118,6 +119,7 @@ void Connection::checkWork()
 		throw this;
 	default:
 		assert(false);
+		break;
 	}
 }
 

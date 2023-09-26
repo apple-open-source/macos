@@ -34,8 +34,6 @@ namespace WebCore {
 
 class CSSParserObserver;
 class CSSSelectorList;
-class CSSValueList;
-class CSSValuePool;
 class Color;
 class Element;
 class ImmutableStyleProperties;
@@ -43,10 +41,6 @@ class MutableStyleProperties;
 class StyleRuleBase;
 class StyleRuleKeyframe;
 class StyleSheetContents;
-
-namespace CSSPropertyParserHelpers {
-struct FontRaw;
-}
 
 class CSSParser {
 public:

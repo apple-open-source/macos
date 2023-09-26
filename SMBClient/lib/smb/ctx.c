@@ -940,6 +940,15 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 		}
     }
 	
+    /* What SMB 3.1.1 signing algorithms are allowed? */
+    if (ctx->prefs.signing_algorithm_map & 0x0001) {
+        rq.ioc_extra_flags |= SMB_ENABLE_AES_128_CMAC;
+    }
+    
+    if (ctx->prefs.signing_algorithm_map & 0x0002) {
+        rq.ioc_extra_flags |= SMB_ENABLE_AES_128_GMAC;
+    }
+
     /* Check for forcing encryption */
     if (ctx->prefs.force_sess_encrypt) {
         rq.ioc_extra_flags |= SMB_FORCE_SESSION_ENCRYPT;
@@ -3419,9 +3428,25 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,
     mdata.max_dirs_cached = ctx->prefs.max_dirs_cached;
     mdata.max_dir_entries_cached = ctx->prefs.max_dir_entries_cached;
 
-    /* User defined max quantum size */
-    mdata.max_read_size = ctx->prefs.max_read_size;
-    mdata.max_write_size = ctx->prefs.max_write_size;
+    /* User defined quantum sizes and counts */
+    mdata.read_size[0] = ctx->prefs.read_size[0];
+    mdata.read_size[1] = ctx->prefs.read_size[1];
+    mdata.read_size[2] = ctx->prefs.read_size[2];
+
+    mdata.read_count[0] = ctx->prefs.read_count[0];
+    mdata.read_count[1] = ctx->prefs.read_count[1];
+    mdata.read_count[2] = ctx->prefs.read_count[2];
+
+    mdata.write_size[0] = ctx->prefs.write_size[0];
+    mdata.write_size[1] = ctx->prefs.write_size[1];
+    mdata.write_size[2] = ctx->prefs.write_size[2];
+
+    mdata.write_count[0] = ctx->prefs.write_count[0];
+    mdata.write_count[1] = ctx->prefs.write_count[1];
+    mdata.write_count[2] = ctx->prefs.write_count[2];
+
+    /* User defined rw thread control */
+    mdata.rw_thread_control = ctx->prefs.rw_thread_control;
 
     mdata.dev = dfs_ctx->ct_fd;
 	

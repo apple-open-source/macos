@@ -54,11 +54,12 @@
 
 #include "sudoers.h"
 #include "sudo_auth.h"
+#include "check.h"
 
 static int check_dce_status(error_status_t, char *);
 
 int
-sudo_dce_verify(struct passwd *pw, char *plain_pw, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_dce_verify(struct passwd *pw, const char *plain_pw, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     struct passwd		temp_pw;
     sec_passwd_rec_t		password_rec;
@@ -67,6 +68,12 @@ sudo_dce_verify(struct passwd *pw, char *plain_pw, sudo_auth *auth, struct sudo_
     sec_login_auth_src_t	auth_src;
     error_status_t		status;
     debug_decl(sudo_dce_verify, SUDOERS_DEBUG_AUTH);
+
+    if (IS_NONINTERACTIVE(auth))
+	debug_return_int(AUTH_NONINTERACTIVE);
+
+    /* Display lecture if needed and we haven't already done so. */
+    display_lecture(callback);
 
     /*
      * Create the local context of the DCE principal necessary

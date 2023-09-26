@@ -1,7 +1,6 @@
-/*	$OpenBSD: buf_subs.c,v 1.21 2005/11/09 19:59:06 otto Exp $	*/
-/*	$NetBSD: buf_subs.c,v 1.5 1995/03/21 09:07:08 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,23 +33,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)buf_subs.c	8.2 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] = "$OpenBSD: buf_subs.c,v 1.21 2005/11/09 19:59:06 otto Exp $";
+static char sccsid[] = "@(#)buf_subs.c	8.2 (Berkeley) 4/18/94";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
-#include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/param.h>
-#include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "pax.h"
 #include "extern.h"
@@ -100,7 +95,7 @@ wr_start(void)
 	if (!wrblksz)
 		wrblksz = frmt->bsz;
 	if (wrblksz > MAXBLK) {
-		paxwarn(1, "Write block size of %d too large, maximium is: %d",
+		paxwarn(1, "Write block size of %d too large, maximum is: %d",
 			wrblksz, MAXBLK);
 		return(-1);
 	}
@@ -145,7 +140,7 @@ rd_start(void)
 	buf = &(bufmem[BLKMULT]);
 	if ((act == APPND) && wrblksz) {
 		if (wrblksz > MAXBLK) {
-			paxwarn(1,"Write block size %d too large, maximium is: %d",
+			paxwarn(1,"Write block size %d too large, maximum is: %d",
 				wrblksz, MAXBLK);
 			return(-1);
 		}
@@ -188,7 +183,7 @@ cp_start(void)
  *	the start of the header of the first file added to the archive. The
  *	format specific end read function tells us how many bytes to move
  *	backwards in the archive to be positioned BEFORE the trailer. Two
- *	different position have to be adjusted, the O.S. file offset (e.g. the
+ *	different positions have to be adjusted, the O.S. file offset (e.g. the
  *	position of the tape head) and the write point within the data we have
  *	stored in the read (soon to become write) buffer. We may have to move
  *	back several records (the number depends on the size of the archive
@@ -298,7 +293,7 @@ appnd_start(off_t skcnt)
 	paxwarn(1, "Unable to rewrite archive trailer, cannot append.");
 	return(-1);
 }
-
+	
 /*
  * rd_sync()
  *	A read error occurred on this archive volume. Resync the buffer and
@@ -388,7 +383,7 @@ pback(char *pt, int cnt)
 
 /*
  * rd_skip()
- *	skip forward in the archive during a archive read. Used to get quickly
+ *	skip forward in the archive during an archive read. Used to get quickly
  *	past file data and padding for files the user did NOT select.
  * Return:
  *	0 if ok, -1 failure, and 1 when EOF on the archive volume was detected.
@@ -490,7 +485,7 @@ wr_rdbuf(char *out, int outcnt)
 	int cnt;
 
 	/*
-	 * while there is data to copy copy into the write buffer. when the
+	 * while there is data to copy into the write buffer. when the
 	 * write buffer fills, flush it to the archive and continue
 	 */
 	while (outcnt > 0) {
@@ -545,7 +540,7 @@ rd_wrbuf(char *in, int cpcnt)
 		}
 
 		/*
-		 * calculate how much data to copy based on whats left and
+		 * calculate how much data to copy based on what's left and
 		 * state of buffer
 		 */
 		cnt = MIN(cnt, incnt);
@@ -590,8 +585,8 @@ wr_skip(off_t skcnt)
 
 /*
  * wr_rdfile()
- *	fill write buffer with the contents of a file. We are passed an	open
- *	file descriptor to the file an the archive structure that describes the
+ *	fill write buffer with the contents of a file. We are passed an open
+ *	file descriptor to the file and the archive structure that describes the
  *	file we are storing. The variable "left" is modified to contain the
  *	number of bytes of the file we were NOT able to write to the archive.
  *	it is important that we always write EXACTLY the number of bytes that
@@ -678,15 +673,18 @@ rd_wrfile(ARCHD *arcn, int ofd, off_t *left)
 	int rem;
 	int sz = MINFBSZ;
 	struct stat sb;
-	u_int32_t crc = 0;
+	u_long crc = 0L;
 
 	/*
 	 * pass the blocksize of the file being written to the write routine,
 	 * if the size is zero, use the default MINFBSZ
 	 */
+#ifdef __APPLE__
 	if (ofd < 0)
 		sz = PAXPATHLEN + 1;		/* GNU tar long link/file */
-	else if (fstat(ofd, &sb) == 0) {
+	else
+#endif /* __APPLE__ */
+	if (fstat(ofd, &sb) == 0) {
 		if (sb.st_blksize > 0)
 			sz = (int)sb.st_blksize;
 	} else
@@ -791,7 +789,7 @@ cp_file(ARCHD *arcn, int fd1, int fd2)
 	/*
 	 * read the source file and copy to destination file until EOF
 	 */
-	for (;;) {
+	for(;;) {
 		if ((cnt = read(fd1, buf, blksz)) <= 0)
 			break;
 		if (no_hole)
@@ -847,7 +845,7 @@ buf_fill(void)
 	if (fini)
 		return(0);
 
-	for (;;) {
+	for(;;) {
 		/*
 		 * try to fill the buffer. on error the next archive volume is
 		 * opened and we try again.
@@ -861,10 +859,13 @@ buf_fill(void)
 
 		/*
 		 * errors require resync, EOF goes to next archive
+		 * but in case we have not determined yet the format,
+		 * this means that we have a very short file, so we
+		 * are done again.
 		 */
 		if (cnt < 0)
 			break;
-		if (ar_next() < 0) {
+		if (frmt == NULL || ar_next() < 0) {
 			fini = 1;
 			return(0);
 		}
@@ -952,7 +953,7 @@ buf_flush(int bufcnt)
 		} else if (cnt > 0) {
 			/*
 			 * Oh drat we got a partial write!
-			 * if format doesnt care about alignment let it go,
+			 * if format doesn't care about alignment let it go,
 			 * we warned the user in ar_write().... but this means
 			 * the last record on this volume violates pax spec....
 			 */

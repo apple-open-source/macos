@@ -594,11 +594,12 @@
 
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
+             repair:(BOOL)repair
               reply:(void (^)(NSError *_Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] healthCheck:arguments skipRateLimitingCheck:skipRateLimitingCheck reply:reply];
+    }] healthCheck:arguments skipRateLimitingCheck:skipRateLimitingCheck repair:repair reply:reply];
 }
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
@@ -830,6 +831,23 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection:^(NSError *connectionError) {
         reply(nil, connectionError);
     }] getAccountMetadata:arguments reply:reply];
+}
+
+- (void)resetAcountData:(OTControlArguments*)arguments
+            resetReason:(CuttlefishResetReason)resetReason
+                  reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(error);
+    }] resetAcountData:arguments resetReason:resetReason reply:reply];
+}
+
+- (void)totalTrustedPeers:(OTControlArguments*)arguments
+                    reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(nil, error);
+    }] totalTrustedPeers:arguments reply:reply];
 }
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {

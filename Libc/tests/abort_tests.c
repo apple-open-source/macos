@@ -6,15 +6,29 @@
 #include <stdlib.h>
 #include <dispatch/dispatch.h>
 
+#include <platform/string.h>
+
 typedef enum { PTHREAD, WORKQUEUE } thread_type_t;
 
 typedef enum {
-	NO_CORRUPTION,
-	SIG_CORRUPTION,
-	FULL_CORRUPTION,
+	NO_CORRUPTION = 0x0,
+	SIG_CORRUPTION = 0x1, // the pthread_t::sig
+	FULL_CORRUPTION = 0x2, // the pthread_t::sig and also TSDs
+	STACK_CORRUPTION = 0x4, // the stack protector cookie
 } corrupt_type_t;
 
-static void *
+__attribute__((noinline))
+static void
+induce_stack_check_failure(void)
+{
+	char buf[20];
+	// _platform_memset() sidesteps the -fstack-check rewrite of regular
+	// memset() to __memset_chk(), which doesn't take the abort path we want to
+	// exercise
+	_platform_memset(buf, 'a', 28);
+}
+
+static void
 body(void *ctx)
 {
 	corrupt_type_t corrupt_type = (corrupt_type_t)ctx;
@@ -25,21 +39,29 @@ body(void *ctx)
 	// The pthread_t is stored at the top of the stack and could be
 	// corrupted because of a stack overflow. To make the test more
 	// reliable, we will manually smash the pthread struct directly.
-	switch (corrupt_type) {
-	case NO_CORRUPTION:
-		break;
-	case SIG_CORRUPTION:
-		memset(self, 0x41, 128);
-		break;
-	case FULL_CORRUPTION: /* includes TSD */
+	if (corrupt_type & FULL_CORRUPTION) {
 		memset(self, 0x41, 4096);
-		break;
+	} else if (corrupt_type & SIG_CORRUPTION) {
+		memset(self, 0x41, 128);
 	}
 
-	// Expected behavior is that if a thread calls abort, the process should
-	// abort promptly.
-	abort();
-	T_FAIL("Abort didn't?");
+	if (corrupt_type & STACK_CORRUPTION) {
+		induce_stack_check_failure();
+		T_ASSERT_FAIL("Should have aborted");
+	} else {
+		// Expected behavior is that if a thread calls abort, the process should
+		// abort promptly.
+		abort();
+		T_FAIL("Abort didn't?");
+	}
+}
+
+static void *
+body_thr(void *ctx)
+{
+	body(ctx);
+	/* UNREACHABLE */
+	return (NULL);
 }
 
 static void
@@ -54,13 +76,13 @@ abort_test(thread_type_t type, corrupt_type_t corrupt_type)
 			pthread_t tid;
 			T_QUIET;
 			T_ASSERT_POSIX_ZERO(
-					pthread_create(&tid, NULL, body, (void *)corrupt_type), NULL);
+					pthread_create(&tid, NULL, body_thr, (void *)corrupt_type), NULL);
 			break;
 		}
 		case WORKQUEUE: {
 			dispatch_async_f(dispatch_get_global_queue(
 									 DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-					(void *)corrupt_type, &body);
+					(void *)corrupt_type, body);
 			break;
 		}
 		}
@@ -102,7 +124,7 @@ abort_test(thread_type_t type, corrupt_type_t corrupt_type)
 #if defined(__arm64e__)
 	// on arm64e pthread_self() checks a ptrauth signature so it is
 	// likely to die of either SIGTRAP or SIGBUS.
-	if (corrupt_type == FULL_CORRUPTION || corrupt_type == SIG_CORRUPTION) {
+	if ((corrupt_type & (FULL_CORRUPTION | SIG_CORRUPTION))) {
 		if (signal == SIGBUS) {
 			T_EXPECT_EQ(signal, SIGBUS, NULL);
 		} else {
@@ -168,4 +190,17 @@ T_DECL(abort_workqueue_test, "Tests abort",
 		T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	abort_test(WORKQUEUE, NO_CORRUPTION);
+}
+
+T_DECL(abort_pthread_stack_check_test, "Tests __stack_chk_fail() abort",
+		T_META_IGNORECRASHES(".*abort_tests.*"))
+{
+	abort_test(PTHREAD, STACK_CORRUPTION);
+}
+
+T_DECL(abort_pthread_stack_check_corrupt_sig_test,
+		"Tests __stack_chk_fail() abort with a corrupt pthread_t",
+		T_META_IGNORECRASHES(".*abort_tests.*"))
+{
+	abort_test(PTHREAD, (corrupt_type_t)(STACK_CORRUPTION | SIG_CORRUPTION));
 }

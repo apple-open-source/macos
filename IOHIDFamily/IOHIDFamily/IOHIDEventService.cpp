@@ -312,8 +312,6 @@ bool IOHIDEventService::start ( IOService * provider )
         legacy_shim = 0;
     }
     
-    IOLog("HID: Legacy shim %d\n", kLegacyShimEnabled);
-    
     if (legacy_shim) {
         
         _keyboardShim  = kLegacyShimEnabled;
@@ -674,6 +672,7 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
     bool                keyboardDevice      = false;
     bool                consumerDevice      = false;
     bool                escKeySupported     = false;
+    bool                doNotDisturbSupported = false;
     IOHIDElement *      keyboardLayoutElement = nullptr;
     IOHIDReportType     reportType;
     
@@ -722,6 +721,9 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
                         case kHIDUsage_GD_SystemSleep:
                         case kHIDUsage_GD_SystemWakeUp:
                             consumerDevice      = true;
+                            break;
+                        case kHIDUsage_GD_DoNotDisturb:
+                            doNotDisturbSupported = true;
                             break;
                     }
                     break;
@@ -872,6 +874,7 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
     if (keyboardDevice) {
         setProperty(kIOHIDKeyboardSupportedModifiersKey, supportedModifiers, 32);
         setProperty("HIDKeyboardKeysDefined", true);
+        setProperty(kIOHIDKeyboardSupportsDoNotDisturbKey, doNotDisturbSupported ? kOSBooleanTrue : kOSBooleanFalse);
     }
     
     if (keyboardDevice) {

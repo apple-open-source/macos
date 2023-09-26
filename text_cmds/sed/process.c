@@ -45,6 +45,7 @@ static const char sccsid[] = "@(#)process.c	8.6 (Berkeley) 4/20/94";
 #include <sys/ioctl.h>
 #include <sys/uio.h>
 
+#include <assert.h>
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
@@ -443,16 +444,49 @@ substitute(struct s_command *cp)
 		if (match[0].rm_so == match[0].rm_eo) {
 			if (*s == '\0' || *s == '\n')
 				slen = -1;
+#ifndef __APPLE__
 			else
 				slen--;
+#endif
 			if (*s != '\0') {
+#ifdef __APPLE__
+				int advance;
+
+				if (MB_CUR_MAX > 1) {
+					wchar_t wc;
+
+					/*
+					 * For multibyte encodings, advancing
+					 * one byte may put us in the middle of
+					 * an invalid sequence -- we really need
+					 * to advance one character.
+					 */
+					advance = mbtowc(&wc, s, slen);
+
+					/*
+					 * Advance shouldn't be able to be
+					 * negative here, we would have failed
+					 * the previous regexec(3).  It can't be
+					 * zero here, because we're in the NUL
+					 * byte check path.
+					 */
+					assert(advance > 0);
+				} else {
+					advance = 1;
+				}
+
+				cspace(&SS, s, advance, APPEND);
+				s += advance;
+				le += advance;
+				slen -= advance;
+#else
 			 	cspace(&SS, s++, 1, APPEND);
 				le++;
+#endif
 			}
 			lastempty = 1;
 		} else
 			lastempty = 0;
-
 	} while (n >= 0 && slen >= 0 &&
 	    regexec_e(re, ps, REG_NOTBOL, 0, le, psl));
 

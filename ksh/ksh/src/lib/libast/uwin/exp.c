@@ -48,7 +48,7 @@ static char sccsid[] = "@(#)exp.c	8.1 (Berkeley) 6/4/93";
  * Required system supported functions:
  *	scalb(x,n)	
  *	copysign(x,y)	
- *	finite(x)
+ *	isfinite(x)
  *
  * Method:
  *	1. Argument Reduction: given the input x, find r and integer k such 
@@ -151,7 +151,7 @@ double x;
 
 		else 
 		     /* exp(-big#) underflows to zero */
-		     if(finite(x))  return(scalb(1.0,-5000));
+		     if(isfinite(x))  return(scalb(1.0,-5000));
 
 		     /* exp(-INF) is zero */
 		     else return(0.0);
@@ -160,7 +160,7 @@ double x;
 
 	else 
 	/* exp(INF) is INF, exp(+big#) overflows to INF */
-	    return( finite(x) ?  scalb(1.0,5000)  : x);
+	    return( isfinite(x) ?  scalb(1.0,5000)  : x);
 }
 
 #endif
@@ -198,7 +198,7 @@ double x, c;
 
 		else 
 		     /* exp(-big#) underflows to zero */
-		     if(finite(x))  return(scalb(1.0,-5000));
+		     if(isfinite(x))  return(scalb(1.0,-5000));
 
 		     /* exp(-INF) is zero */
 		     else return(0.0);
@@ -207,7 +207,7 @@ double x, c;
 
 	else 
 	/* exp(INF) is INF, exp(+big#) overflows to INF */
-	    return( finite(x) ?  scalb(1.0,5000)  : x);
+	    return( isfinite(x) ?  scalb(1.0,5000)  : x);
 }
 
 #endif

@@ -125,7 +125,7 @@
 
 - (void)csAccountInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
 {
-    SecureBackup *sb = [[SecureBackup alloc] init];
+    SecureBackup *sb = [[SecureBackup alloc] initWithUserActivityLabel:@"test"];
 
     [sb getAccountInfoWithInfo:info completionBlock:^(NSDictionary *results, NSError *error) {
         reply(results, [error errorAsDictionary]);
@@ -134,7 +134,7 @@
 
 - (void)csEnableInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
 {
-    SecureBackup *sb = [[SecureBackup alloc] init];
+    SecureBackup *sb = [[SecureBackup alloc] initWithUserActivityLabel:@"test"];
 
     [sb enableWithInfo:info completionBlock:^(NSError *error) {
         reply(@{}, [error errorAsDictionary]);
@@ -142,14 +142,14 @@
 }
 - (void)csUpdateInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
 {
-    SecureBackup *sb = [[SecureBackup alloc] init];
+    SecureBackup *sb = [[SecureBackup alloc] initWithUserActivityLabel:@"test"];
     [sb updateMetadataWithInfo:info completionBlock:^(NSError *error) {
         reply(@{}, [error errorAsDictionary]);
     }];
 }
 - (void)csDisableInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
 {
-    SecureBackup *sb = [[SecureBackup alloc] init];
+    SecureBackup *sb = [[SecureBackup alloc] initWithUserActivityLabel:@"test"];
     [sb disableWithInfo:info completionBlock:^(NSError *error) {
         reply(@{}, [error errorAsDictionary]);
     }];
@@ -157,7 +157,7 @@
 
 - (void)csRecoverInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
 {
-    SecureBackup *sb = [[SecureBackup alloc] init];
+    SecureBackup *sb = [[SecureBackup alloc] initWithUserActivityLabel:@"test"];
     [sb recoverWithInfo:info completionBlock:^(NSDictionary *results, NSError *error) {
         reply(results, [error errorAsDictionary]);
     }];

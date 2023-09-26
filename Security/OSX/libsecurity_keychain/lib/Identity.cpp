@@ -61,13 +61,21 @@ Identity::Identity(const StorageManager::KeychainList &keychains, const SecPoint
                                                            kCFAllocatorNull);
     // First, try the new iOS keychain.
     {
-        const void *keys[] = { kSecClass, kSecAttrKeyClass, kSecAttrApplicationLabel, kSecReturnRef, kSecUseDataProtectionKeychain };
-        const void *values[] = { kSecClassKey, kSecAttrKeyClassPrivate, keyHash, kCFBooleanTrue, kCFBooleanTrue };
-        CFRef<CFDictionaryRef> query = CFDictionaryCreate(kCFAllocatorDefault, keys, values,
-                                                          sizeof(keys) / sizeof(*keys),
-                                                          &kCFTypeDictionaryKeyCallBacks,
-                                                          &kCFTypeDictionaryValueCallBacks);
+        CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecClass, kSecClassKey);
+        CFDictionarySetValue(query, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+        CFDictionarySetValue(query, kSecAttrApplicationLabel, keyHash);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+
         OSStatus status = SecItemCopyMatching(query, (CFTypeRef *)&mPrivateKey);
+        if (status == errSecSuccess) {
+            return;
+        }
+        // try the modern system keychain if not found in data protection keychain
+        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+        status = SecItemCopyMatching(query, (CFTypeRef *)&mPrivateKey);
         if (status == errSecSuccess) {
             return;
         }

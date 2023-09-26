@@ -57,6 +57,7 @@
 
 #include <execinfo.h>
 #include <unistd.h>
+#include <CommonCrypto/CommonDigest.h>
 
 #if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #include <CoreFoundation/CFUserNotification.h>
@@ -1609,4 +1610,39 @@ _SC_getconninfo(int socket, struct sockaddr_storage *src_addr, struct sockaddr_s
 	}
 
 	return TRUE;
+}
+
+CFStringRef
+_SC_copyInterfaceUUID(CFStringRef bsdName)
+{
+	union {
+		unsigned char	sha256_bytes[CC_SHA256_DIGEST_LENGTH];
+		CFUUIDBytes	uuid_bytes;
+	} bytes;
+	CC_SHA256_CTX	ctx;
+	char		if_name[IF_NAMESIZE];
+	CFUUIDRef	uuid;
+	CFStringRef	uuid_str;
+
+	// start with interface name
+	memset(&if_name, 0, sizeof(if_name));
+	(void) _SC_cfstring_to_cstring(bsdName,
+				       if_name,
+				       sizeof(if_name),
+				       kCFStringEncodingUTF8);
+
+	// create SHA256 hash
+	memset(&bytes, 0, sizeof(bytes));
+	CC_SHA256_Init(&ctx);
+	CC_SHA256_Update(&ctx,
+			 if_name,
+			 sizeof(if_name));
+	CC_SHA256_Final(bytes.sha256_bytes, &ctx);
+
+	// create UUID string
+	uuid = CFUUIDCreateFromUUIDBytes(NULL, bytes.uuid_bytes);
+	uuid_str = CFUUIDCreateString(NULL, uuid);
+	CFRelease(uuid);
+
+	return uuid_str;
 }

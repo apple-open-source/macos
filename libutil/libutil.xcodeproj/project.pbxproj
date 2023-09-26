@@ -26,6 +26,7 @@
 				FDA46DEB1D6D10DE00C63528 /* CopyFiles */,
 			);
 			dependencies = (
+				D042880928B81AB300008C6A /* PBXTargetDependency */,
 				FDA49918199D69C800A32E83 /* PBXTargetDependency */,
 			);
 			name = tests;
@@ -84,6 +85,11 @@
 		BA79F9EA13BB77FF006A292D /* libutil.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9AC13BB70FF006A292D /* libutil.txt */; };
 		C198003123F661F9004D70D5 /* expand_number.c in Sources */ = {isa = PBXBuildFile; fileRef = C198003023F661DF004D70D5 /* expand_number.c */; };
 		C198003223F66284004D70D5 /* expand_number.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C198002F23F661DF004D70D5 /* expand_number.3 */; };
+		D039301529A99C83007A9BDD /* tzbootuuid.c in Sources */ = {isa = PBXBuildFile; fileRef = D08B1A8829A591C600333642 /* tzbootuuid.c */; };
+		D042880728B7FBFA00008C6A /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA79F9C513BB718B006A292D /* libutil.dylib */; };
+		D061E7C628B6C11800E67D59 /* tzlinkd_test.c in Sources */ = {isa = PBXBuildFile; fileRef = D061E7C428B6C11400E67D59 /* tzlinkd_test.c */; };
+		D08B1A8929A591C600333642 /* tzbootuuid.c in Sources */ = {isa = PBXBuildFile; fileRef = D08B1A8829A591C600333642 /* tzbootuuid.c */; };
+		D08B1A8A29A5926800333642 /* tzbootuuid.c in Sources */ = {isa = PBXBuildFile; fileRef = D08B1A8829A591C600333642 /* tzbootuuid.c */; };
 		FDA46DED1D6D110000C63528 /* libutil.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FDA46DEC1D6D110000C63528 /* libutil.plist */; };
 		FDA4991B199D6A0400A32E83 /* humanize_number_test.c in Sources */ = {isa = PBXBuildFile; fileRef = FDA4991A199D6A0400A32E83 /* humanize_number_test.c */; };
 		FDA4991C199D6B9300A32E83 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA79F9C513BB718B006A292D /* libutil.dylib */; };
@@ -114,6 +120,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = FDBC26EF1741B13400CA4B2B;
 			remoteInfo = tzlinkd;
+		};
+		D042880828B81AB300008C6A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D061E7BC28B6C0E900E67D59;
+			remoteInfo = tzlinkd_test;
 		};
 		FDA49913199D69C100A32E83 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -198,6 +211,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		D061E7BB28B6C0E900E67D59 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FDA46DEB1D6D10DE00C63528 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -249,6 +271,10 @@
 		BA79F9C513BB718B006A292D /* libutil.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libutil.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		C198002F23F661DF004D70D5 /* expand_number.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expand_number.3; sourceTree = "<group>"; };
 		C198003023F661DF004D70D5 /* expand_number.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = expand_number.c; sourceTree = "<group>"; };
+		D061E7BD28B6C0E900E67D59 /* tzlinkd_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tzlinkd_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		D061E7C428B6C11400E67D59 /* tzlinkd_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tzlinkd_test.c; sourceTree = "<group>"; };
+		D061E7CE28B6D85100E67D59 /* tzlinkd_test.entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = tzlinkd_test.entitlements.plist; sourceTree = "<group>"; };
+		D08B1A8829A591C600333642 /* tzbootuuid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tzbootuuid.c; sourceTree = "<group>"; };
 		FDA46DEC1D6D110000C63528 /* libutil.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = libutil.plist; sourceTree = "<group>"; };
 		FDA49903199D69B000A32E83 /* humanize_number_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = humanize_number_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDA4991A199D6A0400A32E83 /* humanize_number_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = humanize_number_test.c; sourceTree = "<group>"; };
@@ -268,6 +294,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D061E7BA28B6C0E900E67D59 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D042880728B7FBFA00008C6A /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -299,6 +333,7 @@
 		BA79F99513BB70D7006A292D = {
 			isa = PBXGroup;
 			children = (
+				D08B1A8829A591C600333642 /* tzbootuuid.c */,
 				C198002F23F661DF004D70D5 /* expand_number.3 */,
 				C198003023F661DF004D70D5 /* expand_number.c */,
 				BA79F9A313BB70FF006A292D /* ExtentManager.cpp */,
@@ -341,6 +376,7 @@
 				BA79F9C513BB718B006A292D /* libutil.dylib */,
 				FDBC26F01741B13400CA4B2B /* tzlinkd */,
 				FDA49903199D69B000A32E83 /* humanize_number_test */,
+				D061E7BD28B6C0E900E67D59 /* tzlinkd_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -348,8 +384,10 @@
 		FDA49919199D6A0400A32E83 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				D061E7CE28B6D85100E67D59 /* tzlinkd_test.entitlements.plist */,
 				FDA46DEC1D6D110000C63528 /* libutil.plist */,
 				FDA4991A199D6A0400A32E83 /* humanize_number_test.c */,
+				D061E7C428B6C11400E67D59 /* tzlinkd_test.c */,
 			);
 			path = tests;
 			sourceTree = "<group>";
@@ -415,6 +453,23 @@
 			productReference = BA79F9C513BB718B006A292D /* libutil.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		D061E7BC28B6C0E900E67D59 /* tzlinkd_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D061E7C328B6C0E900E67D59 /* Build configuration list for PBXNativeTarget "tzlinkd_test" */;
+			buildPhases = (
+				D061E7B928B6C0E900E67D59 /* Sources */,
+				D061E7BA28B6C0E900E67D59 /* Frameworks */,
+				D061E7BB28B6C0E900E67D59 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = tzlinkd_test;
+			productName = tzlinkd_test;
+			productReference = D061E7BD28B6C0E900E67D59 /* tzlinkd_test */;
+			productType = "com.apple.product-type.tool";
+		};
 		FDA49902199D69B000A32E83 /* humanize_number_test */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDA4990E199D69B000A32E83 /* Build configuration list for PBXNativeTarget "humanize_number_test" */;
@@ -455,7 +510,13 @@
 		BA79F99713BB70D7006A292D /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1200;
+				LastUpgradeCheck = 1400;
+				TargetAttributes = {
+					D061E7BC28B6C0E900E67D59 = {
+						CreatedOnToolsVersion = 14.0;
+						ProvisioningStyle = Manual;
+					};
+				};
 			};
 			buildConfigurationList = BA79F99A13BB70D7006A292D /* Build configuration list for PBXProject "libutil" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -477,6 +538,7 @@
 				FDBC26EF1741B13400CA4B2B /* tzlinkd */,
 				FDA4990F199D69B800A32E83 /* tests */,
 				FDA49902199D69B000A32E83 /* humanize_number_test */,
+				D061E7BC28B6C0E900E67D59 /* tzlinkd_test */,
 			);
 		};
 /* End PBXProject section */
@@ -546,7 +608,17 @@
 				BA79F9D113BB7207006A292D /* reexec_to_match_kernel.c in Sources */,
 				BA79F9D213BB7207006A292D /* trimdomain.c in Sources */,
 				FDBC27071741B1D600CA4B2B /* tzlink.c in Sources */,
+				D08B1A8929A591C600333642 /* tzbootuuid.c in Sources */,
 				BA79F9D413BB7207006A292D /* wipefs.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D061E7B928B6C0E900E67D59 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D08B1A8A29A5926800333642 /* tzbootuuid.c in Sources */,
+				D061E7C628B6C11800E67D59 /* tzlinkd_test.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -562,6 +634,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D039301529A99C83007A9BDD /* tzbootuuid.c in Sources */,
 				FDBC27061741B1CF00CA4B2B /* tzlinkd.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -583,6 +656,11 @@
 			isa = PBXTargetDependency;
 			target = FDBC26EF1741B13400CA4B2B /* tzlinkd */;
 			targetProxy = 3EB98B661E37CEFE0059EC72 /* PBXContainerItemProxy */;
+		};
+		D042880928B81AB300008C6A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D061E7BC28B6C0E900E67D59 /* tzlinkd_test */;
+			targetProxy = D042880828B81AB300008C6A /* PBXContainerItemProxy */;
 		};
 		FDA49914199D69C100A32E83 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -651,6 +729,7 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -690,6 +769,7 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -755,6 +835,85 @@
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "-Wall";
+			};
+			name = Release;
+		};
+		D061E7C128B6C0E900E67D59 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "$(SRCROOT)/tests/tzlinkd_test.entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/Tests/libutil;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = macosx.internal;
+			};
+			name = Debug;
+		};
+		D061E7C228B6C0E900E67D59 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "$(SRCROOT)/tests/tzlinkd_test.entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/Tests/libutil;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -870,6 +1029,15 @@
 			buildConfigurations = (
 				BA79F9C813BB718B006A292D /* Debug */,
 				BA79F9C913BB718B006A292D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D061E7C328B6C0E900E67D59 /* Build configuration list for PBXNativeTarget "tzlinkd_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D061E7C128B6C0E900E67D59 /* Debug */,
+				D061E7C228B6C0E900E67D59 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -151,7 +151,7 @@
 
 - (void)rpcTriggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
 {
-    if([self sosIsEnabled]) {
+    if([self SOSMonitorModeSOSIsActive]) {
         [self.account rpcTriggerSync:peers complete:complete];
     } else {
         complete(true, nil);
@@ -198,7 +198,7 @@
 
 - (void)rpcTriggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
 {
-    if([self sosIsEnabled]) {
+    if([self SOSMonitorModeSOSIsActive]) {
         [self.account rpcTriggerBackup:backupPeers complete:complete];
     } else {
         complete([[NSError alloc] initWithDomain:(__bridge id) kSOSErrorDomain code:kSOSDisabled userInfo:@{}]);
@@ -206,7 +206,7 @@
 }
 
 - (void)rpcTriggerRingUpdate:(void (^)(NSError *))complete {
-    if([self sosIsEnabled]) {
+    if([self SOSMonitorModeSOSIsActive]) {
         [self.account rpcTriggerRingUpdate:complete];
     } else {
         complete([[NSError alloc] initWithDomain:(__bridge id) kSOSErrorDomain code:kSOSDisabled userInfo:@{}]);
@@ -222,31 +222,31 @@
 }
 
 
-- (void)sosDisable {
+- (void)SOSMonitorModeDisableSOS {
     [self.account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-        [self.account sosDisable];
+        [self.account SOSMonitorModeDisableSOS];
     }];
 }
 
 
-- (void)sosEnable {
+- (void)SOSMonitorModeEnableSOS {
     [self.account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-        [self.account sosEnable];
+        [self.account SOSMonitorModeEnableSOS];
     }];
 }
 
-- (void) sosIsEnabledCB: (void(^)(bool result)) complete {
+- (void) SOSMonitorModeSOSIsActiveWithCallback: (void(^)(bool result)) complete {
     [self.account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-        [self.account sosIsEnabledCB:^(bool result) {
+        [self.account SOSMonitorModeSOSIsActiveWithCallback:^(bool result) {
             complete(result);
         }];
     }];
 }
 
-- (bool) sosIsEnabled {
+- (bool) SOSMonitorModeSOSIsActive {
     __block bool retval = false;
     dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-    [self sosIsEnabledCB:^(bool result) {
+    [self SOSMonitorModeSOSIsActiveWithCallback:^(bool result) {
         retval = result;
         dispatch_semaphore_signal(semaphore);
     }];
@@ -254,8 +254,8 @@
     return retval;
 }
 
-- (NSString *) sosIsEnabledString {
-    return [self.account sosIsEnabledString];
+- (NSString *) SOSMonitorModeSOSIsActiveDescription {
+    return [self.account SOSMonitorModeSOSIsActiveDescription];
 }
 
 - (void)setBypass:(BOOL)bypass reply:(void(^)(BOOL result, NSError *error))reply

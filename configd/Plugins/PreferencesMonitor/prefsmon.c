@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,15 +40,19 @@
 #include <unistd.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
+#define __SC_CFRELEASE_NEEDED	1
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCNetworkCategory.h>
+#include <SystemConfiguration/SCNetworkCategoryManager.h>
 #include "SCNetworkConfigurationInternal.h"
+#include "CategoryManagerServer.h"
 #include "plugin_shared.h"
 #include "prefsmon_log.h"
 
 /* globals */
-static SCPreferencesRef		prefs			= NULL;
-static SCDynamicStoreRef	store			= NULL;
+static SCPreferencesRef		S_prefs			= NULL;
+static SCDynamicStoreRef	S_store			= NULL;
 
 /* InterfaceNamer[.plugin] monitoring globals */
 static CFMutableArrayRef	excluded_interfaces	= NULL;		// of SCNetworkInterfaceRef
@@ -67,6 +71,9 @@ static CFMutableDictionaryRef	newPrefs;		/* new prefs */
 static CFMutableArrayRef	unchangedPrefsKeys;	/* new prefs keys which match current */
 static CFMutableArrayRef	removedPrefsKeys;	/* old prefs keys to be removed */
 
+/* Category Information */
+static CFArrayRef		S_category_info;
+
 static Boolean			rofs			= FALSE;
 
 #define MY_PLUGIN_NAME		"PreferencesMonitor"
@@ -79,7 +86,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 		    void			*info);
 
 static void
-savePastConfiguration(CFStringRef old_model)
+savePastConfiguration(SCPreferencesRef prefs, CFStringRef old_model)
 {
 	CFDictionaryRef	system;
 
@@ -103,7 +110,7 @@ savePastConfiguration(CFStringRef old_model)
 
 
 static Boolean
-establishNewPreferences(void)
+establishNewPreferences(SCPreferencesRef prefs)
 {
 	SCNetworkSetRef	current		= NULL;
 	CFStringRef	new_model;
@@ -140,7 +147,7 @@ establishNewPreferences(void)
 		       new_model);
 
 		// save (and clean) the configuration that was created for "other" hardware
-		savePastConfiguration(old_model);
+		savePastConfiguration(prefs, old_model);
 	}
 
 	current = SCNetworkSetCopyCurrent(prefs);
@@ -203,7 +210,7 @@ establishNewPreferences(void)
 
 
 static void
-watchSCDynamicStore(void)
+watchSCDynamicStore(SCDynamicStoreRef store)
 {
 	CFMutableArrayRef	keys;
 	Boolean			ok;
@@ -406,7 +413,7 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 			haveConfiguration = TRUE;
 		}
 
-		(void) establishNewPreferences();
+		(void) establishNewPreferences(S_prefs);
 
 		if (timeout && (logged++ == 0)) {
 			SC_log(LOG_ERR, "Network configuration creation timed out waiting for IORegistry");
@@ -415,7 +422,8 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	if (updated && (changedKeys != NULL)) {
 		// if pre-configured interface list changed
-		updateConfiguration(prefs, kSCPreferencesNotificationApply, (void *)store);
+		updateConfiguration(S_prefs, kSCPreferencesNotificationApply,
+				    NULL);
 	}
 
 	return;
@@ -737,7 +745,7 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 
 
 static void
-updateSCDynamicStore(SCPreferencesRef prefs)
+updateSCDynamicStore(SCDynamicStoreRef store, SCPreferencesRef prefs)
 {
 	CFStringRef		current		= NULL;
 	CFDateRef		date		= NULL;
@@ -949,6 +957,351 @@ haveCurrentSet(SCPreferencesRef prefs)
 
 #endif /* TARGET_OS_OSX*/
 
+typedef struct {
+	SCPreferencesRef	prefs;
+	SCNetworkSetRef		set;
+	CFArrayRef		services;
+} categoryContext, *categoryContextRef;
+
+static void
+categoryContextInit(categoryContextRef context)
+{
+	bzero(context, sizeof(*context));
+}
+
+static Boolean
+categoryContextPopulate(categoryContextRef context,SCPreferencesRef prefs)
+{
+	context->set = SCNetworkSetCopyCurrent(prefs);
+	if (context->set == NULL) {
+		SC_log(LOG_NOTICE, "No default set");
+		return (FALSE);
+	}
+	context->services = SCNetworkSetCopyServices(context->set);
+	context->prefs = prefs;
+	CFRetain(prefs);
+	return (TRUE);
+}
+
+static void
+categoryContextFree(categoryContextRef context)
+{
+	__SC_CFRELEASE(context->prefs);
+	__SC_CFRELEASE(context->services);
+	__SC_CFRELEASE(context->set);
+	return;
+}
+
+static Boolean
+ifNameListMatch(CFStringRef * iflist, CFIndex count, CFStringRef name)
+{
+	for (CFIndex i = 0; i < count; i++) {
+		if (CFEqual(iflist[i], name)) {
+			return (TRUE);
+		}
+	}
+	return (FALSE);
+}
+
+static void
+removeServicesForInterfaces(categoryContextRef context,
+			    CFStringRef * iflist, CFIndex iflist_count)
+{
+	CFIndex		count;
+
+	if (context->services == NULL) {
+		SC_log(LOG_NOTICE, "%s: no services", __func__);
+		return;
+	}
+	count = CFArrayGetCount(context->services);
+	for (CFIndex i = 0; i < count; i++) {
+		CFStringRef		name;
+		SCNetworkInterfaceRef	netif;
+		Boolean			removed;
+		SCNetworkServiceRef	service;
+
+		service = (SCNetworkServiceRef)
+			CFArrayGetValueAtIndex(context->services, i);
+		netif = SCNetworkServiceGetInterface(service);
+		if (netif == NULL) {
+			continue;
+		}
+		name = SCNetworkInterfaceGetBSDName(netif);
+		if (name == NULL) {
+			continue;
+		}
+		if (!ifNameListMatch(iflist, iflist_count, name)) {
+			continue;
+		}
+		removed = SCNetworkSetRemoveService(context->set, service);
+		SC_log(LOG_NOTICE, "%s: remove service %@ (%@): %s",
+		       __func__, service, name,
+		       removed ? "SUCCESS" : "FAILED");
+	}
+	return;
+}
+
+static void
+establishServiceForInterface(categoryContextRef context,
+			     CFStringRef ifname)
+{
+	SCNetworkInterfaceRef	netif;
+	SCNetworkServiceRef	service;
+	CFStringRef		serviceID;
+
+	SC_log(LOG_NOTICE, "%s: %@",
+	       __func__, ifname);
+	netif = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname,
+					     kIncludeAllVirtualInterfaces);
+	if (netif == NULL) {
+		SC_log(LOG_NOTICE, "%s: can't create netif for %@",
+		       __func__, ifname);
+		return;
+	}
+	service = SCNetworkServiceCreate(context->prefs, netif);
+	serviceID = _SC_copyInterfaceUUID(ifname);
+	if (serviceID != NULL) {
+		if (!_SCNetworkServiceSetServiceID(service, serviceID)) {
+			SC_log(LOG_NOTICE,
+			       "%s: failed to set serviceID for %@",
+			       __func__, ifname);
+		}
+		CFRelease(serviceID);
+	}
+	if (!SCNetworkServiceEstablishDefaultConfiguration(service)) {
+		SC_log(LOG_NOTICE,
+		       "%s: %@ failed to establish default, %s",
+		       __func__, ifname, SCErrorString(SCError()));
+	}
+	else if (!SCNetworkSetAddService(context->set, service)) {
+		SC_log(LOG_NOTICE,
+		       "%s: can't add service for %@ to set, %s",
+		       __func__, ifname, SCErrorString(SCError()));
+	}
+	CFRelease(service);
+	CFRelease(netif);
+}
+
+static void
+ensureDefaultServiceExistsForInterface(categoryContextRef context,
+				       CFStringRef ifname)
+{
+	CFIndex			count;
+	SCNetworkServiceRef	first_service = NULL;
+
+	if (context->services == NULL) {
+		SC_log(LOG_NOTICE, "%s: no services", __func__);
+		return;
+	}
+	count = CFArrayGetCount(context->services);
+	for (CFIndex i = 0; i < count; i++) {
+		CFStringRef		name;
+		SCNetworkInterfaceRef	netif;
+		SCNetworkServiceRef	service;
+
+		service = (SCNetworkServiceRef)
+			CFArrayGetValueAtIndex(context->services, i);
+		netif = SCNetworkServiceGetInterface(service);
+		if (netif == NULL) {
+			continue;
+		}
+		name = SCNetworkInterfaceGetBSDName(netif);
+		if (name == NULL) {
+			continue;
+		}
+		if (!CFEqual(ifname, name)) {
+			continue;
+		}
+		if (first_service == NULL) {
+			first_service = service;
+			SC_log(LOG_NOTICE, "%s: found service %@ (%@)",
+			       __func__, service, name);
+		}
+		else {
+			/* remove all but the first service */
+			Boolean removed;
+
+			removed = SCNetworkSetRemoveService(context->set,
+							    service);
+			SC_log(LOG_NOTICE, "%s: remove service %@ (%@): %s",
+			       __func__, service, name,
+			       removed ? "SUCCESS" : "FAILED");
+		}
+	}
+	if (first_service == NULL) {
+		/* XXX: should be persisted instead of being dynamic */
+		establishServiceForInterface(context, ifname);
+	}
+	else {
+		/* ensure that is set to defaults */
+		SC_log(LOG_NOTICE, "%s: TBD: ensure defaults for %@",
+		       __func__, ifname);
+	}
+	return;
+}
+
+static Boolean
+stringlist_contains_string(CFStringRef * list, CFIndex count, CFStringRef name)
+{
+	Boolean		present = FALSE;
+
+	for (CFIndex i = 0; i < count; i++) {
+		if (CFEqual(list[i], name)) {
+			present = TRUE;
+			break;
+		}
+	}
+	return (present);
+}
+
+static void
+insertCategoryServices(categoryContextRef context,
+		       SCNetworkCategoryRef category, CFStringRef value,
+		       CFArrayRef services, CFStringRef ifname)
+{
+	CFIndex		count;
+	CFStringRef	iflist[CFArrayGetCount(services)];
+	CFIndex		iflist_count = 0;
+
+	count = CFArrayGetCount(services);
+	if (ifname != NULL) {
+		iflist[0] = ifname;
+		iflist_count = 1;
+	}
+	else {
+		for (CFIndex i = 0; i < count; i++) {
+			CFStringRef		name;
+			SCNetworkInterfaceRef	netif;
+			SCNetworkServiceRef	service;
+			
+			service = (SCNetworkServiceRef)
+				CFArrayGetValueAtIndex(services, i);
+			SC_log(LOG_NOTICE, "%s: service %@", __func__, service);
+			netif = SCNetworkServiceGetInterface(service);
+			if (netif == NULL) {
+				SC_log(LOG_NOTICE, "%s: no netif", __func__);
+				continue;
+			}
+			name = SCNetworkInterfaceGetBSDName(netif);
+			if (name == NULL) {
+				SC_log(LOG_NOTICE, "%s: no name %@", __func__, netif);
+				continue;
+			}
+			if (!stringlist_contains_string(iflist, iflist_count,
+							name)) {
+				iflist[iflist_count++] = name;
+				SC_log(LOG_NOTICE, "%s: added %@, count %d", __func__,
+				       name, (int)iflist_count);
+			}
+		}
+	}
+	/* remove services for interface(s) */
+	removeServicesForInterfaces(context, iflist, iflist_count);
+	
+	/* add services */
+	for (CFIndex i = 0; i < count; i++) {
+		CFDictionaryRef		qos;
+		SCNetworkServiceRef	service;
+			
+		service = (SCNetworkServiceRef)
+			CFArrayGetValueAtIndex(services, i);
+		qos = SCNetworkCategoryGetServiceQoSMarkingPolicy(category,
+								  value,
+								  service);
+		if (!SCNetworkSetAddService(context->set, service)) {
+			SC_log(LOG_NOTICE,
+			       "%s: can't add service %@ to set, %s",
+			       __func__, service, SCErrorString(SCError()));
+		}
+		else {
+			SCNetworkInterfaceRef	netif;
+
+			SC_log(LOG_NOTICE,
+			       "%s: added service %@ to set",
+			       __func__, service);
+			netif = SCNetworkServiceGetInterface(service);
+			if (netif != NULL && qos != NULL) {
+				Boolean 	ok;
+
+				ok = SCNetworkInterfaceSetQoSMarkingPolicy(netif,
+									   qos);
+				SC_log(LOG_NOTICE,
+				       "%s: %sset QoSMarkingPolicy on %@",
+				       __func__, !ok ? "FAILED to " : "",
+				       netif);
+			}
+		}
+	}
+	return;
+}
+
+static void
+handleCategoryInfo(categoryContextRef context, CFDictionaryRef dict)
+{
+	SCNetworkCategoryRef	category = NULL;
+	CFStringRef		categoryID;
+	CFStringRef		ifname;
+	Boolean			keep_configured = FALSE;
+	CFArrayRef		services = NULL;
+	CFStringRef		value;
+
+	categoryID = CategoryInformationGetCategory(dict);
+	if (categoryID == NULL) {
+		SC_log(LOG_NOTICE, "%s: no category", __func__);
+		return;
+	}
+	category = SCNetworkCategoryCreate(context->prefs, categoryID);
+	if (category == NULL) {
+		SC_log(LOG_NOTICE, "%s: failed to allocate category",
+		       __func__);
+		return;
+	}
+	value = CategoryInformationGetValue(dict);
+	if (value != NULL) {
+		services = SCNetworkCategoryCopyServices(category, value);
+	}
+	keep_configured = ((CategoryInformationGetFlags(dict)
+			    & kSCNetworkCategoryManagerFlagsKeepConfigured)
+			   != 0);
+	ifname = CategoryInformationGetInterfaceName(dict);
+	if (value == NULL || services == NULL) {
+		if (ifname != NULL && keep_configured) {
+			ensureDefaultServiceExistsForInterface(context, ifname);
+		}
+	}
+	else {
+		insertCategoryServices(context, category, value,
+				       services, ifname);
+	}
+	__SC_CFRELEASE(category);
+	__SC_CFRELEASE(services);
+	return;
+}
+
+static void
+updateCategoryServices(SCPreferencesRef prefs)
+{
+	categoryContext	context;
+	CFIndex		count;
+
+	if (S_category_info == NULL) {
+		return;
+	}
+	categoryContextInit(&context);
+	if (!categoryContextPopulate(&context, prefs)) {
+		return;
+	}
+	count = CFArrayGetCount(S_category_info);
+	for (CFIndex i = 0; i < count; i++) {
+		CFDictionaryRef		dict;
+
+		dict = CFArrayGetValueAtIndex(S_category_info, i);
+		handleCategoryInfo(&context, dict);
+	}
+	categoryContextFree(&context);
+	return;
+}
+
 static void
 updateConfiguration(SCPreferencesRef		prefs,
 		    SCPreferencesNotification   notificationType,
@@ -975,6 +1328,9 @@ updateConfiguration(SCPreferencesRef		prefs,
 
 	SC_log(LOG_INFO, "updating configuration");
 
+	/* adjust configuration for category-based services */
+	updateCategoryServices(prefs);
+
 	/* add any [Apple] pre-configured network services */
 	updatePreConfiguredConfiguration(prefs);
 
@@ -982,7 +1338,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 	excludeConfigurations(prefs);
 
 	/* update SCDynamicStore (Setup:) */
-	updateSCDynamicStore(prefs);
+	updateSCDynamicStore(S_store, prefs);
 
 	/* finished with current prefs, wait for changes */
 	if (!rofs) {
@@ -994,6 +1350,50 @@ updateConfiguration(SCPreferencesRef		prefs,
 	return;
 }
 
+static void
+categoryInformationChanged(void * _not_used)
+{
+#pragma unused(_not_used)
+	Boolean		changed = FALSE;
+	CFArrayRef	info;
+
+	info = CategoryManagerServerInformationCopy();
+	SC_log(LOG_NOTICE, "%s: info %@", __func__, info);
+	if (!_SC_CFEqual(S_category_info, info)) {
+		changed = TRUE;
+	}
+	__SC_CFRELEASE(S_category_info);
+	S_category_info = info;
+	if (changed) {
+		updateConfiguration(S_prefs,
+				    kSCPreferencesNotificationApply,
+				    NULL);
+		CategoryManagerServerInformationAck(info);
+	}
+	return;
+}
+
+static Boolean
+startCategoryManagerServer(void)
+{
+	CFRunLoopSourceContext 		context;
+	CFRunLoopSourceRef		rls;
+	Boolean				started;
+
+	memset(&context, 0, sizeof(context));
+	context.perform = categoryInformationChanged;
+	rls = CFRunLoopSourceCreate(NULL, 0, &context);
+	started = CategoryManagerServerStart(CFRunLoopGetCurrent(), rls);
+	if (!started) {
+		SC_log(LOG_ERR, "CategoryManagerServerStart failed");
+	}
+	else {
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls,
+				   kCFRunLoopDefaultMode);
+	}
+	CFRelease(rls);
+	return (started);
+}
 
 __private_extern__
 void
@@ -1001,9 +1401,12 @@ prime_PreferencesMonitor(void)
 {
 	SC_log(LOG_DEBUG, "prime() called");
 
+	if (startCategoryManagerServer()) {
+		SC_log(LOG_NOTICE, "CategoryManagerServer started");
+	}
+	
 	/* load the initial configuration from the database */
-	updateConfiguration(prefs, kSCPreferencesNotificationApply, (void *)store);
-
+	updateConfiguration(S_prefs, kSCPreferencesNotificationApply, NULL);
 	return;
 }
 
@@ -1030,11 +1433,11 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	SC_log(LOG_DEBUG, "  bundle ID = %@", CFBundleGetIdentifier(bundle));
 
 	/* open a SCDynamicStore session to allow cache updates */
-	store = SCDynamicStoreCreate(NULL,
-				     CFSTR("PreferencesMonitor.bundle"),
-				     storeCallback,
-				     NULL);
-	if (store == NULL) {
+	S_store = SCDynamicStoreCreate(NULL,
+				       CFSTR("PreferencesMonitor.bundle"),
+				       storeCallback,
+				       NULL);
+	if (S_store == NULL) {
 		SC_log(LOG_NOTICE, "SCDynamicStoreCreate() failed: %s", SCErrorString(SCError()));
 		goto error;
 	}
@@ -1046,22 +1449,22 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 				     sizeof(option_keys) / sizeof(option_keys[0]),
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
-	prefs = SCPreferencesCreateWithOptions(NULL,
-					       MY_PLUGIN_ID,
-					       PREFERENCES_MONITOR_PLIST,
-					       NULL,	// authorization
-					       options);
+	S_prefs = SCPreferencesCreateWithOptions(NULL,
+						 MY_PLUGIN_ID,
+						 PREFERENCES_MONITOR_PLIST,
+						 NULL,	// authorization
+						 options);
 	CFRelease(options);
-	if (prefs != NULL) {
+	if (S_prefs != NULL) {
 		Boolean		need_update = FALSE;
 		CFStringRef 	new_model;
 		CFStringRef	old_model;
 
 		// check if we need to update the configuration
-		__SCNetworkConfigurationUpgrade(&prefs, NULL, TRUE);
+		__SCNetworkConfigurationUpgrade(&S_prefs, NULL, TRUE);
 
 		// check if we need to regenerate the configuration for a new model
-		old_model = SCPreferencesGetValue(prefs, MODEL);
+		old_model = SCPreferencesGetValue(S_prefs, MODEL);
 		new_model = _SC_hw_model(FALSE);
 		if ((old_model != NULL) && !_SC_CFEqual(old_model, new_model)) {
 			SC_log(LOG_NOTICE, "Hardware model changed\n"
@@ -1071,7 +1474,7 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 			       new_model);
 
 			// save (and clean) the configuration that was created for "other" hardware
-			savePastConfiguration(old_model);
+			savePastConfiguration(S_prefs, old_model);
 
 			// ... and we'll update the configuration later (when the IORegistry quiesces)
 			need_update = TRUE;
@@ -1080,7 +1483,7 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		if (!need_update) {
 			SCNetworkSetRef current;
 
-			current = SCNetworkSetCopyCurrent(prefs);
+			current = SCNetworkSetCopyCurrent(S_prefs);
 			if (current != NULL) {
 				/* network configuration available, disable template creation */
 				haveConfiguration = TRUE;
@@ -1095,12 +1498,12 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	/*
 	 * register for change notifications.
 	 */
-	if (!SCPreferencesSetCallback(prefs, updateConfiguration, NULL)) {
+	if (!SCPreferencesSetCallback(S_prefs, updateConfiguration, NULL)) {
 		SC_log(LOG_NOTICE, "SCPreferencesSetCallBack() failed: %s", SCErrorString(SCError()));
 		goto error;
 	}
 
-	if (!SCPreferencesScheduleWithRunLoop(prefs, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
+	if (!SCPreferencesScheduleWithRunLoop(S_prefs, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
 		SC_log(LOG_NOTICE, "SCPreferencesScheduleWithRunLoop() failed: %s", SCErrorString(SCError()));
 		goto error;
 	}
@@ -1111,15 +1514,15 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	 * template), to track any pre-configured interfaces, and to ensure
 	 * that we create a network service for any active interfaces.
 	 */
-	watchSCDynamicStore();
-	storeCallback(store, NULL, NULL);
+	watchSCDynamicStore(S_store);
+	storeCallback(S_store, NULL, NULL);
 
 	return;
 
     error :
 
-	if (store != NULL)	CFRelease(store);
-	if (prefs != NULL)	CFRelease(prefs);
+	if (S_store != NULL)	CFRelease(S_store);
+	if (S_prefs != NULL)	CFRelease(S_prefs);
 	haveConfiguration = TRUE;
 
 	return;

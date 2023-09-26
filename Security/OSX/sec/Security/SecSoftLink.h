@@ -38,6 +38,7 @@ SOFT_LINK_OPTIONAL_FRAMEWORK_FOR_HEADER(CryptoTokenKit);
 SOFT_LINK_CLASS_FOR_HEADER(CryptoTokenKit, TKClientToken);
 SOFT_LINK_CLASS_FOR_HEADER(CryptoTokenKit, TKClientTokenSession);
 SOFT_LINK_OBJECT_CONSTANT_FOR_HEADER(CryptoTokenKit, TKErrorDomain);
+SOFT_LINK_CONSTANT(CryptoTokenKit, TKClientTokenParameterForceSystemSession, NSString *)
 SOFT_LINK_OPTIONAL_FRAMEWORK_FOR_HEADER(LocalAuthentication);
 SOFT_LINK_CLASS_FOR_HEADER(LocalAuthentication, LAContext);
 SOFT_LINK_OBJECT_CONSTANT_FOR_HEADER(LocalAuthentication, LAErrorDomain);

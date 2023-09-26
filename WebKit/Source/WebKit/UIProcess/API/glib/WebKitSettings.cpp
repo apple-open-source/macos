@@ -32,6 +32,7 @@
 #include "WebKitSettings.h"
 
 #include "WebKitEnumTypes.h"
+#include "WebKitFeaturePrivate.h"
 #include "WebKitInitialize.h"
 #include "WebKitSettingsPrivate.h"
 #include "WebPageProxy.h"
@@ -104,7 +105,7 @@ struct _WebKitSettingsPrivate {
  * ```
  */
 
-WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitSettings, webkit_settings, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE(WebKitSettings, webkit_settings, G_TYPE_OBJECT, GObject)
 
 enum {
     PROP_0,
@@ -666,8 +667,9 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
     /**
      * WebKitSettings:load-icons-ignoring-image-load-setting:
      *
-     * Determines whether a site can load favicons irrespective
-     * of the value of #WebKitSettings:auto-load-images.
+     * Unsupported setting. This property does nothing.
+     *
+     * Deprecated: 2.42
      */
     sObjProperties[PROP_LOAD_ICONS_IGNORING_IMAGE_LOAD_SETTING] =
         g_param_spec_boolean(
@@ -1497,12 +1499,8 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
      * WebKitSettings:hardware-acceleration-policy:
      *
      * The #WebKitHardwareAccelerationPolicy to decide how to enable and disable
-     * hardware acceleration. The value %WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND
-     * enables hardware acceleration only when the web content requests it.
-     * It's possible to enforce hardware acceleration to be always enabled
-     * by using %WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS, or to disable it
-     * completely using %WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER. Note that disabling hardware
-     * acceleration might cause some websites to not render correctly or consume more CPU.
+     * hardware acceleration. Disabling hardware acceleration might
+     * cause some websites to not render correctly or consume more CPU.
      *
      * Note that changing this setting might not be possible if hardware acceleration is not
      * supported by the hardware or the system. In that case, you can get the value to know the
@@ -1741,15 +1739,19 @@ void webkit_settings_set_auto_load_images(WebKitSettings* settings, gboolean ena
  * webkit_settings_get_load_icons_ignoring_image_load_setting:
  * @settings: a #WebKitSettings
  *
- * Get the #WebKitSettings:load-icons-ignoring-image-load-setting property.
+ * Setting no longer supported. This function returns %FALSE.
  *
- * Returns: %TRUE If site icon can be loaded irrespective of image loading preference or %FALSE otherwise.
+ * Returns: %FALSE
+ *
+ * Deprecated: 2.42
  */
 gboolean webkit_settings_get_load_icons_ignoring_image_load_setting(WebKitSettings* settings)
 {
     g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
 
-    return settings->priv->preferences->loadsSiteIconsIgnoringImageLoadingPreference();
+    g_warning("webkit_settings_get_load_icons_ignoring_image_load_setting is deprecated and always returns FALSE.");
+
+    return FALSE;
 }
 
 /**
@@ -1757,19 +1759,16 @@ gboolean webkit_settings_get_load_icons_ignoring_image_load_setting(WebKitSettin
  * @settings: a #WebKitSettings
  * @enabled: Value to be set
  *
- * Set the #WebKitSettings:load-icons-ignoring-image-load-setting property.
+ * Setting no longer supported. This function does nothing.
+ *
+ * Deprecated: 2.42
  */
 void webkit_settings_set_load_icons_ignoring_image_load_setting(WebKitSettings* settings, gboolean enabled)
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
 
-    WebKitSettingsPrivate* priv = settings->priv;
-    bool currentValue = priv->preferences->loadsSiteIconsIgnoringImageLoadingPreference();
-    if (currentValue == enabled)
-        return;
-
-    priv->preferences->setLoadsSiteIconsIgnoringImageLoadingPreference(enabled);
-    g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_LOAD_ICONS_IGNORING_IMAGE_LOAD_SETTING]);
+    if (enabled)
+        g_warning("webkit_settings_set_load_icons_ignoring_image_load_setting is deprecated and does nothing.");
 }
 
 /**
@@ -3706,9 +3705,12 @@ void webkit_settings_set_allow_top_navigation_to_data_urls(WebKitSettings* setti
  */
 WebKitHardwareAccelerationPolicy webkit_settings_get_hardware_acceleration_policy(WebKitSettings* settings)
 {
-    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND);
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS);
 
     WebKitSettingsPrivate* priv = settings->priv;
+#if USE(GTK4)
+    return priv->preferences->acceleratedCompositingEnabled() ? WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS : WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER;
+#else
     if (!priv->preferences->acceleratedCompositingEnabled())
         return WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER;
 
@@ -3716,6 +3718,7 @@ WebKitHardwareAccelerationPolicy webkit_settings_get_hardware_acceleration_polic
         return WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS;
 
     return WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND;
+#endif
 }
 
 /**
@@ -3761,6 +3764,7 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
             changed = true;
         }
         break;
+#if !USE(GTK4)
     case WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND:
         if (!priv->preferences->acceleratedCompositingEnabled() && HardwareAccelerationManager::singleton().canUseHardwareAcceleration()) {
             priv->preferences->setAcceleratedCompositingEnabled(true);
@@ -3773,6 +3777,7 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
             changed = true;
         }
         break;
+#endif
     }
 
     if (changed)
@@ -4028,4 +4033,107 @@ void webkit_settings_set_disable_web_security(WebKitSettings* settings, gboolean
 
     priv->preferences->setWebSecurityEnabled(!disabled);
     g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_DISABLE_WEB_SECURITY]);
+}
+
+/**
+ * webkit_settings_set_feature_enabled:
+ * @settings: a #WebKitSettings
+ * @feature: the feature to toggle.
+ * @enabled: whether the feature will be enabled.
+ *
+ * Enables or disables a feature.
+ *
+ * The current status of the feature can be determined with
+ * [id@webkit_settings_get_feature_enabled]. To reset a feature to its
+ * initial status, pass the value returned by
+ * [id@webkit_feature_get_default_value] as the @enabled parameter.
+ *
+ * Since: 2.42
+ */
+void webkit_settings_set_feature_enabled(WebKitSettings* settings, WebKitFeature* feature, gboolean enabled)
+{
+    g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
+    g_return_if_fail(feature);
+
+    settings->priv->preferences->setFeatureEnabled(webkitFeatureGetFeature(feature), !!enabled);
+}
+
+/**
+ * webkit_settings_get_feature_enabled:
+ * @settings: a #WebKitSettings
+ * @feature: the feature to toggle.
+ *
+ * Gets whether a feature is enabled.
+ *
+ * Returns: Whether the feature is enabled.
+ *
+ * Since: 2.42
+ */
+gboolean webkit_settings_get_feature_enabled(WebKitSettings* settings, WebKitFeature* feature)
+{
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
+    g_return_val_if_fail(feature, FALSE);
+
+    return settings->priv->preferences->isFeatureEnabled(webkitFeatureGetFeature(feature)) ? TRUE : FALSE;
+}
+
+/**
+ * webkit_settings_get_all_features:
+ *
+ * Gets the list of all available WebKit features.
+ *
+ * Features can be toggled with [method@Settings.set_feature_enabled],
+ * and their current state determined with
+ * [method@Settings.get_feature_enabled].
+ *
+ * Note that most applications should use
+ * [func@Settings.get_development_features] and
+ * [func@Settings.get_experimental_features] instead.
+ *
+ * Returns: (transfer full): List of all features.
+ *
+ * Since: 2.42
+ */
+WebKitFeatureList* webkit_settings_get_all_features(void)
+{
+    return webkitFeatureListCreate(WebPreferences::features());
+}
+
+/**
+ * webkit_settings_get_experimental_features:
+ *
+ * Gets the list of available experimental WebKit features.
+ *
+ * The returned features are a subset of those returned by
+ * [func@Settings.get_all_features], and includes those which
+ * certain applications may want to expose to end users; see
+ * [enum@FeatureStatus] for more details.
+ *
+ * Returns: (transfer full): List of experimental features.
+ *
+ * Since: 2.42
+ */
+WebKitFeatureList* webkit_settings_get_experimental_features(void)
+{
+    return webkitFeatureListCreate(WebPreferences::experimentalFeatures());
+}
+
+/**
+ * webkit_settings_get_development_features:
+ *
+ * Gets the list of available development WebKit features.
+ *
+ * The returned features are a subset of those returned by
+ * [func@Settings.get_all_features], and includes those which
+ * web and WebKit developers might find useful, but in general should
+ * *not* be exposed to end users; see [enum@FeatureStatus] for
+ * more details.
+ *
+ * Returns: (transfer full): List of development features.
+ *
+ * Since: 2.42
+ */
+WebKitFeatureList* webkit_settings_get_development_features(void)
+{
+    return webkitFeatureListCreate(WebPreferences::internalDebugFeatures());
 }

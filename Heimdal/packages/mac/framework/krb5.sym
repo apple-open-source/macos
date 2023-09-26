@@ -14,6 +14,9 @@
 &krb5_xcc_api_ops
 &krb5_xcc_temp_api_ops
 _krb5_xcc_get_initial_ticket
+%ifdef ENABLE_KCM_COMPAT
+&krb5_xcc_kcm_compat_ops
+%endif
 %endif
 &krb5_mcc_ops
 _krb5_build_authenticator
@@ -28,8 +31,8 @@ _krb5_get_krbtgt
 _krb5_have_debug
 _krb5_debug_keyblock
 _krb5_init_creds_set_pku2u
-%ifdef HAVE_KCM
 _krb5_kcm_get_initial_ticket
+%ifdef HAVE_KCM
 _krb5_kcm_get_status
 krb5_kcm_ntlm_challenge
 krb5_kcm_check_ntlm_challenge
@@ -362,6 +365,8 @@ krb5_is_thread_safe
 %ifdef HAVE_KCM
 krb5_kcm_call
 krb5_kcm_storage_request
+%endif
+%if HAVE_KCM || ENABLE_KCM_COMPAT
 krb5_kcm_get_principal_list
 %endif
 krb5_kerberos_enctypes
@@ -706,6 +711,8 @@ HeimCredDelete
 HeimCredDeleteByUUID
 HeimCredDeleteQuery
 HeimCredDeleteAll
+HeimCredAddNTLMChallenge
+HeimCredCheckNTLMChallenge
 HeimCredGetUUID
 HeimCredGetAttributes
 HeimCredGetImpersonateBundle
@@ -719,6 +726,7 @@ HeimCredSetImpersonateBundle
 HeimCredSetImpersonateAuditToken
 HeimCredCopyStatus
 HeimCredDoAuth
+HeimCredDoSCRAM
 &kHEIMAttrType
 &kHEIMTypeGeneric
 &kHEIMTypeKerberos
@@ -727,12 +735,16 @@ HeimCredDoAuth
 &kHEIMTypeConfiguration
 &kHEIMTypeSchema
 &kHEIMTypeKerberosAcquireCred
+&kHEIMTypeNTLMRelfection
+&kHEIMTypeSCRAM
 &kHEIMObjectType
 &kHEIMObjectKerberos
 &kHEIMObjectNTLM
 &kHEIMObjectGeneric
 &kHEIMObjectConfiguration
 &kHEIMObjectKerberosAcquireCred
+&kHEIMObjectNTLMReflection
+&kHEIMObjectSCRAM
 &kHEIMObjectAny
 &kHEIMAttrClientName
 &kHEIMNameUserName
@@ -762,6 +774,9 @@ HeimCredDoAuth
 &kHEIMAttrBundleIdentifierACL
 &kHEIMAttrDefaultCredential
 &kHEIMAttrTemporaryCache
+%ifdef ENABLE_KCM_COMPAT
+&kHEIMAttrCompatabilityCache
+%endif
 &kHEIMAttrKerberosTicketGrantingTicket
 &kHEIMAttrAltDSID
 &kHEIMAttrUserID
@@ -777,6 +792,15 @@ HeimCredDoAuth
 &kHEIMAttrNTLMClientFlags
 &kHEIMAttrNTLMSessionKey
 &kHEIMAttrNTLMKCMFlags
+&kHEIMAttrSCRAMUsername
+&kHEIMAttrSCRAMIterations
+&kHEIMAttrSCRAMSalt
+&kHEIMAttrSCRAMC1
+&kHEIMAttrSCRAMS1
+&kHEIMAttrSCRAMC2NoProof
+&kHEIMAttrSCRAMProof
+&kHEIMAttrSCRAMServer
+&kHEIMAttrSCRAMSessionKey
 _krb5_srp_create
 _krb5_srp_create_pa
 _krb5_srp_keysize

@@ -1,5 +1,7 @@
 # © 2019 and later: Unicode, Inc. and others.
 # License & terms of use: http://www.unicode.org/copyright.html
+# Note: comment lines added here need also to be added in NumberPermutationTest::testPermutations()
+# rdar:// updated per Apple changes for zh-TW spacing, es-MX percent format
 
 compact-short percent unit-width-narrow
   es-MX

@@ -47,8 +47,7 @@ __FBSDID("$FreeBSD: src/lib/libc/inet/inet_lnaof.c,v 1.4 2007/06/03 17:20:26 ume
  * number formats.
  */
 in_addr_t
-inet_lnaof(in)
-	struct in_addr in;
+inet_lnaof(struct in_addr in)
 {
 	in_addr_t i = ntohl(in.s_addr);
 

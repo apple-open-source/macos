@@ -134,8 +134,7 @@ asctime_r(const struct tm * __restrict timeptr, char * __restrict buf)
 */
 
 char *
-asctime(timeptr)
-const struct tm *	timeptr;
+asctime(const struct tm *timeptr)
 {
 	return asctime_r(timeptr, buf_asctime);
 }

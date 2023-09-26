@@ -649,6 +649,7 @@ static boolean_t		S_awake = TRUE;
 #if TARGET_OS_OSX
 static boolean_t		S_use_maintenance_wake = TRUE;
 static boolean_t		S_wake_event_sent;
+static boolean_t		S_hide_bssid;
 #endif /* TARGET_OS_OSX */
 static uint32_t			S_wake_generation;
 static absolute_time_t		S_wake_time;
@@ -1206,6 +1207,33 @@ S_copy_neighbor_advert_list(SCDynamicStoreRef store, CFStringRef ifname)
     return (ret);
 }
 
+STATIC CFStringRef
+bssid_to_string(char * buffer, int buffer_size, WiFiInfoRef info_p)
+{
+    const struct ether_addr *	bssid = WiFiInfoGetBSSID(info_p);
+    CFStringRef			prop = CFSTR("BSSID");
+
+#if TARGET_OS_OSX
+    if (S_hide_bssid) {
+	bssid = WiFiInfoGetPrivateBSSID(info_p);
+	prop = CFSTR("Hashed-BSSID");
+    }
+#endif /* TARGET_OS_OSX */
+    link_addr_to_string(buffer, buffer_size,
+			(const uint8_t *)bssid, ETHER_ADDR_LEN);
+    return (prop);
+}
+
+STATIC void
+dict_add_bssid_info(CFMutableDictionaryRef dict, WiFiInfoRef info_p)
+{
+    char		bssid[LINK_ADDR_ETHER_STR_LEN];
+    CFStringRef		prop;
+
+    prop = bssid_to_string(bssid, sizeof(bssid), info_p);
+    my_CFDictionarySetCString(dict, prop, bssid);
+}
+
 /**
  ** Computer Name handling routines
  **/
@@ -1418,7 +1446,7 @@ service_populate_router_arpinfo(ServiceRef service_p,
 
     service_router_clear_arp_verified(service_p);
     
-    if (service_router_is_iaddr_valid(service_p) == 0) {
+    if (!service_router_is_iaddr_valid(service_p)) {
 	my_log(LOG_INFO,
 	       "%s: service_populate_router_arpinfo gateway missing", 
 	       if_name(if_p));
@@ -2629,16 +2657,12 @@ IFStateCopySummary(IFStateRef ifstate)
                                  kCFBooleanTrue);
             if (if_is_wifi_infra(if_p) && info_p != NULL) {
 		const char *	auth_type;
-		char		bssid[LINK_ADDR_ETHER_STR_LEN];
 		CFStringRef	networkID;
 
 		auth_type = WiFiAuthTypeGetString(WiFiInfoGetAuthType(info_p));
 		my_CFDictionarySetCString(if_summary, CFSTR("Security"),
 					  auth_type);
-		link_addr_to_string(bssid, sizeof(bssid),
-				    (const uint8_t *)WiFiInfoGetBSSID(info_p),
-				    ETHER_ADDR_LEN);
-		my_CFDictionarySetCString(if_summary, CFSTR("BSSID"), bssid);
+		dict_add_bssid_info(if_summary, info_p);
 		CFDictionarySetValue(if_summary, CFSTR("SSID"),
 				     WiFiInfoGetSSID(info_p));
 		networkID = WiFiInfoGetNetworkID(info_p);
@@ -2669,18 +2693,28 @@ IFStateCopySummary(IFStateRef ifstate)
     return (if_summary);
 }
 
+STATIC const char *
+get_busy_string(boolean_t busy)
+{
+    return busy ? "busy" : "not busy";
+}
 
 STATIC void
 IFStateProcessBusy(IFStateRef ifstate)
 {
+    boolean_t	current_busy;
     boolean_t	busy;
 
     busy = service_list_check_busy(&ifstate->services)
 	|| service_list_check_busy(&ifstate->services_v6);
-    if (busy != IFStateFlagsAreSet(ifstate, kIFStateFlagsBusy)) {
+    current_busy = IFStateFlagsAreSet(ifstate, kIFStateFlagsBusy);
+    my_log(LOG_DEBUG, "%s: %s current %s requested %s",
+	   __func__, if_name(ifstate->if_p),
+	   get_busy_string(current_busy), get_busy_string(busy));
+    if (busy != current_busy) {
 	IFStateFlagsSetOrClear(ifstate, kIFStateFlagsBusy, busy);
-	my_log(LOG_INFO, "%s: %sbusy", if_name(ifstate->if_p),
-	       busy ? "" : "not ");
+	my_log(LOG_INFO, "%s: %s", if_name(ifstate->if_p),
+	       get_busy_string(busy));
 	IFStateReportState(ifstate,
 			   kSCEntNetInterfaceIPConfigurationBusy,
 			   IFStateFlagsAreSet(ifstate, kIFStateFlagsBusy));
@@ -3267,10 +3301,10 @@ ServiceSetBusy(ServiceRef service_p, boolean_t busy)
 {
     if (service_p->busy != busy) {
 	service_p->busy = busy;
-	my_log(LOG_INFO, "%s %s: %sbusy",
+	my_log(LOG_INFO, "%s %s: %s",
 	       ServiceGetMethodString(service_p),
 	       if_name(service_interface(service_p)),
-	       busy ? "" : "not ");
+	       get_busy_string(busy));
 	IFStateProcessBusy(service_ifstate(service_p));
     }
 }
@@ -3380,7 +3414,21 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
 	CFRelease(primary);
     }
 
-    if (options != NULL) {
+    if (options == NULL) {
+	/* manual config, check for router */
+	if (service_router_is_iaddr_valid(service_p)) {
+	    struct in_addr	router;
+
+	    router = service_router_iaddr(service_p);
+	    if (router.s_addr != INADDR_ANY
+		&& router.s_addr != INADDR_BROADCAST) {
+		my_CFDictionarySetIPAddressAsString(ipv4_dict,
+						    kSCPropNetIPv4Router,
+						    router);
+	    }
+	}
+    }
+    else {
 	char *			host_name = NULL;
 	int			host_name_len = 0;
 	struct in_addr *	router = NULL;
@@ -8626,25 +8674,26 @@ S_copy_wifi_info(CFStringRef ifname)
     info_p = WiFiInfoCopy(ifname);
     if (info_p != NULL) {
 	char		bssid[LINK_ADDR_ETHER_STR_LEN];
+	CFStringRef	bssid_label;
 	CFStringRef	networkID;
 
-	link_addr_to_string(bssid, sizeof(bssid),
-			    (const uint8_t *)WiFiInfoGetBSSID(info_p),
-			    ETHER_ADDR_LEN);
+	bssid_label = bssid_to_string(bssid, sizeof(bssid), info_p);
 	networkID = WiFiInfoGetNetworkID(info_p);
 	if (networkID == NULL) {
 	    my_log(LOG_NOTICE,
-		   "%@: SSID %@ BSSID %s Security %s",
+		   "%@: SSID %@ %@ %s Security %s",
 		   ifname,
 		   WiFiInfoGetSSID(info_p),
+		   bssid_label,
 		   bssid,
 		   WiFiAuthTypeGetString(WiFiInfoGetAuthType(info_p)));
 	}
 	else {
 	    my_log(LOG_NOTICE,
-		   "%@: SSID %@ BSSID %s NetworkID %@ Security %s",
+		   "%@: SSID %@ %@ %s NetworkID %@ Security %s",
 		   ifname,
 		   WiFiInfoGetSSID(info_p),
+		   bssid_label,
 		   bssid,
 		   networkID,
 		   WiFiAuthTypeGetString(WiFiInfoGetAuthType(info_p)));
@@ -9707,6 +9756,27 @@ S_add_dhcp_parameters(SCPreferencesRef prefs)
     return;
 }
 
+#if TARGET_OS_OSX
+STATIC void
+check_hide_bssid(void)
+{
+    Boolean	hide_bssid;
+    Boolean	was_set = FALSE;
+
+    hide_bssid = IPConfigurationControlPrefsGetHideBSSID(TRUE, &was_set);
+    if (!was_set) {
+	/* hide the BSSID except on AppleInternal */
+	hide_bssid = !_SC_isAppleInternal();
+    }
+    if (hide_bssid != S_hide_bssid) {
+	S_hide_bssid = hide_bssid;
+	my_log(LOG_NOTICE,
+	       "IPConfiguration: BSSID privacy is %s",
+	       hide_bssid ? "enabled" : "disabled");
+    }
+}
+#endif /* TARGET_OS_OSX */
+
 STATIC void
 check_prefs(SCPreferencesRef prefs)
 {
@@ -9715,7 +9785,7 @@ check_prefs(SCPreferencesRef prefs)
     IPConfigurationInterfaceTypes	if_types;
     Boolean				verbose;
 
-    verbose = IPConfigurationControlPrefsGetVerbose();
+    verbose = IPConfigurationControlPrefsGetVerbose(FALSE);
     if (G_IPConfiguration_verbose != verbose) {
 	G_IPConfiguration_verbose = verbose;
 	if (verbose) {
@@ -9738,14 +9808,14 @@ check_prefs(SCPreferencesRef prefs)
 	G_awd_interface_types = if_types;
     }
     cellular_clat46_auto_enable
-	= IPConfigurationControlPrefsGetCellularCLAT46AutoEnable();
+	= IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(FALSE);
     if (S_cellular_clat46_autoenable != cellular_clat46_auto_enable) {
 	my_log(LOG_NOTICE, "IPConfiguration: cellular CLAT46 %sauto-enabled",
 	       cellular_clat46_auto_enable ? "" : "not ");
 	S_cellular_clat46_autoenable = cellular_clat46_auto_enable;
     }
     ipv6_linklocal_modifier_expires
-	= IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires();
+	= IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(TRUE);
     if (S_ipv6_linklocal_modifier_expires
 	!= ipv6_linklocal_modifier_expires) {
 	my_log(LOG_NOTICE,
@@ -9783,6 +9853,10 @@ check_prefs(SCPreferencesRef prefs)
 	    break;
 	}
     }
+#if TARGET_OS_OSX
+    check_hide_bssid();
+#endif /* TARGET_OS_OSX */
+
     IPConfigurationControlPrefsSynchronize();
     return;
 }

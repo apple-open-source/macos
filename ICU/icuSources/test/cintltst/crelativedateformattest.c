@@ -10,6 +10,8 @@
 
 #if !UCONFIG_NO_FORMATTING && !UCONFIG_NO_BREAK_ITERATION
 
+#include <stdbool.h>
+
 #include "unicode/ureldatefmt.h"
 #include "unicode/unum.h"
 #include "unicode/udisplaycontext.h"
@@ -312,6 +314,8 @@ static const FieldsDat enIN_attrDef_short_midSent_weds[kNumOffsets*2] = {
     {UDAT_REL_NUMERIC_FIELD, 3, 4}, {UDAT_REL_NUMERIC_FIELD, 3, 4},
 };
 
+#if APPLE_ICU_CHANGES
+// rdar://
 static const char* nb_decDef_long_midSent_day[kNumOffsets*2] = {
 /*  text                    numeric */
     "for 5 dager siden",    "for 5 dager siden",   /* -5   */
@@ -360,8 +364,7 @@ static const FieldsDat hu_attrDef_narrow_midSent_min[kNumOffsets*2] = {
     {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "2 perc múlva",     "2 perc múlva",             2   */
     {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "5 perc múlva",     "5 perc múlva"              5   */
 };
-
-
+#endif  // APPLE_ICU_CHANGES
 
 typedef struct {
     const char*                         locale;
@@ -392,11 +395,14 @@ static const RelDateTimeFormatTestItem fmtTestItems[] = {
       ak_decDef_long_stdAlon_sec,   ak_attrDef_long_stdAlon_sec},
     { "en_IN", -1, UDAT_STYLE_SHORT, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_WEDNESDAY,
       enIN_decDef_short_midSent_weds, enIN_attrDef_short_midSent_weds},
+#if APPLE_ICU_CHANGES
+// rdar://
     //add suitable entry for nb
     //{ "nb", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_DAY,     nb_decDef_long_midSent_day ...
     // Apple addition (rdar://80742319)
     { "hu", -1, UDAT_STYLE_NARROW,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_MINUTE,
       hu_decDef_narrow_midSent_min,   hu_attrDef_narrow_midSent_min},
+#endif  // APPLE_ICU_CHANGES
     { NULL,  0, (UDateRelativeDateTimeFormatterStyle)0, (UDisplayContext)0, (URelativeDateTimeUnit)0, NULL, NULL } /* terminator */
 };
 
@@ -538,8 +544,8 @@ static void TestNumericField()
 
                 FieldsDat expectedAttr = itemPtr->expectedAttributes[iOffset*2];
                 UConstrainedFieldPosition* cfpos = ucfpos_open(&status);
-                UBool foundNumeric = FALSE;
-                while (TRUE) {
+                UBool foundNumeric = false;
+                while (true) {
                     foundNumeric = ufmtval_nextPosition(ureldatefmt_resultAsValue(fv, &status), cfpos, &status);
                     if (!foundNumeric) {
                         break;
@@ -593,8 +599,8 @@ static void TestNumericField()
 
                 FieldsDat expectedAttr = itemPtr->expectedAttributes[iOffset*2 + 1];
                 UConstrainedFieldPosition* cfpos = ucfpos_open(&status);
-                UBool foundNumeric = FALSE;
-                while (TRUE) {
+                UBool foundNumeric = false;
+                while (true) {
                     foundNumeric = ufmtval_nextPosition(ureldatefmt_resultAsValue(fv, &status), cfpos, &status);
                     if (!foundNumeric) {
                         break;
@@ -641,9 +647,17 @@ typedef struct {
 } CombineDateTimeTestItem;
 
 static const CombineDateTimeTestItem combTestItems[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
+    { "en",  UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, "yesterday",  "3:45 PM",  "yesterday at 3:45 PM" },
+#else
     { "en",  UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, "yesterday",  "3:45 PM",  "yesterday, 3:45 PM" },
+#endif  // APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
+// rdar://
     // rdar://55667608 and https://unicode-org.atlassian.net/browse/CLDR-10321
     { "fi",  UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, "eilen",  "3:45 PM",  "eilen klo 3:45 PM" },
+#endif  // APPLE_ICU_CHANGES
     { NULL,  (UDateRelativeDateTimeFormatterStyle)0, (UDisplayContext)0, NULL, NULL, NULL } /* terminator */
 };
 

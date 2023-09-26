@@ -51,6 +51,7 @@ private:
     
     typedef struct {
         uint32_t                    home_wake;
+        uint32_t                    home_action;
         uint32_t                    power_wake;
         uint32_t                    power_sleep;
     } Buttons;

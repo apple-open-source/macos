@@ -70,7 +70,7 @@ static const HashTableValue JSShadowRealmGlobalScopeTableValues[] =
     { "ShadowRealmGlobalScope"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsShadowRealmGlobalScope_ShadowRealmGlobalScopeConstructor, 0 } },
 };
 
-static const HashTable JSShadowRealmGlobalScopeTable = { 1, 1, true, JSShadowRealmGlobalScope::info(), JSShadowRealmGlobalScopeTableValues, JSShadowRealmGlobalScopeTableIndex };
+static const HashTable JSShadowRealmGlobalScopeTable = { 1, 1, static_cast<uint8_t>(static_cast<unsigned>(JSC::PropertyAttribute::DontEnum)), JSShadowRealmGlobalScope::info(), JSShadowRealmGlobalScopeTableValues, JSShadowRealmGlobalScopeTableIndex };
 template<> const ClassInfo JSShadowRealmGlobalScopeDOMConstructor::s_info = { "ShadowRealmGlobalScope"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSShadowRealmGlobalScopeDOMConstructor) };
 
 template<> JSValue JSShadowRealmGlobalScopeDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
@@ -95,11 +95,11 @@ JSShadowRealmGlobalScope::JSShadowRealmGlobalScope(VM& vm, Structure* structure,
 {
 }
 
-void JSShadowRealmGlobalScope::finishCreation(VM& vm, JSProxy* proxy)
+static_assert(!std::is_base_of<ActiveDOMObject, ShadowRealmGlobalScope>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
+
+void JSShadowRealmGlobalScope::finishCreation(VM& vm, JSGlobalProxy* proxy)
 {
     Base::finishCreation(vm, proxy);
-
-    static_assert(!std::is_base_of<ActiveDOMObject, ShadowRealmGlobalScope>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
     if (jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->settingsValues().webAPIsInShadowRealmEnabled)
         putDirectCustomAccessor(vm, builtinNames(vm).ExposedStarPublicName(), CustomGetterSetter::create(vm, jsShadowRealmGlobalScope_ExposedStarConstructor, nullptr), attributesForStructure(static_cast<unsigned>(JSC::PropertyAttribute::DontEnum)));
@@ -164,7 +164,7 @@ void JSShadowRealmGlobalScope::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
     auto* thisObject = jsCast<JSShadowRealmGlobalScope*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

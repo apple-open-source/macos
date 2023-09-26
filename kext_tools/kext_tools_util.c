@@ -130,7 +130,7 @@ Boolean createCFMutableSet(CFMutableSetRef * setOut,
     return result;
 }
 
-uint32_t disableKextTools() {
+uint32_t disableKextTools(void) {
     uint32_t backOff = 0; // there's a new sheriff in town
     size_t   sizeOfBackOff = sizeof(backOff);
     if (sysctlbyname("hw.use_kernelmanagerd", &backOff, &sizeOfBackOff, NULL, 0) != 0) {
@@ -1958,7 +1958,7 @@ static os_log_t  sKextLog         = NULL;
 static os_log_t  sKextSignpostLog = NULL;
 // xxx - need to aslclose()
 
-void tool_initlog()
+void tool_initlog(void)
 {
     uint32_t kextlog_mode = 0;
     if (get_bootarg_int("kextlog", &kextlog_mode)) {

@@ -38,6 +38,7 @@
 
 #ifdef __APPLE__
 #include <System/sys/codesign.h>
+#include <TargetConditionals.h>
 #endif /* __APPLE__
 
 /**/
@@ -1303,8 +1304,14 @@ run_init_scripts(void)
     noerrexit = NOERREXIT_EXIT | NOERREXIT_RETURN | NOERREXIT_SIGNAL;
 
     if (EMULATION(EMULATE_KSH|EMULATE_SH)) {
-	if (islogin)
+	if (islogin) {
+#if defined(__APPLE__) && TARGET_OS_OSX
+	    source(check_managed_config(MANAGED_EMULATE_PROFILE, "/etc/profile"));
+#else
 	    source("/etc/profile");
+#endif // __APPLE__ && TARGET_OS_OSX
+	}
+
 	if (unset(PRIVILEGED)) {
 	    if (islogin)
 		sourcehome(".profile");
@@ -1323,7 +1330,11 @@ run_init_scripts(void)
 		noerrs = 0;
 	    }
 	} else
+#if defined(__APPLE__) && TARGET_OS_OSX
+	    source(check_managed_config(MANAGED_EMULATE_SUID_PROFILE, "/etc/suid_profile"));
+#else
 	    source("/etc/suid_profile");
+#endif // __APPLE__ && TARGET_OS_OSX
     } else {
 int restrict_source = 0;
 #ifdef __APPLE__
@@ -1342,7 +1353,11 @@ int restrict_source = 0;
 #endif /* __APPLE__ */
 #ifdef GLOBAL_ZSHENV
 	if (!restrict_source) {
-		source(GLOBAL_ZSHENV);
+#if defined(__APPLE__) && TARGET_OS_OSX
+	    source(check_managed_config(MANAGED_GLOBAL_ZSHENV, GLOBAL_ZSHENV));
+#else
+	    source(GLOBAL_ZSHENV);
+#endif // __APPLE__ && TARGET_OS_OSX
 	}
 #endif /* GLOBAL_ZSHENV */
 
@@ -1365,24 +1380,39 @@ int restrict_source = 0;
 	}
 	if (islogin) {
 #ifdef GLOBAL_ZPROFILE
-	    if (isset(RCS) && isset(GLOBALRCS))
-		    source(GLOBAL_ZPROFILE);
+	    if (isset(RCS) && isset(GLOBALRCS)) {
+#if defined(__APPLE__) && TARGET_OS_OSX
+		source(check_managed_config(MANAGED_GLOBAL_ZPROFILE, GLOBAL_ZPROFILE));
+#else
+		source(GLOBAL_ZPROFILE);
+#endif // __APPLE__ && TARGET_OS_OSX
+	    }
 #endif
 	    if (isset(RCS) && unset(PRIVILEGED))
 		sourcehome(".zprofile");
 	}
 	if (interact) {
 #ifdef GLOBAL_ZSHRC
-	    if (isset(RCS) && isset(GLOBALRCS))
+	    if (isset(RCS) && isset(GLOBALRCS)) {
+#if defined(__APPLE__) && TARGET_OS_OSX
+		source(check_managed_config(MANAGED_GLOBAL_ZSHRC, GLOBAL_ZSHRC));
+#else
 		source(GLOBAL_ZSHRC);
+#endif //__APPLE__ && TARGET_OS_OSX
+	    }
 #endif
 	    if (isset(RCS) && unset(PRIVILEGED))
 		sourcehome(".zshrc");
 	}
 	if (islogin) {
 #ifdef GLOBAL_ZLOGIN
-	    if (isset(RCS) && isset(GLOBALRCS))
+	    if (isset(RCS) && isset(GLOBALRCS)) {
+#if defined(__APPLE__) && TARGET_OS_OSX
+		source(check_managed_config(MANAGED_GLOBAL_ZLOGIN, GLOBAL_ZLOGIN));
+#else
 		source(GLOBAL_ZLOGIN);
+#endif // __APPLE__ && TARGET_OS_OSX
+	    }
 #endif
 	    if (isset(RCS) && unset(PRIVILEGED))
 		sourcehome(".zlogin");

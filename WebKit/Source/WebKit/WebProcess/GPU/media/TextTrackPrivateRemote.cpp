@@ -27,7 +27,7 @@
 #include "config.h"
 #include "TextTrackPrivateRemote.h"
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "DataReference.h"
 #include "GPUProcessConnection.h"
@@ -48,13 +48,14 @@ TextTrackPrivateRemote::TextTrackPrivateRemote(GPUProcessConnection& gpuProcessC
 
 void TextTrackPrivateRemote::setMode(TextTrackMode mode)
 {
-    if (!m_gpuProcessConnection)
+    auto gpuProcessConnection = m_gpuProcessConnection.get();
+    if (!gpuProcessConnection)
         return;
 
     if (mode == InbandTextTrackPrivate::mode())
         return;
 
-    m_gpuProcessConnection->connection().send(Messages::RemoteMediaPlayerProxy::TextTrackSetMode(m_identifier, mode), m_playerIdentifier);
+    gpuProcessConnection->connection().send(Messages::RemoteMediaPlayerProxy::TextTrackSetMode(m_identifier, mode), m_playerIdentifier);
     InbandTextTrackPrivate::setMode(mode);
 }
 
@@ -168,4 +169,4 @@ void TextTrackPrivateRemote::removeDataCue(MediaTime&& start, MediaTime&& end, S
 
 } // namespace WebKit
 
-#endif // ENABLE(GPU_PROCESS)
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

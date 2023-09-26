@@ -65,6 +65,7 @@
 .Op Fl L
 .Op Fl m
 .Op Fl r
+.Op Fl f Ar type Ns Cm \&: Ns Ar format
 .Ar interface
 .Op Cm create
 .Op Ar address_family
@@ -84,6 +85,7 @@
 .Op Fl r
 .Op Fl u
 .Op Fl v
+.Op Fl f Ar type Ns Cm \&: Ns Ar format
 .Op Ar address_family
 .Nm
 .Fl l
@@ -98,6 +100,7 @@
 .Op Fl u
 .Op Fl v
 .Op Fl C
+.Op Fl f Ar type Ns Cm \&: Ns Ar format
 .Nm
 .Ar interface
 .Cm vlan
@@ -957,6 +960,11 @@ clears its VLAN tag, flags and its link address and shuts the interface down.
 The
 .Ar iface
 argument is useless and hence deprecated.
+.It Cm tbr Ar rate
+Set a token bucket regulator that limits the egress bandwidth to
+.Ar rate ,
+measured in bps, Kbps, Mbps or Gbps.
+If the specified rate is zero, the token bucket regulator is disabled.
 .El
 .Pp
 The
@@ -1036,6 +1044,90 @@ and the
 .Fl l
 flag to further restrict the set of interfaces to be listed.
 .Pp
+The
+.Fl f
+flag may be used to control the output format of
+.Nm .
+The format is specified as a comma-separated list of
+.Ar type Ns Cm \&: Ns Ar format
+pairs
+.Po see the
+.Sx EXAMPLES
+section for more information
+.Pc .
+The
+.Fl f
+flag can be supplied multiple times.
+.Pp
+The
+.Ar type Ns s
+and their associated
+.Ar format
+strings are:
+.Pp
+.Bl -tag -width ether
+.It Cm addr
+Adjust the display of inet and inet6 addresses:
+.Pp
+.Bl -tag -width default -compact
+.It Cm default
+Default format,
+.Cm numeric
+.It Cm fqdn
+Fully qualified domain names
+.Pq FQDN
+.It Cm host
+Unqualified hostnames
+.It Cm numeric
+Numeric format
+.El
+.It Cm ether
+Adjust the display of link-level ethernet (MAC) addresses:
+.Pp
+.Bl -tag -width default -compact
+.It Cm colon
+Separate address segments with a colon
+.It Cm dash
+Separate address segments with a dash
+.It Cm default
+Default format,
+.Cm colon
+.El
+.It Cm inet
+Adjust the display of inet address subnet masks:
+.Pp
+.Bl -tag -width default -compact
+.It Cm cidr
+CIDR notation, for example:
+.Ql 203.0.113.224/26
+.It Cm default
+Default format,
+.Cm hex
+.It Cm dotted
+Dotted quad notation, for example:
+.Ql 255.255.255.192
+.It Cm hex
+Hexadecimal format, for example:
+.Ql 0xffffffc0
+.El
+.It Cm inet6
+Adjust the display of inet6 address prefixes (subnet masks):
+.Pp
+.Bl -tag -width default -compact
+.It Cm cidr
+CIDR notation, for example:
+.Ql ::1/128
+or
+.Ql fe80::1%lo0/64
+.It Cm default
+Default format,
+.Cm numeric
+.It Cm numeric
+Integer format, for example:
+.Ql prefixlen 64
+.El
+.El
+.Pp
 Only the super-user may modify the configuration of a network interface.
 .Sh NOTES
 The media selection system is relatively new and only some drivers support
@@ -1096,6 +1188,9 @@ Create the software network interface
 Destroy the software network interface
 .Li gif1 :
 .Dl # ifconfig gif1 destroy
+.Pp
+Display inet and inet6 address subnet masks in CIDR notation
+.Dl # ifconfig -f inet:cidr,inet6:cidr
 .Sh DIAGNOSTICS
 Messages indicating the specified interface does not exist, the
 requested address is unknown, or the user is not privileged and

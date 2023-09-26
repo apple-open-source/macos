@@ -197,8 +197,7 @@ PAM configuration for
 .El
 .Sh EXAMPLES
 .Bl -tag -width 5n -compact
-.\" .It Li "su -m operator -c poweroff"
-.It Li "su -m operator poweroff"
+.It Li "su -m operator -c poweroff"
 Starts a shell as user
 .Li operator ,
 and runs the command
@@ -215,8 +214,7 @@ is passed to the shell of the user
 .Dq operator ,
 and is not interpreted as an argument to
 .Nm .
-.\" .It Li "su -m operator -c 'shutdown -p now'"
-.It Li "su -m operator 'shutdown -p now'"
+.It Li "su -m operator -c 'shutdown -p now'"
 Same as above, but the target command consists of more than a
 single word and hence is quoted for use with the
 .Fl c

@@ -48,12 +48,22 @@ int __DAMountUserFSVolume( void * parameter )
     NSString *volumeName   = (__bridge NSString *)context->volumeName;
     NSString *mountOptions = (__bridge NSString *)context->mountOptions;
 
+    if ( [fsType hasSuffix:@"_fskit"] )
+    {
+        /*
+         * Remove the _fskit suffix from the fs type.
+         */
+        fsType = [fsType substringToIndex:
+                  [fsType rangeOfCharacterFromSet:
+                   [NSCharacterSet characterSetWithCharactersInString:@"_"]].location];
+    }
+    
     userFSManager = [LiveFSUSBLocalStorageClient newManager];
     mountClient = [LiveFSMountClient  newClientForProvider:@"com.apple.filesystems.UserFS.FileProvider"];
 
     volumes = [userFSManager loadVolumes:deviceName ofType:fsType withError:&err];
 
-    if (err)
+    if ( err )
     {
         DALogError("%@ loadVolumes failed with %@", deviceName, err);
         goto exit;
@@ -155,9 +165,16 @@ int __DAMountUserFSVolume( void * parameter )
             if ( err )
             {
                 DALogError("%@ mount failed with %@", deviceName, err);
-                goto exit;
+
+                NSError *unloadError = [userFSManager forgetVolume:UUID withFlags:0];
+                if ( unloadError )
+                {
+                    DALogError("unload for volume %@ failed with %@", volName, unloadError);
+                }
+            } else
+            {
+                DALogInfo("Mounted %@ successfully.", UUID);
             }
-            DALogInfo("Mounted %@ successfully.", UUID);
         }
 #endif
     }
@@ -168,8 +185,6 @@ exit:
     {
         returnValue = (int)err.code;
     }
-    [userFSManager release];
-    [mountClient release];
     
     return returnValue;
 }
@@ -211,9 +226,6 @@ int DAUserFSOpen( char *path, int flags )
     }
     
     xpc_connection_cancel( server );
-    xpc_release( msg );
-    xpc_release( server );
-    xpc_release( reply );
 
     return fd;
 }

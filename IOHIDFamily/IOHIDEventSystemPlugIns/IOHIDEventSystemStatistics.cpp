@@ -33,6 +33,7 @@
 
 #define kCoreAnalyticsDictionaryAppleButtonEvents               "com.apple.iokit.hid.button"
 #define kCoreAnalyticsDictionaryHomeButtonWakeCountKey          "homeButtonWakeCount"
+#define kCoreAnaltycisDictionaryHomeButtonActionCountKey        "homeButtonActionCount"
 #define kCoreAnalyticsDictionaryPowerButtonWakeCountKey         "powerButtonWakeCount"
 #define kCoreAnalyticsDictionaryPowerButtonSleepCountKey        "powerButtonSleepCount"
 
@@ -447,6 +448,7 @@ void IOHIDEventSystemStatistics::handlePendingStats()
     analytics_send_event_lazy(kCoreAnalyticsDictionaryAppleButtonEvents, ^xpc_object_t {
         xpc_object_t keyDictionary = xpc_dictionary_create(NULL, NULL, 0);
         xpc_dictionary_set_uint64(keyDictionary, kCoreAnalyticsDictionaryHomeButtonWakeCountKey, buttons.home_wake);
+        xpc_dictionary_set_uint64(keyDictionary, kCoreAnaltycisDictionaryHomeButtonActionCountKey, buttons.home_action);
         xpc_dictionary_set_uint64(keyDictionary, kCoreAnalyticsDictionaryPowerButtonWakeCountKey, buttons.power_wake);
         xpc_dictionary_set_uint64(keyDictionary, kCoreAnalyticsDictionaryPowerButtonSleepCountKey, buttons.power_sleep);
 
@@ -574,6 +576,8 @@ IOHIDEventRef IOHIDEventSystemStatistics::filter(IOHIDServiceRef sender, IOHIDEv
                         case kHIDUsage_Csmr_Menu:
                             if ( !_displayState )
                                 _pending_buttons.home_wake++;
+                            else
+                                _pending_buttons.home_action++;
                             break;
                         case kHIDUsage_Csmr_Power:
                             if ( !_displayState )

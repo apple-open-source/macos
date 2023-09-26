@@ -403,6 +403,11 @@ oflag_zerolen_body()
 
 	atf_check -o file:"$(atf_get_srcdir)/d_oflag_zerolen_e.out" \
 	    grep -o -e 'bc' -e 'ab' "$(atf_get_srcdir)/d_oflag_zerolen_e.in"
+
+#ifdef __APPLE__
+	atf_check -o file:"$(atf_get_srcdir)/d_oflag_zerolen_apple_f.out" \
+	    grep -o -e '[A-Z]' "$(atf_get_srcdir)/d_oflag_zerolen_apple_f.in"
+#endif
 }
 
 atf_test_case xflag

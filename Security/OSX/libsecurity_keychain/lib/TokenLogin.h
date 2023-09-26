@@ -42,6 +42,8 @@ OSStatus TokenLoginDeleteUnlockData(CFDataRef pubKeyHash);
 OSStatus TokenLoginGetUnlockKey(CFDictionaryRef context, CFDataRef *unlockKey);
 OSStatus TokenLoginGetScBlob(CFDataRef pubKeyHash, CFStringRef tokenId, CFStringRef password, CFDataRef *scBlob);
 OSStatus TokenLoginUnlockKeybag(CFDictionaryRef context, CFDictionaryRef loginData);
+CFStringRef TokenLoginCopyKcPwd(CFDictionaryRef context);
+CFStringRef TokenLoginCopyUserPwd(CFDictionaryRef context);
 
 #ifdef __cplusplus
 }

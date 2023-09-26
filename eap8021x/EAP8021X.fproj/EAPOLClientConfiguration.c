@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -167,6 +167,8 @@ copy_configured_interface_names(SCPreferencesRef prefs, CFStringRef entity_name)
     return (ret_names);
 }
 
+#if ! TARGET_OS_IPHONE
+
 STATIC CFDictionaryRef
 copy_profiles_for_mode(EAPOLClientConfigurationRef cfg,
 		       EAPOLControlMode mode)
@@ -226,6 +228,8 @@ copy_profiles_for_mode(EAPOLClientConfigurationRef cfg,
     CFRelease(all_names);
     return (ret_profiles);
 }
+
+#endif /* ! TARGET_OS_IPHONE */
 
 STATIC SCNetworkInterfaceRef
 copy_configured_interface(SCPreferencesRef prefs, CFStringRef if_name)
@@ -520,6 +524,8 @@ copy_def_auth_props(SCPreferencesRef eap_prefs)
 
 }
 
+#if ! TARGET_OS_IPHONE
+
 /*
  * Function: copy_service
  * Purpose:
@@ -663,7 +669,6 @@ set_eapol_configuration(SCPreferencesRef prefs, CFStringRef if_name,
     return (ret);
 }
 
-
 /*
  * Function: get_eapol_configuration
  * Purpose:
@@ -750,7 +755,7 @@ STATIC Boolean
 saveInterfaceEAPOLConfiguration(EAPOLClientConfigurationRef cfg,
 				Boolean * changed_p)
 {
-    AuthorizationExternalForm *	auth_ext_p;
+    AuthorizationExternalForm *	auth_ext_p = NULL;
     int				count;
     int				i;
     SCPreferencesRef		prefs = NULL;
@@ -817,6 +822,8 @@ saveInterfaceEAPOLConfiguration(EAPOLClientConfigurationRef cfg,
     my_CFRelease(&prefs);
     return (ret);
 }
+
+#endif /* ! TARGET_OS_IPHONE */
 
 /**
  ** CF object glue code
@@ -928,7 +935,8 @@ EAPOLClientConfigurationGetTypeID(void)
 
 STATIC EAPOLClientConfigurationRef
 EAPOLClientConfigurationCreateInternal(CFAllocatorRef allocator,
-				       AuthorizationRef auth)
+				       AuthorizationRef auth,
+				       Boolean auth_required)
 {
     EAPOLClientConfigurationRef		cfg;
 
@@ -937,7 +945,8 @@ EAPOLClientConfigurationCreateInternal(CFAllocatorRef allocator,
     if (cfg == NULL) {
 	return (NULL);
     }
-    if (auth != NULL) {
+    if (auth_required == TRUE) {
+	/* with auth=NULL client needs an appropriate entitlement */
 	cfg->eap_prefs 
 	    = SCPreferencesCreateWithAuthorization(allocator,
 						   kPrefsName,
@@ -949,8 +958,10 @@ EAPOLClientConfigurationCreateInternal(CFAllocatorRef allocator,
 					     kEAPOLClientConfigurationPrefsID);
     }
     if (cfg->eap_prefs == NULL) {
+	EAPLOG(LOG_NOTICE, "failed to create preferences %s", SCErrorString(SCError()));
 	goto failed;
     }
+#if ! TARGET_OS_IPHONE
     if (auth != NULL) {
 	AuthorizationExternalForm *	auth_ext_p;
 	OSStatus			status;
@@ -963,7 +974,7 @@ EAPOLClientConfigurationCreateInternal(CFAllocatorRef allocator,
 	}
 	cfg->auth_ext_p = auth_ext_p;
     }
-
+#endif /* ! TARGET_OS_IPHONE */
     import_profiles(cfg);
     cfg->def_auth_props = copy_def_auth_props(cfg->eap_prefs);
     return (cfg);
@@ -994,7 +1005,7 @@ EAPOLClientConfigurationCreateInternal(CFAllocatorRef allocator,
 EAPOLClientConfigurationRef
 EAPOLClientConfigurationCreate(CFAllocatorRef allocator)
 {
-    return (EAPOLClientConfigurationCreateInternal(allocator, NULL));
+    return (EAPOLClientConfigurationCreateInternal(allocator, NULL, FALSE));
 }
 
 /*
@@ -1013,10 +1024,12 @@ EAPOLClientConfigurationRef
 EAPOLClientConfigurationCreateWithAuthorization(CFAllocatorRef allocator,
 						AuthorizationRef auth)
 {
+#if ! TARGET_OS_IPHONE
     if (auth == NULL) {
 	return (NULL);
     }
-    return (EAPOLClientConfigurationCreateInternal(allocator, auth));
+#endif
+    return (EAPOLClientConfigurationCreateInternal(allocator, auth, TRUE));
 }
 
 /*
@@ -1107,7 +1120,7 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
 	SCPreferencesApplyChanges(cfg->eap_prefs);
 	changed = TRUE;
     }
-
+#if ! TARGET_OS_IPHONE
     /* save the network prefs */
     {
 	Boolean		this_changed = FALSE;
@@ -1120,6 +1133,7 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
 	    changed = TRUE;
 	}
     }
+#endif /* ! TARGET_OS_IPHONE */
     my_CFRelease(&cfg->sc_prefs); /* force a refresh */
 
  done:
@@ -1379,6 +1393,63 @@ EAPOLClientConfigurationCopyMatchingProfiles(EAPOLClientConfigurationRef cfg,
     return (CFArrayCreate(CFGetAllocator(cfg), values, count,
 			  &kCFTypeArrayCallBacks));
 }
+
+EAPOLClientProfileRef
+EAPOLClientConfigurationGetSystemEthernetProfile(EAPOLClientConfigurationRef cfg)
+{
+    CFStringRef 	sysModeProfileID = NULL;
+
+    sysModeProfileID = SCPreferencesGetValue(cfg->eap_prefs,
+				     kConfigurationKeySystemModeEthernetProfileID);
+    if (isA_CFString(sysModeProfileID) != NULL) {
+	return ((EAPOLClientProfileRef)
+		CFDictionaryGetValue(cfg->profiles, sysModeProfileID));
+    }
+    return NULL;
+}
+
+Boolean
+EAPOLClientConfigurationSetSystemEthernetProfile(EAPOLClientConfigurationRef cfg,
+					       EAPOLClientProfileRef profile)
+{
+    CFStringRef 	existing_profileID = NULL;
+    CFStringRef 	profileID = NULL;
+    Boolean 		ret = FALSE;
+
+    if (cfg->system_mode_profile_id != NULL) {
+	my_CFRelease(&cfg->system_mode_profile_id);
+    }
+    cfg->system_mode_profile_id_changed = FALSE;
+    existing_profileID = SCPreferencesGetValue(cfg->eap_prefs,
+					       kConfigurationKeySystemModeEthernetProfileID);
+    if (profile == NULL) {
+	if (isA_CFString(existing_profileID) != NULL) {
+	    /* Delete System Ethernet profile */
+	    ret = TRUE;
+	    cfg->system_mode_profile_id_changed = TRUE;
+	}
+	goto done;
+    }
+    profileID = EAPOLClientProfileGetID(profile);
+    if (profileID == NULL) {
+	/* error */
+	goto done;
+    }
+    if (isA_CFString(existing_profileID) != NULL &&
+	my_CFEqual(existing_profileID, profileID)) {
+	/* nothing to do */
+	goto done;
+    }
+    cfg->system_mode_profile_id_changed = TRUE;
+    cfg->system_mode_profile_id = profileID;
+    CFRetain(cfg->system_mode_profile_id);
+    ret = TRUE;
+
+done:
+    return (ret);
+}
+
+#if ! TARGET_OS_IPHONE
 
 /*
  * Function: EAPOLClientConfigurationCopyLoginWindowProfiles
@@ -1642,61 +1713,6 @@ EAPOLClientConfigurationSetSystemProfile(EAPOLClientConfigurationRef cfg,
     return (ret);
 }
 
-EAPOLClientProfileRef
-EAPOLClientConfigurationGetSystemEthernetProfile(EAPOLClientConfigurationRef cfg)
-{
-    CFStringRef 	sysModeProfileID = NULL;
-
-    sysModeProfileID = SCPreferencesGetValue(cfg->eap_prefs,
-				     kConfigurationKeySystemModeEthernetProfileID);
-    if (isA_CFString(sysModeProfileID) != NULL) {
-	return ((EAPOLClientProfileRef)
-		CFDictionaryGetValue(cfg->profiles, sysModeProfileID));
-    }
-    return NULL;
-}
-
-Boolean
-EAPOLClientConfigurationSetSystemEthernetProfile(EAPOLClientConfigurationRef cfg,
-					       EAPOLClientProfileRef profile)
-{
-    CFStringRef 	existing_profileID = NULL;
-    CFStringRef 	profileID = NULL;
-    Boolean 		ret = FALSE;
-
-    if (cfg->system_mode_profile_id != NULL) {
-	my_CFRelease(&cfg->system_mode_profile_id);
-    }
-    cfg->system_mode_profile_id_changed = FALSE;
-    existing_profileID = SCPreferencesGetValue(cfg->eap_prefs,
-					       kConfigurationKeySystemModeEthernetProfileID);
-    if (profile == NULL) {
-	if (isA_CFString(existing_profileID) != NULL) {
-	    /* Delete System Ethernet profile */
-	    ret = TRUE;
-	    cfg->system_mode_profile_id_changed = TRUE;
-	}
-	goto done;
-    }
-    profileID = EAPOLClientProfileGetID(profile);
-    if (profileID == NULL) {
-	/* error */
-	goto done;
-    }
-    if (isA_CFString(existing_profileID) != NULL &&
-	my_CFEqual(existing_profileID, profileID)) {
-	/* nothing to do */
-	goto done;
-    }
-    cfg->system_mode_profile_id_changed = TRUE;
-    cfg->system_mode_profile_id = profileID;
-    CFRetain(cfg->system_mode_profile_id);
-    ret = TRUE;
-
-done:
-    return (ret);
-}
-
 /*
  * Function: EAPOLClientConfigurationCopyAllSystemProfiles
  *
@@ -1734,6 +1750,7 @@ EAPOLClientConfigurationCopyAllLoginWindowProfiles(EAPOLClientConfigurationRef c
     return (copy_profiles_for_mode(cfg, kEAPOLControlModeLoginWindow));
 }
 
+#endif /* ! TARGET_OS_IPHONE */
 
 /**
  ** Private SPI

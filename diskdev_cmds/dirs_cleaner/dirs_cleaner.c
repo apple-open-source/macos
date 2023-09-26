@@ -42,7 +42,12 @@
 
 // TBD integrate with CacheDelete
 //#include <CacheDelete/CacheDeletePrivate.h>
-#define CACHE_DELETE_AUTO_PURGE_DIRECTORY	"/private/var/dirs_cleaner/"
+
+#define USER_VOLUME_MNT_PATH "/private/var/mobile/"
+#define DATA_VOLUME_MNT_PATH "/private/var/"
+
+#define CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY	DATA_VOLUME_MNT_PATH "dirs_cleaner/"
+#define CACHE_DELETE_USER_AUTO_PURGE_DIRECTORY	USER_VOLUME_MNT_PATH "dirs_cleaner/"
 
 #define SYSTEM_TMP_DIR      "/tmp"
 #define SYSTEM_TMP_DIR_MODE (S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO)
@@ -418,7 +423,7 @@ dc_reset(dir_ctx_t *ctx, const char *path)
 _Static_assert(DC_TEMP_PATH_LEN > DC_TEMP_PATH_NUMX + 1, "Template path must be longer");
 
 // Prepare template path
-static bool
+static int
 dc_prep_temp_dir(dir_ctx_t *ctx, const char *temp_path)
 {
 	size_t temp_len = DC_TEMP_PATH_LEN - DC_TEMP_PATH_NUMX - 1;
@@ -446,21 +451,20 @@ dc_prep_temp_dir(dir_ctx_t *ctx, const char *temp_path)
 	if (len) {
 		ctx->dc_temp_path[len + DC_TEMP_PATH_NUMX] = 0;
 		ctx->dc_Xpos = (uint32_t)len;
-		return false;
+		return 0;
 	}
 
 	ctx->dc_temp_path[0] = 0;
-	return true;
+	return -1;
 }
 
 // Construct directory cleaning context
 static void
-dc_construct(dir_ctx_t *ctx, const char *temp_path, bool init)
+dc_construct(dir_ctx_t *ctx, bool init)
 {
 	memset(ctx, 0, sizeof(*ctx));
 
-	if (dc_prep_temp_dir(ctx, temp_path) || (init &&
-		!dtc_timespan2timespec(&ctx->dc_thread.dtc_sync_lim, DC_MAX_SYNC_CLEAN_DUR, NULL)))
+	if (init && !dtc_timespan2timespec(&ctx->dc_thread.dtc_sync_lim, DC_MAX_SYNC_CLEAN_DUR, NULL))
 		dc_state_set_dirs_sync(ctx);
 
 	ctx->dc_attrs_list.bitmapcount = ATTR_BIT_MAP_COUNT;
@@ -621,7 +625,7 @@ dc_clean_sync(dir_ctx_t *ctx, bool input_path)
 }
 
 static void
-usage()
+usage(void)
 {
 	fprintf(stderr, "usage: dirs_cleaner [--init] directory ...\n");
 	exit(EX_USAGE);
@@ -676,10 +680,18 @@ main(int argc, char *argv[])
 		usage();
 	}
 
-	dc_construct(&ctx, CACHE_DELETE_AUTO_PURGE_DIRECTORY, init);
+	dc_construct(&ctx, init);
 
 	for (int i = 1 + init; i < argc; i++) {
 		/* reinitialize the dcs state for a new input directory */
+		char *tmp_path = CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY;
+		if (strncmp(USER_VOLUME_MNT_PATH, argv[i], strlen(USER_VOLUME_MNT_PATH)) == 0) {
+			tmp_path = CACHE_DELETE_USER_AUTO_PURGE_DIRECTORY;
+		}
+		if (dc_prep_temp_dir(&ctx, tmp_path)) {
+			dc_state_set_dirs_sync(&ctx);
+		}
+
 		res = dc_reset (&ctx, argv[i]);
 
 		if (res) {

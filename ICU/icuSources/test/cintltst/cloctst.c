@@ -15,8 +15,9 @@
 ******************************************************************************
 */
 #include "cloctst.h"
-#include <stdlib.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "cintltst.h"
 #include "cmemory.h"
@@ -24,7 +25,10 @@
 #include "uparse.h"
 #include "uresimp.h"
 #include "uassert.h"
+#if APPLE_ICU_CHANGES
+// rdar://
 #include "cmemory.h"
+#endif  // APPLE_ICU_CHANGES
 
 #include "unicode/putil.h"
 #include "unicode/ubrk.h"
@@ -41,12 +45,14 @@
 #include "unicode/uldnames.h"
 #include "unicode/parseerr.h" /* may not be included with some uconfig switches */
 #include "udbgutil.h"
+#if APPLE_ICU_CHANGES
+// rdar://
 #if !U_PLATFORM_HAS_WIN32_API
 #include "unicode/ualoc.h" /* Apple-specific */
 #endif
+#endif  // APPLE_ICU_CHANGES
 
 static void TestNullDefault(void);
-static void TestCanonicalForm(void);
 static void TestNonexistentLanguageExemplars(void);
 static void TestLocDataErrorCodeChaining(void);
 static void TestLocDataWithRgTag(void);
@@ -68,6 +74,9 @@ static void TestExcessivelyLongIDs(void);
 static void TestUldnNameVariants(void);
 #endif
 
+#if APPLE_ICU_CHANGES
+// rdar://
+static void TestCanonicalForm(void);
 static void TestRootUndEmpty(void);
 #if !U_PLATFORM_HAS_WIN32_API
 // These test functionality that does not exist in the AAS/Windows version of Apple ICU
@@ -79,6 +88,7 @@ static void TestAppleLocalizationsToUse(void);
 #endif
 static void TestNorwegianDisplayNames(void);
 static void TestSpecificDisplayNames(void);
+#endif  // APPLE_ICU_CHANGES
 
 void PrintDataTable();
 
@@ -113,12 +123,22 @@ static const char* const rawData2[LOCALE_INFO_SIZE][LOCALE_SIZE] = {
     /* display script code (English) */
     {   "",     "",     "",     "",     "",     "Simplified Han", "", "", ""       },
     /* display country (English) */
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
     {   "United States",    "France",   "Spain",  "Greece",   "Norway", "China mainland", "Germany", "", "Japan"       },
+#else
+    {   "United States",    "France",   "Spain",  "Greece",   "Norway", "China", "Germany", "", "Japan"       },
+#endif  // APPLE_ICU_CHANGES
     /* display variant (English) */
     {   "",     "",     "",     "",     "NY",  "", "", "", ""       },
     /* display name (English) */
     {   "English (United States)", "French (France)", "Catalan (Spain)", 
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         "Greek (Greece)", "Norwegian (Norway, NY)", "Chinese, Simplified (China mainland)", 
+#else
+        "Greek (Greece)", "Norwegian (Norway, NY)", "Chinese (Simplified, China)", 
+#endif  // APPLE_ICU_CHANGES
         "German (Germany, Sort Order=Phonebook Sort Order)", "Spanish (Sort Order=Traditional Sort Order)", "Japanese (Japan, Calendar=Japanese Calendar)" },
 
     /* display language (French) */
@@ -126,12 +146,22 @@ static const char* const rawData2[LOCALE_INFO_SIZE][LOCALE_SIZE] = {
     /* display script code (French) */
     {   "",     "",     "",     "",     "",     "sinogrammes simplifi\\u00e9s", "", "", ""         },
     /* display country (French) */
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
     {   "\\u00C9tats-Unis",    "France",   "Espagne",  "Gr\\u00E8ce",   "Norv\\u00E8ge",    "Chine continentale", "Allemagne", "", "Japon"       },
+#else
+    {   "\\u00C9tats-Unis",    "France",   "Espagne",  "Gr\\u00E8ce",   "Norv\\u00E8ge",    "Chine", "Allemagne", "", "Japon"       },
+#endif  // APPLE_ICU_CHANGES
     /* display variant (French) */
     {   "",     "",     "",     "",     "NY",   "", "", "", ""       },
     /* display name (French) */
     {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", 
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)",  "chinois simplifi\\u00e9 (Chine continentale)", 
+#else
+        "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)",  "chinois (simplifi\\u00e9, Chine)", 
+#endif  // APPLE_ICU_CHANGES
         "allemand (Allemagne, ordre de tri=ordre de l\\u2019annuaire)", "espagnol (ordre de tri=ordre traditionnel)", "japonais (Japon, calendrier=calendrier japonais)" },
 
     /* display language (Catalan) */
@@ -139,13 +169,23 @@ static const char* const rawData2[LOCALE_INFO_SIZE][LOCALE_SIZE] = {
     /* display script code (Catalan) */
     {   "",     "",     "",     "",     "",     "han simplificat", "", "", ""         },
     /* display country (Catalan) */
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
     {   "Estats Units", "Fran\\u00E7a", "Espanya",  "Gr\\u00E8cia", "Noruega",  "Xina continental", "Alemanya", "", "Jap\\u00F3"    },
+#else
+    {   "Estats Units", "Fran\\u00E7a", "Espanya",  "Gr\\u00E8cia", "Noruega",  "Xina", "Alemanya", "", "Jap\\u00F3"    },
+#endif  // APPLE_ICU_CHANGES
     /* display variant (Catalan) */
     {   "", "", "",                    "", "NY",    "", "", "", ""    },
     /* display name (Catalan) */
     {   "angl\\u00E8s (Estats Units)", "franc\\u00E8s (Fran\\u00E7a)", "catal\\u00E0 (Espanya)", 
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
     "grec (Gr\\u00E8cia)", "noruec (Noruega, NY)", "xin\\u00E8s simplificat (Xina continental)", 
-    "alemany (Alemanya, ordenaci\\u00F3=ordre de la guia telef\\u00F2nica)", "espanyol (ordenaci\\u00F3=ordre tradicional)", "japon\\u00E8s (Jap\\u00F3, calendari=calendari japon\\u00e8s)" },
+#else
+    "grec (Gr\\u00E8cia)", "noruec (Noruega, NY)", "xin\\u00E8s (simplificat, Xina)", 
+#endif  // APPLE_ICU_CHANGES
+    "alemany (Alemanya, ordre=ordre de la guia telef\\u00F2nica)", "espanyol (ordre=ordre tradicional)", "japon\\u00E8s (Jap\\u00F3, calendari=calendari japon\\u00e8s)" },
 
     /* display language (Greek) */
     {
@@ -169,7 +209,12 @@ static const char* const rawData2[LOCALE_INFO_SIZE][LOCALE_SIZE] = {
         "\\u0399\\u03c3\\u03c0\\u03b1\\u03bd\\u03af\\u03b1",
         "\\u0395\\u03bb\\u03bb\\u03ac\\u03b4\\u03b1",
         "\\u039d\\u03bf\\u03c1\\u03b2\\u03b7\\u03b3\\u03af\\u03b1",
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         "\\u039A\\u03AF\\u03BD\\u03B1 \\u03B7\\u03C0\\u03B5\\u03B9\\u03C1\\u03C9\\u03C4\\u03B9\\u03BA\\u03AE", 
+#else
+        "\\u039A\\u03AF\\u03BD\\u03B1", 
+#endif  // APPLE_ICU_CHANGES
         "\\u0393\\u03B5\\u03C1\\u03BC\\u03B1\\u03BD\\u03AF\\u03B1", 
         "", 
         "\\u0399\\u03B1\\u03C0\\u03C9\\u03BD\\u03AF\\u03B1"   
@@ -183,7 +228,12 @@ static const char* const rawData2[LOCALE_INFO_SIZE][LOCALE_SIZE] = {
         "\\u039a\\u03b1\\u03c4\\u03b1\\u03bb\\u03b1\\u03bd\\u03b9\\u03ba\\u03ac (\\u0399\\u03c3\\u03c0\\u03b1\\u03bd\\u03af\\u03b1)",
         "\\u0395\\u03bb\\u03bb\\u03b7\\u03bd\\u03b9\\u03ba\\u03ac (\\u0395\\u03bb\\u03bb\\u03ac\\u03b4\\u03b1)",
         "\\u039d\\u03bf\\u03c1\\u03b2\\u03b7\\u03b3\\u03b9\\u03ba\\u03ac (\\u039d\\u03bf\\u03c1\\u03b2\\u03b7\\u03b3\\u03af\\u03b1, NY)",
+#if APPLE_ICU_CHANGES
+//rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         "\\u0391\\u03c0\\u03bb\\u03bf\\u03c0\\u03bf\\u03b9\\u03b7\\u03bc\\u03ad\\u03bd\\u03b1 \\u039A\\u03B9\\u03BD\\u03B5\\u03B6\\u03B9\\u03BA\\u03AC (\\u039A\\u03AF\\u03BD\\u03B1 \\u03B7\\u03C0\\u03B5\\u03B9\\u03C1\\u03C9\\u03C4\\u03B9\\u03BA\\u03AE)",
+#else
+        "\\u039A\\u03B9\\u03BD\\u03B5\\u03B6\\u03B9\\u03BA\\u03AC (\\u0391\\u03c0\\u03bb\\u03bf\\u03c0\\u03bf\\u03b9\\u03b7\\u03bc\\u03ad\\u03bd\\u03bf, \\u039A\\u03AF\\u03BD\\u03B1)",
+#endif  // APPLE_ICU_CHANGES
         "\\u0393\\u03b5\\u03c1\\u03bc\\u03b1\\u03bd\\u03b9\\u03ba\\u03ac (\\u0393\\u03b5\\u03c1\\u03bc\\u03b1\\u03bd\\u03af\\u03b1, \\u03a3\\u03b5\\u03b9\\u03c1\\u03ac \\u03c4\\u03b1\\u03be\\u03b9\\u03bd\\u03cc\\u03bc\\u03b7\\u03c3\\u03b7\\u03c2=\\u03a3\\u03b5\\u03b9\\u03c1\\u03ac \\u03c4\\u03b1\\u03be\\u03b9\\u03bd\\u03cc\\u03bc\\u03b7\\u03c3\\u03b7\\u03c2 \\u03c4\\u03b7\\u03bb\\u03b5\\u03c6\\u03c9\\u03bd\\u03b9\\u03ba\\u03bf\\u03cd \\u03ba\\u03b1\\u03c4\\u03b1\\u03bb\\u03cc\\u03b3\\u03bf\\u03c5)",
         "\\u0399\\u03c3\\u03c0\\u03b1\\u03bd\\u03b9\\u03ba\\u03ac (\\u03a3\\u03b5\\u03b9\\u03c1\\u03ac \\u03c4\\u03b1\\u03be\\u03b9\\u03bd\\u03cc\\u03bc\\u03b7\\u03c3\\u03b7\\u03c2=\\u03a0\\u03b1\\u03c1\\u03b1\\u03b4\\u03bf\\u03c3\\u03b9\\u03b1\\u03ba\\u03ae \\u03c3\\u03b5\\u03b9\\u03c1\\u03ac \\u03c4\\u03b1\\u03be\\u03b9\\u03bd\\u03cc\\u03bc\\u03b7\\u03c3\\u03b7\\u03c2)",
         "\\u0399\\u03b1\\u03c0\\u03c9\\u03bd\\u03b9\\u03ba\\u03ac (\\u0399\\u03b1\\u03c0\\u03c9\\u03bd\\u03af\\u03b1, \\u0397\\u03bc\\u03b5\\u03c1\\u03bf\\u03bb\\u03cc\\u03b3\\u03b9\\u03bf=\\u0399\\u03b1\\u03c0\\u03c9\\u03bd\\u03b9\\u03ba\\u03cc \\u03b7\\u03bc\\u03b5\\u03c1\\u03bf\\u03bb\\u03cc\\u03b3\\u03b9\\u03bf)"
@@ -256,7 +306,10 @@ void addLocaleTest(TestNode** root)
     TESTCASE(TestKeywordVariants);
     TESTCASE(TestKeywordVariantParsing);
     TESTCASE(TestCanonicalization);
+#if APPLE_ICU_CHANGES
+// rdar://
     TESTCASE(TestCanonicalForm);
+#endif  // APPLE_ICU_CHANGES
     TESTCASE(TestCanonicalizationBuffer);
     TESTCASE(TestKeywordSet);
     TESTCASE(TestKeywordSetError);
@@ -308,6 +361,8 @@ void addLocaleTest(TestNode** root)
 #if !UCONFIG_NO_FORMATTING
     TESTCASE(TestUldnNameVariants);
 #endif
+#if APPLE_ICU_CHANGES
+// rdar://
     TESTCASE(TestRootUndEmpty);
 #if !U_PLATFORM_HAS_WIN32_API
 // These test functionality that does not exist in the AAS/Windows version of Apple ICU
@@ -319,6 +374,7 @@ void addLocaleTest(TestNode** root)
 #endif
     TESTCASE(TestNorwegianDisplayNames);
     TESTCASE(TestSpecificDisplayNames);
+#endif  // APPLE_ICU_CHANGES
 }
 
 
@@ -781,7 +837,7 @@ static void TestDisplayNames()
             "el_GR" };
         static const char *expect[] = { "Spanish (Calendar=Japanese Calendar, Sort Order=Traditional Sort Order)", /* note sorted order of keywords */
             "espagnol (calendrier=calendrier japonais, ordre de tri=ordre traditionnel)",
-            "espanyol (calendari=calendari japon\\u00e8s, ordenaci\\u00f3=ordre tradicional)",
+            "espanyol (calendari=calendari japon\\u00e8s, ordre=ordre tradicional)",
             "\\u0399\\u03c3\\u03c0\\u03b1\\u03bd\\u03b9\\u03ba\\u03ac (\\u0397\\u03bc\\u03b5\\u03c1\\u03bf\\u03bb\\u03cc\\u03b3\\u03b9\\u03bf=\\u0399\\u03b1\\u03c0\\u03c9\\u03bd\\u03b9\\u03ba\\u03cc \\u03b7\\u03bc\\u03b5\\u03c1\\u03bf\\u03bb\\u03cc\\u03b3\\u03b9\\u03bf, \\u03a3\\u03b5\\u03b9\\u03c1\\u03ac \\u03c4\\u03b1\\u03be\\u03b9\\u03bd\\u03cc\\u03bc\\u03b7\\u03c3\\u03b7\\u03c2=\\u03a0\\u03b1\\u03c1\\u03b1\\u03b4\\u03bf\\u03c3\\u03b9\\u03b1\\u03ba\\u03ae \\u03c3\\u03b5\\u03b9\\u03c1\\u03ac \\u03c4\\u03b1\\u03be\\u03b9\\u03bd\\u03cc\\u03bc\\u03b7\\u03c3\\u03b7\\u03c2)" };
         UChar *expectBuffer;
 
@@ -809,8 +865,14 @@ static void TestDisplayNames()
         static const char *locale="az_Cyrl";
         static const char *displayLocale="ja";
         static const char *expectedChars =
+#if APPLE_ICU_CHANGES
+// rdar://
                 "\\u30a2\\u30bc\\u30eb\\u30d0\\u30a4\\u30b8\\u30e3\\u30f3\\u8a9e"
                 "\\uff08\\u30ad\\u30ea\\u30eb\\u6587\\u5b57\\uff09";
+#else
+                "\\u30a2\\u30bc\\u30eb\\u30d0\\u30a4\\u30b8\\u30e3\\u30f3\\u8a9e "
+                "(\\u30ad\\u30ea\\u30eb\\u6587\\u5b57)";
+#endif  // APPLE_ICU_CHANGES
         UErrorCode ec=U_ZERO_ERROR;
         UChar result[256];
         int32_t len;
@@ -940,15 +1002,15 @@ static void TestGetAvailableLocalesByType() {
     uenum_close(uenum);
 
     uenum = uloc_openAvailableByType(ULOC_AVAILABLE_ONLY_LEGACY_ALIASES, &status);
-    UBool found_he = FALSE;
-    UBool found_iw = FALSE;
+    UBool found_he = false;
+    UBool found_iw = false;
     const char* loc;
     while ((loc = uenum_next(uenum, NULL, &status))) {
         if (uprv_strcmp("he", loc) == 0) {
-            found_he = TRUE;
+            found_he = true;
         }
         if (uprv_strcmp("iw", loc) == 0) {
-            found_iw = TRUE;
+            found_iw = true;
         }
     }
     assertTrue("Should NOT have found he amongst the legacy/alias locales", !found_he);
@@ -956,16 +1018,16 @@ static void TestGetAvailableLocalesByType() {
     uenum_close(uenum);
 
     uenum = uloc_openAvailableByType(ULOC_AVAILABLE_WITH_LEGACY_ALIASES, &status);
-    found_he = FALSE;
-    found_iw = FALSE;
+    found_he = false;
+    found_iw = false;
     const UChar* uloc; // test the UChar conversion
     int32_t count = 0;
     while ((uloc = uenum_unext(uenum, NULL, &status))) {
         if (u_strcmp(u"iw", uloc) == 0) {
-            found_iw = TRUE;
+            found_iw = true;
         }
         if (u_strcmp(u"he", uloc) == 0) {
-            found_he = TRUE;
+            found_he = true;
         }
         count++;
     }
@@ -1211,11 +1273,18 @@ typedef struct {
     const char * namedRegion;
     const char * namedLocale;
     const char * regionName;
+#if APPLE_ICU_CHANGES
+// rdar://
     const char * ulocLocaleName;
     const char * uldnLocaleName;
+#else
+    const char * localeName;
+#endif  // APPLE_ICU_CHANGES
 } DisplayNameBracketsItem;
 
 static const DisplayNameBracketsItem displayNameBracketsItems[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
     { "en", "CC", "en_CC",      "Cocos (Keeling) Islands",  "English (Cocos [Keeling] Islands)",  "English (Cocos [Keeling] Islands)" },
     { "en", "MM", "my_MM",      "Myanmar (Burma)",          "Burmese (Myanmar [Burma])",          "Burmese (Myanmar)"                 },
     { "en", "MM", "my_Mymr_MM", "Myanmar (Burma)",          "Burmese (Myanmar, Myanmar [Burma])", "Burmese (Myanmar, Myanmar)"        },
@@ -1226,6 +1295,14 @@ static const DisplayNameBracketsItem displayNameBracketsItems[] = {
                                 "\\u6CD5\\u8BED\\uFF08\\u521A\\u679C\\uFF3B\\u5E03\\uFF3D\\uFF09",
                                 "\\u6CD5\\u8BED\\uFF08\\u521A\\u679C\\uFF3B\\u5E03\\uFF3D\\uFF09"                                     },
     { NULL, NULL, NULL,         NULL,                       NULL,                                  NULL                               }
+#else
+    { "en", "CC", "en_CC",      "Cocos (Keeling) Islands",  "English (Cocos [Keeling] Islands)"  },
+    { "en", "MM", "my_MM",      "Myanmar (Burma)",          "Burmese (Myanmar [Burma])"          },
+    { "en", "MM", "my_Mymr_MM", "Myanmar (Burma)",          "Burmese (Myanmar, Myanmar [Burma])" },
+    { "zh", "CC", "en_CC",      "\\u79D1\\u79D1\\u65AF\\uFF08\\u57FA\\u6797\\uFF09\\u7FA4\\u5C9B", "\\u82F1\\u8BED\\uFF08\\u79D1\\u79D1\\u65AF\\uFF3B\\u57FA\\u6797\\uFF3D\\u7FA4\\u5C9B\\uFF09" },
+    { "zh", "CG", "fr_CG",      "\\u521A\\u679C\\uFF08\\u5E03\\uFF09",                             "\\u6CD5\\u8BED\\uFF08\\u521A\\u679C\\uFF3B\\u5E03\\uFF3D\\uFF09" },
+    { NULL, NULL, NULL,         NULL,                       NULL                                 }
+#endif  // APPLE_ICU_CHANGES
 };
 
 enum { kDisplayNameBracketsMax = 128 };
@@ -1237,14 +1314,24 @@ static void TestDisplayNameBrackets()
         ULocaleDisplayNames * uldn;
         UErrorCode status;
         UChar expectRegionName[kDisplayNameBracketsMax];
+#if APPLE_ICU_CHANGES
+// rdar://
         UChar expectUlocLocaleName[kDisplayNameBracketsMax];
         UChar expectUldnLocaleName[kDisplayNameBracketsMax];
+#else
+        UChar expectLocaleName[kDisplayNameBracketsMax];
+#endif  // APPLE_ICU_CHANGES
         UChar getName[kDisplayNameBracketsMax];
         int32_t ulen;
         
         (void) u_unescape(itemPtr->regionName, expectRegionName, kDisplayNameBracketsMax);
+#if APPLE_ICU_CHANGES
+// rdar://
         (void) u_unescape(itemPtr->ulocLocaleName, expectUlocLocaleName, kDisplayNameBracketsMax);
         (void) u_unescape(itemPtr->uldnLocaleName, expectUldnLocaleName, kDisplayNameBracketsMax);
+#else
+        (void) u_unescape(itemPtr->localeName, expectLocaleName, kDisplayNameBracketsMax);
+#endif  // APPLE_ICU_CHANGES
 
         status = U_ZERO_ERROR;
         ulen = uloc_getDisplayCountry(itemPtr->namedLocale, itemPtr->displayLocale, getName, kDisplayNameBracketsMax, &status);
@@ -1254,9 +1341,16 @@ static void TestDisplayNameBrackets()
 
         status = U_ZERO_ERROR;
         ulen = uloc_getDisplayName(itemPtr->namedLocale, itemPtr->displayLocale, getName, kDisplayNameBracketsMax, &status);
+#if APPLE_ICU_CHANGES
+// rdar://
         if ( U_FAILURE(status) || u_strcmp(getName, expectUlocLocaleName) != 0 ) {
+#else
+        if ( U_FAILURE(status) || u_strcmp(getName, expectLocaleName) != 0 ) {
+#endif  // APPLE_ICU_CHANGES
             log_data_err("uloc_getDisplayName for displayLocale %s and namedLocale %s returns unexpected name or status %s\n", itemPtr->displayLocale, itemPtr->namedLocale, myErrorName(status));
         }
+#if APPLE_ICU_CHANGES
+// rdar://
         if ( U_FAILURE(status) ) {
             log_data_err("uloc_getDisplayName for displayLocale %s and namedLocale %-10s returns unexpected status %s\n", itemPtr->displayLocale, itemPtr->namedLocale, myErrorName(status));
         } else if ( u_strcmp(getName, expectUlocLocaleName) != 0 ) {
@@ -1264,6 +1358,7 @@ static void TestDisplayNameBrackets()
             u_strToUTF8(bbuf, 128, NULL, getName, ulen, &status);
             log_data_err("uloc_getDisplayName for displayLocale %s and namedLocale %-10s returns unexpected name (len %d): \"%s\"\n", itemPtr->displayLocale, itemPtr->namedLocale, ulen, bbuf);
         }
+#endif  // APPLE_ICU_CHANGES
 
 #if !UCONFIG_NO_FORMATTING
         status = U_ZERO_ERROR;
@@ -1277,6 +1372,8 @@ static void TestDisplayNameBrackets()
 
             status = U_ZERO_ERROR;
             ulen = uldn_localeDisplayName(uldn, itemPtr->namedLocale, getName, kDisplayNameBracketsMax, &status);
+#if APPLE_ICU_CHANGES
+// rdar://
             if ( U_FAILURE(status) ) {
                 log_data_err("uldn_localeDisplayName for displayLocale %s and namedLocale %-10s returns unexpected status %s\n", itemPtr->displayLocale, itemPtr->namedLocale, myErrorName(status));
             } else if ( u_strcmp(getName, expectUldnLocaleName) != 0 ) {
@@ -1284,6 +1381,11 @@ static void TestDisplayNameBrackets()
                 u_strToUTF8(bbuf, 128, NULL, getName, ulen, &status);
                 log_data_err("uldn_localeDisplayName for displayLocale %s and namedLocale %-10s returns unexpected name (len %d): \"%s\"\n", itemPtr->displayLocale, itemPtr->namedLocale, ulen, bbuf);
             }
+#else
+            if ( U_FAILURE(status) || u_strcmp(getName, expectLocaleName) != 0 ) {
+                log_data_err("uldn_localeDisplayName for displayLocale %s and namedLocale %s returns unexpected name or status %s\n", itemPtr->displayLocale, itemPtr->namedLocale, myErrorName(status));
+            }
+#endif  // APPLE_ICU_CHANGES
 
             uldn_close(uldn);
         } else {
@@ -1599,18 +1701,18 @@ static void TestSimpleDisplayNames()
 static void TestUninstalledISO3Names()
 {
   /* This test checks to make sure getISO3Language and getISO3Country work right
-     even for locales that are not installed. */
+     even for locales that are not installed (and some installed ones). */
     static const char iso2Languages [][4] = {     "am", "ba", "fy", "mr", "rn",
-                                        "ss", "tw", "zu" };
+                                        "ss", "tw", "zu", "sr" };
     static const char iso3Languages [][5] = {     "amh", "bak", "fry", "mar", "run",
-                                        "ssw", "twi", "zul" };
+                                        "ssw", "twi", "zul", "srp" };
     static const char iso2Countries [][6] = {     "am_AF", "ba_BW", "fy_KZ", "mr_MO", "rn_MN",
-                                        "ss_SB", "tw_TC", "zu_ZW" };
+                                        "ss_SB", "tw_TC", "zu_ZW", "sr_XK" };
     static const char iso3Countries [][4] = {     "AFG", "BWA", "KAZ", "MAC", "MNG",
-                                        "SLB", "TCA", "ZWE" };
+                                        "SLB", "TCA", "ZWE", "XKK" };
     int32_t i;
 
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 9; i++) {
       UErrorCode err = U_ZERO_ERROR;
       const char *test;
       test = uloc_getISO3Language(iso2Languages[i]);
@@ -1618,7 +1720,7 @@ static void TestUninstalledISO3Names()
          log_err("Got wrong ISO3 code for %s : Expected \"%s\", got \"%s\". %s\n",
                      iso2Languages[i], iso3Languages[i], test, myErrorName(err));
     }
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 9; i++) {
       UErrorCode err = U_ZERO_ERROR;
       const char *test;
       test = uloc_getISO3Country(iso2Countries[i]);
@@ -2358,8 +2460,11 @@ static int32_t _canonicalize(int32_t selector, /* 0==getName, 1==canonicalize */
         return uloc_getName(localeID, result, resultCapacity, ec);
     case 1:
         return uloc_canonicalize(localeID, result, resultCapacity, ec);
+#if APPLE_ICU_CHANGES
+// rdar://
     case 2:
         return ualoc_canonicalForm(localeID, result, resultCapacity, ec);
+#endif  // APPLE_ICU_CHANGES
     default:
         return -1;
     }
@@ -2509,6 +2614,8 @@ static void TestCanonicalization(void)
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 static void TestCanonicalForm(void)
 {
     static const struct {
@@ -2579,6 +2686,7 @@ static void TestCanonicalForm(void)
         }
     }
 }
+#endif  // APPLE_ICU_CHANGES
 
 static void TestCanonicalizationBuffer(void)
 {
@@ -2701,7 +2809,13 @@ static void TestDisplayKeywordValues(void){
     static const struct {
         const char *localeID;
         const char *displayLocale;
-        UChar displayKeywordValue[500];
+        
+        #if APPLE_ICU_CHANGES
+        	const UChar displayKeywordValue[500];
+        #else
+        	UChar displayKeywordValue[500];
+        #endif  // APPLE_ICU_CHANGES
+        
     } testCases[] = {
         {   "ca_ES@currency=ESP",         "de_AT", 
             {0x0053, 0x0070, 0x0061, 0x006e, 0x0069, 0x0073, 0x0063, 0x0068, 0x0065, 0x0020, 0x0050, 0x0065, 0x0073, 0x0065, 0x0074, 0x0061, 0x0000}
@@ -2721,16 +2835,22 @@ static void TestDisplayKeywordValues(void){
         {   "de@collation=phonebook",     "es",    
             {0x006F, 0x0072, 0x0064, 0x0065, 0x006E, 0x0020, 0x0064, 0x0065, 0x0020, 0x006C, 0x0069, 0x0073, 0x0074, 0x00ED, 0x006E, 0x0020, 0x0074, 0x0065, 0x006C, 0x0065, 0x0066, 0x00F3, 0x006E, 0x0069, 0x0063, 0x006F, 0x0000}
         },
-
         { "de_DE@collation=phonebook",  "es", 
           {0x006F, 0x0072, 0x0064, 0x0065, 0x006E, 0x0020, 0x0064, 0x0065, 0x0020, 0x006C, 0x0069, 0x0073, 0x0074, 0x00ED, 0x006E, 0x0020, 0x0074, 0x0065, 0x006C, 0x0065, 0x0066, 0x00F3, 0x006E, 0x0069, 0x0063, 0x006F, 0x0000}
         },
         { "es_ES@collation=traditional","de", 
-          {0x0054, 0x0072, 0x0061, 0x0064, 0x0069, 0x0074, 0x0069, 0x006f, 0x006e, 0x0065, 0x006c, 0x006c, 0x0065, 0x0020, 0x0053, 0x006f, 0x0072, 0x0074, 0x0069, 0x0065, 0x0072, 0x0072, 0x0065, 0x0067, 0x0065, 0x006c, 0x006e, 0x0000}
+          {0x0054, 0x0072, 0x0061, 0x0064, 0x0069, 0x0074, 0x0069, 0x006f, 0x006e, 0x0065, 0x006c, 0x006c, 0x0065, 0x0020, 0x0053, 0x006f, 0x0072, 0x0074, 0x0069, 0x0065, 0x0072, 0x0075, 0x006E, 0x0067, 0x0000}
         },
         { "ja_JP@calendar=japanese",    "de", 
            {0x004a, 0x0061, 0x0070, 0x0061, 0x006e, 0x0069, 0x0073, 0x0063, 0x0068, 0x0065, 0x0072, 0x0020, 0x004b, 0x0061, 0x006c, 0x0065, 0x006e, 0x0064, 0x0065, 0x0072, 0x0000}
-        }, 
+        },
+        #if APPLE_ICU_CHANGES
+		// rdar://107558312
+        { "@calendar=islamic",	"en", u"Hijri Calendar" },
+        { "@calendar=islamic",	"de", u"Hidschra-Kalender" },
+        { "@calendar=islamic",	"ar", u"التقويم الهجري" },
+        { "@calendar=islamic",	"ru", u"календарь Хиджра" },        
+        #endif  // APPLE_ICU_CHANGES
     };
     for(i = 0; i < UPRV_LENGTHOF(testCases); i++) {
         UErrorCode status = U_ZERO_ERROR;
@@ -3327,6 +3447,18 @@ static void TestAcceptLanguage(void) {
             }
         }
     }
+
+    // API coverage
+    status = U_ZERO_ERROR;
+    static const char *const supported[] = { "en-US", "en-GB", "de-DE", "ja-JP" };
+    const char * desired[] = { "de-LI", "en-IN", "zu", "fr" };
+    available = uenum_openCharStringsEnumeration(supported, UPRV_LENGTHOF(supported), &status);
+    tmp[0]=0;
+    rc = uloc_acceptLanguage(tmp, 199, &outResult, desired, UPRV_LENGTHOF(desired), available, &status);
+    if (U_FAILURE(status) || rc != 5 || uprv_strcmp(tmp, "de_DE") != 0 || outResult == ULOC_ACCEPT_FAILED) {
+        log_err("uloc_acceptLanguage() failed to do a simple match\n");
+    }
+    uenum_close(available);
 }
 
 static const char* LOCALE_ALIAS[][2] = {
@@ -3348,9 +3480,9 @@ static UBool isLocaleAvailable(UResourceBundle* resIndex, const char* loc){
     int32_t len = 0;
     ures_getStringByKey(resIndex, loc,&len, &status);
     if(U_FAILURE(status)){
-        return FALSE; 
+        return false; 
     }
-    return TRUE;
+    return true;
 }
 
 static void TestCalendar() {
@@ -3516,11 +3648,15 @@ static void  TestOrientation()
         { "ps", ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB },
         { "ur", ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB },
         { "UR", ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB },
-        { "en", ULOC_LAYOUT_LTR, ULOC_LAYOUT_TTB },
+        { "en", ULOC_LAYOUT_LTR, ULOC_LAYOUT_TTB }
+#if APPLE_ICU_CHANGES
+// rdar://
+        ,
         // Additional Apple tests for rdar://51447187
         { "sd",       ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB },
         { "sd_Arab",  ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB },
         { "sd_Deva",  ULOC_LAYOUT_LTR, ULOC_LAYOUT_TTB },
+        { "mid",      ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB }, // rdar://104625921
         { "mni_Beng", ULOC_LAYOUT_LTR, ULOC_LAYOUT_TTB },
         { "mni_Mtei", ULOC_LAYOUT_LTR, ULOC_LAYOUT_TTB },
         { "sat_Deva", ULOC_LAYOUT_LTR, ULOC_LAYOUT_TTB },
@@ -3536,6 +3672,7 @@ static void  TestOrientation()
         { "ur",       ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB },
         { "ur_Arab",  ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB },
         { "ur_Aran",  ULOC_LAYOUT_RTL, ULOC_LAYOUT_TTB },
+#endif  // APPLE_ICU_CHANGES
     };
 
     size_t i = 0;
@@ -3904,7 +4041,9 @@ const char* const basic_maximize_data[][2] = {
   }, {
     "_DE@em=emoji",
     "de_Latn_DE@em=emoji"
-  }, { // start Apple tests for <rdar://problem/47494884>
+#if APPLE_ICU_CHANGES
+// rdar://
+  }, { // start Apple tests for rdar://47494884
     "ur",
     "ur_Aran_PK"
   }, {
@@ -3928,7 +4067,7 @@ const char* const basic_maximize_data[][2] = {
   }, {
     "ks_Arab",
     "ks_Arab_IN"
-  }, { // start Apple tests for <rdar://problem/54153189>
+  }, { // start Apple tests for rdar://54153189
     "mni",
     "mni_Beng_IN"
   }, {
@@ -3946,6 +4085,7 @@ const char* const basic_maximize_data[][2] = {
   }, {
     "sat_Deva",
     "sat_Deva_IN"
+#endif  // APPLE_ICU_CHANGES
   }
 };
 
@@ -3987,10 +4127,13 @@ const char* const full_data[][3] = {
     "af",
     "af_Latn_ZA",
     "af"
+#if APPLE_ICU_CHANGES
+// rdar://
   }, {
     "ain",
     "ain_Kana_JP",
     "ain"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "ak",
     "ak_Latn_GH",
@@ -4287,14 +4430,17 @@ const char* const full_data[][3] = {
     "ms",
     "ms_Latn_MY",
     "ms"
-  }, { // <rdar://problem/27943264>
+#if APPLE_ICU_CHANGES
+// rdar://
+  }, { // rdar://27943264
     "ms_ID",
     "ms_Latn_ID",
     "ms_ID"
-  }, { // <rdar://problem/27943264>
+  }, { // rdar://27943264
     "ms_Arab",
     "ms_Arab_MY",
     "ms_Arab"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "mt",
     "mt_Latn_MT",
@@ -4351,6 +4497,8 @@ const char* const full_data[][3] = {
     "pa",
     "pa_Guru_IN",
     "pa"
+#if APPLE_ICU_CHANGES
+// rdar://
   }, {
     "pa_Arab",
     "pa_Arab_PK",
@@ -4361,8 +4509,18 @@ const char* const full_data[][3] = {
     "pa_PK"
   }, {
     "pa_PK",
-    "pa_Aran_PK", // <rdar://problem/50687287>
+    "pa_Aran_PK", // rdar://50687287
     "pa_PK"
+#else
+  }, {
+    "pa_Arab",
+    "pa_Arab_PK",
+    "pa_PK"
+  }, {
+    "pa_PK",
+    "pa_Arab_PK",
+    "pa_PK"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "pap",
     "pap_Latn_AW",
@@ -4383,10 +4541,13 @@ const char* const full_data[][3] = {
     "pt",
     "pt_Latn_BR",
     "pt"
+#if APPLE_ICU_CHANGES
+// rdar://
   }, {
     "rhg",
     "rhg_Rohg_MM",
     "rhg"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "rn",
     "rn_Latn_BI",
@@ -4463,10 +4624,13 @@ const char* const full_data[][3] = {
     "sw",
     "sw_Latn_TZ",
     "sw"
+#if APPLE_ICU_CHANGES
+// rdar://
   }, {
     "syr",
     "syr_Syrc_IQ",
     "syr"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "ta",
     "ta_Taml_IN",
@@ -4598,11 +4762,21 @@ const char* const full_data[][3] = {
   }, {
     "und_Arab_IN",
     "ur_Arab_IN",
-    "ur_Arab_IN" // Apple <rdar://problem/47494884>
+#if APPLE_ICU_CHANGES
+// rdar://
+    "ur_Arab_IN" // rdar://47494884
+#else
+    "ur_IN"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "und_Arab_PK",
     "ur_Arab_PK",
-    "ur_Arab", // Apple <rdar://problem/47494884>
+#if APPLE_ICU_CHANGES
+// rdar://
+    "ur_Arab", // rdar://47494884
+#else
+    "ur"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "und_Arab_SN",
     "ar_Arab_SN",
@@ -5441,7 +5615,12 @@ const char* const full_data[][3] = {
     "ii"
   }, {
     "ur",
-    "ur_Aran_PK", // Apple <rdar://problem/47494884>
+#if APPLE_ICU_CHANGES
+// rdar://
+    "ur_Aran_PK", // rdar://47494884
+#else
+    "ur_Arab_PK",
+#endif  // APPLE_ICU_CHANGES
     "ur"
   }, {
     "uz",
@@ -5529,8 +5708,14 @@ const char* const full_data[][3] = {
     "zh_HK"
   }, {
     "und_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
     "und_Latn_AQ",
     "und_AQ"
+#else
+    "_Latn_AQ",
+    "_AQ"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "und_Zzzz",
     "en_Latn_US",
@@ -5553,8 +5738,14 @@ const char* const full_data[][3] = {
     "zh_HK"
   }, {
     "und_Zzzz_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
     "und_Latn_AQ",
     "und_AQ"
+#else
+    "_Latn_AQ",
+    "_AQ"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "und_Latn",
     "en_Latn_US",
@@ -5577,8 +5768,14 @@ const char* const full_data[][3] = {
     "zh_Latn_HK"
   }, {
     "und_Latn_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
     "und_Latn_AQ",
     "und_AQ"
+#else
+    "_Latn_AQ",
+    "_AQ"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "und_Hans",
     "zh_Hans_CN",
@@ -5649,8 +5846,14 @@ const char* const full_data[][3] = {
     "zh_Moon_HK"
   }, {
     "und_Moon_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
     "und_Moon_AQ",
     "und_Moon_AQ"
+#else
+    "_Moon_AQ",
+    "_Moon_AQ"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "es",
     "es_Latn_ES",
@@ -5819,10 +6022,13 @@ const char* const full_data[][3] = {
     "zh_AQ",
     "zh_Hans_AQ",
     "zh_AQ"
+#if APPLE_ICU_CHANGES
+// rdar://
   }, {
     "zh_MY",
     "zh_Hans_MY",
     "zh_MY"
+#endif  // APPLE_ICU_CHANGES
   }, {
     "zh_Zzzz",
     "zh_Hans_CN",
@@ -6445,7 +6651,7 @@ static void TestToLanguageTag(void) {
         langtag[0] = 0;
         expected = locale_to_langtag[i][1];
 
-        len = uloc_toLanguageTag(inloc, langtag, sizeof(langtag), FALSE, &status);
+        len = uloc_toLanguageTag(inloc, langtag, sizeof(langtag), false, &status);
         (void)len;    /* Suppress set but not used warning. */
         if (U_FAILURE(status)) {
             if (expected != NULL) {
@@ -6467,7 +6673,7 @@ static void TestToLanguageTag(void) {
         langtag[0] = 0;
         expected = locale_to_langtag[i][2];
 
-        len = uloc_toLanguageTag(inloc, langtag, sizeof(langtag), TRUE, &status);
+        len = uloc_toLanguageTag(inloc, langtag, sizeof(langtag), true, &status);
         if (U_FAILURE(status)) {
             if (expected != NULL) {
                 log_data_err("Error returned by uloc_toLanguageTag {strict} for locale id [%s] - error: %s Are you missing data?\n",
@@ -6499,7 +6705,7 @@ static void TestBug20132(void) {
      * instead require several iterations before getting the correct size. */
 
     status = U_ZERO_ERROR;
-    len = uloc_toLanguageTag(inloc, langtag, 1, FALSE, &status);
+    len = uloc_toLanguageTag(inloc, langtag, 1, false, &status);
 
     if (U_FAILURE(status) && status != U_BUFFER_OVERFLOW_ERROR) {
         log_data_err("Error returned by uloc_toLanguageTag for locale id [%s] - error: %s Are you missing data?\n",
@@ -6511,7 +6717,7 @@ static void TestBug20132(void) {
     }
 
     status = U_ZERO_ERROR;
-    len = uloc_toLanguageTag(inloc, langtag, expected_len, FALSE, &status);
+    len = uloc_toLanguageTag(inloc, langtag, expected_len, false, &status);
 
     if (U_FAILURE(status)) {
         log_data_err("Error returned by uloc_toLanguageTag for locale id [%s] - error: %s Are you missing data?\n",
@@ -6678,7 +6884,7 @@ static void TestLangAndRegionCanonicalize(void) {
         status = U_ZERO_ERROR;
         const char* input = langtag_to_canonical[i].input;
         uloc_forLanguageTag(input, locale, sizeof(locale), NULL, &status);
-        uloc_toLanguageTag(locale, canonical, sizeof(canonical), TRUE, &status);
+        uloc_toLanguageTag(locale, canonical, sizeof(canonical), true, &status);
         if (U_FAILURE(status)) {
             log_err_status(status, "Error returned by uloc_forLanguageTag or uloc_toLanguageTag "
                            "for language tag [%s] - error: %s\n", input, u_errorName(status));
@@ -7092,7 +7298,12 @@ typedef struct {
 } BadLocaleItem;
 
 static const BadLocaleItem badLocaleItems[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
     { "-9223372036854775808", "en", "9223372036854775808", U_USING_DEFAULT_WARNING },
+#else
+    { "-9223372036854775808", "en", "Unknown language (9223372036854775808)", U_USING_DEFAULT_WARNING },
+#endif  // APPLE_ICU_CHANGES
     /* add more in the future */
     { NULL, NULL, NULL, U_ZERO_ERROR } /* terminator */
 };
@@ -7131,7 +7342,6 @@ static void TestBug20370() {
     }
 }
 
-
 // Test case for ICU-20149
 // Handle the duplicate U extension attribute
 static void TestBug20149() {
@@ -7147,19 +7357,1027 @@ static void TestBug20149() {
     }
 }
 
-// This test checks if the environment variable LANG is set, 
-// and if so ensures that both C and C.UTF-8 cause ICU's default locale to be en_US_POSIX.
-static void TestCDefaultLocale() {
-    const char *defaultLocale = uloc_getDefault();
-    char *env_var = getenv("LANG");
-    if (env_var == NULL) {
-      log_verbose("Skipping TestCDefaultLocale test, as the LANG variable is not set.");
-      return;
-    }
-    if ((strcmp(env_var, "C") == 0 || strcmp(env_var, "C.UTF-8") == 0) && strcmp(defaultLocale, "en_US_POSIX") != 0) {
-      log_err("The default locale for LANG=%s should be en_US_POSIX, not %s\n", env_var, defaultLocale);
+#if !UCONFIG_NO_FORMATTING
+typedef enum UldnNameType {
+    TEST_ULDN_LOCALE,
+    TEST_ULDN_LANGUAGE,
+    TEST_ULDN_SCRIPT,
+    TEST_ULDN_REGION,
+    TEST_ULOC_LOCALE,   // only valid with optStdMidLong
+    TEST_ULOC_LANGUAGE, // only valid with optStdMidLong
+    TEST_ULOC_SCRIPT,   // only valid with optStdMidLong
+    TEST_ULOC_REGION,   // only valid with optStdMidLong
+} UldnNameType;
+
+typedef struct {
+    const char * localeToName; // NULL to terminate a list of these
+    UldnNameType nameType;
+    const UChar * expectResult;
+} UldnItem;
+
+typedef struct {
+    const char *            displayLocale;
+    const UDisplayContext * displayOptions; // set of 3 UDisplayContext items
+    const UldnItem *        testItems;
+    int32_t                 countItems;
+} UldnLocAndOpts;
+
+static const UDisplayContext optStdMidLong[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL};
+static const UDisplayContext optStdMidShrt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_SHORT};
+#if APPLE_ICU_CHANGES
+// rdar://
+static const UDisplayContext optStdMidVrnt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_VARIANT};
+#endif  // APPLE_ICU_CHANGES
+static const UDisplayContext optDiaMidLong[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL};
+static const UDisplayContext optDiaMidShrt[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_SHORT};
+
+#if APPLE_ICU_CHANGES
+// rdar://
+static const UDisplayContext optStdBegLong[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL}; 
+static const UDisplayContext optStdBegShrt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_SHORT}; 
+static const UDisplayContext optDiaBegLong[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL}; 
+static const UDisplayContext optDiaBegShrt[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_SHORT}; 
+
+static const UDisplayContext optStdLstLong[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL}; 
+static const UDisplayContext optStdLstShrt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_SHORT}; 
+static const UDisplayContext optDiaLstLong[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL}; 
+static const UDisplayContext optDiaLstShrt[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_SHORT}; 
+#endif  // APPLE_ICU_CHANGES
+
+static const UldnItem en_StdMidLong[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
+	{ "en_US",                  TEST_ULDN_LOCALE, u"English (US)" },
+	{ "en_US_POSIX",            TEST_ULDN_LOCALE, u"English (US, Computer)" },
+	{ "en_US@calendar=chinese", TEST_ULDN_LOCALE, u"English (US, Chinese Calendar)" },
+	{ "en_CA",                  TEST_ULDN_LOCALE, u"English (Canada)" },
+#else
+	{ "en_US",                  TEST_ULDN_LOCALE, u"English (United States)" },
+#endif  // APPLE_ICU_CHANGES
+	{ "en",                     TEST_ULDN_LANGUAGE, u"English" },
+#if APPLE_ICU_CHANGES
+// rdar://
+#else
+	{ "en_US",                  TEST_ULOC_LOCALE, u"English (United States)" },
+#endif  // APPLE_ICU_CHANGES
+	{ "en_US",                  TEST_ULOC_LANGUAGE, u"English" },
+	{ "en",                     TEST_ULOC_LANGUAGE, u"English" },
+#if APPLE_ICU_CHANGES
+// rdar://
+	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
+	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Portuguese (Brazil)" },
+	{ "pt_PT",                  TEST_ULDN_LOCALE, u"Portuguese (Portugal)" },
+#endif  // APPLE_ICU_CHANGES
+	// https://unicode-org.atlassian.net/browse/ICU-20870
+	{ "fa_AF",                  TEST_ULDN_LOCALE, u"Persian (Afghanistan)" },
+	{ "prs",                    TEST_ULDN_LOCALE, u"Dari" },
+	{ "prs_AF",                 TEST_ULDN_LOCALE, u"Dari (Afghanistan)" },
+	{ "prs_TJ",                 TEST_ULDN_LOCALE, u"Dari (Tajikistan)" },
+	{ "prs",                    TEST_ULDN_LANGUAGE, u"Dari" },
+	{ "prs",                    TEST_ULOC_LANGUAGE, u"Dari" },
+	// https://unicode-org.atlassian.net/browse/ICU-21742
+	{ "ji",                     TEST_ULDN_LOCALE, u"Yiddish" },
+#if APPLE_ICU_CHANGES
+// rdar://
+	{ "ji_US",                  TEST_ULDN_LOCALE, u"Yiddish (US)" },
+#else
+	{ "ji_US",                  TEST_ULDN_LOCALE, u"Yiddish (United States)" },
+#endif  // APPLE_ICU_CHANGES
+	{ "ji",                     TEST_ULDN_LANGUAGE, u"Yiddish" },
+	{ "ji_US",                  TEST_ULOC_LOCALE, u"Yiddish (United States)" },
+	{ "ji",                     TEST_ULOC_LANGUAGE, u"Yiddish" },
+	// https://unicode-org.atlassian.net/browse/ICU-11563
+	{ "mo",                     TEST_ULDN_LOCALE, u"Romanian" },
+	{ "mo_MD",                  TEST_ULDN_LOCALE, u"Romanian (Moldova)" },
+	{ "mo",                     TEST_ULDN_LANGUAGE, u"Romanian" },
+	{ "mo_MD",                  TEST_ULOC_LOCALE, u"Romanian (Moldova)" },
+	{ "mo",                     TEST_ULOC_LANGUAGE, u"Romanian" },
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
+// rdar:// 
+	// Apple additions
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },                  // rdar://50750364
+	{ "zh_Hans_CN",             TEST_ULDN_LOCALE, u"Chinese, Simplified (China mainland)" }, // rdar://50750364
+	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },                 // rdar://50750364
+	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },     // rdar://50750364
+	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },                // rdar://50750364
+	{ "yue_Hans_CN",            TEST_ULDN_LOCALE, u"Cantonese, Simplified (China mainland)" }, // rdar://50750364
+	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },               // rdar://50750364
+	{ "yue_Hant_HK",            TEST_ULDN_LOCALE, u"Cantonese, Traditional (Hong Kong)" },   // rdar://50750364
+	{ "zh_Hans@calendar=chinese",     TEST_ULDN_LOCALE, u"Chinese, Simplified (Chinese Calendar)" },                  // rdar://50750364
+	{ "zh_Hans_CN@calendar=chinese",  TEST_ULDN_LOCALE, u"Chinese, Simplified (China mainland, Chinese Calendar)" }, // rdar://50750364
+	{ "zh_Hant@calendar=chinese",     TEST_ULDN_LOCALE, u"Chinese, Traditional (Chinese Calendar)" },                 // rdar://50750364
+	{ "zh_Hant_HK@calendar=chinese",  TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong, Chinese Calendar)" },     // rdar://50750364
+	{ "yue_Hans@calendar=chinese",    TEST_ULDN_LOCALE, u"Cantonese, Simplified (Chinese Calendar)" },                // rdar://50750364
+	{ "yue_Hans_CN@calendar=chinese", TEST_ULDN_LOCALE, u"Cantonese, Simplified (China mainland, Chinese Calendar)" }, // rdar://50750364
+	{ "yue_Hant@calendar=chinese",    TEST_ULDN_LOCALE, u"Cantonese, Traditional (Chinese Calendar)" },               // rdar://50750364
+	{ "yue_Hant_HK@calendar=chinese", TEST_ULDN_LOCALE, u"Cantonese, Traditional (Hong Kong, Chinese Calendar)" },   // rdar://50750364
+	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
+	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
+	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
+	{ "Hant",                   TEST_ULDN_SCRIPT, u"Traditional Han" },
+	{ "US",                     TEST_ULDN_REGION, u"United States" },
+	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
+	{ "GB",                     TEST_ULDN_REGION, u"United Kingdom" },
+	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+	{ "MO",                     TEST_ULDN_REGION, u"Macao" },
+	{ "IO",                     TEST_ULDN_REGION, u"Chagos Archipelago" },
+	{ "ps_Arab",                TEST_ULDN_LOCALE, u"Pashto (Arabic)" },
+	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"Pashto (Arabic, Afghanistan)" },
+	{ "ks_Arab",                TEST_ULDN_LOCALE, u"Kashmiri (Naskh)" }, // rdar://50687287
+	{ "ks_Aran",                TEST_ULDN_LOCALE, u"Kashmiri (Nastaliq)" }, // rdar://47494884
+	{ "ks_Arab_IN",             TEST_ULDN_LOCALE, u"Kashmiri (Naskh, India)" }, // rdar://50687287
+	{ "ks_Aran_IN",             TEST_ULDN_LOCALE, u"Kashmiri (Nastaliq, India)" }, // rdar://47494884
+	{ "pa_Arab",                TEST_ULDN_LOCALE, u"Punjabi (Naskh)" }, // rdar://50687287
+	{ "pa_Aran",                TEST_ULDN_LOCALE, u"Punjabi (Nastaliq)" }, // rdar://50687287
+	{ "pa_Arab_PK",             TEST_ULDN_LOCALE, u"Punjabi (Naskh, Pakistan)" }, // rdar://50687287
+	{ "pa_Aran_PK",             TEST_ULDN_LOCALE, u"Punjabi (Nastaliq, Pakistan)" }, // rdar://50687287
+	{ "ur_Arab",                TEST_ULDN_LOCALE, u"Urdu (Naskh)" }, // rdar://50687287
+	{ "ur_Aran",                TEST_ULDN_LOCALE, u"Urdu (Nastaliq)" }, // rdar://47494884
+	{ "ur_Arab_PK",             TEST_ULDN_LOCALE, u"Urdu (Naskh, Pakistan)" }, // rdar://50687287
+	{ "ur_Aran_PK",             TEST_ULDN_LOCALE, u"Urdu (Nastaliq, Pakistan)" }, // rdar://47494884
+	{ "ps_Arab@calendar=islamic",    TEST_ULDN_LOCALE, u"Pashto (Arabic, Hijri Calendar)" },
+	{ "ps_Arab_AF@calendar=islamic", TEST_ULDN_LOCALE, u"Pashto (Arabic, Afghanistan, Hijri Calendar)" },
+	{ "ks_Arab@calendar=islamic",    TEST_ULDN_LOCALE, u"Kashmiri (Naskh, Hijri Calendar)" }, // rdar://50687287
+	{ "ks_Aran@calendar=islamic",    TEST_ULDN_LOCALE, u"Kashmiri (Nastaliq, Hijri Calendar)" }, // rdar://47494884
+	{ "ks_Arab_IN@calendar=islamic", TEST_ULDN_LOCALE, u"Kashmiri (Naskh, India, Hijri Calendar)" }, // rdar://50687287
+	{ "ks_Aran_IN@calendar=islamic", TEST_ULDN_LOCALE, u"Kashmiri (Nastaliq, India, Hijri Calendar)" }, // rdar://47494884
+	{ "pa_Arab@calendar=islamic",    TEST_ULDN_LOCALE, u"Punjabi (Naskh, Hijri Calendar)" }, // rdar://50687287
+	{ "pa_Aran@calendar=islamic",    TEST_ULDN_LOCALE, u"Punjabi (Nastaliq, Hijri Calendar)" }, // rdar://50687287
+	{ "pa_Arab_PK@calendar=islamic", TEST_ULDN_LOCALE, u"Punjabi (Naskh, Pakistan, Hijri Calendar)" }, // rdar://50687287
+	{ "pa_Aran_PK@calendar=islamic", TEST_ULDN_LOCALE, u"Punjabi (Nastaliq, Pakistan, Hijri Calendar)" }, // rdar://50687287
+	{ "ur_Arab@calendar=islamic",    TEST_ULDN_LOCALE, u"Urdu (Naskh, Hijri Calendar)" }, // rdar://50687287
+	{ "ur_Aran@calendar=islamic",    TEST_ULDN_LOCALE, u"Urdu (Nastaliq, Hijri Calendar)" }, // rdar://47494884
+	{ "ur_Arab_PK@calendar=islamic", TEST_ULDN_LOCALE, u"Urdu (Naskh, Pakistan, Hijri Calendar)" }, // rdar://50687287
+	{ "ur_Aran_PK@calendar=islamic", TEST_ULDN_LOCALE, u"Urdu (Nastaliq, Pakistan, Hijri Calendar)" }, // rdar://47494884
+	{ "Arab",                   TEST_ULDN_SCRIPT, u"Arabic" },
+	{ "Aran",                   TEST_ULDN_SCRIPT, u"Nastaliq" }, // rdar://47494884
+	{ "Qaag",                   TEST_ULDN_SCRIPT, u"Zawgyi" },   // rdar://51471316
+	{ "my_Qaag",                TEST_ULDN_LOCALE, u"Burmese (Zawgyi)" }, // rdar://51471316
+
+	{ "zh_Hans",                TEST_ULOC_LOCALE, u"Chinese, Simplified" },                  // rdar://51418203
+	{ "zh_Hans_CN",             TEST_ULOC_LOCALE, u"Chinese, Simplified (China mainland)" }, // rdar://51418203
+	{ "zh_Hant",                TEST_ULOC_LOCALE, u"Chinese, Traditional" },                 // rdar://51418203
+	{ "zh_Hant_HK",             TEST_ULOC_LOCALE, u"Chinese, Traditional (Hong Kong)" },     // rdar://51418203
+	{ "yue_Hans",               TEST_ULOC_LOCALE, u"Cantonese, Simplified" },                // rdar://51418203
+	{ "yue_Hans_CN",            TEST_ULOC_LOCALE, u"Cantonese, Simplified (China mainland)" }, // rdar://51418203
+	{ "yue_Hant",               TEST_ULOC_LOCALE, u"Cantonese, Traditional" },               // rdar://51418203
+	{ "yue_Hant_HK",            TEST_ULOC_LOCALE, u"Cantonese, Traditional (Hong Kong)" },   // rdar://51418203
+	{ "zh_Hans@calendar=chinese",     TEST_ULOC_LOCALE, u"Chinese, Simplified (Chinese Calendar)" },                  // rdar://50750364
+	{ "zh_Hans_CN@calendar=chinese",  TEST_ULOC_LOCALE, u"Chinese, Simplified (China mainland, Chinese Calendar)" }, // rdar://50750364
+	{ "zh_Hant@calendar=chinese",     TEST_ULOC_LOCALE, u"Chinese, Traditional (Chinese Calendar)" },                 // rdar://50750364
+	{ "zh_Hant_HK@calendar=chinese",  TEST_ULOC_LOCALE, u"Chinese, Traditional (Hong Kong, Chinese Calendar)" },     // rdar://50750364
+	{ "yue_Hans@calendar=chinese",    TEST_ULOC_LOCALE, u"Cantonese, Simplified (Chinese Calendar)" },                // rdar://50750364
+	{ "yue_Hans_CN@calendar=chinese", TEST_ULOC_LOCALE, u"Cantonese, Simplified (China mainland, Chinese Calendar)" }, // rdar://50750364
+	{ "yue_Hant@calendar=chinese",    TEST_ULOC_LOCALE, u"Cantonese, Traditional (Chinese Calendar)" },               // rdar://50750364
+	{ "yue_Hant_HK@calendar=chinese", TEST_ULOC_LOCALE, u"Cantonese, Traditional (Hong Kong, Chinese Calendar)" },   // rdar://50750364
+	{ "ks_Arab",                TEST_ULOC_LOCALE, u"Kashmiri (Naskh)" }, // rdar://51418203
+	{ "ks_Aran",                TEST_ULOC_LOCALE, u"Kashmiri (Nastaliq)" }, // rdar://47494884
+	{ "ks_Arab_IN",             TEST_ULOC_LOCALE, u"Kashmiri (Naskh, India)" }, // rdar://51418203
+	{ "ks_Aran_IN",             TEST_ULOC_LOCALE, u"Kashmiri (Nastaliq, India)" }, // rdar://47494884
+	{ "pa_Arab",                TEST_ULOC_LOCALE, u"Punjabi (Naskh)" }, // rdar://51418203
+	{ "pa_Aran",                TEST_ULOC_LOCALE, u"Punjabi (Nastaliq)" }, // rdar://51418203
+	{ "pa_Arab_PK",             TEST_ULOC_LOCALE, u"Punjabi (Naskh, Pakistan)" }, // rdar://51418203
+	{ "pa_Aran_PK",             TEST_ULOC_LOCALE, u"Punjabi (Nastaliq, Pakistan)" }, // rdar://51418203
+	{ "ur_Arab",                TEST_ULOC_LOCALE, u"Urdu (Naskh)" }, // rdar://51418203
+	{ "ur_Aran",                TEST_ULOC_LOCALE, u"Urdu (Nastaliq)" }, // rdar://47494884
+	{ "ur_Arab_PK",             TEST_ULOC_LOCALE, u"Urdu (Naskh, Pakistan)" }, // rdar://51418203
+	{ "ur_Aran_PK",             TEST_ULOC_LOCALE, u"Urdu (Nastaliq, Pakistan)" }, // rdar://47494884
+	{ "ks_Arab@calendar=islamic",    TEST_ULOC_LOCALE, u"Kashmiri (Naskh, Hijri Calendar)" }, // rdar://50687287
+	{ "ks_Aran@calendar=islamic",    TEST_ULOC_LOCALE, u"Kashmiri (Nastaliq, Hijri Calendar)" }, // rdar://47494884
+	{ "ks_Arab_IN@calendar=islamic", TEST_ULOC_LOCALE, u"Kashmiri (Naskh, India, Hijri Calendar)" }, // rdar://50687287
+	{ "ks_Aran_IN@calendar=islamic", TEST_ULOC_LOCALE, u"Kashmiri (Nastaliq, India, Hijri Calendar)" }, // rdar://47494884
+	{ "pa_Arab@calendar=islamic",    TEST_ULOC_LOCALE, u"Punjabi (Naskh, Hijri Calendar)" }, // rdar://50687287
+	{ "pa_Aran@calendar=islamic",    TEST_ULOC_LOCALE, u"Punjabi (Nastaliq, Hijri Calendar)" }, // rdar://50687287
+	{ "pa_Arab_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Punjabi (Naskh, Pakistan, Hijri Calendar)" }, // rdar://50687287
+	{ "pa_Aran_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Punjabi (Nastaliq, Pakistan, Hijri Calendar)" }, // rdar://50687287
+	{ "ur_Arab@calendar=islamic",    TEST_ULOC_LOCALE, u"Urdu (Naskh, Hijri Calendar)" }, // rdar://50687287
+	{ "ur_Aran@calendar=islamic",    TEST_ULOC_LOCALE, u"Urdu (Nastaliq, Hijri Calendar)" }, // rdar://47494884
+	{ "ur_Arab_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Urdu (Naskh, Pakistan, Hijri Calendar)" }, // rdar://50687287
+	{ "ur_Aran_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Urdu (Nastaliq, Pakistan, Hijri Calendar)" }, // rdar://47494884
+	{ "my_Qaag",                TEST_ULOC_LOCALE, u"Burmese (Zawgyi)" }, // rdar://51471316
+	{ "cic_Latn",               TEST_ULDN_LOCALE, u"Chickasaw" }, // rdar://105748418
+	{ "cho_Latn",               TEST_ULDN_LOCALE, u"Choctaw" }, // rdar://105748418
+	{ "apw_Latn",               TEST_ULDN_LOCALE, u"Apache, Western" }, // rdar://94490599
+	{ "ber",                    TEST_ULDN_LOCALE, u"Amazigh" }, // rdar://104877633
+	{ "hmn",                    TEST_ULDN_LOCALE, u"Hmong" }, // rdar://108866340
+    { "inh",                    TEST_ULDN_LOCALE, u"Ingush" }, // rdar://109529736
+    { "osa",                    TEST_ULDN_LOCALE, u"Osage" }, // rdar://111138831
+	{ "mic",                    TEST_ULDN_LOCALE, u"Mi'kmaw" }, // rdar://104877633
+	{ "mid",                    TEST_ULDN_LOCALE, u"Mandaic" }, // rdar://104877633
+	{ "nnp",                    TEST_ULDN_LOCALE, u"Wancho" }, // rdar://104877633
+	{ "pqm",                    TEST_ULDN_LOCALE, u"Wolastoqey" }, // rdar://104877633
+	{ "rej",                    TEST_ULDN_LOCALE, u"Rejang" }, // rdar://104877633
+			
+	// tests for rdar://63655841 #173 en/fr language names for Canadian Aboriginal Peoples TV
+	// & rdar://79400781 #240 Add en/fr display names for language tce
+	{ "atj",                    TEST_ULOC_LOCALE, u"Atikamekw" },
+	{ "bla",                    TEST_ULOC_LOCALE, u"Siksiká" },
+	{ "cr",                     TEST_ULOC_LOCALE, u"Cree" }, // macrolang
+	{ "cwd",                    TEST_ULOC_LOCALE, u"Woods Cree" }, // distinct name for primary sub-lang
+	{ "crj",                    TEST_ULOC_LOCALE, u"Southern East Cree" }, // other sub-lang
+	{ "csw",                    TEST_ULOC_LOCALE, u"Swampy Cree" }, // other sub-lang
+	{ "hai",                    TEST_ULOC_LOCALE, u"Haida" }, // macrolang
+	{ "hdn",                    TEST_ULOC_LOCALE, u"Northern Haida" }, // distinct name for primary sub-lang
+	{ "hax",                    TEST_ULOC_LOCALE, u"Southern Haida" }, // other sub-lang
+	{ "iu",                     TEST_ULOC_LOCALE, u"Inuktitut" }, // macrolang
+	{ "ike",                    TEST_ULOC_LOCALE, u"Eastern Canadian Inuktitut" }, // distinct name for primary sub-lang
+	{ "ikt",                    TEST_ULOC_LOCALE, u"Western Canadian Inuktitut" }, // other sub-lang
+	{ "oj",                     TEST_ULOC_LOCALE, u"Ojibwa" }, // macrolang
+	{ "ojg",                    TEST_ULOC_LOCALE, u"Eastern Ojibwa" }, // distinct name for primary sub-lang
+	{ "ojb",                    TEST_ULOC_LOCALE, u"Northwestern Ojibwa" }, // other sub-lang
+	{ "ojs",                    TEST_ULOC_LOCALE, u"Oji-Cree" }, // other sub-lang
+	{ "ttm",                    TEST_ULOC_LOCALE, u"Northern Tutchone" },
+	{ "tce",                    TEST_ULOC_LOCALE, u"Southern Tutchone" },
+	// tests for rdar://74820154, rdar://75064267, rdar://89394823 
+	{ "ain",                    TEST_ULOC_LOCALE, u"Ainu" },
+	{ "am",                     TEST_ULOC_LOCALE, u"Amharic" },
+	{ "ff_Adlm",                TEST_ULOC_LOCALE, u"Fula (Adlam)" },
+	{ "ig",                     TEST_ULOC_LOCALE, u"Igbo" },
+	{ "nv",                     TEST_ULOC_LOCALE, u"Navajo" },
+	{ "rhg",                    TEST_ULOC_LOCALE, u"Rohingya" },
+	{ "rhg_Rohg",               TEST_ULOC_LOCALE, u"Rohingya (Hanifi)" },
+	{ "syr",                    TEST_ULOC_LOCALE, u"Assyrian" },
+	{ "ti",                     TEST_ULOC_LOCALE, u"Tigrinya" },
+	{ "Rohg",                   TEST_ULDN_SCRIPT, u"Hanifi Rohingya" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"Apache, Western" },
+    // baseline tests for rdar://76655165
+    { "ky",                     TEST_ULDN_LANGUAGE, u"Kyrgyz" },
+    { "ps",                     TEST_ULDN_LANGUAGE, u"Pashto" },
+    { "Arab",                   TEST_ULDN_SCRIPT,   u"Arabic" },
+    { "CD",                     TEST_ULDN_REGION,   u"Congo - Kinshasa" },
+    { "CG",                     TEST_ULDN_REGION,   u"Congo - Brazzaville" },
+    { "SZ",                     TEST_ULDN_REGION,   u"Eswatini" },
+    { "GB",                     TEST_ULDN_REGION,   u"United Kingdom" },
+    { "FR",                     TEST_ULDN_REGION,   u"France" },
+    { "ps_Arab_AF",             TEST_ULOC_LOCALE,   u"Pashto (Arabic, Afghanistan)" },
+    { "en_SZ",                  TEST_ULOC_LOCALE,   u"English (Eswatini)" },
+    { "en_GB",                  TEST_ULOC_LOCALE,   u"English (United Kingdom)" },
+    { "fr_CG",                  TEST_ULOC_LOCALE,   u"French (Congo - Brazzaville)" },
+    { "fr_FR",                  TEST_ULOC_LOCALE,   u"French (France)" },
+	// tests for rdar://80374611 #295 Add en names for languages mdh,otk,oui to enable locale use in Xcode
+	{ "mdh",                    TEST_ULOC_LOCALE, u"Maguindanaon" },
+	{ "otk",                    TEST_ULOC_LOCALE, u"Old Turkish" },
+	{ "oui",                    TEST_ULOC_LOCALE, u"Old Uighur" },	
+#endif  // APPLE_ICU_CHANGES
+};
+
+static const UldnItem en_StdMidShrt[] = {
+	{ "en_US",                  TEST_ULDN_LOCALE, u"English (US)" },
+	{ "en",                     TEST_ULDN_LANGUAGE, u"English" },
+#if APPLE_ICU_CHANGES
+// rdar://
+	{ "en_US_POSIX",            TEST_ULDN_LOCALE, u"English (US, Computer)" },
+	{ "en_US@calendar=chinese", TEST_ULDN_LOCALE, u"English (US, Chinese Calendar)" },
+	{ "en_CA",                  TEST_ULDN_LOCALE, u"English (Canada)" },
+	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
+	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Portuguese (Brazil)" },
+	{ "pt_PT",                  TEST_ULDN_LOCALE, u"Portuguese (Portugal)" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
+	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
+	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
+	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
+	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
+	{ "Hant",                   TEST_ULDN_SCRIPT, u"Traditional Han" },
+	{ "US",                     TEST_ULDN_REGION, u"US" },
+	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
+	{ "GB",                     TEST_ULDN_REGION, u"UK" },
+	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+#endif  // APPLE_ICU_CHANGES
+};
+
+#if APPLE_ICU_CHANGES
+// rdar://
+static const UldnItem en_StdMidVrnt[] = {
+    // tests for rdar://76655165
+    { "ky",                     TEST_ULDN_LANGUAGE, u"Kirghiz" },
+    // rdar://108460253 - Update variant name for 'ii' to "Sichuan Yi; Nuosu”
+    { "ii",                     TEST_ULDN_LANGUAGE, u"Sichuan Yi; Nuosu" },
+    { "ps",                     TEST_ULDN_LANGUAGE, u"Pushto" },
+    { "Arab",                   TEST_ULDN_SCRIPT,   u"Perso-Arabic" },
+    { "CD",                     TEST_ULDN_REGION,   u"Congo (DRC)" },
+    { "CG",                     TEST_ULDN_REGION,   u"Congo (Republic)" },
+    { "SZ",                     TEST_ULDN_REGION,   u"Swaziland" },
+    { "GB",                     TEST_ULDN_REGION,   u"United Kingdom" },
+    { "FR",                     TEST_ULDN_REGION,   u"France" },
+    { "ps_Arab_AF",             TEST_ULDN_LOCALE,   u"Pushto (Perso-Arabic, Afghanistan)" },
+    { "en_SZ",                  TEST_ULDN_LOCALE,   u"English (Swaziland)" },
+    { "en_GB",                  TEST_ULDN_LOCALE,   u"English (UK)" },
+    { "fr_CG",                  TEST_ULDN_LOCALE,   u"French (Congo [Republic])" },
+    { "fr_FR",                  TEST_ULDN_LOCALE,   u"French (France)" },
+};
+#endif  // APPLE_ICU_CHANGES
+
+static const UldnItem en_DiaMidLong[] = {
+	{ "en_US",                  TEST_ULDN_LOCALE, u"American English" },
+	{ "fa_AF",                  TEST_ULDN_LOCALE, u"Dari" },
+	{ "prs",                    TEST_ULDN_LOCALE, u"Dari" },
+	{ "prs_AF",                 TEST_ULDN_LOCALE, u"Dari (Afghanistan)" },
+	{ "prs_TJ",                 TEST_ULDN_LOCALE, u"Dari (Tajikistan)" },
+	{ "prs",                    TEST_ULDN_LANGUAGE, u"Dari" },
+	{ "mo",                     TEST_ULDN_LOCALE, u"Romanian" },
+	{ "mo",                     TEST_ULDN_LANGUAGE, u"Romanian" },
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
+// rdar:// 
+	{ "en_US_POSIX",            TEST_ULDN_LOCALE, u"American English (Computer)" },
+	{ "en_US@calendar=chinese", TEST_ULDN_LOCALE, u"American English (Chinese Calendar)" },
+	{ "en_CA",                  TEST_ULDN_LOCALE, u"Canadian English" },
+	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
+	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Brazilian Portuguese" },
+	{ "pt_PT",                  TEST_ULDN_LOCALE, u"European Portuguese" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
+	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
+	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
+	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
+	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
+	{ "Hant",                   TEST_ULDN_SCRIPT, u"Traditional Han" },
+	{ "US",                     TEST_ULDN_REGION, u"United States" },
+	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
+	{ "GB",                     TEST_ULDN_REGION, u"United Kingdom" },
+	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+#endif  // APPLE_ICU_CHANGES
+};
+
+static const UldnItem en_DiaMidShrt[] = {
+	{ "en_US",                  TEST_ULDN_LOCALE, u"US English" },
+#if APPLE_ICU_CHANGES
+// rdar://
+	{ "en_US_POSIX",            TEST_ULDN_LOCALE, u"US English (Computer)" },
+	{ "en_US@calendar=chinese", TEST_ULDN_LOCALE, u"US English (Chinese Calendar)" },
+	{ "en_CA",                  TEST_ULDN_LOCALE, u"Canadian English" },
+	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
+	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Brazilian Portuguese" },
+	{ "pt_PT",                  TEST_ULDN_LOCALE, u"European Portuguese" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
+	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
+	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
+	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
+	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
+	{ "Hant",                   TEST_ULDN_SCRIPT, u"Traditional Han" },
+	{ "US",                     TEST_ULDN_REGION, u"US" },
+	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
+	{ "GB",                     TEST_ULDN_REGION, u"UK" },
+	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+#endif  // APPLE_ICU_CHANGES
+};
+
+#if APPLE_ICU_CHANGES
+// rdar://
+static const UldnItem en_CA_DiaMidLong[] = { // rdar://60916890
+	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
+	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"simplified Chinese" },
+	{ "zh_Hant",                TEST_ULDN_LOCALE, u"traditional Chinese" },
+	{ "ar_001",                 TEST_ULDN_LOCALE, u"Arabic (Modern Standard)" },
+	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
+	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
+	{ "fr_CA",                  TEST_ULDN_LOCALE, u"Canadian French" },
+	{ "en_GB",                  TEST_ULDN_LOCALE, u"British English" },
+	{ "en_US",                  TEST_ULDN_LOCALE, u"American English" },
+};
+
+static const UldnItem en_CA_DiaMidShrt[] = { // rdar://60916890
+	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
+	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"simplified Chinese" },
+	{ "zh_Hant",                TEST_ULDN_LOCALE, u"traditional Chinese" },
+	{ "ar_001",                 TEST_ULDN_LOCALE, u"Arabic (Modern Standard)" },
+	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
+	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
+	{ "fr_CA",                  TEST_ULDN_LOCALE, u"Canadian French" },
+	{ "en_GB",                  TEST_ULDN_LOCALE, u"UK English" },
+	{ "en_US",                  TEST_ULDN_LOCALE, u"US English" },
+};
+
+static const UldnItem en_GB_DiaMidLong[] = { // rdar://60916890
+	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
+	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
+	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },
+	{ "ar_001",                 TEST_ULDN_LOCALE, u"Modern Standard Arabic" },
+	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
+	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
+	{ "fr_CA",                  TEST_ULDN_LOCALE, u"Canadian French" },
+	{ "en_GB",                  TEST_ULDN_LOCALE, u"British English" },
+	{ "en_US",                  TEST_ULDN_LOCALE, u"American English" },
+};
+
+static const UldnItem en_GB_DiaMidShrt[] = { // rdar://60916890
+	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
+	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
+	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },
+	{ "ar_001",                 TEST_ULDN_LOCALE, u"Modern Standard Arabic" },
+	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
+	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
+	{ "fr_CA",                  TEST_ULDN_LOCALE, u"Canadian French" },
+	{ "en_GB",                  TEST_ULDN_LOCALE, u"UK English" },
+	{ "en_US",                  TEST_ULDN_LOCALE, u"US English" },
+};
+
+static const UldnItem en_IN_StdMidLong[] = {
+	{ "bn",                     TEST_ULDN_LOCALE, u"Bangla" },
+	{ "bn_Beng",                TEST_ULDN_LOCALE, u"Bangla (Bangla)" },
+	{ "or",                     TEST_ULDN_LOCALE, u"Odia" },
+	{ "or_Orya",                TEST_ULDN_LOCALE, u"Odia (Odia)" },
+};
+
+static const UldnItem fi_StdMidLong[] = {
+	{ "en",                     TEST_ULDN_LOCALE, u"englanti" },
+};
+
+static const UldnItem fi_StdBegLong[] = {
+	{ "en",                     TEST_ULDN_LOCALE, u"Englanti" },
+};
+
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
+// rdar:// 
+static const UldnItem fr_StdMidLong[] = {
+	{ "en_US",                  TEST_ULDN_LOCALE, u"anglais (É.-U.)" },
+	{ "US",                     TEST_ULDN_REGION, u"États-Unis" },
+	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+	{ "MO",                     TEST_ULDN_REGION, u"Macao" },
+	{ "IO",                     TEST_ULDN_REGION, u"Archipel des Chagos" },
+	// tests for rdar://63655841 #173 en/fr language names for Canadian Aboriginal Peoples TV
+	// & rdar://79400781 #240 (Add en/fr display names for language tce)
+	{ "atj",                    TEST_ULDN_LOCALE, u"atikamekw" },
+	{ "cho",                    TEST_ULDN_LOCALE, u"choctaw" },
+	{ "cic",                    TEST_ULDN_LOCALE, u"chicacha" },	
+	{ "cr",                     TEST_ULDN_LOCALE, u"cree" }, // macrolang
+	{ "cwd",                    TEST_ULDN_LOCALE, u"cri des bois" }, // distinct name for primary sub-lang
+	{ "crj",                    TEST_ULDN_LOCALE, u"cri de l’Est (dialecte du Sud)" }, // other sub-lang
+	{ "csw",                    TEST_ULDN_LOCALE, u"cri des marais" }, // other sub-lang
+	{ "hai",                    TEST_ULDN_LOCALE, u"haïda" }, // macrolang
+	{ "hdn",                    TEST_ULDN_LOCALE, u"haïda du Nord" }, // distinct name for primary sub-lang
+	{ "hax",                    TEST_ULDN_LOCALE, u"haïda du Sud" }, // other sub-lang
+	{ "iu",                     TEST_ULDN_LOCALE, u"inuktitut" }, // macrolang
+	{ "ike",                    TEST_ULDN_LOCALE, u"inuktitut de l’Est canadien" }, // distinct name for primary sub-lang
+	{ "ikt",                    TEST_ULDN_LOCALE, u"inuktitut de l’Ouest canadien" }, // other sub-lang
+	{ "oj",                     TEST_ULDN_LOCALE, u"ojibwa" }, // macrolang
+	{ "ojg",                    TEST_ULDN_LOCALE, u"ojibwa de l'Est" }, // distinct name for primary sub-lang
+	{ "ojb",                    TEST_ULDN_LOCALE, u"ojibwé du Nord-Ouest" }, // other sub-lang
+	{ "ojs",                    TEST_ULDN_LOCALE, u"oji-cri" }, // other sub-lang
+	{ "ttm",                    TEST_ULDN_LOCALE, u"tutchone du Nord" },
+	{ "tce",                    TEST_ULDN_LOCALE, u"tutchone du Sud" },
+	// tests for rdar://75064267, rdar://89394823 
+	{ "rhg",                    TEST_ULOC_LOCALE, u"rohingya" },
+	{ "Adlm",                   TEST_ULDN_SCRIPT, u"adlam" },
+	{ "Rohg",                   TEST_ULDN_SCRIPT, u"hanifi" },
+	{ "Syrc",                   TEST_ULDN_SCRIPT, u"syriaque" },
+	{ "syr",                    TEST_ULOC_LOCALE, u"soureth" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"apache occidental" },
+};
+
+static const UldnItem fr_StdMidShrt[] = {
+	{ "en_US",                  TEST_ULDN_LOCALE, u"anglais (É.-U.)" },
+	{ "US",                     TEST_ULDN_REGION, u"É.-U." },
+	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+};
+
+static const UldnItem fr_StdBegLong[] = {
+	{ "en_US",                  TEST_ULDN_LOCALE, u"Anglais (É.-U.)" },
+};
+
+static const UldnItem fr_StdLstLong[] = {
+	{ "en_US",                  TEST_ULDN_LOCALE, u"Anglais (É.-U.)" },
+	{ "PS",                     TEST_ULDN_REGION, u"Territoires palestiniens" },
+    { "Hans",                   TEST_ULDN_SCRIPT, u"sinogrammes simplifiés" },      // rdar://70285470
+    { "Hant",                   TEST_ULDN_SCRIPT, u"sinogrammes traditionnels" }    // rdar://70285470
+};
+
+static const UldnItem fr_DiaMidLong[] = {
+	{ "en_US",                  TEST_ULDN_LOCALE, u"anglais américain" },
+};
+
+static const UldnItem ca_StdLstLong[] = {
+	{ "PS",                     TEST_ULDN_REGION, u"Territoris palestins" },
+    { "SZ",                     TEST_ULDN_REGION, u"Eswatini" }, // rdar://65139631
+};
+
+static const UldnItem nb_StdMidLong[] = {
+	{ "ur_Arab",                TEST_ULDN_LOCALE, u"urdu (naskh)" },
+	// tests for rdar://75064267, rdar://89394823 
+	{ "rhg",                    TEST_ULOC_LOCALE, u"rohingya" },
+	{ "Adlm",                   TEST_ULDN_SCRIPT, u"adlam" },
+	{ "Rohg",                   TEST_ULDN_SCRIPT, u"hanifi" },
+	{ "Syrc",                   TEST_ULDN_SCRIPT, u"syrisk" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"apache, vestlig" },
+};
+
+static const UldnItem ru_StdMidLong[] = {
+	{ "cic",                    TEST_ULDN_LOCALE, u"чикасо" },
+	{ "cic_Latn",               TEST_ULDN_LOCALE, u"чикасо" },
+};
+
+static const UldnItem ur_StdMidLong[] = {
+	{ "ps_Arab",                TEST_ULDN_LOCALE, u"پشتو (عربی)" },
+	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"پشتو (عربی،افغانستان)" },
+	{ "ur_Aran",                TEST_ULDN_LOCALE, u"اردو (نستعلیق)" }, // rdar://47494884
+	{ "ur_Arab",                TEST_ULDN_LOCALE, u"اردو (نسخ)" }, // rdar://50687287
+	{ "ur_Aran_PK",             TEST_ULDN_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // rdar://47494884
+	{ "ur_Arab_PK",             TEST_ULDN_LOCALE, u"اردو (نسخ،پاکستان)" }, // rdar://50687287
+
+	{ "ps_Arab",                TEST_ULOC_LOCALE, u"پشتو (عربی)" },
+	{ "ps_Arab_AF",             TEST_ULOC_LOCALE, u"پشتو (عربی،افغانستان)" },
+	{ "ur_Aran",                TEST_ULOC_LOCALE, u"اردو (نستعلیق)" },     // rdar://47494884
+	{ "ur_Arab",                TEST_ULOC_LOCALE, u"اردو (نسخ)" },         // rdar://51418203
+	{ "ur_Aran_PK",             TEST_ULOC_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // rdar://47494884
+	{ "ur_Arab_PK",             TEST_ULOC_LOCALE, u"اردو (نسخ،پاکستان)" }, // rdar://51418203
+};
+
+static const UldnItem pa_Arab_StdMidLong[] = {
+	{ "pa_Aran",                TEST_ULDN_LOCALE, u"پنجابی (نستعلیق)" }, // rdar://47494884
+	{ "pa_Arab",                TEST_ULDN_LOCALE, u"پنجابی (نسخ)" }, // rdar://50687287
+	{ "pa_Aran_PK",             TEST_ULDN_LOCALE, u"پنجابی (نستعلیق, پاکستان)" }, // rdar://47494884
+	{ "pa_Arab_PK",             TEST_ULDN_LOCALE, u"پنجابی (نسخ, پاکستان)" }, // rdar://50687287
+
+	{ "pa_Aran",                TEST_ULOC_LOCALE, u"پنجابی (نستعلیق)" },      // rdar://51418203
+	{ "pa_Arab",                TEST_ULOC_LOCALE, u"پنجابی (نسخ)" },          // rdar://51418203
+	{ "pa_Aran_PK",             TEST_ULOC_LOCALE, u"پنجابی (نستعلیق, پاکستان)" }, // rdar://51418203
+	{ "pa_Arab_PK",             TEST_ULOC_LOCALE, u"پنجابی (نسخ, پاکستان)" }, // rdar://51418203
+};
+
+static const UldnItem zh_StdMidLong[] = {
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"简体中文" },           // rdar://50750364
+	{ "zh_Hans_CN",             TEST_ULDN_LOCALE, u"简体中文（中国大陆）" }, // rdar://50750364
+	{ "zh_Hant",                TEST_ULDN_LOCALE, u"繁体中文" },           // rdar://50750364
+	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"繁体中文（香港）" },    // rdar://50750364
+	{ "yue_Hans",               TEST_ULDN_LOCALE, u"简体粤语" },           // rdar://50750364
+	{ "yue_Hans_CN",            TEST_ULDN_LOCALE, u"简体粤语（中国大陆）" }, // rdar://50750364
+	{ "yue_Hant",               TEST_ULDN_LOCALE, u"繁体粤语" },           // rdar://50750364
+	{ "yue_Hant_HK",            TEST_ULDN_LOCALE, u"繁体粤语（香港）" },    // rdar://50750364
+	{ "ps_Arab",                TEST_ULDN_LOCALE, u"普什图语（阿拉伯文）" },
+	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"普什图语（阿拉伯文，阿富汗）" },
+	{ "ur_Aran",                TEST_ULDN_LOCALE, u"乌尔都语（波斯体）" }, // rdar://47494884
+	{ "ur_Arab",                TEST_ULDN_LOCALE, u"乌尔都语（誊抄体）" }, // rdar://50687287
+	{ "ur_Aran_PK",             TEST_ULDN_LOCALE, u"乌尔都语（波斯体，巴基斯坦）" }, // rdar://47494884
+	{ "ur_Arab_PK",             TEST_ULDN_LOCALE, u"乌尔都语（誊抄体，巴基斯坦）" }, // rdar://50687287
+
+	{ "zh_Hans",                TEST_ULOC_LOCALE, u"简体中文" },           // rdar://51418203
+	{ "zh_Hans_CN",             TEST_ULOC_LOCALE, u"简体中文（中国大陆）" }, // rdar://51418203
+	{ "zh_Hant",                TEST_ULOC_LOCALE, u"繁体中文" },           // rdar://51418203
+	{ "zh_Hant_HK",             TEST_ULOC_LOCALE, u"繁体中文（香港）" },    // rdar://51418203
+	{ "yue_Hans",               TEST_ULOC_LOCALE, u"简体粤语" },           // rdar://51418203
+	{ "yue_Hans_CN",            TEST_ULOC_LOCALE, u"简体粤语（中国大陆）" }, // rdar://51418203
+	{ "yue_Hant",               TEST_ULOC_LOCALE, u"繁体粤语" },           // rdar://51418203
+	{ "yue_Hant_HK",            TEST_ULOC_LOCALE, u"繁体粤语（香港）" },    // rdar://51418203
+	{ "ur_Aran",                TEST_ULOC_LOCALE, u"乌尔都语（波斯体）" }, // rdar://47494884
+	{ "ur_Arab",                TEST_ULOC_LOCALE, u"乌尔都语（誊抄体）" }, // rdar://51418203
+	{ "ur_Aran_PK",             TEST_ULOC_LOCALE, u"乌尔都语（波斯体，巴基斯坦）" }, // rdar://47494884
+	{ "ur_Arab_PK",             TEST_ULOC_LOCALE, u"乌尔都语（誊抄体，巴基斯坦）" }, // rdar://51418203
+
+	{ "HK",                     TEST_ULDN_REGION, u"香港" },
+	{ "MO",                     TEST_ULDN_REGION, u"澳门" },
+    
+    { "ars",                    TEST_ULDN_LANGUAGE, u"阿拉伯语（内志）" },  // rdar://69728925
+	{ "ii",                     TEST_ULDN_LANGUAGE, u"凉山彝语" },  // rdar://107440844,rdar://108460253
+    { "pqm",                    TEST_ULDN_LANGUAGE, u"沃拉斯托基语" }, // rdar://107600615
+
+	// tests for rdar://75064267, rdar://89394823, rdar://59762233
+	{ "rhg",                    TEST_ULOC_LOCALE, u"罗兴亚语" },
+	{ "Adlm",                   TEST_ULDN_SCRIPT, u"阿德拉姆文" },
+	{ "Rohg",                   TEST_ULDN_SCRIPT, u"哈乃斐文" },
+	{ "Syrc",                   TEST_ULDN_SCRIPT, u"叙利亚文" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕奇语（西方）" },
+	{ "guc",                    TEST_ULOC_LOCALE, u"瓦尤语" },
+	{ "nnp",                    TEST_ULOC_LOCALE, u"万秋语" }, // rdar://108037783
+	{ "Wcho",                   TEST_ULDN_SCRIPT, u"万秋文" }, // rdar://108037783
+};
+
+static const UldnItem zh_Hant_StdMidLong[] = {
+	{ "HK",                     TEST_ULDN_REGION, u"香港" },
+	{ "MO",                     TEST_ULDN_REGION, u"澳門" },
+    
+    { "ars",                    TEST_ULDN_LANGUAGE, u"阿拉伯文（內志）" },  // rdar://69728925
+	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕切文（西部）" }, // rdar://89394823 
+};
+
+static const UldnItem zh_Hant_HK_StdMidLong[] = {
+	{ "HK",                     TEST_ULDN_REGION, u"香港" },
+	{ "MO",                     TEST_ULDN_REGION, u"澳門" },
+};
+
+static const UldnItem yue_StdMidLong[] = {
+	{ "HK",                     TEST_ULDN_REGION, u"香港" },
+	{ "MO",                     TEST_ULDN_REGION, u"澳門" },
+	{ "ii",                     TEST_ULDN_LANGUAGE, u"涼山彝文" },  // rdar://107440844,rdar://108460253
+    { "pqm",                    TEST_ULDN_LANGUAGE, u"沃拉斯托基语" }, // rdar://107600615
+};
+
+static const UldnItem yue_Hans_StdMidLong[] = {
+	{ "zh_Hans_CN",             TEST_ULOC_LOCALE, u"简体中文（中国大陆）" }, // rdar://53136228
+	{ "zh_Hant_HK",             TEST_ULOC_LOCALE, u"繁体中文（香港）" },    // rdar://53136228
+	{ "yue_Hans_CN",            TEST_ULOC_LOCALE, u"简体粤语（中国大陆）" }, // rdar://53136228
+	{ "yue_Hant_HK",            TEST_ULOC_LOCALE, u"繁体粤语（香港）" },    // rdar://53136228
+	{ "HK",                     TEST_ULDN_REGION, u"香港" },
+	{ "MO",                     TEST_ULDN_REGION, u"澳门" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕奇语（西方）" }, // rdar://89394823 
+};
+
+static const UldnItem nds_StdMidLong[] = { // rdar://64703717
+	{ "nds",                   TEST_ULOC_LOCALE, u"Neddersass’sch" },
+};
+
+static const UldnItem hi_StdMidLong[] = { // rdar://53653337
+	{ "Aran",                   TEST_ULDN_SCRIPT, u"नस्तालीक़" },
+	// tests for rdar://75064267, rdar://89394823, rdar://59762233
+	{ "rhg",                    TEST_ULOC_LOCALE, u"रोहिंग्या" },
+	{ "Adlm",                   TEST_ULDN_SCRIPT, u"ऐडलम" },
+	{ "Rohg",                   TEST_ULDN_SCRIPT, u"हनिफ़ि" },
+	{ "Syrc",                   TEST_ULDN_SCRIPT, u"सिरिएक" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"अपाची, पश्चिमी" },
+	{ "guc",                    TEST_ULOC_LOCALE, u"वायु" },
+};
+
+static const UldnItem hi_Latn_StdMidLong[] = { // rdar://53216112
+	{ "en",                     TEST_ULDN_LOCALE, u"English" },
+	{ "hi_Deva",                TEST_ULDN_LOCALE, u"Hindi (Devanagari)" },
+	{ "hi_Latn",                TEST_ULDN_LOCALE, u"Hindi (Latin)" },
+	{ "hi_Latn_IN",             TEST_ULDN_LOCALE, u"Hindi (Latin, India)" },
+};
+
+static const UldnItem mni_Beng_StdMidLong[] = { // rdar://54153189
+	{ "mni_Beng",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (বাংলা)" },
+	{ "mni_Mtei",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (মেইটেই মায়েক)" },
+};
+
+static const UldnItem mni_Mtei_StdMidLong[] = { // rdar://54153189
+	{ "mni_Beng",               TEST_ULDN_LOCALE, u"ꯃꯤꯇꯩꯂꯣꯟ (ꯕꯪꯂꯥ)" },
+	{ "mni_Mtei",               TEST_ULDN_LOCALE, u"ꯃꯤꯇꯩꯂꯣꯟ (ꯃꯤꯇꯩ ꯃꯌꯦꯛ)" },
+};
+
+static const UldnItem sat_Olck_StdMidLong[] = { // rdar://54153189
+	{ "sat_Olck",               TEST_ULDN_LOCALE, u"ᱥᱟᱱᱛᱟᱲᱤ (ᱚᱞ ᱪᱤᱠᱤ)" },
+	{ "sat_Deva",               TEST_ULDN_LOCALE, u"ᱥᱟᱱᱛᱟᱲᱤ (ᱫᱮᱣᱟᱱᱟᱜᱟᱨᱤ)" },
+};
+
+static const UldnItem sat_Deva_StdMidLong[] = { // rdar://54153189
+	{ "sat_Olck",               TEST_ULDN_LOCALE, u"सानताड़ी (अल चीकी)" },
+	{ "sat_Deva",               TEST_ULDN_LOCALE, u"सानताड़ी (देवानागारी)" },
+};
+
+static const UldnItem en_AU_StdBegLong[] = { // rdar://69835367
+    { "019",               TEST_ULDN_REGION, u"Americas" },
+    { "002",               TEST_ULDN_REGION, u"Africa" },
+    { "150",               TEST_ULDN_REGION, u"Europe" },
+    { "142",               TEST_ULDN_REGION, u"Asia" },
+    { "009",               TEST_ULDN_REGION, u"Oceania" },
+};
+
+static const UldnItem es_MX_StdBegLong[] = { // rdar://69835367
+    { "019",                TEST_ULDN_REGION, u"América" },
+    { "002",                TEST_ULDN_REGION, u"África" },
+    { "150",                TEST_ULDN_REGION, u"Europa" },
+    { "142",                TEST_ULDN_REGION, u"Asia" },
+    { "009",                TEST_ULDN_REGION, u"Oceanía" },
+	{ "HK",                 TEST_ULDN_REGION, u"Hong-Kong" },
+	{ "MO",                 TEST_ULDN_REGION, u"Macao" },
+	{ "guc",                TEST_ULDN_LANGUAGE, u"Wayú" }, // rdar://59762233
+};
+
+static const UldnItem ms_StdMidLong[] = {
+	{ "SZ",                 TEST_ULDN_REGION, u"Eswatini" },
+	{ "wuu",                TEST_ULDN_LOCALE, u"Dialek Shanghai" },
+	{ "HK",                 TEST_ULDN_REGION, u"Hong Kong" },
+	{ "MO",                 TEST_ULDN_REGION, u"Macau" },
+	// rdar://59762233
+	{ "arc",                TEST_ULDN_LOCALE, u"Aramia" },
+	{ "car",                TEST_ULDN_LOCALE, u"Carib" },
+	{ "guc",                TEST_ULDN_LOCALE, u"Wayuu" },
+	{ "vls",                TEST_ULDN_LOCALE, u"Flemish Barat" },
+};
+
+static const UldnItem ain_StdMidLong[] = { // Apple <rdar:/74820154>
+	{ "ain",                TEST_ULOC_LOCALE, u"アイヌ・イタㇰ" },
+};
+
+static const UldnItem am_StdMidLong[] = { // Apple <rdar:/74820154>
+	{ "am",                 TEST_ULOC_LOCALE, u"አማርኛ" },
+};
+
+static const UldnItem ff_Adlm_StdMidLong[] = { // Apple <rdar:/74820154>
+	{ "ff_Adlm",            TEST_ULOC_LOCALE, u"𞤆𞤵𞤤𞤢𞤪 (𞤀𞤁𞤂𞤢𞤃)" },
+};
+
+static const UldnItem ig_StdMidLong[] = { // Apple <rdar:/74820154>
+	{ "ig",                 TEST_ULOC_LOCALE, u"Igbo" },
+};
+
+static const UldnItem kk_StdMidLong[] = { // rdar://95015661
+    { "AT",                 TEST_ULDN_REGION,   u"Аустрия" },
+    { "AU",                 TEST_ULDN_REGION,   u"Аустралия" },
+    { "053",                TEST_ULDN_REGION,   u"Аустралазия" },
+    { "de_AT",              TEST_ULOC_LOCALE,   u"неміс тілі (Аустрия)" },
+    { "en_AU",              TEST_ULOC_LOCALE,   u"ағылшын тілі (Аустралия)" },
+	{ "cic",                TEST_ULDN_LOCALE,   u"чикасо тілі" },
+    // rdar://95777359
+    { "yue_Hans",           TEST_ULOC_LOCALE, u"кантон тілі (жеңілдетілген жазу)" },
+    { "yue_Hant",           TEST_ULOC_LOCALE, u"кантон тілі (дәстүрлі жазу)" },
+    { "Hans",               TEST_ULDN_SCRIPT, u"жеңілдетілген қытай иероглифы" },
+    { "Hant",               TEST_ULDN_SCRIPT, u"дәстүрлі қытай иероглифы" },
+    { "en_ZA",              TEST_ULOC_LOCALE, u"ағылшын тілі (Оңтүстік Африка)" },
+};
+
+static const UldnItem kk_DiaMidLong[] = { // rdar://95015661
+    { "de_AT",              TEST_ULDN_LOCALE,   u"аустриялық неміс тілі" },
+    { "en_AU",              TEST_ULDN_LOCALE,   u"аустралиялық ағылшын тілі" },
+};
+
+static const UldnItem nv_StdMidLong[] = { // Apple <rdar:/74820154>
+	{ "nv",                 TEST_ULOC_LOCALE, u"Diné bizaad" },
+};
+
+static const UldnItem rhg_StdMidLong[] = { // Apple <rdar:/74820154>
+	{ "rhg",                TEST_ULOC_LOCALE, u"𐴌𐴗𐴥𐴝𐴙𐴚𐴒𐴙𐴝" },
+};
+
+static const UldnItem syr_StdMidLong[] = { // Apple <rdar:/74820154>
+	{ "syr",                TEST_ULOC_LOCALE, u"ܣܘܪܝܝܐ" },
+};
+
+static const UldnItem ti_StdMidLong[] = { // Apple <rdar:/74820154>
+	{ "ti",                TEST_ULOC_LOCALE, u"ትግርኛ" },
+};
+#endif  // APPLE_ICU_CHANGES
+
+static const UldnItem ro_StdMidLong[] = { // https://unicode-org.atlassian.net/browse/ICU-11563
+	{ "mo",                     TEST_ULDN_LOCALE, u"română" },
+	{ "mo_MD",                  TEST_ULDN_LOCALE, u"română (Republica Moldova)" },
+	{ "mo",                     TEST_ULDN_LANGUAGE, u"română" },
+	{ "mo_MD",                  TEST_ULOC_LOCALE, u"română (Republica Moldova)" },
+	{ "mo",                     TEST_ULOC_LANGUAGE, u"română" },
+};
+
+static const UldnItem yi_StdMidLong[] = { // https://unicode-org.atlassian.net/browse/ICU-21742
+	{ "ji",                     TEST_ULDN_LOCALE, u"ייִדיש" },
+#if APPLE_ICU_CHANGES
+// rdar://
+	{ "ji_US",                  TEST_ULDN_LOCALE, u"ייִדיש (פֿ\"ש)" },
+#else
+	{ "ji_US",                  TEST_ULDN_LOCALE, u"ייִדיש (פֿאַראייניגטע שטאַטן)" },
+#endif  // APPLE_ICU_CHANGES
+	{ "ji",                     TEST_ULDN_LANGUAGE, u"ייִדיש" },
+	{ "ji_US",                  TEST_ULOC_LOCALE, u"ייִדיש (פֿאַראייניגטע שטאַטן)" },
+	{ "ji",                     TEST_ULOC_LANGUAGE, u"ייִדיש" },
+};
+
+#if APPLE_ICU_CHANGES
+// rdar://
+static const UldnItem apw_StdMidLong[] = { // rdar://89394823 rdar://94490599
+	{ "apw",                TEST_ULOC_LOCALE, u"Nṉee biyátiʼ" },
+	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
+	{ "apw_Latn",           TEST_ULDN_LOCALE, u"Nṉee biyátiʼ" },
+};
+
+static const UldnItem ber_StdMidLong[] = { // rdar://104877633
+	{ "ber",                TEST_ULOC_LOCALE, u"ⴰⵎⴰⵣⵉⵖ" },
+};
+
+static const UldnItem cic_StdMidLong[] = { // rdar://100483742 rdar://100483742
+	{ "cic",                TEST_ULOC_LOCALE, u"Chikashshanompaʼ" },
+	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
+	{ "cic_Latn",           TEST_ULDN_LOCALE, u"Chikashshanompaʼ" },
+};
+
+static const UldnItem cho_StdMidLong[] = { // rdar://103954992 rdar://100483742
+	{ "cho",                TEST_ULOC_LOCALE, u"Chahta" },
+	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
+	{ "cho_Latn",           TEST_ULDN_LOCALE, u"Chahta" },
+};
+
+static const UldnItem dz_StdMidLong[] = { // rdar://89394823
+	{ "dz",                TEST_ULOC_LOCALE, u"རྫོང་ཁ་" },
+};
+
+static const UldnItem el_StdMidLong[] = { // rdar://84190308, rdar://89394823, rdar://59762233
+	{ "NL",                 TEST_ULDN_REGION, u"Κάτω Χώρες" },
+	{ "apw",                TEST_ULOC_LOCALE, u"Απάτσι, Δυτικοί" },
+	{ "guc",                TEST_ULOC_LOCALE, u"Ουαγού" },
+};
+
+static const UldnItem hmn_StdMidLong[] = { // rdar://104877633
+	{ "hmn",                TEST_ULOC_LOCALE, u"𖬌𖬣𖬵" },
+};
+
+static const UldnItem inh_StdMidLong[] = { // rdar://109529736
+    { "inh",                TEST_ULOC_LOCALE, u"ГӀалгӀай мотт" },
+};
+    
+static const UldnItem osa_StdMidLong[] = { // rdar://109529736
+    { "osa",                TEST_ULOC_LOCALE, u"𐓏𐓘𐓻𐓘𐓻𐓟" },
+};
+
+
+static const UldnItem it_StdMidLong[] = { // rdar://85413154
+	{ "SH",                 TEST_ULDN_REGION, u"Sant'Elena" },
+	{ "CI",                 TEST_ULDN_REGION, u"Côte d'Ivoire" },
+	{ "qug@currency=ECS",   TEST_ULOC_LOCALE, u"quechua dell'altopiano del Chimborazo (Valuta=sucre dell'Ecuador)" },
+};
+
+static const UldnItem mic_StdMidLong[] = { // rdar://104877633
+	{ "mic",                TEST_ULOC_LOCALE, u"Lʼnuiʼsuti" },
+};
+
+static const UldnItem mid_StdMidLong[] = { // rdar://104877633
+	{ "mid",                TEST_ULOC_LOCALE, u"ࡌࡀࡍࡃࡀࡉࡀ" },
+};
+
+static const UldnItem nnp_StdMidLong[] = { // rdar://104877633
+	{ "nnp",                TEST_ULOC_LOCALE, u"𞋒𞋀𞋉𞋃𞋕" },
+};
+
+static const UldnItem pqm_StdMidLong[] = { // rdar://104877633
+	{ "pqm",                TEST_ULOC_LOCALE, u"Wolastoqey" },
+};
+
+static const UldnItem rej_StdMidLong[] = { // rdar://104877633
+	{"rej",                TEST_ULOC_LOCALE, u"Baso Hejang" },
+};
+
+static const UldnItem rej_Rjng_StdMidLong[] = { // rdar://104877633
+	{ "rej",                TEST_ULOC_LOCALE, u"ꤷꤼꥋ ꤽꥍꤺꥏ" },
+};
+
+static const UldnItem sm_StdMidLong[] = { // rdar://89394823
+	{ "sm",                TEST_ULOC_LOCALE, u"Gagana faʻa Sāmoa" },
+};
+
+static const UldnItem no_StdLstLong[] = { // rdar://81296782
+    { "en",                 TEST_ULDN_LANGUAGE, u"Engelsk" },
+    { "sv",                 TEST_ULDN_LANGUAGE, u"Svensk" },
+    { "no",                 TEST_ULDN_LANGUAGE, u"Norsk" },
+    { "fr",                 TEST_ULDN_LANGUAGE, u"Fransk" },
+    { "ja",                 TEST_ULDN_LANGUAGE, u"Japansk" },
+    { "zh",                 TEST_ULDN_LANGUAGE, u"Kinesisk" },
+};
+#endif  // APPLE_ICU_CHANGES
+
+static const UldnLocAndOpts uldnLocAndOpts[] = {
+    { "en", optStdMidLong, en_StdMidLong, UPRV_LENGTHOF(en_StdMidLong) },
+    { "en", optStdMidShrt, en_StdMidShrt, UPRV_LENGTHOF(en_StdMidShrt) },
+    { "en", optDiaMidLong, en_DiaMidLong, UPRV_LENGTHOF(en_DiaMidLong) },
+    { "en", optDiaMidShrt, en_DiaMidShrt, UPRV_LENGTHOF(en_DiaMidShrt) },
+    { "ro", optStdMidLong, ro_StdMidLong, UPRV_LENGTHOF(ro_StdMidLong) },
+    { "yi", optStdMidLong, yi_StdMidLong, UPRV_LENGTHOF(yi_StdMidLong) },
+#if APPLE_ICU_CHANGES
+// rdar://
+    // Apple additions
+    { "en", optStdMidVrnt, en_StdMidVrnt, UPRV_LENGTHOF(en_StdMidVrnt) },
+    { "en_CA", optDiaMidLong, en_CA_DiaMidLong, UPRV_LENGTHOF(en_CA_DiaMidLong) }, // rdar://60916890
+    { "en_CA", optDiaMidShrt, en_CA_DiaMidShrt, UPRV_LENGTHOF(en_CA_DiaMidShrt) }, // rdar://60916890
+    { "en_GB", optDiaMidLong, en_GB_DiaMidLong, UPRV_LENGTHOF(en_GB_DiaMidLong) }, // rdar://60916890
+    { "en_GB", optDiaMidShrt, en_GB_DiaMidShrt, UPRV_LENGTHOF(en_GB_DiaMidShrt) }, // rdar://60916890
+    { "en_IN", optStdMidLong, en_IN_StdMidLong, UPRV_LENGTHOF(en_IN_StdMidLong) }, // rdar://65959353
+    { "ber", optStdMidLong, ber_StdMidLong, UPRV_LENGTHOF(ber_StdMidLong) }, // rdar://104877633
+	{ "fi", optStdMidLong, fi_StdMidLong, UPRV_LENGTHOF(fi_StdMidLong) },
+	{ "fi", optStdLstLong, fi_StdBegLong, UPRV_LENGTHOF(fi_StdBegLong) },
+    { "fr", optStdMidLong, fr_StdMidLong, UPRV_LENGTHOF(fr_StdMidLong) },
+    { "fr", optStdMidShrt, fr_StdMidShrt, UPRV_LENGTHOF(fr_StdMidShrt) },
+    { "fr", optStdBegLong, fr_StdBegLong, UPRV_LENGTHOF(fr_StdBegLong) },
+    { "fr", optStdLstLong, fr_StdLstLong, UPRV_LENGTHOF(fr_StdLstLong) },
+    { "fr_CA", optStdLstLong, fr_StdLstLong, UPRV_LENGTHOF(fr_StdLstLong) },
+    { "fr", optDiaMidLong, fr_DiaMidLong, UPRV_LENGTHOF(fr_DiaMidLong) },
+    { "ca", optStdLstLong, ca_StdLstLong, UPRV_LENGTHOF(ca_StdLstLong) },
+	{ "cho", optStdMidLong, cho_StdMidLong, UPRV_LENGTHOF(cho_StdMidLong) },
+	{ "cic", optStdMidLong, cic_StdMidLong, UPRV_LENGTHOF(cic_StdMidLong) },
+	{ "hmn", optStdMidLong, hmn_StdMidLong, UPRV_LENGTHOF(hmn_StdMidLong) }, // rdar://104877633
+    { "inh", optStdMidLong, inh_StdMidLong, UPRV_LENGTHOF(inh_StdMidLong) }, // rdar://109529736
+    { "osa", optStdMidLong, osa_StdMidLong, UPRV_LENGTHOF(osa_StdMidLong) }, // rdar://111138831
+    { "nb", optStdMidLong, nb_StdMidLong, UPRV_LENGTHOF(nb_StdMidLong) }, // rdar://65008672
+	{ "ru", optStdMidLong, ru_StdMidLong, UPRV_LENGTHOF(ru_StdMidLong) },
+    { "ur", optStdMidLong,      ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
+    { "ur_Arab", optStdMidLong, ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
+    { "ur_Aran", optStdMidLong, ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
+    { "pa_Arab", optStdMidLong, pa_Arab_StdMidLong, UPRV_LENGTHOF(pa_Arab_StdMidLong) },
+    { "pa_Aran", optStdMidLong, pa_Arab_StdMidLong, UPRV_LENGTHOF(pa_Arab_StdMidLong) },
+    { "ru", optStdMidLong,      ru_StdMidLong,      UPRV_LENGTHOF(ru_StdMidLong) },
+    { "zh", optStdMidLong,      zh_StdMidLong,        UPRV_LENGTHOF(zh_StdMidLong) },
+    { "zh_Hant", optStdMidLong, zh_Hant_StdMidLong,   UPRV_LENGTHOF(zh_Hant_StdMidLong) },
+    { "zh_Hant_HK", optStdMidLong, zh_Hant_HK_StdMidLong, UPRV_LENGTHOF(zh_Hant_HK_StdMidLong) },
+    { "yue", optStdMidLong,      yue_StdMidLong,      UPRV_LENGTHOF(yue_StdMidLong) },
+    { "yue_Hans", optStdMidLong, yue_Hans_StdMidLong, UPRV_LENGTHOF(yue_Hans_StdMidLong) },
+    { "nds", optStdMidLong, nds_StdMidLong, UPRV_LENGTHOF(nds_StdMidLong) },
+    { "hi", optStdMidLong, hi_StdMidLong, UPRV_LENGTHOF(hi_StdMidLong) },
+    { "hi_Latn", optStdMidLong, hi_Latn_StdMidLong, UPRV_LENGTHOF(hi_Latn_StdMidLong) },
+    { "mic", optStdMidLong, mic_StdMidLong, UPRV_LENGTHOF(mic_StdMidLong) }, // rdar://104877633
+    { "mid", optStdMidLong, mid_StdMidLong, UPRV_LENGTHOF(mid_StdMidLong) }, // rdar://104877633
+    { "mni_Beng", optStdMidLong, mni_Beng_StdMidLong, UPRV_LENGTHOF(mni_Beng_StdMidLong) },
+    { "mni_Mtei", optStdMidLong, mni_Mtei_StdMidLong, UPRV_LENGTHOF(mni_Mtei_StdMidLong) },
+    { "sat_Olck", optStdMidLong, sat_Olck_StdMidLong, UPRV_LENGTHOF(sat_Olck_StdMidLong) },
+    { "sat_Deva", optStdMidLong, sat_Deva_StdMidLong, UPRV_LENGTHOF(sat_Deva_StdMidLong) },
+    { "en_AU", optStdBegLong, en_AU_StdBegLong, UPRV_LENGTHOF(en_AU_StdBegLong) }, // rdar://69835367
+    { "es_MX", optStdBegLong, es_MX_StdBegLong, UPRV_LENGTHOF(es_MX_StdBegLong) }, // rdar://69835367
+    { "ms", optStdMidLong, ms_StdMidLong, UPRV_LENGTHOF(ms_StdMidLong) }, // rdar://66990121
+    { "ain", optStdMidLong, ain_StdMidLong, UPRV_LENGTHOF(ain_StdMidLong) }, // rdar:/74820154
+    { "am", optStdMidLong, am_StdMidLong, UPRV_LENGTHOF(am_StdMidLong) }, // rdar:/74820154
+    { "ff_Adlm", optStdMidLong, ff_Adlm_StdMidLong, UPRV_LENGTHOF(ff_Adlm_StdMidLong) }, // rdar:/74820154
+    { "ig", optStdMidLong, ig_StdMidLong, UPRV_LENGTHOF(ig_StdMidLong) }, // rdar:/74820154
+    { "nv", optStdMidLong, nv_StdMidLong, UPRV_LENGTHOF(nv_StdMidLong) }, // rdar:/74820154
+    { "nnp", optStdMidLong, nnp_StdMidLong, UPRV_LENGTHOF(nnp_StdMidLong) }, // rdar://104877633
+    { "pqm", optStdMidLong, pqm_StdMidLong, UPRV_LENGTHOF(pqm_StdMidLong) }, // rdar://104877633
+    { "rhg", optStdMidLong, rhg_StdMidLong, UPRV_LENGTHOF(rhg_StdMidLong) }, // rdar:/74820154
+    { "rej", optStdMidLong, rej_StdMidLong, UPRV_LENGTHOF(rej_StdMidLong) }, // rdar://104877633
+    { "rej_Rjng", optStdMidLong, rej_Rjng_StdMidLong, UPRV_LENGTHOF(rej_Rjng_StdMidLong) }, // rdar://104877633	
+    { "syr", optStdMidLong, syr_StdMidLong, UPRV_LENGTHOF(syr_StdMidLong) }, // rdar:/74820154
+    { "ti", optStdMidLong, ti_StdMidLong, UPRV_LENGTHOF(ti_StdMidLong) }, // rdar:/74820154
+    { "apw", optStdMidLong, apw_StdMidLong, UPRV_LENGTHOF(apw_StdMidLong) }, // rdar:/89394823
+    { "dz", optStdMidLong, dz_StdMidLong, UPRV_LENGTHOF(dz_StdMidLong) }, // rdar:/89394823
+    { "sm", optStdMidLong, sm_StdMidLong, UPRV_LENGTHOF(sm_StdMidLong) }, // rdar:/89394823
+    { "el", optStdMidLong, el_StdMidLong, UPRV_LENGTHOF(el_StdMidLong) }, // rdar:/84190308
+    { "it", optStdMidLong, it_StdMidLong, UPRV_LENGTHOF(it_StdMidLong) }, // rdar:/85413154
+    { "no", optStdLstLong, no_StdLstLong, UPRV_LENGTHOF(no_StdLstLong) }, // rdar://81296782
+    { "kk", optStdMidLong, kk_StdMidLong, UPRV_LENGTHOF(kk_StdMidLong) }, // rdar://95015661
+    { "kk", optDiaMidLong, kk_DiaMidLong, UPRV_LENGTHOF(kk_DiaMidLong) }, // rdar://95015661
+#endif  // APPLE_ICU_CHANGES
+    { NULL, NULL, NULL, 0 }
+};
+
+enum { kUNameBuf = 128, kBNameBuf = 256 };
+
+static void TestUldnNameVariants() {
+    const UldnLocAndOpts * uloPtr;
+    for (uloPtr = uldnLocAndOpts; uloPtr->displayLocale != NULL; uloPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        ULocaleDisplayNames * uldn = uldn_openForContext(uloPtr->displayLocale, (UDisplayContext*)uloPtr->displayOptions, 3, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("uldn_openForContext fails, displayLocale %s, contexts %03X %03X %03X: %s - Are you missing data?\n",
+                    uloPtr->displayLocale, uloPtr->displayOptions[0], uloPtr->displayOptions[1], uloPtr->displayOptions[2],
+                    u_errorName(status) );
+            continue;
+        }
+        // API coverage: Expect to get back the dialect handling which is
+        // the first item in the displayOptions test data.
+        UDialectHandling dh = uldn_getDialectHandling(uldn);
+        UDisplayContext dhContext = (UDisplayContext)dh;  // same numeric values
+        if (dhContext != uloPtr->displayOptions[0]) {
+            log_err("uldn_getDialectHandling()=%03X != expected UDisplayContext %03X\n",
+                    dhContext, uloPtr->displayOptions[0]);
+        }
+        const UldnItem * itemPtr = uloPtr->testItems;
+        int32_t itemCount = uloPtr->countItems;
+        for (; itemCount-- > 0; itemPtr++) {
+            UChar uget[kUNameBuf];
+            int32_t ulenget, ulenexp;
+            const char* typeString;
+            status = U_ZERO_ERROR;
+            switch (itemPtr->nameType) {
+                case TEST_ULDN_LOCALE:
+                    ulenget = uldn_localeDisplayName(uldn, itemPtr->localeToName, uget, kUNameBuf, &status);
+                    typeString = "uldn_localeDisplayName";
+                    break;
+                case TEST_ULDN_LANGUAGE:
+                    ulenget = uldn_languageDisplayName(uldn, itemPtr->localeToName, uget, kUNameBuf, &status);
+                    typeString = "uldn_languageDisplayName";
+                  break;
+                case TEST_ULDN_SCRIPT:
+                    ulenget = uldn_scriptDisplayName(uldn, itemPtr->localeToName, uget, kUNameBuf, &status);
+                    typeString = "uldn_scriptDisplayName";
+                    break;
+                case TEST_ULDN_REGION:
+                    ulenget = uldn_regionDisplayName(uldn, itemPtr->localeToName, uget, kUNameBuf, &status);
+                    typeString = "uldn_regionDisplayName";
+                    break;
+                case TEST_ULOC_LOCALE:
+                    ulenget = uloc_getDisplayName(itemPtr->localeToName, uloPtr->displayLocale, uget, kUNameBuf, &status);
+                    typeString = "uloc_getDisplayName";
+                    break;
+                case TEST_ULOC_LANGUAGE:
+                    ulenget = uloc_getDisplayLanguage(itemPtr->localeToName, uloPtr->displayLocale, uget, kUNameBuf, &status);
+                    typeString = "uloc_getDisplayLanguage";
+                    break;
+                case TEST_ULOC_SCRIPT:
+                    ulenget = uloc_getDisplayScript(itemPtr->localeToName, uloPtr->displayLocale, uget, kUNameBuf, &status);
+                    typeString = "uloc_getDisplayScript";
+                    break;
+                case TEST_ULOC_REGION:
+                    ulenget = uloc_getDisplayCountry(itemPtr->localeToName, uloPtr->displayLocale, uget, kUNameBuf, &status);
+                    typeString = "uloc_getDisplayCountry";
+                    break;
+                default:
+                    continue;
+            }
+            if (U_FAILURE(status)) {
+                log_data_err("%s fails, displayLocale %s, contexts %03X %03X %03X, localeToName %s: %s\n",
+                        typeString, uloPtr->displayLocale, uloPtr->displayOptions[0], uloPtr->displayOptions[1], uloPtr->displayOptions[2],
+                        itemPtr->localeToName, u_errorName(status) );
+                continue;
+            }
+            ulenexp = u_strlen(itemPtr->expectResult);
+            if (ulenget != ulenexp || u_strncmp(uget, itemPtr->expectResult, ulenexp) != 0) {
+                char bexp[kBNameBuf], bget[kBNameBuf];
+                u_strToUTF8(bexp, kBNameBuf, NULL, itemPtr->expectResult, ulenexp, &status);
+                u_strToUTF8(bget, kBNameBuf, NULL, uget, ulenget, &status);
+                log_data_err("%s fails, displayLocale %s, contexts %03X %03X %03X, localeToName %s:\n    expect %2d: %s\n    get    %2d: %s\n",
+                        typeString, uloPtr->displayLocale, uloPtr->displayOptions[0], uloPtr->displayOptions[1], uloPtr->displayOptions[2],
+                        itemPtr->localeToName, ulenexp, bexp, ulenget, bget );
+            }
+        }
+
+        uldn_close(uldn);
     }
 }
+#endif
 
 static void TestUsingDefaultWarning() {
     UChar buff[256];
@@ -7232,6 +8450,21 @@ static void TestUsingDefaultWarning() {
 }
 
 // Test case for ICU-20575
+// This test checks if the environment variable LANG is set, 
+// and if so ensures that both C and C.UTF-8 cause ICU's default locale to be en_US_POSIX.
+static void TestCDefaultLocale() {
+    const char *defaultLocale = uloc_getDefault();
+    char *env_var = getenv("LANG");
+    if (env_var == NULL) {
+      log_verbose("Skipping TestCDefaultLocale test, as the LANG variable is not set.");
+      return;
+    }
+    if ((strcmp(env_var, "C") == 0 || strcmp(env_var, "C.UTF-8") == 0) && strcmp(defaultLocale, "en_US_POSIX") != 0) {
+      log_err("The default locale for LANG=%s should be en_US_POSIX, not %s\n", env_var, defaultLocale);
+    }
+}
+
+// Test case for ICU-21449
 static void TestBug21449InfiniteLoop() {
     UErrorCode status = U_ZERO_ERROR;
     const char* invalidLocaleId = RES_PATH_SEPARATOR_S;
@@ -7241,7 +8474,6 @@ static void TestBug21449InfiniteLoop() {
     uloc_getDisplayLanguage(invalidLocaleId, invalidLocaleId, NULL, 0, &status);
 }
 
-// Test case for ICU-21449
 // rdar://79296849 and https://unicode-org.atlassian.net/browse/ICU-21639
 static void TestExcessivelyLongIDs(void) {
     const char* reallyLongID =
@@ -7284,880 +8516,8 @@ static void TestExcessivelyLongIDs(void) {
     uprv_free(realMaximizedID);
 }
 
-#if !UCONFIG_NO_FORMATTING
-typedef enum UldnNameType {
-    TEST_ULDN_LOCALE,
-    TEST_ULDN_LANGUAGE,
-    TEST_ULDN_SCRIPT,
-    TEST_ULDN_REGION,
-    TEST_ULOC_LOCALE,   // only valid with optStdMidLong
-    TEST_ULOC_LANGUAGE, // only valid with optStdMidLong
-    TEST_ULOC_SCRIPT,   // only valid with optStdMidLong
-    TEST_ULOC_REGION,   // only valid with optStdMidLong
-} UldnNameType;
-
-typedef struct {
-    const char * localeToName; // NULL to terminate a list of these
-    UldnNameType nameType;
-    const UChar * expectResult;
-} UldnItem;
-
-typedef struct {
-    const char *            displayLocale;
-    const UDisplayContext * displayOptions; // set of 3 UDisplayContext items
-    const UldnItem *        testItems;
-    int32_t                 countItems;
-} UldnLocAndOpts;
-
-static const UDisplayContext optStdMidLong[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL}; 
-static const UDisplayContext optStdMidShrt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_SHORT}; 
-static const UDisplayContext optStdMidVrnt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_VARIANT};
-static const UDisplayContext optDiaMidLong[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL};
-static const UDisplayContext optDiaMidShrt[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_SHORT}; 
-
-static const UDisplayContext optStdBegLong[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL}; 
-static const UDisplayContext optStdBegShrt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_SHORT}; 
-static const UDisplayContext optDiaBegLong[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL}; 
-static const UDisplayContext optDiaBegShrt[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_SHORT}; 
-
-static const UDisplayContext optStdLstLong[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL}; 
-static const UDisplayContext optStdLstShrt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_SHORT}; 
-static const UDisplayContext optDiaLstLong[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL}; 
-static const UDisplayContext optDiaLstShrt[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_SHORT}; 
-
-static const UldnItem en_StdMidLong[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"English (US)" },
-	{ "en_US_POSIX",            TEST_ULDN_LOCALE, u"English (US, Computer)" },
-	{ "en_US@calendar=chinese", TEST_ULDN_LOCALE, u"English (US, Chinese Calendar)" },
-	{ "en_CA",                  TEST_ULDN_LOCALE, u"English (Canada)" },
-	{ "en",                     TEST_ULDN_LANGUAGE, u"English" },
-	{ "en_US",                  TEST_ULOC_LANGUAGE, u"English" },
-	{ "en",                     TEST_ULOC_LANGUAGE, u"English" },
-	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
-	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Portuguese (Brazil)" },
-	{ "pt_PT",                  TEST_ULDN_LOCALE, u"Portuguese (Portugal)" },
-	// https://unicode-org.atlassian.net/browse/ICU-20870
-	{ "fa_AF",                  TEST_ULDN_LOCALE, u"Persian (Afghanistan)" },
-	{ "prs",                    TEST_ULDN_LOCALE, u"Dari" },
-	{ "prs_AF",                 TEST_ULDN_LOCALE, u"Dari (Afghanistan)" },
-	{ "prs_TJ",                 TEST_ULDN_LOCALE, u"Dari (Tajikistan)" },
-	{ "prs",                    TEST_ULDN_LANGUAGE, u"Dari" },
-	{ "prs",                    TEST_ULOC_LANGUAGE, u"Dari" },
-	// https://unicode-org.atlassian.net/browse/ICU-21742
-	{ "ji",                     TEST_ULDN_LOCALE, u"Yiddish" },
-	{ "ji_US",                  TEST_ULDN_LOCALE, u"Yiddish (US)" },
-	{ "ji",                     TEST_ULDN_LANGUAGE, u"Yiddish" },
-	{ "ji_US",                  TEST_ULOC_LOCALE, u"Yiddish (United States)" },
-	{ "ji",                     TEST_ULOC_LANGUAGE, u"Yiddish" },
-	// https://unicode-org.atlassian.net/browse/ICU-11563
-	{ "mo",                     TEST_ULDN_LOCALE, u"Romanian" },
-	{ "mo_MD",                  TEST_ULDN_LOCALE, u"Romanian (Moldova)" },
-	{ "mo",                     TEST_ULDN_LANGUAGE, u"Romanian" },
-	{ "mo_MD",                  TEST_ULOC_LOCALE, u"Romanian (Moldova)" },
-	{ "mo",                     TEST_ULOC_LANGUAGE, u"Romanian" },
-	// Apple additions
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },                  // Apple <rdar://problem/50750364>
-	{ "zh_Hans_CN",             TEST_ULDN_LOCALE, u"Chinese, Simplified (China mainland)" }, // Apple <rdar://problem/50750364>
-	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },                 // Apple <rdar://problem/50750364>
-	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },     // Apple <rdar://problem/50750364>
-	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },                // Apple <rdar://problem/50750364>
-	{ "yue_Hans_CN",            TEST_ULDN_LOCALE, u"Cantonese, Simplified (China mainland)" }, // Apple <rdar://problem/50750364>
-	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },               // Apple <rdar://problem/50750364>
-	{ "yue_Hant_HK",            TEST_ULDN_LOCALE, u"Cantonese, Traditional (Hong Kong)" },   // Apple <rdar://problem/50750364>
-	{ "zh_Hans@calendar=chinese",     TEST_ULDN_LOCALE, u"Chinese, Simplified (Chinese Calendar)" },                  // Apple <rdar://problem/50750364>
-	{ "zh_Hans_CN@calendar=chinese",  TEST_ULDN_LOCALE, u"Chinese, Simplified (China mainland, Chinese Calendar)" }, // Apple <rdar://problem/50750364>
-	{ "zh_Hant@calendar=chinese",     TEST_ULDN_LOCALE, u"Chinese, Traditional (Chinese Calendar)" },                 // Apple <rdar://problem/50750364>
-	{ "zh_Hant_HK@calendar=chinese",  TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong, Chinese Calendar)" },     // Apple <rdar://problem/50750364>
-	{ "yue_Hans@calendar=chinese",    TEST_ULDN_LOCALE, u"Cantonese, Simplified (Chinese Calendar)" },                // Apple <rdar://problem/50750364>
-	{ "yue_Hans_CN@calendar=chinese", TEST_ULDN_LOCALE, u"Cantonese, Simplified (China mainland, Chinese Calendar)" }, // Apple <rdar://problem/50750364>
-	{ "yue_Hant@calendar=chinese",    TEST_ULDN_LOCALE, u"Cantonese, Traditional (Chinese Calendar)" },               // Apple <rdar://problem/50750364>
-	{ "yue_Hant_HK@calendar=chinese", TEST_ULDN_LOCALE, u"Cantonese, Traditional (Hong Kong, Chinese Calendar)" },   // Apple <rdar://problem/50750364>
-	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
-	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
-	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
-	{ "Hant",                   TEST_ULDN_SCRIPT, u"Traditional Han" },
-	{ "US",                     TEST_ULDN_REGION, u"United States" },
-	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
-	{ "GB",                     TEST_ULDN_REGION, u"United Kingdom" },
-	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
-	{ "MO",                     TEST_ULDN_REGION, u"Macao" },
-	{ "IO",                     TEST_ULDN_REGION, u"Chagos Archipelago" },
-	{ "ps_Arab",                TEST_ULDN_LOCALE, u"Pashto (Arabic)" },
-	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"Pashto (Arabic, Afghanistan)" },
-	{ "ks_Arab",                TEST_ULDN_LOCALE, u"Kashmiri (Naskh)" }, // Apple <rdar://problem/50687287>
-	{ "ks_Aran",                TEST_ULDN_LOCALE, u"Kashmiri (Nastaliq)" }, // Apple <rdar://problem/47494884>
-	{ "ks_Arab_IN",             TEST_ULDN_LOCALE, u"Kashmiri (Naskh, India)" }, // Apple <rdar://problem/50687287>
-	{ "ks_Aran_IN",             TEST_ULDN_LOCALE, u"Kashmiri (Nastaliq, India)" }, // Apple <rdar://problem/47494884>
-	{ "pa_Arab",                TEST_ULDN_LOCALE, u"Punjabi (Naskh)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Aran",                TEST_ULDN_LOCALE, u"Punjabi (Nastaliq)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Arab_PK",             TEST_ULDN_LOCALE, u"Punjabi (Naskh, Pakistan)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Aran_PK",             TEST_ULDN_LOCALE, u"Punjabi (Nastaliq, Pakistan)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Arab",                TEST_ULDN_LOCALE, u"Urdu (Naskh)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Aran",                TEST_ULDN_LOCALE, u"Urdu (Nastaliq)" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab_PK",             TEST_ULDN_LOCALE, u"Urdu (Naskh, Pakistan)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Aran_PK",             TEST_ULDN_LOCALE, u"Urdu (Nastaliq, Pakistan)" }, // Apple <rdar://problem/47494884>
-	{ "ps_Arab@calendar=islamic",    TEST_ULDN_LOCALE, u"Pashto (Arabic, Islamic Calendar)" },
-	{ "ps_Arab_AF@calendar=islamic", TEST_ULDN_LOCALE, u"Pashto (Arabic, Afghanistan, Islamic Calendar)" },
-	{ "ks_Arab@calendar=islamic",    TEST_ULDN_LOCALE, u"Kashmiri (Naskh, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ks_Aran@calendar=islamic",    TEST_ULDN_LOCALE, u"Kashmiri (Nastaliq, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
-	{ "ks_Arab_IN@calendar=islamic", TEST_ULDN_LOCALE, u"Kashmiri (Naskh, India, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ks_Aran_IN@calendar=islamic", TEST_ULDN_LOCALE, u"Kashmiri (Nastaliq, India, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
-	{ "pa_Arab@calendar=islamic",    TEST_ULDN_LOCALE, u"Punjabi (Naskh, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Aran@calendar=islamic",    TEST_ULDN_LOCALE, u"Punjabi (Nastaliq, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Arab_PK@calendar=islamic", TEST_ULDN_LOCALE, u"Punjabi (Naskh, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Aran_PK@calendar=islamic", TEST_ULDN_LOCALE, u"Punjabi (Nastaliq, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Arab@calendar=islamic",    TEST_ULDN_LOCALE, u"Urdu (Naskh, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Aran@calendar=islamic",    TEST_ULDN_LOCALE, u"Urdu (Nastaliq, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab_PK@calendar=islamic", TEST_ULDN_LOCALE, u"Urdu (Naskh, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Aran_PK@calendar=islamic", TEST_ULDN_LOCALE, u"Urdu (Nastaliq, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
-	{ "Arab",                   TEST_ULDN_SCRIPT, u"Arabic" },
-	{ "Aran",                   TEST_ULDN_SCRIPT, u"Nastaliq" }, // Apple <rdar://problem/47494884>
-	{ "Qaag",                   TEST_ULDN_SCRIPT, u"Zawgyi" },   // Apple <rdar://problem/51471316>
-	{ "my_Qaag",                TEST_ULDN_LOCALE, u"Burmese (Zawgyi)" }, // Apple <rdar://problem/51471316>
-
-	{ "zh_Hans",                TEST_ULOC_LOCALE, u"Chinese, Simplified" },                  // Apple <rdar://problem/51418203>
-	{ "zh_Hans_CN",             TEST_ULOC_LOCALE, u"Chinese, Simplified (China mainland)" }, // Apple <rdar://problem/51418203>
-	{ "zh_Hant",                TEST_ULOC_LOCALE, u"Chinese, Traditional" },                 // Apple <rdar://problem/51418203>
-	{ "zh_Hant_HK",             TEST_ULOC_LOCALE, u"Chinese, Traditional (Hong Kong)" },     // Apple <rdar://problem/51418203>
-	{ "yue_Hans",               TEST_ULOC_LOCALE, u"Cantonese, Simplified" },                // Apple <rdar://problem/51418203>
-	{ "yue_Hans_CN",            TEST_ULOC_LOCALE, u"Cantonese, Simplified (China mainland)" }, // Apple <rdar://problem/51418203>
-	{ "yue_Hant",               TEST_ULOC_LOCALE, u"Cantonese, Traditional" },               // Apple <rdar://problem/51418203>
-	{ "yue_Hant_HK",            TEST_ULOC_LOCALE, u"Cantonese, Traditional (Hong Kong)" },   // Apple <rdar://problem/51418203>
-	{ "zh_Hans@calendar=chinese",     TEST_ULOC_LOCALE, u"Chinese, Simplified (Chinese Calendar)" },                  // Apple <rdar://problem/50750364>
-	{ "zh_Hans_CN@calendar=chinese",  TEST_ULOC_LOCALE, u"Chinese, Simplified (China mainland, Chinese Calendar)" }, // Apple <rdar://problem/50750364>
-	{ "zh_Hant@calendar=chinese",     TEST_ULOC_LOCALE, u"Chinese, Traditional (Chinese Calendar)" },                 // Apple <rdar://problem/50750364>
-	{ "zh_Hant_HK@calendar=chinese",  TEST_ULOC_LOCALE, u"Chinese, Traditional (Hong Kong, Chinese Calendar)" },     // Apple <rdar://problem/50750364>
-	{ "yue_Hans@calendar=chinese",    TEST_ULOC_LOCALE, u"Cantonese, Simplified (Chinese Calendar)" },                // Apple <rdar://problem/50750364>
-	{ "yue_Hans_CN@calendar=chinese", TEST_ULOC_LOCALE, u"Cantonese, Simplified (China mainland, Chinese Calendar)" }, // Apple <rdar://problem/50750364>
-	{ "yue_Hant@calendar=chinese",    TEST_ULOC_LOCALE, u"Cantonese, Traditional (Chinese Calendar)" },               // Apple <rdar://problem/50750364>
-	{ "yue_Hant_HK@calendar=chinese", TEST_ULOC_LOCALE, u"Cantonese, Traditional (Hong Kong, Chinese Calendar)" },   // Apple <rdar://problem/50750364>
-	{ "ks_Arab",                TEST_ULOC_LOCALE, u"Kashmiri (Naskh)" }, // Apple <rdar://problem/51418203>
-	{ "ks_Aran",                TEST_ULOC_LOCALE, u"Kashmiri (Nastaliq)" }, // Apple <rdar://problem/47494884>
-	{ "ks_Arab_IN",             TEST_ULOC_LOCALE, u"Kashmiri (Naskh, India)" }, // Apple <rdar://problem/51418203>
-	{ "ks_Aran_IN",             TEST_ULOC_LOCALE, u"Kashmiri (Nastaliq, India)" }, // Apple <rdar://problem/47494884>
-	{ "pa_Arab",                TEST_ULOC_LOCALE, u"Punjabi (Naskh)" }, // Apple <rdar://problem/51418203>
-	{ "pa_Aran",                TEST_ULOC_LOCALE, u"Punjabi (Nastaliq)" }, // Apple <rdar://problem/51418203>
-	{ "pa_Arab_PK",             TEST_ULOC_LOCALE, u"Punjabi (Naskh, Pakistan)" }, // Apple <rdar://problem/51418203>
-	{ "pa_Aran_PK",             TEST_ULOC_LOCALE, u"Punjabi (Nastaliq, Pakistan)" }, // Apple <rdar://problem/51418203>
-	{ "ur_Arab",                TEST_ULOC_LOCALE, u"Urdu (Naskh)" }, // Apple <rdar://problem/51418203>
-	{ "ur_Aran",                TEST_ULOC_LOCALE, u"Urdu (Nastaliq)" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab_PK",             TEST_ULOC_LOCALE, u"Urdu (Naskh, Pakistan)" }, // Apple <rdar://problem/51418203>
-	{ "ur_Aran_PK",             TEST_ULOC_LOCALE, u"Urdu (Nastaliq, Pakistan)" }, // Apple <rdar://problem/47494884>
-	{ "ks_Arab@calendar=islamic",    TEST_ULOC_LOCALE, u"Kashmiri (Naskh, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ks_Aran@calendar=islamic",    TEST_ULOC_LOCALE, u"Kashmiri (Nastaliq, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
-	{ "ks_Arab_IN@calendar=islamic", TEST_ULOC_LOCALE, u"Kashmiri (Naskh, India, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ks_Aran_IN@calendar=islamic", TEST_ULOC_LOCALE, u"Kashmiri (Nastaliq, India, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
-	{ "pa_Arab@calendar=islamic",    TEST_ULOC_LOCALE, u"Punjabi (Naskh, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Aran@calendar=islamic",    TEST_ULOC_LOCALE, u"Punjabi (Nastaliq, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Arab_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Punjabi (Naskh, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Aran_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Punjabi (Nastaliq, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Arab@calendar=islamic",    TEST_ULOC_LOCALE, u"Urdu (Naskh, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Aran@calendar=islamic",    TEST_ULOC_LOCALE, u"Urdu (Nastaliq, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Urdu (Naskh, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Aran_PK@calendar=islamic", TEST_ULOC_LOCALE, u"Urdu (Nastaliq, Pakistan, Islamic Calendar)" }, // Apple <rdar://problem/47494884>
-	{ "my_Qaag",                TEST_ULOC_LOCALE, u"Burmese (Zawgyi)" }, // Apple <rdar://problem/51471316>
-	{ "cic_Latn",                    TEST_ULDN_LOCALE, u"Chickasaw" }, // Apple <rdar://105748418>
-	{ "cho_Latn",                    TEST_ULDN_LOCALE, u"Choctaw" }, // Apple <rdar://105748418>
-	{ "apw_Latn",                    TEST_ULDN_LOCALE, u"Apache, Western" }, // Apple <rdar://94490599>
-	
-	// tests for rdar://63655841&79400781
-	{ "atj",                    TEST_ULOC_LOCALE, u"Atikamekw" },
-	{ "bla",                    TEST_ULOC_LOCALE, u"Siksiká" },
-	{ "cr",                     TEST_ULOC_LOCALE, u"Cree" }, // macrolang
-	{ "cwd",                    TEST_ULOC_LOCALE, u"Woods Cree" }, // distinct name for primary sub-lang
-	{ "crj",                    TEST_ULOC_LOCALE, u"Southern East Cree" }, // other sub-lang
-	{ "csw",                    TEST_ULOC_LOCALE, u"Swampy Cree" }, // other sub-lang
-	{ "hai",                    TEST_ULOC_LOCALE, u"Haida" }, // macrolang
-	{ "hdn",                    TEST_ULOC_LOCALE, u"Northern Haida" }, // distinct name for primary sub-lang
-	{ "hax",                    TEST_ULOC_LOCALE, u"Southern Haida" }, // other sub-lang
-	{ "iu",                     TEST_ULOC_LOCALE, u"Inuktitut" }, // macrolang
-	{ "ike",                    TEST_ULOC_LOCALE, u"Eastern Canadian Inuktitut" }, // distinct name for primary sub-lang
-	{ "ikt",                    TEST_ULOC_LOCALE, u"Western Canadian Inuktitut" }, // other sub-lang
-	{ "oj",                     TEST_ULOC_LOCALE, u"Ojibwa" }, // macrolang
-	{ "ojg",                    TEST_ULOC_LOCALE, u"Eastern Ojibwa" }, // distinct name for primary sub-lang
-	{ "ojb",                    TEST_ULOC_LOCALE, u"Northwestern Ojibwa" }, // other sub-lang
-	{ "ojs",                    TEST_ULOC_LOCALE, u"Oji-Cree" }, // other sub-lang
-	{ "ttm",                    TEST_ULOC_LOCALE, u"Northern Tutchone" },
-	{ "tce",                    TEST_ULOC_LOCALE, u"Southern Tutchone" },
-	// tests for rdar://74820154, rdar://75064267, rdar://89394823 
-	{ "ain",                    TEST_ULOC_LOCALE, u"Ainu" },
-	{ "am",                     TEST_ULOC_LOCALE, u"Amharic" },
-	{ "ff_Adlm",                TEST_ULOC_LOCALE, u"Fula (Adlam)" },
-	{ "ig",                     TEST_ULOC_LOCALE, u"Igbo" },
-	{ "nv",                     TEST_ULOC_LOCALE, u"Navajo" },
-	{ "rhg",                    TEST_ULOC_LOCALE, u"Rohingya" },
-	{ "rhg_Rohg",               TEST_ULOC_LOCALE, u"Rohingya (Hanifi)" },
-	{ "syr",                    TEST_ULOC_LOCALE, u"Assyrian" },
-	{ "ti",                     TEST_ULOC_LOCALE, u"Tigrinya" },
-	{ "Rohg",                   TEST_ULDN_SCRIPT, u"Hanifi Rohingya" },
-	{ "apw",                    TEST_ULOC_LOCALE, u"Apache, Western" },
-    // baseline tests for rdar://76655165
-    { "ky",                     TEST_ULDN_LANGUAGE, u"Kyrgyz" },
-    { "ps",                     TEST_ULDN_LANGUAGE, u"Pashto" },
-    { "Arab",                   TEST_ULDN_SCRIPT,   u"Arabic" },
-    { "CD",                     TEST_ULDN_REGION,   u"Congo - Kinshasa" },
-    { "CG",                     TEST_ULDN_REGION,   u"Congo - Brazzaville" },
-    { "SZ",                     TEST_ULDN_REGION,   u"Eswatini" },
-    { "GB",                     TEST_ULDN_REGION,   u"United Kingdom" },
-    { "FR",                     TEST_ULDN_REGION,   u"France" },
-    { "ps_Arab_AF",             TEST_ULOC_LOCALE,   u"Pashto (Arabic, Afghanistan)" },
-    { "en_SZ",                  TEST_ULOC_LOCALE,   u"English (Eswatini)" },
-    { "en_GB",                  TEST_ULOC_LOCALE,   u"English (United Kingdom)" },
-    { "fr_CG",                  TEST_ULOC_LOCALE,   u"French (Congo - Brazzaville)" },
-    { "fr_FR",                  TEST_ULOC_LOCALE,   u"French (France)" },
-	// tests for rdar://80374611
-	{ "mdh",                    TEST_ULOC_LOCALE, u"Maguindanaon" },
-	{ "otk",                    TEST_ULOC_LOCALE, u"Old Turkish" },
-	{ "oui",                    TEST_ULOC_LOCALE, u"Old Uighur" },
-};
-
-static const UldnItem en_StdMidShrt[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"English (US)" },
-	{ "en",                     TEST_ULDN_LANGUAGE, u"English" },
-	{ "en_US_POSIX",            TEST_ULDN_LOCALE, u"English (US, Computer)" },
-	{ "en_US@calendar=chinese", TEST_ULDN_LOCALE, u"English (US, Chinese Calendar)" },
-	{ "en_CA",                  TEST_ULDN_LOCALE, u"English (Canada)" },
-	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
-	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Portuguese (Brazil)" },
-	{ "pt_PT",                  TEST_ULDN_LOCALE, u"Portuguese (Portugal)" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
-	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
-	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
-	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
-	{ "Hant",                   TEST_ULDN_SCRIPT, u"Traditional Han" },
-	{ "US",                     TEST_ULDN_REGION, u"US" },
-	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
-	{ "GB",                     TEST_ULDN_REGION, u"UK" },
-	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
-};
-
-static const UldnItem en_StdMidVrnt[] = {
-    // tests for rdar://76655165
-    { "ky",                     TEST_ULDN_LANGUAGE, u"Kirghiz" },
-    { "ps",                     TEST_ULDN_LANGUAGE, u"Pushto" },
-    { "Arab",                   TEST_ULDN_SCRIPT,   u"Perso-Arabic" },
-    { "CD",                     TEST_ULDN_REGION,   u"Congo (DRC)" },
-    { "CG",                     TEST_ULDN_REGION,   u"Congo (Republic)" },
-    { "SZ",                     TEST_ULDN_REGION,   u"Swaziland" },
-    { "GB",                     TEST_ULDN_REGION,   u"United Kingdom" },
-    { "FR",                     TEST_ULDN_REGION,   u"France" },
-    { "ps_Arab_AF",             TEST_ULDN_LOCALE,   u"Pushto (Perso-Arabic, Afghanistan)" },
-    { "en_SZ",                  TEST_ULDN_LOCALE,   u"English (Swaziland)" },
-    { "en_GB",                  TEST_ULDN_LOCALE,   u"English (UK)" },
-    { "fr_CG",                  TEST_ULDN_LOCALE,   u"French (Congo [Republic])" },
-    { "fr_FR",                  TEST_ULDN_LOCALE,   u"French (France)" },
-};
-
-static const UldnItem en_DiaMidLong[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"American English" },
-	{ "fa_AF",                  TEST_ULDN_LOCALE, u"Dari" },
-	{ "prs",                    TEST_ULDN_LOCALE, u"Dari" },
-	{ "prs_AF",                 TEST_ULDN_LOCALE, u"Dari (Afghanistan)" },
-	{ "prs_TJ",                 TEST_ULDN_LOCALE, u"Dari (Tajikistan)" },
-	{ "prs",                    TEST_ULDN_LANGUAGE, u"Dari" },
-	{ "mo",                     TEST_ULDN_LOCALE, u"Romanian" },
-	{ "mo",                     TEST_ULDN_LANGUAGE, u"Romanian" },
-	{ "en_US_POSIX",            TEST_ULDN_LOCALE, u"American English (Computer)" },
-	{ "en_US@calendar=chinese", TEST_ULDN_LOCALE, u"American English (Chinese Calendar)" },
-	{ "en_CA",                  TEST_ULDN_LOCALE, u"Canadian English" },
-	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
-	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Brazilian Portuguese" },
-	{ "pt_PT",                  TEST_ULDN_LOCALE, u"European Portuguese" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
-	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
-	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
-	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
-	{ "Hant",                   TEST_ULDN_SCRIPT, u"Traditional Han" },
-	{ "US",                     TEST_ULDN_REGION, u"United States" },
-	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
-	{ "GB",                     TEST_ULDN_REGION, u"United Kingdom" },
-	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
-};
-
-static const UldnItem en_DiaMidShrt[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"US English" },
-	{ "en_US_POSIX",            TEST_ULDN_LOCALE, u"US English (Computer)" },
-	{ "en_US@calendar=chinese", TEST_ULDN_LOCALE, u"US English (Chinese Calendar)" },
-	{ "en_CA",                  TEST_ULDN_LOCALE, u"Canadian English" },
-	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
-	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Brazilian Portuguese" },
-	{ "pt_PT",                  TEST_ULDN_LOCALE, u"European Portuguese" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
-	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
-	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
-	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
-	{ "Hant",                   TEST_ULDN_SCRIPT, u"Traditional Han" },
-	{ "US",                     TEST_ULDN_REGION, u"US" },
-	{ "CA",                     TEST_ULDN_REGION, u"Canada" },
-	{ "GB",                     TEST_ULDN_REGION, u"UK" },
-	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
-};
-
-static const UldnItem en_CA_DiaMidLong[] = { // <rdar://problem/60916890>
-	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
-	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },
-	{ "ar_001",                 TEST_ULDN_LOCALE, u"Modern Standard Arabic" },
-	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
-	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
-	{ "fr_CA",                  TEST_ULDN_LOCALE, u"Canadian French" },
-	{ "en_GB",                  TEST_ULDN_LOCALE, u"British English" },
-	{ "en_US",                  TEST_ULDN_LOCALE, u"American English" },
-};
-
-static const UldnItem en_CA_DiaMidShrt[] = { // <rdar://problem/60916890>
-	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
-	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },
-	{ "ar_001",                 TEST_ULDN_LOCALE, u"Modern Standard Arabic" },
-	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
-	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
-	{ "fr_CA",                  TEST_ULDN_LOCALE, u"Canadian French" },
-	{ "en_GB",                  TEST_ULDN_LOCALE, u"UK English" },
-	{ "en_US",                  TEST_ULDN_LOCALE, u"US English" },
-};
-
-static const UldnItem en_GB_DiaMidLong[] = { // <rdar://problem/60916890>
-	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
-	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },
-	{ "ar_001",                 TEST_ULDN_LOCALE, u"Modern Standard Arabic" },
-	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
-	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
-	{ "fr_CA",                  TEST_ULDN_LOCALE, u"Canadian French" },
-	{ "en_GB",                  TEST_ULDN_LOCALE, u"British English" },
-	{ "en_US",                  TEST_ULDN_LOCALE, u"American English" },
-};
-
-static const UldnItem en_GB_DiaMidShrt[] = { // <rdar://problem/60916890>
-	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
-	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },
-	{ "ar_001",                 TEST_ULDN_LOCALE, u"Modern Standard Arabic" },
-	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
-	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
-	{ "fr_CA",                  TEST_ULDN_LOCALE, u"Canadian French" },
-	{ "en_GB",                  TEST_ULDN_LOCALE, u"UK English" },
-	{ "en_US",                  TEST_ULDN_LOCALE, u"US English" },
-};
-
-static const UldnItem en_IN_StdMidLong[] = {
-	{ "bn",                     TEST_ULDN_LOCALE, u"Bangla" },
-	{ "bn_Beng",                TEST_ULDN_LOCALE, u"Bangla (Bangla)" },
-	{ "or",                     TEST_ULDN_LOCALE, u"Odia" },
-	{ "or_Orya",                TEST_ULDN_LOCALE, u"Odia (Odia)" },
-};
-
-static const UldnItem fr_StdMidLong[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"anglais (É.-U.)" },
-	{ "US",                     TEST_ULDN_REGION, u"États-Unis" },
-	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
-	{ "MO",                     TEST_ULDN_REGION, u"Macao" },
-	{ "IO",                     TEST_ULDN_REGION, u"Archipel des Chagos" },
-	// tests for rdar://63655841&79400781
-	{ "atj",                    TEST_ULDN_LOCALE, u"atikamekw" },
-	{ "cho",                    TEST_ULDN_LOCALE, u"choctaw" },
-	{ "cic",                    TEST_ULDN_LOCALE, u"chicacha" },	
-	{ "cr",                     TEST_ULDN_LOCALE, u"cree" }, // macrolang
-	{ "cwd",                    TEST_ULDN_LOCALE, u"cree des bois" }, // distinct name for primary sub-lang
-	{ "crj",                    TEST_ULDN_LOCALE, u"cree de l'Est du sud" }, // other sub-lang
-	{ "csw",                    TEST_ULDN_LOCALE, u"cree des marécages" }, // other sub-lang
-	{ "hai",                    TEST_ULDN_LOCALE, u"haïda" }, // macrolang
-	{ "hdn",                    TEST_ULDN_LOCALE, u"haïda du Nord" }, // distinct name for primary sub-lang
-	{ "hax",                    TEST_ULDN_LOCALE, u"haïda du Sud" }, // other sub-lang
-	{ "iu",                     TEST_ULDN_LOCALE, u"inuktitut" }, // macrolang
-	{ "ike",                    TEST_ULDN_LOCALE, u"inuktitut de l'Est canadien" }, // distinct name for primary sub-lang
-	{ "ikt",                    TEST_ULDN_LOCALE, u"inuktitut de l'Ouest canadien" }, // other sub-lang
-	{ "oj",                     TEST_ULDN_LOCALE, u"ojibwa" }, // macrolang
-	{ "ojg",                    TEST_ULDN_LOCALE, u"ojibwa de l'Est" }, // distinct name for primary sub-lang
-	{ "ojb",                    TEST_ULDN_LOCALE, u"ojibwa du Nord-ouest" }, // other sub-lang
-	{ "ojs",                    TEST_ULDN_LOCALE, u"oji-cree" }, // other sub-lang
-	{ "ttm",                    TEST_ULDN_LOCALE, u"tutchone du Nord" },
-	{ "tce",                    TEST_ULDN_LOCALE, u"tutchone du Sud" },
-	// tests for rdar://75064267, rdar://89394823 
-	{ "rhg",                    TEST_ULOC_LOCALE, u"rohingya" },
-	{ "Adlm",                   TEST_ULDN_SCRIPT, u"adlam" },
-	{ "Rohg",                   TEST_ULDN_SCRIPT, u"hanifi du Rohingya" },
-	{ "Syrc",                   TEST_ULDN_SCRIPT, u"syriaque" },
-	{ "syr",                    TEST_ULOC_LOCALE, u"soureth" },
-	{ "apw",                    TEST_ULOC_LOCALE, u"apache occidental" },
-};
-
-static const UldnItem fr_StdMidShrt[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"anglais (É.-U.)" },
-	{ "US",                     TEST_ULDN_REGION, u"É.-U." },
-	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
-};
-
-static const UldnItem fr_StdBegLong[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"Anglais (É.-U.)" },
-};
-
-static const UldnItem fr_StdLstLong[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"Anglais (É.-U.)" },
-	{ "PS",                     TEST_ULDN_REGION, u"Territoires palestiniens" },
-    { "Hans",                   TEST_ULDN_SCRIPT, u"sinogrammes simplifiés" },      // Apple <rdar://70285470>
-    { "Hant",                   TEST_ULDN_SCRIPT, u"sinogrammes traditionnels" }    // Apple <rdar://70285470>
-};
-
-static const UldnItem fr_DiaMidLong[] = {
-	{ "en_US",                  TEST_ULDN_LOCALE, u"anglais américain" },
-};
-
-static const UldnItem ca_StdLstLong[] = {
-	{ "PS",                     TEST_ULDN_REGION, u"Territoris palestins" },
-    { "SZ",                     TEST_ULDN_REGION, u"eSwatini" }, // Apple <rdar://65139631>
-};
-
-static const UldnItem nb_StdMidLong[] = {
-	{ "ur_Arab",                TEST_ULDN_LOCALE, u"urdu (naskh)" },
-	// tests for rdar://75064267, rdar://89394823 
-	{ "rhg",                    TEST_ULOC_LOCALE, u"rohingya" },
-	{ "Adlm",                   TEST_ULDN_SCRIPT, u"adlam" },
-	{ "Rohg",                   TEST_ULDN_SCRIPT, u"hanifisk rohingya" },
-	{ "Syrc",                   TEST_ULDN_SCRIPT, u"syrisk" },
-	{ "apw",                    TEST_ULOC_LOCALE, u"apache, vestlig" },
-};
-
-static const UldnItem ur_StdMidLong[] = {
-	{ "ps_Arab",                TEST_ULDN_LOCALE, u"پشتو (عربی)" },
-	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"پشتو (عربی،افغانستان)" },
-	{ "ur_Aran",                TEST_ULDN_LOCALE, u"اردو (نستعلیق)" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab",                TEST_ULDN_LOCALE, u"اردو (نسخ)" }, // Apple <rdar://problem/50687287>
-	{ "ur_Aran_PK",             TEST_ULDN_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab_PK",             TEST_ULDN_LOCALE, u"اردو (نسخ،پاکستان)" }, // Apple <rdar://problem/50687287>
-
-	{ "ps_Arab",                TEST_ULOC_LOCALE, u"پشتو (عربی)" },
-	{ "ps_Arab_AF",             TEST_ULOC_LOCALE, u"پشتو (عربی،افغانستان)" },
-	{ "ur_Aran",                TEST_ULOC_LOCALE, u"اردو (نستعلیق)" },     // Apple <rdar://problem/47494884>
-	{ "ur_Arab",                TEST_ULOC_LOCALE, u"اردو (نسخ)" },         // Apple <rdar://problem/51418203>
-	{ "ur_Aran_PK",             TEST_ULOC_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab_PK",             TEST_ULOC_LOCALE, u"اردو (نسخ،پاکستان)" }, // Apple <rdar://problem/51418203>
-};
-
-static const UldnItem ru_StdMidLong[] = {
-	{ "cic_Latn",                TEST_ULDN_LOCALE, u"чикасо" },
-};
-
-static const UldnItem pa_Arab_StdMidLong[] = {
-	{ "pa_Aran",                TEST_ULDN_LOCALE, u"پنجابی (نستعلیق)" }, // Apple <rdar://problem/47494884>
-	{ "pa_Arab",                TEST_ULDN_LOCALE, u"پنجابی (نسخ)" }, // Apple <rdar://problem/50687287>
-	{ "pa_Aran_PK",             TEST_ULDN_LOCALE, u"پنجابی (نستعلیق, پاکستان)" }, // Apple <rdar://problem/47494884>
-	{ "pa_Arab_PK",             TEST_ULDN_LOCALE, u"پنجابی (نسخ, پاکستان)" }, // Apple <rdar://problem/50687287>
-
-	{ "pa_Aran",                TEST_ULOC_LOCALE, u"پنجابی (نستعلیق)" },      // Apple <rdar://problem/51418203>
-	{ "pa_Arab",                TEST_ULOC_LOCALE, u"پنجابی (نسخ)" },          // Apple <rdar://problem/51418203>
-	{ "pa_Aran_PK",             TEST_ULOC_LOCALE, u"پنجابی (نستعلیق, پاکستان)" }, // Apple <rdar://problem/51418203>
-	{ "pa_Arab_PK",             TEST_ULOC_LOCALE, u"پنجابی (نسخ, پاکستان)" }, // Apple <rdar://problem/51418203>
-};
-
-static const UldnItem zh_StdMidLong[] = {
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"简体中文" },           // Apple <rdar://problem/50750364>
-	{ "zh_Hans_CN",             TEST_ULDN_LOCALE, u"简体中文（中国大陆）" }, // Apple <rdar://problem/50750364>
-	{ "zh_Hant",                TEST_ULDN_LOCALE, u"繁体中文" },           // Apple <rdar://problem/50750364>
-	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"繁体中文（香港）" },    // Apple <rdar://problem/50750364>
-	{ "yue_Hans",               TEST_ULDN_LOCALE, u"简体粤语" },           // Apple <rdar://problem/50750364>
-	{ "yue_Hans_CN",            TEST_ULDN_LOCALE, u"简体粤语（中国大陆）" }, // Apple <rdar://problem/50750364>
-	{ "yue_Hant",               TEST_ULDN_LOCALE, u"繁体粤语" },           // Apple <rdar://problem/50750364>
-	{ "yue_Hant_HK",            TEST_ULDN_LOCALE, u"繁体粤语（香港）" },    // Apple <rdar://problem/50750364>
-	{ "ps_Arab",                TEST_ULDN_LOCALE, u"普什图语（阿拉伯文）" },
-	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"普什图语（阿拉伯文，阿富汗）" },
-	{ "ur_Aran",                TEST_ULDN_LOCALE, u"乌尔都语（波斯体）" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab",                TEST_ULDN_LOCALE, u"乌尔都语（誊抄体）" }, // Apple <rdar://problem/50687287>
-	{ "ur_Aran_PK",             TEST_ULDN_LOCALE, u"乌尔都语（波斯体，巴基斯坦）" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab_PK",             TEST_ULDN_LOCALE, u"乌尔都语（誊抄体，巴基斯坦）" }, // Apple <rdar://problem/50687287>
-
-	{ "zh_Hans",                TEST_ULOC_LOCALE, u"简体中文" },           // Apple <rdar://problem/51418203>
-	{ "zh_Hans_CN",             TEST_ULOC_LOCALE, u"简体中文（中国大陆）" }, // Apple <rdar://problem/51418203>
-	{ "zh_Hant",                TEST_ULOC_LOCALE, u"繁体中文" },           // Apple <rdar://problem/51418203>
-	{ "zh_Hant_HK",             TEST_ULOC_LOCALE, u"繁体中文（香港）" },    // Apple <rdar://problem/51418203>
-	{ "yue_Hans",               TEST_ULOC_LOCALE, u"简体粤语" },           // Apple <rdar://problem/51418203>
-	{ "yue_Hans_CN",            TEST_ULOC_LOCALE, u"简体粤语（中国大陆）" }, // Apple <rdar://problem/51418203>
-	{ "yue_Hant",               TEST_ULOC_LOCALE, u"繁体粤语" },           // Apple <rdar://problem/51418203>
-	{ "yue_Hant_HK",            TEST_ULOC_LOCALE, u"繁体粤语（香港）" },    // Apple <rdar://problem/51418203>
-	{ "ur_Aran",                TEST_ULOC_LOCALE, u"乌尔都语（波斯体）" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab",                TEST_ULOC_LOCALE, u"乌尔都语（誊抄体）" }, // Apple <rdar://problem/51418203>
-	{ "ur_Aran_PK",             TEST_ULOC_LOCALE, u"乌尔都语（波斯体，巴基斯坦）" }, // Apple <rdar://problem/47494884>
-	{ "ur_Arab_PK",             TEST_ULOC_LOCALE, u"乌尔都语（誊抄体，巴基斯坦）" }, // Apple <rdar://problem/51418203>
-
-	{ "HK",                     TEST_ULDN_REGION, u"香港" },
-	{ "MO",                     TEST_ULDN_REGION, u"澳门" },
-    
-    { "ars",                    TEST_ULDN_LANGUAGE, u"阿拉伯语（内志）" },  // Apple <rdar://69728925>
-
-	// tests for rdar://75064267, rdar://89394823, rdar://59762233
-	{ "rhg",                    TEST_ULOC_LOCALE, u"罗兴亚语" },
-	{ "Adlm",                   TEST_ULDN_SCRIPT, u"阿德拉姆文" },
-	{ "Rohg",                   TEST_ULDN_SCRIPT, u"哈乃斐罗兴亚文" },
-	{ "Syrc",                   TEST_ULDN_SCRIPT, u"叙利亚文" },
-	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕奇语（西方）" },
-	{ "guc",                    TEST_ULOC_LOCALE, u"瓦尤语" },
-};
-
-static const UldnItem zh_Hant_StdMidLong[] = {
-	{ "HK",                     TEST_ULDN_REGION, u"香港" },
-	{ "MO",                     TEST_ULDN_REGION, u"澳門" },
-    
-    { "ars",                    TEST_ULDN_LANGUAGE, u"阿拉伯文（內志）" },  // Apple <rdar://69728925>
-	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕切文（西部）" }, // Apple rdar://89394823 
-};
-
-static const UldnItem zh_Hant_HK_StdMidLong[] = {
-	{ "HK",                     TEST_ULDN_REGION, u"香港" },
-	{ "MO",                     TEST_ULDN_REGION, u"澳門" },
-};
-
-static const UldnItem yue_StdMidLong[] = {
-	{ "HK",                     TEST_ULDN_REGION, u"香港" },
-	{ "MO",                     TEST_ULDN_REGION, u"澳門" },
-};
-
-static const UldnItem yue_Hans_StdMidLong[] = {
-	{ "zh_Hans_CN",             TEST_ULOC_LOCALE, u"简体中文（中国大陆）" }, // Apple <rdar://problem/53136228>
-	{ "zh_Hant_HK",             TEST_ULOC_LOCALE, u"繁体中文（香港）" },    // Apple <rdar://problem/53136228>
-	{ "yue_Hans_CN",            TEST_ULOC_LOCALE, u"简体粤语（中国大陆）" }, // Apple <rdar://problem/53136228>
-	{ "yue_Hant_HK",            TEST_ULOC_LOCALE, u"繁体粤语（香港）" },    // Apple <rdar://problem/53136228>
-	{ "HK",                     TEST_ULDN_REGION, u"香港" },
-	{ "MO",                     TEST_ULDN_REGION, u"澳门" },
-	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕奇语（西方）" }, // Apple rdar://89394823 
-};
-
-static const UldnItem nds_StdMidLong[] = { // Apple <rdar://problem/64703717>
-	{ "nds",                   TEST_ULOC_LOCALE, u"Neddersass’sch" },
-};
-
-static const UldnItem hi_StdMidLong[] = { // Apple <rdar://problem/53653337>
-	{ "Aran",                   TEST_ULDN_SCRIPT, u"नस्तालीक़" },
-	// tests for rdar://75064267, rdar://89394823, rdar://59762233
-	{ "rhg",                    TEST_ULOC_LOCALE, u"रोहिंग्या" },
-	{ "Adlm",                   TEST_ULDN_SCRIPT, u"अदलाम" },
-	{ "Rohg",                   TEST_ULDN_SCRIPT, u"हनिफ़ी रोहिंग्या" },
-	{ "Syrc",                   TEST_ULDN_SCRIPT, u"सिरियेक" },
-	{ "apw",                    TEST_ULOC_LOCALE, u"अपाची, पश्चिमी" },
-	{ "guc",                    TEST_ULOC_LOCALE, u"वायु" },
-};
-
-static const UldnItem hi_Latn_StdMidLong[] = { // Apple <rdar://problem/53216112>
-	{ "en",                     TEST_ULDN_LOCALE, u"English" },
-	{ "hi_Deva",                TEST_ULDN_LOCALE, u"Hindi (Devanagari)" },
-	{ "hi_Latn",                TEST_ULDN_LOCALE, u"Hindi (Latin)" },
-	{ "hi_Latn_IN",             TEST_ULDN_LOCALE, u"Hindi (Latin, India)" },
-};
-
-static const UldnItem mni_Beng_StdMidLong[] = { // Apple <rdar://problem/54153189>
-	{ "mni_Beng",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (বাংলা)" },
-	{ "mni_Mtei",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (মেইটেই মায়েক)" },
-};
-
-static const UldnItem mni_Mtei_StdMidLong[] = { // Apple <rdar://problem/54153189>
-	{ "mni_Beng",               TEST_ULDN_LOCALE, u"ꯃꯤꯇꯩꯂꯣꯟ (ꯕꯪꯂꯥ)" },
-	{ "mni_Mtei",               TEST_ULDN_LOCALE, u"ꯃꯤꯇꯩꯂꯣꯟ (ꯃꯤꯇꯩ ꯃꯌꯦꯛ)" },
-};
-
-static const UldnItem sat_Olck_StdMidLong[] = { // Apple <rdar://problem/54153189>
-	{ "sat_Olck",               TEST_ULDN_LOCALE, u"ᱥᱟᱱᱛᱟᱲᱤ (ᱚᱞ ᱪᱤᱠᱤ)" },
-	{ "sat_Deva",               TEST_ULDN_LOCALE, u"ᱥᱟᱱᱛᱟᱲᱤ (ᱫᱮᱣᱟᱱᱟᱜᱟᱨᱤ)" },
-};
-
-static const UldnItem sat_Deva_StdMidLong[] = { // Apple <rdar://problem/54153189>
-	{ "sat_Olck",               TEST_ULDN_LOCALE, u"सानताड़ी (अल चीकी)" },
-	{ "sat_Deva",               TEST_ULDN_LOCALE, u"सानताड़ी (देवानागारी)" },
-};
-
-static const UldnItem en_AU_StdBegLong[] = { // Apple <rdar://69835367>
-    { "019",               TEST_ULDN_REGION, u"Americas" },
-    { "002",               TEST_ULDN_REGION, u"Africa" },
-    { "150",               TEST_ULDN_REGION, u"Europe" },
-    { "142",               TEST_ULDN_REGION, u"Asia" },
-    { "009",               TEST_ULDN_REGION, u"Oceania" },
-};
-
-static const UldnItem es_MX_StdBegLong[] = { // Apple <rdar://69835367>
-    { "019",                TEST_ULDN_REGION, u"América" },
-    { "002",                TEST_ULDN_REGION, u"África" },
-    { "150",                TEST_ULDN_REGION, u"Europa" },
-    { "142",                TEST_ULDN_REGION, u"Asia" },
-    { "009",                TEST_ULDN_REGION, u"Oceanía" },
-	{ "HK",                 TEST_ULDN_REGION, u"Hong-Kong" },
-	{ "MO",                 TEST_ULDN_REGION, u"Macao" },
-	{ "guc",                TEST_ULDN_LANGUAGE, u"Wayú" }, // rdar://59762233
-};
-
-static const UldnItem ms_StdMidLong[] = {
-	{ "SZ",                 TEST_ULDN_REGION, u"Eswatini" },
-	{ "wuu",                TEST_ULDN_LOCALE, u"Dialek Shanghai" },
-	{ "HK",                 TEST_ULDN_REGION, u"Hong Kong" },
-	{ "MO",                 TEST_ULDN_REGION, u"Macau" },
-	// rdar://59762233
-	{ "arc",                TEST_ULDN_LOCALE, u"Aramia" },
-	{ "car",                TEST_ULDN_LOCALE, u"Carib" },
-	{ "guc",                TEST_ULDN_LOCALE, u"Wayuu" },
-	{ "vls",                TEST_ULDN_LOCALE, u"Flemish Barat" },
-};
-
-static const UldnItem ain_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "ain",                TEST_ULOC_LOCALE, u"アイヌ・イタㇰ" },
-};
-
-static const UldnItem am_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "am",                 TEST_ULOC_LOCALE, u"አማርኛ" },
-};
-
-static const UldnItem ff_Adlm_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "ff_Adlm",            TEST_ULOC_LOCALE, u"𞤆𞤵𞤤𞤢𞤪 (𞤀𞤁𞤂𞤢𞤃)" },
-};
-
-static const UldnItem ig_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "ig",                 TEST_ULOC_LOCALE, u"Igbo" },
-};
-
-static const UldnItem kk_StdMidLong[] = { // Apple <rdar://95015661>
-    { "AT",                 TEST_ULDN_REGION,   u"Аустрия" },
-    { "AU",                 TEST_ULDN_REGION,   u"Аустралия" },
-    { "053",                TEST_ULDN_REGION,   u"Аустралазия" },
-    { "de_AT",              TEST_ULOC_LOCALE,   u"неміс тілі (Аустрия)" },
-    { "en_AU",              TEST_ULOC_LOCALE,   u"ағылшын тілі (Аустралия)" },
-    // Apple rdar://95777359
-    { "yue_Hans",           TEST_ULOC_LOCALE, u"кантон тілі (жеңілдетілген жазу)" },
-    { "yue_Hant",           TEST_ULOC_LOCALE, u"кантон тілі (дәстүрлі жазу)" },
-    { "Hans",               TEST_ULDN_SCRIPT, u"жеңілдетілген қытай иероглифы" },
-    { "Hant",               TEST_ULDN_SCRIPT, u"дәстүрлі қытай иероглифы" },
-    { "en_ZA",              TEST_ULOC_LOCALE, u"ағылшын тілі (Оңтүстік Африка)" },
-};
-
-static const UldnItem kk_DiaMidLong[] = { // Apple <rdar://95015661>
-    { "de_AT",              TEST_ULDN_LOCALE,   u"аустриялық неміс тілі" },
-    { "en_AU",              TEST_ULDN_LOCALE,   u"аустралиялық ағылшын тілі" },
-};
-
-static const UldnItem nv_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "nv",                 TEST_ULOC_LOCALE, u"Diné bizaad" },
-};
-
-static const UldnItem rhg_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "rhg",                TEST_ULOC_LOCALE, u"𐴌𐴗𐴥𐴝𐴙𐴚𐴒𐴙𐴝" },
-};
-
-static const UldnItem syr_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "syr",                TEST_ULOC_LOCALE, u"ܣܘܪܝܝܐ" },
-};
-
-static const UldnItem ti_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "ti",                TEST_ULOC_LOCALE, u"ትግርኛ" },
-};
-
-static const UldnItem ro_StdMidLong[] = { // https://unicode-org.atlassian.net/browse/ICU-11563
-	{ "mo",                     TEST_ULDN_LOCALE, u"română" },
-	{ "mo_MD",                  TEST_ULDN_LOCALE, u"română (Republica Moldova)" },
-	{ "mo",                     TEST_ULDN_LANGUAGE, u"română" },
-	{ "mo_MD",                  TEST_ULOC_LOCALE, u"română (Republica Moldova)" },
-	{ "mo",                     TEST_ULOC_LANGUAGE, u"română" },
-};
-
-static const UldnItem yi_StdMidLong[] = { // https://unicode-org.atlassian.net/browse/ICU-21742
-	{ "ji",                     TEST_ULDN_LOCALE, u"ייִדיש" },
-	{ "ji_US",                  TEST_ULDN_LOCALE, u"ייִדיש (פֿ\"ש)" },
-	{ "ji",                     TEST_ULDN_LANGUAGE, u"ייִדיש" },
-	{ "ji_US",                  TEST_ULOC_LOCALE, u"ייִדיש (פֿאַראייניגטע שטאַטן)" },
-	{ "ji",                     TEST_ULOC_LANGUAGE, u"ייִדיש" },
-};
-
-static const UldnItem apw_StdMidLong[] = { // Apple rdar://89394823 rdar://94490599
-	{ "apw",                TEST_ULOC_LOCALE, u"Nṉee biyátiʼ" },
-	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
-	{ "apw_Latn",           TEST_ULDN_LOCALE, u"Nṉee biyátiʼ" },
-};
-
-static const UldnItem cic_StdMidLong[] = { // Apple rdar://100483742 rdar://100483742
-	{ "cic",                TEST_ULOC_LOCALE, u"Chikashshanompaʼ" },
-	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
-	{ "cic_Latn",           TEST_ULDN_LOCALE, u"Chikashshanompaʼ" },
-};
-
-static const UldnItem cho_StdMidLong[] = { // Apple rdar://103954992 rdar://100483742
-	{ "cho",                TEST_ULOC_LOCALE, u"Chahta" },
-	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
-	{ "cho_Latn",           TEST_ULDN_LOCALE, u"Chahta" },
-};
-
-static const UldnItem dz_StdMidLong[] = { // Apple rdar://89394823
-	{ "dz",                TEST_ULOC_LOCALE, u"རྫོང་ཁ་" },
-};
-
-static const UldnItem sm_StdMidLong[] = { // Apple rdar://89394823
-	{ "sm",                TEST_ULOC_LOCALE, u"Gagana faʻa Sāmoa" },
-};
-
-static const UldnItem el_StdMidLong[] = { // Apple rdar://84190308, rdar://89394823, rdar://59762233
-	{ "NL",                 TEST_ULDN_REGION, u"Κάτω Χώρες" },
-	{ "apw",                TEST_ULOC_LOCALE, u"Απάτσι, Δυτικοί" },
-	{ "guc",                TEST_ULOC_LOCALE, u"Ουαγού" },
-};
-
-static const UldnItem it_StdMidLong[] = { // Apple rdar://85413154
-	{ "SH",                 TEST_ULDN_REGION, u"Sant'Elena" },
-	{ "CI",                 TEST_ULDN_REGION, u"Côte d'Ivoire" },
-	{ "qug@currency=ECS",   TEST_ULOC_LOCALE, u"quechua dell'altopiano del Chimborazo (Valuta=sucre dell'Ecuador)" },
-};
-
-static const UldnItem no_StdLstLong[] = { // Apple rdar://81296782
-    { "en",                 TEST_ULDN_LANGUAGE, u"Engelsk" },
-    { "sv",                 TEST_ULDN_LANGUAGE, u"Svensk" },
-    { "no",                 TEST_ULDN_LANGUAGE, u"Norsk" },
-    { "fr",                 TEST_ULDN_LANGUAGE, u"Fransk" },
-    { "ja",                 TEST_ULDN_LANGUAGE, u"Japansk" },
-    { "zh",                 TEST_ULDN_LANGUAGE, u"Kinesisk" },
-};
-
-static const UldnLocAndOpts uldnLocAndOpts[] = {
-    { "en", optStdMidLong, en_StdMidLong, UPRV_LENGTHOF(en_StdMidLong) },
-    { "en", optStdMidShrt, en_StdMidShrt, UPRV_LENGTHOF(en_StdMidShrt) },
-    { "en", optDiaMidLong, en_DiaMidLong, UPRV_LENGTHOF(en_DiaMidLong) },
-    { "en", optDiaMidShrt, en_DiaMidShrt, UPRV_LENGTHOF(en_DiaMidShrt) },
-    { "ro", optStdMidLong, ro_StdMidLong, UPRV_LENGTHOF(ro_StdMidLong) },
-    { "yi", optStdMidLong, yi_StdMidLong, UPRV_LENGTHOF(yi_StdMidLong) },
-    // Apple additions
-    { "en", optStdMidVrnt, en_StdMidVrnt, UPRV_LENGTHOF(en_StdMidVrnt) },
-    { "en_CA", optDiaMidLong, en_CA_DiaMidLong, UPRV_LENGTHOF(en_CA_DiaMidLong) }, // <rdar://problem/60916890>
-    { "en_CA", optDiaMidShrt, en_CA_DiaMidShrt, UPRV_LENGTHOF(en_CA_DiaMidShrt) }, // <rdar://problem/60916890>
-    { "en_GB", optDiaMidLong, en_GB_DiaMidLong, UPRV_LENGTHOF(en_GB_DiaMidLong) }, // <rdar://problem/60916890>
-    { "en_GB", optDiaMidShrt, en_GB_DiaMidShrt, UPRV_LENGTHOF(en_GB_DiaMidShrt) }, // <rdar://problem/60916890>
-    { "en_IN", optStdMidLong, en_IN_StdMidLong, UPRV_LENGTHOF(en_IN_StdMidLong) }, // <rdar://problem/65959353>
-    { "fr", optStdMidLong, fr_StdMidLong, UPRV_LENGTHOF(fr_StdMidLong) },
-    { "fr", optStdMidShrt, fr_StdMidShrt, UPRV_LENGTHOF(fr_StdMidShrt) },
-    { "fr", optStdBegLong, fr_StdBegLong, UPRV_LENGTHOF(fr_StdBegLong) },
-    { "fr", optStdLstLong, fr_StdLstLong, UPRV_LENGTHOF(fr_StdLstLong) },
-    { "fr_CA", optStdLstLong, fr_StdLstLong, UPRV_LENGTHOF(fr_StdLstLong) },
-    { "fr", optDiaMidLong, fr_DiaMidLong, UPRV_LENGTHOF(fr_DiaMidLong) },
-    { "ca", optStdLstLong, ca_StdLstLong, UPRV_LENGTHOF(ca_StdLstLong) },
-	{ "cho", optStdMidLong, cho_StdMidLong, UPRV_LENGTHOF(cho_StdMidLong) },
-	{ "cic", optStdMidLong, cic_StdMidLong, UPRV_LENGTHOF(cic_StdMidLong) },
-    { "nb", optStdMidLong, nb_StdMidLong, UPRV_LENGTHOF(nb_StdMidLong) }, // <rdar://problem/65008672>
-    { "ur", optStdMidLong,      ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
-    { "ur_Arab", optStdMidLong, ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
-    { "ur_Aran", optStdMidLong, ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
-    { "pa_Arab", optStdMidLong, pa_Arab_StdMidLong, UPRV_LENGTHOF(pa_Arab_StdMidLong) },
-    { "pa_Aran", optStdMidLong, pa_Arab_StdMidLong, UPRV_LENGTHOF(pa_Arab_StdMidLong) },
-	{ "ru", optStdMidLong,      ru_StdMidLong,      UPRV_LENGTHOF(ru_StdMidLong) },
-    { "zh", optStdMidLong,      zh_StdMidLong,        UPRV_LENGTHOF(zh_StdMidLong) },
-    { "zh_Hant", optStdMidLong, zh_Hant_StdMidLong,   UPRV_LENGTHOF(zh_Hant_StdMidLong) },
-    { "zh_Hant_HK", optStdMidLong, zh_Hant_HK_StdMidLong, UPRV_LENGTHOF(zh_Hant_HK_StdMidLong) },
-    { "yue", optStdMidLong,      yue_StdMidLong,      UPRV_LENGTHOF(yue_StdMidLong) },
-    { "yue_Hans", optStdMidLong, yue_Hans_StdMidLong, UPRV_LENGTHOF(yue_Hans_StdMidLong) },
-    { "nds", optStdMidLong, nds_StdMidLong, UPRV_LENGTHOF(nds_StdMidLong) },
-    { "hi", optStdMidLong, hi_StdMidLong, UPRV_LENGTHOF(hi_StdMidLong) },
-    { "hi_Latn", optStdMidLong, hi_Latn_StdMidLong, UPRV_LENGTHOF(hi_Latn_StdMidLong) },
-    { "mni_Beng", optStdMidLong, mni_Beng_StdMidLong, UPRV_LENGTHOF(mni_Beng_StdMidLong) },
-    { "mni_Mtei", optStdMidLong, mni_Mtei_StdMidLong, UPRV_LENGTHOF(mni_Mtei_StdMidLong) },
-    { "sat_Olck", optStdMidLong, sat_Olck_StdMidLong, UPRV_LENGTHOF(sat_Olck_StdMidLong) },
-    { "sat_Deva", optStdMidLong, sat_Deva_StdMidLong, UPRV_LENGTHOF(sat_Deva_StdMidLong) },
-    { "en_AU", optStdBegLong, en_AU_StdBegLong, UPRV_LENGTHOF(en_AU_StdBegLong) }, // <rdar://69835367>
-    { "es_MX", optStdBegLong, es_MX_StdBegLong, UPRV_LENGTHOF(es_MX_StdBegLong) }, // <rdar://69835367>
-    { "ms", optStdMidLong, ms_StdMidLong, UPRV_LENGTHOF(ms_StdMidLong) }, // rdar://66990121
-    { "ain", optStdMidLong, ain_StdMidLong, UPRV_LENGTHOF(ain_StdMidLong) }, // rdar:/74820154
-    { "am", optStdMidLong, am_StdMidLong, UPRV_LENGTHOF(am_StdMidLong) }, // rdar:/74820154
-    { "ff_Adlm", optStdMidLong, ff_Adlm_StdMidLong, UPRV_LENGTHOF(ff_Adlm_StdMidLong) }, // rdar:/74820154
-    { "ig", optStdMidLong, ig_StdMidLong, UPRV_LENGTHOF(ig_StdMidLong) }, // rdar:/74820154
-    { "nv", optStdMidLong, nv_StdMidLong, UPRV_LENGTHOF(nv_StdMidLong) }, // rdar:/74820154
-    { "rhg", optStdMidLong, rhg_StdMidLong, UPRV_LENGTHOF(rhg_StdMidLong) }, // rdar:/74820154
-    { "syr", optStdMidLong, syr_StdMidLong, UPRV_LENGTHOF(syr_StdMidLong) }, // rdar:/74820154
-    { "ti", optStdMidLong, ti_StdMidLong, UPRV_LENGTHOF(ti_StdMidLong) }, // rdar:/74820154
-    { "apw", optStdMidLong, apw_StdMidLong, UPRV_LENGTHOF(apw_StdMidLong) }, // rdar:/89394823
-    { "dz", optStdMidLong, dz_StdMidLong, UPRV_LENGTHOF(dz_StdMidLong) }, // rdar:/89394823
-    { "sm", optStdMidLong, sm_StdMidLong, UPRV_LENGTHOF(sm_StdMidLong) }, // rdar:/89394823
-    { "el", optStdMidLong, el_StdMidLong, UPRV_LENGTHOF(el_StdMidLong) }, // rdar:/84190308
-    { "it", optStdMidLong, it_StdMidLong, UPRV_LENGTHOF(it_StdMidLong) }, // rdar:/85413154
-    { "no", optStdLstLong, no_StdLstLong, UPRV_LENGTHOF(no_StdLstLong) }, // rdar://81296782
-    { "kk", optStdMidLong, kk_StdMidLong, UPRV_LENGTHOF(kk_StdMidLong) }, // rdar://95015661
-    { "kk", optDiaMidLong, kk_DiaMidLong, UPRV_LENGTHOF(kk_DiaMidLong) }, // rdar://95015661
-    { NULL, NULL, NULL, 0 }
-};
-
-enum { kUNameBuf = 128, kBNameBuf = 256 };
-
-static void TestUldnNameVariants() {
-    const UldnLocAndOpts * uloPtr;
-    for (uloPtr = uldnLocAndOpts; uloPtr->displayLocale != NULL; uloPtr++) {
-        UErrorCode status = U_ZERO_ERROR;
-        ULocaleDisplayNames * uldn = uldn_openForContext(uloPtr->displayLocale, (UDisplayContext*)uloPtr->displayOptions, 3, &status);
-        if (U_FAILURE(status)) {
-            log_data_err("uldn_openForContext fails, displayLocale %s, contexts %03X %03X %03X: %s - Are you missing data?\n",
-                    uloPtr->displayLocale, uloPtr->displayOptions[0], uloPtr->displayOptions[1], uloPtr->displayOptions[2],
-                    u_errorName(status) );
-            continue;
-        }
-        const UldnItem * itemPtr = uloPtr->testItems;
-        int32_t itemCount = uloPtr->countItems;
-        for (; itemCount-- > 0; itemPtr++) {
-            UChar uget[kUNameBuf];
-            int32_t ulenget, ulenexp;
-            const char* typeString;
-            status = U_ZERO_ERROR;
-            switch (itemPtr->nameType) {
-                case TEST_ULDN_LOCALE:
-                    ulenget = uldn_localeDisplayName(uldn, itemPtr->localeToName, uget, kUNameBuf, &status);
-                    typeString = "uldn_localeDisplayName";
-                    break;
-                case TEST_ULDN_LANGUAGE:
-                    ulenget = uldn_languageDisplayName(uldn, itemPtr->localeToName, uget, kUNameBuf, &status);
-                    typeString = "uldn_languageDisplayName";
-                  break;
-                case TEST_ULDN_SCRIPT:
-                    ulenget = uldn_scriptDisplayName(uldn, itemPtr->localeToName, uget, kUNameBuf, &status);
-                    typeString = "uldn_scriptDisplayName";
-                    break;
-                case TEST_ULDN_REGION:
-                    ulenget = uldn_regionDisplayName(uldn, itemPtr->localeToName, uget, kUNameBuf, &status);
-                    typeString = "uldn_regionDisplayName";
-                    break;
-                case TEST_ULOC_LOCALE:
-                    ulenget = uloc_getDisplayName(itemPtr->localeToName, uloPtr->displayLocale, uget, kUNameBuf, &status);
-                    typeString = "uloc_getDisplayName";
-                    break;
-                case TEST_ULOC_LANGUAGE:
-                    ulenget = uloc_getDisplayLanguage(itemPtr->localeToName, uloPtr->displayLocale, uget, kUNameBuf, &status);
-                    typeString = "uloc_getDisplayLanguage";
-                    break;
-                case TEST_ULOC_SCRIPT:
-                    ulenget = uloc_getDisplayScript(itemPtr->localeToName, uloPtr->displayLocale, uget, kUNameBuf, &status);
-                    typeString = "uloc_getDisplayScript";
-                    break;
-                case TEST_ULOC_REGION:
-                    ulenget = uloc_getDisplayCountry(itemPtr->localeToName, uloPtr->displayLocale, uget, kUNameBuf, &status);
-                    typeString = "uloc_getDisplayCountry";
-                    break;
-                default:
-                    continue;
-            }
-            if (U_FAILURE(status)) {
-                log_data_err("%s fails, displayLocale %s, contexts %03X %03X %03X, localeToName %s: %s\n",
-                        typeString, uloPtr->displayLocale, uloPtr->displayOptions[0], uloPtr->displayOptions[1], uloPtr->displayOptions[2],
-                        itemPtr->localeToName, u_errorName(status) );
-                continue;
-            }
-            ulenexp = u_strlen(itemPtr->expectResult);
-            if (ulenget != ulenexp || u_strncmp(uget, itemPtr->expectResult, ulenexp) != 0) {
-                char bexp[kBNameBuf], bget[kBNameBuf];
-                u_strToUTF8(bexp, kBNameBuf, NULL, itemPtr->expectResult, ulenexp, &status);
-                u_strToUTF8(bget, kBNameBuf, NULL, uget, ulenget, &status);
-                log_data_err("%s fails, displayLocale %s, contexts %03X %03X %03X, localeToName %s:\n    expect %2d: %s\n    get    %2d: %s\n",
-                        typeString, uloPtr->displayLocale, uloPtr->displayOptions[0], uloPtr->displayOptions[1], uloPtr->displayOptions[2],
-                        itemPtr->localeToName, ulenexp, bexp, ulenget, bget );
-            }
-        }
-        
-        uldn_close(uldn);
-    }
-}
-#endif // !UCONFIG_NO_FORMATTING
-
+#if APPLE_ICU_CHANGES
+// rdar://
 #define ULOC_UND_TESTNUM 9
 
 static const char* for_empty[ULOC_UND_TESTNUM] = { // ""
@@ -8300,7 +8660,7 @@ static void TestRootUndEmpty() {
 
         status = U_ZERO_ERROR;
         bexp = *expResultsPtr++;
-        blen = uloc_toLanguageTag(loc, bget, kBLocMax, TRUE, &status);
+        blen = uloc_toLanguageTag(loc, bget, kBLocMax, true, &status);
         if (U_FAILURE(status)) {
             log_err("loc \"%s\", uloc_toLanguageTag status: %s\n", loc, u_errorName(status) );
         } else if (uprv_strcmp(bget, bexp) != 0) {
@@ -8538,16 +8898,12 @@ static void TestGetLanguagesForRegion() {
     } else {
         // Expect approximately:
         // fo 0.95 UALANGSTATUS_OFFICIAL
-        // da 0.03 UALANGSTATUS_OFFICIAL
         // ...
-        if (entryCount < 2) {
+        if (entryCount < 1) {
             log_err("FAIL: ualoc_getLanguagesForRegion %s, entryCount %d is too small\n", region, entryCount);
         } else {
             if (uprv_strcmp(entries[0].languageCode, "fo") != 0 || entries[0].userFraction < 0.90 || entries[0].userFraction > 0.98 || entries[0].status != UALANGSTATUS_OFFICIAL) {
                 log_err("FAIL: ualoc_getLanguagesForRegion %s, invalid entries[0] { %s, %.3f, %d }\n", region, entries[0].languageCode, entries[0].userFraction, (int)entries[0].status);
-            }
-            if (uprv_strcmp(entries[1].languageCode, "da") != 0 || entries[1].userFraction < 0.02 || entries[1].userFraction > 0.04 || entries[1].status != UALANGSTATUS_OFFICIAL) {
-                log_err("FAIL: ualoc_getLanguagesForRegion %s, invalid entries[1] { %s, %.3f, %d }\n", region, entries[1].languageCode, entries[1].userFraction, (int)entries[1].status);
             }
         }
     }
@@ -8558,7 +8914,7 @@ static void TestGetLanguagesForRegion() {
     if (U_FAILURE(status)) {
             log_err("FAIL: ualoc_getLanguagesForRegion %s, status %s\n", region, u_errorName(status));
     } else {
-        // Expect about 12 entries, the last should be for ms_Arab with a fraction ≈ 0.012 // <rdar://problem/27943264> and subsequent changes
+        // Expect about 12 entries, the last should be for ms_Arab with a fraction ≈ 0.012 // rdar://27943264 and subsequent changes
         if (entryCount < 10) {
             log_err("FAIL: ualoc_getLanguagesForRegion %s with minFraction=0.01, entryCount %d is too small\n", region, entryCount);
         } else {
@@ -8578,7 +8934,7 @@ static void TestGetRegionsForLanguage() {
     UErrorCode err = U_ZERO_ERROR;
     regionCount = ualoc_getRegionsForLanguage("ar", 0, NULL, 0, &err);
     if (assertSuccess("Preflighting with no threshold failed", &err)) {
-        assertIntEquals("Preflighting with no threshold returned wrong region count", 36, regionCount);
+        assertIntEquals("Preflighting with no threshold returned wrong region count", 38, regionCount);
     }
     err = U_ZERO_ERROR;
     regionCount = ualoc_getRegionsForLanguage("ar", 0.5, NULL, 0, &err);
@@ -8661,7 +9017,7 @@ static void TestGetRegionsForLanguage() {
     err = U_ZERO_ERROR;
     regionCount = ualoc_getRegionsForLanguage("ar", 0, regions, 50, &err);
     if (assertSuccess("Passing capacity of 50 failed", &err)) {
-        assertIntEquals("Passing capacity of 50 returned wrong region count", 36, regionCount);
+        assertIntEquals("Passing capacity of 50 returned wrong region count", 38, regionCount);
         assertEquals("Wrong first region", "EH", regions[0].regionCode);
         assertEquals("Wrong second region", "JO", regions[1].regionCode);
         assertEquals("Wrong tenth region", "LB", regions[9].regionCode);
@@ -8669,8 +9025,8 @@ static void TestGetRegionsForLanguage() {
         assertEquals("Wrong 25th region", "TD", regions[24].regionCode);
         assertTrue("Wrong 25th region population share", regions[24].userFraction == 0.16999999999999998);
         assertIntEquals("Wrong 25th region status", regions[24].status, UALANGSTATUS_OFFICIAL);
-        assertEquals("Wrong 36th region", "TJ", regions[35].regionCode);
-        assertTrue("Wrong 36th region population share", regions[35].userFraction == 0.00011);
+        assertEquals("Wrong 36th region", "NG", regions[35].regionCode);
+        assertTrue("Wrong 36th region population share", regions[35].userFraction == 0.00071);
         assertIntEquals("Wrong 36th region status", regions[35].status, UALANGSTATUS_UNSPECIFIED);
     }
     
@@ -8679,7 +9035,7 @@ static void TestGetRegionsForLanguage() {
     err = U_ZERO_ERROR;
     int32_t simplifiedChineseRegionCount = ualoc_getRegionsForLanguage("zh", 0, regions, 50, &err);
     if (assertSuccess("Getting regions for 'zh' failed", &err)) {
-        assertIntEquals("Wrong region count for 'zh'", 7, simplifiedChineseRegionCount);
+        assertIntEquals("Wrong region count for 'zh'", 8, simplifiedChineseRegionCount);
     }
     err = U_ZERO_ERROR;
     int32_t traditionalChineseRegionCount = ualoc_getRegionsForLanguage("zh_Hant", 0, regions, 50, &err);
@@ -8771,7 +9127,7 @@ static void TestGetRegionsForLanguage() {
     err = U_ZERO_ERROR;
     int32_t japaneseRegionCount = ualoc_getRegionsForLanguage("ja", 0, regions, 50, &err);
     if (assertSuccess("Getting regions for 'ja' failed", &err)) {
-        assertIntEquals("Wrong region count for 'ja'", 2, japaneseRegionCount);
+        assertIntEquals("Wrong region count for 'ja'", 3, japaneseRegionCount);
     }
     err = U_ZERO_ERROR;
     regionCount = ualoc_getRegionsForLanguage("ja_JP_TRADITIONAL", 0, regions, 50, &err);
@@ -8796,7 +9152,7 @@ static void TestGetRegionsForLanguage() {
 #endif
 
 enum { kMaxLocsToUse = 8 };
-static void TestAppleLocalizationsToUsePerf() { // <rdar://problem/62458844&63471438>
+static void TestAppleLocalizationsToUsePerf() { // rdar://62458844&63471438
     static const char* preferredLangs[] = {"zh_Hans","pt_BR","fr_BE"};
     static const char* availableLocs[] = {"ar","de","en","en_AU","en_GB","es","es_419","fr","fr_CA","it","ja","ko","nl","no","pt","pt_PT","ru","zh_CN","zh_HK","zh_TW"};
     const char * locsToUse[kMaxLocsToUse];
@@ -8929,7 +9285,7 @@ static const char * appleLocs3[] = {
     "hr",
     "hu",
     "id",
-    "it", "it_CH", // <rdar://problem/35829322>
+    "it", "it_CH", // rdar://35829322
     "ja",
     "ko",
     "ms",
@@ -8952,7 +9308,7 @@ static const char * appleLocs4[] = {
     "en", "en_AU", "en_CA", "en_GB", "en_IN", "en_US",
     "es", "es_419", "es_MX",
     "fr", "fr_CA", "fr_CH", "fr_FR",
-    "it", "it_CH", "it_IT", // <rdar://problem/35829322>
+    "it", "it_CH", "it_IT", // rdar://35829322
     "nl", "nl_BE", "nl_NL",
     "pt", "pt_BR",
     "ro", "ro_MD", "ro_RO",
@@ -9036,8 +9392,8 @@ static const char* l1_hu[]          = { "hu", NULL };
 static const char* l1_id[]          = { "id", NULL };
 static const char* l1_in[]          = { "in", NULL };
 static const char* l1_it[]          = { "it", NULL };
-static const char* l2_it_CH[]       = { "it_CH", "it", NULL }; // <rdar://problem/35829322>
-static const char* l2_it_IT[]       = { "it_IT", "it", NULL }; // <rdar://problem/35829322>
+static const char* l2_it_CH[]       = { "it_CH", "it", NULL }; // rdar://35829322
+static const char* l2_it_IT[]       = { "it_IT", "it", NULL }; // rdar://35829322
 static const char* l1_Ita[]         = { "Italian", NULL };
 static const char* l1_ja[]          = { "ja", NULL };
 static const char* l1_Japn[]        = { "Japanese", NULL };
@@ -9109,7 +9465,7 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "zh-TW",              { l1_zh_TW,       l1_zh_TW,       l1_zh_TW,       l1_zh_Hant,     l2_zh_TW_Hant,  l2_zh_TW_Hant  } },
     { "zh-HK",              { l1_zh_TW,       l2_zh_HKTW,     l2_zh_HKTW,     l2_zh_Hant_HK_, l1_zh_Hant,  l3_zh_HantHKHKTW_Hant } },
     { "zh-MO",              { l1_zh_TW,       l2_zh_HKTW,     l3_zh_MOHKTW,   l2_zh_Hant_HK_, l1_zh_Hant,  l3_zh_HKTW_Hant} },
-    { "yue-CN",             { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l1_zh_Hans,     l1_zh_Hans     } }, // <rdar://problem/30671866> should 5/6 be zh_CN?
+    { "yue-CN",             { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l1_zh_Hans,     l1_zh_Hans     } }, // rdar://30671866 should 5/6 be zh_CN?
     { "yue-HK",             { l1_zh_TW,       l2_zh_HKTW,     l2_zh_HKTW,     l2_zh_Hant_HK_, l1_zh_Hant,     l3_zh_HKTW_Hant } },
     { "yue-Hans",           { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l1_zh_Hans,     l1_zh_Hans     } },
     { "yue-Hant",           { l1_zh_TW,       l2_zh_HKTW,     l2_zh_HKTW,     l2_zh_Hant_HK_, l1_zh_Hant,     l3_zh_HKTW_Hant } },
@@ -9156,7 +9512,7 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "es-419",             { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-MX",              { l1_Spa,         l2_es_MX_,      l2_es_419_,     l3_es_MX419_,   l2_es_MX_,      l3_es_MX419_   } },
     { "es-AR",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
-    { "es-BO",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } }, // <rdar://problem/34459988>
+    { "es-BO",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } }, // rdar://34459988
     { "es-BR",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-BZ",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-AG",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
@@ -9186,9 +9542,9 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "fi",                 { l1_Fin,         l1_fi,          l1_fi,          NULL,           NULL,           NULL  } },
     { "de",                 { l1_Ger,         l1_de,          l1_de,          NULL,           NULL,           NULL  } },
     { "it",                 { l1_Ita,         l1_it,          l1_it,          l1_it,          NULL,           NULL  } },
-    { "it_CH",              { l1_Ita,         l1_it,          l2_it_CH,       l2_it_CH,       NULL,           NULL  } }, // <rdar://problem/35829322>
-    { "it_IT",              { l1_Ita,         l1_it,          l1_it,          l2_it_IT,       NULL,           NULL  } }, // <rdar://problem/35829322>
-    { "it_VA",              { l1_Ita,         l1_it,          l1_it,          l1_it,          NULL,           NULL  } }, // <rdar://problem/35829322>
+    { "it_CH",              { l1_Ita,         l1_it,          l2_it_CH,       l2_it_CH,       NULL,           NULL  } }, // rdar://35829322
+    { "it_IT",              { l1_Ita,         l1_it,          l1_it,          l2_it_IT,       NULL,           NULL  } }, // rdar://35829322
+    { "it_VA",              { l1_Ita,         l1_it,          l1_it,          l1_it,          NULL,           NULL  } }, // rdar://35829322
     { "ja",                 { l1_Japn,        l1_ja,          l1_ja,          NULL,           NULL,           NULL  } },
     { "ko",                 { l1_Kor,         l1_ko,          l1_ko,          NULL,           NULL,           NULL  } },
     { "nb",                 { l1_Nor,         l1_no,          l1_nb,          NULL,           NULL,           NULL  } },
@@ -9234,7 +9590,7 @@ static const LangAndExpLocs appleLangAndLoc[] = {
 };
 enum { kNumAppleLangAndLoc = UPRV_LENGTHOF(appleLangAndLoc) };
 
-/* tests from <rdar://problem/21518031> */
+/* tests from rdar://21518031 */
 
 static const char * appleLocsA1[] = { "en", "fr", "no", "zh-Hant" };
 static const char * appleLocsA2[] = { "en", "fr", "nb", "zh_TW", "zh_CN", "zh-Hant" };
@@ -9361,7 +9717,7 @@ static const char * appleLocsM1[] = { "en", "en_GB", "pt", "pt_PT", "zh_CN", "zh
 static const char * prefLangsM1[] = { "tlh", "zh_HK", "zh_SG", "zh_Hans", "pt_BR", "pt_PT", "en_IN", "en" };
 static const char * locsToUseM1[] = { "zh_Hant" };
 
-// Tests from first pass at <rdar://problem/22012864>, 2015-11-18
+// Tests from first pass at rdar://22012864, 2015-11-18
 
 static const char * appleLocsM2[] = { "fr-FR", "en-US", "en-GB" };
 static const char * prefLangsM2[] = { "fr-CH" };
@@ -9375,12 +9731,12 @@ static const char * appleLocsM4[] = { "es-es", "fr-fr", "fr" };
 static const char * prefLangsM4[] = { "fr-US", "fr", "en-US" };
 static const char * locsToUseM4[] = { "fr" };
 
-// Tests from second pass at <rdar://problem/22012864>, 2015-12-08
+// Tests from second pass at rdar://22012864, 2015-12-08
 // Per Karan M
 static const char * appleLocsM5[] = { "en-US", "fr-FR", "de-DE", "es-ES", "es-419", "pt-PT", "pt-BR", "zh-CN", "zh-TW", "zh-HK", "ja-JP", "ko-KR" };
 static const char * prefLangsM5[] = { "fr-US", "en-US" };
 static const char * locsToUseM5[] = { "fr-FR" };
-// Per Peter E; expected result changed from "en-US" to "de-CH" per <rdar://problem/26559053>
+// Per Peter E; expected result changed from "en-US" to "de-CH" per rdar://26559053
 static const char * appleLocsM6[] = { "de-CH", "en-US" };
 static const char * prefLangsM6[] = { "de-DE", "en-US" };
 static const char * locsToUseM6[] = { "de-CH" };
@@ -9411,23 +9767,23 @@ static const char * locsToUseMD[] = { "en-AU" };
 static const char * appleLocsME[] = { "de-DE", "en-AU", "es-ES", "fr-FR", "hi-IN", "pt-BR", "zh-CN", "zh-HK" };
 static const char * prefLangsME[] = { "zh-TW", "en-AU" };
 static const char * locsToUseME[] = { "zh-HK" };
-// Per Peter E in diagnosis for <rdar://problem/22012864> and <rdar://problem/23815194>
+// Per Peter E in diagnosis for rdar://22012864 and rdar://23815194
 static const char * appleLocsMF[] = { "en", "en-GB", "fr", "es" };
 static const char * prefLangsMF[] = { "en-IN", "en-GB", "de", "fr" };
 static const char * locsToUseMF[] = { "en-GB", "en" };
-// Per Karan M in <rdar://problem/23982460>
+// Per Karan M in rdar://23982460
 static const char * appleLocsMG[] = { "zh-Hans", "zh-Hant", "zh-HK" };
 static const char * prefLangsMG[] = { "zh-Hans-US", "zh-HK", "en-US" };
 static const char * locsToUseMG[] = { "zh-Hans" };
-// Per <rdar://problem/25903891>
+// Per rdar://25903891
 static const char * appleLocsMH[] = { "zh-TW", "zh-CN", "zh-HK" };
 static const char * prefLangsMH[] = { "zh-Hans-HK", "zh-HK", "en" };
 static const char * locsToUseMH[] = { "zh-CN" };
-// Per <rdar://problem/26559053>
+// Per rdar://26559053
 static const char * appleLocsMI[] = { "unk", "en-US", "ar-SA" };
 static const char * prefLangsMI[] = { "ar-US" };
 static const char * locsToUseMI[] = { "ar-SA" };
-// Per <rdar://problem/30501523> - first for comparison with zh, then real test
+// Per rdar://30501523 - first for comparison with zh, then real test
 static const char * appleLocsMJ[] = { "zh-CN", "en-US" };
 static const char * prefLangsMJ[] = { "zh", "zh_AC" };
 static const char * locsToUseMJ[] = { "zh-CN" };
@@ -9440,7 +9796,7 @@ static const char * locsToUseMK[] = {  };
 static const char * prefLangsMK1a[] = { "yue", "yue_Hans" };
 static const char * prefLangsMK1b[] = { "yue", "yue_CN" };
 static const char * locsToUseMK1[] = { "yue-CN" };
-// Per <rdar://problem/30433534>
+// Per rdar://30433534
 static const char * appleLocsML[] = { "nl_NL", "es_MX", "fr_FR", "zh_TW", "it_IT", "vi_VN", "fr_CH", "es_CL",
                                       "en_ZA", "ko_KR", "ca_ES", "ro_RO", "en_PH", "en_CA", "en_SG", "en_IN",
                                       "en_NZ", "it_CH", "fr_CA", "da_DK", "de_AT", "pt_BR", "yue_CN", "zh_CN",
@@ -9451,12 +9807,12 @@ static const char * appleLocsML[] = { "nl_NL", "es_MX", "fr_FR", "zh_TW", "it_IT
                                       "es_CO", "uk_UA", "es_US" };
 static const char * prefLangsML[] = { "en-JP" };
 static const char * locsToUseML[] = { "en_US" };
-// Per <rdar://problem/30671866>
+// Per rdar://30671866
 static const char * prefLangsML1[] = { "yue-CN", "zh-CN" };
 static const char * locsToUseML1[] = { "yue_CN" }; // should we also get "zh-CN" as a second option?
 static const char * prefLangsML2[] = { "yue-Hans", "zh-Hans" };
 static const char * locsToUseML2[] = { "yue_CN" }; // should we also get "zh-CN" as a second option?
-// Per <rdar://problem/32421203>
+// Per rdar://32421203
 static const char * appleLocsMM1[] = { "pt-PT" };
 static const char * appleLocsMM2[] = { "pt-BR" };
 static const char * appleLocsMM3[] = { "pt-PT", "pt-BR" };
@@ -9472,14 +9828,14 @@ static const char * prefLangsMM6[] = { "pt", "en" };
 static const char * locsToUseMMptPT[] = { "pt-PT" };
 static const char * locsToUseMMptBR[] = { "pt-BR" };
 static const char * locsToUseMMen[]   = { "en" };
-// Per <rdar://problem/32658828>
+// Per rdar://32658828
 static const char * appleLocsMN[]   = { "en-US", "en-GB" };
 static const char * prefLangsMN1[]  = { "en-KR" };
 static const char * prefLangsMN2[]  = { "en-SA" };
 static const char * prefLangsMN3[]  = { "en-TW" };
 static const char * prefLangsMN4[]  = { "en-JP" };
 static const char * locsToUseMN_U[] = { "en-US" };
-// Per <rdar://problem/36010857>
+// Per rdar://36010857
 static const char * appleLocsMO[]   = { "Dutch", "French", "German", "Italian", "Japanese", "Spanish",
                                         "ar", "ca", "cs", "da", "el", "en_AU", "en_GB", "en_IN",
                                         "es_419", "fi", "fr_CA", "he", "hi", "hr", "hu", "id", "ko",
@@ -9487,11 +9843,11 @@ static const char * appleLocsMO[]   = { "Dutch", "French", "German", "Italian", 
                                         "th", "tr", "uk", "vi", "zh_CN", "zh_HK", "zh_TW" };
 static const char * prefLangsMO1[]  = { "en-US" };
 static const char * locsToUseMO1[]  = { "en_GB" };
-// Per <rdar://problem/47494729>
+// Per rdar://47494729
 static const char * appleLocsMP[]   = { "en-IN", "hi-IN" };
 static const char * prefLangsMP[]   = { "hi-Latn-IN", "en-IN" };
 static const char * locsToUseMP[]   = { "en-IN" };
-// Per <rdar://problem/34459988&35829322>
+// Per rdar://34459988&35829322
 static const char * appleLocsMQa[]   = { "en_AU", "en_IE", "en_IN", "en_SA", "en_UK", "en_US", "es_AR", "es_CO", "es_ES", "es_MX", "fr_CA", "fr_FR", "it_CH", "it_IT", "zh_CN", "zh_HK", "zh_TW" };
 static const char * appleLocsMQb[]   = { "en_AU", "en_IE", "en_IN", "en_SA", "en_UK", "en", "es_AR", "es_CO", "es", "es_MX", "fr_CA", "fr", "it_CH", "it", "zh_CN", "zh_HK", "zh_TW" };
 static const char * prefLangsMQ1[]  = { "es-BO" };
@@ -9499,21 +9855,21 @@ static const char * locsToUseMQ1[]  = { "es_MX" };
 static const char * prefLangsMQ2[]  = { "it-VA" };
 static const char * locsToUseMQ2a[]  = { "it_IT" };
 static const char * locsToUseMQ2b[]  = { "it" };
-// Per <rdar://problem/50913699>
+// Per rdar://50913699
 static const char * appleLocsMRa[]   = { "en", "hi" };
 static const char * appleLocsMRb[]   = { "en", "hi", "hi_Latn" };
 static const char * prefLangsMRx[]   = { "hi_Latn_IN", "en_IN", "hi_IN" };
 static const char * prefLangsMRy[]   = { "hi_Latn", "en", "hi" };
 static const char * locsToUseMRa[]   = { "en" };
 static const char * locsToUseMRb[]   = { "hi_Latn", "en" };
-// For <rdar://problem/50280505>
+// For rdar://50280505
 static const char * appleLocsMSa[]   = { "en", "en_GB" };
 static const char * appleLocsMSb[]   = { "en", "en_GB", "en_AU" };
 static const char * prefLangsMSx[]   = { "en_NZ" };
 static const char * prefLangsMSy[]   = { "en_NZ", "en_AU" };
 static const char * locsToUseMSa[]   = { "en_GB", "en" };
 static const char * locsToUseMSb[]   = { "en_AU", "en_GB", "en" };
-// For <rdar://problem/55885283>
+// For rdar://55885283
 static const char * appleLocsMT[]   = { "ca-ES", "fi", "nl", "en-US", "hu", "pt-BR", "pl-PL", "it",
                                         "ru", "el", "el-GR", "ca", "de-DE", "sv-SE", "tr", "pl",
                                         "sv", "tr-TR", "da", "en", "nb", "pt-PT", "nb-NO",
@@ -9685,7 +10041,7 @@ static const MultiPrefTest multiTestSets[] = {
     { "MM24",  appleLocsMM2,  UPRV_LENGTHOF(appleLocsMM2), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
     { "MM34",  appleLocsMM3,  UPRV_LENGTHOF(appleLocsMM3), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
     { "MM44",  appleLocsMM4,  UPRV_LENGTHOF(appleLocsMM4), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
-    { "MM54",  appleLocsMM5,  UPRV_LENGTHOF(appleLocsMM5), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMen,   UPRV_LENGTHOF(locsToUseMMen)   }, // want en, see <rdar://problem/22012864>
+    { "MM54",  appleLocsMM5,  UPRV_LENGTHOF(appleLocsMM5), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMen,   UPRV_LENGTHOF(locsToUseMMen)   }, // want en, see rdar://22012864
     { "MM64",  appleLocsMM6,  UPRV_LENGTHOF(appleLocsMM6), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
     { "MM15",  appleLocsMM1,  UPRV_LENGTHOF(appleLocsMM1), prefLangsMM5, UPRV_LENGTHOF(prefLangsMM5), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
     { "MM25",  appleLocsMM2,  UPRV_LENGTHOF(appleLocsMM2), prefLangsMM5, UPRV_LENGTHOF(prefLangsMM5), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
@@ -9706,7 +10062,7 @@ static const MultiPrefTest multiTestSets[] = {
     { "MO",    appleLocsMO,   UPRV_LENGTHOF(appleLocsMO),  prefLangsMO1, UPRV_LENGTHOF(prefLangsMO1), locsToUseMO1,    UPRV_LENGTHOF(locsToUseMO1) },
     { "MP",    appleLocsMP,   UPRV_LENGTHOF(appleLocsMP),  prefLangsMP,  UPRV_LENGTHOF(prefLangsMP),  locsToUseMP,     UPRV_LENGTHOF(locsToUseMP) },
     { "MQ1a",  appleLocsMQa,  UPRV_LENGTHOF(appleLocsMQa), prefLangsMQ1, UPRV_LENGTHOF(prefLangsMQ1), locsToUseMQ1,    UPRV_LENGTHOF(locsToUseMQ1) },
-//  { "MQ1b",  appleLocsMQb,  UPRV_LENGTHOF(appleLocsMQb), prefLangsMQ1, UPRV_LENGTHOF(prefLangsMQ1), locsToUseMQ1,    UPRV_LENGTHOF(locsToUseMQ1) }, // still to do for <rdar://problem/34459988>
+//  { "MQ1b",  appleLocsMQb,  UPRV_LENGTHOF(appleLocsMQb), prefLangsMQ1, UPRV_LENGTHOF(prefLangsMQ1), locsToUseMQ1,    UPRV_LENGTHOF(locsToUseMQ1) }, // still to do for rdar://34459988
     { "MQ2a",  appleLocsMQa,  UPRV_LENGTHOF(appleLocsMQa), prefLangsMQ2, UPRV_LENGTHOF(prefLangsMQ2), locsToUseMQ2a,   UPRV_LENGTHOF(locsToUseMQ2a) },
     { "MQ2b",  appleLocsMQb,  UPRV_LENGTHOF(appleLocsMQb), prefLangsMQ2, UPRV_LENGTHOF(prefLangsMQ2), locsToUseMQ2b,   UPRV_LENGTHOF(locsToUseMQ2b) },
     { "MRa",   appleLocsMRa,  UPRV_LENGTHOF(appleLocsMRa), prefLangsMRx, UPRV_LENGTHOF(prefLangsMRx), locsToUseMRa,    UPRV_LENGTHOF(locsToUseMRa) },
@@ -9815,14 +10171,14 @@ static UBool equalStringArrays(const char **array1, int32_t count1, const char *
         }
     }
     if (count1 != count2) {
-        return FALSE;
+        return false;
     }
     for (idx = 0; idx < count1; idx++) {
         if (uprv_strcmp(array1[idx], array2[idx]) != 0) {
-            return FALSE;
+            return false;
         }
     }
-    return TRUE;
+    return true;
 }
 
 static void TestAppleLocalizationsToUse() {
@@ -9883,7 +10239,7 @@ static void TestAppleLocalizationsToUse() {
 
 #endif
 
-// rdar://problem/63313283
+// rdar://63313283
 static void TestNorwegianDisplayNames(void) {
     UChar bokmalInBokmal[50];
     UChar bokmalInNynorsk[50];
@@ -9910,8 +10266,16 @@ static void TestSpecificDisplayNames(void) {
         "mi",    "en",      "Māori",             // rdar://75300243
         "mi",    "en_NZ",   "Māori",             // rdar://75300243
         "hi_IN", "hi_Latn", "Hindi (India)",     // rdar://80522845
-        "nv",    "hi",      "नावाहो",              // rdar://82306232
+        "nv",    "hi",      "नावाहो",              // rdar://82306232 (CLDR 42 also updated)
         "es_PA", "it",      "spagnolo (Panama)", // rdar://85413128
+        "ii",    "en",      "Liangshan Yi",      // rdar://108460253
+        "hmn_Hmng","en",    "Hmong (Pahawh)",    // rdar://108866340
+        "hmn",    "en",     "Hmong",             // rdar://108866340
+        "zgh_Tfng","en",    "Tamazight, Standard Moroccan (Tifinagh)",      // rdar://108866340
+        "zgh",   "en",      "Tamazight, Standard Moroccan",                 // rdar://108866340
+        "ii",    "yue-Hans","凉山彝语",            // rdar://108460253
+        "ii",    "yue",     "涼山彝文",            // rdar://108460253
+        "ii",    "zh-Hant", "涼山彝文",            // rdar://108460253
     };
     int32_t testLanguagesLength = UPRV_LENGTHOF(testLanguages);
     
@@ -9929,4 +10293,4 @@ static void TestSpecificDisplayNames(void) {
         }
     }
 }
-
+#endif  // APPLE_ICU_CHANGES

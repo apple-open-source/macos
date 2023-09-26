@@ -32,6 +32,9 @@ void SecKeychainSetOverrideStaticPersistentRefsIsEnabled(bool value);
 bool OctagonIsSOSFeatureEnabled(void);
 bool OctagonPlatformSupportsSOS(void);
 void OctagonSetSOSFeatureEnabled(bool value);
+bool SOSCompatibilityModeEnabled(void);
+void SetSOSCompatibilityMode(bool value);
+void ClearSOSCompatibilityModeOverride(void);
 
 #if __OBJC__
 

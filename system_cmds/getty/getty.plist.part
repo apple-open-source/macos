@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>getty</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-11-04</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/libexec/getty?id=eb4d86d529e2523a19fd7454976923319954a49d</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-11-04</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>main.c: open the console with O_POPUP</string>
+			<string>ttys.5: describe numeric sequences (4372480)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

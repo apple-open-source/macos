@@ -63,18 +63,16 @@ struct ssh_conn_info;
 	"r", conn_info->remuser, \
 	"u", conn_info->locuser
 
+#include <TargetConditionals.h>
 #if TARGET_OS_BRIDGE && __APPLE_NW_CONNECTION__
 #undef __APPLE_NW_CONNECTION__
 #endif
+int	 ssh_connect(struct ssh *, const char *, const char *,
+	    struct addrinfo *, struct sockaddr_storage *, u_short,
 #ifdef __APPLE_NW_CONNECTION__
-int	 ssh_connect(struct ssh *, const char *, const char *,
-	    struct addrinfo *, struct sockaddr_storage *, u_short,
-	    int, int, int *, int, int);
-#else
-int	 ssh_connect(struct ssh *, const char *, const char *,
-	    struct addrinfo *, struct sockaddr_storage *, u_short,
-	    int, int *, int);
+	    int, int,
 #endif
+	    int, int *, int);
 void	 ssh_kill_proxy_command(void);
 
 void	 ssh_login(struct ssh *, Sensitive *, const char *,

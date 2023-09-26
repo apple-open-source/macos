@@ -69,6 +69,7 @@ namespace CodeSigning {
 #define kSecCS_LAUNCHCONSTRAINTSELFFILE	"LaunchConstraintSelf" //  DER reprsentation of LWCR on self
 #define kSecCS_LAUNCHCONSTRAINTPARENTFILE "LaunchConstraintParent"			// DER reprsentation of LWCR on the parent
 #define kSecCS_LAUNCHCONSTRAINTRESPONSIBLEFILE "LaunchConstraintResponsible"// DER reprsentation of LWCR on the responsible process
+#define kSecCS_LIBRARYCONSTRAINTFILE "LibraryConstraint"
 
 //
 // Special hash slot values. In a CodeDirectory, these show up at negative slot
@@ -96,10 +97,11 @@ enum {
 	cdTopDirectorySlot = 4,				// Application specific slot
 	cdEntitlementSlot = 5,				// embedded entitlement configuration
 	cdRepSpecificSlot = 6,				// for use by disk rep
-	cdEntitlementDERSlot = 7,			// DER representation of entitlements
-	cdLaunchConstraintSelf = 8,			// DER reprsentation of LWCR on self
-	cdLaunchConstraintParent = 9,		// DER reprsentation of LWCR on the parent
-	cdLaunchConstraintResponsible = 10,	// DER reprsentation of LWCR on the responsible process
+	cdEntitlementDERSlot = 7,			// DER repreesentation of entitlements
+	cdLaunchConstraintSelf = 8,			// DER representation of LWCR on self
+	cdLaunchConstraintParent = 9,		// DER representation of LWCR on the parent
+	cdLaunchConstraintResponsible = 10,	// DER representation of LWCR on the responsible process
+	cdLibraryConstraint = 11,           // DER representation of LWCR on libraries loaded in the process
 	// (add further primary slot numbers here)
 
 	cdSlotCount,						// total number of special slots (+1 for slot 0)

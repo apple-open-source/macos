@@ -1178,7 +1178,7 @@ NetworkFileLocker::lock(mode_t mode)
 				retries = 0;
 				break;
 			}
-		/* DROPTHROUGH */
+		[[fallthrough]];
 #endif
 		default:
 			failed = true;

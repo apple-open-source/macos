@@ -40,9 +40,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/toupper.c,v 1.13 2007/01/09 00:28:01 imp
 #include <runetype.h>
 
 __ct_rune_t
-___toupper_l(c, loc)
-	__ct_rune_t c;
-	locale_t loc;
+___toupper_l(__ct_rune_t c, locale_t loc)
 {
 	size_t lim;
 	_RuneRange *rr;
@@ -76,8 +74,7 @@ ___toupper_l(c, loc)
 }
 
 __ct_rune_t
-___toupper(c)
-	__ct_rune_t c;
+___toupper(__ct_rune_t c)
 {
 	return ___toupper_l(c, __current_locale());
 }

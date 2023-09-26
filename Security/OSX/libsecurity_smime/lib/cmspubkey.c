@@ -255,14 +255,14 @@ static OSStatus encrAlgInfo(SECOidTag oidTag,
             /* Not sure about this; SecCmsCipherContextStart() treats this
              * like SEC_OID_DES_EDE3_CBC... */
             *options = kCCOptionECBMode;
-            // fall through
+            [[fallthrough]];
         case SEC_OID_DES_EDE3_CBC:
             *keySizeBits = 192;
             *algorithm = kCCAlgorithm3DES;
             break;
         case SEC_OID_DES_ECB:
             *options = kCCOptionECBMode;
-            // fall through
+            [[fallthrough]];
         case SEC_OID_DES_CBC:
             *algorithm = kCCAlgorithmDES;
             break;

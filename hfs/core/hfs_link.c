@@ -485,8 +485,6 @@ hfs_vnop_link(struct vnop_link_args *ap)
 		return (ENOSPC);
 	}
 
-	nspace_snapshot_event(vp, VTOC(vp)->c_ctime, NAMESPACE_HANDLER_LINK_CREATE, NULL);
-
 	/* Lock the cnodes. */
 	if (fdvp) {
 		if ((error = hfs_lockfour(VTOC(tdvp), VTOC(vp), VTOC(fdvp), NULL, HFS_EXCLUSIVE_LOCK, NULL))) {

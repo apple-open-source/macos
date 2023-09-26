@@ -2,6 +2,8 @@
 #include <darwintest.h>
 #include <malloc_private.h>
 
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
+
 T_DECL(malloc_checkfix_zero_on_free, "Test malloc_zero_on_free_disable() SPI",
 		T_META_ENVVAR("MallocZeroOnFree=1"))
 {

@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2002,2005 Free Software Foundation, Inc.                        *
+ * Copyright (c) 2002-2013,2015 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -27,13 +27,13 @@
  ****************************************************************************/
 
 /****************************************************************************
- *  Author: Thomas E. Dickey                    2002,2005                   *
+ *  Author: Thomas E. Dickey       2002-on                                  *
  ****************************************************************************/
 /* LINTLIBRARY */
 
 /* ./f_trace.c */
 
-#include "form.priv.h"
+#include <form.priv.h>
 
 #undef _nc_retrace_field_ptr
 FIELD	**_nc_retrace_field_ptr(
@@ -264,7 +264,7 @@ int	move_field(
 /* ./fld_newftyp.c */
 
 #undef _nc_Default_FieldType
-const FIELDTYPE *_nc_Default_FieldType = {0};
+FIELDTYPE *_nc_Default_FieldType;
 
 #undef new_fieldtype
 FIELDTYPE *new_fieldtype(
@@ -396,6 +396,12 @@ NCURSES_BOOL data_ahead(
 #undef _nc_Default_Form
 FORM	*_nc_Default_Form;
 
+#undef new_form_sp
+FORM	*new_form_sp(
+		SCREEN	*sp, 
+		FIELD	**fields)
+		{ return(*(FORM **)0); }
+
 #undef new_form
 FORM	*new_form(
 		FIELD	**fields)
@@ -423,6 +429,13 @@ int	field_count(
 		{ return(*(int *)0); }
 
 /* ./frm_driver.c */
+
+#undef _nc_get_fieldbuffer
+void	_nc_get_fieldbuffer(
+		FORM	*form, 
+		FIELD	*field, 
+		cchar_t	*buf)
+		{ /* void */ }
 
 #undef _nc_Position_Form_Cursor
 int	_nc_Position_Form_Cursor(
@@ -479,6 +492,13 @@ Binding_Info;
 int	form_driver(
 		FORM	*form, 
 		int	c)
+		{ return(*(int *)0); }
+
+#undef form_driver_w
+int	form_driver_w(
+		FORM	*form, 
+		int	type, 
+		wchar_t	c)
 		{ return(*(int *)0); }
 
 #undef set_field_buffer
@@ -667,6 +687,10 @@ alnumARG;
 #undef TYPE_ALNUM
 FIELDTYPE *TYPE_ALNUM;
 
+#undef _nc_TYPE_ALNUM
+FIELDTYPE *_nc_TYPE_ALNUM(void)
+		{ return(*(FIELDTYPE **)0); }
+
 /* ./fty_alpha.c */
 
 typedef struct
@@ -677,6 +701,10 @@ alphaARG;
 
 #undef TYPE_ALPHA
 FIELDTYPE *TYPE_ALPHA;
+
+#undef _nc_TYPE_ALPHA
+FIELDTYPE *_nc_TYPE_ALPHA(void)
+		{ return(*(FIELDTYPE **)0); }
 
 /* ./fty_enum.c */
 
@@ -689,8 +717,60 @@ typedef struct
   }
 enumARG;
 
+typedef struct
+  {
+    char **kwds;
+    int ccase;
+    int cunique;
+  }
+enumParams;
+
 #undef TYPE_ENUM
 FIELDTYPE *TYPE_ENUM;
+
+#undef _nc_TYPE_ENUM
+FIELDTYPE *_nc_TYPE_ENUM(void)
+		{ return(*(FIELDTYPE **)0); }
+
+/* ./fty_generic.c */
+
+#undef _nc_generic_fieldtype
+FIELDTYPE *_nc_generic_fieldtype(
+		NCURSES_BOOL (*const field_check)(
+		FORM	*p1, 
+		FIELD	*p2, 
+		const void *p3), 
+		NCURSES_BOOL (*const char_check)(
+		int	p1, 
+		FORM	*p2, 
+		FIELD	*p3, 
+		const void *p4), 
+		NCURSES_BOOL (*const next)(
+		FORM	*p1, 
+		FIELD	*p2, 
+		const void *p3), 
+		NCURSES_BOOL (*const prev)(
+		FORM	*p1, 
+		FIELD	*p2, 
+		const void *p3), 
+		void	(*freecallback)(
+		void	*p1))
+		{ return(*(FIELDTYPE **)0); }
+
+#undef _nc_set_generic_fieldtype
+int	_nc_set_generic_fieldtype(
+		FIELD	*field, 
+		FIELDTYPE *ftyp, 
+		int	(*argiterator)(
+		void	**p1))
+		{ return(*(int *)0); }
+
+#undef _nc_form_cursor
+WINDOW	*_nc_form_cursor(
+		const FORM *form, 
+		int	*pRow, 
+		int	*pCol)
+		{ return(*(WINDOW **)0); }
 
 /* ./fty_int.c */
 
@@ -702,12 +782,29 @@ typedef struct
   }
 integerARG;
 
+typedef struct
+  {
+    int precision;
+    long low;
+    long high;
+  }
+integerPARM;
+
 #undef TYPE_INTEGER
 FIELDTYPE *TYPE_INTEGER;
 
+#undef _nc_TYPE_INTEGER
+FIELDTYPE *_nc_TYPE_INTEGER(void)
+		{ return(*(FIELDTYPE **)0); }
+
 /* ./fty_ipv4.c */
+
 #undef TYPE_IPV4
 FIELDTYPE *TYPE_IPV4;
+
+#undef _nc_TYPE_IPV4
+FIELDTYPE *_nc_TYPE_IPV4(void)
+		{ return(*(FIELDTYPE **)0); }
 
 /* ./fty_num.c */
 
@@ -722,8 +819,20 @@ typedef struct
   }
 numericARG;
 
+typedef struct
+  {
+    int precision;
+    double low;
+    double high;
+  }
+thisPARM;
+
 #undef TYPE_NUMERIC
 FIELDTYPE *TYPE_NUMERIC;
+
+#undef _nc_TYPE_NUMERIC
+FIELDTYPE *_nc_TYPE_NUMERIC(void)
+		{ return(*(FIELDTYPE **)0); }
 
 /* ./fty_regex.c */
 
@@ -738,3 +847,7 @@ RegExp_Arg;
 
 #undef TYPE_REGEXP
 FIELDTYPE *TYPE_REGEXP;
+
+#undef _nc_TYPE_REGEXP
+FIELDTYPE *_nc_TYPE_REGEXP(void)
+		{ return(*(FIELDTYPE **)0); }

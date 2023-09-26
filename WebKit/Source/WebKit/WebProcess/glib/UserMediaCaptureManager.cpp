@@ -30,7 +30,7 @@
 
 #include "UserMediaCaptureManagerMessages.h"
 #include "WebProcess.h"
-#include <WebCore/CaptureDevice.h>
+#include <WebCore/CaptureDeviceWithCapabilities.h>
 #include <WebCore/MediaDeviceHashSalts.h>
 #include <WebCore/MediaStreamRequest.h>
 #include <WebCore/RealtimeMediaSourceCenter.h>
@@ -39,14 +39,13 @@ namespace WebKit {
 using namespace WebCore;
 
 UserMediaCaptureManager::UserMediaCaptureManager(WebProcess& process)
-    : m_process(process)
 {
-    m_process.addMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName(), *this);
+    process.addMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName(), *this);
 }
 
 UserMediaCaptureManager::~UserMediaCaptureManager()
 {
-    m_process.removeMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName());
+    WebProcess::singleton().removeMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName());
 }
 
 void UserMediaCaptureManager::validateUserMediaRequestConstraints(WebCore::MediaStreamRequest request, WebCore::MediaDeviceHashSalts&& deviceIdentifierHashSalts, ValidateUserMediaRequestConstraintsCallback&& completionHandler)
@@ -65,11 +64,31 @@ void UserMediaCaptureManager::validateUserMediaRequestConstraints(WebCore::Media
     RealtimeMediaSourceCenter::singleton().validateRequestConstraints(WTFMove(validHandler), WTFMove(invalidHandler), request, WTFMove(deviceIdentifierHashSalts));
 }
 
-void UserMediaCaptureManager::getMediaStreamDevices(GetMediaStreamDevicesCallback&& completionHandler)
+void UserMediaCaptureManager::getMediaStreamDevices(bool revealIdsAndLabels, GetMediaStreamDevicesCallback&& completionHandler)
 {
-    RealtimeMediaSourceCenter::singleton().getMediaStreamDevices(WTFMove(completionHandler));
+    RealtimeMediaSourceCenter::singleton().getMediaStreamDevices([completionHandler = WTFMove(completionHandler), revealIdsAndLabels](auto&& devices) mutable {
+        Vector<CaptureDeviceWithCapabilities> devicesWithCapabilities;
+
+        devicesWithCapabilities.reserveInitialCapacity(devices.size());
+        for (auto& device : devices) {
+            RealtimeMediaSourceCapabilities deviceCapabilities;
+
+            if (device.isInputDevice()) {
+                auto capabilities = RealtimeMediaSourceCenter::singleton().getCapabilities(device);
+                if (!capabilities)
+                    continue;
+
+                if (revealIdsAndLabels)
+                    deviceCapabilities = *capabilities;
+            }
+
+            devicesWithCapabilities.uncheckedAppend({ WTFMove(device), WTFMove(deviceCapabilities) });
+        }
+
+        completionHandler(WTFMove(devicesWithCapabilities));
+    });
 }
 
-}
+} // namespace WebKit
 
 #endif

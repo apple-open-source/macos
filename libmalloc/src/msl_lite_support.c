@@ -117,6 +117,7 @@ create_and_insert_msl_lite_zone(const char *name,
 	malloc_zone_register_while_locked(zone, false);
 	malloc_set_zone_name(zone, name);
 	lite_zone = zone;
+	malloc_slowpath_update();
 
 	return szone;
 }

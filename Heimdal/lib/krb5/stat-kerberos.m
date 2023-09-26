@@ -37,40 +37,20 @@
 
 #include <TargetConditionals.h>
 #include <Foundation/Foundation.h>
-#include "krb5-stat.h"
-
-CFStringRef kKerberoStatisticsPrefix = CFSTR("com.apple.GSS.Kerberos");
+#import <CoreAnalytics/CoreAnalytics.h>
 
 void
 _krb5_stat_ASREQ(krb5_context context, krb5_enctype userEnctype,
 		 krb5_enctype asEnctype, const char *type, int fast)
 {
     @autoreleasepool {
-
-	NSString *replyet = [NSString stringWithFormat:@"AS-REQ-replykey-et-%d", (int)asEnctype];
-	NSString *useret = [NSString stringWithFormat:@"AS-REQ-useret-et-%d", (int)userEnctype];
-	NSString *preauth = [NSString stringWithFormat:@"AS-REQ-preauth-%s", type];
-
-	NSDictionary *stats = @{
-	    replyet : @{
-		(id)kHeimStatisticCommand : (id)kHeimStatisticCommandAdd,
-		(id)kHeimStatisticValue : @1,
-	    },
-	    useret : @{
-		(id)kHeimStatisticCommand : (id)kHeimStatisticCommandAdd,
-		(id)kHeimStatisticValue : @1,
-		(id)kHeimStatisticExtraValue : @(asEnctype),
-	    },
-	    preauth : @{
-		(id)kHeimStatisticCommand : (id)kHeimStatisticCommandAdd,
-		(id)kHeimStatisticValue : @1,
-	    },
-	    @"AS-REQ-FAST" : @{
-		(id)kHeimStatisticCommand : (id)kHeimStatisticCommandAdd,
-		(id)kHeimStatisticValue : @(fast),
-	    },
-	};
-
-	_HeimGatherStatistics(kKerberoStatisticsPrefix, (__bridge CFDictionaryRef)stats);
+	AnalyticsSendEventLazy(@"com.apple.GSS.Kerberos", ^NSDictionary<NSString *,NSObject *> * _Nullable {
+	    return @{
+		@"AS_REQ_replykey_et" : @(asEnctype),
+		@"AS_REQ_useret_et" : @(userEnctype),
+		@"AS_REQ_preauth" : [NSString stringWithCString:type encoding:NSUTF8StringEncoding] ?: @"unknown",
+		@"AS_REQ_FAST" : @(fast),
+	    };
+	});
     }
 }

@@ -24,6 +24,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				44AF45D3296F7E920075FCF0 /* PBXTargetDependency */,
 				44F502291DB6E56900EF6B04 /* PBXTargetDependency */,
 				44F5022B1DB6E56900EF6B04 /* PBXTargetDependency */,
 				44F5022D1DB6E56900EF6B04 /* PBXTargetDependency */,
@@ -96,16 +97,36 @@
 		447011B325DB1260007F7D25 /* AppSSO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 447011B225DB125F007F7D25 /* AppSSO.framework */; settings = {ATTRIBUTES = (Required, ); }; };
 		4474E8AA2166AD5A00CD7B6D /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4474E8AC2166AD8C00CD7B6D /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
+		44788ED6293F138C008B1214 /* EAPTLSSession.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44788ED4293F138C008B1214 /* EAPTLSSession.h */; };
+		44788ED7293F138C008B1214 /* EAPTLSSession.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44788ED4293F138C008B1214 /* EAPTLSSession.h */; };
+		44788ED8293F138C008B1214 /* EAPTLSSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 44788ED5293F138C008B1214 /* EAPTLSSession.c */; };
+		44788ED9293F138C008B1214 /* EAPTLSSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 44788ED5293F138C008B1214 /* EAPTLSSession.c */; };
 		447B2CCC21891FDC00DE73CF /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		447D07322076C867006B90C4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 447D07312076C867006B90C4 /* Foundation.framework */; };
+		44811A5629789D540032AA62 /* EAPOLClientItemID.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448610D1A528000D803D /* EAPOLClientItemID.c */; };
 		449213AC1D12062700D8FB30 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 449213AB1D12062700D8FB30 /* CoreTelephony.framework */; };
 		44951A3B1EBA79C6003614DE /* eapolcfg_auth.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */; };
 		44980A3E1ABBC60400B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
 		44980A3F1ABBC61A00B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
+		44AF45C8296F7DBF0075FCF0 /* eapolcfg.c in Sources */ = {isa = PBXBuildFile; fileRef = F960449F10D1CA46000D803D /* eapolcfg.c */; };
+		44AF45CA296F7DBF0075FCF0 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91547640CD78FA7008D9897 /* EAP8021X.framework */; };
+		44AF45CB296F7DBF0075FCF0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
+		44AF45CC296F7DBF0075FCF0 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
+		44AF45CD296F7DBF0075FCF0 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6A0C92234E0004CCD4 /* Security.framework */; };
+		44AF45D52970AC230075FCF0 /* EAPOLClientConfigurationPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F925AAF410F7F74B002AC2E5 /* EAPOLClientConfigurationPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		44AF45D62970ADAF0075FCF0 /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448B10D1A54E000D803D /* EAPOLClientConfiguration.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		44AF45D72970B9430075FCF0 /* EAPOLClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448510D1A528000D803D /* EAPOLClientConfiguration.c */; };
+		44AF45D82970C24F0075FCF0 /* EAPOLClientProfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448710D1A528000D803D /* EAPOLClientProfile.c */; };
 		44B18DC71CC8319D000227D6 /* com.apple.eapol.plist in copy os_log subsystem plist */ = {isa = PBXBuildFile; fileRef = 44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */; };
 		44B18DC91CC831D0000227D6 /* com.apple.eapol.plist in Copy Files (1 item) */ = {isa = PBXBuildFile; fileRef = 44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */; };
 		44B4EB7324633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */; };
 		44B4EB7424633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */; };
+		44D03D7929106DC80010EF7C /* EAPBoringSSLSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D03D7829106DC80010EF7C /* EAPBoringSSLSession.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		44D03D7A29106DC80010EF7C /* EAPBoringSSLSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D03D7829106DC80010EF7C /* EAPBoringSSLSession.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		44D03D7C29106DD40010EF7C /* EAPBoringSSLSession.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44D03D7B29106DD40010EF7C /* EAPBoringSSLSession.h */; };
+		44D03D7D29106DD40010EF7C /* EAPBoringSSLSession.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44D03D7B29106DD40010EF7C /* EAPBoringSSLSession.h */; };
+		44D03D7F29106DEA0010EF7C /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44D03D7E29106DEA0010EF7C /* Network.framework */; };
+		44D03D8129106DF50010EF7C /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44D03D8029106DF50010EF7C /* Network.framework */; };
 		44D554A22065727300681A0F /* SIMAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D554A12065727300681A0F /* SIMAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		44D554A4206573D400681A0F /* SIMAccessPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44D554A3206573D400681A0F /* SIMAccessPrivate.h */; };
 		44D5921B27F7AA8A002FF958 /* IO80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44D5921A27F7AA8A002FF958 /* IO80211.framework */; };
@@ -350,6 +371,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		44AF45D2296F7E920075FCF0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44AF45C6296F7DBF0075FCF0;
+			remoteInfo = "eapolcfg(embedded)";
+		};
 		44F5021C1DB6E54F00EF6B04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
@@ -503,6 +531,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4407E9FC29AD4FDB0016A8B8 /* entitlements-macos.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "entitlements-macos.plist"; sourceTree = "<group>"; };
 		440EC83527E9014F00F753D6 /* MIBConfigurationAccess.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MIBConfigurationAccess.m; sourceTree = "<group>"; };
 		440EC83727E9015D00F753D6 /* MIBConfigurationAccess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MIBConfigurationAccess.h; sourceTree = "<group>"; };
 		4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPClientPluginIntrospect.h; sourceTree = "<group>"; };
@@ -513,13 +542,22 @@
 		447011B225DB125F007F7D25 /* AppSSO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSSO.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/System/Library/PrivateFrameworks/AppSSO.framework; sourceTree = DEVELOPER_DIR; };
 		4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EAPClientConfiguration.h; sourceTree = "<group>"; };
 		4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPClientConfiguration.c; sourceTree = "<group>"; };
+		44788ED4293F138C008B1214 /* EAPTLSSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EAPTLSSession.h; sourceTree = "<group>"; };
+		44788ED5293F138C008B1214 /* EAPTLSSession.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPTLSSession.c; sourceTree = "<group>"; };
 		4478B6F71AE19D0100051F29 /* sim_simulator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sim_simulator.h; sourceTree = "<group>"; };
 		447D07312076C867006B90C4 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		44811A55297874E80032AA62 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		449213AB1D12062700D8FB30 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = ../../../../../../../../../System/Library/Frameworks/CoreTelephony.framework; sourceTree = "<group>"; };
 		44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = eapolcfg_auth.8; sourceTree = "<group>"; };
 		44980A3C1ABB93B200B76F01 /* sim_simulator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sim_simulator.c; sourceTree = "<group>"; };
+		44AF45D1296F7DBF0075FCF0 /* eapolcfg */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapolcfg; sourceTree = BUILT_PRODUCTS_DIR; };
 		44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = com.apple.eapol.plist; sourceTree = "<group>"; };
 		44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPTLSTrustExceptionUtil.c; sourceTree = "<group>"; };
+		44B681AE2A046348006C15C6 /* entitlements-macos.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "entitlements-macos.plist"; sourceTree = "<group>"; };
+		44D03D7829106DC80010EF7C /* EAPBoringSSLSession.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EAPBoringSSLSession.m; sourceTree = "<group>"; };
+		44D03D7B29106DD40010EF7C /* EAPBoringSSLSession.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPBoringSSLSession.h; sourceTree = "<group>"; };
+		44D03D7E29106DEA0010EF7C /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.sdk/System/Library/PrivateFrameworks/Network.framework; sourceTree = DEVELOPER_DIR; };
+		44D03D8029106DF50010EF7C /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS17.0.sdk/System/Library/PrivateFrameworks/Network.framework; sourceTree = DEVELOPER_DIR; };
 		44D554A12065727300681A0F /* SIMAccess.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SIMAccess.m; sourceTree = "<group>"; };
 		44D554A3206573D400681A0F /* SIMAccessPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SIMAccessPrivate.h; sourceTree = "<group>"; };
 		44D5921A27F7AA8A002FF958 /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = /System/Library/PrivateFrameworks/IO80211.framework; sourceTree = "<absolute>"; };
@@ -677,6 +715,17 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		44AF45C9296F7DBF0075FCF0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44AF45CA296F7DBF0075FCF0 /* EAP8021X.framework in Frameworks */,
+				44AF45CB296F7DBF0075FCF0 /* CoreFoundation.framework in Frameworks */,
+				44AF45CC296F7DBF0075FCF0 /* SystemConfiguration.framework in Frameworks */,
+				44AF45CD296F7DBF0075FCF0 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F90FEE530CA3338A00A7B5A8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -709,6 +758,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44D03D8129106DF50010EF7C /* Network.framework in Frameworks */,
 				447D07322076C867006B90C4 /* Foundation.framework in Frameworks */,
 				F915475E0CD78FA7008D9897 /* CoreFoundation.framework in Frameworks */,
 				F915475F0CD78FA7008D9897 /* Security.framework in Frameworks */,
@@ -721,6 +771,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44D03D7F29106DEA0010EF7C /* Network.framework in Frameworks */,
 				F9FE9C6C0C92234E0004CCD4 /* CoreFoundation.framework in Frameworks */,
 				F9FE9C6D0C92234E0004CCD4 /* Security.framework in Frameworks */,
 				F9FE9C6E0C92234E0004CCD4 /* SystemConfiguration.framework in Frameworks */,
@@ -814,6 +865,8 @@
 		449213AA1D12062700D8FB30 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				44D03D7E29106DEA0010EF7C /* Network.framework */,
+				44D03D8029106DF50010EF7C /* Network.framework */,
 				F95DEDED26F1A3500080AA19 /* MobileKeyBag.framework */,
 				44D5921A27F7AA8A002FF958 /* IO80211.framework */,
 				44D5921C27FB4EA4002FF958 /* IO80211.framework */,
@@ -826,6 +879,15 @@
 				449213AB1D12062700D8FB30 /* CoreTelephony.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		44AF45C5296F7D5C0075FCF0 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				44B681AE2A046348006C15C6 /* entitlements-macos.plist */,
+				44811A55297874E80032AA62 /* entitlements.plist */,
+			);
+			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
 		F91F7AD40C8F5E37000EA394 = {
@@ -897,6 +959,7 @@
 		F91F7B950C8F8387000EA394 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				44D03D7829106DC80010EF7C /* EAPBoringSSLSession.m */,
 				44980A3C1ABB93B200B76F01 /* sim_simulator.c */,
 				F9432121168BCB5E0092BF5A /* EAPLog.c */,
 				F9C18FD7163B995800F121AF /* eapaka_plugin.c */,
@@ -939,6 +1002,7 @@
 				44D554A12065727300681A0F /* SIMAccess.m */,
 				4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */,
 				44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */,
+				44788ED5293F138C008B1214 /* EAPTLSSession.c */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -946,8 +1010,10 @@
 		F91F7B960C8F83AE000EA394 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				44D03D7B29106DD40010EF7C /* EAPBoringSSLSession.h */,
 				4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */,
 				44D554A3206573D400681A0F /* SIMAccessPrivate.h */,
+				44788ED4293F138C008B1214 /* EAPTLSSession.h */,
 				F96E5840169E02E5001068C6 /* EAPOLControlPrefs.h */,
 				F9432122168BCB5E0092BF5A /* EAPLog.h */,
 				F91FF5FD163B079A00B82B50 /* EAPSIMAKA.h */,
@@ -1100,6 +1166,7 @@
 				F96044A510D1CA78000D803D /* eapolcfg */,
 				F92EC86B11358ED000517A0F /* eapolcfg_auth */,
 				F92D8E9E1241873400993F02 /* EAPOLMonitor.plugin */,
+				44AF45D1296F7DBF0075FCF0 /* eapolcfg */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1117,6 +1184,7 @@
 		F960449E10D1CA46000D803D /* eapolcfg.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				44AF45C5296F7D5C0075FCF0 /* Supporting Files */,
 				F960449F10D1CA46000D803D /* eapolcfg.c */,
 			);
 			path = eapolcfg.tproj;
@@ -1162,6 +1230,7 @@
 		F9F78E8E0DCB695E0077AA04 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				4407E9FC29AD4FDB0016A8B8 /* entitlements-macos.plist */,
 				68A6B7900DE0EE5C00D48B5D /* entitlements.plist */,
 				F9F78E900DCB699E0077AA04 /* Info.plist */,
 			);
@@ -1175,15 +1244,19 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44AF45D62970ADAF0075FCF0 /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				4423D5762187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915472C0CD78FA7008D9897 /* EAPClientModule.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915472D0CD78FA7008D9897 /* DiameterAVP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915472E0CD78FA7008D9897 /* EAPTLS.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915472F0CD78FA7008D9897 /* chap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				44D03D7D29106DD40010EF7C /* EAPBoringSSLSession.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F91547300CD78FA7008D9897 /* LinkAddresses.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F91547310CD78FA7008D9897 /* EAPOLControl.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F91547320CD78FA7008D9897 /* EAPUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F91547330CD78FA7008D9897 /* SupplicantTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				44AF45D52970AC230075FCF0 /* EAPOLClientConfigurationPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				44788ED7293F138C008B1214 /* EAPTLSSession.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F91547340CD78FA7008D9897 /* EAPOLClient.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F91547350CD78FA7008D9897 /* EAPSecurity.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F91547360CD78FA7008D9897 /* EAPClientTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
@@ -1227,12 +1300,14 @@
 			files = (
 				F97A1F4E0C90871300D792C8 /* EAPClientModule.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F4F0C90871A00D792C8 /* DiameterAVP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				44788ED6293F138C008B1214 /* EAPTLSSession.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F500C90871B00D792C8 /* EAPTLS.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F510C90871C00D792C8 /* chap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F520C90871D00D792C8 /* LinkAddresses.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F530C90872100D792C8 /* EAPOLControl.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F540C90872200D792C8 /* EAPUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				44D03D7C29106DD40010EF7C /* EAPBoringSSLSession.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				447B2CCC21891FDC00DE73CF /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F550C90872300D792C8 /* SupplicantTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F560C90872400D792C8 /* EAPOLClient.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
@@ -1276,6 +1351,22 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		44AF45C6296F7DBF0075FCF0 /* eapolcfg(embedded) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44AF45CE296F7DBF0075FCF0 /* Build configuration list for PBXNativeTarget "eapolcfg(embedded)" */;
+			buildPhases = (
+				44AF45C7296F7DBF0075FCF0 /* Sources */,
+				44AF45C9296F7DBF0075FCF0 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "eapolcfg(embedded)";
+			productName = eapolcfg;
+			productReference = 44AF45D1296F7DBF0075FCF0 /* eapolcfg */;
+			productType = "com.apple.product-type.tool";
+		};
 		F90FEE450CA3338A00A7B5A8 /* eapolclient(embedded) */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F90FEE580CA3338A00A7B5A8 /* Build configuration list for PBXNativeTarget "eapolclient(embedded)" */;
@@ -1512,6 +1603,7 @@
 				F96044A410D1CA78000D803D /* eapolcfg */,
 				F92EC86A11358ED000517A0F /* eapolcfg_auth */,
 				F92D8E9D1241873400993F02 /* EAPOLMonitor */,
+				44AF45C6296F7DBF0075FCF0 /* eapolcfg(embedded) */,
 			);
 		};
 /* End PBXProject section */
@@ -1575,6 +1667,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		44AF45C7296F7DBF0075FCF0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44AF45C8296F7DBF0075FCF0 /* eapolcfg.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F90FEE470CA3338A00A7B5A8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1607,6 +1707,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44811A5629789D540032AA62 /* EAPOLClientItemID.c in Sources */,
+				44AF45D82970C24F0075FCF0 /* EAPOLClientProfile.c in Sources */,
+				44AF45D72970B9430075FCF0 /* EAPOLClientConfiguration.c in Sources */,
 				44980A3F1ABBC61A00B76F01 /* sim_simulator.c in Sources */,
 				F91547460CD78FA7008D9897 /* EAPOLClient.c in Sources */,
 				F91547470CD78FA7008D9897 /* eapmschapv2_plugin.c in Sources */,
@@ -1620,6 +1723,7 @@
 				F915474E0CD78FA7008D9897 /* LinkAddresses.c in Sources */,
 				F915474F0CD78FA7008D9897 /* leap_plugin.c in Sources */,
 				F91547500CD78FA7008D9897 /* myCFUtil.c in Sources */,
+				44D03D7A29106DC80010EF7C /* EAPBoringSSLSession.m in Sources */,
 				F91547510CD78FA7008D9897 /* EAPClientModule.c in Sources */,
 				F91547520CD78FA7008D9897 /* EAPUtil.c in Sources */,
 				F91547530CD78FA7008D9897 /* DESSupport.c in Sources */,
@@ -1633,6 +1737,7 @@
 				F915475A0CD78FA7008D9897 /* eapttls_plugin.c in Sources */,
 				F915475B0CD78FA7008D9897 /* EAPTLSUtil.c in Sources */,
 				F915475C0CD78FA7008D9897 /* eapolcontroller.defs in Sources */,
+				44788ED9293F138C008B1214 /* EAPTLSSession.c in Sources */,
 				F9063FCD0EF17BD8003227D9 /* eapsim_plugin.c in Sources */,
 				F9B213410EF7442600370E54 /* fips186prf.c in Sources */,
 				F9B213420EF7442600370E54 /* fr_sha1.c in Sources */,
@@ -1681,6 +1786,7 @@
 				F97A1F3B0C907A3F00D792C8 /* eapttls_plugin.c in Sources */,
 				F97A1F5E0C90872C00D792C8 /* EAPTLSUtil.c in Sources */,
 				F9FE9C640C9220F40004CCD4 /* eapolcontroller.defs in Sources */,
+				44788ED8293F138C008B1214 /* EAPTLSSession.c in Sources */,
 				F9063FCB0EF17BD8003227D9 /* eapsim_plugin.c in Sources */,
 				F9B2133F0EF7442600370E54 /* fips186prf.c in Sources */,
 				F9B213400EF7442600370E54 /* fr_sha1.c in Sources */,
@@ -1690,6 +1796,7 @@
 				F960448A10D1A528000D803D /* EAPOLClientProfile.c in Sources */,
 				F92EC98B1135A91800517A0F /* eapolcfg_auth.defs in Sources */,
 				F9A6A2FD122E0212009061FE /* eapol_socket.c in Sources */,
+				44D03D7929106DC80010EF7C /* EAPBoringSSLSession.m in Sources */,
 				F9E31A1A12314F9900181D7D /* EAPOLUtil.c in Sources */,
 				F91FF5F9163B077F00B82B50 /* EAPSIMAKAPersistentState.c in Sources */,
 				F91FF5FB163B077F00B82B50 /* EAPSIMAKAUtil.c in Sources */,
@@ -1771,6 +1878,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		44AF45D3296F7E920075FCF0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44AF45C6296F7DBF0075FCF0 /* eapolcfg(embedded) */;
+			targetProxy = 44AF45D2296F7E920075FCF0 /* PBXContainerItemProxy */;
+		};
 		44F5021B1DB6E54F00EF6B04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F915472A0CD78FA7008D9897 /* EAP8021X.framework(embedded) */;
@@ -1868,6 +1980,37 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		44AF45CF296F7DBF0075FCF0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = eapolcfg.tproj/entitlements.plist;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = eapolcfg;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		44AF45D0296F7DBF0075FCF0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = eapolcfg.tproj/entitlements.plist;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = eapolcfg;
+			};
+			name = Development;
+		};
 		44F502241DB6E54F00EF6B04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2084,7 +2227,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				"OTHER_LDFLAGS[arch=armv6]" = "";
-				OTHER_TAPI_FLAGS = "--extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccessPrivate.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h";
+				OTHER_TAPI_FLAGS = "--extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccessPrivate.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPBoringSSLSession.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPTLSSession.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrivate.h";
 				PRODUCT_NAME = EAP8021X;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2128,7 +2271,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				"OTHER_LDFLAGS[arch=armv6]" = "";
-				OTHER_TAPI_FLAGS = "--extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccessPrivate.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h";
+				OTHER_TAPI_FLAGS = "--extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccessPrivate.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPBoringSSLSession.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPTLSSession.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrivate.h";
 				PRODUCT_NAME = EAP8021X;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2194,7 +2337,7 @@
 				MODULEMAP_FILE = EAP8021X.fproj/eap8021x.modulemap;
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				"OTHER_LDFLAGS[arch=armv6]" = "";
-				OTHER_TAPI_FLAGS = "--verify-api-skip-external-headers --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrivate.h";
+				OTHER_TAPI_FLAGS = "--verify-api-skip-external-headers --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrivate.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPBoringSSLSession.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPTLSSession.h";
 				PRODUCT_NAME = EAP8021X;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2259,7 +2402,7 @@
 				MODULEMAP_FILE = EAP8021X.fproj/eap8021x.modulemap;
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				"OTHER_LDFLAGS[arch=armv6]" = "";
-				OTHER_TAPI_FLAGS = "--verify-api-skip-external-headers --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrivate.h";
+				OTHER_TAPI_FLAGS = "--verify-api-skip-external-headers --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrivate.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPBoringSSLSession.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPTLSSession.h";
 				PRODUCT_NAME = EAP8021X;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2377,6 +2520,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = "eapolcfg.tproj/entitlements-macos.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -2392,6 +2537,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = "eapolcfg.tproj/entitlements-macos.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2447,6 +2594,8 @@
 		F9B7FB570C95C9EF00BBD057 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "eapolclient.tproj/entitlements-macos.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -2480,6 +2629,8 @@
 		F9B7FB580C95C9EF00BBD057 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "eapolclient.tproj/entitlements-macos.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -2644,6 +2795,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		44AF45CE296F7DBF0075FCF0 /* Build configuration list for PBXNativeTarget "eapolcfg(embedded)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44AF45CF296F7DBF0075FCF0 /* Deployment */,
+				44AF45D0296F7DBF0075FCF0 /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
 		44F502231DB6E54F00EF6B04 /* Build configuration list for PBXAggregateTarget "embedded_frameworks" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

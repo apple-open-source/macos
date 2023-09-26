@@ -939,27 +939,127 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
                       g_max_dirs_cached,
                       g_max_dir_entries_cached);
 
-    /* Set user defined max quantum size? */
-    smp->sm_args.max_read_size = args->max_read_size;
-    if (smp->sm_args.max_read_size != 0) {
-        SMBWARNING("%s using custom max read size of %d \n",
-                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.max_read_size);
-        SS_TO_SESSION(share)->iod_readSizes[2] = smp->sm_args.max_read_size;
+    
+    /*
+     * Set user defined read quantum sizes and counts?
+     */
+    smp->sm_args.read_size[0] = args->read_size[0];
+    if (smp->sm_args.read_size[0] != 0) {
+        SMBWARNING("%s using custom min read size of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.read_size[0]);
+        SS_TO_SESSION(share)->iod_readSizes[0] = smp->sm_args.read_size[0];
+
+        /* Recheck max values */
+        SS_TO_SESSION(share)->session_rxmax = smb2_session_maxread(SS_TO_SESSION(share),
+                                                                   kDefaultMaxIOSize);
+    }
+
+    smp->sm_args.read_size[1] = args->read_size[1];
+    if (smp->sm_args.read_size[1] != 0) {
+        SMBWARNING("%s using custom med read size of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.read_size[1]);
+        SS_TO_SESSION(share)->iod_readSizes[1] = smp->sm_args.read_size[1];
 
         /* Recheck max values */
         SS_TO_SESSION(share)->session_rxmax = smb2_session_maxread(SS_TO_SESSION(share),
                                                                    kDefaultMaxIOSize);
     }
     
-    smp->sm_args.max_write_size = args->max_write_size;
-    if (smp->sm_args.max_write_size != 0) {
-        SMBWARNING("%s using custom max write size of %d \n",
-                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.max_write_size);
-        SS_TO_SESSION(share)->iod_writeSizes[2] = smp->sm_args.max_write_size;
+    smp->sm_args.read_size[2] = args->read_size[2];
+    if (smp->sm_args.read_size[2] != 0) {
+        SMBWARNING("%s using custom max read size of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.read_size[2]);
+        SS_TO_SESSION(share)->iod_readSizes[2] = smp->sm_args.read_size[2];
 
         /* Recheck max values */
-        SS_TO_SESSION(share)->session_wxmax = smb2_session_maxwrite(SS_TO_SESSION(share),
+        SS_TO_SESSION(share)->session_rxmax = smb2_session_maxread(SS_TO_SESSION(share),
+                                                                   kDefaultMaxIOSize);
+    }
+
+    smp->sm_args.read_count[0] = args->read_count[0];
+    if (smp->sm_args.read_count[0] != 0) {
+        SMBWARNING("%s using custom min read count of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.read_count[0]);
+        SS_TO_SESSION(share)->iod_readCounts[0] = smp->sm_args.read_count[0];
+    }
+
+    smp->sm_args.read_count[1] = args->read_count[1];
+    if (smp->sm_args.read_count[1] != 0) {
+        SMBWARNING("%s using custom med read count of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.read_count[1]);
+        SS_TO_SESSION(share)->iod_readCounts[1] = smp->sm_args.read_count[1];
+    }
+    
+    smp->sm_args.read_count[2] = args->read_count[2];
+    if (smp->sm_args.read_count[2] != 0) {
+        SMBWARNING("%s using custom max read count of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.read_count[2]);
+        SS_TO_SESSION(share)->iod_readCounts[2] = smp->sm_args.read_count[2];
+    }
+
+    /*
+     * Set user defined write quantum sizes and counts?
+     */
+    smp->sm_args.write_size[0] = args->write_size[0];
+    if (smp->sm_args.write_size[0] != 0) {
+        SMBWARNING("%s using custom min write size of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.write_size[0]);
+        SS_TO_SESSION(share)->iod_writeSizes[0] = smp->sm_args.write_size[0];
+
+        /* Recheck max values */
+        SS_TO_SESSION(share)->session_rxmax = smb2_session_maxwrite(SS_TO_SESSION(share),
                                                                     kDefaultMaxIOSize);
+    }
+
+    smp->sm_args.write_size[1] = args->write_size[1];
+    if (smp->sm_args.write_size[1] != 0) {
+        SMBWARNING("%s using custom med write size of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.write_size[1]);
+        SS_TO_SESSION(share)->iod_writeSizes[1] = smp->sm_args.write_size[1];
+
+        /* Recheck max values */
+        SS_TO_SESSION(share)->session_rxmax = smb2_session_maxwrite(SS_TO_SESSION(share),
+                                                                    kDefaultMaxIOSize);
+    }
+    
+    smp->sm_args.write_size[2] = args->write_size[2];
+    if (smp->sm_args.write_size[2] != 0) {
+        SMBWARNING("%s using custom max write size of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.write_size[2]);
+        SS_TO_SESSION(share)->iod_writeSizes[2] = smp->sm_args.write_size[2];
+
+        /* Recheck max values */
+        SS_TO_SESSION(share)->session_rxmax = smb2_session_maxwrite(SS_TO_SESSION(share),
+                                                                    kDefaultMaxIOSize);
+    }
+
+    smp->sm_args.write_count[0] = args->write_count[0];
+    if (smp->sm_args.write_count[0] != 0) {
+        SMBWARNING("%s using custom min write count of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.write_count[0]);
+        SS_TO_SESSION(share)->iod_writeCounts[0] = smp->sm_args.write_count[0];
+    }
+
+    smp->sm_args.write_count[1] = args->write_count[1];
+    if (smp->sm_args.write_count[1] != 0) {
+        SMBWARNING("%s using custom med write count of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.write_count[1]);
+        SS_TO_SESSION(share)->iod_writeCounts[1] = smp->sm_args.write_count[1];
+    }
+    
+    smp->sm_args.write_count[2] = args->write_count[2];
+    if (smp->sm_args.write_count[2] != 0) {
+        SMBWARNING("%s using custom max write count of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.write_count[2]);
+        SS_TO_SESSION(share)->iod_writeCounts[2] = smp->sm_args.write_count[2];
+    }
+
+    /* Changing io thread control? */
+    smp->sm_args.rw_thread_control = args->rw_thread_control;
+    if (smp->sm_args.rw_thread_control != 0) {
+        SMBWARNING("%s using custom read/write thread control of 0x%x \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.rw_thread_control);
+        SS_TO_SESSION(share)->rw_thread_control = smp->sm_args.rw_thread_control;
     }
 
     /*
@@ -3103,13 +3203,15 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 		{
 			boolean_t is_64_bit = vfs_context_is64bit(context);
 			union union_vfsidctl vc;
-			
+			extern struct vfsops smbfs_vfsops;
+
+
 			req = CAST_DOWN(struct sysctl_req *, oldp);
 			error = SYSCTL_IN(req, &vc, is_64_bit ? sizeof(vc.vc64) : sizeof(vc.vc32));
 			if (error) {
 				break;
 			}
-			mp = vfs_getvfs(&vc.vc32.vc_fsid); /* works for 32 and 64 */
+			mp = vfs_getvfs_with_vfsops(&vc.vc32.vc_fsid, &smbfs_vfsops); /* works for 32 and 64 */
 			/*
 			 * The sysctl_vfs_ctlbyfsid grabs a reference on the mount before 
 			 * calling us, so we know the mount point can't go away while we 
@@ -3446,7 +3548,7 @@ static vfstable_t  smbfs_vfsconf;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
 
-static struct vfsops smbfs_vfsops = {
+struct vfsops smbfs_vfsops = {
 	smbfs_mount,
 	smbfs_start,
 	smbfs_unmount,

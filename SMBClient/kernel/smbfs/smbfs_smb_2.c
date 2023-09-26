@@ -2417,7 +2417,9 @@ parse_setinfo:
                     SMBDEBUG("setinfo smb2_rq_parse_header failed %d, id %lld\n",
                              tmp_error, setinfo_rqp->sr_messageid);
                 }
-                error = tmp_error;
+                
+                /* Ok to ignore any errors from the SetInfo */
+                //error = tmp_error;
             }
             goto parse_close;
         }
@@ -2431,7 +2433,9 @@ parse_setinfo:
                     SMBERROR("smb2_smb_parse_set_info failed %d id %lld\n",
                              tmp_error, setinfo_rqp->sr_messageid);
                 }
-                error = tmp_error;
+                
+                /* Ok to ignore any errors from the SetInfo */
+                //error = tmp_error;
             }
             goto parse_close;
         }

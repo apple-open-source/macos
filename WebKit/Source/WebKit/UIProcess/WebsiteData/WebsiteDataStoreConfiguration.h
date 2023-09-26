@@ -26,6 +26,7 @@
 #pragma once
 
 #include "APIObject.h"
+#include <wtf/Markable.h>
 #include <wtf/URL.h>
 #include <wtf/UUID.h>
 #include <wtf/text/WTFString.h>
@@ -47,7 +48,8 @@ public:
     WebsiteDataStoreConfiguration(IsPersistent, ShouldInitializePaths = ShouldInitializePaths::Yes);
 
 #if PLATFORM(COCOA)
-    WebsiteDataStoreConfiguration(const UUID&);
+    static Ref<WebsiteDataStoreConfiguration> create(const WTF::UUID& identifier) { return adoptRef(*new WebsiteDataStoreConfiguration(identifier)); }
+    WebsiteDataStoreConfiguration(const WTF::UUID&);
 #endif
 
 #if !PLATFORM(COCOA)
@@ -59,10 +61,22 @@ public:
     Ref<WebsiteDataStoreConfiguration> copy() const;
 
     bool isPersistent() const { return m_isPersistent == IsPersistent::Yes; }
-    std::optional<UUID> identifier() const { return m_identifier; }
+    std::optional<WTF::UUID> identifier() const { return m_identifier; }
 
     uint64_t perOriginStorageQuota() const { return m_perOriginStorageQuota; }
     void setPerOriginStorageQuota(uint64_t quota) { m_perOriginStorageQuota = quota; }
+
+    std::optional<double> originQuotaRatio() const { return m_originQuotaRatio; }
+    void setOriginQuotaRatio(std::optional<double> ratio) { m_originQuotaRatio = ratio; }
+
+    std::optional<double> totalQuotaRatio() const { return m_totalQuotaRatio; }
+    void setTotalQuotaRatio(std::optional<double> ratio) { m_totalQuotaRatio = ratio; }
+
+    std::optional<uint64_t> standardVolumeCapacity() const { return m_standardVolumeCapacity; }
+    void setStandardVolumeCapacity(std::optional<uint64_t> capacity) { m_standardVolumeCapacity = capacity; }
+
+    std::optional<uint64_t> volumeCapacityOverride() const { return m_volumeCapacityOverride; }
+    void setVolumeCapacityOverride(std::optional<uint64_t> capacity) { m_volumeCapacityOverride = capacity; }
 
     const String& applicationCacheDirectory() const { return m_applicationCacheDirectory; }
     void setApplicationCacheDirectory(String&& directory) { m_applicationCacheDirectory = WTFMove(directory); }
@@ -78,6 +92,9 @@ public:
 
     const String& javaScriptConfigurationDirectory() const { return m_javaScriptConfigurationDirectory; }
     void setJavaScriptConfigurationDirectory(String&& directory) { m_javaScriptConfigurationDirectory = WTFMove(directory); }
+
+    const String& searchFieldHistoryDirectory() const { return m_searchFieldHistoryDirectory; }
+    void setSearchFieldHistoryDirectory(String&& directory) { m_searchFieldHistoryDirectory = WTFMove(directory); }
 
     // indexedDBDatabaseDirectory is sort of deprecated. Data is migrated from here to
     // generalStoragePath unless useCustomStoragePaths is true.
@@ -236,12 +253,16 @@ private:
     IsPersistent m_isPersistent { IsPersistent::No };
 
     UnifiedOriginStorageLevel m_unifiedOriginStorageLevel;
-    std::optional<UUID> m_identifier;
+    Markable<WTF::UUID> m_identifier;
     String m_baseCacheDirectory;
     String m_baseDataDirectory;
     String m_cacheStorageDirectory;
     String m_generalStorageDirectory;
     uint64_t m_perOriginStorageQuota;
+    std::optional<double> m_originQuotaRatio;
+    std::optional<double> m_totalQuotaRatio;
+    std::optional<uint64_t> m_standardVolumeCapacity;
+    std::optional<uint64_t> m_volumeCapacityOverride;
     String m_networkCacheDirectory;
     String m_applicationCacheDirectory;
     String m_applicationCacheFlatFileSubdirectoryName { "Files"_s };
@@ -265,6 +286,7 @@ private:
     String m_deviceIdHashSaltsStorageDirectory;
     String m_resourceLoadStatisticsDirectory;
     String m_javaScriptConfigurationDirectory;
+    String m_searchFieldHistoryDirectory;
     String m_cookieStorageFile;
     String m_sourceApplicationBundleIdentifier;
     String m_sourceApplicationSecondaryIdentifier;

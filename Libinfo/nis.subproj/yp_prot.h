@@ -34,6 +34,7 @@
 
 #ifndef _RPCSVC_YP_PROT_H_
 #define _RPCSVC_YP_PROT_H_
+#include <netinet/in.h>
 #include <rpc/clnt.h>
 
 /*

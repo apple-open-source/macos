@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2023 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,9 +33,12 @@
 #define AudioTrace_End(a, b, c, d, e, f)
 #define AudioTrace(a, b, c, d, e, f)
 
+#include <AssertMacros.h>
+
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
+#include <IOKit/IOTimerEventSource.h>
 
 #include <libkern/c++/OSArray.h>
 #include <libkern/c++/OSNumber.h>
@@ -57,6 +60,9 @@
 
 #define WATCHDOG_THREAD_LATENCY_PADDING_NS	(125000)	// 125us
 #define DEFAULT_MIX_CLIP_OVERHEAD			10			// <rdar://12188841>
+
+#define kDefaultEraseHeadComputationNs 100000 // 100 microseconds is conservative. Minimum quantum is 50us.
+#define kDefaultEraseHeadConstraintNs  (2 * kDefaultEraseHeadComputationNs)
 
 // <rdar://8518215>
 enum
@@ -499,76 +505,80 @@ bool IOAudioEngine::init(OSDictionary *properties)
 	{
 		audioDebugIOLog(3, "  properties(%p) == NULL\n", properties);
 	}
-	
-	if ( super::init ( pDict ) )
-	{
-		duringStartup = true;
 
-		sampleRate.whole = 0;
-		sampleRate.fraction = 0;
-		
-		numErasesPerBuffer = IOAUDIOENGINE_DEFAULT_NUM_ERASES_PER_BUFFER;
-		isRegistered = false;
-		
-		numActiveUserClients = 0;
+	require(super::init(pDict), finish);
 
-		reserved = IOMallocType (ExpansionData);
-		if ( reserved )
-		{
-			reserved->pauseCount = 0;
-			reserved->bytesInInputBufferArrayDescriptor = NULL;
-			reserved->bytesInOutputBufferArrayDescriptor = NULL;
-			reserved->mixClipOverhead = DEFAULT_MIX_CLIP_OVERHEAD;		// <rdar://12188841>
-			reserved->streams = NULL;
-			reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
-            reserved->commandGateUsage = 0;                                // <rdar://8518215>
-            reserved->useHiResSampleInterval = false;
+	duringStartup = true;
 
-			reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page_32(sizeof(IOAudioEngineStatus)), page_size);
+	sampleRate.whole = 0;
+	sampleRate.fraction = 0;
 
-			if ( reserved->statusDescriptor)
-			{
-				status = (IOAudioEngineStatus *)reserved->statusDescriptor->getBytesNoCopy();
+	numErasesPerBuffer = IOAUDIOENGINE_DEFAULT_NUM_ERASES_PER_BUFFER;
+	isRegistered = false;
 
-				if ( status)
-				{
-					outputStreams = OSOrderedSet::withCapacity(1, (OSOrderedSet::OSOrderFunction)compareAudioStreams);
-					if ( outputStreams )
-					{
-						inputStreams = OSOrderedSet::withCapacity(1, (OSOrderedSet::OSOrderFunction)compareAudioStreams);
-						if ( inputStreams )
-						{
-							setClockDomain ();
-							
-							maxNumOutputChannels = 0;
-							maxNumInputChannels = 0;
+	numActiveUserClients = 0;
 
-							setSampleOffset (0);
+	reserved = IOMallocType (ExpansionData);
+	require(reserved != nullptr, finish);
 
-							userClients = OSSet::withCapacity (1);
-							if ( userClients )
-							{
-								bzero(status, round_page_32(sizeof(IOAudioEngineStatus)));
-								status->fVersion = kIOAudioEngineCurrentStatusStructVersion;
+	reserved->pauseCount = 0;
+	reserved->bytesInInputBufferArrayDescriptor = NULL;
+	reserved->bytesInOutputBufferArrayDescriptor = NULL;
+	reserved->mixClipOverhead = DEFAULT_MIX_CLIP_OVERHEAD;		// <rdar://12188841>
+	reserved->streams = NULL;
+	reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
+	reserved->commandGateUsage = 0;                                // <rdar://8518215>
+	reserved->useHiResSampleInterval = false;
+	reserved->eraseHeadComputationNs = kDefaultEraseHeadComputationNs;
+	reserved->eraseHeadConstraintNs  = kDefaultEraseHeadConstraintNs;
 
-								setState(kIOAudioEngineStopped);
+	reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page_32(sizeof(IOAudioEngineStatus)), page_size);
 
-								setProperty(kIOAudioEngineFlavorKey, (UInt32)kIOAudioStreamByteOrderLittleEndian, sizeof(UInt32)*8);
-								result = true;
-							}
-						}
-					}
-				}
-			}
+	reserved->eraseHeadWorkloop = IOWorkLoop::workLoop();
+	require(reserved->eraseHeadWorkloop != nullptr, finish);
+
+	reserved->eraseHeadTimerEvent =
+		IOTimerEventSource::timerEventSource(kIOTimerEventSourceOptionsPriorityWorkLoop, this,
+											 reinterpret_cast<IOTimerEventSource::Action>(&IOAudioEngine::timerCallback));
+	require(reserved->eraseHeadTimerEvent, finish);
+
+	require(reserved->statusDescriptor != nullptr, finish);
+
+	status = (IOAudioEngineStatus *)reserved->statusDescriptor->getBytesNoCopy();
+	require(status != nullptr, finish);
+
+	outputStreams = OSOrderedSet::withCapacity(1, (OSOrderedSet::OSOrderFunction)compareAudioStreams);
+	require(outputStreams != nullptr, finish);
+
+	inputStreams = OSOrderedSet::withCapacity(1, (OSOrderedSet::OSOrderFunction)compareAudioStreams);
+	require(inputStreams != nullptr, finish);
+
+	setClockDomain ();
+
+	maxNumOutputChannels = 0;
+	maxNumInputChannels = 0;
+
+	setSampleOffset (0);
+
+	userClients = OSSet::withCapacity (1);
+	require(userClients != nullptr, finish);
+
+	bzero(status, round_page_32(sizeof(IOAudioEngineStatus)));
+	status->fVersion = kIOAudioEngineCurrentStatusStructVersion;
+
+	setState(kIOAudioEngineStopped);
+
+	setProperty(kIOAudioEngineFlavorKey, (UInt32)kIOAudioStreamByteOrderLittleEndian, sizeof(UInt32)*8);
+	result = true;
+
 #if TARGET_OS_OSX && TARGET_CPU_ARM64
-            if (driverDesiresHiResSampleIntervals())
-            {
-                useHiResSampleInterval();
-            }
-#endif
-		}
+	if (driverDesiresHiResSampleIntervals())
+	{
+		useHiResSampleInterval();
 	}
+#endif
 
+finish:
     audioDebugIOLog(3, "- IOAudioEngine[%p]::init(%p)\n", this, properties);
     return result;
 }
@@ -599,6 +609,16 @@ void IOAudioEngine::free()
 			reserved->streams->release();
 			reserved->streams = NULL;
 		}
+
+		if (reserved->eraseHeadTimerEvent) {
+			reserved->eraseHeadTimerEvent->cancelTimeout();
+			if (reserved->eraseHeadWorkloop) {
+				reserved->eraseHeadWorkloop->removeEventSource(reserved->eraseHeadTimerEvent);
+			}
+			OSSafeReleaseNULL(reserved->eraseHeadTimerEvent);
+		}
+
+		OSSafeReleaseNULL(reserved->eraseHeadWorkloop);
 		
 		IOFreeType (reserved, ExpansionData);
 	}
@@ -2162,9 +2182,24 @@ void IOAudioEngine::timerCallback(OSObject *target, IOAudioDevice *device)
 
 void IOAudioEngine::timerFired()
 {
+	assert(reserved);
+
     audioDebugIOLog(7, "+ IOAudioEngine[%p]::timerFired()\n", this);
 
-    AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineTimerFired, (uintptr_t)this, 0, 0, 0);
+	// Setup the next timer event.
+	AbsoluteTime now = 0;
+	AbsoluteTime previousWakeupTime = reserved->eraseHeadTimerWakeupTime;
+	clock_get_uptime(&now);
+	while (CMP_ABSOLUTETIME(&now, &reserved->eraseHeadTimerWakeupTime) > 0) {
+		ADD_ABSOLUTETIME(&reserved->eraseHeadTimerWakeupTime, &reserved->eraseHeadTimerPeriod);
+	}
+
+	if (reserved->eraseHeadTimerEvent != nullptr) {
+		reserved->eraseHeadTimerEvent->wakeAtTime(reserved->eraseHeadTimerWakeupTime);
+	}
+
+	AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineTimerFired, (uintptr_t)this, (uint64_t)now,
+			   previousWakeupTime, (uint64_t)reserved->eraseHeadTimerWakeupTime);
     performErase();
     performFlush();
 	
@@ -2287,12 +2322,42 @@ void IOAudioEngine::performFlush()
 
 void IOAudioEngine::addTimer()
 {
+	assert(reserved);
+
     audioDebugIOLog(4, "+ IOAudioEngine[%p]::addTimer()\n", this);
 
-    if ( audioDevice )
-	{
-		audioDevice->addTimerEvent(this, &IOAudioEngine::timerCallback, getTimerInterval());
-    }
+	// Set the erase head real-time priority based on the required timer interval and constraints.
+	AbsoluteTime computation = 0;
+	AbsoluteTime constraint  = 0;
+	reserved->eraseHeadTimerPeriod = getTimerInterval();
+
+	nanoseconds_to_absolutetime(reserved->eraseHeadComputationNs, &computation);
+	nanoseconds_to_absolutetime(reserved->eraseHeadConstraintNs, &constraint);
+
+	thread_time_constraint_policy tcPolicyData = {
+		.period      = static_cast<uint32_t>(AbsoluteTime_to_scalar(&reserved->eraseHeadTimerPeriod)),
+		.computation = static_cast<uint32_t>(AbsoluteTime_to_scalar(&computation)),
+		.constraint  = static_cast<uint32_t>(AbsoluteTime_to_scalar(&constraint)),
+	};
+
+	audioDebugIOLog(4, "  IOAudioEngine[%p]::addTimer() - setting thread policy with"
+					" period: %llu, computation: %llu, constraint: %llu\n", this,
+					reserved->eraseHeadTimerPeriod, computation, constraint);
+	kern_return_t ret = thread_policy_set(reserved->eraseHeadWorkloop->getThread(),
+										  THREAD_TIME_CONSTRAINT_POLICY,
+										  reinterpret_cast<thread_policy_t>(&tcPolicyData),
+										  THREAD_TIME_CONSTRAINT_POLICY_COUNT);
+	if (ret != KERN_SUCCESS) {
+		audioErrorIOLog("IOAudioEngine[%p]::addTimer() - failed to set thread constraint policy: %x\n", this, ret);
+	}
+
+	clock_get_uptime(&reserved->eraseHeadTimerWakeupTime);
+	ADD_ABSOLUTETIME(&reserved->eraseHeadTimerWakeupTime, &reserved->eraseHeadTimerPeriod);
+	if (reserved->eraseHeadTimerEvent != nullptr && reserved->eraseHeadWorkloop != nullptr) {
+		reserved->eraseHeadWorkloop->addEventSource(reserved->eraseHeadTimerEvent);
+		reserved->eraseHeadTimerEvent->enable();
+		reserved->eraseHeadTimerEvent->wakeAtTime(reserved->eraseHeadTimerWakeupTime);
+	}
 
     audioDebugIOLog(4, "- IOAudioEngine[%p]::addTimer()\n", this);
 	return;
@@ -2304,12 +2369,17 @@ void IOAudioEngine::addTimer()
 
 void IOAudioEngine::removeTimer()
 {
+	assert(reserved);
+
     audioDebugIOLog(4, "+ IOAudioEngine[%p]::removeTimer()\n", this);
 
-    if ( audioDevice )
-	{
-		audioDevice->removeTimerEvent(this);
-    }
+	if (reserved->eraseHeadTimerEvent != nullptr) {
+		reserved->eraseHeadTimerEvent->cancelTimeout();
+		reserved->eraseHeadTimerEvent->disable();
+		if (reserved->eraseHeadWorkloop != nullptr) {
+			reserved->eraseHeadWorkloop->removeEventSource(reserved->eraseHeadTimerEvent);
+		}
+	}
 
     audioDebugIOLog(4, "- IOAudioEngine[%p]::removeTimer()\n", this);
 	return;

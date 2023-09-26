@@ -26,6 +26,8 @@
 #include "config.h"
 #include "ScrollbarThemeAdwaita.h"
 
+#if USE(THEME_ADWAITA)
+
 #include "Color.h"
 #include "FloatRoundedRect.h"
 #include "GraphicsContext.h"
@@ -82,8 +84,10 @@ bool ScrollbarThemeAdwaita::usesOverlayScrollbars() const
 #endif
 }
 
-int ScrollbarThemeAdwaita::scrollbarThickness(ScrollbarControlSize, ScrollbarExpansionState)
+int ScrollbarThemeAdwaita::scrollbarThickness(ScrollbarWidth scrollbarWidth, ScrollbarExpansionState)
 {
+    if (scrollbarWidth == ScrollbarWidth::None)
+        return 0;
     return scrollbarSize;
 }
 
@@ -361,3 +365,5 @@ ScrollbarTheme& ScrollbarTheme::nativeTheme()
 #endif
 
 } // namespace WebCore
+
+#endif // USE(THEME_ADWAITA)

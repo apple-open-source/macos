@@ -49,6 +49,7 @@ OSStatus SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, v
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <Security/SecKey.h>
 #include <Security/SecRSAKey.h>
 #include <Security/SecKeyPriv.h>
@@ -345,7 +346,11 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
                     if (extractable) { keyParams[(__bridge id)kSecAttrIsExtractable] = (__bridge id)extractable; }
                     CFBooleanRef sensitive = (__bridge CFBooleanRef)[keyAttrs objectForKey:(__bridge NSString*)kSecAttrIsSensitive];
                     if (sensitive) { keyParams[(__bridge id)kSecAttrIsSensitive] = (__bridge id)sensitive; }
+                    CFBooleanRef dataProtection = (__bridge CFBooleanRef)[keyAttrs objectForKey:(__bridge NSString*)kSecUseDataProtectionKeychain];
+                    if (dataProtection) { keyParams[(__bridge id)kSecUseDataProtectionKeychain] = (__bridge id)dataProtection; }
 #if TARGET_OS_OSX
+                    CFBooleanRef dpSystemKeychain = (__bridge CFBooleanRef)[keyAttrs objectForKey:(__bridge NSString*)kSecUseSystemKeychainAlways];
+                    if (dpSystemKeychain) { keyParams[(__bridge id)kSecUseSystemKeychainAlways] = (__bridge id)dpSystemKeychain; }
                     SecAccessRef access = (__bridge SecAccessRef)[keyAttrs objectForKey:(__bridge NSString*)kSecAttrAccess];
                     if (access) { keyParams[(__bridge id)kSecAttrAccess] = (__bridge id)access; }
 #endif
@@ -401,7 +406,26 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
                 keyParams[(__bridge id)kSecAttrIsSensitive] = (__bridge id)sensitive;
            }
         }
+        /* check data protection keychain identifier(s) [optional] */
+        if (!paramErrStr) {
+            CFBooleanRef dataProtection = (__bridge CFBooleanRef)[params objectForKey:(__bridge NSString*)kSecUseDataProtectionKeychain];
+            if (dataProtection) {
+                if (!(CFGetTypeID(dataProtection) == CFBooleanGetTypeID())) {
+                    paramErrStr = "kSecUseDataProtectionKeychain";
+                }
+                keyParams[(__bridge id)kSecUseDataProtectionKeychain] = (__bridge id)dataProtection;
+           }
+        }
 #if TARGET_OS_OSX
+        if (!paramErrStr) {
+            CFBooleanRef dpSystemKeychain = (__bridge CFBooleanRef)[params objectForKey:(__bridge NSString*)kSecUseSystemKeychainAlways];
+            if (dpSystemKeychain) {
+                if (!(CFGetTypeID(dpSystemKeychain) == CFBooleanGetTypeID())) {
+                    paramErrStr = "kSecUseSystemKeychainAlways";
+                }
+                keyParams[(__bridge id)kSecUseSystemKeychainAlways] = (__bridge id)dpSystemKeychain;
+           }
+        }
         if (!paramErrStr) {
             SecKeychainRef keychain = (__bridge SecKeychainRef)[params objectForKey:(__bridge NSString*)kSecUseKeychain];
             if (keychain) {

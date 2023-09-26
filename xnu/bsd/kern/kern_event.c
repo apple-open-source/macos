@@ -855,6 +855,45 @@ knote_wait_for_post(struct kqueue *kq, struct knote *kn)
 #pragma mark knote helpers for filters
 
 OS_ALWAYS_INLINE
+void *
+knote_kn_hook_get_raw(struct knote *kn)
+{
+	uintptr_t *addr = &kn->kn_hook;
+
+	void *hook = (void *) *addr;
+#if __has_feature(ptrauth_calls)
+	if (hook) {
+		uint16_t blend = kn->kn_filter;
+		blend |= (kn->kn_filtid << 8);
+		blend ^= OS_PTRAUTH_DISCRIMINATOR("kn.kn_hook");
+
+		hook = ptrauth_auth_data(hook, ptrauth_key_process_independent_data,
+		    ptrauth_blend_discriminator(addr, blend));
+	}
+#endif
+
+	return hook;
+}
+
+OS_ALWAYS_INLINE void
+knote_kn_hook_set_raw(struct knote *kn, void *kn_hook)
+{
+	uintptr_t *addr = &kn->kn_hook;
+#if __has_feature(ptrauth_calls)
+	if (kn_hook) {
+		uint16_t blend = kn->kn_filter;
+		blend |= (kn->kn_filtid << 8);
+		blend ^= OS_PTRAUTH_DISCRIMINATOR("kn.kn_hook");
+
+		kn_hook = ptrauth_sign_unauthenticated(kn_hook,
+		    ptrauth_key_process_independent_data,
+		    ptrauth_blend_discriminator(addr, blend));
+	}
+#endif
+	*addr = (uintptr_t) kn_hook;
+}
+
+OS_ALWAYS_INLINE
 void
 knote_set_error(struct knote *kn, int error)
 {
@@ -8769,8 +8808,9 @@ kevent_copyout_proc_dynkqids(void *proc, user_addr_t ubuf, uint32_t ubufsize,
 
 	kqhash_lock(fdp);
 
-	if (fdp->fd_kqhashmask > 0) {
-		for (uint32_t i = 0; i < fdp->fd_kqhashmask + 1; i++) {
+	u_long kqhashmask = fdp->fd_kqhashmask;
+	if (kqhashmask > 0) {
+		for (uint32_t i = 0; i < kqhashmask + 1; i++) {
 			struct kqworkloop *kqwl;
 
 			LIST_FOREACH(kqwl, &fdp->fd_kqhash[i], kqwl_hashlink) {
@@ -8779,6 +8819,20 @@ kevent_copyout_proc_dynkqids(void *proc, user_addr_t ubuf, uint32_t ubufsize,
 					kq_ids[nkqueues] = kqwl->kqwl_dynamicid;
 				}
 				nkqueues++;
+			}
+
+			/*
+			 * Drop the kqhash lock and take it again to give some breathing room
+			 */
+			kqhash_unlock(fdp);
+			kqhash_lock(fdp);
+
+			/*
+			 * Reevaluate to see if we have raced with someone who changed this -
+			 * if we have, we should bail out with the set of info captured so far
+			 */
+			if (fdp->fd_kqhashmask != kqhashmask) {
+				break;
 			}
 		}
 	}
@@ -8891,14 +8945,27 @@ pid_kqueue_extinfo(proc_t p, struct kqueue *kq, user_addr_t ubuf,
 	}
 	proc_fdunlock(p);
 
-	if (fdp->fd_knhashmask != 0) {
-		for (i = 0; i < (int)fdp->fd_knhashmask + 1; i++) {
-			knhash_lock(fdp);
+	knhash_lock(fdp);
+	u_long knhashmask = fdp->fd_knhashmask;
+
+	if (knhashmask != 0) {
+		for (i = 0; i < (int)knhashmask + 1; i++) {
 			kn = SLIST_FIRST(&fdp->fd_knhash[i]);
 			nknotes = kevent_extinfo_emit(kq, kn, kqext, buflen, nknotes);
+
 			knhash_unlock(fdp);
+			knhash_lock(fdp);
+
+			/*
+			 * Reevaluate to see if we have raced with someone who changed this -
+			 * if we have, we should bail out with the set of info captured so far
+			 */
+			if (fdp->fd_knhashmask != knhashmask) {
+				break;
+			}
 		}
 	}
+	knhash_unlock(fdp);
 
 	assert(bufsize >= sizeof(struct kevent_extinfo) * MIN(buflen, nknotes));
 	err = copyout(kqext, ubuf, sizeof(struct kevent_extinfo) * MIN(buflen, nknotes));

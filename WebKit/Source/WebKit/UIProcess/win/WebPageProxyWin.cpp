@@ -29,6 +29,7 @@
 
 #include "NativeWebKeyboardEvent.h"
 #include "PageClientImpl.h"
+#include "WebPageProxyInternals.h"
 #include <WebCore/SearchPopupMenuDB.h>
 #include <WebCore/UserAgent.h>
 
@@ -70,16 +71,18 @@ void WebPageProxy::didUpdateEditorState(const EditorState&, const EditorState&)
 {
 }
 
-PlatformViewWidget WebPageProxy::viewWidget()
+#if USE(GRAPHICS_LAYER_TEXTURE_MAPPER) || USE(GRAPHICS_LAYER_WC)
+uint64_t WebPageProxy::viewWidget()
 {
-    return static_cast<PageClientImpl&>(pageClient()).viewWidget();
+    return reinterpret_cast<uint64_t>(static_cast<PageClientImpl&>(pageClient()).viewWidget());
 }
+#endif
 
 void WebPageProxy::dispatchPendingCharEvents(const NativeWebKeyboardEvent& keydownEvent)
 {
     auto& pendingCharEvents = keydownEvent.pendingCharEvents();
     for (auto it = pendingCharEvents.rbegin(); it != pendingCharEvents.rend(); it++)
-        m_keyEventQueue.prepend(NativeWebKeyboardEvent(it->hwnd, it->message, it->wParam, it->lParam, { }));
+        internals().keyEventQueue.prepend(NativeWebKeyboardEvent(it->hwnd, it->message, it->wParam, it->lParam, { }));
 }
 
 } // namespace WebKit

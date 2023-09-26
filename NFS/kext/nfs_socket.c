@@ -66,6 +66,7 @@
  */
 
 #include "nfs_client.h"
+#include "nfs_kdebug.h"
 
 /*
  * Socket operations for use by nfs
@@ -1891,7 +1892,7 @@ nfs_connect_setup(
 				lck_mtx_unlock(&nmp->nm_lock);
 			}
 		}
-		error = nfs4_setclientid(nmp);
+		error = nfs4_setclientid(nmp, 0);
 	}
 #endif
 	return error;
@@ -2006,11 +2007,16 @@ nfs_disconnect(struct nfsmount *nmp)
 tryagain:
 	if (nmp->nm_nso) {
 		struct timespec ts = { .tv_sec = 1, .tv_nsec = 0 };
-		if (nmp->nm_state & NFSSTA_SENDING) { /* wait for sending to complete */
-			nmp->nm_state |= NFSSTA_WANTSND;
-			msleep(&nmp->nm_state, &nmp->nm_lock, PZERO - 1, "nfswaitsending", &ts);
+		lck_mtx_unlock(&nmp->nm_lock);
+		lck_mtx_lock(&nmp->nm_sndstate_lock);
+		if (nmp->nm_sndstate & NFSSENDSTA_SENDING) { /* wait for sending to complete */
+			nmp->nm_sndstate |= NFSSENDSTA_WANTSND;
+			msleep(&nmp->nm_sndstate, &nmp->nm_sndstate_lock, PDROP | (PZERO - 1), "nfswaitsending", &ts);;
+			lck_mtx_lock(&nmp->nm_lock);
 			goto tryagain;
 		}
+		lck_mtx_unlock(&nmp->nm_sndstate_lock);
+		lck_mtx_lock(&nmp->nm_lock);
 		if (nmp->nm_sockflags & NMSOCK_POKE) { /* wait for poking to complete */
 			msleep(&nmp->nm_sockflags, &nmp->nm_lock, PZERO - 1, "nfswaitpoke", &ts);
 			goto tryagain;
@@ -3430,9 +3436,12 @@ again:
 		goto again;
 	}
 	nso = nmp->nm_nso;
-	/* note that we're using the mount's socket to do the send */
-	nmp->nm_state |= NFSSTA_SENDING;  /* will be cleared by nfs_sndunlock() */
 	lck_mtx_unlock(&nmp->nm_lock);
+	/* note that we're using the mount's socket to do the send */
+	lck_mtx_lock(&nmp->nm_sndstate_lock);
+	nmp->nm_sndstate |= NFSSENDSTA_SENDING; /* will be cleared by nfs_sndunlock() */
+	lck_mtx_unlock(&nmp->nm_sndstate_lock);
+
 	if (!nso) {
 		nfs_sndunlock(req);
 		lck_mtx_lock(&req->r_mtx);
@@ -3820,7 +3829,7 @@ nfs_sock_poke(struct nfsmount *nmp)
 void
 nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 {
-	struct nfsreq *req;
+	struct nfsreq *req = NULL;
 	struct nfsm_chain nmrep;
 	u_int32_t reply = 0, rxid = 0;
 	int error = 0, asyncioq, t1;
@@ -3830,10 +3839,13 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 	nfsm_chain_dissect_init(error, &nmrep, mrep);
 	nfsm_chain_get_32(error, &nmrep, rxid);
 	nfsm_chain_get_32(error, &nmrep, reply);
+
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_MATCH_REPLY, nmp, nmp ? nmp->nm_sotype : 0, rxid, reply);
+
 	if (error || (reply != RPC_REPLY)) {
 		OSAddAtomic64(1, &nfsclntstats.rpcinvalid);
 		mbuf_freem(mrep);
-		return;
+		goto out_return;
 	}
 
 	/*
@@ -3859,7 +3871,7 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 			 * Update congestion window.
 			 * Do the additive increase of one rpc/rtt.
 			 */
-			FSDBG(530, R_XID32(req->r_xid), req, nmp->nm_sent, nmp->nm_cwnd);
+			NFS_KDBG_INFO(NFSDBG_OP_REQ_MATCH_REPLY, 0xabc001, R_XID32(req->r_xid), req, nmp->nm_sent);
 			if (nmp->nm_cwnd <= nmp->nm_sent) {
 				nmp->nm_cwnd +=
 				    ((NFS_CWNDSCALE * NFS_CWNDSCALE) +
@@ -3930,6 +3942,9 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 		OSAddAtomic64(1, &nfsclntstats.rpcunexpected);
 		mbuf_freem(mrep);
 	}
+
+out_return:
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_MATCH_REPLY, nmp, req, rxid, error);
 }
 
 /*
@@ -4414,7 +4429,7 @@ nfs_request_finish(
 		 */
 		req->r_flags &= ~R_CWND;
 		lck_mtx_lock(&nmp->nm_lock);
-		FSDBG(273, R_XID32(req->r_xid), req, nmp->nm_sent, nmp->nm_cwnd);
+		NFS_KDBG_INFO(NFSDBG_OP_REQ_FINISH, 0xabc001, R_XID32(req->r_xid), req, nmp->nm_sent);
 		nmp->nm_sent -= NFS_CWNDSCALE;
 		if ((nmp->nm_sent < nmp->nm_cwnd) && !TAILQ_EMPTY(&nmp->nm_cwndq)) {
 			/* congestion window is open, poke the cwnd queue */
@@ -4617,7 +4632,7 @@ nfs_request_finish(
 			req->r_xid = 0;                 // get a new XID
 			req->r_flags |= R_RESTART;
 			req->r_start = 0;
-			FSDBG(273, R_XID32(req->r_xid), nmp, req, NFSERR_TRYLATER);
+			NFS_KDBG_INFO(NFSDBG_OP_REQ_FINISH, 0xabc002, R_XID32(req->r_xid), nmp, req);
 			return 0;
 		}
 
@@ -4711,7 +4726,7 @@ nfs_request_finish(
 			req->r_xid = 0;                 // get a new XID
 			req->r_flags |= R_RESTART;
 			req->r_start = 0;
-			FSDBG(273, R_XID32(req->r_xid), nmp, req, NFSERR_WRONGSEC);
+			NFS_KDBG_INFO(NFSDBG_OP_REQ_FINISH, 0xabc003, R_XID32(req->r_xid), nmp, req);
 			return 0;
 		}
 		if ((nmp->nm_vers >= NFS_VER4) && req->r_wrongsec) {
@@ -4793,8 +4808,7 @@ nfsmout:
 			}
 		}
 	}
-	FSDBG(273, R_XID32(req->r_xid), nmp, req,
-	    (!error && (*status == NFS_OK)) ? 0xf0f0f0f0 : error);
+	NFS_KDBG_INFO(NFSDBG_OP_REQ_FINISH, 0xabc004, R_XID32(req->r_xid), req, error);
 	return error;
 }
 
@@ -4863,7 +4877,8 @@ nfs_request2(
 		req->r_secinfo = *si;
 	}
 
-	FSDBG_TOP(273, R_XID32(req->r_xid), np, procnum, 0);
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_2, np, req, R_XID32(req->r_xid), procnum);
+
 	do {
 		req->r_error = 0;
 		req->r_flags &= ~R_RESTART;
@@ -4882,7 +4897,8 @@ nfs_request2(
 		}
 	} while (req->r_flags & R_RESTART);
 
-	FSDBG_BOT(273, R_XID32(req->r_xid), np, procnum, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_2, np, R_XID32(req->r_xid), procnum, error);
+
 	nfs_request_rele(req);
 out_free:
 	NFS_ZFREE(get_zone(NFS_REQUEST_ZONE), req);
@@ -4933,7 +4949,8 @@ nfs_request_gss(
 		wait = 0;
 	}
 
-	FSDBG_TOP(273, R_XID32(req->r_xid), NULL, NFSPROC_NULL, 0);
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_GSS, req, R_XID32(req->r_xid), flags);
+
 	do {
 		req->r_error = 0;
 		req->r_flags &= ~R_RESTART;
@@ -4954,7 +4971,7 @@ nfs_request_gss(
 		}
 	} while (req->r_flags & R_RESTART);
 
-	FSDBG_BOT(273, R_XID32(req->r_xid), NULL, NFSPROC_NULL, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_GSS, req, R_XID32(req->r_xid), flags, error);
 
 	nfs_gss_clnt_ctx_unref(req);
 	nfs_request_rele(req);
@@ -4986,9 +5003,9 @@ nfs_request_async(
 
 	error = nfs_request_create(np, mp, nmrest, procnum, thd, cred, reqp);
 	req = *reqp;
-	FSDBG(274, (req ? R_XID32(req->r_xid) : 0), np, procnum, error);
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_ASYNC, (req ? R_XID32(req->r_xid) : 0), np, procnum, error);
 	if (error) {
-		return error;
+		goto out_return;
 	}
 	req->r_flags |= (flags & R_OPTMASK);
 	req->r_flags |= R_ASYNC;
@@ -5050,11 +5067,12 @@ nfs_request_async(
 			nfs_request_rele(req);
 		}
 	}
-	FSDBG(274, R_XID32(req->r_xid), np, procnum, error);
 	if (error || req->r_callback.rcb_func) {
 		nfs_request_rele(req);
 	}
 
+out_return:
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_ASYNC, (req ? R_XID32(req->r_xid) : 0), np, procnum, error);
 	return error;
 }
 
@@ -5070,6 +5088,8 @@ nfs_request_async_finish(
 {
 	int error = 0, asyncio = req->r_callback.rcb_func ? 1 : 0;
 	struct nfsmount *nmp;
+
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_ASYNC_FINISH, req, R_XID32(req->r_xid), req->r_np, req->r_procnum);
 
 	lck_mtx_lock(&req->r_mtx);
 	if (!asyncio) {
@@ -5117,7 +5137,8 @@ nfs_request_async_finish(
 			if (req->r_resendtime) {  /* send later */
 				nfs_asyncio_resend(req);
 				lck_mtx_unlock(&req->r_mtx);
-				return EINPROGRESS;
+				error = EINPROGRESS;
+				goto out_return;
 			}
 			lck_mtx_unlock(&req->r_mtx);
 		}
@@ -5141,8 +5162,10 @@ nfs_request_async_finish(
 		*xidp = req->r_xid;
 	}
 
-	FSDBG(275, R_XID32(req->r_xid), req->r_np, req->r_procnum, error);
 	nfs_request_rele(req);
+
+out_return:
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_ASYNC_FINISH, R_XID32(req->r_xid), req->r_np, req->r_procnum, error);
 	return error;
 }
 
@@ -5152,7 +5175,7 @@ nfs_request_async_finish(
 void
 nfs_request_async_cancel(struct nfsreq *req)
 {
-	FSDBG(275, R_XID32(req->r_xid), req->r_np, req->r_procnum, 0xD1ED1E);
+	NFS_KDBG_INFO(NFSDBG_OP_REQ_ASYNC_CANCEL, 0xabc001, R_XID32(req->r_xid), req->r_np, req->r_procnum);
 	nfs_request_rele(req);
 }
 
@@ -5171,7 +5194,8 @@ nfs_softterm(struct nfsreq *req)
 	/* update congestion window */
 	req->r_flags &= ~R_CWND;
 	lck_mtx_lock(&nmp->nm_lock);
-	FSDBG(532, R_XID32(req->r_xid), req, nmp->nm_sent, nmp->nm_cwnd);
+	NFS_KDBG_INFO(NFSDBG_OP_SOFT_TERM, 0xabc001, R_XID32(req->r_xid), req, nmp->nm_sent);
+
 	nmp->nm_sent -= NFS_CWNDSCALE;
 	if ((nmp->nm_sent < nmp->nm_cwnd) && !TAILQ_EMPTY(&nmp->nm_cwndq)) {
 		/* congestion window is open, poke the cwnd queue */
@@ -5651,7 +5675,7 @@ int
 nfs_sndlock(struct nfsreq *req)
 {
 	struct nfsmount *nmp = req->r_nmp;
-	int *statep;
+	u_short *statep;
 	int error = 0, slpflag = 0;
 	struct timespec ts = { .tv_sec = 0, .tv_nsec = 0 };
 
@@ -5659,30 +5683,30 @@ nfs_sndlock(struct nfsreq *req)
 		return ENXIO;
 	}
 
-	lck_mtx_lock(&nmp->nm_lock);
-	statep = &nmp->nm_state;
+	lck_mtx_lock(&nmp->nm_sndstate_lock);
+	statep = &nmp->nm_sndstate;
 
 	if (NMFLAG(nmp, INTR) && req->r_thread && !(req->r_flags & R_NOINTR)) {
 		slpflag = PCATCH;
 	}
-	while (*statep & NFSSTA_SNDLOCK) {
+	while (*statep & NFSSENDSTA_SNDLOCK) {
 		if ((error = nfs_sigintr(nmp, req, req->r_thread, 1))) {
 			break;
 		}
-		*statep |= NFSSTA_WANTSND;
+		*statep |= NFSSENDSTA_WANTSND;
 		if (nfs_noremotehang(req->r_thread)) {
 			ts.tv_sec = 1;
 		}
-		msleep(statep, &nmp->nm_lock, slpflag | (PZERO - 1), "nfsndlck", &ts);
+		msleep(statep, &nmp->nm_sndstate_lock, slpflag | (PZERO - 1), "nfsndlck", &ts);
 		if (slpflag == PCATCH) {
 			slpflag = 0;
 			ts.tv_sec = 2;
 		}
 	}
 	if (!error) {
-		*statep |= NFSSTA_SNDLOCK;
+		*statep |= NFSSENDSTA_SNDLOCK;
 	}
-	lck_mtx_unlock(&nmp->nm_lock);
+	lck_mtx_unlock(&nmp->nm_sndstate_lock);
 	return error;
 }
 
@@ -5693,22 +5717,22 @@ void
 nfs_sndunlock(struct nfsreq *req)
 {
 	struct nfsmount *nmp = req->r_nmp;
-	int *statep, wake = 0;
+	u_short *statep, wake = 0;
 
 	if (!nmp) {
 		return;
 	}
-	lck_mtx_lock(&nmp->nm_lock);
-	statep = &nmp->nm_state;
-	if ((*statep & NFSSTA_SNDLOCK) == 0) {
+	lck_mtx_lock(&nmp->nm_sndstate_lock);
+	statep = &nmp->nm_sndstate;
+	if ((*statep & NFSSENDSTA_SNDLOCK) == 0) {
 		panic("nfs sndunlock");
 	}
-	*statep &= ~(NFSSTA_SNDLOCK | NFSSTA_SENDING);
-	if (*statep & NFSSTA_WANTSND) {
-		*statep &= ~NFSSTA_WANTSND;
+	*statep &= ~(NFSSENDSTA_SNDLOCK | NFSSENDSTA_SENDING);
+	if (*statep & NFSSENDSTA_WANTSND) {
+		*statep &= ~NFSSENDSTA_WANTSND;
 		wake = 1;
 	}
-	lck_mtx_unlock(&nmp->nm_lock);
+	lck_mtx_unlock(&nmp->nm_sndstate_lock);
 	if (wake) {
 		wakeup(statep);
 	}
@@ -6345,7 +6369,7 @@ nfs_up(struct nfsmount *nmp, thread_t thd, int flags, const char *msg)
 	int timeoutmask, wasunresponsive, unresponsive, softnobrowse;
 	int do_vfs_signal;
 
-	if (nfs_mount_gone(nmp)) {
+	if (!nmp || nfs_mount_gone(nmp)) {
 		return;
 	}
 
@@ -6376,9 +6400,13 @@ nfs_up(struct nfsmount *nmp, thread_t thd, int flags, const char *msg)
 
 	unresponsive = (nmp->nm_state & timeoutmask);
 
-	nmp->nm_deadto_start = 0;
-	nmp->nm_curdeadtimeout = nmp->nm_deadtimeout;
-	nmp->nm_state &= ~NFSSTA_SQUISHY;
+	/* Reset dead timeout timers only if the state was changed from unresponsive to responsive */
+	if (wasunresponsive && !unresponsive) {
+		nmp->nm_deadto_start = 0;
+		nmp->nm_curdeadtimeout = nmp->nm_deadtimeout;
+		nmp->nm_state &= ~NFSSTA_SQUISHY;
+	}
+
 	lck_mtx_unlock(&nmp->nm_lock);
 
 	if (softnobrowse) {

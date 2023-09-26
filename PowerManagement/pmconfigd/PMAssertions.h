@@ -422,7 +422,8 @@ typedef enum {
     kAStateSuspend,
     kAStateResume,
     kASystemTimeoutLog,
-    kAOffloadedLog,
+    kASessionStartLog,
+    kASessionEndLog,
 } assertLogAction;
 
 typedef struct {

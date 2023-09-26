@@ -189,6 +189,7 @@ int secd_71_engine_save(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(kTestTestCount);
+    enableSOSCompatibilityForTests();
     testSaveRestore();
 #else
     plan_tests(0);

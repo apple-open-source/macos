@@ -167,3 +167,5 @@
 "com.apple.app-sandbox.replace-file" = "Touch ID to Save a File in a Privileged Location.";
 
 "com.apple.applepay.reset" = "Touch ID to Reset Apple Pay and add card.";
+
+"com.apple.backgroundtaskmanagement.manage-daemons" = "Touch ID to Modify your system settings.";

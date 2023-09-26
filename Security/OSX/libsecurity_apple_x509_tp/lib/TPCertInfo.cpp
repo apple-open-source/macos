@@ -575,7 +575,7 @@ bool TPCertInfo::isSelfSigned(bool avoidVerify)
 			if(avoidVerify) {
 				return true;
 			}
-			/* else drop through and verify */
+            [[fallthrough]];
 		case TRS_Unknown:			// actually shouldn't happen, but to be safe...
 		default:
 			/* do the signature verify */
@@ -1422,7 +1422,7 @@ TPCertInfo *TPCertGroup::findIssuerForCertOrCrl(
 				case CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE:
 					/* issuer OK, check sig later */
 					partialIssuerKey = true;
-					/* and fall thru */
+					[[fallthrough]];
 				case CSSM_OK:
 					/*
 					 * Temporal validity check: if we're not already holding an expired
@@ -2241,7 +2241,7 @@ post_trust_setting:
 						/* ignore */
 						crtn = CSSM_OK;
 					}
-					 /* drop thru */
+					[[fallthrough]];
 				case CSSM_OK:
 					/*  A fully successful return. */
 					verifiedToAnchor = CSSM_TRUE;
@@ -2425,7 +2425,7 @@ post_anchor:
 			case CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE:
 				/* use this one but re-verify later */
 				foundPartialIssuer = true;
-				/* and drop thru */
+				[[fallthrough]];
 			case CSSM_OK:
 				if (!issuer)
 					break;

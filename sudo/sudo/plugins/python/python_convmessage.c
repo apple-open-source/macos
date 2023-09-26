@@ -36,8 +36,8 @@ _sudo_ConvMessage__Init(PyObject *py_self, PyObject *py_args, PyObject *py_kwarg
 
     struct sudo_conv_message conv_message = { 0, 0, NULL };
 
-    static char *keywords[] = { "self", "msg_type", "msg", "timeout", NULL };
-    if (!PyArg_ParseTupleAndKeywords(py_args ? py_args : py_empty, py_kwargs, "Ois|i:sudo.ConvMessage", keywords,
+    static const char *keywords[] = { "self", "msg_type", "msg", "timeout", NULL };
+    if (!PyArg_ParseTupleAndKeywords(py_args ? py_args : py_empty, py_kwargs, "Ois|i:sudo.ConvMessage", (char **)keywords,
                                      &py_self, &(conv_message.msg_type), &(conv_message.msg),
                                      &(conv_message.timeout)))
         goto cleanup;
@@ -137,7 +137,7 @@ sudo_module_ConvMessages_to_c(PyObject *py_tuple, Py_ssize_t *num_msgs, struct s
         debug_return_int(SUDO_RC_ERROR);
     }
 
-    *msgs = calloc(Py_SSIZE2SIZE(*num_msgs), sizeof(struct sudo_conv_message));
+    *msgs = calloc(*num_msgs, sizeof(struct sudo_conv_message));
     if (*msgs == NULL) {
         debug_return_int(SUDO_RC_ERROR);
     }

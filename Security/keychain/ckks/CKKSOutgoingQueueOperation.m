@@ -356,8 +356,6 @@
             [modifyRecordsOperation linearDependencies:ckWriteOperations];
 
             // Until <rdar://problem/38725728> Changes to discretionary-ness (explicit or derived from QoS) should be "live", all requests should be nondiscretionary
-            modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
-            modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
             modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
             modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
@@ -374,11 +372,11 @@
                 ckksinfo("ckksoutgoing", recordID.zoneID, "Record to delete: %@", recordID);
             }
 
-            modifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
+            modifyRecordsOperation.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
                 if(!error) {
-                    ckksnotice("ckksoutgoing", record.recordID.zoneID, "Record upload successful for %@ (%@)", record.recordID.recordName, record.recordChangeTag);
+                    ckksnotice("ckksoutgoing", recordID.zoneID, "Record upload successful for %@ (%@)", recordID.recordName, record.recordChangeTag);
                 } else {
-                    ckkserror("ckksoutgoing", record.recordID.zoneID, "error on row: %@ %@", error, record);
+                    ckkserror("ckksoutgoing", recordID.zoneID, "error on row: %@ %@", error, recordID);
                 }
             };
 

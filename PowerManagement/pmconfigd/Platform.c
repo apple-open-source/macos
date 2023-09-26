@@ -135,7 +135,7 @@ __private_extern__ void startTCPKeepAliveExpTimer(void)
 }
 
 __private_extern__
-tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen)
+tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen, bool quiet)
 {
     tcpKeepAliveStates_et   state = kInactive;
 
@@ -143,32 +143,32 @@ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen)
     
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
     {
-        INFO_LOG("TCPKeepAliveState: unsupported\n");
+        if (!quiet) INFO_LOG("TCPKeepAliveState: unsupported\n");
         if (buf) snprintf(buf, buflen, "unsupported");
         return kNotSupported;
     }
 
     if (userPrefForTcpka() == false) {
-        INFO_LOG("TCPKeepAliveState: disabled by user preference\n");
+        if (!quiet) INFO_LOG("TCPKeepAliveState: disabled by user preference\n");
         if (buf) snprintf(buf, buflen, "disabled");
         return kInactive;
     }
 #if !(TARGET_OS_OSX && TARGET_CPU_ARM64)
     if ((getDeltaToStandby() == 0) && GetSystemPowerSettingBool(CFSTR(kIOPMDestroyFVKeyOnStandbyKey))) {
         state = kInactive;
-        INFO_LOG("TCPKeepAliveState: inactive due to standby with destroyfvkeyonstandby enabled ");
+        if (!quiet) INFO_LOG("TCPKeepAliveState: inactive due to standby with destroyfvkeyonstandby enabled ");
         if (buf) snprintf(buf, buflen, "inactive");
     }
 #endif
 
     else if ((gTCPKeepAlive->state == kActive) && pushConnectionActive) {
         state = kActive;
-        INFO_LOG("TCPKeepAliveState: active\n");
+        if (!quiet) INFO_LOG("TCPKeepAliveState: active\n");
         if (buf) snprintf(buf, buflen, "active");
     }
     else {
         state = kInactive;
-        INFO_LOG("TCPKeepAlive: inactive\n");
+        if (!quiet) INFO_LOG("TCPKeepAlive: inactive\n");
         if (buf) snprintf(buf, buflen, "inactive");
     }
     return state;

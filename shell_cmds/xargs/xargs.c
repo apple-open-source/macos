@@ -48,19 +48,29 @@ static char sccsid[] = "@(#)xargs.c	8.1 (Berkeley) 6/6/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#ifdef __APPLE__
+#include <sys/param.h>
+#else
 #include <sys/types.h>
+#endif
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/param.h>
+#ifndef __APPLE__
+#include <sys/limits.h>
+#endif
 #include <sys/resource.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <langinfo.h>
 #include <locale.h>
 #include <paths.h>
 #include <regex.h>
+#include <stdbool.h>
+#ifdef __APPLE__
 #include <spawn.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -79,48 +89,69 @@ static void	prerun(int, char *[]);
 static int	prompt(void);
 static void	run(char **);
 static void	usage(void);
-void		strnsubst(char **, const char *, const char *, size_t);
-static pid_t  xwait(int block, int *status);
-static void   xexit(const char *, const int);
+bool		strnsubst(char **, const char *, const char *, size_t);
+static pid_t	xwait(int block, int *status);
+static void	xexit(const char *, const int);
 static void	waitchildren(const char *, int);
-static void   pids_init(void);
-static int    pids_empty(void);
-static int    pids_full(void);
-static void   pids_add(pid_t pid);
-static int    pids_remove(pid_t pid);
-static int    findslot(pid_t pid);
-static int    findfreeslot(void);
-static void   clearslot(int slot);
+static void	pids_init(void);
+static int	pids_empty(void);
+static int	pids_full(void);
+static void	pids_add(pid_t pid);
+static int	pids_remove(pid_t pid);
+static int	findslot(pid_t pid);
+static int	findfreeslot(void);
+static void	clearslot(int slot);
 
+#ifdef __APPLE__
 static int last_was_newline = 1;
 static int last_was_blank = 0;
-
+#endif
 static char echo[] = _PATH_ECHO;
 static char **av, **bxp, **ep, **endxp, **xp;
 static char *argp, *bbp, *ebp, *inpline, *p, *replstr;
 static const char *eofstr;
+static long eoflen;
 static int count, insingle, indouble, oflag, pflag, tflag, Rflag, rval, zflag;
 static int cnt, Iflag, jfound, Lflag, Sflag, wasquoted, xflag;
 static int curprocs, maxprocs;
+#ifdef __APPLE__
 static size_t pad9314053;
+#endif
 static pid_t *childpids;
 
+static volatile int childerr;
+
 extern char **environ;
+
+static const char *optstr = "+0E:I:J:L:n:oP:pR:S:s:rtx";
+
+static const struct option long_options[] =
+{
+	{"exit",		no_argument,		NULL,	'x'},
+	{"interactive",		no_argument,		NULL,	'p'},
+	{"max-args",		required_argument,	NULL,	'n'},
+	{"max-chars",		required_argument,	NULL,	's'},
+	{"max-procs",		required_argument,	NULL,	'P'},
+	{"no-run-if-empty",	no_argument,		NULL,	'r'},
+	{"null",		no_argument,		NULL,	'0'},
+	{"verbose",		no_argument,		NULL,	't'},
+
+	{NULL,			no_argument,		NULL,	0},
+};
 
 int
 main(int argc, char *argv[])
 {
 	long arg_max;
-	int ch, Jflag, nflag, nline;
-	size_t nargs;
+	int ch, Jflag, nargs, nflag, nline;
 	size_t linelen;
 	struct rlimit rl;
-	char *endptr;
 	const char *errstr;
 
 	inpline = replstr = NULL;
 	ep = environ;
 	eofstr = "";
+	eoflen = 0;
 	Jflag = nflag = 0;
 
 	(void)setlocale(LC_ALL, "");
@@ -141,18 +172,25 @@ main(int argc, char *argv[])
 	nargs = 5000;
 	if ((arg_max = sysconf(_SC_ARG_MAX)) == -1)
 		errx(1, "sysconf(_SC_ARG_MAX) failed");
-	nline = arg_max - MAXPATHLEN; /* for argv[0] from execvp() */
+#ifndef __APPLE__
+	nline = arg_max - 4 * 1024;
+#else
+	nline = (int)arg_max - MAXPATHLEN; /* for argv[0] from execvp() */
 	pad9314053 = sizeof(char *); /* reserve for string area rounding */
+#endif
 	while (*ep != NULL) {
 		/* 1 byte for each '\0' */
 		nline -= strlen(*ep++) + 1 + sizeof(*ep);
 	}
+#ifdef __APPLE__
 	nline -= pad9314053;
+#endif
 	maxprocs = 1;
-	while ((ch = getopt(argc, argv, "0E:I:J:L:n:oP:pR:S:s:rtx")) != -1)
+	while ((ch = getopt_long(argc, argv, optstr, long_options, NULL)) != -1)
 		switch (ch) {
 		case 'E':
 			eofstr = optarg;
+			eoflen = strlen(eofstr);
 			break;
 		case 'I':
 			Jflag = 0;
@@ -166,29 +204,34 @@ main(int argc, char *argv[])
 			replstr = optarg;
 			break;
 		case 'L':
-			Lflag = strtonum(optarg, 0, INT_MAX, &errstr);
+			Lflag = (int)strtonum(optarg, 1, INT_MAX, &errstr);
 			if (errstr)
-				errx(1, "-L %s: %s", optarg, errstr);
+				errx(1, "-%c %s: %s", ch, optarg, errstr);
+#ifdef __APPLE__
 			if (COMPAT_MODE("bin/xargs", "Unix2003")) {
 				nflag = 0; /* Override */
 				nargs = 5000;
 			}
+#endif
 			break;
 		case 'n':
 			nflag = 1;
-			if ((nargs = strtol(optarg, NULL, 10)) <= 0)
-				errx(1, "illegal argument count");
+			nargs = (int)strtonum(optarg, 1, INT_MAX, &errstr);
+			if (errstr)
+				errx(1, "-%c %s: %s", ch, optarg, errstr);
+#ifdef __APPLE__
 			if (COMPAT_MODE("bin/xargs", "Unix2003")) {
 				Lflag = 0; /* Override */
 			}
+#endif
 			break;
 		case 'o':
 			oflag = 1;
 			break;
 		case 'P':
-			maxprocs = strtonum(optarg, 0, INT_MAX, &errstr);
+			maxprocs = (int)strtonum(optarg, 0, INT_MAX, &errstr);
 			if (errstr)
-				errx(1, "-P %s: %s", optarg, errstr);
+				errx(1, "-%c %s: %s", ch, optarg, errstr);
 			if (getrlimit(RLIMIT_NPROC, &rl) != 0)
 				errx(1, "getrlimit failed");
 			if (maxprocs == 0 || maxprocs > rl.rlim_cur)
@@ -198,23 +241,27 @@ main(int argc, char *argv[])
 			pflag = 1;
 			break;
 		case 'R':
-			Rflag = strtol(optarg, &endptr, 10);
-			if (*endptr != '\0')
-				errx(1, "replacements must be a number");
+			Rflag = (int)strtonum(optarg, INT_MIN, INT_MAX, &errstr);
+			if (errstr)
+				errx(1, "-%c %s: %s", ch, optarg, errstr);
+			if (!Rflag)
+				errx(1, "-%c %s: %s", ch, optarg, "must be non-zero");
 			break;
 		case 'r':
 			/* GNU compatibility */
 			break;
 		case 'S':
-			Sflag = strtoul(optarg, &endptr, 10);
-			if (*endptr != '\0')
-				errx(1, "replsize must be a number");
+			Sflag = (int)strtonum(optarg, 0, INT_MAX, &errstr);
+			if (errstr)
+				errx(1, "-%c %s: %s", ch, optarg, errstr);
 			break;
 		case 's':
-			nline = strtonum(optarg, 0, INT_MAX, &errstr);
+			nline = (int)strtonum(optarg, 0, INT_MAX, &errstr);
 			if (errstr)
-				errx(1, "-s %s: %s", optarg, errstr);
+				errx(1, "-%c %s: %s", ch, optarg, errstr);
+#ifdef __APPLE__
 			pad9314053 = 0; /* assume the -s value is valid */
+#endif
 			break;
 		case 't':
 			tflag = 1;
@@ -254,7 +301,7 @@ main(int argc, char *argv[])
 	 * the maximum arguments to be read from stdin and the trailing
 	 * NULL.
 	 */
-	linelen = 1 + argc + nargs + 1;
+	linelen = 1 + argc + (size_t)nargs + 1;
 	if ((av = bxp = malloc(linelen * sizeof(char *))) == NULL)
 		errx(1, "malloc failed");
 
@@ -264,7 +311,11 @@ main(int argc, char *argv[])
 	 * arguments.
 	 */
 	if (*argv == NULL)
+#ifndef __APPLE__
+		cnt = strlen(*bxp++ = echo);
+#else
 		cnt = strlen(*bxp++ = echo) + pad9314053;
+#endif
 	else {
 		do {
 			if (Jflag && strcmp(*argv, replstr) == 0) {
@@ -272,10 +323,18 @@ main(int argc, char *argv[])
 				jfound = 1;
 				argv++;
 				for (avj = argv; *avj; avj++)
+#ifndef __APPLE__
+					cnt += strlen(*avj) + 1;
+#else
 					cnt += strlen(*avj) + 1 + pad9314053;
+#endif
 				break;
 			}
+#ifndef __APPLE__
+			cnt += strlen(*bxp++ = *argv) + 1;
+#else
 			cnt += strlen(*bxp++ = *argv) + 1 + pad9314053;
+#endif
 		} while (*++argv != NULL);
 	}
 
@@ -310,18 +369,24 @@ parse_input(int argc, char *argv[])
 {
 	int ch, foundeof;
 	char **avj;
+#ifdef __APPLE__
 	int last_was_backslashed = 0;
+#endif
 
 	foundeof = 0;
 
 	switch (ch = getchar()) {
 	case EOF:
 		/* No arguments since last exec. */
-		if (p == bbp)
-			xexit(*av, rval);
+		if (p == bbp) {
+			waitchildren(*av, 1);
+			exit(rval);
+		}
 		goto arg1;
 	case ' ':
+#ifdef __APPLE__
 		last_was_blank = 1;
+#endif
 	case '\t':
 		/* Quotes escape tabs and spaces. */
 		if (insingle || indouble || zflag)
@@ -341,6 +406,7 @@ parse_input(int argc, char *argv[])
 	case '\n':
 		if (zflag)
 			goto addch;
+#ifdef __APPLE__
 		if (COMPAT_MODE("bin/xargs", "Unix2003")) {
 			if (last_was_newline) {
 				/* don't count empty line */
@@ -354,6 +420,9 @@ parse_input(int argc, char *argv[])
 			count++;
 		}
 		last_was_newline = 1;
+#else
+		count++;	    /* Indicate end-of-line (used by -L) */
+#endif
 
 		/* Quotes do not escape newlines. */
 arg1:		if (insingle || indouble) {
@@ -361,8 +430,8 @@ arg1:		if (insingle || indouble) {
 			xexit(*av, 1);
 		}
 arg2:
-		foundeof = *eofstr != '\0' &&
-		    strncmp(argp, eofstr, p - argp) == 0;
+		foundeof = eoflen != 0 && p - argp == eoflen &&
+		    strncmp(argp, eofstr, eoflen) == 0;
 
 #ifdef __APPLE__
 		/* 6591323: -I specifies that it processes the entire line,
@@ -376,7 +445,6 @@ arg2:
 			exit(rval);
 		}
 #endif
-
 		/* Do not make empty args unless they are quoted */
 		if ((argp != p || wasquoted) && !foundeof) {
 			*p++ = '\0';
@@ -423,9 +491,17 @@ arg2:
 		 * of input lines, as specified by -L is the same as
 		 * maxing out on arguments.
 		 */
+#ifndef __APPLE__
+		if (xp == endxp || p > ebp || ch == EOF ||
+#else
 		if (xp == endxp || p + (count * pad9314053) > ebp || ch == EOF ||
+#endif
 		    (Lflag <= count && xflag) || foundeof) {
+#ifndef __APPLE__
+			if (xflag && xp != endxp && p > ebp) {
+#else
 			if (xflag && xp != endxp && p + (count * pad9314053) > ebp) {
+#endif
 				warnx("insufficient space for arguments");
 				xexit(*av, 1);
 			}
@@ -434,8 +510,10 @@ arg2:
 					*xp++ = *avj;
 			}
 			prerun(argc, av);
-			if (ch == EOF || foundeof)
-				xexit(*av, rval);
+			if (ch == EOF || foundeof) {
+				waitchildren(*av, 1);
+				exit(rval);
+			}
 			p = bbp;
 			xp = bxp;
 			count = 0;
@@ -456,7 +534,9 @@ arg2:
 		wasquoted = 1;
 		break;
 	case '\\':
+#ifdef __APPLE__
 		last_was_backslashed = 1;
+#endif
 		if (zflag)
 			goto addch;
 		/* Backslash escapes anything, is escaped by quotes. */
@@ -494,10 +574,12 @@ addch:		if (p < ebp) {
 		*p++ = ch;
 		break;
 	}
+#ifdef __APPLE__
 	if (ch != ' ')
 		last_was_blank = 0;
 	if (ch != '\n' || last_was_backslashed)
 		last_was_newline = 0;
+#endif
 }
 
 /*
@@ -551,7 +633,10 @@ prerun(int argc, char *argv[])
 	while (--argc) {
 		*tmp = *avj++;
 		if (repls && strstr(*tmp, replstr) != NULL) {
-			strnsubst(tmp++, replstr, inpline, (size_t)Sflag);
+			if (strnsubst(tmp++, replstr, inpline, (size_t)Sflag)) {
+				warnx("command line cannot be assembled, too long");
+				xexit(*argv, 1);
+			}
 			if (repls > 0)
 				repls--;
 		} else {
@@ -592,10 +677,16 @@ static void
 run(char **argv)
 {
 	pid_t pid;
+#ifndef __APPLE__
+	int fd;
+#else
 	int rc;
+#endif
 	char **avec;
+#ifdef __APPLE__
 	posix_spawn_file_actions_t file_actions = {0};
 	const char *inpath = _PATH_DEVNULL;
+#endif
 
 	/*
 	 * If the user wants to be notified of each command before it is
@@ -604,14 +695,12 @@ run(char **argv)
 	 */
 	if (tflag || pflag) {
 		(void)fprintf(stderr, "%s", *argv);
-		for (avec = argv + 1; *avec != NULL; ++avec) {
+		for (avec = argv + 1; *avec != NULL; ++avec)
 			(void)fprintf(stderr, " %s", *avec);
-		}
-
 		/*
 		 * If the user has asked to be prompted, do so.
 		 */
-		if (pflag) {
+		if (pflag)
 			/*
 			 * If they asked not to exec, return without execution
 			 * but if they asked to, go to the execution.  If we
@@ -622,16 +711,39 @@ run(char **argv)
 			case 0:
 				return;
 			case 1:
-				goto spawn;
+				goto exec;
 			case 2:
 				break;
 			}
-		}
 		(void)fprintf(stderr, "\n");
 		(void)fflush(stderr);
 	}
-
-spawn:
+exec:
+#ifndef __APPLE__
+	childerr = 0;
+	switch (pid = vfork()) {
+	case -1:
+		warn("vfork");
+		xexit(*argv, 1);
+	case 0:
+		if (oflag) {
+			if ((fd = open(_PATH_TTY, O_RDONLY)) == -1)
+				err(1, "can't open /dev/tty");
+		} else {
+			fd = open(_PATH_DEVNULL, O_RDONLY);
+		}
+		if (fd > STDIN_FILENO) {
+			if (dup2(fd, STDIN_FILENO) != 0)
+				err(1, "can't dup2 to stdin");
+			close(fd);
+		}
+		execvp(argv[0], argv);
+		childerr = errno;
+		_exit(1);
+	}
+	pids_add(pid);
+	waitchildren(*argv, 0);
+#else
 	if (oflag) {
 		inpath = _PATH_TTY;
 	}
@@ -662,6 +774,7 @@ spawn:
 		pids_add(pid);
 		waitchildren(*argv, 0);
 	}
+#endif
 }
 
 /*
@@ -703,14 +816,20 @@ waitchildren(const char *name, int waitall)
 
 	while ((pid = xwait(waitall || pids_full(), &status)) > 0) {
 		/*
-		 * If utility exited because of a signal or with a value
-		 * of 255, warn (per POSIX), and then wait until all other
-		 * children have exited before exiting 1-125. POSIX requires
-		 * us to stop reading if child exits because of a signal or
-		 * with 255, but it does not require us to exit immediately;
-		 * waiting is preferable to orphaning.
+		 * If we couldn't invoke the utility or if utility exited
+		 * because of a signal or with a value of 255, warn (per
+		 * POSIX), and then wait until all other children have
+		 * exited before exiting 1-125. POSIX requires us to stop
+		 * reading if child exits because of a signal or with 255,
+		 * but it does not require us to exit immediately; waiting
+		 * is preferable to orphaning.
 		 */
-		if (WIFSIGNALED(status)) {
+		if (childerr != 0 && cause_exit == 0) {
+			errno = childerr;
+			waitall = 1;
+			cause_exit = errno == ENOENT ? 127 : 126;
+			warn("%s", name);
+		} else if (WIFSIGNALED(status)) {
 			waitall = cause_exit = 1;
 			warnx("%s: terminated with signal %d; aborting",
 			    name, WTERMSIG(status));
@@ -823,7 +942,7 @@ prompt(void)
 	(void)fprintf(stderr, "?...");
 	(void)fflush(stderr);
 	if ((response = fgetln(ttyfp, &rsize)) == NULL ||
-	    regcomp(&cre, nl_langinfo(YESEXPR), REG_BASIC) != 0) {
+	    regcomp(&cre, nl_langinfo(YESEXPR), REG_EXTENDED) != 0) {
 		(void)fclose(ttyfp);
 		return (0);
 	}

@@ -335,6 +335,7 @@ extern void nd_pop_all_packet_info(netdissect_options *);
 #define PRMD_FLAGS      0x1000
 #define PRMD_FLOWID     0x2000
 #define PRMD_TRACETAG   0x4000
+#define PRMD_DLT        0x8000
 #define PRMD_DEFAULT    (PRMD_IF|PRMD_PNAME|PRMD_PID|PRMD_SVC|PRMD_DIR|PRMD_COMMENT|PRMD_FLAGS)
 #define PRMD_ALL		0xffff
 #endif /* __APPLE__ */

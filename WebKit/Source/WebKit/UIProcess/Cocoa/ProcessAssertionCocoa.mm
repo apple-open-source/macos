@@ -318,10 +318,15 @@ namespace WebKit {
 static NSString *runningBoardNameForAssertionType(ProcessAssertionType assertionType)
 {
     switch (assertionType) {
-    case ProcessAssertionType::Suspended:
-        return @"Suspended";
+    case ProcessAssertionType::NearSuspended:
+        return @"Suspended"; // FIXME: This name is confusing since it doesn't cause suspension.
     case ProcessAssertionType::Background:
+#if PLATFORM(MAC)
+        // The background assertions time out after 30 seconds on iOS but not macOS.
+        return @"IndefiniteBackground";
+#else
         return @"Background";
+#endif
     case ProcessAssertionType::UnboundedNetworking:
         return @"UnboundedNetworking";
     case ProcessAssertionType::Foreground:
@@ -330,24 +335,27 @@ static NSString *runningBoardNameForAssertionType(ProcessAssertionType assertion
         return @"MediaPlayback";
     case ProcessAssertionType::FinishTaskInterruptable:
         return @"FinishTaskInterruptable";
+    case ProcessAssertionType::BoostedJetsam:
+        return @"BoostedJetsam";
     }
 }
 
 static NSString *runningBoardDomainForAssertionType(ProcessAssertionType assertionType)
 {
     switch (assertionType) {
-    case ProcessAssertionType::Suspended:
+    case ProcessAssertionType::NearSuspended:
     case ProcessAssertionType::Background:
     case ProcessAssertionType::UnboundedNetworking:
     case ProcessAssertionType::Foreground:
     case ProcessAssertionType::MediaPlayback:
+    case ProcessAssertionType::BoostedJetsam:
         return @"com.apple.webkit";
     case ProcessAssertionType::FinishTaskInterruptable:
         return @"com.apple.common";
     }
 }
 
-ProcessAssertion::ProcessAssertion(pid_t pid, const String& reason, ProcessAssertionType assertionType)
+ProcessAssertion::ProcessAssertion(pid_t pid, const String& reason, ProcessAssertionType assertionType, const String& environmentIdentifier)
     : m_assertionType(assertionType)
     , m_pid(pid)
     , m_reason(reason)
@@ -360,7 +368,12 @@ ProcessAssertion::ProcessAssertion(pid_t pid, const String& reason, ProcessAsser
         return;
     }
 
-    RBSTarget *target = [RBSTarget targetWithPid:pid];
+    RBSTarget *target = nil;
+    if (environmentIdentifier.isEmpty())
+        target = [RBSTarget targetWithPid:pid];
+    else
+        target = [RBSTarget targetWithPid:pid environmentIdentifier:environmentIdentifier];
+        
     RBSDomainAttribute *domainAttribute = [RBSDomainAttribute attributeWithDomain:runningBoardDomainForAssertionType(assertionType) name:runningBoardAssertionName];
     m_rbsAssertion = adoptNS([[RBSAssertion alloc] initWithExplanation:reason target:target attributes:@[domainAttribute]]);
 
@@ -457,8 +470,8 @@ bool ProcessAssertion::isValid() const
     return !m_wasInvalidated;
 }
 
-ProcessAndUIAssertion::ProcessAndUIAssertion(pid_t pid, const String& reason, ProcessAssertionType assertionType)
-    : ProcessAssertion(pid, reason, assertionType)
+ProcessAndUIAssertion::ProcessAndUIAssertion(pid_t pid, const String& reason, ProcessAssertionType assertionType, const String& environmentIdentifier)
+    : ProcessAssertion(pid, reason, assertionType, environmentIdentifier)
 {
 #if PLATFORM(IOS_FAMILY)
     updateRunInBackgroundCount();
@@ -476,7 +489,7 @@ ProcessAndUIAssertion::~ProcessAndUIAssertion()
 #if PLATFORM(IOS_FAMILY)
 void ProcessAndUIAssertion::updateRunInBackgroundCount()
 {
-    bool shouldHoldBackgroundTask = isValid() && type() != ProcessAssertionType::Suspended;
+    bool shouldHoldBackgroundTask = isValid() && type() != ProcessAssertionType::NearSuspended;
     if (m_isHoldingBackgroundTask == shouldHoldBackgroundTask)
         return;
 

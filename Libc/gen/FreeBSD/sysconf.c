@@ -69,8 +69,7 @@ __FBSDID("$FreeBSD: lib/libc/gen/sysconf.c r168718 $");
  * less useful than returning up-to-date values, however.
  */
 long
-sysconf(name)
-	int name;
+sysconf(int name)
 {
 	struct rlimit rl;
 	quad_t qdvalue;	/* for kern.sysv.shmmin */

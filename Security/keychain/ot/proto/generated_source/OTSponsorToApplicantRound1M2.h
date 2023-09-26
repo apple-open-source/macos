@@ -16,7 +16,7 @@ __attribute__((visibility("hidden")))
 {
     uint64_t _epoch;
     struct {
-        int epoch:1;
+        uint epoch:1;
     } _has;
 }
 

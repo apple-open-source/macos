@@ -125,6 +125,9 @@ static struct securityd securityd_spi = {
     .soscc_CopyRecoveryPublicKey            = SOSCCCopyRecoveryPublicKey_Server,
     .soscc_SOSCCMessageFromPeerIsPending    = SOSCCMessageFromPeerIsPending_Server,
     .soscc_SOSCCSendToPeerIsPending         = SOSCCSendToPeerIsPending_Server,
+    .soscc_SOSCCSetCompatibilityMode        = SOSCCSetCompatibilityMode_Server,
+    .soscc_SOSCCFetchCompatibilityMode      = SOSCCFetchCompatibilityMode_Server,
+    .soscc_SOSCCFetchCompatibilityModeCachedValue = SOSCCFetchCompatibilityModeCachedValue_Server,
 #endif /* SECUREOBJECTSYNC */
 };
 

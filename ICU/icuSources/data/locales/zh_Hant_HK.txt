@@ -98,6 +98,26 @@ zh_Hant_HK{
                 MEd{"M-d（E）"}
                 Md{"M-d"}
             }
+            intervalFormats{
+                h{
+                    a{"ah時至ah時"}
+                    h{"ah時至h時"}
+                }
+                hm{
+                    a{"ah:mm至ah:mm"}
+                    h{"ah:mm至h:mm"}
+                    m{"ah:mm至h:mm"}
+                }
+                hmv{
+                    a{"ah:mm至ah:mm [v]"}
+                    h{"ah:mm至h:mm [v]"}
+                    m{"ah:mm至h:mm [v]"}
+                }
+                hv{
+                    a{"ah時至ah時 [v]"}
+                    h{"ah時至h時 [v]"}
+                }
+            }
         }
         chinese{
             DateTimePatterns{
@@ -106,15 +126,15 @@ zh_Hant_HK{
                 "ah:mm:ss",
                 "ah:mm",
                 {
-                "U（r）年MMMdEEEE",
+                    "U（r）年MMMdEEEE",
                     "d=hanidays",
                 }
                 {
-                "U（r）年MMMd",
+                    "U（r）年MMMd",
                     "d=hanidays",
                 }
                 {
-                "U年MMMd",
+                    "U年MMMd",
                     "d=hanidays",
                 }
                 "U/M/d",
@@ -145,10 +165,15 @@ zh_Hant_HK{
             }
             availableFormats{
                 Ed{"d日E"}
+                GyMMMM{"r(U)年MMMM"}
+                GyMMMMEd{"r(U)年MMMMd日 E"}
+                GyMMMMd{"r(U)年MMMMd日"}
                 H{"HH"}
                 h{"ah時"}
                 hm{"ah:mm"}
                 hms{"ah:mm:ss"}
+                yyyyMMMMEd{"r(U)年MMMMd日 E"}
+                yyyyMMMMd{"r(U)年MMMMd日"}
             }
             intervalFormats{
                 h{

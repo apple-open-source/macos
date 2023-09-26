@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -3145,7 +3145,7 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 #if TARGET_OS_OSX
 	if (blockNewInterfaces() &&
 	    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
-	    !_SCNetworkInterfaceIsVMNET(interface) &&
+	    !_SCNetworkInterfaceIsUserEthernet(interface) &&
 	    isConsoleLocked()) {
 	    // ignore interface until console is unlocked
 	    addWatchedLockedInterface(interface, path, "[ephemeral]");

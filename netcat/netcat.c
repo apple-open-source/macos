@@ -226,7 +226,8 @@ const struct option long_options[] =
 	{ "apple-resvd-8",	no_argument,		NULL,	'l' },
 #ifdef __APPLE__
 	{ "apple-tcp-adp-rtimo",required_argument,	NULL,	'L' },
-	{ "apple-initcoproc-allow",	no_argument,	NULL,	'm' },
+	{ "apple-intcoproc-allow",	no_argument,	NULL,	'm' },
+	{ "apple-initcoproc-allow",	no_argument,	NULL,	'm' }, // historical typo
 	{ "apple-tcp-adp-wtimo",required_argument,	NULL,	'N' },
 #endif /* __APPLE__ */
 	{ "apple-resvd-9",	no_argument,		NULL,	'n' },
@@ -1729,7 +1730,7 @@ help(void)
                 "\t-L num_probes                 Number of probes to send before generating a read timeout event\n",
                 "\t--tcp-adp-rtimo num_probes\n",
                 "\t-m                            Set SO_INTCOPROC_ALLOW on socket\n",
-                "\t--apple-initcoproc-allow\n",
+                "\t--apple-intcoproc-allow\n",
                 "\t-N num_probes                 Number of probes to send before generating a write timeout event\n",
                 "\t--apple-tcp-adp-wtimo num_probes\n",
                 "\t-o                            Issue socket options after connect/bind\n",
@@ -1766,7 +1767,7 @@ usage(int ret)
                 "\t  [--apple-no-flowadv] [--apple-tcp-timeout conntimo]\n"
                 "\t  [--apple-tcp-keepalive keepidle] [--apple-tcp-keepintvl keepintvl]\n"
                 "\t  [--apple-tcp-keepcnt keepcnt] [--apple-tclass tclass]\n"
-                "\t  [--tcp-adp-rtimo num_probes] [--apple-initcoproc-allow]\n"
+                "\t  [--tcp-adp-rtimo num_probes] [--apple-intcoproc-allow]\n"
                 "\t  [--apple-tcp-adp-wtimo num_probes]\n"
                 "\t  [--setsockopt-later] [--apple-no-connectx]\n"
                 "\t  [--apple-delegate-pid pid] [--apple-delegate-uuid uuid]\n"

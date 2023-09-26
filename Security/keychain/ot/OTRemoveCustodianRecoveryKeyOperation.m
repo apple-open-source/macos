@@ -57,7 +57,7 @@
                                                                           uuid:self.uuid
                                                                          reply:^(NSError * _Nullable error) {
         STRONGIFY(self);
-        [[CKKSAnalytics logger] logResultForEvent:OctagonEventCustodianRecoveryKey hardFailure:true result:error];
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventRemoveCustodianRecoveryKeyTPH hardFailure:true result:error];
         if(error){
             secerror("octagon: Error removing custodian recovery key: %@", error);
             self.error = error;

@@ -78,5 +78,6 @@ pt_PT{
         CG{"República do Congo"}
         CZ{"República Checa"}
         FK{"Ilhas Falkland (Malvinas)"}
+        NZ{"Aotearoa"}
     }
 }

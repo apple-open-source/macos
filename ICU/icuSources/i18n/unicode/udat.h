@@ -859,18 +859,19 @@ typedef enum UDateFormatField {
 U_CAPI UCalendarDateFields U_EXPORT2
 udat_toCalendarDateField(UDateFormatField field);
 
-
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
 /**
  * Maps from a pattern character to the corresponding UDateFormatField.
  * @return the UDateFormatField.  This will be UDAT_FIELD_COUNT if the
  * specified character does not correspond to any UDateFormatField value.
- * @internal Apple <rdar://problem/62136559> 
+ * @internal Apple rdar://62136559 
  */
 U_CAPI UDateFormatField U_EXPORT2
 udat_patternCharToDateFormatField(UChar patternChar);
 #endif /* U_HIDE_INTERNAL_API */
-
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * Open a new UDateFormat for formatting and parsing dates and times.
@@ -1544,29 +1545,30 @@ typedef enum UDateFormatSymbolType {
      */
     UDAT_ZODIAC_NAMES_NARROW,
     
-#ifndef U_HIDE_DRAFT_API
     /**
      * The narrow quarter names, for example 1
-     * @draft ICU 70
+     * @stable ICU 70
      */
     UDAT_NARROW_QUARTERS,
     
     /**
      * The narrow standalone quarter names, for example 1
-     * @draft ICU 70
+     * @stable ICU 70
      */
-    UDAT_STANDALONE_NARROW_QUARTERS,
-#endif // U_HIDE_DRAFT_API
-
+    UDAT_STANDALONE_NARROW_QUARTERS
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
+    ,
     /**
-     * Apple-specific,.
+     * Apple-specific,
      * only for udat_getSymbols.
      * no directly corresponding UCAL_ field.
      * @internal ICU 54
      */
     UADAT_CYCLIC_ZODIAC_NAMES = 128
 #endif /* U_HIDE_INTERNAL_API */
+#endif  // APPLE_ICU_CHANGES
 } UDateFormatSymbolType;
 
 struct UDateFormatSymbols;

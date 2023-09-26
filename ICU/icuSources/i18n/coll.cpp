@@ -60,17 +60,20 @@
 #include "ustrenum.h"
 #include "uresimp.h"
 #include "ucln_in.h"
+#if APPLE_ICU_CHANGES
+// rdar://40930320 1b7f0da20b.. Prevent crash on Collator::makeInstance fail when optimized, log failure info
 #if U_PLATFORM_IS_DARWIN_BASED
 #include <os/log.h>
 #endif
+#endif  // APPLE_ICU_CHANGES
 
 static icu::Locale* availableLocaleList = NULL;
 static int32_t  availableLocaleListCount;
 #if !UCONFIG_NO_SERVICE
 static icu::ICULocaleService* gService = NULL;
-static icu::UInitOnce gServiceInitOnce = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gServiceInitOnce {};
 #endif
-static icu::UInitOnce gAvailableLocaleListInitOnce = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gAvailableLocaleListInitOnce {};
 
 /**
  * Release all static memory held by collator.
@@ -90,7 +93,7 @@ static UBool U_CALLCONV collator_cleanup(void) {
     }
     availableLocaleListCount = 0;
     gAvailableLocaleListInitOnce.reset();
-    return TRUE;
+    return true;
 }
 
 U_CDECL_END
@@ -112,7 +115,7 @@ CollatorFactory::~CollatorFactory() {}
 
 UBool
 CollatorFactory::visible(void) const {
-    return TRUE;
+    return true;
 }
 
 //-------------------------------------------
@@ -375,7 +378,7 @@ void setAttributesFromKeywords(const Locale &loc, Collator &coll, UErrorCode &er
         return;
     }
     if (length != 0) {
-        int32_t codes[USCRIPT_CODE_LIMIT + UCOL_REORDER_CODE_LIMIT - UCOL_REORDER_CODE_FIRST];
+        int32_t codes[USCRIPT_CODE_LIMIT + (UCOL_REORDER_CODE_LIMIT - UCOL_REORDER_CODE_FIRST)];
         int32_t codesLength = 0;
         char *scriptName = value;
         for (;;) {
@@ -457,10 +460,13 @@ Collator* U_EXPORT2 Collator::createInstance(const Locale& desiredLocale,
     if (U_FAILURE(status)) {
         return NULL;
     }
+#if APPLE_ICU_CHANGES
+// rdar://40930320 1b7f0da20b.. Prevent crash on Collator::makeInstance fail when optimized, log failure info
+// rdar://40930320 8196d6dcd3.. Remove logging, add test case for the actual bad locale string
     // makeInstance either returns NULL with U_FAILURE(status), or non-NULL with U_SUCCESS(status).
     // The *coll in setAttributesFromKeywords causes the NULL check to be optimized out of the delete
     // even though setAttributesFromKeywords returns immediately if U_FAILURE(status), so we add a
-    // check here and also log the locale name for failures. <rdar://problem/40930320>
+    // check here and also log the locale name for failures. rdar://40930320
     if (U_FAILURE(status)) {
 #if U_PLATFORM_IS_DARWIN_BASED
 #if 0
@@ -471,6 +477,7 @@ Collator* U_EXPORT2 Collator::createInstance(const Locale& desiredLocale,
 #endif
         return NULL;
     }
+#endif  // APPLE_ICU_CHANGES
     setAttributesFromKeywords(desiredLocale, *coll, status);
     if (U_FAILURE(status)) {
         delete coll;
@@ -811,7 +818,7 @@ Collator::unregister(URegistryKey key, UErrorCode& status)
         }
         status = U_ILLEGAL_ARGUMENT_ERROR;
     }
-    return FALSE;
+    return false;
 }
 #endif /* UCONFIG_NO_SERVICE */
 

@@ -75,9 +75,9 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#define SHA1_Init(c)		CC_SHA1_Init(c)
-#define SHA1_Update(c, d, l)	CC_SHA1_Update(c, d, l)
-#define SHA1_Final(c, d)	CC_SHA1_Final(c, d)
+#define SHA1_Init	CC_SHA1_Init
+#define SHA1_Update	CC_SHA1_Update
+#define SHA1_Final	CC_SHA1_Final
 
 __BEGIN_DECLS
 int     SHA_Init(SHA_CTX *);

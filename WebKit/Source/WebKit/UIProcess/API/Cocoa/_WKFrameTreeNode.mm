@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #import "WKSecurityOriginInternal.h"
 #import "WKWebViewInternal.h"
+#import "WebFrameProxy.h"
 #import "WebPageProxy.h"
 #import "_WKFrameHandleInternal.h"
 #import "_WKFrameTreeNodeInternal.h"
@@ -43,6 +44,11 @@
     [super dealloc];
 }
 
+- (WKFrameInfo *)info
+{
+    return wrapper(API::FrameInfo::create(WebKit::FrameInfoData(_node->info()), &_node->page()));
+}
+
 - (BOOL)isMainFrame
 {
     return _node->isMainFrame();
@@ -56,7 +62,7 @@
 - (WKSecurityOrigin *)securityOrigin
 {
     auto& data = _node->securityOrigin();
-    auto apiOrigin = API::SecurityOrigin::create(data.protocol, data.host, data.port);
+    auto apiOrigin = API::SecurityOrigin::create(data);
     return retainPtr(wrapper(apiOrigin.get())).autorelease();
 }
 
@@ -89,8 +95,12 @@
 
 - (pid_t)_processIdentifier
 {
-    auto* frame = WebKit::WebFrameProxy::webFrame(_node->handle()->frameID());
-    return frame ? frame->processIdentifier() : 0;
+    return _node->processID();
+}
+
+- (BOOL)_isLocalFrame
+{
+    return _node->isLocalFrame();
 }
 
 - (API::Object&)_apiObject

@@ -494,6 +494,9 @@ auditid(void)
 			ainfo_addr.ai_termid.at_addr[1],
 			ainfo_addr.ai_termid.at_addr[2],
 			ainfo_addr.ai_termid.at_addr[3]);
+#ifdef __APPLE__
+		(void) printf("flags=0x%llx\n", ainfo_addr.ai_flags);
+#endif
 	} else {
 #ifndef __APPLE__
 		(void) printf("auid=%d\n"

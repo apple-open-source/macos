@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>DEFAULT-OPTIONS</key>
+	<dict>
+		<key>TTL</key>
+		<dict>
+			<key>Default</key>
+			<integer>8</integer>
+		</dict>
+		<key>Level</key>
+		<dict>
+			<key>Persist</key>
+			<string>Info</string>
+			<key>Enable</key>
+			<string>Info</string>
+		</dict>
+		<key>Enable-Oversize-Messages</key>
+		<true/>
+	</dict>
+	<key>wakePerfLog</key>
+	<dict>
+		<key>Signpost-Enabled</key>
+		<true/>
+		<key>Signpost-Persisted</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

@@ -38,5 +38,12 @@
 	<array>
 		<string>/System/Library/CoreServices/Keychain Circle Notification.app/Contents/MacOS/Keychain Circle Notification</string>
 	</array>
+	<key>Disabled</key>
+	<dict>
+		<key>#IfFeatureFlagDisabled</key>
+		<string>Security/EnableSecureObjectSync</string>
+		<key>#Then</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

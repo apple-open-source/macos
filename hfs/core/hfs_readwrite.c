@@ -354,8 +354,6 @@ hfs_vnop_write(struct vnop_write_args *ap)
 	int lockflags;
 	int cnode_locked = 0;
 	int partialwrite = 0;
-	int do_snapshot = 1;
-	time_t orig_ctime=VTOC(vp)->c_ctime;
 	int took_truncate_lock = 0;
 	int io_return_on_throttle = 0;
 	int throttled_count = 0;
@@ -367,10 +365,7 @@ hfs_vnop_write(struct vnop_write_args *ap)
 			case FILE_IS_COMPRESSED:
 				return EACCES;
 			case FILE_IS_CONVERTING:
-				/* if FILE_IS_CONVERTING, we allow writes but do not
-				   bother with snapshots or else we will deadlock.
-				*/
-				do_snapshot = 0;
+				/* if FILE_IS_CONVERTING, we allow writes. */
 				break;
 			default:
 				printf("invalid state %d for compressed file\n", state);
@@ -383,10 +378,6 @@ hfs_vnop_write(struct vnop_write_args *ap)
 		if (error != 0) {
 			return error;
 		}
-	}
-
-	if (do_snapshot) {
-		nspace_snapshot_event(vp, orig_ctime, NAMESPACE_HANDLER_WRITE_OP, uio);
 	}
 
 #endif
@@ -4352,8 +4343,6 @@ hfs_vnop_allocate(struct vnop_allocate_args /* {
 	cp = VTOC(vp);
 
 	orig_ctime = VTOC(vp)->c_ctime;
-
-	nspace_snapshot_event(vp, orig_ctime, ap->a_length == 0 ? NAMESPACE_HANDLER_TRUNCATE_OP|NAMESPACE_HANDLER_DELETE_OP : NAMESPACE_HANDLER_TRUNCATE_OP, NULL);
 
 	hfs_lock_truncate(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
 

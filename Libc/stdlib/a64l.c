@@ -11,8 +11,7 @@ static char *rcsid = "$OpenBSD: a64l.c,v 1.3 1997/08/17 22:58:34 millert Exp $";
 #include <stdlib.h>
 
 long
-a64l(s)
-	const char *s;
+a64l(const char *s)
 {
 	int value, digit, shift;
 	int i;

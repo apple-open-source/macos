@@ -114,6 +114,10 @@
                                                                oldCurrentItemReference:
                                                                oldCurrentItemHash:
                                                                complete:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(secItemUnsetCurrentItemsAcrossAllDevices:
+                                                               identifiers:
+                                                               viewHint:
+                                                               complete:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(secItemFetchCurrentItemAcrossAllDevices:
                                                                identifier:
                                                                viewHint:

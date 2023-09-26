@@ -21,6 +21,9 @@
  */
 
 #include "rsync.h"
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 extern int verbose;
 extern int quiet;
@@ -318,6 +321,20 @@ static int rsync_module(int f_in, int f_out, int i, char *addr, char *host)
 		return -1;
 	}
 
+#ifdef __APPLE__
+#if !TARGET_OS_OSX
+	extern int password_enabled(void);
+	/* If `config_file` was set, assume this is a special configuration
+	 * like DebugDiskImage and permit password authentication. Otherwise,
+	 * check boot-args.
+	 */
+	if (NULL == config_file && password_enabled() < 1) {
+		rprintf(FLOG, "Password authentication is disabled\n");
+		io_printf(f_out, "@ERROR: Password authentication is disabled\n");
+		return -1;
+	}
+#endif
+#endif
 	auth_user = auth_server(f_in, f_out, i, host, addr, "@RSYNCD: AUTHREQD ");
 
 	if (!auth_user) {

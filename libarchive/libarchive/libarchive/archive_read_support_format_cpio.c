@@ -44,6 +44,10 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read_support_format_cpio.c 20116
 #include "archive_private.h"
 #include "archive_read_private.h"
 
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
+
 #define	bin_magic_offset 0
 #define	bin_magic_size 2
 #define	bin_dev_offset 2
@@ -225,6 +229,13 @@ archive_read_support_format_cpio(struct archive *_a)
 	struct archive_read *a = (struct archive_read *)_a;
 	struct cpio *cpio;
 	int r;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("cpio")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Format not allow-listed in entitlements");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_format_cpio");

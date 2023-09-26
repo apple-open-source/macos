@@ -1,7 +1,6 @@
-/*	$OpenBSD: sel_subs.c,v 1.18 2004/04/16 22:50:23 deraadt Exp $	*/
-/*	$NetBSD: sel_subs.c,v 1.5 1995/03/21 09:07:42 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,27 +33,29 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)sel_subs.c	8.1 (Berkeley) 5/31/93";
-#else
-__used static const char rcsid[] = "$OpenBSD: sel_subs.c,v 1.18 2004/04/16 22:50:23 deraadt Exp $";
+static char sccsid[] = "@(#)sel_subs.c	8.1 (Berkeley) 5/31/93";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/param.h>
+
 #include <ctype.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+#ifdef __APPLE__
 #include <tzfile.h>
-#include <unistd.h>
+#endif
+
 #include "pax.h"
 #include "sel_subs.h"
 #include "extern.h"
@@ -234,7 +235,7 @@ grp_add(char *str)
 			paxwarn(1,"Cannot determine gid for group name: %s", str);
 			return(-1);
 		}
-		gid = (gid_t)gr->gr_gid;
+		gid = gr->gr_gid;
 	} else
 		gid = (gid_t)strtoul(str+1, NULL, 10);
 	endgrent();
@@ -300,11 +301,11 @@ grp_match(ARCHD *arcn)
  * -T flag). The user may specify any number of different file time ranges.
  * Time ranges are checked one at a time until a match is found (if at all).
  * If the file has a mtime (and/or ctime) which lies within one of the time
- * ranges, the file is selected. Time ranges may have a lower and/or a upper
+ * ranges, the file is selected. Time ranges may have a lower and/or an upper
  * value. These ranges are inclusive. When no time ranges are supplied to pax
  * with the -T option, all members in the archive will be selected by the time
  * range routines. When only a lower range is supplied, only files with a
- * mtime (and/or ctime) equal to or younger are selected. When only a upper
+ * mtime (and/or ctime) equal to or younger are selected. When only an upper
  * range is supplied, only files with a mtime (and/or ctime) equal to or older
  * are selected. When the lower time range is equal to the upper time range,
  * only files with a mtime (or ctime) of exactly that time are selected.
@@ -374,7 +375,7 @@ trng_add(char *str)
 	}
 
 	/*
-	 * by default we only will check file mtime, but user can specify
+	 * by default we only will check file mtime, but the user can specify
 	 * mtime, ctime (inode change time) or both.
 	 */
 	if ((flgpt == NULL) || (*flgpt == '\0'))
@@ -382,7 +383,7 @@ trng_add(char *str)
 	else {
 		pt->flgs = 0;
 		while (*flgpt != '\0') {
-			switch (*flgpt) {
+			switch(*flgpt) {
 			case 'M':
 			case 'm':
 				pt->flgs |= CMPMTME;
@@ -411,7 +412,7 @@ trng_add(char *str)
 		 */
 		if (str_sec(str, &(pt->low_time)) < 0) {
 			paxwarn(1, "Illegal lower time range %s", str);
-			(void)free((char *)pt);
+			free(pt);
 			goto out;
 		}
 		pt->flgs |= HASLOW;
@@ -423,7 +424,7 @@ trng_add(char *str)
 		 */
 		if (str_sec(up_pt, &(pt->high_time)) < 0) {
 			paxwarn(1, "Illegal upper time range %s", up_pt);
-			(void)free((char *)pt);
+			free(pt);
 			goto out;
 		}
 		pt->flgs |= HASHIGH;
@@ -435,7 +436,7 @@ trng_add(char *str)
 			if (pt->low_time > pt->high_time) {
 				paxwarn(1, "Upper %s and lower %s time overlap",
 					up_pt, str);
-				(void)free((char *)pt);
+				free(pt);
 				return(-1);
 			}
 		}
@@ -473,7 +474,7 @@ trng_match(ARCHD *arcn)
 	 */
 	pt = trhead;
 	while (pt != NULL) {
-		switch (pt->flgs & CMPBOTH) {
+		switch(pt->flgs & CMPBOTH) {
 		case CMPBOTH:
 			/*
 			 * user wants both mtime and ctime checked for this
@@ -544,7 +545,7 @@ str_sec(const char *p, time_t *tval)
 	len = strlen(p);
 
 	for (t = p, dot = NULL; *t; ++t) {
-		if (isdigit(*t))
+		if (isdigit((unsigned char)*t))
 			continue;
 		if (*t == '.' && dot == NULL) {
 			dot = t;
@@ -568,7 +569,11 @@ str_sec(const char *p, time_t *tval)
 	switch (len) {
 	case 12:				/* cc */
 		bigyear = ATOI2(p);
+#ifdef __APPLE__
 		lt->tm_year = (bigyear * 100) - TM_YEAR_BASE;
+#else
+		lt->tm_year = (bigyear * 100) - 1900;
+#endif
 		yearset = 1;
 		/* FALLTHROUGH */
 	case 10:				/* yy */
@@ -576,10 +581,13 @@ str_sec(const char *p, time_t *tval)
 			lt->tm_year += ATOI2(p);
 		} else {
 			lt->tm_year = ATOI2(p);
+#ifdef __APPLE__
 			if (lt->tm_year < 69)		/* hack for 2000 ;-} */
 				lt->tm_year += (2000 - TM_YEAR_BASE);
-			else
-				lt->tm_year += (1900 - TM_YEAR_BASE);
+#else
+			if (lt->tm_year < 69)		/* hack for 2000 ;-} */
+				lt->tm_year += (2000 - 1900);
+#endif
 		}
 		/* FALLTHROUGH */
 	case 8:					/* mm */

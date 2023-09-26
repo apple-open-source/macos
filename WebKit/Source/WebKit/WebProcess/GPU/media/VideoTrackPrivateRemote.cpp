@@ -27,7 +27,7 @@
 #include "config.h"
 #include "VideoTrackPrivateRemote.h"
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "GPUProcessConnection.h"
 #include "MediaPlayerPrivateRemote.h"
@@ -46,11 +46,12 @@ VideoTrackPrivateRemote::VideoTrackPrivateRemote(GPUProcessConnection& gpuProces
 
 void VideoTrackPrivateRemote::setSelected(bool selected)
 {
-    if (!m_gpuProcessConnection)
+    auto gpuProcessConnection = m_gpuProcessConnection.get();
+    if (!gpuProcessConnection)
         return;
 
     if (selected != this->selected())
-        m_gpuProcessConnection->connection().send(Messages::RemoteMediaPlayerProxy::VideoTrackSetSelected(m_identifier, selected), m_playerIdentifier);
+        gpuProcessConnection->connection().send(Messages::RemoteMediaPlayerProxy::VideoTrackSetSelected(m_identifier, selected), m_playerIdentifier);
 
     VideoTrackPrivate::setSelected(selected);
 }
@@ -87,4 +88,4 @@ void VideoTrackPrivateRemote::updateConfiguration(VideoTrackPrivateRemoteConfigu
 
 } // namespace WebKit
 
-#endif // ENABLE(GPU_PROCESS)
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

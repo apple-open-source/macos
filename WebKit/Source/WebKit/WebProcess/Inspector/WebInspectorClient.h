@@ -55,7 +55,7 @@ private:
 
     Inspector::FrontendChannel* openLocalFrontend(WebCore::InspectorController*) override;
     void bringFrontendToFront() override;
-    void didResizeMainFrame(WebCore::Frame*) override;
+    void didResizeMainFrame(WebCore::LocalFrame*) override;
 
     void highlight() override;
     void hideHighlight() override;
@@ -87,7 +87,7 @@ private:
 
     void animationEndedForLayer(const WebCore::GraphicsLayer*);
 
-    WebPage* m_page;
+    WeakPtr<WebPage> m_page;
     WebCore::PageOverlay* m_highlightOverlay;
     
     RefPtr<WebCore::PageOverlay> m_paintRectOverlay;

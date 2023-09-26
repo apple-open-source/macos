@@ -38,25 +38,6 @@
 // reduce the msize part below zero (not checked).
 #define TINY_MAG_LAST_FREE_PTR_DEC_MSIZE(x, msize_delta) (x) = ((void *)(x) - (msize_delta))
 
-static MALLOC_INLINE MALLOC_ALWAYS_INLINE
-mag_index_t
-tiny_mag_get_thread_index(void)
-{
-#if CONFIG_TINY_USES_HYPER_SHIFT
-	if (os_likely(_os_cpu_number_override == -1)) {
-		return _malloc_cpu_number() >> hyper_shift;
-	} else {
-		return _os_cpu_number_override >> hyper_shift;
-	}
-#else // CONFIG_SMALL_USES_HYPER_SHIFT
-	if (os_likely(_os_cpu_number_override == -1)) {
-		return _malloc_cpu_number();
-	} else {
-		return _os_cpu_number_override;
-	}
-#endif // CONFIG_SMALL_USES_HYPER_SHIFT
-}
-
 static inline grain_t
 tiny_slot_from_msize(msize_t msize)
 {
@@ -2415,7 +2396,7 @@ void *
 tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requested)
 {
 	void *ptr;
-	mag_index_t mag_index = tiny_mag_get_thread_index() % rack->num_magazines;
+	mag_index_t mag_index = rack_get_thread_index(rack) % rack->num_magazines;
 	magazine_t *tiny_mag_ptr = &(rack->magazines[mag_index]);
 
 	MALLOC_TRACE(TRACE_tiny_malloc, (uintptr_t)rack, TINY_BYTES_FOR_MSIZE(msize), (uintptr_t)tiny_mag_ptr, cleared_requested);
@@ -2677,7 +2658,8 @@ tiny_batch_malloc(szone_t *szone, size_t size, void **results, unsigned count)
 {
 	msize_t msize = TINY_MSIZE_FOR_BYTES(size + TINY_QUANTUM - 1);
 	unsigned found = 0;
-	mag_index_t mag_index = tiny_mag_get_thread_index() % szone->tiny_rack.num_magazines;
+
+	mag_index_t mag_index = rack_get_thread_index(&szone->tiny_rack) % szone->tiny_rack.num_magazines;
 	magazine_t *tiny_mag_ptr = &(szone->tiny_rack.magazines[mag_index]);
 
 	// make sure to return objects at least one quantum in size

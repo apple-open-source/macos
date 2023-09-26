@@ -10,20 +10,6 @@
 	<array>
 #if TARGET_OS_OSX
 		<dict>
-			<key>TestName</key>
-			<string>base64</string>
-			<key>Command</key>
-			<array>
-				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/file_cmds/base64/test.sh</string>
-			</array>
-			<key>WhenToRun</key>
-			<array>
-				<string>PRESUBMISSION</string>
-				<string>NIGHTLY</string>
-			</array>
-		</dict>
-		<dict>
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
@@ -648,6 +634,8 @@
 				<string>cp_test.sh.basic.results.txt</string>
 				<string>basic</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -671,6 +659,8 @@
 				<string>cp_test.sh.basic_symlink.results.txt</string>
 				<string>basic_symlink</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -694,6 +684,8 @@
 				<string>cp_test.sh.chrdev.results.txt</string>
 				<string>chrdev</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -717,6 +709,8 @@
 				<string>cp_test.sh.matching_srctgt.results.txt</string>
 				<string>matching_srctgt</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -740,6 +734,8 @@
 				<string>cp_test.sh.matching_srctgt_contained.results.txt</string>
 				<string>matching_srctgt_contained</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -763,6 +759,8 @@
 				<string>cp_test.sh.matching_srctgt_link.results.txt</string>
 				<string>matching_srctgt_link</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -786,6 +784,8 @@
 				<string>cp_test.sh.matching_srctgt_nonexistent.results.txt</string>
 				<string>matching_srctgt_nonexistent</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -809,6 +809,8 @@
 				<string>cp_test.sh.recursive_link_dflt.results.txt</string>
 				<string>recursive_link_dflt</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -832,6 +834,8 @@
 				<string>cp_test.sh.recursive_link_Hflag.results.txt</string>
 				<string>recursive_link_Hflag</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -855,6 +859,133 @@
 				<string>cp_test.sh.recursive_link_Lflag.results.txt</string>
 				<string>recursive_link_Lflag</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.sparse_leading_hole</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.sparse_leading_hole.results.txt</string>
+				<string>sparse_leading_hole</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.sparse_multiple_holes</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.sparse_multiple_holes.results.txt</string>
+				<string>sparse_multiple_holes</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.sparse_only_hole</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.sparse_only_hole.results.txt</string>
+				<string>sparse_only_hole</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.sparse_to_dev</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.sparse_to_dev.results.txt</string>
+				<string>sparse_to_dev</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.sparse_trailing_hole</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.sparse_trailing_hole.results.txt</string>
+				<string>sparse_trailing_hole</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -878,6 +1009,83 @@
 				<string>cp_test.sh.standalone_Pflag.results.txt</string>
 				<string>standalone_Pflag</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.pflag_ns</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.pflag_ns.results.txt</string>
+				<string>pflag_ns</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.cflag</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.cflag.results.txt</string>
+				<string>cflag</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.cp_test.sh.Sflag</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/cp/cp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/cp</string>
+				<string>-r</string>
+				<string>cp_test.sh.Sflag.results.txt</string>
+				<string>Sflag</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -903,6 +1111,8 @@
 			</array>
 			<key>Description</key>
 			<string>dd(1) can seek by the maximum amount</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -928,6 +1138,62 @@
 			</array>
 			<key>Description</key>
 			<string>dd(1) should reject too-large seek values</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.dd2_test.sh.sigint_open</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/dd/dd2_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/dd</string>
+				<string>-r</string>
+				<string>dd2_test.sh.sigint_open.results.txt</string>
+				<string>sigint_open</string>
+			</array>
+			<key>Description</key>
+			<string>SIGINT while opening destination</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.dd2_test.sh.sigint_read</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/dd/dd2_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/dd</string>
+				<string>-r</string>
+				<string>dd2_test.sh.sigint_read.results.txt</string>
+				<string>sigint_read</string>
+			</array>
+			<key>Description</key>
+			<string>SIGINT while reading source</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1003,6 +1269,35 @@
 			</array>
 			<key>Description</key>
 			<string>Tests output file seeking</string>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.df_test.sh.df_1000</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/df/df_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/df</string>
+				<string>-r</string>
+				<string>df_test.sh.df_1000.results.txt</string>
+				<string>df_1000</string>
+			</array>
+			<key>Description</key>
+			<string>Unit suffix corner case</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1825,6 +2120,28 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that the output from ls -B prints out non-printable characters</string>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.ls_tests.sh.badmtime</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>/AppleInternal/Tests/file_cmds/ls/ls_badmtime_test.sh</string>
+			</array>
+			<key>Description</key>
+			<string>rdar://9977017 - mtime exceeding capability of localtime(3)</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2698,6 +3015,87 @@
 			</array>
 		</dict>
 #if TARGET_OS_OSX
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.pax_test.sh.copy_cmdline</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/pax/pax_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/pax</string>
+				<string>-r</string>
+				<string>pax_test.sh.copy_cmdline.results.txt</string>
+				<string>copy_cmdline</string>
+			</array>
+			<key>Description</key>
+			<string>Copy mode with files on command line</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.pax_test.sh.copy_stdin</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/pax/pax_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/pax</string>
+				<string>-r</string>
+				<string>pax_test.sh.copy_stdin.results.txt</string>
+				<string>copy_stdin</string>
+			</array>
+			<key>Description</key>
+			<string>Copy mode with files on stdin</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>file_cmds.pax_test.sh.copy_stdin0</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/file_cmds/pax/pax_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/file_cmds/pax</string>
+				<string>-r</string>
+				<string>pax_test.sh.copy_stdin0.results.txt</string>
+				<string>copy_stdin0</string>
+			</array>
+			<key>Description</key>
+			<string>Copy mode with files on stdin using -0</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
 		<dict>
 			<key>TestName</key>
 			<string>file_cmds.readlink_test.sh.basic</string>

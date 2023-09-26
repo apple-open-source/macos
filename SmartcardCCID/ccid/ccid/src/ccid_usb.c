@@ -40,6 +40,7 @@
 #include "utils.h"
 #include "parser.h"
 #include "ccid_ifdhandler.h"
+#include "sys_generic.h"
 
 
 /* write timeout
@@ -77,7 +78,7 @@ struct usbDevice_MultiSlot_Extension
 	int reader_index;
 
 	/* The multi-threaded polling part */
-	_Atomic int terminated;
+	_Atomic bool terminated;
 	int status;
 	unsigned char buffer[CCID_INTERRUPT_SIZE];
 	pthread_t thread_proc;
@@ -118,7 +119,7 @@ typedef struct
 	/* pointer to the multislot extension (if any) */
 	struct usbDevice_MultiSlot_Extension *multislot_extension;
 
-	char disconnected;
+	bool disconnected;
 } _usbDevice;
 
 /* The _usbDevice structure must be defined before including ccid_usb.h */
@@ -133,7 +134,7 @@ static void Multi_PollingTerminate(struct usbDevice_MultiSlot_Extension *msExt);
 
 static int get_end_points(struct libusb_config_descriptor *desc,
 	_usbDevice *usbdevice, int num);
-int ccid_check_firmware(struct libusb_device_descriptor *desc);
+bool ccid_check_firmware(struct libusb_device_descriptor *desc);
 static unsigned int *get_data_rates(unsigned int reader_index,
 	struct libusb_config_descriptor *desc, int num);
 
@@ -187,16 +188,16 @@ unsigned int SerialCustomDataRates[] = { GEMPLUS_CUSTOM_DATA_RATES, 0 };
  ****************************************************************************/
 static void close_libusb_if_needed(void)
 {
-	int i, to_exit = TRUE;
+	bool to_exit = true;
 
 	if (NULL == ctx)
 		return;
 
 	/* if at least 1 reader is still in use we do not exit libusb */
-	for (i=0; i<CCID_DRIVER_MAX_READERS; i++)
+	for (int i=0; i<CCID_DRIVER_MAX_READERS; i++)
 	{
 		if (usbDevice[i].dev_handle != NULL)
-			to_exit = FALSE;
+			to_exit = false;
 	}
 
 	if (to_exit)
@@ -246,10 +247,11 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 	ssize_t cnt;
 	list_t plist, *values, *ifdVendorID, *ifdProductID, *ifdFriendlyName;
 	int rv;
-	int claim_failed = FALSE;
+	bool claim_failed = false;
 	int return_value = STATUS_SUCCESS;
+	const char * hpDirPath;
 
-	DEBUG_COMM3("Reader index: %X, Device: %s", reader_index, device);
+	DEBUG_COMM3("Reader index: %X, Device: " LOG_STRING, reader_index, device);
 
 #ifndef __APPLE__
 	/* device name specified */
@@ -311,10 +313,15 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 		return STATUS_UNSUCCESSFUL;
 	}
 
+	/* Check if path override present in environment */
+	hpDirPath = SYS_GetEnv("PCSCLITE_HP_DROPDIR");
+	if (NULL == hpDirPath)
+		hpDirPath = PCSCLITE_HP_DROPDIR;
+
 	/* Info.plist full patch filename */
 	(void)snprintf(infofile, sizeof(infofile), "%s/%s/Contents/Info.plist",
-		PCSCLITE_HP_DROPDIR, BUNDLE);
-	DEBUG_INFO2("Using: %s", infofile);
+		hpDirPath, BUNDLE);
+	DEBUG_INFO2("Using: " LOG_STRING, infofile);
 
 	rv = bundleParse(infofile, &plist);
 	if (rv)
@@ -329,7 +336,7 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 		goto end1; \
 	} \
 	else \
-		DEBUG_INFO2(key ": %s", (char *)list_get_at(values, 0));
+		DEBUG_INFO2(key ": " LOG_STRING, (char *)list_get_at(values, 0));
 
 	/* general driver info */
 	GET_KEY("ifdManufacturerString", values)
@@ -432,7 +439,7 @@ again_libusb:
 
 			if (desc.idVendor == vendorID && desc.idProduct == productID)
 			{
-				int already_used;
+				bool already_used;
 				const struct libusb_interface *usb_interface = NULL;
 				int interface;
 				int num = 0;
@@ -442,62 +449,66 @@ again_libusb:
 #ifdef USE_COMPOSITE_AS_MULTISLOT
 				/* use the first CCID interface on first call */
 				static int static_interface = -1;
-				int max_interface_number = 2;
+				int max_interface_number = -1;
 
-				/* simulate a composite device as when libudev is used */
-				if ((GEMALTOPROXDU == readerID)
-					|| (GEMALTOPROXSU == readerID)
-					|| (HID_OMNIKEY_5422 == readerID)
-					|| (FEITIANR502DUAL == readerID))
-				{
-						/*
-						 * We can't talk to the two CCID interfaces
-						 * at the same time (the reader enters a
-						 * dead lock). So we simulate a multi slot
-						 * reader. By default multi slot readers
-						 * can't use the slots at the same time. See
-						 * TAG_IFD_SLOT_THREAD_SAFE
-						 *
-						 * One side effect is that the two readers
-						 * are seen by pcscd as one reader so the
-						 * interface name is the same for the two.
-						 *
+				/*
+				 * We can't talk to the two CCID interfaces
+				 * at the same time (the reader enters a
+				 * dead lock). So we simulate a multi slot
+				 * reader. By default multi slot readers
+				 * can't use the slots at the same time. See
+				 * TAG_IFD_SLOT_THREAD_SAFE
+				 *
+				 * One side effect is that the two readers
+				 * are seen by pcscd as one reader so the
+				 * interface name is the same for the two.
+				 *
 	* So we have:
 	* 0: Gemalto Prox-DU [Prox-DU Contact_09A00795] (09A00795) 00 00
 	* 1: Gemalto Prox-DU [Prox-DU Contact_09A00795] (09A00795) 00 01
 	* instead of
 	* 0: Gemalto Prox-DU [Prox-DU Contact_09A00795] (09A00795) 00 00
 	* 1: Gemalto Prox-DU [Prox-DU Contactless_09A00795] (09A00795) 01 00
-						 */
+				 */
 
-					/* for the Gemalto Prox-DU/SU the interfaces are:
+				/* simulate a composite device as when libudev is used */
+				switch (readerID)
+				{
+					/* For the HID Omnikey 5422 the interfaces are:
+					 * 0: OMNIKEY 5422CL Smartcard Reader
+					 * 1: OMNIKEY 5422 Smartcard Reader
+					 */
+					case HID_OMNIKEY_5422:
+					case ALCOR_LINK_AK9567:
+					case ALCOR_LINK_AK9572:
+						max_interface_number = 1; /* 2 interfaces */
+						break;
+
+					/* For the Gemalto Prox-DU/SU the interfaces are:
 					 * 0: Prox-DU HID (not used)
 					 * 1: Prox-DU Contactless (CCID)
 					 * 2: Prox-DU Contact (CCID)
-					 *
-					 * For the Feitian R502 the interfaces are:
+					 */
+					case GEMALTOPROXDU:
+					case GEMALTOPROXSU:
+						max_interface_number = 2; /* 3 interfaces */
+						break;
+
+					/* For the Feitian R502 the interfaces are:
 					 * 0: R502 Contactless Reader (CCID)
 					 * 1: R502 Contact Reader (CCID)
 					 * 2: R502 SAM1 Reader (CCID)
 					 * 3: R502 SAM2 Reader (CCID)
-					 *
-					 * For the HID Omnikey 5422 the interfaces are:
-					 * 0: OMNIKEY 5422CL Smartcard Reader
-					 * 1: OMNIKEY 5422 Smartcard Reader
 					 */
-					interface_number = static_interface;
-
-					if (HID_OMNIKEY_5422 == readerID)
-						/* only 2 interfaces for this device */
-						max_interface_number = 1;
-
-					if (FEITIANR502DUAL == readerID)
-						/* 4 interfaces for Feitian R502 reader */
-						max_interface_number = 3;
+					case FEITIANR502DUAL:
+						max_interface_number = 3; /* 4 interfaces */
+						break;
 				}
+
+				interface_number = static_interface;
 #endif
 				/* is it already opened? */
-				already_used = FALSE;
+				already_used = false;
 
 				DEBUG_COMM3("Checking device: %d/%d",
 					bus_number, device_address);
@@ -508,7 +519,7 @@ again_libusb:
 						/* same bus, same address */
 						if (usbDevice[r].bus_number == bus_number
 							&& usbDevice[r].device_address == device_address)
-							already_used = TRUE;
+							already_used = true;
 					}
 				}
 
@@ -671,12 +682,12 @@ again:
 					(void)libusb_close(dev_handle);
 					DEBUG_CRITICAL4("Can't claim interface %d/%d: %s",
 						bus_number, device_address, libusb_error_name(r));
-					claim_failed = TRUE;
+					claim_failed = true;
 					interface_number = -1;
 					continue;
 				}
 
-				DEBUG_INFO4("Found Vendor/Product: %04X/%04X (%s)",
+				DEBUG_INFO4("Found Vendor/Product: %04X/%04X (" LOG_STRING ")",
 					desc.idVendor, desc.idProduct, friendlyName);
 				DEBUG_INFO3("Using USB bus/device: %d/%d",
 					bus_number, device_address);
@@ -694,6 +705,8 @@ again:
 				if ((GEMALTOPROXDU == readerID)
 					|| (GEMALTOPROXSU == readerID)
 					|| (HID_OMNIKEY_5422 == readerID)
+					|| (ALCOR_LINK_AK9567 == readerID)
+					|| (ALCOR_LINK_AK9572 == readerID)
 					|| (FEITIANR502DUAL == readerID))
 				{
 					/* use the next interface for the next "slot" */
@@ -717,7 +730,7 @@ again:
 				usbDevice[reader_index].real_nb_opened_slots = 1;
 				usbDevice[reader_index].nb_opened_slots = &usbDevice[reader_index].real_nb_opened_slots;
 				atomic_init(&usbDevice[reader_index].polling_transfer, NULL);
-				usbDevice[reader_index].disconnected = FALSE;
+				usbDevice[reader_index].disconnected = false;
 
 				/* CCID common informations */
 				usbDevice[reader_index].ccid.real_bSeq = 0;
@@ -751,7 +764,7 @@ again:
 				usbDevice[reader_index].ccid.gemalto_firmware_features = NULL;
 				usbDevice[reader_index].ccid.dwProtocols = dw2i(device_descriptor, 6);
 #ifdef ENABLE_ZLP
-				usbDevice[reader_index].ccid.zlp = FALSE;
+				usbDevice[reader_index].ccid.zlp = false;
 #endif
 				if (desc.iSerialNumber)
 				{
@@ -1128,7 +1141,7 @@ status_t DisconnectUSB(unsigned int reader_index)
 		if (usbDevice[i].dev_handle == dev_handle)
 		{
 			DEBUG_COMM2("Disconnect reader: %d", i);
-			usbDevice[i].disconnected = TRUE;
+			usbDevice[i].disconnected = true;
 		}
 	}
 
@@ -1296,7 +1309,7 @@ uint8_t get_ccid_usb_device_address(int reader_index)
  *					ccid_check_firmware
  *
  ****************************************************************************/
-int ccid_check_firmware(struct libusb_device_descriptor *desc)
+bool ccid_check_firmware(struct libusb_device_descriptor *desc)
 {
 	unsigned int i;
 
@@ -1315,19 +1328,19 @@ int ccid_check_firmware(struct libusb_device_descriptor *desc)
 			{
 				DEBUG_INFO3("Firmware (%X.%02X) is bogus! but you choosed to use it",
 					desc->bcdDevice >> 8, desc->bcdDevice & 0xFF);
-				return FALSE;
+				return false;
 			}
 			else
 			{
 				DEBUG_CRITICAL3("Firmware (%X.%02X) is bogus! Upgrade the reader firmware or get a new reader.",
 					desc->bcdDevice >> 8, desc->bcdDevice & 0xFF);
-				return TRUE;
+				return true;
 			}
 		}
 	}
 
 	/* by default the firmware is not bogus */
-	return FALSE;
+	return false;
 } /* ccid_check_firmware */
 
 
@@ -1772,7 +1785,7 @@ static void Multi_PollingTerminate(struct usbDevice_MultiSlot_Extension *msExt)
 
 	if (msExt && !msExt->terminated)
 	{
-		msExt->terminated = TRUE;
+		msExt->terminated = true;
 
 		transfer = atomic_load(&usbDevice[msExt->reader_index].polling_transfer);
 
@@ -1999,7 +2012,7 @@ static struct usbDevice_MultiSlot_Extension *Multi_CreateFirstSlot(int reader_in
 	/* dev_handle of the physical reader */
 	msExt->dev_handle = usbDevice[reader_index].dev_handle;
 
-	atomic_init(&msExt->terminated, FALSE);
+	atomic_init(&msExt->terminated, false);
 	msExt->status = 0;
 
 	/* Create mutex and condition object for the interrupt polling */

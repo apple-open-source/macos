@@ -6,6 +6,7 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>compile.c: remove POSIX incompliant escape sequences</string>
+		<string>process.c: properly advance past zero-length matches (108870627)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>sed</string>

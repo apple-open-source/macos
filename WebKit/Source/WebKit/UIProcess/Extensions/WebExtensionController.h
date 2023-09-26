@@ -35,7 +35,6 @@
 #include "WebExtensionControllerConfiguration.h"
 #include "WebExtensionControllerIdentifier.h"
 #include "WebExtensionURLSchemeHandler.h"
-#include "WebPageProxy.h"
 #include "WebProcessProxy.h"
 #include "WebUserContentControllerProxy.h"
 #include <wtf/Forward.h>
@@ -77,7 +76,6 @@ public:
     WebExtensionControllerParameters parameters() const;
 
     bool operator==(const WebExtensionController& other) const { return (this == &other); }
-    bool operator!=(const WebExtensionController& other) const { return !(this == &other); }
 
     bool storageIsPersistent() const { return m_configuration->storageIsPersistent(); }
     String storageDirectory(WebExtensionContext&) const;
@@ -104,8 +102,8 @@ public:
     const WebExtensionContextSet& extensionContexts() const { return m_extensionContexts; }
     WebExtensionSet extensions() const;
 
-    template<typename T, typename U>
-    void sendToAllProcesses(const T& message, ObjectIdentifier<U> destinationID);
+    template<typename T>
+    void sendToAllProcesses(const T& message, const ObjectIdentifierGenericBase& destinationID);
 
 #ifdef __OBJC__
     _WKWebExtensionController *wrapper() const { return (_WKWebExtensionController *)API::ObjectImpl<API::Object::Type::WebExtensionController>::wrapper(); }
@@ -138,12 +136,12 @@ private:
     WebExtensionURLSchemeHandlerMap m_registeredSchemeHandlers;
 };
 
-template<typename T, typename U>
-void WebExtensionController::sendToAllProcesses(const T& message, ObjectIdentifier<U> destinationID)
+template<typename T>
+void WebExtensionController::sendToAllProcesses(const T& message, const ObjectIdentifierGenericBase& destinationID)
 {
     for (auto& process : allProcesses()) {
         if (process.canSendMessage())
-            process.send(T(message), destinationID);
+            process.send(T(message), destinationID.toUInt64());
     }
 }
 

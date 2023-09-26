@@ -4,7 +4,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2,1 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,8 +24,8 @@
 #include "APIInjectedBundleBundleClient.h"
 #include "APIString.h"
 #include "WebKitUserMessagePrivate.h"
-#include "WebKitWebExtensionPrivate.h"
 #include "WebKitWebPagePrivate.h"
+#include "WebKitWebProcessExtensionPrivate.h"
 #include "WebProcess.h"
 #include "WebProcessProxyMessages.h"
 #include <WebCore/GCController.h>
@@ -130,7 +130,7 @@ struct _WebKitWebExtensionPrivate {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitWebExtension, webkit_web_extension, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE(WebKitWebExtension, webkit_web_extension, G_TYPE_OBJECT, GObject)
 
 static void webkit_web_extension_class_init(WebKitWebExtensionClass* klass)
 {
@@ -201,21 +201,21 @@ private:
     WebKitWebExtension* m_extension;
 };
 
-WebKitWebExtension* webkitWebExtensionCreate(InjectedBundle* bundle)
+WebKitWebExtension* webkitWebProcessExtensionCreate(InjectedBundle* bundle)
 {
     WebKitWebExtension* extension = WEBKIT_WEB_EXTENSION(g_object_new(WEBKIT_TYPE_WEB_EXTENSION, NULL));
     bundle->setClient(makeUnique<WebExtensionInjectedBundleClient>(extension));
     return extension;
 }
 
-void webkitWebExtensionDidReceiveUserMessage(WebKitWebExtension* extension, UserMessage&& message)
+void webkitWebProcessExtensionDidReceiveUserMessage(WebKitWebExtension* extension, UserMessage&& message)
 {
     // Sink the floating ref.
     GRefPtr<WebKitUserMessage> userMessage = webkitUserMessageCreate(WTFMove(message), [](UserMessage&&) { });
     g_signal_emit(extension, signals[USER_MESSAGE_RECEIVED], 0, userMessage.get());
 }
 
-void webkitWebExtensionSetGarbageCollectOnPageDestroy(WebKitWebExtension* extension)
+void webkitWebProcessExtensionSetGarbageCollectOnPageDestroy(WebKitWebExtension* extension)
 {
 #if ENABLE(DEVELOPER_MODE)
     extension->priv->garbageCollectOnPageDestroy = true;
@@ -238,9 +238,10 @@ WebKitWebPage* webkit_web_extension_get_page(WebKitWebExtension* extension, guin
 
     WebKitWebExtensionPrivate* priv = extension->priv;
     WebPageMap::const_iterator end = priv->pages.end();
-    for (WebPageMap::const_iterator it = priv->pages.begin(); it != end; ++it)
+    for (WebPageMap::const_iterator it = priv->pages.begin(); it != end; ++it) {
         if (it->key->identifier().toUInt64() == pageID)
             return it->value.get();
+    }
 
     return 0;
 }
@@ -250,8 +251,8 @@ WebKitWebPage* webkit_web_extension_get_page(WebKitWebExtension* extension, guin
  * @extension: a #WebKitWebExtension
  * @message: a #WebKitUserMessage
  * @cancellable: (nullable): a #GCancellable or %NULL to ignore
- * @callback: (scope async): (nullable): A #GAsyncReadyCallback to call when the request is satisfied or %NULL
- * @user_data: (closure): the data to pass to callback function
+ * @callback: (scope async) (nullable): A #GAsyncReadyCallback to call when the request is satisfied or %NULL
+ * @user_data: the data to pass to callback function
  *
  * Send @message to the #WebKitWebContext corresponding to @extension. If @message is floating, it's consumed.
  *

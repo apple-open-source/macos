@@ -180,6 +180,7 @@ private:
     boolean_t       _capsLockState;
     boolean_t       _capsLockLEDState;
     boolean_t       _capsLockLEDInhibit;
+    boolean_t       _capsLockDarkWakeLEDInhibit;
     CFStringRef     _capsLockLED;
 
     NSNumber        *_restoreState;
@@ -187,6 +188,7 @@ private:
 
     StickyKeyHandler *_stickyKeyHandler;
 
+    boolean_t       _doNotDisturbSupported;
 
     IOHIDEventRef processStickyKeys(IOHIDEventRef event);
     void setStickyKeyState(UInt32 usagePage, UInt32 usage, StickyKeyState state);
@@ -242,7 +244,7 @@ private:
     static void powerNotificationCallback (void * refcon, IOPMConnection connection, IOPMConnectionMessageToken token, IOPMCapabilityBits eventDescriptor);
     void powerNotificationCallback (IOPMConnection connection, IOPMConnectionMessageToken token, IOPMCapabilityBits eventDescriptor);
 
-
+    void setDoNotDisturbState();
     bool isModifiersPressed ();
     uint32_t getActiveModifiers();
     void dispatchLockKey(void);

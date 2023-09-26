@@ -59,7 +59,7 @@
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTDetermineCDPBitStatusOperation.h"
-#import "keychain/ot/OTDetermineHSA2AccountStatusOperation.h"
+#import "keychain/ot/OTDetermineCDPCapableAccountStatusOperation.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 #import "keychain/ot/OTEnsureOctagonKeyConsistency.h"
 #import "keychain/ot/OTEpochOperation.h"
@@ -136,6 +136,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     BOOL _notifyIdMS;
     OTAccountSettings* _Nullable _accountSettings;
     BOOL _skipRateLimitingCheck;
+    BOOL _repair;
 }
 
 @property SecLaunchSequence* launchSequence;
@@ -327,7 +328,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
      * We are posting the legacy SOS notification if we don't use SOS
      * need to rework clients to use a new signal instead of SOS.
      */
-    if (!OctagonIsSOSFeatureEnabled()) {
+    if (!SOSCompatibilityModeGetCachedStatus()) {
         [self.notifierClass post:[NSString stringWithUTF8String:kSOSCCCircleChangedNotification]];
     }
 
@@ -537,7 +538,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
     NSError* localError = nil;
     [self.accountMetadataStore persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
-        // Do not set the account available bit here, since we need to check if it's HSA2. The initializing state should do that for us...
+        // Do not set the account available bit here, since we need to check if it's HSA2/Managed. The initializing state should do that for us...
         metadata.altDSID = altDSID;
 
         return metadata;
@@ -613,7 +614,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             secerror("octagon: unable to persist new account availability: %@", localError);
         }
 
-        [self.accountStateTracker setHSA2iCloudAccountStatus:CKKSAccountStatusNoAccount];
+        [self.accountStateTracker setCDPCapableiCloudAccountStatus:CKKSAccountStatusNoAccount];
 
         // Note: do not reset the TPSpecificUser here. It might be relevant for diagnosing things later.
         // If an account signs back in for the active persona, it'll be reset.
@@ -768,6 +769,30 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:[self establishStatePathDictionary]];
 
     [self.stateMachine doWatchedStateMachineRPC:@"establish"
+                                   sourceStates:[OTStates OctagonInAccountStates]
+                                           path:path
+                                          reply:reply];
+}
+
+
+- (void)rpcReset:(CuttlefishResetReason)resetReason
+           reply:(nonnull void (^)(NSError * _Nullable))reply
+{
+    _resetReason = resetReason;
+    
+    OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary: @{
+        OctagonStateCuttlefishReset: @{
+            OctagonStateCKKSResetAfterOctagonReset: @{
+                OctagonStateLocalReset:  @{
+                    OctagonStateLocalResetClearLocalContextState: @{
+                        OctagonStateInitializing: [OctagonStateTransitionPathStep success],
+                    },
+                },
+            },
+        },
+    }];
+
+    [self.stateMachine doWatchedStateMachineRPC:@"rpc-reset"
                                    sourceStates:[OTStates OctagonInAccountStates]
                                            path:path
                                           reply:reply];
@@ -940,14 +965,14 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return [self initializingOperation];
     }
 
-    if([currentState isEqualToString:OctagonStateWaitForHSA2]) {
+    if([currentState isEqualToString:OctagonStateWaitForCDPCapableSecurityLevel]) {
         if([flags _onqueueContains:OctagonFlagIDMSLevelChanged]) {
             [flags _onqueueRemoveFlag:OctagonFlagIDMSLevelChanged];
-            return [OctagonStateTransitionOperation named:@"hsa2-check"
+            return [OctagonStateTransitionOperation named:@"cdp-capable-check"
                                                  entering:OctagonStateDetermineiCloudAccountState];
         }
 
-        secnotice("octagon", "Waiting for an HSA2 account");
+        secnotice("octagon", "Waiting for an CDP Capable account");
         return nil;
     }
 
@@ -1023,12 +1048,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                   errorState:OctagonStateBecomeUntrusted];
     }
 #pragma mark --- Octagon Health Check States
-    if([currentState isEqualToString:OctagonStateHSA2HealthCheck]) {
-        return [[OTDetermineHSA2AccountStatusOperation alloc] initWithDependencies:self.operationDependencies
-                                                                       stateIfHSA2:OctagonStateCDPHealthCheck
-                                                                    stateIfNotHSA2:OctagonStateWaitForHSA2
-                                                                  stateIfNoAccount:OctagonStateNoAccount
-                                                                        errorState:OctagonStateError];
+    if([currentState isEqualToString:OctagonStateCDPCapableHealthCheck]) {
+        return [[OTDetermineCDPCapableAccountStatusOperation alloc] initWithDependencies:self.operationDependencies
+                                                                       stateIfCDPCapable:OctagonStateCDPHealthCheck
+                                                                    stateIfNotCDPCapable:OctagonStateWaitForCDPCapableSecurityLevel
+                                                                        stateIfNoAccount:OctagonStateNoAccount
+                                                                              errorState:OctagonStateError];
     }
 
     if([currentState isEqualToString:OctagonStateCDPHealthCheck]) {
@@ -1193,14 +1218,35 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     if([currentState isEqualToString:OctagonStateDetermineiCloudAccountState]) {
         secnotice("octagon", "Determine iCloud account status");
 
-        // If there's an HSA2 account, return to 'initializing' here, as we want to centralize decisions on what to do next
-        return [[OTDetermineHSA2AccountStatusOperation alloc] initWithDependencies:self.operationDependencies
-                                                                       stateIfHSA2:OctagonStateInitializing
-                                                                    stateIfNotHSA2:OctagonStateWaitForHSA2
-                                                                  stateIfNoAccount:OctagonStateNoAccount
-                                                                        errorState:OctagonStateError];
+        // If there's an HSA2/Managed account, return to 'initializing' here, as we want to centralize decisions on what to do next
+        return [[OTDetermineCDPCapableAccountStatusOperation alloc] initWithDependencies:self.operationDependencies
+                                                                       stateIfCDPCapable:OctagonStateInitializing
+                                                                    stateIfNotCDPCapable:OctagonStateWaitForCDPCapableSecurityLevel
+                                                                        stateIfNoAccount:OctagonStateNoAccount
+                                                                              errorState:OctagonStateError];
     }
+    
+    if([currentState isEqualToString:OctagonStateCuttlefishReset]) {
+        secnotice("octagon", "Resetting cuttlefish");
+        return [[OTResetOperation alloc] init:self.containerName
+                                    contextID:self.contextID
+                                       reason:_resetReason
+                            idmsTargetContext:nil
+                       idmsCuttlefishPassword:nil
+                                   notifyIdMS:nil
+                                intendedState:OctagonStateCKKSResetAfterOctagonReset
+                                 dependencies:self.operationDependencies
+                                   errorState:OctagonStateError
+                         cuttlefishXPCWrapper:self.cuttlefishXPCWrapper];
+        
+    }
+    
+    if([currentState isEqualToString:OctagonStateCKKSResetAfterOctagonReset]) {
+        return [[OTLocalCKKSResetOperation alloc] initWithDependencies:self.operationDependencies
+                                                         intendedState:OctagonStateLocalReset
+                                                            errorState:OctagonStateBecomeUntrusted];
 
+    }
     if([currentState isEqualToString:OctagonStateLocalReset]) {
         secnotice("octagon", "Attempting local-reset");
         return [[OTLocalResetOperation alloc] initWithDependencies:self.operationDependencies
@@ -1412,7 +1458,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                        reason:_resetReason
                             idmsTargetContext:_idmsTargetContext
                        idmsCuttlefishPassword:_idmsCuttlefishPassword
-				   notifyIdMS:_notifyIdMS
+                                   notifyIdMS:_notifyIdMS
                                 intendedState:OctagonStateEstablishEnableCDPBit
                                  dependencies:self.operationDependencies
                                    errorState:OctagonStateError
@@ -1720,7 +1766,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                       op.nextState = OctagonStateNoAccount;
 
                                   } else if(account.icloudAccountState == OTAccountMetadataClassC_AccountState_ACCOUNT_AVAILABLE) {
-                                      secnotice("octagon", "An HSA2 iCloud account exists; waiting for CloudKit to confirm");
+                                      secnotice("octagon", "An CDP Capable iCloud account exists; waiting for CloudKit to confirm");
 
                                       if(self.activeAccount == nil) {
                                           NSError* accountError = nil;
@@ -1740,11 +1786,11 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                           }
                                       }
 
-                                      // Inform the account state tracker of our HSA2 account
-                                      [self.accountStateTracker setHSA2iCloudAccountStatus:CKKSAccountStatusAvailable];
+                                      // Inform the account state tracker of our HSA2/Managed account
+                                      [self.accountStateTracker setCDPCapableiCloudAccountStatus:CKKSAccountStatusAvailable];
 
                                       // This seems an odd place to do this, but CKKS currently also tracks the CloudKit account state.
-                                      // Since we think we have an HSA2 account, let CKKS figure out its own CloudKit state
+                                      // Since we think we have an HSA2/Managed account, let CKKS figure out its own CloudKit state
                                       secnotice("octagon-ckks", "Initializing CKKS views");
                                       [self.cuttlefishXPCWrapper fetchCurrentPolicyWithSpecificUser:self.activeAccount
                                                                                     modelIDOverride:self.deviceAdapter.modelID
@@ -1765,11 +1811,11 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                       op.nextState = OctagonStateWaitingForCloudKitAccount;
 
                                   } else if(account.icloudAccountState == OTAccountMetadataClassC_AccountState_NO_ACCOUNT && account.altDSID != nil) {
-                                      secnotice("octagon", "An iCloud account exists, but doesn't appear to be HSA2. Let's check!");
+                                      secnotice("octagon", "An iCloud account exists, but doesn't appear to be CDP Capable. Let's check!");
                                       op.nextState = OctagonStateDetermineiCloudAccountState;
 
                                   } else if(account.icloudAccountState == OTAccountMetadataClassC_AccountState_NO_ACCOUNT) {
-                                      [self.accountStateTracker setHSA2iCloudAccountStatus:CKKSAccountStatusNoAccount];
+                                      [self.accountStateTracker setCDPCapableiCloudAccountStatus:CKKSAccountStatusNoAccount];
 
                                       secnotice("octagon", "No iCloud account available.");
                                       op.nextState = OctagonStateNoAccount;
@@ -1870,7 +1916,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                         intendedState:OctagonStateBecomeReady
                                                                            errorState:OctagonStateBecomeReady
                                                                            deviceInfo:self.prepareInformation
-                                                                 skipRateLimitedCheck:_skipRateLimitingCheck];
+                                                                 skipRateLimitedCheck:_skipRateLimitingCheck
+                                                                               repair:_repair];
 
     CKKSResultOperation* callback = [CKKSResultOperation named:@"rpcHealthCheck"
                                                      withBlock:^{
@@ -2900,7 +2947,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     dispatch_time_t timeOut = 0;
     if(config.timeout != 0) {
         timeOut = config.timeout;
-    } else if(!OctagonIsSOSFeatureEnabled()){
+    } else if(!SOSCompatibilityModeGetCachedStatus()){
         // Non-iphone non-mac platforms can be slow; heuristically slow them down
         timeOut = 60*NSEC_PER_SEC;
     } else {
@@ -3381,6 +3428,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcFetchPeerAttributes:(NSString*)attribute includeSelf:(BOOL)includeSelf reply:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
 {
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(nil, accountError);
+        return;
+    }
+
     // As this isn't a state-modifying operation, we don't need to go through the state machine.
     [self.cuttlefishXPCWrapper dumpWithSpecificUser:self.activeAccount
                                               reply:^(NSDictionary * _Nullable dump, NSError * _Nullable dumpError) {
@@ -3432,13 +3486,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcFetchDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
 {
-    NSError* accountError = [self errorIfNoCKAccount:nil];
-    if (accountError != nil) {
-        secnotice("octagon", "No cloudkit account present: %@", accountError);
-        reply(nil, accountError);
-        return;
-    }
-
     [self rpcFetchPeerAttributes:@"device_name" includeSelf:NO reply:reply];
 }
 
@@ -3470,6 +3517,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcIsRecoveryKeySet:(void (^)(BOOL isSet, NSError * _Nullable error))reply
 {
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(NO, accountError);
+        return;
+    }
+
     [self.cuttlefishXPCWrapper isRecoveryKeySet:self.activeAccount reply:^(BOOL isSet, NSError * _Nullable error) {
         reply(isSet, error);
     }];
@@ -3477,6 +3531,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcRemoveRecoveryKey:(void (^)(BOOL removed, NSError * _Nullable error))reply
 {
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(NO, accountError);
+        return;
+    }
+
     [self.cuttlefishXPCWrapper removeRecoveryKey:self.activeAccount reply:^(BOOL removed, NSError * _Nullable removedError) {
         reply(removed, removedError);
     }];
@@ -4155,6 +4216,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcFetchAccountSettings:(void (^)(OTAccountSettings* _Nullable setting, NSError* _Nullable replyError))reply
 {
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(nil, accountError);
+        return;
+    }
+
     secinfo("octagon-settings", "Fetching account settings");
     [OTStashAccountSettingsOperation performWithAccountWide:false
                                                  forceFetch:false
@@ -4173,8 +4241,15 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         }];
 }
 
-- (void)rpcAccountWideSettingsWithForceFetch:(bool)forceFetch reply:(void (^)(OTAccountSettings* setting, NSError* replyError))reply
+- (void)rpcAccountWideSettingsWithForceFetch:(bool)forceFetch reply:(void (^)(OTAccountSettings* _Nullable setting, NSError* replyError))reply
 {
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(nil, accountError);
+        return;
+    }
+
     secinfo("octagon-settings", "Fetching account-wide settings with force: %{bool}d",forceFetch);
     [OTStashAccountSettingsOperation performWithAccountWide:true
                                                  forceFetch:forceFetch
@@ -4290,6 +4365,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     }];
 }
 
+- (void)rpcFetchTotalCountOfTrustedPeers:(void (^)(NSNumber* count, NSError* replyError))reply
+{
+    [self.cuttlefishXPCWrapper fetchTrustedPeerCountWithSpecificUser:self.activeAccount reply:^(NSNumber * _Nullable count, NSError * _Nullable error) {
+        reply(count, error);
+    }];
+}
 
 #pragma mark --- Health Checker
 
@@ -4343,7 +4424,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (BOOL)leaveTrust:(NSError**)error
 {
-    if (OctagonIsSOSFeatureEnabled()) {
+    if (SOSCompatibilityModeGetCachedStatus()) {
         CFErrorRef cfError = NULL;
         bool left = SOSCCRemoveThisDeviceFromCircle_Server(&cfError);
 
@@ -4448,7 +4529,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return YES;
 }
 
-- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck reply:(void (^)(NSError * _Nullable error))reply
+- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck repair:(BOOL)repair reply:(void (^)(NSError * _Nullable error))reply
 {
     secnotice("octagon-health", "Beginning checking overall Octagon Trust");
 
@@ -4468,33 +4549,34 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     }
 
     _skipRateLimitingCheck = skipRateLimitingCheck;
+    _repair = repair;
 
     // Ending in "waitforunlock" is okay for a health check
     [self.stateMachine doWatchedStateMachineRPC:@"octagon-trust-health-check"
                                    sourceStates:[OTStates OctagonHealthSourceStates]
                                            path:[OctagonStateTransitionPath pathFromDictionary:@{
-                                               OctagonStateHSA2HealthCheck: @{
-                                                   OctagonStateCDPHealthCheck: @{
-                                                       OctagonStateSecurityTrustCheck: @{
-                                                           OctagonStateTPHTrustCheck: @{
-                                                               OctagonStateCuttlefishTrustCheck: @{
-                                                                   OctagonStateBecomeReady: @{
-                                                                       OctagonStateReady: [OctagonStateTransitionPathStep success],
-                                                                       OctagonStateWaitForUnlock: [OctagonStateTransitionPathStep success],
-                                                                   },
-                                                                   // Cuttlefish can suggest we reset the world. Consider reaching here a success,
-                                                                   // instead of tracking the whole reset.
-                                                                   OctagonStateHealthCheckReset: [OctagonStateTransitionPathStep success],
-                                                                   OctagonStateHealthCheckLeaveClique: [OctagonStateTransitionPathStep success],
-                                                               },
-                                                               OctagonStateWaitForUnlock: [OctagonStateTransitionPathStep success],
-                                                               OctagonStateUntrusted: [OctagonStateTransitionPathStep success],
-                                                           },
-                                                       },
-                                                       OctagonStateWaitForCDP: [OctagonStateTransitionPathStep success],
-                                                   },
-                                                   OctagonStateWaitForHSA2: [OctagonStateTransitionPathStep success],
-                                               }
+                                            OctagonStateCDPCapableHealthCheck: @{
+                                                OctagonStateCDPHealthCheck: @{
+                                                    OctagonStateSecurityTrustCheck: @{
+                                                        OctagonStateTPHTrustCheck: @{
+                                                            OctagonStateCuttlefishTrustCheck: @{
+                                                                OctagonStateBecomeReady: @{
+                                                                    OctagonStateReady: [OctagonStateTransitionPathStep success],
+                                                                    OctagonStateWaitForUnlock: [OctagonStateTransitionPathStep success],
+                                                                },
+                                                                // Cuttlefish can suggest we reset the world. Consider reaching here a success,
+                                                                // instead of tracking the whole reset.
+                                                                OctagonStateHealthCheckReset: [OctagonStateTransitionPathStep success],
+                                                                OctagonStateHealthCheckLeaveClique: [OctagonStateTransitionPathStep success],
+                                                            },
+                                                            OctagonStateWaitForUnlock: [OctagonStateTransitionPathStep success],
+                                                            OctagonStateUntrusted: [OctagonStateTransitionPathStep success],
+                                                        },
+                                                    },
+                                                    OctagonStateWaitForCDP: [OctagonStateTransitionPathStep success],
+                                                },
+                                                OctagonStateWaitForCDPCapableSecurityLevel: [OctagonStateTransitionPathStep success],
+                                            }
                                            }]
                                           reply:reply];
 }
@@ -4653,6 +4735,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     _idmsCuttlefishPassword = nil;
     _notifyIdMS = false;
     _accountSettings = nil;
+    _skipRateLimitingCheck = NO;
+    _repair = NO;
     self.recoveryKey = nil;
     self.inheritanceKey = nil;
     self.custodianRecoveryKey = nil;
@@ -4670,7 +4754,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         _idmsTargetContext == nil &&
         _idmsCuttlefishPassword == nil &&
         _notifyIdMS == false &&
-        _accountSettings == nil;
+        _accountSettings == nil &&
+        _skipRateLimitingCheck == NO &&
+        _repair == NO;
 }
 
 - (void)setAccountSettings:(OTAccountSettings*_Nullable)accountSettings

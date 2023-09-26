@@ -177,7 +177,7 @@
 .Fa "u_short code"
 .Fc
 .Ft void
-.Fo pcap_ng_block_iterate_options
+.Fo pcapng_block_iterate_options
 .Fa "pcapng_block_t block"
 .Fa "void * context"
 .Fa "pcap_ng_block_option_iterator_func opt_iterator_func"
@@ -195,7 +195,7 @@
 .Fa "const void ** names"
 .Fc
 .Ft void
-.Fo pcap_ng_block_iterate_name_records
+.Fo pcapng_block_iterate_name_records
 .Fa "pcapng_name_record_t record"
 .Fa "pcapng_name_record_iterator_func fn"
 .Fc
@@ -479,7 +479,7 @@ To get a single option value one may use the function
 when an option may appear at most once in a pcap-ng block.
 .Pp
 The function 
-.sFn pcap_ng_block_iterate_options
+.sFn pcapng_block_iterate_options
 walks the list of options 
 .Vt pcapng_block_t
 and calls the given callback function of each option.

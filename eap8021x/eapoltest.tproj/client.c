@@ -375,6 +375,79 @@ S_set_verbose(int argc, char * argv[])
     return (result);
 }
 
+static int
+S_set_use_boringssl(int argc, char * argv[])
+{
+    bool use_boringssl = false;
+    int  result;
+
+    if (strcasecmp(argv[0], "on") == 0) {
+	use_boringssl = true;
+    }
+    else if (strcasecmp(argv[0], "off") == 0) {
+	use_boringssl = false;
+    }
+    else {
+	command_usage();
+    }
+    if (EAPOLControlPrefsSetUseBoringSSL(use_boringssl) == FALSE) {
+	fprintf(stderr, "Failed to set use_boringssl %s\n",
+		use_boringssl ? "on" : "off");
+	result = 1;
+    }
+    else {
+	result = 0;
+    }
+    return (result);
+}
+
+static int
+S_get_use_boringssl(int argc, char * argv[])
+{
+    bool use_boringssl = false;
+
+    use_boringssl = EAPOLControlPrefsGetUseBoringSSL();
+    fprintf(stdout, "use_boringssl:[%s]\n", use_boringssl ? "on" : "off");
+    return (0);
+}
+
+static int
+S_set_tls13_revocation_check(int argc, char * argv[])
+{
+    bool revocation_check = false;
+    int  result;
+
+    if (strcasecmp(argv[0], "on") == 0) {
+	revocation_check = true;
+    }
+    else if (strcasecmp(argv[0], "off") == 0) {
+	revocation_check = false;
+    }
+    else {
+	command_usage();
+    }
+    if (EAPOLControlPrefsSetRevocationCheck(revocation_check) == FALSE) {
+	fprintf(stderr, "Failed to set tls13_revocation_check %s\n",
+		revocation_check ? "on" : "off");
+	result = 1;
+    }
+    else {
+	result = 0;
+    }
+    return (result);
+}
+
+static int
+S_get_tls13_revocation_check(int argc, char * argv[])
+{
+    bool revocation_check = false;
+
+    revocation_check = EAPOLControlPrefsGetRevocationCheck();
+    fprintf(stdout, "EAP-TLS 1.3 revocation status check is %s\n",
+	    revocation_check ? "enabled" : "disabled");
+    return (0);
+}
+
 #if ! TARGET_OS_IPHONE
 static int
 S_loginwindow_config(int argc, char * argv[])
@@ -696,6 +769,8 @@ S_verify_server(int argc, char * argv[])
 
     status = EAPTLSVerifyServerCertificateChain(properties,
 						array,
+						FALSE,
+						NULL,
 						&sec_status);
     printf("status is %d, sec status is %d\n", status, sec_status);
     CFRelease(properties);
@@ -779,6 +854,10 @@ static commandInfo commands[] = {
     { "verify_server", S_verify_server, 2, "<cert-file> <properties>" },
     { "export_shareable", S_export_shareable, 1, "<properties>" },
     { "import_shareable", S_import_shareable, 1, "<properties>" },
+    { "set_use_boringssl", S_set_use_boringssl, 1, "( on | off ) [default=on]" },
+    { "get_use_boringssl", S_get_use_boringssl, 0, "" },
+    { "set_tls13_revocation_check", S_set_tls13_revocation_check, 1, "( on | off ) [default=on]" },
+    { "get_tls13_revocation_check", S_get_tls13_revocation_check, 0, "" },
 #if ! TARGET_OS_IPHONE
     { "start_system", S_start_system, 1, "<interface_name> [ <config_file> ]"},
     { "loginwindow_config", S_loginwindow_config, 1, "<interface_name>" },

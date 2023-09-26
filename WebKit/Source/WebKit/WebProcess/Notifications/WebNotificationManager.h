@@ -67,7 +67,7 @@ public:
     void didUpdateNotificationDecision(const String& originString, bool allowed);
 
     // Looks in local cache for permission. If not found, returns DefaultDenied.
-    WebCore::NotificationClient::Permission policyForOrigin(const String& originString) const;
+    WebCore::NotificationClient::Permission policyForOrigin(const String& originString, WebPage* = nullptr) const;
 
     void removeAllPermissionsForTesting();
 
@@ -79,18 +79,13 @@ private:
     // Implemented in generated WebNotificationManagerMessageReceiver.cpp
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     
-    void didShowNotification(const UUID& notificationID);
-    void didClickNotification(const UUID& notificationID);
-    void didCloseNotifications(const Vector<UUID>& notificationIDs);
+    void didShowNotification(const WTF::UUID& notificationID);
+    void didClickNotification(const WTF::UUID& notificationID);
+    void didCloseNotifications(const Vector<WTF::UUID>& notificationIDs);
     void didRemoveNotificationDecisions(const Vector<String>& originStrings);
 
-    template<typename U> bool sendNotificationMessage(U&& message, WebPage*);
-    template<typename U> bool sendNotificationMessageWithAsyncReply(U&& message, WebPage*, CompletionHandler<void()>&&);
-
-    WebProcess& m_process;
-
 #if ENABLE(NOTIFICATIONS)
-    HashMap<UUID, WebCore::ScriptExecutionContextIdentifier> m_nonPersistentNotificationsContexts;
+    HashMap<WTF::UUID, WebCore::ScriptExecutionContextIdentifier> m_nonPersistentNotificationsContexts;
     HashMap<String, bool> m_permissionsMap;
 #endif
 };

@@ -3,8 +3,315 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 myv{
     zoneStrings{
+        "America:Boise"{
+            ec{"Бойси"}
+        }
+        "America:Chicago"{
+            ec{"Шикаго"}
+        }
+        "America:Denver"{
+            ec{"Денвер"}
+        }
+        "America:Grenada"{
+            ec{"Гренада"}
+        }
+        "America:Panama"{
+            ec{"Панама"}
+        }
+        "Arctic:Longyearbyen"{
+            ec{"Лонгйирбюен"}
+        }
+        "Asia:Baghdad"{
+            ec{"Багдад"}
+        }
+        "Asia:Baku"{
+            ec{"Баку"}
+        }
+        "Asia:Hong_Kong"{
+            ec{"Гонконг"}
+        }
+        "Asia:Omsk"{
+            ec{"Омской"}
+        }
+        "Asia:Sakhalin"{
+            ec{"Сахалин"}
+        }
+        "Asia:Samarkand"{
+            ec{"Самарканд"}
+        }
+        "Asia:Seoul"{
+            ec{"Сеул"}
+        }
+        "Asia:Shanghai"{
+            ec{"Шанхай"}
+        }
+        "Asia:Taipei"{
+            ec{"Тайпей"}
+        }
+        "Asia:Tashkent"{
+            ec{"Ташкент"}
+        }
+        "Asia:Tokyo"{
+            ec{"Токио"}
+        }
+        "Asia:Tomsk"{
+            ec{"Томской"}
+        }
+        "Asia:Ulaanbaatar"{
+            ec{"Улан-батор"}
+        }
+        "Atlantic:Bermuda"{
+            ec{"Бермуда"}
+        }
+        "Atlantic:Madeira"{
+            ec{"Мадейра"}
+        }
+        "Atlantic:Reykjavik"{
+            ec{"Рейкьявик"}
+        }
+        "Etc:Unknown"{
+            ec{"Асодавикс Ош"}
+        }
+        "Europe:Amsterdam"{
+            ec{"Амстердам"}
+        }
+        "Europe:Andorra"{
+            ec{"Андорра"}
+        }
+        "Europe:Athens"{
+            ec{"Афины"}
+        }
+        "Europe:Belgrade"{
+            ec{"Белград"}
+        }
+        "Europe:Berlin"{
+            ec{"Берлин"}
+        }
+        "Europe:Bratislava"{
+            ec{"Братислава"}
+        }
+        "Europe:Brussels"{
+            ec{"Брюссель"}
+        }
+        "Europe:Bucharest"{
+            ec{"Бухарест"}
+        }
+        "Europe:Budapest"{
+            ec{"Будапешт"}
+        }
+        "Europe:Copenhagen"{
+            ec{"Копенгаген"}
+        }
+        "Europe:Dublin"{
+            ec{"Дублин"}
+        }
+        "Europe:Helsinki"{
+            ec{"Хельсинки"}
+        }
+        "Europe:Kiev"{
+            ec{"Киев"}
+        }
+        "Europe:Kirov"{
+            ec{"Киров"}
+        }
+        "Europe:Lisbon"{
+            ec{"Лиссабон"}
+        }
+        "Europe:Ljubljana"{
+            ec{"Любляна"}
+        }
+        "Europe:London"{
+            ec{"Лондон"}
+        }
+        "Europe:Luxembourg"{
+            ec{"Люксембург"}
+        }
+        "Europe:Madrid"{
+            ec{"Мадрид"}
+        }
+        "Europe:Malta"{
+            ec{"Мальта"}
+        }
+        "Europe:Minsk"{
+            ec{"Минской"}
+        }
+        "Europe:Monaco"{
+            ec{"Монако"}
+        }
         "Europe:Moscow"{
             ec{"Москов"}
+        }
+        "Europe:Oslo"{
+            ec{"Осло"}
+        }
+        "Europe:Paris"{
+            ec{"Париж"}
+        }
+        "Europe:Podgorica"{
+            ec{"Подгорица"}
+        }
+        "Europe:Prague"{
+            ec{"Прага"}
+        }
+        "Europe:Riga"{
+            ec{"Рига"}
+        }
+        "Europe:Rome"{
+            ec{"Рим"}
+        }
+        "Europe:Samara"{
+            ec{"Самара"}
+        }
+        "Europe:San_Marino"{
+            ec{"Сан-Марино"}
+        }
+        "Europe:Sarajevo"{
+            ec{"Сараево"}
+        }
+        "Europe:Saratov"{
+            ec{"Саратов"}
+        }
+        "Europe:Simferopol"{
+            ec{"Симферополь"}
+        }
+        "Europe:Skopje"{
+            ec{"Скопье"}
+        }
+        "Europe:Sofia"{
+            ec{"София"}
+        }
+        "Europe:Stockholm"{
+            ec{"Стокгольм"}
+        }
+        "Europe:Tallinn"{
+            ec{"Таллин"}
+        }
+        "Europe:Tirane"{
+            ec{"Тирана"}
+        }
+        "Europe:Uzhgorod"{
+            ec{"Ужгород"}
+        }
+        "Europe:Vaduz"{
+            ec{"Вадуц"}
+        }
+        "Europe:Vatican"{
+            ec{"Ватикан"}
+        }
+        "Europe:Vienna"{
+            ec{"Вена"}
+        }
+        "Europe:Vilnius"{
+            ec{"Вильнюс"}
+        }
+        "Europe:Warsaw"{
+            ec{"Варшава"}
+        }
+        "Europe:Zagreb"{
+            ec{"Загреб"}
+        }
+        "Europe:Zaporozhye"{
+            ec{"Запорожье"}
+        }
+        "Europe:Zurich"{
+            ec{"Цюрих"}
+        }
+        "meta:Afghanistan"{
+            ls{"Афганистанонь шка"}
+        }
+        "meta:Alaska"{
+            ld{"Аляскань кизэнь шка"}
+            lg{"Аляскань шка"}
+            ls{"Аляскань свалонь шка"}
+        }
+        "meta:Amazon"{
+            ld{"Амазононь кизэнь шка"}
+            lg{"Амазононь шка"}
+            ls{"Амазононь свалонь шка"}
+        }
+        "meta:Bangladesh"{
+            ld{"Бангладешень кизэнь шка"}
+            lg{"Бангладешень шка"}
+            ls{"Бангладешень свалонь шка"}
+        }
+        "meta:Brasilia"{
+            ld{"Базилиянь кизэнь шка"}
+            lg{"Базилиянь шка"}
+            ls{"Базилиянь свалонь шка"}
+        }
+        "meta:Chile"{
+            ld{"Чилинь кизэнь шка"}
+            lg{"Чилинь шка"}
+            ls{"Чилинь свалонь шка"}
+        }
+        "meta:China"{
+            ld{"Китаень кизэнь шка"}
+            lg{"Китаень шка"}
+            ls{"Китаень свалонь шка"}
+        }
+        "meta:Cuba"{
+            ld{"Кубань кизэнь шка"}
+            lg{"Кубань шка"}
+            ls{"Кубань свалонь шка"}
+        }
+        "meta:India"{
+            ls{"Индиянь свалонь шка"}
+        }
+        "meta:Iran"{
+            ld{"Иранонь кизэнь шка"}
+            lg{"Иранонь шка"}
+            ls{"Иранонь свалонь шка"}
+        }
+        "meta:Japan"{
+            ld{"Япониянь кизэнь шка"}
+            lg{"Япониянь шка"}
+            ls{"Япониянь свалонь шка"}
+        }
+        "meta:Kazakhstan_Eastern"{
+            ls{"Казахстанонь чилисемань шка"}
+        }
+        "meta:Kazakhstan_Western"{
+            ls{"Казахстанонь чивалгомань шка"}
+        }
+        "meta:Korea"{
+            ld{"Кореань кизэнь шка"}
+            lg{"Кореань шка"}
+            ls{"Кореань свалонь шка"}
+        }
+        "meta:Moscow"{
+            ld{"Московонь кизэнь шка"}
+            lg{"Московонь шка"}
+            ls{"Московонь свалонь шка"}
+        }
+        "meta:New_Zealand"{
+            ld{"Од Зеландиянь кизэнь шка"}
+            lg{"Од Зеландиянь шка"}
+            ls{"Од Зеландиянь свалонь шка"}
+        }
+        "meta:Omsk"{
+            ld{"Омскоень кизэнь шка"}
+            lg{"Омскоень шка"}
+            ls{"Омскоень свалонь шка"}
+        }
+        "meta:Paraguay"{
+            ld{"Парагваень кизэнь шка"}
+            lg{"Парагваень шка"}
+            ls{"Парагваень свалонь шка"}
+        }
+        "meta:Sakhalin"{
+            ld{"Сахалинэнь кизэнь шка"}
+            lg{"Сахалинэнь шка"}
+            ls{"Сахалинэнь свалонь шка"}
+        }
+        "meta:Uruguay"{
+            ld{"Уругваень кизэнь шка"}
+            lg{"Уругваень шка"}
+            ls{"Уругваень свалонь шка"}
+        }
+        "meta:Uzbekistan"{
+            ld{"Узбекистанонь кизэнь шка"}
+            lg{"Узбекистанонь шка"}
+            ls{"Узбекистанонь свалонь шка"}
         }
     }
 }

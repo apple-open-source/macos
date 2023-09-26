@@ -29,6 +29,7 @@
 #include <Security/SecBase64.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecCFAllocator.h>
 #include <Security/SecKeychainPriv.h>
 #include <security_utilities/cfutilities.h>
 #include <libaks.h>
@@ -51,6 +52,9 @@ static os_log_t TOKEN_LOG_DEFAULT() {
 
 static CFStringRef CF_RETURNS_RETAINED cfDataToHex(CFDataRef bin)
 {
+    if (!bin) {
+        return NULL;
+    }
     size_t len = CFDataGetLength(bin) * 2;
     CFMutableStringRef str = CFStringCreateMutable(NULL, len);
 
@@ -117,6 +121,34 @@ static CFDataRef getPubKeyHashWrap(CFDictionaryRef context)
 		return NULL;
 	}
 	return pubKeyHashWrap;
+}
+
+CFStringRef TokenLoginCopyKcPwd(CFDictionaryRef context)
+{
+    if (!context) {
+        return NULL;
+    }
+
+    CFStringRef kcPass = (CFStringRef)CFDictionaryGetValue(context, kSecAttrAccess);
+    if (!kcPass || CFGetTypeID(kcPass) != CFStringGetTypeID()) {
+        os_log_debug(TL_LOG, "Invalid apsso data");
+        return NULL;
+    }
+    return CFStringCreateCopy(SecCFAllocatorZeroize(), kcPass);
+}
+
+CFStringRef TokenLoginCopyUserPwd(CFDictionaryRef context)
+{
+    if (!context) {
+        return NULL;
+    }
+
+    CFStringRef uPass = (CFStringRef)CFDictionaryGetValue(context, kSecAttrCreator);
+    if (!uPass || CFGetTypeID(uPass) != CFStringGetTypeID()) {
+        os_log_debug(TL_LOG, "Invalid apsso data2");
+        return NULL;
+    }
+    return CFStringCreateCopy(SecCFAllocatorZeroize(), uPass);
 }
 
 static OSStatus privKeyForPubKeyHashWrap(CFDictionaryRef context, SecKeyRef *privKey, CFTypeRef *laCtx)
@@ -308,6 +340,10 @@ OSStatus TokenLoginGetLoginData(CFDictionaryRef context, CFDictionaryRef *loginD
     }
 
 	CFRef<CFStringRef> pubKeyHashHex = cfDataToHex(getPubKeyHash(context));
+    if (pubKeyHashHex == nil) {
+        os_log_error(TL_LOG, "Get login data - no pubkeyhash");
+        return errSecParam;
+    }
 
 	CFPreferencesSynchronize(kSecTokenLoginDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
 	CFRef<CFDataRef> storedData = (CFDataRef)CFPreferencesCopyValue(pubKeyHashHex, kSecTokenLoginDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
@@ -318,7 +354,7 @@ OSStatus TokenLoginGetLoginData(CFDictionaryRef context, CFDictionaryRef *loginD
 	}
 
 	CFRef<CFErrorRef> error;
-	*loginData = (CFDictionaryRef)CFPropertyListCreateWithData(kCFAllocatorDefault,
+	*loginData = (CFDictionaryRef)CFPropertyListCreateWithData(SecCFAllocatorZeroize(),
 															   storedData,
 															   kCFPropertyListImmutable,
 															   NULL,
@@ -354,8 +390,9 @@ OSStatus TokenLoginUpdateUnlockData(CFDictionaryRef context, CFStringRef passwor
 		os_log_error(TL_LOG, "Failed to get user keychain: %d", (int) result);
 		return result;
 	}
-
-    return SecKeychainStoreUnlockKeyWithPubKeyHash(getPubKeyHash(context), getTokenId(context), getPubKeyHashWrap(context), loginKeychain, password);
+    
+    CFRef<CFStringRef> userPwd = TokenLoginCopyUserPwd(context);
+    return SecKeychainStoreUnlockKeyWithPubKeyHashAndPassword(getPubKeyHash(context), getTokenId(context), getPubKeyHashWrap(context), loginKeychain, password, userPwd);
 }
 
 OSStatus TokenLoginCreateLoginData(CFStringRef tokenId, CFDataRef pubKeyHash, CFDataRef pubKeyHashWrap, CFDataRef unlockKey, CFDataRef scBlob)

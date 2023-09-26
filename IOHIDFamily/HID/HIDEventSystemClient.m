@@ -1,15 +1,14 @@
-//
-//  HIDEventSystemClient.m
-//  HID
-//
-//  Created by dekom on 12/20/17.
-//
+/*!
+ * HIDEventSystemClient.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
-#import "HIDEventSystemClient.h"
-#import "HIDEventSystemClientPrivate.h"
+#import <HID/HIDEventSystemClient_Internal.h>
 #import <IOKit/hid/IOHIDEventSystemClient.h>
 #import <IOKit/hid/IOHIDLibPrivate.h>
-#import "HIDEvent.h"
+#import <HID/HIDEvent.h>
 #import <os/assumes.h>
 #import <os/lock_private.h>
 

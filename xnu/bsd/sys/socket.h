@@ -366,11 +366,18 @@
 #define SO_RESOLVER_SIGNATURE      0x1131  /* A signed data blob from the system resolver */
 #ifdef PRIVATE
 #define SO_MARK_CELLFALLBACK_UUID  0x1132  /* Mark as initiated by cell fallback using UUID of the connection */
+#define SO_APPLICATION_ID          0x1133  /* ID of attributing app - so_application_id_t */
 
 struct so_mark_cellfallback_uuid_args {
 	uuid_t flow_uuid;
 	int flow_cellfallback;
 };
+
+typedef struct {
+	uid_t               uid;
+	uuid_t              effective_uuid;
+	uid_t               persona_id;
+} so_application_id_t;
 
 #endif
 

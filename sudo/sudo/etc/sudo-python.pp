@@ -36,6 +36,15 @@
 	odocdir="${docdir}"
 	oexampledir="${exampledir}"
 
+	# docdir and exampledir are installed with "sudo" as the package
+	# name which may not be correct.
+	docdir="`echo \"${docdir}\" | sed 's#/sudo$#/'\"${name}\"'#'`"
+	if test "${exampledir}" = "${odocdir}/examples"; then
+	    exampledir="${docdir}/examples"
+	else
+	    exampledir="`echo \"${exampledir}\" | sed 's#/sudo$#/'\"${name}\"'#'`"
+	fi
+
 	# For RedHat the doc dir is expected to include version and release
 	case "$pp_rpm_distro" in
 	centos*|rhel*|f[0-9]*)
@@ -43,11 +52,6 @@
 		exampledir="${docdir}/examples"
 		;;
 	esac
-
-	# docdir and exampledir are installed with "sudo" as the package
-	# name which may not be correct.
-	docdir="`echo \"${docdir}\" | sed \"s#/sudo#/${name}#g\"`"
-	exampledir="`echo \"${exampledir}\" | sed \"s#/sudo#/${name}#g\"`"
 
 	# Copy docdir and exampledir to new names if needed
 	if test ! -d "${pp_destdir}${docdir}"; then
@@ -64,7 +68,7 @@
 	pp_deb_release="$pp_rpm_release"
 	pp_deb_version="$pp_rpm_version"
 	pp_deb_section=admin
-	install -D -m 644 ${pp_destdir}$docdir/LICENSE ${pp_wrkdir}/${name}/usr/share/doc/${name}/copyright
+	install -D -m 644 ${pp_destdir}$docdir/LICENSE.md ${pp_wrkdir}/${name}/usr/share/doc/${name}/copyright
 	install -D -m 644 ${pp_destdir}$docdir/ChangeLog ${pp_wrkdir}/${name}/usr/share/doc/${name}/changelog
 	gzip -9f ${pp_wrkdir}/${name}/usr/share/doc/${name}/changelog
 	printf "$name ($pp_deb_version-$pp_deb_release) admin; urgency=low\n\n  * see upstream changelog\n\n -- $pp_deb_maintainer  `date '+%a, %d %b %Y %T %z'`\n" > ${pp_wrkdir}/${name}/usr/share/doc/${name}/changelog.Debian
@@ -84,6 +88,10 @@
 	osrelease=`echo "$pp_rpm_distro" | sed -e 's/^[^0-9]*\([0-9]\{1,2\}\).*/\1/'`
 	case "$pp_rpm_distro" in
 	centos*|rhel*|f[0-9]*)
+		# CentOS Stream has a single-digit version
+		if test $osrelease -lt 10; then
+		    osrelease="${osrelease}0"
+		fi
 		pp_rpm_release="$pp_rpm_release.el${osrelease%%[0-9]}"
 		;;
 	sles*)
@@ -95,11 +103,14 @@
 %if [macos]
 	pp_macos_pkg_type=flat
 	pp_macos_bundle_id=ws.sudo.pkg.sudo-python
-	pp_macos_pkg_license=${pp_destdir}$docdir/LICENSE
+	pp_macos_pkg_background=${srcdir}/etc/macos-background.png
+	pp_macos_pkg_background_dark=${srcdir}/etc/macos-background.png
+	pp_macos_pkg_license=${pp_destdir}$docdir/LICENSE.md
 	pp_macos_pkg_readme=${pp_wrkdir}/ReadMe.txt
 	perl -pe 'last if (/^What/i && $seen++)' ${pp_destdir}$docdir/NEWS > ${pp_wrkdir}/ReadMe.txt
 %endif
 
+%if [!rpm,deb]
 	# Package parent directories when not installing under /usr
 	if test "${prefix}" != "/usr"; then
 	    extradirs=`echo ${pp_destdir}${mandir}/[mc]* | sed "s#${pp_destdir}##g"`
@@ -113,6 +124,7 @@
 	    done
 	    parentdirs=`echo $parentdirs | tr " " "\n" | sort -u`
 	fi
+%endif
 
 %depend [deb]
 	libc6, libpython@PYTHON_VERSION@, sudo

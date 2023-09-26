@@ -1095,7 +1095,10 @@ INTERNAL void addr_inq_netaddr
        sequence is not ncacn_np */
     if (np_addr->rpc_protseq_id == rpc_c_protseq_id_ncacn_np)
     {
-        addr_length = strlen(np_addr->remote_host);
+        addr_length = strnlen(np_addr->remote_host, sizeof(np_addr->remote_host));
+        if (addr_length >= sizeof(np_addr->remote_host)) {
+            addr_length = 0;
+        }
     }
 
     RPC_MEM_ALLOC(
@@ -1990,6 +1993,7 @@ INTERNAL void desc_inq_peer_addr
         *status = rpc_s_no_memory;
         return;
     }
+    memset (np_addr, 0, sizeof(rpc_np_addr_t));
     *rpc_addr = (rpc_addr_p_t) np_addr;
 
     /*

@@ -95,6 +95,7 @@ b3/air/AirLowerEntrySwitch.cpp
 b3/air/AirLowerMacros.cpp
 b3/air/AirLowerStackArgs.cpp
 b3/air/AirOptimizeBlockOrder.cpp
+b3/air/AirOptimizePairedLoadStore.cpp
 b3/air/AirPadInterference.cpp
 b3/air/AirPhaseInsertionSet.cpp
 b3/air/AirPhaseScope.cpp
@@ -189,10 +190,6 @@ b3/B3WasmAddressValue.cpp
 b3/B3WasmBoundsCheckValue.cpp
 b3/B3Width.cpp
 
-bindings/ScriptFunctionCall.cpp
-bindings/ScriptObject.cpp
-bindings/ScriptValue.cpp
-
 builtins/BuiltinExecutables.cpp
 builtins/BuiltinExecutableCreator.cpp
 builtins/BuiltinNames.cpp
@@ -247,6 +244,7 @@ bytecode/ICStatusUtils.cpp
 bytecode/InByStatus.cpp
 bytecode/InByVariant.cpp
 bytecode/InlineAccess.cpp
+bytecode/InlineCacheCompiler.cpp
 bytecode/InlineCallFrame.cpp
 bytecode/InlineCallFrameSet.cpp
 bytecode/InstanceOfAccessCase.cpp
@@ -267,7 +265,6 @@ bytecode/ObjectPropertyConditionSet.cpp
 bytecode/Opcode.cpp
 bytecode/ParseHash.cpp
 bytecode/PolyProtoAccessChain.cpp
-bytecode/PolymorphicAccess.cpp
 bytecode/PreciseJumpTargets.cpp
 bytecode/ProgramCodeBlock.cpp
 bytecode/PropertyCondition.cpp
@@ -390,6 +387,7 @@ dfg/DFGLoopPreHeaderCreationPhase.cpp
 dfg/DFGMayExit.cpp
 dfg/DFGMinifiedGraph.cpp
 dfg/DFGMinifiedNode.cpp
+dfg/DFGMovHintRemovalPhase.cpp
 dfg/DFGMultiGetByOffsetData.cpp
 dfg/DFGNode.cpp
 dfg/DFGNodeAbstractValuePair.cpp
@@ -584,7 +582,6 @@ heap/SynchronousStopTheWorldMutatorScheduler.cpp
 heap/Synchronousness.cpp
 heap/VerifierSlotVisitor.cpp
 heap/VisitRaceKey.cpp
-heap/Weak.cpp
 heap/WeakBlock.cpp
 heap/WeakHandleOwner.cpp
 heap/WeakSet.cpp
@@ -616,6 +613,7 @@ inspector/ScriptArguments.cpp
 inspector/ScriptCallFrame.cpp
 inspector/ScriptCallStack.cpp
 inspector/ScriptCallStackFactory.cpp
+inspector/ScriptFunctionCall.cpp
 
 // Derived Sources
 inspector/InspectorBackendDispatchers.cpp
@@ -652,10 +650,10 @@ jit/CallFrameShuffler32_64.cpp
 jit/CallFrameShuffler64.cpp
 jit/ExecutableAllocationFuzz.cpp
 jit/ExecutableAllocator.cpp
+jit/ExecutableMemoryHandle.cpp
 jit/GCAwareJITStubRoutine.cpp
 jit/GPRInfo.cpp
 jit/ICStats.cpp
-jit/IntrinsicEmitter.cpp
 jit/JIT.cpp
 jit/JITAddGenerator.cpp
 jit/JITArithmetic.cpp
@@ -664,6 +662,7 @@ jit/JITBitOrGenerator.cpp
 jit/JITBitXorGenerator.cpp
 jit/JITCall.cpp
 jit/JITCode.cpp
+jit/JITCodeMap.cpp
 jit/JITCompilation.cpp
 jit/JITCompilationKey.cpp
 jit/JITCompilationMode.cpp
@@ -714,7 +713,7 @@ parser/Lexer.cpp
 parser/ModuleAnalyzer.cpp
 parser/Nodes.cpp
 parser/NodesAnalyzeModule.cpp
-parser/Parser.cpp
+parser/Parser.cpp @no-unify
 parser/ParserArena.cpp
 parser/SourceProvider.cpp
 parser/SourceProviderCache.cpp
@@ -833,6 +832,7 @@ runtime/GetPutInfo.cpp
 runtime/GetterSetter.cpp
 runtime/GlobalExecutable.cpp
 runtime/HashMapImpl.cpp
+runtime/HasOwnPropertyCache.cpp
 runtime/Identifier.cpp
 runtime/ImportMap.cpp
 runtime/IndexingType.cpp
@@ -910,6 +910,7 @@ runtime/JSGlobalLexicalEnvironment.cpp
 runtime/JSGlobalObject.cpp
 runtime/JSGlobalObjectDebuggable.cpp
 runtime/JSGlobalObjectFunctions.cpp
+runtime/JSGlobalProxy.cpp
 runtime/JSImmutableButterfly.cpp
 runtime/JSInternalPromise.cpp
 runtime/JSInternalPromiseConstructor.cpp
@@ -930,7 +931,6 @@ runtime/JSPromise.cpp
 runtime/JSPromiseConstructor.cpp
 runtime/JSPromisePrototype.cpp
 runtime/JSPropertyNameEnumerator.cpp
-runtime/JSProxy.cpp
 runtime/JSRemoteFunction.cpp
 runtime/JSRunLoopTimer.cpp
 runtime/JSScope.cpp
@@ -966,6 +966,7 @@ runtime/MapPrototype.cpp
 runtime/MatchResult.cpp
 runtime/MathCommon.cpp
 runtime/MathObject.cpp
+runtime/MegamorphicCache.cpp
 runtime/MemoryMode.cpp
 runtime/MemoryStatistics.cpp
 runtime/ModuleProgramExecutable.cpp
@@ -1095,12 +1096,13 @@ tools/FunctionOverrides.cpp
 tools/HeapVerifier.cpp
 tools/Integrity.cpp
 tools/JSDollarVM.cpp
-tools/SigillCrashAnalyzer.cpp
 tools/VMInspector.cpp
 
 wasm/WasmAirIRGenerator32_64.cpp @no-unify
 wasm/WasmAirIRGenerator64.cpp @no-unify
 wasm/WasmB3IRGenerator.cpp
+wasm/WasmBBQDisassembler.cpp
+wasm/WasmBBQJIT.cpp @no-unify
 wasm/WasmBBQPlan.cpp
 wasm/WasmBinding.cpp
 wasm/WasmBranchHintsSectionParser.cpp
@@ -1151,7 +1153,8 @@ wasm/WasmWorklist.cpp
 wasm/js/JSToWasm.cpp
 wasm/js/JSToWasm.h
 wasm/js/JSWebAssembly.cpp
-wasm/js/JSWebAssemblyArray.cpp
+// FIXME: Remove this @no-unify when clang-AS-debug builds stops crashing in register allocation.
+wasm/js/JSWebAssemblyArray.cpp @no-unify
 wasm/js/JSWebAssemblyCompileError.cpp
 wasm/js/JSWebAssemblyException.cpp
 wasm/js/JSWebAssemblyGlobal.cpp
@@ -1173,6 +1176,7 @@ wasm/js/WebAssemblyExceptionConstructor.cpp
 wasm/js/WebAssemblyExceptionPrototype.cpp
 wasm/js/WebAssemblyFunction.cpp
 wasm/js/WebAssemblyFunctionBase.cpp
+wasm/js/WebAssemblyGCObjectBase.cpp
 wasm/js/WebAssemblyGlobalConstructor.cpp
 wasm/js/WebAssemblyGlobalPrototype.cpp
 wasm/js/WebAssemblyInstanceConstructor.cpp

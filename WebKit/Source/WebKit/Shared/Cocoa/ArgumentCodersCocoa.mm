@@ -30,10 +30,15 @@
 
 #import "ArgumentCodersCF.h"
 #import "CoreTextHelpers.h"
+#import "LegacyGlobalSettings.h"
+#import "MessageNames.h"
+#import "WebPreferencesKeys.h"
 #import <CoreText/CTFont.h>
 #import <CoreText/CTFontDescriptor.h>
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/FontCocoa.h>
+#import <WebCore/RuntimeApplicationChecks.h>
+#import <pal/spi/cocoa/NSKeyedUnarchiverSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/HashSet.h>
 #import <wtf/cf/CFURLExtras.h>
@@ -44,9 +49,31 @@
 #import <UIKit/UIColor.h>
 #import <UIKit/UIFont.h>
 #import <UIKit/UIFontDescriptor.h>
+#import <UIKit/UIKit.h>
+#endif
+
+#if ENABLE(DATA_DETECTION)
+#import <pal/cocoa/DataDetectorsCoreSoftLink.h>
+#endif
+#if ENABLE(APPLE_PAY)
+#import <pal/cocoa/PassKitSoftLink.h>
+#endif
+#if ENABLE(REVEAL)
+#import <pal/cocoa/RevealSoftLink.h>
+#endif
+#if HAVE(VK_IMAGE_ANALYSIS)
+#import <pal/cocoa/VisionKitCoreSoftLink.h>
+#endif
+#if ENABLE(DATA_DETECTION)
+#import <pal/mac/DataDetectorsSoftLink.h>
 #endif
 
 @interface WKSecureCodingArchivingDelegate : NSObject <NSKeyedArchiverDelegate, NSKeyedUnarchiverDelegate>
+@property (nonatomic, assign) BOOL rewriteMutableArray;
+@property (nonatomic, assign) BOOL rewriteMutableData;
+@property (nonatomic, assign) BOOL rewriteMutableDictionary;
+@property (nonatomic, assign) BOOL rewriteMutableString;
+@property (nonatomic, assign) BOOL transformURLs;
 @end
 
 @interface WKSecureCodingURLWrapper : NSURL <NSSecureCoding>
@@ -59,16 +86,38 @@
 @property (nonatomic, readonly) CGColorRef wrappedColor;
 @end
 
-@interface NSAttributedString (NSAttributedString_SecureCoding)
-@property (class, readonly) NSSet<Class> *allowedSecureCodingClasses;
-@end
-
 @implementation WKSecureCodingArchivingDelegate
+
+@synthesize rewriteMutableArray;
+@synthesize rewriteMutableData;
+@synthesize rewriteMutableDictionary;
+@synthesize rewriteMutableString;
+@synthesize transformURLs;
 
 - (id)archiver:(NSKeyedArchiver *)archiver willEncodeObject:(id)object
 {
-    if (auto unwrappedURL = dynamic_objc_cast<NSURL>(object))
+    if (auto unwrappedURL = dynamic_objc_cast<NSURL>(object); unwrappedURL && transformURLs)
         return adoptNS([[WKSecureCodingURLWrapper alloc] initWithURL:unwrappedURL]).autorelease();
+
+    if (rewriteMutableArray) {
+        if (auto mutableArray = dynamic_objc_cast<NSMutableArray>(object))
+            return adoptNS([mutableArray copy]).autorelease();
+    }
+
+    if (rewriteMutableData) {
+        if (auto mutableData = dynamic_objc_cast<NSMutableData>(object))
+            return adoptNS([mutableData copy]).autorelease();
+    }
+
+    if (rewriteMutableDictionary) {
+        if (auto mutableDict = dynamic_objc_cast<NSMutableDictionary>(object))
+            return adoptNS([mutableDict copy]).autorelease();
+    }
+
+    if (rewriteMutableString) {
+        if (auto mutableString = dynamic_objc_cast<NSMutableString>(object))
+            return adoptNS([mutableString copy]).autorelease();
+    }
 
     // We can't just return a WebCore::CocoaColor here, because the decoder would
     // have no way of distinguishing an authentic WebCore::CocoaColor vs a CGColor
@@ -89,6 +138,19 @@
         return static_cast<id>(retainPtr(wrapper.wrappedColor).leakRef());
 
     return adoptedObject.leakRef();
+}
+
+- (instancetype)init
+{
+    if (self = [super init]) {
+        rewriteMutableArray = NO;
+        rewriteMutableData = NO;
+        rewriteMutableDictionary = NO;
+        rewriteMutableString = NO;
+        transformURLs = YES;
+    }
+
+    return self;
 }
 
 @end
@@ -112,14 +174,7 @@ static constexpr NSString *baseURLKey = @"WK.baseURL";
 - (void)encodeWithCoder:(NSCoder *)coder
 {
     RELEASE_ASSERT(m_wrappedURL);
-    auto baseURL = m_wrappedURL.get().baseURL;
-    BOOL hasBaseURL = !!baseURL;
-
-    [coder encodeValueOfObjCType:"c" at:&hasBaseURL];
-    if (hasBaseURL)
-        [coder encodeObject:baseURL forKey:baseURLKey];
-
-    auto bytes = bytesAsVector(bridge_cast(m_wrappedURL.get()));
+    auto bytes = bytesAsVector(bridge_cast([m_wrappedURL.get() absoluteURL]));
     [coder encodeBytes:bytes.data() length:bytes.size()];
 }
 
@@ -129,16 +184,9 @@ static constexpr NSString *baseURLKey = @"WK.baseURL";
     if (!selfPtr)
         return nil;
 
-    BOOL hasBaseURL;
-    [coder decodeValueOfObjCType:"c" at:&hasBaseURL size:sizeof(hasBaseURL)];
-
-    RetainPtr<NSURL> baseURL;
-    if (hasBaseURL)
-        baseURL = (NSURL *)[coder decodeObjectOfClass:NSURL.class forKey:baseURLKey];
-
     NSUInteger length;
     if (auto bytes = (UInt8 *)[coder decodeBytesWithReturnedLength:&length]) {
-        m_wrappedURL = bridge_cast(adoptCF(CFURLCreateAbsoluteURLWithBytes(nullptr, bytes, length, kCFStringEncodingUTF8, bridge_cast(baseURL.get()), true)));
+        m_wrappedURL = bridge_cast(adoptCF(CFURLCreateAbsoluteURLWithBytes(nullptr, bytes, length, kCFStringEncodingUTF8, nullptr, true)));
         if (!m_wrappedURL)
             LOG_ERROR("Failed to decode NSURL due to invalid encoding of length %d. Substituting a blank URL", length);
     }
@@ -205,6 +253,29 @@ static constexpr NSString *innerColorKey = @"WK.CocoaColor";
 
 namespace IPC {
 using namespace WebCore;
+
+static std::optional<bool>& strictSecureDecodingForAllObjCEnabledValue()
+{
+    static std::optional<bool> value;
+    return value;
+}
+
+void setStrictSecureDecodingForAllObjCEnabled(bool enabled)
+{
+    strictSecureDecodingForAllObjCEnabledValue() = enabled;
+}
+
+bool strictSecureDecodingForAllObjCEnabled()
+{
+    if (isInAuxiliaryProcess()) {
+        ASSERT(strictSecureDecodingForAllObjCEnabledValue());
+        return *strictSecureDecodingForAllObjCEnabledValue();
+    }
+    ASSERT(!strictSecureDecodingForAllObjCEnabledValue());
+
+    static bool cachedValue { WebKit::experimentalFeatureEnabled(WebKit::WebPreferencesKey::strictSecureDecodingForAllObjCKey(), true) };
+    return cachedValue;
+}
 
 #pragma mark - Types
 
@@ -468,6 +539,44 @@ static void encodeSecureCodingInternal(Encoder& encoder, id <NSObject, NSSecureC
     auto archiver = adoptNS([[NSKeyedArchiver alloc] initRequiringSecureCoding:YES]);
 
     auto delegate = adoptNS([[WKSecureCodingArchivingDelegate alloc] init]);
+
+    // FIXME: These can be removed on operating systems that have rdar://107730786.
+    if ([object isKindOfClass:NSURLCredential.class]
+        || [object isKindOfClass:NSURLProtectionSpace.class])
+        [delegate setRewriteMutableDictionary:YES];
+
+#if ENABLE(DATA_DETECTION)
+    if (PAL::isDataDetectorsCoreFrameworkAvailable() && [object isKindOfClass:PAL::getDDScannerResultClass()])
+        [delegate setRewriteMutableString:YES];
+#if PLATFORM(MAC)
+    if (PAL::isDataDetectorsFrameworkAvailable() && [object isKindOfClass:PAL::getWKDDActionContextClass()])
+        [delegate setRewriteMutableString:YES];
+#endif // PLATFORM(MAC)
+#endif // ENABLE(DATA_DETECTION)
+#if ENABLE(REVEAL)
+    if (PAL::isRevealCoreFrameworkAvailable() && [object isKindOfClass:PAL::getRVItemClass()])
+        [delegate setRewriteMutableString:YES];
+#endif // ENABLE(REVEAL)
+
+    if ([object isKindOfClass:NSTextAttachment.class]) {
+        [delegate setRewriteMutableData:YES];
+        [delegate setRewriteMutableArray:YES];
+    }
+
+#if ENABLE(REVEAL)
+    // FIXME: This can be removed for RVItem on operating systems that have rdar://109237983.
+    if (PAL::isRevealCoreFrameworkAvailable() && [object isKindOfClass:PAL::getRVItemClass()])
+        [delegate setTransformURLs:NO];
+#endif
+#if ENABLE(DATA_DETECTION)
+    if (PAL::isDataDetectorsCoreFrameworkAvailable() && [object isKindOfClass:PAL::getDDScannerResultClass()])
+        [delegate setTransformURLs:NO];
+#if PLATFORM(MAC)
+    if (PAL::isDataDetectorsFrameworkAvailable() && [object isKindOfClass:PAL::getWKDDActionContextClass()])
+        [delegate setTransformURLs:NO];
+#endif
+#endif // ENABLE(DATA_DETECTION)
+
     [archiver setDelegate:delegate.get()];
 
     [archiver encodeObject:object forKey:NSKeyedArchiveRootObjectKey];
@@ -475,6 +584,151 @@ static void encodeSecureCodingInternal(Encoder& encoder, id <NSObject, NSSecureC
     [archiver setDelegate:nil];
 
     encoder << (__bridge CFDataRef)[archiver encodedData];
+}
+
+#if ENABLE(DATA_DETECTION) || ENABLE(REVEAL)
+static bool haveSecureActionContext()
+{
+#if HAVE(SECURE_ACTION_CONTEXT)
+    return true;
+#else
+    return false;
+#endif // HAVE(SECURE_ACTION_CONTEXT)
+}
+#endif // ENABLE(DATA_DETECTION) || ENABLE(REVEAL)
+
+#if ENABLE(APPLE_PAY)
+static bool haveStrictDecodableCNContact()
+{
+#if HAVE(STRICT_DECODABLE_CNCONTACT)
+    return true;
+#else
+    return false;
+#endif
+}
+static bool haveStrictDecodablePKContact()
+{
+#if HAVE(STRICT_DECODABLE_PKCONTACT)
+    return true;
+#else
+    return false;
+#endif
+}
+#endif // ENABLE(APPLE_PAY)
+
+static bool haveStrictDecodableNSTextTable()
+{
+#if HAVE(STRICT_DECODABLE_NSTEXTTABLE)
+    return true;
+#else
+    return false;
+#endif
+}
+
+static bool shouldEnableStrictMode(Decoder& decoder, NSArray<Class> *allowedClasses)
+{
+#if ENABLE(IMAGE_ANALYSIS) && HAVE(VK_IMAGE_ANALYSIS)
+    auto isDecodingKnownVKCImageAnalysisMessageFromUIProcess = [] (auto& decoder) {
+        auto messageName = decoder.messageName();
+        return messageName == IPC::MessageName::WebPage_UpdateWithTextRecognitionResult // UIP -> WCP
+            || messageName == IPC::MessageName::WebPageProxy_RequestTextRecognitionReply; // UIP -> WCP
+    };
+#endif
+
+    auto isDecodingKnownProtectionSpaceMessage = [] (auto& decoder) {
+        auto messageName = decoder.messageName();
+        return messageName == IPC::MessageName::DownloadProxy_DidReceiveAuthenticationChallenge // NP -> UIP
+            || messageName == IPC::MessageName::NetworkProcessProxy_DidReceiveAuthenticationChallenge // NP -> UIP
+            || messageName == IPC::MessageName::NetworkProcessProxy_ResourceLoadDidReceiveChallenge // NP -> UIP
+            || messageName == IPC::MessageName::NetworkProcessProxy_DataTaskReceivedChallenge // NP -> UIP
+            || messageName == IPC::MessageName::AuthenticationManager_CompleteAuthenticationChallenge; // UIP -> NP
+    };
+
+    auto isDecodingKnownNSURLCredentialMessage = [] (auto& decoder) {
+        auto messageName = decoder.messageName();
+        return messageName == IPC::MessageName::DownloadProxy_DidReceiveAuthenticationChallenge // NP -> UIP
+            || messageName == IPC::MessageName::NetworkProcessProxy_DidReceiveAuthenticationChallenge // NP -> UIP
+            || messageName == IPC::MessageName::NetworkProcessProxy_ResourceLoadDidReceiveChallenge // NP -> UIP
+            || messageName == IPC::MessageName::NetworkProcessProxy_DataTaskReceivedChallenge // NP -> UIP
+            || messageName == IPC::MessageName::NetworkProcessProxy_DataTaskReceivedChallengeReply // UIP -> NP
+            || messageName == IPC::MessageName::AuthenticationManager_CompleteAuthenticationChallenge; // UIP -> NP
+    };
+
+#if ENABLE(IMAGE_ANALYSIS) && HAVE(VK_IMAGE_ANALYSIS)
+    // blocked by rdar://108673895
+    if (PAL::isVisionKitCoreFrameworkAvailable()
+        && [allowedClasses containsObject:PAL::getVKCImageAnalysisClass()]
+        && isDecodingKnownVKCImageAnalysisMessageFromUIProcess(decoder)
+        && isInWebProcess())
+        return false;
+#endif
+
+#if HAVE(STRICT_DECODABLE_NSTEXTTABLE) \
+    && HAVE(STRICT_DECODABLE_PKCONTACT) \
+    && HAVE(STRICT_DECODABLE_CNCONTACT)
+    // Shortcut the following unnecessary Class checks on newer OSes to fix rdar://111926152.
+    if (strictSecureDecodingForAllObjCEnabled())
+        return true;
+#endif
+
+#if ENABLE(DATA_DETECTION)
+    // rdar://107553330 - don't re-introduce rdar://107676726
+    if (PAL::isDataDetectorsCoreFrameworkAvailable() && [allowedClasses containsObject:PAL::getDDScannerResultClass()])
+        return haveSecureActionContext() && strictSecureDecodingForAllObjCEnabled();
+#if PLATFORM(MAC)
+    // rdar://107553348 - don't re-introduce rdar://107676726
+    if (PAL::isDataDetectorsFrameworkAvailable() && [allowedClasses containsObject:PAL::getWKDDActionContextClass()])
+        return haveSecureActionContext() && strictSecureDecodingForAllObjCEnabled();
+#endif // PLATFORM(MAC)
+#endif // ENABLE(DATA_DETECTION)
+#if ENABLE(REVEAL)
+    // rdar://107553310 - don't re-introduce rdar://107673064
+    if (PAL::isRevealCoreFrameworkAvailable() && [allowedClasses containsObject:PAL::getRVItemClass()])
+        return haveSecureActionContext() && strictSecureDecodingForAllObjCEnabled();
+#endif // ENABLE(REVEAL)
+
+#if ENABLE(APPLE_PAY)
+    // rdar://107553480 Don't reintroduce rdar://108235706
+    if (PAL::isPassKitCoreFrameworkAvailable() && [allowedClasses containsObject:PAL::getPKPaymentMethodClass()])
+        return haveStrictDecodableCNContact() && strictSecureDecodingForAllObjCEnabled();
+
+    // Don't reintroduce rdar://108660074
+    if (PAL::isPassKitCoreFrameworkAvailable() && [allowedClasses containsObject:PAL::getPKContactClass()])
+        return haveStrictDecodablePKContact() && strictSecureDecodingForAllObjCEnabled();
+#endif
+
+    // rdar://107553230 don't reintroduce rdar://108038436
+    if ([allowedClasses containsObject:NSParagraphStyle.class])
+        return haveStrictDecodableNSTextTable() && strictSecureDecodingForAllObjCEnabled();
+
+    // rdar://109121874
+    if ([allowedClasses containsObject:NSPresentationIntent.class])
+        return strictSecureDecodingForAllObjCEnabled();
+
+    // rdar://107553194, Don't reintroduce rdar://108339450
+    if ([allowedClasses containsObject:NSMutableURLRequest.class])
+        return strictSecureDecodingForAllObjCEnabled();
+
+    // rdar://108674269
+    if ([allowedClasses containsObject:NSURLProtectionSpace.class] && isDecodingKnownProtectionSpaceMessage(decoder))
+        return strictSecureDecodingForAllObjCEnabled();
+
+    if ([allowedClasses containsObject:NSShadow.class] // rdar://107553244
+        || [allowedClasses containsObject:NSTextAttachment.class] // rdar://107553273
+#if ENABLE(APPLE_PAY)
+        || (PAL::isPassKitCoreFrameworkAvailable() && [allowedClasses containsObject:PAL::getPKPaymentSetupFeatureClass()]) // rdar://107553409
+        || (PAL::isPassKitCoreFrameworkAvailable() && [allowedClasses containsObject:PAL::getPKPaymentMerchantSessionClass()]) // rdar://107553452
+        || (PAL::isPassKitCoreFrameworkAvailable() && [allowedClasses containsObject:PAL::getPKPaymentClass()] && isInWebProcess())
+#endif // ENABLE(APPLE_PAY)
+        || ([allowedClasses containsObject:NSURLCredential.class] && isDecodingKnownNSURLCredentialMessage(decoder))) // rdar://107553367
+        return true;
+
+    // Note: Do not add more classes to the list of strict decoded classes.
+    // If you want to serialize something new, extract its contents into a
+    // struct and use a *.serialization.in file to serialize its contents.
+    RELEASE_LOG_FAULT(SecureCoding, "Strict mode check found unknown classes %@", allowedClasses);
+    ASSERT_NOT_REACHED();
+    return true;
 }
 
 static std::optional<RetainPtr<id>> decodeSecureCodingInternal(Decoder& decoder, NSArray<Class> *allowedClasses)
@@ -494,18 +748,29 @@ static std::optional<RetainPtr<id>> decodeSecureCodingInternal(Decoder& decoder,
     unarchiver.get().delegate = delegate.get();
 
     auto allowedClassSet = adoptNS([[NSMutableSet alloc] initWithArray:allowedClasses]);
-    [allowedClassSet addObject:WKSecureCodingURLWrapper.class];
-    [allowedClassSet addObject:WKSecureCodingCGColorWrapper.class];
 
-    if ([allowedClasses containsObject:NSAttributedString.class])
-        [allowedClassSet unionSet:NSAttributedString.allowedSecureCodingClasses];
+    if ([allowedClasses containsObject:NSMutableURLRequest.class]
+        || [allowedClasses containsObject:NSURLRequest.class]) {
+        [allowedClassSet addObject:WKSecureCodingURLWrapper.class];
+        [allowedClassSet addObject:NSMutableString.class];
+        [allowedClassSet addObject:NSMutableArray.class];
+        [allowedClassSet addObject:NSMutableDictionary.class];
+        [allowedClassSet addObject:NSMutableData.class];
+    }
+
+    if (shouldEnableStrictMode(decoder, allowedClasses))
+        [unarchiver _enableStrictSecureDecodingMode];
+
+    if ([allowedClasses containsObject:NSParagraphStyle.class])
+        [allowedClassSet addObject:NSMutableParagraphStyle.class];
 
     @try {
         id result = [unarchiver decodeObjectOfClasses:allowedClassSet.get() forKey:NSKeyedArchiveRootObjectKey];
         ASSERT(!result || [result conformsToProtocol:@protocol(NSSecureCoding)]);
         return { result };
     } @catch (NSException *exception) {
-        LOG_ERROR("Failed to decode object of classes %@: %@", allowedClasses, exception);
+        RELEASE_LOG_FAULT(SecureCoding, "NSKU decode failed for object of classes %@: %@", allowedClassSet.get(), exception);
+        ASSERT_NOT_REACHED();
         return std::nullopt;
     } @finally {
         [unarchiver finishDecoding];

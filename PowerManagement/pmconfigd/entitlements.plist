@@ -28,9 +28,13 @@
 	<true/>
 	<key>com.apple.powerui.bdcdata</key>
 	<true/>
+	<key>com.apple.PerfPowerTelemetry.data-donation</key>
+	<true/>
 	<key>com.apple.security.exception.mach-lookup.global-name</key>
 	<array>
 		<string>com.apple.powerui.bdcdata</string>
+		<string>com.apple.powerlog.plxpclogger.xpc</string>
+		<string>com.apple.PerfPowerTelemetryClientRegistrationService</string>
 	</array>
 </dict>
 </plist>

@@ -165,22 +165,44 @@ FormattedStringBuilder::insertCodePoint(int32_t index, UChar32 codePoint, Field 
 }
 
 int32_t FormattedStringBuilder::insert(int32_t index, const UnicodeString &unistr, Field field,
+#if APPLE_ICU_CHANGES
+// rdar:/
                                     bool addBidiIsolates, UErrorCode &status) {
+#else
+                                    UErrorCode &status) {
+#endif  // APPLE_ICU_CHANGES
     if (unistr.length() == 0) {
         // Nothing to insert.
         return 0;
+#if APPLE_ICU_CHANGES
+// rdar:/
     } else if (unistr.length() == 1 && !addBidiIsolates) {
+#else
+    } else if (unistr.length() == 1) {
+#endif  // APPLE_ICU_CHANGES
         // Fast path: insert using insertCodePoint.
         return insertCodePoint(index, unistr.charAt(0), field, status);
     } else {
+#if APPLE_ICU_CHANGES
+// rdar:/
         return insert(index, unistr, 0, unistr.length(), field, addBidiIsolates, status);
+#else
+        return insert(index, unistr, 0, unistr.length(), field, status);
+#endif  // APPLE_ICU_CHANGES
     }
 }
 
 int32_t
 FormattedStringBuilder::insert(int32_t index, const UnicodeString &unistr, int32_t start, int32_t end,
+#if APPLE_ICU_CHANGES
+// rdar:/
                             Field field, bool addBidiIsolates, UErrorCode &status) {
+#else
+                            Field field, UErrorCode &status) {
+#endif  // APPLE_ICU_CHANGES
     int32_t count = end - start;
+#if APPLE_ICU_CHANGES
+// rdar:/
     int32_t realCount = count + (addBidiIsolates ? 2 : 0);
     int32_t position = prepareForInsert(index, realCount, status);
     if (U_FAILURE(status)) {
@@ -191,15 +213,26 @@ FormattedStringBuilder::insert(int32_t index, const UnicodeString &unistr, int32
         getFieldPtr()[position] = field;
         ++position;
     }
+#else
+    int32_t position = prepareForInsert(index, count, status);
+    if (U_FAILURE(status)) {
+        return count;
+    }
+#endif  // APPLE_ICU_CHANGES
     for (int32_t i = 0; i < count; i++) {
         getCharPtr()[position + i] = unistr.charAt(start + i);
         getFieldPtr()[position + i] = field;
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     if (addBidiIsolates) {
         getCharPtr()[position + count] = u'\u2069'; // U+2069 POP DIRECTIONAL ISOLATE
         getFieldPtr()[position + count] = field;
     }
     return realCount;
+#else
+    return count;
+#endif  // APPLE_ICU_CHANGES
 }
 
 int32_t
@@ -390,7 +423,7 @@ UnicodeString FormattedStringBuilder::toUnicodeString() const {
 
 const UnicodeString FormattedStringBuilder::toTempUnicodeString() const {
     // Readonly-alias constructor:
-    return UnicodeString(FALSE, getCharPtr() + fZero, fLength);
+    return UnicodeString(false, getCharPtr() + fZero, fLength);
 }
 
 UnicodeString FormattedStringBuilder::toDebugString() const {

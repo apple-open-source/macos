@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,12 +73,6 @@ Structure* IntlDurationFormat::createStructure(VM& vm, JSGlobalObject* globalObj
 IntlDurationFormat::IntlDurationFormat(VM& vm, Structure* structure)
     : Base(vm, structure)
 {
-}
-
-void IntlDurationFormat::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
 }
 
 enum class StyleListKind : uint8_t { LongShortNarrow, LongShortNarrowNumeric, LongShortNarrowNumericTwoDigit  };
@@ -221,7 +215,7 @@ void IntlDurationFormat::initializeDurationFormat(JSGlobalObject* globalObject, 
     }
 
     m_numberingSystem = resolved.extensions[static_cast<unsigned>(RelevantExtensionKey::Nu)];
-    m_dataLocaleWithExtensions = makeString(resolved.dataLocale, "-u-nu-", m_numberingSystem).utf8();
+    m_dataLocaleWithExtensions = makeString(resolved.dataLocale, "-u-nu-"_s, m_numberingSystem).utf8();
 
     m_style = intlOption<Style>(globalObject, options, vm.propertyNames->style, { { "long"_s, Style::Long }, { "short"_s, Style::Short }, { "narrow"_s, Style::Narrow }, { "digital"_s, Style::Digital } }, "style must be either \"long\", \"short\", \"narrow\", or \"digital\""_s, Style::Short);
     RETURN_IF_EXCEPTION(scope, void());

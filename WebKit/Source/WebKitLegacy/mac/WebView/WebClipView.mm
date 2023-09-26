@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2015 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,8 +33,8 @@
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
 #import "WebViewPrivate.h"
-#import <WebCore/Frame.h>
-#import <WebCore/FrameView.h>
+#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameView.h>
 
 // WebClipView's entire reason for existing is to set the clip used by focus ring redrawing.
 // There's no easy way to prevent the focus ring from drawing outside the passed-in clip rectangle
@@ -66,7 +66,7 @@
     if (!self)
         return nil;
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // In WebHTMLView, we set a clip. This is not typical to do in an
     // NSView, and while correct for any one invocation of drawRect:,
     // it causes some bad problems if that clip is cached between calls.
@@ -77,7 +77,7 @@
     // See these bugs for more information:
     // <rdar://problem/3409315>: REGRESSSION (7B58-7B60)?: Safari draws blank frames on macosx.apple.com perf page
     [self releaseGState];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     return self;
 }

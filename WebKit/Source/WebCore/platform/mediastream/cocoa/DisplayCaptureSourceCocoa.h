@@ -64,7 +64,8 @@ public:
 
 class DisplayCaptureSourceCocoa final
     : public RealtimeMediaSource
-    , public CapturerObserver {
+    , public CapturerObserver
+    , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<DisplayCaptureSourceCocoa, WTF::DestructionThread::MainRunLoop> {
 public:
     using DisplayFrameType = std::variant<RefPtr<NativeImage>, RetainPtr<IOSurfaceRef>, RetainPtr<CMSampleBufferRef>>;
 
@@ -78,7 +79,7 @@ public:
         virtual void stop() = 0;
         virtual DisplayFrameType generateFrame() = 0;
         virtual CaptureDevice::DeviceType deviceType() const = 0;
-        virtual RealtimeMediaSourceSettings::DisplaySurfaceType surfaceType() const = 0;
+        virtual DisplaySurfaceType surfaceType() const = 0;
         virtual void commitConfiguration(const RealtimeMediaSourceSettings&) = 0;
         virtual IntSize intrinsicSize() const = 0;
 
@@ -88,7 +89,7 @@ public:
         const void* logIdentifier() const final { return m_logIdentifier; }
         WTFLogChannel& logChannel() const final;
 
-        void setObserver(CapturerObserver*);
+        void setObserver(CapturerObserver&);
 
     protected:
         Capturer() = default;
@@ -118,11 +119,14 @@ public:
     static CaptureSourceOrError create(Expected<UniqueRef<Capturer>, String>&&, const CaptureDevice&, MediaDeviceHashSalts&&, const MediaConstraints*, PageIdentifier);
 
     Seconds elapsedTime();
-    void updateFrameSize();
+
+    void ref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<DisplayCaptureSourceCocoa, WTF::DestructionThread::MainRunLoop>::ref(); }
+    void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<DisplayCaptureSourceCocoa, WTF::DestructionThread::MainRunLoop>::deref(); }
+    ThreadSafeWeakPtrControlBlock& controlBlock() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<DisplayCaptureSourceCocoa, WTF::DestructionThread::MainRunLoop>::controlBlock(); }
+    virtual ~DisplayCaptureSourceCocoa();
 
 private:
     DisplayCaptureSourceCocoa(UniqueRef<Capturer>&&, const CaptureDevice&, MediaDeviceHashSalts&&, PageIdentifier);
-    virtual ~DisplayCaptureSourceCocoa();
 
     // RealtimeMediaSource
     void startProducingData() final;
@@ -133,6 +137,8 @@ private:
     const RealtimeMediaSourceSettings& settings() final;
     CaptureDevice::DeviceType deviceType() const { return m_capturer->deviceType(); }
     void commitConfiguration() final { m_capturer->commitConfiguration(settings()); }
+    IntSize computeResizedVideoFrameSize(IntSize desiredSize, IntSize actualSize) final;
+    void setSizeFrameRateAndZoom(std::optional<int> width, std::optional<int> height, std::optional<double>, std::optional<double>) final;
 
     const char* logClassName() const final { return "DisplayCaptureSourceCocoa"; }
     void setLogger(const Logger&, const void*) final;

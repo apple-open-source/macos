@@ -58,6 +58,7 @@
 
 #include <unistd.h>
 #include <sysexits.h>
+#include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/socket.h>
 #include <oncrpc/auth.h>
@@ -72,9 +73,7 @@
 #include "pathnames.h"
 #include "mountd_rpc.h"
 #include "nfs_prot_rpc.h"
-
-#define UNKNOWNUID ((uid_t)99)
-#define UNKNOWNGID ((gid_t)99)
+#include "test_utils.h"
 
 static CLIENT * nclnt = NULL;
 static nfs_fh3 rootfh = {};
@@ -84,6 +83,8 @@ doNFSSetUpWithArgsConfFlagsAndDoMount(const char **nfsdArgs, int nfsdArgsSize, c
 {
 	int err;
 	fhandle_t *fh;
+
+	memset(&rootfh, 0, sizeof(rootfh));
 	doMountSetUpWithArgs(nfsdArgs, nfsdArgsSize, confValues, confValuesSize);
 
 	err = createClientForMountProtocol(AF_INET, mountSocketType, AUTH_UNIX, mountFlags);
@@ -105,8 +106,7 @@ doNFSSetUpWithArgsConfFlagsAndDoMount(const char **nfsdArgs, int nfsdArgsSize, c
 	}
 
 	if (doMount) {
-		memset(&rootfh, 0, sizeof(rootfh));
-		if ((fh = doMountAndVerify(getLocalMountedPath())) == NULL) {
+		if ((fh = doMountAndVerify(getLocalMountedPath(), "sys:krb5")) == NULL) {
 			XCTFail("doMountAndVerify failed");
 			return -1;
 		}
@@ -119,7 +119,7 @@ doNFSSetUpWithArgsConfFlagsAndDoMount(const char **nfsdArgs, int nfsdArgsSize, c
 }
 
 static int
-doNFSSetUp(int mountSocketType, int nfsSocketType)
+doNFSSetUpConf(int mountSocketType, int nfsSocketType)
 {
 	return doNFSSetUpWithArgsConfFlagsAndDoMount(NULL, 0, NULL, 0, mountSocketType, 0, nfsSocketType, 0, 1);
 }
@@ -446,7 +446,7 @@ runNFSD(int _argc, char *_argv[], int expectedResult)
 	FSINFO3res *res;
 	char *argv_update[2] = { "nfsd", "update" };
 
-	doNFSSetUp( SOCK_STREAM, SOCK_STREAM);
+	doNFSSetUpConf( SOCK_STREAM, SOCK_STREAM);
 
 	res = doFSinfoRPC(nclnt, &rootfh);
 	if (res->status != NFS3_OK) {
@@ -480,7 +480,8 @@ runNFSD(int _argc, char *_argv[], int expectedResult)
 	char *argv_verbose_up[4] = { "nfsd", "verbose", "up", "up"};
 	char *argv_verbose_down[5] = { "nfsd", "verbose", "down", "down", "down"};
 	char *argv_verbose_unknown[3] = { "nfsd", "verbose", "unknown"};
-	doNFSSetUp(SOCK_STREAM, SOCK_STREAM);
+
+	doNFSSetUpConf(SOCK_STREAM, SOCK_STREAM);
 
 	runNFSD(ARRAY_SIZE(argv_verbose_up), argv_verbose_up, EXIT_SUCCESS);
 	runNFSD(ARRAY_SIZE(argv_verbose_unknown), argv_verbose_unknown, EXIT_FAILURE);
@@ -718,7 +719,7 @@ runNFSD(int _argc, char *_argv[], int expectedResult)
 	FSINFO3res *res;
 	char *argv_reregister[2] = { "nfsd", "-r" };
 
-	doNFSSetUp(SOCK_STREAM, SOCK_STREAM);
+	doNFSSetUpConf(SOCK_STREAM, SOCK_STREAM);
 
 	res = doFSinfoRPC(nclnt, &rootfh);
 	if (res->status != NFS3_OK) {
@@ -941,7 +942,7 @@ runNFSD(int _argc, char *_argv[], int expectedResult)
 	char *argv_update[2] = { "nfsd", "update" };
 	int confFD, port = 44444, reqcache = 128, export_hash_size = 128;
 
-	doNFSSetUp(SOCK_STREAM, SOCK_STREAM);
+	doNFSSetUpConf(SOCK_STREAM, SOCK_STREAM);
 
 	// Terminate MOUNT client
 	result = mountproc3_umntall_3(&result, mclnt);
@@ -1031,7 +1032,7 @@ runNFSD(int _argc, char *_argv[], int expectedResult)
 	char *argv_update[2] = { "nfsd", "update" };
 	int confFD, threads = -1, expected_threads = 10;
 
-	doNFSSetUp(SOCK_STREAM, SOCK_STREAM);
+	doNFSSetUpConf(SOCK_STREAM, SOCK_STREAM);
 
 	// Update config file
 	confFD = open(confPath, O_RDWR | O_TRUNC);
@@ -1136,18 +1137,113 @@ runNFSD(int _argc, char *_argv[], int expectedResult)
 /*
  * 1. Setup nfsd while nfs.conf contains "nfs.server.wg_delay_v3=8888"
  * 2. Verify the expected amount using sysctl_get
+ * 3. Create a local file
+ * 4. Write data to the file
+ * 5. Verify data was written as expected
  */
 - (void)testConfigWGDelayV3
 {
+#define WRITE_SIZE (64 * 1024)
+	int err, dirFD, fileFD;
+	int offset = 0, left = WRITE_SIZE, count = 1024;
+	LOOKUP3res *res;
+	WRITE3res *res2;
+	struct stat stat = {};
+	char *file = "new_file";
+	char buffer[WRITE_SIZE] = {};
 	const char buff[NAME_MAX] = {};
 	const char *conf[1] = { buff };
-	int wg_delay_v3 = -1, expected_wg_delay_v3 = 8888;
+	int wg_delay_v3 = -1, expected_wg_delay_v3 = 1;
 	snprintf((char *)buff, sizeof(buff), "%s=%d", "nfs.server.wg_delay_v3", expected_wg_delay_v3);
 
 	doNFSSetUpWithConf(conf, ARRAY_SIZE(conf), SOCK_STREAM, SOCK_STREAM);
 
 	XCTAssertFalse(sysctl_get("vfs.generic.nfs.server.wg_delay_v3", &wg_delay_v3));
 	XCTAssertEqual(wg_delay_v3, expected_wg_delay_v3);
+
+	err = createFileInPath(getLocalMountedPath(), file, &dirFD, &fileFD);
+	if (err) {
+		XCTFail("createFileInPath failed, got %d", err);
+		return;
+	}
+
+	res = doLookupRPC(nclnt, &rootfh, file);
+	if (res->status != NFS3_OK) {
+		XCTFail("doLookupRPC failed, got %d", res->status);
+		goto out;
+	}
+
+	while (left > 0) {
+		res2 = doWriteRPC(nclnt, &res->LOOKUP3res_u.resok.object, offset, count, UNSTABLE, count, &buffer[offset]);
+		if (res2->status != NFS3_OK) {
+			XCTFail("doWriteRPC failed, got %d", res2->status);
+			goto out;
+		}
+
+		if (res2->WRITE3res_u.resok.count == 0) {
+			XCTFail("doWriteRPC wrote zero bytes");
+			goto out;
+		}
+
+		left -= res2->WRITE3res_u.resok.count;
+		offset += res2->WRITE3res_u.resok.count;
+	}
+
+	err = fstat(fileFD, &stat);
+	if (err) {
+		XCTFail("fstat failed, got %d", err);
+		goto out;
+	}
+
+	XCTAssertEqual(WRITE_SIZE, stat.st_size);
+
+out:
+	removeFromPath(file, dirFD, fileFD, REMOVE_FILE);
+}
+
+/*
+ * 1. Setup nfsd while nfs.conf contains "nfs.server.wg_delay_v3=8888"
+ * 2. Verify the expected amount using sysctl_get
+ * 3. Create a local file
+ * 4. Write NFS_MAXDATA + 1 bytes of data to the file
+ * 5. Verify WRITE failed with NFS3ERR_IO
+ */
+- (void)testConfigWGDelayV3EIO
+{
+	int err, dirFD, fileFD;
+	LOOKUP3res *res;
+	WRITE3res *res2;
+	char *file = "new_file";
+	char buffer[NFS_MAXDATA + 1] = {};
+	const char buff[NAME_MAX] = {};
+	const char *conf[1] = { buff };
+	int wg_delay_v3 = -1, expected_wg_delay_v3 = 1;
+	snprintf((char *)buff, sizeof(buff), "%s=%d", "nfs.server.wg_delay_v3", expected_wg_delay_v3);
+
+	doNFSSetUpWithConf(conf, ARRAY_SIZE(conf), SOCK_STREAM, SOCK_STREAM);
+
+	XCTAssertFalse(sysctl_get("vfs.generic.nfs.server.wg_delay_v3", &wg_delay_v3));
+	XCTAssertEqual(wg_delay_v3, expected_wg_delay_v3);
+
+	err = createFileInPath(getLocalMountedPath(), file, &dirFD, &fileFD);
+	if (err) {
+		XCTFail("createFileInPath failed, got %d", err);
+		return;
+	}
+
+	res = doLookupRPC(nclnt, &rootfh, file);
+	if (res->status != NFS3_OK) {
+		XCTFail("doLookupRPC failed, got %d", res->status);
+		goto out;
+	}
+
+	res2 = doWriteRPC(nclnt, &res->LOOKUP3res_u.resok.object, 0, sizeof(buffer), UNSTABLE, sizeof(buffer), &buffer[0]);
+	if (res2->status != NFS3ERR_IO) {
+		XCTFail("doWriteRPC failed, expected status is %d, got %d", NFS3ERR_IO, res2->status);
+	}
+
+out:
+	removeFromPath(file, dirFD, fileFD, REMOVE_FILE);
 }
 
 /*

@@ -74,7 +74,7 @@ expand_tilde(char **path, const char *user)
 	    *slash = '\0';
 	    opath = slash + 1;
 	} else {
-	    opath = "";
+	    opath = (char *)"";
 	}
     }
     pw = sudo_getpwnam(user);
@@ -82,11 +82,11 @@ expand_tilde(char **path, const char *user)
 	*slash = '/';
     if (pw == NULL) {
 	/* Unknown user. */
-	sudo_warnx(U_("unknown user: %s"), user);
+	sudo_warnx(U_("unknown user %s"), user);
 	debug_return_bool(false);
     }
 
-    len = asprintf(&npath, "%s%s%s", pw->pw_dir, slash ? "/" : "", opath);
+    len = asprintf(&npath, "%s%s%s", pw->pw_dir, *opath ? "/" : "", opath);
     sudo_pw_delref(pw);
     if (len == -1) {
 	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));

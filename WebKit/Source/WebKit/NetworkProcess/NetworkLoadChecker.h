@@ -41,10 +41,11 @@
 
 namespace WebCore {
 class ContentSecurityPolicy;
+class OriginAccessPatterns;
 struct ContentRuleListResults;
 struct ContentSecurityPolicyClient;
-enum class NetworkConnectionIntegrity : uint8_t;
 class SecurityOrigin;
+enum class AdvancedPrivacyProtections : uint16_t;
 enum class PreflightPolicy : uint8_t;
 enum class StoredCredentialsPolicy : uint8_t;
 }
@@ -63,7 +64,7 @@ class NetworkLoadChecker : public CanMakeWeakPtr<NetworkLoadChecker> {
 public:
     enum class LoadType : bool { MainFrame, Other };
 
-    NetworkLoadChecker(NetworkProcess&, NetworkResourceLoader*, NetworkSchemeRegistry*, WebCore::FetchOptions&&, PAL::SessionID, WebPageProxyIdentifier, WebCore::HTTPHeaderMap&&, URL&&, DocumentURL&&,  RefPtr<WebCore::SecurityOrigin>&&, RefPtr<WebCore::SecurityOrigin>&& topOrigin, RefPtr<WebCore::SecurityOrigin>&& parentOrigin, WebCore::PreflightPolicy, String&& referrer, bool allowPrivacyProxy, OptionSet<WebCore::NetworkConnectionIntegrity> networkConnectionIntegrityPolicy, bool shouldCaptureExtraNetworkLoadMetrics = false, LoadType requestLoadType = LoadType::Other);
+    NetworkLoadChecker(NetworkProcess&, NetworkResourceLoader*, NetworkSchemeRegistry*, WebCore::FetchOptions&&, PAL::SessionID, WebPageProxyIdentifier, WebCore::HTTPHeaderMap&&, URL&&, DocumentURL&&,  RefPtr<WebCore::SecurityOrigin>&&, RefPtr<WebCore::SecurityOrigin>&& topOrigin, RefPtr<WebCore::SecurityOrigin>&& parentOrigin, WebCore::PreflightPolicy, String&& referrer, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections>, bool shouldCaptureExtraNetworkLoadMetrics = false, LoadType requestLoadType = LoadType::Other);
     ~NetworkLoadChecker();
 
     struct RedirectionTriplet {
@@ -104,8 +105,15 @@ public:
 
     void enableContentExtensionsCheck() { m_checkContentExtensions = true; }
 
+    RefPtr<WebCore::SecurityOrigin> origin() const { return m_origin; }
+    RefPtr<WebCore::SecurityOrigin> topOrigin() const { return m_topOrigin; }
+
+    const WebCore::FetchOptions& options() const { return m_options; }
+
 private:
     WebCore::ContentSecurityPolicy* contentSecurityPolicy();
+    const WebCore::OriginAccessPatterns& originAccessPatterns() const;
+    bool isSameOrigin(const URL&, const WebCore::SecurityOrigin*) const;
     bool isChecking() const { return !!m_corsPreflightChecker; }
     bool isRedirected() const { return m_redirectCount; }
 
@@ -136,7 +144,7 @@ private:
     WebCore::FetchOptions m_options;
     WebCore::StoredCredentialsPolicy m_storedCredentialsPolicy;
     bool m_allowPrivacyProxy;
-    OptionSet<WebCore::NetworkConnectionIntegrity> m_networkConnectionIntegrityPolicy;
+    OptionSet<WebCore::AdvancedPrivacyProtections> m_advancedPrivacyProtections;
     PAL::SessionID m_sessionID;
     Ref<NetworkProcess> m_networkProcess;
     WebPageProxyIdentifier m_webPageProxyID;

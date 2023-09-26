@@ -149,7 +149,7 @@ ubidi_openSized(int32_t maxLength, int32_t maxRunCount, UErrorCode *pErrorCode) 
         return NULL;
     }
 
-    /* reset the object, all pointers NULL, all flags FALSE, all sizes 0 */
+    /* reset the object, all pointers NULL, all flags false, all sizes 0 */
     uprv_memset(pBiDi, 0, sizeof(UBiDi));
 
     /* allocate memory for arrays as requested */
@@ -160,7 +160,7 @@ ubidi_openSized(int32_t maxLength, int32_t maxRunCount, UErrorCode *pErrorCode) 
             *pErrorCode=U_MEMORY_ALLOCATION_ERROR;
         }
     } else {
-        pBiDi->mayAllocateText=TRUE;
+        pBiDi->mayAllocateText=true;
     }
 
     if(maxRunCount>0) {
@@ -171,7 +171,7 @@ ubidi_openSized(int32_t maxLength, int32_t maxRunCount, UErrorCode *pErrorCode) 
             *pErrorCode=U_MEMORY_ALLOCATION_ERROR;
         }
     } else {
-        pBiDi->mayAllocateRuns=TRUE;
+        pBiDi->mayAllocateRuns=true;
     }
 
     if(U_SUCCESS(*pErrorCode)) {
@@ -184,7 +184,7 @@ ubidi_openSized(int32_t maxLength, int32_t maxRunCount, UErrorCode *pErrorCode) 
 
 /*
  * We are allowed to allocate memory if memory==NULL or
- * mayAllocate==TRUE for each array that we need.
+ * mayAllocate==true for each array that we need.
  * We also try to grow memory as needed if we
  * allocate it.
  *
@@ -203,18 +203,18 @@ ubidi_getMemory(BidiMemoryForAllocation *bidiMem, int32_t *pSize, UBool mayAlloc
         /* we need to allocate memory */
         if(mayAllocate && (*pMemory=uprv_malloc(sizeNeeded))!=NULL) {
             *pSize=sizeNeeded;
-            return TRUE;
+            return true;
         } else {
-            return FALSE;
+            return false;
         }
     } else {
         if(sizeNeeded<=*pSize) {
             /* there is already enough memory */
-            return TRUE;
+            return true;
         }
         else if(!mayAllocate) {
             /* not enough memory, and we must not allocate */
-            return FALSE;
+            return false;
         } else {
             /* we try to grow */
             void *memory;
@@ -225,10 +225,10 @@ ubidi_getMemory(BidiMemoryForAllocation *bidiMem, int32_t *pSize, UBool mayAlloc
             if((memory=uprv_realloc(*pMemory, sizeNeeded))!=NULL) {
                 *pMemory=memory;
                 *pSize=sizeNeeded;
-                return TRUE;
+                return true;
             } else {
                 /* we failed to grow */
-                return FALSE;
+                return false;
             }
         }
     }
@@ -238,9 +238,12 @@ U_CAPI void U_EXPORT2
 ubidi_close(UBiDi *pBiDi) {
     if(pBiDi!=NULL) {
         pBiDi->pParaBiDi=NULL;          /* in case one tries to reuse this block */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
         if(pBiDi->dirInsertMemory!=NULL) {
             uprv_free(pBiDi->dirInsertMemory);
         }
+#endif // APPLE_ICU_CHANGES
         if(pBiDi->dirPropsMemory!=NULL) {
             uprv_free(pBiDi->dirPropsMemory);
         }
@@ -283,7 +286,7 @@ ubidi_isInverse(UBiDi *pBiDi) {
     if(pBiDi!=NULL) {
         return pBiDi->isInverse;
     } else {
-        return FALSE;
+        return false;
     }
 }
 
@@ -406,19 +409,22 @@ checkParaCount(UBiDi *pBiDi) {
     int32_t count=pBiDi->paraCount;
     if(pBiDi->paras==pBiDi->simpleParas) {
         if(count<=SIMPLE_PARAS_COUNT)
-            return TRUE;
+            return true;
         if(!getInitialParasMemory(pBiDi, SIMPLE_PARAS_COUNT * 2))
-            return FALSE;
+            return false;
         pBiDi->paras=pBiDi->parasMemory;
         uprv_memcpy(pBiDi->parasMemory, pBiDi->simpleParas, SIMPLE_PARAS_COUNT * sizeof(Para));
-        return TRUE;
+        return true;
     }
     if(!getInitialParasMemory(pBiDi, count * 2))
-        return FALSE;
+        return false;
     pBiDi->paras=pBiDi->parasMemory;
-    return TRUE;
+    return true;
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
 /*
  * Get the directional properties for the inserted bidi controls.
  */
@@ -513,25 +519,26 @@ getDirInsert(UBiDi *pBiDi,
         uint16_t dirInsertValue = 0;
         offset = offsets[offsetsIndex];
         if (offset < 0 || offset >= pBiDi->length) {
-            return FALSE; /* param err in offsets array */
+            return false; /* param err in offsets array */
         }
         controlStringIndex = (controlStringIndices == NULL)? offsetsIndex: controlStringIndices[offsetsIndex];
         controlString = controlStrings[controlStringIndex];
         if (controlString == NULL) {
-            return FALSE; /* param err in controlStrings array */
+            return false; /* param err in controlStrings array */
         }
         while ((uchar = *controlString++) != 0) {
             uint16_t insertValue = (U16_IS_SURROGATE(uchar))? Insert_none:
                                    insertDirFromStdDir[(uint32_t)ubidi_getCustomizedClass(pBiDi, uchar)];
             if (dirInsertIndex >= kMaxControlStringLen || insertValue == Insert_none) {
-                return FALSE; /* param err in controlStrings array */
+                return false; /* param err in controlStrings array */
             }
             dirInsertValue |= (insertValue << (4 * dirInsertIndex++));
         }
         dirInsert[offset] = dirInsertValue;
     }
-    return TRUE;
+    return true;
 }
+#endif // APPLE_ICU_CHANGES
 
 /*
  * Get the directional properties for the text, calculate the flags bit-set, and
@@ -545,14 +552,20 @@ static UBool
 getDirProps(UBiDi *pBiDi) {
     const UChar *text=pBiDi->text;
     DirProp *dirProps=pBiDi->dirPropsMemory;    /* pBiDi->dirProps is const */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     uint16_t *dirInsert = pBiDi->dirInsert;     /* may be NULL */
+#endif // APPLE_ICU_CHANGES
 
     int32_t i=0, originalLength=pBiDi->originalLength;
     Flags flags=0;      /* collect all directionalities in the text */
     UChar32 uchar;
     DirProp dirProp=0, defaultParaLevel=0;  /* initialize to avoid compiler warnings */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     int32_t dirInsertValue;
     int8_t  dirInsertIndex; /* position within dirInsertValue, if any */
+#endif // APPLE_ICU_CHANGES
     UBool isDefaultLevel=IS_DEFAULT_LEVEL(pBiDi->paraLevel);
     /* for inverse BiDi, the default para level is set to RTL if there is a
        strong R or AL character at either end of the text                            */
@@ -581,7 +594,10 @@ getDirProps(UBiDi *pBiDi) {
     /* The following stack contains the position of the initiator of
        each open isolate sequence */
     int32_t isolateStartStack[UBIDI_MAX_EXPLICIT_LEVEL+1];
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     int8_t  isolateStartInsertIndex[UBIDI_MAX_EXPLICIT_LEVEL+1];
+#endif // APPLE_ICU_CHANGES
     /* The following stack contains the last known state before
        encountering the initiator of an isolate sequence */
     State  previousStateStack[UBIDI_MAX_EXPLICIT_LEVEL+1];
@@ -613,9 +629,15 @@ getDirProps(UBiDi *pBiDi) {
      * the UBIDI_DEFAULT_XXX values are designed so that
      * their bit 0 alone yields the intended default
      */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     dirInsertValue = 0;
     dirInsertIndex = -1; /* indicate that we have not checked dirInsert yet */
+#endif // APPLE_ICU_CHANGES
     for( /* i=0 above */ ; i<originalLength; ) {
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
         if (dirInsert != NULL && dirInsertIndex < 0) {
             dirInsertValue = dirInsert[i];
         }
@@ -636,6 +658,16 @@ getDirProps(UBiDi *pBiDi) {
                 dirProps[i-2]=BN;
             }
         }
+#else
+        /* i is incremented by U16_NEXT */
+        U16_NEXT(text, i, originalLength, uchar);
+        flags|=DIRPROP_FLAG(dirProp=(DirProp)ubidi_getCustomizedClass(pBiDi, uchar));
+        dirProps[i-1]=dirProp;
+        if(uchar>0xffff) {  /* set the lead surrogate's property to BN */
+            flags|=DIRPROP_FLAG(BN);
+            dirProps[i-2]=BN;
+        }
+#endif // APPLE_ICU_CHANGES
         if(removeBiDiControls && IS_BIDI_CONTROL_CHAR(uchar))
             controlCount++;
         if(dirProp==L) {
@@ -661,12 +693,17 @@ getDirProps(UBiDi *pBiDi) {
             }
             else if(state==SEEKING_STRONG_FOR_FSI) {
                 if(stackLast<=UBIDI_MAX_EXPLICIT_LEVEL) {
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                     if (isolateStartInsertIndex[stackLast] < 0) {
                         dirProps[isolateStartStack[stackLast]]=RLI;
                     } else {
                         dirInsert[stackLast] &= ~(0x000F << (4*isolateStartInsertIndex[stackLast]));
                         dirInsert[stackLast] |= (Insert_RLI << (4*isolateStartInsertIndex[stackLast]));
                     }
+#else
+                    dirProps[isolateStartStack[stackLast]]=RLI;
+#endif // APPLE_ICU_CHANGES
                     flags|=DIRPROP_FLAG(RLI);
                 }
                 state=LOOKING_FOR_PDI;
@@ -679,17 +716,27 @@ getDirProps(UBiDi *pBiDi) {
         if(dirProp>=FSI && dirProp<=RLI) {  /* FSI, LRI or RLI */
             stackLast++;
             if(stackLast<=UBIDI_MAX_EXPLICIT_LEVEL) {
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                 isolateStartStack[stackLast]= (dirInsertIndex < 0)? i-1: i /* we have not incremented with U16_NEXT yet */;
                 isolateStartInsertIndex[stackLast] = dirInsertIndex;
+#else
+                isolateStartStack[stackLast]=i-1;
+#endif // APPLE_ICU_CHANGES
                 previousStateStack[stackLast]=state;
             }
             if(dirProp==FSI) {
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                 if (dirInsertIndex < 0) {
                     dirProps[i-1]=LRI;      /* default if no strong char */
                 } else {
                     dirInsert[i] &= ~(0x000F << (4*dirInsertIndex));
                     dirInsert[i] |= (Insert_LRI << (4*dirInsertIndex));
                 }
+#else
+                dirProps[i-1]=LRI;      /* default if no strong char */
+#endif // APPLE_ICU_CHANGES
                 state=SEEKING_STRONG_FOR_FSI;
             }
             else
@@ -725,8 +772,8 @@ getDirProps(UBiDi *pBiDi) {
             }
             if(i<originalLength) {              /* B not last char in text */
                 pBiDi->paraCount++;
-                if(checkParaCount(pBiDi)==FALSE)    /* not enough memory for a new para entry */
-                    return FALSE;
+                if(checkParaCount(pBiDi)==false)    /* not enough memory for a new para entry */
+                    return false;
                 if(isDefaultLevel) {
                     pBiDi->paras[pBiDi->paraCount-1].level=defaultParaLevel;
                     state=SEEKING_STRONG_FOR_PARA;
@@ -782,7 +829,7 @@ getDirProps(UBiDi *pBiDi) {
     }
     pBiDi->flags=flags;
     pBiDi->lastArabicPos=lastArabicPos;
-    return TRUE;
+    return true;
 }
 
 /* determine the paragraph level at position index */
@@ -848,10 +895,20 @@ bracketProcessB(BracketData *bd, UBiDiLevel level) {
 
 /* LRE, LRO, RLE, RLO, PDF */
 static void
-bracketProcessBoundary(BracketData *bd, int32_t lastCcPos, DirProp lastCcDirProp,
+bracketProcessBoundary(BracketData *bd, int32_t lastCcPos,
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+                       DirProp lastCcDirProp,
+#endif // APPLE_ICU_CHANGES
                        UBiDiLevel contextLevel, UBiDiLevel embeddingLevel) {
     IsoRun *pLastIsoRun=&bd->isoRuns[bd->isoRunLast];
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     if(DIRPROP_FLAG(lastCcDirProp)&MASK_ISO)  /* after an isolate */
+#else
+    DirProp *dirProps=bd->pBiDi->dirProps;
+    if(DIRPROP_FLAG(dirProps[lastCcPos])&MASK_ISO)  /* after an isolate */
+#endif // APPLE_ICU_CHANGES
         return;
     if(NO_OVERRIDE(embeddingLevel)>NO_OVERRIDE(contextLevel))   /* not a PDF */
         contextLevel=embeddingLevel;
@@ -888,14 +945,14 @@ bracketProcessPDI(BracketData *bd) {
 }
 
 /* newly found opening bracket: create an openings entry */
-static UBool                            /* return TRUE if success */
+static UBool                            /* return true if success */
 bracketAddOpening(BracketData *bd, UChar match, int32_t position) {
     IsoRun *pLastIsoRun=&bd->isoRuns[bd->isoRunLast];
     Opening *pOpening;
     if(pLastIsoRun->limit>=bd->openingsCount) {  /* no available new entry */
         UBiDi *pBiDi=bd->pBiDi;
         if(!getInitialOpeningsMemory(pBiDi, pLastIsoRun->limit * 2))
-            return FALSE;
+            return false;
         if(bd->openings==bd->simpleOpenings)
             uprv_memcpy(pBiDi->openingsMemory, bd->simpleOpenings,
                         SIMPLE_OPENINGS_COUNT * sizeof(Opening));
@@ -909,7 +966,7 @@ bracketAddOpening(BracketData *bd, UChar match, int32_t position) {
     pOpening->contextPos=pLastIsoRun->contextPos;
     pOpening->flags=0;
     pLastIsoRun->limit++;
-    return TRUE;
+    return true;
 }
 
 /* change N0c1 to N0c2 when a preceding bracket is assigned the embedding level */
@@ -949,7 +1006,7 @@ bracketProcessClosing(BracketData *bd, int32_t openIdx, int32_t position) {
     DirProp newProp;
     pOpening=&bd->openings[openIdx];
     direction=(UBiDiDirection)(pLastIsoRun->level&1);
-    stable=TRUE;            /* assume stable until proved otherwise */
+    stable=true;            /* assume stable until proved otherwise */
 
     /* The stable flag is set when brackets are paired and their
        level is resolved and cannot be changed by what will be
@@ -1018,7 +1075,7 @@ bracketProcessClosing(BracketData *bd, int32_t openIdx, int32_t position) {
 }
 
 /* handle strong characters, digits and candidates for closing brackets */
-static UBool                            /* return TRUE if success */
+static UBool                            /* return true if success */
 bracketProcessChar(BracketData *bd, int32_t position) {
     IsoRun *pLastIsoRun=&bd->isoRuns[bd->isoRunLast];
     DirProp *dirProps, dirProp, newProp;
@@ -1057,7 +1114,7 @@ bracketProcessChar(BracketData *bd, int32_t position) {
             }
             /* matching brackets are not overridden by LRO/RLO */
             bd->pBiDi->levels[bd->openings[idx].position]&=~UBIDI_LEVEL_OVERRIDE;
-            return TRUE;
+            return true;
         }
         /* We get here only if the ON character is not a matching closing
            bracket or it is a case of N0d */
@@ -1072,14 +1129,14 @@ bracketProcessChar(BracketData *bd, int32_t position) {
                create an opening entry for each synonym */
             if(match==0x232A) {     /* RIGHT-POINTING ANGLE BRACKET */
                 if(!bracketAddOpening(bd, 0x3009, position))
-                    return FALSE;
+                    return false;
             }
             else if(match==0x3009) {         /* RIGHT ANGLE BRACKET */
                 if(!bracketAddOpening(bd, 0x232A, position))
-                    return FALSE;
+                    return false;
             }
             if(!bracketAddOpening(bd, match, position))
-                return FALSE;
+                return false;
         }
     }
     level=bd->pBiDi->levels[position];
@@ -1143,7 +1200,7 @@ bracketProcessChar(BracketData *bd, int32_t position) {
             if(position>bd->openings[i].position)
                 bd->openings[i].flags|=flag;
     }
-    return TRUE;
+    return true;
 }
 
 /* perform (X1)..(X9) ------------------------------------------------------- */
@@ -1216,15 +1273,21 @@ directionFromFlags(UBiDi *pBiDi) {
 static UBiDiDirection
 resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
     DirProp *dirProps=pBiDi->dirProps;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     uint16_t *dirInsert = pBiDi->dirInsert;     /* may be NULL */
+#endif // APPLE_ICU_CHANGES
     UBiDiLevel *levels=pBiDi->levels;
     const UChar *text=pBiDi->text;
 
     int32_t i=0, length=pBiDi->length;
     Flags flags=pBiDi->flags;       /* collect all directionalities in the text */
     DirProp dirProp;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     int32_t dirInsertValue;
     int8_t  dirInsertIndex; /* position within dirInsertValue, if any */
+#endif // APPLE_ICU_CHANGES
     UBiDiLevel level=GET_PARALEVEL(pBiDi, 0);
     UBiDiDirection direction;
     pBiDi->isolateCount=0;
@@ -1297,7 +1360,10 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
         UBiDiLevel embeddingLevel=level, newLevel;
         UBiDiLevel previousLevel=level;     /* previous level for regular (not CC) characters */
         int32_t lastCcPos=0;                /* index of last effective LRx,RLx, PDx */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
         DirProp lastCcDirProp=0;            /* dirProp of last effective LRx,RLx, PDx */
+#endif // APPLE_ICU_CHANGES
 
         /* The following stack remembers the embedding level and the ISOLATE flag of level runs.
            stackLast points to its current entry. */
@@ -1314,6 +1380,9 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
         /* recalculate the flags */
         flags=0;
 
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
         dirInsertValue = 0;
         dirInsertIndex = -1; /* indicate that we have not checked dirInsert yet */
         for(i=0; i<length; ) { /* now conditionally increment at end */
@@ -1328,6 +1397,10 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 dirInsertIndex = -1;
                 dirProp=dirProps[i];
             }
+#else
+        for(i=0; i<length; ++i) {
+            dirProp=dirProps[i];
+#endif // APPLE_ICU_CHANGES
             switch(dirProp) {
             case LRE:
             case RLE:
@@ -1345,7 +1418,10 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 if(newLevel<=UBIDI_MAX_EXPLICIT_LEVEL && overflowIsolateCount==0 &&
                                                          overflowEmbeddingCount==0) {
                     lastCcPos=i;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                     lastCcDirProp = dirProp;
+#endif // APPLE_ICU_CHANGES
                     embeddingLevel=newLevel;
                     if(dirProp==LRO || dirProp==RLO)
                         embeddingLevel|=UBIDI_LEVEL_OVERRIDE;
@@ -1374,7 +1450,10 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 }
                 if(stackLast>0 && stack[stackLast]<ISOLATE) {   /* not an isolate entry */
                     lastCcPos=i;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                     lastCcDirProp = dirProp;
+#endif // APPLE_ICU_CHANGES
                     stackLast--;
                     embeddingLevel=(UBiDiLevel)stack[stackLast];
                 }
@@ -1384,7 +1463,11 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 flags|=(DIRPROP_FLAG(ON)|DIRPROP_FLAG_LR(embeddingLevel));
                 levels[i]=NO_OVERRIDE(embeddingLevel);
                 if(NO_OVERRIDE(embeddingLevel)!=NO_OVERRIDE(previousLevel)) {
-                    bracketProcessBoundary(&bracketData, lastCcPos, lastCcDirProp,
+                    bracketProcessBoundary(&bracketData, lastCcPos,
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+                                           lastCcDirProp,
+#endif // APPLE_ICU_CHANGES
                                            previousLevel, embeddingLevel);
                     flags|=DIRPROP_FLAG_MULTI_RUNS;
                 }
@@ -1400,7 +1483,10 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                                                          overflowEmbeddingCount==0) {
                     flags|=DIRPROP_FLAG(dirProp);
                     lastCcPos=i;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                     lastCcDirProp = dirProp;
+#endif // APPLE_ICU_CHANGES
                     validIsolateCount++;
                     if(validIsolateCount>pBiDi->isolateCount)
                         pBiDi->isolateCount=validIsolateCount;
@@ -1412,18 +1498,27 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                     bracketProcessLRI_RLI(&bracketData, embeddingLevel);
                 } else {
                     /* make it WS so that it is handled by adjustWSLevels() */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                     if (dirInsertIndex < 0) {
                         dirProps[i]=WS;
                     } else {
                         dirInsert[i] &= ~(0x000F << (4*dirInsertIndex));
                         dirInsert[i] |= (Insert_WS << (4*dirInsertIndex));
                     }
+#else
+                    dirProps[i]=WS;
+#endif // APPLE_ICU_CHANGES
                     overflowIsolateCount++;
                 }
                 break;
             case PDI:
                 if(NO_OVERRIDE(embeddingLevel)!=NO_OVERRIDE(previousLevel)) {
-                    bracketProcessBoundary(&bracketData, lastCcPos, lastCcDirProp,
+                    bracketProcessBoundary(&bracketData, lastCcPos,
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+                                           lastCcDirProp,
+#endif // APPLE_ICU_CHANGES
                                            previousLevel, embeddingLevel);
                     flags|=DIRPROP_FLAG_MULTI_RUNS;
                 }
@@ -1431,17 +1526,25 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 if(overflowIsolateCount) {
                     overflowIsolateCount--;
                     /* make it WS so that it is handled by adjustWSLevels() */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                     if (dirInsertIndex < 0) {
                         dirProps[i]=WS;
                     } else {
                         dirInsert[i] &= ~(0x000F << (4*dirInsertIndex));
                         dirInsert[i] |= (Insert_WS << (4*dirInsertIndex));
                     }
+#else
+                    dirProps[i]=WS;
+#endif // APPLE_ICU_CHANGES
                 }
                 else if(validIsolateCount) {
                     flags|=DIRPROP_FLAG(PDI);
                     lastCcPos=i;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                     lastCcDirProp = dirProp;
+#endif // APPLE_ICU_CHANGES
                     overflowEmbeddingCount=0;
                     while(stack[stackLast]<ISOLATE) /* pop embedding entries */
                         stackLast--;                /* until the last isolate entry */
@@ -1450,12 +1553,17 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                     bracketProcessPDI(&bracketData);
                 } else
                     /* make it WS so that it is handled by adjustWSLevels() */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
                     if (dirInsertIndex < 0) {
                         dirProps[i]=WS;
                     } else {
                         dirInsert[i] &= ~(0x000F << (4*dirInsertIndex));
                         dirInsert[i] |= (Insert_WS << (4*dirInsertIndex));
                     }
+#else
+                    dirProps[i]=WS;
+#endif // APPLE_ICU_CHANGES
                 embeddingLevel=(UBiDiLevel)stack[stackLast]&~ISOLATE;
                 flags|=(DIRPROP_FLAG(ON)|DIRPROP_FLAG_LR(embeddingLevel));
                 previousLevel=embeddingLevel;
@@ -1484,7 +1592,11 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
             default:
                 /* all other types are normal characters and get the "real" level */
                 if(NO_OVERRIDE(embeddingLevel)!=NO_OVERRIDE(previousLevel)) {
-                    bracketProcessBoundary(&bracketData, lastCcPos, lastCcDirProp,
+                    bracketProcessBoundary(&bracketData, lastCcPos,
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+                                           lastCcDirProp,
+#endif // APPLE_ICU_CHANGES
                                            previousLevel, embeddingLevel);
                     flags|=DIRPROP_FLAG_MULTI_RUNS;
                     if(embeddingLevel&UBIDI_LEVEL_OVERRIDE)
@@ -1500,9 +1612,13 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 flags|=DIRPROP_FLAG(dirProps[i]);
                 break;
             }
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
             if (dirInsertIndex < 0) {
                 ++i;
             }
+#endif // APPLE_ICU_CHANGES
         }
         if(flags&MASK_EMBEDDING)
             flags|=DIRPROP_FLAG_LR(pBiDi->paraLevel);
@@ -2011,14 +2127,25 @@ static void
 setLevelsOutsideIsolates(UBiDi *pBiDi, int32_t start, int32_t limit, UBiDiLevel level)
 {
     DirProp *dirProps=pBiDi->dirProps, dirProp;
+#if APPLE_ICU_CHANGES
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
     uint16_t *dirInsert = pBiDi->dirInsert;     /* may be NULL */
+#endif // APPLE_ICU_CHANGES
     UBiDiLevel *levels=pBiDi->levels;
+#if APPLE_ICU_CHANGES
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
     int32_t dirInsertValue;
     int8_t  dirInsertIndex; /* position within dirInsertValue, if any */
+#endif // APPLE_ICU_CHANGES
     int32_t isolateCount=0, k;
+#if APPLE_ICU_CHANGES
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
     dirInsertValue = 0;
     dirInsertIndex = -1; /* indicate that we have not checked dirInsert yet */
+#endif // APPLE_ICU_CHANGES
     for(k=start; k<limit; k++) {
+#if APPLE_ICU_CHANGES
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
         if (dirInsert != NULL && dirInsertIndex < 0) {
             dirInsertValue = dirInsert[k];
         }
@@ -2030,6 +2157,9 @@ setLevelsOutsideIsolates(UBiDi *pBiDi, int32_t start, int32_t limit, UBiDiLevel 
             dirInsertIndex = -1;
             dirProp=dirProps[k];
         }
+#else
+        dirProp=dirProps[k];
+#endif // APPLE_ICU_CHANGES
         if(dirProp==PDI)
             isolateCount--;
         if(isolateCount==0)
@@ -2324,9 +2454,16 @@ resolveImplicitLevels(UBiDi *pBiDi,
                       int32_t start, int32_t limit,
                       DirProp sor, DirProp eor) {
     const DirProp *dirProps=pBiDi->dirProps;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     uint16_t *dirInsert = pBiDi->dirInsert;     /* may be NULL */
+#endif // APPLE_ICU_CHANGES
     DirProp dirProp;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+// rdar://46387957 4233512913.. Fix build warnings in Apple-added code
     int32_t dirInsertValue;
+#endif // APPLE_ICU_CHANGES
     LevState levState;
     int32_t i, start1, start2;
     uint16_t oldStateImp, stateImp, actionImp;
@@ -2363,6 +2500,9 @@ resolveImplicitLevels(UBiDi *pBiDi,
     /* The isolates[] entries contain enough information to
        resume the bidi algorithm in the same state as it was
        when it was interrupted by an isolate sequence. */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
     dirInsertValue = 0;
     if (dirInsert != NULL) {
         dirInsertValue = dirInsert[start];
@@ -2374,6 +2514,9 @@ resolveImplicitLevels(UBiDi *pBiDi,
         }
     }
     if((dirProps[start]==PDI || dirInsertValue>0) && pBiDi->isolateCount >= 0) {
+#else
+    if(dirProps[start]==PDI  && pBiDi->isolateCount >= 0) {
+#endif // APPLE_ICU_CHANGES
         levState.startON=pBiDi->isolates[pBiDi->isolateCount].startON;
         start1=pBiDi->isolates[pBiDi->isolateCount].start1;
         stateImp=pBiDi->isolates[pBiDi->isolateCount].stateImp;
@@ -2394,6 +2537,8 @@ resolveImplicitLevels(UBiDi *pBiDi,
     for(i=start; i<=limit; i++) {
         if(i>=limit) {
             int32_t k;
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
             dirInsertValue = 0;
             for(k=limit-1; k>start && dirInsertValue <= 0; k--) {
                 dirProp = dirProps[k];
@@ -2415,6 +2560,10 @@ resolveImplicitLevels(UBiDi *pBiDi,
             if (k == start) {
                 dirProp = dirProps[k];
             }
+#else
+            for(k=limit-1; k>start&&(DIRPROP_FLAG(dirProps[k])&MASK_BN_EXPLICIT); k--);
+            dirProp=dirProps[k];
+#endif // APPLE_ICU_CHANGES
             if(dirProp==LRI || dirProp==RLI)
                 break;      /* no forced closing for sequence ending with LRI/RLI */
             gprop=eor;
@@ -2493,6 +2642,8 @@ resolveImplicitLevels(UBiDi *pBiDi,
     }
 
     /* look for the last char not a BN or LRE/RLE/LRO/RLO/PDF */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     dirInsertValue = 0;
     for(i=limit-1; i>start && dirInsertValue <= 0; i--) {
         dirProp=dirProps[i];
@@ -2514,6 +2665,10 @@ resolveImplicitLevels(UBiDi *pBiDi,
     if (i == start) {
         dirProp=dirProps[i];
     }
+#else
+    for(i=limit-1; i>start&&(DIRPROP_FLAG(dirProps[i])&MASK_BN_EXPLICIT); i--);
+    dirProp=dirProps[i];
+#endif // APPLE_ICU_CHANGES
     if((dirProp==LRI || dirProp==RLI) && limit<pBiDi->length) {
         pBiDi->isolateCount++;
         pBiDi->isolates[pBiDi->isolateCount].stateImp=stateImp;
@@ -2680,11 +2835,11 @@ setParaRunsOnly(UBiDi *pBiDi, const UChar *text, int32_t length,
      * than the original text. But we don't want the levels memory to be
      * reallocated shorter than the original length, since we need to restore
      * the levels as after the first call to ubidi_setpara() before returning.
-     * We will force mayAllocateText to FALSE before the second call to
+     * We will force mayAllocateText to false before the second call to
      * ubidi_setpara(), and will restore it afterwards.
      */
     saveMayAllocateText=pBiDi->mayAllocateText;
-    pBiDi->mayAllocateText=FALSE;
+    pBiDi->mayAllocateText=false;
     ubidi_setPara(pBiDi, visualText, visualLength, paraLevel, NULL, pErrorCode);
     pBiDi->mayAllocateText=saveMayAllocateText;
     ubidi_getRuns(pBiDi, pErrorCode);
@@ -2796,6 +2951,8 @@ setParaRunsOnly(UBiDi *pBiDi, const UChar *text, int32_t length,
     pBiDi->reorderingMode=UBIDI_REORDER_RUNS_ONLY;
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
 /* -------------------------------------------------------------------------- */
 /* internal proptotype */
 
@@ -2808,6 +2965,7 @@ ubidi_setParaInternal(UBiDi *pBiDi,
                       const int32_t *controlStringIndices,
                       const UChar * const * controlStrings,
                       UErrorCode *pErrorCode);
+#endif // APPLE_ICU_CHANGES
 
 /* ubidi_setPara ------------------------------------------------------------ */
 
@@ -2815,6 +2973,8 @@ U_CAPI void U_EXPORT2
 ubidi_setPara(UBiDi *pBiDi, const UChar *text, int32_t length,
               UBiDiLevel paraLevel, UBiDiLevel *embeddingLevels,
               UErrorCode *pErrorCode) {
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
     RETURN_VOID_IF_NULL_OR_FAILING_ERRCODE(pErrorCode);
     ubidi_setParaInternal(pBiDi, text, length, paraLevel,
                           embeddingLevels,
@@ -2855,10 +3015,17 @@ ubidi_setParaInternal(UBiDi *pBiDi,
                       const int32_t *controlStringIndices,
                       const UChar * const * controlStrings,
                       UErrorCode *pErrorCode) {
+#endif // APPLE_ICU_CHANGES
     UBiDiDirection direction;
     DirProp *dirProps;
 
-    /* check the argument values (pErrorCode status alrecy checked before getting here) */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
+    /* check the argument values (pErrorCode status already checked before getting here) */
+#else
+    /* check the argument values */
+    RETURN_VOID_IF_NULL_OR_FAILING_ERRCODE(pErrorCode);
+#endif // APPLE_ICU_CHANGES
     if(pBiDi==NULL || text==NULL || length<-1 ||
        (paraLevel>UBIDI_MAX_EXPLICIT_LEVEL && paraLevel<UBIDI_DEFAULT_LTR)) {
         *pErrorCode=U_ILLEGAL_ARGUMENT_ERROR;
@@ -2868,9 +3035,12 @@ ubidi_setParaInternal(UBiDi *pBiDi,
     if(length==-1) {
         length=u_strlen(text);
     }
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
     if (offsetCount > 0 && pBiDi->reorderingMode > UBIDI_REORDER_GROUP_NUMBERS_WITH_R) {
         offsetCount = 0;
     }
+#endif // APPLE_ICU_CHANGES
 
     /* special treatment for RUNS_ONLY mode */
     if(pBiDi->reorderingMode==UBIDI_REORDER_RUNS_ONLY) {
@@ -2886,7 +3056,10 @@ ubidi_setParaInternal(UBiDi *pBiDi,
     pBiDi->direction=(UBiDiDirection)(paraLevel&1);
     pBiDi->paraCount=1;
 
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
     pBiDi->dirInsert=NULL;
+#endif // APPLE_ICU_CHANGES
     pBiDi->dirProps=NULL;
     pBiDi->levels=NULL;
     pBiDi->runs=NULL;
@@ -2923,6 +3096,9 @@ ubidi_setParaInternal(UBiDi *pBiDi,
     else
         pBiDi->paras=pBiDi->simpleParas;
 
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
     /*
      * Get the inserted directional properties
      * if necessary.
@@ -2939,6 +3115,7 @@ ubidi_setParaInternal(UBiDi *pBiDi,
             return;
         }
     }
+#endif // APPLE_ICU_CHANGES
 
     /*
      * Get the directional properties,
@@ -3175,8 +3352,6 @@ ubidi_setParaInternal(UBiDi *pBiDi,
     setParaSuccess(pBiDi);              /* mark successful setPara */
 }
 
-/* -------------------------------------------------------------------------- */
-
 U_CAPI void U_EXPORT2
 ubidi_orderParagraphsLTR(UBiDi *pBiDi, UBool orderParagraphsLTR) {
     if(pBiDi!=NULL) {
@@ -3189,7 +3364,7 @@ ubidi_isOrderParagraphsLTR(UBiDi *pBiDi) {
     if(pBiDi!=NULL) {
         return pBiDi->orderParagraphsLTR;
     } else {
-        return FALSE;
+        return false;
     }
 }
 

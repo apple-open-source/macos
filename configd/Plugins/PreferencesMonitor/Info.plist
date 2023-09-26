@@ -22,5 +22,10 @@
 	<string>1.21</string>
 	<key>Builtin</key>
 	<true/>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.SystemConfiguration.NetworkCategoryManager</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

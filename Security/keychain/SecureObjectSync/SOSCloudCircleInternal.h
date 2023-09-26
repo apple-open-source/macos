@@ -32,7 +32,15 @@
 #include <xpc/xpc.h>
 #include <Security/SecKey.h>
 
-#define IF_SOS_DISABLED if(!OctagonPlatformSupportsSOS())
+// Use this for SOS SPI framework side to check if SOS compatibility mode is enabled
+#define IF_SOS_DISABLED if(!SOSCCIsSOSTrustAndSyncingEnabled())
+
+// Use this for server side SOS compatibility mode checking
+#define IF_SOS_DISABLED_SERVER if(!SOSCompatibilityModeGetCachedStatus())
+
+// This is used for any SOSEngine creation functions.
+// SOSAccount is responsible for creating the engine, the circle and transports.  To make enabling/disabling compatibility mode easier, allow creation to occur outside of whether or not compatibility mode is enabled.
+#define IF_PLATFORM_DOES_NOT_SUPPORTS_SOS if(!OctagonPlatformSupportsSOS())
 
 __BEGIN_DECLS
 

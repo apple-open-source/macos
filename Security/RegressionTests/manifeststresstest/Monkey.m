@@ -261,7 +261,7 @@
         case errSecItemNotFound:
             /* someone else deleted this item */
             self.notFoundCounter++;
-            /* fall through */
+            [[fallthrough]];
         case errSecSuccess:
             [self.usedNames removeObjectAtIndex:usedIndex];
             [self.freeNames addObject:item[0]];

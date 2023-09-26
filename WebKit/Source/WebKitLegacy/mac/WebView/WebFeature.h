@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,12 +50,30 @@ typedef NS_ENUM(NSUInteger, WebFeatureStatus) {
     WebFeatureStatusMature
 };
 
+/*!
+ @enum WebFeatureCategory
+ @abstract Field indicating the category of a web feature. Used to determine how a feature should be sorted or grouped in the UI.
+ */
+typedef NS_ENUM(NSUInteger, WebFeatureCategory) {
+    WebFeatureCategoryNone = 0,
+    WebFeatureCategoryAnimation = 1,
+    WebFeatureCategoryCSS = 2,
+    WebFeatureCategoryDOM = 3,
+    WebFeatureCategoryJavascript = 4,
+    WebFeatureCategoryMedia = 5,
+    WebFeatureCategoryNetworking = 6,
+    WebFeatureCategoryPrivacy = 7,
+    WebFeatureCategorySecurity = 8,
+    WebFeatureCategoryHTML = 9
+};
+
 @interface WebFeature : NSObject
 
 @property (nonatomic, readonly, copy) NSString *key;
 @property (nonatomic, readonly, copy) NSString *preferenceKey;
 @property (nonatomic, readonly, copy) NSString *name;
 @property (nonatomic, readonly) WebFeatureStatus status;
+@property (nonatomic, readonly) WebFeatureCategory category;
 @property (nonatomic, readonly, copy) NSString *details;
 @property (nonatomic, readonly) BOOL defaultValue;
 @property (nonatomic, readonly, getter=isHidden) BOOL hidden;

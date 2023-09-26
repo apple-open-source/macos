@@ -177,8 +177,9 @@ enum
     kIOPCIConfigShadowRegs        = 32,
     kIOPCIConfigEPShadowRegs      = 16,
     kIOPCIConfigBridgeShadowRegs  = 32,
+    kIOPCIExpressConfigRegs       = 1024,
 
-    kIOPCIConfigShadowSize        = kIOPCIConfigShadowRegs,
+    kIOPCIConfigShadowSize        = kIOPCIExpressConfigRegs,
 
     kIOPCISaveRegsMask            = 0xFFFFFFFF
 //                                  & ~(1 << (kIOPCIConfigVendorID >> 2))
@@ -187,51 +188,46 @@ enum
 struct IOPCIConfigSave
 {
     uint32_t                 savedConfig[kIOPCIConfigShadowSize];
+};
 
-	// express save
-	uint16_t				 savedDeviceControl;
-	uint16_t				 savedLinkControl;
-	uint16_t				 savedSlotControl;
-	uint16_t				 savedDeviceControl2;
-	uint16_t				 savedLinkControl2;
-	uint16_t				 savedSlotControl2;
+// -- Helper functions for accessing the savedConfig DW array --
+static inline uint16_t savedConfigRead16( IOPCIConfigSave *save, uint16_t offset)
+{
+	uint8_t *savedConfig = reinterpret_cast<uint8_t*>(save->savedConfig);
+	return *(uint16_t *)(&savedConfig[offset]);
+}
 
-	// msi save
-	uint32_t				 savedMSIAddress0;
-	uint32_t				 savedMSIAddress1;
-	uint32_t				 savedMSIData;
-	uint16_t				 savedMSIControl;
-	uint32_t				 savedMSIEnable;
+static inline uint32_t savedConfigRead32( IOPCIConfigSave *save, uint16_t offset)
+{
+	uint8_t *savedConfig = reinterpret_cast<uint8_t*>(save->savedConfig);
+	return *(uint32_t *)(&savedConfig[offset]);
+}
 
-	// l1pm save	
-	uint32_t				 savedL1PM0;
-	uint32_t				 savedL1PM1;
-	
-	// ltr save
-	uint32_t				 savedLTR;
+static inline void savedConfigWrite16( IOPCIConfigSave *save, uint16_t offset, uint16_t data)
+{
+	uint8_t *savedConfig = reinterpret_cast<uint8_t*>(save->savedConfig);
+	*(uint16_t *)(&savedConfig[offset]) = data;
+}
 
-    // acs save
-    uint16_t                 savedACS;
+static inline void savedConfigWrite32( IOPCIConfigSave *save, uint16_t offset, uint32_t data)
+{
+	uint8_t *savedConfig = reinterpret_cast<uint8_t*>(save->savedConfig);
+	*(uint32_t *)(&savedConfig[offset]) = data;
+}
 
-	// aer save
-	uint32_t				 savedAERCapsControl; // 0x18
-	uint32_t				 savedAERSeverity;    // 0x0C
-	uint32_t				 savedAERUMask;       // 0x08
-	uint32_t				 savedAERCMask;       // 0x14
-	uint32_t				 savedAERRootCommand; // 0x2c
-
-	// fpb save
-	uint32_t				 savedFPBControl1;    // 0x08
-	uint32_t				 savedFPBControl2;    // 0x0C
-	uint32_t				 savedFPBRIDVector0;   // 0x20
-
-	// ptm save
-	uint32_t				 savedPTMControl;     // 0x08
+struct IOPCIMSISave
+{
+	uint32_t				 address0;
+	uint32_t				 address1;
+	uint32_t				 data;
+	uint16_t				 control;
+	uint32_t				 enable;
 };
 
 struct IOPCIConfigShadow
 {
     IOPCIConfigSave          configSave;
+    IOPCIMSISave             msiSave;
     uint32_t                 flags;
 	uint8_t                  tunnelled;
 	uint8_t                  hpType;
@@ -348,6 +344,34 @@ enum
 #define kIOPCIExpressMaxLinkWidthOverrideKey "IOPCIExpressMaxLinkWidthOverride"
 
 #define kIOCLxEnabledKey           "CLx Enabled"
+
+// PCI Express Capabilities Structure Mask (sec 7.5.3)
+enum
+{
+// PCI Express Capability List Register (Offset 00h)
+	kPCIECapCapabilityID            = (0xff),
+	kPCIECapNextCapabilityPointer   = (0xff << 8),
+
+// PCI Express Capabilities Register (Offset 02h)
+	kPCIECapCapabilityVersion       = 0xf,
+	kPCIECapDevicePortType          = (0xf << 4),
+	kPCIECapSlotConnected           = (1 << 8),
+	kPCIECapInterruptMessageNumber  = (0x1f << 9)
+};
+
+// value of kPCIECapDevicePortType
+enum
+{
+	kPCIEPortTypePCIEEndpoint               = (0 << 4),
+	kPCIEPortTypeLegacyPCIEEndpoint         = (1 << 4),
+	kPCIEPortTypeRCiEP                      = (9 << 4),
+	kPCIEPortTypeRCEventCollector           = (0xa << 4),
+	kPCIEPortTypePCIERootPort               = (4 << 4),
+	kPCIEPortTypeUpstreamPCIESwitch         = (5 << 4),
+	kPCIEPortTypeDownstreamPCIESwitch       = (6 << 4),
+	kPCIEPortTypePCIEtoPCIBridge            = (7 << 4),
+	kPCIEPortTypePCIBridgetoPCIE            = (8 << 4)
+};
 
 enum
 {
@@ -482,9 +506,9 @@ public:
 public:
 
 	static IOInterruptVector * allocVectors(uint32_t count);
-    static void initDevice(IOPCIDevice * device, IOPCIConfigSave * save);
-	static void saveDeviceState(IOPCIDevice * device, IOPCIConfigSave * save);
-	static void restoreDeviceState(IOPCIDevice * device, IOPCIConfigSave * save);
+    static void initDevice(IOPCIDevice * device, IOPCIMSISave * save);
+	static void saveDeviceState(IOPCIDevice * device, IOPCIMSISave * save);
+	static void restoreDeviceState(IOPCIDevice * device, IOPCIMSISave * save);
 
     void enableDeviceMSI(IOPCIDevice *device);
     void disableDeviceMSI(IOPCIDevice *device);

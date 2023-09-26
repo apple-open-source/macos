@@ -117,7 +117,7 @@ SQLiteDatabase::~SQLiteDatabase()
     close();
 }
 
-bool SQLiteDatabase::open(const String& filename, OpenMode openMode)
+bool SQLiteDatabase::open(const String& filename, OpenMode openMode, OptionSet<OpenOptions> options)
 {
     initializeSQLiteIfNecessary();
     close();
@@ -156,6 +156,12 @@ bool SQLiteDatabase::open(const String& filename, OpenMode openMode)
         {
             SQLiteTransactionInProgressAutoCounter transactionCounter;
             result = sqlite3_open_v2(FileSystem::fileSystemRepresentation(filename).data(), &m_db, flags, nullptr);
+#if PLATFORM(COCOA)
+            if (result == SQLITE_OK && options.contains(OpenOptions::CanSuspendWhileLocked))
+                SQLiteFileSystem::setCanSuspendLockedFileAttribute(filename);
+#else
+            UNUSED_PARAM(options);
+#endif
         }
 
         if (result != SQLITE_OK) {
@@ -750,7 +756,7 @@ static Expected<sqlite3_stmt*, int> constructAndPrepareStatement(SQLiteDatabase&
 
 Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatementSlow(StringView queryString)
 {
-    CString query = queryString.stripWhiteSpace().utf8();
+    auto query = queryString.trim(isUnicodeCompatibleASCIIWhitespace<UChar>).utf8();
     auto sqlStatement = constructAndPrepareStatement(*this, query.data(), query.length());
     if (!sqlStatement) {
         RELEASE_LOG_ERROR(SQLDatabase, "SQLiteDatabase::prepareStatement: Failed to prepare statement %" PUBLIC_LOG_STRING, query.data());
@@ -771,7 +777,7 @@ Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatement(ASCIILiteral que
 
 Expected<UniqueRef<SQLiteStatement>, int> SQLiteDatabase::prepareHeapStatementSlow(StringView queryString)
 {
-    CString query = queryString.stripWhiteSpace().utf8();
+    auto query = queryString.trim(isUnicodeCompatibleASCIIWhitespace<UChar>).utf8();
     auto sqlStatement = constructAndPrepareStatement(*this, query.data(), query.length());
     if (!sqlStatement) {
         RELEASE_LOG_ERROR(SQLDatabase, "SQLiteDatabase::prepareHeapStatement: Failed to prepare statement %" PUBLIC_LOG_STRING, query.data());

@@ -44,9 +44,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/getmntinfo.c,v 1.5 2007/01/09 00:27:54 imp 
  * Return information about mounted filesystems.
  */
 int
-getmntinfo64(mntbufp, flags)
-	struct statfs64 **mntbufp;
-	int flags;
+getmntinfo64(struct statfs64 **mntbufp, int flags)
 {
 	static struct statfs64 *mntbuf;
 	static int mntsize;

@@ -28,9 +28,11 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
+#include "CSSParserContext.h"
 #include "CanvasBase.h"
 #include "Document.h"
 #include "FloatRect.h"
+#include "GraphicsTypes.h"
 #include "HTMLElement.h"
 #include <memory>
 #include <wtf/Forward.h>
@@ -105,7 +107,7 @@ public:
 #endif
 
     // Used for rendering
-    void didDraw(const std::optional<FloatRect>&) final;
+    void didDraw(const std::optional<FloatRect>&, ShouldApplyPostProcessingToDirtyRect) final;
 
     void paint(GraphicsContext&, const LayoutRect&);
 
@@ -136,9 +138,6 @@ public:
 
     bool isControlledByOffscreen() const;
 
-#if PLATFORM(COCOA)
-    GraphicsContext* drawingContext() const final;
-#endif
     WEBCORE_EXPORT void setAvoidIOSurfaceSizeCheckInWebProcessForTesting();
 
     void queueTaskKeepingObjectAlive(TaskSource, Function<void()>&&) final;
@@ -146,6 +145,7 @@ public:
 
     using HTMLElement::ref;
     using HTMLElement::deref;
+    CSSParserContext& cssParserContext();
 
 private:
     HTMLCanvasElement(const QualifiedName&, Document&);
@@ -159,7 +159,7 @@ private:
     // EventTarget.
     void eventListenersDidChange() final;
 
-    void parseAttribute(const QualifiedName&, const AtomString&) final;
+    void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;
     bool hasPresentationalHintsForAttribute(const QualifiedName&) const final;
     void collectPresentationalHintsForAttribute(const QualifiedName&, const AtomString&, MutableStyleProperties&) final;
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
@@ -191,6 +191,7 @@ private:
 
     std::unique_ptr<CanvasRenderingContext> m_context;
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).
+    std::unique_ptr<CSSParserContext> m_cssParserContext;
 
     std::optional<bool> m_usesDisplayListDrawing;
     
@@ -203,10 +204,14 @@ private:
     bool m_hasRelevantWebGLEventListener { false };
 #endif
     bool m_isSnapshotting { false };
-#if PLATFORM(COCOA)
-    mutable bool m_mustGuardAgainstUseByPendingLayerTransaction { false };
-#endif
 };
+
+inline CSSParserContext& HTMLCanvasElement::cssParserContext()
+{
+    if (!m_cssParserContext)
+        m_cssParserContext = WTF::makeUnique<CSSParserContext>(document());
+    return *m_cssParserContext;
+}
 
 WebCoreOpaqueRoot root(HTMLCanvasElement*);
 

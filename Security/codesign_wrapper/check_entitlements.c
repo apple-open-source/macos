@@ -62,11 +62,11 @@ typedef struct {
     bool valid_application_identifier;
     bool valid_keychain_access_group;
     bool illegal_entitlement;
-} filter_whitelist_ctx;
+} filter_allowlist_ctx;
 
 void
 filter_entitlement(const void *key, const void *value,
-        filter_whitelist_ctx *ctx)
+        filter_allowlist_ctx *ctx)
 {
     if (CFEqual(key, CFSTR("application-identifier"))) {
         // value isn't string
@@ -156,7 +156,7 @@ filter_entitlements(CFDictionaryRef entitlements)
         return true;
 
     // did not put in an application-identifier: that keeps us from identifying the app securely
-    filter_whitelist_ctx ctx = { /* valid_application_identifier */ false,
+    filter_allowlist_ctx ctx = { /* valid_application_identifier */ false,
                                  /* valid_keychain_access_group */ true,
                                  /* illegal_entitlement */ false };
     CFDictionaryApplyFunction(entitlements,
@@ -191,7 +191,7 @@ pid_t fork_child(void (*pre_exec)(void *arg), void *pre_exec_arg,
                             delay *= 2;
                             continue;
                         }
-                        /* fall through */
+                        [[fallthrough]];
                     default:
                         perror("fork");
                         return -1;

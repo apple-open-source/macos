@@ -41,7 +41,11 @@ private:
     void test_jConsistencyOddLocales();
     void testBestPattern();
     void testDateTimePatterns();
-    void testHorizontalInheritance();   // Apple rdar://78420184
+    void testRegionOverride();
+#if APPLE_ICU_CHANGES
+// rdar://
+   void testHorizontalInheritance();   // rdar://78420184
+#endif  // APPLE_ICU_CHANGES
 
     // items for testDateTimePatterns();
     enum { kNumDateTimePatterns = 4 };

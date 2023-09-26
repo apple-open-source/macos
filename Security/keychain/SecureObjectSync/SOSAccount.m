@@ -258,7 +258,7 @@ static NSDictionary<OctagonState*, NSNumber*>* SOSStateMap(void);
         _saveBlock = nil;
 
         _settings =  [[NSUserDefaults alloc] initWithSuiteName:SOSAccountUserDefaultsSuite];
-        [self sosIsEnabled];
+        [self SOSMonitorModeSOSIsActive];
 
         [self ensureFactoryCircles];
         SOSAccountEnsureUUID(self);
@@ -266,6 +266,7 @@ static NSDictionary<OctagonState*, NSNumber*>* SOSStateMap(void);
         _sosTestmode = NO;
         _consolidateKeyInterest = NO;
         _accountInScriptBypassMode = NO;
+        _sosCompatibilityMode = NO;
         
 #if OCTAGON
         [self setupStateMachine];
@@ -621,7 +622,7 @@ static bool Flush(CFErrorRef *error) {
     __block bool result = false;
     __block CFErrorRef localError = NULL;
     
-    if([SOSAuthKitHelpers accountIsHSA2]) {
+    if([SOSAuthKitHelpers accountIsCDPCapable]) {
         [SOSAuthKitHelpers activeMIDs:^(NSSet <SOSTrustedDeviceAttributes *> * _Nullable activeMIDs, NSError * _Nullable error) {
             SOSAuthKitHelpers *akh = [[SOSAuthKitHelpers alloc] initWithActiveMIDS:activeMIDs];
             if(akh) {
@@ -886,7 +887,23 @@ static bool Flush(CFErrorRef *error) {
     [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
         res = SOSAccountJoinWithCircleJoiningBlob(txn.account, (__bridge CFDataRef)blob, version, &localError);
     }];
-
+#if OCTAGON
+    bool inCircle = [self.trust isInCircleOnly:NULL];
+    if (localError) {
+        [[[CKKSAnalytics class] logger] logResultForEvent:SOSDeferralEventPairing hardFailure:false result:(__bridge NSError * _Nullable)(localError) withAttributes:@{
+            SOSDeferralAnalyticsSOSEnabled : SOSCompatibilityModeGetCachedStatus() ? @"compat_enabled" : @"compat_disabled",
+            SOSDeferralAnalyticsSOSJoinMethod : SOSDeferralAnalyticsPairing,
+            SOSDeferralAnalyticsJoiningSOSResult : inCircle ? @"in_circle" : @"not_in_circle",
+            SOSDeferralAnalyticsCircleContainsLegacy : SOSCircleIsLegacy(self.trust.trustedCircle, self.accountKey) ? @"contains_legacy" : @"does_not_contain_legacy"
+        }];
+    } else {
+        CKKSAnalyticsFailableEvent* event = (CKKSAnalyticsFailableEvent*)[NSString stringWithFormat:@"%@-%@-%@-%@", SOSCompatibilityModeGetCachedStatus() ? @"compat_enabled" : @"compat_disabled",
+                                                                          SOSDeferralAnalyticsPairing,
+                                                                          inCircle ? @"in_circle" : @"not_in_circle",
+                                                                          SOSCircleIsLegacy(self.trust.trustedCircle, self.accountKey) ? @"contains_legacy" : @"does_not_contain_legacy"];
+        [[[CKKSAnalytics class] logger] logSuccessForEventNamed:event];
+    }
+#endif
     complete(res, (__bridge NSError *)localError);
     CFReleaseNull(localError);
 }
@@ -1011,11 +1028,11 @@ static bool Flush(CFErrorRef *error) {
     if(!valuePresent) {
         [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSInitialized"];
         secnotice("SOSMonitorMode", "No value found for SOSMonitorMode initializing to Active");
-        [self sosEnable];
+        [self SOSMonitorModeEnableSOS];
     }
 }
 
-- (void) sosDisable {
+- (void) SOSMonitorModeDisableSOS {
     if(os_feature_enabled(Security, SOSMonitorMode)) {
         secnotice("SOSMonitorMode", "Putting SOS into monitor mode");
         [self.settings setBool: NO forKey: @"SOSEnabled"];
@@ -1024,22 +1041,22 @@ static bool Flush(CFErrorRef *error) {
     }
 }
 
-- (void) sosEnable {
+- (void) SOSMonitorModeEnableSOS {
     secnotice("SOSMonitorMode", "Setting SOS to active");
     [self.settings setBool: YES forKey: @"SOSEnabled"];
 }
 
-- (void) sosIsEnabledCB: (void(^)(bool result)) complete {
-    complete([self sosIsEnabled]);
+- (void) SOSMonitorModeSOSIsActiveWithCallback: (void(^)(bool result)) complete {
+    complete([self SOSMonitorModeSOSIsActive]);
 }
 
-- (bool)sosIsEnabled {
+- (bool) SOSMonitorModeSOSIsActive {
     [self sosEnableValidityCheck];
     return [self.settings boolForKey: @"SOSEnabled"];
 }
 
-- (NSString *) sosIsEnabledString {
-    return [self sosIsEnabled] ? @"[SOS is active]": @"[SOS is monitoring]";
+- (NSString *) SOSMonitorModeSOSIsActiveDescription {
+    return [self SOSMonitorModeSOSIsActive] ? @"[SOS is active]": @"[SOS is monitoring]";
 }
 
 /*
@@ -1047,37 +1064,48 @@ static bool Flush(CFErrorRef *error) {
     We're still listening to circle / keyparm changes (trust) so if changes happen there we'll re-enable if legacy
  */
 - (bool) sosEvaluateIfNeeded {
-    if(!os_feature_enabled(Security, SOSMonitorMode)) {
-        if(![self sosIsEnabled]) {
+    if (SOSCompatibilityModeEnabled()) {
+        secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - SOS Compatibility Mode enabled, checking mode");
+        if (SOSCompatibilityModeGetCachedStatus()) {
+            secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - Turning on SOS for Compatibility mode");
+            [self SOSMonitorModeEnableSOS];
+            [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSCompatMode"];
+        } else {
+            secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - Turning off SOS for Compatibility mode");
+            [self SOSMonitorModeDisableSOS];
+            [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSCompatMode"];
+        }
+    } else if(!os_feature_enabled(Security, SOSMonitorMode)) {
+        if(![self SOSMonitorModeSOSIsActive]) {
             // make sure SOS wasn't accidentally turned off
             secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - Turning on SOS since monitor mode is unavailable");
-            [self sosEnable];
+            [self SOSMonitorModeEnableSOS];
             [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSLegacyMode"];
         }
     } else {
         // SOSMonitorMode is go
         secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - checking circle");
         if(!self.accountKeyIsTrusted) {
-            if([self sosIsEnabled]) {
+            if([self SOSMonitorModeSOSIsActive]) {
                 secnotice("SOSMonitorMode", "SOS is in monitor mode since the account key isn't trusted");
-                [self sosDisable];
+                [self SOSMonitorModeDisableSOS];
                 [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSMonitorMode"];
             }
         } else if(SOSCircleIsLegacy(self.trust.trustedCircle, self.accountKey)) {
-            if(![self sosIsEnabled]) {
+            if(![self SOSMonitorModeSOSIsActive]) {
                 secnotice("SOSMonitorMode", "Putting SOS into active mode for circle change");
-                [self sosEnable];
+                [self SOSMonitorModeEnableSOS];
                 [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSLegacyMode"];
             }
         } else {
-            if([self sosIsEnabled]) {
+            if([self SOSMonitorModeSOSIsActive]) {
                 secnotice("SOSMonitorMode", "Putting SOS into monitor mode due to circle change");
-                [self sosDisable];
+                [self SOSMonitorModeDisableSOS];
                 [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSMonitorMode"];
             }
         }
     }
-    return [self sosIsEnabled];
+    return [self SOSMonitorModeSOSIsActive];
 }
 
 
@@ -2096,7 +2124,7 @@ bool SOSAccountEnsurePeerRegistration(SOSAccount*  account, CFErrorRef *error) {
         return result;
     }
     
-    if(![account sosIsEnabled]) {
+    if(![account SOSMonitorModeSOSIsActive]) {
         return true;
     }
 
@@ -2175,37 +2203,47 @@ bool SOSAccountAddEscrowToPeerInfo(SOSAccount*  account, SOSFullPeerInfoRef myPe
 
 static const uint64_t maxTimeToWaitInSeconds = 30ull * NSEC_PER_SEC;
 
-static CFDictionaryRef SOSAccountGetObjectsFromCloud(dispatch_queue_t processQueue, CFErrorRef *error)
+static CFDictionaryRef SOSAccountCopyObjectsFromCloud(dispatch_queue_t processQueue, CFErrorRef *error)
 {
-    __block CFTypeRef object = NULL;
+    __block CFDictionaryRef ret = NULL;
     
     dispatch_semaphore_t waitSemaphore = dispatch_semaphore_create(0);
     dispatch_time_t finishTime = dispatch_time(DISPATCH_TIME_NOW, maxTimeToWaitInSeconds);
         
+    __block CFErrorRef retError = NULL;
+    
     CloudKeychainReplyBlock replyBlock =
-    ^ (CFDictionaryRef returnedValues, CFErrorRef error)
+    ^ (CFDictionaryRef returnedValues, CFErrorRef blockError)
     {
-        object = returnedValues;
-        if (object)
-            CFRetain(object);
-        if (error)
-        {
-            secerror("SOSCloudKeychainGetObjectsFromCloud returned error: %@", error);
+        if (blockError) {
+            secerror("SOSCloudKeychainGetObjectsFromCloud returned error: %@", blockError);
+            retError = CFRetainSafe(blockError);
+        }
+        if (returnedValues != NULL) {
+            if (CFGetTypeID(returnedValues) == CFNullGetTypeID()) {
+                CFReleaseNull(returnedValues);
+                ret = NULL;
+            } else {
+                CFRetainAssign(ret, returnedValues);
+            }
+        } else {
+            ret = NULL;
         }
         dispatch_semaphore_signal(waitSemaphore);
     };
     
     SOSCloudKeychainGetAllObjectsFromCloud(processQueue, replyBlock);
-    
     dispatch_semaphore_wait(waitSemaphore, finishTime);
-    if (object && (CFGetTypeID(object) == CFNullGetTypeID()))   // return a NULL instead of a CFNull
-    {
-        CFRelease(object);
-        object = NULL;
-    }
-    return asDictionary(object, NULL); // don't propogate "NULL is not a dictionary" errors
-}
 
+    if (retError) {
+        if (error) {
+            *error = CFRetainSafe(retError);
+        }
+        CFReleaseNull(retError);
+    }
+
+    return ret;
+}
 
 static void SOSAccountRemoveKVSKeys(SOSAccount* account, NSArray* keysToRemove, dispatch_queue_t processQueue)
 {
@@ -2360,9 +2398,16 @@ NSMutableArray * SOSAccountScanForDeletions(CFDictionaryRef keysAndValues, CFSet
 bool SOSAccountCleanupAllKVSKeys(SOSAccount* account, CFErrorRef* error)
 {
     dispatch_queue_t processQueue = dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0);
-    CFDictionaryRef keysAndValues = SOSAccountGetObjectsFromCloud(processQueue, error);
-    
+    CFDictionaryRef keysAndValues = SOSAccountCopyObjectsFromCloud(processQueue, error);
 
+    if (keysAndValues == NULL) {
+        secnotice("key-cleanup", "KVS data returned is nil, cleanup complete");
+        if (error) {
+            secerror("key-cleanup: SOSAccountCopyObjectsFromCloud hit an error: %@", *error);
+        }
+        return true;
+    }
+    
     CFSetRef peerIDs = copySyncingPeerIDsIntoSet(account);
     CFSetRef retiredPeerIDs = copyCircleRetiredPeerIDsIntoSet(account);
 
@@ -2376,6 +2421,9 @@ bool SOSAccountCleanupAllKVSKeys(SOSAccount* account, CFErrorRef* error)
 
     SOSAccountRemoveKVSKeys(account, keysToRemove, processQueue);
     SOSAccountWriteLastCleanupTimestampToKVS(account);
+    
+    CFReleaseNull(keysAndValues);
+    
     return true;
 }
 
@@ -2958,7 +3006,7 @@ CFStringRef SOSAccountCopyStateString(SOSAccount*  account) {
               boolToChars(hasPubKey, 'U', 'u'), boolToChars(pubTrusted, 'T', 't'), boolToChars(hasPriv, 'I', 'i'),
               userPubKeyID,
               SOSAccountGetSOSCCStatusString(stat), getuid(), geteuid(),
-              [account sosIsEnabledString],
+              [account SOSMonitorModeSOSIsActiveDescription],
               profileRestricted ? "User Visible Keychain Disallowed by Profile": "Unrestricted User Visible Views"
               );
     
@@ -2999,7 +3047,9 @@ void SOSAccountLogViewState(SOSAccount*  account) {
         secnotice(ACCOUNTLOGSTATE, "outstanding views: %@", description);
     });
     CFReleaseNull(unsyncedViews);
-
+    if (SOSCompatibilityModeEnabled()) {
+        secnotice(ACCOUNTLOGSTATE, "SOS CompatibilityMode: %@", account.sosCompatibilityMode ? @"enabled" : @"disabled");
+    }
 imOut:
     secnotice(ACCOUNTLOGSTATE, "Finish");
 

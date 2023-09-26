@@ -89,7 +89,6 @@
 		1CFF7DE1102117040097ADA4 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		1CFF7DE2102117080097ADA4 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		1CFF7DE31021170D0097ADA4 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
-		1CFF7DE4102117120097ADA4 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		1CFF7DE5102117170097ADA4 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		1CFF7DE61021171D0097ADA4 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		1CFF7DE8102117270097ADA4 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
@@ -101,11 +100,9 @@
 		1CFF7F50102118980097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		1CFF7F51102118980097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		430DE2BD22F4F39A00547FA4 /* ConfigurationProfiles.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 430DE2BC22F4F39A00547FA4 /* ConfigurationProfiles.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		4394E9841C90CEFC00FD055E /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF871C05FF43005DC226 /* Security.framework */; };
 		4394E9851C90CEFE00FD055E /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF871C05FF43005DC226 /* Security.framework */; };
 		5E033EA72248CE4C00D486A0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E033EA62248CE4C00D486A0 /* Foundation.framework */; };
 		5E033EA82248CE8900D486A0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E033EA62248CE4C00D486A0 /* Foundation.framework */; };
-		5F9145691C56179800E307FC /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		5F91456B1C56179800E307FC /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		5FD7DF861C05FF14005DC226 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF851C05FF14005DC226 /* libcoreauthd_client.a */; };
 		5FD7DF881C05FF43005DC226 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF871C05FF43005DC226 /* Security.framework */; };
@@ -113,10 +110,10 @@
 		5FD7DF951C06047D005DC226 /* libpam.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF941C06047D005DC226 /* libpam.tbd */; };
 		5FE441CA1C5619900010C4FD /* pam_aks.8 in man8 */ = {isa = PBXBuildFile; fileRef = 5FE441C71C56191F0010C4FD /* pam_aks.8 */; };
 		5FE441CB1C561B270010C4FD /* pam_aks.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FE441C61C56190B0010C4FD /* pam_aks.c */; };
-		5FE441E11C5656AF0010C4FD /* authorization_la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5FE441DF1C5656880010C4FD /* authorization_la */; };
-		5FE441E21C5656AF0010C4FD /* screensaver_la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5FE441E01C5656880010C4FD /* screensaver_la */; };
-		5FE441E31C5656C20010C4FD /* authorization_aks in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5FE441DD1C5656880010C4FD /* authorization_aks */; };
-		5FE441E41C5656C20010C4FD /* screensaver_aks in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5FE441DE1C5656880010C4FD /* screensaver_aks */; };
+		5FE441E11C5656AF0010C4FD /* authorization_la in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = 5FE441DF1C5656880010C4FD /* authorization_la */; };
+		5FE441E21C5656AF0010C4FD /* screensaver_la in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = 5FE441E01C5656880010C4FD /* screensaver_la */; };
+		5FE441E31C5656C20010C4FD /* authorization_aks in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = 5FE441DD1C5656880010C4FD /* authorization_aks */; };
+		5FE441E41C5656C20010C4FD /* screensaver_aks in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = 5FE441DE1C5656880010C4FD /* screensaver_aks */; };
 		5FFEF00C1C04A3950083839D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		5FFEF00E1C04A3950083839D /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		5FFEF0161C04A6850083839D /* pam_localauthentication.8 in man8 */ = {isa = PBXBuildFile; fileRef = 5FFEF0121C04A3F70083839D /* pam_localauthentication.8 */; };
@@ -132,20 +129,20 @@
 		7434CA1A12554FE5001D7F9E /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		7434CA761255560B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		7434CA791255562B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
-		764807DA1E60799B00EB2DEF /* authorization_lacont in CopyFiles */ = {isa = PBXBuildFile; fileRef = 764807D91E6068B000EB2DEF /* authorization_lacont */; };
+		764807DA1E60799B00EB2DEF /* authorization_lacont in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = 764807D91E6068B000EB2DEF /* authorization_lacont */; };
 		EB27C0B5143CA4AA003F6770 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		F60ABCB41BB40E4E006F85AD /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */; };
 		F6529BBA1C84BE1D005245B2 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6529BB91C84BE1D005245B2 /* libctkclient.a */; };
-		F67CB7E21C899F3600DABE90 /* authorization_ctk in CopyFiles */ = {isa = PBXBuildFile; fileRef = F67CB7DF1C899EB800DABE90 /* authorization_ctk */; };
-		F67CB7E31C899F3600DABE90 /* screensaver_ctk in CopyFiles */ = {isa = PBXBuildFile; fileRef = F67CB7E01C899EB800DABE90 /* screensaver_ctk */; };
-		F6AAC5F81DF07A05008A6811 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */; };
+		F67CB7E21C899F3600DABE90 /* authorization_ctk in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = F67CB7DF1C899EB800DABE90 /* authorization_ctk */; };
+		F67CB7E31C899F3600DABE90 /* screensaver_ctk in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = F67CB7E01C899EB800DABE90 /* screensaver_ctk */; };
 		F6AAC5F91DF07A05008A6811 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF871C05FF43005DC226 /* Security.framework */; };
 		F6AAC5FA1DF07A05008A6811 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
-		F6AAC5FB1DF07A05008A6811 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		F6AAC5FC1DF07A05008A6811 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
-		F6AAC6071DF07A3C008A6811 /* LocalAuthentication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F6AAC6061DF07A3C008A6811 /* LocalAuthentication.framework */; };
 		F6AAC6081DF07A59008A6811 /* pam_tid.c in Sources */ = {isa = PBXBuildFile; fileRef = F6AAC5EE1DF079F0008A6811 /* pam_tid.c */; };
 		F6AAC60C1DF18289008A6811 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF851C05FF14005DC226 /* libcoreauthd_client.a */; };
+		F6B5E6982A4D709C009EE29E /* screensaver_new_ctk in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = F6B5E6962A4D7036009EE29E /* screensaver_new_ctk */; };
+		F6B5E6992A4D70B5009EE29E /* screensaver_new_aks in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = F6B5E6972A4D7066009EE29E /* screensaver_new_aks */; };
+		F6B5E69A2A4D70C3009EE29E /* screensaver_new_la in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = F6B5E6942A4D702B009EE29E /* screensaver_new_la */; };
 		F6C0B8E81B8DE6BC00892765 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		F6C0B8EB1B8DE6BC00892765 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		F6C0B8EC1B8DE6BC00892765 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
@@ -339,38 +336,44 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		5FE441D91C5641EA0010C4FD /* CopyFiles */ = {
+		5FE441D91C5641EA0010C4FD /* Copy PAM profiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /private/etc/pam.d;
 			dstSubfolderSpec = 0;
 			files = (
-				764807DA1E60799B00EB2DEF /* authorization_lacont in CopyFiles */,
-				5FE441E11C5656AF0010C4FD /* authorization_la in CopyFiles */,
-				5FE441E21C5656AF0010C4FD /* screensaver_la in CopyFiles */,
+				764807DA1E60799B00EB2DEF /* authorization_lacont in Copy PAM profiles */,
+				5FE441E11C5656AF0010C4FD /* authorization_la in Copy PAM profiles */,
+				5FE441E21C5656AF0010C4FD /* screensaver_la in Copy PAM profiles */,
+				F6B5E69A2A4D70C3009EE29E /* screensaver_new_la in Copy PAM profiles */,
 			);
+			name = "Copy PAM profiles";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		5FE441DB1C5642210010C4FD /* CopyFiles */ = {
+		5FE441DB1C5642210010C4FD /* Copy PAM profiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /private/etc/pam.d;
 			dstSubfolderSpec = 0;
 			files = (
-				5FE441E31C5656C20010C4FD /* authorization_aks in CopyFiles */,
-				5FE441E41C5656C20010C4FD /* screensaver_aks in CopyFiles */,
+				5FE441E31C5656C20010C4FD /* authorization_aks in Copy PAM profiles */,
+				5FE441E41C5656C20010C4FD /* screensaver_aks in Copy PAM profiles */,
+				F6B5E6992A4D70B5009EE29E /* screensaver_new_aks in Copy PAM profiles */,
 			);
+			name = "Copy PAM profiles";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		F67CB7E11C899F2B00DABE90 /* CopyFiles */ = {
+		F67CB7E11C899F2B00DABE90 /* Copy PAM profiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /private/etc/pam.d;
 			dstSubfolderSpec = 0;
 			files = (
-				F67CB7E21C899F3600DABE90 /* authorization_ctk in CopyFiles */,
-				F67CB7E31C899F3600DABE90 /* screensaver_ctk in CopyFiles */,
+				F67CB7E21C899F3600DABE90 /* authorization_ctk in Copy PAM profiles */,
+				F67CB7E31C899F3600DABE90 /* screensaver_ctk in Copy PAM profiles */,
+				F6B5E6982A4D709C009EE29E /* screensaver_new_ctk in Copy PAM profiles */,
 			);
+			name = "Copy PAM profiles";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -448,6 +451,9 @@
 		F6AAC6061DF07A3C008A6811 /* LocalAuthentication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LocalAuthentication.framework; path = System/Library/Frameworks/LocalAuthentication.framework; sourceTree = SDKROOT; };
 		F6AAC60B1DF07D6A008A6811 /* Logging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Logging.h; path = common/Logging.h; sourceTree = "<group>"; };
 		F6ABB8B11D22CDCC00AECC36 /* scmatch_evaluation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = scmatch_evaluation.h; path = modules/pam_smartcard/scmatch_evaluation.h; sourceTree = "<group>"; };
+		F6B5E6942A4D702B009EE29E /* screensaver_new_la */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = screensaver_new_la; path = modules/pam_localauthentication/screensaver_new_la; sourceTree = "<group>"; };
+		F6B5E6962A4D7036009EE29E /* screensaver_new_ctk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = screensaver_new_ctk; path = modules/pam_smartcard/screensaver_new_ctk; sourceTree = "<group>"; };
+		F6B5E6972A4D7066009EE29E /* screensaver_new_aks */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = screensaver_new_aks; path = modules/pam_aks/screensaver_new_aks; sourceTree = "<group>"; };
 		F6C0B8F01B8DE6BC00892765 /* pam_smartcard.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_smartcard.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6D2E89026737A41005D165D /* ds_ops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ds_ops.c; path = modules/pam_smartcard/ds_ops.c; sourceTree = "<group>"; };
 		F6D2E89226737AB2005D165D /* krb5principal.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = krb5principal.m; path = modules/pam_smartcard/krb5principal.m; sourceTree = "<group>"; };
@@ -492,7 +498,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4394E9841C90CEFC00FD055E /* Security.framework in Frameworks */,
 				1CFF7DE0102116FF0097ADA4 /* libpam.2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -532,7 +537,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1CFF7DE4102117120097ADA4 /* libpam.2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -564,7 +568,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5F9145691C56179800E307FC /* CoreFoundation.framework in Frameworks */,
 				5F91456B1C56179800E307FC /* libpam.2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -605,11 +608,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				5E033EA82248CE8900D486A0 /* Foundation.framework in Frameworks */,
-				F6AAC6071DF07A3C008A6811 /* LocalAuthentication.framework in Frameworks */,
-				F6AAC5F81DF07A05008A6811 /* DirectoryService.framework in Frameworks */,
 				F6AAC5F91DF07A05008A6811 /* Security.framework in Frameworks */,
 				F6AAC5FA1DF07A05008A6811 /* CoreFoundation.framework in Frameworks */,
-				F6AAC5FB1DF07A05008A6811 /* OpenDirectory.framework in Frameworks */,
 				F6AAC5FC1DF07A05008A6811 /* libpam.2.tbd in Frameworks */,
 				F6AAC60C1DF18289008A6811 /* libcoreauthd_client.a in Frameworks */,
 			);
@@ -751,6 +751,9 @@
 				5FE441DE1C5656880010C4FD /* screensaver_aks */,
 				F67CB7E01C899EB800DABE90 /* screensaver_ctk */,
 				5FE441E01C5656880010C4FD /* screensaver_la */,
+				F6B5E6972A4D7066009EE29E /* screensaver_new_aks */,
+				F6B5E6962A4D7036009EE29E /* screensaver_new_ctk */,
+				F6B5E6942A4D702B009EE29E /* screensaver_new_la */,
 			);
 			name = Configurations;
 			sourceTree = "<group>";
@@ -1090,7 +1093,7 @@
 				5F9145651C56179800E307FC /* Headers */,
 				5F9145661C56179800E307FC /* Sources */,
 				5F9145681C56179800E307FC /* Frameworks */,
-				5FE441DB1C5642210010C4FD /* CopyFiles */,
+				5FE441DB1C5642210010C4FD /* Copy PAM profiles */,
 			);
 			buildRules = (
 			);
@@ -1127,7 +1130,7 @@
 				5FFEF0071C04A3950083839D /* Headers */,
 				5FFEF0081C04A3950083839D /* Sources */,
 				5FFEF00B1C04A3950083839D /* Frameworks */,
-				5FE441D91C5641EA0010C4FD /* CopyFiles */,
+				5FE441D91C5641EA0010C4FD /* Copy PAM profiles */,
 			);
 			buildRules = (
 			);
@@ -1179,7 +1182,7 @@
 				F6C0B8E61B8DE6BC00892765 /* Headers */,
 				F6C0B8E71B8DE6BC00892765 /* Sources */,
 				F6C0B8EA1B8DE6BC00892765 /* Frameworks */,
-				F67CB7E11C899F2B00DABE90 /* CopyFiles */,
+				F67CB7E11C899F2B00DABE90 /* Copy PAM profiles */,
 			);
 			buildRules = (
 			);

@@ -25,6 +25,10 @@
 #define _SECURITY_SOSTYPES_H_
 
 #include <sys/cdefs.h>
+#if __OBJC__
+// Must do this outside of __BEGIN_DECLS (extern "C")
+#import <Foundation/Foundation.h>
+#endif
 
 __BEGIN_DECLS
 
@@ -104,8 +108,6 @@ enum {
 
 #if __OBJC__
 
-#import <Foundation/Foundation.h>
-
 #define SOSControlInitialSyncFlagTLK                  (1 << 0)
 #define SOSControlInitialSyncFlagPCS                  (1 << 1)
 #define SOSControlInitialSyncFlagPCSNonCurrent        (1 << 2)
@@ -154,11 +156,11 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 
 - (void)removeV0Peers:(void(^)(bool removedV0Peer, NSError *error))reply;
 
-- (void) sosDisable;
-- (void) sosEnable;
-- (void) sosIsEnabledCB: (void(^)(bool result)) complete;
-- (bool) sosIsEnabled;
-- (NSString *) sosIsEnabledString;
+- (void) SOSMonitorModeDisableSOS;
+- (void) SOSMonitorModeEnableSOS;
+- (void) SOSMonitorModeSOSIsActiveWithCallback: (void(^)(bool result)) complete;
+- (bool) SOSMonitorModeSOSIsActive;
+- (NSString *) SOSMonitorModeSOSIsActiveDescription;
 - (void)setBypass:(BOOL)bypass reply:(void(^)(BOOL result, NSError *error))reply;
 
 @end

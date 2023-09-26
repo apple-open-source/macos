@@ -8,7 +8,7 @@
 
 #define RPCGEN_VERSION  199506
 
-#include <rpc/rpc.h>
+#include <oncrpc/rpc.h>
 
 #define MNTPATHLEN 1024
 #define MNTNAMLEN 255

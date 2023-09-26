@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -184,7 +184,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL fullScreenEnabled;
 @property (nonatomic) BOOL asynchronousSpellCheckingEnabled;
 @property (nonatomic) BOOL usePreHTML5ParserQuirks;
-@property (nonatomic) BOOL loadsSiteIconsIgnoringImageLoadingPreference;
 @property (nonatomic, getter=isAVFoundationEnabled) BOOL AVFoundationEnabled;
 @property (nonatomic, getter=isAVFoundationNSURLSessionEnabled) BOOL AVFoundationNSURLSessionEnabled;
 @property (nonatomic) BOOL backspaceKeyNavigationEnabled;
@@ -202,7 +201,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL hiddenPageDOMTimerThrottlingEnabled;
 @property (nonatomic) BOOL hiddenPageCSSAnimationSuspensionEnabled;
 @property (nonatomic) BOOL lowPowerVideoAudioBufferSizeEnabled;
-@property (nonatomic) BOOL useLegacyTextAlignPositionedElementBehavior;
 @property (nonatomic) BOOL mediaSourceEnabled;
 @property (nonatomic) BOOL shouldConvertPositionStyleOnCopy;
 @property (nonatomic) BOOL imageControlsEnabled;
@@ -322,7 +320,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL CSSOMViewSmoothScrollingEnabled;
 @property (nonatomic) BOOL webAnimationsCompositeOperationsEnabled;
 @property (nonatomic) BOOL webAnimationsMutableTimelinesEnabled;
-@property (nonatomic) BOOL webGL2Enabled;
 @property (nonatomic) BOOL maskWebGLStringsEnabled;
 @property (nonatomic) BOOL serverTimingEnabled;
 @property (nonatomic) BOOL CSSCustomPropertiesAndValuesEnabled;
@@ -367,6 +364,8 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL selectionAcrossShadowBoundariesEnabled;
 @property (nonatomic, getter=isXSSAuditorEnabled) BOOL XSSAuditorEnabled;
 @property (nonatomic) BOOL subpixelAntialiasedLayerTextEnabled;
+@property (nonatomic) BOOL webGL2Enabled;
+@property (nonatomic) BOOL loadsSiteIconsIgnoringImageLoadingPreference;
 
 - (void)setDiskImageCacheEnabled:(BOOL)enabled;
 

@@ -595,7 +595,7 @@ LDAP_F ( void ) ldap_int_initialize_global_options LDAP_P((
  * Called by ldap_create() & ldap_get_option()
  */
 LDAP_V ( dispatch_once_t) ldap_global_opts_initialized ;
-LDAP_F ( void ) ldap_int_init_global_opts LDAP_P((void));
+LDAP_F ( void ) ldap_int_init_global_opts LDAP_P((void * _Nullable));
 #endif
 
 /* memory.c */

@@ -303,23 +303,21 @@ typedef enum UNumberFormatRoundingMode {
       * @stable ICU 4.8
       */
     UNUM_ROUND_UNNECESSARY,
-#ifndef U_HIDE_DRAFT_API
     /**
      * Rounds ties toward the odd number.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UNUM_ROUND_HALF_ODD,
     /**
      * Rounds ties toward +∞.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UNUM_ROUND_HALF_CEILING,
     /**
      * Rounds ties toward -∞.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UNUM_ROUND_HALF_FLOOR,
-#endif  // U_HIDE_DRAFT_API
 } UNumberFormatRoundingMode;
 
 /** The possible number format pad positions. 
@@ -401,13 +399,24 @@ typedef enum UNumberFormatFields {
     UNUM_MEASURE_UNIT_FIELD,
     /** @stable ICU 64 */
     UNUM_COMPACT_FIELD,
+#ifndef U_HIDE_DRAFT_API
+    /**
+     * Approximately sign. In ICU 70, this was categorized under the generic SIGN field.
+     * @draft ICU 71
+     */
+    UNUM_APPROXIMATELY_SIGN_FIELD,
+#endif // U_HIDE_DRAFT_API
 
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal UNumberFormatFields value.
      * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
-    UNUM_FIELD_COUNT = UNUM_SIGN_FIELD + 3
+#ifndef U_HIDE_DRAFT_API
+    UNUM_FIELD_COUNT = UNUM_COMPACT_FIELD + 2
+#else  // U_HIDE_DRAFT_API (for UNUM_APPROXIMATELY_SIGN_FIELD)
+    UNUM_FIELD_COUNT = UNUM_COMPACT_FIELD + 1
+#endif  // U_HIDE_DRAFT_API (for UNUM_APPROXIMATELY_SIGN_FIELD)
 #endif  /* U_HIDE_DEPRECATED_API */
 } UNumberFormatFields;
 
@@ -1088,8 +1097,10 @@ typedef enum UNumberFormatAttribute {
    */
   UNUM_MINIMUM_GROUPING_DIGITS = 22,
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
-  /** Apple addition for <rdar://problem/39240173>.
+  /** Apple addition for rdar://39240173.
    * In open-source ICU 60 and earlier, unum_formatDouble pinned
    * double to string conversion at DBL_DIG=15 (from <float.h>)
    * significant digits; beginning in ICU 61, several extra digit
@@ -1101,6 +1112,7 @@ typedef enum UNumberFormatAttribute {
    * @internal */
   UNUM_FORMAT_WITH_FULL_PRECISION = 48,
 #endif  /* U_HIDE_INTERNAL_API */
+#endif  // APPLE_ICU_CHANGES
 
   /** 
    * if this attribute is set to 0, it is set to UNUM_CURRENCY_STANDARD purpose,
@@ -1166,6 +1178,26 @@ typedef enum UNumberFormatAttribute {
 
 } UNumberFormatAttribute;
 
+#ifndef U_HIDE_DRAFT_API
+/**
+* Returns true if the formatter supports the specified attribute and false if not.
+* @param fmt The formatter to query.
+* @param attr The attribute to query.  This can be any value of UNumberFormatterAttribute,
+* regardless of type.
+* @return True if the requested attribute is supported by the formatter; false if not.
+* @see unum_getAttribute
+* @see unum_setAttribute
+* @see unum_getDoubleAttribute
+* @see unum_setDoubleAttribute
+* @see unum_getTextAttribute
+* @see unum_setTextAttribute
+* @draft ICU 72
+*/
+U_CAPI bool U_EXPORT2
+unum_hasAttribute(const UNumberFormat*          fmt,
+          UNumberFormatAttribute  attr);
+#endif // U_HIDE_DRAFT_API
+
 /**
 * Get a numeric attribute associated with a UNumberFormat.
 * An example of a numeric attribute is the number of integer digits a formatter will produce.
@@ -1175,12 +1207,12 @@ typedef enum UNumberFormatAttribute {
 * UNUM_MAX_FRACTION_DIGITS, UNUM_MIN_FRACTION_DIGITS, UNUM_FRACTION_DIGITS, UNUM_MULTIPLIER,
 * UNUM_GROUPING_SIZE, UNUM_ROUNDING_MODE, UNUM_FORMAT_WIDTH, UNUM_PADDING_POSITION, UNUM_SECONDARY_GROUPING_SIZE,
 * UNUM_SCALE, UNUM_MINIMUM_GROUPING_DIGITS.
-* @return The value of attr.
+* @return The value of attr, or -1 if the formatter doesn't have the requested attribute.  The caller should use unum_hasAttribute() to tell if the attribute
+* is available, rather than relaying on this function returning -1.
+* @see unum_hasAttribute
 * @see unum_setAttribute
 * @see unum_getDoubleAttribute
 * @see unum_setDoubleAttribute
-* @see unum_getTextAttribute
-* @see unum_setTextAttribute
 * @stable ICU 2.0
 */
 U_CAPI int32_t U_EXPORT2 
@@ -1191,7 +1223,7 @@ unum_getAttribute(const UNumberFormat*          fmt,
 * Set a numeric attribute associated with a UNumberFormat.
 * An example of a numeric attribute is the number of integer digits a formatter will produce.  If the
 * formatter does not understand the attribute, the call is ignored.  Rule-based formatters only understand
-* the lenient-parse attribute.
+* the lenient-parse attribute.  The caller can use unum_hasAttribute() to find out if the formatter supports the attribute.
 * @param fmt The formatter to set.
 * @param attr The attribute to set; one of UNUM_PARSE_INT_ONLY, UNUM_GROUPING_USED,
 * UNUM_DECIMAL_ALWAYS_SHOWN, UNUM_MAX_INTEGER_DIGITS, UNUM_MIN_INTEGER_DIGITS, UNUM_INTEGER_DIGITS,
@@ -1199,6 +1231,7 @@ unum_getAttribute(const UNumberFormat*          fmt,
 * UNUM_GROUPING_SIZE, UNUM_ROUNDING_MODE, UNUM_FORMAT_WIDTH, UNUM_PADDING_POSITION, UNUM_SECONDARY_GROUPING_SIZE,
 * UNUM_LENIENT_PARSE, UNUM_SCALE, UNUM_MINIMUM_GROUPING_DIGITS.
 * @param newValue The new value of attr.
+* @see unum_hasAttribute
 * @see unum_getAttribute
 * @see unum_getDoubleAttribute
 * @see unum_setDoubleAttribute
@@ -1215,10 +1248,12 @@ unum_setAttribute(    UNumberFormat*          fmt,
 /**
 * Get a numeric attribute associated with a UNumberFormat.
 * An example of a numeric attribute is the number of integer digits a formatter will produce.
-* If the formatter does not understand the attribute, -1 is returned.
+* If the formatter does not understand the attribute, -1 is returned.  The caller should use unum_hasAttribute()
+* to determine if the attribute is supported, rather than relying on this function returning -1.
 * @param fmt The formatter to query.
 * @param attr The attribute to query; e.g. UNUM_ROUNDING_INCREMENT.
-* @return The value of attr.
+* @return The value of attr, or -1 if the formatter doesn't understand the attribute.
+* @see unum_hasAttribute
 * @see unum_getAttribute
 * @see unum_setAttribute
 * @see unum_setDoubleAttribute
@@ -1233,10 +1268,12 @@ unum_getDoubleAttribute(const UNumberFormat*          fmt,
 /**
 * Set a numeric attribute associated with a UNumberFormat.
 * An example of a numeric attribute is the number of integer digits a formatter will produce.
-* If the formatter does not understand the attribute, this call is ignored.
+* If the formatter does not understand the attribute, this call is ignored.  The caller can use
+* unum_hasAttribute() to tell in advance whether the formatter understands the attribute.
 * @param fmt The formatter to set.
 * @param attr The attribute to set; e.g. UNUM_ROUNDING_INCREMENT.
 * @param newValue The new value of attr.
+* @see unum_hasAttribute
 * @see unum_getAttribute
 * @see unum_setAttribute
 * @see unum_getDoubleAttribute

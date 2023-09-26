@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,11 +38,12 @@ enum class ReceiverName : uint8_t {
     , TestWithStream = 6
     , TestWithStreamBatched = 7
     , TestWithStreamBuffer = 8
-    , TestWithSuperclass = 9
-    , TestWithoutAttributes = 10
-    , IPC = 11
-    , AsyncReply = 12
-    , Invalid = 13
+    , TestWithStreamServerConnectionHandle = 9
+    , TestWithSuperclass = 10
+    , TestWithoutAttributes = 11
+    , IPC = 12
+    , AsyncReply = 13
+    , Invalid = 14
 };
 
 enum class MessageName : uint16_t {
@@ -93,6 +94,8 @@ enum class MessageName : uint16_t {
     TestWithSemaphore_SendSemaphore,
     TestWithStreamBatched_SendString,
     TestWithStreamBuffer_SendStreamBuffer,
+    TestWithStreamServerConnectionHandle_SendStreamServerConnection,
+    TestWithStream_CallWithIdentifier,
 #if PLATFORM(COCOA)
     TestWithStream_SendMachSendRight,
 #endif
@@ -157,6 +160,7 @@ enum class MessageName : uint16_t {
 #endif
     TestWithLegacyReceiver_RunJavaScriptAlertReply,
     TestWithSemaphore_ReceiveSemaphoreReply,
+    TestWithStream_CallWithIdentifierReply,
     TestWithStream_SendStringAsyncReply,
 #if ENABLE(TEST_FEATURE)
     TestWithSuperclass_TestAsyncMessageReply,

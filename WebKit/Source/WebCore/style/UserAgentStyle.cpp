@@ -29,9 +29,12 @@
 #include "config.h"
 #include "UserAgentStyle.h"
 
+#include "CSSCounterStyleRegistry.h"
+#include "CSSCounterStyleRule.h"
 #include "CSSValuePool.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "ElementInlines.h"
 #include "FullscreenManager.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLAttachmentElement.h"
@@ -52,6 +55,7 @@
 #include "MathMLElement.h"
 #include "MediaQueryEvaluator.h"
 #include "Page.h"
+#include "Quirks.h"
 #include "RenderTheme.h"
 #include "RuleSetBuilder.h"
 #include "SVGElement.h"
@@ -76,8 +80,10 @@ StyleSheetContents* UserAgentStyle::svgStyleSheet;
 StyleSheetContents* UserAgentStyle::mathMLStyleSheet;
 StyleSheetContents* UserAgentStyle::mediaControlsStyleSheet;
 StyleSheetContents* UserAgentStyle::mediaQueryStyleSheet;
+StyleSheetContents* UserAgentStyle::popoverStyleSheet;
 StyleSheetContents* UserAgentStyle::plugInsStyleSheet;
 StyleSheetContents* UserAgentStyle::horizontalFormControlsStyleSheet;
+StyleSheetContents* UserAgentStyle::counterStylesStyleSheet;
 #if ENABLE(FULLSCREEN_API)
 StyleSheetContents* UserAgentStyle::fullscreenStyleSheet;
 #endif
@@ -95,9 +101,6 @@ StyleSheetContents* UserAgentStyle::colorInputStyleSheet;
 #endif
 #if ENABLE(IOS_FORM_CONTROL_REFRESH)
 StyleSheetContents* UserAgentStyle::legacyFormControlsIOSStyleSheet;
-#endif
-#if ENABLE(ALTERNATE_FORM_CONTROL_DESIGN)
-StyleSheetContents* UserAgentStyle::alternateFormControlDesignStyleSheet;
 #endif
 
 static const MQ::MediaQueryEvaluator& screenEval()
@@ -118,6 +121,14 @@ static StyleSheetContents* parseUASheet(const String& str)
     sheet.parseString(str);
     return &sheet;
 }
+void static addToCounterStyleRegistry(StyleSheetContents& sheet)
+{
+    for (auto& rule : sheet.childRules()) {
+        if (auto* counterStyleRule = dynamicDowncast<StyleRuleCounterStyle>(rule.get()))
+            CSSCounterStyleRegistry::addUserAgentCounterStyle(counterStyleRule->descriptors());
+    }
+    CSSCounterStyleRegistry::resolveUserAgentReferences();
+}
 
 void UserAgentStyle::addToDefaultStyle(StyleSheetContents& sheet)
 {
@@ -130,9 +141,9 @@ void UserAgentStyle::addToDefaultStyle(StyleSheetContents& sheet)
     // Build a stylesheet consisting of non-trivial media queries seen in default style.
     // Rulesets for these can't be global and need to be built in document context.
     for (auto& rule : sheet.childRules()) {
-        if (!is<StyleRuleMedia>(*rule))
+        if (!is<StyleRuleMedia>(rule))
             continue;
-        auto& mediaRule = downcast<StyleRuleMedia>(*rule);
+        auto& mediaRule = downcast<StyleRuleMedia>(rule);
         auto& mediaQuery = mediaRule.mediaQueries();
         if (screenEval().evaluate(mediaQuery))
             continue;
@@ -233,6 +244,17 @@ void UserAgentStyle::ensureDefaultStyleSheetsForElement(const Element& element)
     }
 #endif // ENABLE(MATHML)
 
+    bool popoverAttributeEnabled = element.document().settings().popoverAttributeEnabled() && !element.document().quirks().shouldDisablePopoverAttributeQuirk();
+    if (!popoverStyleSheet && popoverAttributeEnabled && element.hasAttributeWithoutSynchronization(popoverAttr)) {
+        popoverStyleSheet = parseUASheet(StringImpl::createWithoutCopying(popoverUserAgentStyleSheet, sizeof(popoverUserAgentStyleSheet)));
+        addToDefaultStyle(*popoverStyleSheet);
+    }
+
+    if (!counterStylesStyleSheet) {
+        counterStylesStyleSheet = parseUASheet(StringImpl::createWithoutCopying(counterStylesUserAgentStyleSheet, sizeof(counterStylesUserAgentStyleSheet)));
+        addToCounterStyleRegistry(*counterStylesStyleSheet);
+    }
+
 #if ENABLE(FULLSCREEN_API)
     if (!fullscreenStyleSheet && element.document().fullscreenManager().isFullscreen()) {
         fullscreenStyleSheet = parseUASheet(StringImpl::createWithoutCopying(fullscreenUserAgentStyleSheet, sizeof(fullscreenUserAgentStyleSheet)));
@@ -244,13 +266,6 @@ void UserAgentStyle::ensureDefaultStyleSheetsForElement(const Element& element)
     if (!legacyFormControlsIOSStyleSheet && !element.document().settings().iOSFormControlRefreshEnabled()) {
         legacyFormControlsIOSStyleSheet = parseUASheet(StringImpl::createWithoutCopying(legacyFormControlsIOSUserAgentStyleSheet, sizeof(legacyFormControlsIOSUserAgentStyleSheet)));
         addToDefaultStyle(*legacyFormControlsIOSStyleSheet);
-    }
-#endif
-
-#if ENABLE(ALTERNATE_FORM_CONTROL_DESIGN)
-    if (!alternateFormControlDesignStyleSheet && element.document().settings().alternateFormControlDesignEnabled()) {
-        alternateFormControlDesignStyleSheet = parseUASheet(StringImpl::createWithoutCopying(alternateFormControlDesignUserAgentStyleSheet, sizeof(alternateFormControlDesignUserAgentStyleSheet)));
-        addToDefaultStyle(*alternateFormControlDesignStyleSheet);
     }
 #endif
 

@@ -1590,6 +1590,7 @@ int hfs_vnop_setattr( vnode_t vp, const UVFSFileAttributes *attr )
             cp->c_mode = new_mode;
             cp->c_flag |= C_MINOR_MOD;
         }
+        cp->c_touch_chgtime = TRUE;
     }
 
     if ( attr->fa_validmask & UVFS_FA_VALID_BSD_FLAGS )
@@ -2803,11 +2804,6 @@ retry:
         }
 
         tvp_deleted = 1;
-
-        if ( ((VTOC(tvp)->c_flag & C_HARDLINK) ==  0 ) || (VTOC(tvp)->c_linkcount == 0) )
-        {
-            INVALIDATE_NODE(tvp);
-        }
 
         /* Mark 'tcp' as being deleted due to a rename */
         tcp->c_flag |= C_RENAMED;

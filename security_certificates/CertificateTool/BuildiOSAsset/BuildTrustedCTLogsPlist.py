@@ -55,7 +55,7 @@ log_array = []
 
 checkValue(log_list, dict, args.infile + " is not a json dictionary")
 checkValue(log_list["$schema"], basestring, "failed to get \'$schema\' version from " + args.infile)
-if log_list["$schema"] != "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json":
+if log_list["$schema"] != "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v4.json":
     raise ValueError("unknown schema " +  log_list["$schema"] + " for  " + args.infile)
 
 checkValue(log_list["operators"], list, "failed to get \'operators\' array from " + args.infile)

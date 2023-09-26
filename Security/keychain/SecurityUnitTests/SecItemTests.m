@@ -92,6 +92,23 @@
 
 }
 
+- (void)testBadPort {
+    NSDictionary* addQuery = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrAccount : @"SecItemTests testBadPort Account",
+        (id)kSecAttrPort : @"",
+    };
+
+    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)addQuery, NULL);
+    OSStatus expectedStatus = errSecParam;
+#if TARGET_OS_IPHONE
+    // Allow embedded OSes to work as before.
+    expectedStatus = 0;
+#endif
+    XCTAssertEqual(status, expectedStatus);
+}
+
 //-MARK: helper functions
 
 - (void)deleteAll {
@@ -100,6 +117,12 @@
         (id)kSecUseDataProtectionKeychain : @(YES),
     };
     (void)SecItemDelete((__bridge CFDictionaryRef)allGenericPassword);
+
+    NSDictionary *allInternetPassword = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain : @(YES),
+    };
+    (void)SecItemDelete((__bridge CFDictionaryRef)allInternetPassword);
 }
 
 

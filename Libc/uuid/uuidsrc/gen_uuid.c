@@ -38,6 +38,10 @@
  */
 #define _SVID_SOURCE
 
+#ifdef BUILDING_SIMPLE
+#include <stdlib.h>
+#include <string.h>
+#else
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -69,10 +73,13 @@
 #ifdef HAVE_NET_IF_DL_H
 #include <net/if_dl.h>
 #endif
+#endif /* BUILDING_SIMPLE */
 
 #include "uuidP.h"
 
 #define	get_random_bytes(a,b)	arc4random_buf((a),(b))
+
+#if !defined(BUILDING_SIMPLE)
 
 /*
  * Get the ethernet hardware address, if we can find it...
@@ -234,6 +241,8 @@ void uuid_generate_time(uuid_t out)
 	memcpy(uu.node, node_id, 6);
 	uuid_pack(&uu, out);
 }
+
+#endif /* !defined(BUILDING_SIMPLE) */
 
 void uuid_generate_random(uuid_t out)
 {

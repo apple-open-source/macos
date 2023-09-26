@@ -1,7 +1,6 @@
-/*	$OpenBSD: tables.c,v 1.25 2007/09/02 15:19:08 deraadt Exp $	*/
-/*	$NetBSD: tables.c,v 1.4 1995/03/21 09:07:45 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,25 +33,26 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)tables.c	8.1 (Berkeley) 5/31/93";
-#else
-__used static const char rcsid[] = "$OpenBSD: tables.c,v 1.25 2007/09/02 15:19:08 deraadt Exp $";
+static char sccsid[] = "@(#)tables.c	8.1 (Berkeley) 5/31/93";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#ifdef __APPLE__
 #include <sys/param.h>
+#endif /* __APPLE__ */
 #include <sys/fcntl.h>
+#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
-#include <stdlib.h>
 #include "pax.h"
 #include "tables.h"
 #include "extern.h"
@@ -62,13 +62,13 @@ __used static const char rcsid[] = "$OpenBSD: tables.c,v 1.25 2007/09/02 15:19:0
  * keeps. Tables are dynamically created only when they are needed. The
  * goal was speed and the ability to work with HUGE archives. The databases
  * were kept simple, but do have complex rules for when the contents change.
- * As of this writing, the posix library functions were more complex than
+ * As of this writing, the POSIX library functions were more complex than
  * needed for this application (pax databases have very short lifetimes and
  * do not survive after pax is finished). Pax is required to handle very
  * large archives. These database routines carefully combine memory usage and
  * temporary file storage in ways which will not significantly impact runtime
  * performance while allowing the largest possible archives to be handled.
- * Trying to force the fit to the posix database routines was not considered
+ * Trying to force the fit to the POSIX database routines was not considered
  * time well spent.
  */
 
@@ -77,9 +77,13 @@ static FTM **ftab = NULL;	/* file time table for updating arch */
 static NAMT **ntab = NULL;	/* interactive rename storage table */
 static DEVT **dtab = NULL;	/* device/inode mapping tables */
 static ATDIR **atab = NULL;	/* file tree directory time reset table */
+#ifdef __APPLE__
 static DIRDATA *dirp = NULL;	/* storage for setting created dir time/mode */
 static size_t dirsize;		/* size of dirp table */
-static long dircnt = 0;		/* entries in dir time/mode storage */
+#else
+static int dirfd = -1;		/* storage for setting created dir time/mode */
+#endif /* __APPLE__ */
+static u_long dircnt;		/* entries in dir time/mode storage */
 static int ffd = -1;		/* tmp file for file time table name storage */
 
 static DEVT *chk_dev(dev_t, int);
@@ -152,7 +156,7 @@ chk_lnk(ARCHD *arcn)
 	indx = ((unsigned)arcn->sb.st_ino) % L_TAB_SZ;
 	if ((pt = ltab[indx]) != NULL) {
 		/*
-		 * its hash chain in not empty, walk down looking for it
+		 * it's hash chain in not empty, walk down looking for it
 		 */
 		ppt = &(ltab[indx]);
 		while (pt != NULL) {
@@ -186,8 +190,8 @@ chk_lnk(ARCHD *arcn)
 			 */
 			if (--pt->nlink <= 1) {
 				*ppt = pt->fow;
-				(void)free((char *)pt->name);
-				(void)free((char *)pt);
+				free(pt->name);
+				free(pt);
 			}
 			return(1);
 		}
@@ -206,7 +210,7 @@ chk_lnk(ARCHD *arcn)
 			ltab[indx] = pt;
 			return(0);
 		}
-		(void)free((char *)pt);
+		free(pt);
 	}
 
 	paxwarn(1, "Hard link table out of memory");
@@ -217,7 +221,7 @@ chk_lnk(ARCHD *arcn)
  * purg_lnk
  *	remove reference for a file that we may have added to the data base as
  *	a potential source for hard links. We ended up not using the file, so
- *	we do not want to accidently point another file at it later on.
+ *	we do not want to accidentally point another file at it later on.
  */
 
 void
@@ -262,16 +266,16 @@ purg_lnk(ARCHD *arcn)
 	 * remove and free it
 	 */
 	*ppt = pt->fow;
-	(void)free((char *)pt->name);
-	(void)free((char *)pt);
+	free(pt->name);
+	free(pt);
 }
 
 /*
  * lnk_end()
- *	pull apart a existing link table so we can reuse it. We do this between
+ *	Pull apart an existing link table so we can reuse it. We do this between
  *	read and write phases of append with update. (The format may have
  *	used the link table, and we need to start with a fresh table for the
- *	write phase
+ *	write phase).
  */
 
 void
@@ -296,8 +300,8 @@ lnk_end(void)
 		while (pt != NULL) {
 			ppt = pt;
 			pt = ppt->fow;
-			(void)free((char *)ppt->name);
-			(void)free((char *)ppt);
+			free(ppt->name);
+			free(ppt);
 		}
 	}
 	return;
@@ -314,13 +318,13 @@ lnk_end(void)
  * An append with an -u must read the archive and store the modification time
  * for every file on that archive before starting the write phase. It is clear
  * that this is one HUGE database. To save memory space, the actual file names
- * are stored in a scratch file and indexed by an in-memory hash table. The
+ * are stored in a scratch file and indexed by an in memory hash table. The
  * hash table is indexed by hashing the file path. The nodes in the table store
  * the length of the filename and the lseek offset within the scratch file
  * where the actual name is stored. Since there are never any deletions from
- * this table, fragmentation of the scratch file is never a issue. Lookups 
+ * this table, fragmentation of the scratch file is never an issue. Lookups
  * seem to not exhibit any locality at all (files in the database are rarely
- * looked up more than once...), so caching is just a waste of memory. The
+ * looked up more than once...). So caching is just a waste of memory. The
  * only limitation is the amount of scratch file space available to store the
  * path names.
  */
@@ -468,7 +472,7 @@ chk_ftime(ARCHD *arcn)
 		paxwarn(1, "File time table ran out of memory");
 
 	if (pt != NULL)
-		(void)free((char *)pt);
+		free(pt);
 	return(-1);
 }
 
@@ -522,7 +526,7 @@ add_name(char *oname, int onamelen, char *nname)
 		/*
 		 * should never happen
 		 */
-		paxwarn(0, "No interactive rename table, links may fail");
+		paxwarn(0, "No interactive rename table, links may fail\n");
 		return(0);
 	}
 
@@ -546,7 +550,7 @@ add_name(char *oname, int onamelen, char *nname)
 			if (strcmp(nname, pt->nname) == 0)
 				return(0);
 
-			(void)free((char *)pt->nname);
+			free(pt->nname);
 			if ((pt->nname = strdup(nname)) == NULL) {
 				paxwarn(1, "Cannot update rename table");
 				return(-1);
@@ -565,9 +569,9 @@ add_name(char *oname, int onamelen, char *nname)
 				ntab[indx] = pt;
 				return(0);
 			}
-			(void)free((char *)pt->oname);
+			free(pt->oname);
 		}
-		(void)free((char *)pt);
+		free(pt);
 	}
 	paxwarn(1, "Interactive rename table out of memory");
 	return(-1);
@@ -622,7 +626,7 @@ sub_name(char *oname, int *onamelen, size_t onamesize)
  * device/inode mapping table routines
  * (used with formats that store device and inodes fields)
  *
- * device/inode mapping tables remap the device field in a archive header. The
+ * device/inode mapping tables remap the device field in an archive header. The
  * device/inode fields are used to determine when files are hard links to each
  * other. However these values have very little meaning outside of that. This
  * database is used to solve one of two different problems.
@@ -949,8 +953,12 @@ atdir_end(void)
 		 * not read by pax. Read time reset is controlled by -t.
 		 */
 		for (; pt != NULL; pt = pt->fow)
-			set_ftime(pt->name, pt->mtime_sec, pt->mtime_nsec,
-				  pt->atime_sec, pt->atime_nsec, 1);
+#ifdef __APPLE__
+			set_ftime(pt->name, pt->mtime, pt->mtime_nsec,
+				  pt->atime, pt->atime_nsec, 1);
+#else
+			set_ftime(pt->name, pt->mtime, pt->atime, 1);
+#endif /* __APPLE__ */
 	}
 }
 
@@ -961,8 +969,12 @@ atdir_end(void)
  */
 
 void
-add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime_sec,
-	  time_t mtime_nsec, time_t atime_sec, time_t atime_nsec)
+#ifdef __APPLE__
+add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime,
+	  time_t mtime_nsec, time_t atime, time_t atime_nsec)
+#else
+add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime, time_t atime)
+#endif /* __APPLE__ */
 {
 	ATDIR *pt;
 	u_int indx;
@@ -999,15 +1011,19 @@ add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime_sec,
 		if ((pt->name = strdup(fname)) != NULL) {
 			pt->dev = dev;
 			pt->ino = ino;
-			pt->mtime_sec = mtime_sec;
+			pt->mtime = mtime;
+#ifdef __APPLE__
 			pt->mtime_nsec = mtime_nsec;
-			pt->atime_sec = atime_sec;
+#endif /* __APPLE__ */
+			pt->atime = atime;
+#ifdef __APPLE__
 			pt->atime_nsec = atime_nsec;
+#endif /* __APPLE__ */
 			pt->fow = atab[indx];
 			atab[indx] = pt;
 			return;
 		}
-		(void)free((char *)pt);
+		free(pt);
 	}
 
 	paxwarn(1, "Directory access time reset table ran out of memory");
@@ -1026,8 +1042,12 @@ add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime_sec,
  */
 
 int
-get_atdir(dev_t dev, ino_t ino, time_t *mtime_sec, time_t *mtime_nsec,
-	  time_t *atime_sec, time_t *atime_nsec)
+#ifdef __APPLE__
+get_atdir(dev_t dev, ino_t ino, time_t *mtime, time_t *mtime_nsec,
+	  time_t *atime, time_t *atime_nsec)
+#else
+get_atdir(dev_t dev, ino_t ino, time_t *mtime, time_t *atime)
+#endif /* __APPLE__ */
 {
 	ATDIR *pt;
 	ATDIR **ppt;
@@ -1063,12 +1083,16 @@ get_atdir(dev_t dev, ino_t ino, time_t *mtime_sec, time_t *mtime_nsec,
 	 * found it. return the times and remove the entry from the table.
 	 */
 	*ppt = pt->fow;
-	*mtime_sec = pt->mtime_sec;
+	*mtime = pt->mtime;
+#ifdef __APPLE__
 	*mtime_nsec = pt->mtime_nsec;
-	*atime_sec = pt->atime_sec;
+#endif /* __APPLE__ */
+	*atime = pt->atime;
+#ifdef __APPLE__
 	*atime_nsec = pt->atime_nsec;
-	(void)free((char *)pt->name);
-	(void)free((char *)pt);
+#endif /* __APPLE__ */
+	free(pt->name);
+	free(pt);
 	return(0);
 }
 
@@ -1106,15 +1130,34 @@ get_atdir(dev_t dev, ino_t ino, time_t *mtime_sec, time_t *mtime_nsec,
 int
 dir_start(void)
 {
+
+#ifdef __APPLE__
 	if (dirp != NULL)
+#else
+	if (dirfd != -1)
+#endif /* __APPLE__ */
 		return(0);
 
+#ifdef __APPLE__
 	dirsize = DIRP_SIZE;
 	if ((dirp = calloc(dirsize, sizeof(DIRDATA))) == NULL) {
 		paxwarn(1, "Unable to allocate memory for directory times");
 		return(-1);
 	}
 	return(0);
+#else
+	/*
+	 * unlink the file so it goes away at termination by itself
+	 */
+	memcpy(tempbase, _TFILE_BASE, sizeof(_TFILE_BASE));
+	if ((dirfd = mkstemp(tempfile)) >= 0) {
+		(void)unlink(tempfile);
+		return(0);
+	}
+	paxwarn(1, "Unable to create temporary file for directory times: %s",
+	    tempfile);
+	return(-1);
+#endif /* __APPLE__ */
 }
 
 /*
@@ -1131,14 +1174,27 @@ dir_start(void)
  */
 
 void
+#ifdef __APPLE__
 add_dir(char *name, size_t nlen, struct stat *psb, int frc_mode)
+#else
+add_dir(char *name, int nlen, struct stat *psb, int frc_mode)
+#endif /* __APPLE__ */
 {
+#ifdef __APPLE__
 	DIRDATA *dblk;
 	char realname[MAXPATHLEN], *rp;
+#else
+	DIRDATA dblk;
+#endif /* __APPLE__ */
 
+#ifdef __APPLE__
 	if (dirp == NULL)
+#else
+	if (dirfd < 0)
+#endif /* __APPLE__ */
 		return;
 
+#ifdef __APPLE__
 	if (havechd && *name != '/') {
 		if ((rp = realpath(name, realname)) == NULL) {
 			paxwarn(1, "Cannot canonicalize %s", name);
@@ -1163,12 +1219,39 @@ add_dir(char *name, size_t nlen, struct stat *psb, int frc_mode)
 		return;
 	}
 	dblk->mode = psb->st_mode & 0xffff;
-	dblk->mtime_sec = psb->st_mtime_sec;
+	dblk->mtime = psb->st_mtime_sec;
 	dblk->mtime_nsec = psb->st_mtime_nsec;
-	dblk->atime_sec = psb->st_atime_sec;
+	dblk->atime = psb->st_atime_sec;
 	dblk->atime_nsec = psb->st_atime_nsec;
 	dblk->frc_mode = frc_mode;
 	++dircnt;
+#else
+	/*
+	 * get current position (where file name will start) so we can store it
+	 * in the trailer
+	 */
+	if ((dblk.npos = lseek(dirfd, 0L, SEEK_CUR)) < 0) {
+		paxwarn(1,"Unable to store mode and times for directory: %s",name);
+		return;
+	}
+
+	/*
+	 * write the file name followed by the trailer
+	 */
+	dblk.nlen = nlen + 1;
+	dblk.mode = psb->st_mode & 0xffff;
+	dblk.mtime = psb->st_mtime;
+	dblk.atime = psb->st_atime;
+	dblk.frc_mode = frc_mode;
+	if ((write(dirfd, name, dblk.nlen) == dblk.nlen) &&
+	    (write(dirfd, (char *)&dblk, sizeof(dblk)) == sizeof(dblk))) {
+		++dircnt;
+		return;
+	}
+
+	paxwarn(1,"Unable to store mode and times for created directory: %s",name);
+	return;
+#endif /* __APPLE__ */
 }
 
 /*
@@ -1180,32 +1263,83 @@ add_dir(char *name, size_t nlen, struct stat *psb, int frc_mode)
 void
 proc_dir(void)
 {
+#ifndef __APPLE__
+	char name[PAXPATHLEN+1];
+#endif /* __APPLE__ */
+#ifdef __APPLE__
 	DIRDATA *dblk;
 	long cnt;
+#else
+	DIRDATA dblk;
+	u_long cnt;
+#endif
 
+#ifdef __APPLE__
 	if (dirp == NULL)
+#else
+	if (dirfd < 0)
+#endif /* __APPLE__ */
 		return;
 	/*
 	 * read backwards through the file and process each directory
 	 */
+#ifdef __APPLE__
 	cnt = dircnt;
 	while (--cnt >= 0) {
+#else
+	for (cnt = 0; cnt < dircnt; ++cnt) {
+#endif /* __APPLE__ */
+		/*
+		 * read the trailer, then the file name, if this fails
+		 * just give up.
+		 */
+#ifdef __APPLE__
+		dblk = &dirp[cnt];
+#else
+		if (lseek(dirfd, -((off_t)sizeof(dblk)), SEEK_CUR) < 0)
+			break;
+		if (read(dirfd,(char *)&dblk, sizeof(dblk)) != sizeof(dblk))
+			break;
+		if (lseek(dirfd, dblk.npos, SEEK_SET) < 0)
+			break;
+		if (read(dirfd, name, dblk.nlen) != dblk.nlen)
+			break;
+		if (lseek(dirfd, dblk.npos, SEEK_SET) < 0)
+			break;
+
+#endif /* __APPLE__ */
 		/*
 		 * frc_mode set, make sure we set the file modes even if
 		 * the user didn't ask for it (see file_subs.c for more info)
 		 */
-		dblk = &dirp[cnt];
+#ifdef __APPLE__
 		if (pmode || dblk->frc_mode)
 			set_pmode(dblk->name, dblk->mode);
+#else
+		if (pmode || dblk.frc_mode)
+			set_pmode(name, dblk.mode);
+#endif /* __APPLE__ */
 		if (patime || pmtime)
-			set_ftime(dblk->name, dblk->mtime_sec, dblk->mtime_nsec,
-				  dblk->atime_sec, dblk->atime_sec, 0);
+#ifdef __APPLE__
+			set_ftime(dblk->name, dblk->mtime, dblk->mtime_nsec,
+				  dblk->atime, dblk->atime_nsec, 0);
 		free(dblk->name);
+#else
+			set_ftime(name, dblk.mtime, dblk.atime, 0);
+#endif /* __APPLE__ */
 	}
 
+#ifdef __APPLE__
 	free(dirp);
 	dirp = NULL;
 	dircnt = 0;
+#else
+	(void)close(dirfd);
+	dirfd = -1;
+	if (cnt != dircnt)
+		paxwarn(1,"Unable to set mode and times for created directories");
+	return;
+#endif /* __APPLE__ */
 }
 
 /*
@@ -1236,7 +1370,7 @@ st_hash(char *name, int len, int tabsz)
 	u_int key = 0;
 	int steps;
 	int res;
-	u_int val = 0;
+	u_int val;
 
 	/*
 	 * only look at the tail up to MAXKEYLEN, we do not need to waste

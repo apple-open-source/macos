@@ -33,6 +33,7 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecKeyInternal.h>
 #include <Security/SecIdentityPriv.h>
+#include <Security/SecAccessControlPriv.h>
 #include <utilities/debugging.h>
 #include <utilities/SecCFError.h>
 
@@ -83,7 +84,12 @@
 }
 
 - (void)getAttributesWithReply:(void (^)(NSDictionary *))reply {
-    return reply(CFBridgingRelease(SecKeyCopyAttributes(self.key)));
+    NSMutableDictionary *attrs = ((NSDictionary *)CFBridgingRelease(SecKeyCopyAttributes(self.key))).mutableCopy;
+    SecAccessControlRef sac = (__bridge SecAccessControlRef)attrs[(id)kSecAttrAccessControl];
+    if (sac != NULL) {
+        attrs[(id)kSecAttrAccessControl] = CFBridgingRelease(SecAccessControlCopyData(sac));
+    }
+    return reply(attrs.copy);
 }
 
 - (void)getExternalRepresentationWithReply:(void (^)(NSData *, NSError *))reply {
@@ -246,11 +252,21 @@ static size_t SecRemoteKeyBlockSize(SecKeyRef key) {
 }
 
 static CFDictionaryRef SecRemoteKeyCopyAttributeDictionary(SecKeyRef key) {
-    __block NSDictionary *localAttributes;
+    __block NSMutableDictionary *localAttributes;
     [[SecKeyProxy targetForKey:key error:NULL] getAttributesWithReply:^(NSDictionary *attributes) {
-        localAttributes = attributes;
+        localAttributes = attributes.mutableCopy;
     }];
-    return CFBridgingRetain(localAttributes);
+    NSData *sacData = localAttributes[(id)kSecAttrAccessControl];
+    if (sacData != nil) {
+        NSError *error;
+        id sac = CFBridgingRelease(SecAccessControlCreateFromData(kCFAllocatorDefault, (__bridge CFDataRef)sacData, (void *)&error));
+        if (sac != nil) {
+            localAttributes[(id)kSecAttrAccessControl] = sac;
+        } else {
+            [localAttributes removeObjectForKey:(id)kSecAttrAccessControl];
+        }
+    }
+    return CFBridgingRetain(localAttributes.copy);
 }
 
 static CFDataRef SecRemoteKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {

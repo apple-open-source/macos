@@ -36,6 +36,7 @@
 #include "HTTPHeaderMap.h"
 #include <NetworkLoadMetrics.h>
 #include <mutex>
+#include <wtf/FileSystem.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
@@ -45,6 +46,10 @@
 #include "WebCoreBundleWin.h"
 #include <shlobj.h>
 #include <shlwapi.h>
+#endif
+
+#if !defined(ENABLE_CURL_HTTP3)
+#define ENABLE_CURL_HTTP3 0
 #endif
 
 namespace WebCore {
@@ -120,6 +125,13 @@ CurlContext::CurlContext()
 
     m_scheduler = makeUnique<CurlRequestScheduler>(maxConnects, maxTotalConnections, maxHostConnections);
 
+    auto info = curl_version_info(CURLVERSION_NOW);
+    m_isAltSvcEnabled = info->features & CURL_VERSION_ALTSVC;
+    m_isHttp2Enabled = info->features & CURL_VERSION_HTTP2;
+#if ENABLE_CURL_HTTP3
+    m_isHttp3Enabled = (info->features & CURL_VERSION_HTTP3) && m_isAltSvcEnabled;
+#endif
+
 #ifndef NDEBUG
     m_verbose = envVar.defined("DEBUG_CURL");
 
@@ -155,10 +167,10 @@ CurlStreamScheduler& CurlContext::streamScheduler()
     return sharedInstance;
 }
 
-bool CurlContext::isHttp2Enabled() const
+void CurlContext::clearAlternativeServicesStorageFile()
 {
-    curl_version_info_data* data = curl_version_info(CURLVERSION_NOW);
-    return data->features & CURL_VERSION_HTTP2;
+    if (!m_alternativeServicesStorageFile.isEmpty())
+        FileSystem::deleteFile(m_alternativeServicesStorageFile);
 }
 
 // CurlShareHandle --------------------------------------------
@@ -254,16 +266,6 @@ CURLMcode CurlMultiHandle::removeHandle(CURL* handle)
     return curl_multi_remove_handle(m_multiHandle, handle);
 }
 
-CURLMcode CurlMultiHandle::getFdSet(fd_set& readFdSet, fd_set& writeFdSet, fd_set& excFdSet, int& maxFd)
-{
-    FD_ZERO(&readFdSet);
-    FD_ZERO(&writeFdSet);
-    FD_ZERO(&excFdSet);
-    maxFd = 0;
-
-    return curl_multi_fdset(m_multiHandle, &readFdSet, &writeFdSet, &excFdSet, &maxFd);
-}
-
 CURLMcode CurlMultiHandle::poll(const Vector<curl_waitfd>& extraFds, int timeoutMS)
 {
     int numFds = 0;
@@ -295,8 +297,9 @@ CurlHandle::CurlHandle()
     curl_easy_setopt(m_handle, CURLOPT_COOKIEFILE, nullptr);
 
     enableShareHandle();
-    enableAllowedProtocols();
     enableAcceptEncoding();
+    enableAllowedProtocols();
+    enableAltSvc();
 
     setDnsCacheTimeout(CurlContext::singleton().dnsCacheTimeout());
     setConnectTimeout(CurlContext::singleton().connectTimeout());
@@ -320,16 +323,10 @@ const String CurlHandle::errorDescription(CURLcode errorCode)
     return String::fromLatin1(curl_easy_strerror(errorCode));
 }
 
-void CurlHandle::enableSSLForHost(const String& host)
+void CurlHandle::enableSSL()
 {
     auto& sslHandle = CurlContext::singleton().sslHandle();
-    if (auto sslClientCertificate = sslHandle.getSSLClientCertificate(host)) {
-        setSslCert(sslClientCertificate->first.utf8().data());
-        setSslCertType("P12");
-        setSslKeyPassword(sslClientCertificate->second.utf8().data());
-    }
-
-    if (sslHandle.canIgnoreAnyHTTPSCertificatesForHost(host) || sslHandle.shouldIgnoreSSLErrors()) {
+    if (sslHandle.shouldIgnoreSSLErrors()) {
         setSslVerifyPeer(CurlHandle::VerifyPeer::Disable);
         setSslVerifyHost(CurlHandle::VerifyHost::LooseNameCheck);
     } else {
@@ -401,7 +398,7 @@ void CurlHandle::setUrl(const URL& url)
     curlUrl.removeFragmentIdentifier();
 
     // Remove any query part sent to a local file.
-    if (curlUrl.isLocalFile()) {
+    if (curlUrl.protocolIsFile()) {
         // By setting the query to a null string it'll be removed.
         if (!curlUrl.query().isEmpty())
             curlUrl.setQuery(String());
@@ -411,7 +408,7 @@ void CurlHandle::setUrl(const URL& url)
     curl_easy_setopt(m_handle, CURLOPT_URL, curlUrl.string().latin1().data());
 
     if (url.protocolIs("https"_s))
-        enableSSLForHost(m_url.host().toString());
+        enableSSL();
 }
 
 void CurlHandle::appendRequestHeaders(const HTTPHeaderMap& headers)
@@ -464,11 +461,12 @@ void CurlHandle::enableRequestHeaders()
 
 void CurlHandle::enableHttp()
 {
-    if (m_url.protocolIs("https"_s) && CurlContext::singleton().isHttp2Enabled()) {
-        curl_easy_setopt(m_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+    auto isHttp2Enabled = CurlContext::singleton().isHttp2Enabled();
+    auto isHttp3Enabled = CurlContext::singleton().isHttp3Enabled();
+
+    if (m_url.protocolIs("https"_s) && (isHttp2Enabled || isHttp3Enabled)) {
+        curl_easy_setopt(m_handle, CURLOPT_HTTP_VERSION, isHttp3Enabled ? CURL_HTTP_VERSION_3 : CURL_HTTP_VERSION_2TLS);
         curl_easy_setopt(m_handle, CURLOPT_PIPEWAIT, 1L);
-        curl_easy_setopt(m_handle, CURLOPT_SSL_ENABLE_ALPN, 1L);
-        curl_easy_setopt(m_handle, CURLOPT_SSL_ENABLE_NPN, 0L);
     } else
         curl_easy_setopt(m_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 }
@@ -490,12 +488,6 @@ void CurlHandle::enableHttpPostRequest()
     enableHttp();
     curl_easy_setopt(m_handle, CURLOPT_POST, 1L);
     curl_easy_setopt(m_handle, CURLOPT_POSTFIELDSIZE, 0L);
-}
-
-void CurlHandle::setPostFields(const uint8_t* data, long size)
-{
-    curl_easy_setopt(m_handle, CURLOPT_POSTFIELDS, data);
-    curl_easy_setopt(m_handle, CURLOPT_POSTFIELDSIZE, size);
 }
 
 void CurlHandle::setPostFieldLarge(curl_off_t size)
@@ -535,13 +527,29 @@ void CurlHandle::enableAcceptEncoding()
 
 void CurlHandle::enableAllowedProtocols()
 {
-    static const long allowedProtocols = CURLPROTO_FILE |
 #if ENABLE(FTPDIR)
-        CURLPROTO_FTP | CURLPROTO_FTPS |
+    auto allowedProtocols = "file,ftp,ftps,http,https";
+#else
+    auto allowedProtocols = "file,http,https";
 #endif
-        CURLPROTO_HTTP | CURLPROTO_HTTPS;
 
-    curl_easy_setopt(m_handle, CURLOPT_PROTOCOLS, allowedProtocols);
+    curl_easy_setopt(m_handle, CURLOPT_PROTOCOLS_STR, allowedProtocols);
+}
+
+void CurlHandle::enableAltSvc()
+{
+    if (!CurlContext::singleton().isAltSvcEnabled())
+        return;
+
+    if (CurlContext::singleton().alternativeServicesStorageFile().isEmpty())
+        return;
+
+    long altSvcCtrl = CURLALTSVC_H1;
+    altSvcCtrl |= CurlContext::singleton().isHttp2Enabled() ? CURLALTSVC_H2 : 0;
+    altSvcCtrl |= CurlContext::singleton().isHttp3Enabled() ? CURLALTSVC_H3 : 0;
+
+    curl_easy_setopt(m_handle, CURLOPT_ALTSVC, CurlContext::singleton().alternativeServicesStorageFile().utf8().data());
+    curl_easy_setopt(m_handle, CURLOPT_ALTSVC_CTRL, altSvcCtrl);
 }
 
 void CurlHandle::setHttpAuthUserPass(const String& user, const String& password, long authType)
@@ -578,21 +586,6 @@ void CurlHandle::setSslVerifyPeer(VerifyPeer verifyPeer)
 void CurlHandle::setSslVerifyHost(VerifyHost verifyHost)
 {
     curl_easy_setopt(m_handle, CURLOPT_SSL_VERIFYHOST, static_cast<long>(verifyHost));
-}
-
-void CurlHandle::setSslCert(const char* cert)
-{
-    curl_easy_setopt(m_handle, CURLOPT_SSLCERT, cert);
-}
-
-void CurlHandle::setSslCertType(const char* type)
-{
-    curl_easy_setopt(m_handle, CURLOPT_SSLCERTTYPE, type);
-}
-
-void CurlHandle::setSslKeyPassword(const char* password)
-{
-    curl_easy_setopt(m_handle, CURLOPT_KEYPASSWD, password);
 }
 
 void CurlHandle::setSslCipherList(const char* cipherList)
@@ -745,6 +738,8 @@ std::optional<long long> CurlHandle::getContentLength()
 
 std::optional<long> CurlHandle::getHttpAuthAvail()
 {
+    auto allowedAuthMethods = CURLAUTH_DIGEST | CURLAUTH_BASIC;
+
     if (!m_handle)
         return std::nullopt;
 
@@ -753,11 +748,13 @@ std::optional<long> CurlHandle::getHttpAuthAvail()
     if (errorCode != CURLE_OK)
         return std::nullopt;
 
-    return httpAuthAvailable;
+    return httpAuthAvailable & allowedAuthMethods;
 }
 
 std::optional<long> CurlHandle::getProxyAuthAvail()
 {
+    auto allowedAuthMethods = CURLAUTH_DIGEST | CURLAUTH_BASIC;
+
     if (!m_handle)
         return std::nullopt;
 
@@ -766,7 +763,7 @@ std::optional<long> CurlHandle::getProxyAuthAvail()
     if (errorCode != CURLE_OK)
         return std::nullopt;
 
-    return proxyAuthAvailable;
+    return proxyAuthAvailable & allowedAuthMethods;
 }
 
 std::optional<long> CurlHandle::getHttpVersion()
@@ -949,13 +946,6 @@ std::optional<CertificateInfo> CurlHandle::certificateInfo() const
     }
 
     return std::nullopt;
-}
-
-long long CurlHandle::maxCurlOffT()
-{
-    static const long long maxCurlOffT = (1LL << (expectedSizeOfCurlOffT() * 8 - 1)) - 1;
-
-    return maxCurlOffT;
 }
 
 int CurlHandle::expectedSizeOfCurlOffT()

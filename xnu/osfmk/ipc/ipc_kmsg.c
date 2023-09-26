@@ -135,6 +135,8 @@
 #endif
 
 #include <sys/kdebug.h>
+#include <sys/proc_ro.h>
+#include <sys/codesign.h>
 #include <libkern/OSAtomic.h>
 
 #include <libkern/crypto/sha2.h>
@@ -206,8 +208,14 @@ static mach_msg_return_t ipc_kmsg_option_check(ipc_port_t port, mach_msg_option6
 #define CA_MACH_SERVICE_PORT_NAME_LEN                   86
 
 struct reply_port_semantics_violations_rb_entry {
-	char        proc_name[CA_PROCNAME_LEN];
-	char        service_name[CA_MACH_SERVICE_PORT_NAME_LEN];
+	char proc_name[CA_PROCNAME_LEN];
+	char service_name[CA_MACH_SERVICE_PORT_NAME_LEN];
+	char team_id[CA_TEAMID_MAX_LEN];
+	char signing_id[CA_SIGNINGID_MAX_LEN];
+	int  reply_port_semantics_violation;
+	int  sw_platform;
+	int  msgh_id;
+	int  sdk;
 };
 struct reply_port_semantics_violations_rb_entry reply_port_semantics_violations_rb[REPLY_PORT_SEMANTICS_VIOLATIONS_RB_SIZE];
 static uint8_t reply_port_semantics_violations_rb_index = 0;
@@ -218,7 +226,27 @@ LCK_SPIN_DECLARE(reply_port_telemetry_lock, &reply_port_telemetry_lock_grp);
 /* Telemetry: report back the process name violating reply port semantics */
 CA_EVENT(reply_port_semantics_violations,
     CA_STATIC_STRING(CA_PROCNAME_LEN), proc_name,
-    CA_STATIC_STRING(CA_MACH_SERVICE_PORT_NAME_LEN), service_name);
+    CA_STATIC_STRING(CA_MACH_SERVICE_PORT_NAME_LEN), service_name,
+    CA_STATIC_STRING(CA_TEAMID_MAX_LEN), team_id,
+    CA_STATIC_STRING(CA_SIGNINGID_MAX_LEN), signing_id,
+    CA_INT, reply_port_semantics_violation);
+
+static void
+send_reply_port_telemetry(const struct reply_port_semantics_violations_rb_entry *entry)
+{
+	ca_event_t ca_event = CA_EVENT_ALLOCATE_FLAGS(reply_port_semantics_violations, Z_NOWAIT);
+	if (ca_event) {
+		CA_EVENT_TYPE(reply_port_semantics_violations) * event = ca_event->data;
+
+		strlcpy(event->service_name, entry->service_name, CA_MACH_SERVICE_PORT_NAME_LEN);
+		strlcpy(event->proc_name, entry->proc_name, CA_PROCNAME_LEN);
+		strlcpy(event->team_id, entry->team_id, CA_TEAMID_MAX_LEN);
+		strlcpy(event->signing_id, entry->signing_id, CA_SIGNINGID_MAX_LEN);
+		event->reply_port_semantics_violation = entry->reply_port_semantics_violation;
+
+		CA_EVENT_SEND(ca_event);
+	}
+}
 
 /* Routine: flush_reply_port_semantics_violations_telemetry
  * Conditions:
@@ -251,13 +279,7 @@ flush_reply_port_semantics_violations_telemetry()
 	while (local_rb_index > 0) {
 		struct reply_port_semantics_violations_rb_entry *entry = &local_rb[--local_rb_index];
 
-		ca_event_t ca_event = CA_EVENT_ALLOCATE_FLAGS(reply_port_semantics_violations, Z_NOWAIT);
-		if (ca_event) {
-			CA_EVENT_TYPE(reply_port_semantics_violations) * event = ca_event->data;
-			strlcpy(event->proc_name, entry->proc_name, CA_PROCNAME_LEN);
-			strlcpy(event->service_name, entry->service_name, CA_MACH_SERVICE_PORT_NAME_LEN);
-			CA_EVENT_SEND(ca_event);
-		}
+		send_reply_port_telemetry(entry);
 	}
 
 	/*
@@ -269,7 +291,7 @@ flush_reply_port_semantics_violations_telemetry()
 }
 
 static void
-stash_reply_port_semantics_violations_telemetry(mach_service_port_info_t sp_info)
+stash_reply_port_semantics_violations_telemetry(mach_service_port_info_t sp_info, int reply_port_semantics_violation, int msgh_id)
 {
 	struct reply_port_semantics_violations_rb_entry *entry;
 
@@ -283,6 +305,9 @@ stash_reply_port_semantics_violations_telemetry(mach_service_port_info_t sp_info
 
 	task_t task = current_task_early();
 	if (task) {
+		struct proc_ro *pro = current_thread_ro()->tro_proc_ro;
+		uint32_t platform = pro->p_platform_data.p_platform;
+		uint32_t sdk = pro->p_platform_data.p_sdk;
 		char *proc_name = (char *) "unknown";
 #ifdef MACH_BSD
 		proc_name = proc_name_address(get_bsdtask_info(task));
@@ -295,6 +320,19 @@ stash_reply_port_semantics_violations_telemetry(mach_service_port_info_t sp_info
 			service_name = sp_info->mspi_string_name;
 		}
 		strlcpy(entry->service_name, service_name, CA_MACH_SERVICE_PORT_NAME_LEN);
+		entry->reply_port_semantics_violation = reply_port_semantics_violation;
+		const char *team_id = csproc_get_identity(current_proc());
+		const char *signing_id = csproc_get_teamid(current_proc());
+		if (team_id) {
+			strlcpy(entry->team_id, team_id, CA_TEAMID_MAX_LEN);
+		}
+
+		if (signing_id) {
+			strlcpy(entry->signing_id, signing_id, CA_SIGNINGID_MAX_LEN);
+		}
+		entry->msgh_id = msgh_id;
+		entry->sw_platform = platform;
+		entry->sdk = sdk;
 	}
 
 	if (reply_port_semantics_violations_rb_index == REPLY_PORT_SEMANTICS_VIOLATIONS_RB_SIZE) {
@@ -1206,6 +1244,8 @@ extern const vm_size_t  msg_ool_size_small;
 #define KMSG_TRACE_FLAGS_MASK      0x1ffffff
 #define KMSG_TRACE_FLAGS_SHIFT     8
 
+#define KMSG_TRACE_ID_SHIFT        32
+
 #define KMSG_TRACE_PORTS_MASK      0xff
 #define KMSG_TRACE_PORTS_SHIFT     0
 
@@ -1459,7 +1499,7 @@ ipc_kmsg_trace_send(ipc_kmsg_t kmsg,
 	KDBG(MACHDBG_CODE(DBG_MACH_IPC, MACH_IPC_KMSG_INFO) | DBG_FUNC_END,
 	    (uintptr_t)send_pid,
 	    (uintptr_t)dst_pid,
-	    (uintptr_t)msg_size,
+	    (uintptr_t)(((uint64_t)msg->msgh_id << KMSG_TRACE_ID_SHIFT) | msg_size),
 	    (uintptr_t)(
 		    ((msg_flags & KMSG_TRACE_FLAGS_MASK) << KMSG_TRACE_FLAGS_SHIFT) |
 		    ((num_ports & KMSG_TRACE_PORTS_MASK) << KMSG_TRACE_PORTS_SHIFT)
@@ -1529,6 +1569,9 @@ ikm_header_inlined(ipc_kmsg_t kmsg)
 /*
  * Returns start address of user data for kmsg.
  *
+ * Caller is responsible for checking the size of udata buffer before attempting
+ * to write to the address returned.
+ *
  * Condition:
  *   1. kmsg descriptors must have been validated and expanded, or is a message
  *      originated from kernel.
@@ -1550,9 +1593,32 @@ ikm_udata(
 	}
 }
 
+/*
+ * Returns start address of user data for kmsg, given a populated kmsg.
+ *
+ * Caller is responsible for checking the size of udata buffer before attempting
+ * to write to the address returned.
+ *
+ * Condition:
+ *   kmsg must have a populated header.
+ */
+void *
+ikm_udata_from_header(ipc_kmsg_t kmsg)
+{
+	mach_msg_header_t *hdr = ikm_header(kmsg);
+	bool complex = (hdr->msgh_bits & MACH_MSGH_BITS_COMPLEX);
+	mach_msg_size_t desc_count = 0;
+
+	if (complex) {
+		desc_count = ((mach_msg_base_t *)hdr)->body.msgh_descriptor_count;
+	}
+
+	return ikm_udata(kmsg, desc_count, complex);
+}
+
 #if (DEVELOPMENT || DEBUG)
 /* Returns end of kdata buffer (may contain extra space) */
-static vm_offset_t
+vm_offset_t
 ikm_kdata_end(ipc_kmsg_t kmsg)
 {
 	if (ikm_header_inlined(kmsg)) {
@@ -1571,7 +1637,7 @@ ikm_kdata_end(ipc_kmsg_t kmsg)
 }
 
 /* Returns end of udata buffer (may contain extra space) */
-static vm_offset_t
+vm_offset_t
 ikm_udata_end(ipc_kmsg_t kmsg)
 {
 	assert(kmsg->ikm_type != IKM_TYPE_ALL_INLINED);
@@ -2624,10 +2690,9 @@ ipc_kmsg_get_from_user(
 	ipc_kmsg_t             *kmsgp)
 {
 	mach_msg_size_t kmsg_size = 0;
-	ipc_kmsg_alloc_flags_t flags = IPC_KMSG_ALLOC_USER;
 	ipc_kmsg_t kmsg;
 	kern_return_t kr;
-
+	ipc_kmsg_alloc_flags_t flags = IPC_KMSG_ALLOC_USER;
 	kmsg_size = user_msg_size + USER_HEADER_SIZE_DELTA;
 
 	if (aux_size == 0) {
@@ -2641,20 +2706,13 @@ ipc_kmsg_get_from_user(
 		assert(aux_size == 0);
 	}
 
-	/*
-	 * If not a mach_msg2() call to a message queue, allocate a linear kmsg.
-	 *
-	 * This is equivalent to making the following cases always linear:
-	 *     - mach_msg_trap() calls.
-	 *     - mach_msg2_trap() to kobject ports.
-	 *     - mach_msg2_trap() from old simulators.
-	 */
-	if (!(option64 & MACH64_SEND_MQ_CALL)) {
+	/* Keep DriverKit messages linear for now */
+	if (option64 & MACH64_SEND_DK_CALL) {
 		flags |= IPC_KMSG_ALLOC_LINEAR;
 	}
 
 	kmsg = ipc_kmsg_alloc(kmsg_size, aux_size, desc_count, flags);
-	/* can fail if msg size is too large */
+	/* Can fail if msg size is too large */
 	if (kmsg == IKM_NULL) {
 		return MACH_SEND_NO_BUFFER;
 	}
@@ -2744,7 +2802,11 @@ ipc_kmsg_get_from_kernel(
 		if (complex) {
 			desc_count = ((mach_msg_base_t *)msg)->body.msgh_descriptor_count;
 			kdata_sz = sizeof(mach_msg_base_t) + desc_count * KERNEL_DESC_SIZE;
-			assert(size >= kdata_sz);
+		}
+
+		assert(size >= kdata_sz);
+		if (size < kdata_sz) {
+			return MACH_SEND_TOO_LARGE;
 		}
 
 		kmsg = ipc_kmsg_alloc(size, 0, desc_count, IPC_KMSG_ALLOC_KERNEL);
@@ -2820,6 +2882,10 @@ ipc_kmsg_option_check(
 				 * force MACH64_SEND_MQ_CALL flag for memory segregation.
 				 */
 				if (__improbable(!(option64 & MACH64_SEND_MQ_CALL))) {
+					return MACH_SEND_INVALID_OPTIONS;
+				}
+			} else if (kotype == IKOT_UEXT_OBJECT) {
+				if (__improbable(!(option64 & MACH64_SEND_KOBJECT_CALL || option64 & MACH64_SEND_DK_CALL))) {
 					return MACH_SEND_INVALID_OPTIONS;
 				}
 			} else {
@@ -3783,6 +3849,22 @@ ipc_kmsg_validate_reply_context_locked(
 	return MACH_MSG_SUCCESS;
 }
 
+
+#define moved_provisional_reply_ports() \
+	(moved_provisional_reply_port(dest_type, dest_soright) \
+	|| moved_provisional_reply_port(reply_type, reply_soright) \
+	|| moved_provisional_reply_port(voucher_type, voucher_soright)) \
+
+void
+send_prp_telemetry(int msgh_id)
+{
+	if (csproc_hardened_runtime(current_proc())) {
+		stash_reply_port_semantics_violations_telemetry(NULL, MRP_HARDENED_RUNTIME_VIOLATOR, msgh_id);
+	} else {
+		stash_reply_port_semantics_violations_telemetry(NULL, MRP_3P_VIOLATOR, msgh_id);
+	}
+}
+
 /*
  *	Routine:	ipc_kmsg_copyin_header
  *	Purpose:
@@ -3838,7 +3920,7 @@ ipc_kmsg_copyin_header(
 	ipc_entry_t voucher_entry = IE_NULL;
 	ipc_object_copyin_flags_t dest_flags = IPC_OBJECT_COPYIN_FLAGS_ALLOW_REPLY_MAKE_SEND_ONCE | IPC_OBJECT_COPYIN_FLAGS_ALLOW_REPLY_MOVE_SEND_ONCE;
 	ipc_object_copyin_flags_t reply_flags = IPC_OBJECT_COPYIN_FLAGS_ALLOW_REPLY_MAKE_SEND_ONCE;
-	boolean_t reply_port_semantics_violation = FALSE;
+	int reply_port_semantics_violation = 0;
 
 	int assertcnt = 0;
 	mach_msg_option_t option32 = (mach_msg_option_t)*option64p;
@@ -4299,10 +4381,14 @@ ipc_kmsg_copyin_header(
 		}
 	}
 
+	if (moved_provisional_reply_ports()) {
+		send_prp_telemetry(msg->msgh_id);
+	}
+
 	if (reply_port_semantics_violation) {
 		/* Currently rate limiting it to sucess paths only. */
 		task_t task = current_task_early();
-		if (task) {
+		if (task && reply_port_semantics_violation == REPLY_PORT_SEMANTICS_VIOLATOR) {
 			task_lock(task);
 			if (!task_has_reply_port_telemetry(task)) {
 				/* Crash report rate limited to once per task per host. */
@@ -4312,9 +4398,9 @@ ipc_kmsg_copyin_header(
 			task_unlock(task);
 		}
 #if CONFIG_SERVICE_PORT_INFO
-		stash_reply_port_semantics_violations_telemetry(sp_info);
+		stash_reply_port_semantics_violations_telemetry(sp_info, reply_port_semantics_violation, msg->msgh_id);
 #else
-		stash_reply_port_semantics_violations_telemetry(NULL);
+		stash_reply_port_semantics_violations_telemetry(NULL, reply_port_semantics_violation, msg->msgh_id);
 #endif
 	}
 	return MACH_MSG_SUCCESS;
@@ -5926,6 +6012,7 @@ ipc_kmsg_copyout_port_descriptor(
 	return (mach_msg_descriptor_t *)user_dsc;
 }
 
+extern char *proc_best_name(struct proc *proc);
 static mach_msg_descriptor_t *
 ipc_kmsg_copyout_ool_descriptor(
 	mach_msg_ool_descriptor_t   *dsc,
@@ -5973,7 +6060,7 @@ ipc_kmsg_copyout_ool_descriptor(
 			rounded_size = vm_map_round_page(copy->offset + size, effective_page_mask) - vm_map_trunc_page(copy->offset, effective_page_mask);
 
 			kr = mach_vm_allocate_kernel(map, &rounded_addr,
-			    rounded_size, VM_FLAGS_ANYWHERE, VM_KERN_MEMORY_IPC);
+			    rounded_size, VM_FLAGS_ANYWHERE, VM_MEMORY_MACH_MSG);
 
 			if (kr == KERN_SUCCESS) {
 				/*

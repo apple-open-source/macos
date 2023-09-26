@@ -120,12 +120,13 @@ static NSInteger _reporterWrites;
 // MARK: Start SupdTests
 
 @interface SupdTests : XCTestCase
-
 @end
 
 @implementation SupdTests {
     supd* _supd;
+    id mockTopic;
     id mockReporter;
+    id mockConnection;
     FakeCKKSAnalytics* _ckksAnalytics;
     FakeSOSAnalytics* _sosAnalytics;
     FakePCSAnalytics* _pcsAnalytics;
@@ -348,10 +349,11 @@ static NSInteger _reporterWrites;
 - (void)setUp
 {
     [super setUp];
+    [SFAnalyticsClient clearSFAnalyticsClientGlobalCache];
     self.continueAfterFailure = NO;
     ++_testnum;
 
-    id mockTopic = OCMStrictClassMock([SFAnalyticsTopic class]);
+    mockTopic = OCMStrictClassMock([SFAnalyticsTopic class]);
     NSString *ckksPath = [_path stringByAppendingFormat:@"/ckks_%ld.db", (long)_testnum];
     NSString *sosPath = [_path stringByAppendingFormat:@"/sos_%ld.db", (long)_testnum];
     NSString *pcsPath = [_path stringByAppendingFormat:@"/pcs_%ld.db", (long)_testnum];
@@ -384,7 +386,7 @@ static NSInteger _reporterWrites;
         _reporterWrites++;
     }).andReturn(YES);
 
-    NSXPCConnection* mockConnection = OCMClassMock([NSXPCConnection class]);
+    mockConnection = OCMClassMock([NSXPCConnection class]);
     OCMStub([mockConnection valueForEntitlement:@"com.apple.private.securityuploadd"]).andReturn(@(YES));
 
     _supd = [[supd alloc] initWithConnection:mockConnection reporter:mockReporter];
@@ -404,8 +406,23 @@ static NSInteger _reporterWrites;
 
 - (void)tearDown
 {
-
+    _transparencyAnalytics = nil;
+    _tlsAnalytics = nil;
+    _pcsAnalytics = nil;
+    _sosAnalytics = nil;
+    _ckksAnalytics = nil;
+    _supd = nil;
+    [mockTopic stopMocking];
+    [mockReporter stopMocking];
+    [mockConnection stopMocking];
+    mockTopic = nil;
+    mockReporter = nil;
+    mockConnection = nil;
     [super tearDown];
+}
+
++ (void)tearDown {
+    NSLog(@"put breakpoint here");
 }
 
 // MARK: Actual tests

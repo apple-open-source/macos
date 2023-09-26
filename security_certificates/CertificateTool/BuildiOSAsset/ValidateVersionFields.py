@@ -69,14 +69,14 @@ def checkValidVersion(srcroot):
 
 def checkSupplementalsAssetVersion(srcroot):
     assetVersionPlist = readPlist(srcroot + "/config/AssetVersion.plist")
-    infoPlist = readPlist(srcroot + "/TrustSupplementalsAsset/Info.plist")
+    infoPlist = readPlist(srcroot + "/TrustSupplementalsAsset/v2/Info.plist")
     infoProperties = infoPlist["MobileAssetProperties"]
     if assetVersionPlist["MobileAssetContentVersion"] != infoProperties["_ContentVersion"]:
         raise ValueError("Trust Supplementals Asset Version in config/AssetVersion.plist does not match version in TrustSupplementalsAsset/Info.plist")
     if assetVersionPlist["MobileAssetContentVersion"] != readVersionFromAssetMakefile(srcroot + "/TrustSupplementalsAsset/Makefile"):
         raise ValueError("Trust Supplementals Asset Version in config/AssetVersion.plist does not match version in TrustSupplementalsAsset/Makefile")
     log_list = readJson(srcroot + "/certificate_transparency/log_list.json")
-    if assetVersionPlist["MobileAssetContentVersion"] != log_list["assetVersion"]:
+    if assetVersionPlist["MobileAssetContentVersion"] != log_list["assetVersionV2"]:
         raise ValueError("Trust Supplementals Asset Version in config/AssetVersion.plist does not match version in certificate_transparency/log_list.json")
 
 

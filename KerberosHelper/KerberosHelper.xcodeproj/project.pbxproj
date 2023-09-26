@@ -184,9 +184,9 @@
 			);
 			isEditable = 1;
 			outputFiles = (
-				"$(BUILT_PRODUCTS_DIR)/asn1_$(INPUT_FILE_BASE).c",
-				"$(BUILT_PRODUCTS_DIR)/include/$(INPUT_FILE_BASE)_asn1.h",
-				"$(BUILT_PRODUCTS_DIR)/include/$(INPUT_FILE_BASE)_asn1-priv.h",
+				"$(DERIVED_FILES_DIR)/asn1_$(INPUT_FILE_BASE).c",
+				"$(DERIVED_FILES_DIR)/include/$(INPUT_FILE_BASE)_asn1.h",
+				"$(DERIVED_FILES_DIR)/include/$(INPUT_FILE_BASE)_asn1-priv.h",
 			);
 			runOncePerArchitecture = 0;
 			script = "sh xcscripts/compile-asn1.sh\n";

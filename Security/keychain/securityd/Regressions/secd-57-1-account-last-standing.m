@@ -156,6 +156,7 @@ int secd_57_1_account_last_standing(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(45);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests();
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);

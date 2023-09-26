@@ -730,6 +730,8 @@ check_zone(const pgm_zone_t *zone)
 	return check_configuration(zone) &&
 			// Quarantine
 			(zone->size == quarantine_size(zone->num_slots)) &&
+			(zone->begin % PAGE_SIZE == 0) &&
+			(zone->size % PAGE_SIZE == 0) &&
 			(zone->begin + zone->size == zone->end) &&
 			(zone->begin < zone->end) &&
 			(zone->region_size == 2 * k_zone_spacer + zone->size) &&
@@ -744,6 +746,12 @@ check_zone(const pgm_zone_t *zone)
 			(zone->slots && zone->metadata) &&
 			// Statistics
 			(zone->size_in_use <= zone->max_size_in_use);
+}
+
+static bool
+check_introspection(const pgm_zone_t *zone)
+{
+	return true;
 }
 
 static bool
@@ -807,13 +815,28 @@ check_metadata(const pgm_zone_t *zone)
 #pragma mark -
 #pragma mark Introspection Functions
 
-typedef enum { rt_zone_only, rt_slots, rt_slots_and_metadata } read_type_t;
+typedef enum {
+	rt_zone_only     = 1 << 0,
+	rt_introspection = 1 << 1,
+	rt_slots         = 1 << 2,
+	rt_metadata      = 1 << 3,
+} read_type_t;
 
-#define READ(remote_address, size, local_memory, checker, zone) \
+#define READ(remote_address, size, local_memory, checker, check_data) \
 { \
 	kern_return_t kr = reader(task, (vm_address_t)remote_address, size, (void **)local_memory); \
 	if (kr != KERN_SUCCESS) return kr; \
-	if (!checker(zone)) return KERN_FAILURE; \
+	if (!checker(check_data)) return KERN_FAILURE; \
+}
+
+// Avoid ptrauth: ptr loaded from corpse can't be authenticated in ReportCrash proccess.
+static const malloc_introspection_t *
+get_introspection_ptr(const pgm_zone_t *zone)
+{
+		// return zone->malloc_zone.introspect;
+		vm_address_t ptr_addr = (vm_address_t)zone + offsetof(malloc_zone_t, introspect);
+		vm_address_t ptr = *(vm_address_t *)ptr_addr;
+		return ptrauth_strip((malloc_introspection_t *)ptr, ptrauth_key_process_independent_data);
 }
 
 static kern_return_t
@@ -827,10 +850,13 @@ read_zone(task_t task, vm_address_t zone_address, memory_reader_t reader, pgm_zo
 	READ(zone_address, sizeof(pgm_zone_t), &zone_ptr, check_zone, zone_ptr);
 	*zone = *zone_ptr;  // Copy to writable memory
 
-	if (read_type >= rt_slots) {
+	if (read_type & rt_introspection) {
+		READ(get_introspection_ptr(zone), sizeof(malloc_introspection_t), &zone->malloc_zone.introspect, check_introspection, zone);
+	}
+	if (read_type & rt_slots) {
 		READ(zone->slots, zone->num_slots * sizeof(slot_t), &zone->slots, check_slots, zone);
 	}
-	if (read_type >= rt_slots_and_metadata) {
+	if (read_type & rt_metadata) {
 		READ(zone->metadata, zone->max_metadata * sizeof(metadata_t), &zone->metadata, check_metadata, zone);
 	}
 	return KERN_SUCCESS;
@@ -842,7 +868,7 @@ read_zone(task_t task, vm_address_t zone_address, memory_reader_t reader, pgm_zo
 		kern_return_t kr = read_zone(task, zone_address, reader, &zone_copy, read_type); \
 		if (kr != KERN_SUCCESS) return kr; \
 	} \
-	pgm_zone_t *zone = &zone_copy;
+	const pgm_zone_t *zone = &zone_copy;
 
 #define RECORD(remote_address, size_, type) \
 { \
@@ -885,7 +911,7 @@ pgm_enumerator(task_t task, void *context, unsigned type_mask,
 }
 
 static void
-pgm_statistics(pgm_zone_t *zone, malloc_statistics_t *stats)
+pgm_statistics(const pgm_zone_t *zone, malloc_statistics_t *stats)
 {
 	*stats = (malloc_statistics_t){
 		.blocks_in_use = zone->num_allocations,
@@ -1031,6 +1057,9 @@ static const malloc_introspection_t introspection_template = {
 #else
 	.enumerate_unavailable_without_blocks = NULL,
 #endif
+
+	// Zone type
+	.zone_type = MALLOC_ZONE_TYPE_PGM,
 };
 
 static const malloc_zone_t malloc_zone_template = {
@@ -1053,14 +1082,15 @@ static const malloc_zone_t malloc_zone_template = {
 
 	// Introspection
 	.zone_name = "ProbGuardMallocZone",
-	.version = 12,
+	.version = 14,
 	.introspect = (malloc_introspection_t *)&introspection_template, // Effectively const.
 
 	// Specialized operations
 	.memalign = FN_PTR(pgm_memalign),
 	.free_definite_size = FN_PTR(pgm_free_definite_size),
 	.pressure_relief = NULL,
-	.claimed_address = FN_PTR(pgm_claimed_address)
+	.claimed_address = FN_PTR(pgm_claimed_address),
+	.try_free_default = NULL,
 };
 
 
@@ -1070,8 +1100,7 @@ static const malloc_zone_t malloc_zone_template = {
 static const char *
 env_var(const char *name)
 {
-	const char **env = (const char **)*_NSGetEnviron();
-	return _simple_getenv(env, name);
+	return getenv(name);
 }
 
 static uint32_t
@@ -1098,6 +1127,29 @@ env_bool(const char *name) {
 #pragma mark -
 #pragma mark Zone Configuration
 
+static struct {
+	bool internal_build;
+	bool MallocProbGuard_is_set;
+	bool MallocProbGuard;
+	bool MallocProbGuardViaLaunchd;
+} g_env;
+
+void
+pgm_init_config(bool internal_build)
+{
+	// Avoid dirty memory; do not write in the common case
+	if (internal_build) {
+		g_env.internal_build = internal_build;
+	}
+	if (env_var("MallocProbGuard")) {
+		g_env.MallocProbGuard_is_set = true;
+		g_env.MallocProbGuard = env_bool("MallocProbGuard");
+	}
+	if (env_bool("MallocProbGuardViaLaunchd")) {
+		g_env.MallocProbGuardViaLaunchd = true;
+	}
+}
+
 static bool
 is_platform_binary(void)
 {
@@ -1122,7 +1174,7 @@ should_activate(bool internal_build)
 		return false;
 	}
 #else
-	if (!env_bool("MallocProbGuardViaLaunchd")) {
+	if (!g_env.MallocProbGuardViaLaunchd) {
 		return false;
 	}
 #endif
@@ -1145,11 +1197,12 @@ is_high_memory_device(void)
 
 
 bool
-pgm_should_enable(bool internal_build)
+pgm_should_enable(void)
 {
-	if (env_var("MallocProbGuard")) {
-		return env_bool("MallocProbGuard");
+	if (g_env.MallocProbGuard_is_set) {
+		return g_env.MallocProbGuard;
 	}
+	bool internal_build = g_env.internal_build;
 	if (FEATURE_FLAG(ProbGuard, true) && should_activate(internal_build)) {
 #if TARGET_OS_OSX || TARGET_OS_IOS
 		return true;
@@ -1318,8 +1371,10 @@ debug_zone(pgm_zone_t *zone, const char *label, vm_address_t addr)
 		return;
 	}
 	if (should_log(zone)) {
-		malloc_report(ASL_LEVEL_INFO, "ProbGuard: %9s 0x%lx, fill state: %3u/%u\n",
-				label, addr,	zone->num_allocations, zone->max_allocations);
+		malloc_report(ASL_LEVEL_INFO,
+				"ProbGuard: %9s 0x%llx, fill state: %3u/%u\n", label,
+				(unsigned long long)addr, zone->num_allocations,
+				zone->max_allocations);
 	}
 	if (!pgm_check(zone)) {
 		MALLOC_REPORT_FATAL_ERROR(addr, "ProbGuard: zone integrity check failed");
@@ -1361,16 +1416,29 @@ fill_in_report(const pgm_zone_t *zone, uint32_t slot, pgm_report_t *report)
 	}
 }
 
-static void
+#define KR_NO_PGM (KERN_RETURN_MAX + 1)
+static kern_return_t
 diagnose_page_fault(const pgm_zone_t *zone, vm_address_t fault_address, pgm_report_t *report)
 {
+	if (!is_guarded(zone, fault_address)) {
+		return KR_NO_PGM;
+	}
+
 	slot_lookup_t res = lookup_slot(zone, fault_address);
+	// Guaranteed by lookup_slot()
 	MALLOC_ASSERT(res.slot < zone->num_slots);
+	// Checked by read_zone()
 	MALLOC_ASSERT(zone->slots[res.slot].metadata < zone->max_metadata);
 	slot_state_t ss = zone->slots[res.slot].state;
 
-	// We got here because of a page fault.
-	MALLOC_ASSERT(ss != ss_allocated || res.bounds == b_oob_guard_page);
+	// We should have gotten here because of a page fault.
+	if (ss == ss_allocated && res.bounds != b_oob_guard_page) {
+		malloc_report(ASL_LEVEL_ERR | MALLOC_REPORT_LOG_ONLY,
+				"Failed to generate PGM report for fault address %p: "
+				"slot is unexpectedly allocated with bounds %d\n",
+				(void *)fault_address, (int)res.bounds);
+		return KERN_FAILURE;
+	}
 
 	// Note that all of the following error conditions may also be caused by:
 	//  *) Randomly corrupted pointer
@@ -1405,28 +1473,26 @@ diagnose_page_fault(const pgm_zone_t *zone, vm_address_t fault_address, pgm_repo
 			}
 			break;
 		default:
+			// Checked by read_zone()
 			__builtin_unreachable();
 	}
 
 	report->fault_address = fault_address;
 	fill_in_report(zone, res.slot, report);
+	return KERN_SUCCESS;
 }
 
 
 #pragma mark -
-#pragma mark Crash Reporter API
+#pragma mark Crash Reporter SPI
 
-static kern_return_t
-diagnose_fault_from_external_process(vm_address_t fault_address, pgm_report_t *report,
-		task_t task, vm_address_t zone_address, memory_reader_t reader)
-{
-	READ_ZONE(zone, rt_slots_and_metadata);
-	diagnose_page_fault(zone, fault_address, report);
-	return KERN_SUCCESS;
-}
+// KERN_FAILURE - memory read error
+// KERN_SUCCESS - memory read ok, PGM report filled
+// KR_NO_PGM    - memory read ok, but no PGM result, try next zone
+MALLOC_STATIC_ASSERT(KR_NO_PGM > KERN_RETURN_MAX, "KR_NO_PGM");
 
 static crash_reporter_memory_reader_t g_crm_reader;
-static const uint32_t k_max_read_memory = 3;
+static const uint32_t k_max_read_memory = 4;  // See read_zone() and read_type_t
 static void *read_memory[k_max_read_memory];
 static uint32_t num_read_memory;
 static kern_return_t
@@ -1435,13 +1501,15 @@ memory_reader_adapter(task_t task, vm_address_t address, vm_size_t size, void **
 	MALLOC_ASSERT(num_read_memory < k_max_read_memory);
 	void *ptr = g_crm_reader(task, address, size);
 	*local_memory = ptr;
+	if (!ptr) return KERN_FAILURE;
 	read_memory[num_read_memory++] = ptr;
-	return ptr ? KERN_SUCCESS : KERN_FAILURE;
+	return KERN_SUCCESS;
 }
 
 static memory_reader_t *
 setup_memory_reader(crash_reporter_memory_reader_t crm_reader)
 {
+	MALLOC_ASSERT(crm_reader);
 	g_crm_reader = crm_reader;
 	num_read_memory = 0;
 	return memory_reader_adapter;
@@ -1453,9 +1521,59 @@ free_read_memory()
 	for (uint32_t i = 0; i < num_read_memory; i++) {
 		free(read_memory[i]);
 	}
+	num_read_memory = 0;
+}
+
+static kern_return_t
+is_pgm_zone(vm_address_t zone_address, task_t task, memory_reader_t reader)
+{
+	READ_ZONE(zone, rt_introspection);
+	if (zone->malloc_zone.version < 14)
+		return KR_NO_PGM;
+	unsigned zone_type = get_introspection_ptr(zone)->zone_type;
+	return (zone_type == MALLOC_ZONE_TYPE_PGM) ? KERN_SUCCESS : KR_NO_PGM;
+}
+
+static kern_return_t
+diagnose_fault_from_external_process(vm_address_t fault_address, pgm_report_t *report,
+		task_t task, vm_address_t zone_address, memory_reader_t reader)
+{
+	READ_ZONE(zone, rt_slots | rt_metadata);
+	return diagnose_page_fault(zone, fault_address, report);
+}
+
+static kern_return_t
+extract_report_select_zone(vm_address_t fault_address, pgm_report_t *report,
+		task_t task, vm_address_t *zone_addresses, uint32_t zone_count, memory_reader_t reader)
+{
+	for (uint32_t i = 0; i < zone_count; i++) {
+		kern_return_t kr = is_pgm_zone(zone_addresses[i], task, reader);
+		free_read_memory();
+		if (kr == KR_NO_PGM) continue;
+		if (kr != KERN_SUCCESS) return kr;
+
+		kr = diagnose_fault_from_external_process(fault_address, report, task, zone_addresses[i], reader);
+		free_read_memory();
+		if (kr == KR_NO_PGM) continue;
+		return kr;
+	}
+	return KERN_FAILURE;
 }
 
 static _malloc_lock_s crash_reporter_lock = _MALLOC_LOCK_INIT;
+kern_return_t
+pgm_extract_report_from_corpse(vm_address_t fault_address, pgm_report_t *report, task_t task,
+		vm_address_t *zone_addresses, uint32_t zone_count, crash_reporter_memory_reader_t crm_reader)
+{
+	_malloc_lock_lock(&crash_reporter_lock);
+
+	memory_reader_t *reader = setup_memory_reader(crm_reader);
+	kern_return_t kr = extract_report_select_zone(fault_address, report, task, zone_addresses, zone_count, reader);
+
+	_malloc_lock_unlock(&crash_reporter_lock);
+	return kr;
+}
+
 kern_return_t
 pgm_diagnose_fault_from_crash_reporter(vm_address_t fault_address, pgm_report_t *report,
 		task_t task, vm_address_t zone_address, crash_reporter_memory_reader_t crm_reader)
@@ -1464,7 +1582,6 @@ pgm_diagnose_fault_from_crash_reporter(vm_address_t fault_address, pgm_report_t 
 
 	memory_reader_t *reader = setup_memory_reader(crm_reader);
 	kern_return_t kr = diagnose_fault_from_external_process(fault_address, report, task, zone_address, reader);
-	free_read_memory();
 
 	_malloc_lock_unlock(&crash_reporter_lock);
 	return kr;
@@ -1531,7 +1648,7 @@ my_vm_map_common(vm_address_t addr, size_t size, vm_prot_t protection, int vm_fl
 	kern_return_t kr = mach_vm_map(target, &address, size_rounded, mask, flags,
 		object, offset, copy, cur_protection, max_protection, inheritance);
 	MALLOC_ASSERT(kr == KERN_SUCCESS);
-	return address;
+	return (vm_address_t)address;
 }
 
 static vm_address_t

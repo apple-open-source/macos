@@ -38,13 +38,14 @@
 
 #ifdef HAVE_XCC
 
-#define CFRELEASE_NULL(x) do { if (x) { CFRelease(x); x = NULL; } } while(0)
-
 typedef struct krb5_xcc {
     CFUUIDRef uuid;
     HeimCredRef cred;
     CFStringRef clientName;
     krb5_principal primary_principal;
+#ifdef ENABLE_KCM_COMPAT
+    bool isCompatability;
+#endif
     char *cache_name;
 } krb5_xcc;
 
@@ -125,6 +126,56 @@ static krb5_error_code KRB5_CALLCONV
 update_cache_info(krb5_context context,
 		  krb5_xcc *x)
 {
+#ifdef ENABLE_KCM_COMPAT
+    //this part is for resolving the cache with the name
+    if (x->isCompatability && x->cache_name != NULL && x->uuid == NULL) {
+	// the cache name is the display name for kcm compatibility
+	CFDictionaryRef query;
+
+	CFStringRef cacheName = CFStringCreateWithCString(NULL, x->cache_name, kCFStringEncodingUTF8);
+
+	const void *keys[] = {
+	    (const void *)kHEIMAttrType,
+	    (const void *)kHEIMAttrServerName,
+	    (const void *)kHEIMAttrCompatabilityCache,
+	    (const void *)kHEIMAttrDisplayName,
+	};
+	const void *values[] = {
+	    (const void *)kHEIMTypeKerberos,
+	    (const void *)kCFNull,
+	    kCFBooleanTrue,
+	    cacheName,
+	};
+
+	query = CFDictionaryCreate(NULL, keys, values, sizeof(keys)/sizeof(keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	heim_assert(query != NULL, "out of memory");
+	CFRELEASE_NULL(cacheName);
+
+	CFArrayRef results = HeimCredCopyQuery(query);
+	CFRELEASE_NULL(query);
+	if (results == NULL || CFArrayGetCount(results) == 0) {
+	    CFRELEASE_NULL(results);
+	    krb5_set_error_message(context, KRB5_CC_NOTFOUND, "no credential for %s", x->cache_name);
+	    return KRB5_CC_NOTFOUND;
+	}
+
+	HeimCredRef cred = (HeimCredRef) CFArrayGetValueAtIndex(results, 0);
+	if (cred == NULL) {
+	    CFRELEASE_NULL(results);
+	    krb5_set_error_message(context, KRB5_CC_NOTFOUND, "no credential for %s", x->cache_name);
+	    return KRB5_CC_NOTFOUND;
+	}
+	x->uuid = HeimCredGetUUID(cred);
+	CFRetain(x->uuid);
+	x->cred = cred;
+	CFRetain(x->cred);
+	CFRELEASE_NULL(results);
+
+	//populate the cred attributes
+	CFDictionaryRef attrs = HeimCredCopyAttributes(cred, NULL, NULL);
+	CFRELEASE_NULL(attrs);
+    }
+#endif
     if (x->cred == NULL) {
 	//only update x->cred if it exists in GSSCred
 
@@ -143,6 +194,19 @@ update_cache_info(krb5_context context,
 	    return KRB5_CC_NOTFOUND;
 	}
     }
+#ifdef ENABLE_KCM_COMPAT
+    if (x->isCompatability && x->cache_name == NULL) {
+	CFStringRef cacheName = HeimCredCopyAttribute(x->cred, kHEIMAttrDisplayName);
+	if (cacheName) {
+	    if (x->cache_name) {
+		free(x->cache_name);
+		x->cache_name = NULL;
+	    }
+	    x->cache_name = rk_cfstring2cstring(cacheName);
+	    CFRELEASE_NULL(cacheName);
+	}
+    }
+#endif
     if (x->clientName == NULL && x->cred) {
 	x->clientName = HeimCredCopyAttribute(x->cred, kHEIMAttrClientName);
 	if (x->clientName == NULL) {
@@ -188,7 +252,9 @@ xcc_resolve(krb5_context context, krb5_ccache *id, const char *res)
     
     x->uuid = uuidref;
     genName(x);
-
+#ifdef ENABLE_KCM_COMPAT
+    x->isCompatability = 0;
+#endif
     //if the cache already exists, then fetch the values from gsscred to stay in sync
     ret = update_cache_info(context, x);
     if (ret) {
@@ -198,6 +264,38 @@ xcc_resolve(krb5_context context, krb5_ccache *id, const char *res)
     return 0;
 }
 
+#ifdef ENABLE_KCM_COMPAT
+static krb5_error_code KRB5_CALLCONV
+xcc_resolve_kcm_compat(krb5_context context, krb5_ccache *id, const char *res)
+{
+    krb5_error_code ret;
+    krb5_xcc *x;
+
+    ret = xcc_alloc(context, id);
+    if (ret) {
+	return ret;
+    }
+
+    x = XCACHE((*id));
+
+    x->cache_name = strdup(res);
+    x->isCompatability = 1;
+
+    //if the cache already exists, then fetch the values from gsscred to stay in sync
+    ret = update_cache_info(context, x);
+    if (ret) {
+	//ignore errors here, it's expected that the resolved cache may not exist.
+
+	// generate a uuid for the cache
+	x->uuid = CFUUIDCreate(NULL);
+    }
+
+    krb5_log(context, context->debug_dest, 1, "The KCM cache type has been deprecated, use the API type instead.");
+
+    return 0;
+}
+#endif
+
 static krb5_error_code
 xcc_create(krb5_context context, krb5_xcc *x, CFUUIDRef uuid, bool isTemporaryCache)
 {
@@ -205,12 +303,18 @@ xcc_create(krb5_context context, krb5_xcc *x, CFUUIDRef uuid, bool isTemporaryCa
     	(void *)kHEIMObjectType,
 	(void *)kHEIMAttrType,
 	(void *)kHEIMAttrTemporaryCache,
+#ifdef ENABLE_KCM_COMPAT
+	(void *)kHEIMAttrCompatabilityCache,
+#endif
 	(void *)kHEIMAttrUUID
     };
     const void *values[] = {
 	(void *)kHEIMObjectKerberos,
 	(void *)kHEIMTypeKerberos,
 	(isTemporaryCache ? kCFBooleanTrue : kCFBooleanFalse),
+#ifdef ENABLE_KCM_COMPAT
+	(x->isCompatability ? kCFBooleanTrue : kCFBooleanFalse),
+#endif
 	(void *)uuid
     };
     CFDictionaryRef attrs;
@@ -223,7 +327,20 @@ xcc_create(krb5_context context, krb5_xcc *x, CFUUIDRef uuid, bool isTemporaryCa
    
     attrs = CFDictionaryCreate(NULL, keys, values, num_keys, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(attrs != NULL, "Failed to create dictionary");
-    
+#ifdef ENABLE_KCM_COMPAT
+    //save the cache name for kcm compatability
+    if (x->isCompatability && x->cache_name!=NULL) {
+	CFStringRef cacheName = CFStringCreateWithCString(NULL, x->cache_name, kCFStringEncodingUTF8);
+	if (cacheName) {
+	    CFMutableDictionaryRef newAttrs = CFDictionaryCreateMutableCopy(NULL, 0, attrs);
+	    CFDictionarySetValue(newAttrs, (void *)kHEIMAttrDisplayName, cacheName);
+	    CFRELEASE_NULL(cacheName);
+
+	    CFRELEASE_NULL(attrs);
+	    attrs = newAttrs;
+	}
+    }
+#endif
     /*
      * Contract with HeimCredCreate is creates a uuid's when they are
      * not set on the attributes passed in.
@@ -267,6 +384,29 @@ xcc_gen_new(krb5_context context, krb5_ccache *id)
     return ret;
 }
 
+#ifdef ENABLE_KCM_COMPAT
+static krb5_error_code KRB5_CALLCONV
+xcc_kcm_compat_gen_new(krb5_context context, krb5_ccache *id)
+{
+    krb5_error_code ret;
+    krb5_xcc *x;
+
+    ret = xcc_alloc(context, id);
+    if (ret)
+	return ret;
+
+    x = XCACHE(*id);
+    x->isCompatability = 1;
+    x->uuid = CFUUIDCreate(NULL);
+    genName(x); // the cache must have a name
+
+    ret = xcc_create(context, x, x->uuid, ((*id)->ops == &krb5_xcc_temp_api_ops));
+
+    krb5_log(context, context->debug_dest, 1, "The KCM cache type has been deprecated, use the API type instead.");
+
+    return ret;
+}
+#endif
 static krb5_error_code KRB5_CALLCONV
 xcc_initialize(krb5_context context,
 	       krb5_ccache id,
@@ -635,10 +775,14 @@ xcc_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
     const void *keys[] = {
 	(const void *)kHEIMAttrType,
 	(const void *)kHEIMAttrServerName,
+#ifdef ENABLE_KCM_COMPAT
+	(const void *)kHEIMAttrCompatabilityCache,
+#endif
     };
     const void *values[] = {
 	(const void *)kHEIMTypeKerberos,
 	(const void *)kCFNull,
+	(const void *)kCFBooleanFalse,
     };
     
     c = calloc(1, sizeof(*c));
@@ -657,6 +801,42 @@ xcc_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
     *cursor = c;
     return 0;
 }
+
+#ifdef ENABLE_KCM_COMPAT
+static krb5_error_code KRB5_CALLCONV
+xcc_kcm_compat_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
+{
+    CFDictionaryRef query;
+    struct xcc_cursor *c;
+
+    const void *keys[] = {
+	(const void *)kHEIMAttrType,
+	(const void *)kHEIMAttrServerName,
+	(const void *)kHEIMAttrCompatabilityCache,
+    };
+    const void *values[] = {
+	(const void *)kHEIMTypeKerberos,
+	(const void *)kCFNull,
+	(const void *)kCFBooleanTrue,
+    };
+
+    c = calloc(1, sizeof(*c));
+    if (c == NULL)
+	return krb5_enomem(context);
+
+    query = CFDictionaryCreate(NULL, keys, values, sizeof(keys)/sizeof(keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    heim_assert(query != NULL, "Failed to create dictionary");
+
+    c->array = HeimCredCopyQuery(query);
+    CFRELEASE_NULL(query);
+    if (c->array == NULL) {
+	free_cursor(c);
+	return KRB5_CC_END;
+    }
+    *cursor = c;
+    return 0;
+}
+#endif
 
 static krb5_error_code KRB5_CALLCONV
 xcc_temp_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
@@ -693,7 +873,15 @@ get_cache_next(krb5_context context, krb5_cc_cursor cursor, const krb5_cc_ops *o
     CFRetain(x->uuid);
     x->cred = cred;
     CFRetain(cred);
-    genName(x);
+#ifdef ENABLE_KCM_COMPAT
+    if (ops == &krb5_xcc_kcm_compat_ops) {
+	x->isCompatability = 1;
+	x->cache_name = NULL; // this name will get updated by get_cache_info
+    } else
+#endif
+    {
+	genName(x);
+    }
     
     return ret;
 }
@@ -707,6 +895,18 @@ xcc_get_cache_next(krb5_context context, krb5_cc_cursor cursor, krb5_ccache *id)
     return get_cache_next(context, cursor, &krb5_xcc_ops, id);
 #endif
 }
+
+#ifdef ENABLE_KCM_COMPAT
+static krb5_error_code KRB5_CALLCONV
+xcc_kcm_compat_get_cache_next(krb5_context context, krb5_cc_cursor cursor, krb5_ccache *id)
+{
+#ifdef XCACHE_IS_API_CACHE
+    return get_cache_next(context, cursor, &krb5_xcc_kcm_compat_ops, id);
+#else
+    return KRB5_CC_END;
+#endif
+}
+#endif
 
 static krb5_error_code KRB5_CALLCONV
 xcc_api_get_cache_next(krb5_context context, krb5_cc_cursor cursor, krb5_ccache *id)
@@ -761,11 +961,37 @@ xcc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
 	krb5_free_principal(context, xto->primary_principal);
     xto->primary_principal = xfrom->primary_principal;
     xfrom->primary_principal = NULL;
-    
+
+#ifdef ENABLE_KCM_COMPAT
     /* cache_name */
+    if (!xto->isCompatability) {
+	free(xto->cache_name);
+	xto->cache_name = NULL;
+	genName(xto);
+    } else {
+	if (xto->cache_name == NULL) {
+	    genName(xto);
+	} else  {
+	    // store the display name for kcm compatability
+	    // if xto was new and never had any creds, the attribute will not be set in GSSCred.
+	    CFStringRef cacheName = CFStringCreateWithCString(NULL, xto->cache_name, kCFStringEncodingUTF8);
+
+	    // populate the cache cred after the move.  It is required to set the attribute.
+	    update_cache_info(context, xto);
+
+	    //set the display name
+	    if (!HeimCredSetAttribute(xto->cred, kHEIMAttrDisplayName, cacheName, NULL)) {
+		krb5_error_code ret = EINVAL;
+		krb5_set_error_message(context, ret, "failed to store credential to %s", xto->cache_name);
+	    }
+	    CFRELEASE_NULL(cacheName);
+	}
+    }
+#else
     free(xto->cache_name);
     xto->cache_name = NULL;
     genName(xto);
+#endif
 
     free(xfrom->cache_name);
     
@@ -811,6 +1037,14 @@ xcc_api_get_default_name(krb5_context context, char **str)
 {
     return get_default_name(context, &krb5_xcc_api_ops, "API:11111111-71F2-48EB-94C4-7D7392E900E5", str);
 }
+
+#ifdef ENABLE_KCM_COMPAT
+static krb5_error_code KRB5_CALLCONV
+xcc_kcm_compat_get_default_name(krb5_context context, char **str)
+{
+    return get_default_name(context, &krb5_xcc_kcm_compat_ops, "API:11111111-71F2-48EB-94C4-7D7392E900E5", str);
+}
+#endif
 
 static krb5_error_code KRB5_CALLCONV
 xcc_set_default(krb5_context context, krb5_ccache id)
@@ -980,6 +1214,9 @@ xcc_can_move_from(krb5_context context, krb5_ccache fromid)
     //moves between other xcaches are allowed
     if (fromid->ops == &krb5_xcc_api_ops
 	|| fromid->ops == &krb5_xcc_ops
+#ifdef ENABLE_KCM_COMPAT
+	|| fromid->ops == &krb5_xcc_kcm_compat_ops
+#endif
 	|| fromid->ops == &krb5_xcc_temp_api_ops) {
 	return true;
     }
@@ -1191,5 +1428,54 @@ KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_temp_api_ops = {
     NULL, /* store_data */
     xcc_can_move_from,
 };
+
+#ifdef ENABLE_KCM_COMPAT
+
+/**
+ * Variable containing the KCM compatability based credential cache implemention.
+ *
+ * @ingroup krb5_ccache
+ */
+
+KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_kcm_compat_ops = {
+    KRB5_CC_OPS_VERSION,
+    "KCM",
+    xcc_get_name,
+    xcc_resolve_kcm_compat,
+    xcc_kcm_compat_gen_new,
+    xcc_initialize,
+    xcc_destroy,
+    xcc_close,
+    xcc_store_cred,
+    NULL, /* acc_retrieve */
+    xcc_get_principal,
+    xcc_get_first,
+    xcc_get_next,
+    xcc_end_get,
+    xcc_remove_cred,
+    xcc_set_flags,
+    xcc_get_version,
+    xcc_kcm_compat_get_cache_first,
+    xcc_kcm_compat_get_cache_next,
+    xcc_end_cache_get,
+    xcc_move,
+    xcc_kcm_compat_get_default_name,
+    xcc_set_default,
+    xcc_lastchange,
+    NULL, /* set_kdc_offset */
+    NULL, /* get_kdc_offset */
+    xcc_hold,
+    xcc_unhold,
+    xcc_get_uuid,
+    xcc_api_resolve_by_uuid,
+    NULL,
+    NULL,
+    xcc_set_acl,
+    xcc_copy_data,
+    NULL, /* copy_query */
+    NULL, /* store_data */
+    xcc_can_move_from,
+};
+#endif /* ENABLE_KCM_COMPAT*/
 
 #endif /* HAVE_XCC */

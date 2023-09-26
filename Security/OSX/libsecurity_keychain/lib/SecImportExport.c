@@ -32,6 +32,7 @@
 #include <Security/SecTrust.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecInternal.h>
+#import "debugging.h"
 
 //#include <AssertMacros.h>
 #include <CommonCrypto/CommonDigest.h>
@@ -135,6 +136,81 @@ out:
 }
 #endif // if 0
 
+static void parsePkcs12itemsAndAddtoModernKeychain(const void *value, void *context)
+{
+    OSStatus status = errSecSuccess;
+    CFDictionaryRef options = (CFDictionaryRef)context;
+    CFBooleanRef sync = kCFBooleanFalse;
+    if (options && CFDictionaryGetValue(options, kSecAttrSynchronizable)) {
+        sync = kCFBooleanTrue;
+    }
+    if (CFGetTypeID(value) == CFDictionaryGetTypeID())
+    {
+        CFDictionaryRef item = (CFDictionaryRef)value;
+        if (CFDictionaryContainsKey(item, kSecImportItemIdentity)) {
+            SecIdentityRef identity = (SecIdentityRef)CFDictionaryGetValue(item, kSecImportItemIdentity);
+            CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                                                     0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+            CFDictionaryAddValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+            CFDictionaryAddValue(query, kSecAttrSynchronizable, sync);
+            CFDictionaryAddValue(query, kSecClass, kSecClassIdentity);
+            CFDictionaryAddValue(query, kSecValueRef, identity);
+            status = SecItemAdd(query, NULL);
+            switch(status) {
+                case errSecSuccess:
+                    secnotice("p12Decode", "cert added to keychain");
+                    break;
+                case errSecDuplicateItem:    // dup cert, OK to skip
+                    secnotice("p12Decode", "skipping dup cert");
+                    break;
+                default: //all other errors
+                    secerror("p12Decode: Error %d adding identity to keychain", status);
+            }
+            CFReleaseNull(query);
+        }
+        if (CFDictionaryContainsKey(item, kSecImportItemCertChain)) {
+            //go through certificate chain and all certificates
+            CFArrayRef certChain = (CFArrayRef)CFDictionaryGetValue(item, kSecImportItemCertChain);
+            for (unsigned index=0; index<CFArrayGetCount(certChain); index++) {
+                SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certChain, index);
+                CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                                                         0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                CFDictionaryAddValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+                CFDictionaryAddValue(query, kSecAttrSynchronizable, sync);
+                CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
+                CFDictionaryAddValue(query, kSecValueRef, cert);
+                status = SecItemAdd(query, NULL);
+                switch(status) {
+                    case errSecSuccess:
+                        secnotice("p12Decode", "cert added to keychain");
+                        break;
+                    case errSecDuplicateItem:    // dup cert, OK to skip
+                        secnotice("p12Decode", "skipping dup cert");
+                        break;
+                    default: //all other errors
+                        secerror("p12Decode: Error %d adding identity to keychain", status);
+                }
+                CFReleaseNull(query);
+            }
+        }
+    }
+}
+
+static OSStatus SecPKCS12Import_ios_wrapper(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
+{
+    OSStatus status = errSecSuccess;
+    //Decode the pkcs12 data into array of items
+    status = SecPKCS12Import_ios(pkcs12_data, options, items);
+
+    if (status == errSecSuccess) {
+        //items is an array of dictionary containing kSecImportItemIdentity,kSecImportItemCertChain
+        //kSecImportItemTrust keys/value pairs.
+        CFRange range = CFRangeMake(0, CFArrayGetCount(*items));
+        CFArrayApplyFunction(*items, range, parsePkcs12itemsAndAddtoModernKeychain, (void*)options);
+    }
+    return status;
+}
+
 OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
 {
 	if (_CFMZEnabled()) {
@@ -157,6 +233,10 @@ OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArray
 	CFMutableArrayRef identities = NULL; /* items returned by this function */
 
 	if (options) {
+        CFBooleanRef dataProtectionEnabled = CFDictionaryGetValue(options, kSecUseDataProtectionKeychain);
+        if (dataProtectionEnabled) {
+            return SecPKCS12Import_ios_wrapper(pkcs12_data, options, items);
+        }
 		importKeychain = (SecKeychainRef) CFDictionaryGetValue(options, kSecImportExportKeychain);
 		if (importKeychain)
 			CFRetain(importKeychain);

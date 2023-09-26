@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AppleFeatures/AppleFeatures.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOTimerEventSource.h>
@@ -138,6 +139,44 @@ enum {
     INDUCTIVE_FW_CTRL_CMD_SET_DEMO_MODE           = 0x28,
 };
 
+// Class definition with constructor methods overloaded to handle basic data types
+struct SMCAdapterParamHelper {
+    uint32_t valid;           /* To log or not to log the parameter */
+    const OSSymbol *keyObj;   /* Dict key obj associated with the parameter */
+    OSObject *valObj;         /* ValueObj - a catch-all for OSArray/OSNumber/... */
+    
+    SMCAdapterParamHelper (uint32_t _valid, const OSSymbol *_key, const UInt32 _arr[], unsigned int _arrSz) : valid (_valid), keyObj (_key) {
+        valObj = OSArray::withCapacity((int) _arrSz);
+        if (valObj) {
+            for (int i = 0; i < _arrSz; ++i) {
+                SET_INT_IN_ARR((OSArray *)valObj, i, _arr [i], 8*sizeof(_arr [i]));
+            }
+        }
+    }
+    
+    SMCAdapterParamHelper (uint32_t _valid, const OSSymbol *_key, UInt32 _val) : valid (_valid), keyObj (_key) {
+        valObj = OSNumber::withNumber((unsigned long long)_val, 8*sizeof(_val)); \
+    }
+    
+    SMCAdapterParamHelper (uint32_t _valid, const OSSymbol *_key, UInt16 _val) : valid (_valid), keyObj (_key) {
+        valObj = OSNumber::withNumber((unsigned long long)_val, 8*sizeof(_val));
+    }
+
+    SMCAdapterParamHelper (uint32_t _valid, const OSSymbol *_key, UInt8 _val) : valid (_valid), keyObj (_key) {
+        valObj = OSNumber::withNumber((unsigned long long)_val, 8*sizeof(_val));
+    }
+
+    ~SMCAdapterParamHelper () {
+        if (valObj) {
+            OSSafeReleaseNULL(valObj);
+        }
+    }
+
+    private:
+    SMCAdapterParamHelper ();
+
+};
+
 // Keys we use to publish battery state in our IOPMPowerSource::properties array
 // TODO: All of these would need to exist on iOS/gOS?
 static const OSSymbol *_MaxErrSym                  = OSSymbol::withCStringNoCopy(kIOPMPSMaxErrKey);
@@ -175,6 +214,180 @@ static const OSSymbol *_rawExternalConnectedSym    = OSSymbol::withCStringNoCopy
 #define super IOPMPowerSource
 
 OSDefineMetaClassAndStructors(AppleSmartBattery,IOPMPowerSource)
+
+/*
+ * Fills up the Dictionary with PwrPortTelemetryLogParams0_t struct members.  
+ * 
+ * @param 'PwrPortTelemetryLogParams0_t Struct' whose members are loaded into 'outDict'
+ *
+ * */
+static void populateAdapterParams0Dict (const PwrPortTelemetryLogParams0_t &params0, OSDictionary *outDict) 
+{
+    const PwrPortTelemetryLogParams0Mask_t &mask = params0.paramValidMask; 
+  
+    if (mask.mask == 0) {
+        // No valid parameters to log. Bail early! 
+        return; 
+    } 
+   
+    SMCAdapterParamHelper params [] = {
+        SMCAdapterParamHelper (mask.pdo                ,_kAsbPortControllerPortPDO            ,params0.pdo,     ARRAY_SIZE (params0.pdo)),
+        SMCAdapterParamHelper (mask.portMode           ,_kAsbPortControllerPortMode           ,(UInt32) params0.portMode), // portMode is an enum. Help the compiler choose the constructor.
+        SMCAdapterParamHelper (mask.fwVersion          ,_kAsbPortControllerFwVersion          ,params0.fwVersion),
+        SMCAdapterParamHelper (mask.electionFailReason ,_kAsbPortControllerElectionFailReason ,params0.electionFailReason),
+        SMCAdapterParamHelper (mask.activeContractRdo  ,_kAsbPortControllerActiveContractRdo  ,params0.activeContractRdo),
+        SMCAdapterParamHelper (mask.dnSt               ,_kAsbPortControllerDnSt               ,params0.dnSt),
+        SMCAdapterParamHelper (mask.fetStatus          ,_kAsbPortControllerFetStatus          ,params0.fetStatus),
+        SMCAdapterParamHelper (mask.powerState         ,_kAsbPortControllerPowerState         ,params0.powerState),
+        SMCAdapterParamHelper (mask.uvdmStatus         ,_kAsbPortControllerUvdmStatus         ,params0.uvdmStatus),
+        SMCAdapterParamHelper (mask.srcTypes           ,_kAsbPortControllerSrcTypes           ,params0.srcTypes),
+        SMCAdapterParamHelper (mask.loserReason        ,_kAsbPortControllerLoserReason        ,params0.loserReason),
+        SMCAdapterParamHelper (mask.nPDOs              ,_kAsbPortControllerNPDOs              ,params0.nPDOs),
+        SMCAdapterParamHelper (mask.nEprPDOs           ,_kAsbPortControllerNEprPDOs           ,params0.nEprPDOs),
+        SMCAdapterParamHelper (mask.pdst               ,_kAsbPortControllerPDst               ,params0.pdst),
+        SMCAdapterParamHelper (mask.capMismatch        ,_kAsbPortControllerCapMismatch        ,params0.capMismatch),
+    };
+
+    for (int i = 0; i < ARRAY_SIZE(params); ++i) {
+        if (params [i].valid && params[i].keyObj && params[i].valObj) {
+            // If valid parameters are published by SMC, funnel them.
+            outDict->setObject(params[i].keyObj, params[i].valObj);
+        }
+    }
+}
+
+/*
+ * Fills up the Dictionary with  Port Controller Evt history buffer
+ * 
+ * @param bufIdx -> Oldest entry index
+ * @param buffer -> Byte buffer holding the SMC Key read payload
+ * @param bufSize -> Size of the buffer
+ * @param outDict -> Output dictionary 
+ *
+ * */
+static void populatePortControllerEvtBufferDict (int bufIdx, const uint8_t *buffer, int32_t bufSize,  OSDictionary *outDict) {
+    
+    // The event log circular buffer is unrolled to start from the oldest
+    // (pointed by bufIdx) to the newest events in the registry to avoid
+    // logging the buffer index as an additional parameter in the power log 
+
+    if (bufIdx == 0) {
+
+        // No unrolling as the start of buffer is the oldest entry.
+        const OSData *valObj = OSData::withBytes(buffer, bufSize); 
+        
+        if (valObj) {
+            outDict->setObject (_kAsbPortControllerEvtBuffer, valObj); 
+            OSSafeReleaseNULL(valObj);
+        }
+        // All done, just go!
+        return; 
+    }
+    
+    // Unwrap the buffer when index is non-zero
+    OSData *valObj = OSData::withCapacity(bufSize);
+    if (valObj) {
+        
+        valObj->appendBytes (&buffer [bufIdx], bufSize - bufIdx); 
+        valObj->appendBytes (&buffer [0], bufIdx);
+        
+        outDict->setObject (_kAsbPortControllerEvtBuffer, valObj); 
+        OSSafeReleaseNULL(valObj);
+    }
+
+}
+
+/*
+ * Fills up the Dictionary with PwrPortTelemetryLogParams1_t struct members.  
+ * 
+ * @param 'PwrPortTelemetryLogParams1_t Struct' whose members are loaded into
+ *        'outDict'
+ *
+ * */
+static void populateAdapterParams1Dict (const PwrPortTelemetryLogParams1_t &params1, OSDictionary *outDict) 
+{
+    const PwrPortTelemetryLogParams1Mask_t &mask = params1.paramValidMask; 
+ 
+    if (mask.mask == 0) {
+        // No valid parameters to log. Bail early! 
+        return; 
+    } 
+
+    SMCAdapterParamHelper params [] = {
+        SMCAdapterParamHelper (mask.srdoCount            ,_kAsbPortControllerSrdoCount               ,params1.srdoCount),            
+        SMCAdapterParamHelper (mask.srdoRetryCount       ,_kAsbPortControllerSrdoRetryCount          ,params1.srdoRetryCount),
+        SMCAdapterParamHelper (mask.srdyCount            ,_kAsbPortControllerSrdyCount               ,params1.srdyCount),     
+        SMCAdapterParamHelper (mask.srdyRejectCount      ,_kAsbPortControllerSrdyRejectCount         ,params1.srdyRejectCount),      
+        SMCAdapterParamHelper (mask.shortDetectCount     ,_kAsbPortControllerShortDetectCount        ,params1.shortDetectCount),     
+        SMCAdapterParamHelper (mask.srdoRejectCount      ,_kAsbPortControllerSrdoRejectCount         ,params1.srdoRejectCount),      
+        SMCAdapterParamHelper (mask.vdoFailCount         ,_kAsbPortControllerVdoFailCount            ,params1.vdoFailCount),    
+        SMCAdapterParamHelper (mask.i2cErrCount          ,_kAsbPortControllerI2cErrCount             ,params1.i2cErrCount),            
+        SMCAdapterParamHelper (mask.surpriseAckCount     ,_kAsbPortControllerSurpriseAckCount        ,params1.surpriseAckCount),
+        SMCAdapterParamHelper (mask.surpriseNackCount    ,_kAsbPortControllerSurpriseNackCount       ,params1.surpriseNackCount),   
+        SMCAdapterParamHelper (mask.stuckCmdCount        ,_kAsbPortControllerStuckCmdCount           ,params1.stuckCmdCount),     
+        SMCAdapterParamHelper (mask.wakeFailCount        ,_kAsbPortControllerWakeFailCount           ,params1.wakeFailCount),         
+        SMCAdapterParamHelper (mask.attachCount          ,_kAsbPortControllerAttachCount             ,params1.attachCount),           
+        SMCAdapterParamHelper (mask.detachCount          ,_kAsbPortControllerDetachCount             ,params1.detachCount),             
+        SMCAdapterParamHelper (mask.pwrRoleSwapFailCount ,_kAsbPortControllerPwrRoleSwapFailCount    ,params1.pwrRoleSwapFailCount),
+        SMCAdapterParamHelper (mask.pwrRoleSwapCount     ,_kAsbPortControllerPwrRoleSwapCount        ,params1.pwrRoleSwapCount),
+        SMCAdapterParamHelper (mask.dataRoleSwapFailCount,_kAsbPortControllerDataRoleSwapFailCount   ,params1.dataRoleSwapFailCount),
+        SMCAdapterParamHelper (mask.dataRoleSwapCount    ,_kAsbPortControllerDataRoleSwapCount       ,params1.dataRoleSwapCount),
+        SMCAdapterParamHelper (mask.inpFetEnFailCount    ,_kAsbPortControllerInpFetEnFailCount       ,params1.inpFetEnFailCount),
+        SMCAdapterParamHelper (mask.hardResetCount       ,_kAsbPortControllerHardResetCount          ,params1.hardResetCount),
+    };
+  
+    for (int i = 0; i < ARRAY_SIZE(params); ++i) {
+        if (params [i].valid && params[i].keyObj && params[i].valObj) {
+            // If valid parameters are published by SMC, funnel them.
+            outDict->setObject(params[i].keyObj, params[i].valObj);
+        } 
+    }
+}
+
+/*
+ * Fills up the Dictionary with PwrPortTelemetryLogParams2_t struct members.  
+ * 
+ * @param 'PwrPortTelemetryLogParams2_t Struct' whose members are loaded into
+ *        'outDict'
+ *
+ * */
+static void populateAdapterParams2Dict (const PwrPortTelemetryLogParams2_t &params2, OSDictionary *outDict) 
+{
+  const PwrPortTelemetryLogParams2Mask_t &mask = params2.paramValidMask; 
+
+  if (mask.mask == 0) {
+      // No valid parameters to log. Bail early! 
+      return; 
+  }
+
+  SMCAdapterParamHelper params [] = {
+      SMCAdapterParamHelper (mask.irqCntAppLd        ,_kAsbPortControllerIrqCntAppLd       ,params2.irqCntAppLd),         
+      SMCAdapterParamHelper (mask.irqCntHrdRst       ,_kAsbPortControllerIrqCntHrdRst      ,params2.irqCntHrdRst),       
+      SMCAdapterParamHelper (mask.irqCntPlg          ,_kAsbPortControllerIrqCntPlg         ,params2.irqCntPlg),           
+      SMCAdapterParamHelper (mask.irqCntStsUpd       ,_kAsbPortControllerIrqCntStsUpd      ,params2.irqCntStsUpd),        
+      SMCAdapterParamHelper (mask.irqCntPwrStsUpd    ,_kAsbPortControllerIrqCntPwrStsUpd   ,params2.irqCntPwrStsUpd),     
+      SMCAdapterParamHelper (mask.irqCntRxSrcCap     ,_kAsbPortControllerIrqCntRxSrcCap    ,params2.irqCntRxSrcCap),      
+      SMCAdapterParamHelper (mask.irqCntPdStsUpd     ,_kAsbPortControllerIrqCntPdStsUpd    ,params2.irqCntPdStsUpd),      
+      SMCAdapterParamHelper (mask.irqCntRxIdSop      ,_kAsbPortControllerIrqCntRxIdSop     ,params2.irqCntRxIdSop),       
+      SMCAdapterParamHelper (mask.irqCntUvdmEnum     ,_kAsbPortControllerIrqCntUvdmEnum    ,params2.irqCntUvdmEnum),      
+      SMCAdapterParamHelper (mask.irqCntUvdmStsUpd   ,_kAsbPortControllerIrqCntUvdmStsUpd  ,params2.irqCntUvdmStsUpd),    
+      SMCAdapterParamHelper (mask.irqCntUsb2Plg      ,_kAsbPortControllerIrqCntUsb2Plg     ,params2.irqCntUsb2Plg),     
+      SMCAdapterParamHelper (mask.irqCntUsb2Wak      ,_kAsbPortControllerIrqCntUsb2Wak     ,params2.irqCntUsb2Wak),       
+      SMCAdapterParamHelper (mask.irqCntConSrc       ,_kAsbPortControllerIrqCntConSrc      ,params2.irqCntConSrc),        
+      SMCAdapterParamHelper (mask.irqCntRxSnkCap     ,_kAsbPortControllerIrqCntRxSnkCap    ,params2.irqCntRxSnkCap),      
+      SMCAdapterParamHelper (mask.irqCntRxRdo        ,_kAsbPortControllerIrqCntRxRdo       ,params2.irqCntRxRdo),         
+      SMCAdapterParamHelper (mask.irqCntAlert        ,_kAsbPortControllerIrqCntAlert       ,params2.irqCntAlert),         
+      SMCAdapterParamHelper (mask.irqCntldcm         ,_kAsbPortControllerIrqCntldcm        ,params2.irqCntldcm),         
+  };
+
+
+  for (int i = 0; i < ARRAY_SIZE(params); ++i) {
+      if (params [i].valid && params[i].keyObj && params[i].valObj) {
+          // If valid parameters are published by SMC, funnel them.
+          outDict->setObject(params[i].keyObj, params[i].valObj);
+      } 
+  }
+}
 
 /******************************************************************************
  * AppleSmartBattery::smartBattery
@@ -806,6 +1019,38 @@ void AppleSmartBattery::externalConnectedTimeout(void)
 }
 #endif // TARGET_OS_IPHONE || TARGET_OS_OSX_AS
 
+static void applyOverrideDictTo(OSDictionary *overrides, OSDictionary *dst)
+{
+    OSCollectionIterator *iter = OSCollectionIterator::withCollection(overrides);
+    if (!iter) {
+        return;
+    }
+
+    const OSSymbol *key = nullptr;
+    const OSObject *obj = nullptr;
+    while ((key = (const OSSymbol *)iter->getNextObject()) && (obj = overrides->getObject(key))) {
+        OSDictionary *tmp = OSDynamicCast(OSDictionary, obj);
+        if (tmp) {
+            OSObject *o = dst->getObject(key);
+            OSDictionary *d = OSDynamicCast(OSDictionary, o);
+            if (d) {
+                // merge override dict into existing dict
+                applyOverrideDictTo(tmp, d);
+            } else {
+                // overridden key does not exist or is not a dictionary
+                dst->setObject(key, obj);
+            }
+        } else {
+            dst->setObject(key, obj);
+        }
+    }
+}
+
+void AppleSmartBattery::applyPropertyOverridesGated(void)
+{
+    applyOverrideDictTo(_overrideDict, properties);
+}
+
 void AppleSmartBattery::handlePollingFinishedGated(bool visitedEntirePath, uint16_t machinePath)
 {
     uint64_t now, nsec;
@@ -864,6 +1109,11 @@ void AppleSmartBattery::handlePollingFinishedGated(bool visitedEntirePath, uint1
             }
         }
         BM_LOG1("SmartBattery: finished polling type %d\n", machinePath);
+
+        // Apply any overrides
+        if (_overrideDict) {
+            applyPropertyOverridesGated();
+        }
 
         updateStatus();
         if (_needRegisterService) {
@@ -1340,7 +1590,7 @@ IOReturn AppleSmartBattery::transactionCompletionGated(struct transactionComplet
             clock_get_calendar_microtime(&secs, &microsecs);
             SMCResult rc = _smcWriteKey(key, sizeof(secs), &secs);
             if (rc != kSMCSuccess) {
-                BM_ERRLOG("Failed to set battery shutdown timestamp. rc:0x%x\n", rc);
+                BM_ERRLOG("Failed to set battery shutdown timestamp. rc:0x%x=%s\n", rc, printSMCResult(rc));
             }
 #if TARGET_OS_OSX
             rd = getPMRootDomain();

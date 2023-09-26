@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,17 +29,22 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __APPLE__
 #ifndef lint
 static const char copyright[] =
 "@(#) Copyright (c) 1983, 1989, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
+#endif
 
 #if 0
 #ifndef lint
 static char sccsid[] = "@(#)renice.c	8.1 (Berkeley) 6/9/93";
 #endif /* not lint */
 #endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -51,11 +54,12 @@ static char sccsid[] = "@(#)renice.c	8.1 (Berkeley) 6/9/93";
 #include <errno.h>
 #include <limits.h>
 #include <pwd.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-static int	donice(int, int, int, int);
+static int	donice(int, int, int, bool);
 static int	getnum(const char *, const char *, int *);
 static void	usage(void);
 
@@ -68,59 +72,44 @@ int
 main(int argc, char *argv[])
 {
 	struct passwd *pwd;
-	int errs, incr, prio, which, who;
-	int delim;
-	int priflag;
+	bool havedelim = false, haveprio = false, incr = false;
+	int errs = 0, prio = 0, who = 0, which = PRIO_PROCESS;
 
-	errs = 0;
-	incr = 0;
-	which = PRIO_PROCESS;
-	who = 0;
-	argc--, argv++;
-	if (argc < 2)
-		usage();
-	delim = 0;
-	priflag = 0;
-
-	/* incrementing priflag here ensures we only process
-	   the single priority arg if it is the very first arg */
-	for (; argc > 0; argc--, argv++, priflag++) {
-	  /* once we've seen -- , don't process anymore switches */
-	  if (0 == delim) {
-	    /* -n must immediately be followed by the incremental
-	       priority */
-	    if (strcmp(*argv, "-n") == 0) {
-	      incr = 1;
-	      argc--, argv++;
-	      if (getnum("priority", *argv, &prio))
-		return (1);
-	      continue;
-	    }
-		if (strcmp(*argv, "-g") == 0) {
-			which = PRIO_PGRP;
+	for (argc--, argv++; argc > 0; argc--, argv++) {
+		if (!havedelim) {
+			/* can occur at any time prior to delimiter */
+			if (strcmp(*argv, "-g") == 0) {
+				which = PRIO_PGRP;
+				continue;
+			}
+			if (strcmp(*argv, "-u") == 0) {
+				which = PRIO_USER;
+				continue;
+			}
+			if (strcmp(*argv, "-p") == 0) {
+				which = PRIO_PROCESS;
+				continue;
+			}
+			if (strcmp(*argv, "--") == 0) {
+				havedelim = true;
+				continue;
+			}
+			if (strcmp(*argv, "-n") == 0) {
+				/* may occur only once, prior to priority */
+				if (haveprio || incr || argc < 2)
+					usage();
+				incr = true;
+				(void)argc--, argv++;
+				/* fall through to priority */
+			}
+		}
+		if (!haveprio) {
+			/* must occur exactly once, prior to target */
+			if (getnum("priority", *argv, &prio))
+				return (1);
+			haveprio = true;
 			continue;
 		}
-		if (strcmp(*argv, "-u") == 0) {
-			which = PRIO_USER;
-			continue;
-		}
-		if (strcmp(*argv, "-p") == 0) {
-			which = PRIO_PROCESS;
-			continue;
-		}
-		if (strcmp(*argv, "--") == 0) {
-		        delim = 1;
-			continue;
-		}
-		if (0 == priflag) {
-		/* if very first switch/arg and we've made it to
-		   here, this must be the priority */
-		  if (getnum("priority", *argv, &prio)) {
-		  return(1);
-		  }
-		continue;
-		}
-	  }
 		if (which == PRIO_USER) {
 			if ((pwd = getpwnam(*argv)) != NULL)
 				who = pwd->pw_uid;
@@ -145,11 +134,13 @@ main(int argc, char *argv[])
 		}
 		errs += donice(which, who, prio, incr);
 	}
+	if (!haveprio)
+		usage();
 	exit(errs != 0);
 }
 
 static int
-donice(int which, int who, int prio, int incr)
+donice(int which, int who, int prio, bool incr)
 {
 	int oldprio;
 
@@ -169,6 +160,10 @@ donice(int which, int who, int prio, int incr)
 		warn("%d: setpriority", who);
 		return (1);
 	}
+#ifndef __APPLE__
+	fprintf(stderr, "%d: old priority %d, new priority %d\n", who,
+	    oldprio, prio);
+#endif
 	return (0);
 }
 
@@ -185,7 +180,7 @@ getnum(const char *com, const char *str, int *val)
 		return (1);
 	}
 	if (ep == str || *ep != '\0' || errno != 0) {
-		warnx("Bad %s argument: %s.", com, str);
+		warnx("%s argument %s is invalid.", com, str);
 		return (1);
 	}
 
@@ -194,10 +189,10 @@ getnum(const char *com, const char *str, int *val)
 }
 
 static void
-usage()
+usage(void)
 {
 	fprintf(stderr, "%s\n%s\n",
-"usage: renice priority     [[-p] pid ...] [[-g] pgrp ...] [[-u] user ...]",
+"usage: renice priority [[-p] pid ...] [[-g] pgrp ...] [[-u] user ...]",
 "       renice -n increment [[-p] pid ...] [[-g] pgrp ...] [[-u] user ...]");
 	exit(1);
 }

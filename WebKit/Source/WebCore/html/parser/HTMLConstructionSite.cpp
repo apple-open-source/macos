@@ -25,17 +25,14 @@
  */
 
 #include "config.h"
-#include "HTMLTreeBuilder.h"
+#include "HTMLConstructionSite.h"
 
 #include "Comment.h"
 #include "CustomElementRegistry.h"
-#include "DOMWindow.h"
 #include "DocumentFragment.h"
 #include "DocumentType.h"
-#include "Frame.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
-#include "FrameLoaderClient.h"
 #include "HTMLElementFactory.h"
 #include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
@@ -48,8 +45,13 @@
 #include "HTMLPictureElement.h"
 #include "HTMLScriptElement.h"
 #include "HTMLTemplateElement.h"
+#include "HTMLTreeBuilder.h"
 #include "HTMLUnknownElement.h"
 #include "JSCustomElementInterface.h"
+#include "LocalDOMWindow.h"
+#include "LocalFrame.h"
+#include "LocalFrameLoaderClient.h"
+#include "NodeName.h"
 #include "NotImplemented.h"
 #include "SVGElementInlines.h"
 #include "Settings.h"
@@ -68,7 +70,7 @@ static inline void setAttributes(Element& element, Vector<Attribute>& attributes
 {
     if (!scriptingContentIsAllowed(parserContentPolicy))
         element.stripScriptingAttributes(attributes);
-    element.parserSetAttributes(attributes);
+    element.parserSetAttributes(attributes.span());
     element.setHasDuplicateAttribute(hasDuplicateAttribute == HasDuplicateAttribute::Yes);
 }
 
@@ -123,11 +125,6 @@ static inline bool causesFosterParenting(const HTMLStackItem& item)
     default:
         return false;
     }
-}
-
-static inline bool isAllWhitespace(const String& string)
-{
-    return string.isAllSpecialCharacters<isHTMLSpace>();
 }
 
 static inline void insert(HTMLConstructionSiteTask& task)
@@ -264,7 +261,6 @@ HTMLConstructionSite::HTMLConstructionSite(Document& document, OptionSet<ParserC
     , m_redirectAttachToFosterParent(false)
     , m_maximumDOMTreeDepth(maximumDOMTreeDepth)
     , m_inQuirksMode(document.inQuirksMode())
-    , m_whitespaceCache(document.whitespaceCache())
 {
     ASSERT(m_document.isHTMLDocument() || m_document.isXHTMLDocument());
 }
@@ -277,7 +273,6 @@ HTMLConstructionSite::HTMLConstructionSite(DocumentFragment& fragment, OptionSet
     , m_redirectAttachToFosterParent(false)
     , m_maximumDOMTreeDepth(maximumDOMTreeDepth)
     , m_inQuirksMode(fragment.document().inQuirksMode())
-    , m_whitespaceCache(fragment.document().whitespaceCache())
 {
     ASSERT(m_document.isHTMLDocument() || m_document.isXHTMLDocument());
 }
@@ -514,7 +509,7 @@ void HTMLConstructionSite::insertHTMLBodyElement(AtomHTMLToken&& token)
     m_openElements.pushHTMLBodyElement(HTMLStackItem(WTFMove(body), WTFMove(token)));
 }
 
-void HTMLConstructionSite::insertHTMLFormElement(AtomHTMLToken&& token, bool isDemoted)
+void HTMLConstructionSite::insertHTMLFormElement(AtomHTMLToken&& token)
 {
     auto element = createHTMLElement(token);
     auto& formElement = downcast<HTMLFormElement>(element.get());
@@ -522,7 +517,6 @@ void HTMLConstructionSite::insertHTMLFormElement(AtomHTMLToken&& token, bool isD
     // form element pointer to point to the element created.
     if (!openElements().hasTemplateInHTMLScope())
         m_form = &formElement;
-    formElement.setDemoted(isDemoted);
     attachLater(currentNode(), formElement);
     m_openElements.push(HTMLStackItem(formElement, WTFMove(token)));
 }
@@ -660,7 +654,7 @@ static ALWAYS_INLINE unsigned findBreakIndex(const String& string, unsigned curr
     return findBreakIndexSlow(string, currentPosition, proposedBreakIndex);
 }
 
-void HTMLConstructionSite::insertTextNode(const String& characters, WhitespaceMode whitespaceMode)
+void HTMLConstructionSite::insertTextNode(const String& characters)
 {
     HTMLConstructionSiteTask task(HTMLConstructionSiteTask::Insert);
     task.parent = &currentNode();
@@ -674,7 +668,16 @@ void HTMLConstructionSite::insertTextNode(const String& characters, WhitespaceMo
     // FIXME: Splitting text nodes into smaller chunks contradicts HTML5 spec, but is currently necessary
     // for performance, see <https://bugs.webkit.org/show_bug.cgi?id=55898>.
 
-    RefPtr<Node> previousChild = task.nextChild ? task.nextChild->previousSibling() : task.parent->lastChild();
+    RefPtr<Node> previousChild;
+    if (task.nextChild)
+        previousChild = task.nextChild->previousSibling();
+    else {
+        if (auto templateParent = dynamicDowncast<HTMLTemplateElement>(task.parent.get()); UNLIKELY(templateParent)) {
+            auto parentNode = templateParent->contentIfAvailable();
+            previousChild = parentNode ? parentNode->lastChild() : nullptr;
+        } else
+            previousChild = task.parent->lastChild();
+    }
     if (auto* previousTextChild = dynamicDowncast<Text>(previousChild.get()); previousTextChild && previousTextChild->length() < lengthLimit) {
         // FIXME: We're only supposed to append to this text node if it was the last text node inserted by the parser.
         unsigned proposedBreakIndex = std::min(characters.length(), lengthLimit - previousTextChild->length());
@@ -693,8 +696,7 @@ void HTMLConstructionSite::insertTextNode(const String& characters, WhitespaceMo
 
         unsigned substringLength = breakIndex - currentPosition;
         auto substring = characters.substring(currentPosition, substringLength);
-        AtomString substringAtom = m_whitespaceCache.lookup(substring, whitespaceMode);
-        auto textNode = Text::create(task.parent->document(), substringAtom.isNull() ? WTFMove(substring) : substringAtom.releaseString());
+        auto textNode = Text::create(task.parent->document(), WTFMove(substring));
 
         currentPosition += textNode->length();
         ASSERT(currentPosition <= characters.length());
@@ -737,7 +739,7 @@ static inline QualifiedName qualifiedNameForTag(AtomHTMLToken& token, const Atom
     auto nodeNamespace = findNamespace(namespaceURI);
     auto elementName = elementNameForTag(nodeNamespace, token.tagName());
     if (LIKELY(elementName != ElementName::Unknown))
-        return qualifiedNameForElement(elementName);
+        return qualifiedNameForNodeName(elementName);
     return { nullAtom(), token.name(), namespaceURI, nodeNamespace, elementName };
 }
 
@@ -745,7 +747,7 @@ static inline QualifiedName qualifiedNameForHTMLTag(const AtomHTMLToken& token)
 {
     auto elementName = elementNameForTag(Namespace::HTML, token.tagName());
     if (LIKELY(elementName != ElementName::Unknown))
-        return qualifiedNameForElement(elementName);
+        return qualifiedNameForNodeName(elementName);
     return { nullAtom(), token.name(), xhtmlNamespaceURI, Namespace::HTML, elementName };
 }
 
@@ -828,7 +830,7 @@ Ref<HTMLElement> HTMLConstructionSite::createHTMLElement(AtomHTMLToken& token)
 HTMLStackItem HTMLConstructionSite::createElementFromSavedToken(const HTMLStackItem& item)
 {
     // NOTE: Moving from item -> token -> item copies the Attribute vector twice!
-    auto tagName = tagNameForElement(item.elementName());
+    auto tagName = tagNameForElementName(item.elementName());
     AtomHTMLToken fakeToken(HTMLToken::Type::StartTag, tagName, item.localName(), Vector<Attribute>(item.attributes()));
     ASSERT(item.namespaceURI() == HTMLNames::xhtmlNamespaceURI);
     ASSERT(isFormattingTag(tagName));
@@ -930,98 +932,4 @@ void HTMLConstructionSite::fosterParent(Ref<Node>&& node)
     m_taskQueue.append(WTFMove(task));
 }
 
-// Compute a 64 bit code that represents a whitespace-only string's contents.
-//
-// The code format is a sequence of four pairs of an 8 bit whitespace character
-// and an 8 bit count of that character. For example, 0x0A_02_20_08 represents
-// two newlines followed by eight space characters.
-//
-// Returns 0 if any non-whitespace characters are found.
-//
-// Returns -1 if the code would overflow due to finding more than four
-// whitespace character runs.
-template<WhitespaceMode whitespaceMode>
-uint64_t WhitespaceCache::codeForString(const String& string)
-{
-    ASSERT(whitespaceMode != NotAllWhitespace);
-    ASSERT(string.is8Bit());
-    ASSERT(!string.isEmpty());
-    ASSERT(string.length() <= maximumCachedStringLength);
-    static_assert(maximumCachedStringLength <= 0xFF, "Code format requires whitespace run length fit in one byte");
-
-    auto startOfRun = string.characters8();
-
-    if constexpr (whitespaceMode == WhitespaceUnknown) {
-        if (!isHTMLSpace(*startOfRun))
-            return 0;
-    }
-
-    LChar currentWhitespaceCharacter = *startOfRun;
-    auto character = startOfRun + 1;
-    auto end = startOfRun + string.length();
-
-    uint64_t code = 0;
-    int runsRemaining = 4;
-
-    for (;;) {
-        while (character != end && *character == currentWhitespaceCharacter)
-            ++character;
-
-        if constexpr (whitespaceMode == WhitespaceUnknown) {
-            if (character != end && !isHTMLSpace(*character))
-                return 0;
-        }
-
-        code <<= 16;
-        code |= (currentWhitespaceCharacter << 8);
-        code |= (character - startOfRun);
-
-        if (character == end)
-            return code;
-
-        if (!--runsRemaining)
-            return overflowWhitespaceCode;
-
-        startOfRun = character;
-        currentWhitespaceCharacter = *character;
-        ++character;
-
-        ASSERT(isHTMLSpace(currentWhitespaceCharacter));
-    }
-
-    return code;
-}
-
-AtomString WhitespaceCache::lookup(const String& string, WhitespaceMode whitespaceMode)
-{
-    if (whitespaceMode == NotAllWhitespace || !string.is8Bit() || string.isEmpty())
-        return AtomString();
-
-    size_t length = string.length();
-    if (length > maximumCachedStringLength)
-        return whitespaceMode == AllWhitespace || isAllWhitespace(string) ? AtomString(string) : AtomString();
-
-    uint64_t code;
-    if (whitespaceMode == AllWhitespace) {
-        code = codeForString<AllWhitespace>(string);
-        ASSERT(code);
-    } else {
-        code = codeForString<WhitespaceUnknown>(string);
-        if (!code)
-            return AtomString();
-    }
-
-    auto& existingAtom = m_atoms[length - 1];
-    if (existingAtom.code == code) {
-        ASSERT(existingAtom.string == string);
-        return existingAtom.string;
-    }
-
-    if (code == overflowWhitespaceCode)
-        return AtomString(string);
-
-    existingAtom = { AtomString { string }, code };
-    return existingAtom.string;
-}
-
-}
+} // namespace WebCore

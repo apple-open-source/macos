@@ -35,11 +35,10 @@ namespace WebKit {
 
 void LoadParameters::platformEncode(IPC::Encoder& encoder) const
 {
-    IPC::encode(encoder, dataDetectionContext.get());
-
+    encoder << dataDetectionReferenceDate;
 #if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     encoder << networkExtensionSandboxExtensionHandles;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     encoder << contentFilterExtensionHandle;
     encoder << frontboardServiceExtensionHandle;
 #endif
@@ -48,8 +47,10 @@ void LoadParameters::platformEncode(IPC::Encoder& encoder) const
 
 bool LoadParameters::platformDecode(IPC::Decoder& decoder, LoadParameters& parameters)
 {
-    if (!IPC::decode(decoder, parameters.dataDetectionContext))
+    auto dataDetectionReferenceDate = decoder.decode<std::optional<double>>();
+    if (!dataDetectionReferenceDate)
         return false;
+    parameters.dataDetectionReferenceDate = WTFMove(*dataDetectionReferenceDate);
 
 #if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     std::optional<Vector<SandboxExtension::Handle>> networkExtensionSandboxExtensionHandles;
@@ -57,7 +58,7 @@ bool LoadParameters::platformDecode(IPC::Decoder& decoder, LoadParameters& param
     if (!networkExtensionSandboxExtensionHandles)
         return false;
     parameters.networkExtensionSandboxExtensionHandles = WTFMove(*networkExtensionSandboxExtensionHandles);
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     std::optional<std::optional<SandboxExtension::Handle>> contentFilterExtensionHandle;
     decoder >> contentFilterExtensionHandle;
     if (!contentFilterExtensionHandle)
@@ -69,7 +70,7 @@ bool LoadParameters::platformDecode(IPC::Decoder& decoder, LoadParameters& param
     if (!frontboardServiceExtensionHandle)
         return false;
     parameters.frontboardServiceExtensionHandle = WTFMove(*frontboardServiceExtensionHandle);
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS) || PLATFORM(VISION)
 #endif // !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
 
     return true;

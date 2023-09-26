@@ -35,12 +35,12 @@
 #include "WebsiteMetaViewportPolicy.h"
 #include "WebsitePopUpPolicy.h"
 #include "WebsiteSimulatedMouseEventsDispatchPolicy.h"
+#include <WebCore/AdvancedPrivacyProtections.h>
 #include <WebCore/CustomHeaderFields.h>
 #include <WebCore/DeviceOrientationOrMotionPermissionState.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/HTTPHeaderField.h>
-#include <WebCore/NetworkConnectionIntegrity.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
 
@@ -61,9 +61,9 @@ public:
 
     WebKit::WebsitePoliciesData data();
 
-    bool contentBlockersEnabled() const { return m_contentBlockersEnabled; }
-    void setContentBlockersEnabled(bool enabled) { m_contentBlockersEnabled = enabled; }
-    
+    const WebCore::ContentExtensionEnablement& contentExtensionEnablement() const { return m_contentExtensionEnablement; }
+    void setContentExtensionEnablement(WebCore::ContentExtensionEnablement&& enablement) { m_contentExtensionEnablement = WTFMove(enablement); }
+
     void setActiveContentRuleListActionPatterns(HashMap<WTF::String, Vector<WTF::String>>&& patterns) { m_activeContentRuleListActionPatterns = WTFMove(patterns); }
     const HashMap<WTF::String, Vector<WTF::String>>& activeContentRuleListActionPatterns() const { return m_activeContentRuleListActionPatterns; }
     
@@ -139,8 +139,8 @@ public:
     WebCore::ModalContainerObservationPolicy modalContainerObservationPolicy() const { return m_modalContainerObservationPolicy; }
     void setModalContainerObservationPolicy(WebCore::ModalContainerObservationPolicy policy) { m_modalContainerObservationPolicy = policy; }
 
-    OptionSet<WebCore::NetworkConnectionIntegrity> networkConnectionIntegrityPolicy() const { return m_networkConnectionIntegrityPolicy; }
-    void setNetworkConnectionIntegrityPolicy(OptionSet<WebCore::NetworkConnectionIntegrity> policy) { m_networkConnectionIntegrityPolicy = policy; }
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections() const { return m_advancedPrivacyProtections; }
+    void setAdvancedPrivacyProtections(OptionSet<WebCore::AdvancedPrivacyProtections> policy) { m_advancedPrivacyProtections = policy; }
 
     bool idempotentModeAutosizingOnlyHonorsPercentages() const { return m_idempotentModeAutosizingOnlyHonorsPercentages; }
     void setIdempotentModeAutosizingOnlyHonorsPercentages(bool idempotentModeAutosizingOnlyHonorsPercentages) { m_idempotentModeAutosizingOnlyHonorsPercentages = idempotentModeAutosizingOnlyHonorsPercentages; }
@@ -150,7 +150,7 @@ public:
 
 private:
     // FIXME: replace most or all of these members with a WebsitePoliciesData.
-    bool m_contentBlockersEnabled { true };
+    WebCore::ContentExtensionEnablement m_contentExtensionEnablement { WebCore::ContentExtensionDefaultEnablement::Enabled, { } };
     HashMap<WTF::String, Vector<WTF::String>> m_activeContentRuleListActionPatterns;
     OptionSet<WebKit::WebsiteAutoplayQuirk> m_allowedAutoplayQuirks;
     WebKit::WebsiteAutoplayPolicy m_autoplayPolicy { WebKit::WebsiteAutoplayPolicy::Default };
@@ -175,7 +175,7 @@ private:
     WebCore::AllowsContentJavaScript m_allowsContentJavaScript { WebCore::AllowsContentJavaScript::Yes };
     WebCore::MouseEventPolicy m_mouseEventPolicy { WebCore::MouseEventPolicy::Default };
     WebCore::ModalContainerObservationPolicy m_modalContainerObservationPolicy { WebCore::ModalContainerObservationPolicy::Disabled };
-    OptionSet<WebCore::NetworkConnectionIntegrity> m_networkConnectionIntegrityPolicy;
+    OptionSet<WebCore::AdvancedPrivacyProtections> m_advancedPrivacyProtections;
     bool m_idempotentModeAutosizingOnlyHonorsPercentages { false };
     std::optional<bool> m_lockdownModeEnabled;
     WebCore::ColorSchemePreference m_colorSchemePreference { WebCore::ColorSchemePreference::NoPreference };

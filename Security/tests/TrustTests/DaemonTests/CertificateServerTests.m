@@ -94,12 +94,7 @@
         rvc->certIX = i;
         rvc->done = false;
 
-        SecORVCRef orvc = NULL;
-        orvc = malloc(sizeof(struct OpaqueSecORVC));
-        memset(orvc, 0, sizeof(struct OpaqueSecORVC));
-        orvc->rvc = rvc;
-        orvc->certIX = i;
-
+        SecORVCRef orvc = SecORVCCreate(rvc, NULL, i);
         rvc->orvc = orvc;
 
         if (i == 0) {

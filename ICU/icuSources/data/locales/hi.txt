@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 hi{
-    AuxExemplarCharacters{"[\u200C\u200D]"}
+    AuxExemplarCharacters{"[\u200C\u200D \u0944]"}
     Ellipsis{
         final{"{0}…"}
         initial{"…{0}"}
@@ -14,14 +14,17 @@ hi{
     ExemplarCharacters{
         "[\u093C ॐ \u0902 \u0901 ः अ आ इ ई उ ऊ ऋ ऌ ऍ ए ऐ ऑ ओ औ क ख ग घ ङ च छ ज झ ञ ट "
         "ठ ड ढ ण त थ द ध न प फ ब भ म य र ल ळ व श ष स ह ऽ ा ि ी \u0941 \u0942 \u0943 "
-        "\u0944 \u0945 \u0947 \u0948 ॉ ो ौ \u094D]"
+        "\u0945 \u0947 \u0948 ॉ ो ौ \u094D]"
     }
     ExemplarCharactersIndex{
         "[अ आ इ ई उ ऊ ऋ ए ऐ ओ औ क ख ग घ ङ च छ ज झ ञ ट ठ ड ढ ण त थ द ध न प फ ब भ म य र"
         " ल व श ष स ह]"
     }
     ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0० 1१ 2२ 3३ 4४ 5५ 6६ 7७ 8८ 9९]"}
-    ExemplarCharactersPunctuation{"[\\- ‑ , ; \\: ! ? . ‘ ’ “ ” ( ) \\[ \\] \\{ \\} ॰]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … । ॥ ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / # † ‡ "
+        "′ ″ ॰]"
+    }
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
@@ -49,7 +52,10 @@ hi{
             }
             patterns{
                 accountingFormat{"¤#,##,##0.00"}
+                accountingFormat%alphaNextToNumber{"¤ #,##,##0.00"}
+                accountingFormat%noCurrency{"#,##,##0.00"}
                 currencyFormat{"¤#,##,##0.00"}
+                currencyPatternAppendISO{"¤¤ {0}"}
                 decimalFormat{"#,##,##0.###"}
                 percentFormat{"#,##,##0%"}
                 scientificFormat{"[#E0]"}
@@ -157,6 +163,56 @@ hi{
                         other{"¤00 नील"}
                     }
                 }
+                currencyFormat%alphaNextToNumber{
+                    1000{
+                        one{"¤ 0 हज़ार"}
+                        other{"¤ 0 हज़ार"}
+                    }
+                    10000{
+                        one{"¤ 00 हज़ार"}
+                        other{"¤ 00 हज़ार"}
+                    }
+                    100000{
+                        one{"¤ 0 लाख"}
+                        other{"¤ 0 लाख"}
+                    }
+                    1000000{
+                        one{"¤ 00 लाख"}
+                        other{"¤ 00 लाख"}
+                    }
+                    10000000{
+                        one{"¤0 क॰"}
+                        other{"¤ 0 क॰"}
+                    }
+                    100000000{
+                        one{"¤ 00 क॰"}
+                        other{"¤ 00 क॰"}
+                    }
+                    1000000000{
+                        one{"¤ 0 अ॰"}
+                        other{"¤ 0 अ॰"}
+                    }
+                    10000000000{
+                        one{"¤ 00 अ॰"}
+                        other{"¤ 00 अ॰"}
+                    }
+                    100000000000{
+                        one{"¤ 0 ख॰"}
+                        other{"¤ 0 ख॰"}
+                    }
+                    1000000000000{
+                        one{"¤ 00 ख॰"}
+                        other{"¤ 00 ख॰"}
+                    }
+                    10000000000000{
+                        one{"¤ 0 नील"}
+                        other{"¤ 0 नील"}
+                    }
+                    100000000000000{
+                        one{"¤ 00 नील"}
+                        other{"¤ 00 नील"}
+                    }
+                }
                 decimalFormat{
                     1000{
                         one{"0 हज़ार"}
@@ -225,12 +281,12 @@ hi{
         }
         minimalPairs{
             case{
-                nominative{"{0} का समय लगेगा"}
-                oblique{"{0} लगेगा/लगेंगे"}
+                nominative{"{0} लगेगा/लगेंगे"}
+                oblique{"{0} का समय लगेगा"}
             }
             gender{
-                feminine{"{0} बड़ी है."}
-                masculine{"{0} बड़ा है."}
+                feminine{"{0} बड़ी है"}
+                masculine{"{0} बड़ा है"}
             }
             ordinal{
                 few{"{0} दाहिना मोड़ लें."}
@@ -240,7 +296,7 @@ hi{
                 two{"{0}रा दाहिना मोड़ लें."}
             }
             plural{
-                one{"{0} घंटा"}
+                one{"{0} घंटा"}
                 other{"{0} घंटे"}
             }
         }
@@ -298,6 +354,12 @@ hi{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%atTime{
+                "{1} को {0} बजे",
+                "{1} को {0} बजे",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
             DateTimeSkeletons{
                 "ahmmsszzzz",
                 "ahmmssz",
@@ -324,6 +386,7 @@ hi{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"d/M/y GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -523,6 +586,12 @@ hi{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimePatterns%atTime{
+                "{1} को {0} बजे",
+                "{1} को {0} बजे",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
             DateTimeSkeletons{
                 "ahmmsszzzz",
                 "ahmmssz",
@@ -552,7 +621,7 @@ hi{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
-                GyMd{"GGGGG d/M/y"}
+                GyMd{"d/M/y GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -2387,10 +2456,10 @@ hi{
             start{"{0}, {1}"}
         }
         unit-narrow{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-short{
             2{"{0}, {1}"}
@@ -2434,6 +2503,76 @@ hi{
                 "[,٫︐﹐，]",
                 "[.․﹒．｡]",
             }
+        }
+    }
+    personNames{
+        initialPattern{
+            initial{"{0}॰"}
+        }
+        nameOrderLocales{
+            givenFirst{
+                "und",
+                "hi",
+            }
+            surnameFirst{
+                "ko",
+                "si",
+                "ta",
+                "te",
+                "vi",
+                "yue",
+                "zh",
+            }
+        }
+        namePattern{
+            givenFirst-long-addressing-formal{"{prefix} {surname}"}
+            givenFirst-long-addressing-informal{"{prefix} {given-informal}"}
+            givenFirst-long-monogram-formal{
+                "{given-monogram-allCaps}{given2-monogram-allCaps}{surname-monogram-a"
+                "llCaps}"
+            }
+            givenFirst-long-monogram-informal{"{given-informal-monogram-allCaps}{surname-monogram-allCaps}"}
+            givenFirst-long-referring-formal{"{prefix} {given} {given2} {surname} {surname2}, {suffix}"}
+            givenFirst-long-referring-informal{"{prefix} {given-informal} {surname}"}
+            givenFirst-medium-addressing-formal{"{prefix} {surname}"}
+            givenFirst-medium-addressing-informal{"{given-informal}"}
+            givenFirst-medium-monogram-formal{"{given-monogram-allCaps}"}
+            givenFirst-medium-monogram-informal{"{given-informal-monogram-allCaps}"}
+            givenFirst-medium-referring-formal{"{prefix} {given-initial} {given2-initial} {surname}, {suffix}"}
+            givenFirst-medium-referring-informal{"{given-informal} {surname}"}
+            givenFirst-short-addressing-formal{"{prefix} {surname}"}
+            givenFirst-short-addressing-informal{"{given-informal}"}
+            givenFirst-short-monogram-formal{"{given-monogram-allCaps}"}
+            givenFirst-short-monogram-informal{"{given-informal-monogram-allCaps}"}
+            givenFirst-short-referring-formal{"{given-initial} {given2-initial} {surname}"}
+            givenFirst-short-referring-informal{"{given-informal} {surname}"}
+            sorting-long-referring-formal{"{surname}, {given} {given2} {suffix}"}
+            sorting-long-referring-informal{"{surname}, {given-informal}"}
+            sorting-medium-referring-formal{"{surname}, {given} {given2-initial} {suffix}"}
+            sorting-medium-referring-informal{"{surname}, {given-informal}"}
+            sorting-short-referring-formal{"{surname}, {given-initial} {given2-initial}"}
+            sorting-short-referring-informal{"{surname}, {given-informal}"}
+            surnameFirst-long-addressing-formal{"{prefix} {surname}"}
+            surnameFirst-long-addressing-informal{"{given-informal}"}
+            surnameFirst-long-monogram-formal{
+                "{surname-monogram-allCaps}{given-monogram-allCaps}{given2-monogram-a"
+                "llCaps}"
+            }
+            surnameFirst-long-monogram-informal{"{surname-monogram-allCaps}{given-informal-monogram-allCaps}"}
+            surnameFirst-long-referring-formal{"{prefix} {surname} {given} {given2}, {suffix}"}
+            surnameFirst-long-referring-informal{"{prefix} {surname} {given-informal}"}
+            surnameFirst-medium-addressing-formal{"{prefix} {surname}"}
+            surnameFirst-medium-addressing-informal{"{given-informal}"}
+            surnameFirst-medium-monogram-formal{"{surname-monogram-allCaps}"}
+            surnameFirst-medium-monogram-informal{"{given-informal-monogram-allCaps}"}
+            surnameFirst-medium-referring-formal{"{prefix} {surname} {given-initial} {given2-initial}, {suffix}"}
+            surnameFirst-medium-referring-informal{"{surname} {given-informal}"}
+            surnameFirst-short-addressing-formal{"{prefix} {surname}"}
+            surnameFirst-short-addressing-informal{"{given-informal}"}
+            surnameFirst-short-monogram-formal{"{surname-monogram-allCaps}"}
+            surnameFirst-short-monogram-informal{"{given-informal-monogram-allCaps}"}
+            surnameFirst-short-referring-formal{"{surname} {given-initial} {given2-initial}"}
+            surnameFirst-short-referring-informal{"{surname} {given-initial}"}
         }
     }
 }

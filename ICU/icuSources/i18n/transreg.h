@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
-*   Copyright (c) 2001-2016 International Business Machines
+*   Copyright (c) 2001-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description

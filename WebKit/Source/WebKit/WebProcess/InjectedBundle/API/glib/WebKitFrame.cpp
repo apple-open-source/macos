@@ -4,7 +4,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2,1 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,8 +26,9 @@
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSGlobalObjectInlines.h>
 #include <JavaScriptCore/JSLock.h>
-#include <WebCore/Frame.h>
+#include <WebCore/FrameLoader.h>
 #include <WebCore/JSNode.h>
+#include <WebCore/LocalFrame.h>
 #include <WebCore/ScriptController.h>
 #include <jsc/JSCContextPrivate.h>
 #include <wtf/glib/WTFGType.h>
@@ -57,16 +58,33 @@ struct _WebKitFramePrivate {
     CString uri;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitFrame, webkit_frame, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE(WebKitFrame, webkit_frame, G_TYPE_OBJECT, GObject)
 
 static void webkit_frame_class_init(WebKitFrameClass*)
 {
+}
+
+static CString getURL(WebFrame* webFrame)
+{
+    auto* documentLoader = webFrame->coreLocalFrame()->loader().provisionalDocumentLoader();
+    if (!documentLoader)
+        documentLoader = webFrame->coreLocalFrame()->loader().documentLoader();
+
+    ASSERT(documentLoader);
+
+    if (!documentLoader->unreachableURL().isEmpty())
+        return documentLoader->unreachableURL().string().utf8();
+
+    return documentLoader->url().string().utf8();
 }
 
 WebKitFrame* webkitFrameCreate(WebFrame* webFrame)
 {
     WebKitFrame* frame = WEBKIT_FRAME(g_object_new(WEBKIT_TYPE_FRAME, NULL));
     frame->priv->webFrame = webFrame;
+
+    frame->priv->uri = getURL(webFrame);
+
     return frame;
 }
 
@@ -86,7 +104,7 @@ Vector<GRefPtr<JSCValue>> webkitFrameGetJSCValuesForElementsInWorld(WebKitFrame*
 {
     auto* wkWorld = webkitScriptWorldGetInjectedBundleScriptWorld(world);
     auto jsContext = jscContextGetOrCreate(frame->priv->webFrame->jsContextForWorld(wkWorld));
-    JSDOMWindow* globalObject = frame->priv->webFrame->coreFrame()->script().globalObject(wkWorld->coreWorld());
+    auto* globalObject = frame->priv->webFrame->coreLocalFrame()->script().globalObject(wkWorld->coreWorld());
     return elements.map([&jsContext, globalObject](auto& element) -> GRefPtr<JSCValue> {
         JSValueRef jsValue = nullptr;
         {
@@ -95,6 +113,14 @@ Vector<GRefPtr<JSCValue>> webkitFrameGetJSCValuesForElementsInWorld(WebKitFrame*
         }
         return jsValue ? jscContextGetOrCreateValue(jsContext.get(), jsValue) : nullptr;
     });
+}
+
+void webkitFrameSetURI(WebKitFrame* frame, const CString& uri)
+{
+    if (frame->priv->uri == uri)
+        return;
+
+    frame->priv->uri = uri;
 }
 
 /**
@@ -281,7 +307,7 @@ JSCValue* webkit_frame_get_js_value_for_dom_object_in_script_world(WebKitFrame* 
 
     auto* wkWorld = webkitScriptWorldGetInjectedBundleScriptWorld(world);
     auto jsContext = jscContextGetOrCreate(frame->priv->webFrame->jsContextForWorld(wkWorld));
-    JSDOMWindow* globalObject = frame->priv->webFrame->coreFrame()->script().globalObject(wkWorld->coreWorld());
+    auto* globalObject = frame->priv->webFrame->coreLocalFrame()->script().globalObject(wkWorld->coreWorld());
     JSValueRef jsValue = nullptr;
     {
         JSC::JSLockHolder lock(globalObject);

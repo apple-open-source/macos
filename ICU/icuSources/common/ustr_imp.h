@@ -152,17 +152,19 @@ U_NAMESPACE_END
 
 #endif  // __cplusplus
 
+#if APPLE_ICU_CHANGES
+// rdar://35928771 6926e4a22e.. Add u_strIsWellFormed SPI (Apple-only for now)
 /**
  * Check whether a code point has the emoji property.
  * (implemented in uchar.cpp as reduced version of u_hasBinaryProperty)
  *
  * @param c Code point to test.
- * @return TRUE or FALSE according to whether c has the emoji property.
+ * @return true or false according to whether c has the emoji property.
  *
  * @internal Apple only
  */
 U_CAPI UBool U_EXPORT2
 u_isEmoji(UChar32 c);
-
+#endif // APPLE_ICU_CHANGES
 
 #endif

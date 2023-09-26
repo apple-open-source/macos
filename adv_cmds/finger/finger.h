@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -34,7 +32,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)finger.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/finger/finger.h,v 1.5 2004/03/14 06:43:34 jmallett Exp $
+ * $FreeBSD$
  */
 
 #ifndef	_FINGER_H_
@@ -62,16 +60,14 @@ typedef struct where {
 	short writable;			/* tty is writable */
 	time_t loginat;			/* time of (last) login */
 	time_t idletime;		/* how long idle (if logged in) */
-	char tty[_UTX_LINESIZE+1];	/* null terminated tty line */
-	char host[_UTX_HOSTSIZE+1];	/* null terminated remote host name */
+	char tty[sizeof ((struct utmpx *)0)->ut_line];  /* tty line */
+	char host[sizeof ((struct utmpx *)0)->ut_host]; /* host name */
 } WHERE;
 
 #define UNPRIV_NAME	"nobody"	/* Preferred privilege level */
 #define UNPRIV_UGID	32767		/* Default uid and gid */
 #define OUTPUT_MAX	100000		/* Do not keep listinging forever */
 #define TIME_LIMIT	360		/* Do not keep listinging forever */
-
-#define UT_NAMESIZE	8		/* old utmp.h value */
 
 #include "extern.h"
 

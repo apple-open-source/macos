@@ -1655,11 +1655,17 @@ OSStatus SecKeychainGetUserPromptAttempts(uint32_t * attempts)
 OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringRef tokenID, CFDataRef wrapPubKeyHash,
                                                  SecKeychainRef userKeychain, CFStringRef password)
 {
+    return SecKeychainStoreUnlockKeyWithPubKeyHashAndPassword(pubKeyHash, tokenID, wrapPubKeyHash, userKeychain, password, NULL);
+}
+
+OSStatus SecKeychainStoreUnlockKeyWithPubKeyHashAndPassword(CFDataRef pubKeyHash, CFStringRef tokenID, CFDataRef wrapPubKeyHash,
+                                                 SecKeychainRef userKeychain, CFStringRef keychainPassword, CFStringRef userPassword)
+{
 	COUNTLEGACYAPI
 	CFRef<CFStringRef> pwd;
 	OSStatus result;
 
-	if (password == NULL || CFStringGetLength(password) == 0) {
+	if (keychainPassword == NULL || CFStringGetLength(keychainPassword) == 0) {
         Boolean uiEnabled = false;
         result = SecKeychainGetUserInteractionAllowed(&uiEnabled);
         if (result != errAuthorizationSuccess) {
@@ -1725,7 +1731,7 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 			return result;
 		}
 	} else {
-		pwd.take(password);
+		pwd.take(keychainPassword);
 	}
 
 	if (!pwd) {
@@ -1764,7 +1770,7 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
     struct passwd *passwd = getpwuid(uid);
     if (passwd) {
         CFRef<CFStringRef> username = CFStringCreateWithCString(kCFAllocatorDefault, passwd->pw_name, kCFStringEncodingUTF8);
-        OSStatus kekRes = TKAddSecureToken(username, pwd, tokenID, wrapPubKeyHash);
+        OSStatus kekRes = TKAddSecureToken(username, (userPassword ?: pwd.get()), tokenID, wrapPubKeyHash);
         if (kekRes != noErr) {
             secnotice("SecKeychain", "Failed to register SC token: %d", (int) kekRes); // do not fail because KC functionality be still OK
         }

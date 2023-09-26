@@ -28,13 +28,19 @@
 
 __BEGIN_DECLS
 
+#if __has_include(<Availability.h>)
 #include <Availability.h>
+#endif
 #include <TargetConditionals.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#if __has_include(<_simple.h>)
 #include <_simple.h>
+#else
+typedef void *_SIMPLE_STRING;
+#endif
 #include <errno.h>
 #include <os/base_private.h>
 #include <stdint.h>
@@ -57,6 +63,10 @@ OS_ASSUME_PTR_ABI_SINGLE_BEGIN
 #define __OS_COMPILETIME_ASSERT__(e) (e)
 #endif /* __GNUC__ */
 
+#if TARGET_OS_EXCLAVECORE || TARGET_OS_EXCLAVEKIT
+#define OS_CRASH_EXCLAVES
+#endif // TARGET_OS_EXCLAVECORE || TARGET_OS_EXCLAVEKIT
+
 #pragma mark os_crash
 
 /*
@@ -71,7 +81,7 @@ OS_ASSUME_PTR_ABI_SINGLE_BEGIN
 		os_hardware_trap();		\
 	})
 
-#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE)
+#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE) && !defined(OS_CRASH_EXCLAVES)
 
 #include <os/log_private.h>
 
@@ -268,11 +278,11 @@ void
 os_assert_mach_port_status(const char *desc, mach_port_t p,
 		mach_port_status_t *expected);
 
-#else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+#else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE && !defined(OS_CRASH_EXCLAVES)
 
 #define os_crash(msg) __os_crash_simple(msg)
 
-#endif // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+#endif // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE && !defined(OS_CRASH_EXCLAVES)
 
 /*
  * An executable can register a callback to be made upon a crash using the
@@ -283,10 +293,11 @@ os_assert_mach_port_status(const char *desc, mach_port_t p,
 typedef void (*os_crash_callback_t) (const char *);
 
 /* private: use accessors below */
+#if !defined(OS_CRASH_EXCLAVES)
 extern os_crash_callback_t _os_crash_callback;
 
 static inline os_crash_callback_t
-os_get_crash_callback() {
+os_get_crash_callback(void) {
 	return _os_crash_callback;
 }
 
@@ -294,10 +305,11 @@ static inline void
 os_set_crash_callback(os_crash_callback_t callback) {
 	_os_crash_callback = callback;
 }
+#endif // !defined(OS_CRASH_EXCLAVES)
 
 #pragma mark os_assert
 
-#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE)
+#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE) && !defined(OS_CRASH_EXCLAVES)
 
 #define _os_assert_crash(value, expression) ({ \
 		os_crash("assertion failure: \"" expression "\" -> %lld", value); \
@@ -307,7 +319,7 @@ os_set_crash_callback(os_crash_callback_t callback) {
 		os_crash("assertion failure: \"" expression "\" -> %{errno}d", value); \
 })
 
-#else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+#else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE && !defined(OS_CRASH_EXCLAVES)
 
 #define _os_assert_crash(e, ...) ({ \
 		char *__unsafe_indexable _fail_message = _os_assert_log(e); \
@@ -317,7 +329,7 @@ os_set_crash_callback(os_crash_callback_t callback) {
 
 #define _os_assert_crash_errno(...) _os_assert_crash(__VA_ARGS__)
 
-#endif // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+#endif // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE && !defined(OS_CRASH_EXCLAVES)
 
 #define __os_assert(e) __extension__({ \
 	__typeof__(e) _e = (e); \
@@ -352,7 +364,7 @@ os_set_crash_callback(os_crash_callback_t callback) {
 	} \
 })
 
-#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE)
+#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE) && !defined(OS_CRASH_EXCLAVES)
 
 #define __os_assert_msg(e, fmt, ...) __extension__({ \
 	__typeof__(e) _e = (e); \
@@ -395,7 +407,7 @@ os_set_crash_callback(os_crash_callback_t callback) {
 	__os_assert_invoke(__posix_assert_zero_, \
 			__has_more_than_one_argument(__VA_ARGS__), __VA_ARGS__)
 
-#else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+#else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE && !defined(OS_CRASH_EXCLAVES)
 
 #define os_assert(e) __os_assert(e)
 #define os_assert_zero(e) __os_assert_zero(e)
@@ -544,6 +556,8 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 
 #pragma mark internal symbols
 
+#if !defined(OS_CRASH_EXCLAVES)
+
 __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0)
 OS_COLD OS_NOT_TAIL_CALLED
 extern void
@@ -572,6 +586,16 @@ _os_assert_log_ctx(os_log_callout_t callout, void *ctx, uint64_t code);
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 extern void
 _os_avoid_tail_call(void);
+
+#else // !defined(OS_CRASH_EXCLAVES)
+
+#define _os_crash(...)
+#define _os_assumes_log(...)
+#define _os_assert_log(...) ((char *)malloc(0))
+#define _os_assumes_log_ctx(...)
+#define _os_assert_log_ctx(...) ((char *)malloc(0))
+
+#endif // !defined(OS_CRASH_EXCLAVES)
 
 __END_DECLS
 OS_ASSUME_PTR_ABI_SINGLE_END

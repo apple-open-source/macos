@@ -2050,7 +2050,7 @@ AppleDbContext::AppleDbContext(Database &inDatabase,
 
 			if (anOpenParameters->mask & kCSSM_APPLEDL_MASK_MODE)
 				mMode = anOpenParameters->mode;
-			/*DROPTHROUGH*/
+			[[fallthrough]];
 		case 0:
 			if (anOpenParameters->length < sizeof(CSSM_APPLEDL_OPEN_PARAMETERS_V0))
 				CssmError::throwMe(CSSMERR_APPLEDL_INVALID_OPEN_PARAMETERS);

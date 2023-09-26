@@ -43,6 +43,7 @@
 		448CD34C27B76F9100A15C90 /* libxslt.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */; };
 		448CD34D27B76F9500A15C90 /* libexslt.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D87352714FDA3BB006E89B4 /* libexslt.0.dylib */; };
 		448CD34E27B76F9700A15C90 /* libxslt.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */; };
+		44A56F2A2A113E7500001EBB /* xsltutilsInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 44A56F292A113E7500001EBB /* xsltutilsInternal.h */; };
 		44B5CADF27225B0600FC665E /* libxslt/module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 44E29620201196C200BEE3E0 /* libxslt/module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		44B5CAE027225B1100FC665E /* libexslt/module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 44E29621201196C200BEE3E0 /* libexslt/module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		5DCB929C14FDA52D00F7276A /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCB929B14FDA52D00F7276A /* libxml2.dylib */; };
@@ -292,6 +293,7 @@
 		448CD33627B76F1A00A15C90 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		448CD34527B76F1D00A15C90 /* fuzz-xslt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-xslt"; sourceTree = BUILT_PRODUCTS_DIR; };
 		448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = FuzzExecutable.xcconfig; sourceTree = "<group>"; };
+		44A56F292A113E7500001EBB /* xsltutilsInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xsltutilsInternal.h; sourceTree = "<group>"; };
 		44C0436423DA72AE0076CBB2 /* libxslt.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = libxslt.exp; sourceTree = "<group>"; };
 		44C0436523DA72AE0076CBB2 /* libexslt.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = libexslt.exp; sourceTree = "<group>"; };
 		44C0436623DA72AE0076CBB2 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
@@ -546,6 +548,7 @@
 				5DCB931B14FDAB1700F7276A /* xsltlocale.h */,
 				5DCB931C14FDAB1700F7276A /* xsltutils.c */,
 				5DCB931D14FDAB1700F7276A /* xsltutils.h */,
+				44A56F292A113E7500001EBB /* xsltutilsInternal.h */,
 			);
 			name = libxslt;
 			path = libxslt/libxslt;
@@ -632,6 +635,7 @@
 				5DCB932814FDAB1700F7276A /* functions.h in Headers */,
 				5DCB932A14FDAB1700F7276A /* imports.h in Headers */,
 				5DCB932C14FDAB1700F7276A /* keys.h in Headers */,
+				5DCB934E14FDABF200F7276A /* libxslt.h in Headers */,
 				44B5CADF27225B0600FC665E /* libxslt/module.modulemap in Headers */,
 				5DCB932F14FDAB1700F7276A /* namespaces.h in Headers */,
 				5DCB933114FDAB1700F7276A /* numbersInternals.h in Headers */,
@@ -640,16 +644,16 @@
 				5DCB933714FDAB1700F7276A /* security.h in Headers */,
 				5DCB933914FDAB1700F7276A /* templates.h in Headers */,
 				5DCB933B14FDAB1700F7276A /* transform.h in Headers */,
+				5DCB933C14FDAB1700F7276A /* trio.h in Headers */,
+				5DCB933D14FDAB1700F7276A /* triodef.h in Headers */,
 				5DCB933F14FDAB1700F7276A /* variables.h in Headers */,
 				5DCB934114FDAB1700F7276A /* xslt.h in Headers */,
 				5DCB934314FDAB1700F7276A /* xsltInternals.h in Headers */,
+				5DCB935114FDAC5B00F7276A /* include/libxslt/xsltconfig.h in Headers */,
 				5DCB934214FDAB1700F7276A /* xsltexports.h in Headers */,
 				5DCB934514FDAB1700F7276A /* xsltlocale.h in Headers */,
 				5DCB934714FDAB1700F7276A /* xsltutils.h in Headers */,
-				5DCB934E14FDABF200F7276A /* libxslt.h in Headers */,
-				5DCB933C14FDAB1700F7276A /* trio.h in Headers */,
-				5DCB933D14FDAB1700F7276A /* triodef.h in Headers */,
-				5DCB935114FDAC5B00F7276A /* include/libxslt/xsltconfig.h in Headers */,
+				44A56F2A2A113E7500001EBB /* xsltutilsInternal.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -5,6 +5,7 @@
  * others. All Rights Reserved.
  ********************************************************************/
 
+
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_BREAK_ITERATION && !UCONFIG_NO_REGULAR_EXPRESSIONS && !UCONFIG_NO_FORMATTING
@@ -21,7 +22,10 @@
 #include "cstr.h"
 #include "uelement.h"
 #include "uhash.h"
+#if APPLE_ICU_CHANGES
+// rdar://97937093 #nnn Integrate ICU 72)
 #include "cstring.h"
+#endif  // APPLE_ICU_CHANGES
 
 #include <iostream>
 #include <stdio.h>
@@ -115,29 +119,37 @@ CharClass *BreakRules::addCharClass(const UnicodeString &name, const UnicodeStri
     // Create the expanded definition for this char class,
     // replacing any set references with the corresponding definition.
 
-    // Hack to handle character class overrides for rdar://problem/51193810
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
+    // Hack to handle character class overrides
     // Currently the test rules files only have locales en/zh (same delimiters) and ja (only non-QU delimiters),
-    // so hardcocde rule mods here. If necessary in the future we can do something fancier.
+    // so hardcode rule mods here. If necessary in the future we can do something fancier.
     UnicodeString definitionMod(definition);
     const char* lang = fLocale.getLanguage();
     if (fType == UBRK_LINE && (uprv_strcmp(lang,"en")==0 || uprv_strcmp(lang,"zh")==0)) {
         UnicodeString suffix;
         if (name.compare(u"QU",2)==0) {
-            suffix.setTo(u"-[“‘”]]", 7);
+            suffix.setTo(u"-[“‘”]]", 7); // updated per rdar://63475386 U+2019 remain linebreak class QU
         } else if (name.compare(u"OP",2)==0) {
             suffix.setTo(u" [“‘]]", 6);
         } else if (name.compare(u"CL",2)==0) {
-            suffix.setTo(u" [”]]", 5);
+            suffix.setTo(u" [”]]", 5); // updated per rdar://63475386 U+2019 remain linebreak class QU
         }
         if (suffix.length() > 0) {
             definitionMod.insert(0, u'[');
             definitionMod.append(suffix);
         }
     }
+#endif // APPLE_ICU_CHANGES
 
     UnicodeString expandedDef;
     UnicodeString emptyString;
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
     fSetRefsMatcher->reset(definitionMod);
+#else
+    fSetRefsMatcher->reset(definition);
+#endif // APPLE_ICU_CHANGES
     while (fSetRefsMatcher->find() && U_SUCCESS(status)) {
         const UnicodeString name =
                 fSetRefsMatcher->group(fSetRefsMatcher->pattern().groupNumberFromName("ClassName", status), status);
@@ -161,7 +173,12 @@ CharClass *BreakRules::addCharClass(const UnicodeString &name, const UnicodeStri
                                __FILE__, __LINE__, u_errorName(status), CStr(name)(), CStr(expandedDef)());
         return nullptr;
     }
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
     CharClass *cclass = new CharClass(name, definitionMod, expandedDef, s.orphan());
+#else
+    CharClass *cclass = new CharClass(name, definition, expandedDef, s.orphan());
+#endif // APPLE_ICU_CHANGES
     CharClass *previousClass = static_cast<CharClass *>(uhash_put(fCharClasses.getAlias(),
                                                         new UnicodeString(name),   // Key, owned by hash table.
                                                         cclass,                    // Value, owned by hash table.
@@ -474,7 +491,7 @@ void MonkeyTestData::set(BreakRules *rules, IntlTest::icu_rand &rand, UErrorCode
                                              // for control over rule chaining.
     while (strIdx < fString.length()) {
         BreakRule *matchingRule = NULL;
-        UBool      hasBreak = FALSE;
+        UBool      hasBreak = false;
         int32_t ruleNum = 0;
         int32_t matchStart = 0;
         int32_t matchEnd = 0;
@@ -630,7 +647,7 @@ void MonkeyTestData::dump(int32_t around) const {
 //
 //---------------------------------------------------------------------------------------
 
-RBBIMonkeyImpl::RBBIMonkeyImpl(UErrorCode &status) : fDumpExpansions(FALSE), fThread(this) {
+RBBIMonkeyImpl::RBBIMonkeyImpl(UErrorCode &status) : fDumpExpansions(false), fThread(this) {
     (void)status;    // suppress unused parameter compiler warning.
 }
 
@@ -667,7 +684,7 @@ void RBBIMonkeyImpl::openBreakRules(const char *fileName, UErrorCode &status) {
     path.append("break_rules" U_FILE_SEP_STRING, status);
     path.appendPathPart(fileName, status);
     const char *codePage = "UTF-8";
-    fRuleCharBuffer.adoptInstead(ucbuf_open(path.data(), &codePage, TRUE, FALSE, &status));
+    fRuleCharBuffer.adoptInstead(ucbuf_open(path.data(), &codePage, true, false, &status));
 }
 
 
@@ -697,10 +714,13 @@ void RBBIMonkeyImpl::runTest() {
             IntlTest::gTest->dataerrln("Unable to run test because fBI is null.");
             return;
         }
+#if APPLE_ICU_CHANGES
+// rdar:/
         if ( uprv_strcmp(fRuleFileName,"line_loose_cj.txt") == 0 && fTestData->fRandomSeed==1712915859 ) {
             continue; // known bug around index 103-104, break expected/actual 0/1, fwd 0020 200D | FDFC, rev 1325A 0020 | 200D
         }
-        // fTestData->dump();
+#endif // APPLE_ICU_CHANGES
+       // fTestData->dump();
         testForwards(status);
         testPrevious(status);
         testFollowing(status);
@@ -786,7 +806,12 @@ void RBBIMonkeyImpl::testPrevious(UErrorCode &status) {
         }
         fTestData->fActualBreaks.setCharAt(bk, 1);
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     checkResults("testPrevious", REVERSE, status);
+#else
+    checkResults("testPrevius", REVERSE, status);
+#endif // APPLE_ICU_CHANGES
 }
 
 
@@ -872,6 +897,8 @@ void RBBIMonkeyImpl::checkResults(const char *msg, CheckDirection direction, UEr
     if (direction == FORWARD) {
         for (int i=0; i<=fTestData->fString.length(); ++i) {
             if (fTestData->fExpectedBreaks.charAt(i) != fTestData->fActualBreaks.charAt(i)) {
+#if APPLE_ICU_CHANGES
+// rdar:/
                 if (i > 1) {
                     IntlTest::gTest->errln("%s:%d %s failure at index %d, %04X %04X | %04X, break expected/actual %d/%d. Parameters to reproduce: @rules=%s,seed=%u,loop=1,verbose ",
                         __FILE__, __LINE__, msg, i, fTestData->fString.char32At(i-2), fTestData->fString.char32At(i-1), fTestData->fString.char32At(i), fTestData->fExpectedBreaks.charAt(i), fTestData->fActualBreaks.charAt(i),
@@ -881,6 +908,10 @@ void RBBIMonkeyImpl::checkResults(const char *msg, CheckDirection direction, UEr
                         __FILE__, __LINE__, msg, i, fTestData->fString.char32At(i-1), fTestData->fString.char32At(i), fTestData->fExpectedBreaks.charAt(i), fTestData->fActualBreaks.charAt(i),
                         fRuleFileName, fTestData->fRandomSeed);
                 }
+#else
+                IntlTest::gTest->errln("%s:%d %s failure at index %d. Parameters to reproduce: @rules=%s,seed=%u,loop=1,verbose ",
+                        __FILE__, __LINE__, msg, i, fRuleFileName, fTestData->fRandomSeed);
+#endif // APPLE_ICU_CHANGES
                 if (fVerbose) {
                     fTestData->dump(i);
                 }
@@ -891,6 +922,8 @@ void RBBIMonkeyImpl::checkResults(const char *msg, CheckDirection direction, UEr
     } else {
         for (int i=fTestData->fString.length(); i>=0; i--) {
             if (fTestData->fExpectedBreaks.charAt(i) != fTestData->fActualBreaks.charAt(i)) {
+#if APPLE_ICU_CHANGES
+// rdar:/
                 if (i > 1) {
                     IntlTest::gTest->errln("%s:%d %s failure at index %d, %04X %04X | %04X, break expected/actual %d/%d. Parameters to reproduce: @rules=%s,seed=%u,loop=1,verbose ",
                         __FILE__, __LINE__, msg, i, fTestData->fString.char32At(i-2), fTestData->fString.char32At(i-1), fTestData->fString.char32At(i), fTestData->fExpectedBreaks.charAt(i), fTestData->fActualBreaks.charAt(i),
@@ -900,6 +933,10 @@ void RBBIMonkeyImpl::checkResults(const char *msg, CheckDirection direction, UEr
                         __FILE__, __LINE__, msg, i, fTestData->fString.char32At(i-1), fTestData->fString.char32At(i), fTestData->fExpectedBreaks.charAt(i), fTestData->fActualBreaks.charAt(i),
                         fRuleFileName, fTestData->fRandomSeed);
                 }
+#else
+                IntlTest::gTest->errln("%s:%d %s failure at index %d. Parameters to reproduce: @rules=%s,seed=%u,loop=1,verbose ",
+                        __FILE__, __LINE__, msg, i, fRuleFileName, fTestData->fRandomSeed);
+#endif // APPLE_ICU_CHANGES
                 if (fVerbose) {
                     fTestData->dump(i);
                 }
@@ -955,10 +992,10 @@ void RBBIMonkeyTest::testMonkey() {
     int64_t loopCount = quick? 100 : 5000;
     getIntParam("loop", params, loopCount, status);
 
-    UBool dumpExpansions = FALSE;
+    UBool dumpExpansions = false;
     getBoolParam("expansions", params, dumpExpansions, status);
 
-    UBool verbose = FALSE;
+    UBool verbose = false;
     getBoolParam("verbose", params, verbose, status);
 
     int64_t seed = 0;
@@ -1026,9 +1063,9 @@ UBool  RBBIMonkeyTest::getIntParam(UnicodeString name, UnicodeString &params, in
         // Delete this parameter from the params string.
         m.reset();
         params = m.replaceFirst(UnicodeString(), status);
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 UBool RBBIMonkeyTest::getStringParam(UnicodeString name, UnicodeString &params, CharString &dest, UErrorCode &status) {
@@ -1041,9 +1078,9 @@ UBool RBBIMonkeyTest::getStringParam(UnicodeString name, UnicodeString &params, 
         // Delete this parameter from the params string.
         m.reset();
         params = m.replaceFirst(UnicodeString(), status);
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 UBool RBBIMonkeyTest::getBoolParam(UnicodeString name, UnicodeString &params, UBool &dest, UErrorCode &status) {
@@ -1055,15 +1092,15 @@ UBool RBBIMonkeyTest::getBoolParam(UnicodeString name, UnicodeString &params, UB
             dest = m.group(1, status).caseCompare(UnicodeString("true"), U_FOLD_CASE_DEFAULT) == 0;
         } else {
             // No explicit user value, implies true.
-            dest = TRUE;
+            dest = true;
         }
 
         // Delete this parameter from the params string.
         m.reset();
         params = m.replaceFirst(UnicodeString(), status);
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 #endif /* !UCONFIG_NO_BREAK_ITERATION && !UCONFIG_NO_REGULAR_EXPRESSIONS && !UCONFIG_NO_FORMATTING */

@@ -257,6 +257,8 @@ class U_I18N_API PatternStringUtils {
      * PatternStringUtils, do the same in C.
      *
      * @param roundIncr
+     *            The roundingIncrement to be checked. Must be non-zero.
+     *            Apple ICU changes description as follows (rdar://51452216):
      *            Pointer to roundingIncrement to be checked. Must be non-zero.
      *            If function returns false, this value may be updated to round
      *            to the digits significant for maxFrac.
@@ -264,7 +266,12 @@ class U_I18N_API PatternStringUtils {
      *            The current maximum fraction digits value.
      * @return true if roundIncr should be ignored for formatting.
      */
+#if 0 && APPLE_ICU_CHANGES
+// rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
      static bool ignoreRoundingIncrement(double* roundIncrPtr, int32_t maxFrac);
+#else
+     static bool ignoreRoundingIncrement(double roundIncr, int32_t maxFrac);
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Creates a pattern string from a property bag.
@@ -319,7 +326,9 @@ class U_I18N_API PatternStringUtils {
     static void patternInfoToStringBuilder(const AffixPatternProvider& patternInfo, bool isPrefix,
                                            PatternSignType patternSignType,
                                            bool approximately,
-                                           StandardPlural::Form plural, bool perMilleReplacesPercent,
+                                           StandardPlural::Form plural,
+                                           bool perMilleReplacesPercent,
+                                           bool dropCurrencySymbols,
                                            UnicodeString& output);
 
     static PatternSignType resolveSignDisplay(UNumberSignDisplay signDisplay, Signum signum);

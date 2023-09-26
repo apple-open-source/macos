@@ -46,9 +46,9 @@
 #import <SecurityInterface/SFCertificatePanel.h>
 #import <SecurityInterface/SFCertificateView.h>
 #import <WebCore/CertificateInfo.h>
-#import <WebCore/Frame.h>
 #import <WebCore/InspectorController.h>
 #import <WebCore/InspectorFrontendClient.h>
+#import <WebCore/LocalFrame.h>
 #import <WebCore/Page.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/Settings.h>
@@ -102,19 +102,18 @@ WebInspectorClient::WebInspectorClient(WebView* inspectedWebView)
 
 void WebInspectorClient::inspectedPageDestroyed()
 {
-    delete this;
 }
 
 FrontendChannel* WebInspectorClient::openLocalFrontend(InspectorController* inspectedPageController)
 {
-    RetainPtr<WebInspectorWindowController> windowController = adoptNS([[WebInspectorWindowController alloc] initWithInspectedWebView:m_inspectedWebView isUnderTest:inspectedPageController->isUnderTest()]);
+    RetainPtr<WebInspectorWindowController> windowController = adoptNS([[WebInspectorWindowController alloc] initWithInspectedWebView:m_inspectedWebView.get().get() isUnderTest:inspectedPageController->isUnderTest()]);
     [windowController.get() setInspectorClient:this];
 
     m_frontendPage = core([windowController.get() frontendWebView]);
-    m_frontendClient = makeUnique<WebInspectorFrontendClient>(m_inspectedWebView, windowController.get(), inspectedPageController, m_frontendPage, createFrontendSettings());
+    m_frontendClient = makeUnique<WebInspectorFrontendClient>(m_inspectedWebView.get().get(), windowController.get(), inspectedPageController, m_frontendPage.get(), createFrontendSettings());
 
     RetainPtr<WebInspectorFrontend> webInspectorFrontend = adoptNS([[WebInspectorFrontend alloc] initWithFrontendClient:m_frontendClient.get()]);
-    [[m_inspectedWebView inspector] setFrontend:webInspectorFrontend.get()];
+    [[m_inspectedWebView.get() inspector] setFrontend:webInspectorFrontend.get()];
 
     m_frontendPage->inspectorController().setInspectorFrontendClient(m_frontendClient.get());
 
@@ -127,7 +126,7 @@ void WebInspectorClient::bringFrontendToFront()
     m_frontendClient->bringToFront();
 }
 
-void WebInspectorClient::didResizeMainFrame(Frame*)
+void WebInspectorClient::didResizeMainFrame(LocalFrame*)
 {
     if (m_frontendClient)
         m_frontendClient->attachAvailabilityChanged(canAttach());
@@ -156,13 +155,13 @@ void WebInspectorClient::hideHighlight()
 
 void WebInspectorClient::didSetSearchingForNode(bool enabled)
 {
-    WebInspector *inspector = [m_inspectedWebView inspector];
+    WebInspector *inspector = [m_inspectedWebView.get() inspector];
 
     ASSERT(isMainThread());
 
     if (enabled) {
-        [[m_inspectedWebView window] makeKeyAndOrderFront:nil];
-        [[m_inspectedWebView window] makeFirstResponder:m_inspectedWebView];
+        [[m_inspectedWebView.get() window] makeKeyAndOrderFront:nil];
+        [[m_inspectedWebView.get() window] makeFirstResponder:m_inspectedWebView.get().get()];
         [[NSNotificationCenter defaultCenter] postNotificationName:WebInspectorDidStartSearchingForNode object:inspector];
     } else
         [[NSNotificationCenter defaultCenter] postNotificationName:WebInspectorDidStopSearchingForNode object:inspector];
@@ -205,11 +204,11 @@ void WebInspectorFrontendClient::frontendLoaded()
 
     InspectorFrontendClientLocal::frontendLoaded();
 
-    WebFrame *frame = [m_inspectedWebView mainFrame];
+    WebFrame *frame = [m_inspectedWebView.get() mainFrame];
 
-    WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(m_inspectedWebView);
+    WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(m_inspectedWebView.get().get());
     if (implementations->didClearInspectorWindowObjectForFrameFunc)
-        CallFrameLoadDelegate(implementations->didClearInspectorWindowObjectForFrameFunc, m_inspectedWebView,
+        CallFrameLoadDelegate(implementations->didClearInspectorWindowObjectForFrameFunc, m_inspectedWebView.get().get(),
                               @selector(webView:didClearInspectorWindowObject:forFrame:), [frame windowObject], frame);
 
     bool attached = [m_frontendWindowController.get() attached];
@@ -253,7 +252,7 @@ void WebInspectorFrontendClient::closeWindow()
 
 void WebInspectorFrontendClient::reopen()
 {
-    WebInspector* inspector = [m_inspectedWebView inspector];
+    WebInspector* inspector = [m_inspectedWebView.get() inspector];
     [inspector close:nil];
     [inspector show:nil];
 }
@@ -424,7 +423,7 @@ void WebInspectorFrontendClient::save(Vector<InspectorFrontendClient::SaveData>&
         m_suggestedToActualURLMap.set(suggestedURLCopy, actualURL);
 
         if (base64Encoded) {
-            auto decodedData = base64Decode(contentCopy, Base64DecodeOptions::ValidatePadding);
+            auto decodedData = base64Decode(contentCopy, Base64DecodeMode::DefaultValidatePadding);
             if (!decodedData)
                 return;
             RetainPtr<NSData> dataContent = adoptNS([[NSData alloc] initWithBytes:decodedData->data() length:decodedData->size()]);

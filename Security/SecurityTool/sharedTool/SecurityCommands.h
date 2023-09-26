@@ -138,8 +138,9 @@ SECURITY_COMMAND("delete-generic-password", keychain_delete_generic_password,
                  "Delete one or more generic password items.")
 
 SECURITY_COMMAND_IOS("keychain-export", keychain_export,
-                 "-k <keybag> [-p password ] <plist>\n"
-                 "    <keybag>   keybag file name. (Can be created with keystorectl)\n"
+                 "[ -k <keybag> [-p password ] ] <plist>\n"
+                 "    <keybag>   keybag file name (optional, can be created with keystorectl)\n"
+                 "               if unspecified, use default backup behavior\n"
                  "    <password> backup password (optional)\n"
                  "    <plist>    backup plist file\n",
                  "Export keychain to a plist file.")
@@ -150,6 +151,11 @@ SECURITY_COMMAND_IOS("keychain-import", keychain_import,
                  "    <password> backup password (optional)\n"
                  "    <plist>    backup plist file\n",
                  "Import keychain from a plist file.")
+
+SECURITY_COMMAND_IOS("keychain-backup-get-uuid", keychain_backup_get_uuid,
+                 "<plist>\n"
+                 "    <plist>    backup plist file\n",
+                 "Get the keybag UUID from a keychain backup plist file.")
 
 SECURITY_COMMAND_IOS("pkcs12", pkcs12_util,
                  "[options] -p <password> file\n"
@@ -318,3 +324,7 @@ SECURITY_COMMAND("stuff-keychain", stuff_keychain,
 SECURITY_COMMAND("tickle", tickle,
                  "",
                  "Tickle DB to possibly upgrade.")
+
+SECURITY_COMMAND("test-application-identifier", test_application_identifier,
+                 "",
+                 "Test application-identifier behavior.")

@@ -3260,6 +3260,10 @@ op(fuzzer_return_early_from_loop_hint, macro ()
     doReturn()
 end)
 
+op(loop_osr_entry_gate, macro ()
+    crash() # Should never reach here.
+end)
+
 
 llintOpWithMetadata(op_check_private_brand, OpCheckPrivateBrand, macro (size, get, dispatch, metadata, return)
     metadata(t5, t2)
@@ -3308,5 +3312,8 @@ slowPathOp(get_property_enumerator)
 slowPathOp(enumerator_next)
 slowPathOp(enumerator_get_by_val)
 slowPathOp(enumerator_in_by_val)
+slowPathOp(enumerator_put_by_val)
 slowPathOp(enumerator_has_own_property)
 slowPathOp(mod)
+
+llintSlowPathOp(has_structure_with_flags)

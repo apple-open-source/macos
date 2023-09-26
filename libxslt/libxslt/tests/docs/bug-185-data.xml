@@ -1,5 +1,0 @@
-<!DOCTYPE test [ <!ATTLIST A id ID #REQUIRED> ] >
-<test>
-  <A id="X"/>
-  <A id="Y"/>
-</test>

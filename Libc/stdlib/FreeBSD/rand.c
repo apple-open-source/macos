@@ -95,14 +95,13 @@ rand_r(unsigned int *ctx)
 static u_long next = 1;
 
 int
-rand()
+rand(void)
 {
 	return (do_rand(&next));
 }
 
 void
-srand(seed)
-u_int seed;
+srand(u_int seed)
 {
 	next = seed;
 }

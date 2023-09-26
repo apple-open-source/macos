@@ -291,6 +291,7 @@ Note that
 .Fn inet_pton
 does not accept 1-, 2-, or 3-part dotted addresses; all four parts
 must be specified and are interpreted only as decimal values.
+Any leading 0s will be stripped.
 This is a narrower input set than that accepted by
 .Fn inet_aton .
 .Sh HISTORY

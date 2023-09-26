@@ -9,9 +9,29 @@ syr{
         "\u0739 \u073A \u073B \u073C \u073D \u073E \u073F ܃ ܄ ܅ ܆ ܇ ܈ ܉ ܁ ܂ ܀ ܊ ܋ ܌ ܍"
         " ܐ ܒ ܓ ܔ ܖ ܕ ܗ ܘ ܙ ܚ ܛ ܜ ܝ ܞ ܟ ܠ ܡ ܢ ܣ ܤ ܥ ܦ ܧ ܨ ܩ ܪ ܫ ܬ]"
     }
-    ExemplarCharactersIndex{"[ܐ ܒ ܓ ܖ ܕ ܗ ܘ ܙ ܚ ܛ ܝ ܞ ܟ ܠ ܡ ܢ ܣ ܥ ܦ ܨ ܩ ܪ ܫ ܬ]"}
-    ExemplarCharactersNumbers{"[\u200E \\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersIndex{"[ܐ ܒ ܓ ܖ ܕ ܗ ܘ ܙ ܚ ܛ ܝ ܟ ܠ ܡ ܢ ܣ ܥ ܦ ܨ ܩ ܪ ܫ ܬ]"}
+    ExemplarCharactersNumbers{"[\u061C\u200E \\- ‑ , ٫ ٬ . % ٪ ‰ ؉ + 0٠ 1١ 2٢ 3٣ 4٤ 5٥ 6٦ 7٧ 8٨ 9٩]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ ‑ – — ، ؛ \\: ܃ ܄ ܅ ܆ ܇ ܈ ! ؟ ܉ . … ܁ ܂ ܀ ' ‘ ’ \u0022 “ ” « » ( ) "
+        "\\[ \\] ܊ ܋ ܌ ܍]"
+    }
     MoreInformation{"؟"}
+    NumberElements{
+        latn{
+            symbols{
+                nan{"ܠܝܬ ܡܢܝܢܐ"}
+            }
+        }
+        minimalPairs{
+            ordinal{
+                other{"ܫܩܘܠ ܦܬܠܐ ܕ{0} ܝܡܝܢܐ"}
+            }
+            plural{
+                one{"ܝܠܐ ܝܠܗ ܥܬܝܕܐ"}
+                other{"ܝܠ̈ܐ ܝܢܐ ܥܬܝܕ̈ܐ <RLM>{0}"}
+            }
+        }
+    }
     calendar{
         generic{
             DateTimePatterns{
@@ -21,8 +41,8 @@ syr{
                 "h:mm a",
                 "EEEE، d MMMM y G",
                 "d MMMM y G",
-                "dd‏/MM‏/y G",
-                "d‏/M‏/y GGGGG",
+                "G y MMM d",
+                "GGGGG y-MM-dd",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -34,10 +54,130 @@ syr{
                 "ahmmssz",
                 "ahmmss",
                 "ahmm",
-                "GyMMMMEEEEd",
-                "GyMMMMd",
+                "GyMMMMdd",
+                "GyMMMMdd",
                 "GyMMdd",
-                "GGGGGyMd",
+                "GGGGGyMMdd",
+            }
+            availableFormats{
+                Ed{"E، d"}
+                Gy{"y G"}
+                GyMMMEd{"E، d MMM y G"}
+                GyMMMd{"d MMM y G"}
+                GyMd{"d‏/M‏/y G"}
+                MEd{"E، d/‏M"}
+                MMMEd{"E، d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"d/‏M"}
+                y{"y G"}
+                yyyy{"y G"}
+                yyyyM{"M‏/y G"}
+                yyyyMEd{"E، d/‏M/‏y G"}
+                yyyyMMM{"MMM y G"}
+                yyyyMMMEd{"E، d MMM y G"}
+                yyyyMMMM{"MMMM y G"}
+                yyyyMMMd{"d MMM y G"}
+                yyyyMd{"d‏/M‏/y G"}
+                yyyyQQQ{"QQQ y G"}
+                yyyyQQQQ{"QQQQ y G"}
+            }
+            intervalFormats{
+                Gy{
+                    G{"y G – y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"MM-y GGGG – MM-y GGGG"}
+                    M{"MM-y – MM-y GGGG"}
+                    y{"MM-y – MM-y GGGG"}
+                }
+                GyMEd{
+                    G{"E, dd-MM-y GGGG – E, dd-MM-y GGGG"}
+                    M{"E, dd-MM-y – E, dd-MM-y GGGG"}
+                    d{"E, dd-MM-y – E, dd-MM-y GGGG"}
+                    y{"E, dd-MM-y – E,dd-MM-y GGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, d MMM y G – E, d MMM y G"}
+                    M{"E, d MMM – E, d MMM y G"}
+                    d{"E, d MMM – E, d MMM y G"}
+                    y{"E, d MMM y – E, d MMM y G"}
+                }
+                GyMMMd{
+                    G{"d MMM y G – d MMM y G"}
+                    M{"d MMM – d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y – d MMM y G"}
+                }
+                GyMd{
+                    G{"dd-MM-y GGGG – dd-MM-y GGGG"}
+                    M{"dd-MM-y – dd-MM-y GGGG"}
+                    d{"dd-MM-y – dd-MM-y GGGG"}
+                    y{"dd-MM-y – dd-MM-y GGGG"}
+                }
+                M{
+                    M{"M–M"}
+                }
+                MEd{
+                    M{"E، d/‏M – E، d/‏M"}
+                    d{"E، d/‏M –‏ E، d/‏M"}
+                }
+                MMM{
+                    M{"MMM–MMM"}
+                }
+                MMMEd{
+                    M{"E، d MMM – E، d MMM"}
+                    d{"E، d – E، d MMM"}
+                }
+                MMMd{
+                    M{"d MMM – d MMM"}
+                    d{"d–d MMM"}
+                }
+                Md{
+                    M{"d-M – d-M"}
+                    d{"d-M – d-M"}
+                }
+                y{
+                    y{"y–y G"}
+                }
+                yM{
+                    M{"M‏/y – M‏/y G"}
+                    y{"M‏/y – M‏/y G"}
+                }
+                yMEd{
+                    M{"E، d‏/M‏/y – E، d‏/M‏/y G"}
+                    d{"E، dd‏/MM‏/y – E، dd‏/MM‏/y G"}
+                    y{"E، d‏/M‏/y – E، d‏/M‏/y G"}
+                }
+                yMMM{
+                    M{"MMM – MMM y G"}
+                    y{"MMM، y – MMM y G"}
+                }
+                yMMMEd{
+                    M{"E، d MMM – E، d MMM y G"}
+                    d{"E، d – E، d MMM y G"}
+                    y{"E، d MMM y – E، d MMM y G"}
+                }
+                yMMMM{
+                    M{"MMMM – MMMM y G"}
+                    y{"MMMM y – MMMM y G"}
+                }
+                yMMMd{
+                    M{"d MMM – d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y – d MMM y G"}
+                }
+                yMd{
+                    M{"d‏/M‏/y – d‏/M‏/y G"}
+                    d{"d‏/M‏/y – d‏/M‏/y G"}
+                    y{"d‏/M‏/y – d‏/M‏/y G"}
+                }
             }
         }
         gregorian{
@@ -59,12 +199,12 @@ syr{
                 "h:mm:ss a",
                 "h:mm a",
                 "EEEE، d MMMM y",
-                "d MMMM y",
-                "d MMM y",
+                "y MMMM d",
+                "y MMM d",
                 "y-MM-dd",
                 "{1}, {0}",
-                "{1} ܒ {0}",
-                "{1} ܒ {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
             }
@@ -73,14 +213,14 @@ syr{
                 "ahmmssz",
                 "ahmmss",
                 "ahmm",
-                "yMMMMEEEEd",
-                "yMMMMd",
-                "yMMMd",
+                "yMMMMdd",
+                "yMMMMdd",
+                "yMMdd",
                 "yMMdd",
             }
             availableFormats{
                 E{"cccc"}
-                Ed{"EEEE، d"}
+                Ed{"E، d"}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"EEEE، d MMM y G"}
@@ -88,8 +228,8 @@ syr{
                 MEd{"EEEE، dd-MM"}
                 MMMEd{"EEEE، d MMM"}
                 MMMMW{
-                    one{"ܫܒܬܐ W ܕ MMMM"}
-                    other{"ܫܒܬܐ W ܕ MMMM"}
+                    one{"ܫܒܘܥܐ W ܒMMMM"}
+                    other{"ܫܒܘܥܐ W ܒMMMM"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -105,8 +245,8 @@ syr{
                 yQQQ{"QQQ y"}
                 yQQQQ{"QQQQ y"}
                 yw{
-                    one{"ܫܒܬܐ w ܕ Y"}
-                    other{"ܫܒܬܐ w ܕ Y"}
+                    one{"ܫܒܘܥܐ w ܕܫܢܬܐ Y"}
+                    other{"ܫܒܘܥܐ w ܕܫܢܬܐ Y"}
                 }
             }
             dayNames{
@@ -126,7 +266,7 @@ syr{
                         "ܬܠܬ",
                         "ܐܪܒܥ",
                         "ܚܡܫ",
-                        "ܥܪܘܒܼܬܐ",
+                        "ܥܪܘ",
                         "ܫܒܬܐ",
                     }
                     wide{
@@ -135,11 +275,20 @@ syr{
                         "ܬܠܬܒܫܒܐ",
                         "ܐܪܒܥܒܫܒܐ",
                         "ܚܡܫܒܫܒܐ",
-                        "ܥܪܘܒ݂ܬܐ",
+                        "ܥܪܘܒܬܐ",
                         "ܫܒܬܐ",
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "ܚܕ",
+                        "ܬܪܝܢ",
+                        "ܬܠܬ",
+                        "ܐܪܒܥ",
+                        "ܚܡܫ",
+                        "ܥܪܘ",
+                        "ܫܒܬܐ",
+                    }
                     narrow{
                         "ܐ",
                         "ܒ",
@@ -155,7 +304,7 @@ syr{
                         "ܬܠܬ",
                         "ܐܪܒܥ",
                         "ܚܡܫ",
-                        "ܥܪܘܒܼܬܐ",
+                        "ܥܪܘ",
                         "ܫܒܬܐ",
                     }
                     wide{
@@ -164,7 +313,7 @@ syr{
                         "ܬܠܬܒܫܒܐ",
                         "ܐܪܒܥܒܫܒܐ",
                         "ܚܡܫܒܫܒܐ",
-                        "ܥܪܘܒ݂ܬܐ",
+                        "ܥܪܘܒܬܐ",
                         "ܫܒܬܐ",
                     }
                 }
@@ -183,20 +332,24 @@ syr{
             }
             eras{
                 abbreviated{
-                    "ܩ.ܡ",
-                    "ܒ.ܡ",
+                    "܏ܩܡ",
+                    "܏ܫܡ",
                 }
                 abbreviated%variant{
-                    "ܩ.ܕ.ܚ",
-                    "ܕ.ܚ",
+                    "܏ܩܕܚ",
+                    "܏ܕܚ",
+                }
+                narrow%variant{
+                    "܏ܩܕܚ",
+                    "܏ܕܚ",
                 }
                 wide{
                     "ܩܕܡ ܡܫܝܚܐ",
-                    "ܫܢ݇ܬܐ ܡܪܢܝܬܐ",
+                    "ܫܢܬܐ ܡܪܢܝܬܐ",
                 }
                 wide%variant{
-                    "ܩܕܡ ܕܘܪܐ ܚܕܬܐ",
-                    "ܕܘܪܐ ܚܕܬܐ",
+                    "ܩܕܡ ܕܪܐ ܚܕܬܐ",
+                    "ܕܪܐ ܚܕܬܐ",
                 }
             }
             intervalFormats{
@@ -243,7 +396,6 @@ syr{
                     d{"d-M – d-M"}
                 }
                 yM{
-                    M{"M‏/y – M‏/y"}
                     y{"M‏/y – M‏/y"}
                 }
                 yMEd{
@@ -278,7 +430,7 @@ syr{
             monthNames{
                 format{
                     abbreviated{
-                        "ܟܢܘܢ ܐܚܪܝܐ",
+                        "ܟܢ܊ ܒ",
                         "ܫܒܛ",
                         "ܐܕܪ",
                         "ܢܝܣܢ",
@@ -287,9 +439,23 @@ syr{
                         "ܬܡܘܙ",
                         "ܐܒ",
                         "ܐܝܠܘܠ",
-                        "ܬܫܪܝܢ ܩܕܡܝܐ",
-                        "ܬܫܪܝܼܢ ܐܚܪܝܐ",
-                        "ܟܢܘܢ ܩܕܡܝܐ",
+                        "ܬܫ܊ ܐ",
+                        "ܬܫ܊ ܒ",
+                        "ܟܢ܊ ܐ",
+                    }
+                    narrow{
+                        "ܐ",
+                        "ܒ",
+                        "ܓ",
+                        "ܕ",
+                        "ܗ",
+                        "ܘ",
+                        "ܙ",
+                        "ܚ",
+                        "ܛ",
+                        "ܝ",
+                        "ܝܐ",
+                        "ܝܒ",
                     }
                     wide{
                         "ܟܢܘܢ ܐܚܪܝܐ",
@@ -301,12 +467,40 @@ syr{
                         "ܬܡܘܙ",
                         "ܐܒ",
                         "ܐܝܠܘܠ",
-                        "ܬܫܪܝܼܢ ܩܕܡܝܐ",
-                        "ܬܫܪܝܼܢ ܐܚܪܝܐ",
+                        "ܬܫܪܝܢ ܩܕܡܝܐ",
+                        "ܬܫܪܝܢ ܐܚܪܝܐ",
                         "ܟܢܘܢ ܩܕܡܝܐ",
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "ܟܢ܊ ܒ",
+                        "ܫܒܛ",
+                        "ܐܕܪ",
+                        "ܢܝܣܢ",
+                        "ܐܝܪ",
+                        "ܚܙܝܪܢ",
+                        "ܬܡܘܙ",
+                        "ܐܒ",
+                        "ܐܝܠܘܠ",
+                        "ܬܫ܊ ܐ",
+                        "ܬܫ܊ ܒ",
+                        "ܟܢ܊ ܐ",
+                    }
+                    narrow{
+                        "ܐ",
+                        "ܒ",
+                        "ܓ",
+                        "ܕ",
+                        "ܗ",
+                        "ܘ",
+                        "ܙ",
+                        "ܚ",
+                        "ܛ",
+                        "ܝ",
+                        "ܝܐ",
+                        "ܝܒ",
+                    }
                     wide{
                         "ܟܢܘܢ ܐܚܪܝܐ",
                         "ܫܒܛ",
@@ -326,10 +520,16 @@ syr{
             quarters{
                 format{
                     abbreviated{
-                        "ܪܘܒܥܐ 1",
-                        "ܪܘܒܥܐ 2",
-                        "ܪܘܒܥܐ 3",
-                        "ܪܘܒܥܐ 4",
+                        "ܪܘܒܥܐ ܐ",
+                        "ܪܘܒܥܐ ܒ",
+                        "ܪܘܒܥܐ ܓ",
+                        "ܪܘܒܥܐ ܕ",
+                    }
+                    narrow{
+                        "ܐ",
+                        "ܒ",
+                        "ܓ",
+                        "ܕ",
                     }
                     wide{
                         "ܪܘܒܥܐ ܩܕܡܝܐ",
@@ -339,11 +539,11 @@ syr{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "ܪܘܒܥܐ 1",
-                        "ܪܘܒܥܐ 2",
-                        "ܪܘܒܥܐ 3",
-                        "ܪܘܒܥܐ 4",
+                    narrow{
+                        "ܐ",
+                        "ܒ",
+                        "ܓ",
+                        "ܕ",
                     }
                     wide{
                         "ܪܘܒܥܐ ܩܕܡܝܐ",
@@ -355,54 +555,108 @@ syr{
             }
         }
     }
+    delimiters{
+        alternateQuotationEnd{"‘"}
+        alternateQuotationStart{"’"}
+        quotationEnd{"“"}
+        quotationStart{"”"}
+    }
     fields{
         day{
             dn{"ܝܘܡܐ"}
             relative{
                 "-1"{"ܐܬܡܠܝ"}
-                "0"{"ܝܘܡܢܐ"}
-                "1"{"ܠܡܚܪ"}
+                "0"{"ܐܕܝܘܡ"}
+                "1"{"ܝܘܡܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܝܘܡܐ"}
+                    other{"ܒ{0} ܝܘܡܢ̈ܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܝܘܡܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܝܘܡܢ̈ܐ"}
+                }
             }
         }
-        day-narrow{
-            dn{"ܝܘܡܐ"}
-            relative{
-                "-1"{"ܐܬܡܠܝ"}
-                "0"{"ܝܘܡܢܐ"}
-                "1"{"ܠܡܚܪ"}
-            }
-        }
-        day-short{
-            dn{"ܝܘܡܐ"}
-            relative{
-                "-1"{"ܐܬܡܠܝ"}
-                "0"{"ܝܘܡܢܐ"}
-                "1"{"ܠܡܚܪ"}
-            }
+        dayOfYear{
+            dn{"ܝܘܡܐ ܕܫܢܬܐ"}
         }
         dayperiod{
             dn{"ܩܛ/ܒܛ"}
         }
         era{
-            dn{"ܕܘܪܐ"}
+            dn{"ܕܪܐ"}
+        }
+        fri{
+            relative{
+                "-1"{"ܥܪܘܒܬܐ ܕܕܥܒܪ"}
+                "0"{"ܗܕܐ ܥܪܘܒܬܐ"}
+                "1"{"ܥܪܘܒܬܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܥܪܘܒܬܐ"}
+                    other{"ܒ{0} ܥܪ̈ܘܒܬܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܥܪܘܒܬܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܥܪ̈ܘܒܬܐ"}
+                }
+            }
         }
         hour{
             dn{"ܫܥܬܐ"}
-        }
-        hour-narrow{
-            dn{"ܫܥܬܐ"}
+            relative{
+                "0"{"ܗܕܐ ܫܥܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܫܥܬܐ"}
+                    other{"ܒ{0} ܫܥ̈ܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܫܥܬܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܫܥ̈ܐ"}
+                }
+            }
         }
         hour-short{
-            dn{"ܫܥܬܐ"}
+            dn{"ܫܥ܊"}
         }
         minute{
-            dn{"ܕܩܝܩܐ"}
+            dn{"ܩܛܝܢܬܐ"}
+            relative{
+                "0"{"ܗܢܐ ܩܛܝܢܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܩܛܝܢܬܐ"}
+                    other{"ܒ{0} ܩܛܝ̈ܢܬܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܩܛܝܢܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܩܛܝ̈ܢܐ"}
+                }
+            }
         }
-        minute-narrow{
-            dn{"ܕܩܝܩܐ"}
-        }
-        minute-short{
-            dn{"ܕܩܝܩܐ"}
+        mon{
+            relative{
+                "-1"{"ܬܪܝܢܒܫܒܐ ܕܕܥܒܪ"}
+                "0"{"ܗܕܐ ܬܪܝܢܒܫܒܐ"}
+                "1"{"ܬܪܝܢܒܫܒܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܬܪܝܢܒܫܒܐ"}
+                    other{"ܒ{0} ܬܪܝܢܒܫܒ̈ܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܬܪܝܢܒܫܒܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܬܪܝܢܒܫܒ̈ܐ"}
+                }
+            }
         }
         month{
             dn{"ܝܪܚܐ"}
@@ -411,97 +665,216 @@ syr{
                 "0"{"ܗܢܐ ܝܪܚܐ"}
                 "1"{"ܝܪܚܐ ܕܐܬܐ"}
             }
-        }
-        month-narrow{
-            dn{"ܝܪܚܐ"}
-            relative{
-                "-1"{"ܝܪܚܐ ܕܕܥܒܪ"}
-                "0"{"ܗܢܐ ܝܪܚܐ"}
-                "1"{"ܝܪܚܐ ܕܐܬܐ"}
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܝܪܚܐ"}
+                    other{"ܒ{0} ܝܪ̈ܚܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܝܪܚܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܝܪ̈ܚܐ"}
+                }
             }
         }
         month-short{
-            dn{"ܝܪܚܐ"}
-            relative{
-                "-1"{"ܝܪܚܐ ܕܕܥܒܪ"}
-                "0"{"ܗܢܐ ܝܪܚܐ"}
-                "1"{"ܝܪܚܐ ܕܐܬܐ"}
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܝܪܚܐ"}
+                    other{"ܒ{0} ܝܪ̈ܚܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܝܪܚܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܝܖ̈ܚܐ"}
+                }
             }
         }
         quarter{
-            dn{"ܪܘܒܥܐ"}
+            dn{"ܪܘܒܥܐ ܕܫܢܬܐ"}
+            relative{
+                "-1"{"ܪܘܒܥܐ ܕܥܒܪ"}
+                "0"{"ܗܢܐ ܪܘܒܥܐ"}
+                "1"{"ܪܘܒܥܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܪܘܒܥܐ"}
+                    other{"ܒ{0} ܪ̈ܘܒܥܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܪܘܒܥܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܪ̈ܘܒܥܐ"}
+                }
+            }
         }
-        quarter-narrow{
-            dn{"ܪܘܒܥܐ"}
-        }
-        quarter-short{
-            dn{"ܪܘܒܥܐ"}
+        sat{
+            relative{
+                "-1"{"ܫܒܬܐ ܕܕܥܒܪ"}
+                "0"{"ܗܕܐ ܫܒܬܐ"}
+                "1"{"ܫܒܬܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܫܒܬܐ"}
+                    other{"ܒ{0} ܫܒ̈ܬܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܫܒܬܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܫܒ̈ܬܐ"}
+                }
+            }
         }
         second{
             dn{"ܪܦܦܐ"}
+            relative{
+                "0"{"ܗܫܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܪܦܦܐ"}
+                    other{"ܒ{0} ܪ̈ܦܦܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܪܦܦܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܖ̈ܦܦܐ"}
+                }
+            }
         }
-        second-narrow{
-            dn{"ܪܦܦܐ"}
+        sun{
+            relative{
+                "-1"{"ܚܕܒܫܒܐ ܕܕܥܒܪ"}
+                "0"{"ܗܕܐ ܚܕܒܫܒܐ"}
+                "1"{"ܚܕܒܫܒܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܚܕܒܫܒܐ"}
+                    other{"ܒ{0} ܚܕܒܫܒ̈ܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܚܕܒܫܒܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܚܕܒܫܒ̈ܐ"}
+                }
+            }
         }
-        second-short{
-            dn{"ܪܦܦܐ"}
+        thu{
+            relative{
+                "-1"{"ܚܡܫܒܫܒܐ ܕܕܥܒܪ"}
+                "0"{"ܗܕܐ ܚܡܫܒܫܒܐ"}
+                "1"{"ܚܡܫܒܫܒܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܚܡܫܒܫܒܐ"}
+                    other{"ܒ{0} ܚܡܫܒܫܒ̈ܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܚܡܫܒܫܒܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܚܡܫܒܫܒ̈ܐ"}
+                }
+            }
+        }
+        tue{
+            relative{
+                "-1"{"ܬܠܬܒܫܒܐ ܕܕܥܒܪ"}
+                "0"{"ܗܕܐ ܬܠܬܒܫܒܐ"}
+                "1"{"ܬܠܬܒܫܒܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܬܠܬܒܫܒܐ"}
+                    other{"ܒ{0} ܬܠܬܒܫܒ̈ܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܬܠܬܒܫܒܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܬܠܬܒܫܒ̈ܐ"}
+                }
+            }
+        }
+        wed{
+            relative{
+                "-1"{"ܐܪܒܥܒܫܒܐ ܕܕܥܒܪ"}
+                "0"{"ܗܕܐ ܐܪܒܥܒܫܒܐ"}
+                "1"{"ܐܪܒܥܒܫܒܐ ܕܐܬܐ"}
+            }
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܐܪܒܥܒܫܒܐ"}
+                    other{"ܒ{0} ܐܪܒܥܒܫܒ̈ܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܐܪܒܥܒܫܒܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܐܪܒܥܒܫܒ̈ܐ"}
+                }
+            }
+        }
+        wed-short{
+            relativeTime{
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܐܪܒܥܒܫܒ̈ܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܐܪܒܥܒܫܒ̈ܐ"}
+                }
+            }
         }
         week{
-            dn{"ܫܒܬܐ"}
+            dn{"ܫܒܘܥܐ"}
             relative{
-                "-1"{"ܫܒܬܐ ܕܕܥܒܪ"}
-                "0"{"ܗܕܐ ܫܒܬܐ"}
-                "1"{"ܫܒܬܐ ܕܐܬܐ"}
+                "-1"{"ܫܒܘܥܐ ܕܕܥܒܪ"}
+                "0"{"ܗܕܐ ܫܒܘܥܐ"}
+                "1"{"ܫܒܘܥܐ ܕܐܬܐ"}
             }
-            relativePeriod{"ܫܒܬܐ ܕ {0}"}
-        }
-        week-narrow{
-            dn{"ܫܒܬܐ"}
-            relative{
-                "-1"{"ܫܒܬܐ ܕܕܥܒܪ"}
-                "0"{"ܗܕܐ ܫܒܬܐ"}
-                "1"{"ܫܒܬܐ ܕܐܬܐ"}
+            relativePeriod{"ܫܒܘܥܐ ܕ{0}"}
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܫܒܘܥܐ"}
+                    other{"ܒ{0} ܫܒ̈ܘܥܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܫܒܘܥܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܫܒ̈ܘܥܐ"}
+                }
             }
-            relativePeriod{"ܫܒܬܐ ܕ {0}"}
         }
         week-short{
-            dn{"ܫܒܬܐ"}
-            relative{
-                "-1"{"ܫܒܬܐ ܕܕܥܒܪ"}
-                "0"{"ܗܕܐ ܫܒܬܐ"}
-                "1"{"ܫܒܬܐ ܕܐܬܐ"}
-            }
-            relativePeriod{"ܫܒܬܐ ܕ {0}"}
+            dn{"ܫܒ܊"}
+        }
+        weekOfMonth{
+            dn{"ܫܒܘܥܐ ܕܝܪܚܐ"}
         }
         weekday{
-            dn{"ܝܘܡܐ ܕܫܒܬܐ"}
+            dn{"ܝܘܡܐ ܕܫܒܘܥܐ"}
+        }
+        weekdayOfMonth{
+            dn{"ܝܘܡܐ ܦܘܠܚܢܐ ܕܫܒܘܥܐ"}
         }
         year{
-            dn{"ܫܢ݇ܬܐ"}
+            dn{"ܫܢܬܐ"}
             relative{
-                "-1"{"ܫܢ݇ܬܐ ܕܥܒ݂ܪ"}
-                "0"{"ܗܕܐ ܕܫܢ݇ܬܐ"}
-                "1"{"ܫܢ݇ܬܐ ܕܐܬ̣ܝܐ"}
+                "-1"{"ܐܫܬܩܕܝ"}
+                "0"{"ܗܕܐ ܫܢܬܐ"}
+                "1"{"ܫܢܬܐ ܐܚܪܬܐ"}
             }
-        }
-        year-narrow{
-            dn{"ܫܢ݇ܬܐ"}
-            relative{
-                "-1"{"ܫܢ݇ܬܐ ܕܥܒ̣ܪܬ̣"}
-                "0"{"ܗܕܐ ܕܫܢ݇ܬܐ"}
-                "1"{"ܫܢ݇ܬܐ ܕܐܬ̣ܝܐ"}
+            relativeTime{
+                future{
+                    one{"ܒ{0} ܫܢܝ̈ܐ"}
+                    other{"ܒ{0} ܫܢܝ̈ܐ"}
+                }
+                past{
+                    one{"ܡ̣ܢ ܩܕܡ {0} ܫܢܝ̈ܐ"}
+                    other{"ܡ̣ܢ ܩܕܡ {0} ܫܢܝ̈ܐ"}
+                }
             }
         }
         year-short{
-            dn{"ܫܢ݇ܬܐ"}
-            relative{
-                "-1"{"ܫܢ݇ܬܐ ܕܥܒ݂ܪ"}
-                "0"{"ܗܕܐ ܕܫܢ݇ܬܐ"}
-                "1"{"ܫܢ݇ܬܐ ܕܐܬ̣ܝܐ"}
-            }
+            dn{"ܫܢ܊"}
         }
         zone{
-            dn{"ܙܒ݂ܢܐ ܕܦܢܝܼܬ̣ܐ"}
+            dn{"ܦܢܝܬܐ ܕܙܒܢܐ"}
+        }
+        zone-narrow{
+            dn{"ܦܢܝܬܐ ܕܙܒܢܐ"}
+        }
+        zone-short{
+            dn{"ܦܢܝܬܐ ܕܙܒܢܐ"}
         }
     }
     layout{
@@ -509,17 +882,18 @@ syr{
     }
     listPattern{
         or{
-            2{"{0} ܐܘ {1}"}
-            end{"{0} ܐܘ {1}"}
-            middle{"{0} ܐܘ {1}"}
-            start{"{0} ܐܘ {1}"}
+            2{"{0} ܝܐ {1}"}
+            end{"{0}، ܝܐ {1}"}
         }
         standard{
             2{"{0} ܘ{1}"}
-            end{"{0} ܘ{1}"}
-            middle{"{0} ܘ{1}"}
-            start{"{0} ܘ{1}"}
+            end{"{0}، ܘ{1}"}
         }
+    }
+    measurementSystemNames{
+        UK{"ܛܟܣܐ ܒܪܝܛܢܝܐ"}
+        US{"ܛܟܣܐ ܐܡܝܪܟܐ"}
+        metric{"ܛܟܣܐ ܡܝܬܪܝܐ"}
     }
     parse{
         date{
@@ -547,6 +921,65 @@ syr{
                 "[,،٫⹁、︐︑﹐﹑，､]",
                 "[+⁺₊➕﬩﹢＋]",
             }
+        }
+    }
+    personNames{
+        initialPattern{
+            initialSequence{"{0} {1}"}
+        }
+        nameOrderLocales{
+            givenFirst{
+                "und",
+                "syr",
+            }
+        }
+        namePattern{
+            givenFirst-long-monogram-formal{
+                "{given-monogram-allCaps}{given2-monogram-allCaps}{surname-monogram-a"
+                "llCaps}"
+            }
+            givenFirst-long-monogram-informal{"{given-informal-monogram-allCaps}.{surname-monogram-allCaps}"}
+            givenFirst-long-referring-formal{"{prefix} {given} {given2} {surname}"}
+            givenFirst-long-referring-informal{"{given-informal} {surname}"}
+            givenFirst-medium-addressing-formal{"{prefix} {surname}"}
+            givenFirst-medium-addressing-informal{"{given-informal}"}
+            givenFirst-medium-monogram-formal{"{surname-monogram-allCaps}"}
+            givenFirst-medium-monogram-informal{"{given-monogram-allCaps}.{surname-monogram-allCaps}"}
+            givenFirst-medium-referring-formal{"{prefix} {given} {given2-initial} {surname}"}
+            givenFirst-medium-referring-informal{"{given-informal} {surname}"}
+            givenFirst-short-addressing-formal{"{prefix} {surname}"}
+            givenFirst-short-addressing-informal{"{given-informal}"}
+            givenFirst-short-monogram-formal{"{surname-monogram-allCaps}"}
+            givenFirst-short-monogram-informal{"{given-monogram-allCaps}.{surname-monogram-allCaps}"}
+            givenFirst-short-referring-formal{"{prefix} {given-initial} {surname}"}
+            givenFirst-short-referring-informal{"{given-informal-initial}. {surname}"}
+            sorting-long-referring-formal{"{surname-prefix} {surname-core}، {given} {given2}"}
+            sorting-long-referring-informal{"{surname}، {given-informal}"}
+            sorting-medium-referring-formal{"{surname-prefix} {surname-core}، {given} {given2-initial}"}
+            sorting-medium-referring-informal{"{surname}، {given-informal}"}
+            sorting-short-referring-formal{"{surname-prefix} {surname-core}، {given} {given2-initial}"}
+            sorting-short-referring-informal{"{surname}، {given-informal}"}
+            surnameFirst-long-addressing-formal{"{prefix} {surname}"}
+            surnameFirst-long-addressing-informal{"{given-informal}"}
+            surnameFirst-long-monogram-formal{
+                "{surname-monogram-allCaps}.{given-monogram-allCaps}.{given2-monogram"
+                "-allCaps}"
+            }
+            surnameFirst-long-monogram-informal{"{surname-monogram-allCaps}.{given-informal-monogram-allCaps}"}
+            surnameFirst-long-referring-formal{"{surname}، {given} {given2}"}
+            surnameFirst-long-referring-informal{"{surname} {given-informal}"}
+            surnameFirst-medium-addressing-formal{"{prefix} {surname}"}
+            surnameFirst-medium-addressing-informal{"{given-informal}"}
+            surnameFirst-medium-monogram-formal{"{surname-monogram-allCaps}."}
+            surnameFirst-medium-monogram-informal{"{given-informal-monogram-allCaps}."}
+            surnameFirst-medium-referring-formal{"{surname}، {given} {given2-initial}"}
+            surnameFirst-medium-referring-informal{"{surname} {given-informal}"}
+            surnameFirst-short-addressing-formal{"{prefix} {surname}"}
+            surnameFirst-short-addressing-informal{"{given-informal}"}
+            surnameFirst-short-monogram-formal{"{surname-monogram-allCaps}."}
+            surnameFirst-short-monogram-informal{"{given-informal-monogram-allCaps}."}
+            surnameFirst-short-referring-formal{"{surname}، {given-initial}"}
+            surnameFirst-short-referring-informal{"{surname} {given-initial}"}
         }
     }
 }

@@ -66,8 +66,8 @@ byn{
                 "ፋዱስ ደምቢ",
             }
             AmPmMarkersAbbr{
-                "ፋዱስ ጃብ",
-                "ፋዱስ ደምቢ",
+                "ፋዱስ ጃብ",
+                "ፋዱስ ደምቢ",
             }
             DateTimePatterns{
                 "h:mm:ss a zzzz",

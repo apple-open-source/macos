@@ -37,15 +37,17 @@ CF_ASSUME_NONNULL_BEGIN
 __BEGIN_DECLS
 
 bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
-                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, bool useDefaultIV, CFErrorRef _Nullable *_Nullable error);
+                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, bool useDefaultIV,
+                     bool useNewBackupBehavior, CFErrorRef _Nullable *_Nullable error);
 bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
-                            CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, bool useDefaultIV, CFErrorRef _Nullable *_Nullable error); // used for backup
-bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessControlRef _Nullable *_Nullable paccess_control, CFDataRef acm_context,
+                            CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, bool useDefaultIV,
+                            bool useNewBackupBehavior, CFErrorRef _Nullable *_Nullable error); // used for backup
+bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair *_Nullable bkp, CFTypeRef cryptoOp, SecAccessControlRef _Nullable *_Nullable paccess_control, CFDataRef acm_context,
                      CFDataRef blob, const SecDbClass *db_class, CFArrayRef caller_access_groups,
                      CFMutableDictionaryRef _Nullable *_Nullable attributes_p, uint32_t *_Nullable version_p, bool decryptSecretData, keyclass_t*_Nullable outKeyclass, CFErrorRef _Nullable *_Nullable error);
 bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
                          CFMutableDictionaryRef _Nonnull *_Nonnull item, SecAccessControlRef _Nullable *_Nullable access_control, keyclass_t *_Nullable keyclass, CFErrorRef _Nullable *_Nullable error);
-SecDbItemRef _Nullable SecDbItemCreateWithBackupDictionary(const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, keybag_handle_t dst_keybag, CFErrorRef _Nullable *_Nullable error);
+SecDbItemRef _Nullable SecDbItemCreateWithBackupDictionary(const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, struct backup_keypair *_Nullable src_bkp, keybag_handle_t dst_keybag, CFErrorRef _Nullable *_Nullable error);
 bool SecDbItemExtractRowIdFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef _Nullable *_Nullable error);
 bool SecDbItemExtractUUIDPersistentRefFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef *error);
 bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef _Nullable *_Nullable error);

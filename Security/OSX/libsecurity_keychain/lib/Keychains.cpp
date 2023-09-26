@@ -1273,6 +1273,7 @@ KeychainImpl::getAttributeInfoForItemID(CSSM_DB_RECORDTYPE itemID,
 		case CSSMERR_DL_INVALID_RECORDTYPE:
 			resetSchema();
 			keychainSchema()->getAttributeInfoForRecordType(itemID, Info);
+            [[fallthrough]];
 		default:
 			throw;
 		}

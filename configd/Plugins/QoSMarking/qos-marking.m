@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -46,6 +46,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include "SCNetworkConfigurationInternal.h"
 
 #import <Foundation/Foundation.h>
 #import <NetworkExtension/NEPolicySession.h>
@@ -292,20 +293,20 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 }
 
 
-- (NSArray *)qosMarkingWhitelistedAppIdentifiers:(NSDictionary *)policy
+- (NSArray *)qosMarkingAllowListAppIdentifiers:(NSDictionary *)policy
 {
 	NSArray *	appIDs;
 
-	appIDs = policy[(NSString *)kSCPropNetQoSMarkingWhitelistedAppIdentifiers];
+	appIDs = policy[(NSString *)kSCPropNetQoSMarkingAllowListAppIdentifiers];
 	if ((appIDs != nil) && ![appIDs isKindOfClass:[NSArray class]]) {
-		SC_log(LOG_ERR, "QoSMarkingWhitelistedAppIdentifier list not valid");
+		SC_log(LOG_ERR, "QoSMarkingAllowListAppIdentifiers list not valid");
 		return nil;
 	}
 
 	for (NSString *appID in appIDs) {
 		if ((appID != nil) &&
 		    (![appID isKindOfClass:[NSString class]] || (appID.length == 0))) {
-			SC_log(LOG_ERR, "QoSMarkingWhitelistedAppIdentifier not valid");
+			SC_log(LOG_ERR, "QoSMarkingAllowListAppIdentifiers not valid");
 			return nil;
 		}
 	}
@@ -317,7 +318,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 #pragma mark -
 
 
-- (void)addWhitelistedPathPolicy:(NSString *)interface forPath:(NSString *)path order:(uint32_t)order
+- (void)addAllowListPathPolicy:(NSString *)interface forPath:(NSString *)path order:(uint32_t)order
 {
 	NEPolicyCondition *	allInterfacesCondition;
 	NEPolicyResult *	result;
@@ -361,14 +362,14 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 					      conditions:@[ uuidCondition, allInterfacesCondition ]];
 		policyID = [session addPolicy:policy];
 		if (policyID != 0) {
-			SC_log(LOG_NOTICE, "QoS marking policy: %@: %u: whitelist path \"%@\" (%@)",
+			SC_log(LOG_NOTICE, "QoS marking policy: %@: %u: allowlist path \"%@\" (%@)",
 			       interface,
 			       order,
 			       path,
 			       uuid.UUIDString);
 
 		} else {
-			SC_log(LOG_ERR, "QoS marking policy: %@: could not add whitelist policy for path \"%@\" (%@)",
+			SC_log(LOG_ERR, "QoS marking policy: %@: could not add allowlist policy for path \"%@\" (%@)",
 			       interface,
 			       path,
 			       uuid.UUIDString);
@@ -383,7 +384,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 #pragma mark -
 
 
-- (void)addWhitelistedAppIdentifierPolicy:(NSString *)interface forApp:(NSString *)appBundleID order:(uint32_t)order
+- (void)addAllowListAppIdentifierPolicy:(NSString *)interface forApp:(NSString *)appBundleID order:(uint32_t)order
 {
 	NEPolicyCondition *	allInterfacesCondition;
 	NEPolicyResult *	result;
@@ -394,7 +395,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 	if ([appBundleID hasPrefix:@"/"]) {
 		if (_SC_isAppleInternal()) {
 			// special case executable path handling (if internal)
-			[self addWhitelistedPathPolicy:interface forPath:appBundleID order:order];
+			[self addAllowListPathPolicy:interface forPath:appBundleID order:order];
 		}
 
 		return;
@@ -436,14 +437,14 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 					      conditions:@[ uuidCondition, allInterfacesCondition ]];
 		policyID = [session addPolicy:policy];
 		if (policyID != 0) {
-			SC_log(LOG_NOTICE, "QoS marking policy: %@: %u: whitelist bundleID \"%@\" (%@)",
+			SC_log(LOG_NOTICE, "QoS marking policy: %@: %u: allowlist bundleID \"%@\" (%@)",
 			       interface,
 			       order,
 			       appBundleID,
 			       uuid.UUIDString);
 
 		} else {
-			SC_log(LOG_ERR, "QoS marking policy: %@: could not add whitelist policy for bundleID \"%@\" (%@)",
+			SC_log(LOG_ERR, "QoS marking policy: %@: could not add allowlist policy for bundleID \"%@\" (%@)",
 			       interface,
 			       appBundleID,
 			       uuid.UUIDString);
@@ -474,7 +475,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 
 /*
 
-  Have      QoS    Whitelist  AppleAVCalls |       net.qos.policy.       |  Interface   Interface     Interface
+  Have      QoS    AllowList  AppleAVCalls |       net.qos.policy.       |  Interface   Interface     Interface
  Profile  Enabled   Apps(#)      Enabled   | restricted  restrict_avapps | QoS Enabled  NECP rules  NECP AV rules
  =======  =======  =========  ============ + ==========  =============== + ===========  ==========  =============
 1  [N]                                     |     0              0        |     [Y]         [N]          [N]
@@ -494,7 +495,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
   Notes (QoSMarking policy) :
   * If "QoSEnabled" is not present, assume "Y"
   * If "QoSMarkingAppleAudioVideoCalls" is not present, assume "Y"
-  * If "QoSMarkingWhitelistedAppIdentifiers" is not present (or empty), assume no whitelisted applications
+  * If "QoSMarkingAllowListAppIdentifiers" is not present (or empty), assume no allowlisted applications
 
   Notes (sysctl) :
   * net.qos.policy.restricted should be "1" when NECP policies are present
@@ -595,8 +596,8 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 			update = true;
 		}
 
-		curAppIDs = [self qosMarkingWhitelistedAppIdentifiers:nowPolicy];
-		reqAppIDs = [self qosMarkingWhitelistedAppIdentifiers:reqPolicy];
+		curAppIDs = [self qosMarkingAllowListAppIdentifiers:nowPolicy];
+		reqAppIDs = [self qosMarkingAllowListAppIdentifiers:reqPolicy];
 		if (![curAppIDs isEqual:reqAppIDs]) {
 			update = true;
 		}
@@ -640,11 +641,11 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 				}
 			}
 
-			// if needed, add policies for any whitelisted applications
+			// if needed, add policies for any allowlisted applications
 			if ((session != nil) && (reqAppIDs.count > 0)) {
 				order = QOS_MARKING_PRIORITY_BLOCK_APPS;
 				for (NSString *app in reqAppIDs) {
-					[self addWhitelistedAppIdentifierPolicy:interface forApp:app order:order++];
+					[self addAllowListAppIdentifierPolicy:interface forApp:app order:order++];
 				}
 			}
 
@@ -664,12 +665,12 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 
 					order = QOS_MARKING_PRIORITY_BLOCK_AV_APPS;
 					for (NSString *app in qosMarkingAudioVideoCalls_bundleIDs) {
-						[self addWhitelistedAppIdentifierPolicy:interface forApp:app order:order++];
+						[self addAllowListAppIdentifierPolicy:interface forApp:app order:order++];
 					}
 
 					order = QOS_MARKING_PRIORITY_BLOCK_AV_PATHS;
 					for (NSString *path in qosMarkingAudioVideoCalls_executablePaths) {
-						[self addWhitelistedPathPolicy:interface forPath:path order:order++];
+						[self addAllowListPathPolicy:interface forPath:path order:order++];
 					}
 				}
 			} else {
@@ -879,12 +880,16 @@ qosMarkingConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys,
 				CFDictionaryRef	policy;
 
 				policy = (changes != NULL) ? CFDictionaryGetValue(changes, key) : NULL;
+				policy = __SCNetworkConfigurationCopyQoSMarkingPolicyWithNewAllowListKey(policy);
 				@autoreleasepool {
 					QoSMarkingController *	controller;
 
 					controller = [QoSMarkingController sharedController];
 					[controller setPolicy:(__bridge NSDictionary *)policy
 						 forInterface:(__bridge NSString *)interface];
+				}
+				if (policy != NULL) {
+					CFRelease(policy);
 				}
 				CFRelease(interface);
 			}

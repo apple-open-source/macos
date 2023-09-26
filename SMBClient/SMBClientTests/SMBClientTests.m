@@ -92,6 +92,7 @@ int list_tests_with_mdata = 0;
 #include <sys/ioctl.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <copyfile.h>
 
 char default_test_filename[] = "testfile";
 
@@ -562,9 +563,6 @@ int setup_file_paths(const char *mp1, const char *mp2,
         error = errno;
         goto done;
     }
-
-    /* smbx time granularity is 1 second so wait after each write/truncate */
-    sleep(1);
 
     /* Make sure the file is read/write */
     error = chmod(file_path1, S_IRWXU | S_IRWXG | S_IRWXO);
@@ -1408,8 +1406,10 @@ done:
     char file_path2[PATH_MAX];
     int fd1 = -1, fd2 = -1;
     struct stat stat_buffer = {0};
+    struct stat saved_stat_buffer = {0};
     char mp1[PATH_MAX];
     char mp2[PATH_MAX];
+    int max_wait = 5, i;
 
     if (list_tests_with_mdata == 1) {
         do_list_test_meta_data("Verify that open/write/fsync pushes data to server even when the file is left open on mp1 and mp2",
@@ -1487,6 +1487,16 @@ done:
     printf("Initial data passes \n");
 
     /*
+     * Save current mod date on mp2 so we know when its been updated
+     */
+    error = fstat(fd2, &saved_stat_buffer);
+    if (error) {
+        XCTFail("Save fstat failed %d:%s \n",
+                errno, strerror(errno));
+        goto done;
+    }
+
+    /*
      * File on mp1 is still open. Change the data but not data len
      */
 
@@ -1504,28 +1514,43 @@ done:
         goto done;
     }
 
-    /* smbx time granularity is 1 second so wait after each write/truncate */
-    sleep(1);
-
     /* Switch to second connection, mp2 where the file is still open */
 
     /*
-     * Sleep for at least 5 seconds to let meta data cache to expire.
-     */
-    sleep(5);
-
-    /*
+     * Wait for lease break on mp2 or for meta data cache to expire
+     *
+     * 1. If lease breaks are supported by this server, then when lease break
+     * arrives, it will invalidate the meta data cache and the fstat() will
+     * get the newer mod date. Then we know its ok to do the read on mp2.
+     *
+     * 2. If lease breaks are not supported, then we just have to wait
+     * at least 5 seconds to let the meta data cache expire.
      * Reads get the vnode directly so need to force the meta data cache to
      * be checked by using fstat(). The meta data cache has expired by now
      * so fstat() will update the meta data cache where it should find
      * the modification data AND file size has changed and flush the UBC and
      * invalidate it.
+     *
+     *
      */
-    error = fstat(fd2, &stat_buffer);
-    if (error) {
-        XCTFail("second fstat failed %d:%s \n",
-                errno, strerror(errno));
-        goto done;
+    for (i = 0; i < max_wait; i++) {
+        error = fstat(fd2, &stat_buffer);
+        if (error) {
+            XCTFail("Waiting fstat failed %d:%s \n",
+                    errno, strerror(errno));
+            goto done;
+        }
+
+        if ((saved_stat_buffer.st_mtimespec.tv_sec == stat_buffer.st_mtimespec.tv_sec) &&
+            (saved_stat_buffer.st_mtimespec.tv_nsec == stat_buffer.st_mtimespec.tv_nsec)) {
+            /* mod time the same, so keep waiting */
+            sleep(1);
+            printf("Waiting %d secs \n", i);
+        }
+        else {
+            printf("Done waiting after %d secs \n", i);
+            break;
+        }
     }
 
     /* Read data into UBC and verify the second data */
@@ -1537,6 +1562,16 @@ done:
     }
 
     printf("Change data but NOT length passes \n");
+
+    /*
+     * Save current mod date on mp2 so we know when its been updated
+     */
+    error = fstat(fd2, &saved_stat_buffer);
+    if (error) {
+        XCTFail("Save fstat failed %d:%s \n",
+                errno, strerror(errno));
+        goto done;
+    }
 
     /*
      * File on mp1 is still open. Change the data and data len
@@ -1556,15 +1591,44 @@ done:
         goto done;
     }
 
-    /* smbx time granularity is 1 second so wait after each write/truncate */
-    sleep(1);
-
     /* Switch to second connection, mp2 where the file is still open */
 
     /*
-     * Sleep for at least 5 seconds to let meta data cache to expire.
+     * Wait for lease break on mp2 or for meta data cache to expire
+     *
+     * 1. If lease breaks are supported by this server, then when lease break
+     * arrives, it will invalidate the meta data cache and the fstat() will
+     * get the newer mod date. Then we know its ok to do the read on mp2.
+     *
+     * 2. If lease breaks are not supported, then we just have to wait
+     * at least 5 seconds to let the meta data cache expire.
+     * Reads get the vnode directly so need to force the meta data cache to
+     * be checked by using fstat(). The meta data cache has expired by now
+     * so fstat() will update the meta data cache where it should find
+     * the modification data AND file size has changed and flush the UBC and
+     * invalidate it.
+     *
+     *
      */
-    sleep(5);
+    for (i = 0; i < max_wait; i++) {
+        error = fstat(fd2, &stat_buffer);
+        if (error) {
+            XCTFail("Waiting fstat failed %d:%s \n",
+                    errno, strerror(errno));
+            goto done;
+        }
+
+        if ((saved_stat_buffer.st_mtimespec.tv_sec == stat_buffer.st_mtimespec.tv_sec) &&
+            (saved_stat_buffer.st_mtimespec.tv_nsec == stat_buffer.st_mtimespec.tv_nsec)) {
+            /* mod time the same, so keep waiting */
+            sleep(1);
+            printf("Waiting %d secs \n", i);
+        }
+        else {
+            printf("Done waiting after %d secs \n", i);
+            break;
+        }
+    }
 
     /*
      * Reads get the vnode directly so need to force the meta data cache to
@@ -9922,7 +9986,10 @@ done:
     char mp1[PATH_MAX];
     char mp2[PATH_MAX];
     struct smbStatPB pb = {0};
+    struct stat stat_buffer = {0};
+    struct stat saved_stat_buffer = {0};
     struct smb_update_lease pb2 = {0};
+    int max_wait = 5, i;
 
     /*
      * Test that a lease can get upgraded
@@ -10046,6 +10113,16 @@ done:
         }
     }
 
+    /*
+     * Save current mod date on mp1 so we know when its been updated
+     */
+    error = fstat(fd1, &saved_stat_buffer);
+    if (error) {
+        XCTFail("Save fstat failed %d:%s \n",
+                errno, strerror(errno));
+        goto done;
+    }
+
     /* Write/Read data on mp2 to completely break the lease on mp1 */
     printf("Write data on mp2 \n");
     error = write_and_verify(fd2, data1, sizeof(data1), 0);
@@ -10056,7 +10133,34 @@ done:
     }
     
     /* Verify file on mp1 go its lease broken */
-    sleep(3); /* give lease break a chance to get arrive/processed */
+
+    /*
+     * Wait for lease break on mp2 or for meta data cache to expire
+     *
+     * When lease break arrives, it will invalidate the meta data cache and the
+     * fstat() will get the newer mod date. Then we know the lease break has
+     * occurred.
+     */
+    for (i = 0; i < max_wait; i++) {
+        error = fstat(fd1, &stat_buffer);
+        if (error) {
+            XCTFail("Waiting fstat failed %d:%s \n",
+                    errno, strerror(errno));
+            goto done;
+        }
+
+        if ((saved_stat_buffer.st_mtimespec.tv_sec == stat_buffer.st_mtimespec.tv_sec) &&
+            (saved_stat_buffer.st_mtimespec.tv_nsec == stat_buffer.st_mtimespec.tv_nsec)) {
+            /* mod time the same, so keep waiting */
+            sleep(1);
+            printf("Waiting %d secs \n", i);
+        }
+        else {
+            printf("Done waiting after %d secs \n", i);
+            break;
+        }
+    }
+    
     printf("Verify lease is broken on mp1 \n");
     bzero(&pb, sizeof(pb));
     error = fsctl(file_path1, smbfsStatFSCTL, &pb, 0);
@@ -10181,6 +10285,149 @@ done:
 
     rmdir(mp1);
     rmdir(mp2);
+}
+
+-(void)testFcopyfileLockConflict
+{
+    int error = 0;
+    char mp1[PATH_MAX] = {0};
+    char src_path[PATH_MAX] = {0}, dst_path[PATH_MAX] = {0};
+    int src_fd = -1, dst_fd = -1;
+
+    /*
+     * Test that a fcopyfile() on exclusive locked files completes successfully
+     *
+     * 1. Open the source file with O_RDONLY
+     * 2. Lock source file using LOCK_EX|LOCK_NB
+     * 3. Open the destination file with O_CREAT|O_RDWR
+     * 4. Lock destination file using LOCK_EX|LOCK_NB
+     * 5. Copy the content of the source file to the destination file using fcopyfile()
+     *
+     * Total variants tested: 1
+     */
+
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test fcopyfile() behaviour of exclusively locked files",
+                               "open,close,flock,LOCK_EX,fcopyfile",
+                               "1,2,3",
+                               "103792320,107648569",
+                               NULL);
+        return;
+    }
+
+    /*
+     * We will need just one mount to start with
+     */
+    do_create_mount_path(mp1, sizeof(mp1), "testFcopyfileLockConflict");
+
+    error = mount_two_sessions(mp1, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto done;
+    }
+
+    /* Create test dir and setup source test file */
+    error = initialFileSetup(mp1, src_path, sizeof(src_path));
+    if (error) {
+        XCTFail("initialFileSetup failed %d:%s \n", error, strerror(errno));
+        goto done;
+    }
+
+    /* Open source file */
+    src_fd = open(src_path, O_RDONLY, 0);
+    if (src_fd == -1) {
+        XCTFail("open on <%s> failed %d:%s \n", src_path, error, strerror(errno));
+        goto done;
+    }
+
+    /* Lock source file */
+    error = flock(src_fd, LOCK_EX | LOCK_NB);
+    if (error) {
+        XCTFail("flock on <%s> failed %d:%s \n", src_path, error, strerror(errno));
+        goto done;
+    }
+
+    /* Set up destination file path */
+    strlcpy(dst_path, mp1, sizeof(dst_path));
+    strlcat(dst_path, "/", sizeof(dst_path));
+    strlcat(dst_path, cur_test_dir, sizeof(dst_path));
+    strlcat(dst_path, "/", sizeof(dst_path));
+    strlcat(dst_path, "dest_file", sizeof(dst_path));
+
+    /* Open destination file */
+    dst_fd = open(dst_path, O_RDWR | O_CREAT, 0666);
+    if (dst_fd == -1) {
+        XCTFail("open on <%s> failed %d:%s \n", dst_path, error, strerror(errno));
+        goto done;
+    }
+
+    /* Lock destination file */
+    error = flock(dst_fd, LOCK_EX | LOCK_NB);
+    if (error) {
+        XCTFail("flock on <%s> failed %d:%s \n", dst_path, error, strerror(errno));
+        goto done;
+    }
+
+    /* Execute fcopyfile on the newly created files */
+    error = fcopyfile(src_fd, dst_fd, 0, COPYFILE_ALL);
+    if (error) {
+        XCTFail("fcopyfile from <%s> to <%s> failed %d:%s \n", src_path, dst_path, error, strerror(errno));
+        goto done;
+    }
+
+    /* Unlock the destination file */
+    error = flock(dst_fd, LOCK_UN);
+    if (error) {
+        XCTFail("flock on <%s> failed %d:%s \n", dst_path, error, strerror(errno));
+        goto done;
+    }
+
+    /* Unlock the source file */
+    error = flock(src_fd, LOCK_UN);
+    if (error) {
+        XCTFail("flock on <%s> failed %d:%s \n", src_path, error, strerror(errno));
+        goto done;
+    }
+
+    /* Do the Delete on test files */
+    error = remove(src_path);
+    if (error) {
+        fprintf(stderr, "do_delete on <%s> failed <%s (%d)>", src_path, strerror(errno), error);
+        goto done;
+    }
+
+    error = remove(dst_path);
+    if (error) {
+        fprintf(stderr, "do_delete on <%s> failed <%s (%d)>", dst_path, strerror(errno), error);
+        goto done;
+    }
+
+    /*
+     * If no errors, attempt to delete test dirs. This could fail if a
+     * previous test failed and thats fine.
+     */
+    do_delete_test_dirs(mp1);
+
+done:
+    if (dst_fd != -1) {
+        error = close(dst_fd);
+        if (error) {
+            XCTFail("close on dst_fd failed %d:%s \n", error, strerror(errno));
+        }
+    }
+
+    if (src_fd != -1) {
+        error = close(src_fd);
+        if (error) {
+            XCTFail("close on src_fd failed %d:%s \n", error, strerror(errno));
+        }
+    }
+
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", error);
+    }
+
+    rmdir(mp1);
 }
 
 -(void)testMultiProcessBRL
@@ -14142,6 +14389,9 @@ done:
     /*
      * Test lease behavior on resource fork including updating a lease
      *
+     * NOTE: fsctl() is not allowed on the resource fork, so this test has to
+     * be slightly different to work around that limitation
+     *
      * 1. Open file resource fork with O_RDWR on mp1
      * 2. Verify got RWH lease on mp1
      * 3. Open the file resource fork on mp2 which will break the W lease for mp1
@@ -14169,8 +14419,8 @@ done:
     /*
      * We will need two mounts to start with
      */
-    do_create_mount_path(mp1, sizeof(mp1), "testUpdateLease1");
-    do_create_mount_path(mp2, sizeof(mp2), "testUpdateLease2");
+    do_create_mount_path(mp1, sizeof(mp1), "testUpdateLeaseResourceFork1");
+    do_create_mount_path(mp2, sizeof(mp2), "testUpdateLeaseResourceFork2");
     
     error = mount_two_sessions(mp1, mp2, 0);
     if (error) {
@@ -14366,6 +14616,11 @@ done:
         goto done;
     }
 #else
+    /*
+     * Have to wait because cant force lease upgrade because fcntl() is not
+     * allowed on resource forks
+     */
+    
     printf("Sleeping for 60 seconds in hopes of a lease update occurring every 30 seconds \n");
     sleep(60);
 #endif
@@ -16525,6 +16780,7 @@ done:
     char mp1[PATH_MAX];
     struct smbStatPB pb = {0};
     uint32_t saved_lease_state = 0;
+    int max_wait = 65, i;
 
     /*
      * Test that a pending deferred close times out after 30 seconds and gets
@@ -16624,8 +16880,26 @@ done:
     }
 
     /* A pending deferred close should get closed after 30 secs by vop_sync */
-    printf("Waiting for 60 seconds for deferred close timeout \n");
-    sleep(65);
+    printf("Waiting for deferred close timeout \n");
+
+    for (i = 0; i < max_wait; i++) {
+        bzero(&pb, sizeof(pb));
+        error = fsctl(file_path, smbfsStatFSCTL, &pb, 0);
+        if (error) {
+            XCTFail("Waiting fsctl failed %d (%s)\n\n", errno, strerror (errno));
+            goto done;
+        }
+
+        if (pb.lease_flags != 0) {
+            /* Still pending, so keep waiting */
+            sleep(1);
+            printf("Waiting %d secs \n", i);
+        }
+        else {
+            printf("Done waiting after %d secs \n", i);
+            break;
+        }
+    }
 
     printf("Verify no pending deferred close on mp1 \n");
     bzero(&pb, sizeof(pb));
@@ -16943,6 +17217,301 @@ done:
         }
     }
 
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+
+    rmdir(mp1);
+}
+
+- (void)testTimeResolution
+{
+    int error = 0;
+    char file_path[PATH_MAX] = {0};
+    char mp1[PATH_MAX] = {0};
+    int need_to_remove = false;
+    int is_mounted = false;
+    char command[PATH_MAX] = "/usr/bin/touch -d 1976-04-13T10:02:34.123456789 ";
+    
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("verify the time resolution of file modification time",
+                               "open,close,stat",
+                               "1,2,3",
+                               "76242052",
+                               "apple,windows");
+        return;
+    }
+
+    // create a local mount point
+    do_create_mount_path(mp1, sizeof(mp1), "testTimeResolution");
+
+    // mount the share
+    error = mount_two_sessions(mp1, NULL, 0);
+    
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto done;
+    }
+    is_mounted = true;
+
+    // prepare the file path
+    strcpy(file_path, mp1);
+    strcat(file_path, "/tmp");
+    
+    // prepare the touch command
+    strcat(command , file_path);
+    
+    // create a file with a specific date to check later
+    error = system(command);
+    if (error) {
+        XCTFail("failed to run the touch command");
+        goto done;
+    }
+
+    need_to_remove = true;
+    struct stat st;
+    // get the file's attributes
+    stat(file_path, &st);
+    
+    // convert the file's modification time to a calendar date and time
+    struct tm *time = localtime(&st.st_mtimespec.tv_sec);
+    
+    // tm_mon range is 0-11
+    if ((time->tm_year + 1900 != 1976) || (time->tm_mon + 1 != 4) ||
+        (time->tm_mday != 13) || time->tm_hour != 10 || (time->tm_min != 2) ||
+        (time->tm_sec != 34)) {
+        XCTFail("wrong date, expected:1976-04-13T10:02:34, actual: %d-%d-%dT%d:%d:%d",
+                time->tm_year + 1900, time->tm_mon + 1, time->tm_mday, time->tm_hour,
+                time->tm_min, time->tm_sec);
+    }
+    
+    // smb supports time accuary in the 100 nanoseconds intervals
+    if (st.st_mtimespec.tv_nsec != 123456700) {
+        XCTFail("incorrect nanoseconds, expected: 123456700, actual: %lu",
+                st.st_mtimespec.tv_nsec);
+    }
+     
+done:
+    // remove the test file
+    if (need_to_remove) {
+        remove(file_path);
+    }
+    if (is_mounted) {
+        if (unmount(mp1, MNT_FORCE) == -1) {
+            XCTFail("unmount failed for first url %d\n", errno);
+        }
+    }
+    rmdir(mp1);
+}
+
+-(void)testOpenUnlink
+{
+    int error = 0;
+    char dir_path[PATH_MAX] = {0};
+    char file_path[PATH_MAX] = {0};
+    char file_name[PATH_MAX] = {0};
+    char mp1[PATH_MAX] = {0};
+    int oflag1 = 0;
+    int fd1 = -1, fd2 = -1;
+    off_t offset = 0;
+    char *last_slash = NULL;
+    struct dirent *dp = NULL;
+    DIR * dirp = NULL;
+
+    /*
+     * Test for correct unix open/unlink behavior.
+     *
+     * 1. Open file with O_RDWR
+     * 2. Disable data caching
+     * 3. Verify can write and read data on file
+     * 4. Call remove (aka unlink) on the open file
+     * 5. Verify lseek, write and read data still work on file
+     * 6. Verify readdir can not find the file
+     * 7. Close the file and it should truly get deleted on server at this time
+     * 8. Verify remove gets ENOENT error since the file should be gone
+     *
+     * Total variants tested: 1
+     */
+    
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test for correct open/unlink behavior",
+                               "open,close,unlink",
+                               "1,2,3",
+                               NULL,
+                               NULL);
+        return;
+    }
+
+    /*
+     * We will need just one mount to start with
+     */
+    do_create_mount_path(mp1, sizeof(mp1), "testOpenUnlink");
+
+    error = mount_two_sessions(mp1, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto done;
+    }
+
+    /* Create test dir and setup test file */
+    error = initialFileSetup(mp1, file_path, sizeof(file_path));
+    if (error) {
+        XCTFail("initialFileSetup failed %d:%s \n", error, strerror(error));
+        goto done;
+    }
+    
+    strlcpy(dir_path, file_path, sizeof(dir_path));
+    last_slash = strrchr(dir_path, '/');
+    if (last_slash != NULL) {
+        /* Found the last slash, so lop it off */
+        strlcpy(file_name, last_slash+1, sizeof(file_name));
+
+        *last_slash = '\0';
+    }
+
+    /*
+     * Open the testfile in parent process
+     */
+    printf("Opening file with O_RDWR \n");
+    oflag1 = O_NONBLOCK | O_RDWR;
+
+    fd1 = open(file_path, oflag1);
+    if (fd1 == -1) {
+        XCTFail("open on <%s> failed %d:%s \n", file_path,
+                errno, strerror(errno));
+        goto done;
+    }
+
+    /* Turn off data caching. All IO should go out immediately */
+    printf("Disabling caching \n");
+    error = fcntl(fd1, F_NOCACHE, 1);
+    if (error) {
+        XCTFail("fcntl on fd1 failed %d:%s \n", error, strerror(error));
+        goto done;
+    }
+
+    /* Write out and verify initial data on mp1 */
+    printf("Writing/reading some data \n");
+    error = write_and_verify(fd1, data1, sizeof(data1), 0);
+    if (error) {
+        XCTFail("initial write_and_verify failed %d \n", error);
+        goto done;
+    }
+
+    /* Delete the open file */
+    printf("Deleting the open file \n");
+    error = unlink(file_path);
+    if (error) {
+        XCTFail("unlink on fd1 failed %d:%s \n",
+                error, strerror(error));
+        goto done;
+    }
+
+    fprintf (stderr, "Verifying second open fails with ENOENT \n");
+    fd2 = open (file_path, oflag1);
+    if ((fd2 != -1) && (errno != ENOENT)) {
+        XCTFail("Second open failed (expected ENOENT) %d:%s\n",
+                errno, strerror(errno));
+        goto done;
+    }
+
+    /* Verify lseek still works */
+    printf("Verifying lseek \n");
+    offset = lseek(fd1, 0, 0);
+    if (offset == -1) {
+        XCTFail("lseek on fd1 failed %d:%s \n",
+                errno, strerror(errno));
+        goto done;
+    }
+
+    /* Write out and verify initial data on mp1 */
+    printf("Verifying writing/reading some data \n");
+    error = write_and_verify(fd1, data1, sizeof(data1), 0);
+    if (error) {
+        XCTFail("initial write_and_verify failed %d \n", error);
+        goto done;
+    }
+
+    /*
+     * Verify dir enumeration can not find the file
+     */
+    
+    printf("Verifying enumeration does not find the file \n");
+
+    /* Open the dir to be enumerated*/
+    dirp = opendir(dir_path);
+    if (dirp == NULL) {
+        XCTFail("opendir on <%s> failed %d:%s \n",
+                dir_path, errno, strerror(errno));
+        goto done;
+    }
+
+    while ((dp = readdir(dirp)) != NULL) {
+        if ((strcmp(dp->d_name, ".") == 0) || (strcmp(dp->d_name, "..") == 0)) {
+            /* Skip . and .. */
+            continue;
+        }
+
+        printf("  Checking <%s> \n", dp->d_name);
+        if (strcmp(file_name, dp->d_name) == 0) {
+            XCTFail("readdir found the deleted file of <%s> \n", dp->d_name);
+            (void)closedir(dirp);
+            error = EEXIST;
+            goto done;
+        }
+    }
+    
+    (void)closedir(dirp);
+    
+    /* Close file */
+    printf("Closing file which should do the actual delete \n");
+    if (fd1 != -1) {
+        error = close(fd1);
+        if (error) {
+            XCTFail("close on fd1 failed %d:%s \n", errno, strerror(errno));
+            //error = errno;
+            goto done;
+        }
+        else {
+            fd1 = -1;
+        }
+    }
+    
+    /*
+     * Cleanup code only expected to be run by parent process
+     */
+
+    /* Close file if needed */
+    if (fd1 != -1) {
+        error = close(fd1);
+        if (error) {
+            XCTFail("close on fd failed %d:%s \n", errno, strerror(errno));
+            goto done;
+        }
+        else {
+            //fd1 = -1;
+        }
+    }
+
+     /*
+      * Do the Delete on test file which should fail as the file should
+      * have gotten deleted on the close above.
+      */
+    printf("Verifying that file got deleted on last close \n");
+    error = remove(file_path);
+    if ((error != -1) && (errno != ENOENT)) {
+        XCTFail("do_delete on <%s> did not fail as expected <%s (%d)>",
+                file_path, strerror(errno), errno);
+        goto done;
+    }
+
+    /*
+     * If no errors, attempt to delete test dirs. This could fail if a
+     * previous test failed and thats fine.
+     */
+    do_delete_test_dirs(mp1);
+
+done:
     if (unmount(mp1, MNT_FORCE) == -1) {
         XCTFail("unmount failed for first url %d\n", errno);
     }

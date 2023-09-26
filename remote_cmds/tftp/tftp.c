@@ -216,6 +216,7 @@ send_data:
 		    (struct sockaddr *)&peer, peer.ss_len);
 		if (n != size + 4) {
 			warn("sendto");
+			txrx_error = 1;
 			goto abort;
 		}
 		if (block)
@@ -230,6 +231,7 @@ send_data:
 			alarm(0);
 			if (n < 0) {
 				warn("recvfrom");
+				txrx_error = 1;
 				goto abort;
 			}
 			if (!serv.ss_family)
@@ -237,6 +239,7 @@ send_data:
 			else if (!sockaddrcmp((struct sockaddr *)&serv,
 					      (struct sockaddr *)&from)) {
 				warn("server address/port mismatch");
+				txrx_error = 1;
 				goto abort;
 			}
 			peer = from;
@@ -298,7 +301,6 @@ abort:
 	stopclock();
 	if (amount > 0)
 		printstats("Sent", amount);
-	txrx_error = 1;
 }
 
 /*
@@ -359,6 +361,7 @@ send_ack:
 		    peer.ss_len) != size) {
 			alarm(0);
 			warn("sendto");
+			txrx_error = 1;
 			goto abort;
 		}
 		write_behind(file, convert);
@@ -375,6 +378,7 @@ send_ack:
 			alarm(0);
 			if (n < 0) {
 				warn("recvfrom");
+				txrx_error = 1;
 				goto abort;
 			}
 			if (serv.ss_family != AF_UNSPEC
@@ -397,6 +401,7 @@ send_ack:
 				if (serv.ss_family == AF_UNSPEC) {
 					peer = from;
 				}
+				txrx_error = 1;
 				goto abort;
 			case DATA:
 				rx_block = ntohs(dp->th_block);
@@ -452,17 +457,18 @@ next_packet:
 		}
 		amount += size;
 	} while (size == blksize);
+	goto done;
 abort:						/* ok to ack, since user */
 	ap->th_opcode = htons((u_short)ACK);	/* has seen err msg */
 	ap->th_block = htons((u_short)block);
 	(void) sendto(f, ackbuf, 4, 0, (struct sockaddr *)&peer,
 	    peer.ss_len);
+done:
 	write_behind(file, convert);		/* flush last buffer */
 	fclose(file);
 	stopclock();
 	if (amount > 0)
 		printstats("Received", amount);
-	txrx_error = 1;
 }
 
 static int

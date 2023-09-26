@@ -26,11 +26,11 @@
 #ifndef _OIDSOCSP_H_
 #define _OIDSOCSP_H_  1
 
+#include <Security/SecAsn1Types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Security/SecAsn1Types.h>
 
 extern const SecAsn1Oid
 	/* OCSP */

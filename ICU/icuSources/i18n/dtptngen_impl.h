@@ -305,7 +305,10 @@ private:
     LocalPointer<UVector> fPatterns;
 };
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 extern UBool datePatternHasNumericCore(const UnicodeString& datePattern);
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_END
 

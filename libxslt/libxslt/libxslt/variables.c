@@ -26,6 +26,7 @@
 #include "xslt.h"
 #include "xsltInternals.h"
 #include "xsltutils.h"
+#include "xsltutilsInternal.h"
 #include "variables.h"
 #include "transform.h"
 #include "imports.h"
@@ -123,7 +124,16 @@ xsltRegisterTmpRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 	return(-1);
 
     RVT->prev = NULL;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+    if (linkedOnOrAfterFall2023OSVersions()) {
+        RVT->compression = XSLT_RVT_LOCAL;
+    } else {
+        RVT->psvi = (void *)XSLT_RVT_LOCAL;
+    }
+#else
     RVT->psvi = XSLT_RVT_LOCAL;
+#endif
+
 
     /*
     * We'll restrict the lifetime of user-created fragments
@@ -163,7 +173,15 @@ xsltRegisterLocalRVT(xsltTransformContextPtr ctxt,
 	return(-1);
 
     RVT->prev = NULL;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+    if (linkedOnOrAfterFall2023OSVersions()) {
+        RVT->compression = XSLT_RVT_LOCAL;
+    } else {
+        RVT->psvi = (void *)XSLT_RVT_LOCAL;
+    }
+#else
     RVT->psvi = XSLT_RVT_LOCAL;
+#endif
 
     /*
     * When evaluating "select" expressions of xsl:variable
@@ -255,7 +273,15 @@ xsltExtensionInstructionResultRegister(
  * Returns 0 in case of success and -1 in case of error.
  */
 int
-xsltFlagRVTs(xsltTransformContextPtr ctxt, xmlXPathObjectPtr obj, void *val) {
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+xsltFlagRVTs(xsltTransformContextPtr ctxt, xmlXPathObjectPtr obj, intptr_t rvtVal)
+#else
+xsltFlagRVTs(xsltTransformContextPtr ctxt, xmlXPathObjectPtr obj, void *val)
+#endif
+{
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+    int val = (int)rvtVal; /* Use intptr_t arg for bincompat with void* type. */
+#endif
     int i;
     xmlNodePtr cur;
     xmlDocPtr doc;
@@ -275,6 +301,11 @@ xsltFlagRVTs(xsltTransformContextPtr ctxt, xmlXPathObjectPtr obj, void *val) {
 	return(0);
 
     for (i = 0; i < obj->nodesetval->nodeNr; i++) {
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+        int docRVT = 0;
+#else
+        void *docRVT = NULL;
+#endif
 	cur = obj->nodesetval->nodeTab[i];
 	if (cur->type == XML_NAMESPACE_DECL) {
 	    /*
@@ -301,35 +332,78 @@ xsltFlagRVTs(xsltTransformContextPtr ctxt, xmlXPathObjectPtr obj, void *val) {
 		"Cannot retrieve the doc of a node.\n");
 	    return(-1);
 	}
+
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+        if (linkedOnOrAfterFall2023OSVersions()) {
+            docRVT = doc->compression;
+        } else {
+            docRVT = (int)doc->psvi;
+        }
+#else
+        docRVT = doc->psvi;
+#endif
 	if (doc->name && (doc->name[0] == ' ') &&
-            doc->psvi != XSLT_RVT_GLOBAL) {
+            docRVT != XSLT_RVT_GLOBAL) {
 	    /*
 	    * This is a result tree fragment.
-	    * We store ownership information in the @psvi field.
+	    * We store ownership information in the @compression field.
 	    * TODO: How do we know if this is a doc acquired via the
 	    *  document() function?
 	    */
 #ifdef WITH_XSLT_DEBUG_VARIABLE
             XSLT_TRACE(ctxt,XSLT_TRACE_VARIABLES,xsltGenericDebug(xsltGenericDebugContext,
-                "Flagging RVT %p: %p -> %p\n", doc, doc->psvi, val));
+                "Flagging RVT %p: %d -> %d\n", doc, (int)docRVT, (int)val));
 #endif
 
             if (val == XSLT_RVT_LOCAL) {
-                if (doc->psvi == XSLT_RVT_FUNC_RESULT)
+                if (docRVT == XSLT_RVT_FUNC_RESULT) {
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                    if (linkedOnOrAfterFall2023OSVersions()) {
+                        doc->compression = XSLT_RVT_LOCAL;
+                    } else {
+                        doc->psvi = (void *)XSLT_RVT_LOCAL;
+                    }
+#else
                     doc->psvi = XSLT_RVT_LOCAL;
+#endif
+                }
             } else if (val == XSLT_RVT_GLOBAL) {
-                if (doc->psvi != XSLT_RVT_LOCAL) {
+                if (docRVT != XSLT_RVT_LOCAL) {
 		    xmlGenericError(xmlGenericErrorContext,
-                            "xsltFlagRVTs: Invalid transition %p => GLOBAL\n",
-                            doc->psvi);
+                            "xsltFlagRVTs: Invalid transition %d => GLOBAL\n",
+                            (int)docRVT);
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                    if (linkedOnOrAfterFall2023OSVersions()) {
+                        doc->compression = XSLT_RVT_GLOBAL;
+                    } else {
+                        doc->psvi = (void *)XSLT_RVT_GLOBAL;
+                    }
+#else
                     doc->psvi = XSLT_RVT_GLOBAL;
+#endif
                     return(-1);
                 }
 
                 /* Will be registered as persistant in xsltReleaseLocalRVTs. */
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                if (linkedOnOrAfterFall2023OSVersions()) {
+                    doc->compression = XSLT_RVT_GLOBAL;
+                } else {
+                    doc->psvi = (void *)XSLT_RVT_GLOBAL;
+                }
+#else
                 doc->psvi = XSLT_RVT_GLOBAL;
+#endif
             } else if (val == XSLT_RVT_FUNC_RESULT) {
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                if (linkedOnOrAfterFall2023OSVersions()) {
+                    doc->compression = val;
+                } else {
+                    doc->psvi = (void *)(long)val;
+                }
+#else
 	        doc->psvi = val;
+#endif
             }
 	}
     }
@@ -382,7 +456,15 @@ xsltReleaseRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 	/*
 	* Reset the ownership information.
 	*/
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+        if (linkedOnOrAfterFall2023OSVersions()) {
+            RVT->compression = 0;
+        } else {
+            RVT->psvi = NULL;
+        }
+#else
 	RVT->psvi = NULL;
+#endif
 
 	RVT->next = (xmlNodePtr) ctxt->cache->RVT;
 	ctxt->cache->RVT = RVT;
@@ -421,7 +503,15 @@ xsltRegisterPersistRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 {
     if ((ctxt == NULL) || (RVT == NULL)) return(-1);
 
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+    if (linkedOnOrAfterFall2023OSVersions()) {
+        RVT->compression = XSLT_RVT_GLOBAL;
+    } else {
+        RVT->psvi = (void *)XSLT_RVT_GLOBAL;
+    }
+#else
     RVT->psvi = XSLT_RVT_GLOBAL;
+#endif
     RVT->prev = NULL;
     RVT->next = (xmlNodePtr) ctxt->persistRVT;
     if (ctxt->persistRVT != NULL)
@@ -577,18 +667,40 @@ xsltFreeStackElem(xsltStackElemPtr elem) {
 	xmlDocPtr cur;
 
 	while (elem->fragment != NULL) {
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+            int curRVT = 0;
+#else
+            void *curRVT = NULL;
+#endif
 	    cur = elem->fragment;
 	    elem->fragment = (xmlDocPtr) cur->next;
 
-            if (cur->psvi == XSLT_RVT_LOCAL) {
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+            if (linkedOnOrAfterFall2023OSVersions()) {
+                curRVT = cur->compression;
+            } else {
+                curRVT = (int)cur->psvi;
+            }
+#else
+            curRVT = cur->psvi;
+#endif
+            if (curRVT == XSLT_RVT_LOCAL) {
 		xsltReleaseRVT(elem->context, cur);
-            } else if (cur->psvi == XSLT_RVT_FUNC_RESULT) {
+            } else if (curRVT == XSLT_RVT_FUNC_RESULT) {
                 xsltRegisterLocalRVT(elem->context, cur);
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                if (linkedOnOrAfterFall2023OSVersions()) {
+                    cur->compression = XSLT_RVT_FUNC_RESULT;
+                } else {
+                    cur->psvi = (void *)XSLT_RVT_FUNC_RESULT;
+                }
+#else
                 cur->psvi = XSLT_RVT_FUNC_RESULT;
+#endif
             } else {
                 xmlGenericError(xmlGenericErrorContext,
-                        "xsltFreeStackElem: Unexpected RVT flag %p\n",
-                        cur->psvi);
+                        "xsltFreeStackElem: Unexpected RVT flag %d\n",
+                        (int)curRVT);
             }
 	}
     }
@@ -989,7 +1101,15 @@ xsltEvalVariable(xsltTransformContextPtr ctxt, xsltStackElemPtr variable,
 		* the Result Tree Fragment.
 		*/
 		variable->fragment = container;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                if (linkedOnOrAfterFall2023OSVersions()) {
+                    container->compression = XSLT_RVT_LOCAL;
+                } else {
+                    container->psvi = (void *)XSLT_RVT_LOCAL;
+                }
+#else
                 container->psvi = XSLT_RVT_LOCAL;
+#endif
 
 		oldOutput = ctxt->output;
 		oldInsert = ctxt->insert;

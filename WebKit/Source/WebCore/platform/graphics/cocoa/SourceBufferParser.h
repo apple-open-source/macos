@@ -46,8 +46,9 @@ namespace WebCore {
 class ContentType;
 class MediaSampleAVFObjC;
 class SharedBuffer;
+struct TrackInfo;
 
-class WEBCORE_EXPORT SourceBufferParser : public ThreadSafeRefCounted<SourceBufferParser> {
+class WEBCORE_EXPORT SourceBufferParser : public ThreadSafeRefCounted<SourceBufferParser, WTF::DestructionThread::Main> {
 public:
     static MediaPlayerEnums::SupportsType isContentTypeSupported(const ContentType&);
 
@@ -150,6 +151,13 @@ public:
         m_didProvideContentKeyRequestIdentifierForTrackIDCallback = WTFMove(callback);
     }
 
+    // Will be called on the main thread.
+    using DidUpdateFormatDescriptionForTrackIDCallback = Function<void(Ref<TrackInfo>&&, uint64_t trackID)>;
+    void setDidUpdateFormatDescriptionForTrackIDCallback(DidUpdateFormatDescriptionForTrackIDCallback&& callback)
+    {
+        m_didUpdateFormatDescriptionForTrackIDCallback = WTFMove(callback);
+    }
+
 protected:
     SourceBufferParser();
 
@@ -160,6 +168,7 @@ protected:
     WillProvideContentKeyRequestInitializationDataForTrackIDCallback m_willProvideContentKeyRequestInitializationDataForTrackIDCallback;
     DidProvideContentKeyRequestInitializationDataForTrackIDCallback m_didProvideContentKeyRequestInitializationDataForTrackIDCallback;
     DidProvideContentKeyRequestIdentifierForTrackIDCallback m_didProvideContentKeyRequestIdentifierForTrackIDCallback;
+    DidUpdateFormatDescriptionForTrackIDCallback m_didUpdateFormatDescriptionForTrackIDCallback;
 };
 
 }

@@ -18,7 +18,9 @@
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_config_read - testConfigRead</string>
+			<string>nfsclntTests_config_read</string>
+			<key>AsRoot</key>
+			<false/>
 			<key>TestSpecificLogs</key>
 			<array>
 				<string>/tmp/nfsclntTests_.*log</string>
@@ -27,7 +29,7 @@
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_config_read/testConfigRead</string>
+				<string>nfsclntTests_config_read</string>
 				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
 			</array>
 		</dict>
@@ -35,7 +37,9 @@
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_config_read - testConfigOptionsMultipleLines</string>
+			<string>nfsclntTests_parse_fs_locations</string>
+			<key>AsRoot</key>
+			<false/>
 			<key>TestSpecificLogs</key>
 			<array>
 				<string>/tmp/nfsclntTests_.*log</string>
@@ -44,7 +48,7 @@
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_config_read/testConfigOptionsMultipleLines</string>
+				<string>nfsclntTests_parse_fs_locations</string>
 				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
 			</array>
 		</dict>
@@ -52,7 +56,9 @@
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_config_read - testConfigOptions</string>
+			<string>nfsclntTests_parse_options</string>
+			<key>AsRoot</key>
+			<false/>
 			<key>TestSpecificLogs</key>
 			<array>
 				<string>/tmp/nfsclntTests_.*log</string>
@@ -61,7 +67,7 @@
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_config_read/testConfigOptions</string>
+				<string>nfsclntTests_parse_options</string>
 				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
 			</array>
 		</dict>
@@ -69,291 +75,211 @@
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_fs_locations - testFSLocations</string>
+			<string>nfsrvTests_configuration</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_fs_locations/testFSLocations</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_configuration</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_fs_locations - testIPv4Locations</string>
+			<string>nfsrvTests_mount</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_fs_locations/testIPv4Locations</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_mount</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_fs_locations - testIPv6Locations</string>
+			<string>nfsrvTests_network</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_fs_locations/testIPv6Locations</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_network</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_fs_locations - testLocalLocation</string>
+			<string>nfsrvTests_nfs_v2</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_fs_locations/testLocalLocation</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_nfs_v2</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testParseOptions</string>
+			<string>nfsrvTests_nfs_v3</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testParseOptions</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_nfs_v3</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testMountflags0</string>
+			<string>nfsrvTests_replyCache</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testMountflags0</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_replyCache</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testMountflags1</string>
+			<string>nfsrvTests_nlm</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testMountflags1</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_nlm</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testHard</string>
+			<string>nfsrvTests_syscalls</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testHard</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_syscalls</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testNoHard</string>
+			<string>nfsrvTests_rquota</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testNoHard</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_rquota</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
 			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testNoAC</string>
+			<string>nfsrvTests_exports</string>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
+				<string>/tmp/nfsrvTests_.*log</string>
 			</array>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
 				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testNoAC</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
+				<string>nfsrvTests_exports</string>
+				<string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
 			</array>
 		</dict>
-		<dict>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
-			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testACTimeo</string>
-			<key>TestSpecificLogs</key>
-			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
-			</array>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testACTimeo</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
-			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testRWSize</string>
-			<key>TestSpecificLogs</key>
-			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
-			</array>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testRWSize</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
-			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testTCPIPV6</string>
-			<key>TestSpecificLogs</key>
-			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
-			</array>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testTCPIPV6</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
-			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testTCPIPV4</string>
-			<key>TestSpecificLogs</key>
-			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
-			</array>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testTCPIPV4</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
-			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testParseOptionsLocks</string>
-			<key>TestSpecificLogs</key>
-			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
-			</array>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testParseOptionsLocks</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
-			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testLocalNFSPort</string>
-			<key>TestSpecificLogs</key>
-			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
-			</array>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testLocalNFSPort</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/XCTests/com.apple.nfs/</string>
-			<key>TestName</key>
-			<string>nfsclntTests_parse_options - testLocalMountPort</string>
-			<key>TestSpecificLogs</key>
-			<array>
-				<string>/tmp/nfsclntTests_.*log</string>
-			</array>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>-XCTest</string>
-				<string>nfsclntTests_parse_options/testLocalMountPort</string>
-				<string>/AppleInternal/XCTests/com.apple.nfs/nfsclntTests.xctest</string>
-			</array>
-		</dict>
+                <dict>
+                        <key>WorkingDirectory</key>
+                        <string>/AppleInternal/XCTests/com.apple.nfs/</string>
+                        <key>TestName</key>
+                        <string>nfsrvTests_stat</string>
+                        <key>AsRoot</key>
+                        <true/>
+                        <key>TestSpecificLogs</key>
+                        <array>
+                                <string>/tmp/nfsrvTests_.*log</string>
+                        </array>
+                        <key>Command</key>
+                        <array>
+                                <string>BATS_XCTEST_CMD</string>
+                                <string>-XCTest</string>
+                                <string>nfsrvTests_stat</string>
+                                <string>/AppleInternal/XCTests/com.apple.nfs/nfsrvTests.xctest</string>
+                        </array>
+                </dict>
 	</array>
 </dict>
 </plist>

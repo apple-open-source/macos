@@ -632,16 +632,11 @@ differ_by_repeat(const time_t t1, const time_t t0)
 
 static int
 #ifdef NOTIFY_TZ
-tzload(name, sp, path, doextend)
+tzload(const char *name, struct state * const sp, char *path,
+    register const int doextend)
 #else /* ! NOTIFY_TZ */
-tzload(name, sp, doextend)
+tzload(const char *name, struct state * const sp, register const int doextend)
 #endif /* NOTIFY_TZ */
-const char *		name;
-struct state * const	sp;
-#ifdef NOTIFY_TZ
-char *			path; /* copy full path if non-NULL */
-#endif /* NOTIFY_TZ */
-register const int	doextend;
 {
 	const char *	p;
 	int		i;
@@ -936,10 +931,7 @@ out:
 }
 
 static int
-typesequiv(sp, a, b)
-const struct state * const	sp;
-const int			a;
-const int			b;
+typesequiv(const struct state * const sp, const int a, const int b)
 {
 	register int	result;
 
@@ -976,10 +968,7 @@ static const int	year_lengths[2] = {
 */
 
 static const char *
-getzname(strp, name, len)
-const char *	strp;
-char **		name;
-size_t *	len;
+getzname(const char *strp, char **name, size_t *len)
 {
 	char	c;
 	char *	ket;
@@ -1024,11 +1013,7 @@ getqzname(register const char *strp, const int delim)
 */
 
 static const char *
-getnum(strp, nump, min, max)
-const char *	strp;
-int * const		nump;
-const int		min;
-const int		max;
+getnum(const char *strp, int * const nump, const int min, const int max)
 {
 	char	c;
 	int	num;
@@ -1057,9 +1042,7 @@ const int		max;
 */
 
 static const char *
-getsecs(strp, secsp)
-const char *	strp;
-long * const		secsp;
+getsecs(const char *strp, long * const secsp)
 {
 	int	num;
 
@@ -1099,9 +1082,7 @@ long * const		secsp;
 */
 
 static const char *
-getoffset(strp, offsetp)
-const char *	strp;
-long * const		offsetp;
+getoffset(const char *strp, long * const offsetp)
 {
 	int	neg = 0;
 
@@ -1126,9 +1107,7 @@ long * const		offsetp;
 */
 
 static const char *
-getrule(strp, rulep)
-const char *			strp;
-struct rule * const	rulep;
+getrule(const char *strp, struct rule * const rulep)
 {
 	if (*strp == 'J') {
 		/*
@@ -1180,11 +1159,8 @@ struct rule * const	rulep;
 */
 
 static time_t
-transtime(janfirst, year, rulep, offset)
-const time_t				janfirst;
-const int				year;
-const struct rule * const	rulep;
-const long				offset;
+transtime(const time_t janfirst, const int year,
+    const struct rule * const rulep, const long offset)
 {
 	int	leapyear;
 	time_t	value;
@@ -1275,10 +1251,7 @@ const long				offset;
 */
 
 static int
-tzparse(name, sp, lastditch)
-const char *			name;
-struct state * const	sp;
-const int			lastditch;
+tzparse(const char *name, struct state * const sp, const int lastditch)
 {
 	const char *			stdname;
 	const char *			dstname;
@@ -1505,13 +1478,9 @@ const int			lastditch;
 
 static void
 #ifdef NOTIFY_TZ
-gmtload(sp, path)
+gmtload(struct state * const sp, char *path)
 #else /* ! NOTIFY_TZ */
-gmtload(sp)
-#endif /* NOTIFY_TZ */
-struct state * const	sp;
-#ifdef NOTIFY_TZ
-char *path;
+gmtload(struct state * const sp)
 #endif /* NOTIFY_TZ */
 {
 #ifdef NOTIFY_TZ
@@ -1966,10 +1935,7 @@ static struct tm *
 #else /* !__LP64__ */
 static void
 #endif /* __LP64__ */
-gmtsub(timep, offset, tmp)
-const time_t * const	timep;
-const long		offset;
-struct tm * const	tmp;
+gmtsub(const time_t * const timep, const long offset, struct tm * const tmp)
 {
 #ifdef __LP64__
 	register struct tm *	result;
@@ -2097,8 +2063,7 @@ offtime(const time_t *const timep, const long offset)
 */
 
 __unused static int
-leaps_thru_end_of(y)
-register const int	y;
+leaps_thru_end_of(register const int y)
 {
 #ifdef __LP64__
 	return (y >= 0) ? (y / 4 - y / 100 + y / 400) :
@@ -2113,11 +2078,8 @@ static struct tm *
 #else /* !__LP64__ */
 static void
 #endif /* __LP64__ */
-timesub(timep, offset, sp, tmp)
-const time_t * const			timep;
-const long				offset;
-const struct state * const	sp;
-struct tm * const		tmp;
+timesub(const time_t * const timep, const long offset,
+    const struct state * const sp, struct tm * const tmp)
 {
 	const struct lsinfo *	lp;
 	long			days;
@@ -2292,9 +2254,7 @@ ctime_r(const time_t *const timep, char *buf)
 */
 
 static int
-increment_overflow(number, delta)
-int *	number;
-int	delta;
+increment_overflow(int *number, int delta)
 {
 	int	number0;
 
@@ -2304,9 +2264,7 @@ int	delta;
 }
 
 static int
-long_increment_overflow(number, delta)
-long *	number;
-int	delta;
+long_increment_overflow(long *number, int delta)
 {
 	long	number0;
 
@@ -2340,9 +2298,7 @@ long_normalize_overflow(long *const tensptr, int *const unitsptr, const int base
 }
 
 static int
-tmcomp(atmp, btmp)
-const struct tm * const atmp;
-const struct tm * const btmp;
+tmcomp(const struct tm * const atmp, const struct tm * const btmp)
 {
 	int	result;
 
@@ -2593,15 +2549,13 @@ time2(struct tm * const	tmp,
 }
 
 __private_extern__ time_t
-time1(tmp, funcp, offset, unix03)
-struct tm * const	tmp;
+time1(struct tm * const tmp,
 #ifdef __LP64__
-struct tm * (* const  funcp)(const time_t *, long, struct tm *);
+struct tm * (* const  funcp)(const time_t *, long, struct tm *),
 #else /* !__LP64__ */
-void (* const  funcp)(const time_t *, long, struct tm *);
+void (* const  funcp)(const time_t *, long, struct tm *),
 #endif /* __LP64__ */
-const long		offset;
-int			unix03;
+    const long offset, int unix03)
 {
 	time_t			t;
 	const struct state *	sp;

@@ -4,7 +4,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2,1 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -95,7 +95,7 @@ struct _WebKitNetworkSessionPrivate {
     PAL::HysteresisActivity dnsPrefetchHystereris;
 };
 
-WEBKIT_DEFINE_FINAL_TYPE(WebKitNetworkSession, webkit_network_session, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE(WebKitNetworkSession, webkit_network_session, G_TYPE_OBJECT, GObject)
 
 static void webkitNetworkSessionGetProperty(GObject* object, guint propID, GValue* value, GParamSpec* paramSpec)
 {
@@ -144,9 +144,6 @@ static void webkitNetworkSessionConstructed(GObject* object)
 
     priv->tlsErrorsPolicy = WEBKIT_TLS_ERRORS_POLICY_FAIL;
     webkitWebsiteDataManagerGetDataStore(priv->websiteDataManager.get()).setIgnoreTLSErrors(false);
-
-    // Enable favicons by default.
-    webkit_website_data_manager_set_favicons_enabled(priv->websiteDataManager.get(), TRUE);
 }
 
 static void webkit_network_session_class_init(WebKitNetworkSessionClass* sessionClass)
@@ -252,10 +249,10 @@ WebKitNetworkSession* webkit_network_session_get_default()
 /**
  * webkit_network_session_new:
  * @data_directory: (nullable): a base directory for data, or %NULL
- * @cache_directrory: (nullable): a base direfctory for caches, or %NULL
+ * @cache_directory: (nullable): a base directory for caches, or %NULL
  *
  * Creates a new #WebKitNetworkSession with a persistent #WebKitWebsiteDataManager.
- * The parameters @data_directory and @cache_directrory will be used as construct
+ * The parameters @data_directory and @cache_directory will be used as construct
  * properties of the #WebKitWebsiteDataManager of the network session. Note that if
  * %NULL is passed, the default directory will be passed to #WebKitWebsiteDataManager
  * so that webkit_website_data_manager_get_base_data_directory() and
@@ -556,7 +553,7 @@ void webkit_network_session_set_memory_pressure_settings(WebKitMemoryPressureSet
  * @session: a #WebKitNetworkSession
  * @cancellable: (allow-none): a #GCancellable or %NULL to ignore
  * @callback: (scope async): a #GAsyncReadyCallback to call when the request is satisfied
- * @user_data: (closure): the data to pass to callback function
+ * @user_data: the data to pass to callback function
  *
  * Asynchronously get the list of #WebKitITPThirdParty seen for @session.
  *
@@ -651,9 +648,9 @@ WebKitDownload* webkit_network_session_download_uri(WebKitNetworkSession* sessio
 
     WebCore::ResourceRequest request(String::fromUTF8(uri));
     auto& websiteDataStore = webkitWebsiteDataManagerGetDataStore(session->priv->websiteDataManager.get());
-    auto& downloadProxy = websiteDataStore.createDownloadProxy(adoptRef(*new API::DownloadClient), request, nullptr, { });
+    auto downloadProxy = websiteDataStore.createDownloadProxy(adoptRef(*new API::DownloadClient), request, nullptr, { });
     auto download = webkitDownloadCreate(downloadProxy);
-    downloadProxy.setDidStartCallback([session = GRefPtr<WebKitNetworkSession> { session }, download = download.get()](auto* downloadProxy) {
+    downloadProxy->setDidStartCallback([session = GRefPtr<WebKitNetworkSession> { session }, download = download.get()](auto* downloadProxy) {
         if (!downloadProxy)
             return;
 

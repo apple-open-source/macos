@@ -113,7 +113,7 @@
                 }
             }
         }];
-
+        
         if(account.cdpState != newState) {
             NSError* stateError = nil;
             [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {

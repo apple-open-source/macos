@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -814,6 +814,12 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	  }
 	  prefers_ipv6_only
 	      = client_prefers_ipv6_only(request->if_p, request->options_p);
+	  if (prefers_ipv6_only) {
+	      my_log(LOG_INFO, "client IPv6-only preferred");
+	      iaddr.s_addr = 0;
+	      lease = 3600;
+	      goto send_offer;
+	  }
 	  if (binding != dhcp_binding_none_e) {
 	      /* client is already bound on this subnet */
 	  }
@@ -831,16 +837,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      }
 		  }
 		  if (subnet == NULL) {
-		      if (prefers_ipv6_only) {
-			  my_log(LOG_DEBUG, "client IPv6-only preferred");
-			  iaddr.s_addr = 0;
-			  lease = 3600;
-			  goto send_offer;
-		      }
-		      else {
-			  my_log(LOG_NOTICE, "no ip addresses");
-			  goto no_reply; /* out of ip addresses */
-		      }
+		      my_log(LOG_NOTICE, "no ip addresses");
+		      goto no_reply; /* out of ip addresses */
 		  }
 	      }
 	      max_lease = SubnetGetMaxLease(subnet);
@@ -1027,6 +1025,19 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	      }
 	  } /* select */
 	  else /* init-reboot/renew/rebind */ {
+	      boolean_t		prefers_ipv6_only;
+
+	      prefers_ipv6_only
+		  = client_prefers_ipv6_only(request->if_p,
+					     request->options_p);
+	      if (prefers_ipv6_only) {
+		  /* send an ack with no address */
+		  iaddr.s_addr = 0;
+		  lease = 3600;
+		  nak = NULL;
+		  my_log(LOG_INFO, "client IPv6-only preferred");
+		  goto send_ack_or_nak;
+	      }
 	      if (req_ip) { /* init-reboot */
 		  if (debug) {
 		      my_log(LOG_DEBUG, "init-reboot");
@@ -1034,19 +1045,6 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		  state = dhcp_cstate_init_reboot_e;
 		  if (binding == dhcp_binding_none_e) {
 		      if (orphan == FALSE) {
-			  boolean_t	prefers_ipv6_only;
-
-			  prefers_ipv6_only
-			      = client_prefers_ipv6_only(request->if_p,
-							 request->options_p);
-			  if (prefers_ipv6_only) {
-			      /* no binding, still send ACK */
-			      iaddr.s_addr = 0;
-			      lease = 3600;
-			      nak = NULL;
-			      my_log(LOG_DEBUG, "client IPv6-only preferred");
-			      goto send_ack_or_nak;
-			  }
 			  my_log(LOG_DEBUG, "dhcpd: INIT-REBOOT host "
 				 "%s binding for %s with another server",
 				 idstr, inet_ntoa(*req_ip));

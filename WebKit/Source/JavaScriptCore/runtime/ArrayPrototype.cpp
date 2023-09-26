@@ -98,13 +98,9 @@ void ArrayPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().everyPublicName(), arrayPrototypeEveryCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().forEachPublicName(), arrayPrototypeForEachCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().somePublicName(), arrayPrototypeSomeCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
-    JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION("indexOf"_s, arrayProtoFuncIndexOf, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public, ArrayIndexOfIntrinsic);
+    JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().indexOfPublicName(), arrayProtoFuncIndexOf, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public, ArrayIndexOfIntrinsic);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("lastIndexOf"_s, arrayProtoFuncLastIndexOf, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().filterPublicName(), arrayPrototypeFilterCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
-    if (Options::useArrayGroupMethod()) {
-        JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().groupPublicName(), arrayPrototypeGroupCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
-        JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().groupToMapPublicName(), arrayPrototypeGroupToMapCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
-    }
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().flatPublicName(), arrayPrototypeFlatCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().flatMapPublicName(), arrayPrototypeFlatMapCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().reducePublicName(), arrayPrototypeReduceCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
@@ -145,8 +141,6 @@ void ArrayPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
         &vm.propertyNames->builtinNames().findLastIndexPublicName(),
         &vm.propertyNames->builtinNames().flatPublicName(),
         &vm.propertyNames->builtinNames().flatMapPublicName(),
-        Options::useArrayGroupMethod() ? &vm.propertyNames->builtinNames().groupPublicName() : nullptr,
-        Options::useArrayGroupMethod() ? &vm.propertyNames->builtinNames().groupToMapPublicName() : nullptr,
         &vm.propertyNames->builtinNames().includesPublicName(),
         &vm.propertyNames->builtinNames().keysPublicName(),
         &vm.propertyNames->builtinNames().toReversedPublicName(),
@@ -371,16 +365,19 @@ inline JSValue fastJoin(JSGlobalObject* globalObject, JSObject* thisObject, Stri
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
+    JSStringJoiner joiner(separator);
+
+    unsigned i = 0;
     switch (thisObject->indexingType()) {
     case ALL_INT32_INDEXING_TYPES: {
         auto& butterfly = *thisObject->butterfly();
         if (UNLIKELY(length > butterfly.publicLength()))
             break;
-        JSStringJoiner joiner(globalObject, separator, length);
+        joiner.reserveCapacity(globalObject, length);
         RETURN_IF_EXCEPTION(scope, { });
         auto data = butterfly.contiguous().data();
         bool holesKnownToBeOK = false;
-        for (unsigned i = 0; i < length; ++i) {
+        for (; i < length; ++i) {
             JSValue value = data[i].get();
             if (LIKELY(value))
                 joiner.appendNumber(vm, value.asInt32());
@@ -400,11 +397,9 @@ inline JSValue fastJoin(JSGlobalObject* globalObject, JSObject* thisObject, Stri
         auto& butterfly = *thisObject->butterfly();
         if (UNLIKELY(length > butterfly.publicLength()))
             break;
-        JSStringJoiner joiner(globalObject, separator, length);
-        RETURN_IF_EXCEPTION(scope, { });
         auto data = butterfly.contiguous().data();
         bool holesKnownToBeOK = false;
-        for (unsigned i = 0; i < length; ++i) {
+        for (; i < length; ++i) {
             if (JSValue value = data[i].get()) {
                 if (!joiner.appendWithoutSideEffects(globalObject, value))
                     goto generalCase;
@@ -425,11 +420,11 @@ inline JSValue fastJoin(JSGlobalObject* globalObject, JSObject* thisObject, Stri
         auto& butterfly = *thisObject->butterfly();
         if (UNLIKELY(length > butterfly.publicLength()))
             break;
-        JSStringJoiner joiner(globalObject, separator, length);
+        joiner.reserveCapacity(globalObject, length);
         RETURN_IF_EXCEPTION(scope, { });
         auto data = butterfly.contiguousDouble().data();
         bool holesKnownToBeOK = false;
-        for (unsigned i = 0; i < length; ++i) {
+        for (; i < length; ++i) {
             double value = data[i];
             if (LIKELY(!isHole(value)))
                 joiner.appendNumber(vm, value);
@@ -483,9 +478,7 @@ inline JSValue fastJoin(JSGlobalObject* globalObject, JSObject* thisObject, Stri
 
 generalCase:
     genericCase = true;
-    JSStringJoiner joiner(globalObject, separator, length);
-    RETURN_IF_EXCEPTION(scope, { });
-    for (unsigned i = 0; i < length; ++i) {
+    for (; i < length; ++i) {
         JSValue element = thisObject->getIndex(globalObject, i);
         RETURN_IF_EXCEPTION(scope, { });
         joiner.append(globalObject, element);
@@ -527,7 +520,7 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncToString, (JSGlobalObject* globalObject, 
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     Integrity::auditStructureID(thisObject->structureID());
-    if (!canUseDefaultArrayJoinForToString(thisObject)) {
+    if (UNLIKELY(!canUseDefaultArrayJoinForToString(thisObject))) {
         // 2. Let func be the result of calling the [[Get]] internal method of array with argument "join".
         JSValue function = thisObject->get(globalObject, vm.propertyNames->join);
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
@@ -577,9 +570,7 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncToString, (JSGlobalObject* globalObject, 
         return JSValue::encode(result);
     }
 
-    JSStringJoiner joiner(globalObject, ',', length);
-    RETURN_IF_EXCEPTION(scope, encodedJSValue());
-
+    JSStringJoiner joiner(","_s);
     for (unsigned i = 0; i < length; ++i) {
         JSValue element = thisArray->tryGetIndexQuickly(i);
         if (!element) {
@@ -1241,6 +1232,11 @@ ALWAYS_INLINE JSValue fastIndexOf(JSGlobalObject* globalObject, VM& vm, JSArray*
     uint32_t length = static_cast<uint32_t>(length64);
     uint32_t index = static_cast<uint32_t>(index64);
 
+    if constexpr (direction == IndexOfDirection::Forward) {
+        if (index >= length)
+            return jsNumber(-1);
+    }
+
     switch (array->indexingType()) {
     case ALL_INT32_INDEXING_TYPES: {
         if (!searchElement.isNumber())
@@ -1279,6 +1275,13 @@ ALWAYS_INLINE JSValue fastIndexOf(JSGlobalObject* globalObject, VM& vm, JSArray*
         auto data = butterfly.contiguous().data();
 
         if (direction == IndexOfDirection::Forward) {
+            if (searchElement.isObject()) {
+                auto* result = bitwise_cast<const WriteBarrier<Unknown>*>(WTF::find64(bitwise_cast<const uint64_t*>(data + index), JSValue::encode(searchElement), length - index));
+                if (result)
+                    return jsNumber(result - data);
+                return jsNumber(-1);
+            }
+
             for (; index < length; ++index) {
                 JSValue value = data[index].get();
                 if (!value)
@@ -1449,7 +1452,7 @@ static bool moveElements(JSGlobalObject* globalObject, VM& vm, JSArray* target, 
     return true;
 }
 
-static EncodedJSValue concatAppendOne(JSGlobalObject* globalObject, VM& vm, JSArray* first, JSValue second)
+static JSValue concatAppendOne(JSGlobalObject* globalObject, VM& vm, JSArray* first, JSValue second)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
 
@@ -1462,11 +1465,20 @@ static EncodedJSValue concatAppendOne(JSGlobalObject* globalObject, VM& vm, JSAr
     checkedResultSize += 1;
     if (UNLIKELY(checkedResultSize.hasOverflowed())) {
         throwOutOfMemoryError(globalObject, scope);
-        return encodedJSValue();
+        return { };
+    }
+
+    // This code still can see concat-spreadable items. It is ProxyObject and DerivedArray.
+    // We should not use `isArray` check here since it is side-effectful for ProxyObject. Let's just bail out if it is ProxyObject or DerivedArray.
+    if (second.isObject()) {
+        JSType type = asObject(second)->type();
+        if (UNLIKELY(type == ProxyObjectType || type == DerivedArrayType))
+            return jsNull();
     }
 
     unsigned resultSize = checkedResultSize;
-    IndexingType type = first->mergeIndexingTypeForCopying(indexingTypeForValue(second) | IsArray);
+    bool allowPromotion = false;
+    IndexingType type = first->mergeIndexingTypeForCopying(indexingTypeForValue(second) | IsArray, allowPromotion);
     
     if (type == NonArray)
         type = first->indexingType();
@@ -1475,24 +1487,23 @@ static EncodedJSValue concatAppendOne(JSGlobalObject* globalObject, VM& vm, JSAr
     JSArray* result = JSArray::tryCreate(vm, resultStructure, resultSize);
     if (UNLIKELY(!result)) {
         throwOutOfMemoryError(globalObject, scope);
-        return encodedJSValue();
+        return { };
     }
 
     bool success = result->appendMemcpy(globalObject, vm, 0, first);
     EXCEPTION_ASSERT(!scope.exception() || !success);
     if (!success) {
-        RETURN_IF_EXCEPTION(scope, encodedJSValue());
+        RETURN_IF_EXCEPTION(scope, { });
 
         bool success = moveElements(globalObject, vm, result, 0, first, firstArraySize);
         EXCEPTION_ASSERT(!scope.exception() == success);
         if (UNLIKELY(!success))
-            return encodedJSValue();
+            return { };
     }
 
     scope.release();
     result->putDirectIndex(globalObject, firstArraySize, second);
-    return JSValue::encode(result);
-
+    return result;
 }
 
 template<typename T>
@@ -1507,16 +1518,36 @@ void clearElement(double& element)
     element = PNaN;
 }
 
-template<typename T>
-ALWAYS_INLINE void copyElements(T* buffer, unsigned offset, T* source, unsigned sourceSize, IndexingType sourceType)
+template<typename T, typename U>
+ALWAYS_INLINE void copyElements(T* buffer, unsigned offset, U* source, unsigned sourceSize, IndexingType sourceType)
 {
-    if (sourceType != ArrayWithUndecided) {
-        gcSafeMemcpy(buffer + offset, source, sizeof(JSValue) * sourceSize);
+    if (sourceType == ArrayWithUndecided) {
+        for (unsigned i = 0; i < sourceSize; ++i)
+            clearElement<T>(buffer[i + offset]);
         return;
     }
 
-    for (unsigned i = sourceSize; i--;)
-        clearElement<T>(buffer[i + offset]);
+    if constexpr (std::is_same_v<T, U>)
+        gcSafeMemcpy(buffer + offset, source, sizeof(JSValue) * sourceSize);
+    else if constexpr (std::is_same_v<T, double>) {
+        ASSERT(sourceType == ArrayWithInt32);
+        for (unsigned i = 0; i < sourceSize; ++i) {
+            JSValue value = source[i].get();
+            if (value)
+                buffer[i + offset] = value.asInt32();
+            else
+                buffer[i + offset] = PNaN;
+        }
+    } else {
+        ASSERT((std::is_same_v<U, double>));
+        for (unsigned i = 0; i < sourceSize; ++i) {
+            double value = source[i];
+            if (value == value)
+                buffer[i + offset].setWithoutWriteBarrier(JSValue(JSValue::EncodeAsDouble, value));
+            else
+                buffer[i + offset].clear();
+        }
+    }
 };
 
 JSC_DEFINE_HOST_FUNCTION(arrayProtoPrivateFuncConcatMemcpy, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -1541,7 +1572,7 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoPrivateFuncConcatMemcpy, (JSGlobalObject* glo
 
     JSValue second = callFrame->uncheckedArgument(1);
     if (!isJSArray(second))
-        RELEASE_AND_RETURN(scope, concatAppendOne(globalObject, vm, firstArray, second));
+        RELEASE_AND_RETURN(scope, JSValue::encode(concatAppendOne(globalObject, vm, firstArray, second)));
 
     JSArray* secondArray = jsCast<JSArray*>(second);
     
@@ -1562,7 +1593,8 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoPrivateFuncConcatMemcpy, (JSGlobalObject* glo
     unsigned resultSize = checkedResultSize;
     IndexingType firstType = firstArray->indexingType();
     IndexingType secondType = secondArray->indexingType();
-    IndexingType type = firstArray->mergeIndexingTypeForCopying(secondType);
+    bool allowPromotion = true;
+    IndexingType type = firstArray->mergeIndexingTypeForCopying(secondType, allowPromotion);
     if (type == NonArray || !firstArray->canFastCopy(secondArray) || resultSize >= MIN_SPARSE_ARRAY_INDEX) {
         JSArray* result = constructEmptyArray(globalObject, nullptr, resultSize);
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
@@ -1593,8 +1625,14 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoPrivateFuncConcatMemcpy, (JSGlobalObject* glo
 
     if (type == ArrayWithDouble) {
         double* buffer = result->butterfly()->contiguousDouble().data();
-        copyElements(buffer, 0, firstButterfly->contiguousDouble().data(), firstArraySize, firstType);
-        copyElements(buffer, firstArraySize, secondButterfly->contiguousDouble().data(), secondArraySize, secondType);
+        if (firstType == ArrayWithDouble)
+            copyElements(buffer, 0, firstButterfly->contiguousDouble().data(), firstArraySize, firstType);
+        else
+            copyElements(buffer, 0, firstButterfly->contiguous().data(), firstArraySize, firstType);
+        if (secondType == ArrayWithDouble)
+            copyElements(buffer, firstArraySize, secondButterfly->contiguousDouble().data(), secondArraySize, secondType);
+        else
+            copyElements(buffer, firstArraySize, secondButterfly->contiguous().data(), secondArraySize, secondType);
     } else if (type != ArrayWithUndecided) {
         WriteBarrier<Unknown>* buffer = result->butterfly()->contiguous().data();
         copyElements(buffer, 0, firstButterfly->contiguous().data(), firstArraySize, firstType);

@@ -385,22 +385,29 @@ udata_setAppData(const char *packageName, const void *data, UErrorCode *err);
 typedef enum UDataFileAccess {
     /** ICU looks for data in single files first, then in packages. (default) @stable ICU 3.4 */
     UDATA_FILES_FIRST,
-#if U_PLATFORM!=U_PF_IPHONE
+#if APPLE_ICU_CHANGES
+// rdar://60884991 #58 Replace installsrc patching with changes directly in header files
+#else
     /** An alias for the default access mode. @stable ICU 3.4 */
     UDATA_DEFAULT_ACCESS = UDATA_FILES_FIRST,
-#endif
+#endif // APPLE_ICU_CHANGES
     /** ICU only loads data from packages, not from single files. @stable ICU 3.4 */
     UDATA_ONLY_PACKAGES,
-#if U_PLATFORM==U_PF_IPHONE
-    /** An alias for the default access mode. For iOS, Apple modifies UDATA_DEFAULT_ACCESS
-        to be UDATA_ONLY_PACKAGES, not UDATA_FILES_FIRST. @stable ICU 3.4 */
-    UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES,
-#endif
     /** ICU loads data from packages first, and only from single files
         if the data cannot be found in a package. @stable ICU 3.4 */
     UDATA_PACKAGES_FIRST,
     /** ICU does not access the file system for data loading. @stable ICU 3.4 */
     UDATA_NO_FILES,
+#if APPLE_ICU_CHANGES
+// rdar://60884991 #58 Replace installsrc patching with changes directly in header files
+#if U_PLATFORM!=U_PF_IPHONE
+    /** An alias for the default access mode. @stable ICU 3.4 */
+    UDATA_DEFAULT_ACCESS = UDATA_FILES_FIRST,
+#else
+    /** For iOS, Apple modifies UDATA_DEFAULT_ACCESS to be UDATA_ONLY_PACKAGES */
+    UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES,
+#endif
+#endif // APPLE_ICU_CHANGES
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * Number of real UDataFileAccess values.

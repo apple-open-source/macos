@@ -79,6 +79,10 @@ T_DECL(pthread_jit_write_protect_np_disallowed,
 		"Verify pthread_jit_write_protect_np prohibited by allowlist",
 		T_META_IGNORECRASHES(".*pthread_jit_write_with_callback_tool.*"))
 {
+	if (!pthread_jit_write_protect_supported_np()) {
+		T_SKIP("JIT write protection not supported on this device");
+	}
+
 	char *cmd[] = { HELPER_TOOL_PATH, "pthread_jit_write_protect_np", NULL };
 	dt_spawn_t spawn = dt_spawn_create(NULL);
 	dt_spawn(spawn, cmd, 
@@ -100,6 +104,10 @@ T_DECL(pthread_jit_write_with_invalid_callback_disallowed,
 		"Verify pthread_jit_write_with_callback fails bad callbacks",
 		T_META_IGNORECRASHES(".*pthread_jit_write_with_callback_tool.*"))
 {
+	if (!pthread_jit_write_protect_supported_np()) {
+		T_SKIP("JIT write protection not supported on this device");
+	}
+
 	char *cmd[] = { HELPER_TOOL_PATH, "pthread_jit_write_with_callback_np", NULL };
 	dt_spawn_t spawn = dt_spawn_create(NULL);
 	dt_spawn(spawn, cmd, 

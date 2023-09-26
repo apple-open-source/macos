@@ -32,7 +32,7 @@
 
 #include "ContentSecurityPolicy.h"
 #include "Document.h"
-#include "Frame.h"
+#include "LocalFrame.h"
 #include "SecurityOrigin.h"
 
 namespace WebCore {
@@ -47,7 +47,7 @@ static bool isMixedContent(const Document& document, const URL& url)
     return false;
 }
 
-static bool foundMixedContentInFrameTree(const Frame& frame, const URL& url)
+static bool foundMixedContentInFrameTree(const LocalFrame& frame, const URL& url)
 {
     auto* document = frame.document();
 
@@ -61,7 +61,7 @@ static bool foundMixedContentInFrameTree(const Frame& frame, const URL& url)
 
         auto* abstractParentFrame = frame->tree().parent();
         RELEASE_ASSERT_WITH_MESSAGE(abstractParentFrame, "Should never have a parentless non main frame");
-        if (auto* parentFrame = dynamicDowncast<Frame>(abstractParentFrame))
+        if (auto* parentFrame = dynamicDowncast<LocalFrame>(abstractParentFrame))
             document = parentFrame->document();
     }
 
@@ -69,14 +69,14 @@ static bool foundMixedContentInFrameTree(const Frame& frame, const URL& url)
 }
 
 
-static void logWarning(const Frame& frame, bool allowed, ASCIILiteral action, const URL& target)
+static void logWarning(const LocalFrame& frame, bool allowed, ASCIILiteral action, const URL& target)
 {
     const char* errorString = allowed ? " was allowed to " : " was not allowed to ";
     auto message = makeString((allowed ? "" : "[blocked] "), "The page at ", frame.document()->url().stringCenterEllipsizedToLength(), errorString, action, " insecure content from ", target.stringCenterEllipsizedToLength(), ".\n");
     frame.document()->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, message);
 }
 
-bool MixedContentChecker::frameAndAncestorsCanDisplayInsecureContent(Frame& frame, ContentType type, const URL& url)
+bool MixedContentChecker::frameAndAncestorsCanDisplayInsecureContent(LocalFrame& frame, ContentType type, const URL& url)
 {
     if (!foundMixedContentInFrameTree(frame, url))
         return true;
@@ -95,7 +95,7 @@ bool MixedContentChecker::frameAndAncestorsCanDisplayInsecureContent(Frame& fram
     return allowed;
 }
 
-bool MixedContentChecker::frameAndAncestorsCanRunInsecureContent(Frame& frame, SecurityOrigin& securityOrigin, const URL& url, ShouldLogWarning shouldLogWarning)
+bool MixedContentChecker::frameAndAncestorsCanRunInsecureContent(LocalFrame& frame, SecurityOrigin& securityOrigin, const URL& url, ShouldLogWarning shouldLogWarning)
 {
     if (!foundMixedContentInFrameTree(frame, url))
         return true;
@@ -115,7 +115,7 @@ bool MixedContentChecker::frameAndAncestorsCanRunInsecureContent(Frame& frame, S
     return allowed;
 }
 
-void MixedContentChecker::checkFormForMixedContent(Frame& frame, const URL& url)
+void MixedContentChecker::checkFormForMixedContent(LocalFrame& frame, const URL& url)
 {
     // Unconditionally allow javascript: URLs as form actions as some pages do this and it does not introduce
     // a mixed content issue.

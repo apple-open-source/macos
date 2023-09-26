@@ -264,16 +264,14 @@ public:
     virtual void getOffset(UDate date, UBool local, int32_t& rawOffset,
                            int32_t& dstOffset, UErrorCode& ec) const override;
 
-#ifndef U_FORCE_HIDE_DRAFT_API
     /**
      * Get time zone offsets from local wall time.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     virtual void getOffsetFromLocal(
         UDate date, UTimeZoneLocalOption nonExistingTimeOpt,
         UTimeZoneLocalOption duplicatedTimeOpt,
         int32_t& rawOffset, int32_t& dstOffset, UErrorCode& status) const override;
-#endif /* U_FORCE_HIDE_DRAFT_API */
 
     /**
      * Sets the TimeZone's raw GMT offset (i.e., the number of milliseconds to add
@@ -384,8 +382,6 @@ private:
      * Default constructor.
      */
     VTimeZone();
-    // FIXME: unimplemented
-    //static VTimeZone* createVTimeZone(VTZReader* reader);
     void write(VTZWriter& writer, UErrorCode& status) const;
     void write(UDate start, VTZWriter& writer, UErrorCode& status) const;
     void writeSimple(UDate time, VTZWriter& writer, UErrorCode& status) const;

@@ -135,7 +135,7 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
     if (self = [super init])
     {
         secnotice("event", "%@ start UID=%u EUID=%u", self, getuid(), geteuid());
-        IF_SOS_DISABLED {
+        if (!OctagonPlatformSupportsSOS()) {
             // bail here if SOS is not supported and somehow this got activated
             secnotice("nosos", "Cannot run CloudKeychainProxy on a system with no SOS");
             return NULL;

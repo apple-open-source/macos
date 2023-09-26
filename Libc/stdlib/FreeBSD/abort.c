@@ -133,6 +133,10 @@ __abort()
 
 	if (!CRGetCrashLogMessage())
 		CRSetCrashLogMessage("__abort() called");
+
+	/* Fetch pthread_self() before masking signals - see above. */
+	pthread_t self = pthread_self();
+
 	act.sa_handler = SIG_DFL;
 	act.sa_flags = 0;
 	sigfillset(&act.sa_mask);
@@ -152,7 +156,7 @@ __abort()
 	__pthread_workqueue_setkill(1);
 
 	(void)pthread_sigmask(SIG_SETMASK, &act.sa_mask, NULL);
-	(void)pthread_kill(pthread_self(), SIGABRT);
+	(void)pthread_kill(self, SIGABRT);
 
 	usleep(TIMEOUT); /* give time for signal to happen */
 

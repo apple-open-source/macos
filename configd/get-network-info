@@ -163,6 +163,11 @@ run_netstat () {
 	echo "#"							>> netstat.txt
 	/usr/sbin/netstat -g -n -s					>> netstat.txt		2>&1
 
+	echo "#"							>> netstat.txt
+	echo "# netstat -B"						>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -B						>> netstat.txt		2>&1
+
 	if [ -x /sbin/ifconfig ]; then
 		for if in ${IF_LIST}
 		do
@@ -649,7 +654,7 @@ run_network_test () {
 	fi
 
 	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_network_test"		>> get-network-info.txt
-	/usr/local/bin/network_test path_watcher -dump			> nw_path.txt	2>&1
+	/usr/local/bin/network_test path_watcher -dump -sysdiagnose	> nw_path.txt	2>&1
 
 }
 

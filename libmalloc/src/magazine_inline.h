@@ -210,7 +210,7 @@ free_list_checksum_botch(rack_t *rack, void *ptr, void *value)
 static MALLOC_INLINE uintptr_t
 free_list_gen_checksum(uintptr_t ptr)
 {
-#if __LP64__
+#if defined(__LP64__)
 	uint32_t level1 = (uint32_t)ptr + ((uint32_t)(ptr >> 32));
 #else
 	uint32_t level1 = (uint32_t)ptr;
@@ -276,7 +276,7 @@ free_list_unchecksum_ptr(rack_t *rack, inplace_union *ptr)
 // TODO: this can likely still be faster
 
 #define NYBBLE 4
-#if __LP64__
+#if defined(__LP64__)
 #define ANTI_NYBBLE (64 - NYBBLE)
 #else
 #define ANTI_NYBBLE (32 - NYBBLE)
@@ -392,7 +392,7 @@ hash_lookup_region_no_lock(region_t *regions, size_t num_entries, size_t shift, 
 	// Multiplicative hash where the multiplier is a prime near (ULONG_MAX / phi). [phi = 1.618033...]
 	// Since the values of (((uintptr_t)r >> HASH_BLOCKS_ALIGN) are (roughly) an ascending sequence of integers,
 	// this hash works really well. See Knuth TAOCP, Vol. 3.
-#if __LP64__
+#if defined(__LP64__)
 	index = hash_index = (((uintptr_t)r >> HASH_BLOCKS_ALIGN) * 11400714819323198549ULL) >> (64 - shift);
 #else
 	index = hash_index = (((uintptr_t)r >> HASH_BLOCKS_ALIGN) * 2654435761UL) >> (32 - shift);
@@ -424,7 +424,7 @@ hash_region_insert_no_lock(region_t *regions, size_t num_entries, size_t shift, 
 	// Multiplicative hash where the multiplier is a prime near (ULONG_MAX / phi). [phi = 1.618033...]
 	// Since the values of (((uintptr_t)r >> HASH_BLOCKS_ALIGN) are (roughly) an ascending sequence of integers,
 	// this hash works really well. See Knuth TAOCP, Vol. 3.
-#if __LP64__
+#if defined(__LP64__)
 	index = hash_index = (((uintptr_t)r >> HASH_BLOCKS_ALIGN) * 11400714819323198549ULL) >> (64 - shift);
 #else
 	index = hash_index = (((uintptr_t)r >> HASH_BLOCKS_ALIGN) * 2654435761UL) >> (32 - shift);
@@ -488,6 +488,9 @@ hash_regions_grow_no_lock(region_t *regions, size_t old_size, size_t *mutable_sh
 extern unsigned int hyper_shift;
 extern unsigned int phys_ncpus;
 extern unsigned int logical_ncpus;
+#if CONFIG_MAGAZINE_PER_CLUSTER
+extern unsigned int ncpuclusters;
+#endif // CONFIG_MAGAZINE_PER_CLUSTER
 
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE
 unsigned int

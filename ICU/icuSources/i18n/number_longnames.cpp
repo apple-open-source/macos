@@ -431,13 +431,33 @@ void getMeasureData(const Locale &locale,
     subKey.append(unit.getType(), status);
     subKey.append("/", status);
 
+    // Check if unitSubType is an alias or not.
+    LocalUResourceBundlePointer aliasBundle(ures_open(U_ICUDATA_ALIAS, "metadata", &status));
+
+    UErrorCode aliasStatus = status;
+    StackUResourceBundle aliasFillIn;
+    CharString aliasKey;
+    aliasKey.append("alias/unit/", aliasStatus);
+    aliasKey.append(unit.getSubtype(), aliasStatus);
+    aliasKey.append("/replacement", aliasStatus);
+    ures_getByKeyWithFallback(aliasBundle.getAlias(), aliasKey.data(), aliasFillIn.getAlias(),
+                              &aliasStatus);
+    CharString unitSubType;
+    if (!U_FAILURE(aliasStatus)) {
+        // This means the subType is an alias. Then, replace unitSubType with the replacement.
+        auto replacement = ures_getUnicodeString(aliasFillIn.getAlias(), &status);
+        unitSubType.appendInvariantChars(replacement, status);
+    } else {
+        unitSubType.append(unit.getSubtype(), status);
+    }
+
     // Map duration-year-person, duration-week-person, etc. to duration-year, duration-week, ...
     // TODO(ICU-20400): Get duration-*-person data properly with aliases.
-    int32_t subtypeLen = static_cast<int32_t>(uprv_strlen(unit.getSubtype()));
-    if (subtypeLen > 7 && uprv_strcmp(unit.getSubtype() + subtypeLen - 7, "-person") == 0) {
-        subKey.append({unit.getSubtype(), subtypeLen - 7}, status);
+    int32_t subtypeLen = static_cast<int32_t>(uprv_strlen(unitSubType.data()));
+    if (subtypeLen > 7 && uprv_strcmp(unitSubType.data() + subtypeLen - 7, "-person") == 0) {
+        subKey.append({unitSubType.data(), subtypeLen - 7}, status);
     } else {
-        subKey.append({unit.getSubtype(), subtypeLen}, status);
+        subKey.append({unitSubType.data(), subtypeLen}, status);
     }
 
     if (width != UNUM_UNIT_WIDTH_FULL_NAME) {
@@ -1549,7 +1569,7 @@ void MixedUnitLongNameHandler::forMeasureUnit(const Locale &loc,
     for (int32_t i = 0; i < fillIn->fMixedUnitCount; i++) {
         // Grab data for each of the components.
         UnicodeString *unitData = &fillIn->fMixedUnitData[i * ARRAY_LENGTH];
-        // TODO(CLDR-14502): check from the CLDR-14502 ticket whether this
+        // TODO(CLDR-14582): check from the CLDR-14582 ticket whether this
         // propagation of unitDisplayCase is correct:
         getMeasureData(loc, impl.singleUnits[i]->build(status), width, unitDisplayCase, unitData,
                        status);

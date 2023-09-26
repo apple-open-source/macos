@@ -310,6 +310,7 @@ fi{
         CI{"Norsunluurannikko"}
         CZ{"Tšekinmaa"}
         FK{"Falklandinsaaret (Malvinassaaret)"}
+        NZ{"Aotearoa"}
         SZ{"Swazimaa"}
         TL{"Timor-Leste"}
     }

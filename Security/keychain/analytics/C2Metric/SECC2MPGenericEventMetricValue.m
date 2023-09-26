@@ -23,30 +23,30 @@
 @synthesize doubleValue = _doubleValue;
 - (void)setDoubleValue:(double)v
 {
-    _has.doubleValue = YES;
+    _has.doubleValue = (uint)YES;
     _doubleValue = v;
 }
 - (void)setHasDoubleValue:(BOOL)f
 {
-    _has.doubleValue = f;
+    _has.doubleValue = (uint)f;
 }
 - (BOOL)hasDoubleValue
 {
-    return _has.doubleValue;
+    return _has.doubleValue != 0;
 }
 @synthesize dateValue = _dateValue;
 - (void)setDateValue:(uint64_t)v
 {
-    _has.dateValue = YES;
+    _has.dateValue = (uint)YES;
     _dateValue = v;
 }
 - (void)setHasDateValue:(BOOL)f
 {
-    _has.dateValue = f;
+    _has.dateValue = (uint)f;
 }
 - (BOOL)hasDateValue
 {
-    return _has.dateValue;
+    return _has.dateValue != 0;
 }
 - (BOOL)hasErrorValue
 {
@@ -105,13 +105,13 @@ BOOL SECC2MPGenericEventMetricValueReadFrom(__unsafe_unretained SECC2MPGenericEv
             break;
             case 102 /* doubleValue */:
             {
-                self->_has.doubleValue = YES;
+                self->_has.doubleValue = (uint)YES;
                 self->_doubleValue = PBReaderReadDouble(reader);
             }
             break;
             case 103 /* dateValue */:
             {
-                self->_has.dateValue = YES;
+                self->_has.dateValue = (uint)YES;
                 self->_dateValue = PBReaderReadUint64(reader);
             }
             break;

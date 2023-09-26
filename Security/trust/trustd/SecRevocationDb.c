@@ -236,8 +236,8 @@ static CFStringRef kUpdateIntervalKey       = CFSTR("ValidUpdateInterval");
 static CFStringRef kUpdateGenerationKey     = CFSTR("ValidUpdateGeneration");
 static CFStringRef kBoolTrueKey             = CFSTR("1");
 static CFStringRef kBoolFalseKey            = CFSTR("0");
-CFIndex kValidUpdateCurrentGeneration = 4;
-CFIndex kValidUpdateOldGeneration = 3;
+CFIndex kValidUpdateCurrentGeneration = 5;
+CFIndex kValidUpdateOldGeneration = 4;
 
 /* constant length of boolean string keys */
 #define BOOL_STRING_KEY_LENGTH          1
@@ -2029,14 +2029,14 @@ static bool _SecRevocationDbSetHashes(SecRevocationDbConnectionRef dbc, CFArrayR
         if (count < 0) {
             return false;
         }
-        CFIndex hashLen = CC_SHA256_DIGEST_LENGTH;
-        size_t dataLen = (size_t)hashLen * (size_t)count;
+        size_t hashLen = CC_SHA256_DIGEST_LENGTH;
+        size_t dataLen = hashLen * (size_t)count;
         uint8_t *dataPtr = (uint8_t *)calloc(dataLen, 1);
         uint8_t *p = dataPtr;
         for (CFIndex idx = 0; idx < count && p; idx++) {
             CFDataRef hash = CFArrayGetValueAtIndex(hashes, idx);
             uint8_t *h = (hash) ? (uint8_t *)CFDataGetBytePtr(hash) : NULL;
-            if (h && CFDataGetLength(hash) == hashLen) { memcpy(p, h, hashLen); }
+            if (h && CFDataGetLength(hash) == (CFIndex)hashLen) { memcpy(p, h, hashLen); }
             p += hashLen;
         }
         const char *hashKey = "db_hash";

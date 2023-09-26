@@ -147,7 +147,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     XCTAssertTrue(SecAccessControlSetProtection(ac, kSecAttrAccessibleWhenUnlocked, &error), @"failed to set access control protection with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to set access control protection: %@", (__bridge id)error);
 
-    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, &error), @"failed to encrypt data with error: %@", error);
+    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, false, &error), @"failed to encrypt data with error: %@", error);
     XCTAssertTrue(enc != NULL, @"failed to get encrypted data from encryption function");
     XCTAssertNil((__bridge id)error, @"encountered error attempting to encrypt data: %@", (__bridge id)error);
     CFReleaseNull(ac);
@@ -159,7 +159,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSArray* dummyArray = [NSArray array];
 
     keyclass_t keyclass = 0;
-    XCTAssertTrue(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, &keyclass, &error), @"failed to decrypt data with error: %@", error);
+    XCTAssertTrue(ks_decrypt_data(KEYBAG_DEVICE, NULL, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, &keyclass, &error), @"failed to decrypt data with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to decrypt data: %@", (__bridge id)error);
     XCTAssertEqual(keyclass, key_class_ak, @"failed to get back the keyclass from decryption");
 
@@ -580,7 +580,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     XCTAssertTrue(SecAccessControlSetProtection(ac, kSecAttrAccessibleWhenUnlocked, &error), @"failed to set access control protection with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to set access control protection: %@", (__bridge id)error);
 
-    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, &error), @"failed to encrypt data with error: %@", error);
+    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, false, &error), @"failed to encrypt data with error: %@", error);
     XCTAssertTrue(enc != NULL, @"failed to get encrypted data from encryption function");
     XCTAssertNil((__bridge id)error, @"encountered error attempting to encrypt data: %@", (__bridge id)error);
     CFReleaseNull(ac);
@@ -592,7 +592,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSArray* dummyArray = [NSArray array];
 
     keyclass_t keyclass = 0;
-    XCTAssertNoThrow(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, &keyclass, &error), @"unexpected exception when decryption fails");
+    XCTAssertNoThrow(ks_decrypt_data(KEYBAG_DEVICE, NULL, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, &keyclass, &error), @"unexpected exception when decryption fails");
     XCTAssertEqual(keyclass, key_class_ak, @"failed to get back the keyclass when decryption failed");
 
     self.allowDecryption = YES;
@@ -872,7 +872,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     XCTAssertTrue(SecAccessControlSetProtection(ac, accessibility, &error), @"failed to set access control protection with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to set access control protection: %@", (__bridge id)error);
     
-    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, &error), @"failed to encrypt data with error: %@", error);
+    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, false, &error), @"failed to encrypt data with error: %@", error);
     XCTAssertTrue(enc != NULL, @"failed to get encrypted data from encryption function");
     XCTAssertNil((__bridge id)error, @"encountered error attempting to encrypt data: %@", (__bridge id)error);
     CFReleaseNull(ac);
@@ -897,7 +897,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     const SecDbClass* class = kc_class_with_name(kSecClassGenericPassword);
     NSArray* dummyArray = [NSArray array];
 
-    XCTAssertTrue(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, (__bridge CFDataRef)encryptedData, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, false, &keyclass, &error), @"failed to decrypt data with error: %@", error);
+    XCTAssertTrue(ks_decrypt_data(KEYBAG_DEVICE, NULL, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, (__bridge CFDataRef)encryptedData, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, false, &keyclass, &error), @"failed to decrypt data with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to decrypt data: %@", (__bridge id)error);
     XCTAssertEqual(keyclass & key_class_last, parse_keyclass(accessibility), @"failed to get back the keyclass from decryption");
     

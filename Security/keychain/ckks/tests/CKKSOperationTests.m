@@ -346,7 +346,7 @@
     [self waitForExpectations: @[operationRun] timeout:5];
 
     operationRun = [self expectationWithDescription:@"operation run with named:withBlockTakingSelf:"];
-    group = [CKKSGroupOperation named:@"asdf" withBlockTakingSelf:^(CKKSGroupOperation *strongOp) {
+    group = [CKKSGroupOperation named:@"asdf" withBlockTakingSelf:^(CKKSResultOperation *strongOp) {
         [operationRun fulfill];
     }];
     [self.queue addOperation:group];

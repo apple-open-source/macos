@@ -457,6 +457,9 @@ keychain_sync(int argc, char * const *argv)
      "    --remove-peer SPID     Remove a peer identified by the first 8 or more\n"
      "                           characters of its spid. Specify multiple times to\n"
      "                           remove more than one peer.\n"
+     "    --enable-sos-compatibility    Enable SOS Compatibility Mode\n"
+     "    --disable-sos-compatibility   Disable SOS Compatibility Mode\n"
+     "    --fetch-sos-compatibility     Fetch SOS Compatibility Mode\n"
 	 "Password"
 	 "    -P     [label:]password  set password (optionally for a given label) for sync"
 	 "    -T     [label:]password  try password (optionally for a given label) for sync"
@@ -477,10 +480,16 @@ keychain_sync(int argc, char * const *argv)
      */
     enum {
         SYNC_REMOVE_PEER,
+        ENABLE_SOS_COMPATIBILITY,
+        DISABLE_SOS_COMPATIBILITY,
+        FETCH_SOS_COMPATIBILITY,
     };
     int action = -1;
     const struct option longopts[] = {
         { "remove-peer",    required_argument,  &action,    SYNC_REMOVE_PEER, },
+        { "enable-sos-compatibility",   no_argument,    &action,    ENABLE_SOS_COMPATIBILITY, },
+        { "disable-sos-compatibility",  no_argument,    &action,    DISABLE_SOS_COMPATIBILITY, },
+        { "fetch-sos-compatibility",    no_argument,    &action,    FETCH_SOS_COMPATIBILITY, },
         { NULL,             0,                  NULL,       0, },
     };
     int ch, result = 0;
@@ -645,6 +654,28 @@ keychain_sync(int argc, char * const *argv)
                     }
                     CFArrayAppendValue(peers2remove, optstr);
                     CFReleaseNull(optstr);
+                } else if (action == ENABLE_SOS_COMPATIBILITY) {
+                    bool result = SOSCCSetCompatibilityMode(true, &error);
+                    printmsg(CFSTR("Setting SOS Compatibility mode to enabled, result: %@\n"), result ? @"success" : @"fail");
+                    if (error){
+                        printerr(CFSTR("Setting SOS Compatibilty mode error: %@\n"), error);
+                        hadError = true;
+                    }
+                    
+                } else if (action == DISABLE_SOS_COMPATIBILITY) {
+                    bool result = SOSCCSetCompatibilityMode(false, &error);
+                    printmsg(CFSTR("Setting SOS Compatibility mode to disabled, result: %@\n"), result ? @"success" : @"fail");
+                    if (error){
+                        printerr(CFSTR("Setting SOS Compatibilty mode error: %@\n"), error);
+                        hadError = true;
+                    }
+                } else if (action == FETCH_SOS_COMPATIBILITY) {
+                    bool result = SOSCCFetchCompatibilityMode(&error);
+                    printmsg(CFSTR("Fetched SOS Compatibility mode. SOS compatibility mode is: %@\n"), result ? @"enabled" : @"disabled");
+                    if (error){
+                        printerr(CFSTR("Fetching SOS Compatibilty mode error: %@\n"), error);
+                        hadError = true;
+                    }
                 } else {
                     return SHOW_USAGE_MESSAGE;
                 }

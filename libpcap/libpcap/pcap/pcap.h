@@ -224,11 +224,21 @@ struct pcap_file_header {
 #define LT_FCS_LENGTH(x)		(((x) & 0xF0000000) >> 28)
 #define LT_FCS_DATALINK_EXT(x)		((((x) & 0xF) << 28) | 0x04000000)
 
+#ifdef __APPLE__
+#define HAS_PCAP_D_NONE 1
+typedef enum {
+       PCAP_D_INOUT = 0,
+       PCAP_D_IN,
+       PCAP_D_OUT,
+       PCAP_D_NONE
+} pcap_direction_t;
+#else /* __APPLE__ */
 typedef enum {
        PCAP_D_INOUT = 0,
        PCAP_D_IN,
        PCAP_D_OUT
 } pcap_direction_t;
+#endif
 
 /*
  * Generic per-packet information, as supplied by libpcap.
@@ -855,12 +865,6 @@ PCAP_API const char *pcap_lib_version(void);
 
 #endif /* _WIN32/MSDOS/UN*X */
 
-#ifdef __APPLE__
-    /* Internal API. */
-    int	pcap_get_selectable_fd_list(pcap_t *, int **);
-    void	pcap_free_selectable_fd_list(int *);
-#endif /* __APPLE__ */
-
 /*
  * Remote capture definitions.
  *
@@ -1222,12 +1226,22 @@ PCAP_AVAILABLE_1_9
 PCAP_API void	pcap_remoteact_cleanup(void);
 
 #ifdef __APPLE__
-int pcap_apple_set_exthdr(pcap_t *p, int);
+PCAP_AVAILABLE_1_5
+PCAP_API int	pcap_apple_set_exthdr(pcap_t *p, int);
+
+PCAP_AVAILABLE_1_7
+PCAP_API int	pcap_get_selectable_fd_list(pcap_t *, int **);
+
+PCAP_AVAILABLE_1_7
+PCAP_API void	pcap_free_selectable_fd_list(int *);
+
 #if PRIVATE
 /*
  * To access DLT_PKPTAP, pcap_set_want_pktap() must be called before pcap_activate()
  */
-int pcap_set_want_pktap(pcap_t *, int);
+/* SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0)) */
+__attribute__((visibility("default")))
+PCAP_API int pcap_set_want_pktap(pcap_t *, int);
 #endif /* PRIVATE */
 #endif /* __APPLE__ */
 

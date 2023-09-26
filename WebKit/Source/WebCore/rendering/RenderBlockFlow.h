@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2007 David Smith (catfish.man@gmail.com)
- * Copyright (C) 2003-2013,  Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -39,6 +39,10 @@ class RenderRubyRun;
 
 namespace LayoutIntegration {
 class LineLayout;
+}
+
+namespace InlineIterator {
+class LineBoxIterator;
 }
 
 #if ENABLE(TEXT_AUTOSIZING)
@@ -223,11 +227,9 @@ public:
         LayoutUnit negativeMargin() const { return m_negativeMargin; }
         LayoutUnit margin() const { return m_positiveMargin - m_negativeMargin; }
     };
-    LayoutUnit marginOffsetForSelfCollapsingBlock();
 
-    bool shouldTrimChildMargin(MarginTrimType, const RenderBox&) const final;
     void trimFloatBlockEndMargins(LayoutUnit blockFormattingContextInFlowContentHeight);
-    bool shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType, const RenderElement&) const;
+    bool shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType, const RenderElement&) const final;
 
     void layoutBlockChild(RenderBox& child, MarginInfo&, LayoutUnit& previousFloatLogicalBottom, LayoutUnit& maxFloatLogicalBottom);
     void adjustPositionedBlock(RenderBox& child, const MarginInfo&);
@@ -399,14 +401,17 @@ public:
 
     void addFloatsToNewParent(RenderBlockFlow& toBlockFlow) const;
     
-    LayoutUnit endPaddingWidthForCaret() const;
+    inline LayoutUnit endPaddingWidthForCaret() const;
 
     LayoutUnit adjustEnclosingTopForPrecedingBlock(LayoutUnit top) const;
 
     std::optional<LayoutUnit> lowestInitialLetterLogicalBottom() const;
 
     LayoutUnit blockFormattingContextInFlowBlockLevelContentHeight() const;
+
 protected:
+    bool isChildEligibleForMarginTrim(MarginTrimType, const RenderBox&) const final;
+
     bool shouldResetLogicalHeightBeforeLayout() const override { return true; }
 
     void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
@@ -457,7 +462,7 @@ protected:
 
     virtual void computeColumnCountAndWidth();
 
-    virtual void cachePriorCharactersIfNeeded(const LazyLineBreakIterator&) {};
+    virtual void cachePriorCharactersIfNeeded(const CachedLineBreakIteratorFactory&) { }
 
 protected:
     // Called to lay out the legend for a fieldset or the ruby text of a ruby run. Also used by multi-column layout to handle
@@ -502,7 +507,7 @@ private:
     LayoutUnit addOverhangingFloats(RenderBlockFlow& child, bool makeChildPaintOtherFloats);
     bool hasOverhangingFloat(RenderBox&);
     void addIntrudingFloats(RenderBlockFlow* prev, RenderBlockFlow* container, LayoutUnit xoffset, LayoutUnit yoffset);
-    bool hasOverhangingFloats() { return parent() && containsFloats() && lowestFloatLogicalBottom() > logicalHeight(); }
+    inline bool hasOverhangingFloats() const;
     LayoutUnit getClearDelta(RenderBox& child, LayoutUnit yPos);
 
     void determineLogicalLeftPositionForChild(RenderBox& child, ApplyLayoutDeltaMode = DoNotApplyLayoutDelta);
@@ -536,8 +541,8 @@ private:
     void computeInlinePreferredLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const;
     void adjustInitialLetterPosition(RenderBox& childBox, LayoutUnit& logicalTopOffset, LayoutUnit& marginBeforeOffset);
 
-    void setLeadingTrimForSubtree(const RenderBlockFlow* inlineFormattingContextRootForLeadingTrimEnd = nullptr);
-    void adjustLeadingTrimAfterLayout();
+    void setTextBoxTrimForSubtree(const RenderBlockFlow* inlineFormattingContextRootForTextBoxTrimEnd = nullptr);
+    void adjustTextBoxTrimAfterLayout();
 
 #if ENABLE(TEXT_AUTOSIZING)
     int m_widthForTextAutosizing;
@@ -546,11 +551,17 @@ private:
     // FIXME: This is temporary until after we remove the forced "line layout codepath" invalidation.
     std::optional<LayoutUnit> m_previousModernLineLayoutContentBoxLogicalHeight;
 
-public:
-    // FIXME-BLOCKFLOW: These can be made protected again once all callers have been moved here.
-    void adjustLinePositionForPagination(LegacyRootInlineBox*, LayoutUnit& deltaOffset, bool& overflowsFragment, RenderFragmentedFlow*); // Computes a deltaOffset value that put a line at the top of the next page if it doesn't fit on the current page.
+    std::optional<LayoutUnit> selfCollapsingMarginBeforeWithClear(RenderObject* candidate);
 
-    // Pagination routines.
+public:
+    // Computes a deltaOffset value that put a line at the top of the next page if it doesn't fit on the current page.
+    void adjustLinePositionForPagination(LegacyRootInlineBox*, LayoutUnit& deltaOffset);
+
+    struct LinePaginationAdjustment {
+        LayoutUnit strut { 0_lu };
+        bool isFirstAfterPageBreak { false };
+    };
+    LinePaginationAdjustment computeLineAdjustmentForPagination(const InlineIterator::LineBoxIterator&, LayoutUnit deltaOffset);
     bool relayoutForPagination();
 
     bool hasRareBlockFlowData() const { return m_rareBlockFlowData.get(); }
@@ -616,13 +627,6 @@ inline const LayoutIntegration::LineLayout* RenderBlockFlow::modernLineLayout() 
 inline LayoutIntegration::LineLayout* RenderBlockFlow::modernLineLayout()
 {
     return hasModernLineLayout() ? std::get<std::unique_ptr<LayoutIntegration::LineLayout>>(m_lineLayout).get() : nullptr;
-}
-
-inline LayoutUnit RenderBlockFlow::endPaddingWidthForCaret() const
-{
-    if (element() && element()->isRootEditableElement() && hasNonVisibleOverflow() && style().isLeftToRightDirection() && !paddingEnd())
-        return caretWidth();
-    return { };
 }
 
 } // namespace WebCore

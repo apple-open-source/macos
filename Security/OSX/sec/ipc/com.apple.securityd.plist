@@ -12,7 +12,12 @@
 		<string>-policy-node,policy-set,policy,alloc,trust,bind,profile,trace,dbconn,OTR,serverxpc,sqlite3,error_thee_well, ringSigning</string>
 	</dict>
 	<key>GroupName</key>
-	<string>_securityd</string>
+	<dict>
+		<key>#IfFeatureFlagDisabled</key>
+		<string>Security/SeparateUserKeychain</string>
+		<key>#Then</key>
+		<string>_securityd</string>
+	</dict>
 	<key>Label</key>
 	<string>com.apple.securityd</string>
 	<key>MachServices</key>
@@ -31,6 +36,8 @@
 		<true/>
 		<key>com.apple.security.escrow-update</key>
 		<true/>
+		<key>com.apple.security.kcsharing</key>
+		<true/>
 	</dict>
 	<key>ProgramArguments</key>
 	<array>
@@ -39,7 +46,14 @@
 	<key>Umask</key>
 	<integer>54</integer>
 	<key>UserName</key>
-	<string>_securityd</string>
+	<dict>
+		<key>#IfFeatureFlagDisabled</key>
+		<string>Security/SeparateUserKeychain</string>
+		<key>#Then</key>
+		<string>_securityd</string>
+		<key>#Else</key>
+		<string>mobile</string>
+	</dict>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
 	<key>MinimalBootProfile</key>

@@ -280,6 +280,8 @@ typedef int8_t UBool;
  *
  * @internal ICU 68
  */
+#if APPLE_ICU_CHANGES
+// rdar://73713881 #170, for compatibility, change U_DEFINE_FALSE_AND_TRUE default to 1
 #ifdef U_DEFINE_FALSE_AND_TRUE
     // Use the predefined value.
 #elif defined(U_COMBINED_IMPLEMENTATION) || \
@@ -293,6 +295,17 @@ typedef int8_t UBool;
     // Apple changes this from 0 to 1 for compatibility, rdar://73713881
 #   define U_DEFINE_FALSE_AND_TRUE 1
 #endif
+
+#else
+
+#ifdef U_DEFINE_FALSE_AND_TRUE
+    // Use the predefined value.
+#else
+    // Default to avoiding collision with non-macro definitions of FALSE & TRUE.
+#   define U_DEFINE_FALSE_AND_TRUE 0
+#endif
+
+#endif // APPLE_ICU_CHANGES
 
 #if U_DEFINE_FALSE_AND_TRUE || defined(U_IN_DOXYGEN)
 #ifndef TRUE
@@ -400,6 +413,9 @@ typedef int8_t UBool;
  * @stable ICU 4.4
  */
 
+#if APPLE_ICU_CHANGES
+// rdar://31686383 42cdfbab25.. Merge OSS ICU 59.1 from Import_ibm branch > master; update Apple code; ...
+// (changed on import from OSICU)
 #if 0
     // #if 1 is normal. UChar defaults to char16_t in C++.
     // For configuration testing of UChar=uint16_t temporarily change this to #if 0.
@@ -408,6 +424,20 @@ typedef int8_t UBool;
 #elif !defined(UCHAR_TYPE)
 #   define UCHAR_TYPE uint16_t
 #endif
+
+#else
+
+#if 1
+    // #if 1 is normal. UChar defaults to char16_t in C++.
+    // For configuration testing of UChar=uint16_t temporarily change this to #if 0.
+    // The intltest Makefile #defines UCHAR_TYPE=char16_t,
+    // so we only #define it to uint16_t if it is undefined so far.
+#elif !defined(UCHAR_TYPE)
+#   define UCHAR_TYPE uint16_t
+#endif
+
+#endif // APPLE_ICU_CHANGES
+
 
 #if defined(U_COMBINED_IMPLEMENTATION) || defined(U_COMMON_IMPLEMENTATION) || \
         defined(U_I18N_IMPLEMENTATION) || defined(U_IO_IMPLEMENTATION)

@@ -46,6 +46,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/kdebug.h>
+#include <spawn_filtering_private.h>
 #include <_libkernel_init.h> // Must be after voucher_private.h
 #include <malloc_implementation.h>
 
@@ -70,7 +71,6 @@ extern void __libplatform_init(void *future_use, const char *envp[], const char 
 extern void __pthread_init(const struct _libpthread_functions *libpthread_funcs, const char *envp[], const char *apple[], const struct ProgramVars *vars);	// from libsystem_pthread.dylib
 extern void __pthread_late_init(const char *envp[], const char *apple[], const struct ProgramVars *vars);	// from libsystem_pthread.dylib
 extern void __malloc_init(const char *apple[]); // from libsystem_malloc.dylib
-extern void __keymgr_initializer(void);		// from libkeymgr.dylib
 extern void _dyld_initializer(void);		// from libdyld.dylib
 extern void libdispatch_init(void);		// from libdispatch.dylib
 extern void _libxpc_initializer(void);		// from libxpc.dylib
@@ -171,7 +171,7 @@ enum init_func {
 	INIT_PTHREAD = 3,
 	INIT_LIBC = 4,
 	INIT_MALLOC = 5,
-	INIT_KEYMGR = 6,
+	/* INIT_KEYMGR = 6, */
 	INIT_DYLD = 7,
 	INIT_LIBDISPATCH = 8,
 	INIT_LIBXPC = 9,
@@ -225,7 +225,7 @@ libSystem_initializer(int argc,
 		      const struct ProgramVars* vars)
 {
 	static const struct _libkernel_functions libkernel_funcs = {
-		.version = 4,
+		.version = 5,
 		// V1 functions
 #if !TARGET_OS_DRIVERKIT
 		.dlsym = dlsym,
@@ -239,6 +239,12 @@ libSystem_initializer(int argc,
 		.pthread_clear_qos_tsd = _pthread_clear_qos_tsd,
 		// V4 functions
 		.pthread_current_stack_contains_np = pthread_current_stack_contains_np,
+#if defined(_MALLOC_TYPE_AVAILABILITY)
+		// V5 functions
+		.malloc_type_malloc = malloc_type_malloc,
+		.malloc_type_free = malloc_type_free,
+		.malloc_type_realloc = malloc_type_realloc,
+#endif
 	};
 
 	static const struct _libpthread_functions libpthread_funcs = {
@@ -276,12 +282,6 @@ libSystem_initializer(int argc,
 	// Note that __malloc_init() will also initialize ASAN when it is present
 	__malloc_init(apple);
 	_libSystem_ktrace_init_func(MALLOC);
-
-#if TARGET_OS_OSX
-	/* <rdar://problem/9664631> */
-	__keymgr_initializer();
-	_libSystem_ktrace_init_func(KEYMGR);
-#endif
 
 	_dyld_initializer();
 	_libSystem_ktrace_init_func(DYLD);
@@ -323,7 +323,7 @@ libSystem_initializer(int argc,
 
 
 #if TARGET_OS_DRIVERKIT
-	const struct _malloc_msl_symbols msl_symbols_buf = {};
+	struct _malloc_msl_symbols msl_symbols_buf = {};
 	const struct _malloc_msl_symbols *msl_symbols = fill_msl_symbols(&msl_symbols_buf);
 #endif
 
@@ -353,10 +353,13 @@ libSystem_initializer(int argc,
 	}
 #endif
 
-#if TARGET_OS_OSX && !defined(__i386__)
+#if (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
 	bool enable_system_version_compat = false;
 	bool enable_ios_version_compat = false;
 	bool enable_posix_spawn_filtering = false;
+#endif // (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
+
+#if TARGET_OS_OSX && !defined(__i386__)
 	char *system_version_compat_override = getenv("SYSTEM_VERSION_COMPAT");
 	if (system_version_compat_override != NULL) {
 		long override = strtol(system_version_compat_override, NULL, 0);
@@ -374,6 +377,9 @@ libSystem_initializer(int argc,
 	} else if (!dyld_program_sdk_at_least(dyld_platform_version_macOS_10_16)) {
 		enable_system_version_compat = true;
 	}
+#endif // TARGET_OS_OSX && !defined(__i386__)
+
+#if POSIX_SPAWN_FILTERING_ENABLED
 	/* 
 	 * In launchd (pid 1), feature flags are not available here because the data
 	 * volume is not mounted yet. We'll query posix_spawn_filtering via the
@@ -382,7 +388,9 @@ libSystem_initializer(int argc,
 	if (getpid() != 1 && os_feature_enabled(Libsystem, posix_spawn_filtering)) {
 		enable_posix_spawn_filtering = true;
 	}
+#endif // POSIX_SPAWN_FILTERING_ENABLED
 
+#if (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
 	if (enable_system_version_compat || enable_ios_version_compat || enable_posix_spawn_filtering) {
 		struct _libkernel_late_init_config config = {
 			.version = 3,
@@ -392,8 +400,8 @@ libSystem_initializer(int argc,
 		};
 		__libkernel_init_late(&config);
 	}
-#else // TARGET_OS_OSX && !defined(__i386__)
-#endif // TARGET_OS_OSX && !defined(__i386__)
+#else // (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
+#endif // (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
 	
 	__end_prewarm(envp);
 
@@ -411,7 +419,7 @@ extern __attribute__((__visibility__("default")))
 void
 libSystem_init_after_boot_tasks_4launchd()
 {
-#if TARGET_OS_OSX && !defined(__i386__)
+#if POSIX_SPAWN_FILTERING_ENABLED
 	if (os_feature_enabled(Libsystem, posix_spawn_filtering)) {
 		struct _libkernel_init_after_boot_tasks_config config = {
 			.version = 1,
@@ -419,7 +427,7 @@ libSystem_init_after_boot_tasks_4launchd()
 		};
 		__libkernel_init_after_boot_tasks(&config);
 	}
-#endif
+#endif // POSIX_SPAWN_FILTERING_ENABLED
 }
 
 /*
@@ -708,9 +716,13 @@ asm (".desc __crashreporter_info__, 0x10");
 
 #else // TARGET_OS_EXCLAVEKIT
 
-extern __liblibc_plat_init(int argc, const char* argv[], const char *envp[], const char *apple[], const struct ProgramVars *vars);
-
 struct ProgramVars; // forward reference
+
+extern void __liblibc_plat_init(int argc, const char* argv[], const char *envp[], const char *apple[], const struct ProgramVars *vars);
+
+extern void _dyld_initializer(void);
+
+extern void _objc_init(void);
 
 __attribute__((constructor))
 static void
@@ -720,13 +732,15 @@ libSystem_initializer(int argc,
                       const char* apple[],
                       const struct ProgramVars* vars)
 {
-	// For now, the only dylib to initialize is liblibc_plat. We pass it
-	// all of our args, and dyld has passed us all the initial args.
-	// They aren't actually argv[] or apple[] arrays yet, e.g. they might
-	// be address of bootinfo structures, but for now that's really a
-	// matter between ExclavePlatform (the loader/launcher)
-	// and ExclavePlatform (liblibc_plat).
+	// First, initialize liblibc_plat.dylib: We pass it all the args that dyld has passed to us.
 	__liblibc_plat_init(argc, argv, envp, apple, vars);
+	
+	// Initialize libdyld.dylib.
+	_dyld_initializer();
+	
+	// Initialize libobjc.dylib. Note that this is an upward-link call.
+	// We currently don't have a good way of avoiding this in processes that don't use Objective-C.
+	_objc_init();
 }
 
 #endif // TARGET_OS_EXCLAVEKIT

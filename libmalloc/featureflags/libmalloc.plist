@@ -27,5 +27,75 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>SecureAllocator_SingleCluster</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+	<key>SecureAllocator_SystemWide</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+
+#if TARGET_OS_IOS && !defined(MALLOC_IOS_FEATUREFLAG_OVERRIDE)
+#define HAS_SECURE_ALLOCATOR_PROCESS_FEATURES 1
+#else
+#define HAS_SECURE_ALLOCATOR_PROCESS_FEATURES 0
+#endif
+
+#if HAS_SECURE_ALLOCATOR_PROCESS_FEATURES
+	<key>SecureAllocator_AllInitialProcesses</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+
+#define SECURE_ALLOCATOR_PROCESS_FEATURE(name, state) \
+	<key>SecureAllocator_process_##name</key> \
+	<dict> \
+		<key>DevelopmentPhase</key> \
+		<string>state</string> \
+	</dict>
+
+SECURE_ALLOCATOR_PROCESS_FEATURE(logd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(notifyd, FeatureComplete)
+
+SECURE_ALLOCATOR_PROCESS_FEATURE(mediaparserd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(videocodecd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(mediaplaybackd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(avconferenced, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(mediaserverd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(audiomxd, FeatureComplete)
+
+SECURE_ALLOCATOR_PROCESS_FEATURE(blastdoor_messages, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(blastdoor_ids, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(IMDPersistenceAgent, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(imagent, FeatureComplete)
+
+SECURE_ALLOCATOR_PROCESS_FEATURE(ThumbnailExtensionSecure, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(quicklook_preview, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(ThumbnailExtension, FeatureComplete)
+
+SECURE_ALLOCATOR_PROCESS_FEATURE(MTLCompilerService, FeatureComplete)
+
+SECURE_ALLOCATOR_PROCESS_FEATURE(callservicesd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(maild, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(mDNSResponder, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(ASVAssetViewer, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(identityservicesd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(wifid, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(fmfd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(searchpartyd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(vmd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(wifip2pd, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(wifianalyticsd, FeatureComplete)
+
+SECURE_ALLOCATOR_PROCESS_FEATURE(CommCenter, FeatureComplete)
+
+SECURE_ALLOCATOR_PROCESS_FEATURE(WebKit_Networking, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(WebKit_GPU, FeatureComplete)
+SECURE_ALLOCATOR_PROCESS_FEATURE(WebKit_WebContent, FeatureComplete)
+#endif
 </dict>
 </plist>

@@ -189,6 +189,30 @@
 			</dict>
 			<dict>
 				<key>Name</key>
+				<string>SecSystemTransfer</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>Component</key>
+				<string>82</string>
+				<key>CodeBegin</key>
+				<string>30</string>
+				<key>CodeEnd</key>
+				<string>31</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>SecSystemTranscrypt</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>Component</key>
+				<string>82</string>
+				<key>CodeBegin</key>
+				<string>32</string>
+				<key>CodeEnd</key>
+				<string>33</string>
+			</dict>
+			<dict>
+				<key>Name</key>
 				<string>BackupClassCount</string>
 				<key>Type</key>
 				<string>Impulse</string>

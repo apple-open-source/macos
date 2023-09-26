@@ -24,6 +24,7 @@
 #include <config.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "sudoers.h"
 
@@ -83,6 +84,9 @@ sudoers_gc_remove(enum sudoers_gc_types type, void *v)
     struct sudoers_gc_entry *gc, *prev = NULL;
     debug_decl(sudoers_gc_remove, SUDOERS_DEBUG_UTIL);
 
+    if (v == NULL)
+	debug_return_bool(false);
+
     SLIST_FOREACH(gc, &sudoers_gc_list, entries) {
 	switch (gc->type) {
 	case GC_PTR:
@@ -98,28 +102,36 @@ sudoers_gc_remove(enum sudoers_gc_types type, void *v)
 	}
 	prev = gc;
     }
-    return false;
+    /* If this happens, there is a bug in the g/c code. */
+    sudo_warnx("%s: unable to find %p, type %d", __func__, v, type);
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    abort();
+#else
+    debug_return_bool(false);
+#endif
 found:
     if (prev == NULL)
 	SLIST_REMOVE_HEAD(&sudoers_gc_list, entries);
     else
 	SLIST_REMOVE_AFTER(prev, entries);
-    return true;
+    free(gc);
+
+    debug_return_bool(true);
 #else
-    return false;
+    return true;
 #endif /* NO_LEAKS */
 }
 
-#ifdef NO_LEAKS
-static void
+void
 sudoers_gc_run(void)
 {
+#ifdef NO_LEAKS
     struct sudoers_gc_entry *gc;
     char **cur;
     debug_decl(sudoers_gc_run, SUDOERS_DEBUG_UTIL);
 
     /* Collect garbage. */
-    while ((gc = SLIST_FIRST(&sudoers_gc_list))) {
+    while ((gc = SLIST_FIRST(&sudoers_gc_list)) != NULL) {
 	SLIST_REMOVE_HEAD(&sudoers_gc_list, entries);
 	switch (gc->type) {
 	case GC_PTR:
@@ -138,9 +150,10 @@ sudoers_gc_run(void)
     }
 
     debug_return;
-}
 #endif /* NO_LEAKS */
+}
 
+#ifndef notyet
 void
 sudoers_gc_init(void)
 {
@@ -148,3 +161,4 @@ sudoers_gc_init(void)
     atexit(sudoers_gc_run);
 #endif
 }
+#endif

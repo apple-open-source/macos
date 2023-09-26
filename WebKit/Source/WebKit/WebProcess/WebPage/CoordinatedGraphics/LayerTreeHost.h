@@ -65,7 +65,7 @@ class LayerTreeHost
 {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit LayerTreeHost(WebPage&);
+    LayerTreeHost(WebPage&, WebCore::PlatformDisplayID);
     ~LayerTreeHost();
 
     const LayerTreeContext& layerTreeContext() const { return m_layerTreeContext; }
@@ -120,6 +120,8 @@ private:
 
     // ThreadedCompositor::Client
     uint64_t nativeSurfaceHandleForCompositing() override;
+    void didCreateGLContext() override;
+    void willDestroyGLContext() override;
     void didDestroyGLContext() override;
     void resize(const WebCore::IntSize&) override;
     void willRenderFrame() override;
@@ -176,7 +178,7 @@ private:
 };
 
 #if !USE(COORDINATED_GRAPHICS)
-inline LayerTreeHost::LayerTreeHost(WebPage& webPage) : m_webPage(webPage) { }
+inline LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displayID) : m_webPage(webPage), m_displayID(displayID) { }
 inline LayerTreeHost::~LayerTreeHost() { }
 inline void LayerTreeHost::setLayerFlushSchedulingEnabled(bool) { }
 inline void LayerTreeHost::setShouldNotifyAfterNextScheduledLayerFlush(bool) { }

@@ -34,13 +34,17 @@
 #include <os/availability.h>
 
 
-/*********	MallocStackLogging permanant SPIs  ************/
+/*********	MallocStackLogging permanent SPIs  ************/
 
 #define stack_logging_type_free		0
 #define stack_logging_type_generic	1	/* anything that is not allocation/deallocation */
 #define stack_logging_type_alloc	2	/* malloc, realloc, etc... */
 #define stack_logging_type_dealloc	4	/* free, realloc, etc... */
 #define stack_logging_type_vm_allocate  16      /* vm_allocate or mmap */
+    /* NOTE: the stack_logging_type_vm_allocate type also contains
+     * the VM region's user_tag in the top byte, so it is not valid to check
+     * type == stack_logging_type_vm_allocate. The user_tag can be accessed
+     * using VM_GET_FLAGS_ALIAS */
 #define stack_logging_type_vm_deallocate  32	/* vm_deallocate or munmap */
 #define stack_logging_type_mapped_file_or_shared_mem	128
 

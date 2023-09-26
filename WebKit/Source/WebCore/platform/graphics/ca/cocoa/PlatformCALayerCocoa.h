@@ -99,6 +99,10 @@ public:
     void setBackingStoreAttached(bool) override;
     bool backingStoreAttached() const override;
 
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    void setCoverageRect(const FloatRect&) override;
+#endif
+
     bool geometryFlipped() const override;
     WEBCORE_EXPORT void setGeometryFlipped(bool) override;
 
@@ -118,10 +122,7 @@ public:
     CFTypeRef contents() const override;
     void setContents(CFTypeRef) override;
     void clearContents() override;
-#if HAVE(IOSURFACE)
-    void setContents(const WebCore::IOSurface&) override;
-    void setContents(const WTF::MachSendRight&) override;
-#endif
+    void setDelegatedContents(const PlatformCALayerInProcessDelegatedContents&) override;
 
     void setContentsRect(const FloatRect&) override;
 
@@ -158,6 +159,9 @@ public:
     void setCornerRadius(float) override;
 
     void setAntialiasesEdges(bool) override;
+
+    MediaPlayerVideoGravity videoGravity() const override;
+    void setVideoGravity(MediaPlayerVideoGravity) override;
 
     FloatRoundedRect shapeRoundedRect() const override;
     void setShapeRoundedRect(const FloatRoundedRect&) override;
@@ -208,7 +212,7 @@ private:
 
     void commonInit();
 
-    bool isPlatformCALayerCocoa() const override { return true; }
+    Type type() const final { return Type::Cocoa; }
 
     bool requiresCustomAppearanceUpdateOnBoundsChange() const;
 
@@ -230,4 +234,4 @@ private:
 
 } // namespace WebCore
 
-SPECIALIZE_TYPE_TRAITS_PLATFORM_CALAYER(WebCore::PlatformCALayerCocoa, isPlatformCALayerCocoa())
+SPECIALIZE_TYPE_TRAITS_PLATFORM_CALAYER(WebCore::PlatformCALayerCocoa, type() == WebCore::PlatformCALayer::Type::Cocoa)

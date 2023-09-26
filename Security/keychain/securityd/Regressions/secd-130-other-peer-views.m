@@ -172,6 +172,7 @@ int secd_130_other_peer_views(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(72);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     secd_test_clear_testviews();
     tests();

@@ -30,6 +30,7 @@
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPreferencesPathKey.h>
+#include <SystemConfiguration/SCSchemaDefinitionsPrivate.h>
 
 #include <stdarg.h>
 
@@ -247,4 +248,92 @@ SCPreferencesPathKeyCreateSetNetworkServiceEntity(CFAllocatorRef	allocator,
 	}
 
 	return path;
+}
+
+CFStringRef
+SCPreferencesPathKeyCreateCategories(CFAllocatorRef allocator)
+{
+	/*
+	 * path = "/Categories"
+	 */
+	return (CFStringCreateWithFormat(allocator,
+					 NULL,
+					 CFSTR("/%@"),
+					 kSCPrefCategories));
+}
+
+CFStringRef
+SCPreferencesPathKeyCreateCategory(CFAllocatorRef allocator,
+				   CFStringRef category)
+{
+	/*
+	 * path = "/Categories/<category>"
+	 */
+	return (CFStringCreateWithFormat(allocator,
+					 NULL,
+					 CFSTR("/%@/%@"),
+					 kSCPrefCategories,
+					 category));
+}
+
+#define kService	CFSTR("Service")
+
+CFStringRef
+SCPreferencesPathKeyCreateCategoryService(CFAllocatorRef allocator,
+					  CFStringRef category,
+					  CFStringRef value,
+					  CFStringRef serviceID)
+{
+	CFStringRef	path;
+
+	if (serviceID != NULL) {
+		/*
+		 * path = "/Categories/<category>/<value>/Service/<serviceID>"
+		 */
+		path = CFStringCreateWithFormat(allocator,
+						NULL,
+						CFSTR("/%@/%@/%@/%@/%@"),
+						kSCPrefCategories,
+						category,
+						value,
+						kService,
+						serviceID);
+	}
+	else {
+		/*
+		 * path = "/Categories/<category>/<value>/Service"
+		 */
+		path = CFStringCreateWithFormat(allocator,
+						NULL,
+						CFSTR("/%@/%@/%@/%@"),
+						kSCPrefCategories,
+						category,
+						value,
+						kService);
+	}
+	return (path);
+}
+
+CFStringRef
+SCPreferencesPathKeyCreateCategoryServiceEntity(CFAllocatorRef allocator,
+						CFStringRef category,
+						CFStringRef value,
+						CFStringRef serviceID,
+						CFStringRef entity)
+{
+	CFStringRef	path;
+
+	/*
+	 * path = "/Categories/<category>/<value>/Service/<serviceID>/<entity>"
+	 */
+	path = CFStringCreateWithFormat(allocator,
+					NULL,
+					CFSTR("/%@/%@/%@/%@/%@/%@"),
+					kSCPrefCategories,
+					category,
+					value,
+					kService,
+					serviceID,
+					entity);
+	return (path);
 }

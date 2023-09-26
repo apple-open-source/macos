@@ -36,6 +36,10 @@
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
 #include <security/openpam.h>
+#include "Logging.h"
+
+PAM_DEFINE_LOG(sacl)
+#define PAM_LOG PAM_LOG_sacl()
 
 #define MODULE_NAME "pam_sacl"
 
@@ -44,7 +48,7 @@
  */
 #define DEBUG_MESSAGE(format, ...) \
     if (NULL != debug) { \
-	openpam_log(PAM_LOG_DEBUG, format, __VA_ARGS__); \
+	os_log_debug(PAM_LOG, format, __VA_ARGS__); \
     }
 
 

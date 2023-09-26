@@ -84,11 +84,6 @@ _sys_icache_invalidate:
 
 
 _cpus_that_need_dsb_for_ic_ivau:
-
-	.word 0x1b588bb3
-	.word 0xda33d83d
-	.word 0x8765edea
-	.word 0xfa33415e
 	.word 0
 
 

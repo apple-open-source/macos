@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -41,7 +39,7 @@ static char sccsid[] = "@(#)util.c	8.3 (Berkeley) 4/28/95";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/finger/util.c,v 1.22 2005/09/19 10:11:47 dds Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -60,6 +58,9 @@ __FBSDID("$FreeBSD: src/usr.bin/finger/util.c,v 1.22 2005/09/19 10:11:47 dds Exp
 #include <utmpx.h>
 #include "finger.h"
 #include "pathnames.h"
+#ifdef __APPLE__
+#include <utmp.h>
+#endif	/* __APPLE__ */
 
 static void	 find_idle_and_ttywrite(WHERE *);
 static void	 userinfo(PERSON *, struct passwd *);
@@ -109,19 +110,30 @@ void
 enter_lastlog(PERSON *pn)
 {
 	WHERE *w;
-	struct lastlogx l, *ll;
+	struct utmpx *ut = NULL;
 	char doit = 0;
 
-	if ((ll = getlastlogxbyname(pn->name, &l)) == NULL) {
-		bzero(&l, sizeof(l));
-		ll = &l;
-	}
+#ifdef __APPLE__
+	/* zero means reverse chronological order */
+	setutxent_wtmp(0);
+	ut = getutxent_wtmp();
+#else
+	if (setutxdb(UTXDB_LASTLOGIN, NULL) == 0)
+		ut = getutxuser(pn->name);
+#endif /* ! __APPLE__ */
 	if ((w = pn->whead) == NULL)
 		doit = 1;
-	else if (ll->ll_tv.tv_sec != 0) {
+#ifdef __APPLE__
+	else if (ut != NULL &&
+		 ut->ut_type == USER_PROCESS &&
+		 strncmp(ut->ut_user, pn->name, MAXLOGNAME) == 0) {
+#else
+	else if (ut != NULL && ut->ut_type == USER_PROCESS) {
+#endif	/* __APPLE__ */
 		/* if last login is earlier than some current login */
 		for (; !doit && w != NULL; w = w->next)
-			if (w->info == LOGGEDIN && w->loginat < ll->ll_tv.tv_sec)
+			if (w->info == LOGGEDIN &&
+			    w->loginat < ut->ut_tv.tv_sec)
 				doit = 1;
 		/*
 		 * and if it's not any of the current logins
@@ -130,18 +142,27 @@ enter_lastlog(PERSON *pn)
 		 */
 		for (w = pn->whead; doit && w != NULL; w = w->next)
 			if (w->info == LOGGEDIN &&
-			    strncmp(w->tty, ll->ll_line, _UTX_LINESIZE) == 0)
+			    strcmp(w->tty, ut->ut_line) == 0)
 				doit = 0;
 	}
-	if (doit) {
+	if (ut != NULL && doit) {
 		w = walloc(pn);
 		w->info = LASTLOG;
-		bcopy(ll->ll_line, w->tty, _UTX_LINESIZE);
-		w->tty[_UTX_LINESIZE] = 0;
-		bcopy(ll->ll_host, w->host, _UTX_HOSTSIZE);
-		w->host[_UTX_HOSTSIZE] = 0;
-		w->loginat = ll->ll_tv.tv_sec;
+#ifdef __APPLE__
+		strlcpy(w->tty, ut->ut_line, UT_LINESIZE);
+		strlcpy(w->host, ut->ut_host, UT_HOSTSIZE);
+
+#else
+		strcpy(w->tty, ut->ut_line);
+		strcpy(w->host, ut->ut_host);
+#endif	/* __APPLE__ */
+		w->loginat = ut->ut_tv.tv_sec;
 	}
+#ifdef __APPLE__
+	endutxent_wtmp();
+#else
+	endutxent();
+#endif /* __APLE__ */
 }
 
 void
@@ -151,11 +172,14 @@ enter_where(struct utmpx *ut, PERSON *pn)
 
 	w = walloc(pn);
 	w->info = LOGGEDIN;
-	bcopy(ut->ut_line, w->tty, _UTX_LINESIZE);
-	w->tty[_UTX_LINESIZE] = 0;
-	bcopy(ut->ut_host, w->host, _UTX_HOSTSIZE);
-	w->host[_UTX_HOSTSIZE] = 0;
-	w->loginat = (time_t)ut->ut_tv.tv_sec;
+#ifdef __APPLE__
+	strlcpy(w->tty, ut->ut_line, UT_LINESIZE);
+	strlcpy(w->host, ut->ut_host, UT_HOSTSIZE);
+#else
+	strcpy(w->tty, ut->ut_line);
+	strcpy(w->host, ut->ut_host);
+#endif	/* __APPLE__ */
+	w->loginat = ut->ut_tv.tv_sec;
 	find_idle_and_ttywrite(w);
 }
 
@@ -195,14 +219,12 @@ enter_person(struct passwd *pw)
 }
 
 PERSON *
-find_person(const char *name)
+find_person(char *name)
 {
 	struct passwd *pw;
 
-	int cnt;
 	DBT data, key;
 	PERSON *p;
-	char buf[_UTX_USERSIZE + 1];
 
 	if (!db)
 		return(NULL);
@@ -210,12 +232,8 @@ find_person(const char *name)
 	if ((pw = getpwnam(name)) && hide(pw))
 		return(NULL);
 
-	/* Name may be only _UTX_USERSIZE long and not NUL terminated. */
-	for (cnt = 0; cnt < _UTX_USERSIZE && *name; ++name, ++cnt)
-		buf[cnt] = *name;
-	buf[cnt] = '\0';
-	key.data = buf;
-	key.size = cnt;
+	key.data = name;
+	key.size = strlen(name);
 
 	if ((*db->get)(db, &key, &data, 0))
 		return (NULL);
@@ -254,7 +272,11 @@ char *
 prphone(char *num)
 {
 	char *p;
+#ifdef __APPLE__
+	uint64_t len;
+#else
 	int len;
+#endif	/* __APPLE__ */
 	static char pbuf[20];
 
 	/* don't touch anything if the user has their own formatting */

@@ -28,6 +28,10 @@
 #include <WebCore/IntSize.h>
 #include <wtf/Noncopyable.h>
 
+namespace WTF {
+class RunLoop;
+}
+
 namespace WebKit {
 
 class WebPage;
@@ -50,9 +54,14 @@ public:
     virtual bool shouldPaintMirrored() const { return false; }
 
     virtual void initialize() { }
+    virtual void didCreateGLContext() { }
+    virtual void willDestroyGLContext() { }
     virtual void finalize() { }
     virtual void willRenderFrame() { }
     virtual void didRenderFrame() { }
+
+    virtual void didCreateCompositingRunLoop(WTF::RunLoop&) { }
+    virtual void willDestroyCompositingRunLoop() { }
 
 protected:
     AcceleratedSurface(WebPage&, Client&);

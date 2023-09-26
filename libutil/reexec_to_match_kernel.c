@@ -185,19 +185,23 @@ static int reexec(cpu_type_t cputype, const char *guardenv)
 	execsize = (uint32_t)sizeof(execpath);
 	ret = _NSGetExecutablePath(execpath, &execsize);
 	if (ret != 0) {
+        free(newenvp);
 		return -1;
 	}
 
 	ret = posix_spawnattr_init(&attr);
 	if (ret != 0) {
+        free(newenvp);
 		return -1;
 	}
 	ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC);
 	if (ret != 0) {
+        free(newenvp);
 		return -1;
 	}
 	ret = posix_spawnattr_setbinpref_np(&attr, 1, &cputype, &copied);
 	if (ret != 0 || copied != 1) {
+        free(newenvp);
 		return -1;
 	}
 
@@ -212,6 +216,7 @@ static int reexec(cpu_type_t cputype, const char *guardenv)
 #endif
 
 	ret = posix_spawn(NULL, execpath, NULL, &attr, argv, newenvp);
+    free(newenvp);
 	if (ret != 0) {
 		errno = ret;
 		return -1;

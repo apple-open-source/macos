@@ -48,24 +48,23 @@ class TextStream;
 
 namespace WebKit {
 
-enum TypingAttributes {
-    AttributeNone = 0,
-    AttributeBold = 1,
-    AttributeItalics = 2,
-    AttributeUnderline = 4,
-    AttributeStrikeThrough = 8
+enum class TypingAttribute : uint8_t {
+    Bold          = 1 << 0,
+    Italics       = 1 << 1,
+    Underline     = 1 << 2,
+    StrikeThrough = 1 << 3,
 };
 
-enum TextAlignment {
-    NoAlignment = 0,
-    LeftAlignment = 1,
-    RightAlignment = 2,
-    CenterAlignment = 3,
-    JustifiedAlignment = 4,
+enum class TextAlignment : uint8_t {
+    Natural,
+    Left,
+    Right,
+    Center,
+    Justified,
 };
 
-enum ListType {
-    NoList = 0,
+enum class ListType : uint8_t {
+    None,
     OrderedList,
     UnorderedList
 };
@@ -88,13 +87,14 @@ struct EditorState {
 #endif
 
     struct PostLayoutData {
-        uint32_t typingAttributes { AttributeNone };
+        OptionSet<TypingAttribute> typingAttributes;
 #if PLATFORM(COCOA)
         uint64_t selectedTextLength { 0 };
-        uint32_t textAlignment { NoAlignment };
+        TextAlignment textAlignment { TextAlignment::Natural };
         WebCore::Color textColor { WebCore::Color::black }; // FIXME: Maybe this should be on VisualData?
-        uint32_t enclosingListType { NoList };
+        ListType enclosingListType { ListType::None };
         WebCore::WritingDirection baseWritingDirection { WebCore::WritingDirection::Natural };
+        bool editableRootIsTransparentOrFullyClipped { false };
 #endif
 #if PLATFORM(IOS_FAMILY)
         String markedText;
@@ -110,7 +110,6 @@ struct EditorState {
         bool isStableStateUpdate { false };
         bool insideFixedPosition { false };
         bool hasPlainText { false };
-        bool editableRootIsTransparentOrFullyClipped { false };
         WebCore::Color caretColor; // FIXME: Maybe this should be on VisualData?
         bool atStartOfSentence { false };
         bool selectionStartIsAtParagraphBoundary { false };
@@ -122,7 +121,6 @@ struct EditorState {
         uint64_t candidateRequestStartPosition { 0 };
         String paragraphContextForCandidateRequest;
         String stringForCandidateRequest;
-        Vector<WebCore::FloatRect> evasionRectsAroundSelection;
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
         String surroundingContext;
@@ -163,6 +161,8 @@ struct EditorState {
 
     std::optional<PostLayoutData> postLayoutData;
     std::optional<VisualData> visualData;
+
+    void clipOwnedRectExtentsToNumericLimits();
 
 private:
     friend TextStream& operator<<(TextStream&, const EditorState&);

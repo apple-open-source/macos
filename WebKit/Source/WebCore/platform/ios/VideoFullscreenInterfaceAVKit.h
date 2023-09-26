@@ -26,13 +26,15 @@
 
 #pragma once
 
-#if PLATFORM(IOS_FAMILY) && ENABLE(VIDEO_PRESENTATION_MODE)
+#if PLATFORM(IOS_FAMILY) && HAVE(AVKIT)
 
 #include "EventListener.h"
 #include "HTMLMediaElementEnums.h"
 #include "MediaPlayerIdentifier.h"
+#include "PlatformImage.h"
 #include "PlatformLayer.h"
 #include "PlaybackSessionInterfaceAVKit.h"
+#include "VideoFullscreenCaptions.h"
 #include "VideoFullscreenModel.h"
 #include <objc/objc.h>
 #include <wtf/Forward.h>
@@ -57,25 +59,22 @@ OBJC_CLASS NSError;
 namespace WebCore {
 class FloatRect;
 class FloatSize;
-class VideoFullscreenModel;
-class VideoFullscreenChangeObserver;
 
 class VideoFullscreenInterfaceAVKit final
     : public VideoFullscreenModelClient
     , public PlaybackSessionModelClient
+    , public VideoFullscreenCaptions
     , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<VideoFullscreenInterfaceAVKit, WTF::DestructionThread::MainRunLoop> {
 public:
     WEBCORE_EXPORT static Ref<VideoFullscreenInterfaceAVKit> create(PlaybackSessionInterfaceAVKit&);
     virtual ~VideoFullscreenInterfaceAVKit();
     WEBCORE_EXPORT void setVideoFullscreenModel(VideoFullscreenModel*);
-    WEBCORE_EXPORT void setVideoFullscreenChangeObserver(VideoFullscreenChangeObserver*);
     PlaybackSessionInterfaceAVKit& playbackSessionInterface() const { return m_playbackSessionInterface.get(); }
     PlaybackSessionModel* playbackSessionModel() const { return m_playbackSessionInterface->playbackSessionModel(); }
 
     // VideoFullscreenModelClient
     WEBCORE_EXPORT void hasVideoChanged(bool) final;
     WEBCORE_EXPORT void videoDimensionsChanged(const FloatSize&) final;
-    WEBCORE_EXPORT void modelDestroyed() final;
     WEBCORE_EXPORT void setPlayerIdentifier(std::optional<MediaPlayerIdentifier>) final;
 
     // PlaybackSessionModelClient
@@ -84,6 +83,7 @@ public:
     WEBCORE_EXPORT void setupFullscreen(UIView& videoView, const FloatRect& initialRect, const FloatSize& videoDimensions, UIView* parentView, HTMLMediaElementEnums::VideoFullscreenMode, bool allowsPictureInPicturePlayback, bool standby, bool blocksReturnToFullscreenFromPictureInPicture);
     WEBCORE_EXPORT void enterFullscreen();
     WEBCORE_EXPORT bool exitFullscreen(const FloatRect& finalRect);
+    WEBCORE_EXPORT void exitFullscreenWithoutAnimationToMode(HTMLMediaElementEnums::VideoFullscreenMode);
     WEBCORE_EXPORT void cleanupFullscreen();
     WEBCORE_EXPORT void invalidate();
     WEBCORE_EXPORT void requestHideAndExitFullscreen();
@@ -129,7 +129,7 @@ public:
         bool hasVideo() const { return m_mode & (HTMLMediaElementEnums::VideoFullscreenModeStandard | HTMLMediaElementEnums::VideoFullscreenModePictureInPicture); }
     };
 
-    VideoFullscreenModel* videoFullscreenModel() const { return m_videoFullscreenModel; }
+    RefPtr<VideoFullscreenModel> videoFullscreenModel() const { return m_videoFullscreenModel.get(); }
     bool shouldExitFullscreenWithReason(ExitFullScreenReason);
     HTMLMediaElementEnums::VideoFullscreenMode mode() const { return m_currentMode.mode(); }
     bool allowsPictureInPicturePlayback() const { return m_allowsPictureInPicturePlayback; }
@@ -162,6 +162,13 @@ public:
     WEBCORE_EXPORT AVPlayerViewController *avPlayerViewController() const;
     WebAVPlayerController *playerController() const;
 
+#if !RELEASE_LOG_DISABLED
+    const void* logIdentifier() const;
+    const Logger* loggerPtr() const;
+    const char* logClassName() const { return "VideoFullscreenInterfaceAVKit"; };
+    WTFLogChannel& logChannel() const;
+#endif
+
 private:
     WEBCORE_EXPORT VideoFullscreenInterfaceAVKit(PlaybackSessionInterfaceAVKit&);
 
@@ -188,8 +195,7 @@ private:
     std::optional<MediaPlayerIdentifier> m_playerIdentifier;
     RetainPtr<WebAVPlayerViewControllerDelegate> m_playerViewControllerDelegate;
     RetainPtr<WebAVPlayerViewController> m_playerViewController;
-    VideoFullscreenModel* m_videoFullscreenModel { nullptr };
-    VideoFullscreenChangeObserver* m_fullscreenChangeObserver { nullptr };
+    ThreadSafeWeakPtr<VideoFullscreenModel> m_videoFullscreenModel;
 
     // These are only used when fullscreen is presented in a separate window.
     RetainPtr<UIWindow> m_window;
@@ -240,5 +246,4 @@ private:
 
 }
 
-#endif // PLATFORM(IOS_FAMILY) && ENABLE(VIDEO_PRESENTATION_MODE)
-
+#endif // PLATFORM(IOS_FAMILY) && HAVE(AVKIT)

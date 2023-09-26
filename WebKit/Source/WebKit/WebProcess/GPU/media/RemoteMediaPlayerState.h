@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include <WebCore/FloatSize.h>
 #include <WebCore/MediaPlayerEnums.h>
@@ -44,7 +44,7 @@ struct RemoteMediaPlayerState {
     MediaTime startTime;
     String languageOfPrimaryAudioTrack;
     String wirelessPlaybackTargetName;
-    WebCore::PlatformTimeRanges bufferedRanges;
+    std::optional<WebCore::PlatformTimeRanges> bufferedRanges;
     WebCore::MediaPlayerEnums::NetworkState networkState { WebCore::MediaPlayerEnums::NetworkState::Empty };
     WebCore::MediaPlayerEnums::ReadyState readyState { WebCore::MediaPlayerEnums::ReadyState::HaveNothing };
     WebCore::MediaPlayerEnums::MovieLoadType movieLoadType { WebCore::MediaPlayerEnums::MovieLoadType::Unknown };
@@ -69,4 +69,4 @@ struct RemoteMediaPlayerState {
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

@@ -26,14 +26,70 @@
 #include "config.h"
 #include "WebRemoteFrameClient.h"
 
+#include "MessageSenderInlines.h"
+#include "WebProcess.h"
+#include "WebProcessProxyMessages.h"
+#include <WebCore/FrameLoadRequest.h>
+#include <WebCore/FrameTree.h>
+#include <WebCore/PolicyChecker.h>
+#include <WebCore/RemoteFrame.h>
+
 namespace WebKit {
 
 WebRemoteFrameClient::WebRemoteFrameClient(Ref<WebFrame>&& frame, ScopeExit<Function<void()>>&& frameInvalidator)
-    : m_frame(WTFMove(frame))
+    : WebFrameLoaderClient(WTFMove(frame))
     , m_frameInvalidator(WTFMove(frameInvalidator))
 {
 }
 
 WebRemoteFrameClient::~WebRemoteFrameClient() = default;
+
+void WebRemoteFrameClient::frameDetached()
+{
+    RefPtr coreFrame = m_frame->coreRemoteFrame();
+    if (!coreFrame) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    if (RefPtr parent = coreFrame->tree().parent()) {
+        coreFrame->tree().detachFromParent();
+        parent->tree().removeChild(*coreFrame);
+    }
+    m_frame->invalidate();
+}
+
+void WebRemoteFrameClient::sizeDidChange(WebCore::IntSize size)
+{
+    m_frame->updateRemoteFrameSize(size);
+}
+
+void WebRemoteFrameClient::postMessageToRemote(WebCore::ProcessIdentifier processIdentifier, WebCore::FrameIdentifier identifier, std::optional<WebCore::SecurityOriginData> target, const WebCore::MessageWithMessagePorts& message)
+{
+    WebProcess::singleton().send(Messages::WebProcessProxy::PostMessageToRemote(processIdentifier, identifier, target, message), 0);
+}
+
+void WebRemoteFrameClient::changeLocation(WebCore::FrameLoadRequest&& request)
+{
+    // FIXME: FrameLoadRequest and NavigationAction can probably be refactored to share more.
+    WebCore::NavigationAction action(request.requester(), request.resourceRequest(), request.initiatedByMainFrame());
+    // FIXME: action.request and request are probably duplicate information.
+    // FIXME: PolicyCheckIdentifier should probably be pushed to another layer.
+    // FIXME: Get more parameters correct and add tests for each one.
+    dispatchDecidePolicyForNavigationAction(action, action.resourceRequest(), WebCore::ResourceResponse(), nullptr, WebCore::PolicyDecisionMode::Asynchronous, WebCore::PolicyCheckIdentifier::generate(), [protectedFrame = Ref { m_frame }, request = WTFMove(request)] (WebCore::PolicyAction policyAction, WebCore::PolicyCheckIdentifier responseIdentifier) mutable {
+        // FIXME: Check responseIdentifier.
+        // WebPage::loadRequest will make this load happen if needed.
+    });
+}
+
+String WebRemoteFrameClient::renderTreeAsText(WebCore::ProcessIdentifier processIdentifier, WebCore::FrameIdentifier frameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior)
+{
+    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebProcessProxy::RenderTreeAsText(processIdentifier, frameIdentifier, baseIndent, behavior), 0);
+    if (!sendResult.succeeded())
+        return { };
+
+    auto [result] = sendResult.takeReply();
+    return result;
+}
 
 }

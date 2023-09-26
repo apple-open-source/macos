@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2002-2006,2007 Free Software Foundation, Inc.              *
+ * Copyright (c) 2002-2012,2014 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: ins_wide.c,v 1.9 2007/07/21 17:41:55 tom Exp $
+ * $Id: ins_wide.c,v 1.21 2014/08/02 17:24:55 tom Exp $
  *
  * Demonstrate the wins_wstr() and wins_wch functions.
  * Thomas Dickey - 2002/11/23
@@ -45,13 +45,16 @@
 
 #if USE_WIDEC_SUPPORT
 
+#define WIDE_LINEDATA
+#include <linedata.h>
+
 /* definitions to make it simpler to compare with inserts.c */
 #define InsNStr    ins_nwstr
 #define InsStr     ins_wstr
-#define MvInsNStr  mvins_nwstr
-#define MvInsStr   mvins_wstr
-#define MvWInsNStr mvwins_nwstr
-#define MvWInsStr  mvwins_wstr
+#define MvInsNStr  (void) mvins_nwstr
+#define MvInsStr   (void) mvins_wstr
+#define MvWInsNStr (void) mvwins_nwstr
+#define MvWInsStr  (void) mvwins_wstr
 #define WInsNStr   wins_nwstr
 #define WInsStr    wins_wstr
 
@@ -71,7 +74,7 @@ static int n_opt = -1;
 static void
 legend(WINDOW *win, int level, Options state, wchar_t *buffer, int length)
 {
-    NCURSES_CONST char *showstate;
+    const char *showstate;
 
     switch (state) {
     default:
@@ -93,7 +96,7 @@ legend(WINDOW *win, int level, Options state, wchar_t *buffer, int length)
     wprintw(win,
 	    "The Strings/Chars displays should match.  Enter any characters, except:\n");
     wprintw(win,
-	    "down-arrow or ^N to repeat on next line, 'w' for inner window, 'q' to exit.\n");
+	    "down-arrow or ^N to repeat on next line, ^W for inner window, ESC to exit.\n");
     wclrtoeol(win);
     wprintw(win, "Level %d,%s inserted %d characters <", level,
 	    showstate, length);
@@ -129,7 +132,7 @@ ColOf(wchar_t *buffer, int length, int margin)
 	    result += 2;
 	    break;
 	default:
-	    result += wcwidth(ch);
+	    result += wcwidth((wchar_t) ch);
 	    if (ch < 32)
 		++result;
 	    break;
@@ -143,7 +146,7 @@ ConvertCh(chtype source, cchar_t *target)
 {
     wchar_t tmp_wchar[2];
 
-    tmp_wchar[0] = source;
+    tmp_wchar[0] = (wchar_t) source;
     tmp_wchar[1] = 0;
     if (setcchar(target, tmp_wchar, A_NORMAL, 0, (void *) 0) == ERR) {
 	beep();
@@ -214,8 +217,7 @@ test_inserts(int level)
 {
     static bool first = TRUE;
 
-    wint_t ch;
-    int code;
+    int ch;
     int limit;
     int row = 1;
     int col;
@@ -226,8 +228,9 @@ test_inserts(int level)
     WINDOW *work = 0;
     WINDOW *show = 0;
     int margin = (2 * MY_TABSIZE) - 1;
-    Options option = ((m_opt ? oMove : oDefault)
-		      | ((w_opt || (level > 0)) ? oWindow : oDefault));
+    Options option = (Options) ((int) (m_opt ? oMove : oDefault)
+				| (int) ((w_opt || (level > 0))
+					 ? oWindow : oDefault));
 
     if (first) {
 	static char cmd[80];
@@ -239,6 +242,15 @@ test_inserts(int level)
 	(void) cbreak();	/* take input chars one at a time, no wait for \n */
 	(void) noecho();	/* don't echo input */
 	keypad(stdscr, TRUE);
+
+	/*
+	 * Show the characters inserted in color, to distinguish from those
+	 * that are shifted.
+	 */
+	if (has_colors()) {
+	    start_color();
+	    init_pair(1, COLOR_WHITE, COLOR_BLUE);
+	}
     }
 
     limit = LINES - 5;
@@ -256,14 +268,14 @@ test_inserts(int level)
     keypad(work, TRUE);
 
     for (col = margin + 1; col < COLS; col += MY_TABSIZE)
-	mvwvline(work, row, col, '.', limit - 2);
+	MvWVLine(work, row, col, '.', limit - 2);
 
-    mvwvline(work, row, margin, ACS_VLINE, limit - 2);
-    mvwvline(work, row, margin + 1, ACS_VLINE, limit - 2);
+    MvWVLine(work, row, margin, ACS_VLINE, limit - 2);
+    MvWVLine(work, row, margin + 1, ACS_VLINE, limit - 2);
     limit /= 2;
 
-    mvwaddstr(work, 1, 2, "String");
-    mvwaddstr(work, limit + 1, 2, "Chars");
+    MvWAddStr(work, 1, 2, "String");
+    MvWAddStr(work, limit + 1, 2, "Chars");
     wnoutrefresh(work);
 
     buffer[length = 0] = '\0';
@@ -272,53 +284,29 @@ test_inserts(int level)
 
     doupdate();
 
-    /*
-     * Show the characters inserted in color, to distinguish from those that
-     * are shifted.
-     */
     if (has_colors()) {
-	start_color();
-	init_pair(1, COLOR_WHITE, COLOR_BLUE);
-	wbkgdset(work, COLOR_PAIR(1) | ' ');
+	wbkgdset(work, (chtype) (COLOR_PAIR(1) | ' '));
     }
 
-    while ((code = wget_wch(work, &ch)) != ERR) {
-
-	if (code == KEY_CODE_YES) {
-	    switch (ch) {
-	    case KEY_DOWN:
-		ch = CTRL('N');
-		break;
-	    case KEY_BACKSPACE:
-		ch = '\b';
-		break;
-	    default:
-		beep();
-		continue;
-	    }
-	} else if (code == ERR) {
-	    beep();
-	    break;
-	}
-	if (ch == 'q')
-	    break;
-
+    while ((ch = read_linedata(work)) != ERR && !isQUIT(ch)) {
 	wmove(work, row, margin + 1);
 	switch (ch) {
-	case 'w':
+	case key_RECUR:
 	    test_inserts(level + 1);
 
-	    touchwin(look);
+	    if (look)
+		touchwin(look);
 	    touchwin(work);
 	    touchwin(show);
 
-	    wnoutrefresh(look);
+	    if (look)
+		wnoutrefresh(look);
 	    wnoutrefresh(work);
 	    wnoutrefresh(show);
 
 	    doupdate();
 	    break;
-	case CTRL('N'):
+	case key_NEWLINE:
 	    if (row < limit) {
 		++row;
 		/* put the whole string in, all at once */
@@ -401,11 +389,8 @@ test_inserts(int level)
 		beep();
 	    }
 	    break;
-	case KEY_BACKSPACE:
-	    ch = '\b';
-	    /* FALLTHRU */
 	default:
-	    buffer[length++] = ch;
+	    buffer[length++] = (wchar_t) ch;
 	    buffer[length] = '\0';
 
 	    /* put the string in, one character at a time */
@@ -433,19 +418,19 @@ test_inserts(int level)
 	    switch (option) {
 	    case oDefault:
 		if (move(limit + row, col) != ERR) {
-		    InsCh(ch);
+		    InsCh((chtype) ch);
 		}
 		break;
 	    case oMove:
-		MvInsCh(limit + row, col, ch);
+		MvInsCh(limit + row, col, (chtype) ch);
 		break;
 	    case oWindow:
 		if (wmove(work, limit + row, col) != ERR) {
-		    WInsCh(work, ch);
+		    WInsCh(work, (chtype) ch);
 		}
 		break;
 	    case oMoveWindow:
-		MvWInsCh(work, limit + row, col, ch);
+		MvWInsCh(work, limit + row, col, (chtype) ch);
 		break;
 	    }
 
@@ -459,10 +444,10 @@ test_inserts(int level)
 	}
     }
     if (level > 0) {
-	delwin(show);
 	delwin(work);
 	delwin(look);
     }
+    delwin(show);
 }
 
 static void
@@ -473,6 +458,7 @@ usage(void)
 	"Usage: inserts [options]"
 	,""
 	,"Options:"
+	,"  -f FILE read data from given file"
 	,"  -n NUM  limit string-inserts to NUM bytes on ^N replay"
 	,"  -m      perform wmove/move separately from insert-functions"
 	,"  -w      use window-parameter even when stdscr would be implied"
@@ -490,8 +476,11 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
 
     setlocale(LC_ALL, "");
 
-    while ((ch = getopt(argc, argv, "mn:w")) != -1) {
+    while ((ch = getopt(argc, argv, "f:mn:w")) != -1) {
 	switch (ch) {
+	case 'f':
+	    init_linedata(optarg);
+	    break;
 	case 'm':
 	    m_opt = TRUE;
 	    break;

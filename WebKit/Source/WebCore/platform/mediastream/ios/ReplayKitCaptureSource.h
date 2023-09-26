@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(MEDIA_STREAM) && PLATFORM(IOS)
+#if ENABLE(MEDIA_STREAM) && (PLATFORM(IOS) || PLATFORM(VISION))
 
 #include "DisplayCaptureSourceCocoa.h"
 #include "Timer.h"
@@ -57,7 +57,7 @@ private:
     void stop() final;
     DisplayCaptureSourceCocoa::DisplayFrameType generateFrame() final;
     CaptureDevice::DeviceType deviceType() const final { return CaptureDevice::DeviceType::Screen; }
-    RealtimeMediaSourceSettings::DisplaySurfaceType surfaceType() const final { return RealtimeMediaSourceSettings::DisplaySurfaceType::Monitor; }
+    DisplaySurfaceType surfaceType() const final { return DisplaySurfaceType::Monitor; }
     virtual void commitConfiguration(const RealtimeMediaSourceSettings&) { }
     virtual IntSize intrinsicSize() const { return m_intrinsicSize; }
 
@@ -82,4 +82,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM) && PLATFORM(IOS)
+#endif // ENABLE(MEDIA_STREAM) && (PLATFORM(IOS) || PLATFORM(VISION))

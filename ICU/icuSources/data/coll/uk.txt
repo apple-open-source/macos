@@ -3,13 +3,20 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 uk{
     collations{
+        search{
+            Sequence{
+                "[import und-u-co-search]"
+                "&’=ʼ"
+            }
+            Version{"42"}
+        }
         standard{
             Sequence{
                 "[reorder Cyrl]"
                 "&Г<ґ<<<Ґ"
                 "&ꙇ<ї<<<\uA676<<<Ї"
             }
-            Version{"40"}
+            Version{"42"}
         }
     }
 }

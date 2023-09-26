@@ -36,7 +36,7 @@
 	CFSTR(SCDTEST_PREFIX "read-unrestricted-present.key")
 #define SCDTEST_READ_UNRESTRICTED_NOT_PRESENT_KEY		\
 	CFSTR(SCDTEST_PREFIX "read-unrestricted-not-present.key")
-
+#if !TARGET_OS_BRIDGE
 static void
 add_to_dict_and_array(CFMutableDictionaryRef dict,
 		      CFMutableArrayRef array,
@@ -45,7 +45,7 @@ add_to_dict_and_array(CFMutableDictionaryRef dict,
 	CFDictionarySetValue(dict, key, kCFBooleanTrue);
 	CFArrayAppendValue(array, key);
 }
-
+#endif
 @interface SCTestDynamicStore : SCTest
 @property SCDynamicStoreRef store;
 @property dispatch_semaphore_t sem;
@@ -72,10 +72,13 @@ add_to_dict_and_array(CFMutableDictionaryRef dict,
 						  CFSTR("SCTest"),
 						  NULL,
 						  NULL);
+#if !TARGET_OS_BRIDGE
+		// We want to send requests to a non-existent dynamic store in bridgeOS.
 		if (_store == NULL) {
 			SCTestLog("Could not create session");
 			ERR_EXIT;
 		}
+#endif
 	}
 	return self;
 }
@@ -151,10 +154,14 @@ add_to_dict_and_array(CFMutableDictionaryRef dict,
 		return NO;
 	}
 
+#if !TARGET_OS_BRIDGE
 	allUnitTestsPassed &= [self unitTestSetAndRemoveValue];
 	allUnitTestsPassed &= [self unitTestCopyMultiple];
 	allUnitTestsPassed &= [self unitTestSCDynamicStoreCallbackStress];
 	allUnitTestsPassed &= [self unitTestSCDynamicStoreSetMultipleStress];
+#else // !TARGET_OS_BRIDGE
+	allUnitTestsPassed &= [self unitTestSCDynamicStoreCopyValueReturnsNullOnBridgeOS];
+#endif // !TARGET_OS_BRIDGE
 
 	if(![self tearDown]) {
 		return NO;
@@ -167,6 +174,10 @@ add_to_dict_and_array(CFMutableDictionaryRef dict,
 {
 	return YES;
 }
+
+#if !TARGET_OS_BRIDGE
+#pragma mark -
+#pragma mark Non-BridgeOS SCDynamicStore Unit Tests
 
 - (BOOL)unitTestSetAndRemoveValue
 {
@@ -611,5 +622,44 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 	return YES;
 
 }
+
+#else // !TARGET_OS_BRIDGE
+#import <AssertMacros.h>
+
+#pragma mark -
+#pragma mark BridgeOS SCDynamicStore Unit Test
+
+- (BOOL)unitTestSCDynamicStoreCopyValueReturnsNullOnBridgeOS
+{
+	BOOL			ret = NO;
+	CFUUIDRef		uuid = NULL;
+	CFStringRef		uuidString = NULL;
+	CFStringRef		testKey = NULL;
+	CFPropertyListRef	plist = NULL;
+
+	uuid = CFUUIDCreate(kCFAllocatorDefault);
+	require_quiet(uuid, exit);
+	uuidString = CFUUIDCreateString(kCFAllocatorDefault, uuid);
+	require_quiet(uuidString, exit);
+	testKey = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault, CFSTR("SCTest"), uuidString, kSCEntNetDNS);
+	require_quiet(testKey, exit);
+
+	plist = SCDynamicStoreCopyValue(NULL, testKey);
+	require_action_quiet(plist == NULL,
+			     exit,
+			     SCTestLog("FAILURE: %@, failed to get a NULL response from the SCDynamicStore on bridgeOS.",
+				       NSStringFromSelector(_cmd)));
+	SCTestLog("SUCCESS: %@", NSStringFromSelector(_cmd));
+	ret = YES;
+
+exit:
+	if (uuid != NULL) CFRelease(uuid);
+	if (uuidString != NULL) CFRelease(uuidString);
+	if (testKey != NULL) CFRelease(testKey);
+	if (plist != NULL) CFRelease(plist);
+	return ret;
+}
+
+#endif // !TARGET_OS_BRIDGE
 
 @end

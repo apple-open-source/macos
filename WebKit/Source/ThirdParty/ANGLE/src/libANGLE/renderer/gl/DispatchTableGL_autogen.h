@@ -807,11 +807,17 @@ class DispatchTableGL : angle::NonCopyable
     // GL_KHR_parallel_shader_compile
     PFNGLMAXSHADERCOMPILERTHREADSKHRPROC maxShaderCompilerThreadsKHR = nullptr;
 
+    // GL_MESA_framebuffer_flip_y
+    PFNGLFRAMEBUFFERPARAMETERIMESAPROC framebufferParameteriMESA = nullptr;
+
     // GL_NV_framebuffer_blit
     PFNGLBLITFRAMEBUFFERNVPROC blitFramebufferNV = nullptr;
 
     // GL_NV_internalformat_sample_query
     PFNGLGETINTERNALFORMATSAMPLEIVNVPROC getInternalformatSampleivNV = nullptr;
+
+    // GL_NV_polygon_mode
+    PFNGLPOLYGONMODENVPROC polygonModeNV = nullptr;
 
     // GL_OES_EGL_image
     PFNGLEGLIMAGETARGETRENDERBUFFERSTORAGEOESPROC eGLImageTargetRenderbufferStorageOES = nullptr;

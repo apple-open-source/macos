@@ -40,9 +40,9 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#define SHA256_Init(c)		CC_SHA256_Init(c)
-#define SHA256_Update(c, d, l)	CC_SHA256_Update(c, d, l)
-#define SHA256_Final(d, c)	CC_SHA256_Final(d, c)
+#define SHA256_Init	CC_SHA256_Init
+#define SHA256_Update	CC_SHA256_Update
+#define SHA256_Final	CC_SHA256_Final
 
 __BEGIN_DECLS
 char   *SHA256_End(SHA256_CTX *, char *);

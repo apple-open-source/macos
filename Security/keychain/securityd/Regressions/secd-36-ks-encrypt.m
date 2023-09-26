@@ -68,7 +68,7 @@ int secd_36_ks_encrypt(int argc, char *const *argv)
     ok(SecAccessControlSetProtection(ac, kSecAttrAccessibleWhenUnlocked, &error), "SecAccessControlSetProtection: %@", error);
 
     CFDictionaryRef empty = (__bridge CFDictionaryRef)@{};
-    ret = ks_encrypt_data(keybag, ac, NULL, data, (__bridge CFDictionaryRef)@{@"persistref" : @"aaa-bbb-ccc"}, empty, &enc, true, &error);
+    ret = ks_encrypt_data(keybag, ac, NULL, data, (__bridge CFDictionaryRef)@{@"persistref" : @"aaa-bbb-ccc"}, empty, &enc, true, false, &error);
     is(true, ret);
 
     CFReleaseNull(ac);
@@ -81,7 +81,7 @@ int secd_36_ks_encrypt(int argc, char *const *argv)
         const SecDbClass* class = kc_class_with_name(kSecClassGenericPassword);
         NSArray* dummyArray = [NSArray array];
 
-        ret = ks_decrypt_data(keybag, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, NULL, &error);
+        ret = ks_decrypt_data(keybag, NULL, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, NULL, &error);
         is(true, ret, "ks_decrypt_data: %@", error);
 
         CFTypeRef aclProtection = ac ? SecAccessControlGetProtection(ac) : NULL;

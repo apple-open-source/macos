@@ -133,13 +133,17 @@ typedef enum UDateTimePatternMatchOptions {
     UDATPG_MATCH_SECOND_FIELD_LENGTH = 1 << UDATPG_SECOND_FIELD,
 #endif  /* U_HIDE_INTERNAL_API */
     /** @stable ICU 4.4 */
-    UDATPG_MATCH_ALL_FIELDS_LENGTH = (1 << UDATPG_FIELD_COUNT) - 1,
+    UDATPG_MATCH_ALL_FIELDS_LENGTH = (1 << UDATPG_FIELD_COUNT) - 1
+#if APPLE_ICU_CHANGES
+// rdar://
+    ,
     /** @internal, Apple-specific for now */
     UADATPG_FORCE_12_HOUR_CYCLE = 1 << 29,
     /** @internal, Apple-specific for now */
     UADATPG_FORCE_24_HOUR_CYCLE = 1 << 30,
     /** @internal, Apple-specific for now */
     UADATPG_FORCE_HOUR_CYCLE_MASK = 3 << 29,
+#endif  // APPLE_ICU_CHANGES
 } UDateTimePatternMatchOptions;
 
 /**
@@ -736,6 +740,8 @@ udatpg_getPatternForSkeleton(const UDateTimePatternGenerator *dtpg,
                              const UChar *skeleton, int32_t skeletonLength,
                              int32_t *pLength);
 
+#if APPLE_ICU_CHANGES
+// rdar://
 /**
  * Remap a pattern per the options (Apple-specific for now).
  * Currently this will only remap the time to force an alternate time
@@ -775,6 +781,7 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
                                 UDateTimePatternMatchOptions options,
                                 UChar *newPattern, int32_t newPatternCapacity,
                                 UErrorCode *pErrorCode);
+#endif  // APPLE_ICU_CHANGES
 
 #if !UCONFIG_NO_FORMATTING
 

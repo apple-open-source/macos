@@ -103,6 +103,7 @@ void PlaybackSessionModelMediaElement::setMediaElement(HTMLMediaElement* mediaEl
         textTracks.addEventListener(events.addtrackEvent, *this, false);
         textTracks.addEventListener(events.changeEvent, *this, false);
         textTracks.addEventListener(events.removetrackEvent, *this, false);
+        m_isListening = true;
     }
 
     updateForEventName(eventNameAll());
@@ -633,6 +634,19 @@ bool PlaybackSessionModelMediaElement::isPictureInPictureActive() const
 
     return (m_mediaElement->fullscreenMode() & HTMLMediaElementEnums::VideoFullscreenModePictureInPicture) == HTMLMediaElementEnums::VideoFullscreenModePictureInPicture;
 }
+
+#if !RELEASE_LOG_DISABLED
+const void* PlaybackSessionModelMediaElement::logIdentifier() const
+{
+    return m_mediaElement ? m_mediaElement->logIdentifier() : nullptr;
+}
+
+const Logger* PlaybackSessionModelMediaElement::loggerPtr() const
+{
+    return m_mediaElement ? &m_mediaElement->logger() : nullptr;
+}
+#endif
+
 
 }
 

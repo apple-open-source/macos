@@ -12,11 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -33,9 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)wc.1	8.2 (Berkeley) 4/19/94
-.\" $FreeBSD: src/usr.bin/wc/wc.1,v 1.23 2005/02/26 04:14:20 trhodes Exp $
+.\" $FreeBSD$
 .\"
-.Dd February 23, 2005
+.Dd April 11, 2020
 .Dt WC 1
 .Os
 .Sh NAME
@@ -43,7 +39,8 @@
 .Nd word, line, character, and byte count
 .Sh SYNOPSIS
 .Nm
-.Op Fl clmw
+.Op Fl -libxo
+.Op Fl Lclmw
 .Op Ar
 .Sh DESCRIPTION
 The
@@ -70,7 +67,26 @@ for all the files is displayed on a separate line after the output for
 the last file.
 .Pp
 The following options are available:
-.Bl -tag -width Ds
+.Bl -tag -width indent
+.It Fl -libxo
+Generate output via
+.Xr libxo 3
+in a selection of different human and machine readable formats.
+See
+.Xr xo_parse_args 3
+for details on command line arguments.
+.It Fl L
+Write the length of the line containing the most bytes (default) or characters
+(when
+.Fl m
+is provided)
+to standard output.
+When more than one
+.Ar file
+argument is specified, the longest input line of
+.Em all
+files is reported as the value of the final
+.Dq total .
 .It Fl c
 The number of bytes in each input file
 is written to the standard output.
@@ -110,6 +126,18 @@ file name is displayed.
 The prompt will accept input until receiving EOF, or
 .Bq ^D
 in most environments.
+.Pp
+If
+.Nm
+receives a
+.Dv SIGINFO
+(see the
+.Cm status
+argument for
+.Xr stty 1 )
+signal, the interim data will be written
+to the standard error output in the same format
+as the standard completion message.
 .Sh ENVIRONMENT
 The
 .Ev LANG , LC_ALL
@@ -129,14 +157,21 @@ and
 as well as the totals for both:
 .Pp
 .Dl "wc -mlw report1 report2"
+.Pp
+Find the longest line in a list of files:
+.Pp
+.Dl "wc -L file1 file2 file3 | fgrep total"
 .Sh COMPATIBILITY
 Historically, the
 .Nm
-utility was documented to define a word as a ``maximal string of
-characters delimited by <space>, <tab> or <newline> characters''.
+utility was documented to define a word as a
+.Do
+maximal string of
+characters delimited by <space>, <tab> or <newline> characters
+.Dc .
 The implementation, however, did not handle non-printing characters
 correctly so that
-.Dq Li "  ^D^E  "
+.Dq Li "\ \ ^D^E\ \ "
 counted as 6 spaces, while
 .Dq Li foo^D^Ebar
 counted as 8 characters.
@@ -145,12 +180,26 @@ systems after
 .Bx 4.3
 modified the implementation to be consistent
 with the documentation.
-This implementation defines a ``word'' in terms of the
+This implementation defines a
+.Dq word
+in terms of the
 .Xr iswspace 3
 function, as required by
 .St -p1003.2 .
+.Pp
+The
+.Fl L
+option is a non-standard
+.Fx
+extension, compatible with the
+.Fl L
+option of the GNU
+.Nm
+utility.
 .Sh SEE ALSO
-.Xr iswspace 3
+.Xr iswspace 3 ,
+.Xr libxo 3 ,
+.Xr xo_parse_args 3
 .Sh STANDARDS
 The
 .Nm

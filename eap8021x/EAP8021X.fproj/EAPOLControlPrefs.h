@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,5 +52,17 @@ EAPOLControlPrefsGetLogFlags(void);
 
 Boolean
 EAPOLControlPrefsSetLogFlags(uint32_t flags);
+
+Boolean
+EAPOLControlPrefsSetUseBoringSSL(bool use_boringssl);
+
+Boolean
+EAPOLControlPrefsGetUseBoringSSL(void);
+
+Boolean
+EAPOLControlPrefsSetRevocationCheck(bool enable);
+
+Boolean
+EAPOLControlPrefsGetRevocationCheck(void);
 
 #endif /* _EAP8021X_EAPOLCONTROLPREFS_H */

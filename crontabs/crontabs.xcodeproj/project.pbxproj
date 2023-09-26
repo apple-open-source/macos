@@ -54,17 +54,8 @@
 		FDB436921492DBCD00D5E278 /* newsyslog.conf in Install etc */ = {isa = PBXBuildFile; fileRef = FDB4367C1492DB0B00D5E278 /* newsyslog.conf */; };
 		FDB436941492DBE400D5E278 /* periodic.conf in Install etc/defaults */ = {isa = PBXBuildFile; fileRef = FDB4367D1492DB0B00D5E278 /* periodic.conf */; };
 		FDB436961492DC1300D5E278 /* periodic.conf.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */; };
-		FDB4369A1492DCFB00D5E278 /* 110.clean-tmps in Install daily */ = {isa = PBXBuildFile; fileRef = FDB436681492DB0B00D5E278 /* 110.clean-tmps */; };
-		FDB4369C1492DD0000D5E278 /* 140.clean-rwho in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */; };
-		FDB4369D1492DD0200D5E278 /* 199.clean-fax in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366B1492DB0B00D5E278 /* 199.clean-fax */; };
-		FDB4369E1492DD0500D5E278 /* 310.accounting in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366C1492DB0B00D5E278 /* 310.accounting */; };
-		FDB4369F1492DD0800D5E278 /* 400.status-disks in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366D1492DB0B00D5E278 /* 400.status-disks */; };
-		FDB436A01492DD0A00D5E278 /* 420.status-network in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366E1492DB0B00D5E278 /* 420.status-network */; };
-		FDB436A11492DD0E00D5E278 /* 430.status-rwho in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366F1492DB0B00D5E278 /* 430.status-rwho */; };
 		FDB436A21492DD1100D5E278 /* 999.local in Install daily */ = {isa = PBXBuildFile; fileRef = FDB436701492DB0B00D5E278 /* 999.local */; };
 		FDB436A41492DD2100D5E278 /* 999.local in Install weekly */ = {isa = PBXBuildFile; fileRef = FDB436811492DB0B00D5E278 /* 999.local */; };
-		FDB436A51492DD2700D5E278 /* 199.rotate-fax in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB436791492DB0B00D5E278 /* 199.rotate-fax */; };
-		FDB436A61492DD2900D5E278 /* 200.accounting in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB4367A1492DB0B00D5E278 /* 200.accounting */; };
 		FDB436A71492DD2B00D5E278 /* 999.local in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB4367B1492DB0B00D5E278 /* 999.local */; };
 		FDCEF0AA162E12DC002D6429 /* periodic-wrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = FDCEF0A9162E12DC002D6429 /* periodic-wrapper.c */; };
 		FDCEF0AE162E1659002D6429 /* periodic-wrapper.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = FDCEF0AD162E1653002D6429 /* periodic-wrapper.8 */; };
@@ -182,13 +173,6 @@
 			dstPath = /private/etc/periodic/daily;
 			dstSubfolderSpec = 0;
 			files = (
-				FDB4369A1492DCFB00D5E278 /* 110.clean-tmps in Install daily */,
-				FDB4369C1492DD0000D5E278 /* 140.clean-rwho in Install daily */,
-				FDB4369D1492DD0200D5E278 /* 199.clean-fax in Install daily */,
-				FDB4369E1492DD0500D5E278 /* 310.accounting in Install daily */,
-				FDB4369F1492DD0800D5E278 /* 400.status-disks in Install daily */,
-				FDB436A01492DD0A00D5E278 /* 420.status-network in Install daily */,
-				FDB436A11492DD0E00D5E278 /* 430.status-rwho in Install daily */,
 				FDB436A21492DD1100D5E278 /* 999.local in Install daily */,
 			);
 			name = "Install daily";
@@ -211,8 +195,6 @@
 			dstPath = /private/etc/periodic/monthly;
 			dstSubfolderSpec = 0;
 			files = (
-				FDB436A51492DD2700D5E278 /* 199.rotate-fax in Install monthly */,
-				FDB436A61492DD2900D5E278 /* 200.accounting in Install monthly */,
 				FDB436A71492DD2B00D5E278 /* 999.local in Install monthly */,
 			);
 			name = "Install monthly";
@@ -230,20 +212,11 @@
 		FDB436511492D37200D5E278 /* ptimes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ptimes.c; sourceTree = "<group>"; };
 		FDB4365B1492D3D900D5E278 /* periodic.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = periodic.8; sourceTree = "<group>"; };
 		FDB4365C1492D3D900D5E278 /* periodic.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = periodic.sh; sourceTree = "<group>"; };
-		FDB436681492DB0B00D5E278 /* 110.clean-tmps */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "110.clean-tmps"; sourceTree = "<group>"; };
-		FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "140.clean-rwho"; sourceTree = "<group>"; };
-		FDB4366B1492DB0B00D5E278 /* 199.clean-fax */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "199.clean-fax"; sourceTree = "<group>"; };
-		FDB4366C1492DB0B00D5E278 /* 310.accounting */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 310.accounting; sourceTree = "<group>"; };
-		FDB4366D1492DB0B00D5E278 /* 400.status-disks */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "400.status-disks"; sourceTree = "<group>"; };
-		FDB4366E1492DB0B00D5E278 /* 420.status-network */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "420.status-network"; sourceTree = "<group>"; };
-		FDB4366F1492DB0B00D5E278 /* 430.status-rwho */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "430.status-rwho"; sourceTree = "<group>"; };
 		FDB436701492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
 		FDB436721492DB0B00D5E278 /* com.apple.newsyslog.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.newsyslog.plist; sourceTree = "<group>"; };
 		FDB436731492DB0B00D5E278 /* com.apple.periodic-daily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-daily.plist"; sourceTree = "<group>"; };
 		FDB436741492DB0B00D5E278 /* com.apple.periodic-monthly.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-monthly.plist"; sourceTree = "<group>"; };
 		FDB436751492DB0B00D5E278 /* com.apple.periodic-weekly.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-weekly.plist"; sourceTree = "<group>"; };
-		FDB436791492DB0B00D5E278 /* 199.rotate-fax */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "199.rotate-fax"; sourceTree = "<group>"; };
-		FDB4367A1492DB0B00D5E278 /* 200.accounting */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 200.accounting; sourceTree = "<group>"; };
 		FDB4367B1492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
 		FDB4367C1492DB0B00D5E278 /* newsyslog.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = newsyslog.conf; sourceTree = "<group>"; };
 		FDB4367D1492DB0B00D5E278 /* periodic.conf */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = periodic.conf; sourceTree = "<group>"; };
@@ -332,13 +305,6 @@
 		FDB436671492DB0B00D5E278 /* daily */ = {
 			isa = PBXGroup;
 			children = (
-				FDB436681492DB0B00D5E278 /* 110.clean-tmps */,
-				FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */,
-				FDB4366B1492DB0B00D5E278 /* 199.clean-fax */,
-				FDB4366C1492DB0B00D5E278 /* 310.accounting */,
-				FDB4366D1492DB0B00D5E278 /* 400.status-disks */,
-				FDB4366E1492DB0B00D5E278 /* 420.status-network */,
-				FDB4366F1492DB0B00D5E278 /* 430.status-rwho */,
 				FDB436701492DB0B00D5E278 /* 999.local */,
 			);
 			path = daily;
@@ -358,8 +324,6 @@
 		FDB436781492DB0B00D5E278 /* monthly */ = {
 			isa = PBXGroup;
 			children = (
-				FDB436791492DB0B00D5E278 /* 199.rotate-fax */,
-				FDB4367A1492DB0B00D5E278 /* 200.accounting */,
 				FDB4367B1492DB0B00D5E278 /* 999.local */,
 			);
 			path = monthly;

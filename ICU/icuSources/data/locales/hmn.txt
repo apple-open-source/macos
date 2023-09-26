@@ -1,0 +1,12 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+hmn{
+    ExemplarCharacters{
+        "[\U00016B36\U00016b31\U00016b32\U00016b33\U00016b34\U00016b35 𖬀 𖬁 𖬂 𖬃 "
+        "𖬄 𖬅 𖬆 𖬇 𖬈 𖬉 𖬊 𖬋 𖬌 𖬍 𖬎 𖬏 𖬐 𖬑 𖬒 𖬓 𖬔 𖬕 𖬖 𖬗 𖬚 𖬛 𖬘 𖬙 𖬜 "
+        "𖬝 𖬢 𖬞 𖬡 𖬩 𖬬 𖬠 𖬮 𖬯 𖬥 𖬤 𖬦 𖬟 𖬪 𖬫 𖬧 𖬨 𖬣 𖬭]"
+    }
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{"[𖬷 𖬸 𖬹 𖬺 𖬻 𖭄 𖭅 𖭀 𖭁 𖭂 𖭃 𖬼 𖬽 𖬾 𖬿]"}
+}

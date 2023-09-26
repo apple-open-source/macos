@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,8 @@
 #include "Logging.h"
 #include "NetworkProcessConnectionInfo.h"
 #include "NotificationManagerMessageHandlerMessages.h"
+#include "PageLoadState.h"
+#include "PlatformXRSystem.h"
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "RemoteWorkerType.h"
@@ -44,12 +46,15 @@
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManager.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManagerMessages.h"
 #include "SpeechRecognitionServerMessages.h"
+#include "SuspendedPageProxy.h"
 #include "TextChecker.h"
 #include "TextCheckerState.h"
 #include "UserData.h"
 #include "WebAutomationSession.h"
 #include "WebBackForwardCache.h"
 #include "WebBackForwardListItem.h"
+#include "WebCompiledContentRuleList.h"
+#include "WebFrameProxy.h"
 #include "WebInspectorUtilities.h"
 #include "WebLockRegistryProxy.h"
 #include "WebNavigationDataStore.h"
@@ -60,6 +65,7 @@
 #include "WebPasteboardProxy.h"
 #include "WebPermissionControllerMessages.h"
 #include "WebPermissionControllerProxy.h"
+#include "WebPreferencesDefaultValues.h"
 #include "WebPreferencesKeys.h"
 #include "WebProcessCache.h"
 #include "WebProcessDataStoreParameters.h"
@@ -76,6 +82,7 @@
 #include <WebCore/PlatformMediaSessionManager.h>
 #include <WebCore/PrewarmInformation.h>
 #include <WebCore/PublicSuffix.h>
+#include <WebCore/RealtimeMediaSourceCenter.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/SuddenTermination.h>
 #include <pal/system/Sound.h>
@@ -112,8 +119,8 @@
 #define MESSAGE_CHECK_URL(url) MESSAGE_CHECK_BASE(checkURLReceivedFromWebProcess(url), connection())
 #define MESSAGE_CHECK_COMPLETION(assertion, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, connection(), completion)
 
-#define WEBPROCESSPROXY_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [PID=%i] WebProcessProxy::" fmt, this, processIdentifier(), ##__VA_ARGS__)
-#define WEBPROCESSPROXY_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [PID=%i] WebProcessProxy::" fmt, this, processIdentifier(), ##__VA_ARGS__)
+#define WEBPROCESSPROXY_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [PID=%i] WebProcessProxy::" fmt, this, processID(), ##__VA_ARGS__)
+#define WEBPROCESSPROXY_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [PID=%i] WebProcessProxy::" fmt, this, processID(), ##__VA_ARGS__)
 
 namespace WebKit {
 using namespace WebCore;
@@ -167,14 +174,14 @@ RefPtr<WebProcessProxy> WebProcessProxy::processForIdentifier(ProcessIdentifier 
     return allProcessMap().get(identifier).get();
 }
 
-static WebProcessProxy::WebPageProxyMap& globalPageMap()
+auto WebProcessProxy::globalPageMap() -> WebPageProxyMap&
 {
     ASSERT(isMainThreadOrCheckDisabled());
-    static NeverDestroyed<WebProcessProxy::WebPageProxyMap> pageMap;
+    static NeverDestroyed<WebPageProxyMap> pageMap;
     return pageMap;
 }
 
-static inline Vector<RefPtr<WebPageProxy>> globalPages()
+Vector<RefPtr<WebPageProxy>> WebProcessProxy::globalPages()
 {
     return WTF::map(globalPageMap(), [] (auto& keyValue) -> RefPtr<WebPageProxy> {
         return keyValue.value.get();
@@ -191,7 +198,7 @@ Vector<RefPtr<WebPageProxy>> WebProcessProxy::pages() const
 void WebProcessProxy::forWebPagesWithOrigin(PAL::SessionID sessionID, const SecurityOriginData& origin, const Function<void(WebPageProxy&)>& callback)
 {
     for (auto& page : globalPages()) {
-        if (!page || page->sessionID() != sessionID || SecurityOriginData::fromURL(URL { page->currentURL() }) != origin)
+        if (!page || page->sessionID() != sessionID || SecurityOriginData::fromURLWithoutStrictOpaqueness(URL { page->currentURL() }) != origin)
             continue;
         callback(*page);
     }
@@ -254,11 +261,7 @@ private:
     IPC::Connection& connection() final { return *m_process.connection(); }
     Logger& logger() final
     {
-        if (!m_logger) {
-            m_logger = Logger::create(this);
-            m_logger->setEnabled(this, m_process.sessionID().isAlwaysOnLoggingAllowed());
-        }
-        return *m_logger;
+        return m_process.logger();
     }
     bool willStartCapture(CaptureDevice::DeviceType) const final
     {
@@ -273,7 +276,6 @@ private:
         return dummy.get();
     }
 
-    RefPtr<Logger> m_logger;
     WebProcessProxy& m_process;
 };
 #endif
@@ -285,9 +287,6 @@ WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore* 
     , m_mayHaveUniversalFileReadSandboxExtension(false)
     , m_numberOfTimesSuddenTerminationWasDisabled(0)
     , m_throttler(*this, processPool.shouldTakeUIBackgroundAssertion())
-#if ENABLE(ROUTING_ARBITRATION)
-    , m_routingArbitrator(makeUniqueRef<AudioSessionRoutingArbitratorProxy>(*this))
-#endif
     , m_isResponsive(NoOrMaybe::Maybe)
     , m_visiblePageCounter([this](RefCounterEvent) { updateBackgroundResponsivenessTimer(); })
     , m_websiteDataStore(websiteDataStore)
@@ -300,6 +299,9 @@ WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore* 
     , m_shutdownPreventingScopeCounter([this](RefCounterEvent event) { if (event == RefCounterEvent::Decrement) maybeShutDown(); })
     , m_webLockRegistry(websiteDataStore ? makeUnique<WebLockRegistryProxy>(*this) : nullptr)
     , m_webPermissionController(makeUnique<WebPermissionControllerProxy>(*this))
+#if ENABLE(ROUTING_ARBITRATION)
+    , m_routingArbitrator(makeUniqueRef<AudioSessionRoutingArbitratorProxy>(*this))
+#endif
 {
     RELEASE_ASSERT(isMainThreadOrCheckDisabled());
     WEBPROCESSPROXY_RELEASE_LOG(Process, "constructor:");
@@ -340,7 +342,7 @@ WebProcessProxy::~WebProcessProxy()
     WebPasteboardProxy::singleton().removeWebProcessProxy(*this);
 
 #if HAVE(CVDISPLAYLINK)
-    processPool().stopDisplayLinks(*this);
+    processPool().displayLinks().stopDisplayLinks(m_displayLinkClient);
 #endif
 
     auto isResponsiveCallbacks = WTFMove(m_isResponsiveCallbacks);
@@ -371,7 +373,7 @@ void WebProcessProxy::setIsInProcessCache(bool value, WillShutDown willShutDown)
     WEBPROCESSPROXY_RELEASE_LOG(Process, "setIsInProcessCache(%d)", value);
     if (value) {
         RELEASE_ASSERT(m_pageMap.isEmpty());
-        RELEASE_ASSERT(!m_suspendedPageCount);
+        RELEASE_ASSERT(m_suspendedPages.isEmptyIgnoringNullReferences());
         RELEASE_ASSERT(m_provisionalPages.isEmptyIgnoringNullReferences());
         m_previouslyApprovedFilePaths.clear();
     }
@@ -401,6 +403,14 @@ void WebProcessProxy::setWebsiteDataStore(WebsiteDataStore& dataStore)
     ASSERT(!m_websiteDataStore);
     WEBPROCESSPROXY_RELEASE_LOG(Process, "setWebsiteDataStore() dataStore=%p, sessionID=%" PRIu64, &dataStore, dataStore.sessionID().toUInt64());
     m_websiteDataStore = &dataStore;
+    logger().setEnabled(this, dataStore.sessionID().isAlwaysOnLoggingAllowed());
+#if PLATFORM(COCOA)
+    if (m_networkProcessToKeepAliveUntilDataStoreIsCreated) {
+        auto& networkProcess = m_websiteDataStore->networkProcess(); // Transfer ownership of the NetworkProcessProxy to the WebsiteDataStore.
+        ASSERT_UNUSED(networkProcess, m_networkProcessToKeepAliveUntilDataStoreIsCreated == &networkProcess);
+        m_networkProcessToKeepAliveUntilDataStoreIsCreated = nullptr;
+    }
+#endif
     updateRegistrationWithDataStore();
     send(Messages::WebProcess::SetWebsiteDataStoreParameters(processPool().webProcessDataStoreParameters(*this, dataStore)), 0);
 
@@ -442,8 +452,10 @@ void WebProcessProxy::removeProvisionalPageProxy(ProvisionalPageProxy& provision
     ASSERT(m_provisionalPages.contains(provisionalPage));
     m_provisionalPages.remove(provisionalPage);
     updateRegistrationWithDataStore();
-    if (m_provisionalPages.isEmptyIgnoringNullReferences())
+    if (m_provisionalPages.isEmptyIgnoringNullReferences()) {
+        reportProcessDisassociatedWithPageIfNecessary(provisionalPage.page().identifier());
         maybeShutDown();
+    }
 }
 
 void WebProcessProxy::addProvisionalFrameProxy(ProvisionalFrameProxy& provisionalFrame)
@@ -486,8 +498,6 @@ void WebProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOpt
 
     AuxiliaryProcessProxy::getLaunchOptions(launchOptions);
 
-    if (!m_processPool->customWebContentServiceBundleIdentifier().isEmpty())
-        launchOptions.customWebContentServiceBundleIdentifier = m_processPool->customWebContentServiceBundleIdentifier().ascii();
     if (WebKit::isInspectorProcessPool(processPool()))
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("inspector-process"_s, "1"_s);
 
@@ -507,10 +517,8 @@ void WebProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOpt
     }
 
 #if ENABLE(WEBCONTENT_CRASH_TESTING)
-    if (isCrashyProcess()) {
-        launchOptions.customWebContentServiceBundleIdentifier = toCString("com.apple.WebKit.WebContent.Crashy");
+    if (isCrashyProcess())
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("is-webcontent-crashy"_s, "1"_s);
-    }
 #endif
 
     if (m_serviceWorkerInformation) {
@@ -576,7 +584,7 @@ void WebProcessProxy::processWillShutDown(IPC::Connection& connection)
 
 #if HAVE(CVDISPLAYLINK)
     m_displayLinkClient.setConnection(nullptr);
-    processPool().stopDisplayLinks(*this);
+    processPool().displayLinks().stopDisplayLinks(m_displayLinkClient);
 #endif
 }
 
@@ -613,7 +621,6 @@ void WebProcessProxy::shutDown()
     m_webUserContentControllerProxies.clear();
 
     m_userInitiatedActionMap.clear();
-    m_sleepDisablers.clear();
 
     if (m_webLockRegistry)
         m_webLockRegistry->processDidExit();
@@ -638,6 +645,17 @@ RefPtr<WebPageProxy> WebProcessProxy::audioCapturingWebPage()
     }
     return nullptr;
 }
+
+#if ENABLE(WEBXR) && !USE(OPENXR)
+RefPtr<WebPageProxy> WebProcessProxy::webPageWithActiveXRSession()
+{
+    for (auto& page : globalPages()) {
+        if (page && page->xrSystem() && page->xrSystem()->hasActiveSession())
+            return page;
+    }
+    return nullptr;
+}
+#endif
 
 #if ENABLE(TRACKING_PREVENTION)
 void WebProcessProxy::notifyPageStatisticsAndDataRecordsProcessed()
@@ -679,17 +697,32 @@ Ref<WebPageProxy> WebProcessProxy::createWebPage(PageClient& pageClient, Ref<API
     return webPage;
 }
 
-bool WebProcessProxy::shouldTakeSuspendedAssertion() const
+bool WebProcessProxy::shouldTakeNearSuspendedAssertion() const
 {
 #if USE(RUNNINGBOARD)
+    if (m_pageMap.isEmpty()) {
+        // The setting come from pages but this process has no page, we thus use the default
+        // setting value, which is true.
+        return true;
+    }
+
     for (auto& page : m_pageMap.values()) {
         bool processSuppressionEnabled = page->preferences().pageVisibilityBasedProcessSuppressionEnabled();
-        bool suspendedAssertionsEnabled = page->preferences().shouldTakeSuspendedAssertions();
-        if (suspendedAssertionsEnabled || !processSuppressionEnabled)
+        bool nearSuspendedAssertionsEnabled = page->preferences().shouldTakeNearSuspendedAssertions();
+        if (nearSuspendedAssertionsEnabled || !processSuppressionEnabled)
             return true;
     }
 #endif
     return false;
+}
+
+bool WebProcessProxy::shouldDropNearSuspendedAssertionAfterDelay() const
+{
+    if (m_pageMap.isEmpty()) {
+        // The setting come from pages but this process has no page, we thus use the default setting value.
+        return defaultShouldDropNearSuspendedAssertionAfterDelay();
+    }
+    return WTF::anyOf(m_pageMap.values(), [](auto& page) { return page->preferences().shouldDropNearSuspendedAssertionAfterDelay(); });
 }
 
 void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataStore beginsUsingDataStore)
@@ -700,6 +733,8 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
     ASSERT(!globalPageMap().contains(webPage.identifier()));
     RELEASE_ASSERT(!m_isInProcessCache);
     ASSERT(!m_websiteDataStore || websiteDataStore() == &webPage.websiteDataStore());
+
+    bool wasStandaloneServiceWorkerProcess = isStandaloneServiceWorkerProcess();
 
     if (beginsUsingDataStore == BeginsUsingDataStore::Yes) {
         RELEASE_ASSERT(m_processPool);
@@ -714,12 +749,20 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
     m_pageMap.set(webPage.identifier(), WeakPtr { webPage });
     globalPageMap().set(webPage.identifier(), WeakPtr { webPage });
 
-    m_throttler.setShouldTakeSuspendedAssertion(shouldTakeSuspendedAssertion());
+    m_throttler.setShouldTakeNearSuspendedAssertion(shouldTakeNearSuspendedAssertion());
+    m_throttler.setShouldDropNearSuspendedAssertionAfterDelay(shouldDropNearSuspendedAssertionAfterDelay());
 
     updateRegistrationWithDataStore();
     updateBackgroundResponsivenessTimer();
-    updateWebGPUEnabledStateInGPUProcess();
     updateBlobRegistryPartitioningState();
+    updateWebGPUEnabledStateInGPUProcess();
+    updateDOMRenderingStateInGPUProcess();
+
+    // If this was previously a standalone worker process with no pages we need to call didChangeThrottleState()
+    // to update our process assertions on the network process since standalone worker processes do not hold
+    // assertions on the network process
+    if (wasStandaloneServiceWorkerProcess)
+        didChangeThrottleState(throttler().currentState());
 }
 
 void WebProcessProxy::markIsNoLongerInPrewarmedPool()
@@ -742,6 +785,8 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, EndsUsingDataStore en
     removedPage = globalPageMap().take(webPage.identifier());
     ASSERT_UNUSED(removedPage, removedPage == &webPage);
 
+    reportProcessDisassociatedWithPageIfNecessary(webPage.identifier());
+
     if (endsUsingDataStore == EndsUsingDataStore::Yes)
         m_processPool->pageEndUsingWebsiteDataStore(webPage.identifier(), webPage.websiteDataStore());
 
@@ -751,7 +796,7 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, EndsUsingDataStore en
     updateMediaStreamingActivity();
     updateBackgroundResponsivenessTimer();
     updateWebGPUEnabledStateInGPUProcess();
-
+    updateDOMRenderingStateInGPUProcess();
     updateBlobRegistryPartitioningState();
 
     maybeShutDown();
@@ -799,7 +844,7 @@ void WebProcessProxy::didDestroyWebUserContentControllerProxy(WebUserContentCont
 void WebProcessProxy::assumeReadAccessToBaseURL(WebPageProxy& page, const String& urlString)
 {
     URL url { urlString };
-    if (!url.isLocalFile())
+    if (!url.protocolIsFile())
         return;
 
     // There's a chance that urlString does not point to a directory.
@@ -816,7 +861,7 @@ void WebProcessProxy::assumeReadAccessToBaseURL(WebPageProxy& page, const String
 
 bool WebProcessProxy::hasAssumedReadAccessToURL(const URL& url) const
 {
-    if (!url.isLocalFile())
+    if (!url.protocolIsFile())
         return false;
 
     String path = url.fileSystemPath();
@@ -847,7 +892,7 @@ bool WebProcessProxy::checkURLReceivedFromWebProcess(const URL& url, CheckBackFo
     // FIXME: Consider checking that the URL is valid. Currently, WebProcess sends invalid URLs in many cases, but it probably doesn't have good reasons to do that.
 
     // Any other non-file URL is OK.
-    if (!url.isLocalFile())
+    if (!url.protocolIsFile())
         return true;
 
     // Any file URL is also OK if we've loaded a file URL through API before, granting universal read access.
@@ -864,10 +909,10 @@ bool WebProcessProxy::checkURLReceivedFromWebProcess(const URL& url, CheckBackFo
         String path = url.fileSystemPath();
         for (auto& item : WebBackForwardListItem::allItems().values()) {
             URL itemURL { item->url() };
-            if (itemURL.isLocalFile() && itemURL.fileSystemPath() == path)
+            if (itemURL.protocolIsFile() && itemURL.fileSystemPath() == path)
                 return true;
             URL itemOriginalURL { item->originalURL() };
-            if (itemOriginalURL.isLocalFile() && itemOriginalURL.fileSystemPath() == path)
+            if (itemOriginalURL.protocolIsFile() && itemOriginalURL.fileSystemPath() == path)
                 return true;
         }
     }
@@ -1074,8 +1119,6 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
         if (page)
             page->dispatchProcessDidTerminate(reason);
     }
-
-    m_sleepDisablers.clear();
 }
 
 void WebProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName)
@@ -1119,8 +1162,7 @@ void WebProcessProxy::didBecomeUnresponsive()
     // If the web process becomes unresponsive and only runs service/shared workers, kill it ourselves since there are no native clients to do it.
     if (isRunningWorkers() && m_pageMap.isEmpty()) {
         WEBPROCESSPROXY_RELEASE_LOG_ERROR(PerformanceLogging, "didBecomeUnresponsive: Terminating worker-only web process because it is unresponsive");
-        disableRemoteWorkers(RemoteWorkerType::ServiceWorker);
-        disableRemoteWorkers(RemoteWorkerType::SharedWorker);
+        disableRemoteWorkers({ RemoteWorkerType::ServiceWorker, RemoteWorkerType::SharedWorker });
         terminate();
     }
 }
@@ -1176,14 +1218,15 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
     }
 
 #if PLATFORM(COCOA)
-    if (auto networkProcess = NetworkProcessProxy::defaultNetworkProcess())
-        networkProcess->sendXPCEndpointToProcess(*this);
+    if (m_websiteDataStore)
+        m_websiteDataStore->networkProcess().sendXPCEndpointToProcess(*this);
     else {
-        RunLoop::main().dispatch([weakThis = WeakPtr { *this }] {
-            if (!weakThis)
-                return;
-            NetworkProcessProxy::ensureDefaultNetworkProcess()->sendXPCEndpointToProcess(*weakThis);
-        });
+        // Prewarmed web processes don't have a data store but still need a network process to launch properly
+        // because the network process needs to send it the launch services database. Since the data store
+        // normally keeps the network process alive, we stash it in m_networkProcessToKeepAliveUntilDataStoreIsCreated
+        // until the prewarmed web process gets assigned a data store.
+        m_networkProcessToKeepAliveUntilDataStoreIsCreated = NetworkProcessProxy::ensureDefaultNetworkProcess();
+        m_networkProcessToKeepAliveUntilDataStoreIsCreated->sendXPCEndpointToProcess(*this);
     }
 #endif
 
@@ -1212,7 +1255,8 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #endif // PLATFORM(MAC)
 #endif // USE(RUNNINGBOARD)
 
-    m_throttler.setShouldTakeSuspendedAssertion(shouldTakeSuspendedAssertion());
+    m_throttler.setShouldTakeNearSuspendedAssertion(shouldTakeNearSuspendedAssertion());
+    m_throttler.setShouldDropNearSuspendedAssertionAfterDelay(shouldDropNearSuspendedAssertionAfterDelay());
 
 #if PLATFORM(COCOA)
     unblockAccessibilityServerIfNeeded();
@@ -1237,7 +1281,7 @@ auto WebProcessProxy::visiblePageToken() const -> VisibleWebPageToken
 
 void WebProcessProxy::addPreviouslyApprovedFileURL(const URL& url)
 {
-    ASSERT(url.isLocalFile());
+    ASSERT(url.protocolIsFile());
     auto fileSystemPath = url.fileSystemPath();
     if (!fileSystemPath.isEmpty())
         m_previouslyApprovedFilePaths.add(fileSystemPath);
@@ -1245,11 +1289,23 @@ void WebProcessProxy::addPreviouslyApprovedFileURL(const URL& url)
 
 bool WebProcessProxy::wasPreviouslyApprovedFileURL(const URL& url) const
 {
-    ASSERT(url.isLocalFile());
+    ASSERT(url.protocolIsFile());
     auto fileSystemPath = url.fileSystemPath();
     if (fileSystemPath.isEmpty())
         return false;
     return m_previouslyApprovedFilePaths.contains(fileSystemPath);
+}
+
+void WebProcessProxy::recordUserGestureAuthorizationToken(WTF::UUID authorizationToken)
+{
+    if (!UserInitiatedActionByAuthorizationTokenMap::isValidKey(authorizationToken) || !authorizationToken)
+        return;
+
+    m_userInitiatedActionByAuthorizationTokenMap.ensure(authorizationToken, [authorizationToken] {
+        auto action = API::UserInitiatedAction::create();
+        action->setAuthorizationToken(authorizationToken);
+        return action;
+    });
 }
 
 RefPtr<API::UserInitiatedAction> WebProcessProxy::userInitiatedActivity(uint64_t identifier)
@@ -1261,6 +1317,31 @@ RefPtr<API::UserInitiatedAction> WebProcessProxy::userInitiatedActivity(uint64_t
     return result.iterator->value;
 }
 
+RefPtr<API::UserInitiatedAction> WebProcessProxy::userInitiatedActivity(std::optional<WTF::UUID> authorizationToken, uint64_t identifier)
+{
+    if (!UserInitiatedActionMap::isValidKey(identifier) || !identifier)
+        return nullptr;
+
+    if (authorizationToken) {
+        auto it = m_userInitiatedActionByAuthorizationTokenMap.find(*authorizationToken);
+        if (it != m_userInitiatedActionByAuthorizationTokenMap.end()) {
+            auto result = m_userInitiatedActionMap.ensure(identifier, [it] {
+                return it->value;
+            });
+            return result.iterator->value;
+        }
+    }
+
+    return userInitiatedActivity(identifier);
+}
+
+void WebProcessProxy::consumeIfNotVerifiablyFromUIProcess(API::UserInitiatedAction& action, std::optional<WTF::UUID> authToken)
+{
+    if (authToken && m_userInitiatedActionByAuthorizationTokenMap.remove(*authToken))
+        return;
+    action.setConsumed();
+}
+
 bool WebProcessProxy::isResponsive() const
 {
     return responsivenessTimer().isResponsive() && m_backgroundResponsivenessTimer.isResponsive();
@@ -1269,7 +1350,29 @@ bool WebProcessProxy::isResponsive() const
 void WebProcessProxy::didDestroyUserGestureToken(uint64_t identifier)
 {
     ASSERT(UserInitiatedActionMap::isValidKey(identifier));
-    m_userInitiatedActionMap.remove(identifier);
+    if (auto removed = m_userInitiatedActionMap.take(identifier); removed && removed->authorizationToken())
+        m_userInitiatedActionByAuthorizationTokenMap.remove(*removed->authorizationToken());
+}
+
+void WebProcessProxy::postMessageToRemote(WebCore::ProcessIdentifier destinationProcessIdentifier, WebCore::FrameIdentifier identifier, std::optional<WebCore::SecurityOriginData> target, const WebCore::MessageWithMessagePorts& message)
+{
+    auto webProcessProxy = processForIdentifier(destinationProcessIdentifier);
+    if (webProcessProxy)
+        webProcessProxy->send(Messages::WebProcess::RemotePostMessage(identifier, target, message), 0);
+}
+
+void WebProcessProxy::renderTreeAsText(WebCore::ProcessIdentifier destinationProcessIdentifier, WebCore::FrameIdentifier frameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior, CompletionHandler<void(String)>&& completionHandler)
+{
+    auto webProcessProxy = processForIdentifier(destinationProcessIdentifier);
+    if (!webProcessProxy)
+        return completionHandler({ });
+
+    auto sendResult = webProcessProxy->sendSync(Messages::WebProcess::RenderTreeAsText(frameIdentifier, baseIndent, behavior), 0);
+    if (!sendResult.succeeded())
+        return completionHandler({ });
+
+    auto [result] = sendResult.takeReply();
+    completionHandler(result);
 }
 
 bool WebProcessProxy::canBeAddedToWebProcessCache() const
@@ -1311,12 +1414,12 @@ bool WebProcessProxy::canTerminateAuxiliaryProcess()
 {
     if (!m_pageMap.isEmpty()
         || !m_frameMap.isEmpty()
-        || m_suspendedPageCount
+        || !m_suspendedPages.isEmptyIgnoringNullReferences()
         || !m_provisionalPages.isEmptyIgnoringNullReferences()
         || !m_provisionalFrames.isEmptyIgnoringNullReferences()
         || m_isInProcessCache
         || m_shutdownPreventingScopeCounter.value()) {
-        WEBPROCESSPROXY_RELEASE_LOG(Process, "canTerminateAuxiliaryProcess: returns false (pageCount=%u, provisionalPageCount=%u, m_suspendedPageCount=%u, m_isInProcessCache=%d, m_shutdownPreventingScopeCounter=%lu)", m_pageMap.size(), m_provisionalPages.computeSize(), m_suspendedPageCount, m_isInProcessCache, m_shutdownPreventingScopeCounter.value());
+        WEBPROCESSPROXY_RELEASE_LOG(Process, "canTerminateAuxiliaryProcess: returns false (pageCount=%u, provisionalPageCount=%u, suspendedPageCount=%u, m_isInProcessCache=%d, m_shutdownPreventingScopeCounter=%lu)", m_pageMap.size(), m_provisionalPages.computeSize(), m_suspendedPages.computeSize(), m_isInProcessCache, m_shutdownPreventingScopeCounter.value());
         return false;
     }
 
@@ -1434,7 +1537,7 @@ void WebProcessProxy::requestTermination(ProcessTerminationReason reason)
         return;
 
     Ref protectedThis { *this };
-    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "requestTermination: reason=%d", reason);
+    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "requestTermination: reason=%d", static_cast<int>(reason));
 
     AuxiliaryProcessProxy::terminate();
 
@@ -1623,6 +1726,40 @@ void WebProcessProxy::didChangeThrottleState(ProcessThrottleState type)
     }
 
     ASSERT(!m_backgroundToken || !m_foregroundToken);
+    m_backgroundResponsivenessTimer.updateState();
+}
+
+void WebProcessProxy::didDropLastAssertion()
+{
+    m_backgroundResponsivenessTimer.updateState();
+}
+
+void WebProcessProxy::prepareToDropLastAssertion(CompletionHandler<void()>&& completionHandler)
+{
+#if PLATFORM(MAC)
+    if (isInProcessCache()) {
+        // We don't free caches in cached WebProcesses on macOS for performance reasons.
+        // Cached WebProcess will anyway shutdown on memory pressure.
+        return completionHandler();
+    }
+    // On macOS, we don't slim down the process in the PrepareToSuspend IPC, we delay clearing the
+    // caches until we release the suspended assertion.
+    sendWithAsyncReply(Messages::WebProcess::ReleaseMemory(), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
+#else
+    // On iOS, we already slim down the process via the PrepareToSuspend IPC.
+    completionHandler();
+#endif
+}
+
+String WebProcessProxy::environmentIdentifier() const
+{
+    if (m_environmentIdentifier.isEmpty()) {
+        StringBuilder builder;
+        builder.append(clientName());
+        builder.append(processID());
+        m_environmentIdentifier = builder.toString();
+    }
+    return m_environmentIdentifier;
 }
 
 void WebProcessProxy::updateAudibleMediaAssertions()
@@ -1637,7 +1774,7 @@ void WebProcessProxy::updateAudibleMediaAssertions()
     if (hasAudibleWebPage) {
         WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "updateAudibleMediaAssertions: Taking MediaPlayback assertion for WebProcess");
         m_audibleMediaActivity = AudibleMediaActivity {
-            ProcessAssertion::create(processIdentifier(), "WebKit Media Playback"_s, ProcessAssertionType::MediaPlayback),
+            ProcessAssertion::create(processID(), "WebKit Media Playback"_s, ProcessAssertionType::MediaPlayback),
             processPool().webProcessWithAudibleMediaToken()
         };
     } else {
@@ -1784,6 +1921,16 @@ void WebProcessProxy::didExceedCPULimit()
         }
     }
 
+#if PLATFORM(MAC) && USE(RUNNINGBOARD)
+    // This background WebProcess is using too much CPU so we try to suspend it if possible.
+    if (runningBoardThrottlingEnabled() && !throttler().isSuspended()) {
+        WEBPROCESSPROXY_RELEASE_LOG_ERROR(PerformanceLogging, "didExceedCPULimit: Suspending background WebProcess that has exceeded the background CPU limit");
+        throttler().invalidateAllActivitiesAndDropAssertion();
+        return;
+    }
+#endif
+
+    // We were unable to suspend the process so we're terminating it.
     WEBPROCESSPROXY_RELEASE_LOG_ERROR(PerformanceLogging, "didExceedCPULimit: Terminating background WebProcess that has exceeded the background CPU limit");
     logDiagnosticMessageForResourceLimitTermination(DiagnosticLoggingKeys::exceededBackgroundCPULimitKey());
     requestTermination(ProcessTerminationReason::ExceededCPULimit);
@@ -1794,20 +1941,34 @@ void WebProcessProxy::updateBackgroundResponsivenessTimer()
     m_backgroundResponsivenessTimer.updateState();
 }
 
-void WebProcessProxy::updateWebGPUEnabledStateInGPUProcess()
-{
-    if (auto* process = processPool().gpuProcess()) {
-        process->updateWebGPUEnabled(*this, WTF::anyOf(pages(), [](const auto& page) {
-            return page && page->preferences().webGPU();
-        }));
-    }
-}
-
 void WebProcessProxy::updateBlobRegistryPartitioningState() const
 {
     auto* dataStore = websiteDataStore();
     if (auto* networkProcess = dataStore ? dataStore->networkProcessIfExists() : nullptr)
         networkProcess->setBlobRegistryTopOriginPartitioningEnabled(sessionID(),  dataStore->isBlobRegistryPartitioningEnabled());
+}
+
+
+void WebProcessProxy::updateDOMRenderingStateInGPUProcess()
+{
+#if ENABLE(GPU_PROCESS)
+    if (auto* gpuProcess = processPool().gpuProcess()) {
+        gpuProcess->updateDOMRenderingEnabled(*this, WTF::anyOf(pages(), [](auto& page) {
+            return page->preferences().useGPUProcessForDOMRenderingEnabled();
+        }));
+    }
+#endif
+}
+
+void WebProcessProxy::updateWebGPUEnabledStateInGPUProcess()
+{
+#if ENABLE(GPU_PROCESS)
+    if (auto* process = processPool().gpuProcess()) {
+        process->updateWebGPUEnabled(*this, WTF::anyOf(pages(), [](const auto& page) {
+            return page->preferences().webGPUEnabled();
+        }));
+    }
+#endif
 }
 
 #if !PLATFORM(COCOA)
@@ -1865,23 +2026,50 @@ void WebProcessProxy::didStartProvisionalLoadForMainFrame(const URL& url)
     m_registrableDomain = WTFMove(registrableDomain);
 }
 
-void WebProcessProxy::incrementSuspendedPageCount()
+void WebProcessProxy::addSuspendedPageProxy(SuspendedPageProxy& suspendedPage)
 {
-    ++m_suspendedPageCount;
-    WEBPROCESSPROXY_RELEASE_LOG(Process, "incrementSuspendedPageCount: m_suspendedPageCount=%u", m_suspendedPageCount);
-    if (m_suspendedPageCount == 1)
+    m_suspendedPages.add(suspendedPage);
+    auto suspendedPageCount = this->suspendedPageCount();
+    WEBPROCESSPROXY_RELEASE_LOG(Process, "addSuspendedPageProxy: suspendedPageCount=%u", suspendedPageCount);
+    if (suspendedPageCount == 1)
         send(Messages::WebProcess::SetHasSuspendedPageProxy(true), 0);
 }
 
-void WebProcessProxy::decrementSuspendedPageCount()
+void WebProcessProxy::removeSuspendedPageProxy(SuspendedPageProxy& suspendedPage)
 {
-    ASSERT(m_suspendedPageCount);
-    --m_suspendedPageCount;
-    WEBPROCESSPROXY_RELEASE_LOG(Process, "decrementSuspendedPageCount: m_suspendedPageCount=%u", m_suspendedPageCount);
-    if (!m_suspendedPageCount) {
+    ASSERT(m_suspendedPages.contains(suspendedPage));
+    m_suspendedPages.remove(suspendedPage);
+    auto suspendedPageCount = this->suspendedPageCount();
+    WEBPROCESSPROXY_RELEASE_LOG(Process, "removeSuspendedPageProxy: suspendedPageCount=%u", suspendedPageCount);
+    if (!suspendedPageCount) {
+        reportProcessDisassociatedWithPageIfNecessary(suspendedPage.page().identifier());
         send(Messages::WebProcess::SetHasSuspendedPageProxy(false), 0);
         maybeShutDown();
     }
+}
+
+void WebProcessProxy::reportProcessDisassociatedWithPageIfNecessary(WebPageProxyIdentifier pageID)
+{
+    if (isAssociatedWithPage(pageID))
+        return;
+
+    if (auto page = webPage(pageID))
+        page->processIsNoLongerAssociatedWithPage(*this);
+}
+
+bool WebProcessProxy::isAssociatedWithPage(WebPageProxyIdentifier pageID) const
+{
+    if (m_pageMap.contains(pageID))
+        return true;
+    for (auto& provisionalPage : m_provisionalPages) {
+        if (provisionalPage.page().identifier() == pageID)
+            return true;
+    }
+    for (auto& suspendedPage : m_suspendedPages) {
+        if (suspendedPage.page().identifier() == pageID)
+            return true;
+    }
+    return false;
 }
 
 WebProcessPool* WebProcessProxy::processPoolIfExists() const
@@ -2100,7 +2288,7 @@ void WebProcessProxy::registerRemoteWorkerClientProcess(RemoteWorkerType workerT
     if (!workerInformation)
         return;
 
-    WEBPROCESSPROXY_RELEASE_LOG(Worker, "registerWorkerClientProcess: workerType=%" PUBLIC_LOG_STRING ", clientProcess=%p, clientPID=%d", workerType == RemoteWorkerType::SharedWorker ? "shared" : "service", &proxy, proxy.processIdentifier());
+    WEBPROCESSPROXY_RELEASE_LOG(Worker, "registerWorkerClientProcess: workerType=%" PUBLIC_LOG_STRING ", clientProcess=%p, clientPID=%d", workerType == RemoteWorkerType::SharedWorker ? "shared" : "service", &proxy, proxy.processID());
     workerInformation->clientProcesses.add(proxy);
     updateRemoteWorkerProcessAssertion(workerType);
 }
@@ -2111,7 +2299,7 @@ void WebProcessProxy::unregisterRemoteWorkerClientProcess(RemoteWorkerType worke
     if (!workerInformation)
         return;
 
-    WEBPROCESSPROXY_RELEASE_LOG(Worker, "unregisterWorkerClientProcess: workerType=%" PUBLIC_LOG_STRING ", clientProcess=%p, clientPID=%d", workerType == RemoteWorkerType::SharedWorker ? "shared" : "service", &proxy, proxy.processIdentifier());
+    WEBPROCESSPROXY_RELEASE_LOG(Worker, "unregisterWorkerClientProcess: workerType=%" PUBLIC_LOG_STRING ", clientProcess=%p, clientPID=%d", workerType == RemoteWorkerType::SharedWorker ? "shared" : "service", &proxy, proxy.processID());
     workerInformation->clientProcesses.remove(proxy);
     updateRemoteWorkerProcessAssertion(workerType);
 }
@@ -2149,35 +2337,40 @@ void WebProcessProxy::endServiceWorkerBackgroundProcessing()
 }
 #endif // ENABLE(SERVICE_WORKER)
 
-void WebProcessProxy::disableRemoteWorkers(RemoteWorkerType workerType)
+void WebProcessProxy::disableRemoteWorkers(OptionSet<RemoteWorkerType> workerTypes)
 {
-    auto& remoteWorkerInformation = workerType == RemoteWorkerType::ServiceWorker ? m_serviceWorkerInformation : m_sharedWorkerInformation;
-    if (!remoteWorkerInformation)
-        return;
+    bool didDisableWorkers = false;
+
+    if (workerTypes.contains(RemoteWorkerType::SharedWorker) && m_sharedWorkerInformation) {
+        WEBPROCESSPROXY_RELEASE_LOG(Process, "disableWorkers: Disabling shared workers");
+        m_sharedWorkerInformation = { };
+        didDisableWorkers = true;
+    }
 
 #if ENABLE(SERVICE_WORKER)
-    if (workerType == RemoteWorkerType::ServiceWorker)
+    if (workerTypes.contains(RemoteWorkerType::ServiceWorker) && m_serviceWorkerInformation) {
+        WEBPROCESSPROXY_RELEASE_LOG(Process, "disableWorkers: Disabling service workers");
         removeMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_serviceWorkerInformation->remoteWorkerPageID);
+        m_serviceWorkerInformation = { };
+        didDisableWorkers = true;
+    }
 #endif
-    remoteWorkerInformation = { };
 
-    WEBPROCESSPROXY_RELEASE_LOG(Process, "disableWorkers: Disabling workers (workerType=%" PUBLIC_LOG_STRING ")", workerType == RemoteWorkerType::ServiceWorker ? "service" : "shared");
+    if (!didDisableWorkers)
+        return;
 
     updateBackgroundResponsivenessTimer();
 
     if (!isRunningWorkers())
-        processPool().removeFromRemoteWorkerProcesses(*this);
+        processPool().removeRemoteWorkerProcess(*this);
 
-    switch (workerType) {
-    case RemoteWorkerType::ServiceWorker:
+    if (workerTypes.contains(RemoteWorkerType::SharedWorker))
+        send(Messages::WebSharedWorkerContextManagerConnection::Close { }, 0);
+
 #if ENABLE(SERVICE_WORKER)
+    if (workerTypes.contains(RemoteWorkerType::ServiceWorker))
         send(Messages::WebSWContextManagerConnection::Close { }, 0);
 #endif
-        break;
-    case RemoteWorkerType::SharedWorker:
-        send(Messages::WebSharedWorkerContextManagerConnection::Close { }, 0);
-        break;
-    }
 
     maybeShutDown();
 }
@@ -2217,6 +2410,8 @@ void WebProcessProxy::enableRemoteWorkers(RemoteWorkerType workerType, const Use
         { }
     };
 
+    processPool().addRemoteWorkerProcess(*this);
+
 #if ENABLE(SERVICE_WORKER)
     if (workerType == RemoteWorkerType::ServiceWorker)
         addMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_serviceWorkerInformation->remoteWorkerPageID, ServiceWorkerNotificationHandler::singleton());
@@ -2225,23 +2420,6 @@ void WebProcessProxy::enableRemoteWorkers(RemoteWorkerType workerType, const Use
     updateBackgroundResponsivenessTimer();
 
     updateRemoteWorkerProcessAssertion(workerType);
-}
-
-void WebProcessProxy::didCreateSleepDisabler(SleepDisablerIdentifier identifier, const String& reason, bool display)
-{
-    MESSAGE_CHECK(!reason.isNull());
-    auto sleepDisabler = makeUnique<WebCore::SleepDisabler>(reason, display ? PAL::SleepDisabler::Type::Display : PAL::SleepDisabler::Type::System);
-    m_sleepDisablers.add(identifier, WTFMove(sleepDisabler));
-}
-
-void WebProcessProxy::didDestroySleepDisabler(SleepDisablerIdentifier identifier)
-{
-    m_sleepDisablers.remove(identifier);
-}
-
-bool WebProcessProxy::hasSleepDisabler() const
-{
-    return !m_sleepDisablers.isEmpty();
 }
 
 void WebProcessProxy::markProcessAsRecentlyUsed()
@@ -2257,6 +2435,25 @@ void WebProcessProxy::systemBeep()
 
 void WebProcessProxy::getNotifications(const URL& registrationURL, const String& tag, CompletionHandler<void(Vector<NotificationData>&&)>&& callback)
 {
+    if (websiteDataStore()->hasClientGetDisplayedNotifications()) {
+        auto callbackHandlingTags = [tag, callback = WTFMove(callback)] (Vector<NotificationData>&& notifications) mutable {
+            if (tag.isEmpty()) {
+                callback(WTFMove(notifications));
+                return;
+            }
+
+            Vector<NotificationData> filteredNotifications;
+            for (auto& notification : notifications) {
+                if (tag == notification.tag)
+                    filteredNotifications.append(notification);
+            }
+
+            callback(WTFMove(filteredNotifications));
+        };
+        websiteDataStore()->getNotifications(registrationURL, WTFMove(callbackHandlingTags));
+        return;
+    }
+
     WebNotificationManagerProxy::sharedServiceWorkerManager().getNotifications(registrationURL, tag, sessionID(), WTFMove(callback));
 }
 
@@ -2307,13 +2504,36 @@ void WebProcessProxy::permissionChanged(WebCore::PermissionName permissionName, 
 
     for (auto& webProcessPool : webProcessPools) {
         for (auto& webProcessProxy : webProcessPool->processes())
-            webProcessProxy->sendPermissionChanged(permissionName, topOrigin);
+            webProcessProxy->processPermissionChanged(permissionName, topOrigin);
     }
 }
 
-void WebProcessProxy::sendPermissionChanged(WebCore::PermissionName permissionName, const WebCore::SecurityOriginData& topOrigin)
+void WebProcessProxy::processPermissionChanged(WebCore::PermissionName permissionName, const WebCore::SecurityOriginData& topOrigin)
 {
+#if ENABLE(MEDIA_STREAM)
+    if (permissionName == WebCore::PermissionName::Camera || permissionName == WebCore::PermissionName::Microphone) {
+        for (auto& page : m_pageMap.values()) {
+            if (SecurityOriginData::fromURLWithoutStrictOpaqueness(URL { page->currentURL() }) == topOrigin)
+                page->clearUserMediaPermissionRequestHistory(permissionName);
+        }
+    }
+#endif
     send(Messages::WebPermissionController::permissionChanged(permissionName, topOrigin), 0);
+}
+
+void WebProcessProxy::addAllowedFirstPartyForCookies(const WebCore::RegistrableDomain& firstPartyDomain)
+{
+    send(Messages::WebProcess::AddAllowedFirstPartyForCookies(firstPartyDomain), 0);
+}
+
+Logger& WebProcessProxy::logger()
+{
+    if (!m_logger) {
+        m_logger = Logger::create(this);
+        auto alwaysOnLoggingAllowed = m_websiteDataStore ? m_websiteDataStore->sessionID().isAlwaysOnLoggingAllowed() : false;
+        m_logger->setEnabled(this, alwaysOnLoggingAllowed);
+    }
+    return *m_logger;
 }
 
 void WebProcessProxy::resetState()
@@ -2333,7 +2553,7 @@ TextStream& operator<<(TextStream& ts, const WebProcessProxy& process)
             ts << ", " << description;
     };
 
-    ts << "pid: " << process.processIdentifier();
+    ts << "pid: " << process.processID();
     appendCount(process.pageCount(), "pages"_s);
     appendCount(process.visiblePageCount(), "visible-pages"_s);
     appendCount(process.provisionalPageCount(), "provisional-pages"_s);

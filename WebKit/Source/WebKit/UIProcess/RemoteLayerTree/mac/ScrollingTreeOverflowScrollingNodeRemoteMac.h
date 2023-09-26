@@ -38,16 +38,12 @@ public:
     static Ref<ScrollingTreeOverflowScrollingNodeRemoteMac> create(WebCore::ScrollingTree&, WebCore::ScrollingNodeID);
     virtual ~ScrollingTreeOverflowScrollingNodeRemoteMac();
 
-    bool handleMouseEvent(const WebCore::PlatformMouseEvent&);
-
 private:
     ScrollingTreeOverflowScrollingNodeRemoteMac(WebCore::ScrollingTree&, WebCore::ScrollingNodeID);
 
-    bool commitStateBeforeChildren(const WebCore::ScrollingStateNode&) override;
-    WebCore::WheelEventHandlingResult handleWheelEvent(const WebCore::PlatformWheelEvent&, WebCore::EventTargeting) override;
+    void handleWheelEventPhase(const WebCore::PlatformWheelEventPhase) override;
     void repositionRelatedLayers() override;
-
-    std::unique_ptr<ScrollerPairMac> m_scrollerPair;
+    String scrollbarStateForOrientation(WebCore::ScrollbarOrientation) const override;
 };
 
 }

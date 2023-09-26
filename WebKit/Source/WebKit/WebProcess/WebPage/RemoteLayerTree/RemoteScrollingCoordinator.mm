@@ -30,6 +30,7 @@
 
 #import "ArgumentCoders.h"
 #import "GraphicsLayerCARemote.h"
+#import "Logging.h"
 #import "RemoteLayerTreeDrawingArea.h"
 #import "RemoteScrollingCoordinatorMessages.h"
 #import "RemoteScrollingCoordinatorTransaction.h"
@@ -37,12 +38,13 @@
 #import "WebCoreArgumentCoders.h"
 #import "WebPage.h"
 #import "WebProcess.h"
-#import <WebCore/Frame.h>
-#import <WebCore/FrameView.h>
 #import <WebCore/GraphicsLayer.h>
+#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/Page.h>
 #import <WebCore/RenderLayerCompositor.h>
 #import <WebCore/RenderView.h>
+#import <WebCore/ScrollbarsController.h>
 #import <WebCore/ScrollingStateFrameScrollingNode.h>
 #import <WebCore/ScrollingTreeFixedNodeCocoa.h>
 #import <WebCore/ScrollingTreeStickyNodeCocoa.h>
@@ -68,7 +70,7 @@ void RemoteScrollingCoordinator::scheduleTreeStateCommit()
     m_webPage->drawingArea()->triggerRenderingUpdate();
 }
 
-bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(const FrameView& frameView) const
+bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(const LocalFrameView& frameView) const
 {
     RenderView* renderView = frameView.renderView();
     return renderView && renderView->usesCompositing();
@@ -109,11 +111,11 @@ void RemoteScrollingCoordinator::buildTransaction(RemoteScrollingCoordinatorTran
 }
 
 // Notification from the UI process that we scrolled.
-void RemoteScrollingCoordinator::scrollPositionChangedForNode(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, bool syncLayerPosition, CompletionHandler<void()>&& completionHandler)
+void RemoteScrollingCoordinator::scrollPositionChangedForNode(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, std::optional<FloatPoint> layoutViewportOrigin, bool syncLayerPosition, CompletionHandler<void()>&& completionHandler)
 {
-    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinator::scrollingTreeNodeDidScroll " << nodeID << " to " << scrollPosition);
+    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinator::scrollingTreeNodeDidScroll " << nodeID << " to " << scrollPosition << " layoutViewportOrigin " << layoutViewportOrigin);
 
-    auto scrollUpdate = ScrollUpdate { nodeID, scrollPosition, { }, ScrollUpdateType::PositionUpdate, syncLayerPosition ? ScrollingLayerPositionAction::Sync : ScrollingLayerPositionAction::Set };
+    auto scrollUpdate = ScrollUpdate { nodeID, scrollPosition, layoutViewportOrigin, ScrollUpdateType::PositionUpdate, syncLayerPosition ? ScrollingLayerPositionAction::Sync : ScrollingLayerPositionAction::Set };
     applyScrollUpdate(WTFMove(scrollUpdate));
 
     completionHandler();
@@ -172,6 +174,37 @@ void RemoteScrollingCoordinator::stopDeferringScrollingTestCompletionForNode(Web
 {
     if (auto monitor = m_page->wheelEventTestMonitor())
         monitor->removeDeferralForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(nodeID), reason);
+}
+
+WheelEventHandlingResult RemoteScrollingCoordinator::handleWheelEventForScrolling(const PlatformWheelEvent& wheelEvent, ScrollingNodeID targetNodeID, std::optional<WheelScrollGestureState> gestureState)
+{
+    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinator::handleWheelEventForScrolling " << wheelEvent << " - node " << targetNodeID << " gestureState " << gestureState << " will start swipe " << (m_currentWheelEventWillStartSwipe && *m_currentWheelEventWillStartSwipe));
+
+    if (m_currentWheelEventWillStartSwipe && *m_currentWheelEventWillStartSwipe)
+        return WheelEventHandlingResult::unhandled();
+
+    m_currentWheelGestureInfo = NodeAndGestureState { targetNodeID, gestureState };
+    return WheelEventHandlingResult::handled();
+}
+
+void RemoteScrollingCoordinator::scrollingTreeNodeScrollbarVisibilityDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, bool isVisible)
+{
+    auto* frameView = frameViewForScrollingNode(nodeID);
+    if (!frameView)
+        return;
+
+    if (auto* scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
+        scrollableArea->scrollbarsController().setScrollbarVisibilityState(orientation, isVisible);
+}
+
+void RemoteScrollingCoordinator::scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, int minimumThumbLength)
+{
+    auto* frameView = frameViewForScrollingNode(nodeID);
+    if (!frameView)
+        return;
+
+    if (auto* scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
+        scrollableArea->scrollbarsController().setScrollbarMinimumThumbLength(orientation, minimumThumbLength);
 }
 
 } // namespace WebKit

@@ -347,6 +347,8 @@ enum {
     BLOCK_BYREF_NEEDS_FREE =        (  1 << 24), // runtime
 };
 
+#define BLOCK_BYREF_LAYOUT(byref)  ((byref)->flags & BLOCK_BYREF_LAYOUT_MASK)
+
 struct Block_byref_2 {
     // requires BLOCK_BYREF_HAS_COPY_DISPOSE
     BlockByrefKeepFunction byref_keep;

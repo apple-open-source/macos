@@ -114,8 +114,7 @@ int	qflookup(int, u_long, int, struct dqblk *);
 #endif /* __APPLE__ */
 
 int
-main(argc, argv)
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ngroups; 
 	gid_t gidset[NGROUPS];

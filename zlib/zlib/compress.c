@@ -34,12 +34,6 @@ int ZEXPORT compress2 (dest, destLen, source, sourceLen, level)
     left = *destLen;
     *destLen = 0;
 
-#if defined(__LP64__)
-    /* Check for source > 4G under LP64 */
-    stream.avail_in = (uInt)sourceLen;
-    if ((uLong)stream.avail_in != sourceLen) return Z_BUF_ERROR;
-#endif
-
     stream.zalloc = (alloc_func)0;
     stream.zfree = (free_func)0;
     stream.opaque = (voidpf)0;

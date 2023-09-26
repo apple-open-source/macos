@@ -52,10 +52,7 @@ __FBSDID("$FreeBSD: src/lib/libc/inet/inet_neta.c,v 1.3 2007/06/03 17:20:26 ume 
  *	Paul Vixie (ISC), July 1996
  */
 char *
-inet_neta(src, dst, size)
-	in_addr_t src;
-	char *dst;
-	size_t size;
+inet_neta(in_addr_t src, char *dst, size_t size)
 {
 	char *odst = dst;
 	char *tp;

@@ -100,6 +100,7 @@ __BEGIN_DECLS
 #define kIOHIDTransportAirPlayValue             "AirPlay"
 #define kIOHIDTransportSPUValue                 "SPU"
 #define kIOHIDTransportBTAACPValue              "BT-AACP"
+#define kIOHIDTransportFIFOValue                "FIFO"
 
 
 #define kIOHIDCategoryAutomotiveValue       "Automotive"
@@ -216,6 +217,13 @@ __BEGIN_DECLS
     @discussion Keyboard devices having full HID keyboard descriptor can specify if esc key is actually supported or not. For new macs with TouchBar this is ideal scenario where keyboard descriptor by default specifies presence of esc key but through given property client can check if key is present or not
  */
 #define kIOHIDKeyboardSupportsEscKey                 "HIDKeyboardSupportsEscKey"
+
+/*!
+    @defined kIOHIDKeyboardSupportsDoNotDisturbKey
+    @abstract Describe if keyboard device supports a do not disturb key.
+    @discussion Keyboards reporting this usage are capable of triggering the do not disturb mode, it does not guarantee that the keyboard will have a button available to the user to use.
+ */
+#define kIOHIDKeyboardSupportsDoNotDisturbKey                 "HIDKeyboardSupportsDoNotDisturbKey"
 
 /*!
   @typedef IOHIDOptionsType
@@ -426,25 +434,6 @@ typedef uint32_t IOHIDKeyboardPhysicalLayoutType;
 
 #define kIOHIDDigitizerSurfaceSwitchKey "DigitizerSurfaceSwitch"
 
-
-/*!
-     @defined    kIOHIDPointerAccelerationSupportKey
-     @abstract   Property to turn enable/disable acceleration of relative pointer events
-     @discussion A boolean value to enable devices that report movement precisely but using relative positions,
-                    if false the events from the device will not have acceleration applied to the event value calculation.
-                    If the key is not set then the device will have acceleration applied to it's events by default.
- */
-#define kIOHIDPointerAccelerationSupportKey    "HIDSupportsPointerAcceleration"
-
-/*!
-     @defined    kIOHIDScrollAccelerationSupportKey
-     @abstract   Property to turn enable/disable acceleration of scroll events
-     @discussion A boolean value to enable devices that report scroll precisely but using relative positions,
-                    if false the events from the device will not have acceleration applied to the event value calculation.
-                    If the key is not set then the device will have acceleration applied to it's events by default.
- */
-#define kIOHIDScrollAccelerationSupportKey     "HIDSupportsScrollAcceleration"
-
 /*!
      @defined    kIOHIDKeyboardLayoutValueKey
      @abstract   Property to report the value read from the device used to determine the keyboard layout
@@ -460,6 +449,46 @@ typedef uint32_t IOHIDKeyboardPhysicalLayoutType;
                             - 6: Vendor-specific - kIOHIDStandardTypeUnspecified
  */
 #define kIOHIDKeyboardLayoutValueKey "HIDKeyboardLayoutValue"
+
+/*!
+     @defined    kIOHIDPointerAccelerationAlgorithmKey
+     @abstract   Property to determine if the pointer acceleration algorithm should be overridden.
+     @discussion Property value if set represents desired acceleration algorithm for pointer events.
+                 See kIOHIDAccelerationAlgorithmType for supported values.
+ */
+#define kIOHIDPointerAccelerationAlgorithmKey "HIDPointerAccelerationAlgorithm"
+
+/*!
+     @defined    kIOHIDScrollAccelerationAlgorithmKey
+     @abstract   Property to determine if the scroll acceleration algorithm should be overridden.
+     @discussion Property value if set represents desired acceleration algorithm for scroll events.
+                 See kIOHIDAccelerationAlgorithmType for supported values.
+ */
+#define kIOHIDScrollAccelerationAlgorithmKey  "HIDScrollAccelerationAlgorithm"
+
+
+/*!
+  @typedef IOHIDAccelerationAlgorithmType
+  @abstract Type to define what acceleration algorithm should be used.
+  @constant kIOHIDAccelerationAlgorithmTypeTable Apple Acceleration Tables, not recommended.
+  @constant kIOHIDAccelerationAlgorithmTypeParametric Acceleration Curves, defined by a set of points.
+  @constant kIOHIDAccelerationAlgorithmTypeDefault Use the default acceleration algorithm resolution.
+*/
+enum {
+    kIOHIDAccelerationAlgorithmTypeTable,
+    kIOHIDAccelerationAlgorithmTypeParametric,
+    kIOHIDAccelerationAlgorithmTypeDefault,
+};
+typedef uint8_t IOHIDAccelerationAlgorithmType;
+
+
+/*!
+     @defined    kIOHIDPointerAccelerationMinimumKey
+     @abstract   Property set the minimum pointer acceleration when linear acceleration is used.
+     @discussion Property value is expected to be in 16.16 fixed point floating number when sent to
+                 clients and converted as needed.
+ */
+#define kIOHIDPointerAccelerationMinimumKey  "HIDPointerAccelerationMinimum"
 
 __END_DECLS
 

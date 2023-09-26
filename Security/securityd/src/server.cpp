@@ -332,6 +332,7 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 
 		default:
 			assert(false);
+			break;
         }
     } catch(...) {
 		secnotice("SecServer", "exception handling a signal (ignored)");

@@ -178,7 +178,6 @@ static DAReturn __DAQueueRequest( DASessionRef   session,
         CFDataRef _argument2 = NULL;
         CFDataRef _argument3 = NULL;
 
-#if TARGET_OS_IOS
         if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
         {
             if ( _DASessionRecreate (session) != kDAReturnSuccess )
@@ -186,7 +185,7 @@ static DAReturn __DAQueueRequest( DASessionRef   session,
                 goto exit;
             }
         }
-#endif
+        
         if ( argument2 )  _argument2 = _DASerialize( kCFAllocatorDefault, argument2 );
         if ( argument3 )  _argument3 = _DASerialize( kCFAllocatorDefault, argument3 );
 
@@ -225,7 +224,6 @@ static void __DAQueueResponse( DASessionRef    session,
 {
     CFDataRef _response = NULL;
 
-#if TARGET_OS_IOS
     if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
     {
         if ( _DASessionRecreate (session) != kDAReturnSuccess )
@@ -233,7 +231,6 @@ static void __DAQueueResponse( DASessionRef    session,
             return;
         }
     }
-#endif
     
     if ( response )  _response = _DASerialize( kCFAllocatorDefault, response );
     
@@ -507,7 +504,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
             }
             break;
         }
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
         case _kDADiskEjectApprovalCallback:
         {
             if ( block )
@@ -523,7 +520,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
             
             break;
         }
-#endif
+
         case _kDADiskMountCallback:
         {
             if ( block )
@@ -537,7 +534,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
 
             break;
         }
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
         case _kDADiskMountApprovalCallback:
         {
             if ( block )
@@ -553,7 +550,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
             
             break;
         }
-#endif
+
         case _kDADiskPeekCallback:
         {
             if ( block )
@@ -596,7 +593,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
 
             break;
         }
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
         case _kDADiskUnmountApprovalCallback:
         {
             if ( block )
@@ -612,7 +609,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
             
             break;
         }
-#endif
+
         case _kDAIdleCallback:
         {
             
@@ -693,7 +690,6 @@ __private_extern__ void _DARegisterCallback( DASessionRef    session,
         CFDataRef _match = NULL;
         CFDataRef _watch = NULL;
         
-#if TARGET_OS_IOS
     if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
     {
         if ( _DASessionRecreate (session) != kDAReturnSuccess )
@@ -701,7 +697,7 @@ __private_extern__ void _DARegisterCallback( DASessionRef    session,
             return;
         }
     }
-#endif
+
         if ( match )  _match = _DASerializeDiskDescription( kCFAllocatorDefault, match );
         if ( watch )  _watch = _DASerialize( kCFAllocatorDefault, watch );
         
@@ -736,7 +732,7 @@ __private_extern__ void _DAUnregisterCallback( DASessionRef session, void * addr
          * pass the handle to the callback object to the server to unregister the callback
          * since only the keys are passed to the server to avoid security issues.
          */
-#if TARGET_OS_IOS
+
     if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
     {
         if ( _DASessionRecreate (session) != kDAReturnSuccess )
@@ -744,7 +740,7 @@ __private_extern__ void _DAUnregisterCallback( DASessionRef session, void * addr
             return;
         }
     }
-#endif
+
         SInt32 matchingIndex = DARemoveCallbackFromSession(session, address, context);
         _DAServerSessionUnregisterCallback( _DASessionGetID( session ), ( uintptr_t ) matchingIndex, ( uintptr_t ) matchingIndex );
     }
@@ -886,7 +882,6 @@ Boolean DADiskIsClaimed( DADiskRef disk )
     if ( disk )
     {
         
-#if TARGET_OS_IOS
         DASessionRef session = _DADiskGetSession( disk);
         if ( _DADiskGetSessionID( disk ) == NULL  && _DASessionIsKeepAlive( session ) )
         {
@@ -895,7 +890,7 @@ Boolean DADiskIsClaimed( DADiskRef disk )
                 goto exit;
             }
         }
-#endif
+
         _DAServerDiskIsClaimed( _DADiskGetSessionID( disk ), _DADiskGetID( disk ), &claimed );
     }
 exit:
@@ -1164,7 +1159,6 @@ void DARegisterDiskDisappearedCallback( DASessionRef              session,
     _DARegisterCallback( session, callback, context, _kDADiskDisappearedCallback, 0, match, NULL, false );
 }
 
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 void DARegisterDiskEjectApprovalCallback( DASessionRef                session,
                                           CFDictionaryRef             match,
                                           DADiskEjectApprovalCallback callback,
@@ -1172,7 +1166,7 @@ void DARegisterDiskEjectApprovalCallback( DASessionRef                session,
 {
     _DARegisterCallback( session, callback, context, _kDADiskEjectApprovalCallback, 0, match, NULL, false );
 }
-#endif
+
 void DARegisterDiskPeekCallback( DASessionRef        session,
                                  CFDictionaryRef     match,
                                  CFIndex             order,
@@ -1182,7 +1176,6 @@ void DARegisterDiskPeekCallback( DASessionRef        session,
     _DARegisterCallback( session, callback, context, _kDADiskPeekCallback, order, match, NULL, false );
 }
 
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 void DARegisterDiskMountApprovalCallback( DASessionRef                session,
                                           CFDictionaryRef             match,
                                           DADiskMountApprovalCallback callback,
@@ -1199,12 +1192,11 @@ void DARegisterDiskUnmountApprovalCallback( DASessionRef                  sessio
     _DARegisterCallback( session, callback, context, _kDADiskUnmountApprovalCallback, 0, match, NULL, false );
 }
 
-#endif
+
 void DADiskUnclaim( DADiskRef disk )
 {
     if ( disk )
     {
-#if TARGET_OS_IOS
         DASessionRef session = _DADiskGetSession( disk);
         if ( _DADiskGetSessionID( disk ) == NULL  && _DASessionIsKeepAlive( session ) )
         {
@@ -1213,7 +1205,6 @@ void DADiskUnclaim( DADiskRef disk )
                 return;
             }
         }
-#endif
         _DAServerDiskUnclaim( _DADiskGetSessionID( disk ), _DADiskGetID( disk ) );
     }
 }

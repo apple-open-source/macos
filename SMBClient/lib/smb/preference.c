@@ -58,57 +58,6 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 		 */
 		rc_getint(rcfile, sname, "debug_level", &prefs->KernelLogLevel);
 		rc_getint(rcfile, sname, "kloglevel", &prefs->KernelLogLevel);
-		
-        /*
-         * Check for which versions of SMB are enabled. 
-		 * Default is only SMB 2/3 are enabled
-		 *
-         * 1 = 0001 = SMB 1 enabled
-		 * 3 = 0011 = SMB 1 and 2 enabled
-		 * 6 = 0110 = SMB 2 and 3 enabled <default>
-		 * 7 = 0111 = SMB 1 and 2 and 3 enabled
-         */
-		/* Check for which versions of SMB we support */
-		rc_getint(rcfile, sname, "protocol_vers_map", &prefs->protocol_version_map);
-		if (prefs->protocol_version_map == 0) {
-			/* 0 is invalid so assume the safer of SMB 2/3 only */
-			prefs->protocol_version_map = 6;
-		}
-		
-		/* Check for Required Signing */
-		/* Only get the value if it exist, ignore any error we don't care */
-		(void)rc_getbool(rcfile, sname, "signing_required", (int *) &prefs->signing_required);
-
-		/* Check for which versions of SMB require signing */
-		rc_getint(rcfile, sname, "signing_req_vers", &prefs->signing_req_versions);
-
-		/* Only get the value if it exists */
-        if (rc_getbool(rcfile, sname, "validate_neg_off", &altflags) == 0) {
-            if (altflags)
-                prefs->altflags |= SMBFS_MNT_VALIDATE_NEG_OFF;
-            else
-                prefs->altflags &= ~SMBFS_MNT_VALIDATE_NEG_OFF;
-        }
-        
-        /*
-         * Check for which encryption algorithms of SMB encryption are enabled.
-         * AES_128_CCM is always enabled (0x0001)
-         * AES_128_GCM is enabled (0x0002)
-         * AES_256_CCM (0x0004) is enabled
-         * AES_256_GCM (0x0008) is enabled
-         */
-        rc_getint(rcfile, sname, "encrypt_cipher_map", &prefs->encrypt_algorithm_map);
-        if (prefs->encrypt_algorithm_map == 0) {
-            /* 0 is invalid so assume AES_128_CCM/AES_128_GCM/AES-256-CCM/AES-256-GCM */
-            prefs->encrypt_algorithm_map = 0xf;
-        }
-        
-        /* Check for forcing encryption */
-        /* Only get the value if it exist, ignore any error we don't care */
-        (void)rc_getbool(rcfile, sname, "force_sess_encrypt",
-                         (int *) &prefs->force_sess_encrypt);
-        (void)rc_getbool(rcfile, sname, "force_share_encrypt",
-                         (int *) &prefs->force_share_encrypt);
 	}
 	
 	/* server only preferences */
@@ -124,6 +73,22 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 	
 	/* global or server preferences */
 	if ((level == 0) || (level == 1)) {
+        /*
+         * Check for which versions of SMB are enabled.
+         * Default is only SMB 2/3 are enabled
+         *
+         * 1 = 0001 = SMB 1 enabled
+         * 3 = 0011 = SMB 1 and 2 enabled
+         * 6 = 0110 = SMB 2 and 3 enabled <default>
+         * 7 = 0111 = SMB 1 and 2 and 3 enabled
+         */
+        /* Check for which versions of SMB we support */
+        rc_getint(rcfile, sname, "protocol_vers_map", &prefs->protocol_version_map);
+        if (prefs->protocol_version_map == 0) {
+            /* 0 is invalid so assume the safer of SMB 2/3 only */
+            prefs->protocol_version_map = 6;
+        }
+
 		rc_getint(rcfile, sname, "nbtimeout", &prefs->NetBIOSResolverTimeout);
 		/* Make sure they set it to something */
 		if (prefs->NetBIOSResolverTimeout == 0) {
@@ -209,6 +174,71 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 		if (prefs->max_resp_timeout > 600) {
 			prefs->max_resp_timeout = 600; /* 10 mins is a long, long time */
 		}
+        
+        /* Check for Required Signing */
+        /* Only get the value if it exist, ignore any error we don't care */
+        (void)rc_getbool(rcfile, sname, "signing_required", (int *) &prefs->signing_required);
+
+        /*
+         * Check for which signing algorithms of SMB signing are enabled.
+         * SMB2_SIGNING_AES_CMAC 0x0001
+         * SMB2_SIGNING_AES_GMAC 0x0002
+         */
+        rc_getint(rcfile, sname, "signing_alg_map", &prefs->signing_algorithm_map);
+        if (prefs->signing_algorithm_map == 0) {
+            /* 0 is invalid so turn on all algorithms */
+            prefs->signing_algorithm_map = 0xf;
+        }
+
+        /* Check for which versions of SMB require signing */
+        rc_getint(rcfile, sname, "signing_req_vers", &prefs->signing_req_versions);
+
+        /* Only get the value if it exists */
+        if (rc_getbool(rcfile, sname, "validate_neg_off", &altflags) == 0) {
+            if (altflags)
+                prefs->altflags |= SMBFS_MNT_VALIDATE_NEG_OFF;
+            else
+                prefs->altflags &= ~SMBFS_MNT_VALIDATE_NEG_OFF;
+        }
+        
+        /*
+         * Check for which encryption algorithms of SMB encryption are enabled.
+         * AES_128_CCM is always enabled (0x0001)
+         * AES_128_GCM is enabled (0x0002)
+         * AES_256_CCM (0x0004) is enabled
+         * AES_256_GCM (0x0008) is enabled
+         */
+        rc_getint(rcfile, sname, "encrypt_cipher_map", &prefs->encrypt_algorithm_map);
+        if (prefs->encrypt_algorithm_map == 0) {
+            /* 0 is invalid so assume AES_128_CCM/AES_128_GCM/AES-256-CCM/AES-256-GCM */
+            prefs->encrypt_algorithm_map = 0xf;
+        }
+        
+        /* Check for forcing encryption */
+        /* Only get the value if it exist, ignore any error we don't care */
+        (void)rc_getbool(rcfile, sname, "force_sess_encrypt",
+                         (int *) &prefs->force_sess_encrypt);
+        (void)rc_getbool(rcfile, sname, "force_share_encrypt",
+                         (int *) &prefs->force_share_encrypt);
+        
+        
+        /* Multichannel preferences (enabled by default) */
+        if (rc_getbool(rcfile, sname, "mc_on", &altflags) == 0) {
+            if (!altflags) {
+                prefs->altflags &= ~SMBFS_MNT_MULTI_CHANNEL_ON;
+            }
+        }
+
+        /*
+         * OFF by default and if set, then in all cases wired NICs will be used as
+         * active channels and wireless NICs will be possibly set as an inactive in
+         * case no wired NIC should be set as inactive
+         */
+        if (rc_getbool(rcfile, sname, "mc_prefer_wired", &altflags) == 0) {
+            if (altflags) {
+                prefs->altflags |= SMBFS_MNT_MC_PREFER_WIRED;
+            }
+        }
 	}
 	
 	/* global, server, user, or share preferences */
@@ -299,24 +329,6 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
             os_log_debug(OS_LOG_DEFAULT, "%s: Try NetBIOS before DNS resolution", __FUNCTION__);
         } else {
             prefs->try_netBIOS_before_DNS = 0;
-        }
-    }
-
-    /* Multichannel preferences (enabled by default) */
-    if (rc_getbool(rcfile, sname, "mc_on", &altflags) == 0) {
-        if (!altflags) {
-            prefs->altflags &= ~SMBFS_MNT_MULTI_CHANNEL_ON;
-        }
-    }
-
-    /*
-     * OFF by default and if set, then in all cases wired NICs will be used as
-     * active channels and wireless NICs will be possibly set as an inactive in
-     * case no wired NIC should be set as inactive
-     */
-    if (rc_getbool(rcfile, sname, "mc_prefer_wired", &altflags) == 0) {
-        if (altflags) {
-            prefs->altflags |= SMBFS_MNT_MC_PREFER_WIRED;
         }
     }
     
@@ -440,18 +452,100 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 	}
     
     /*
-     * Another hidden config option, to change max quantum sizes
+     * Another hidden config options, to change quantum sizes and counts
      */
-    rc_getint(rcfile, sname, "max_read_size", &prefs->max_read_size);
+    rc_getint(rcfile, sname, "min_read_size", &prefs->read_size[0]);
     /* Make sure they set it to something reasonable. Match smb_maxread */
-    if (prefs->max_read_size > kDefaultMaxIOSize) {
-        prefs->max_read_size = kDefaultMaxIOSize;
+    if (prefs->read_size[0] > kDefaultMaxIOSize) {
+        prefs->read_size[0] = kDefaultMaxIOSize;
     }
     
-    rc_getint(rcfile, sname, "max_write_size", &prefs->max_write_size);
+    rc_getint(rcfile, sname, "med_read_size", &prefs->read_size[1]);
+    /* Make sure they set it to something reasonable. Match smb_maxread */
+    if (prefs->read_size[1] > kDefaultMaxIOSize) {
+        prefs->read_size[1] = kDefaultMaxIOSize;
+    }
+    
+    rc_getint(rcfile, sname, "max_read_size", &prefs->read_size[2]);
+    /* Make sure they set it to something reasonable. Match smb_maxread */
+    if (prefs->read_size[2] > kDefaultMaxIOSize) {
+        prefs->read_size[2] = kDefaultMaxIOSize;
+    }
+
+    rc_getint(rcfile, sname, "min_read_count", &prefs->read_count[0]);
+    /* Make sure they set it to something reasonable. */
+    if (prefs->read_count[0] > kSmallMTUMaxNumber) {
+        prefs->read_count[0] = kSmallMTUMaxNumber;
+    }
+    
+    rc_getint(rcfile, sname, "med_read_count", &prefs->read_count[1]);
+    /* Make sure they set it to something reasonable. */
+    if (prefs->read_count[1] > kSmallMTUMaxNumber) {
+        prefs->read_count[1] = kSmallMTUMaxNumber;
+    }
+    
+    rc_getint(rcfile, sname, "max_read_count", &prefs->read_count[2]);
+    /* Make sure they set it to something reasonable. */
+    if (prefs->read_count[2] > kSmallMTUMaxNumber) {
+        prefs->read_count[2] = kSmallMTUMaxNumber;
+    }
+    
+    /*
+     * Write preferences
+     */
+    rc_getint(rcfile, sname, "min_write_size", &prefs->write_size[0]);
     /* Make sure they set it to something reasonable. Match smb_maxwrite */
-    if (prefs->max_write_size > kDefaultMaxIOSize) {
-        prefs->max_write_size = kDefaultMaxIOSize;
+    if (prefs->write_size[0] > kDefaultMaxIOSize) {
+        prefs->write_size[0] = kDefaultMaxIOSize;
+    }
+    
+    rc_getint(rcfile, sname, "med_write_size", &prefs->write_size[1]);
+    /* Make sure they set it to something reasonable. Match smb_maxwrite */
+    if (prefs->write_size[1] > kDefaultMaxIOSize) {
+        prefs->write_size[1] = kDefaultMaxIOSize;
+    }
+    
+    rc_getint(rcfile, sname, "max_write_size", &prefs->write_size[2]);
+    /* Make sure they set it to something reasonable. Match smb_maxwrite */
+    if (prefs->write_size[2] > kDefaultMaxIOSize) {
+        prefs->write_size[2] = kDefaultMaxIOSize;
+    }
+
+    rc_getint(rcfile, sname, "min_write_count", &prefs->write_count[0]);
+    /* Make sure they set it to something reasonable. */
+    if (prefs->write_count[0] > kSmallMTUMaxNumber) {
+        prefs->write_count[0] = kSmallMTUMaxNumber;
+    }
+    
+    rc_getint(rcfile, sname, "med_write_count", &prefs->write_count[1]);
+    /* Make sure they set it to something reasonable. */
+    if (prefs->write_count[1] > kSmallMTUMaxNumber) {
+        prefs->write_count[1] = kSmallMTUMaxNumber;
+    }
+    
+    rc_getint(rcfile, sname, "max_write_count", &prefs->write_count[2]);
+    /* Make sure they set it to something reasonable. */
+    if (prefs->write_count[2] > kSmallMTUMaxNumber) {
+        prefs->write_count[2] = kSmallMTUMaxNumber;
+    }
+
+    /*
+     * Another hidden config option, to control IO threading useage
+     * 1 = force single thread, 2 = force multi thread
+     */
+    rc_getint(rcfile, sname, "rw_thread_control", &prefs->rw_thread_control);
+    /* Can only be 0, 1, or 2 at this time */
+    switch(prefs->rw_thread_control) {
+        case 0:
+            /* no change to setting */
+        case 1:
+            /* Force using single thread */
+        case 2:
+            /* Force using multi thread */
+            break;
+        default:
+            prefs->rw_thread_control= 0;
+            break;
     }
 
     /* Another hidden config option to set IP QoS */
@@ -665,6 +759,8 @@ void getDefaultPreferences(struct smb_prefs *prefs)
 
 	/* Signing required is OFF by default */
 	prefs->signing_required = 0;
+    /* all signing algorithms are enabled by default */
+    prefs->signing_algorithm_map = 0xf;
     /*
      * If signing_required is enabled, then signing is required for SMB 2/3,
      * but not for SMB 1 by default
@@ -677,10 +773,24 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     /* IP QoS of 0 means use the default */
     prefs->ip_QoS = 0;
 
-    /* max quantum size of 0 means use the default */
-    prefs->max_read_size = 0;
-    prefs->max_write_size = 0;
+    /* quantum size or count of 0 means use the default */
+    prefs->read_size[0] = 0;
+    prefs->read_size[1] = 0;
+    prefs->read_size[2] = 0;
+    prefs->read_count[0] = 0;
+    prefs->read_count[1] = 0;
+    prefs->read_count[2] = 0;
 
+    prefs->write_size[0] = 0;
+    prefs->write_size[1] = 0;
+    prefs->write_size[2] = 0;
+    prefs->write_count[0] = 0;
+    prefs->write_count[1] = 0;
+    prefs->write_count[2] = 0;
+
+    /* rw_thread_control of 0 means use the default behavior */
+    prefs->rw_thread_control = 0;
+    
     /* multichannel defaults */
     prefs->mc_max_channels = 9;
     prefs->mc_max_rss_channels = 4;

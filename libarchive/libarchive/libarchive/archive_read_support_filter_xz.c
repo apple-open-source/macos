@@ -49,6 +49,9 @@ __FBSDID("$FreeBSD$");
 #include "archive_endian.h"
 #include "archive_private.h"
 #include "archive_read_private.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 #if HAVE_LZMA_H && HAVE_LIBLZMA
 
@@ -114,6 +117,13 @@ archive_read_support_filter_xz(struct archive *_a)
 	struct archive_read *a = (struct archive_read *)_a;
 	struct archive_read_filter_bidder *bidder;
 
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("xz")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Filter not allow-listed in entitlement");
+		return ARCHIVE_FATAL;
+	}
+#endif
+
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_filter_xz");
 
@@ -148,6 +158,13 @@ archive_read_support_filter_lzma(struct archive *_a)
 {
 	struct archive_read *a = (struct archive_read *)_a;
 	struct archive_read_filter_bidder *bidder;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("lzma")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Filter not allow-listed in entitlement");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_filter_lzma");
@@ -184,6 +201,13 @@ archive_read_support_filter_lzip(struct archive *_a)
 {
 	struct archive_read *a = (struct archive_read *)_a;
 	struct archive_read_filter_bidder *bidder;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("lzip")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Format not allow-listed in entitlement");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_filter_lzip");

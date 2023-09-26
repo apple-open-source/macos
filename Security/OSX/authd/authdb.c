@@ -529,18 +529,18 @@ static CFTypeID authdb_get_type_id(void) {
 }
 
 authdb_t
-authdb_create(void)
+authdb_create(bool force_memory)
 {
     authdb_t db = NULL;
     
     db = (authdb_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, authdb_get_type_id(), AUTH_CLASS_SIZE(authdb), NULL);
     require(db != NULL, done);
     
-    db->queue = dispatch_queue_create(NULL, DISPATCH_QUEUE_SERIAL);
+    db->queue = dispatch_queue_create("Database queue", DISPATCH_QUEUE_SERIAL);
     db->connections = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
     
-    if (getenv("__OSINSTALL_ENVIRONMENT") != NULL) {
-        os_log_debug(AUTHD_LOG, "authdb: running from installer");
+    if (force_memory || getenv("__OSINSTALL_ENVIRONMENT") != NULL) {
+        os_log_debug(AUTHD_LOG, "authdb: running from memory");
         db->db_path = _copy_string("file::memory:?cache=shared");
     } else {
         db->db_path = _copy_string(AUTHDB);

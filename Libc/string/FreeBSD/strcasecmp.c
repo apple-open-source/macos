@@ -41,9 +41,7 @@ __FBSDID("$FreeBSD: src/lib/libc/string/strcasecmp.c,v 1.8 2009/02/03 17:58:20 d
 typedef unsigned char u_char;
 
 int
-strcasecmp_l(s1, s2, loc)
-	const char *s1, *s2;
-	locale_t loc;
+strcasecmp_l(const char *s1, const char *s2, locale_t loc)
 {
 	const u_char
 			*us1 = (const u_char *)s1,
@@ -63,10 +61,7 @@ strcasecmp(const char *s1, const char *s2)
 }
 
 int
-strncasecmp_l(s1, s2, n, loc)
-	const char *s1, *s2;
-	size_t n;
-	locale_t loc;
+strncasecmp_l(const char *s1, const char *s2, size_t n, locale_t loc)
 {
 	NORMALIZE_LOCALE(loc);
 	if (n != 0) {

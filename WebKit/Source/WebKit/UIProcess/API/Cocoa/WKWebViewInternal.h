@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #import "_WKAttachmentInternal.h"
 #import "_WKWebViewPrintFormatterInternal.h"
 #import <variant>
+#import <wtf/BlockPtr.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/NakedPtr.h>
 #import <wtf/RefPtr.h>
@@ -43,7 +44,9 @@
 #import "WKContentViewInteraction.h"
 #import "WKFullScreenWindowControllerIOS.h"
 #import <WebCore/FloatRect.h>
+#import <WebCore/IntDegrees.h>
 #import <WebCore/LengthBox.h>
+#import <WebCore/PlatformLayerIdentifier.h>
 #import <WebCore/ViewportArguments.h>
 #endif
 
@@ -161,7 +164,8 @@ struct PerWebProcessState {
     BOOL viewportMetaTagCameFromImageDocument { NO };
 
     std::optional<WebCore::FloatSize> lastSentViewLayoutSize;
-    std::optional<int32_t> lastSentDeviceOrientation;
+    std::optional<WebCore::IntDegrees> lastSentDeviceOrientation;
+    std::optional<WebCore::IntDegrees> lastSentOrientationForMediaCapture;
     std::optional<CGFloat> lastSentMinimumEffectiveDeviceWidth;
 
     std::optional<CGRect> frozenVisibleContentRect;
@@ -172,8 +176,8 @@ struct PerWebProcessState {
 
     std::optional<WebKit::TransactionID> firstTransactionIDAfterPageRestore;
 
-    WebCore::GraphicsLayer::PlatformLayerID pendingFindLayerID;
-    WebCore::GraphicsLayer::PlatformLayerID committedFindLayerID;
+    WebCore::PlatformLayerIdentifier pendingFindLayerID;
+    WebCore::PlatformLayerIdentifier committedFindLayerID;
 
     std::optional<LiveResizeParameters> liveResizeParameters;
 };
@@ -213,6 +217,10 @@ struct PerWebProcessState {
     // Only used with UI-side compositing.
     RetainPtr<WKScrollView> _scrollView;
     RetainPtr<WKContentView> _contentView;
+
+#if HAVE(NSWINDOW_SNAPSHOT_READINESS_HANDLER)
+    BlockPtr<void()> _windowSnapshotReadinessHandler;
+#endif
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(IOS_FAMILY)
@@ -260,7 +268,7 @@ struct PerWebProcessState {
     WebKit::DynamicViewportSizeUpdateID _currentDynamicViewportSizeUpdateID;
     CATransform3D _resizeAnimationTransformAdjustments;
     CGFloat _animatedResizeOldMinimumEffectiveDeviceWidth;
-    int32_t _animatedResizeOldOrientation;
+    WebCore::IntDegrees _animatedResizeOldOrientation;
     UIEdgeInsets _animatedResizeOldObscuredInsets;
     RetainPtr<UIView> _resizeAnimationView;
     CGFloat _lastAdjustmentForScroller;
@@ -321,6 +329,10 @@ struct PerWebProcessState {
 - (BOOL)_isValid;
 - (void)_didChangeEditorState;
 
+#if PLATFORM(MAC) && HAVE(NSWINDOW_SNAPSHOT_READINESS_HANDLER)
+- (void)_invalidateWindowSnapshotReadinessHandler;
+#endif
+
 #if ENABLE(ATTACHMENT_ELEMENT)
 - (void)_didRemoveAttachment:(API::Attachment&)attachment;
 - (void)_didInsertAttachment:(API::Attachment&)attachment withSource:(NSString *)source;
@@ -332,6 +344,8 @@ struct PerWebProcessState {
 #endif
 
 - (void)_internalDoAfterNextPresentationUpdate:(void (^)(void))updateBlock withoutWaitingForPainting:(BOOL)withoutWaitingForPainting withoutWaitingForAnimatedResize:(BOOL)withoutWaitingForAnimatedResize;
+
+- (void)_doAfterNextVisibleContentRectAndPresentationUpdate:(void (^)(void))updateBlock;
 
 - (void)_recalculateViewportSizesWithMinimumViewportInset:(CocoaEdgeInsets)minimumViewportInset maximumViewportInset:(CocoaEdgeInsets)maximumViewportInset throwOnInvalidInput:(BOOL)throwOnInvalidInput;
 

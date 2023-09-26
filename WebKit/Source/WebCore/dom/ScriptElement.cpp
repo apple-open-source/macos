@@ -35,16 +35,15 @@
 #include "Event.h"
 #include "EventLoop.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLScriptElement.h"
 #include "IgnoreDestructiveWriteCountIncrementer.h"
 #include "InlineClassicScript.h"
 #include "LoadableClassicScript.h"
 #include "LoadableImportMap.h"
 #include "LoadableModuleScript.h"
+#include "LocalFrame.h"
 #include "MIMETypeRegistry.h"
 #include "ModuleFetchParameters.h"
 #include "PendingScript.h"
@@ -134,13 +133,11 @@ void ScriptElement::dispatchErrorEvent()
 }
 
 // https://html.spec.whatwg.org/multipage/scripting.html#prepare-a-script
-std::optional<ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport supportLegacyTypes) const
+std::optional<ScriptType> ScriptElement::determineScriptType(const String& type, const String& language, bool isHTMLDocument, LegacyTypeSupport supportLegacyTypes)
 {
     // FIXME: isLegacySupportedJavaScriptLanguage() is not valid HTML5. It is used here to maintain backwards compatibility with existing layout tests. The specific violations are:
     // - Allowing type=javascript. type= should only support MIME types, such as text/javascript.
     // - Allowing a different set of languages for language= and type=. language= supports Javascript 1.1 and 1.4-1.6, but type= does not.
-    String type = typeAttributeValue();
-    String language = languageAttributeValue();
     if (type.isNull()) {
         if (language.isEmpty())
             return ScriptType::Classic; // Assume text/javascript.
@@ -153,7 +150,7 @@ std::optional<ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport s
     if (type.isEmpty())
         return ScriptType::Classic; // Assume text/javascript.
 
-    if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace()))
+    if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.trim(deprecatedIsSpaceOrNewline)))
         return ScriptType::Classic;
     if (supportLegacyTypes == AllowLegacyTypeInTypeAttribute && isLegacySupportedJavaScriptLanguage(type))
         return ScriptType::Classic;
@@ -162,7 +159,7 @@ std::optional<ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport s
     // And module tag also uses defer attribute semantics. We disable script type="module" for non HTML document.
     // Once "defer" is implemented, we can reconsider enabling modules in XHTML.
     // https://bugs.webkit.org/show_bug.cgi?id=123387
-    if (!m_element.document().isHTMLDocument())
+    if (!isHTMLDocument)
         return std::nullopt;
 
     // https://html.spec.whatwg.org/multipage/scripting.html#attr-script-type
@@ -178,7 +175,12 @@ std::optional<ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport s
     return std::nullopt;
 }
 
-// http://dev.w3.org/html5/spec/Overview.html#prepare-a-script
+std::optional<ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport supportLegacyTypes) const
+{
+    return determineScriptType(typeAttributeValue(), languageAttributeValue(), m_element.document().isHTMLDocument(), supportLegacyTypes);
+}
+
+// https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element
 bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, LegacyTypeSupport supportLegacyTypes)
 {
     if (m_alreadyStarted)
@@ -229,10 +231,10 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
 
     m_preparationTimeDocumentIdentifier = document.identifier();
 
-    if (!document.frame()->script().canExecuteScripts(AboutToExecuteScript))
+    if (!document.frame()->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::AboutToExecuteScript))
         return false;
 
-    if (scriptType == ScriptType::Classic && !isScriptForEventSupported())
+    if (scriptType == ScriptType::Classic && isScriptPreventedByAttributes())
         return false;
 
     // According to the spec, the module tag ignores the "charset" attribute as the same to the worker's
@@ -258,7 +260,7 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
     }
     case ScriptType::ImportMap: {
         // If the element’s node document's acquiring import maps is false, then queue a task to fire an event named error at the element, and return.
-        RefPtr<Frame> frame = m_element.document().frame();
+        RefPtr frame { m_element.document().frame() };
         if (!frame || !frame->script().isAcquiringImportMaps()) {
             m_element.document().eventLoop().queueTask(TaskSource::DOMManipulation, [this, element = Ref<Element>(m_element)] {
                 dispatchErrorEvent();
@@ -315,8 +317,8 @@ bool ScriptElement::requestClassicScript(const String& sourceURL)
 {
     ASSERT(m_element.isConnected());
     ASSERT(!m_loadableScript);
-    if (!stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
-        auto script = LoadableClassicScript::create(m_element.nonce(), m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr), referrerPolicy(),
+    if (!StringView(sourceURL).containsOnly<isASCIIWhitespace<UChar>>()) {
+        auto script = LoadableClassicScript::create(m_element.nonce(), m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr), referrerPolicy(), fetchPriorityHint(),
             m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr), scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree(), hasAsyncAttribute());
 
         auto scriptURL = m_element.document().completeURL(sourceURL);
@@ -354,7 +356,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
         ASSERT(m_element.isConnected());
 
         String sourceURL = sourceAttributeValue();
-        if (stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
+        if (StringView(sourceURL).containsOnly<isASCIIWhitespace<UChar>>()) {
             dispatchErrorEvent();
             return false;
         }
@@ -366,7 +368,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
         }
 
         m_isExternalScript = true;
-        auto script = LoadableModuleScript::create(nonce, m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr), referrerPolicy(), crossOriginMode,
+        auto script = LoadableModuleScript::create(nonce, m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr), referrerPolicy(), fetchPriorityHint(), crossOriginMode,
             scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree());
         m_loadableScript = WTFMove(script);
         if (auto* frame = m_element.document().frame()) {
@@ -376,7 +378,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
         return true;
     }
 
-    auto script = LoadableModuleScript::create(nonce, emptyAtom(), referrerPolicy(), crossOriginMode, scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree());
+    auto script = LoadableModuleScript::create(nonce, emptyAtom(), referrerPolicy(), fetchPriorityHint(), crossOriginMode, scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree());
 
     TextPosition position = m_element.document().isInDocumentWrite() ? TextPosition() : scriptStartPosition;
     ScriptSourceCode sourceCode(scriptContent(), URL(m_element.document().url()), position, JSC::SourceProviderSourceType::Module, script.copyRef());
@@ -395,11 +397,11 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
     return true;
 }
 
-bool ScriptElement::requestImportMap(Frame& frame, const String& sourceURL)
+bool ScriptElement::requestImportMap(LocalFrame& frame, const String& sourceURL)
 {
     ASSERT(m_element.isConnected());
     ASSERT(!m_loadableScript);
-    if (!stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
+    if (!StringView(sourceURL).containsOnly<isASCIIWhitespace<UChar>>()) {
         auto script = LoadableImportMap::create(m_element.nonce(), m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr), referrerPolicy(),
             m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr), m_element.localName(), m_element.isInUserAgentShadowTree(), hasAsyncAttribute());
 
@@ -464,7 +466,7 @@ void ScriptElement::registerImportMap(const ScriptSourceCode& sourceCode)
     ASSERT(m_alreadyStarted);
     ASSERT(scriptType() == ScriptType::ImportMap);
 
-    RefPtr<Frame> frame = m_element.document().frame();
+    RefPtr frame { m_element.document().frame() };
 
     auto scopedExit = WTF::makeScopeExit([&] {
         if (frame)
@@ -606,22 +608,6 @@ void ScriptElement::executePendingScript(PendingScript& pendingScript)
 bool ScriptElement::ignoresLoadRequest() const
 {
     return m_alreadyStarted || m_isExternalScript || m_parserInserted == ParserInserted::Yes || !m_element.isConnected();
-}
-
-bool ScriptElement::isScriptForEventSupported() const
-{
-    String eventAttribute = eventAttributeValue();
-    String forAttribute = forAttributeValue();
-    if (!eventAttribute.isNull() && !forAttribute.isNull()) {
-        forAttribute = stripLeadingAndTrailingHTMLSpaces(forAttribute);
-        if (!equalLettersIgnoringASCIICase(forAttribute, "window"_s))
-            return false;
-
-        eventAttribute = stripLeadingAndTrailingHTMLSpaces(eventAttribute);
-        if (!equalLettersIgnoringASCIICase(eventAttribute, "onload"_s) && !equalLettersIgnoringASCIICase(eventAttribute, "onload()"_s))
-            return false;
-    }
-    return true;
 }
 
 String ScriptElement::scriptContent() const

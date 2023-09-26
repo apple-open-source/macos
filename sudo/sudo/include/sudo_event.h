@@ -102,10 +102,10 @@ struct sudo_event_base {
     int pfd_high;		/* highest slot used */
     int pfd_free;		/* idx of next free entry or pfd_max if full */
 #else
-    fd_set *readfds_in;		/* read I/O descriptor set (in) */
-    fd_set *writefds_in;	/* write I/O descriptor set (in) */
-    fd_set *readfds_out;	/* read I/O descriptor set (out) */
-    fd_set *writefds_out;	/* write I/O descriptor set (out) */
+    void *readfds_in;		/* read I/O descriptor set (in) */
+    void *writefds_in;		/* write I/O descriptor set (in) */
+    void *readfds_out;		/* read I/O descriptor set (out) */
+    void *writefds_out;		/* write I/O descriptor set (out) */
     int maxfd;			/* max fd we can store in readfds/writefds */
     int highfd;			/* highest fd to pass as 1st arg to select */
 #endif /* HAVE_POLL */
@@ -191,6 +191,9 @@ sudo_dso_public bool sudo_ev_got_break_v1(struct sudo_event_base *base);
 
 /* Return the base an event is associated with or NULL. */
 #define sudo_ev_get_base(_ev) ((_ev) ? (_ev)->base : NULL)
+
+/* Set the base an event is associated with. */
+#define sudo_ev_set_base(_ev, _b) ((_ev)->base = (_b))
 
 /* Magic pointer value to use self pointer as callback arg. */
 #define sudo_ev_self_cbarg() ((void *)-1)

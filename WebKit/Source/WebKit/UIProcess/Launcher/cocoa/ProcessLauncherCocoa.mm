@@ -58,19 +58,22 @@
 
 namespace WebKit {
 
-static const char* webContentServiceName(bool nonValidInjectedCodeAllowed, ProcessLauncher::Client* client)
+static const char* webContentServiceName(const ProcessLauncher::LaunchOptions& launchOptions, ProcessLauncher::Client* client)
 {
+    if (launchOptions.extraInitializationData.get<HashTranslatorASCIILiteral>("is-webcontent-crashy"_s) == "1"_s)
+        return "com.apple.WebKit.WebContent.Crashy";
+
     if (client && client->shouldEnableLockdownMode())
         return "com.apple.WebKit.WebContent.CaptivePortal";
 
-    return nonValidInjectedCodeAllowed ? "com.apple.WebKit.WebContent.Development" : "com.apple.WebKit.WebContent";
+    return launchOptions.nonValidInjectedCodeAllowed ? "com.apple.WebKit.WebContent.Development" : "com.apple.WebKit.WebContent";
 }
 
 static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptions, ProcessLauncher::Client* client)
 {
     switch (launchOptions.processType) {
     case ProcessLauncher::ProcessType::Web:
-        return webContentServiceName(launchOptions.nonValidInjectedCodeAllowed, client);
+        return webContentServiceName(launchOptions, client);
     case ProcessLauncher::ProcessType::Network:
         return "com.apple.WebKit.Networking";
 #if ENABLE(GPU_PROCESS)
@@ -84,11 +87,7 @@ void ProcessLauncher::launchProcess()
 {
     ASSERT(!m_xpcConnection);
 
-    const char* name;
-    if (!m_launchOptions.customWebContentServiceBundleIdentifier.isNull())
-        name = m_launchOptions.customWebContentServiceBundleIdentifier.data();
-    else
-        name = serviceName(m_launchOptions, m_client);
+    const char* name = serviceName(m_launchOptions, m_client);
 
     m_xpcConnection = adoptOSObject(xpc_connection_create(name, nullptr));
 
@@ -124,7 +123,7 @@ void ProcessLauncher::launchProcess()
     }
 
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
-    xpc_dictionary_set_string(initializationMessage.get(), "WebKitBundleVersion", [[NSBundle bundleWithIdentifier:@"com.apple.WebKit"].infoDictionary[(__bridge NSString *)kCFBundleVersionKey] UTF8String]);
+    xpc_dictionary_set_string(initializationMessage.get(), "WebKitBundleVersion", [[NSBundle bundleForClass:NSClassFromString(@"WKWebView")].infoDictionary[(__bridge NSString *)kCFBundleVersionKey] UTF8String]);
 #endif
     xpc_connection_set_bootstrap(m_xpcConnection.get(), initializationMessage.get());
 
@@ -176,10 +175,20 @@ void ProcessLauncher::launchProcess()
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-identifier", !clientIdentifier.isEmpty() ? clientIdentifier.utf8().data() : *_NSGetProgname());
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-bundle-identifier", WebCore::applicationBundleIdentifier().utf8().data());
     xpc_dictionary_set_string(bootstrapMessage.get(), "process-identifier", String::number(m_launchOptions.processIdentifier.toUInt64()).utf8().data());
+#if PLATFORM(MAC)
+    if (auto* applicationName = [[[NSRunningApplication currentApplication] localizedName] UTF8String])
+        xpc_dictionary_set_string(bootstrapMessage.get(), "ui-process-name", applicationName);
+    else
+#endif
     xpc_dictionary_set_string(bootstrapMessage.get(), "ui-process-name", [[[NSProcessInfo processInfo] processName] UTF8String]);
     xpc_dictionary_set_string(bootstrapMessage.get(), "service-name", name);
 
-    bool isWebKitDevelopmentBuild = ![[[[NSBundle bundleWithIdentifier:@"com.apple.WebKit"] bundlePath] stringByDeletingLastPathComponent] hasPrefix:FileSystem::systemDirectoryPath()];
+    if (m_launchOptions.processType == ProcessLauncher::ProcessType::Web) {
+        bool disableLogging = true;
+        xpc_dictionary_set_bool(bootstrapMessage.get(), "disable-logging", disableLogging);
+    }
+
+    bool isWebKitDevelopmentBuild = ![[[[NSBundle bundleForClass:NSClassFromString(@"WKWebView")] bundlePath] stringByDeletingLastPathComponent] hasPrefix:FileSystem::systemDirectoryPath()];
     if (isWebKitDevelopmentBuild) {
         xpc_dictionary_set_fd(bootstrapMessage.get(), "stdout", STDOUT_FILENO);
         xpc_dictionary_set_fd(bootstrapMessage.get(), "stderr", STDERR_FILENO);
@@ -303,11 +312,11 @@ void ProcessLauncher::terminateProcess()
         return;
     }
 
-    if (!m_processIdentifier)
+    if (!m_processID)
         return;
 
-    kill(m_processIdentifier, SIGKILL);
-    m_processIdentifier = 0;
+    kill(m_processID, SIGKILL);
+    m_processID = 0;
 }
 
 void ProcessLauncher::platformInvalidate()

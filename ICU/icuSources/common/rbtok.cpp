@@ -1,6 +1,9 @@
 /*
 ***************************************************************************
-* Copyright (C) 2006-2008,2017-2018 Apple Inc. All Rights Reserved.            *
+* Copyright (C) 2006-2008,2017-2018 Apple Inc. All Rights Reserved.
+*
+* originally added per rdar://4755956&4769693 Rule-based tokenizer optimized implementation
+* updated per rdar://5378823 Add urbtok_openBinaryRulesNoCopy().
 ***************************************************************************
 */
 
@@ -17,8 +20,8 @@
 
 #ifdef RBBI_DEBUG
 // The following is now static in rbbi.cpp, gets set dynamicaly.
-// For now duplicate here to build, and force to TRUE if desired.
-static UBool fTrace = FALSE;
+// For now duplicate here to build, and force to true if desired.
+static UBool fTrace = false;
 #endif
 
 U_NAMESPACE_BEGIN
@@ -51,7 +54,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
         }
     #endif
 
-    fLastStatusIndexValid = FALSE;
+    fLastStatusIndexValid = false;
 
     // if we're already at the end of the text, return DONE.
     prev = (signed long)UTEXT_GETNATIVEINDEX(text);
@@ -155,7 +158,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
         }
 
         if (fDictionaryCharCount > 0) {
-            result = (signed long) checkDictionary(prev, (int32_t) result, FALSE);
+            result = (signed long) checkDictionary(prev, (int32_t) result, false);
         }
 
 emitToken:
@@ -164,12 +167,12 @@ emitToken:
         // If the iterator failed to advance in the match engine, force it ahead by one.
         //   (This really indicates a defect in the break rules.  They should always match
         //    at least one character.). Added in open-source ICU r13469
-        UBool setFlagsZero = FALSE;
+        UBool setFlagsZero = false;
         if (result == prev) {
             UTEXT_SETNATIVEINDEX(text, prev);
             UTEXT_NEXT32(text);
             result = (int32_t)UTEXT_GETNATIVEINDEX(text);
-            setFlagsZero = TRUE;
+            setFlagsZero = true;
         }
 
         // Leave the iterator at our result position.

@@ -536,7 +536,7 @@ SECURITY_READ_ONLY_EARLY(struct filterops) ptsd_kqops = {
 static void
 ptsd_kqops_detach(struct knote *kn)
 {
-	struct tty *tp = kn->kn_hook;
+	struct tty *tp = knote_kn_hook_get_raw(kn);
 	tty_lock(tp);
 
 	if (!KNOTE_IS_AUTODETACHED(kn)) {
@@ -560,7 +560,7 @@ ptsd_kqops_detach(struct knote *kn)
 		}
 	}
 
-	kn->kn_hook = NULL;
+	knote_kn_hook_set_raw(kn, NULL);
 
 	tty_unlock(tp);
 	ttyfree(tp);
@@ -613,7 +613,7 @@ ptsd_kqops_common(struct knote *kn, struct kevent_qos_s *kev, struct tty *tp)
 static int
 ptsd_kqops_event(struct knote *kn, long hint)
 {
-	struct tty *tp = kn->kn_hook;
+	struct tty *tp = knote_kn_hook_get_raw(kn);
 	int ret;
 
 	TTY_LOCK_OWNED(tp);
@@ -631,7 +631,7 @@ ptsd_kqops_event(struct knote *kn, long hint)
 static int
 ptsd_kqops_touch(struct knote *kn, struct kevent_qos_s *kev)
 {
-	struct tty *tp = kn->kn_hook;
+	struct tty *tp = knote_kn_hook_get_raw(kn);
 	int ret;
 
 	tty_lock(tp);
@@ -651,7 +651,7 @@ ptsd_kqops_touch(struct knote *kn, struct kevent_qos_s *kev)
 static int
 ptsd_kqops_process(struct knote *kn, struct kevent_qos_s *kev)
 {
-	struct tty *tp = kn->kn_hook;
+	struct tty *tp = knote_kn_hook_get_raw(kn);
 	int ret;
 
 	tty_lock(tp);
@@ -687,7 +687,7 @@ ptsd_kqfilter(dev_t dev, struct knote *kn)
 	kn->kn_filtid = EVFILTID_PTSD;
 	/* the tty will be freed when detaching the knote */
 	ttyhold(tp);
-	kn->kn_hook = tp;
+	knote_kn_hook_set_raw(kn, tp);
 
 	switch (kn->kn_filter) {
 	case EVFILT_READ:
@@ -756,7 +756,7 @@ SECURITY_READ_ONLY_EARLY(struct filterops) ptmx_kqops = {
 static struct ptmx_ioctl *
 ptmx_knote_ioctl(struct knote *kn)
 {
-	return (struct ptmx_ioctl *)kn->kn_hook;
+	return (struct ptmx_ioctl *)knote_kn_hook_get_raw(kn);
 }
 
 static struct tty *
@@ -789,7 +789,7 @@ ptmx_kqfilter(dev_t dev, struct knote *kn)
 	kn->kn_filtid = EVFILTID_PTMX;
 	/* the tty will be freed when detaching the knote */
 	ttyhold(tp);
-	kn->kn_hook = pti;
+	knote_kn_hook_set_raw(kn, pti);
 
 	/*
 	 * Attach to the ptmx's selinfo structures.  This is the major difference
@@ -820,7 +820,7 @@ ptmx_kqfilter(dev_t dev, struct knote *kn)
 static void
 ptmx_kqops_detach(struct knote *kn)
 {
-	struct ptmx_ioctl *pti = kn->kn_hook;
+	struct ptmx_ioctl *pti = knote_kn_hook_get_raw(kn);
 	struct tty *tp = pti->pt_tty;
 
 	tty_lock(tp);
@@ -839,7 +839,7 @@ ptmx_kqops_detach(struct knote *kn)
 		}
 	}
 
-	kn->kn_hook = NULL;
+	knote_kn_hook_set_raw(kn, NULL);
 
 	tty_unlock(tp);
 	ttyfree(tp);

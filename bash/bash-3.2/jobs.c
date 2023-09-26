@@ -3004,9 +3004,9 @@ waitchld (wpid, block)
 
   do
     {
-      /* We don't want to be notified about jobs stopping if job control
-	 is not active.  XXX - was interactive_shell instead of job_control */
-      waitpid_flags = (job_control && subshell_environment == 0)
+      /* We don't want to be notified about jobs stopping if we're not
+	 interactive. */
+      waitpid_flags = (interactive_shell && subshell_environment == 0)
 			? (WUNTRACED|wcontinued)
 			: 0;
       if (sigchld || block == 0)

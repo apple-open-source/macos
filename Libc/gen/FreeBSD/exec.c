@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,7 +37,6 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/exec.c,v 1.27 2009/12/05 18:55:16 ed Exp $"
 
 #include "namespace.h"
 #include <sys/param.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <unistd.h>
@@ -135,9 +136,7 @@ execlp(const char *name, const char *arg, ...)
 }
 
 int
-execv(name, argv)
-	const char *name;
-	char * const *argv;
+execv(const char *name, char * const *argv)
 {
 	(void)_execve(name, argv, environ);
 	return (-1);
@@ -163,7 +162,7 @@ execvPe(const char *name, const char *path, char * const *argv,
 	eacces = 0;
 
 	/* If it's an absolute or relative path name, it's easy. */
-	if (index(name, '/')) {
+	if (strchr(name, '/')) {
 		bp = name;
 		cur = NULL;
 		goto retry;
@@ -222,14 +221,28 @@ retry:		(void)_execve(bp, argv, envp);
 		case ENOEXEC:
 			for (cnt = 0; argv[cnt]; ++cnt)
 				;
-			memp = alloca((cnt + 2) * sizeof(char *));
+
+			/*
+			 * cnt may be 0 above; always allocate at least
+			 * 3 entries so that we can at least fit "sh", bp, and
+			 * the NULL terminator.  We can rely on cnt to take into
+			 * account the NULL terminator in all other scenarios,
+			 * as we drop argv[0].
+			 */
+			memp = alloca(MAX(3, cnt + 2) * sizeof(char *));
 			if (memp == NULL) {
 				/* errno = ENOMEM; XXX override ENOEXEC? */
 				goto done;
 			}
-			memp[0] = "sh";
-			memp[1] = bp;
-			bcopy(argv + 1, memp + 2, cnt * sizeof(char *));
+			if (cnt > 0) {
+				memp[0] = argv[0];
+				memp[1] = bp;
+				bcopy(argv + 1, memp + 2, cnt * sizeof(char *));
+			} else {
+				memp[0] = "sh";
+				memp[1] = bp;
+				memp[2] = NULL;
+			}
  			(void)_execve(_PATH_BSHELL,
 			    __DECONST(char **, memp), envp);
 			goto done;

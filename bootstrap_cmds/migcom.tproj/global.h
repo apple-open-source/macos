@@ -71,6 +71,7 @@ extern boolean_t EmitCountAnnotations;
 
 extern boolean_t IsKernelUser;
 extern boolean_t IsKernelServer;
+extern boolean_t UseMachMsg2;
 extern boolean_t UseSpecialReplyPort;
 extern boolean_t HasUseSpecialReplyPort; /* whether UseSpecialReplyPort has ever been set to TRUE */
 extern boolean_t HasConsumeOnSendError; /* whether ConsumeOnSendError has ever been set */

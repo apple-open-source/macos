@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2021 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *  Copyright (C) 2015 Canon Inc. All rights reserved.
@@ -104,7 +104,7 @@ JSFunction::JSFunction(VM& vm, NativeExecutable* executable, JSGlobalObject* glo
     ASSERT(structure->globalObject() == globalObject);
 }
 
-
+#if ASSERT_ENABLED
 void JSFunction::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
@@ -114,6 +114,7 @@ void JSFunction::finishCreation(VM& vm)
     ASSERT(methodTable()->getConstructData == &JSFunction::getConstructData);
     ASSERT(methodTable()->getCallData == &JSFunction::getCallData);
 }
+#endif
 
 void JSFunction::finishCreation(VM& vm, NativeExecutable*, unsigned length, const String& name)
 {
@@ -220,6 +221,21 @@ String JSFunction::name(VM& vm)
     return identifier.string();
 }
 
+String JSFunction::nameWithoutGC(VM& vm)
+{
+    DisallowGC disallowGC;
+    if (isHostFunction()) {
+        if (this->inherits<JSBoundFunction>())
+            return jsCast<JSBoundFunction*>(this)->nameStringWithoutGC(vm);
+        NativeExecutable* executable = jsCast<NativeExecutable*>(this->executable());
+        return executable->name();
+    }
+    const Identifier identifier = jsExecutable()->name();
+    if (identifier == vm.propertyNames->starDefaultPrivateName)
+        return emptyString();
+    return identifier.string();
+}
+
 String JSFunction::displayName(VM& vm)
 {
     JSValue displayName = getDirect(vm, vm.propertyNames->displayName);
@@ -294,6 +310,7 @@ CallData JSFunction::getCallData(JSCell* cell)
     if (thisObject->isHostFunction()) {
         callData.type = CallData::Type::Native;
         callData.native.function = thisObject->nativeFunction();
+        callData.native.isBoundFunction = thisObject->inherits<JSBoundFunction>();
     } else {
         callData.type = CallData::Type::JS;
         callData.js.functionExecutable = thisObject->jsExecutable();
@@ -375,9 +392,9 @@ bool JSFunction::put(JSCell* cell, JSGlobalObject* globalObject, PropertyName pr
     if (propertyName == vm.propertyNames->length || propertyName == vm.propertyNames->name) {
         FunctionRareData* rareData = thisObject->ensureRareData(vm);
         if (propertyName == vm.propertyNames->length)
-            rareData->setHasModifiedLengthForNonHostFunction();
+            rareData->setHasModifiedLengthForBoundOrNonHostFunction();
         else
-            rareData->setHasModifiedNameForNonHostFunction();
+            rareData->setHasModifiedNameForBoundOrNonHostFunction();
     }
 
     if (propertyName == vm.propertyNames->prototype && thisObject->mayHaveNonReifiedPrototype()) {
@@ -411,9 +428,9 @@ bool JSFunction::deleteProperty(JSCell* cell, JSGlobalObject* globalObject, Prop
     if (propertyName == vm.propertyNames->length || propertyName == vm.propertyNames->name) {
         FunctionRareData* rareData = thisObject->ensureRareData(vm);
         if (propertyName == vm.propertyNames->length)
-            rareData->setHasModifiedLengthForNonHostFunction();
+            rareData->setHasModifiedLengthForBoundOrNonHostFunction();
         else
-            rareData->setHasModifiedNameForNonHostFunction();
+            rareData->setHasModifiedNameForBoundOrNonHostFunction();
     }
 
     thisObject->reifyLazyPropertyIfNeeded(vm, globalObject, propertyName);
@@ -432,9 +449,9 @@ bool JSFunction::defineOwnProperty(JSObject* object, JSGlobalObject* globalObjec
     if (propertyName == vm.propertyNames->length || propertyName == vm.propertyNames->name) {
         FunctionRareData* rareData = thisObject->ensureRareData(vm);
         if (propertyName == vm.propertyNames->length)
-            rareData->setHasModifiedLengthForNonHostFunction();
+            rareData->setHasModifiedLengthForBoundOrNonHostFunction();
         else
-            rareData->setHasModifiedNameForNonHostFunction();
+            rareData->setHasModifiedNameForBoundOrNonHostFunction();
     }
 
     if (propertyName == vm.propertyNames->prototype && thisObject->mayHaveNonReifiedPrototype()) {
@@ -465,7 +482,13 @@ CallData JSFunction::getConstructData(JSCell* cell)
 
     JSFunction* thisObject = jsCast<JSFunction*>(cell);
     if (thisObject->isHostFunction()) {
-        if (thisObject->nativeConstructor() != callHostFunctionAsConstructor) {
+        if (thisObject->inherits<JSBoundFunction>()) {
+            if (jsCast<JSBoundFunction*>(thisObject)->canConstruct()) {
+                constructData.type = CallData::Type::Native;
+                constructData.native.function = thisObject->nativeConstructor();
+                constructData.native.isBoundFunction = true;
+            }
+        } else if (thisObject->nativeConstructor() != callHostFunctionAsConstructor) {
             constructData.type = CallData::Type::Native;
             constructData.native.function = thisObject->nativeConstructor();
         }
@@ -497,7 +520,7 @@ String getCalculatedDisplayName(VM& vm, JSObject* object)
     }
 
     if (auto* function = jsDynamicCast<JSFunction*>(object)) {
-        const String actualName = function->name(vm);
+        String actualName = function->nameWithoutGC(vm);
         if (!actualName.isEmpty() || function->isHostOrBuiltinFunction())
             return actualName;
 
@@ -506,19 +529,7 @@ String getCalculatedDisplayName(VM& vm, JSObject* object)
     if (auto* function = jsDynamicCast<InternalFunction*>(object))
         return function->name();
 
-
     return emptyString();
-}
-
-template<typename... StringTypes>
-ALWAYS_INLINE String makeNameWithOutOfMemoryCheck(JSGlobalObject* globalObject, ThrowScope& throwScope, const char* messagePrefix, StringTypes... strings)
-{
-    String name = tryMakeString(strings...);
-    if (UNLIKELY(!name)) {
-        throwOutOfMemoryError(globalObject, throwScope, makeString(messagePrefix, "name is too long"));
-        return String();
-    }
-    return name;
 }
 
 void JSFunction::setFunctionName(JSGlobalObject* globalObject, JSValue value)
@@ -556,15 +567,7 @@ void JSFunction::reifyLength(VM& vm)
     FunctionRareData* rareData = this->ensureRareData(vm);
 
     ASSERT(!hasReifiedLength());
-    double length = 0;
-    if (this->inherits<JSBoundFunction>())
-        length = jsCast<JSBoundFunction*>(this)->length(vm);
-    else if (this->inherits<JSRemoteFunction>())
-        length = jsCast<JSRemoteFunction*>(this)->length(vm);
-    else {
-        ASSERT(!isHostFunction());
-        length = jsExecutable()->parameterCount();
-    }
+    double length = originalLength(vm);
     JSValue initialValue = jsNumber(length);
     unsigned initialAttributes = PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly;
     const Identifier& identifier = vm.propertyNames->length;
@@ -694,13 +697,9 @@ JSFunction::PropertyStatus JSFunction::reifyLazyBoundNameIfNeeded(VM& vm, JSGlob
         RELEASE_AND_RETURN(scope, reifyName(vm, globalObject));
     else if (this->inherits<JSBoundFunction>()) {
         FunctionRareData* rareData = this->ensureRareData(vm);
-        JSString* nameMayBeNull = jsCast<JSBoundFunction*>(this)->nameMayBeNull();
-        JSString* string = nullptr;
-        if (nameMayBeNull) {
-            string = jsString(globalObject, vm.smallStrings.boundPrefixString(), nameMayBeNull);
-            RETURN_IF_EXCEPTION(scope, PropertyStatus::Lazy);
-        } else
-            string = jsEmptyString(vm);
+        JSString* name = jsCast<JSBoundFunction*>(this)->name();
+        JSString* string = jsString(globalObject, vm.smallStrings.boundPrefixString(), name);
+        RETURN_IF_EXCEPTION(scope, PropertyStatus::Lazy);
         unsigned initialAttributes = PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly;
         rareData->setHasReifiedName();
         putDirect(vm, nameIdent, string, initialAttributes);

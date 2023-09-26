@@ -4,7 +4,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2,1 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,6 +22,7 @@
 
 #include "APIString.h"
 #include "InjectedBundle.h"
+#include "MessageSenderInlines.h"
 #include "WebContextMenuItem.h"
 #include "WebKitContextMenuPrivate.h"
 #include "WebKitFramePrivate.h"
@@ -40,11 +41,11 @@
 #include <WebCore/ContextMenuContext.h>
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
-#include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserver.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/FrameView.h>
 #include <WebCore/HTMLFormElement.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameView.h>
 #include <glib/gi18n-lib.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
@@ -101,7 +102,7 @@ struct _WebKitWebPagePrivate {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitWebPage, webkit_web_page, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE(WebKitWebPage, webkit_web_page, G_TYPE_OBJECT, GObject)
 
 static void webFrameDestroyed(WebFrame*);
 
@@ -109,7 +110,7 @@ class WebKitFrameWrapper final: public FrameDestructionObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     WebKitFrameWrapper(WebFrame& webFrame)
-        : FrameDestructionObserver(webFrame.coreFrame())
+        : FrameDestructionObserver(webFrame.coreLocalFrame())
         , m_webkitFrame(adoptGRef(webkitFrameCreate(&webFrame)))
     {
     }
@@ -134,15 +135,24 @@ static WebFrameMap& webFrameMap()
     return map;
 }
 
-static WebKitFrame* webkitFrameGetOrCreate(WebFrame* webFrame)
+static WebKitFrame* webkitFrameGet(WebFrame* webFrame)
 {
     auto wrapperPtr = webFrameMap().get(webFrame);
     if (wrapperPtr)
         return wrapperPtr->webkitFrame();
 
+    return nullptr;
+}
+
+static WebKitFrame* webkitFrameGetOrCreate(WebFrame* webFrame)
+{
+    if (auto* webKitFrame = webkitFrameGet(webFrame))
+        return webKitFrame;
+
     std::unique_ptr<WebKitFrameWrapper> wrapper = makeUnique<WebKitFrameWrapper>(*webFrame);
-    wrapperPtr = wrapper.get();
+    auto wrapperPtr = wrapper.get();
     webFrameMap().set(webFrame, WTFMove(wrapper));
+
     return wrapperPtr->webkitFrame();
 }
 
@@ -179,30 +189,62 @@ private:
 
     void didStartProvisionalLoadForFrame(WebPage&, WebFrame& frame, RefPtr<API::Object>&) override
     {
-        if (!frame.isMainFrame())
+        auto* webKitFrame = webkitFrameGet(&frame);
+        if (!webKitFrame && !frame.isMainFrame())
             return;
-        webkitWebPageSetURI(m_webPage, getDocumentLoaderURL(frame.coreFrame()->loader().provisionalDocumentLoader()));
+
+        const auto uri = getDocumentLoaderURL(frame.coreLocalFrame()->loader().provisionalDocumentLoader());
+
+        if (webKitFrame)
+            webkitFrameSetURI(webKitFrame, uri);
+
+        if (frame.isMainFrame())
+            webkitWebPageSetURI(m_webPage, uri);
     }
 
     void didReceiveServerRedirectForProvisionalLoadForFrame(WebPage&, WebFrame& frame, RefPtr<API::Object>&) override
     {
-        if (!frame.isMainFrame())
+        auto* webKitFrame = webkitFrameGet(&frame);
+        if (!webKitFrame && !frame.isMainFrame())
             return;
-        webkitWebPageSetURI(m_webPage, getDocumentLoaderURL(frame.coreFrame()->loader().provisionalDocumentLoader()));
+
+        const auto uri = getDocumentLoaderURL(frame.coreLocalFrame()->loader().provisionalDocumentLoader());
+
+        if (webKitFrame)
+            webkitFrameSetURI(webKitFrame, uri);
+
+        if (frame.isMainFrame())
+            webkitWebPageSetURI(m_webPage, uri);
     }
 
     void didSameDocumentNavigationForFrame(WebPage&, WebFrame& frame, SameDocumentNavigationType, RefPtr<API::Object>&) override
     {
-        if (!frame.isMainFrame())
+        auto* webKitFrame = webkitFrameGet(&frame);
+        if (!webKitFrame && !frame.isMainFrame())
             return;
-        webkitWebPageSetURI(m_webPage, frame.coreFrame()->document()->url().string().utf8());
+
+        const auto uri = frame.coreLocalFrame()->document()->url().string().utf8();
+
+        if (webKitFrame)
+            webkitFrameSetURI(webKitFrame, uri);
+
+        if (frame.isMainFrame())
+            webkitWebPageSetURI(m_webPage, uri);
     }
 
     void didCommitLoadForFrame(WebPage&, WebFrame& frame, RefPtr<API::Object>&) override
     {
-        if (!frame.isMainFrame())
+        auto* webKitFrame = webkitFrameGet(&frame);
+        if (!webKitFrame && !frame.isMainFrame())
             return;
-        webkitWebPageSetURI(m_webPage, getDocumentLoaderURL(frame.coreFrame()->loader().documentLoader()));
+
+        const auto uri = getDocumentLoaderURL(frame.coreLocalFrame()->loader().documentLoader());
+
+        if (webKitFrame)
+            webkitFrameSetURI(webKitFrame, uri);
+
+        if (frame.isMainFrame())
+            webkitWebPageSetURI(m_webPage, uri);
     }
 
     void didFinishDocumentLoadForFrame(WebPage&, WebFrame& frame, RefPtr<API::Object>&) override
@@ -781,7 +823,7 @@ WebKitDOMDocument* webkit_web_page_get_dom_document(WebKitWebPage* webPage)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), nullptr);
 
-    if (auto* coreFrame = webPage->priv->webPage->mainFrame())
+    if (auto* coreFrame = dynamicDowncast<WebCore::LocalFrame>(webPage->priv->webPage->mainFrame()))
         return kit(coreFrame->document());
 
     return nullptr;
@@ -864,8 +906,8 @@ WebKitWebEditor* webkit_web_page_get_editor(WebKitWebPage* webPage)
  * @web_page: a #WebKitWebPage
  * @message: a #WebKitUserMessage
  * @cancellable: (nullable): a #GCancellable or %NULL to ignore
- * @callback: (scope async): (nullable): A #GAsyncReadyCallback to call when the request is satisfied or %NULL
- * @user_data: (closure): the data to pass to callback function
+ * @callback: (scope async) (nullable): A #GAsyncReadyCallback to call when the request is satisfied or %NULL
+ * @user_data: the data to pass to callback function
  *
  * Send @message to the #WebKitWebView corresponding to @web_page. If @message is floating, it's consumed.
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,10 @@
 #import <wtf/Assertions.h>
 #import <wtf/RetainPtr.h>
 
+#if HAVE(LOCKDOWN_MODE_FRAMEWORK)
+#import <pal/cocoa/LockdownModeSoftLink.h>
+#endif
+
 constexpr auto CaptivePortalConfigurationIgnoreFileName = @"com.apple.WebKit.cpmconfig_ignore";
 
 @implementation _WKSystemPreferences
@@ -40,9 +44,13 @@ constexpr auto CaptivePortalConfigurationIgnoreFileName = @"com.apple.WebKit.cpm
     if (preferenceValue.get() == kCFBooleanTrue)
         return true;
 
+#if HAVE(LOCKDOWN_MODE_FRAMEWORK)
+    return PAL::isLockdownModeEnabled();
+#else
     key = adoptCF(CFStringCreateWithCString(kCFAllocatorDefault, LDMEnabledKey, kCFStringEncodingUTF8));
     preferenceValue = adoptCF(CFPreferencesCopyValue(key.get(), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost));
     return preferenceValue.get() == kCFBooleanTrue;
+#endif
 }
 
 + (void)setCaptivePortalModeEnabled:(BOOL)enabled

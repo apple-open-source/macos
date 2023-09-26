@@ -432,8 +432,8 @@ pflog_packet(struct pfi_kif *kif, pbuf_t *pbuf, sa_family_t af, u_int8_t dir,
 	}
 #endif /* INET */
 
-	atomic_add_64(&ifn->if_opackets, 1);
-	atomic_add_64(&ifn->if_obytes, m->m_pkthdr.len);
+	os_atomic_inc(&ifn->if_opackets, relaxed);
+	os_atomic_add(&ifn->if_obytes, m->m_pkthdr.len, relaxed);
 
 	switch (dir) {
 	case PF_IN:

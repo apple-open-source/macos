@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebCookieManager.h"
 
+#include "MessageSenderInlines.h"
 #include "NetworkProcess.h"
 #include "NetworkProcessProxyMessages.h"
 #include "WebCookieManagerMessages.h"
@@ -148,9 +149,9 @@ void WebCookieManager::stopObservingCookieChanges(PAL::SessionID sessionID)
         WebCore::stopObservingCookieChanges(*storageSession);
 }
 
-void WebCookieManager::setHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy policy, CompletionHandler<void()>&& completionHandler)
+void WebCookieManager::setHTTPCookieAcceptPolicy(PAL::SessionID sessionID, HTTPCookieAcceptPolicy policy, CompletionHandler<void()>&& completionHandler)
 {
-    platformSetHTTPCookieAcceptPolicy(policy, [policy, process = Ref { m_process }, completionHandler = WTFMove(completionHandler)] () mutable {
+    platformSetHTTPCookieAcceptPolicy(sessionID, policy, [policy, process = Ref { m_process }, completionHandler = WTFMove(completionHandler)] () mutable {
         process->cookieAcceptPolicyChanged(policy);
         completionHandler();
     });

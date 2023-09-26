@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2018-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2018-2021 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -48,7 +48,12 @@
 #include "sudo_lbuf.h"
 #include "redblack.h"
 #include "cvtsudoers.h"
+#include "tsgetgrpw.h"
 #include <gram.h>
+
+/* Long-only options values. */
+#define OPT_GROUP_FILE	256
+#define OPT_PASSWD_FILE	257
 
 /*
  * Globals
@@ -56,7 +61,8 @@
 struct cvtsudoers_filter *filters;
 struct sudo_user sudo_user;
 struct passwd *list_pw;
-static const char short_opts[] =  "b:c:d:ef:hi:I:m:Mo:O:pP:s:V";
+static FILE *logfp;
+static const char short_opts[] =  "b:c:d:ef:hi:I:l:m:Mo:O:pP:s:V";
 static struct option long_opts[] = {
     { "base",		required_argument,	NULL,	'b' },
     { "config",		required_argument,	NULL,	'c' },
@@ -66,6 +72,7 @@ static struct option long_opts[] = {
     { "help",		no_argument,		NULL,	'h' },
     { "input-format",	required_argument,	NULL,	'i' },
     { "increment",	required_argument,	NULL,	'I' },
+    { "logfile",	required_argument,	NULL,	'l' },
     { "match",		required_argument,	NULL,	'm' },
     { "match-local",	no_argument,		NULL,	'M' },
     { "prune-matches",	no_argument,		NULL,	'p' },
@@ -74,12 +81,12 @@ static struct option long_opts[] = {
     { "output",		required_argument,	NULL,	'o' },
     { "suppress",	required_argument,	NULL,	's' },
     { "version",	no_argument,		NULL,	'V' },
-    { NULL,		no_argument,		NULL,	'\0' },
+    { "group-file",	required_argument,	NULL,	OPT_GROUP_FILE },
+    { "passwd-file",	required_argument,	NULL,	OPT_PASSWD_FILE },
+    { NULL,		no_argument,		NULL,	0 },
 };
 
 sudo_dso_public int main(int argc, char *argv[]);
-static void help(void) __attribute__((__noreturn__));
-static void usage(int);
 static bool convert_sudoers_sudoers(struct sudoers_parse_tree *parse_tree, const char *output_file, struct cvtsudoers_config *conf);
 static bool parse_sudoers(const char *input_file, struct cvtsudoers_config *conf);
 static bool parse_ldif(struct sudoers_parse_tree *parse_tree, const char *input_file, struct cvtsudoers_config *conf);
@@ -92,19 +99,24 @@ static void filter_userspecs(struct sudoers_parse_tree *parse_tree, struct cvtsu
 static void filter_defaults(struct sudoers_parse_tree *parse_tree, struct cvtsudoers_config *conf);
 static void alias_remove_unused(struct sudoers_parse_tree *parse_tree);
 static void alias_prune(struct sudoers_parse_tree *parse_tree, struct cvtsudoers_config *conf);
+sudo_noreturn static void help(void);
+sudo_noreturn static void usage(void);
 
 int
 main(int argc, char *argv[])
 {
-    int ch, exitcode = EXIT_FAILURE;
+    struct sudoers_parse_tree_list parse_trees = TAILQ_HEAD_INITIALIZER(parse_trees);
+    struct sudoers_parse_tree merged_tree, *parse_tree = NULL;
+    struct cvtsudoers_config *conf = NULL;
     enum sudoers_formats output_format = format_ldif;
     enum sudoers_formats input_format = format_sudoers;
-    struct cvtsudoers_config *conf = NULL;
-    bool match_local = false;
     const char *input_file = "-";
     const char *output_file = "-";
     const char *conf_file = _PATH_CVTSUDOERS_CONF;
-    const char *errstr;
+    const char *grfile = NULL, *pwfile = NULL;
+    const char *cp, *errstr;
+    int ch, exitcode = EXIT_FAILURE;
+    bool match_local = false;
     debug_decl(main, SUDOERS_DEBUG_MAIN);
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
@@ -120,6 +132,9 @@ main(int argc, char *argv[])
     sudo_warn_set_locale_func(sudoers_warn_setlocale);
     bindtextdomain("sudoers", LOCALEDIR);
     textdomain("sudoers");
+
+    /* Initialize early, before any "goto done". */
+    init_parse_tree(&merged_tree, NULL, NULL);
 
     /* Read debug and plugin sections of sudo.conf. */
     if (sudo_conf_read(NULL, SUDO_CONF_DEBUG|SUDO_CONF_PLUGINS) == -1)
@@ -192,8 +207,11 @@ main(int argc, char *argv[])
 	    conf->order_increment = sudo_strtonum(optarg, 1, UINT_MAX, &errstr);
 	    if (errstr != NULL) {
 		sudo_warnx(U_("order increment: %s: %s"), optarg, U_(errstr));
-		usage(1);
+		usage();
 	    }
+	    break;
+	case 'l':
+	    conf->logfile = optarg;
 	    break;
 	case 'm':
 	    conf->filter = optarg;
@@ -208,7 +226,7 @@ main(int argc, char *argv[])
 	    conf->sudo_order = sudo_strtonum(optarg, 0, UINT_MAX, &errstr);
 	    if (errstr != NULL) {
 		sudo_warnx(U_("starting order: %s: %s"), optarg, U_(errstr));
-		usage(1);
+		usage();
 	    }
 	    break;
 	case 'p':
@@ -218,7 +236,7 @@ main(int argc, char *argv[])
 	    conf->order_padding = sudo_strtonum(optarg, 1, UINT_MAX, &errstr);
 	    if (errstr != NULL ) {
 		sudo_warnx(U_("order padding: %s: %s"), optarg, U_(errstr));
-		usage(1);
+		usage();
 	    }
 	    break;
 	case 's':
@@ -231,52 +249,67 @@ main(int argc, char *argv[])
 		SUDOERS_GRAMMAR_VERSION);
 	    exitcode = EXIT_SUCCESS;
 	    goto done;
+	case OPT_GROUP_FILE:
+	    grfile = optarg;
+	    break;
+	case OPT_PASSWD_FILE:
+	    pwfile = optarg;
+	    break;
 	default:
-	    usage(1);
+	    usage();
 	}
     }
     argc -= optind;
     argv += optind;
 
+    if (conf->logfile != NULL) {
+	logfp = fopen(conf->logfile, "w");
+	if (logfp == NULL)
+	    sudo_fatalx(U_("unable to open log file %s"), conf->logfile);
+    }
+
     if (conf->input_format != NULL) {
 	if (strcasecmp(conf->input_format, "ldif") == 0) {
 	    input_format = format_ldif;
 	} else if (strcasecmp(conf->input_format, "sudoers") == 0) {
-	    input_format = format_sudoers;
+	    input_format = format_sudoers; // -V1048
 	} else {
 	    sudo_warnx(U_("unsupported input format %s"), conf->input_format);
-	    usage(1);
+	    usage();
 	}
     }
     if (conf->output_format != NULL) {
-	if (strcasecmp(conf->output_format, "json") == 0) {
+	if (strcasecmp(conf->output_format, "csv") == 0) {
+	    output_format = format_csv;
+	    conf->store_options = true;
+	} else if (strcasecmp(conf->output_format, "json") == 0) {
 	    output_format = format_json;
 	    conf->store_options = true;
 	} else if (strcasecmp(conf->output_format, "ldif") == 0) {
-	    output_format = format_ldif;
+	    output_format = format_ldif; // -V1048
 	    conf->store_options = true;
 	} else if (strcasecmp(conf->output_format, "sudoers") == 0) {
 	    output_format = format_sudoers;
 	    conf->store_options = false;
 	} else {
 	    sudo_warnx(U_("unsupported output format %s"), conf->output_format);
-	    usage(1);
+	    usage();
 	}
     }
     if (conf->filter != NULL) {
 	/* We always expand aliases when filtering (may change in future). */
 	if (!cvtsudoers_parse_filter(conf->filter))
-	    usage(1);
+	    usage();
     }
     if (conf->defstr != NULL) {
 	conf->defaults = cvtsudoers_parse_defaults(conf->defstr);
 	if (conf->defaults == -1)
-	    usage(1);
+	    usage();
     }
     if (conf->supstr != NULL) {
 	conf->suppress = cvtsudoers_parse_suppression(conf->supstr);
 	if (conf->suppress == -1)
-	    usage(1);
+	    usage();
     }
 
     /* Apply padding to sudo_order if present. */
@@ -302,73 +335,145 @@ main(int argc, char *argv[])
 	}
     }
 
-    /* Input file (defaults to stdin). */
-    if (argc > 0) {
-	if (argc > 1)
-	    usage(1);
-	input_file = argv[0];
-    }
-
-    if (strcmp(input_file, "-") != 0) {
-	if (strcmp(input_file, output_file) == 0) {
-	    sudo_fatalx(U_("%s: input and output files must be different"),
-		input_file);
-	}
-    }
-
     /* Set pwutil backend to use the filter data. */
     if (conf->filter != NULL && !match_local) {
 	sudo_pwutil_set_backend(cvtsudoers_make_pwitem, cvtsudoers_make_gritem,
 	    cvtsudoers_make_gidlist_item, cvtsudoers_make_grlist_item);
+    } else {
+	if (grfile != NULL)
+	    testsudoers_setgrfile(grfile);
+	if (pwfile != NULL)
+	    testsudoers_setpwfile(pwfile);
+	sudo_pwutil_set_backend(
+	    pwfile ? testsudoers_make_pwitem : NULL,
+	    grfile ? testsudoers_make_gritem : NULL,
+	    grfile ? testsudoers_make_gidlist_item : NULL,
+	    grfile ? testsudoers_make_grlist_item : NULL);
     }
 
     /* We may need the hostname to resolve %h escapes in include files. */
     get_hostname();
 
-    /* Setup defaults data structures. */
-    if (!init_defaults())
-	sudo_fatalx("%s", U_("unable to initialize sudoers default values"));
+    do {
+	char *lhost = NULL, *shost = NULL;
 
-    switch (input_format) {
-    case format_ldif:
-	if (!parse_ldif(&parsed_policy, input_file, conf))
-	    goto done;
-	break;
-    case format_sudoers:
-	if (!parse_sudoers(input_file, conf))
-	    goto done;
-	break;
-    default:
-	sudo_fatalx("error: unhandled input %d", input_format);
-    }
+	/* Input file (defaults to stdin). */
+	if (argc > 0)
+	    input_file = argv[0];
 
-    /* Apply filters. */
-    filter_userspecs(&parsed_policy, conf);
-    filter_defaults(&parsed_policy, conf);
-    if (filters != NULL) {
-	alias_remove_unused(&parsed_policy);
-	if (conf->prune_matches && conf->expand_aliases)
-	    alias_prune(&parsed_policy, conf);
+	/* Check for optional hostname prefix on the input file. */
+	cp = strchr(input_file, ':');
+	if (cp != NULL) {
+	    struct stat sb;
+
+	    if (strcmp(cp, ":-") == 0 || stat(input_file, &sb) == -1) {
+		lhost = strndup(input_file, (size_t)(cp - input_file));
+		if (lhost == NULL)
+		    sudo_fatalx("%s", U_("unable to allocate memory"));
+		input_file = cp + 1;
+		cp = strchr(lhost, '.');
+		if (cp == NULL) {
+		    shost = lhost;
+		} else {
+		    shost = strndup(lhost, (size_t)(cp - lhost));
+		}
+	    }
+	}
+
+	if (strcmp(input_file, "-") != 0) {
+	    if (strcmp(input_file, output_file) == 0) {
+		sudo_fatalx(U_("%s: input and output files must be different"),
+		    input_file);
+	    }
+	}
+
+	parse_tree = malloc(sizeof(*parse_tree));
+	if (parse_tree == NULL)
+	    sudo_fatalx("%s", U_("unable to allocate memory"));
+	init_parse_tree(parse_tree, lhost, shost);
+	TAILQ_INSERT_TAIL(&parse_trees, parse_tree, entries);
+
+	/* Setup defaults data structures. */
+	if (!init_defaults()) {
+	    sudo_fatalx("%s",
+		U_("unable to initialize sudoers default values"));
+	}
+
+	switch (input_format) {
+	case format_ldif:
+	    if (!parse_ldif(parse_tree, input_file, conf))
+		goto done;
+	    break;
+	case format_sudoers:
+	    if (!parse_sudoers(input_file, conf))
+		goto done;
+	    reparent_parse_tree(parse_tree);
+	    break;
+	default:
+	    sudo_fatalx("error: unhandled input %d", input_format);
+	}
+
+	/* Apply filters. */
+	filter_userspecs(parse_tree, conf);
+	filter_defaults(parse_tree, conf);
+	if (filters != NULL) {
+	    alias_remove_unused(parse_tree);
+	    if (conf->prune_matches && conf->expand_aliases)
+		alias_prune(parse_tree, conf);
+	}
+
+	argc--;
+	argv++;
+    } while (argc > 0);
+
+    parse_tree = TAILQ_FIRST(&parse_trees);
+    if (TAILQ_NEXT(parse_tree, entries)) {
+	/* Multiple sudoers files, merge them all. */
+	parse_tree = merge_sudoers(&parse_trees, &merged_tree);
     }
 
     switch (output_format) {
+    case format_csv:
+	exitcode = !convert_sudoers_csv(parse_tree, output_file, conf);
+	break;
     case format_json:
-	exitcode = !convert_sudoers_json(&parsed_policy, output_file, conf);
+	exitcode = !convert_sudoers_json(parse_tree, output_file, conf);
 	break;
     case format_ldif:
-	exitcode = !convert_sudoers_ldif(&parsed_policy, output_file, conf);
+	exitcode = !convert_sudoers_ldif(parse_tree, output_file, conf);
 	break;
     case format_sudoers:
-	exitcode = !convert_sudoers_sudoers(&parsed_policy, output_file, conf);
+	exitcode = !convert_sudoers_sudoers(parse_tree, output_file, conf);
 	break;
     default:
 	sudo_fatalx("error: unhandled output format %d", output_format);
     }
 
 done:
+    free_parse_tree(&merged_tree);
+    while ((parse_tree = TAILQ_FIRST(&parse_trees)) != NULL) {
+	TAILQ_REMOVE(&parse_trees, parse_tree, entries);
+	free_parse_tree(parse_tree);
+	free(parse_tree);
+    }
     cvtsudoers_conf_free(conf);
     sudo_debug_exit_int(__func__, __FILE__, __LINE__, sudo_debug_subsys, exitcode);
     return exitcode;
+}
+
+void
+log_warnx(const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    if (logfp != NULL) {
+	vfprintf(logfp, fmt, ap);
+	fputc('\n', logfp);
+    } else {
+    	sudo_vwarnx_nodebug(fmt, ap);
+    }
+    va_end(ap);
 }
 
 /*
@@ -383,8 +488,12 @@ static struct cvtsudoers_conf_table cvtsudoers_conf_vars[] = {
     { "input_format", CONF_STR, &cvtsudoers_config.input_format },
     { "output_format", CONF_STR, &cvtsudoers_config.output_format },
     { "match", CONF_STR, &cvtsudoers_config.filter },
+    { "match_local", CONF_BOOL, &cvtsudoers_config.match_local },
+    { "logfile", CONF_STR, &cvtsudoers_config.logfile },
     { "defaults", CONF_STR, &cvtsudoers_config.defstr },
     { "suppress", CONF_STR, &cvtsudoers_config.supstr },
+    { "group_file", CONF_STR, &cvtsudoers_config.group_file },
+    { "passwd_file", CONF_STR, &cvtsudoers_config.passwd_file },
     { "expand_aliases", CONF_BOOL, &cvtsudoers_config.expand_aliases },
     { "prune_matches", CONF_BOOL, &cvtsudoers_config.prune_matches }
 };
@@ -472,7 +581,7 @@ cvtsudoers_conf_read(const char *conf_file)
 
 	/* Look up keyword in config tables */
 	if (!cvtsudoers_parse_keyword(conf_file, keyword, value, cvtsudoers_conf_vars))
-	    sudo_warnx(U_("%s: unknown key word: %s"), conf_file, keyword);
+	    sudo_warnx(U_("%s: unknown key word %s"), conf_file, keyword);
     }
     free(line);
     fclose(fp);
@@ -563,6 +672,7 @@ cvtsudoers_parse_filter(char *expression)
 	STAILQ_INIT(&filters->users);
 	STAILQ_INIT(&filters->groups);
 	STAILQ_INIT(&filters->hosts);
+	STAILQ_INIT(&filters->cmnds);
     }
 
     for ((cp = strtok_r(cp, ",", &last)); cp != NULL; (cp = strtok_r(NULL, ",", &last))) {
@@ -581,21 +691,23 @@ cvtsudoers_parse_filter(char *expression)
 	/* Parse keyword = value */
 	keyword = cp;
 	if ((cp = strchr(cp, '=')) == NULL) {
-	    sudo_warnx(U_("invalid filter: %s"), keyword);;
+	    sudo_warnx(U_("invalid filter: %s"), keyword);
 	    free(s);
 	    debug_return_bool(false);
 	}
 	*cp++ = '\0';
 	s->str = cp;
 
-	if (strcmp(keyword, "user") == 0 ){
+	if (strcmp(keyword, "user") == 0) {
 	    STAILQ_INSERT_TAIL(&filters->users, s, entries);
-	} else if (strcmp(keyword, "group") == 0 ){
+	} else if (strcmp(keyword, "group") == 0) {
 	    STAILQ_INSERT_TAIL(&filters->groups, s, entries);
-	} else if (strcmp(keyword, "host") == 0 ){
+	} else if (strcmp(keyword, "host") == 0) {
 	    STAILQ_INSERT_TAIL(&filters->hosts, s, entries);
+	} else if (strcmp(keyword, "cmnd") == 0 || strcmp(keyword, "cmd") == 0) {
+	    STAILQ_INSERT_TAIL(&filters->cmnds, s, entries);
 	} else {
-	    sudo_warnx(U_("invalid filter: %s"), keyword);;
+	    sudo_warnx(U_("invalid filter: %s"), keyword);
 	    free(s);
 	    debug_return_bool(false);
 	}
@@ -609,16 +721,21 @@ parse_ldif(struct sudoers_parse_tree *parse_tree, const char *input_file,
     struct cvtsudoers_config *conf)
 {
     FILE *fp = stdin;
+    bool ret = false;
     debug_decl(parse_ldif, SUDOERS_DEBUG_UTIL);
 
     /* Open LDIF file and parse it. */
     if (strcmp(input_file, "-") != 0) {
 	if ((fp = fopen(input_file, "r")) == NULL)
-	    sudo_fatal(U_("unable to open %s"), input_file);
+	    sudo_warn(U_("unable to open %s"), input_file);
     }
-
-    debug_return_bool(sudoers_parse_ldif(parse_tree, fp, conf->sudoers_base,
-	conf->store_options));
+    if (fp != NULL) {
+	ret = sudoers_parse_ldif(parse_tree, fp, conf->sudoers_base,
+	    conf->store_options);
+	if (fp != stdin)
+	    fclose(fp);
+    }
+    debug_return_bool(ret);
 }
 
 static bool
@@ -636,19 +753,8 @@ parse_sudoers(const char *input_file, struct cvtsudoers_config *conf)
     if (sudoersparse() && !parse_error) {
 	sudo_warnx(U_("failed to parse %s file, unknown error"), input_file);
 	parse_error = true;
-	rcstr_delref(errorfile);
-	if ((errorfile = rcstr_dup(input_file)) == NULL)
-	    sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     }
-    if (parse_error) {
-	if (errorlineno != -1)
-	    sudo_warnx(U_("parse error in %s near line %d\n"),
-		errorfile, errorlineno);
-	else if (errorfile != NULL)
-	    sudo_warnx(U_("parse error in %s\n"), errorfile);
-	debug_return_bool(false);
-    }
-    debug_return_bool(true);
+    debug_return_bool(!parse_error);
 }
 
 FILE *
@@ -681,7 +787,7 @@ userlist_matches_filter(struct sudoers_parse_tree *parse_tree,
 	     * can do its thing.
 	     */
 	    memset(&pw, 0, sizeof(pw));
-	    pw.pw_name = "_nobody";
+	    pw.pw_name = (char *)"_nobody";
 	    pw.pw_uid = (uid_t)-1;
 	    pw.pw_gid = (gid_t)-1;
 
@@ -811,7 +917,88 @@ hostlist_matches_filter(struct sudoers_parse_tree *parse_tree,
     }
     free(shosts);
 
-    debug_return_bool(ret == true);
+    debug_return_bool(ret);
+}
+
+static bool
+cmnd_matches_filter(struct sudoers_parse_tree *parse_tree,
+    struct member *m, struct cvtsudoers_config *conf)
+{
+    struct sudoers_string *s;
+    bool matched = false;
+    debug_decl(cmnd_matches_filter, SUDOERS_DEBUG_UTIL);
+
+    /* TODO: match on runasuserlist/runasgrouplist, notbefore/notafter etc */
+    STAILQ_FOREACH(s, &filters->cmnds, entries) {
+	/* An upper case filter entry may be a Cmnd_Alias */
+	/* XXX - doesn't handle nested aliases */
+	if (m->type == ALIAS && !conf->expand_aliases) {
+	    if (strcmp(m->name, s->str) == 0) {
+		matched = true;
+		break;
+	    }
+	}
+
+	/* Only need one command in the filter to match. */
+	user_cmnd = s->str;
+	user_base = sudo_basename(user_cmnd);
+	if (cmnd_matches(parse_tree, m, NULL, NULL) == true) {
+	    matched = true;
+	    break;
+	}
+    }
+    user_base = NULL;
+    user_cmnd = NULL;
+
+    debug_return_bool(matched);
+}
+
+static bool
+cmndlist_matches_filter(struct sudoers_parse_tree *parse_tree,
+    struct member_list *cmndlist, struct cvtsudoers_config *conf)
+{
+    struct member *m, *next;
+    bool ret = false;
+    debug_decl(cmndlist_matches_filter, SUDOERS_DEBUG_UTIL);
+
+    if (filters == NULL || STAILQ_EMPTY(&filters->cmnds))
+	debug_return_bool(true);
+
+    TAILQ_FOREACH_REVERSE_SAFE(m, cmndlist, member_list, entries, next) {
+	bool matched = cmnd_matches_filter(parse_tree, m, conf);
+	if (matched) {
+	    ret = true;
+	} else if (conf->prune_matches) {
+	    TAILQ_REMOVE(cmndlist, m, entries);
+	    free_member(m);
+	}
+    }
+
+    debug_return_bool(ret);
+}
+
+static bool
+cmndspeclist_matches_filter(struct sudoers_parse_tree *parse_tree,
+    struct cmndspec_list *cmndspecs, struct cvtsudoers_config *conf)
+{
+    struct cmndspec *cs, *next;
+    bool ret = false;
+    debug_decl(cmndspeclist_matches_filter, SUDOERS_DEBUG_UTIL);
+
+    if (filters == NULL || STAILQ_EMPTY(&filters->cmnds))
+	debug_return_bool(true);
+
+    TAILQ_FOREACH_REVERSE_SAFE(cs, cmndspecs, cmndspec_list, entries, next) {
+	bool matched = cmnd_matches_filter(parse_tree, cs->cmnd, conf);
+	if (matched) {
+	    ret = true;
+	} else if (conf->prune_matches) {
+	    /* free_cmndspec() removes cs from the list itself. */
+	    free_cmndspec(cs, cmndspecs);
+	}
+    }
+
+    debug_return_bool(ret);
 }
 
 /*
@@ -900,7 +1087,8 @@ filter_userspecs(struct sudoers_parse_tree *parse_tree,
 	    continue;
 	}
 	TAILQ_FOREACH_SAFE(priv, &us->privileges, entries, next_priv) {
-	    if (!hostlist_matches_filter(parse_tree, &priv->hostlist, conf)) {
+	    if (!hostlist_matches_filter(parse_tree, &priv->hostlist, conf) ||
+		!cmndspeclist_matches_filter(parse_tree, &priv->cmndlist, conf)) {
 		TAILQ_REMOVE(&us->privileges, priv, entries);
 		free_privilege(priv);
 	    }
@@ -1064,7 +1252,6 @@ filter_defaults(struct sudoers_parse_tree *parse_tree,
     struct member_list runas_aliases = TAILQ_HEAD_INITIALIZER(runas_aliases);
     struct member_list host_aliases = TAILQ_HEAD_INITIALIZER(host_aliases);
     struct member_list cmnd_aliases = TAILQ_HEAD_INITIALIZER(cmnd_aliases);
-    struct member_list *prev_binding = NULL;
     struct defaults *def, *def_next;
     struct member *m, *m_next;
     int alias_type;
@@ -1084,8 +1271,10 @@ filter_defaults(struct sudoers_parse_tree *parse_tree,
 	    break;
 	case DEFAULTS_USER:
 	    if (!ISSET(conf->defaults, CVT_DEFAULTS_USER) ||
-		!userlist_matches_filter(parse_tree, def->binding, conf))
+		    !userlist_matches_filter(parse_tree, &def->binding->members,
+		    conf)) {
 		keep = false;
+	    }
 	    alias_type = USERALIAS;
 	    break;
 	case DEFAULTS_RUNAS:
@@ -1095,13 +1284,18 @@ filter_defaults(struct sudoers_parse_tree *parse_tree,
 	    break;
 	case DEFAULTS_HOST:
 	    if (!ISSET(conf->defaults, CVT_DEFAULTS_HOST) ||
-		!hostlist_matches_filter(parse_tree, def->binding, conf))
+		    !hostlist_matches_filter(parse_tree, &def->binding->members,
+		    conf)) {
 		keep = false;
+	    }
 	    alias_type = HOSTALIAS;
 	    break;
 	case DEFAULTS_CMND:
-	    if (!ISSET(conf->defaults, CVT_DEFAULTS_CMND))
+	    if (!ISSET(conf->defaults, CVT_DEFAULTS_CMND) ||
+		    !cmndlist_matches_filter(parse_tree, &def->binding->members,
+		    conf)) {
 		keep = false;
+	    }
 	    alias_type = CMNDALIAS;
 	    break;
 	default:
@@ -1110,12 +1304,16 @@ filter_defaults(struct sudoers_parse_tree *parse_tree,
 	}
 
 	if (!keep) {
-	    /* Look for aliases used by the binding. */
+	    /*
+	     * Look for aliases used by the binding.
+	     * Consecutive Defaults can share the same binding.
+	     */
 	    /* XXX - move to function */
-	    if (alias_type != UNSPEC && def->binding != prev_binding) {
-		TAILQ_FOREACH_SAFE(m, def->binding, entries, m_next) {
+	    if (alias_type != UNSPEC &&
+		    (def_next == NULL || def->binding != def_next->binding)) {
+		TAILQ_FOREACH_SAFE(m, &def->binding->members, entries, m_next) {
 		    if (m->type == ALIAS) {
-			TAILQ_REMOVE(def->binding, m, entries);
+			TAILQ_REMOVE(&def->binding->members, m, entries);
 			switch (alias_type) {
 			case USERALIAS:
 			    TAILQ_INSERT_TAIL(&user_aliases, m, entries);
@@ -1138,18 +1336,7 @@ filter_defaults(struct sudoers_parse_tree *parse_tree,
 		}
 	    }
 	    TAILQ_REMOVE(&parse_tree->defaults, def, entries);
-	    free_default(def, &prev_binding);
-	    if (prev_binding != NULL) {
-		/* Remove and free Defaults that share the same binding. */
-		while (def_next != NULL && def_next->binding == prev_binding) {
-		    def = def_next;
-		    def_next = TAILQ_NEXT(def, entries);
-		    TAILQ_REMOVE(&parse_tree->defaults, def, entries);
-		    free_default(def, &prev_binding);
-		}
-	    }
-	} else {
-	    prev_binding = def->binding;
+	    free_default(def);
 	}
     }
 
@@ -1197,7 +1384,7 @@ alias_prune_helper(struct sudoers_parse_tree *parse_tree, struct alias *a,
 {
     struct cvtsudoers_config *conf = v;
 
-    /* XXX - misue of these functions */
+    /* XXX - misuse of these functions */
     switch (a->type) {
     case USERALIAS:
 	userlist_matches_filter(parse_tree, &a->members, conf);
@@ -1298,21 +1485,26 @@ done:
 }
 
 static void
-usage(int fatal)
+print_usage(FILE *fp)
 {
-    (void) fprintf(fatal ? stderr : stdout, "usage: %s [-ehMpV] [-b dn] "
+    (void) fprintf(fp, "usage: %s [-ehMpV] [-b dn] "
 	"[-c conf_file ] [-d deftypes] [-f output_format] [-i input_format] "
 	"[-I increment] [-m filter] [-o output_file] [-O start_point] "
 	"[-P padding] [-s sections] [input_file]\n", getprogname());
-    if (fatal)
-	exit(EXIT_FAILURE);
+}
+
+static void
+usage(void)
+{
+    print_usage(stderr);
+    exit(EXIT_FAILURE);
 }
 
 static void
 help(void)
 {
     (void) printf(_("%s - convert between sudoers file formats\n\n"), getprogname());
-    usage(0);
+    print_usage(stdout);
     (void) puts(_("\nOptions:\n"
 	"  -b, --base=dn              the base DN for sudo LDAP queries\n"
 	"  -c, --config=conf_file     the path to the configuration file\n"

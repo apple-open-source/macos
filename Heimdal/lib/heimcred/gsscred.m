@@ -43,6 +43,7 @@
 #import <sandbox.h>
 #import <launch.h>
 #import <launch_priv.h>
+#import "heimntlm.h"
 
 #import <dispatch/dispatch.h>
 #import <notify.h>
@@ -84,8 +85,11 @@ static bool commandCanReadforMech(struct HeimMech *mech, const char *cmd);
 static bool isTGT(HeimCredRef cred);
 static bool isAcquireCred(HeimCredRef cred);
 static void reElectMechCredential(const void *key, const void *value, void *context);
+static CFDictionaryRef filterCredAttributes(CFDictionaryRef object, CFErrorRef *error);
 
 NSString *archivePath = NULL;
+
+static const NSNumber *kNTLMReflectionChallengesKey = @(-99999);
 
 static void
 FlattenCredential(const void *key, const void *value, void *context)
@@ -140,6 +144,11 @@ storeCredCache(void)
 	@try {
 	    sf = [[NSMutableDictionary alloc] init];
 	    CFDictionaryApplyFunction(HeimCredCTX.sessions, FlattenSession, (__bridge void *)sf);
+
+	    NSMutableDictionary *challenges = [[NSMutableDictionary alloc] init];
+	    CFDictionaryApplyFunction(HeimCredCTX.challenges, FlattenCredential, (__bridge void *)challenges);
+	    sf[kNTLMReflectionChallengesKey] = challenges;
+
 	    [HeimCredDecoder archiveRootObject:sf toFile:archivePath];
 	} @catch(NSException * __unused e) {
 	} @finally {
@@ -335,6 +344,41 @@ readCredCache(void)
 	    
 	    [sessions enumerateKeysAndObjectsUsingBlock:^(id skey, id svalue, BOOL *sstop) {
 		int sessionID = [(NSNumber *)skey intValue];
+
+		//Load the ntlm reflection challenges separately.
+		if (sessionID == [kNTLMReflectionChallengesKey intValue]) {
+
+		    NSDictionary *creds = (NSDictionary *)svalue;
+
+		    if (!creds || ![creds isKindOfClass:[NSDictionary class]]) {
+			return;
+		    }
+
+		    [creds enumerateKeysAndObjectsUsingBlock:^(id ckey, id cvalue, BOOL *cstop) {
+			CFUUIDRef cfkey = [HeimCredDecoder copyNS2CF:ckey];
+			CFDictionaryRef cfvalue = [HeimCredDecoder copyNS2CF:cvalue];
+			if (cfkey && cfvalue) {
+			    HeimCredRef cred = HeimCredCreateItem(cfkey);
+
+			    if (cred && HeimCredAssignMech(cred, cfvalue)) {
+				cred->attributes = CFRetain(cfvalue);
+
+				// only save if not expired
+				if (!isChallengeExpired(cred)) {
+				    CFDictionarySetValue(HeimCredCTX.challenges, cred->uuid, cred);
+				}
+			    } else {
+				/* dropping cred if mech assignment failed */
+			    }
+			    CFRELEASE_NULL(cred);
+			}
+			CFRELEASE_NULL(cfkey);
+			CFRELEASE_NULL(cfvalue);
+		    }];
+
+		    return;
+		}
+
 		
 		if (!HeimCredGlobalCTX.useUidMatching) {
 		    //the sid is not an asid when using uid matching
@@ -626,7 +670,7 @@ setDefaultCredentialValue(CFUUIDRef parentUUID, struct HeimSession *session, CFB
     HeimCredRef parentCred = (HeimCredRef)CFDictionaryGetValue(session->items, parentUUID);
     if (parentCred) {
 	CFMutableDictionaryRef attrs = CFDictionaryCreateMutableCopy(NULL, 0, parentCred->attributes);
-	if (value) {
+	if (value!=NULL) {
 	    CFDictionarySetValue(attrs, kHEIMAttrDefaultCredential, value);
 	} else {
 	    CFDictionaryRemoveValue(attrs, kHEIMAttrDefaultCredential);
@@ -776,6 +820,11 @@ deleteCredInternal(HeimCredRef cred, struct peer *peer)
 {
     heim_assert(CFGetTypeID(cred) == HeimCredGetTypeID(), "cred wrong type");
 
+    //NTLM Reflection objects can't be deleted
+    if (CFEqual(cred->mech->name, kHEIMTypeNTLMRelfection)) {
+	return;
+    }
+
     CFDictionaryRemoveValue(peer->session->items, cred->uuid);
 
     DeleteChildren(peer->session, cred->uuid);
@@ -791,24 +840,47 @@ static bool
 removeDuplicates(struct peer *peer, CFDictionaryRef attributes, CFErrorRef *error)
 {
     NSMutableDictionary *query;
-    
+
     //remove duplicate creds ahead of creating a new credential, this is not for parent credentials
     CFStringRef objectType = CFDictionaryGetValue(attributes, kHEIMObjectType);
-    CFUUIDRef parentCredential = CFDictionaryGetValue(attributes, kHEIMAttrParentCredential);
-    CFStringRef clientName = CFDictionaryGetValue(attributes, kHEIMAttrClientName);
-    CFStringRef serverName = CFDictionaryGetValue(attributes, kHEIMAttrServerName);
-    
-    if (!parentCredential || !clientName || !serverName) {
-	//nothing to check for duplicates
+
+    if (CFEqual(objectType, kHEIMObjectKerberos) || CFEqual(objectType, kHEIMObjectConfiguration) || CFEqual(objectType, kHEIMObjectKerberosAcquireCred)) {
+
+	CFUUIDRef parentCredential = CFDictionaryGetValue(attributes, kHEIMAttrParentCredential);
+	CFStringRef clientName = CFDictionaryGetValue(attributes, kHEIMAttrClientName);
+	CFStringRef serverName = CFDictionaryGetValue(attributes, kHEIMAttrServerName);
+
+	if (!parentCredential || !clientName || !serverName) {
+	    //nothing to check for duplicates
+	    return true;
+	}
+
+	query = [@{
+	    (id)kHEIMObjectType:(__bridge id)objectType,
+	    (id)kHEIMAttrParentCredential:(__bridge id)parentCredential,
+	    (id)kHEIMAttrClientName:(__bridge id)clientName,
+	    (id)kHEIMAttrServerName:(__bridge id)serverName
+	} mutableCopy];
+    } else if (CFEqual(objectType, kHEIMObjectNTLM)) {
+	CFStringRef name = CFDictionaryGetValue(attributes, kHEIMAttrNTLMUsername);
+	CFStringRef domain = CFDictionaryGetValue(attributes, kHEIMAttrNTLMDomain);
+
+	query = [@{
+	    (id)kHEIMObjectType:(__bridge id)objectType,
+	    (id)kHEIMAttrNTLMUsername:(__bridge id)name,
+	    (id)kHEIMAttrNTLMDomain:(__bridge id)domain,
+	    (id)kHEIMAttrData:(__bridge id)kHEIMObjectAny,
+	} mutableCopy];
+    } else if (CFEqual(objectType, kHEIMObjectSCRAM)) {
+	CFStringRef name = CFDictionaryGetValue(attributes, kHEIMAttrSCRAMUsername);
+
+	query = [@{
+	    (id)kHEIMObjectType:(__bridge id)objectType,
+	    (id)kHEIMAttrSCRAMUsername:(__bridge id)name,
+	} mutableCopy];
+    } else {
 	return true;
     }
-    
-    query = [@{
-	(id)kHEIMObjectType:(__bridge id)objectType,
-	(id)kHEIMAttrParentCredential:(__bridge id)parentCredential,
-	(id)kHEIMAttrClientName:(__bridge id)clientName,
-	(id)kHEIMAttrServerName:(__bridge id)serverName
-    } mutableCopy];
     
 #if TARGET_OS_IOS
     if (HeimCredGlobalCTX.isMultiUser) {
@@ -1051,7 +1123,14 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 
     addStandardEventsToCred(cred, peer->session);
 
-    HeimCredMessageSetAttributes(reply, "attributes", cred->attributes);
+    CFDictionaryRef attributesToReturn = filterCredAttributes(cred->attributes, &error);
+    if (error) {
+	os_log_error(GSSOSLog(), "error filtering attributes: %@", error);
+	CFRELEASE_NULL(error);
+    }
+    HeimCredMessageSetAttributes(reply, "attributes", attributesToReturn);
+    CFRELEASE_NULL(attributesToReturn);
+
     if (cred->mech->statusCallback!=NULL) {
 	CFTypeRef status = cred->mech->statusCallback(cred);
 	os_log_debug(GSSOSLog(), "End Create Cred: %{private}@", status);
@@ -1398,6 +1477,17 @@ do_SetAttrs(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	}
     }
 
+    //NTLM Reflection objects can't be updated
+    if (CFEqual(cred->mech->name, kHEIMTypeNTLMRelfection)) {
+	const void *const keys[] = { CFSTR("CommonErrorCode") };
+	const void *const values[] = { kCFBooleanTrue };
+	HCMakeError(&error, kHeimCredErrorUpdateNotAllowed, keys, values, 1);
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(attrs);
+	CFRELEASE_NULL(replacementAttrs);
+	goto out;
+    }
+
     // temporary caches and credentials in them can not be set as default
     CFBooleanRef defaultCache = CFDictionaryGetValue(replacementAttrs, kHEIMAttrDefaultCredential);
     BOOL temporaryCache = isTemporaryCache(cred->attributes) || isParentTemporaryCache(peer->session, cred->attributes);
@@ -1509,7 +1599,7 @@ do_Auth(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     
 /* call mech authCallback */
     if( cred->mech->authCallback ) {
-	outputAttrs = cred->mech->authCallback(cred, inputAttrs);
+	outputAttrs = cred->mech->authCallback(peer, cred, inputAttrs);
 	if (outputAttrs)
 	    HeimCredMessageSetAttributes(reply, "attributes", outputAttrs);
     } else {
@@ -1518,6 +1608,187 @@ do_Auth(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     
     if (inputAttrs) {
 	CFRELEASE_NULL(inputAttrs);
+    }
+}
+
+void
+do_Scram(struct peer *peer, xpc_object_t request, xpc_object_t reply)
+{
+    CFDictionaryRef outputAttrs = NULL;
+    CFUUIDRef uuid = HeimCredCopyUUID(request, "uuid");
+    if (uuid == NULL)
+	return;
+
+    if (!checkACLInCredentialChain(peer, uuid, NULL)) {
+	CFRELEASE_NULL(uuid);
+	return;
+    }
+
+    HeimCredRef cred = (HeimCredRef)CFDictionaryGetValue(peer->session->items, uuid);
+    CFRELEASE_NULL(uuid);
+    if (cred == NULL)
+	return;
+
+    CFDictionaryRef inputAttrs = HeimCredMessageCopyAttributes(request, "attributes", CFDictionaryGetTypeID());
+    if (inputAttrs == NULL) {
+	return;
+    }
+
+/* call mech authCallback */
+    if( cred->mech->authCallback ) {
+	outputAttrs = cred->mech->authCallback(peer, cred, inputAttrs);
+	if (outputAttrs)
+	    HeimCredMessageSetAttributes(reply, "attributes", outputAttrs);
+    } else {
+	os_log_error(GSSOSLog(), "no HeimCredAuthCallback defined for mech");
+    }
+    CFRELEASE_NULL(inputAttrs);
+}
+
+void
+do_AddChallenge(struct peer *peer, xpc_object_t request, xpc_object_t reply)
+{
+    CFErrorRef error = NULL;
+    NSMutableDictionary *attrs = NULL;
+    HeimCredRef cred = NULL;
+    CFUUIDRef uuid = NULL;
+
+    NSData *challenge = CFBridgingRelease(HeimCredMessageCopyAttributes(request, "challenge", CFDataGetTypeID()));
+    if (challenge == NULL) {
+	HCMakeError(&error, kHeimCredErrorMissingRequiredValue, NULL, NULL, 0);
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(error);
+	return;
+    }
+
+    if (challenge.length > 8) {
+	HCMakeError(&error, kHeimCredErrorInvalidValue, NULL, NULL, 0);
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(error);
+	return;
+    }
+
+    uuid = CFUUIDCreate(NULL);
+    if (uuid == NULL) {
+	goto out;
+    }
+
+    cred = HeimCredCreateItem(uuid);
+    if (cred == NULL) {
+	goto out;
+    }
+
+    attrs = [@{
+	(id)kHEIMObjectType:(id)kHEIMObjectNTLMReflection,
+	(id)kHEIMAttrType:(id)kHEIMTypeNTLMRelfection,
+	(id)kHEIMAttrData:(id)challenge,
+    } mutableCopy];
+
+    if (!validateObject((__bridge CFDictionaryRef)(attrs), &error)) {
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(error);
+	goto out;
+    }
+
+    if (!HeimCredAssignMech(cred, (__bridge CFDictionaryRef)(attrs))) {
+	goto out;
+    }
+
+    heim_assert(cred->mech != NULL, "mech is NULL, schame validation doesn't work ?");
+
+    updateStoreTime(cred, (__bridge CFMutableDictionaryRef)(attrs));
+
+    cred->attributes = CFBridgingRetain(attrs);
+
+    //store the challenge
+    CFDictionarySetValue(peer->session->challenges, cred->uuid, cred);
+
+    HeimCredCTX.needFlush = 1;
+
+    out:
+    CFRELEASE_NULL(error);
+    CFRELEASE_NULL(cred);
+    CFRELEASE_NULL(uuid);
+
+
+}
+
+bool
+isChallengeExpired(HeimCredRef cred)
+{
+    NSDate *startTime =  (__bridge NSDate*)CFDictionaryGetValue(cred->attributes, kHEIMAttrStoreTime);
+    NSComparisonResult result = [[NSDate date] compare:[startTime dateByAddingTimeInterval:heim_ntlm_time_skew]];
+    return (result == NSOrderedDescending);
+}
+
+/*
+ * returns true if challenge exists, false if it does not
+ */
+bool
+checkNTLMChallenge(struct peer *peer, uint8_t challenge[8])
+{
+    __block bool result = false;
+
+    if (HeimCredGlobalCTX.disableNTLMReflectionDetection) {
+	return false;
+    }
+
+    NSData *challengeData = [NSData dataWithBytes:challenge length:8];
+    if (challengeData == NULL) {
+	return false;
+    }
+
+    if (!peer->session->challenges) {
+	return false;
+    }
+
+    NSDictionary *challenges = (__bridge NSDictionary *)(peer->session->challenges);
+    [challenges enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
+	HeimCredRef cred = (__bridge HeimCredRef)obj;
+
+	//delete if expired
+	if (isChallengeExpired(cred)) {
+	    CFDictionaryRemoveValue(peer->session->challenges, cred->uuid);
+	    HeimCredCTX.needFlush = 1;
+	}
+
+	NSData *credChallenge =  (__bridge NSData *)CFDictionaryGetValue(cred->attributes, kHEIMAttrData);
+	if ([challengeData isEqualToData:credChallenge]) {
+	    result = true;
+	    *stop = true;
+	}
+    }];
+
+    return result;
+}
+
+void
+do_CheckChallenge(struct peer *peer, xpc_object_t request, xpc_object_t reply)
+{
+
+    CFErrorRef error = NULL;
+
+    NSData *challenge = CFBridgingRelease(HeimCredMessageCopyAttributes(request, "challenge", CFDataGetTypeID()));
+    if (challenge == NULL) {
+	HCMakeError(&error, kHeimCredErrorMissingRequiredValue, NULL, NULL, 0);
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(error);
+	return;
+    }
+
+    if (challenge.length > 8) {
+	HCMakeError(&error, kHeimCredErrorInvalidValue, NULL, NULL, 0);
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(error);
+	return;
+    }
+
+    if (checkNTLMChallenge(peer, (uint8_t *)challenge.bytes)) {
+	HCMakeError(&error, kHeimCredErrorReflectionDetected, NULL, NULL, 0);
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(error);
+    } else {
+	HeimCredMessageSetAttributes(reply, "challenge-result", kCFBooleanFalse);
     }
 }
 
@@ -1543,8 +1814,14 @@ do_Fetch(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     }
     
     /* XXX filter the attributes */
-    
-    HeimCredMessageSetAttributes(reply, "attributes", cred->attributes);
+    CFErrorRef error = NULL;
+    CFDictionaryRef attributesToReturn = filterCredAttributes(cred->attributes, &error);
+    if (error) {
+	os_log_error(GSSOSLog(), "error filtering attributes: %@", error);
+	CFRELEASE_NULL(error);
+    }
+    HeimCredMessageSetAttributes(reply, "attributes", attributesToReturn);
+    CFRELEASE_NULL(attributesToReturn);
 }
 
 static CFComparisonResult
@@ -1687,6 +1964,7 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	const void *const values[] = { kCFBooleanTrue };
 	HCMakeError(&error, kHeimCredErrorMissingRequiredValue, keys, values, 1);
 	addErrorToReply(reply, error);
+	CFRELEASE_NULL(error);
 	return;
     }
 
@@ -1696,7 +1974,7 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	const void *const values[] = { kCFBooleanTrue };
 	HCMakeError(&error, kHeimCredErrorUnknownKey, keys, values, 1);
 	addErrorToReply(reply, error);
-
+	CFRELEASE_NULL(error);
 	CFRELEASE_NULL(from);
 	CFRELEASE_NULL(to);
 	return;
@@ -1721,10 +1999,22 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	const void *const values[] = { kCFBooleanTrue };
 	HCMakeError(&error, kHeimCredErrorUpdateNotAllowed, keys, values, 1);
 	addErrorToReply(reply, error);
-
+	CFRELEASE_NULL(error);
 	CFRELEASE_NULL(from);
 	CFRELEASE_NULL(to);
 	return;
+    }
+
+    //NTLM Reflection objects can't be deleted
+    if (CFEqual(credfrom->mech->name, kHEIMTypeNTLMRelfection)) {
+	os_log_error(GSSOSLog(), "moving NTLM Reflection objects is not allowed");
+	const void *const keys[] = { CFSTR("CommonErrorCode") };
+	const void *const values[] = { kCFBooleanTrue };
+	HCMakeError(&error, kHeimCredErrorUpdateNotAllowed, keys, values, 1);
+	addErrorToReply(reply, error);
+	CFRELEASE_NULL(error);
+	CFRELEASE_NULL(from);
+	CFRELEASE_NULL(to);
     }
 
     CFMutableDictionaryRef newattrs = CFDictionaryCreateMutableCopy(NULL, 0, credfrom->attributes);
@@ -1791,10 +2081,12 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     HeimCredCTX.needFlush = 1;
 
     // If there is not a default credential or if the default credential does not exist, then trigger an election in case the moved credential can now be default.
-    CFUUIDRef defCred = CFDictionaryGetValue(peer->session->defaultCredentials, credToMech->name);
-    if (defCred == NULL || !(defCred && CFDictionaryGetValue(peer->session->items, defCred)!=NULL)) {
-	peer->session->updateDefaultCredential = 1;
-	reElectDefaultCredential(peer);
+    if (credToMech!=NULL) {
+	CFUUIDRef defCred = CFDictionaryGetValue(peer->session->defaultCredentials, credToMech->name);
+	if (defCred == NULL || !(defCred && CFDictionaryGetValue(peer->session->items, defCred)!=NULL)) {
+	    peer->session->updateDefaultCredential = 1;
+	    reElectDefaultCredential(peer);
+	}
     }
     credToMech = NULL;
 }
@@ -1926,6 +2218,12 @@ do_RetainCache(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 
     heim_assert(CFGetTypeID(cred) == HeimCredGetTypeID(), "cred wrong type");
 
+    //NTLM Reflection objects can't be retained
+    if (CFEqual(cred->mech->name, kHEIMTypeNTLMRelfection)) {
+	os_log_error(GSSOSLog(), "NTLM Reflection objects can't be retained");
+	return;
+    }
+
     if (cred->attributes) {
 	attrs = CFDictionaryCreateMutableCopy(NULL, 0, cred->attributes);
 	if (attrs == NULL)
@@ -1982,6 +2280,13 @@ do_ReleaseCache(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     CFRetain(cred);  //cred is retained in case we delete it
 
     heim_assert(CFGetTypeID(cred) == HeimCredGetTypeID(), "cred wrong type");
+
+    //NTLM Reflection objects can't be retained
+    if (CFEqual(cred->mech->name, kHEIMTypeNTLMRelfection)) {
+	os_log_error(GSSOSLog(), "NTLM Reflection objects can't be released");
+	CFRELEASE_NULL(cred);
+	return;
+    }
 
     if (cred->attributes) {
 	attrs = CFDictionaryCreateMutableCopy(NULL, 0, cred->attributes);
@@ -2052,6 +2357,8 @@ HeimCredCopySession(int sessionID)
 
     session->session = sessionID;
     session->items = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    session->challenges = HeimCredCTX.challenges;
+    CFRetain(session->challenges);
     session->defaultCredentials = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     session->updateDefaultCredential = 0;
 
@@ -2089,6 +2396,7 @@ release_session(CFTypeRef cf)
     struct HeimSession *session = (struct HeimSession *)cf;
     CFRELEASE_NULL(session->items);
     CFRELEASE_NULL(session->defaultCredentials);
+    CFRELEASE_NULL(session->challenges);
 }
 
 static CFTypeID
@@ -2177,6 +2485,12 @@ struct validate {
     CFTypeID subTypeID;
     CFErrorRef *error;
     bool valid;
+};
+
+struct filter {
+    CFDictionaryRef schema;
+    CFMutableDictionaryRef object;
+    CFErrorRef *error;
 };
 
 #define kHeimCredErrorDomain CFSTR("com.apple.GSS.credential-store")
@@ -2286,6 +2600,57 @@ ValidateSchema(const void *key, const void *value, void *context)
 	    CFArrayApplyFunction(ov, CFRangeMake(0, CFArrayGetCount(ov)), ValidateSubtype, ctx);
 	}
     }
+}
+
+static void
+FilterValues(const void *key, const void *value, void *context)
+{
+    struct filter *ctx = (struct filter *)context;
+    CFStringRef rule;
+
+    rule = GetValidatedValue(ctx->schema, key, CFStringGetTypeID(), ctx->error);
+    if (rule == NULL) {
+	const void *const keys[] = { CFSTR("Key"), CFSTR("CommonErrorCode") };
+	const void *const values[] = { key, kCFBooleanTrue };
+	HCMakeError(ctx->error, kHeimCredErrorUnknownKey, keys, values, 2);
+	os_log_error(GSSOSLog(), "unknown key");
+	return;
+    }
+
+    //remove write only attributes from the attribute dictionary
+    if (StringContains(rule, CFSTR("W"))) {
+	CFDictionaryRemoveValue(ctx->object, key);
+    }
+
+    return;
+}
+
+static CFDictionaryRef
+filterCredAttributes(CFDictionaryRef object, CFErrorRef *error) CF_RETURNS_RETAINED
+{
+    struct filter ctx = {
+	.error = error
+    };
+
+    CFStringRef type = GetValidatedValue(object, kHEIMObjectType, CFStringGetTypeID(), error);
+    if (type == NULL) {
+	const void *const keys[] = { CFSTR("CommonErrorCode") };
+	const void *const values[] = { kCFBooleanTrue };
+	HCMakeError(error, kHeimCredErrorMissingSchemaKey, keys, values, 1);
+	return NULL;
+    }
+
+    ctx.schema = GetValidatedValue(HeimCredCTX.schemas, type, CFDictionaryGetTypeID(), error);
+    if (ctx.schema == NULL) {
+	const void *const keys[] = { CFSTR("CommonErrorCode") };
+	const void *const values[] = { kCFBooleanTrue };
+	HCMakeError(error, kHeimCredErrorNoSuchSchema, keys, values, 1);
+	return NULL;
+    }
+    ctx.object = CFDictionaryCreateMutableCopy(NULL, 0, object);
+    CFDictionaryApplyFunction(ctx.schema, FilterValues, &ctx);
+
+    return ctx.object;
 }
 
 static bool
@@ -2405,6 +2770,7 @@ _HeimCredRegisterMech(CFStringRef name,
  * d  - data
  * b  - boolean
  * t  - time/date
+ * W  - write only
  *
  */
 
@@ -2434,7 +2800,9 @@ _HeimCredCreateBaseSchema(CFStringRef objectType)
     CFDictionarySetValue(schema, kHEIMAttrUserID, CFSTR("n"));
     CFDictionarySetValue(schema, kHEIMAttrASID, CFSTR("n"));
     CFDictionarySetValue(schema, kHEIMAttrTemporaryCache, CFSTR("b"));
-
+#ifdef ENABLE_KCM_COMPAT
+    CFDictionarySetValue(schema, kHEIMAttrCompatabilityCache, CFSTR("b"));
+#endif
 #if 0
     CFDictionarySetValue(schema, kHEIMAttrTransient, CFSTR("b"));
     CFDictionarySetValue(schema, kHEIMAttrAllowedDomain, CFSTR("as"));
@@ -2590,6 +2958,9 @@ DefaultTraceCallback(CFDictionaryRef attributes) CF_RETURNS_RETAINED
 	(id)kHEIMAttrAllowedDomain,
 	(id)kHEIMAttrStatus,
 	(id)kHEIMAttrTemporaryCache,
+#ifdef ENABLE_KCM_COMPAT
+	(id)kHEIMAttrCompatabilityCache
+#endif
     ];
 
     for (NSString *key in allowedKeys) {

@@ -82,5 +82,9 @@ kern_return_t
 nano_common_default_reader(task_t task, vm_address_t address, vm_size_t size,
 		void **ptr);
 
+MALLOC_NOEXPORT
+nano_version_t
+_nano_common_init_pick_mode(const char *envp[], const char *apple[], const char *bootargs, bool space_efficient_enabled);
+
 #endif // __NANO_MALLOC_COMMON_H
 

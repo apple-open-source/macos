@@ -14,6 +14,28 @@
 
 #include "secoid.h"
 
+static bool isMessageSecurityAllowedForCurrentBundleID(void) {
+    static dispatch_once_t onceToken;
+    static bool blockedBundleIDFound = false;
+    dispatch_once(&onceToken, ^{
+        CFBundleRef bundle = CFBundleGetMainBundle();
+        if (bundle) {
+            CFStringRef bundleID = CFBundleGetIdentifier(bundle);
+            blockedBundleIDFound = (bundleID != NULL) &&
+                 /* Enterprise-related processes on macOS (mdmclient, CertificateService) */
+                (CFStringHasPrefix(bundleID, CFSTR("com.apple.mdmclient")) ||
+                 CFStringHasPrefix(bundleID, CFSTR("com.apple.managedclient.pds.Certificate")) ||
+                 /* Enterprise-related processes on iOS / tvOS / watchOS (profiled, remotemanagementd, RemoteManagementAgent) */
+                 CFStringHasPrefix(bundleID, CFSTR("com.apple.managedconfiguration.profiled")) ||
+                 CFStringHasPrefix(bundleID, CFSTR("com.apple.remotemanagementd")) ||
+                 CFStringHasPrefix(bundleID, CFSTR("com.apple.RemoteManagementAgent")));
+        }
+        secnotice("SecCMS", "isMessageSecurityAllowedForCurrentBundleID %s",
+                  (blockedBundleIDFound == false) ? "true" : "false");
+    });
+    return (blockedBundleIDFound == false);
+}
+
 bool useMessageSecurityEnabled(void) {
     static bool useMSEnabled = false;
     static dispatch_once_t onceToken;
@@ -22,7 +44,7 @@ bool useMessageSecurityEnabled(void) {
         secnotice("SecCMS", "SecCMSMessageSecurityShim is %s (via feature flags)",
                   useMSEnabled ? "enabled" : "disabled");
     });
-    return useMSEnabled;
+    return useMSEnabled && isMessageSecurityAllowedForCurrentBundleID();
 }
 
 CFArrayRef MS_SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message) {

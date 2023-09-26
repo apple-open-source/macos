@@ -11,7 +11,7 @@
 #include <malloc/malloc.h>
 #include "../src/internal.h"
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
 
 static inline void*
 t_malloc(size_t s)
@@ -87,6 +87,9 @@ T_DECL(malloc_free_null, "free(NULL)")
 {
 	free(NULL);
 	T_PASS("Survived free(NULL)");
+
+	malloc_zone_free(malloc_default_zone(), NULL);
+	T_PASS("Survived malloc_zone_free(zone, NULL)");
 }
 
 #pragma mark MallocAggressiveMadvise=1

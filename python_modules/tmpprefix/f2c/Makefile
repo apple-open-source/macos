@@ -57,6 +57,7 @@ buildsrc:
 	ed - main.c < $(F2CSRC)/src_main.c.ed && \
 	rm -f f2c.h && \
 	ln -s ../$(LIBF2CNAME)/f2c.h && \
+	( cd $(F2CDIR) ; patch -p1 ) < $(F2CSRC)/103310602-compilier-fixes.diff && \
 	make
 
 afterinstallsrc:

@@ -30,8 +30,11 @@
 #include "mutex.h"
 #include "uresimp.h"
 #include "formattedval_impl.h"
+#if APPLE_ICU_CHANGES
+// rdar:/
 // Apple addition
 #include "unicode/udateintervalformat.h"
+#endif  // APPLE_ICU_CHANGES
 
 #ifdef DTITVFMT_DEBUG
 #include <iostream>
@@ -147,7 +150,10 @@ DateIntervalFormat::DateIntervalFormat()
     fDatePattern(nullptr),
     fTimePattern(nullptr),
     fDateTimeFormat(nullptr),
+#if APPLE_ICU_CHANGES
+// rdar:/
     fMinimizeType(UDTITVFMT_MINIMIZE_NONE),
+#endif  // APPLE_ICU_CHANGES
     fCapitalizationContext(UDISPCTX_CAPITALIZATION_NONE)
 {}
 
@@ -162,7 +168,10 @@ DateIntervalFormat::DateIntervalFormat(const DateIntervalFormat& itvfmt)
     fDatePattern(nullptr),
     fTimePattern(nullptr),
     fDateTimeFormat(nullptr),
+#if APPLE_ICU_CHANGES
+// rdar:/
     fMinimizeType(UDTITVFMT_MINIMIZE_NONE),
+#endif  // APPLE_ICU_CHANGES
     fCapitalizationContext(UDISPCTX_CAPITALIZATION_NONE) {
     *this = itvfmt;
 }
@@ -210,7 +219,10 @@ DateIntervalFormat::operator=(const DateIntervalFormat& itvfmt) {
         fDatePattern    = (itvfmt.fDatePattern)?    itvfmt.fDatePattern->clone(): nullptr;
         fTimePattern    = (itvfmt.fTimePattern)?    itvfmt.fTimePattern->clone(): nullptr;
         fDateTimeFormat = (itvfmt.fDateTimeFormat)? itvfmt.fDateTimeFormat->clone(): nullptr;
+#if APPLE_ICU_CHANGES
+// rdar:/
         fMinimizeType   = itvfmt.fMinimizeType;
+#endif  // APPLE_ICU_CHANGES
         fCapitalizationContext = itvfmt.fCapitalizationContext;
     }
     return *this;
@@ -263,7 +275,10 @@ DateIntervalFormat::operator==(const Format& other) const {
         if (fIntervalPatterns[i].secondPart != fmt->fIntervalPatterns[i].secondPart ) {return false;}
         if (fIntervalPatterns[i].laterDateFirst != fmt->fIntervalPatterns[i].laterDateFirst) {return false;}
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     if (fMinimizeType != fmt->fMinimizeType) {return false;}
+#endif  // APPLE_ICU_CHANGES
     if (fCapitalizationContext != fmt->fCapitalizationContext) {return false;}
     return true;
 }
@@ -304,7 +319,7 @@ DateIntervalFormat::format(const DateInterval* dtInterval,
     }
 
     FieldPositionOnlyHandler handler(fieldPosition);
-    handler.setAcceptFirstOnly(TRUE);
+    handler.setAcceptFirstOnly(true);
     int8_t ignore;
 
     Mutex lock(&gFormatterMutex);
@@ -357,7 +372,7 @@ DateIntervalFormat::format(Calendar& fromCalendar,
                            FieldPosition& pos,
                            UErrorCode& status) const {
     FieldPositionOnlyHandler handler(pos);
-    handler.setAcceptFirstOnly(TRUE);
+    handler.setAcceptFirstOnly(true);
     int8_t ignore;
 
     Mutex lock(&gFormatterMutex);
@@ -444,14 +459,19 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
 
     // First, find the largest different calendar field.
     UCalendarDateFields field = UCAL_FIELD_COUNT;
+#if APPLE_ICU_CHANGES
+// rdar:/
     UChar patternDay  = 0x0064; // d
     UChar patternYear = 0x0079; // y
+#endif  // APPLE_ICU_CHANGES
 
     if ( fromCalendar.get(UCAL_ERA,status) != toCalendar.get(UCAL_ERA,status)) {
         field = UCAL_ERA;
     } else if ( fromCalendar.get(UCAL_YEAR, status) !=
                 toCalendar.get(UCAL_YEAR, status) ) {
         field = UCAL_YEAR;
+#if APPLE_ICU_CHANGES
+// rdar:/
         if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_MONTHS && fSkeleton.indexOf(patternDay) >= 0 && fSkeleton.indexOf(patternYear) < 0) {
             UDate fromDate = fromCalendar.getTime(status);
             UDate toDate = toCalendar.getTime(status);
@@ -463,9 +483,12 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
             }
             fromCalendar.setTime(fromDate, status);
         }
+#endif  // APPLE_ICU_CHANGES
     } else if ( fromCalendar.get(UCAL_MONTH, status) !=
                 toCalendar.get(UCAL_MONTH, status) ) {
         field = UCAL_MONTH;
+#if APPLE_ICU_CHANGES
+// rdar:/
         if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_MONTHS && fSkeleton.indexOf(patternDay) >= 0) {
             UDate fromDate = fromCalendar.getTime(status);
             UDate toDate = toCalendar.getTime(status);
@@ -489,9 +512,12 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
             }
             fromCalendar.setTime(fromDate, status);
         }
+#endif  // APPLE_ICU_CHANGES
     } else if ( fromCalendar.get(UCAL_DATE, status) !=
                 toCalendar.get(UCAL_DATE, status) ) {
         field = UCAL_DATE;
+#if APPLE_ICU_CHANGES
+// rdar:/
         if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_DAYS &&
                 // check normalized skeleton for 'H', 'h', 'j'
                 (fSkeleton.indexOf(CAP_H) >= 0 || fSkeleton.indexOf(LOW_H) >= 0 || fSkeleton.indexOf(LOW_J) >= 0)) {
@@ -505,6 +531,7 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
             }
             fromCalendar.setTime(fromDate, status);
         }
+#endif  // APPLE_ICU_CHANGES
     } else if ( fromCalendar.get(UCAL_AM_PM, status) !=
                 toCalendar.get(UCAL_AM_PM, status) ) {
         field = UCAL_AM_PM;
@@ -534,7 +561,6 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
         /* ignore the millisecond etc. small fields' difference.
          * use single date when all the above are the same.
          */
-        fDateFormat->setContext(fCapitalizationContext, status);
         return fDateFormat->_format(fromCalendar, appendTo, fphandler, status);
     }
     UBool fromToOnSameDay = (field==UCAL_AM_PM || field==UCAL_HOUR || field==UCAL_MINUTE || field==UCAL_SECOND || field==UCAL_MILLISECOND);
@@ -552,7 +578,6 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
              * the smallest calendar field in pattern,
              * return single date format.
              */
-            fDateFormat->setContext(fCapitalizationContext, status);
             return fDateFormat->_format(fromCalendar, appendTo, fphandler, status);
         }
         return fallbackFormat(fromCalendar, toCalendar, fromToOnSameDay, appendTo, firstIndex, fphandler, status);
@@ -585,7 +610,6 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
     UnicodeString originalPattern;
     fDateFormat->toPattern(originalPattern);
     fDateFormat->applyPattern(intervalPattern.firstPart);
-    fDateFormat->setContext(fCapitalizationContext, status);
     fDateFormat->_format(*firstCal, appendTo, fphandler, status);
 
     if ( !intervalPattern.secondPart.isEmpty() ) {
@@ -693,6 +717,8 @@ DateIntervalFormat::getTimeZone() const
     // If fDateFormat is nullptr (unexpected), create default timezone.
     return *(TimeZone::createDefault());
 }
+#if APPLE_ICU_CHANGES
+// rdar:/
 
 void
 DateIntervalFormat::setAttribute(UDateIntervalFormatAttribute attr,
@@ -708,6 +734,7 @@ DateIntervalFormat::setAttribute(UDateIntervalFormatAttribute attr,
         status = U_ILLEGAL_ARGUMENT_ERROR; 
     }
 }
+#endif  // APPLE_ICU_CHANGES
 
 void
 DateIntervalFormat::setContext(UDisplayContext value, UErrorCode& status)
@@ -745,7 +772,10 @@ DateIntervalFormat::DateIntervalFormat(const Locale& locale,
     fDatePattern(nullptr),
     fTimePattern(nullptr),
     fDateTimeFormat(nullptr),
+#if APPLE_ICU_CHANGES
+// rdar:/
     fMinimizeType(UDTITVFMT_MINIMIZE_NONE),
+#endif  // APPLE_ICU_CHANGES
     fCapitalizationContext(UDISPCTX_CAPITALIZATION_NONE)
 {
     LocalPointer<DateIntervalInfo> info(dtItvInfo, status);
@@ -1039,18 +1069,27 @@ DateIntervalFormat::normalizeHourMetacharacters(const UnicodeString& skeleton) c
     UnicodeString result = skeleton;
     
     UChar hourMetachar = u'\0';
-    int32_t metacharStart = 0;
-    int32_t metacharCount = 0;
+    UChar dayPeriodChar = u'\0';
+    int32_t hourFieldStart = 0;
+    int32_t hourFieldLength = 0;
+    int32_t dayPeriodStart = 0;
+    int32_t dayPeriodLength = 0;
     for (int32_t i = 0; i < result.length(); i++) {
         UChar c = result[i];
-        if (c == LOW_J || c == CAP_J || c == CAP_C) {
+        if (c == LOW_J || c == CAP_J || c == CAP_C || c == LOW_H || c == CAP_H || c == LOW_K || c == CAP_K) {
             if (hourMetachar == u'\0') {
                 hourMetachar = c;
-                metacharStart = i;
+                hourFieldStart = i;
             }
-            ++metacharCount;
+            ++hourFieldLength;
+        } else if (c == LOW_A || c == LOW_B || c == CAP_B) {
+            if (dayPeriodChar == u'\0') {
+                dayPeriodChar = c;
+                dayPeriodStart = i;
+            }
+            ++dayPeriodLength;
         } else {
-            if (hourMetachar != u'\0') {
+            if (hourMetachar != u'\0' && dayPeriodChar != u'\0') {
                 break;
             }
         }
@@ -1059,7 +1098,6 @@ DateIntervalFormat::normalizeHourMetacharacters(const UnicodeString& skeleton) c
     if (hourMetachar != u'\0') {
         UErrorCode err = U_ZERO_ERROR;
         UChar hourChar = CAP_H;
-        UChar dayPeriodChar = LOW_A;
         UnicodeString convertedPattern = DateFormat::getBestPattern(fLocale, UnicodeString(hourMetachar), err);
 
         if (U_SUCCESS(err)) {
@@ -1086,34 +1124,32 @@ DateIntervalFormat::normalizeHourMetacharacters(const UnicodeString& skeleton) c
                 dayPeriodChar = LOW_B;
             } else if (convertedPattern.indexOf(CAP_B) != -1) {
                 dayPeriodChar = CAP_B;
+            } else if (dayPeriodChar == u'\0') {
+                dayPeriodChar = LOW_A;
             }
         }
         
-        if (hourChar == CAP_H || hourChar == LOW_K) {
-            result.replace(metacharStart, metacharCount, hourChar);
-        } else {
-            UnicodeString hourAndDayPeriod(hourChar);
-            switch (metacharCount) {
-                case 1:
-                case 2:
-                default:
-                    hourAndDayPeriod.append(UnicodeString(dayPeriodChar));
-                    break;
-                case 3:
-                case 4:
-                    for (int32_t i = 0; i < 4; i++) {
-                        hourAndDayPeriod.append(dayPeriodChar);
-                    }
-                    break;
-                case 5:
-                case 6:
-                    for (int32_t i = 0; i < 5; i++) {
-                        hourAndDayPeriod.append(dayPeriodChar);
-                    }
-                    break;
+        UnicodeString hourAndDayPeriod(hourChar);
+        if (hourChar != CAP_H && hourChar != LOW_K) {
+            int32_t newDayPeriodLength = 0;
+            if (dayPeriodLength >= 5 || hourFieldLength >= 5) {
+                newDayPeriodLength = 5;
+            } else if (dayPeriodLength >= 3 || hourFieldLength >= 3) {
+                newDayPeriodLength = 3;
+            } else {
+                newDayPeriodLength = 1;
             }
-            result.replace(metacharStart, metacharCount, hourAndDayPeriod);
+            for (int32_t i = 0; i < newDayPeriodLength; i++) {
+                hourAndDayPeriod.append(dayPeriodChar);
+            }
         }
+        result.replace(hourFieldStart, hourFieldLength, hourAndDayPeriod);
+        if (dayPeriodStart > hourFieldStart) {
+            // before deleting the original day period field, adjust its position in case
+            // we just changed the size of the hour field (and new day period field)
+            dayPeriodStart += hourAndDayPeriod.length() - hourFieldLength;
+        }
+        result.remove(dayPeriodStart, dayPeriodLength);
     }
     return result;
 }
@@ -1275,8 +1311,8 @@ DateIntervalFormat::getDateTimeSkeleton(const UnicodeString& skeleton,
  * @param dateSkeleton   normalized date skeleton
  * @param timeSkeleton   normalized time skeleton
  * @return               whether the resource is found for the skeleton.
- *                       TRUE if interval pattern found for the skeleton,
- *                       FALSE otherwise.
+ *                       true if interval pattern found for the skeleton,
+ *                       false otherwise.
  * @stable ICU 4.0
  */
 UBool
@@ -1367,7 +1403,7 @@ DateIntervalFormat::setSeparateDateTimePtn(
                            &extendedSkeleton, &extendedBestSkeleton);
         setIntervalPattern(UCAL_ERA, skeleton, bestSkeleton, differenceInfo,
                            &extendedSkeleton, &extendedBestSkeleton);
-    } else {
+     } else {
         setIntervalPattern(UCAL_MINUTE, skeleton, bestSkeleton, differenceInfo);
         setIntervalPattern(UCAL_HOUR, skeleton, bestSkeleton, differenceInfo);
         setIntervalPattern(UCAL_AM_PM, skeleton, bestSkeleton, differenceInfo);
@@ -1488,8 +1524,8 @@ DateIntervalFormat::setIntervalPattern(UCalendarDateFields field,
  * @param extendedBestSkeleton  extended best match skeleton
  * @return                      whether the interval pattern is found
  *                              through extending skeleton or not.
- *                              TRUE if interval pattern is found by
- *                              extending skeleton, FALSE otherwise.
+ *                              true if interval pattern is found by
+ *                              extending skeleton, false otherwise.
  * @stable ICU 4.0
  */
 UBool
@@ -1563,10 +1599,10 @@ DateIntervalFormat::setIntervalPattern(UCalendarDateFields field,
             setIntervalPattern(field, pattern);
         }
         if ( extendedSkeleton && !extendedSkeleton->isEmpty() ) {
-            return TRUE;
+            return true;
         }
     }
-    return FALSE;
+    return false;
 }
 
 
@@ -1607,8 +1643,8 @@ DateIntervalFormat::splitPatternInto2Part(const UnicodeString& intervalPattern) 
         if (ch != prevCh && count > 0) {
             // check the repeativeness of pattern letter
             UBool repeated = patternRepeated[(int)(prevCh - PATTERN_CHAR_BASE)];
-            if ( repeated == FALSE ) {
-                patternRepeated[prevCh - PATTERN_CHAR_BASE] = TRUE;
+            if ( repeated == false ) {
+                patternRepeated[prevCh - PATTERN_CHAR_BASE] = true;
             } else {
                 foundRepetition = true;
                 break;
@@ -1636,8 +1672,8 @@ DateIntervalFormat::splitPatternInto2Part(const UnicodeString& intervalPattern) 
     // "dd MM" ( no repetition ),
     // "d-d"(last char repeated ), and
     // "d-d MM" ( repetition found )
-    if ( count > 0 && foundRepetition == FALSE ) {
-        if ( patternRepeated[(int)(prevCh - PATTERN_CHAR_BASE)] == FALSE ) {
+    if ( count > 0 && foundRepetition == false ) {
+        if ( patternRepeated[(int)(prevCh - PATTERN_CHAR_BASE)] == false ) {
             count = 0;
         }
     }
@@ -1663,8 +1699,11 @@ void DateIntervalFormat::fallbackFormatRange(
 
     UErrorCode tempStatus = U_ZERO_ERROR; // for setContext, ignored
     // TODO(ICU-20406): Use SimpleFormatter Iterator interface when available.
+#if APPLE_ICU_CHANGES
+// rdar:/
     // The context for the first of the _format calls in each pair is set by caller.
     // This function always leaves _format context as UDISPCTX_CAPITALIZATION_NONE.
+#endif  // APPLE_ICU_CHANGES
     if (offsets[0] < offsets[1]) {
         firstIndex = 0;
         appendTo.append(patternBody.tempSubStringBetween(0, offsets[0]));
@@ -1701,7 +1740,12 @@ DateIntervalFormat::fallbackFormat(Calendar& fromCalendar,
 
     UBool formatDatePlusTimeRange = (fromToOnSameDay && fDatePattern && fTimePattern);
     if (formatDatePlusTimeRange) {
-        SimpleFormatter sf(*fDateTimeFormat, 2, 2, TRUE, status);
+#if APPLE_ICU_CHANGES
+// rdar://55667608 Incorrect handling of literal in date/time stamp in Health graphs day view (fi_FI))
+        SimpleFormatter sf(*fDateTimeFormat, 2, 2, true, status);
+#else
+        SimpleFormatter sf(*fDateTimeFormat, 2, 2, status);
+#endif // APPLE_ICU_CHANGES
         if (U_FAILURE(status)) {
             return appendTo;
         }
@@ -1718,7 +1762,6 @@ DateIntervalFormat::fallbackFormat(Calendar& fromCalendar,
         if (offsets[0] < offsets[1]) {
             appendTo.append(patternBody.tempSubStringBetween(0, offsets[0]));
             fDateFormat->applyPattern(*fTimePattern);
-            fDateFormat->setContext(fCapitalizationContext, status);
             fallbackFormatRange(fromCalendar, toCalendar, appendTo, firstIndex, fphandler, status);
             appendTo.append(patternBody.tempSubStringBetween(offsets[0], offsets[1]));
             fDateFormat->applyPattern(*fDatePattern);
@@ -1729,7 +1772,6 @@ DateIntervalFormat::fallbackFormat(Calendar& fromCalendar,
         } else {
             appendTo.append(patternBody.tempSubStringBetween(0, offsets[1]));
             fDateFormat->applyPattern(*fDatePattern);
-            fDateFormat->setContext(fCapitalizationContext, status);
             fDateFormat->_format(fromCalendar, appendTo, fphandler, status);
             appendTo.append(patternBody.tempSubStringBetween(offsets[1], offsets[0]));
             fDateFormat->applyPattern(*fTimePattern);
@@ -1742,7 +1784,6 @@ DateIntervalFormat::fallbackFormat(Calendar& fromCalendar,
         // restore full pattern
         fDateFormat->applyPattern(fullPattern);
     } else {
-        fDateFormat->setContext(fCapitalizationContext, status);
         fallbackFormatRange(fromCalendar, toCalendar, appendTo, firstIndex, fphandler, status);
     }
     return appendTo;
@@ -1756,7 +1797,7 @@ DateIntervalFormat::fieldExistsInSkeleton(UCalendarDateFields field,
                                           const UnicodeString& skeleton)
 {
     const UChar fieldChar = fgCalendarFieldToPatternLetter[field];
-    return ( (skeleton.indexOf(fieldChar) == -1)?FALSE:TRUE ) ;
+    return ( (skeleton.indexOf(fieldChar) == -1)?false:true ) ;
 }
 
 
@@ -1798,9 +1839,20 @@ DateIntervalFormat::adjustFieldWidth(const UnicodeString& inputSkeleton,
     DateIntervalInfo::parseSkeleton(inputSkeleton, inputSkeletonFieldWidth);
     DateIntervalInfo::parseSkeleton(bestMatchSkeleton, bestMatchSkeletonFieldWidth);
     if (suppressDayPeriodField) {
+        // remove the 'a' and any NBSP/NNBSP on one side of it
+        findReplaceInPattern(adjustedPtn, UnicodeString(u"\u00A0a",-1), UnicodeString());
+        findReplaceInPattern(adjustedPtn, UnicodeString(u"\u202Fa",-1), UnicodeString());
+        findReplaceInPattern(adjustedPtn, UnicodeString(u"a\u00A0",-1), UnicodeString());
+        findReplaceInPattern(adjustedPtn, UnicodeString(u"a\u202F",-1), UnicodeString());
         findReplaceInPattern(adjustedPtn, UnicodeString(LOW_A), UnicodeString());
+        // adjust interior double spaces, remove exterior whitespace
+#if APPLE_ICU_CHANGES
+// rdar:/
         findReplaceInPattern(adjustedPtn, UnicodeString(u"\u0020\u0020"), UnicodeString(u"\u0020"));
         findReplaceInPattern(adjustedPtn, UnicodeString(u"\u0020\u2009"), UnicodeString(u"\u2009")); // For some Apple patterns
+#else
+        findReplaceInPattern(adjustedPtn, UnicodeString("  "), UnicodeString(" "));
+#endif  // APPLE_ICU_CHANGES
         adjustedPtn.trim();
     }
     if ( differenceInfo == 2 ) {

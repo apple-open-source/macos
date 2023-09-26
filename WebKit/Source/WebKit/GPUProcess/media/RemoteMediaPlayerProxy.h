@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "Connection.h"
 #include "MessageReceiver.h"
@@ -76,6 +76,7 @@ class AudioTrackPrivate;
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 class MediaPlaybackTargetContext;
 #endif
+class SecurityOriginData;
 class VideoTrackPrivate;
 
 struct FourCC;
@@ -132,7 +133,7 @@ public:
 
     void getConfiguration(RemoteMediaPlayerConfiguration&);
 
-    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode);
+    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode);
     void prepareForRendering();
 
     void load(URL&&, std::optional<SandboxExtension::Handle>&&, const WebCore::ContentType&, const String&, bool, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
@@ -212,7 +213,7 @@ public:
 
     using PerformTaskAtMediaTimeCompletionHandler = CompletionHandler<void(std::optional<MediaTime>, std::optional<MonotonicTime>)>;
     void performTaskAtMediaTime(const MediaTime&, MonotonicTime, PerformTaskAtMediaTimeCompletionHandler&&);
-    void isCrossOrigin(struct WebCore::SecurityOriginData, CompletionHandler<void(std::optional<bool>)>&&);
+    void isCrossOrigin(WebCore::SecurityOriginData, CompletionHandler<void(std::optional<bool>)>&&);
 
     void setVideoPlaybackMetricsUpdateInterval(double);
 
@@ -344,6 +345,7 @@ private:
     void currentTimeChanged(const MediaTime&);
 
 #if PLATFORM(COCOA)
+    WebCore::FloatSize mediaPlayerVideoInlineSize() const final { return m_configuration.videoInlineSize; }
     void setVideoInlineSizeIfPossible(const WebCore::FloatSize&);
     void nativeImageForCurrentTime(CompletionHandler<void(std::optional<WTF::MachSendRight>&&, WebCore::DestinationColorSpace)>&&);
     void colorSpace(CompletionHandler<void(WebCore::DestinationColorSpace)>&&);
@@ -354,6 +356,8 @@ private:
     void videoFrameForCurrentTimeIfChanged(CompletionHandler<void(std::optional<RemoteVideoFrameProxy::Properties>&&, bool)>&&);
 
     void setShouldDisableHDR(bool);
+    using LayerHostingContextIDCallback = WebCore::MediaPlayer::LayerHostingContextIDCallback;
+    void requestHostingContextID(LayerHostingContextIDCallback&&);
 
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger() final { return m_logger; }
@@ -372,6 +376,7 @@ private:
     RefPtr<SandboxExtension> m_sandboxExtension;
     Ref<IPC::Connection> m_webProcessConnection;
     RefPtr<WebCore::MediaPlayer> m_player;
+    Vector<LayerHostingContextIDCallback> m_layerHostingContextIDRequests;
     std::unique_ptr<LayerHostingContext> m_inlineLayerHostingContext;
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     std::unique_ptr<LayerHostingContext> m_fullscreenLayerHostingContext;
@@ -390,7 +395,6 @@ private:
     Seconds m_videoPlaybackMetricsUpdateInterval;
     MonotonicTime m_nextPlaybackQualityMetricsUpdateTime;
 
-    WebCore::FloatSize m_videoInlineSize;
     float m_videoContentScale { 1.0 };
     WebCore::LayoutRect m_playerContentBoxRect;
 
@@ -419,4 +423,4 @@ private:
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

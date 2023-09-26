@@ -83,14 +83,9 @@ static bool securityCheckClientAccessGroups(SecurityClient* client) {
     CFMutableArrayRef allowedIdentifiers = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
 #if TARGET_OS_OSX
     CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.keychainaccess"));
-    CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.KeychainMigrator"));
 #endif
     if (SecIsInternalRelease()) {
-#if TARGET_OS_OSX
-        CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.security2"));
-#else
-        CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.security"));
-#endif
+        CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.security-cli"));
     }
 
     bool answer = SecTaskIsEligiblePlatformBinary(client->task, allowedIdentifiers);
@@ -197,6 +192,7 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
         if (client->isAppClip) {
             secinfo("serverxpc", "securityd client: app clip (API restricted)");
         }
+        client->allowKeychainSharing = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementPrivateKCSharingClient);
 
 #if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 #if TARGET_OS_TV

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -500,7 +500,46 @@ IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
     return (IdentityCreateWithPersistentRef(data, ret_identity));
 }
 
+OSStatus
+EAPSecIdentityCompareIdentityHandle(SecIdentityRef identity, CFDataRef handle, Boolean *result)
+{
+    SecCertificateRef 	cert = NULL;
+    OSStatus 		status = errSecSuccess;
+    IdentityHandleRef 	identity_handle = NULL;
+
+    if (isA_SecIdentity(identity) == NULL) {
+	return errSecParam;
+    }
+    if (handle == NULL || result == NULL) {
+	return errSecParam;
+    }
+    *result = FALSE;
+    status = SecIdentityCopyCertificate(identity, &cert);
+    if (status != errSecSuccess) {
+	EAPLOG_FL(LOG_NOTICE,
+		  "SecIdentityCopyCertificate failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
+	goto done;
+    }
+    identity_handle = (IdentityHandleRef)CFDataGetBytePtr(handle);
+    if (IdentityHandleMatchesCertificate(identity_handle, cert)) {
+	*result = TRUE;
+    }
+
+done:
+    my_CFRelease(&cert);
+    return status;
+}
+
 #else /* TARGET_OS_IPHONE */
+
+OSStatus
+EAPSecIdentityCompareIdentityHandle(__unused SecIdentityRef identity,
+				    __unused CFDataRef handle,
+				    __unused Boolean *result)
+{
+    return errSecSuccess;
+}
 
 static OSStatus
 IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)

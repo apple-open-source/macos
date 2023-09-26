@@ -79,7 +79,7 @@
 #include "edt_fstab.h"
 #include "fsck.h"
 #include "mount_flags.h"
-#include "mount_ramdisk.h"
+#include "mount_tmpfs.h"
 #include "pathnames.h"
 #include "vfslist.h"
 
@@ -471,7 +471,11 @@ main(int argc, char *argv[])
 						if (verbose) {
 							fprintf(stdout, "mount: encountered ramdisk\n");
 						}
-						rval = create_mount_ramdisk(fs, init_flags, options);
+						rval = create_tmpfs_mount(fs, options);
+						if (rval) {
+							errx(errno_or_sysexit(rval , -1),
+								 "mount: failed to setup tmpfs mount");
+						}
 						continue;
 					} else if (fs->fs_passno > ROOT_PASSNO &&
 							   !strcmp(fs->fs_vfstype, EDTVolumeFSType) &&
@@ -544,7 +548,7 @@ main(int argc, char *argv[])
 		case 1:
 			/* make sure the device node or mount point exists */
 			if (strlen(*argv) > sizeof(fs_file))
-				errx(errno_or_sysexit(EINVAL, ENAMETOOLONG),
+				errx(errno_or_sysexit(EINVAL, EX_DATAERR),
 					 "special file or file system %s too long.",
 					 *argv);
 			if (realpath(*argv, fs_file) == NULL) {
@@ -586,7 +590,7 @@ main(int argc, char *argv[])
 				if (verbose) {
 					fprintf(stdout, "Found a ramdisk entry\n");
 				}
-				rval = create_mount_ramdisk(fs, init_flags, options);
+				rval = create_tmpfs_mount(fs, options);
 				break;
 			}
 #endif

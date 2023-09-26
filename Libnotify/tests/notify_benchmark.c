@@ -356,6 +356,7 @@ T_DECL(notify_benchmark_dispatch,
 	{
 		free(n[i]);
 	}
+	dispatch_release(disp_q);
 
 	T_PASS("Notify Benchmark Succeeded!");
 }

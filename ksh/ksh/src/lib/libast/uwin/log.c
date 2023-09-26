@@ -392,7 +392,7 @@ log(x) double x;
 			return (infnan(-ERANGE));
 		else
 			return (infnan(EDOM));
-	else if (!finite(x))
+	else if (!isfinite(x))
 		if (_IEEE)		/* x = NaN, Inf */
 			return (x+x);
 		else

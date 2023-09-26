@@ -53,10 +53,7 @@ __private_extern__ char *__findenv_locked(const char *, int *, char **);
  *	This routine *should* be a static; don't use it.
  */
 __private_extern__ char *
-__findenv_locked(name, offset, environ)
-	const char *name;
-	int *offset;
-	char **environ;
+__findenv_locked(const char *name, int *offset, char **environ)
 {
 	int len, i;
 	const char *np;
@@ -118,8 +115,7 @@ _getenvp(const char *name, char ***envp, void *state __unused)
  *	Returns ptr to value associated with name, if any, else NULL.
  */
 char *
-getenv(name)
-	const char *name;
+getenv(const char *name)
 {
 	int offset;
 	environ_lock_np();

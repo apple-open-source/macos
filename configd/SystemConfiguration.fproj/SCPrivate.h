@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -493,25 +493,76 @@ void		SCLog				(Boolean		condition,
     #define	SC_LOG_HANDLE	_SC_LOG_DEFAULT		// use [SC] default os_log handle
   #endif	// !SC_LOG_HANDLE
 
+#define SCLOG_BUFFER_MAXSIZE 256
 
-  #define	SC_log(__level, __format, ...)							\
-    do {											\
-	os_log_t	__handle	= SC_LOG_HANDLE();					\
-	os_log_type_t	__type  	= _SC_syslog_os_log_mapping(__level);			\
-												\
-	if (__SC_log_enabled(__level, __handle, __type)) {					\
-		size_t	__pack_size	= os_log_pack_size(__format, ##__VA_ARGS__);		\
-												\
-		_Pragma("clang diagnostic push")						\
-		_Pragma("clang diagnostic ignored \"-Wvla\"")					\
-		_Pragma("clang diagnostic ignored \"-Wgnu-statement-expression\"")		\
-		os_log_pack_decl(__pack, __pack_size);						\
-		os_log_pack_fill(__pack, __pack_size, errno, __format, ##__VA_ARGS__);		\
-		_Pragma("clang diagnostic pop")							\
-												\
-		__SC_log_send(__level, __handle, __type, __pack);				\
-	}											\
-    } while (0)
+/*
+ The Objective-C version of the SC_log macro differs from the C version in its use
+ of the os_log_... variety functions. SC_log has to ensure that the lifetime
+ of the objects that are fed into the format string during composition/packing
+ is at least as long as the time necessary to pack and send the log message.
+ The latter premise is not true in Apple Clang's Objective-C when the Objective-C
+ objects are provided via dot-syntax accessors to the logging macro. Such case
+ results in what is basically a use-after-free bug, and could escalate to a device
+ panic like in rdar://107343611. Clang extends the lifetime of Objective-C objects
+ passed by message-sending-syntax as expected however. To remedy this syntax
+ dependence on our own APIs, the __OBJC__ version of SC_log is used in contexts where
+ Objective-C ARC is enabled. It leverages the os_log_send_and_compose macro, which packs
+ and sends the log within the same expression. This circumvents the need to uphold any
+ C-based object lifetime assumptions when operating within Objective-C ARC.
+ */
+#ifdef __OBJC__
+
+#ifdef strict_free
+#define __SC_log_composed_free(ptr) strict_free(ptr)
+#else // strict_free
+#define __SC_log_composed_free(ptr) free(ptr)
+#endif // strict_free
+
+#define		SC_log(__level, __format, ...)									\
+	do {													\
+		os_log_t	__handle	= SC_LOG_HANDLE();						\
+		os_log_type_t 	__type		= _SC_syslog_os_log_mapping(__level);				\
+														\
+		if (__SC_log_enabled(__level, __handle, __type)) {						\
+			char __buffer[SCLOG_BUFFER_MAXSIZE] = { 0 };						\
+			os_log_flags_t flags = (_sc_log > kSCLogDestinationFile) ? OS_LOG_F_SEND : 0x0;		\
+			char *__composed = os_log_send_and_compose(flags | OS_LOG_F_COMPOSE,			\
+								NULL,						\
+								__buffer,					\
+								sizeof(__buffer),				\
+								__handle,					\
+								__type,						\
+								__format,					\
+								## __VA_ARGS__);				\
+			__SC_log_send2(__level, __handle, __type, false, __composed);				\
+			if (__composed != __buffer) {								\
+				__SC_log_composed_free(__composed);						\
+			}											\
+		}												\
+	} while(0)
+
+#else // __OBJC__
+
+#define	SC_log(__level, __format, ...)									\
+	do {												\
+		os_log_t	__handle	= SC_LOG_HANDLE();					\
+		os_log_type_t	__type  	= _SC_syslog_os_log_mapping(__level);			\
+													\
+		if (__SC_log_enabled(__level, __handle, __type)) {					\
+			size_t	__pack_size	= os_log_pack_size(__format, ##__VA_ARGS__);		\
+													\
+			_Pragma("clang diagnostic push")						\
+			_Pragma("clang diagnostic ignored \"-Wvla\"")					\
+			_Pragma("clang diagnostic ignored \"-Wgnu-statement-expression\"")		\
+			os_log_pack_decl(__pack, __pack_size);						\
+			os_log_pack_fill(__pack, __pack_size, errno, __format, ##__VA_ARGS__);		\
+			_Pragma("clang diagnostic pop")							\
+													\
+			__SC_log_send(__level, __handle, __type, __pack);				\
+		}											\
+	} while (0)
+
+#endif // __OBJC__
 
 /*!
 	@function __SC_log_enabled
@@ -538,6 +589,22 @@ void		__SC_log_send			(int			level,
 						 os_log_t		log,
 						 os_log_type_t		type,
 						 os_log_pack_t		pack);
+
+/*!
+	@function __SC_log_send2
+	@discussion Issue an os_log_pack message w/os_log(3), syslog(3), or printf(3).
+		The specified message will be written to the system message logger.
+	@param level A syslog(3) logging priority. If less than 0, log message is multi-line
+	@param log The os_log_t handle (for logging)
+	@param type The os_log_type_t type (for logging)
+	@param is_pack Whether pack-based logging or fully composed
+	@param pack_or_composed An os_log_pack_t or a composed log message char *
+ */
+void		__SC_log_send2			(int 			level,
+						 os_log_t 		log,
+						 os_log_type_t 		type,
+						 Boolean 		is_pack,
+						 void 			*pack_or_composed);
 
 #endif	// !SC_log
 
@@ -883,6 +950,20 @@ _SC_getconninfo					(int				socket,
 						 struct sockaddr_storage	*dest_addr,
 						 int				*if_index,
 						 uint32_t			*flags);
+
+CFStringRef
+_SC_copyInterfaceUUID(CFStringRef bsdName);
+
+#if defined(__SC_CFRELEASE_NEEDED)
+#define __SC_CFRELEASE(obj)			\
+	do {					\
+		if ((obj) != NULL) {		\
+			CFRelease(obj);		\
+			(obj) = NULL;		\
+		}				\
+	}					\
+	while (0)
+#endif /* __SC_CFRELEASE_NEEDED */
 
 __END_DECLS
 

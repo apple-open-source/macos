@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #import "config.h"
@@ -99,7 +99,7 @@
 #import <pal/avfoundation/OutputContext.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
-#import <pal/text/TextEncoding.h>
+#import <pal/text/TextCodecUTF8.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/FileSystem.h>
 #import <wtf/ListHashSet.h>
@@ -153,6 +153,10 @@ template <> struct iterator_traits<HashSet<RefPtr<WebCore::MediaSelectionOptionA
 
 @interface AVURLAsset (WebKitExtensions)
 @property (nonatomic, readonly) NSURL *resolvedURL;
+@end
+
+@interface AVPlayer (Staging_100128644)
+@property (assign, nonatomic) BOOL preventsAutomaticBackgroundingDuringVideoPlayback;
 @end
 
 #import <pal/cf/CoreMediaSoftLink.h>
@@ -380,7 +384,7 @@ void MediaPlayerPrivateAVFoundationObjC::clearMediaCache(const String& path, Wal
     AVAssetCache* assetCache = assetCacheForPath(path);
     if (!assetCache)
         return;
-    
+
     for (NSString *key in [assetCache allKeys]) {
         if (toSystemClockTime([assetCache lastModifiedDateOfEntryForKey:key]) > modifiedSince)
             [assetCache removeEntryForKey:key];
@@ -393,28 +397,28 @@ void MediaPlayerPrivateAVFoundationObjC::clearMediaCache(const String& path, Wal
         [fileManager removeItemAtURL:baseURL error:nil];
         return;
     }
-    
+
     NSArray *propertyKeys = @[NSURLNameKey, NSURLContentModificationDateKey, NSURLIsRegularFileKey];
     NSDirectoryEnumerator *enumerator = [fileManager enumeratorAtURL:baseURL includingPropertiesForKeys:
         propertyKeys options:NSDirectoryEnumerationSkipsSubdirectoryDescendants
         errorHandler:nil];
-    
+
     RetainPtr<NSMutableArray> urlsToDelete = adoptNS([[NSMutableArray alloc] init]);
     for (NSURL *fileURL : enumerator) {
         NSDictionary *fileAttributes = [fileURL resourceValuesForKeys:propertyKeys error:nil];
-    
+
         if (![fileAttributes[NSURLNameKey] hasPrefix:@"CachedMedia-"])
             continue;
-        
+
         if (![fileAttributes[NSURLIsRegularFileKey] boolValue])
             continue;
-        
+
         if (toSystemClockTime(fileAttributes[NSURLContentModificationDateKey]) <= modifiedSince)
             continue;
-        
+
         [urlsToDelete addObject:fileURL];
     }
-    
+
     for (NSURL *fileURL in urlsToDelete.get())
         [fileManager removeItemAtURL:fileURL error:nil];
 }
@@ -501,7 +505,7 @@ void MediaPlayerPrivateAVFoundationObjC::cancelLoad()
     if (m_avPlayerItem) {
         for (NSString *keyName in itemKVOProperties())
             [m_avPlayerItem removeObserver:m_objcObserver.get() forKeyPath:keyName];
-        
+
         m_avPlayerItem = nil;
     }
     if (m_avPlayer) {
@@ -537,11 +541,11 @@ void MediaPlayerPrivateAVFoundationObjC::cancelLoad()
     m_pendingStatusChanges = 0;
     m_cachedItemStatus = MediaPlayerAVPlayerItemStatusDoesNotExist;
     m_cachedSeekableRanges = nullptr;
-    m_cachedLoadedRanges = nullptr;
     m_cachedHasEnabledAudio = false;
     m_cachedHasEnabledVideo = false;
     m_cachedPresentationSize = FloatSize();
     m_cachedDuration = MediaTime::zeroTime();
+    m_buffered.clear();
 
     for (AVPlayerItemTrack *track in m_cachedTracks.get())
         [track removeObserver:m_objcObserver.get() forKeyPath:@"enabled"];
@@ -630,6 +634,10 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer()
     if (!m_avPlayer)
         return;
 
+    auto player = this->player();
+    if (!player)
+        return;
+
     ALWAYS_LOG(LOGIDENTIFIER);
 
     m_videoLayer = adoptNS([PAL::allocAVPlayerLayerInstance() init]);
@@ -638,12 +646,12 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer()
     [m_videoLayer setName:@"MediaPlayerPrivate AVPlayerLayer"];
     [m_videoLayer addObserver:m_objcObserver.get() forKeyPath:@"readyForDisplay" options:NSKeyValueObservingOptionNew context:(void *)MediaPlayerAVFoundationObservationContextAVPlayerLayer];
     updateVideoLayerGravity();
-    [m_videoLayer setContentsScale:player()->playerContentsScale()];
-    m_videoLayerManager->setVideoLayer(m_videoLayer.get(), player()->presentationSize());
+    [m_videoLayer setContentsScale:player->playerContentsScale()];
+    m_videoLayerManager->setVideoLayer(m_videoLayer.get(), player->videoInlineSize());
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     if ([m_videoLayer respondsToSelector:@selector(setPIPModeEnabled:)])
-        [m_videoLayer setPIPModeEnabled:(player()->fullscreenMode() & MediaPlayer::VideoFullscreenModePictureInPicture)];
+        [m_videoLayer setPIPModeEnabled:(player->fullscreenMode() & MediaPlayer::VideoFullscreenModePictureInPicture)];
 #endif
 
     setNeedsRenderingModeChanged();
@@ -661,6 +669,7 @@ void MediaPlayerPrivateAVFoundationObjC::destroyVideoLayer()
     m_videoLayerManager->didDestroyVideoLayer();
 
     m_videoLayer = nil;
+    m_haveBeenAskedToCreateLayer = false;
 
     setNeedsRenderingModeChanged();
 }
@@ -714,29 +723,33 @@ static const NSArray *mediaDescriptionForKind(PlatformTextTrackData::TrackKind k
 
     return @[ AVMediaCharacteristicTranscribesSpokenDialogForAccessibility ];
 }
-    
+
 void MediaPlayerPrivateAVFoundationObjC::notifyTrackModeChanged()
 {
     trackModeChanged();
 }
-    
+
 void MediaPlayerPrivateAVFoundationObjC::synchronizeTextTrackState()
 {
-    const auto& outOfBandTrackSources = player()->outOfBandTrackSources();
-    
+    auto player = this->player();
+    if (!player)
+        return;
+
+    const auto& outOfBandTrackSources = player->outOfBandTrackSources();
+
     for (auto& textTrack : m_textTracks) {
         if (textTrack->textTrackCategory() != InbandTextTrackPrivateAVF::OutOfBand)
             continue;
-        
+
         RefPtr<OutOfBandTextTrackPrivateAVF> trackPrivate = static_cast<OutOfBandTextTrackPrivateAVF*>(textTrack.get());
         RetainPtr<AVMediaSelectionOption> currentOption = trackPrivate->mediaSelectionOption();
-        
+
         for (auto& track : outOfBandTrackSources) {
             RetainPtr<CFStringRef> uniqueID = String::number(track->uniqueId()).createCFString();
-            
+
             if (![[currentOption outOfBandIdentifier] isEqual:(__bridge NSString *)uniqueID.get()])
                 continue;
-            
+
             InbandTextTrackPrivate::Mode mode = InbandTextTrackPrivate::Mode::Hidden;
             switch (track->mode()) {
             case PlatformTextTrackData::TrackMode::Hidden:
@@ -749,7 +762,7 @@ void MediaPlayerPrivateAVFoundationObjC::synchronizeTextTrackState()
                 mode = InbandTextTrackPrivate::Mode::Showing;
                 break;
             }
-            
+
             textTrack->setMode(mode);
             break;
         }
@@ -781,10 +794,14 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url)
         return;
     }
 
-    player()->getRawCookies(url, [this, weakThis = WeakPtr { *this }, options = WTFMove(options), url] (auto cookies) mutable {
+    auto player = this->player();
+    if (!player)
+        return;
+
+    player->getRawCookies(url, [this, weakThis = WeakPtr { *this }, options = WTFMove(options), url] (auto cookies) mutable {
         if (!weakThis)
             return;
-        
+
         if (cookies.size()) {
             auto nsCookies = createNSArray(cookies, [] (auto& cookie) -> NSHTTPCookie * {
                 return cookie;
@@ -865,6 +882,10 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
+    auto player = this->player();
+    if (!player)
+        return;
+
     m_createAssetPending = false;
 
     if (m_avAsset)
@@ -876,11 +897,11 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
 
     RetainPtr<NSMutableDictionary> headerFields = adoptNS([[NSMutableDictionary alloc] init]);
 
-    String referrer = player()->referrer();
+    String referrer = player->referrer();
     if (!referrer.isEmpty())
         [headerFields setObject:referrer forKey:@"Referer"];
 
-    String userAgent = player()->userAgent();
+    String userAgent = player->userAgent();
     if (!userAgent.isEmpty())
         [headerFields setObject:userAgent forKey:@"User-Agent"];
 
@@ -896,20 +917,20 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
     else if (PAL::canLoad_AVFoundation_AVURLAssetRequiresCustomURLLoadingKey())
         [options setObject:@YES forKey:AVURLAssetRequiresCustomURLLoadingKey];
     // FIXME: rdar://problem/20354688
-    String identifier = player()->sourceApplicationIdentifier();
+    String identifier = player->sourceApplicationIdentifier();
     if (!identifier.isEmpty())
         [options setObject:identifier forKey:AVURLAssetClientBundleIdentifierKey];
 #endif
-    if (player()->prefersSandboxedParsing() && PAL::canLoad_AVFoundation_AVAssetPrefersSandboxedParsingOptionKey())
+    if (player->prefersSandboxedParsing() && PAL::canLoad_AVFoundation_AVAssetPrefersSandboxedParsingOptionKey())
         [options setObject:@YES forKey:AVAssetPrefersSandboxedParsingOptionKey];
 
-    auto type = player()->contentMIMEType();
+    auto type = player->contentMIMEType();
 
     // Don't advertise WebM MIME types or the format reader won't be loaded until rdar://72405127 is fixed.
     auto willUseWebMFormatReader = willUseWebMFormatReaderForType(type);
 
-    if (PAL::canLoad_AVFoundation_AVURLAssetOutOfBandMIMETypeKey() && !type.isEmpty() && !player()->contentMIMETypeWasInferredFromExtension() && !willUseWebMFormatReader) {
-        auto codecs = player()->contentTypeCodecs();
+    if (PAL::canLoad_AVFoundation_AVURLAssetOutOfBandMIMETypeKey() && !type.isEmpty() && !player->contentMIMETypeWasInferredFromExtension() && !willUseWebMFormatReader) {
+        auto codecs = player->contentTypeCodecs();
         if (!codecs.isEmpty()) {
             NSString *typeString = [NSString stringWithFormat:@"%@; codecs=\"%@\"", (NSString *)type, (NSString *)codecs];
             [options setObject:typeString forKey:AVURLAssetOutOfBandMIMETypeKey];
@@ -918,7 +939,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
     }
 
 #if ENABLE(AVF_CAPTIONS)
-    auto outOfBandTrackSources = player()->outOfBandTrackSources();
+    auto outOfBandTrackSources = player->outOfBandTrackSources();
     if (!outOfBandTrackSources.isEmpty()) {
         auto outOfBandTracks = createNSArray(outOfBandTrackSources, [] (auto& trackSource) {
             return @{
@@ -936,22 +957,22 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    String networkInterfaceName = player()->mediaPlayerNetworkInterfaceName();
+    String networkInterfaceName = player->mediaPlayerNetworkInterfaceName();
     if (!networkInterfaceName.isEmpty())
         [options setObject:networkInterfaceName forKey:AVURLAssetBoundNetworkInterfaceName];
 #endif
 
-    bool usePersistentCache = player()->shouldUsePersistentCache();
+    bool usePersistentCache = player->shouldUsePersistentCache();
     [options setObject:@(!usePersistentCache) forKey:AVURLAssetUsesNoPersistentCacheKey];
-    
+
     if (usePersistentCache) {
-        if (auto* assetCache = ensureAssetCacheExistsForPath(player()->mediaCacheDirectory()))
+        if (auto* assetCache = ensureAssetCacheExistsForPath(player->mediaCacheDirectory()))
             [options setObject:assetCache forKey:AVURLAssetCacheKey];
         else
             [options setObject:@NO forKey:AVURLAssetUsesNoPersistentCacheKey];
     }
 
-    auto allowedMediaContainerTypes = player()->allowedMediaContainerTypes();
+    auto allowedMediaContainerTypes = player->allowedMediaContainerTypes();
     if (allowedMediaContainerTypes && PAL::canLoad_AVFoundation_AVURLAssetAllowableTypeCategoriesKey()) {
         auto nsTypes = adoptNS([[NSMutableArray alloc] init]);
         for (auto type : *allowedMediaContainerTypes)
@@ -959,7 +980,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
         [options setObject:nsTypes.get() forKey:AVURLAssetAllowableTypeCategoriesKey];
     }
 
-    auto allowedMediaAudioCodecIDs = player()->allowedMediaAudioCodecIDs();
+    auto allowedMediaAudioCodecIDs = player->allowedMediaAudioCodecIDs();
     if (allowedMediaAudioCodecIDs && PAL::canLoad_AVFoundation_AVURLAssetAllowableAudioCodecTypesKey()) {
         auto nsTypes = adoptNS([[NSMutableArray alloc] init]);
         for (auto type : *allowedMediaAudioCodecIDs)
@@ -967,7 +988,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
         [options setObject:nsTypes.get() forKey:AVURLAssetAllowableAudioCodecTypesKey];
     }
 
-    auto allowedMediaVideoCodecIDs = player()->allowedMediaVideoCodecIDs();
+    auto allowedMediaVideoCodecIDs = player->allowedMediaVideoCodecIDs();
     if (allowedMediaVideoCodecIDs && PAL::canLoad_AVFoundation_AVURLAssetAllowableVideoCodecTypesKey()) {
         auto nsTypes = adoptNS([[NSMutableArray alloc] init]);
         for (auto type : *allowedMediaVideoCodecIDs)
@@ -975,7 +996,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
         [options setObject:nsTypes.get() forKey:AVURLAssetAllowableVideoCodecTypesKey];
     }
 
-    auto allowedMediaCaptionFormatTypes = player()->allowedMediaCaptionFormatTypes();
+    auto allowedMediaCaptionFormatTypes = player->allowedMediaCaptionFormatTypes();
     if (allowedMediaCaptionFormatTypes && PAL::canLoad_AVFoundation_AVURLAssetAllowableCaptionFormatsKey()) {
         auto nsTypes = adoptNS([[NSMutableArray alloc] init]);
         for (auto type : *allowedMediaCaptionFormatTypes)
@@ -1012,7 +1033,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
     AVAssetResourceLoader *resourceLoader = m_avAsset.get().resourceLoader;
     [resourceLoader setDelegate:m_loaderDelegate.get() queue:globalLoaderDelegateQueue()];
 
-    if (auto mediaResourceLoader = player()->createResourceLoader())
+    if (auto mediaResourceLoader = player->createResourceLoader())
         resourceLoader.URLSession = (NSURLSession *)adoptNS([[WebCoreNSURLSession alloc] initWithResourceLoader:*mediaResourceLoader delegate:resourceLoader.URLSessionDataDelegate delegateQueue:resourceLoader.URLSessionDataDelegateQueue]).get();
 
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(chapterMetadataDidChange:) name:AVAssetChapterMetadataGroupsDidChangeNotification object:m_avAsset.get()];
@@ -1067,6 +1088,10 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
     if (m_avPlayer)
         return;
 
+    auto player = this->player();
+    if (!player)
+        return;
+
     ALWAYS_LOG(LOGIDENTIFIER);
 
     setDelayCallbacks(true);
@@ -1081,11 +1106,11 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
     m_avPlayer.get().appliesMediaSelectionCriteriaAutomatically = NO;
 #if HAVE(AVPLAYER_VIDEORANGEOVERRIDE)
     if ([m_avPlayer respondsToSelector:@selector(setVideoRangeOverride:)])
-        m_avPlayer.get().videoRangeOverride = convertDynamicRangeModeEnumToAVVideoRange(player()->preferredDynamicRangeMode());
+        m_avPlayer.get().videoRangeOverride = convertDynamicRangeModeEnumToAVVideoRange(player->preferredDynamicRangeMode());
 #endif
 
     if ([m_videoLayer respondsToSelector:@selector(setToneMapToStandardDynamicRange:)])
-        [m_videoLayer setToneMapToStandardDynamicRange:player()->shouldDisableHDR()];
+        [m_videoLayer setToneMapToStandardDynamicRange:player->shouldDisableHDR()];
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     updateDisableExternalPlayback();
@@ -1101,14 +1126,17 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
 #endif
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
-    setShouldDisableSleep(player()->shouldDisableSleep());
+    setShouldDisableSleep(player->shouldDisableSleep());
+
+    if ([m_avPlayer respondsToSelector:@selector(setPreventsAutomaticBackgroundingDuringVideoPlayback:)])
+        m_avPlayer.get().preventsAutomaticBackgroundingDuringVideoPlayback = NO;
 #endif
 
     if (m_muted) {
         [m_avPlayer setMuted:m_muted];
 
 #if HAVE(AVPLAYER_SUPRESSES_AUDIO_RENDERING)
-        if (player()->isVideoPlayer())
+        if (player->isVideoPlayer())
             m_avPlayer.get().suppressesAudioRendering = YES;
 #endif
     }
@@ -1117,7 +1145,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
         setAVPlayerItem(m_avPlayerItem.get());
 
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
-    auto audioOutputDeviceId = player()->audioOutputDeviceIdOverride();
+    auto audioOutputDeviceId = player->audioOutputDeviceIdOverride();
     if (!audioOutputDeviceId.isNull()) {
         if (audioOutputDeviceId.isEmpty())
             m_avPlayer.get().audioOutputDeviceUniqueID = nil;
@@ -1152,30 +1180,20 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
     setDelayCallbacks(false);
 }
 
-static NSString* audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(MediaPlayer::PitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool preservesPitch, double rate)
-{
-    if (!preservesPitch || !rate || rate == 1.)
-        return AVAudioTimePitchAlgorithmVarispeed;
-
-    switch (pitchCorrectionAlgorithm) {
-    case MediaPlayer::PitchCorrectionAlgorithm::BestAllAround:
-    case MediaPlayer::PitchCorrectionAlgorithm::BestForMusic:
-        return AVAudioTimePitchAlgorithmSpectral;
-    case MediaPlayer::PitchCorrectionAlgorithm::BestForSpeech:
-        return AVAudioTimePitchAlgorithmTimeDomain;
-    }
-}
-
 void MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem()
 {
     if (m_avPlayerItem)
+        return;
+
+    auto player = this->player();
+    if (!player)
         return;
 
     ALWAYS_LOG(LOGIDENTIFIER);
 
     setDelayCallbacks(true);
 
-    // Create the player item so we can load media data. 
+    // Create the player item so we can load media data.
     m_avPlayerItem = adoptNS([PAL::allocAVPlayerItemInstance() initWithAsset:m_avAsset.get()]);
 
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(didEnd:) name:AVPlayerItemDidPlayToEndTimeNotification object:m_avPlayerItem.get()];
@@ -1188,7 +1206,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem()
         [m_avPlayerItem addObserver:m_objcObserver.get() forKeyPath:keyName options:options context:(void *)MediaPlayerAVFoundationObservationContextPlayerItem];
     }
 
-    [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), player()->preservesPitch(), m_requestedRate)];
+    [m_avPlayerItem setAudioTimePitchAlgorithm:MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player->pitchCorrectionAlgorithm(), player->preservesPitch(), m_requestedRate)];
 
 #if HAVE(AVFOUNDATION_INTERSTITIAL_EVENTS)
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
@@ -1304,8 +1322,9 @@ PlatformLayer* MediaPlayerPrivateAVFoundationObjC::platformLayer() const
 
 void MediaPlayerPrivateAVFoundationObjC::updateVideoFullscreenInlineImage()
 {
-    updateLastImage(UpdateType::UpdateSynchronously);
-    m_videoLayerManager->updateVideoFullscreenInlineImage(m_lastImage ? m_lastImage->platformImage() : nullptr);
+    updateLastImage([&] {
+        m_videoLayerManager->updateVideoFullscreenInlineImage(m_lastImage ? m_lastImage->platformImage() : nullptr);
+    });
 }
 
 RetainPtr<PlatformLayer> MediaPlayerPrivateAVFoundationObjC::createVideoFullscreenLayer()
@@ -1315,11 +1334,15 @@ RetainPtr<PlatformLayer> MediaPlayerPrivateAVFoundationObjC::createVideoFullscre
 
 void MediaPlayerPrivateAVFoundationObjC::setVideoFullscreenLayer(PlatformLayer* videoFullscreenLayer, Function<void()>&& completionHandler)
 {
+    auto completion = [&] {
+        m_videoLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler), m_lastImage ? m_lastImage->platformImage() : nullptr);
+        updateVideoLayerGravity(ShouldAnimate::Yes);
+        updateDisableExternalPlayback();
+    };
     if (videoFullscreenLayer)
-        updateLastImage(UpdateType::UpdateSynchronously);
-    m_videoLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler), m_lastImage ? m_lastImage->platformImage() : nullptr);
-    updateVideoLayerGravity(ShouldAnimate::Yes);
-    updateDisableExternalPlayback();
+        updateLastImage(WTFMove(completion));
+    else
+        completion();
 }
 
 void MediaPlayerPrivateAVFoundationObjC::setVideoFullscreenFrame(FloatRect frame)
@@ -1344,7 +1367,7 @@ void MediaPlayerPrivateAVFoundationObjC::setVideoFullscreenMode(MediaPlayer::Vid
     UNUSED_PARAM(mode);
 #endif
 }
-    
+
 void MediaPlayerPrivateAVFoundationObjC::videoFullscreenStandbyChanged()
 {
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS)
@@ -1366,7 +1389,7 @@ String MediaPlayerPrivateAVFoundationObjC::accessLog() const
 {
     if (!m_avPlayerItem)
         return emptyString();
-    
+
     AVPlayerItemAccessLog *log = [m_avPlayerItem accessLog];
     RetainPtr<NSString> logString = adoptNS([[NSString alloc] initWithData:[log extendedLogData] encoding:[log extendedLogDataStringEncoding]]);
 
@@ -1399,11 +1422,11 @@ void MediaPlayerPrivateAVFoundationObjC::platformSetVisible(bool isVisible)
         return;
 
     [CATransaction begin];
-    [CATransaction setDisableActions:YES];    
+    [CATransaction setDisableActions:YES];
     [m_videoLayer setHidden:!isVisible];
     [CATransaction commit];
 }
-    
+
 void MediaPlayerPrivateAVFoundationObjC::platformPlay()
 {
     if (!metaDataAvailable())
@@ -1482,7 +1505,8 @@ void MediaPlayerPrivateAVFoundationObjC::checkNewVideoFrameMetadata()
     if (!updateLastPixelBuffer() && !m_videoFrameMetadata)
         return;
 
-    player()->onNewVideoFrameMetadata(WTFMove(*m_videoFrameMetadata), m_lastPixelBuffer.get());
+    if (auto player = this->player())
+        player->onNewVideoFrameMetadata(WTFMove(*m_videoFrameMetadata), m_lastPixelBuffer.get());
 }
 
 void MediaPlayerPrivateAVFoundationObjC::stopVideoFrameMetadataGathering()
@@ -1502,9 +1526,9 @@ MediaTime MediaPlayerPrivateAVFoundationObjC::platformDuration() const
     // answer synchronously.
     if (!m_avAsset || assetStatus() < MediaPlayerAVAssetStatusLoaded)
         return MediaTime::invalidTime();
-    
+
     CMTime cmDuration;
-    
+
     // Check the AVItem if we have one and it has loaded duration, some assets never report duration.
     if (m_avPlayerItem && playerItemStatus() >= MediaPlayerAVPlayerItemStatusReadyToPlay)
         cmDuration = [m_avPlayerItem duration];
@@ -1567,7 +1591,7 @@ void MediaPlayerPrivateAVFoundationObjC::currentMediaTimeDidChange(MediaTime&& t
 void MediaPlayerPrivateAVFoundationObjC::seekToTime(const MediaTime& time, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance)
 {
     ASSERT(time.isFinite());
-    
+
     // setCurrentTime generates several event callbacks, update afterwards.
     setDelayCallbacks(true);
 
@@ -1583,7 +1607,7 @@ void MediaPlayerPrivateAVFoundationObjC::seekToTime(const MediaTime& time, const
         cmBefore = PAL::kCMTimePositiveInfinity;
     if (!CMTIME_IS_VALID(cmAfter) || PAL::CMTimeCompare(cmAfter, PAL::kCMTimeZero) < 0)
         cmAfter = PAL::kCMTimePositiveInfinity;
-    
+
     WeakPtr weakThis { *this };
 
     setShouldObserveTimeControlStatus(false);
@@ -1648,7 +1672,8 @@ void MediaPlayerPrivateAVFoundationObjC::setPlayerRate(double rate, std::optiona
 {
     setDelayCallbacks(true);
 
-    [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), player()->preservesPitch(), m_requestedRate)];
+    if (auto player = this->player())
+        [m_avPlayerItem setAudioTimePitchAlgorithm:MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player->pitchCorrectionAlgorithm(), player->preservesPitch(), m_requestedRate)];
 
     setShouldObserveTimeControlStatus(false);
 
@@ -1693,7 +1718,7 @@ double MediaPlayerPrivateAVFoundationObjC::effectiveRate() const
 
 double MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesLastModifiedTime() const
 {
-#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(MACCATALYST)
+#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(MACCATALYST) || PLATFORM(VISION)
     if (!m_cachedSeekableTimeRangesLastModifiedTime)
         m_cachedSeekableTimeRangesLastModifiedTime = [m_avPlayerItem seekableTimeRangesLastModifiedTime];
     return *m_cachedSeekableTimeRangesLastModifiedTime;
@@ -1704,7 +1729,7 @@ double MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesLastModifiedTime() 
 
 double MediaPlayerPrivateAVFoundationObjC::liveUpdateInterval() const
 {
-#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(MACCATALYST)
+#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(MACCATALYST) || PLATFORM(VISION)
     if (!m_cachedLiveUpdateInterval)
         m_cachedLiveUpdateInterval = [m_avPlayerItem liveUpdateInterval];
     return *m_cachedLiveUpdateInterval;
@@ -1715,31 +1740,24 @@ double MediaPlayerPrivateAVFoundationObjC::liveUpdateInterval() const
 
 void MediaPlayerPrivateAVFoundationObjC::setPreservesPitch(bool preservesPitch)
 {
-    if (m_avPlayerItem)
-        [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), preservesPitch, m_requestedRate)];
+    auto player = this->player();
+    if (m_avPlayerItem && player)
+        [m_avPlayerItem setAudioTimePitchAlgorithm:MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player->pitchCorrectionAlgorithm(), preservesPitch, m_requestedRate)];
 }
 
 void MediaPlayerPrivateAVFoundationObjC::setPitchCorrectionAlgorithm(MediaPlayer::PitchCorrectionAlgorithm pitchCorrectionAlgorithm)
 {
-    if (m_avPlayerItem)
-        [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(pitchCorrectionAlgorithm, player()->preservesPitch(), m_requestedRate)];
+    auto player = this->player();
+    if (m_avPlayerItem && player)
+        [m_avPlayerItem setAudioTimePitchAlgorithm:MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(pitchCorrectionAlgorithm, player->preservesPitch(), m_requestedRate)];
 }
 
-std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateAVFoundationObjC::platformBufferedTimeRanges() const
+const PlatformTimeRanges& MediaPlayerPrivateAVFoundationObjC::platformBufferedTimeRanges() const
 {
-    using namespace PAL; // For CMTIMERANGE_IS_EMPTY.
-
-    auto timeRanges = makeUnique<PlatformTimeRanges>();
-
     if (!m_avPlayerItem)
-        return timeRanges;
+        return PlatformTimeRanges::emptyRanges();
 
-    for (NSValue *thisRangeValue in m_cachedLoadedRanges.get()) {
-        CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
-        if (CMTIMERANGE_IS_VALID(timeRange) && !CMTIMERANGE_IS_EMPTY(timeRange))
-            timeRanges->add(PAL::toMediaTime(timeRange.start), PAL::toMediaTime(PAL::CMTimeRangeGetEnd(timeRange)));
-    }
-    return timeRanges;
+    return m_buffered;
 }
 
 MediaTime MediaPlayerPrivateAVFoundationObjC::platformMinTimeSeekable() const
@@ -1779,7 +1797,7 @@ MediaTime MediaPlayerPrivateAVFoundationObjC::platformMaxTimeSeekable() const
         CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
         if (!CMTIMERANGE_IS_VALID(timeRange) || CMTIMERANGE_IS_EMPTY(timeRange))
             continue;
-        
+
         MediaTime endOfRange = PAL::toMediaTime(PAL::CMTimeRangeGetEnd(timeRange));
         if (maxTimeSeekable < endOfRange)
             maxTimeSeekable = endOfRange;
@@ -1789,23 +1807,9 @@ MediaTime MediaPlayerPrivateAVFoundationObjC::platformMaxTimeSeekable() const
 
 MediaTime MediaPlayerPrivateAVFoundationObjC::platformMaxTimeLoaded() const
 {
-    using namespace PAL; // For CMTIMERANGE_IS_EMPTY.
-
-    if (!m_cachedLoadedRanges)
+    if (!m_buffered.length())
         return MediaTime::zeroTime();
-
-    MediaTime maxTimeLoaded;
-    for (NSValue *thisRangeValue in m_cachedLoadedRanges.get()) {
-        CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
-        if (!CMTIMERANGE_IS_VALID(timeRange) || CMTIMERANGE_IS_EMPTY(timeRange))
-            continue;
-        
-        MediaTime endOfRange = PAL::toMediaTime(PAL::CMTimeRangeGetEnd(timeRange));
-        if (maxTimeLoaded < endOfRange)
-            maxTimeLoaded = endOfRange;
-    }
-
-    return maxTimeLoaded;   
+    return m_buffered.maximumBufferedTime();
 }
 
 unsigned long long MediaPlayerPrivateAVFoundationObjC::totalBytes() const
@@ -1869,7 +1873,11 @@ bool MediaPlayerPrivateAVFoundationObjC::containsDisabledTracks() const
 
 bool MediaPlayerPrivateAVFoundationObjC::trackIsPlayable(AVAssetTrack* track) const
 {
-    if (player()->shouldCheckHardwareSupport() && !assetTrackMeetsHardwareDecodeRequirements(track, player()->mediaContentTypesRequiringHardwareSupport()))
+    auto player = this->player();
+    if (!player)
+        return false;
+
+    if (player->shouldCheckHardwareSupport() && !assetTrackMeetsHardwareDecodeRequirements(track, player->mediaContentTypesRequiringHardwareSupport()))
         return false;
 
     auto description = retainPtr((__bridge CMFormatDescriptionRef)track.formatDescriptions.firstObject);
@@ -1880,7 +1888,7 @@ bool MediaPlayerPrivateAVFoundationObjC::trackIsPlayable(AVAssetTrack* track) co
     auto codecType = FourCC { PAL::CMFormatDescriptionGetMediaSubType(description.get()) };
     switch (PAL::CMFormatDescriptionGetMediaType(description.get())) {
     case kCMMediaType_Video: {
-        auto& allowedMediaVideoCodecIDs = player()->allowedMediaVideoCodecIDs();
+        auto& allowedMediaVideoCodecIDs = player->allowedMediaVideoCodecIDs();
         if (allowedMediaVideoCodecIDs && !allowedMediaVideoCodecIDs->contains(codecType)) {
             ERROR_LOG(LOGIDENTIFIER, "Video track with codec type '", codecType, "' not contained in allowed codec list; blocking");
             return false;
@@ -1888,7 +1896,7 @@ bool MediaPlayerPrivateAVFoundationObjC::trackIsPlayable(AVAssetTrack* track) co
         return true;
     }
     case kCMMediaType_Audio: {
-        auto& allowedMediaAudioCodecIDs = player()->allowedMediaAudioCodecIDs();
+        auto& allowedMediaAudioCodecIDs = player->allowedMediaAudioCodecIDs();
         if (allowedMediaAudioCodecIDs && !allowedMediaAudioCodecIDs->contains(codecType)) {
             ERROR_LOG(LOGIDENTIFIER, "Audio track with codec type '", codecType, "' not contained in allowed codec list; blocking");
             return false;
@@ -1898,7 +1906,7 @@ bool MediaPlayerPrivateAVFoundationObjC::trackIsPlayable(AVAssetTrack* track) co
     case kCMMediaType_Text:
     case kCMMediaType_ClosedCaption:
     case kCMMediaType_Subtitle: {
-        auto& allowedMediaCaptionFormatTypes = player()->allowedMediaCaptionFormatTypes();
+        auto& allowedMediaCaptionFormatTypes = player->allowedMediaCaptionFormatTypes();
         if (allowedMediaCaptionFormatTypes && !allowedMediaCaptionFormatTypes->contains(codecType)) {
             ERROR_LOG(LOGIDENTIFIER, "Text track with codec type '", codecType, "' not contained in allowed codec list; blocking");
             return false;
@@ -1951,6 +1959,9 @@ MediaPlayerPrivateAVFoundation::AssetStatus MediaPlayerPrivateAVFoundationObjC::
         if (!m_cachedTracksArePlayable)
             return MediaPlayerAVAssetStatusLoading;
     }
+
+    if (!m_cachedAssetIsHLS)
+        m_cachedAssetIsHLS = [[m_avAsset variants] count] > 0;
 
     if (!m_cachedAssetIsPlayable)
         m_cachedAssetIsPlayable = [[m_avAsset valueForKey:@"playable"] boolValue] || containsDisabledTracks();
@@ -2128,6 +2139,10 @@ static void fulfillRequestWithKeyData(AVAssetResourceLoadingRequest *request, Ar
 
 bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetResourceLoadingRequest* avRequest)
 {
+    auto player = this->player();
+    if (!player)
+        return false;
+
     String scheme = [[[avRequest request] URL] scheme];
     String keyURI = [[[avRequest request] URL] absoluteString];
 
@@ -2147,9 +2162,9 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
         keyURIArray->setRange(reinterpret_cast<const UniChar*>(StringView(keyURI).upconvertedCharacters().get()), keyURI.length() / sizeof(unsigned char), 0);
 
         auto initData = SharedBuffer::create(Vector<uint8_t> { static_cast<uint8_t*>(initDataBuffer->data()), byteLength });
-        player()->keyNeeded(initData);
+        player->keyNeeded(initData);
 #if ENABLE(ENCRYPTED_MEDIA)
-        if (!player()->shouldContinueAfterKeyNeeded())
+        if (!player->shouldContinueAfterKeyNeeded())
             return true;
 #endif
 #endif
@@ -2163,7 +2178,7 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
 
         RetainPtr<NSData> keyURIData = [keyURI dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES];
         m_keyID = SharedBuffer::create(keyURIData.get());
-        player()->initializationDataEncountered("skd"_s, m_keyID->tryCreateArrayBuffer());
+        player->initializationDataEncountered("skd"_s, m_keyID->tryCreateArrayBuffer());
         setWaitingForKey(true);
 #endif
         m_keyURIToRequestMap.set(keyURI, avRequest);
@@ -2174,18 +2189,18 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     if (scheme == "clearkey"_s) {
         String keyID = [[[avRequest request] URL] resourceSpecifier];
-        auto encodedKeyId = PAL::UTF8Encoding().encode(keyID, PAL::UnencodableHandling::URLEncodedEntities);
+        auto encodedKeyId = PAL::TextCodecUTF8::encodeUTF8(keyID);
         auto initData = SharedBuffer::create(WTFMove(encodedKeyId));
 
-        auto keyData = player()->cachedKeyForKeyId(keyID);
+        auto keyData = player->cachedKeyForKeyId(keyID);
         if (keyData) {
             fulfillRequestWithKeyData(avRequest, keyData.get());
             return false;
         }
 
-        player()->keyNeeded(initData);
+        player->keyNeeded(initData);
 
-        if (!player()->shouldContinueAfterKeyNeeded())
+        if (!player->shouldContinueAfterKeyNeeded())
             return false;
 
         m_keyURIToRequestMap.set(keyID, avRequest);
@@ -2274,6 +2289,7 @@ void MediaPlayerPrivateAVFoundationObjC::metadataLoaded()
 void MediaPlayerPrivateAVFoundationObjC::processChapterTracks()
 {
     ASSERT(m_avAsset);
+    auto player = this->player();
 
     for (NSLocale *locale in [m_avAsset availableChapterLocales]) {
 
@@ -2286,7 +2302,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         String language = [locale localeIdentifier];
         auto track = m_chapterTracks.ensure(language, [&]() {
             auto track = InbandChapterTrackPrivateAVFObjC::create(locale);
-            player()->addTextTrack(track.get());
+            if (player)
+                player->addTextTrack(track.get());
             return track;
         }).iterator->value;
 
@@ -2417,7 +2434,7 @@ void MediaPlayerPrivateAVFoundationObjC::updateRotationSession()
 }
 
 template <typename RefT, typename PassRefT>
-void determineChangedTracksFromNewTracksAndOldItems(NSArray* tracks, NSString* trackType, Vector<RefT>& oldItems, RefT (*itemFactory)(AVPlayerItemTrack*), MediaPlayer* player, void (MediaPlayer::*removedFunction)(PassRefT), void (MediaPlayer::*addedFunction)(PassRefT))
+void determineChangedTracksFromNewTracksAndOldItems(NSArray* tracks, NSString* trackType, Vector<RefT>& oldItems, RefT (*itemFactory)(AVPlayerItemTrack*), RefPtr<MediaPlayer>& player, void (MediaPlayer::*removedFunction)(PassRefT), void (MediaPlayer::*addedFunction)(PassRefT))
 {
     RetainPtr<NSSet> newTracks = adoptNS([[NSSet alloc] initWithArray:[tracks objectsAtIndexes:[tracks indexesOfObjectsPassingTest:^(id track, NSUInteger, BOOL*){
         return [[[track assetTrack] mediaType] isEqualToString:trackType];
@@ -2453,15 +2470,17 @@ void determineChangedTracksFromNewTracksAndOldItems(NSArray* tracks, NSString* t
     replacementItems.appendVector(addedItems);
     oldItems.swap(replacementItems);
 
-    for (auto& removedItem : removedItems)
-        (player->*removedFunction)(*removedItem);
+    if (player) {
+        for (auto& removedItem : removedItems)
+            (player.get()->*removedFunction)(*removedItem);
 
-    for (auto& addedItem : addedItems)
-        (player->*addedFunction)(*addedItem);
+        for (auto& addedItem : addedItems)
+            (player.get()->*addedFunction)(*addedItem);
+    }
 }
 
 template <typename RefT, typename PassRefT>
-void determineChangedTracksFromNewTracksAndOldItems(MediaSelectionGroupAVFObjC* group, Vector<RefT>& oldItems, const Vector<String>& characteristics, RefT (*itemFactory)(MediaSelectionOptionAVFObjC&), MediaPlayer* player, void (MediaPlayer::*removedFunction)(PassRefT), void (MediaPlayer::*addedFunction)(PassRefT))
+void determineChangedTracksFromNewTracksAndOldItems(MediaSelectionGroupAVFObjC* group, Vector<RefT>& oldItems, const Vector<String>& characteristics, RefT (*itemFactory)(MediaSelectionOptionAVFObjC&), RefPtr<MediaPlayer>& player, void (MediaPlayer::*removedFunction)(PassRefT), void (MediaPlayer::*addedFunction)(PassRefT))
 {
     group->updateOptions(characteristics);
 
@@ -2512,28 +2531,34 @@ void determineChangedTracksFromNewTracksAndOldItems(MediaSelectionGroupAVFObjC* 
 
     replacementItems.appendVector(addedItems);
     oldItems.swap(replacementItems);
-    
-    for (auto& removedItem : removedItems)
-        (player->*removedFunction)(*removedItem);
 
-    for (auto& addedItem : addedItems)
-        (player->*addedFunction)(*addedItem);
+    if (player) {
+        for (auto& removedItem : removedItems)
+            (player.get()->*removedFunction)(*removedItem);
+
+        for (auto& addedItem : addedItems)
+            (player.get()->*addedFunction)(*addedItem);
+    }
 }
 
 void MediaPlayerPrivateAVFoundationObjC::updateAudioTracks()
 {
+    auto player = this->player();
+    if (!player)
+        return;
+
     size_t count = m_audioTracks.size();
 
-    Vector<String> characteristics = player()->preferredAudioCharacteristics();
+    Vector<String> characteristics = player->preferredAudioCharacteristics();
     if (!m_audibleGroup) {
         if (AVMediaSelectionGroup *group = safeMediaSelectionGroupForAudibleMedia())
             m_audibleGroup = MediaSelectionGroupAVFObjC::create(m_avPlayerItem.get(), group, characteristics);
     }
 
     if (m_audibleGroup)
-        determineChangedTracksFromNewTracksAndOldItems(m_audibleGroup.get(), m_audioTracks, characteristics, &AudioTrackPrivateAVFObjC::create, player(), &MediaPlayer::removeAudioTrack, &MediaPlayer::addAudioTrack);
+        determineChangedTracksFromNewTracksAndOldItems(m_audibleGroup.get(), m_audioTracks, characteristics, &AudioTrackPrivateAVFObjC::create, player, &MediaPlayer::removeAudioTrack, &MediaPlayer::addAudioTrack);
     else
-        determineChangedTracksFromNewTracksAndOldItems(m_cachedTracks.get(), AVMediaTypeAudio, m_audioTracks, &AudioTrackPrivateAVFObjC::create, player(), &MediaPlayer::removeAudioTrack, &MediaPlayer::addAudioTrack);
+        determineChangedTracksFromNewTracksAndOldItems(m_cachedTracks.get(), AVMediaTypeAudio, m_audioTracks, &AudioTrackPrivateAVFObjC::create, player, &MediaPlayer::removeAudioTrack, &MediaPlayer::addAudioTrack);
 
     for (auto& track : m_audioTracks)
         track->resetPropertiesFromTrack();
@@ -2543,9 +2568,13 @@ void MediaPlayerPrivateAVFoundationObjC::updateAudioTracks()
 
 void MediaPlayerPrivateAVFoundationObjC::updateVideoTracks()
 {
+    auto player = this->player();
+    if (!player)
+        return;
+
     size_t count = m_videoTracks.size();
 
-    determineChangedTracksFromNewTracksAndOldItems(m_cachedTracks.get(), AVMediaTypeVideo, m_videoTracks, &VideoTrackPrivateAVFObjC::create, player(), &MediaPlayer::removeVideoTrack, &MediaPlayer::addVideoTrack);
+    determineChangedTracksFromNewTracksAndOldItems(m_cachedTracks.get(), AVMediaTypeVideo, m_videoTracks, &VideoTrackPrivateAVFObjC::create, player, &MediaPlayer::removeVideoTrack, &MediaPlayer::addVideoTrack);
 
     if (!m_visualGroup) {
         if (AVMediaSelectionGroup *group = safeMediaSelectionGroupForVisualMedia())
@@ -2553,7 +2582,7 @@ void MediaPlayerPrivateAVFoundationObjC::updateVideoTracks()
     }
 
     if (m_visualGroup)
-        determineChangedTracksFromNewTracksAndOldItems(m_visualGroup.get(), m_videoTracks, Vector<String>(), &VideoTrackPrivateAVFObjC::create, player(), &MediaPlayer::removeVideoTrack, &MediaPlayer::addVideoTrack);
+        determineChangedTracksFromNewTracksAndOldItems(m_visualGroup.get(), m_videoTracks, Vector<String>(), &VideoTrackPrivateAVFObjC::create, player, &MediaPlayer::removeVideoTrack, &MediaPlayer::addVideoTrack);
 
     for (auto& track : m_videoTracks)
         track->resetPropertiesFromTrack();
@@ -2723,23 +2752,35 @@ bool MediaPlayerPrivateAVFoundationObjC::videoOutputHasAvailableFrame()
     return m_videoOutput->hasImageForTime(PAL::toMediaTime([m_avPlayerItem currentTime]));
 }
 
-void MediaPlayerPrivateAVFoundationObjC::updateLastImage(UpdateType type)
+void MediaPlayerPrivateAVFoundationObjC::updateLastImage(UpdateCompletion&& completion)
 {
-    if (!m_avPlayerItem || readyState() < MediaPlayer::ReadyState::HaveCurrentData)
+    if (!m_avPlayerItem || readyState() < MediaPlayer::ReadyState::HaveCurrentData) {
+        completion();
         return;
+    }
 
     auto* firstEnabledVideoTrack = firstEnabledVisibleTrack();
-    if (!firstEnabledVideoTrack)
+    if (!firstEnabledVideoTrack) {
+        completion();
         return;
+    }
 
-    if (type == UpdateType::UpdateSynchronously && !m_lastImage && !videoOutputHasAvailableFrame())
-        waitForVideoOutputMediaDataWillChange();
+    if (!m_lastImage && !videoOutputHasAvailableFrame()) {
+        if (waitForVideoOutputMediaDataWillChange() == UpdateResult::ObjectDestroyed) {
+            // NOTE: Do not call the completion handler here, as the `this` pointer is now invalid.
+            // This will cause an ASSERT that the completion handler was not called before destruction.
+            // This is intentional; this is a ASSERT-able behavior, and should not occur.
+            return;
+        }
+    }
 
     // Calls to copyPixelBufferForItemTime:itemTimeForDisplay: may return nil if the pixel buffer
     // for the requested time has already been retrieved. In this case, the last valid image (if any)
     // should be displayed.
-    if (!updateLastPixelBuffer() && (m_lastImage || !m_lastPixelBuffer))
+    if (!updateLastPixelBuffer() && (m_lastImage || !m_lastPixelBuffer)) {
+        completion();
         return;
+    }
 
     if (!m_pixelBufferConformer) {
         NSDictionary *attributes = @{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) };
@@ -2751,24 +2792,26 @@ void MediaPlayerPrivateAVFoundationObjC::updateLastImage(UpdateType type)
     m_lastImage = NativeImage::create(m_pixelBufferConformer->createImageFromPixelBuffer(m_lastPixelBuffer.get()));
 
     INFO_LOG(LOGIDENTIFIER, "creating buffer took ", (MonotonicTime::now() - start).seconds());
+
+    completion();
 }
 
 void MediaPlayerPrivateAVFoundationObjC::paintWithVideoOutput(GraphicsContext& context, const FloatRect& outputRect)
 {
-    updateLastImage(UpdateType::UpdateSynchronously);
-    if (!m_lastImage)
-        return;
+    updateLastImage([&, logIdentifier = LOGIDENTIFIER] {
+        if (!m_lastImage)
+            return;
 
-    INFO_LOG(LOGIDENTIFIER);
+        INFO_LOG(logIdentifier);
 
-    FloatRect imageRect { FloatPoint::zero(), m_lastImage->size() };
-    context.drawNativeImage(*m_lastImage, imageRect.size(), outputRect, imageRect);
+        FloatRect imageRect { FloatPoint::zero(), m_lastImage->size() };
+        context.drawNativeImage(*m_lastImage, imageRect.size(), outputRect, imageRect);
 
-    // If we have created an AVAssetImageGenerator in the past due to m_videoOutput not having an available
-    // video frame, destroy it now that it is no longer needed.
-    if (m_imageGenerator)
-        destroyImageGenerator();
-
+        // If we have created an AVAssetImageGenerator in the past due to m_videoOutput not having an available
+        // video frame, destroy it now that it is no longer needed.
+        if (m_imageGenerator)
+            destroyImageGenerator();
+    });
 }
 
 RefPtr<VideoFrame> MediaPlayerPrivateAVFoundationObjC::videoFrameForCurrentTime()
@@ -2781,23 +2824,27 @@ RefPtr<VideoFrame> MediaPlayerPrivateAVFoundationObjC::videoFrameForCurrentTime(
 
 RefPtr<NativeImage> MediaPlayerPrivateAVFoundationObjC::nativeImageForCurrentTime()
 {
-    updateLastImage(UpdateType::UpdateSynchronously);
-    return m_lastImage;
+    RefPtr<NativeImage> returnValue = nullptr;
+    updateLastImage([&] {
+        returnValue = m_lastImage;
+    });
+    return returnValue;
 }
 
 DestinationColorSpace MediaPlayerPrivateAVFoundationObjC::colorSpace()
 {
-    updateLastImage(UpdateType::UpdateSynchronously);
-    if (!m_lastPixelBuffer)
-        return DestinationColorSpace::SRGB();
-
-    return DestinationColorSpace(createCGColorSpaceForCVPixelBuffer(m_lastPixelBuffer.get()));
+    DestinationColorSpace colorSpace = DestinationColorSpace::SRGB();
+    updateLastImage([&] {
+        if (m_lastPixelBuffer)
+            colorSpace = DestinationColorSpace(createCGColorSpaceForCVPixelBuffer(m_lastPixelBuffer.get()));
+    });
+    return colorSpace;
 }
 
-void MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange()
+auto MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange() -> UpdateResult
 {
     if (m_waitForVideoOutputMediaDataWillChangeTimedOut)
-        return;
+        return UpdateResult::Failed;
 
     // Wait for 1 second.
     MonotonicTime start = MonotonicTime::now();
@@ -2805,8 +2852,8 @@ void MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange()
     std::optional<RunLoop::Timer> timeoutTimer;
 
     if (!m_runLoopNestingLevel) {
-        m_waitForVideoOutputMediaDataWillChangeObserver = WTF::makeUnique<Observer<void()>>([this, logIdentifier = LOGIDENTIFIER] () mutable {
-            if (m_runLoopNestingLevel)
+        m_waitForVideoOutputMediaDataWillChangeObserver = WTF::makeUnique<Observer<void()>>([weakThis = WeakPtr { this }] () mutable {
+            if (weakThis && weakThis->m_runLoopNestingLevel)
                 RunLoop::main().stop();
         });
         m_videoOutput->addCurrentImageChangedObserver(*m_waitForVideoOutputMediaDataWillChangeObserver);
@@ -2817,21 +2864,28 @@ void MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange()
         timeoutTimer->startOneShot(1_s);
     }
 
+    auto weakThis = WeakPtr { this };
     ++m_runLoopNestingLevel;
     RunLoop::run();
+    if (!weakThis)
+        return UpdateResult::ObjectDestroyed;
+
     --m_runLoopNestingLevel;
 
     if (m_runLoopNestingLevel) {
         RunLoop::main().stop();
-        return;
+        return UpdateResult::Failed;
     }
 
     bool satisfied = timeoutTimer->isActive();
     if (!satisfied) {
         ERROR_LOG(LOGIDENTIFIER, "timed out");
         m_waitForVideoOutputMediaDataWillChangeTimedOut = true;
-    } else
-        INFO_LOG(LOGIDENTIFIER, "waiting for videoOutput took ", (MonotonicTime::now() - start).seconds());
+        return UpdateResult::TimedOut;
+    }
+
+    INFO_LOG(LOGIDENTIFIER, "waiting for videoOutput took ", (MonotonicTime::now() - start).seconds());
+    return UpdateResult::Succeeded;
 }
 
 void MediaPlayerPrivateAVFoundationObjC::outputMediaDataWillChange()
@@ -2848,13 +2902,17 @@ RetainPtr<AVAssetResourceLoadingRequest> MediaPlayerPrivateAVFoundationObjC::tak
 
 void MediaPlayerPrivateAVFoundationObjC::keyAdded()
 {
+    auto player = this->player();
+    if (!player)
+        return;
+
     Vector<String> fulfilledKeyIds;
 
     for (auto& pair : m_keyURIToRequestMap) {
         const String& keyId = pair.key;
         const RetainPtr<AVAssetResourceLoadingRequest>& request = pair.value;
 
-        auto keyData = player()->cachedKeyForKeyId(keyId);
+        auto keyData = player->cachedKeyForKeyId(keyId);
         if (!keyData)
             continue;
 
@@ -2950,7 +3008,8 @@ void MediaPlayerPrivateAVFoundationObjC::setWaitingForKey(bool waitingForKey)
         return;
 
     m_waitingForKey = waitingForKey;
-    player()->waitingForKeyChanged();
+    if (auto player = this->player())
+        player->waitingForKeyChanged();
 }
 #endif
 
@@ -3054,7 +3113,7 @@ void MediaPlayerPrivateAVFoundationObjC::processMediaSelectionOptions()
         for (unsigned i = removedTextTracks.size(); i > 0; --i) {
             if (removedTextTracks[i - 1]->textTrackCategory() == InbandTextTrackPrivateAVF::LegacyClosedCaption)
                 continue;
-            
+
             RetainPtr<AVMediaSelectionOption> currentOption;
 #if ENABLE(AVF_CAPTIONS)
             if (removedTextTracks[i - 1]->textTrackCategory() == InbandTextTrackPrivateAVF::OutOfBand) {
@@ -3066,7 +3125,7 @@ void MediaPlayerPrivateAVFoundationObjC::processMediaSelectionOptions()
                 RefPtr<InbandTextTrackPrivateAVFObjC> track = static_cast<InbandTextTrackPrivateAVFObjC*>(removedTextTracks[i - 1].get());
                 currentOption = track->mediaSelectionOption();
             }
-            
+
             if ([currentOption isEqual:option]) {
                 removedTextTracks.remove(i - 1);
                 newTrack = false;
@@ -3097,7 +3156,8 @@ void MediaPlayerPrivateAVFoundationObjC::processMetadataTrack()
 
     m_metadataTrack = InbandMetadataTextTrackPrivateAVF::create(InbandTextTrackPrivate::Kind::Metadata, InbandTextTrackPrivate::CueFormat::Data);
     m_metadataTrack->setInBandMetadataTrackDispatchType("com.apple.streaming"_s);
-    player()->addTextTrack(*m_metadataTrack);
+    if (auto player = this->player())
+        player->addTextTrack(*m_metadataTrack);
 }
 
 void MediaPlayerPrivateAVFoundationObjC::processCue(NSArray *attributedStrings, NSArray *nativeSamples, const MediaTime& time)
@@ -3118,7 +3178,7 @@ void MediaPlayerPrivateAVFoundationObjC::flushCues()
 
     if (!m_currentTextTrack)
         return;
-    
+
     m_currentTextTrack->resetCueValues();
 }
 
@@ -3133,9 +3193,9 @@ void MediaPlayerPrivateAVFoundationObjC::setCurrentTextTrack(InbandTextTrackPriv
 
     if (track) {
         if (track->textTrackCategory() == InbandTextTrackPrivateAVF::LegacyClosedCaption)
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             [m_avPlayer setClosedCaptionDisplayEnabled:YES];
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 #if ENABLE(AVF_CAPTIONS)
         else if (track->textTrackCategory() == InbandTextTrackPrivateAVF::OutOfBand)
             [m_avPlayerItem selectMediaOption:static_cast<OutOfBandTextTrackPrivateAVF*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
@@ -3144,9 +3204,9 @@ void MediaPlayerPrivateAVFoundationObjC::setCurrentTextTrack(InbandTextTrackPriv
             [m_avPlayerItem selectMediaOption:static_cast<InbandTextTrackPrivateAVFObjC*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
     } else {
         [m_avPlayerItem selectMediaOption:0 inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [m_avPlayer setClosedCaptionDisplayEnabled:NO];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
 }
@@ -3257,7 +3317,7 @@ MediaPlayer::WirelessPlaybackTargetType MediaPlayerPrivateAVFoundationObjC::wire
     return MediaPlayer::WirelessPlaybackTargetType::TargetTypeAirPlay;
 #endif
 }
-    
+
 #if PLATFORM(IOS_FAMILY)
 static NSString *exernalDeviceDisplayNameForPlayer(AVPlayer *player)
 {
@@ -3418,8 +3478,9 @@ void MediaPlayerPrivateAVFoundationObjC::updateDisableExternalPlayback()
     if (!m_avPlayer)
         return;
 
-    if ([m_avPlayer respondsToSelector:@selector(setUsesExternalPlaybackWhileExternalScreenIsActive:)])
-        [m_avPlayer setUsesExternalPlaybackWhileExternalScreenIsActive:(player()->fullscreenMode() == MediaPlayer::VideoFullscreenModeStandard) || player()->isVideoFullscreenStandby()];
+    auto player = this->player();
+    if (player && [m_avPlayer respondsToSelector:@selector(setUsesExternalPlaybackWhileExternalScreenIsActive:)])
+        [m_avPlayer setUsesExternalPlaybackWhileExternalScreenIsActive:(player->fullscreenMode() == MediaPlayer::VideoFullscreenModeStandard) || player->isVideoFullscreenStandby()];
 #endif
 }
 
@@ -3486,7 +3547,14 @@ void MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesDidChange(RetainPtr<N
 
 void MediaPlayerPrivateAVFoundationObjC::loadedTimeRangesDidChange(RetainPtr<NSArray>&& loadedRanges)
 {
-    m_cachedLoadedRanges = WTFMove(loadedRanges);
+    using namespace PAL; // For CMTIMERANGE_IS_EMPTY.
+
+    m_buffered.clear();
+    for (NSValue *thisRangeValue in loadedRanges.get()) {
+        CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
+        if (CMTIMERANGE_IS_VALID(timeRange) && !CMTIMERANGE_IS_EMPTY(timeRange))
+            m_buffered.add(PAL::toMediaTime(timeRange.start), PAL::toMediaTime(PAL::CMTimeRangeGetEnd(timeRange)));
+    }
 
     loadedTimeRangesChanged();
     updateStates();
@@ -3516,7 +3584,7 @@ void MediaPlayerPrivateAVFoundationObjC::setBufferingPolicy(MediaPlayer::Bufferi
         return;
 
     m_bufferingPolicy = policy;
-    
+
     if (!m_avPlayer)
         return;
 
@@ -3588,7 +3656,7 @@ void MediaPlayerPrivateAVFoundationObjC::metadataGroupDidArrive(const RetainPtr<
         // is zero assume the metadata items start at the beginning of the stream.
         double groupStartTime = 0;
         if (auto currentDate = m_avPlayerItem.get().currentDate.timeIntervalSince1970)
-            groupStartTime = groupStartDate - currentDate - currentTime.toDouble();
+            groupStartTime = groupStartDate - (currentDate - currentTime.toDouble());
 
         auto groupCopy = adoptNS([[NSMutableArray alloc] init]);
         for (AVMetadataItem *item in group.items) {
@@ -3752,7 +3820,8 @@ void MediaPlayerPrivateAVFoundationObjC::timeControlStatusDidChange(int timeCont
     bool playerIsPlaying = m_cachedTimeControlStatus != AVPlayerTimeControlStatusPaused;
     if (playerIsPlaying != m_requestedPlaying) {
         m_requestedPlaying = playerIsPlaying;
-        player()->playbackStateChanged();
+        if (auto player = this->player())
+            player->playbackStateChanged();
     }
 #endif
 }
@@ -3779,9 +3848,9 @@ void MediaPlayerPrivateAVFoundationObjC::canPlayFastReverseDidChange(bool newVal
 void MediaPlayerPrivateAVFoundationObjC::setShouldDisableSleep(bool flag)
 {
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [m_avPlayer _setPreventsSleepDuringVideoPlayback:flag];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 #else
     UNUSED_PARAM(flag);
 #endif
@@ -3795,7 +3864,7 @@ std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateAVFoundationObjC::v
 #if PLATFORM(WATCHOS)
     return std::nullopt;
 #else
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 
     auto metrics = [m_videoLayer videoPerformanceMetrics];
     if (!metrics)
@@ -3813,7 +3882,7 @@ std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateAVFoundationObjC::v
         displayCompositedFrames,
     };
 
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 #endif
 }
 
@@ -3871,9 +3940,10 @@ void MediaPlayerPrivateAVFoundationObjC::setShouldDisableHDR(bool shouldDisable)
 void MediaPlayerPrivateAVFoundationObjC::audioOutputDeviceChanged()
 {
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
-    if (!m_avPlayer || !player())
+    auto player = this->player();
+    if (!m_avPlayer || !player)
         return;
-    auto deviceId = player()->audioOutputDeviceId();
+    auto deviceId = player->audioOutputDeviceId();
     if (deviceId.isEmpty())
         m_avPlayer.get().audioOutputDeviceUniqueID = nil;
     else
@@ -3894,6 +3964,7 @@ NSArray* assetMetadataKeyNames()
         @"tracks",
         @"availableMediaCharacteristicsWithMediaSelectionOptions",
         @"availableChapterLocales",
+        @"variants",
     nil];
     return keys;
 }

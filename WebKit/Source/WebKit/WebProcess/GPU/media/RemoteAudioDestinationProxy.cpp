@@ -102,11 +102,13 @@ void RemoteAudioDestinationProxy::stopRenderingThread()
 
 IPC::Connection* RemoteAudioDestinationProxy::connection()
 {
-    if (!m_gpuProcessConnection) {
-        m_gpuProcessConnection = WebProcess::singleton().ensureGPUProcessConnection();
-        m_gpuProcessConnection->addClient(*this);
+    auto gpuProcessConnection = m_gpuProcessConnection.get();
+    if (!gpuProcessConnection) {
+        gpuProcessConnection = &WebProcess::singleton().ensureGPUProcessConnection();
+        m_gpuProcessConnection = gpuProcessConnection;
+        gpuProcessConnection->addClient(*this);
         m_destinationID = RemoteAudioDestinationIdentifier::generate();
-        m_gpuProcessConnection->connection().send(Messages::RemoteAudioDestinationManager::CreateAudioDestination(m_destinationID, m_inputDeviceId, m_numberOfInputChannels, m_outputBus->numberOfChannels(), sampleRate(), m_remoteSampleRate, m_renderSemaphore), 0);
+        gpuProcessConnection->connection().send(Messages::RemoteAudioDestinationManager::CreateAudioDestination(m_destinationID, m_inputDeviceId, m_numberOfInputChannels, m_outputBus->numberOfChannels(), sampleRate(), m_remoteSampleRate, m_renderSemaphore), 0);
 
 #if PLATFORM(COCOA)
         m_currentFrame = 0;
@@ -114,25 +116,26 @@ IPC::Connection* RemoteAudioDestinationProxy::connection()
         size_t numberOfFrames = m_remoteSampleRate * ringBufferSizeInSecond;
         auto [ringBuffer, handle] = ProducerSharedCARingBuffer::allocate(streamFormat, numberOfFrames);
         m_ringBuffer = WTFMove(ringBuffer);
-        m_gpuProcessConnection->connection().send(Messages::RemoteAudioDestinationManager::AudioSamplesStorageChanged { m_destinationID, WTFMove(handle) }, 0);
+        gpuProcessConnection->connection().send(Messages::RemoteAudioDestinationManager::AudioSamplesStorageChanged { m_destinationID, WTFMove(handle) }, 0);
         m_audioBufferList = makeUnique<WebCore::WebAudioBufferList>(streamFormat);
         m_audioBufferList->setSampleCount(maxAudioBufferListSampleCount);
 #endif
 
         startRenderingThread();
     }
-    return m_destinationID ? &m_gpuProcessConnection->connection() : nullptr;
+    return m_destinationID ? &gpuProcessConnection->connection() : nullptr;
 }
 
 IPC::Connection* RemoteAudioDestinationProxy::existingConnection()
 {
-    return m_gpuProcessConnection && m_destinationID ? &m_gpuProcessConnection->connection() : nullptr;
+    auto gpuProcessConnection = m_gpuProcessConnection.get();
+    return gpuProcessConnection && m_destinationID ? &gpuProcessConnection->connection() : nullptr;
 }
 
 RemoteAudioDestinationProxy::~RemoteAudioDestinationProxy()
 {
-    if (m_gpuProcessConnection && m_destinationID)
-        m_gpuProcessConnection->connection().send(Messages::RemoteAudioDestinationManager::DeleteAudioDestination(m_destinationID), 0);
+    if (auto gpuProcessConnection = m_gpuProcessConnection.get(); gpuProcessConnection && m_destinationID)
+        gpuProcessConnection->connection().send(Messages::RemoteAudioDestinationManager::DeleteAudioDestination(m_destinationID), 0);
     stopRenderingThread();
 }
 
@@ -155,6 +158,20 @@ void RemoteAudioDestinationProxy::startRendering(CompletionHandler<void(bool)>&&
 
 void RemoteAudioDestinationProxy::stopRendering(CompletionHandler<void(bool)>&& completionHandler)
 {
+#if PLATFORM(MAC)
+    // FIXME: rdar://104617724
+    // On macOS, page load testing reports a regression on a particular page if we do not
+    // start the GPU process connection and create the audio objects redundantly on a particular earlier
+    // page. This should be fixed once it is understood why.
+    auto* connection = this->connection();
+    if (!connection) {
+        RunLoop::current().dispatch([completionHandler = WTFMove(completionHandler)]() mutable {
+            // Not calling setIsPlaying(false) intentionally to match the pre-regression state.
+            completionHandler(false);
+        });
+        return;
+    }
+#else
     auto* connection = existingConnection();
     if (!connection) {
         RunLoop::current().dispatch([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
@@ -163,6 +180,7 @@ void RemoteAudioDestinationProxy::stopRendering(CompletionHandler<void(bool)>&& 
         });
         return;
     }
+#endif
 
     connection->sendWithAsyncReply(Messages::RemoteAudioDestinationManager::StopAudioDestination(m_destinationID), [protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](bool isPlaying) mutable {
         protectedThis->setIsPlaying(isPlaying);
@@ -201,8 +219,6 @@ void RemoteAudioDestinationProxy::renderAudio(unsigned frameCount)
 
 void RemoteAudioDestinationProxy::gpuProcessConnectionDidClose(GPUProcessConnection& oldConnection)
 {
-    oldConnection.removeClient(*this);
-
     stopRenderingThread();
     m_gpuProcessConnection = nullptr;
     m_destinationID = { };

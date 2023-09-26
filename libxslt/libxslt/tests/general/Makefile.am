@@ -192,7 +192,6 @@ EXTRA_DIST = \
     bug-182.out bug-182.xsl \
     bug-183.out bug-183.xsl \
     bug-184.out bug-184.xsl bug-184.err \
-    bug-185.out bug-185.xsl bug-185.err \
     bug-186.out bug-186.xsl \
     bug-187.out bug-187.xsl bug-187.err \
     bug-188.out bug-188.xsl bug-188-imp.out bug-188-imp.xsl \

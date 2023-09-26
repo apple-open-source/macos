@@ -30,6 +30,13 @@ sh MKterminfo.sh terminfo.head ../include/Caps terminfo.tail > terminfo.5
 
 FIXMAN="$PROJECT_DIR"/xcodescripts/fix_man.sed
 for m in *.[1357]? *.[1357]; do
+	case ${m} in
+		tabs.1)
+			continue
+			;;
+		*)
+			;;
+	esac
 	# x=${m:e}
 	x=$(echo $m | sed -E 's,^.*\.([^.]*),\1,')
 	# section=$x[1,1]

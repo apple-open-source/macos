@@ -92,7 +92,7 @@ void NetworkSessionSoup::setCookiePersistentStorage(const String& storagePath, S
     m_networkSession->setCookieJar(storageSession->cookieStorage());
 }
 
-void NetworkSessionSoup::clearCredentials()
+void NetworkSessionSoup::clearCredentials(WallTime)
 {
 #if SOUP_CHECK_VERSION(2, 57, 1)
     soup_auth_manager_clear_cached_credentials(SOUP_AUTH_MANAGER(soup_session_get_feature(soupSession(), SOUP_TYPE_AUTH_MANAGER)));
@@ -119,7 +119,7 @@ static void webSocketMessageNetworkEventCallback(SoupMessage* soupMessage, GSock
 }
 #endif
 
-std::unique_ptr<WebSocketTask> NetworkSessionSoup::createWebSocketTask(WebPageProxyIdentifier, std::optional<FrameIdentifier>, std::optional<PageIdentifier>, NetworkSocketChannel& channel, const ResourceRequest& request, const String& protocol, const ClientOrigin&, bool, bool, OptionSet<WebCore::NetworkConnectionIntegrity>, ShouldRelaxThirdPartyCookieBlocking, StoredCredentialsPolicy)
+std::unique_ptr<WebSocketTask> NetworkSessionSoup::createWebSocketTask(WebPageProxyIdentifier, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, NetworkSocketChannel& channel, const ResourceRequest& request, const String& protocol, const ClientOrigin&, bool, bool, OptionSet<WebCore::AdvancedPrivacyProtections>, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, StoredCredentialsPolicy)
 {
     GRefPtr<SoupMessage> soupMessage = request.createSoupMessage(blobRegistry());
     if (!soupMessage)
@@ -137,6 +137,13 @@ std::unique_ptr<WebSocketTask> NetworkSessionSoup::createWebSocketTask(WebPagePr
         }), this);
 #endif
     }
+
+#if ENABLE(TRACKING_PREVENTION)
+    bool shouldBlockCookies = networkStorageSession()->shouldBlockCookies(request, frameID, pageID, shouldRelaxThirdPartyCookieBlocking);
+    if (shouldBlockCookies)
+        soup_message_disable_feature(soupMessage.get(), SOUP_TYPE_COOKIE_JAR);
+#endif
+
     return makeUnique<WebSocketTask>(channel, request, soupSession(), soupMessage.get(), protocol);
 }
 

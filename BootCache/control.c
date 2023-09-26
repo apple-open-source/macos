@@ -260,7 +260,7 @@ static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, in
  * Kick off the boot cache.
  */
 static int
-do_boot_cache()
+do_boot_cache(void)
 {
 	struct BC_userspace_timestamps userspace_timestamps = {0};
 	userspace_timestamps.ssup_launch_timestamp = mach_absolute_time();

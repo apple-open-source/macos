@@ -907,7 +907,7 @@ IOHIDEvent * IOHIDEvent::digitizerEvent(
     event->position.z       = z;
     event->pressure         = tipPressure;
     event->auxPressure      = auxPressure;
-    event->twist            = twist;
+    event->angle.twist      = twist;
 
 
     // Let's assume no tip pressure means finger

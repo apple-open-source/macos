@@ -60,12 +60,15 @@ ComplexUnitsConverter::ComplexUnitsConverter(StringPiece inputUnitIdentifier,
     this->init(inputUnit, ConversionRates(status), status);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // The following is needed for Apple embedded (here we use
 // 16 significant digits, 18 would be 2.22044604925031308E-16;
 // value found by running a macOS tool to print DBL_EPSILON
 #ifndef DBL_EPSILON
 #define DBL_EPSILON (2.220446049250313E-16)
 #endif
+#endif  // APPLE_ICU_CHANGES
 
 ComplexUnitsConverter::ComplexUnitsConverter(const MeasureUnitImpl &inputUnit,
                                              const MeasureUnitImpl &outputUnits,
@@ -190,7 +193,7 @@ MaybeStackVector<Measure> ComplexUnitsConverter::convert(double quantity,
             } else {
                 quantity = remainder;
             }
-        }   
+        }
     }
 
     applyRounder(intValues, quantity, rounder, status);
@@ -217,7 +220,6 @@ MaybeStackVector<Measure> ComplexUnitsConverter::convert(double quantity,
         }
     }
 
-
     // Transfer values into result and return:
     for(int32_t i = 0, n = unitsConverters_.length(); i < n; ++i) {
         U_ASSERT(tmpResult[i] != nullptr);
@@ -231,6 +233,12 @@ MaybeStackVector<Measure> ComplexUnitsConverter::convert(double quantity,
 void ComplexUnitsConverter::applyRounder(MaybeStackArray<int64_t, 5> &intValues, double &quantity,
                                          icu::number::impl::RoundingImpl *rounder,
                                          UErrorCode &status) const {
+    if (uprv_isInfinite(quantity) || uprv_isNaN(quantity)) {
+        // Inf and NaN can't be rounded, and calculating `carry` below is known
+        // to fail on Gentoo on HPPA and OpenSUSE on riscv64. Nothing to do.
+        return;
+    }
+
     if (rounder == nullptr) {
         // Nothing to do for the quantity.
         return;

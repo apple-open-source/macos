@@ -718,7 +718,6 @@ void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue )
                         session->_source2 = source;
 
                         CFRetain( session );
-#if TARGET_OS_IOS
                         mach_port_t port;
                         
                         status = mach_port_request_notification( mach_task_self( ),
@@ -729,7 +728,6 @@ void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue )
                                                                  MACH_MSG_TYPE_MAKE_SEND_ONCE,
                                                                  &port );
                         if ( status == KERN_SUCCESS )
-#endif
                         {
 
                             dispatch_source_set_cancel_handler( session->_source2, ^
@@ -743,7 +741,6 @@ void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue )
                                                               {
                                 mach_msg_empty_rcv_t message;
                                 mach_msg( ( void * ) &message, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof( message ), client, 0, MACH_PORT_NULL );
-#if TARGET_OS_IOS
                                 if (MACH_NOTIFY_NO_SENDERS == message.header.msgh_id)
                                 {
                                     os_log(OS_LOG_DEFAULT, "diskarbitrationd exited.");
@@ -751,9 +748,12 @@ void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue )
                                     session->_name = NULL;
                                     if ( session->_server )  mach_port_deallocate( mach_task_self( ), session->_server );
                                     session->_server        = MACH_PORT_NULL;
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+                                    if ( session->_authorization )  AuthorizationFree( session->_authorization, kAuthorizationFlagDefaults );
+                                    session->_authorization = NULL;
+#endif
                                 }
                                 else
-#endif
                                 {
                                     _DASessionCallback( NULL, NULL, 0, session );
                                 }
@@ -858,6 +858,7 @@ __private_extern__ void DARemoveCallbackFromSessionWithKey(DASessionRef session,
     /*
      * Remove the callback dict object from the session's register queue
      */
+    SInt32 matchingKey = 0;
     
     if ( session )
     {
@@ -871,6 +872,8 @@ __private_extern__ void DARemoveCallbackFromSessionWithKey(DASessionRef session,
             Block_release ( currentaddress );
         }
         CFDictionaryRemoveValue( session->_register , number );
+        CFNumberGetValue( number, kCFNumberSInt32Type, &matchingKey );
+        session->_registerIndex = matchingKey - 1;
         pthread_mutex_unlock( &session->_registerLock );
         CFRelease( number );
     }
@@ -913,6 +916,7 @@ __private_extern__ SInt32 DARemoveCallbackFromSession(DASessionRef session, mach
                 }
                 pthread_mutex_lock( &session->_registerLock );
                 CFDictionaryRemoveValue( session->_register , cfnumber );
+                session->_registerIndex = matchingKey - 1;
                 pthread_mutex_unlock( &session->_registerLock );
                 break;
             }
@@ -946,7 +950,8 @@ __private_extern__ CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef 
 __private_extern__ DAReturn _DASessionRecreate( DASessionRef session )
 {
     DAReturn status = kDAReturnSuccess;
-    SInt32 queueIndex;
+    SInt32 queueIndex = 1;
+    SInt32 index = 0;
     
     if ( false == DASessionEstablish(session) )
     {
@@ -958,36 +963,40 @@ __private_extern__ DAReturn _DASessionRecreate( DASessionRef session )
     
     pthread_mutex_lock( &session->_registerLock );
     CFIndex count = CFDictionaryGetCount( session->_register );
-    const void** keys = ( const void** ) malloc( sizeof(void*)*count );
-    const void** values = ( const void** ) malloc( sizeof(void*)*count );
-    CFDictionaryGetKeysAndValues( session->_register, keys, values );
     pthread_mutex_unlock( &session->_registerLock );
+    CFNumberRef key;
     
-    for ( queueIndex = 0; queueIndex < count; queueIndex++ )
+    while( index < count )
     {
-        CFMutableDictionaryRef callback = ( CFMutableDictionaryRef )( values[queueIndex] );
-        int address;
-        int kind = (int)  ___CFDictionaryGetIntegerValue( callback, _kDACallbackKindKey );
-        int32_t order =  ___CFDictionaryGetIntegerValue( callback, _kDACallbackOrderKey );
-        CFDataRef match =  CFDictionaryGetValue( callback, _kDACallbackMatchKey );
-        CFDataRef watch =  CFDictionaryGetValue( callback, _kDACallbackWatchKey );
-      
-        CFNumberRef cfnumber =  ( CFNumberRef )( keys[queueIndex] );
-        CFNumberGetValue( cfnumber, kCFNumberSInt32Type, &address );
-        _DAServerSessionRegisterCallback( _DASessionGetID( session ),
-                                          ( uintptr_t              ) address,
-                                          ( uintptr_t              ) address,
-                                          ( uint32_t                ) kind,
-                                          ( int32_t                ) order,
-                                          ( vm_address_t           ) ( match ? CFDataGetBytePtr( match ) : 0 ),
-                                          ( mach_msg_type_number_t ) ( match ? CFDataGetLength(  match ) : 0 ),
-                                          ( vm_address_t           ) ( watch ? CFDataGetBytePtr( watch ) : 0 ),
-                                          ( mach_msg_type_number_t ) ( watch ? CFDataGetLength(  watch ) : 0 ) );
+        key = CFNumberCreate( NULL, kCFNumberSInt32Type, &queueIndex );
+        if ( key )
+        {
+            pthread_mutex_lock( &session->_registerLock );
+            CFMutableDictionaryRef callback = ( CFMutableDictionaryRef ) CFDictionaryGetValue( session->_register, key);
+            pthread_mutex_unlock( &session->_registerLock );
+            if ( callback )
+            {
+                int kind = (int)  ___CFDictionaryGetIntegerValue( callback, _kDACallbackKindKey );
+                int32_t order =  ___CFDictionaryGetIntegerValue( callback, _kDACallbackOrderKey );
+                CFDataRef match =  CFDictionaryGetValue( callback, _kDACallbackMatchKey );
+                CFDataRef watch =  CFDictionaryGetValue( callback, _kDACallbackWatchKey );
+            
+                _DAServerSessionRegisterCallback( _DASessionGetID( session ),
+                                             ( uintptr_t              ) queueIndex,
+                                             ( uintptr_t              ) queueIndex,
+                                             ( uint32_t                ) kind,
+                                             ( int32_t                ) order,
+                                             ( vm_address_t           ) ( match ? CFDataGetBytePtr( match ) : 0 ),
+                                             ( mach_msg_type_number_t ) ( match ? CFDataGetLength(  match ) : 0 ),
+                                             ( vm_address_t           ) ( watch ? CFDataGetBytePtr( watch ) : 0 ),
+                                             ( mach_msg_type_number_t ) ( watch ? CFDataGetLength(  watch ) : 0 ) );
+                index++;
+            }
+            CFRelease( key );
+        }
+        queueIndex++;
     }
     status = _DAServerSessionSetKeepAlive(session->_server);
-    
-    free( keys );
-    free( values );
     
     return status;
 }
@@ -998,7 +1007,7 @@ DAReturn DASessionKeepAlive( DASessionRef session , dispatch_queue_t queue)
     
     session->_keepAlive = true;
     session->_queue = queue;
-    session->_token = notify_register_dispatch("com.apple.diskarbitrationd.iokitevent", &session->_token, queue, ^(__unused int token){
+    session->_token = notify_register_dispatch("com.apple.diskarbitrationd.launched", &session->_token, queue, ^(__unused int token){
          os_log(OS_LOG_DEFAULT, "diskarbitrationd relaunched");
         if ( session->_server == NULL )
         {

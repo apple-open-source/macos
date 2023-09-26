@@ -125,6 +125,7 @@ int secd_75_engine_views(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(kTestTestCount);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     test_engine_views();
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);

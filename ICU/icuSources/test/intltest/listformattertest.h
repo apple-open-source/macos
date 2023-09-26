@@ -56,7 +56,11 @@ class ListFormatterTest : public IntlTestWithFieldPosition {
     void TestContextual();
     void TestNextPosition();
     void TestInt32Overflow();
+    void Test21871();
+#if APPLE_ICU_CHANGES
+// rdar://
     void TestBidi();
+#endif  // APPLE_ICU_CHANGES
 
   private:
     void CheckFormatting(

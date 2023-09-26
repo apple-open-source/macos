@@ -1,0 +1,8 @@
+application "newfoo"
+	default
+	cwdpath "bin/newfoo"
+	flag "a"
+	flag "b"
+	flag "count" arg
+application "foo"
+	cwdpath "bin/foo"

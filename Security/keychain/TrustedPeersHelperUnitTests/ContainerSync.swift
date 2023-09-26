@@ -451,7 +451,7 @@ extension Container {
         return (retentropy, retbottleID, retspki, reterror)
     }
 
-    func requestHealthCheckSync(requiresEscrowCheck: Bool, test: XCTestCase) -> (Bool, Bool, Bool, Bool, Error?) {
+    func requestHealthCheckSync(requiresEscrowCheck: Bool, repair: Bool, test: XCTestCase) -> (Bool, Bool, Bool, Bool, Error?) {
         let expectation = XCTestExpectation(description: "requestHealthCheck replied")
         var retrepairaccount: Bool = false
         var retrepairescrow: Bool = false
@@ -459,7 +459,9 @@ extension Container {
         var retleavetrust: Bool = false
         var reterror: Error?
 
-        self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck, knownFederations: []) { repairAccount, repairEscrow, resetOctagon, leaveTrust, _, error in
+        self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck,
+                                repair: repair,
+                                knownFederations: []) { repairAccount, repairEscrow, resetOctagon, leaveTrust, _, error in
             retrepairaccount = repairAccount
             retrepairescrow = repairEscrow
             retresetoctagon = resetOctagon

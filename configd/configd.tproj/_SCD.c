@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -104,7 +104,7 @@ install_device_name_read_restrictions(void)
 #define N_KEYS		5
 	CFDictionaryRef	controls;
 	CFIndex		count;
-	CFStringRef	entitlements[2];
+	CFStringRef	entitlement;
 	CFStringRef	key;
 	CFStringRef	keys[N_KEYS];
 	CFArrayRef	read_allow = NULL;
@@ -113,9 +113,9 @@ install_device_name_read_restrictions(void)
 
 	/* deny App Clips */
 	count = 0;
-	entitlements[0] = CFSTR(APP_CLIP_ENTITLEMENT);
+	entitlement = CFSTR(APP_CLIP_ENTITLEMENT);
 	read_deny = CFArrayCreate(NULL,
-				  (const void * *)entitlements,
+				  (const void * *)&entitlement,
 				  1,
 				  &kCFTypeArrayCallBacks);
 	_SET_KEY_VALUE_ELEMENT(keys, values, count,
@@ -128,11 +128,10 @@ install_device_name_read_restrictions(void)
 			       kCFBooleanTrue);
 #if TARGET_OS_IPHONE
 	/* allow entitlement */
-	entitlements[0] = CFSTR(DEVICE_NAME_PUBLIC_ENTITLEMENT);
-	entitlements[1] = CFSTR(DEVICE_NAME_PRIVATE_ENTITLEMENT);
+	entitlement = CFSTR(DEVICE_NAME_PUBLIC_ENTITLEMENT);
 	read_allow = CFArrayCreate(NULL,
-				   (const void * *)entitlements,
-				   2,
+				   (const void * *)&entitlement,
+				   1,
 				   &kCFTypeArrayCallBacks);
 	_SET_KEY_VALUE_ELEMENT(keys, values, count,
 			       kSCDAccessControls_readAllow,

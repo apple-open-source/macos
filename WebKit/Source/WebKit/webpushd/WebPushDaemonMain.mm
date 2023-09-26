@@ -40,6 +40,7 @@
 #import <wtf/LogInitialization.h>
 #import <wtf/MainThread.h>
 #import <wtf/OSObjectPtr.h>
+#import <wtf/WTFProcess.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 
 using WebKit::Daemon::EncodedMessage;
@@ -77,7 +78,7 @@ namespace WebKit {
 static void applySandbox()
 {
 #if PLATFORM(MAC)
-    NSBundle *bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebKit"];
+    NSBundle *bundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
     auto profilePath = makeString(String([bundle resourcePath]), "/com.apple.WebKit.webpushd.mac.sb"_s);
     if (FileSystem::fileExists(profilePath)) {
         AuxiliaryProcess::applySandboxProfileForDaemon(profilePath, "com.apple.webkit.webpushd"_s);
@@ -132,7 +133,7 @@ int WebPushDaemonMain(int argc, char** argv)
                 break;
             default:
                 fprintf(stderr, "Unknown option: %c\n", optopt);
-                exit(1);
+                exitProcess(1);
             }
         }
 

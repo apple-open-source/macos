@@ -32,5 +32,8 @@ _Pragma("clang diagnostic ignored \"-Wshadow\"") \
 __strong __typeof(n) n = weak_##n; \
 _Pragma("clang diagnostic pop");
 
+#define STRONGIFY_OR_RETURN(n) \
+STRONGIFY(n) \
+if (!n) { return; }
 
 #endif /* ObjCImprovements_h */

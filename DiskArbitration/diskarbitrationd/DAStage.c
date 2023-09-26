@@ -50,6 +50,7 @@ os_transaction_t ___os_transaction_get( void );
 
 const CFTimeInterval __kDABusyTimerGrace = 1;
 const CFTimeInterval __kDABusyTimerLimit = 10;
+const CFTimeInterval __kDAIdleTimerLimit = 20;
 
 
 static void               __DAStageAppeared( DADiskRef disk );
@@ -74,26 +75,39 @@ static void __DABusyTimerCallback( void )
 
 static void __DAIdleTimerCallback( void )
 {
-    DALogInfo("Idle timer fired");
+    DALogInfo("__DAIdleTimerCallback fired");
     gDAIdleTimerRunning = FALSE;
+
     if ( gDAIdle == true && NULL == ___os_transaction_get() )
     {
-        exit( EX_OK );
+        if ( ( gDAIdleStartTime + __kDAIdleTimerLimit ) < CFAbsoluteTimeGetCurrent() )
+        {
+            DALogInfo("__DAIdleTimerCallback exiting");
+            exit( EX_OK );
+        }
+        else
+        {
+            __DASetIdleTimer();
+        }
     }
 }
 
 void __DASetIdleTimer( void )
 {
-    DALogInfo("Idle timer started %d %x", gDAIdle, ___os_transaction_get());
+#if !TARGET_OS_OSX
+    DALogInfo("__DASetIdleTimer %d %x", gDAIdle, ___os_transaction_get());
     if ( NULL == ___os_transaction_get() &&  ( gDAIdle == true ) )
     {
+        gDAIdleStartTime = CFAbsoluteTimeGetCurrent();
         if ( gDAIdleTimerRunning == FALSE )
         {
+            DALogInfo("Idle timer started ");
             gDAIdleTimerRunning = TRUE;
-            dispatch_time_t timer = dispatch_time( DISPATCH_TIME_NOW, (int64_t) ( 20 * NSEC_PER_SEC ) );
+            dispatch_time_t timer = dispatch_time( DISPATCH_TIME_NOW, (int64_t) ( __kDAIdleTimerLimit * NSEC_PER_SEC ) );
             dispatch_after( timer, DAServerWorkLoop(), ^{ __DAIdleTimerCallback();} );
         }
     }
+#endif
 }
 
 static void __DABusyTimerRefresh( CFAbsoluteTime clock )
@@ -156,10 +170,12 @@ static void __DAStageDispatch( void * info )
                     DAUnitSetState( disk, kDAUnitStateHasQuiescedNoTimeout, TRUE );
                 }
             }
-
-            timeout += __kDABusyTimerLimit;
-
-            if ( timeout < CFAbsoluteTimeGetCurrent( ) )
+            else
+            {
+                timeout += __kDABusyTimerLimit;
+            }
+            
+            if ( ( timeout == 0 ) || ( timeout < CFAbsoluteTimeGetCurrent( ) ) )
             {
                 if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
                 {

@@ -489,7 +489,21 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                     /*
                      * Create the mount point.
                      */
+///w:start
+                    struct statfs fs     = { 0 };
+                    int status = statfs( path, &fs );
 
+                    if (status == 0 && strncmp( fs.f_mntonname, kDAMainDataVolumeMountPointFolder, strlen( kDAMainDataVolumeMountPointFolder ) ) == 0 )
+                    {
+                        mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
+                        if ( mountpoint )
+                        {
+                            DAMountRemoveMountPoint( mountpoint );
+                            CFRelease ( mountpoint );
+                            mountpoint = NULL;
+                        }
+                    }
+///w:stop
                     if ( mkdir( path, 0111 ) == 0 )
                     {
                         if ( DADiskGetUserUID( disk ) )
@@ -742,7 +756,11 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
                  * Remove the mount point.
                  */
 
-                rmdir( path );
+                int status = rmdir( path );
+                if (status != 0)
+                {
+                    DALogInfo( "rmdir failed to remove path %s with status %d.", path, errno );
+                }
             }
         }
     }

@@ -26,13 +26,14 @@
 #include "config.h"
 #include "ContainerNodeAlgorithms.h"
 
+#include "ElementChildIteratorInlines.h"
 #include "ElementRareData.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLTextAreaElement.h"
 #include "InspectorInstrumentation.h"
 #include "ScriptDisallowedScope.h"
 #include "ShadowRoot.h"
-#include "TypedElementDescendantIterator.h"
+#include "TypedElementDescendantIteratorInlines.h"
 
 namespace WebCore {
 
@@ -259,7 +260,7 @@ void disconnectSubframes(ContainerNode& root, SubframeDisconnectPolicy policy)
 
     Vector<Ref<HTMLFrameOwnerElement>> frameOwners;
 
-    if (policy == RootAndDescendants) {
+    if (policy == SubframeDisconnectPolicy::RootAndDescendants) {
         if (is<HTMLFrameOwnerElement>(root))
             frameOwners.append(downcast<HTMLFrameOwnerElement>(root));
     }

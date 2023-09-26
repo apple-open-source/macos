@@ -199,6 +199,7 @@ int secd_59_account_cleanup(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(92);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests();
     tests2();

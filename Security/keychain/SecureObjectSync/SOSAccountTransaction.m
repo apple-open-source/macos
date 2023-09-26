@@ -214,7 +214,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 
     if(!self.quiet) {
         CFStringSetPerformWithDescription((__bridge CFSetRef) self.initialViews, ^(CFStringRef description) {
-            secnotice("acct-txn", "UID: %d - Starting as:%s %@ v:%@", getuid(), self.initialInCircle ? "member" : "non-member", [self.account sosIsEnabledString],  description);
+            secnotice("acct-txn", "UID: %d - Starting as:%s %@ v:%@", getuid(), self.initialInCircle ? "member" : "non-member", [self.account SOSMonitorModeSOSIsActiveDescription],  description);
         });
     }
 }
@@ -229,7 +229,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     static int do_account_state_at_zero = 0;
     bool doCircleChanged = self.account.notifyCircleChangeOnExit;
     bool doViewChanged = false;
-    bool sosIsEnabled = [self.account sosIsEnabled];
+    bool sosIsEnabledForMonitorMode = [self.account SOSMonitorModeSOSIsActive];
 
 
     CFErrorRef localError = NULL;
@@ -239,7 +239,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 
     bool isInCircle = [self.account isInCircle:NULL];
 
-    if (isInCircle && self.peersToRequestSync && sosIsEnabled) {
+    if (isInCircle && self.peersToRequestSync && sosIsEnabledForMonitorMode) {
         NSMutableSet<NSString*>* worklist = self.peersToRequestSync;
         self.peersToRequestSync = nil;
         SOSCCRequestSyncWithPeers((__bridge CFSetRef)(worklist));
@@ -247,7 +247,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     
     SOSAccountEnsurePeerInfoHasCurrentBackupKey(self, NULL);
 
-    if (isInCircle && sosIsEnabled) {
+    if (isInCircle && sosIsEnabledForMonitorMode) {
         SOSAccountEnsureSyncChecking(self.account);
     } else {
         SOSAccountCancelSyncChecking(self.account);
@@ -255,12 +255,12 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 
     // If our identity changed, our initial set should be everything.
     mpi = self.account.peerInfo;
-    if (sosIsEnabled && [self.initialID isEqualToString: (__bridge NSString *)(SOSPeerInfoGetPeerID(mpi))]) {
+    if (sosIsEnabledForMonitorMode && [self.initialID isEqualToString: (__bridge NSString *)(SOSPeerInfoGetPeerID(mpi))]) {
         self.initialUnsyncedViews = (__bridge_transfer NSSet<NSString*>*) SOSViewCopyViewSet(kViewSetAll);
     }
 
     NSSet<NSString*>* finalUnsyncedViews = (__bridge_transfer NSSet<NSString*>*) SOSAccountCopyOutstandingViews(self.account);
-    if (sosIsEnabled && !NSIsEqualSafe(self.initialUnsyncedViews, finalUnsyncedViews)) {
+    if (sosIsEnabledForMonitorMode && !NSIsEqualSafe(self.initialUnsyncedViews, finalUnsyncedViews)) {
         if (SOSAccountHandleOutOfSyncUpdate(self.account,
                                             (__bridge CFSetRef)(self.initialUnsyncedViews),
                                             (__bridge CFSetRef)(finalUnsyncedViews))) {
@@ -271,7 +271,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         secnotice("initial-sync", "Unsynced is: %@", [finalUnsyncedViews shortDescription]);
     }
 
-    if (sosIsEnabled && self.account.engine_peer_state_needs_repair) {
+    if (sosIsEnabledForMonitorMode && self.account.engine_peer_state_needs_repair) {
         // We currently only get here from a failed syncwithallpeers, so
         // that will retry. If this logic changes, force a syncwithallpeers
         if (!SOSAccountEnsurePeerRegistration(self.account, &localError)) {
@@ -322,7 +322,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     // Refresh isInCircle since we could have changed our mind
     isInCircle = [self.account isInCircle:NULL];
 
-    if(sosIsEnabled && isInCircle && doCircleChanged) { // was only being triggered if the circle was smaller - this is more agressive
+    if(sosIsEnabledForMonitorMode && isInCircle && doCircleChanged) { // was only being triggered if the circle was smaller - this is more agressive
         (void) SOSAccountCleanupAllKVSKeysIfScheduled(_account, NULL);
     }
 
@@ -331,7 +331,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 
     if(!self.quiet) {
         CFStringSetPerformWithDescription(views, ^(CFStringRef description) {
-            secnotice("acct-txn", "UID: %d - Finished as:%s %@ v:%@", getuid(), self.initialInCircle ? "member" : "non-member", [self.account sosIsEnabledString],  description);
+            secnotice("acct-txn", "UID: %d - Finished as:%s %@ v:%@", getuid(), self.initialInCircle ? "member" : "non-member", [self.account SOSMonitorModeSOSIsActiveDescription],  description);
         });
     }
 

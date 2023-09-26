@@ -203,7 +203,7 @@ bool IOBlockStorageDriver::start(IOService * provider)
 
         PMinit();
 
-        joinPMtree(this);
+        provider->joinPMtree(this);
 
         // Close the block storage device.
 

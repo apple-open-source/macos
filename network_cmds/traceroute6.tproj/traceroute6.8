@@ -40,7 +40,7 @@
 .Sh SYNOPSIS
 .Nm
 .Bk -words
-.Op Fl dIlnNrvU
+.Op Fl dEIlnNrvU
 .Ek
 .Bk -words
 .Op Fl f Ar firsthop
@@ -86,6 +86,11 @@ Other options are:
 .Bl -tag -width Ds
 .It Fl d
 Debug mode.
+.It Fl E
+Detect ECN bleaching.
+Set the
+.Em IPTOS_ECN_ECT1
+bit and report if that value has been bleached or mangled.
 .It Fl f Ar firsthop
 Specify how many hops to skip in trace.
 .It Fl g Ar gateway

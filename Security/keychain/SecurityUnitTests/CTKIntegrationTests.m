@@ -25,7 +25,6 @@
 #import <XCTest/XCTest.h>
 #import <Security/SecItemPriv.h>
 #import <LocalAuthentication/LocalAuthentication.h>
-#import <os/variant_private.h>
 
 @interface CTKIntegrationTests : XCTestCase
 
@@ -78,43 +77,55 @@
     }
 }
 
-#if TARGET_OS_OSX && TARGET_CPU_ARM64 // not yet for embedded, nor for Intel
+#if TARGET_OS_OSX // not yet for embedded
 - (void)testSystemKeychainItemAddQueryDelete {
-    // only run these on darwinos for now, as that's the only place system keychain is supported
-    if (!os_variant_is_darwinos("com.apple.security")) {
-        return;
-    }
-
     @autoreleasepool {
         NSDictionary *query = @{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
             (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
-            (id)kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS: @YES,
+            (id)kSecUseSystemKeychainAlways: @YES,
             (id)kSecReturnRef: @YES
         };
         id result;
         XCTAssertEqual(SecItemAdd((CFDictionaryRef)query, (void *)&result), errSecSuccess, @"Failed to generate key");
         XCTAssertEqual(CFGetTypeID((__bridge CFTypeRef)result), SecKeyGetTypeID(), @"Expected SecKey, got %@", result);
+        NSDictionary *attributes = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)result));
+        XCTAssertNotNil(attributes);
+        XCTAssertEqualObjects(attributes[(id)kSecUseSystemKeychainAlways], @YES);
     }
 
     @autoreleasepool {
         NSDictionary *query = @{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
-            (id)kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS: @YES,
+            (id)kSecUseSystemKeychainAlways: @YES,
             (id)kSecReturnRef: @YES,
         };
         id result;
         OSStatus status = SecItemCopyMatching((CFDictionaryRef)query, (void *)&result);
         XCTAssertEqual(status, errSecSuccess, @"ItemCopyMatching failed");
+        NSDictionary *attributes = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)result));
+        XCTAssertNotNil(attributes);
+        XCTAssertEqualObjects(attributes[(id)kSecUseSystemKeychainAlways], @YES);
     }
 
     @autoreleasepool {
         NSDictionary *query = @{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
-            (id)kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS: @YES,
+            (id)kSecReturnRef: @YES,
+        };
+        id result;
+        OSStatus status = SecItemCopyMatching((CFDictionaryRef)query, (void *)&result);
+        XCTAssertEqual(status, errSecItemNotFound, @"ItemCopyMatching should not find item in non-system keychain");
+    }
+
+    @autoreleasepool {
+        NSDictionary *query = @{
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
+            (id)kSecUseSystemKeychainAlways: @YES,
         };
         OSStatus status = SecItemDelete((CFDictionaryRef)query);
         XCTAssertEqual(status, errSecSuccess, @"Deletion failed");
@@ -124,12 +135,23 @@
         NSDictionary *query = @{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
-            (id)kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS: @YES,
+            (id)kSecUseSystemKeychainAlways: @YES,
             (id)kSecReturnRef: @YES,
         };
         id result;
         OSStatus status = SecItemCopyMatching((CFDictionaryRef)query, (void *)&result);
         XCTAssertEqual(status, errSecItemNotFound, @"ItemCopyMatching should not find deleted item");
+    }
+
+    @autoreleasepool {
+        NSDictionary *query = @{
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
+            (id)kSecReturnRef: @YES,
+        };
+        id result;
+        OSStatus status = SecItemCopyMatching((CFDictionaryRef)query, (void *)&result);
+        XCTAssertEqual(status, errSecItemNotFound, @"ItemCopyMatching should not find item in non-system keychain");
     }
 }
 #endif

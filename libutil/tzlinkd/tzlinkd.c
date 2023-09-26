@@ -41,8 +41,10 @@ static int validate_source_path(const char *);
 #include <sys/errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/sysctl.h>
 #include <stdlib.h>
 #include <pwd.h>
+#include <copyfile.h>
 
 static void
 enter_sandbox(void)
@@ -93,6 +95,7 @@ enter_sandbox(void)
         "HOME", home,
         "TMPDIR", tempdir,
         "DARWIN_CACHE_DIR", cachedir,
+        "ENABLE_PATTERN_VARIABLES", "1", // Allows use of ${ANY_UUID}
         NULL
     };
 
@@ -187,26 +190,35 @@ set_timezone(const char *tz)
 
 	error = build_source_path(srcpath, sizeof(srcpath), tz);
 	if (error != 0) {
-		return error;
+		goto done;
 	}
 
 	error = validate_source_path(srcpath);
 	if (error != 0) {
-		return error;
+		goto done;
 	}
 
 	(void)unlink(TZDEFAULT);
-	if (symlink(srcpath, TZDEFAULT) != 0) {
-		return errno ? errno : EFAULT;
-	}
-
+    if (symlink(srcpath, TZDEFAULT) != 0) {
+		error = errno ? errno : EFAULT;
+		goto done;
+    }
 	/*
 	 * notifyd posts "com.apple.system.timezone" automatically,
 	 * but we also need post this. Sigh.
 	 */
 	(void)notify_post("SignificantTimeChangeNotification");
 
-	return 0;
+#if TARGET_CPU_ARM64 && TARGET_OS_OSX
+	error = update_preboot_volume(srcpath);
+		if (error != 0) {
+			os_log_error(OS_LOG_DEFAULT, "Could not update preboot volume");
+			error = 0;
+		}
+#endif // TARGET_CPU_ARM64 && TARGET_OS_OSX
+
+done:
+	return error;
 }
 
 /* Create path from input. */

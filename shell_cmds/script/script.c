@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 2010, 2012  David E. O'Brien
  * Copyright (c) 1980, 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -11,7 +13,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -29,6 +31,7 @@
  */
 
 #include <sys/param.h>
+#ifndef __APPLE__
 __FBSDID("$FreeBSD$");
 #ifndef lint
 static const char copyright[] =
@@ -38,11 +41,13 @@ static const char copyright[] =
 #ifndef lint
 static const char sccsid[] = "@(#)script.c	8.1 (Berkeley) 6/6/93";
 #endif
+#endif /* !__APPLE__ */
 
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <sys/queue.h>
 #include <sys/uio.h>
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
@@ -78,23 +83,36 @@ struct stamp {
 	uint32_t scr_direction; /* 'i', 'o', etc (also indicates endianness) */
 };
 
+struct buf_elm {
+	TAILQ_ENTRY(buf_elm) link;
+	size_t rpos;
+	size_t len;
+	char ibuf[];
+};
+
 static FILE *fscript;
 static int master, slave;
 static int child;
 static const char *fname;
 static char *fmfname;
 #ifdef ENABLE_FILEMON
-static int fflg, qflg, ttyflg;
-#else /* !ENABLE_FILEMON */
+static int fflg
+#endif
 static int qflg, ttyflg;
-#endif /* ENABLE_FILEMON */
-static int usesleep, rawout;
+static int usesleep, rawout, showexit;
+static TAILQ_HEAD(, buf_elm) obuf_list = TAILQ_HEAD_INITIALIZER(obuf_list);
 
 static struct termios tt;
 
+#ifndef TSTAMP_FMT
+/* useful for tool and human reading */
+# define TSTAMP_FMT "%n@ %s [%Y-%m-%d %T]%n"
+#endif
+static const char *tstamp_fmt = TSTAMP_FMT;
+static int tflg;
+
 static void done(int) __dead2;
 static void doshell(char **);
-static void fail(void);
 static void finish(void);
 static void record(FILE *, char *, size_t, int);
 static void consume(FILE *, off_t, char *, int);
@@ -104,15 +122,16 @@ static void usage(void);
 int
 main(int argc, char *argv[])
 {
-	int cc;
 	struct termios rtt, stt;
 	struct winsize win;
 	struct timeval tv, *tvp;
 	time_t tvec, start;
 	char obuf[BUFSIZ];
 	char ibuf[BUFSIZ];
-	fd_set rfd;
-	int aflg, Fflg, kflg, pflg, ch, k, n;
+	fd_set rfd, wfd;
+	struct buf_elm *be;
+	ssize_t cc;
+	int aflg, Fflg, kflg, pflg, ch, k, n, fcm;
 	int flushtime, readstdin;
 #ifdef ENABLE_FILEMON
 	int fm_fd, fm_log;
@@ -126,18 +145,21 @@ main(int argc, char *argv[])
 	fm_fd = -1;	/* Shut up stupid "may be used uninitialized" GCC
 			   warning. (not needed w/clang) */
 #endif /* ENABLE_FILEMON */
+	showexit = 0;
 
+	while ((ch = getopt(argc, argv, "adeF"
 #ifdef ENABLE_FILEMON
-	while ((ch = getopt(argc, argv, "adFfkpqrt:")) != -1)
-#else /* !ENABLE_FILEMON */
-	while ((ch = getopt(argc, argv, "adFkpqrt:")) != -1)
+	    "f"
 #endif /* ENABLE_FILEMON */
+	    "kpqrT:t:")) != -1)
 		switch(ch) {
 		case 'a':
 			aflg = 1;
 			break;
 		case 'd':
 			usesleep = 0;
+			break;
+		case 'e':	/* Default behavior, accepted for linux compat */
 			break;
 		case 'F':
 			Fflg = 1;
@@ -164,6 +186,11 @@ main(int argc, char *argv[])
 			if (flushtime < 0)
 				err(1, "invalid flush time %d", flushtime);
 			break;
+		case 'T':
+			tflg = pflg = 1;
+			if (strchr(optarg, '%'))
+				tstamp_fmt = optarg;
+			break;
 		case '?':
 		default:
 			usage();
@@ -186,34 +213,42 @@ main(int argc, char *argv[])
 		asprintf(&fmfname, "%s.filemon", fname);
 		if (!fmfname)
 			err(1, "%s.filemon", fname);
-		if ((fm_fd = open("/dev/filemon", O_RDWR)) == -1)
+		if ((fm_fd = open("/dev/filemon", O_RDWR | O_CLOEXEC)) == -1)
 			err(1, "open(\"/dev/filemon\", O_RDWR)");
-		if ((fm_log = open(fmfname, O_WRONLY | O_CREAT | O_TRUNC,
+		if ((fm_log = open(fmfname,
+		    O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
 		    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
 			err(1, "open(%s)", fmfname);
 		if (ioctl(fm_fd, FILEMON_SET_FD, &fm_log) < 0)
 			err(1, "Cannot set filemon log file descriptor");
-
-		/* Set up these two fd's to close on exec. */
-		(void)fcntl(fm_fd, F_SETFD, FD_CLOEXEC);
-		(void)fcntl(fm_log, F_SETFD, FD_CLOEXEC);
 	}
 #endif /* ENABLE_FILEMON */
 
 	if (pflg)
 		playback(fscript);
 
-	if ((ttyflg = isatty(STDIN_FILENO)) != 0) {
-		if (tcgetattr(STDIN_FILENO, &tt) == -1)
-			err(1, "tcgetattr");
-		if (ioctl(STDIN_FILENO, TIOCGWINSZ, &win) == -1)
-			err(1, "ioctl");
-		if (openpty(&master, &slave, NULL, &tt, &win) == -1)
-			err(1, "openpty");
-	} else {
+	if (tcgetattr(STDIN_FILENO, &tt) == -1 ||
+	    ioctl(STDIN_FILENO, TIOCGWINSZ, &win) == -1) {
+#ifndef __APPLE__
+		if (errno != ENOTTY) /* For debugger. */
+			err(1, "tcgetattr/ioctl");
+#else
+		if (errno != ENOTTY && errno != ENODEV) /* For debugger. */
+			err(1, "tcgetattr/ioctl");
+#endif
 		if (openpty(&master, &slave, NULL, NULL, NULL) == -1)
 			err(1, "openpty");
+	} else {
+		if (openpty(&master, &slave, NULL, &tt, &win) == -1)
+			err(1, "openpty");
+		ttyflg = 1;
 	}
+	fcm = fcntl(master, F_GETFL);
+	if (fcm == -1)
+		err(1, "master F_GETFL");
+	fcm |= O_NONBLOCK;
+	if (fcntl(master, F_SETFL, fcm) == -1)
+		err(1, "master F_SETFL");
 
 	if (rawout)
 		record(fscript, NULL, 0, 's');
@@ -225,7 +260,8 @@ main(int argc, char *argv[])
 			(void)fprintf(fscript, "Script started on %s",
 			    ctime(&tvec));
 			if (argv[0]) {
-				fprintf(fscript, "command: ");
+				showexit = 1;
+				fprintf(fscript, "Command: ");
 				for (k = 0 ; argv[k] ; ++k)
 					fprintf(fscript, "%s%s", k ? " " : "",
 						argv[k]);
@@ -252,22 +288,31 @@ main(int argc, char *argv[])
 		warn("fork");
 		done(1);
 	}
-	if (child == 0)
-		doshell(argv);
-	close(slave);
-
+	if (child == 0) {
 #ifdef ENABLE_FILEMON
-	if (fflg && ioctl(fm_fd, FILEMON_SET_PID, &child) < 0)
-		err(1, "Cannot set filemon PID");
+		if (fflg) {
+			int pid;
+
+			pid = getpid();
+			if (ioctl(fm_fd, FILEMON_SET_PID, &pid) < 0)
+				err(1, "Cannot set filemon PID");
+		}
 #endif /* ENABLE_FILEMON */
+
+		doshell(argv);
+	}
+	close(slave);
 
 	start = tvec = time(0);
 	readstdin = 1;
 	for (;;) {
 		FD_ZERO(&rfd);
+		FD_ZERO(&wfd);
 		FD_SET(master, &rfd);
 		if (readstdin)
 			FD_SET(STDIN_FILENO, &rfd);
+		if (!TAILQ_EMPTY(&obuf_list))
+			FD_SET(master, &wfd);
 		if (!readstdin && ttyflg) {
 			tv.tv_sec = 1;
 			tv.tv_usec = 0;
@@ -280,7 +325,7 @@ main(int argc, char *argv[])
 		} else {
 			tvp = NULL;
 		}
-		n = select(master + 1, &rfd, 0, 0, tvp);
+		n = select(master + 1, &rfd, &wfd, NULL, tvp);
 		if (n < 0 && errno != EINTR)
 			break;
 		if (n > 0 && FD_ISSET(STDIN_FILENO, &rfd)) {
@@ -297,10 +342,37 @@ main(int argc, char *argv[])
 			if (cc > 0) {
 				if (rawout)
 					record(fscript, ibuf, cc, 'i');
-				(void)write(master, ibuf, cc);
+				be = malloc(sizeof(*be) + cc);
+				be->rpos = 0;
+				be->len = cc;
+				memcpy(be->ibuf, ibuf, cc);
+				TAILQ_INSERT_TAIL(&obuf_list, be, link);
+			}
+		}
+		if (n > 0 && FD_ISSET(master, &wfd)) {
+			while ((be = TAILQ_FIRST(&obuf_list)) != NULL) {
+				cc = write(master, be->ibuf + be->rpos,
+				    be->len);
+				if (cc == -1) {
+					if (errno == EWOULDBLOCK ||
+					    errno == EINTR)
+						break;
+					warn("write master");
+					done(1);
+				}
+				if (cc == 0)
+					break;		/* retry later ? */
 				if (kflg && tcgetattr(master, &stt) >= 0 &&
 				    ((stt.c_lflag & ECHO) == 0)) {
-					(void)fwrite(ibuf, 1, cc, fscript);
+					(void)fwrite(be->ibuf + be->rpos,
+					    1, cc, fscript);
+				}
+				be->len -= cc;
+				if (be->len == 0) {
+					TAILQ_REMOVE(&obuf_list, be, link);
+					free(be);
+				} else {
+					be->rpos += cc;
 				}
 			}
 		}
@@ -330,11 +402,13 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
+	    "usage: script [-aeF"
 #ifdef ENABLE_FILEMON
-	    "usage: script [-adfkpqr] [-t time] [file [command ...]]\n");
-#else /* !ENABLE_FILEMON */
-	    "usage: script [-adkpqr] [-t time] [file [command ...]]\n");
+	    "f"
 #endif /* ENABLE_FILEMON */
+	    "kpqr] [-t time] [file [command ...]]\n");
+	(void)fprintf(stderr,
+	    "       script -p [-deq] [-T fmt] [file]\n");
 	exit(1);
 }
 
@@ -375,14 +449,7 @@ doshell(char **av)
 		execl(shell, shell, "-i", (char *)NULL);
 		warn("%s", shell);
 	}
-	fail();
-}
-
-static void
-fail(void)
-{
-	(void)kill(0, SIGTERM);
-	done(1);
+	exit(1);
 }
 
 static void
@@ -396,9 +463,13 @@ done(int eno)
 	if (rawout)
 		record(fscript, NULL, 0, 'e');
 	if (!qflg) {
-		if (!rawout)
+		if (!rawout) {
+			if (showexit)
+				(void)fprintf(fscript, "\nCommand exit status:"
+				    " %d", eno);
 			(void)fprintf(fscript,"\nScript done on %s",
 			    ctime(&tvec));
+		}
 		(void)printf("\nScript done, output file is %s\n", fname);
 #ifdef ENABLE_FILEMON
 		if (fflg) {
@@ -465,6 +536,37 @@ consume(FILE *fp, off_t len, char *buf, int reg)
 } while (0/*CONSTCOND*/)
 
 static void
+termset(void)
+{
+	struct termios traw;
+
+	if (tcgetattr(STDOUT_FILENO, &tt) == -1) {
+#ifndef __APPLE__
+		if (errno != ENOTTY) /* For debugger. */
+			err(1, "tcgetattr");
+#else
+		if (errno != ENOTTY && errno != ENODEV) /* For debugger. */
+			err(1, "tcgetattr");
+#endif
+		return;
+	}
+	ttyflg = 1;
+	traw = tt;
+	cfmakeraw(&traw);
+	traw.c_lflag |= ISIG;
+	(void)tcsetattr(STDOUT_FILENO, TCSANOW, &traw);
+}
+
+static void
+termreset(void)
+{
+	if (ttyflg) {
+		tcsetattr(STDOUT_FILENO, TCSADRAIN, &tt);
+		ttyflg = 0;
+	}
+}
+
+static void
 playback(FILE *fp)
 {
 	struct timespec tsi, tso;
@@ -474,12 +576,14 @@ playback(FILE *fp)
 	off_t nread, save_len;
 	size_t l;
 	time_t tclock;
+	time_t lclock;
 	int reg;
 
 	if (fstat(fileno(fp), &pst) == -1)
 		err(1, "fstat failed");
 
 	reg = S_ISREG(pst.st_mode);
+	lclock = 0;
 
 	for (nread = 0; !reg || nread < pst.st_size; nread += save_len) {
 		if (fread(&stamp, sizeof(stamp), 1, fp) != 1) {
@@ -499,6 +603,8 @@ playback(FILE *fp)
 		tclock = stamp.scr_sec;
 		tso.tv_sec = stamp.scr_sec;
 		tso.tv_nsec = stamp.scr_usec * 1000;
+		if (nread == 0)
+			tsi = tso;
 
 		switch (stamp.scr_direction) {
 		case 's':
@@ -507,8 +613,11 @@ playback(FILE *fp)
 				ctime(&tclock));
 			tsi = tso;
 			(void)consume(fp, stamp.scr_len, buf, reg);
+			termset();
+			atexit(termreset);
 			break;
 		case 'e':
+			termreset();
 			if (!qflg)
 				(void)printf("\nScript done on %s",
 				    ctime(&tclock));
@@ -519,15 +628,26 @@ playback(FILE *fp)
 			(void)consume(fp, stamp.scr_len, buf, reg);
 			break;
 		case 'o':
-			tsi.tv_sec = tso.tv_sec - tsi.tv_sec;
-			tsi.tv_nsec = tso.tv_nsec - tsi.tv_nsec;
-			if (tsi.tv_nsec < 0) {
-				tsi.tv_sec -= 1;
-				tsi.tv_nsec += 1000000000;
+			if (tflg) {
+				if (stamp.scr_len == 0)
+					continue;
+				if (tclock - lclock > 0) {
+				    l = strftime(buf, sizeof buf, tstamp_fmt,
+					localtime(&tclock));
+				    (void)write(STDOUT_FILENO, buf, l);
+				}
+				lclock = tclock;
+			} else {
+				tsi.tv_sec = tso.tv_sec - tsi.tv_sec;
+				tsi.tv_nsec = tso.tv_nsec - tsi.tv_nsec;
+				if (tsi.tv_nsec < 0) {
+					tsi.tv_sec -= 1;
+					tsi.tv_nsec += 1000000000;
+				}
+				if (usesleep)
+					(void)nanosleep(&tsi, NULL);
+				tsi = tso;
 			}
-			if (usesleep)
-				(void)nanosleep(&tsi, NULL);
-			tsi = tso;
 			while (stamp.scr_len > 0) {
 				l = MIN(DEF_BUF, stamp.scr_len);
 				if (fread(buf, sizeof(char), l, fp) != l)

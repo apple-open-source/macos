@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 2000-2006,2008 Free Software Foundation, Inc.              --
+-- Copyright (c) 2000-2011,2014 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -35,8 +35,8 @@
 ------------------------------------------------------------------------------
 --  Author: Eugene V. Melaragno <aldomel@ix.netcom.com> 2000
 --  Version Control
---  $Revision: 1.3 $
---  $Date: 2008/07/26 18:46:18 $
+--  $Revision: 1.6 $
+--  $Date: 2014/09/13 19:10:18 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 with ncurses2.util; use ncurses2.util;
@@ -50,14 +50,14 @@ with Ada.Strings.Bounded;
 
 procedure ncurses2.trace_set is
 
-   function menu_virtualize (c : Key_Code) return Menu_Request_Code;
+   function menu_virtualize (c : Key_Code) return Key_Code;
    function subset (super, sub : Trace_Attribute_Set) return Boolean;
    function trace_or (a, b : Trace_Attribute_Set) return Trace_Attribute_Set;
    function trace_num (tlevel : Trace_Attribute_Set) return String;
    function tracetrace (tlevel : Trace_Attribute_Set) return String;
    function run_trace_menu (m : Menu; count : Integer) return Boolean;
 
-   function menu_virtualize (c : Key_Code) return Menu_Request_Code is
+   function menu_virtualize (c : Key_Code) return Key_Code is
    begin
       case c is
          when Character'Pos (newl) | Key_Exit =>
@@ -141,7 +141,8 @@ procedure ncurses2.trace_set is
         (super.Internal_Calls or not sub.Internal_Calls) and
         (super.Character_Calls or not sub.Character_Calls) and
         (super.Termcap_TermInfo or not sub.Termcap_TermInfo) and
-        True then
+        True
+      then
          return True;
       else
          return False;
@@ -250,93 +251,107 @@ procedure ncurses2.trace_set is
       else
 
          if subset (tlevel,
-                    Trace_Attribute_Set'(Times => True, others => False)) then
+                    Trace_Attribute_Set'(Times => True, others => False))
+         then
             Append (buf, "Times");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
-                    Trace_Attribute_Set'(Tputs => True, others => False)) then
+                    Trace_Attribute_Set'(Tputs => True, others => False))
+         then
             Append (buf, "Tputs");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
-                    Trace_Attribute_Set'(Update => True, others => False)) then
+                    Trace_Attribute_Set'(Update => True, others => False))
+         then
             Append (buf, "Update");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
                     Trace_Attribute_Set'(Cursor_Move => True,
-                                         others => False)) then
+                                         others => False))
+         then
             Append (buf, "Cursor_Move");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
                     Trace_Attribute_Set'(Character_Output => True,
-                                         others => False)) then
+                                         others => False))
+         then
             Append (buf, "Character_Output");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
-                    Trace_Ordinary) then
+                    Trace_Ordinary)
+         then
             Append (buf, "Ordinary");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
-                    Trace_Attribute_Set'(Calls => True, others => False)) then
+                    Trace_Attribute_Set'(Calls => True, others => False))
+         then
             Append (buf, "Calls");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
                     Trace_Attribute_Set'(Virtual_Puts => True,
-                                         others => False)) then
+                                         others => False))
+         then
             Append (buf, "Virtual_Puts");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
                     Trace_Attribute_Set'(Input_Events => True,
-                                         others => False)) then
+                                         others => False))
+         then
             Append (buf, "Input_Events");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
                     Trace_Attribute_Set'(TTY_State => True,
-                                         others => False)) then
+                                         others => False))
+         then
             Append (buf, "TTY_State");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
                     Trace_Attribute_Set'(Internal_Calls => True,
-                                         others => False)) then
+                                         others => False))
+         then
             Append (buf, "Internal_Calls");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
                     Trace_Attribute_Set'(Character_Calls => True,
-                                         others => False)) then
+                                         others => False))
+         then
             Append (buf, "Character_Calls");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
                     Trace_Attribute_Set'(Termcap_TermInfo => True,
-                                         others => False)) then
+                                         others => False))
+         then
             Append (buf, "Termcap_TermInfo");
             Append (buf, ", ");
          end if;
 
          if subset (tlevel,
-                    Trace_Maximum) then
+                    Trace_Maximum)
+         then
             Append (buf, "Maximium");
             Append (buf, ", ");
          end if;
@@ -416,9 +431,9 @@ begin
    Refresh;
 
    for n in t_tbl'Range loop
-      items_a (n) := New_Item (t_tbl (n).name.all);
+      items_a.all (n) := New_Item (t_tbl (n).name.all);
    end loop;
-   items_a (t_tbl'Last + 1) := Null_Item;
+   items_a.all (t_tbl'Last + 1) := Null_Item;
 
    m := New_Menu (items_a);
 

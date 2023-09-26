@@ -646,6 +646,25 @@ ls_strftime(char *str, size_t len, const char *fmt, const struct tm *tm)
 	const char *format = fmt;
 	size_t ret;
 
+#ifdef __APPLE__
+	if (tm == NULL) {
+		size_t qlen = 0;
+
+		/*
+		 * rdar://problem/9977017 - Fill str with ? if localtime() had
+		 * returned NULL.  This is better than crashing as we try to
+		 * dereference it, though it doesn't always look the nicest.
+		 */
+		for (qlen = 0; fmt[qlen] != '\0' && qlen < len; qlen++) {
+			if (fmt[qlen] != ' ')
+				str[qlen] = '?';
+			else
+				str[qlen] = ' ';
+		}
+
+		return (qlen);
+	}
+#endif
 	if ((posb = strstr(fmt, "%b")) != NULL) {
 		if (month_max_size == 0) {
 			compute_abbreviated_month_size();

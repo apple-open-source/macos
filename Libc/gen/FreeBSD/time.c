@@ -38,8 +38,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/time.c,v 1.5 2007/01/09 00:27:55 imp Exp $"
 #include <fenv.h>
 
 time_t
-time(t)
-	time_t *t;
+time(time_t *t)
 {
 	struct timeval tt;
 	time_t retval;

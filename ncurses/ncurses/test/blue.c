@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2006,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2009,2013 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -40,7 +40,7 @@
  * results, use the ncurses(3) library.  On non-Intel machines, SVr4 curses is
  * just as good.
  *
- * $Id: blue.c,v 1.30 2008/08/03 18:20:27 tom Exp $
+ * $Id: blue.c,v 1.35 2013/04/27 19:46:53 tom Exp $
  */
 
 #include <test.priv.h>
@@ -70,7 +70,7 @@
 #define BLACK_ON_WHITE  2
 #define BLUE_ON_WHITE   3
 
-static RETSIGTYPE die(int onsig) GCC_NORETURN;
+static void die(int onsig) GCC_NORETURN;
 
 static int deck_size = PACK_SIZE;	/* initial deck */
 static int deck[PACK_SIZE];
@@ -132,7 +132,7 @@ static chtype glyphs[] =
 
 static chtype *suits = letters;	/* this may change to glyphs below */
 
-static RETSIGTYPE
+static void
 die(int onsig)
 {
     (void) signal(onsig, SIG_IGN);
@@ -202,8 +202,8 @@ printcard(int value)
     if (value == NOCARD)
 	(void) addstr("   ");
     else {
-	addch(ranks[value % SUIT_LENGTH][0] | COLOR_PAIR(BLUE_ON_WHITE));
-	addch(ranks[value % SUIT_LENGTH][1] | COLOR_PAIR(BLUE_ON_WHITE));
+	addch(ranks[value % SUIT_LENGTH][0] | (chtype) COLOR_PAIR(BLUE_ON_WHITE));
+	addch(ranks[value % SUIT_LENGTH][1] | (chtype) COLOR_PAIR(BLUE_ON_WHITE));
 	addch(suits[value / SUIT_LENGTH]);
     }
     (void) addch(' ');
@@ -300,7 +300,7 @@ play_game(void)
 		if (selection[i] != NOCARD) {
 		    move(BASEROW + (selection[i] / GRID_WIDTH) * 2 + 3,
 			 (selection[i] % GRID_WIDTH) * 5);
-		    (void) printw("   %c ", *lp++ = 'a' + i);
+		    (void) printw("   %c ", (*lp++ = (char) ('a' + i)));
 		}
 	    };
 	    *lp = '\0';
@@ -326,7 +326,9 @@ play_game(void)
 		    clrtoeol();
 		    (void) addch(' ');
 		} while
-		    (((c = getch()) < 'a' || c > 'd') && (c != 'r') && (c != 'q'));
+		    (((c = (char) getch()) < 'a' || c > 'd')
+		     && (c != 'r')
+		     && (c != 'q'));
 	    }
 
 	    for (j = 0; j < 4; j++)
@@ -353,9 +355,9 @@ play_game(void)
     }
 
     move(PROMPTROW, 0);
-    standout();
+    (void) standout();
     (void) printw("Finished deal %d - type any character to continue...", deal_number);
-    standend();
+    (void) standend();
     (void) getch();
 }
 
@@ -386,7 +388,7 @@ game_finished(int deal)
 {
     clear();
     (void) printw("You finished the game in %d deals. This is ", deal);
-    standout();
+    (void) standout();
     if (deal < 2)
 	(void) addstr("excellent");
     else if (deal < 4)
@@ -395,7 +397,7 @@ game_finished(int deal)
 	(void) addstr("average");
     else
 	(void) addstr("poor");
-    standend();
+    (void) standend();
     (void) addstr(".         ");
     refresh();
 }

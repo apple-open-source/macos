@@ -56,6 +56,7 @@
 <data>\
 •In the meantime Mr. Weston arrived with his small ship, which he had now recovered. •Capt. Gorges, who informed the Sgt. here that one purpose of his going east was to meet with Mr. Weston, took this opportunity to call him to account for some abuses he had to lay to his charge.•</data>
 
+# rdar://
 # The standard ICU sample as follows uses D. but that is an abbreviation in Apple exceptions:
 #  This hits the case where "D." would match the end of "Ph.D.".
 #  •Doctor with a D. •As in, Ph.D., you know.•</data>
@@ -799,6 +800,9 @@
 <word>
 <data>•ジョージア<400> •</data>
 
+<word>
+<data>•［<0>携帯<400>電話<400>］<0>お金<400>が<400>かかる<400>ん<400>です<400>。<0></data>
+
 # Test for #11723
 <word>
 <data>•アレルギー性<400>結膜炎<400></data>
@@ -1430,6 +1434,9 @@ Bangkok)•</data>
 <line>
 <data>•อัปเดต•อีเวนต์•</data>
 
+<line>
+<data>•แอป์•นี้•ไม่•รองรับ •Android •เวอร์ชัน•ล่าสุด •หาก•แอป•นี้•เข้า•ถึง•ไฟล์•เพลง•และ•ไฟล์•เสียง•ได้ •ก็•จะ•ได้•รับ•อนุญาต•ให้•เข้า•ถึง•รูปภาพ•และ•วิดีโอ•ด้วย•</data>
+
 ##########################################################################################
 #
 #   Lao Tests
@@ -1448,6 +1455,9 @@ Bangkok)•</data>
 <data>•ກວາກຊວາກ•ກະເຈາະກະຈອກ•</data>
 <data>•ກະຊວງປ້ອງກັນຄວາມສະຫງົບ•</data>
 <data>•ໄຮ•ໄຮ່•ໄຮ້•</data>
+# Checks for ICU-21409 (and ICU-21384)
+<line>
+<data>•ຣະຄັງ•ຣະມາ•ລູຊີເຟີ•</data>
 
 ##########################################################################################
 #
@@ -1574,18 +1584,14 @@ Bangkok)•</data>
 
 #  UBreakIteratorType UBRK_WORD, Locale "en_US_POSIX"
 #  Words don't include colon or period (cldrbug #1969).
-
-<locale sv>
-<word>
-<data>•Can't<200> •have<200> •breaks<200> •in<200> •xx:yy<200> •or<200> •struct.field<200> \
-•for<200> •CS<200>-•types<200>.•</data>
-<data>•\uFF92\uFF76\uFF9E<400> •</data>
+#  rdar://107455494 revert adding '@' to $ALetter 
 
 <locale en_US>
 <word>
 <data>•Can't<200> •have<200> •breaks<200> •in<200> •xx<200>:•yy<200> •or<200> •struct.field<200> \
 •for<200> •CS<200>-•types<200>.•</data>
 <data>•\uFF92\uFF76\uFF9E<400> •</data>
+<data>•xx<200>@•yy<200>.•</data>
 
 <locale en_US_POSIX>
 <word>
@@ -1593,6 +1599,21 @@ Bangkok)•</data>
 •for<200> •CS<200>-•types<200>.•</data>
 <data>•\u06c9<200>\uc799\ufffa•</data>
 <data>•\uFF92\uFF76\uFF9E<400> •</data>
+<data>•xx<200>@•yy<200>.•</data>
+
+<locale fi>
+<word>
+<data>•Can't<200> •have<200> •breaks<200> •in<200> •xx:yy<200> •or<200> •struct.field<200> \
+•for<200> •CS<200>-•types<200>.•</data>
+<data>•\uFF92\uFF76\uFF9E<400> •</data>
+<data>•xx<200>@•yy<200>.•</data>
+
+<locale sv>
+<word>
+<data>•Can't<200> •have<200> •breaks<200> •in<200> •xx:yy<200> •or<200> •struct.field<200> \
+•for<200> •CS<200>-•types<200>.•</data>
+<data>•\uFF92\uFF76\uFF9E<400> •</data>
+<data>•xx<200>@•yy<200>.•</data>
 
 
 # UBreakIteratorType UBRK_CHARACTER, Locale "th"
@@ -1652,10 +1673,16 @@ Bangkok)•</data>
 #     •brk OK before 3063               •brk OK before 301C •no brk btw 2026   •no brk before FF01•
 <data>•\u3084•\u3063•\u3071•\u308A\u0020•\u0031•\u301C\u0020•\u2026\u2026\u0020•\u30A2\uFF01\u0020•</data>
 
+#     •no brk before 2010                                 •
+<data>•\u3042\u2010•\u0031\u0020•\u0061\u2010•\u0031\u0020•</data>
+
 <locale ja@lb=loose>
 <line>
 #     •brk OK before 3063               •brk OK before 301C •brk OK btw 2026    •brk OK before FF01•
 <data>•\u3084•\u3063•\u3071•\u308A\u0020•\u0031•\u301C\u0020•\u2026•\u2026\u0020•u30A2•\uFF01\u0020•</data>
+
+#     •no brk before 2010 except ok after ID               •
+<data>•\u3042•\u2010•\u0031\u0020•\u0061\u2010•\u0031\u0020•</data>
 
 <locale en@lb=strict>
 <line>
@@ -1674,6 +1701,7 @@ Bangkok)•</data>
 
 ####################################################################################
 #
+#  rdar:
 #  Test Apple early change of lb class for 22EF
 #
 ####################################################################################
@@ -1684,8 +1712,8 @@ Bangkok)•</data>
 
 ####################################################################################
 #
-#  Test Apple early changes of cjdict, including
-#  <rdar://problem/57642990> add 老竇, 老豆
+#  rdar://57642990 add 老竇, 老豆
+#  Test Apple early changes of cjdict
 #
 ####################################################################################
 
@@ -1709,7 +1737,8 @@ Bangkok)•</data>
 
 ####################################################################################
 #
-#  Apple tests for currency break per <rdar://problem/24359173>
+#  rdar://24359173
+#  Apple tests for currency break
 #
 ####################################################################################
 
@@ -1722,7 +1751,8 @@ Bangkok)•</data>
 
 ####################################################################################
 #
-#  Apple tests for @lw=keepall per <rdar://problem/11679343&16501490>
+#  rdar://11679343&16501490
+#  Apple tests for @lw=keepall
 #
 ####################################################################################
 
@@ -1740,32 +1770,38 @@ Bangkok)•</data>
 
 ####################################################################################
 #
-#  Apple tests for using delimiter data to move quotes from line class QU to CL/OP <rdar://problem/51193810&56749360>
-#  and fix for U+2019 in <rdar://problem/63475386>
-#  and fix for de/hr/ru U+201C in rdar://67787054&7804156&73179567 using text in the bug,
+#  rdar://51193810&56749360 Apple tests for using delimiter data to move quotes from
+#    line class QU to CL/OP
+#  rdar://63475386 and fix for U+2019
+#  rdar://67787054&7804156&73179567 and fix for de/hr/ru U+201C in  using text in the bug,
 #    or quotes per CLDR / Apple ICU style
-#  and fix for Danish quotes in rdar://66836891 using text in the bug, or quotes per
+#  rdar://66836891 and fix for Danish quotes in using text in the bug, or quotes per
 #    CLDR/Wikipedia style
-#  and check for Swedish quotes in rdar://70150460 using text in the bug, or quotes per
+#  rdar://70150460 and check for Swedish quotes in using text in the bug, or quotes per
 #    English style
 #
 ####################################################################################
 
+# rdar://51193810&56749360
 <locale pl>
 <line>
 <data>•on” •(„Na•</data>
 
+# rdar://51193810&56749360
 <locale en>
 <line>
 <data>•ry.” •(3 •RT•</data>
 <data>•ab’” •“‘cd•</data>
+# rdar://63475386
 <data>•gpusw’s •keyboard •N’Ko•</data>
 <data>•gpusw's •keyboard•</data>
 
+# rdar://66836891
 <locale de>
 <line>
 <data>•yielded •“unequivocal •proof” •that•</data>
 <data>•lieferte •„eindeutigen •Beweis“ •dafür•</data>
+# rdar://67787054&67804156&73179567
 <data>•yielded •‘unequivocal •proof’ •that•</data>
 <data>•lieferte •‚eindeutigen •Beweis‘ •dafür•</data>
 
@@ -1781,12 +1817,14 @@ Bangkok)•</data>
 <data>•текст •„цитаты •для •ошибки“ •пример•</data>
 <data>•текст •«цитаты •для •ошибки» •пример•</data>
 
+# rdar://66836891
 <locale da>
 <line>
 <data>•af •”%@”.•</data>
 <data>•af •“%@”.•</data>
 <data>•af •„%@“.•</data>
 
+# rdar://70150460&67787054
 <locale sv>
 <line>
 <data>•»iii •”hej, •världen”«•</data>
@@ -1794,7 +1832,7 @@ Bangkok)•</data>
 
 ####################################################################################
 #
-#  Test breaks for emoji clusters for <rdar://problem/62176312>
+#  rdar://62176312 Test breaks for emoji clusters
 #
 ####################################################################################
 
@@ -1865,9 +1903,11 @@ Bangkok)•</data>
 # modifier bases added in emoji 4.0
 # SNOWBOARDER/fitz-3, HORSE RACING/fitz-4, GOLFER/fitz-5, MAN IN BUSINESS SUIT LEVITATING/fitz-6, SLEEPING ACCOMMODATION/fitz-12, space
 <data>•\U0001F3C2\U0001F3FC•\U0001F3C7\U0001F3FD•\U0001F3CC\U0001F3FE•\U0001F574\U0001F3FF•\U0001F6CC\U0001F3FB•\u0020•</data>
-# test kiss: man, man with variation selector <rdar://problem/30614982>
+# test kiss: man, man with variation selector
 <data>•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F468•\u0020•</data>
-# modifier bases we do not support, but other platforms do
+
+# rdar://
+# modifier bases Apple does not support, but other platforms do
 # family/fitz-3, TWO WOMEN HOLDING HANDS/fitz-4, WOMAN WITH BUNNY EARS/fitz-5, HANDSHAKE/fitz-6, WRESTLERS/fitz-12, space
 <data>•\U0001F46A\U0001F3FC•\U0001F46D\U0001F3FD•\U0001F46F\U0001F3FE•\U0001F91D\U0001F3FF•\U0001F93C\U0001F3FB•\u0020•</data>
 # updates in emoji 5.0
@@ -1914,6 +1954,8 @@ Bangkok)•</data>
 <data>•\U0001F1EC\U0001F1E7•\U0001F1EC\U0001F1E7•\U0001F1EC\U0001F1E7•\U0001F1E7\U0001F1EC•\U0001F1E7\U0001F1EC•\U0001F1E7\U0001F1EC•</data>
 # flagsXtnd AE AF AL AM AO AR
 <data>•\U0001F1E6\U0001F1EA\u200C•\U0001F1E6\U0001F1EB\u200C•\U0001F1E6\U0001F1F1\u200C•\U0001F1E6\U0001F1F2\u0300•\U0001F1E6\U0001F1F4\u20DE•\U0001F1E6\U0001F1F7\u200C•</data>
+
+# rdar://
 # subregion flag tag sequences for England, Scotland
 <data>•\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F•\U0001F3F4\U000E0067\U000E0062\U000E0073\U000E0063\U000E0074\U000E007F•\u0020•</data>
 
@@ -1952,7 +1994,9 @@ Bangkok)•</data>
 # modifier bases added in emoji 4.0
 # SNOWBOARDER/fitz-3, HORSE RACING/fitz-4, GOLFER/fitz-5, MAN IN BUSINESS SUIT LEVITATING/fitz-6, SLEEPING ACCOMMODATION/fitz-12, space
 <data>•\U0001F3C2\U0001F3FC•\U0001F3C7\U0001F3FD•\U0001F3CC\U0001F3FE•\U0001F574\U0001F3FF•\U0001F6CC\U0001F3FB•\u0020•</data>
-# modifier bases we do not support, but other platforms do
+
+# rdar://
+# modifier bases Apple does not support, but other platforms do
 # family/fitz-3, TWO WOMEN HOLDING HANDS/fitz-4, WOMAN WITH BUNNY EARS/fitz-5, HANDSHAKE/fitz-6, WRESTLERS/fitz-12, space
 <data>•\U0001F46A\U0001F3FC•\U0001F46D\U0001F3FD•\U0001F46F\U0001F3FE•\U0001F91D\U0001F3FF•\U0001F93C\U0001F3FB•\u0020•</data>
 # updates in emoji 5.0
@@ -1999,6 +2043,8 @@ Bangkok)•</data>
 <data>•\U0001F1EC\U0001F1E7•\U0001F1EC\U0001F1E7•\U0001F1EC\U0001F1E7•\U0001F1E7\U0001F1EC•\U0001F1E7\U0001F1EC•\U0001F1E7\U0001F1EC•</data>
 # flagsXtnd AE AF AL AM AO AR
 <data>•\U0001F1E6\U0001F1EA\u200C•\U0001F1E6\U0001F1EB\u200C•\U0001F1E6\U0001F1F1\u200C•\U0001F1E6\U0001F1F2\u0300•\U0001F1E6\U0001F1F4\u20DE•\U0001F1E6\U0001F1F7\u200C•</data>
+
+# rdar://
 # subregion flag tag sequences for England, Scotland
 <data>•\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F•\U0001F3F4\U000E0067\U000E0062\U000E0073\U000E0063\U000E0074\U000E007F•\u0020•</data>
 
@@ -2037,7 +2083,9 @@ Bangkok)•</data>
 # modifier bases added in emoji 4.0
 # SNOWBOARDER/fitz-3, HORSE RACING/fitz-4, GOLFER/fitz-5, MAN IN BUSINESS SUIT LEVITATING/fitz-6, SLEEPING ACCOMMODATION/fitz-12 space
 <data>•\U0001F3C2\U0001F3FC•\U0001F3C7\U0001F3FD•\U0001F3CC\U0001F3FE•\U0001F574\U0001F3FF•\U0001F6CC\U0001F3FB\u0020•</data>
-# modifier bases we do not support, but other platforms do
+
+# rdar://
+# modifier bases Apple does not support, but other platforms do
 # family/fitz-3, TWO WOMEN HOLDING HANDS/fitz-4, WOMAN WITH BUNNY EARS/fitz-5, HANDSHAKE/fitz-6, WRESTLERS/fitz-12 space
 <data>•\U0001F46A\U0001F3FC•\U0001F46D\U0001F3FD•\U0001F46F\U0001F3FE•\U0001F91D\U0001F3FF•\U0001F93C\U0001F3FB\u0020•</data>
 # updates in emoji 5.0
@@ -2048,7 +2096,7 @@ Bangkok)•</data>
 # person climbing, person climbing+fitz4, woman climbing, man climbing + fitz4, space
 <data>•\U0001F9D7•\U0001F9D7\U0001F3FD•\U0001F9D7\u200D\u2640\uFE0F•\U0001F9D7\U0001F3FD\u200D\u2642\uFE0F\u0020•</data>
 
-# no special flags handling for line
+# rdar:// no special flags handling for line
 
 <locale ja@lb=loose>
 <line>
@@ -2075,7 +2123,9 @@ Bangkok)•</data>
 <data>•\U0001F468\u200D\u2695\uFE0F•\U0001F468\u200D\u2695•\U0001F468\U0001F3FD\u200D\u2695\uFE0F•\U0001F468\U0001F3FD\u200D\u2695\u0020•</data>
 # woman astronaut, woman astronaut / fitz4
 <data>•\U0001F469\u200D\U0001F680•\U0001F469\U0001F3FD\u200D\U0001F680\u0020•</data>
-# modifiers we do not support, but other platforms do
+
+# rdar://
+# modifier bases Apple does not support, but other platforms do
 # family/fitz-3, wrestlers/fitz-4, space
 <data>•\U0001F46A\U0001F3FC•\U0001F93C\U0001F3FD\u0020•</data>
 # updates in emoji 5.0
@@ -2086,8 +2136,76 @@ Bangkok)•</data>
 # person climbing, person climbing+fitz4, woman climbing, man climbing + fitz4, space
 <data>•\U0001F9D7•\U0001F9D7\U0001F3FD•\U0001F9D7\u200D\u2640\uFE0F•\U0001F9D7\U0001F3FD\u200D\u2642\uFE0F\u0020•</data>
 
-# no special flags handling for line
+# rdar:// no special flags handling for line
 
+<locale ja@lw=phrase>
+<line>
+#[京都観光］時雨殿に行った。-> [京都•観光］•時雨•殿に•行った。•
+<data>•\uff3b\u4eac\u90fd•\u89b3\u5149\uff3d•\u6642\u96e8•\u6bbf\u306b•\u884c\u3063\u305f\u3002•</data>
+#９月に東京から友達が遊びに来た -> ９月に•東京から•友達が•遊びに•来た•
+<data>•\uff19\u6708\u306b•\u6771\u4eac\u304b\u3089•\u53cb\u9054\u304c•\u904a\u3073\u306b•\u6765\u305f•</data>
+#る文字「そうだ、京都」-> る•文字•「そうだ、•京都」•
+<data>•\u308b•\u6587\u5b57•\u300c\u305d\u3046\u3060\u3001•\u4eac\u90fd\u300d•</data>
+#乗車率９０％程度だろうか。 -> 乗車•率•９０％•程度だろうか。•
+<data>•\u4e57\u8eca•\u7387•\uff19\uff10\uff05•\u7a0b\u5ea6\u3060\u308d\u3046\u304b\u3002•</data>
+#［携帯電話］正しい選択 -> ［携帯•電話］•正しい•選択•
+<data>•\uff3b\u643a\u5e2f•\u96fb\u8a71\uff3d•\u6b63\u3057\u3044•\u9078\u629e•</data>
+#純金製百人一首にサッカーボール -> 純金•製•百人一首に•サッカーボール
+<data>•\u7D14\u91D1•\u88FD•\u767E\u4EBA\u4E00\u9996\u306B•\u30B5\u30C3\u30AB\u30FC\u30DC\u30FC\u30EB•</data>
+#Kana supplement: 𛁈(U+1B048) -> \uD82C\uDC48, 𛀸(U+1B038) -> \uD82C\uDC38, 𛀙(U+1B019)-> \uD82C\uDC19</data>
+#𛁈る𛀸（しるこ）、あ𛀙よろし（あかよろし） -> 𛁈る𛀸•（しるこ）、•あ𛀙よろし•（あ•かよろし）
+<data>•\uD82C\uDC48\u308B\uD82C\uDC38•\uFF08\u3057\u308B\u3053\uFF09\u3001•\u3042\uD82C\uDC19\u3088\u308D\u3057•\uFF08\u3042•\u304B\u3088\u308D\u3057\uFF09•</data>
+#最初に目に入るのは、「許諾なき写真禁止」のサインである。 -> 最初に▁目に▁入るのは、▁「許諾なき▁写真▁禁止」▁の▁サインで▁ある。
+<data>•\u6700\u521D\u306B•\u76EE\u306B•\u5165\u308B\u306E\u306F\u3001•\u300C\u8A31\u8AFE\u306A\u304D•\u5199\u771F•\u7981\u6B62\u300D•\u306E•\u30B5\u30A4\u30F3\u3067•\u3042\u308B\u3002•</data>
+#ｄｏｃｏｍｏのサイト情報によると、７８０００パケット以上▁使うならパケ放題がいいとか -> ｄｏｃｏｍｏの▁サイト▁情報によると、▁７８０００パケット▁以上▁使うなら▁パケ▁放題が▁いい▁とか
+<data>•\uFF44\uFF4F\uFF43\uFF4F\uFF4D\uFF4F\u306E•\u30B5\u30A4\u30C8•\u60C5\u5831\u306B\u3088\u308B\u3068\u3001•\uFF17\uFF18\uFF10\uFF10\uFF10\u30D1\u30B1\u30C3\u30C8•\u4EE5\u4E0A•\u4F7F\u3046\u306A\u3089•\u30D1\u30B1•\u653E\u984C\u304C•\u3044\u3044•\u3068\u304B•</data>
+#日本の携帯はＣＤＭＡの形だといわれています -> 日本の▁携帯は▁ＣＤＭＡの▁形だと▁いわれ▁ています
+<data>•\u65E5\u672C\u306E•\u643A\u5E2F\u306F•\uFF23\uFF24\uFF2D\uFF21\u306E•\u5F62\u3060\u3068•\u3044\u308F\u308C•\u3066\u3044\u307E\u3059•</data>
+#中国の携帯は約５００元から５０００元です -> 中国の▁携帯は▁約▁５００元から▁５０００元です
+<data>•\u4E2D\u56FD\u306E•\u643A\u5E2F\u306F•\u7D04•\uFF15\uFF10\uFF10\u5143\u304B\u3089•\uFF15\uFF10\uFF10\uFF10\u5143\u3067\u3059•</data>
+#プリペイドカード携帯布教 -> プリペイドカード▁携帯▁布教
+<data>•\u30D7\u30EA\u30DA\u30A4\u30C9\u30AB\u30FC\u30C9•\u643A\u5E2F•\u5E03\u6559•</data>
+#しかもロゴがＵｎｉｃｏｄｅ！！ -> しかも▁ロゴが▁Ｕｎｉｃｏｄｅ！！
+<data>•\u3057\u304B\u3082•\u30ED\u30B4\u304C•\uFF35\uFF4E\uFF49\uFF43\uFF4F\uFF44\uFF45\uFF01\uFF01•</data>
+#しかし、これらのサービスは６年間使ってこなかった自分にとっては特に必要でないものであり、これからこの機能が加わったからといって特別ハッピーなわけでもない。
+#-> しかし、▁これらの▁サービスは▁６年間▁使ってこなかった▁自分にとっては▁特に▁必要でない▁もので▁あり、▁これから▁この▁機能が▁加わったから▁といって▁特別▁ハッピーな▁わけでもない。
+<data>•\u3057\u304B\u3057\u3001•\u3053\u308C\u3089\u306E•\u30B5\u30FC\u30D3\u30B9\u306F•\uFF16\u5E74\u9593•\u4F7F\u3063\u3066\u3053\u306A\u304B\u3063\u305F•\u81EA\u5206\u306B\u3068\u3063\u3066\u306F•\u7279\u306B•\u5FC5\u8981\u3067\u306A\u3044•\u3082\u306E\u3067•\u3042\u308A\u3001•\u3053\u308C\u304B\u3089•\u3053\u306E•\u6A5F\u80FD\u304C•\u52A0\u308F\u3063\u305F\u304B\u3089•\u3068\u3044\u3063\u3066•\u7279\u5225•\u30CF\u30C3\u30D4\u30FC\u306A•\u308F\u3051\u3067\u3082\u306A\u3044\u3002•</data>
+#自由が丘での三ヶ月の生活を通して得られる経験 -> 自由が丘での▁三ヶ月の▁生活を通して▁得られる▁経験
+<data>•\u81EA\u7531\u304C\u4E18\u3067\u306E•\u4E09\u30F6\u6708\u306E•\u751F\u6D3B\u3092\u901A\u3057\u3066•\u5F97\u3089\u308C\u308B•\u7D4C\u9A13•</data>
+#幕の内弁当がよく買われるらしいです。 -> 幕の内▁弁当が▁よく▁買われるらしいです。
+<data>•\u5E55\u306E\u5185•\u5F01\u5F53\u304C•\u3088\u304F•\u8CB7\u308F\u308C\u308B\u3089\u3057\u3044\u3067\u3059\u3002•</data>
+#その名の通りに伝われと望まれています。 -> その▁名の通りに▁伝われと▁望まれ▁ています。
+<data>•\u305D\u306E•\u540D\u306E\u901A\u308A\u306B•\u4F1D\u308F\u308C\u3068•\u671B\u307E\u308C•\u3066\u3044\u307E\u3059\u3002•</data>
+#下鴨神社の糺の森は、静かだし、ちょっとした空き時間の散歩にいいですよ♪  -> 下鴨▁神社の▁糺の森は、▁静か▁だし、▁ちょっとした▁空き▁時間の▁散歩に▁いいですよ♪
+<data>•\u4E0B\u9D28•\u795E\u793E\u306E•\u7CFA\u306E\u68EE\u306F\u3001•\u9759\u304B•\u3060\u3057\u3001•\u3061\u3087\u3063\u3068\u3057\u305F•\u7A7A\u304D•\u6642\u9593\u306E•\u6563\u6B69\u306B•\u3044\u3044\u3067\u3059\u3088\u266A•</data>
+#この論理は、別の弱点から逃避するためによく使われるので注意が必要ですが。 ->  この▁論理は、▁別の▁弱点から▁逃避▁する▁ために▁よく▁使われるので▁注意が▁必要▁ですが。
+<data>•\u3053\u306E•\u8AD6\u7406\u306F\u3001•\u5225\u306E•\u5F31\u70B9\u304B\u3089•\u9003\u907F•\u3059\u308B•\u305F\u3081\u306B•\u3088\u304F•\u4F7F\u308F\u308C\u308B\u306E\u3067•\u6CE8\u610F\u304C•\u5FC5\u8981•\u3067\u3059\u304C\u3002•</data>
+#バッテリーを長持ちさせ、充電を最適化します -> バッテリーを▁長持ちさせ、▁充電を▁最適化します
+<data>•\u30D0\u30C3\u30C6\u30EA\u30FC\u3092•\u9577\u6301\u3061\u3055\u305B\u3001•\u5145\u96FB\u3092•\u6700\u9069\u5316\u3057\u307E\u3059•</data>
+#開発者サービス -> 開発者▁サービス
+<data>•\u958B\u767A\u8005•\u30B5\u30FC\u30D3\u30B9•</data>
+#長さを選択して感度を調整し、電源ボタンを長押しします。 -> 長さを▁選択して▁感度を▁調整し、▁電源▁ボタンを▁長押しします。
+<data>•\u9577\u3055\u3092•\u9078\u629E\u3057\u3066•\u611F\u5EA6\u3092•\u8ABF\u6574\u3057\u3001•\u96FB\u6E90•\u30DC\u30BF\u30F3\u3092•\u9577\u62BC\u3057\u3057\u307E\u3059\u3002•</data>
+#データのコピー、スマートフォンでのお支払いなど -> データの▁コピー、▁スマートフォンでの▁お支払いなど
+<data>•\u30C7\u30FC\u30BF\u306E•\u30B3\u30D4\u30FC\u3001•\u30B9\u30DE\u30FC\u30C8\u30D5\u30A9\u30F3\u3067\u306E•\u304A\u652F\u6255\u3044\u306A\u3069•</data>
+#データ使用量を節約します -> データ▁使用量を▁節約します
+<data>•\u30C7\u30FC\u30BF•\u4F7F\u7528\u91CF\u3092•\u7BC0\u7D04\u3057\u307E\u3059•</data>
+#スマートフォンで設定できる最低限の明るさよりも画面を暗くします -> スマートフォンで▁設定▁できる▁最低限の▁明るさよりも▁画面を▁暗くします
+<data>•\u30B9\u30DE\u30FC\u30C8\u30D5\u30A9\u30F3\u3067•\u8A2D\u5B9A•\u3067\u304D\u308B•\u6700\u4F4E\u9650\u306E•\u660E\u308B\u3055\u3088\u308A\u3082•\u753B\u9762\u3092•\u6697\u304F\u3057\u307E\u3059•</data>
+#寝転んでいても -> 寝転んでいても
+<data>•\u5BDD\u8EE2\u3093\u3067\u3044\u3066\u3082•</data>
+#周囲の状況にもご注意ください -> 周囲の▁状況にも▁ご注意▁くだ▁さい
+<data>•\u5468\u56F2\u306E•\u72B6\u6CC1\u306B\u3082•\u3054\u6CE8\u610F•\u304F\u3060•\u3055\u3044•</data>
+#国や地域によってはご利用いただけない場合があります -> 国や▁地域によっては▁ご利用いただけない▁場合が▁あります
+<data>•\u56FD\u3084•\u5730\u57DF\u306B\u3088\u3063\u3066\u306F•\u3054\u5229\u7528\u3044\u305F\u3060\u3051\u306A\u3044•\u5834\u5408\u304C•\u3042\u308A\u307E\u3059•</data>
+#前回停止した場所からお楽しみいただけます -> 前回▁停止した▁場所から▁お楽しみいただけます
+<data>•\u524D\u56DE•\u505C\u6B62\u3057\u305F•\u5834\u6240\u304B\u3089•\u304A\u697D\u3057\u307F\u3044\u305F\u3060\u3051\u307E\u3059•</data>
+#聞き逃したくない音をスマートフォンで常時検出できます -> 聞き逃したくない▁音を▁スマートフォンで▁常時▁検出▁できます
+<data>•\u805E\u304D\u9003\u3057\u305F\u304F\u306A\u3044•\u97F3\u3092•\u30B9\u30DE\u30FC\u30C8\u30D5\u30A9\u30F3\u3067•\u5E38\u6642•\u691C\u51FA•\u3067\u304D\u307E\u3059•</data>
+#メニューのボタンを大きくする -> メニューの▁ボタンを▁大きく▁する
+<data>•\u30E1\u30CB\u30E5\u30FC\u306E•\u30DC\u30BF\u30F3\u3092•\u5927\u304D\u304F•\u3059\u308B•</data>
+#これらの連絡先はデバイスをロック解除しなくても表示され -> これらの▁連絡先は▁デバイスを▁ロック▁解除しなくても▁表示され
+<data>•\u3053\u308C\u3089\u306E•\u9023\u7D61\u5148\u306F•\u30C7\u30D0\u30A4\u30B9\u3092•\u30ED\u30C3\u30AF•\u89E3\u9664\u3057\u306A\u304F\u3066\u3082•\u8868\u793A\u3055\u308C•</data>
 
 ####################################################################################
 #

@@ -1,4 +1,4 @@
-module libexslt [system] [extern_c] {
+module libexslt [system] {
     link "exslt"
 
     module exslt {

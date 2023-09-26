@@ -15,6 +15,8 @@
 
 #include "../copyfile.h"
 
+#include <TargetConditionals.h>
+
 #define BSIZE_B					128
 #define MAX_DISK_IMAGE_SIZE_MB	1024
 
@@ -23,39 +25,37 @@
 #define DEFAULT_OPEN_PERM		0666
 #define DEFAULT_MKDIR_PERM		0777
 
-#define DISK_IMAGE_PATH			"/tmp/copyfile_sparse.sparseimage"
-#define VOLUME_NAME				"apfs_sparse"
-#define DEFAULT_FSTYPE			"JHFS+"
+#define DISK_IMAGE_PATH			"/tmp/copyfile_test.sparseimage"
 #define APFS_FSTYPE				"apfs"
-
-// We assume that we're mounted on /Volumes.
-#define MOUNT_PATH				"/Volumes/" VOLUME_NAME
+#define DEFAULT_FSTYPE			APFS_FSTYPE
 
 #define AFSCUTIL_PATH			"/usr/local/bin/afscutil"
 #define HDIUTIL_PATH			"/usr/bin/hdiutil"
 #define DIFF_PATH				"/usr/bin/diff"
 
 // Test routine helpers.
-bool verify_times(const char *timename, struct timespec *expected, struct timespec *actual);
+bool verify_times(const char *timename, const struct timespec *expected, const struct timespec *actual);
 bool verify_path_missing_xattr(const char *path, const char *xattr_name);
 bool verify_path_xattr_content(const char *path, const char *xattr_name, const char *expected,
 							   size_t size);
 bool verify_fd_xattr_contents(int orig_fd, int copy_fd);
-bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect);
-bool verify_st_ids_and_mode(struct stat *expected, struct stat *actual);
+bool verify_st_flags(const struct stat *sb, uint32_t flags_to_check, uint32_t flags_to_expect);
+bool verify_st_ids_and_mode(const struct stat *expected, const struct stat *actual);
 bool verify_contents_with_buf(int orig_fd, off_t orig_pos, const char *expected, size_t length);
 bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos, size_t length);
 bool verify_copy_contents(const char *orig_name, const char *copy_name);
-bool verify_copy_sizes(struct stat *orig_sb, struct stat *copy_sb, copyfile_state_t cpf_state,
+bool verify_copy_sizes(const struct stat *orig_sb, const struct stat *copy_sb, copyfile_state_t cpf_state,
 					   bool do_sparse, off_t src_start);
 int create_hole_in_fd(int fd, off_t offset, off_t length);
 void write_compressible_data(int fd);
 void compress_file(const char *path, const char *type);
 void create_test_file_name(const char *dir, const char *postfix, int id, char *string_out);
 
+#if TARGET_OS_OSX
 // Our disk image test functions.
-void disk_image_create(const char *fstype, size_t size_in_mb);
-void disk_image_destroy(bool allow_failure);
+void disk_image_create(const char *fstype, const char *mount_path, size_t size_in_mb);
+void disk_image_destroy(const char *mount_path, bool allow_failure);
+#endif
 
 // Assertion functions/macros for tests.
 static inline void
@@ -76,7 +76,9 @@ assert_fail_(const char *file, int line, const char *assertion, ...)
 	assert_fail_(__FILE__, __LINE__, str, ## __VA_ARGS__)
 
 #undef assert
-#define assert(condition)											\
+#define assert(condition) assert_true(condition)
+
+#define assert_true(condition)										\
 	do {															\
 		if (!(condition))											\
 			assert_fail_(__FILE__, __LINE__,						\
@@ -95,6 +97,9 @@ assert_fail_(const char *file, int line, const char *assertion, ...)
 
 #define assert_no_err(condition) \
 	assert_with_errno_(!(condition), #condition)
+
+#define assert_fd(expr) \
+	assert_with_errno_(((expr) >= 0), #expr)
 
 #define assert_equal(lhs, rhs, fmt)										\
 	do {																\
@@ -134,6 +139,43 @@ static inline ssize_t check_io_(ssize_t res, ssize_t len, const char *file,
 		assert_fail_(file, line, "%s != %ld (%ld)", fn_str, len, res);
 	return res;
 }
+
+//
+// assert that a call (likely a syscall) fails with a particular errno
+// if the call is permitted to fail with any errno, pass `expected_errno' = 0
+//
+// this has a strange name to not conflict with preexisting `assert_fail()'
+//
+#define assert_call_fail_(call_expr, expr_str, expected_errno, ...) \
+	do { \
+		if ((call_expr) == -1) { \
+			int save_errno = errno; \
+			if ((expected_errno != 0) && (save_errno != expected_errno)) { \
+				assert_fail("%s returned errno %d != %d; '%s' != '%s'", \
+						expr_str, save_errno, expected_errno, \
+						strerror(save_errno), strerror(expected_errno)); \
+			} \
+		} else { \
+			assert_fail("%s returned success, but should have failed " \
+					"with '%s', errno %d", \
+					expr_str, \
+					(expected_errno) ? \
+						strerror(expected_errno) : \
+						"*", \
+					expected_errno); \
+		} \
+	} while (0)
+
+/*
+ * Permit assert_call_fail_() to be used with no specified errno.
+ * Expressions like
+ *   assert_call_fail(fcntl(...));
+ *   assert_call_fail(fcntl(...), EINVAL);
+ * are both valid. The first form will test that fcntl() will fail with any
+ * error.
+ */
+#define assert_call_fail(call_expr, ...) \
+	assert_call_fail_((call_expr), #call_expr, ##__VA_ARGS__, 0)
 
 #define ignore_eintr(x, error_val)								\
 	({															\

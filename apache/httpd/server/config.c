@@ -250,6 +250,12 @@ static merger_func *merger_func_cache;
 #define AP_MAX_INCLUDE_DIR_DEPTH (128)
 #endif
 
+#ifdef __APPLE__
+char *configuration_file = SERVER_CONFIG_FILE;
+#else
+static char *configuration_file = SERVER_CONFIG_FILE;
+#endif
+
 /* Dealing with config vectors.  These are associated with per-directory,
  * per-server, and per-request configuration, and have a void* pointer for
  * each modules.  The nature of the structure pointed to is private to the
@@ -1921,9 +1927,15 @@ AP_DECLARE(const char *) ap_process_fnmatch_configs(server_rec *s,
     w.depth = 0;
 
     /* don't require conf/httpd.conf if we have a -C or -c switch */
+#ifdef __APPLE__
+    if ((ap_server_pre_read_config->nelts
+        || ap_server_post_read_config->nelts)
+        && !(strcmp(fname, ap_server_root_relative(ptemp, configuration_file)))) {
+#else // !__APPLE__
     if ((ap_server_pre_read_config->nelts
         || ap_server_post_read_config->nelts)
         && !(strcmp(fname, ap_server_root_relative(ptemp, SERVER_CONFIG_FILE)))) {
+#endif // __APPLE__
         apr_finfo_t finfo;
 
         if (apr_stat(&finfo, fname, APR_FINFO_LINK | APR_FINFO_TYPE, ptemp) != APR_SUCCESS)

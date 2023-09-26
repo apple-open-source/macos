@@ -55,7 +55,7 @@ NS_ASSUME_NONNULL_BEGIN
                              essential:(BOOL)essential
                              selfPeers:(CKKSSelves* _Nullable)selfPeers
                         selfPeersError:(NSError* _Nullable)selfPeersError
-                          trustedPeers:(NSSet<id<CKKSPeer>>* _Nullable)currentTrustedPeers
+                          trustedPeers:(NSSet<id<CKKSRemotePeerProtocol>>* _Nullable)currentTrustedPeers
                      trustedPeersError:(NSError* _Nullable)trustedPeersError;
 
 - (BOOL)unwrapKey:(CKKSKey*)proposedTLK

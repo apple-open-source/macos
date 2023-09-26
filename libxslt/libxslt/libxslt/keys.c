@@ -25,6 +25,7 @@
 #include "xslt.h"
 #include "xsltInternals.h"
 #include "xsltutils.h"
+#include "xsltutilsInternal.h"
 #include "imports.h"
 #include "templates.h"
 #include "keys.h"
@@ -834,6 +835,11 @@ fprintf(stderr, "xsltInitCtxtKey %s : %d\n", keyDef->name, ctxt->keyInitLevel);
 		*/
 		xmlXPathNodeSetAdd(keylist, cur);
 	    }
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+            if (linkedOnOrAfterFall2023OSVersions()) {
+                xsltSetSourceNodeFlags(ctxt, cur, XSLT_SOURCE_NODE_HAS_KEY);
+            } else {
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 	    switch (cur->type) {
 		case XML_ELEMENT_NODE:
 		case XML_TEXT_NODE:
@@ -852,6 +858,9 @@ fprintf(stderr, "xsltInitCtxtKey %s : %d\n", keyDef->name, ctxt->keyInitLevel);
 		default:
 		    break;
 	    }
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+            }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 	    xmlFree(str);
 	    str = NULL;
 

@@ -177,6 +177,7 @@ ms_Arab{
                 Ed{"d E"}
                 H{"HH"}
                 Hm{"HH:mm"}
+                Hmm{"H:mm"}
                 Hms{"HH:mm:ss"}
                 M{"L"}
                 MEd{"E، d-M"}
@@ -327,6 +328,7 @@ ms_Arab{
                 Ed{"d E"}
                 H{"HH"}
                 Hm{"HH:mm"}
+                Hmm{"H:mm"}
                 Hms{"HH:mm:ss"}
                 M{"L"}
                 MEd{"E، d-M"}

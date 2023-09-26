@@ -1,16 +1,16 @@
-//
-//  HIDTransaction.m
-//  HID
-//
-//  Created by dekom on 10/5/17.
-//
+/*!
+ * HIDTransaction.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDLib.h>
-#import "HIDTransaction.h"
-#import "HIDDevicePrivate.h"
-#import "HIDElementPrivate.h"
-#import "NSError+IOReturn.h"
+#import <HID/HIDTransaction.h>
+#import <HID/HIDDevice.h>
+#import <HID/HIDElement_Internal.h>
+#import <HID/NSError+IOReturn.h>
 #import <IOKit/hid/IOHIDLibPrivate.h>
 
 @implementation HIDTransaction {

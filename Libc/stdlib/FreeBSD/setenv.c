@@ -231,12 +231,8 @@ __init__env_owned_locked(int should_set_errno)
  * -1 - like 0, except we copy of the name=value string in name
  */
 __private_extern__ int
-__setenv_locked(name, value, rewrite, copy, environp, owned)
-	const char *name;
-	const char *value;
-	int rewrite, copy;
-	char ***environp;
-	struct owned_ptr *owned;
+__setenv_locked(const char *name, const char *value, int rewrite, int copy,
+     char ***environp, struct owned_ptr *owned)
 {
 	char *c;
 	int offset;
@@ -447,10 +443,7 @@ _unsetenvp(const char *name, char ***envp, void *state)
  *	"value".  If rewrite is set, replace any current value.
  */
 int
-setenv(name, value, rewrite)
-	const char *name;
-	const char *value;
-	int rewrite;
+setenv(const char *name, const char *value, int rewrite)
 {
 	int ret;
 

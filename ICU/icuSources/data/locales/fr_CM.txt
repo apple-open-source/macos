@@ -32,26 +32,6 @@ fr_CM{
                     }
                 }
             }
-            intervalFormats{
-                h{
-                    a{"h a – h a"}
-                    h{"h – h a"}
-                }
-                hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm – h:mm a"}
-                    m{"h:mm – h:mm a"}
-                }
-                hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm – h:mm a v"}
-                    m{"h:mm – h:mm a v"}
-                }
-                hv{
-                    a{"h a – h a v"}
-                    h{"h – h a v"}
-                }
-            }
         }
     }
 }

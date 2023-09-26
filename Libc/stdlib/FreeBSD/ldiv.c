@@ -39,8 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/ldiv.c,v 1.3 2007/01/09 00:28:10 imp Exp
 #include <stdlib.h>		/* ldiv_t */
 
 ldiv_t
-ldiv(num, denom)
-	long num, denom;
+ldiv(long num, long denom)
 {
 	ldiv_t r;
 

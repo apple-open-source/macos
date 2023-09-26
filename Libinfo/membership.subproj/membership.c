@@ -42,6 +42,10 @@
 #include <pthread.h>
 #include <mach-o/dyld_priv.h>
 #endif
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+#include "darwin_directory_helpers.h"
+#include <os/feature_private.h>
+#endif // DARWIN_DIRECTORY_AVAIABLE
 
 static const uuid_t _user_compat_prefix = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
 static const uuid_t _group_compat_prefix = {0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0x00, 0x00, 0x00, 0x00};
@@ -138,7 +142,7 @@ _mbr_xpc_pipe(bool resetPipe)
 		if (!dyld_process_is_restricted() && od_debug_enabled()) {
 			__mbr_pipe = xpc_pipe_create(kODMachMembershipPortNameDebug, 0);
 		} else {
-			__mbr_pipe = xpc_pipe_create(kODMachMembershipPortName, XPC_PIPE_FLAG_PRIVILEGED);
+			__mbr_pipe = xpc_pipe_create(kODMachMembershipPortName, XPC_PIPE_PRIVILEGED | XPC_PIPE_PROPAGATE_QOS);
 		}
 	}
 	
@@ -245,6 +249,198 @@ compatibility_name_for_uuid(const uuid_t uu, char **result, int *rec_type)
 }
 #endif
 
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+OS_MALLOC
+static void *
+_dd_extract_result(int target_type, darwin_directory_record_t record)
+{
+	id_t *tempID = NULL;
+	uint8_t *tempUUID = NULL;
+
+	// Ensure the record type matches the desired target type.
+	if ((target_type == ID_TYPE_UID || target_type == ID_TYPE_USERNAME) &&
+			record->type != DARWIN_DIRECTORY_TYPE_USERS) {
+		return NULL;
+	} else if ((target_type == ID_TYPE_GID || target_type == ID_TYPE_GROUPNAME) &&
+			   record->type != DARWIN_DIRECTORY_TYPE_GROUPS) {
+		return NULL;
+	}
+
+	switch (target_type) {
+		case ID_TYPE_UID:
+		case ID_TYPE_GID:
+		case ID_TYPE_UID_OR_GID:
+			tempID = malloc(sizeof(id_t));
+			if (os_unlikely(tempID == NULL)) {
+				_dd_fatal_error("Failed to allocate memory for a uid/gid");
+			}
+			*tempID = record->id;
+			return tempID;
+
+		case ID_TYPE_USERNAME:
+		case ID_TYPE_GROUPNAME:
+		case ID_TYPE_NAME:
+			return strdup(record->name);
+
+		case ID_TYPE_UUID:
+			tempUUID = malloc(sizeof(uuid_t));
+			if (os_unlikely(tempUUID == NULL)) {
+				_dd_fatal_error("Failed to allocate memory for a uuid");
+			}
+			uuid_copy(tempUUID, record->uuid);
+			return tempUUID;
+
+		default:
+			return NULL;
+	}
+}
+
+static bool
+_dd_target_type_is_valid_for_id_type(int id_type, int target_type)
+{
+	switch (target_type) {
+		case ID_TYPE_UID:
+			return id_type == ID_TYPE_USERNAME || id_type == ID_TYPE_UUID;
+		case ID_TYPE_GID:
+			return id_type == ID_TYPE_GROUPNAME || id_type == ID_TYPE_UUID;
+		case ID_TYPE_USERNAME:
+			return id_type == ID_TYPE_UID || id_type == ID_TYPE_UUID;
+		case ID_TYPE_GROUPNAME:
+			return id_type == ID_TYPE_GID || id_type == ID_TYPE_UUID;
+		case ID_TYPE_UUID:
+			return true; // Any id_type is valid when asking for a UUID
+		case ID_TYPE_UID_OR_GID:
+			return id_type == ID_TYPE_USERNAME || id_type == ID_TYPE_GROUPNAME || id_type == ID_TYPE_UUID;
+		case ID_TYPE_NAME:
+			return id_type == ID_TYPE_UID || id_type == ID_TYPE_GID || id_type == ID_TYPE_UUID;
+		default:
+			return false;
+	}
+}
+
+static int
+_dd_mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_size, int target_type, void **result, int *rec_type)
+{
+	__block int local_rec_type = -1;
+	__block int rc = ENOENT;
+
+	if (!_dd_target_type_is_valid_for_id_type(id_type, target_type)) {
+		return EINVAL;
+	}
+
+	switch (id_type) {
+		case ID_TYPE_UID:
+			_dd_foreach_record_with_id(DARWIN_DIRECTORY_TYPE_USERS, *(id_t*)identifier, ^(darwin_directory_record_t user, bool *stop) {
+				*result = _dd_extract_result(target_type, user);
+				local_rec_type = MBR_REC_TYPE_USER;
+				rc = 0;
+				*stop = true;
+			});
+
+			// The man page says that translating from uid to uuid will create
+			// a fake uuid when the uid isn't found.
+			if (os_unlikely(*result == NULL) && target_type == ID_TYPE_UUID) {
+				uint8_t *tempUUID = malloc(sizeof(uuid_t));
+				if (os_unlikely(tempUUID == NULL)) {
+					_dd_fatal_error("Failed to allocate memory for a compatibility user uuid");
+				}
+				uuid_copy(tempUUID, _user_compat_prefix);
+				*((id_t*)&tempUUID[COMPAT_PREFIX_LEN]) = htonl(*(id_t*)identifier);
+				*result = tempUUID;
+				local_rec_type = MBR_REC_TYPE_USER;
+				rc = 0;
+			}
+			break;
+
+		case ID_TYPE_GID:
+			_dd_foreach_record_with_id(DARWIN_DIRECTORY_TYPE_GROUPS, *(id_t*)identifier, ^(darwin_directory_record_t group, bool *stop) {
+				*result = _dd_extract_result(target_type, group);
+				local_rec_type = MBR_REC_TYPE_GROUP;
+				rc = 0;
+				*stop = true;
+			});
+
+			// The man page says that translating from gid to uuid will create
+			// a fake uuid when the gid isn't found.
+			if (os_unlikely(*result == NULL) && target_type == ID_TYPE_UUID) {
+				uint8_t *tempUUID = malloc(sizeof(uuid_t));
+				if (os_unlikely(tempUUID == NULL)) {
+					_dd_fatal_error("Failed to allocate memory for a compatibility group uuid");
+				}
+				uuid_copy(tempUUID, _group_compat_prefix);
+				*((id_t*)&tempUUID[COMPAT_PREFIX_LEN]) = htonl(*(id_t*)identifier);
+				*result = tempUUID;
+				local_rec_type = MBR_REC_TYPE_GROUP;
+				rc = 0;
+			}
+			break;
+
+		case ID_TYPE_USERNAME:
+			_dd_foreach_record_with_name(DARWIN_DIRECTORY_TYPE_USERS, identifier, ^(darwin_directory_record_t user, bool *stop) {
+				*result = _dd_extract_result(target_type, user);
+				local_rec_type = MBR_REC_TYPE_USER;
+				rc = 0;
+				*stop = true;
+			});
+			break;
+
+		case ID_TYPE_GROUPNAME:
+			_dd_foreach_record_with_name(DARWIN_DIRECTORY_TYPE_GROUPS, identifier, ^(darwin_directory_record_t group, bool *stop) {
+				*result = _dd_extract_result(target_type, group);
+				local_rec_type = MBR_REC_TYPE_GROUP;
+				rc = 0;
+				*stop = true;
+			});
+			break;
+
+		case ID_TYPE_UUID:
+			_dd_foreach_record_with_uuid(DARWIN_DIRECTORY_TYPE_USERS, identifier, ^(darwin_directory_record_t user, bool *stop) {
+				*result = _dd_extract_result(target_type, user);
+				local_rec_type = MBR_REC_TYPE_USER;
+				rc = 0;
+				*stop = true;
+			});
+
+			if (*result == NULL) {
+				_dd_foreach_record_with_uuid(DARWIN_DIRECTORY_TYPE_GROUPS, identifier, ^(darwin_directory_record_t group, bool *stop) {
+					*result = _dd_extract_result(target_type, group);
+					local_rec_type = MBR_REC_TYPE_GROUP;
+					rc = 0;
+					*stop = true;
+				});
+			}
+
+			// The man page says that translating from uuid to uid/gid will
+			// return a made-up uid/gid when the uuid isn't found.  That's only
+			// partially true: the uuid has to be one of the well-known prefixes.
+			if (os_unlikely(*result == NULL) && (target_type == ID_TYPE_UID || target_type == ID_TYPE_GID || target_type == ID_TYPE_UID_OR_GID)) {
+				id_t *tempID = malloc(sizeof(*tempID));
+				if (os_unlikely(tempID == NULL)) {
+					_dd_fatal_error("Failed to allocate memory for a compatibility uid/gid");
+				}
+				if (parse_compatibility_uuid(identifier, tempID, rec_type)) {
+					*result = tempID;
+					rc = 0;
+				} else {
+					free(tempID);
+				}
+			}
+
+			break;
+
+		default:
+			rc = EINVAL;
+			break;
+	}
+
+	if (rec_type != NULL && *result != NULL) {
+		*rec_type = local_rec_type;
+	}
+
+	return rc;
+}
+#endif // DARWIN_DIRECTORY_AVAILABLE
+
 LIBINFO_EXPORT
 int
 mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_size, int target_type, void **result, int *rec_type)
@@ -275,8 +471,26 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 				identifier_size = identifier_len;
 			}
 			break;
+		/* ensure the fixed length types have correct sizes */
+		case ID_TYPE_UID:
+		case ID_TYPE_GID:
+			if (identifier_size != sizeof(id_t)) {
+				return EINVAL;
+			}
+			break;
+		case ID_TYPE_UUID:
+			if (identifier_size != sizeof(uuid_t)) {
+				return EINVAL;
+			}
+			break;
 		}
 	}
+
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+	if (os_feature_enabled_simple(DarwinDirectory, LibinfoLookups, false)) {
+		return _dd_mbr_identifier_translate(id_type, identifier, identifier_size, target_type, result, rec_type);
+	}
+#endif // DARWIN_DIRECTORY_AVAILABLE
 
 	switch (target_type) {
 		case ID_TYPE_GID:
@@ -285,8 +499,6 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 			/* shortcut UUIDs using compatibility prefixes */
 			if (id_type == ID_TYPE_UUID) {
 				id_t *tempRes;
-
-				if (identifier_size != sizeof(uuid_t)) return EINVAL;
 
 				tempRes = malloc(sizeof(*tempRes));
 				if (tempRes == NULL) return ENOMEM;
@@ -304,8 +516,6 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 			/* or if no OD, we return compatibility UUIDs */
 			switch (id_type) {
 				case ID_TYPE_UID:
-					if (identifier_size != sizeof(tempID)) return EINVAL;
-					
 					tempID = *((id_t *) identifier);
 					if ((tempID == 0) || (_mbr_od_available() == false)) {
 						uint8_t *tempUU = malloc(sizeof(uuid_t));
@@ -321,8 +531,6 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 					break;
 					
 				case ID_TYPE_GID:
-					if (identifier_size != sizeof(tempID)) return EINVAL;
-					
 					tempID = *((id_t *) identifier);
 					if ((tempID == 0) || (_mbr_od_available() == false)) {
 						uint8_t *tempUU = malloc(sizeof(uuid_t));
@@ -345,13 +553,10 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 #if !DS_AVAILABLE
 			/* Convert compatibility UUIDs to names in-process. */
 			if (id_type == ID_TYPE_UUID) {
-				if (identifier_size != sizeof(uuid_t)) return EINVAL;
 				if (compatibility_name_for_uuid(identifier, (char **)result, rec_type)) {
 					return 0;
 				}
 			} else if (id_type == ID_TYPE_UID) {
-				if (identifier_size != sizeof(tempID)) return EINVAL;
-
 				tempID = *((id_t *) identifier);
 				if (compatibility_name_for_id(tempID, MBR_REC_TYPE_USER, (char **)result)) {
 					if (rec_type != NULL) {
@@ -360,8 +565,6 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 					return 0;
 				}
 			} else if (id_type == ID_TYPE_GID) {
-				if (identifier_size != sizeof(tempID)) return EINVAL;
-
 				tempID = *((id_t *) identifier);
 				if (compatibility_name_for_id(tempID, MBR_REC_TYPE_GROUP, (char **)result)) {
 					if (rec_type != NULL) {

@@ -33,7 +33,6 @@
 #include <JavaScriptCore/JSArray.h>
 #include <JavaScriptCore/JSArrayBuffer.h>
 #include <JavaScriptCore/JSCJSValueInlines.h>
-#include <JavaScriptCore/JSGlobalObject.h>
 #include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSObjectInlines.h>
 #include <JavaScriptCore/ObjectConstructor.h>
@@ -98,6 +97,12 @@ template<> JSC::JSValue jsValueForDecodedArgumentValue(JSC::JSGlobalObject*, siz
 
 template<typename U>
 JSC::JSValue jsValueForDecodedArgumentValue(JSC::JSGlobalObject* globalObject, ObjectIdentifier<U>&& value)
+{
+    return jsValueForDecodedArgumentValue(globalObject, value.toUInt64());
+}
+
+template<typename U>
+JSC::JSValue jsValueForDecodedArgumentValue(JSC::JSGlobalObject* globalObject, AtomicObjectIdentifier<U>&& value)
 {
     return jsValueForDecodedArgumentValue(globalObject, value.toUInt64());
 }

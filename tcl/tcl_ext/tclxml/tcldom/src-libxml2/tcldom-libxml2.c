@@ -19,11 +19,13 @@
  */
 
 #include "tcldom-libxml2.h"
+#include <string.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 #include <libxml/xmlIO.h>
 #include <libxml/HTMLtree.h>
 #include <libxml/globals.h>
+#include <libxml/xinclude.h>
 
 #define TCL_DOES_STUBS \
     (TCL_MAJOR_VERSION > 8 || TCL_MAJOR_VERSION == 8 && (TCL_MINOR_VERSION > 1 || \
@@ -145,8 +147,8 @@ static char * TclDOMLiveNodeListDoc _ANSI_ARGS_((ClientData clientData,
 						  int flags));
 static char * TclDOMLiveNamedNodeMap _ANSI_ARGS_((ClientData clientData,
 						  Tcl_Interp *interp,
-						  char *name1,
-						  char *name2,
+						  const char *name1,
+						  const char *name2,
 						  int flags));
 static int TclDOMSetLiveNodeListNode _ANSI_ARGS_((Tcl_Interp *interp,
 						  char *varname,
@@ -2889,7 +2891,7 @@ TclDOMSetLiveNamedNodeMap(interp, varName, nodePtr)
       return TCL_ERROR;
     }
 
-    if (Tcl_TraceVar2(interp, varName, (char *) attrPtr->name, TCL_TRACE_READS|TCL_TRACE_WRITES|TCL_TRACE_UNSETS|TCL_GLOBAL_ONLY, TclDOMLiveNamedNodeMap, (ClientData) nodePtr) != TCL_OK) {
+    if (Tcl_TraceVar2(interp, varName, (char *) attrPtr->name, TCL_TRACE_READS|TCL_TRACE_WRITES|TCL_TRACE_UNSETS|TCL_GLOBAL_ONLY, &TclDOMLiveNamedNodeMap, (ClientData) nodePtr) != TCL_OK) {
       return TCL_ERROR;
     }
   }
@@ -2901,8 +2903,8 @@ static char *
 TclDOMLiveNamedNodeMap(clientData, interp, name1, name2, flags)
     ClientData clientData;
     Tcl_Interp *interp;
-    char *name1;
-    char *name2;
+    const char *name1;
+    const char *name2;
     int flags;
 {
   xmlNodePtr nodePtr = (xmlNodePtr) clientData;

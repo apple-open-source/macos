@@ -10,6 +10,8 @@
 
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
+#include <OpenAL/alut.h>
 #include <OpenAL/MacOSX_OALExtensions.h>
+
 
 #endif /* defined(OpenAL_OpenAL_h) */

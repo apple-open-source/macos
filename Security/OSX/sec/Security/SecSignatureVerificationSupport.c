@@ -19,6 +19,8 @@
 #include <corecrypto/ccn.h>
 #include <corecrypto/ccec.h>
 #include <corecrypto/ccder.h>
+#include <libDER/DER_Keys.h>
+#include <libDER/oids.h>
 
 static const uint8_t *sec_decode_forced_uint(cc_size n,
     cc_unit *r, const uint8_t *der, const uint8_t *der_end)
@@ -41,18 +43,14 @@ SecCreateSignatureVerificationError(OSStatus errorCode, CFStringRef descriptionS
         kCFErrorDomainOSStatus, errorCode, keys, values, 1);
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static void
-SecRecreateSignatureWithAlgId(SecKeyRef publicKey, const SecAsn1AlgId *publicKeyAlgId,
-    const uint8_t *oldSignature, size_t oldSignatureSize,
-    uint8_t **newSignature, size_t *newSignatureSize)
-#pragma clang diagnostic pop
+static CF_RETURNS_RETAINED CFDataRef
+SecRecreateSignatureWithDERAlgorithmId(SecKeyRef publicKey, const DERAlgorithmId *algId,
+    const uint8_t *oldSignature, size_t oldSignatureSize)
 {
-    if (!publicKey || !publicKeyAlgId ||
+    if (!publicKey || !algId ||
         kSecECDSAAlgorithmID != SecKeyGetAlgorithmId(publicKey)) {
         // ECDSA SHA-256 is the only type of signature currently supported by this function
-        return;
+        return NULL;
     }
 
     cc_size n = ccec_cp_n(ccec_cp_256());
@@ -65,61 +63,114 @@ SecRecreateSignatureWithAlgId(SecKeyRef publicKey, const SecAsn1AlgId *publicKey
     oldSignature = sec_decode_forced_uint(n, s, oldSignature, oldSignatureEnd);
     if (!oldSignature || !(oldSignatureEnd == oldSignature)) {
         // failed to decode the old signature successfully
-        *newSignature = NULL;
-        return;
+        return NULL;
     }
 
-    const uint8_t *outputPointer = *newSignature;
-    uint8_t *outputEndPointer = *newSignature + *newSignatureSize;
 
-    *newSignature = ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE,
+    size_t newSignatureSize = ccder_sizeof_integer(n, r) + ccder_sizeof_integer(n, s);
+    newSignatureSize = ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, newSignatureSize);
+    if (newSignatureSize < oldSignatureSize || newSignatureSize > oldSignatureSize + 5) {
+        // shortest case is no-change, worst-case is that both integers get zero-padded,
+        // plus size of each integer and sequence size increases by 1
+        return NULL;
+    }
+    CFMutableDataRef encodedSig = CFDataCreateMutable(NULL, (CFIndex)newSignatureSize);
+    CFDataSetLength(encodedSig, (CFIndex)newSignatureSize);
+    uint8_t *outputPointer = CFDataGetMutableBytePtr(encodedSig);
+    uint8_t *outputEndPointer = outputPointer + newSignatureSize;
+
+    outputPointer = ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE,
         outputEndPointer, outputPointer,
         ccder_encode_integer(n, r, outputPointer, ccder_encode_integer(n, s, outputPointer, outputEndPointer)));
-    long newSigSize = outputEndPointer - *newSignature;
-    *newSignatureSize = (newSigSize >= 0) ? (size_t)newSigSize : 0;
+    if (!outputPointer) {
+        CFReleaseNull(encodedSig);
+    }
+    return encodedSig;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const SecAsn1AlgId *publicKeyAlgId,
+static SecKeyAlgorithm SecKeyAlgorithmFromDERAlgorithmId(SecKeyRef publicKey, const DERAlgorithmId *sigAlgId) {
+    switch(SecKeyGetAlgorithmId(publicKey)) {
+        case kSecRSAAlgorithmID: {
+            if (DEROidCompare(&sigAlgId->oid, &oidMd5Rsa) ||
+                DEROidCompare(&sigAlgId->oid, &oidMd5)) {
+                return kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha1Rsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha1)) {
+                return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha224Rsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha224)) {
+                return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha256Rsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha256)) {
+                return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha384Rsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha384)) {
+                return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha512Rsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha512)) {
+                return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512;
+            }
+            return NULL;
+        }
+        case kSecECDSAAlgorithmID:
+            if (DEROidCompare(&sigAlgId->oid, &oidSha1Ecdsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha1)) {
+                return kSecKeyAlgorithmECDSASignatureMessageX962SHA1;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha224Ecdsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha224)) {
+                return kSecKeyAlgorithmECDSASignatureMessageX962SHA224;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha256Ecdsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha256)) {
+                return kSecKeyAlgorithmECDSASignatureMessageX962SHA256;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha384Ecdsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha384)) {
+                return kSecKeyAlgorithmECDSASignatureMessageX962SHA384;
+            } else if (DEROidCompare(&sigAlgId->oid, &oidSha512Ecdsa) ||
+                       DEROidCompare(&sigAlgId->oid, &oidSha512)) {
+                return kSecKeyAlgorithmECDSASignatureMessageX962SHA512;
+            }
+            return NULL;
+        case kSecEd25519AlgorithmID:
+            return kSecKeyAlgorithmEdDSASignatureMessageCurve25519SHA512;
+        case kSecEd448AlgorithmID:
+            return kSecKeyAlgorithmEdDSASignatureMessageCurve448SHAKE256;
+        default:
+            return NULL;
+    }
+}
+
+bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const DERAlgorithmId *sigAlgId,
                                      const uint8_t *dataToHash, size_t amountToHash,
                                      const uint8_t *signatureStart, size_t signatureSize,
                                      CFErrorRef *error)
-#pragma clang diagnostic pop
 {
+    bool result = false;
     OSStatus errorCode = errSecParam;
-    require(signatureSize > 0, fail);
+    CFDataRef data = NULL, signature = NULL;
+    require(amountToHash < LONG_MAX && signatureSize < LONG_MAX, fail);
 
-    errorCode = SecKeyDigestAndVerify(publicKey, publicKeyAlgId,
-                                      dataToHash, amountToHash,
-                                      (uint8_t*)signatureStart, signatureSize);
-    require_noerr_quiet(errorCode, fail);
-    return true;
+    SecKeyAlgorithm alg = SecKeyAlgorithmFromDERAlgorithmId(publicKey, sigAlgId);
+    data = CFDataCreate(NULL, dataToHash, (CFIndex)amountToHash);
+    signature = CFDataCreate(NULL, signatureStart, (CFIndex)signatureSize);
+    require_quiet(alg && data && signature, fail);
+
+    result = SecKeyVerifySignature(publicKey, alg, data, signature, error);
+
+    if (!result) {
+        // fallback to potentially fix signatures with missing zero-byte padding.
+        CFReleaseNull(signature);
+        signature = SecRecreateSignatureWithDERAlgorithmId(publicKey, sigAlgId, signatureStart, signatureSize);
+        require_quiet(signature, fail);
+
+        result = SecKeyVerifySignature(publicKey, alg, data, signature, error);
+    }
 
 fail:
-    ; // Semicolon works around compiler issue that won't recognize a declaration directly after a label
-
-    // fallback to potentially fix signatures with missing zero-byte padding.
-    // worst-case is that both integers get zero-padded, plus size of each integer and sequence size increases by 1
-    size_t replacementSignatureLen = signatureSize + 5;
-    uint8_t *replacementSignature = malloc(replacementSignatureLen);
-    require_quiet(replacementSignature, fail2);
-
-    uint8_t *replacementSignaturePtr = replacementSignature;
-    SecRecreateSignatureWithAlgId(publicKey, publicKeyAlgId, signatureStart, signatureSize, &replacementSignaturePtr, &replacementSignatureLen);
-    require_quiet(replacementSignaturePtr, fail2);
-
-    require_noerr_quiet(SecKeyDigestAndVerify(publicKey, publicKeyAlgId, dataToHash, amountToHash, replacementSignaturePtr, replacementSignatureLen), fail2);
-
-    free(replacementSignature);
-    return true;
-
-fail2:
-    if (replacementSignature) {
-        free(replacementSignature);
-    }
-    if (error) {
+    CFReleaseNull(data);
+    CFReleaseNull(signature);
+    if (!result && error && !*error) {
+        // Create a default error
         *error = SecCreateSignatureVerificationError(errorCode, CFSTR("Unable to verify signature"));
     }
-    return false;
+    return result;
 }

@@ -314,10 +314,12 @@ OSStatus CMSDecoderFinalizeMessage(
 				cmsDecoder->signedData =
                 (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci);
 				/* dig down one more layer for eContentType */
-				ci = SecCmsSignedDataGetContentInfo(cmsDecoder->signedData);
-				if (ci) {
-					cmsDecoder->eContentType = SecCmsContentInfoGetContentTypeOID(ci);
-				}
+                if (cmsDecoder->signedData != NULL) {
+                    ci = SecCmsSignedDataGetContentInfo(cmsDecoder->signedData);
+                    if (ci) {
+                        cmsDecoder->eContentType = SecCmsContentInfoGetContentTypeOID(ci);
+                    }
+                }
 				break;
 			default:
 				break;

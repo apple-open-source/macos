@@ -4,11 +4,6 @@
 en_IN{
     %%Parent{"en_001"}
     RBNFRules{
-        OrdinalRules{
-            "%digits-ordinal:",
-            "-x: \u2212>>;",
-            "0: =#,##0=$(ordinal,one{st}two{nd}few{rd}other{th})$;",
-        }
         SpelloutRules{
             "%%2d-year:",
             "0: hundred;",

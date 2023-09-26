@@ -1,3 +1,10 @@
+nesting:
+  type_level:
+    warning: 2
+    error: 4
+  function_level:
+    warning: 2
+    error: 4
 indentation: 4
 disabled_rules:
     - cyclomatic_complexity

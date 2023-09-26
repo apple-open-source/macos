@@ -58,7 +58,7 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errorClasses forSelector:@selector(fetchEscrowContents:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(createRecoveryKey:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(joinWithRecoveryKey:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(healthCheck:skipRateLimitingCheck:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(healthCheck:skipRateLimitingCheck:repair:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(waitForOctagonUpgrade:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(postCDPFollowupResult:success:type:error:reply:) argumentIndex:3 ofReply:NO];
         [interface setClasses:errorClasses forSelector:@selector(postCDPFollowupResult:success:type:error:reply:) argumentIndex:0 ofReply:YES];
@@ -94,6 +94,8 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errorClasses forSelector:@selector(recoverWithRecoveryKey:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(removeRecoveryKey:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(preflightRecoverOctagonUsingRecoveryKey:recoveryKey:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(resetAcountData:resetReason:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(totalTrustedPeers:reply:) argumentIndex:1 ofReply:YES];
     }
     @catch(NSException* e) {
         secerror("OTSetupControlProtocol failed, continuing, but you might crash later: %@", e);

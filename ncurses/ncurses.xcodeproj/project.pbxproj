@@ -104,6 +104,17 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A114C63295A2699005099EA /* obsolete.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C62295A2698005099EA /* obsolete.c */; };
+		2A114C66295A2A74005099EA /* tparm_type.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C65295A2A74005099EA /* tparm_type.c */; };
+		2A114C67295A2A74005099EA /* tparm_type.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C65295A2A74005099EA /* tparm_type.c */; };
+		2A114C68295A2BDD005099EA /* tparm_type.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C65295A2A74005099EA /* tparm_type.c */; };
+		2A114C69295A2BFB005099EA /* lib_ti.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089570FFC2BB200CE4372 /* lib_ti.c */; };
+		2A1512CB293874830051ED9C /* fty_generic.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512C82938743F0051ED9C /* fty_generic.c */; };
+		2A1512D6293876870051ED9C /* make_hash.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512D5293876870051ED9C /* make_hash.c */; };
+		2A1512D82939B9E90051ED9C /* transform.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512D72939B9E90051ED9C /* transform.c */; };
+		2A1512D92939B9E90051ED9C /* transform.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512D72939B9E90051ED9C /* transform.c */; };
+		2A1512DA2939B9E90051ED9C /* transform.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512D72939B9E90051ED9C /* transform.c */; };
+		2A1512DB293AB16C0051ED9C /* transform.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512D72939B9E90051ED9C /* transform.c */; };
 		3FB35B98206F82620097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
 		3FB35B9A206F82710097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
 		3FB35B9C206F82950097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
@@ -369,7 +380,6 @@
 		4CD0539B103F3E92001C87D5 /* m_item_use.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF088960FFC2BB100CE4372 /* m_item_use.c */; };
 		4CE9808B1034D62D00BA0D88 /* tic.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089BC0FFC2BB200CE4372 /* tic.c */; };
 		4CE9808C1034D62D00BA0D88 /* dump_entry.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089B50FFC2BB200CE4372 /* dump_entry.c */; };
-		D07E99372A0021BD00DCA7E6 /* lib_ti.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089570FFC2BB200CE4372 /* lib_ti.c */; };
 		FC00FC3C14E9E5E9000AD1B3 /* comp_error.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0893B0FFC2BB200CE4372 /* comp_error.c */; };
 		FC00FC3F14E9E6CF000AD1B3 /* comp_scan.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0893F0FFC2BB200CE4372 /* comp_scan.c */; };
 		FC00FC4014E9E6F8000AD1B3 /* name_match.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089620FFC2BB200CE4372 /* name_match.c */; };
@@ -600,6 +610,23 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2A114C62295A2698005099EA /* obsolete.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = obsolete.c; sourceTree = "<group>"; };
+		2A114C64295A2A3F005099EA /* tparm_type.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tparm_type.h; sourceTree = "<group>"; };
+		2A114C65295A2A74005099EA /* tparm_type.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tparm_type.c; sourceTree = "<group>"; };
+		2A1512C82938743F0051ED9C /* fty_generic.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fty_generic.c; sourceTree = "<group>"; };
+		2A1512C9293874620051ED9C /* llib-lformtw */ = {isa = PBXFileReference; lastKnownFileType = text; path = "llib-lformtw"; sourceTree = "<group>"; };
+		2A1512CA293874620051ED9C /* llib-lformt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "llib-lformt"; sourceTree = "<group>"; };
+		2A1512CC293874EA0051ED9C /* curs_sp_funcs.3x */ = {isa = PBXFileReference; lastKnownFileType = text; path = curs_sp_funcs.3x; sourceTree = "<group>"; };
+		2A1512CD293874FC0051ED9C /* curs_variables.3x */ = {isa = PBXFileReference; lastKnownFileType = text; path = curs_variables.3x; sourceTree = "<group>"; };
+		2A1512CE293875160051ED9C /* form_variables.3x */ = {isa = PBXFileReference; lastKnownFileType = text; path = form_variables.3x; sourceTree = "<group>"; };
+		2A1512CF2938753D0051ED9C /* tabs.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = tabs.1; sourceTree = "<group>"; };
+		2A1512D02938754D0051ED9C /* term_variables.3x */ = {isa = PBXFileReference; lastKnownFileType = text; path = term_variables.3x; sourceTree = "<group>"; };
+		2A1512D12938757F0051ED9C /* llib-lmenut */ = {isa = PBXFileReference; lastKnownFileType = text; path = "llib-lmenut"; sourceTree = "<group>"; };
+		2A1512D22938757F0051ED9C /* llib-lmenutw */ = {isa = PBXFileReference; lastKnownFileType = text; path = "llib-lmenutw"; sourceTree = "<group>"; };
+		2A1512D3293875960051ED9C /* gen-pkgconfig.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gen-pkgconfig.in"; sourceTree = "<group>"; };
+		2A1512D4293875F30051ED9C /* lib_driver.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lib_driver.c; sourceTree = "<group>"; };
+		2A1512D5293876870051ED9C /* make_hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = make_hash.c; sourceTree = "<group>"; };
+		2A1512D72939B9E90051ED9C /* transform.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = transform.c; sourceTree = "<group>"; };
 		4C29FA671020E62B001D8279 /* clear */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = clear; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C29FA791020E959001D8279 /* infocmp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = infocmp; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C29FA871020EB4A001D8279 /* tput */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tput; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1513,8 +1540,6 @@
 		4CF0897E0FFC2BB200CE4372 /* lib_twait.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_twait.c; sourceTree = "<group>"; };
 		4CF0897F0FFC2BB200CE4372 /* lib_vidattr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_vidattr.c; sourceTree = "<group>"; };
 		4CF089800FFC2BB200CE4372 /* MKexpanded.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = MKexpanded.sh; sourceTree = "<group>"; };
-		4CF089810FFC2BB200CE4372 /* tty_display.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tty_display.h; sourceTree = "<group>"; };
-		4CF089820FFC2BB200CE4372 /* tty_input.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tty_input.h; sourceTree = "<group>"; };
 		4CF089830FFC2BB200CE4372 /* tty_update.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tty_update.c; sourceTree = "<group>"; };
 		4CF089850FFC2BB200CE4372 /* charable.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = charable.c; sourceTree = "<group>"; };
 		4CF089860FFC2BB200CE4372 /* lib_add_wch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib_add_wch.c; sourceTree = "<group>"; };
@@ -1655,6 +1680,7 @@
 		81AAC2ED185E8B2400B94A94 /* libraries.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libraries.xcconfig; path = xcodeconfig/libraries.xcconfig; sourceTree = "<group>"; };
 		81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = executables.xcconfig; path = xcodeconfig/executables.xcconfig; sourceTree = "<group>"; };
 		81AAC2EF185E8D3F00B94A94 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcodeconfig/base.xcconfig; sourceTree = "<group>"; };
+		843E64C92851CC4600DB05F9 /* ncurses.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = ncurses.modulemap; sourceTree = "<group>"; };
 		FCD5D3E114E4A8F400752D20 /* init_keytry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = init_keytry.h; path = "../../../Library/Developer/Xcode/DerivedData/ncurses-bpduobhbsbacipgyzlrmhydlmust/Build/Products/Release/init_keytry.h"; sourceTree = "<group>"; };
 		FCD5D3E214E4A8F400752D20 /* parametrized.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parametrized.h; path = "../../../Library/Developer/Xcode/DerivedData/ncurses-bpduobhbsbacipgyzlrmhydlmust/Build/Products/Release/parametrized.h"; sourceTree = "<group>"; };
 		FCD5D40714E516EC00752D20 /* curses.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = curses.h; path = "../../../Library/Developer/Xcode/DerivedData/ncurses-bpduobhbsbacipgyzlrmhydlmust/Build/Products/Release/curses.h"; sourceTree = "<group>"; };
@@ -2392,12 +2418,15 @@
 				4CF087D10FFC2BAE00CE4372 /* fty_alnum.c */,
 				4CF087D20FFC2BAE00CE4372 /* fty_alpha.c */,
 				4CF087D30FFC2BAE00CE4372 /* fty_enum.c */,
+				2A1512C82938743F0051ED9C /* fty_generic.c */,
 				4CF087D40FFC2BAE00CE4372 /* fty_int.c */,
 				4CF087D50FFC2BAE00CE4372 /* fty_ipv4.c */,
 				4CF087D60FFC2BAE00CE4372 /* fty_num.c */,
 				4CF087D70FFC2BAE00CE4372 /* fty_regex.c */,
 				4CF087D80FFC2BAE00CE4372 /* headers */,
 				4CF087D90FFC2BAE00CE4372 /* llib-lform */,
+				2A1512CA293874620051ED9C /* llib-lformt */,
+				2A1512C9293874620051ED9C /* llib-lformtw */,
 				4CF087DA0FFC2BAE00CE4372 /* llib-lformw */,
 				4CF087DB0FFC2BAE00CE4372 /* Makefile.in */,
 				4CF087DC0FFC2BAE00CE4372 /* modules */,
@@ -2431,6 +2460,7 @@
 				4CF087F20FFC2BAE00CE4372 /* nc_alloc.h */,
 				4CF087F30FFC2BAE00CE4372 /* nc_panel.h */,
 				4CF087F40FFC2BAE00CE4372 /* nc_tparm.h */,
+				843E64C92851CC4600DB05F9 /* ncurses.modulemap */,
 				4CF087F50FFC2BAE00CE4372 /* ncurses_cfg.hin */,
 				4CF087F60FFC2BAE00CE4372 /* ncurses_defs */,
 				4CF087F70FFC2BAE00CE4372 /* ncurses_dll.h */,
@@ -2498,6 +2528,7 @@
 				4CF088330FFC2BAF00CE4372 /* curs_scr_dump.3x */,
 				4CF088340FFC2BAF00CE4372 /* curs_scroll.3x */,
 				4CF088350FFC2BAF00CE4372 /* curs_slk.3x */,
+				2A1512CC293874EA0051ED9C /* curs_sp_funcs.3x */,
 				4CF088360FFC2BAF00CE4372 /* curs_termattrs.3x */,
 				4CF088370FFC2BAF00CE4372 /* curs_termcap.3x */,
 				4CF088380FFC2BAF00CE4372 /* curs_terminfo.3x */,
@@ -2505,6 +2536,7 @@
 				4CF0883A0FFC2BAF00CE4372 /* curs_touch.3x */,
 				4CF0883B0FFC2BAF00CE4372 /* curs_trace.3x */,
 				4CF0883C0FFC2BAF00CE4372 /* curs_util.3x */,
+				2A1512CD293874FC0051ED9C /* curs_variables.3x */,
 				4CF0883D0FFC2BAF00CE4372 /* curs_window.3x */,
 				4CF0883E0FFC2BAF00CE4372 /* default_colors.3x */,
 				4CF0883F0FFC2BAF00CE4372 /* define_key.3x */,
@@ -2530,6 +2562,7 @@
 				4CF088530FFC2BAF00CE4372 /* form_post.3x */,
 				4CF088540FFC2BAF00CE4372 /* form_requestname.3x */,
 				4CF088550FFC2BAF00CE4372 /* form_userptr.3x */,
+				2A1512CE293875160051ED9C /* form_variables.3x */,
 				4CF088560FFC2BAF00CE4372 /* form_win.3x */,
 				4CF088570FFC2BAF00CE4372 /* infocmp.1m */,
 				4CF088580FFC2BAF00CE4372 /* infotocap.1m */,
@@ -2568,6 +2601,8 @@
 				4CF088790FFC2BB100CE4372 /* ncurses.3x */,
 				4CF0887A0FFC2BB100CE4372 /* panel.3x */,
 				4CF0887B0FFC2BB100CE4372 /* resizeterm.3x */,
+				2A1512CF2938753D0051ED9C /* tabs.1 */,
+				2A1512D02938754D0051ED9C /* term_variables.3x */,
 				4CF0887C0FFC2BB100CE4372 /* term.5 */,
 				4CF0887D0FFC2BB100CE4372 /* term.7 */,
 				4CF0887E0FFC2BB100CE4372 /* terminfo.head */,
@@ -2587,6 +2622,8 @@
 				4CF088870FFC2BB100CE4372 /* eti.h */,
 				4CF088880FFC2BB100CE4372 /* headers */,
 				4CF088890FFC2BB100CE4372 /* llib-lmenu */,
+				2A1512D12938757F0051ED9C /* llib-lmenut */,
+				2A1512D22938757F0051ED9C /* llib-lmenutw */,
 				4CF0888A0FFC2BB100CE4372 /* llib-lmenuw */,
 				4CF0888B0FFC2BB100CE4372 /* m_attribs.c */,
 				4CF0888C0FFC2BB100CE4372 /* m_cursor.c */,
@@ -2635,6 +2672,7 @@
 				4CF088B10FFC2BB100CE4372 /* emx.src */,
 				4CF088B20FFC2BB100CE4372 /* form.def */,
 				4CF088B30FFC2BB100CE4372 /* form.ref */,
+				2A1512D3293875960051ED9C /* gen-pkgconfig.in */,
 				4CF088B40FFC2BB100CE4372 /* gen_edit.sh */,
 				4CF088B50FFC2BB100CE4372 /* jpf-indent */,
 				4CF088B60FFC2BB100CE4372 /* makedef.cmd */,
@@ -2714,6 +2752,7 @@
 				4CF088E30FFC2BB100CE4372 /* lib_delch.c */,
 				4CF088E40FFC2BB100CE4372 /* lib_delwin.c */,
 				4CF088E50FFC2BB100CE4372 /* lib_dft_fgbg.c */,
+				2A1512D4293875F30051ED9C /* lib_driver.c */,
 				4CF088E60FFC2BB100CE4372 /* lib_echo.c */,
 				4CF088E70FFC2BB100CE4372 /* lib_endwin.c */,
 				4CF088E80FFC2BB100CE4372 /* lib_erase.c */,
@@ -2827,6 +2866,7 @@
 				4CF089580FFC2BB200CE4372 /* lib_tparm.c */,
 				4CF089590FFC2BB200CE4372 /* lib_tputs.c */,
 				4CF0895A0FFC2BB200CE4372 /* lib_ttyflags.c */,
+				2A1512D5293876870051ED9C /* make_hash.c */,
 				4CF0895B0FFC2BB200CE4372 /* make_keys.c */,
 				4CF0895C0FFC2BB200CE4372 /* MKcaptab.awk */,
 				4CF0895D0FFC2BB200CE4372 /* MKcaptab.sh */,
@@ -2835,6 +2875,7 @@
 				4CF089600FFC2BB200CE4372 /* MKkeys_list.sh */,
 				4CF089610FFC2BB200CE4372 /* MKnames.awk */,
 				4CF089620FFC2BB200CE4372 /* name_match.c */,
+				2A114C62295A2698005099EA /* obsolete.c */,
 				4CF089630FFC2BB200CE4372 /* parse_entry.c */,
 				4CF089640FFC2BB200CE4372 /* read_entry.c */,
 				4CF089650FFC2BB200CE4372 /* read_termcap.c */,
@@ -2877,8 +2918,6 @@
 				4CF0897E0FFC2BB200CE4372 /* lib_twait.c */,
 				4CF0897F0FFC2BB200CE4372 /* lib_vidattr.c */,
 				4CF089800FFC2BB200CE4372 /* MKexpanded.sh */,
-				4CF089810FFC2BB200CE4372 /* tty_display.h */,
-				4CF089820FFC2BB200CE4372 /* tty_input.h */,
 				4CF089830FFC2BB200CE4372 /* tty_update.c */,
 			);
 			path = tty;
@@ -2956,6 +2995,9 @@
 				4CF089BC0FFC2BB200CE4372 /* tic.c */,
 				4CF089BD0FFC2BB200CE4372 /* toe.c */,
 				4CF089BE0FFC2BB200CE4372 /* tput.c */,
+				2A114C65295A2A74005099EA /* tparm_type.c */,
+				2A114C64295A2A3F005099EA /* tparm_type.h */,
+				2A1512D72939B9E90051ED9C /* transform.c */,
 				4CF089BF0FFC2BB200CE4372 /* tset.c */,
 			);
 			path = progs;
@@ -3379,7 +3421,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/native_execs.sh -target make_keys";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/native_execs.sh -target make_keys\n";
 			showEnvVarsInLog = 0;
 		};
 		4CC76F2E102762BC00C87ED0 /* install_man_misc.sh */ = {
@@ -3394,7 +3436,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install_man_misc.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install_man_misc.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		4CC76FBF1027A79600C87ED0 /* run_tic.sh */ = {
@@ -3409,7 +3451,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/run_tic.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/run_tic.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		4CC76FD11027B24900C87ED0 /* install_headers.sh */ = {
@@ -3424,7 +3466,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install_headers.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install_headers.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		4CC76FDD1027BDCB00C87ED0 /* link_libs.sh */ = {
@@ -3439,7 +3481,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/link_libs.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/link_libs.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FC00FC8914E9FB80000AD1B3 /* fix_bin.sh */ = {
@@ -3454,7 +3496,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/fix_bin.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/fix_bin.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FCD5D43714E5CA1F00752D20 /* Run Script */ = {
@@ -3492,7 +3534,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/native_execs.sh -target make_hash";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/native_execs.sh -target make_hash\n";
 			showEnvVarsInLog = 0;
 		};
 		FCD5D44B14E5DB3E00752D20 /* ShellScript */ = {
@@ -3506,7 +3548,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/bootstrap_headers.sh\n. \"$PROJECT_DIR\"/xcodescripts/bootstrap_sources.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/bootstrap_headers.sh\n. \"$PROJECT_DIR\"/xcodescripts/bootstrap_sources.sh\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -3533,7 +3575,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2A1512D92939B9E90051ED9C /* transform.c in Sources */,
 				4C29FABE1020EC98001D8279 /* tput.c in Sources */,
+				2A114C67295A2A74005099EA /* tparm_type.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3541,6 +3585,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2A1512DA2939B9E90051ED9C /* transform.c in Sources */,
 				4C29FAC31020ECAB001D8279 /* tset.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3558,6 +3603,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				4C29FABA1020EC80001D8279 /* tic.c in Sources */,
+				2A1512D82939B9E90051ED9C /* transform.c in Sources */,
+				2A114C66295A2A74005099EA /* tparm_type.c in Sources */,
 				4C29FACD1020ECE8001D8279 /* dump_entry.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3567,6 +3614,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4C29FBD7102236CB001D8279 /* comp_hash.c in Sources */,
+				2A1512D6293876870051ED9C /* make_hash.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3717,6 +3765,7 @@
 				4C29FD05102257C7001D8279 /* name_match.c in Sources */,
 				4C29FD06102257C7001D8279 /* names.c in Sources */,
 				4C29FD07102257C7001D8279 /* nc_panel.c in Sources */,
+				2A114C63295A2699005099EA /* obsolete.c in Sources */,
 				4C29FD17102257C7001D8279 /* parse_entry.c in Sources */,
 				4C29FD18102257C7001D8279 /* read_entry.c in Sources */,
 				4C29FD19102257C7001D8279 /* read_termcap.c in Sources */,
@@ -3788,6 +3837,7 @@
 				4CD04F38103F1BEB001C87D5 /* fty_alnum.c in Sources */,
 				4CD04F39103F1BEB001C87D5 /* fty_alpha.c in Sources */,
 				4CD04F3A103F1BEB001C87D5 /* fty_enum.c in Sources */,
+				2A1512CB293874830051ED9C /* fty_generic.c in Sources */,
 				4CD04F3B103F1BEB001C87D5 /* fty_int.c in Sources */,
 				4CD04F3C103F1BEB001C87D5 /* fty_ipv4.c in Sources */,
 				4CD04F3D103F1BEB001C87D5 /* fty_num.c in Sources */,
@@ -3882,13 +3932,13 @@
 				FC00FC5114E9EA0F000AD1B3 /* lib_cur_term.c in Sources */,
 				FC00FC5214E9EA2C000AD1B3 /* lib_data.c in Sources */,
 				FC00FC6914E9ECAB000AD1B3 /* lib_has_cap.c in Sources */,
-				D07E99372A0021BD00DCA7E6 /* lib_ti.c in Sources */,
 				FC00FC6A14E9ECD3000AD1B3 /* lib_keyname.c in Sources */,
 				FC00FC6014E9EB8A000AD1B3 /* lib_napms.c in Sources */,
 				FC00FC6714E9EC71000AD1B3 /* lib_options.c in Sources */,
 				FC00FC6814E9EC94000AD1B3 /* lib_raw.c in Sources */,
 				FC00FC6214E9EBF1000AD1B3 /* lib_setup.c in Sources */,
 				FC00FC4B14E9E8C4000AD1B3 /* lib_termcap.c in Sources */,
+				2A114C69295A2BFB005099EA /* lib_ti.c in Sources */,
 				FC00FC4E14E9E933000AD1B3 /* lib_tparm.c in Sources */,
 				FC00FC5E14E9EB4D000AD1B3 /* lib_tputs.c in Sources */,
 				FC00FC4814E9E865000AD1B3 /* lib_trace.c in Sources */,
@@ -3899,6 +3949,8 @@
 				FC00FC5914E9EAC5000AD1B3 /* read_termcap.c in Sources */,
 				FC00FC6614E9EC59000AD1B3 /* setbuf.c in Sources */,
 				FC00FC5F14E9EB6B000AD1B3 /* strings.c in Sources */,
+				2A114C68295A2BDD005099EA /* tparm_type.c in Sources */,
+				2A1512DB293AB16C0051ED9C /* transform.c in Sources */,
 				FC00FC6E14E9ED31000AD1B3 /* tries.c in Sources */,
 				FC00FC5C14E9EB01000AD1B3 /* trim_sgr0.c in Sources */,
 				FC00FC6114E9EBC2000AD1B3 /* unctrl.c in Sources */,
@@ -4142,7 +4194,8 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				OTHER_TAPI_FLAGS = "-Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -extra-public-header $(BUILT_PRODUCTS_DIR)/curses.h -extra-public-header $(BUILT_PRODUCTS_DIR)/term.h -extra-public-header $(SRCROOT)/ncurses/include/nc_alloc.h -extra-public-header $(SRCROOT)/ncurses/include/termcap.h -extra-public-header $(SRCROOT)/ncurses/include/term_entry.h -extra-public-header $(SRCROOT)/ncurses/include/nc_panel.h -extra-public-header $(SRCROOT)/ncurses/include/tic.h -extra-public-header $(SRCROOT)/ncurses/include/unctrl.h -extra-private-header $(SRCROOT)/ncurses/ncurses/curses.priv.h";
+				OTHER_TAPI_FLAGS = "-Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -extra-private-header $(BUILT_PRODUCTS_DIR)/curses.h -extra-private-header $(BUILT_PRODUCTS_DIR)/term.h -extra-project-header $(SRCROOT)/ncurses/include/nc_alloc.h -extra-private-header $(SRCROOT)/ncurses/include/termcap.h -extra-private-header $(SRCROOT)/ncurses/include/term_entry.h -extra-project-header $(SRCROOT)/ncurses/include/nc_panel.h -extra-private-header $(SRCROOT)/ncurses/include/tic.h -extra-private-header $(SRCROOT)/ncurses/include/unctrl.h -extra-project-header $(SRCROOT)/ncurses/ncurses/curses.priv.h";
+				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "-Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -extra-public-header $(BUILT_PRODUCTS_DIR)/curses.h -extra-public-header $(BUILT_PRODUCTS_DIR)/term.h -extra-project-header $(SRCROOT)/ncurses/include/nc_alloc.h -extra-public-header $(SRCROOT)/ncurses/include/termcap.h -extra-public-header $(SRCROOT)/ncurses/include/term_entry.h -extra-project-header $(SRCROOT)/ncurses/include/nc_panel.h -extra-public-header $(SRCROOT)/ncurses/include/tic.h -extra-public-header $(SRCROOT)/ncurses/include/unctrl.h -extra-project-header $(SRCROOT)/ncurses/ncurses/curses.priv.h";
 				PRODUCT_NAME = ncurses.5.4;
 			};
 			name = Release;
@@ -4178,7 +4231,8 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				OTHER_TAPI_FLAGS = "-I$(SRCROOT)/ncurses/menu -extra-public-header $(SRCROOT)/ncurses/form/form.h -extra-private-header $(SRCROOT)/ncurses/form/form.priv.h";
+				OTHER_TAPI_FLAGS = "-I$(SRCROOT)/ncurses/menu -extra-private-header $(SRCROOT)/ncurses/form/form.h -extra-project-header $(SRCROOT)/ncurses/form/form.priv.h";
+				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "-I$(SRCROOT)/ncurses/menu -extra-public-header $(SRCROOT)/ncurses/form/form.h -extra-project-header $(SRCROOT)/ncurses/form/form.priv.h";
 				PRODUCT_NAME = form.5.4;
 			};
 			name = Release;
@@ -4189,6 +4243,8 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
+				OTHER_TAPI_FLAGS = "-extra-private-header $(SRCROOT)/ncurses/menu/menu.h -extra-project-header $(SRCROOT)/ncurses/menu/menu.priv.h";
+				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "-extra-public-header $(SRCROOT)/ncurses/menu/menu.h -extra-project-header $(SRCROOT)/ncurses/menu/menu.priv.h";
 				PRODUCT_NAME = menu.5.4;
 			};
 			name = Release;
@@ -4199,7 +4255,8 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				OTHER_TAPI_FLAGS = "-extra-public-header $(SRCROOT)/ncurses/panel/panel.h";
+				OTHER_TAPI_FLAGS = "-extra-private-header $(SRCROOT)/ncurses/panel/panel.h";
+				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "-extra-public-header $(SRCROOT)/ncurses/panel/panel.h";
 				PRODUCT_NAME = panel.5.4;
 			};
 			name = Release;

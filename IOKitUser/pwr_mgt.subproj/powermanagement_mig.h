@@ -114,5 +114,4 @@ enum {
 #define kInactivityWindowDuration   "inactivityWindowDuration"
 #define kStandbyAccelerationDelay   "standbyAccelerationDelay"
 
-
-#endif
+#endif // _powermanagement_mig_h_

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>EnableTransactions</key>
+	<true/>
 	<key>ProcessType</key>
 	<string>Adaptive</string>
 	<key>EnablePressuredExit</key>
@@ -58,6 +60,13 @@
 				<string>com.apple.security.cloudkeychain.forceupdate</string>
 			</dict>
 		</dict>
+	</dict>
+	<key>Disabled</key>
+	<dict>
+		<key>#IfFeatureFlagDisabled</key>
+		<string>Security/EnableSecureObjectSync</string>
+		<key>#Then</key>
+		<true/>
 	</dict>
 </dict>
 </plist>

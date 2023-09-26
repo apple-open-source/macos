@@ -115,7 +115,8 @@ static const uint8_t gcmIV[kIVSizeAESGCM] = {
  AES(BULK_KEY, NULL_IV, plainText || padding)
  */
 bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
-                            CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error) {
+                            CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV,
+                            bool useNewBackupBehavior, CFErrorRef *error) {
     CFMutableDataRef blob = NULL;
     CFDataRef ac_data = NULL;
     bool ok = true;
@@ -206,10 +207,10 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
 #endif
     {
         /* Encrypt bulkKey. */
-        require_quiet(ok = ks_crypt(kAKSKeyOpEncrypt, keybag,
+        require_quiet(ok = ks_crypt(kAKSKeyOpEncrypt, keybag, NULL,
                                     keyclass, bulkKeySize, bulkKey,
                                     &actual_class, bulkKeyWrapped,
-                                    error), out);
+                                    useNewBackupBehavior, error), out);
     }
 
     key_wrapped_size = (uint32_t)CFDataGetLength(bulkKeyWrapped);
@@ -309,21 +310,24 @@ ks_warn_non_device_keybag(void)
 }
 
 bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
-                     CFDictionaryRef _Nonnull secretData, CFDictionaryRef _Nonnull attributes, CFDictionaryRef _Nonnull authenticated_attributes, CFDataRef _Nonnull *pBlob, bool useDefaultIV, CFErrorRef *error) {
+                     CFDictionaryRef _Nonnull secretData, CFDictionaryRef _Nonnull attributes, CFDictionaryRef _Nonnull authenticated_attributes, CFDataRef _Nonnull *pBlob, bool useDefaultIV,
+                     bool useNewBackupBehavior, CFErrorRef *error) {
     uint32_t encryption_version;
     if (ks_is_key_diversification_enabled()) {
         encryption_version = 8;
     } else {
         encryption_version = 7;
     }
-    if (keybag != KEYBAG_DEVICE) {
-        ks_warn_non_device_keybag();
+    if (keybag != KEYBAG_DEVICE || useNewBackupBehavior) {
+        if (!useNewBackupBehavior) {
+            ks_warn_non_device_keybag();
+        }
 
         CFMutableDictionaryRef allAttributes = CFDictionaryCreateMutableCopy(NULL, CFDictionaryGetCount(secretData) + CFDictionaryGetCount(attributes), attributes);
         CFDictionaryForEach(secretData, ^(const void *key, const void *value) {
             CFDictionaryAddValue(allAttributes, key, value);
         });
-        bool result = ks_encrypt_data_legacy(keybag, access_control, acm_context, allAttributes, authenticated_attributes, pBlob, useDefaultIV, error);
+        bool result = ks_encrypt_data_legacy(keybag, access_control, acm_context, allAttributes, authenticated_attributes, pBlob, useDefaultIV, useNewBackupBehavior, error);
         CFReleaseNull(allAttributes);
         return result;
     }
@@ -365,7 +369,7 @@ bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable acces
  version || keyclass || KeyStore_WRAP(keyclass, BULK_KEY) ||
  AES(BULK_KEY, NULL_IV, plainText || padding)
  return the plainText. */
-bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessControlRef *paccess_control, CFDataRef acm_context,
+bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeRef cryptoOp, SecAccessControlRef *paccess_control, CFDataRef acm_context,
                      CFDataRef blob, const SecDbClass *db_class, CFArrayRef caller_access_groups,
                      CFMutableDictionaryRef *attributes_p, uint32_t *version_p, bool decryptSecretData, keyclass_t* outKeyclass, CFErrorRef *error) {
     const uint32_t v0KeyWrapOverHead = 8;
@@ -393,7 +397,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
     CFDataRef ed_data = NULL;
     aks_ref_key_t ref_key = NULL;
 #if TARGET_OS_IPHONE
-    check(keybag >= 0);
+    check(keybag >= 0 || bkp != NULL);
 #else
     check((keybag >= 0) || (keybag == session_keybag_handle));
 #endif
@@ -433,6 +437,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
             if (version >= 8) {
                 keyDiversify = true;
             }
+            check(keybag >= 0 && bkp == NULL); // we shouldn't be in this code path in the restore case
             SecDbKeychainItemV7* item = [[SecDbKeychainItemV7 alloc] initWithData:encryptedBlob decryptionKeybag:keybag error:&localError];
             if (outKeyclass) {
                 *outKeyclass = item.keyclass;
@@ -561,14 +566,13 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
             break;
         case 2:
         case 3:
-            /* DROPTHROUGH */
             /* v2 and v3 have the same crypto, just different dictionary encodings. */
             /* Difference between v3 and v6 is already handled above, so treat v3 as v6. */
         case 4:
         case 5:
         case 6:
             tagLen = 16;
-            /* DROPTHROUGH */
+            [[fallthrough]];
         case 1:
             if (blobLen < sizeof(wrapped_key_size)) {
                 ok = SecError(errSecDecode, error, CFSTR("ks_decrypt_data: Check for underflow (wrapped_key_size)"));
@@ -613,6 +617,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
             require_quiet(ok = (caller_access_groups_data != NULL), out);
         }
 
+        check(keybag >= 0 && bkp == NULL); // we shouldn't be in this code path in the restore case
         require_quiet(ok = kc_attribs_key_encrypted_data_from_blob(keybag, db_class, cursor, wrapped_key_size, access_control, version,
                                                                    &authenticated_attributes, &ref_key, &ed_data, error), out);
         if (CFEqual(cryptoOp, kAKSKeyOpDecrypt)) {
@@ -629,8 +634,8 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
 #endif
     {
         /* Now unwrap the bulk key using a key in the keybag. */
-        require_quiet(ok = ks_crypt(cryptoOp, keybag,
-            keyclass, wrapped_key_size, cursor, NULL, bulkKey, error), out);
+        require_quiet(ok = ks_crypt(cryptoOp, keybag, bkp,
+            keyclass, wrapped_key_size, cursor, NULL, bulkKey, false, error), out);
     }
 
     if (iv) {
@@ -982,7 +987,7 @@ bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
         decryptSecretData = true;
     }
 
-    require_quiet((ok = ks_decrypt_data(q->q_keybag, kAKSKeyOpDecrypt, &ac, q->q_use_cred_handle, edata, q->q_class,
+    require_quiet((ok = ks_decrypt_data(q->q_keybag, NULL, kAKSKeyOpDecrypt, &ac, q->q_use_cred_handle, edata, q->q_class,
                                         q->q_caller_access_groups, item, &version, decryptSecretData, keyclass, error)), out);
     if (version < 2) {
         SecError(errSecDecode, error, CFSTR("version is unexpected: %d"), (int)version);
@@ -1081,7 +1086,7 @@ bool SecDbItemDecrypt(SecDbItemRef item, bool decryptSecretData, CFDataRef edata
     SecAccessControlRef access_control = NULL;
     uint32_t version = 0;
 
-    require_quiet(ok = ks_decrypt_data(SecDbItemGetKeybag(item), item->cryptoOp, &access_control, item->credHandle, edata,
+    require_quiet(ok = ks_decrypt_data(SecDbItemGetKeybag(item), SecDbItemGetBackupKeypair(item), item->cryptoOp, &access_control, item->credHandle, edata,
                                        item->class, item->callerAccessGroups, &dict, &version, decryptSecretData, NULL, error), out);
 
     if (version < 2) {
@@ -1148,13 +1153,13 @@ bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef *error)
  src_keybag is normally the backup keybag.
  dst_keybag is normally the device keybag.
  */
-SecDbItemRef SecDbItemCreateWithBackupDictionary(const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, keybag_handle_t dst_keybag, CFErrorRef *error)
+SecDbItemRef SecDbItemCreateWithBackupDictionary(const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, struct backup_keypair* src_bkp, keybag_handle_t dst_keybag, CFErrorRef *error)
 {
     CFDataRef edata = CFDictionaryGetValue(dict, CFSTR("v_Data"));
     SecDbItemRef item = NULL;
 
     if (edata) {
-        item = SecDbItemCreateWithEncryptedData(kCFAllocatorDefault, dbclass, edata, src_keybag, error);
+        item = SecDbItemCreateWithEncryptedData(kCFAllocatorDefault, dbclass, edata, src_keybag, src_bkp, error);
         if (item)
             if (!SecDbItemSetKeybag(item, dst_keybag, error))
                 CFReleaseNull(item);
@@ -1271,7 +1276,7 @@ CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr 
                 CFDictionaryRemoveValue(auth_attributes, key);
             });
 
-            if (ks_encrypt_data(item->keybag, access_control, item->credHandle, secretStuff, attributes, auth_attributes, &edata, true, error)) {
+            if (ks_encrypt_data(item->keybag, access_control, item->credHandle, secretStuff, attributes, auth_attributes, &edata, true, false, error)) {
                 item->_edataState = kSecDbItemEncrypting;
             } else if (!error || !*error || CFErrorGetCode(*error) != errSecAuthNeeded || !CFEqualSafe(CFErrorGetDomain(*error), kSecErrorDomain) ) {
                 seccritical("ks_encrypt_data (db): failed: %@", error ? *error : (CFErrorRef)CFSTR(""));

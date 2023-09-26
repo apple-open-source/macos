@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>last</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-03-08</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/last?id=8da27052535b816096dd28debe5bbbad3dcf4ea4</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-11-22</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>last.1: Exclude missing cross reference</string>
+			<string>last.c: Use utxent_wtmp instead of utmpx</string>
+			<string>last.c: Spell 'boot time' as 'reboot time'</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

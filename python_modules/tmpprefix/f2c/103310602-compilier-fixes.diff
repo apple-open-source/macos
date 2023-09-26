@@ -1,0 +1,13 @@
+diff --git a/src/sysdep.c b/src/sysdep.c
+index ab5b04e..95b10d9 100644
+--- a/src/sysdep.c
++++ b/src/sysdep.c
+@@ -23,6 +23,8 @@ use or performance of this software.
+ #include "defs.h"
+ #include "usignal.h"
+ 
++#include <unistd.h>
++
+ char binread[] = "rb", textread[] = "r";
+ char binwrite[] = "wb", textwrite[] = "w";
+ char *c_functions	= "c_functions";

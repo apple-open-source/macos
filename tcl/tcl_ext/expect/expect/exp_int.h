@@ -19,6 +19,7 @@ would appreciate credit if this program or parts of it are used.
 #define memcpy(x,y,len) bcopy(y,x,len)
 #endif
 
+#include <tcl.h>
 #include <errno.h>
 
 void	exp_console_set     _ANSI_ARGS_((void));

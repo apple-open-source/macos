@@ -316,6 +316,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     }
 
     func testEstablishWithoutUserSyncableViewsOnWatch() throws {
+#if SEC_XR
+        TPSetBecomeiPadOverride(false)
+#endif
         let description = tmpStoreDescription(name: "container.db")
 
         // Watches will listen to the input here. If we set FOLLOWING, it should remain FOLLOWING (as some watches don't have UI to change this value)
@@ -334,6 +337,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNotNil(policy, "Should have a syncing policy")
 
         XCTAssertEqual(policy?.syncUserControllableViews, .FOLLOWING, "Peer should desire to sync user controllable views (ignoring the request)")
+#if SEC_XR
+        TPClearBecomeiPadOverride()
+#endif
     }
 
     func testEstablishNotOnAllowListErrors() throws {
@@ -2368,7 +2374,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
-        let (repairAccount, repairEscrow, resetOctagon, leaveTrust, healthError) = c.requestHealthCheckSync(requiresEscrowCheck: true, test: self)
+        let (repairAccount, repairEscrow, resetOctagon, leaveTrust, healthError) = c.requestHealthCheckSync(requiresEscrowCheck: true, repair: false, test: self)
         XCTAssertFalse(repairAccount, "")
         XCTAssertFalse(repairEscrow, "")
         XCTAssertFalse(resetOctagon, "")

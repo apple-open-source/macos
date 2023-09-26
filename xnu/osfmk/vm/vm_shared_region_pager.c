@@ -1261,7 +1261,7 @@ shared_region_pager_match(
 
 	lck_mtx_lock(&shared_region_pager_lock);
 	queue_iterate(&shared_region_pager_queue, pager, shared_region_pager_t, srp_queue) {
-		if (pager->srp_backing_object != backing_object->copy) {
+		if (pager->srp_backing_object != backing_object->vo_copy) {
 			continue;
 		}
 		if (pager->srp_backing_offset != backing_offset) {
@@ -1308,7 +1308,7 @@ shared_region_pager_match(
 	 * waste a little memory.
 	 */
 	lck_mtx_unlock(&shared_region_pager_lock);
-	return shared_region_pager_setup(backing_object->copy, backing_offset, slide_info, jop_key);
+	return shared_region_pager_setup(backing_object->vo_copy, backing_offset, slide_info, jop_key);
 }
 
 void

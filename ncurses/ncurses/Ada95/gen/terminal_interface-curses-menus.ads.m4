@@ -10,7 +10,7 @@ include(M4MACRO)dnl
 --                                 S P E C                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998,2006 Free Software Foundation, Inc.                   --
+-- Copyright (c) 1998-2009,2014 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -38,18 +38,17 @@ include(M4MACRO)dnl
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.27 $
---  $Date: 2007/05/05 20:20:52 $
+--  $Revision: 1.31 $
+--  $Date: 2014/05/24 21:31:57 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
-include(`Menu_Base_Defs')
 with System;
 with Ada.Characters.Latin_1;
 
 package Terminal_Interface.Curses.Menus is
    pragma Preelaborate (Terminal_Interface.Curses.Menus);
-include(`Menu_Linker_Options')dnl
-include(`Linker_Options')
+   pragma Linker_Options ("-lmenu" & Curses_Constants.DFT_ARG_SUFFIX);
+
    Space : Character renames Ada.Characters.Latin_1.Space;
 
    type Item is private;
@@ -102,7 +101,7 @@ include(`Linker_Options')
    REQ_NEXT_MATCH    : Menu_Request_Code renames M_Next_Match;
    REQ_PREV_MATCH    : Menu_Request_Code renames M_Previous_Match;
 
-   procedure Request_Name (Key  : in Menu_Request_Code;
+   procedure Request_Name (Key  : Menu_Request_Code;
                            Name : out String);
 
    function  Request_Name (Key : Menu_Request_Code) return String;
@@ -116,9 +115,34 @@ include(`Linker_Options')
    --
    --  Menu options
    --
-   pragma Warnings (Off);
-include(`Menu_Opt_Rep')dnl
+   type Menu_Option_Set is
+      record
+         One_Valued        : Boolean;
+         Show_Descriptions : Boolean;
+         Row_Major_Order   : Boolean;
+         Ignore_Case       : Boolean;
+         Show_Matches      : Boolean;
+         Non_Cyclic        : Boolean;
+      end record;
+   pragma Convention (C_Pass_By_Copy, Menu_Option_Set);
 
+   for Menu_Option_Set use
+      record
+         One_Valued        at 0 range Curses_Constants.O_ONEVALUE_First
+           .. Curses_Constants.O_ONEVALUE_Last;
+         Show_Descriptions at 0 range Curses_Constants.O_SHOWDESC_First
+           .. Curses_Constants.O_SHOWDESC_Last;
+         Row_Major_Order   at 0 range Curses_Constants.O_ROWMAJOR_First
+           .. Curses_Constants.O_ROWMAJOR_Last;
+         Ignore_Case       at 0 range Curses_Constants.O_IGNORECASE_First
+           .. Curses_Constants.O_IGNORECASE_Last;
+         Show_Matches      at 0 range Curses_Constants.O_SHOWMATCH_First
+           .. Curses_Constants.O_SHOWMATCH_Last;
+         Non_Cyclic        at 0 range Curses_Constants.O_NONCYCLIC_First
+           .. Curses_Constants.O_NONCYCLIC_Last;
+      end record;
+   pragma Warnings (Off);
+   for Menu_Option_Set'Size use Curses_Constants.Menu_Options_Size;
    pragma Warnings (On);
 
    function Default_Menu_Options return Menu_Option_Set;
@@ -127,9 +151,19 @@ include(`Menu_Opt_Rep')dnl
    --
    --  Item options
    --
-   pragma Warnings (Off);
-include(`Item_Rep')dnl
+   type Item_Option_Set is
+      record
+         Selectable : Boolean;
+      end record;
+   pragma Convention (C_Pass_By_Copy, Item_Option_Set);
 
+   for Item_Option_Set use
+      record
+         Selectable at 0 range Curses_Constants.O_SELECTABLE_First
+           ..  Curses_Constants.O_SELECTABLE_Last;
+      end record;
+   pragma Warnings (Off);
+   for Item_Option_Set'Size use Curses_Constants.Item_Options_Size;
    pragma Warnings (On);
 
    function Default_Item_Options return Item_Option_Set;
@@ -172,8 +206,8 @@ include(`Item_Rep')dnl
    --  MANPAGE(`mitem_value.3x')
 
    --  ANCHOR(`set_item_value()',`Set_Value')
-   procedure Set_Value (Itm   : in Item;
-                        Value : in Boolean := True);
+   procedure Set_Value (Itm   : Item;
+                        Value : Boolean := True);
    --  AKA
    pragma Inline (Set_Value);
 
@@ -192,14 +226,14 @@ include(`Item_Rep')dnl
    --  MANPAGE(`mitem_opts.3x')
 
    --  ANCHOR(`set_item_opts()',`Set_Options')
-   procedure Set_Options (Itm     : in Item;
-                          Options : in Item_Option_Set);
+   procedure Set_Options (Itm     : Item;
+                          Options : Item_Option_Set);
    --  AKA
    --  An overloaded Set_Options is defined later. Pragma Inline appears there
 
    --  ANCHOR(`item_opts_on()',`Switch_Options')
-   procedure Switch_Options (Itm     : in Item;
-                             Options : in Item_Option_Set;
+   procedure Switch_Options (Itm     : Item;
+                             Options : Item_Option_Set;
                              On      : Boolean := True);
    --  AKA
    --  ALIAS(`item_opts_off()')
@@ -207,7 +241,7 @@ include(`Item_Rep')dnl
    --  Pragma Inline appears there
 
    --  ANCHOR(`item_opts()',`Get_Options')
-   procedure Get_Options (Itm     : in  Item;
+   procedure Get_Options (Itm     : Item;
                           Options : out Item_Option_Set);
    --  AKA
 
@@ -219,7 +253,7 @@ include(`Item_Rep')dnl
    --  MANPAGE(`mitem_name.3x')
 
    --  ANCHOR(`item_name()',`Name')
-   procedure Name (Itm  : in Item;
+   procedure Name (Itm  : Item;
                    Name : out String);
    --  AKA
    function  Name (Itm : Item) return String;
@@ -228,7 +262,7 @@ include(`Item_Rep')dnl
    pragma Inline (Name);
 
    --  ANCHOR(`item_description();',`Description')
-   procedure Description (Itm         : in Item;
+   procedure Description (Itm         : Item;
                           Description : out String);
    --  AKA
 
@@ -240,8 +274,8 @@ include(`Item_Rep')dnl
    --  MANPAGE(`mitem_current.3x')
 
    --  ANCHOR(`set_current_item()',`Set_Current')
-   procedure Set_Current (Men : in Menu;
-                          Itm : in Item);
+   procedure Set_Current (Men : Menu;
+                          Itm : Item);
    --  AKA
    pragma Inline (Set_Current);
 
@@ -251,8 +285,8 @@ include(`Item_Rep')dnl
    pragma Inline (Current);
 
    --  ANCHOR(`set_top_row()',`Set_Top_Row')
-   procedure Set_Top_Row (Men  : in Menu;
-                          Line : in Line_Position);
+   procedure Set_Top_Row (Men  : Menu;
+                          Line : Line_Position);
    --  AKA
    pragma Inline (Set_Top_Row);
 
@@ -272,8 +306,8 @@ include(`Item_Rep')dnl
    --  MANPAGE(`menu_post.3x')
 
    --  ANCHOR(`post_menu()',`Post')
-   procedure Post (Men  : in Menu;
-                   Post : in Boolean := True);
+   procedure Post (Men  : Menu;
+                   Post : Boolean := True);
    --  AKA
    --  ALIAS(`unpost_menu()')
    pragma Inline (Post);
@@ -281,21 +315,21 @@ include(`Item_Rep')dnl
    --  MANPAGE(`menu_opts.3x')
 
    --  ANCHOR(`set_menu_opts()',`Set_Options')
-   procedure Set_Options (Men     : in Menu;
-                          Options : in Menu_Option_Set);
+   procedure Set_Options (Men     : Menu;
+                          Options : Menu_Option_Set);
    --  AKA
    pragma Inline (Set_Options);
 
    --  ANCHOR(`menu_opts_on()',`Switch_Options')
-   procedure Switch_Options (Men     : in Menu;
-                             Options : in Menu_Option_Set;
+   procedure Switch_Options (Men     : Menu;
+                             Options : Menu_Option_Set;
                              On      : Boolean := True);
    --  AKA
    --  ALIAS(`menu_opts_off()')
    pragma Inline (Switch_Options);
 
    --  ANCHOR(`menu_opts()',`Get_Options')
-   procedure Get_Options (Men     : in  Menu;
+   procedure Get_Options (Men     : Menu;
                           Options : out Menu_Option_Set);
    --  AKA
 
@@ -307,8 +341,8 @@ include(`Item_Rep')dnl
    --  MANPAGE(`menu_win.3x')
 
    --  ANCHOR(`set_menu_win()',`Set_Window')
-   procedure Set_Window (Men : in Menu;
-                         Win : in Window);
+   procedure Set_Window (Men : Menu;
+                         Win : Window);
    --  AKA
    pragma Inline (Set_Window);
 
@@ -318,8 +352,8 @@ include(`Item_Rep')dnl
    pragma Inline (Get_Window);
 
    --  ANCHOR(`set_menu_sub()',`Set_Sub_Window')
-   procedure Set_Sub_Window (Men : in Menu;
-                             Win : in Window);
+   procedure Set_Sub_Window (Men : Menu;
+                             Win : Window);
    --  AKA
    pragma Inline (Set_Sub_Window);
 
@@ -329,7 +363,7 @@ include(`Item_Rep')dnl
    pragma Inline (Get_Sub_Window);
 
    --  ANCHOR(`scale_menu()',`Scale')
-   procedure Scale (Men     : in Menu;
+   procedure Scale (Men     : Menu;
                     Lines   : out Line_Count;
                     Columns : out Column_Count);
    --  AKA
@@ -345,13 +379,13 @@ include(`Item_Rep')dnl
    --  MANPAGE(`menu_mark.3x')
 
    --  ANCHOR(`set_menu_mark()',`Set_Mark')
-   procedure Set_Mark (Men  : in Menu;
-                       Mark : in String);
+   procedure Set_Mark (Men  : Menu;
+                       Mark : String);
    --  AKA
    pragma Inline (Set_Mark);
 
    --  ANCHOR(`menu_mark()',`Mark')
-   procedure Mark (Men  : in  Menu;
+   procedure Mark (Men  : Menu;
                    Mark : out String);
    --  AKA
 
@@ -364,19 +398,19 @@ include(`Item_Rep')dnl
 
    --  ANCHOR(`set_menu_fore()',`Set_Foreground')
    procedure Set_Foreground
-     (Men   : in Menu;
-      Fore  : in Character_Attribute_Set := Normal_Video;
-      Color : in Color_Pair := Color_Pair'First);
+     (Men   : Menu;
+      Fore  : Character_Attribute_Set := Normal_Video;
+      Color : Color_Pair := Color_Pair'First);
    --  AKA
    pragma Inline (Set_Foreground);
 
    --  ANCHOR(`menu_fore()',`Foreground')
-   procedure Foreground (Men   : in  Menu;
+   procedure Foreground (Men   : Menu;
                          Fore  : out Character_Attribute_Set);
    --  AKA
 
    --  ANCHOR(`menu_fore()',`Foreground')
-   procedure Foreground (Men   : in  Menu;
+   procedure Foreground (Men   : Menu;
                          Fore  : out Character_Attribute_Set;
                          Color : out Color_Pair);
    --  AKA
@@ -384,19 +418,19 @@ include(`Item_Rep')dnl
 
    --  ANCHOR(`set_menu_back()',`Set_Background')
    procedure Set_Background
-     (Men   : in Menu;
-      Back  : in Character_Attribute_Set := Normal_Video;
-      Color : in Color_Pair := Color_Pair'First);
+     (Men   : Menu;
+      Back  : Character_Attribute_Set := Normal_Video;
+      Color : Color_Pair := Color_Pair'First);
    --  AKA
    pragma Inline (Set_Background);
 
    --  ANCHOR(`menu_back()',`Background')
-   procedure Background (Men  : in  Menu;
+   procedure Background (Men  : Menu;
                          Back : out Character_Attribute_Set);
    --  AKA
    --  ANCHOR(`menu_back()',`Background')
 
-   procedure Background (Men   : in  Menu;
+   procedure Background (Men   : Menu;
                          Back  : out Character_Attribute_Set;
                          Color : out Color_Pair);
    --  AKA
@@ -404,33 +438,33 @@ include(`Item_Rep')dnl
 
    --  ANCHOR(`set_menu_grey()',`Set_Grey')
    procedure Set_Grey
-     (Men   : in Menu;
-      Grey  : in Character_Attribute_Set := Normal_Video;
-      Color : in Color_Pair := Color_Pair'First);
+     (Men   : Menu;
+      Grey  : Character_Attribute_Set := Normal_Video;
+      Color : Color_Pair := Color_Pair'First);
    --  AKA
    pragma Inline (Set_Grey);
 
    --  ANCHOR(`menu_grey()',`Grey')
-   procedure Grey (Men  : in  Menu;
+   procedure Grey (Men  : Menu;
                    Grey : out Character_Attribute_Set);
    --  AKA
 
    --  ANCHOR(`menu_grey()',`Grey')
    procedure Grey
-     (Men   : in  Menu;
+     (Men   : Menu;
       Grey  : out Character_Attribute_Set;
       Color : out Color_Pair);
    --  AKA
    pragma Inline (Grey);
 
    --  ANCHOR(`set_menu_pad()',`Set_Pad_Character')
-   procedure Set_Pad_Character (Men : in Menu;
-                                Pad : in Character := Space);
+   procedure Set_Pad_Character (Men : Menu;
+                                Pad : Character := Space);
    --  AKA
    pragma Inline (Set_Pad_Character);
 
    --  ANCHOR(`menu_pad()',`Pad_Character')
-   procedure Pad_Character (Men : in  Menu;
+   procedure Pad_Character (Men : Menu;
                             Pad : out Character);
    --  AKA
    pragma Inline (Pad_Character);
@@ -438,15 +472,15 @@ include(`Item_Rep')dnl
    --  MANPAGE(`menu_spacing.3x')
 
    --  ANCHOR(`set_menu_spacing()',`Set_Spacing')
-   procedure Set_Spacing (Men   : in Menu;
-                          Descr : in Column_Position := 0;
-                          Row   : in Line_Position   := 0;
-                          Col   : in Column_Position := 0);
+   procedure Set_Spacing (Men   : Menu;
+                          Descr : Column_Position := 0;
+                          Row   : Line_Position   := 0;
+                          Col   : Column_Position := 0);
    --  AKA
    pragma Inline (Set_Spacing);
 
    --  ANCHOR(`menu_spacing()',`Spacing')
-   procedure Spacing (Men   : in Menu;
+   procedure Spacing (Men   : Menu;
                       Descr : out Column_Position;
                       Row   : out Line_Position;
                       Col   : out Column_Position);
@@ -463,7 +497,7 @@ include(`Item_Rep')dnl
    pragma Inline (Set_Pattern);
 
    --  ANCHOR(`menu_pattern()',`Pattern')
-   procedure Pattern (Men  : in  Menu;
+   procedure Pattern (Men  : Menu;
                       Text : out String);
    --  AKA
    pragma Inline (Pattern);
@@ -471,9 +505,9 @@ include(`Item_Rep')dnl
    --  MANPAGE(`menu_format.3x')
 
    --  ANCHOR(`set_menu_format()',`Set_Format')
-   procedure Set_Format (Men     : in Menu;
-                         Lines   : in Line_Count;
-                         Columns : in Column_Count);
+   procedure Set_Format (Men     : Menu;
+                         Lines   : Line_Count;
+                         Columns : Column_Count);
    --  Not implemented: 0 argument for Lines or Columns;
    --  instead use Format to get the current sizes
    --      The  default  format  is  16  rows,  1  column.    Calling
@@ -485,7 +519,7 @@ include(`Item_Rep')dnl
    pragma Inline (Set_Format);
 
    --  ANCHOR(`menu_format()',`Format')
-   procedure Format (Men     : in  Menu;
+   procedure Format (Men     : Menu;
                      Lines   : out Line_Count;
                      Columns : out Column_Count);
    --  AKA
@@ -493,30 +527,30 @@ include(`Item_Rep')dnl
 
    --  MANPAGE(`menu_hook.3x')
 
-   type Menu_Hook_Function is access procedure (Men : in Menu);
+   type Menu_Hook_Function is access procedure (Men : Menu);
    pragma Convention (C, Menu_Hook_Function);
 
    --  ANCHOR(`set_item_init()',`Set_Item_Init_Hook')
-   procedure Set_Item_Init_Hook (Men  : in Menu;
-                                 Proc : in Menu_Hook_Function);
+   procedure Set_Item_Init_Hook (Men  : Menu;
+                                 Proc : Menu_Hook_Function);
    --  AKA
    pragma Inline (Set_Item_Init_Hook);
 
    --  ANCHOR(`set_item_term()',`Set_Item_Term_Hook')
-   procedure Set_Item_Term_Hook (Men  : in Menu;
-                                 Proc : in Menu_Hook_Function);
+   procedure Set_Item_Term_Hook (Men  : Menu;
+                                 Proc : Menu_Hook_Function);
    --  AKA
    pragma Inline (Set_Item_Term_Hook);
 
    --  ANCHOR(`set_menu_init()',`Set_Menu_Init_Hook')
-   procedure Set_Menu_Init_Hook (Men  : in Menu;
-                                 Proc : in Menu_Hook_Function);
+   procedure Set_Menu_Init_Hook (Men  : Menu;
+                                 Proc : Menu_Hook_Function);
    --  AKA
    pragma Inline (Set_Menu_Init_Hook);
 
    --  ANCHOR(`set_menu_term()',`Set_Menu_Term_Hook')
-   procedure Set_Menu_Term_Hook (Men  : in Menu;
-                                 Proc : in Menu_Hook_Function);
+   procedure Set_Menu_Term_Hook (Men  : Menu;
+                                 Proc : Menu_Hook_Function);
    --  AKA
    pragma Inline (Set_Menu_Term_Hook);
 
@@ -543,13 +577,13 @@ include(`Item_Rep')dnl
    --  MANPAGE(`menu_items.3x')
 
    --  ANCHOR(`set_menu_items()',`Redefine')
-   procedure Redefine (Men   : in Menu;
-                       Items : in Item_Array_Access);
+   procedure Redefine (Men   : Menu;
+                       Items : Item_Array_Access);
    --  AKA
    pragma Inline (Redefine);
 
-   procedure Set_Items (Men   : in Menu;
-                        Items : in Item_Array_Access) renames Redefine;
+   procedure Set_Items (Men   : Menu;
+                        Items : Item_Array_Access) renames Redefine;
    --  pragma Inline (Set_Items);
 
    --  ANCHOR(`menu_items()',`Items')

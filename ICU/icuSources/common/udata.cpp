@@ -70,12 +70,19 @@ might have to #include some other header
 
 /* If you are excruciatingly bored turn this on .. */
 /* #define UDATA_DEBUG 1 */
+#if APPLE_ICU_CHANGES
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
 /* For debugging use of timezone data in a separate file */
 /* #define UDATA_TZFILES_DEBUG 1 */
 
 #if defined(UDATA_DEBUG) || defined(UDATA_TZFILES_DEBUG)
 #   include <stdio.h>
 #endif
+#else
+#if defined(UDATA_DEBUG)
+#   include <stdio.h>
+#endif
+#endif // APPLE_ICU_CHANGES
 
 U_NAMESPACE_USE
 
@@ -108,10 +115,10 @@ static UDataMemory *udata_findCachedData(const char *path, UErrorCode &err);
  */
 static UDataMemory *gCommonICUDataArray[10] = { NULL };   // Access protected by icu global mutex.
 
-static u_atomic_int32_t gHaveTriedToLoadCommonData = ATOMIC_INT32_T_INITIALIZER(0);  //  See extendICUData().
+static u_atomic_int32_t gHaveTriedToLoadCommonData {0};  //  See extendICUData().
 
 static UHashtable  *gCommonDataCache = NULL;  /* Global hash table of opened ICU data files.  */
-static icu::UInitOnce gCommonDataCacheInitOnce = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gCommonDataCacheInitOnce {};
 
 #if !defined(ICU_DATA_DIR_WINDOWS)
 static UDataFileAccess  gDataFileAccess = UDATA_DEFAULT_ACCESS;  // Access not synchronized.
@@ -138,25 +145,25 @@ udata_cleanup(void)
     }
     gHaveTriedToLoadCommonData = 0;
 
-    return TRUE;                   /* Everything was cleaned up */
+    return true;                   /* Everything was cleaned up */
 }
 
 static UBool U_CALLCONV
 findCommonICUDataByName(const char *inBasename, UErrorCode &err)
 {
-    UBool found = FALSE;
+    UBool found = false;
     int32_t i;
 
     UDataMemory  *pData = udata_findCachedData(inBasename, err);
     if (U_FAILURE(err) || pData == NULL)
-        return FALSE;
+        return false;
 
     {
         Mutex lock;
         for (i = 0; i < UPRV_LENGTHOF(gCommonICUDataArray); ++i) {
             if ((gCommonICUDataArray[i] != NULL) && (gCommonICUDataArray[i]->pHeader == pData->pHeader)) {
                 /* The data pointer is already in the array. */
-                found = TRUE;
+                found = true;
                 break;
             }
         }
@@ -176,9 +183,9 @@ setCommonICUData(UDataMemory *pData,     /*  The new common data.  Belongs to ca
 {
     UDataMemory  *newCommonData = UDataMemory_createNewInstance(pErr);
     int32_t i;
-    UBool didUpdate = FALSE;
+    UBool didUpdate = false;
     if (U_FAILURE(*pErr)) {
-        return FALSE;
+        return false;
     }
 
     /*  For the assignment, other threads must cleanly see either the old            */
@@ -190,7 +197,7 @@ setCommonICUData(UDataMemory *pData,     /*  The new common data.  Belongs to ca
     for (i = 0; i < UPRV_LENGTHOF(gCommonICUDataArray); ++i) {
         if (gCommonICUDataArray[i] == NULL) {
             gCommonICUDataArray[i] = newCommonData;
-            didUpdate = TRUE;
+            didUpdate = true;
             break;
         } else if (gCommonICUDataArray[i]->pHeader == pData->pHeader) {
             /* The same data pointer is already in the array. */
@@ -218,7 +225,7 @@ setCommonICUDataPointer(const void *pData, UBool /*warn*/, UErrorCode *pErrorCod
     UDataMemory_init(&tData);
     UDataMemory_setData(&tData, pData);
     udata_checkCommonData(&tData, pErrorCode);
-    return setCommonICUData(&tData, FALSE, pErrorCode);
+    return setCommonICUData(&tData, false, pErrorCode);
 }
 
 #endif
@@ -431,7 +438,7 @@ private:
     CharString  pathBuffer;                        /* output path for this it'ion */
     CharString  packageStub;                       /* example:  "/icudt28b". Will ignore that leaf in set paths. */
 
-    UBool       checkLastFour;                     /* if TRUE then allow paths such as '/foo/myapp.dat'
+    UBool       checkLastFour;                     /* if true then allow paths such as '/foo/myapp.dat'
                                                     * to match, checks last 4 chars of suffix with
                                                     * last 4 of path, then previous chars. */
 };
@@ -503,7 +510,7 @@ UDataPathIterator::UDataPathIterator(const char *inPath, const char *pkg,
             suffix.data(),
             itemPath.data(),
             nextPath,
-            checkLastFour?"TRUE":"false");
+            checkLastFour?"true":"false");
 #endif
 }
 
@@ -570,7 +577,7 @@ const char *UDataPathIterator::next(UErrorCode *pErrorCode)
         /* check for .dat files */
         pathBasename = findBasename(pathBuffer.data());
 
-        if(checkLastFour == TRUE && 
+        if(checkLastFour == true && 
            (pathLen>=4) &&
            uprv_strncmp(pathBuffer.data() +(pathLen-4), suffix.data(), 4)==0 && /* suffix matches */
            uprv_strncmp(findBasename(pathBuffer.data()), basename, basenameLen)==0  && /* base matches */
@@ -713,15 +720,15 @@ openCommonData(const char *path,          /*  Path from OpenChoice?          */
          */
         /*
         if (uprv_getICUData_collation) {
-            setCommonICUDataPointer(uprv_getICUData_collation(), FALSE, pErrorCode);
+            setCommonICUDataPointer(uprv_getICUData_collation(), false, pErrorCode);
         }
         if (uprv_getICUData_conversion) {
-            setCommonICUDataPointer(uprv_getICUData_conversion(), FALSE, pErrorCode);
+            setCommonICUDataPointer(uprv_getICUData_conversion(), false, pErrorCode);
         }
         */
 #if !defined(ICU_DATA_DIR_WINDOWS)
 // When using the Windows system data, we expect only a single data file.
-        setCommonICUDataPointer(&U_ICUDATA_ENTRY_POINT, FALSE, pErrorCode);
+        setCommonICUDataPointer(&U_ICUDATA_ENTRY_POINT, false, pErrorCode);
         {
             Mutex lock;
             return gCommonICUDataArray[commonDataIndex];
@@ -763,9 +770,9 @@ openCommonData(const char *path,          /*  Path from OpenChoice?          */
      * Hunt it down, trying all the path locations
      */
 
-    UDataPathIterator iter(u_getDataDirectory(), inBasename, path, ".dat", TRUE, pErrorCode);
+    UDataPathIterator iter(u_getDataDirectory(), inBasename, path, ".dat", true, pErrorCode);
 
-    while ((UDataMemory_isLoaded(&tData)==FALSE) && (pathBuffer = iter.next(pErrorCode)) != NULL)
+    while ((UDataMemory_isLoaded(&tData)==false) && (pathBuffer = iter.next(pErrorCode)) != NULL)
     {
 #ifdef UDATA_DEBUG
         fprintf(stderr, "ocd: trying path %s - ", pathBuffer);
@@ -824,7 +831,7 @@ static UBool extendICUData(UErrorCode *pErr)
 {
     UDataMemory   *pData;
     UDataMemory   copyPData;
-    UBool         didUpdate = FALSE;
+    UBool         didUpdate = false;
 
     /*
      * There is a chance for a race condition here.
@@ -861,7 +868,7 @@ static UBool extendICUData(UErrorCode *pErr)
 
           didUpdate = /* no longer using this result */
               setCommonICUData(&copyPData,/*  The new common data.                                */
-                       FALSE,             /*  No warnings if write didn't happen                  */
+                       false,             /*  No warnings if write didn't happen                  */
                        pErr);             /*  setCommonICUData honors errors; NOP if error set    */
         }
 
@@ -908,7 +915,7 @@ udata_setCommonData(const void *data, UErrorCode *pErrorCode) {
 
     /* we have good data */
     /* Set it up as the ICU Common Data.  */
-    setCommonICUData(&dataMemory, TRUE, pErrorCode);
+    setCommonICUData(&dataMemory, true, pErrorCode);
 }
 
 /*---------------------------------------------------------------------------
@@ -1001,7 +1008,7 @@ static UDataMemory *doLoadFromIndividualFiles(const char *pkgName,
 
     /* look in ind. files: package\nam.typ  ========================= */
     /* init path iterator for individual files */
-    UDataPathIterator iter(dataPath, pkgName, path, tocEntryPathSuffix, FALSE, pErrorCode);
+    UDataPathIterator iter(dataPath, pkgName, path, tocEntryPathSuffix, false, pErrorCode);
 
     while ((pathBuffer = iter.next(pErrorCode)) != NULL)
     {
@@ -1057,7 +1064,7 @@ static UDataMemory *doLoadFromCommonData(UBool isICUData, const char * /*pkgName
     const DataHeader   *pHeader;
     UDataMemory        *pCommonData;
     int32_t            commonDataIndex;
-    UBool              checkedExtendedICUData = FALSE;
+    UBool              checkedExtendedICUData = false;
     /* try to get common data.  The loop is for platforms such as the 390 that do
      *  not initially load the full set of ICU data.  If the lookup of an ICU data item
      *  fails, the full (but slower to load) set is loaded, the and the loop repeats,
@@ -1106,7 +1113,7 @@ static UDataMemory *doLoadFromCommonData(UBool isICUData, const char * /*pkgName
         } else if (pCommonData != NULL) {
             ++commonDataIndex;  /* try the next data package */
         } else if ((!checkedExtendedICUData) && extendICUData(subErrorCode)) {
-            checkedExtendedICUData = TRUE;
+            checkedExtendedICUData = true;
             /* try this data package slot again: it changed from NULL to non-NULL */
         } else {
             return NULL;
@@ -1171,7 +1178,7 @@ doOpenChoice(const char *path, const char *type, const char *name,
     UErrorCode          subErrorCode=U_ZERO_ERROR;
     const char         *treeChar;
 
-    UBool               isICUData = FALSE;
+    UBool               isICUData = false;
 
 
     FileTracer::traceOpen(path, type, name);
@@ -1184,7 +1191,7 @@ doOpenChoice(const char *path, const char *type, const char *name,
                      uprv_strlen(U_ICUDATA_NAME U_TREE_SEPARATOR_STRING)) ||  
        !uprv_strncmp(path, U_ICUDATA_ALIAS U_TREE_SEPARATOR_STRING, /* "ICUDATA-" */
                      uprv_strlen(U_ICUDATA_ALIAS U_TREE_SEPARATOR_STRING))) {
-      isICUData = TRUE;
+      isICUData = true;
     }
 
 #if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)  /* Windows:  try "foo\bar" and "foo/bar" */
@@ -1309,6 +1316,8 @@ doOpenChoice(const char *path, const char *type, const char *name,
 #ifdef UDATA_DEBUG
             fprintf(stderr, "Trying Time Zone Files directory = %s\n", tzFilesDir);
 #endif
+#if APPLE_ICU_CHANGES
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
 #ifdef UDATA_TZFILES_DEBUG
             fprintf(stderr, "# dOC U_TIMEZONE_FILES_DIR:  %s\n", U_TIMEZONE_FILES_DIR);
 #endif
@@ -1332,7 +1341,7 @@ doOpenChoice(const char *path, const char *type, const char *name,
             fprintf(stderr, "# dOC tz pkg, doLoadFromCommonData start; U_TIMEZONE_PACKAGE: %s, tztocPkgPath.data(): %s, tztocEntryName.data(): %s, name: %s\n",
                             U_TIMEZONE_PACKAGE, tztocPkgPath.data(), tztocEntryName.data(), name);
 #endif
-            retVal = doLoadFromCommonData(FALSE, "" /*ignored*/, "" /*ignored*/, "" /*ignored*/,
+            retVal = doLoadFromCommonData(false, "" /*ignored*/, "" /*ignored*/, "" /*ignored*/,
                             tztocEntryName.data(),  // tocEntryName, like icutz44/zoneinfo64.res
                             tztocPkgPath.data(),     // path =  path to pkg, like /usr/share/icu/icutz44l
                             type, name, isAcceptable, context, &subErrorCode, &tzpkgErrorCode);
@@ -1348,11 +1357,13 @@ doOpenChoice(const char *path, const char *type, const char *name,
             fprintf(stderr, "# dOC tz files, doLoadFromIndividualFiles start; tzFilesDir: %s, tocEntryPathSuffix: %s, name: %s\n",
                             tzFilesDir, tocEntryPathSuffix, name);
 #endif
+#endif // APPLE_ICU_CHANGES
             retVal = doLoadFromIndividualFiles(/* pkgName.data() */ "", tzFilesDir, tocEntryPathSuffix,
                             /* path */ "", type, name, isAcceptable, context, &subErrorCode, pErrorCode);
-#ifdef UDATA_TZFILES_DEBUG
+#if APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
             fprintf(stderr, "# dOC tz files, doLoadFromIndividualFiles end; status %d, retVal %p\n", *pErrorCode, retVal);
-#endif
+#endif  // APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
             if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
                 return retVal;
             }
@@ -1365,20 +1376,22 @@ doOpenChoice(const char *path, const char *type, const char *name,
         fprintf(stderr, "Trying packages (UDATA_PACKAGES_FIRST)\n");
 #endif
         /* #2 */
-#ifdef UDATA_TZFILES_DEBUG
+#if APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
         if (isTimeZoneFile(name, type)) {
             fprintf(stderr, "# dOC std common 1, doLoadFromCommonData start; U_TIMEZONE_PACKAGE: path: %s, tocEntryName.data(): %s, name: %s\n",
                             path, tocEntryName.data(), name);
         }
-#endif
+#endif  // APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
         retVal = doLoadFromCommonData(isICUData, 
                             pkgName.data(), dataPath, tocEntryPathSuffix, tocEntryName.data(),
                             path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
-#ifdef UDATA_TZFILES_DEBUG
+#if APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
         if (isTimeZoneFile(name, type)) {
             fprintf(stderr, "# dOC std common 1, doLoadFromCommonData end; status %d, retVal %p\n", *pErrorCode, retVal);
         }
-#endif
+#endif  // APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
         if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
             return retVal;
         }
@@ -1392,19 +1405,21 @@ doOpenChoice(const char *path, const char *type, const char *name,
 #endif
         /* Check to make sure that there is a dataPath to iterate over */
         if ((dataPath && *dataPath) || !isICUData) {
-#ifdef UDATA_TZFILES_DEBUG
+#if APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
             if (isTimeZoneFile(name, type)) {
                 fprintf(stderr, "# dOC std indiv files, doLoadFromIndividualFiles start; dataPath: %s, tocEntryPathSuffix: %s, name: %s\n",
                             dataPath, tocEntryPathSuffix, name);
             }
-#endif
+#endif // APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
             retVal = doLoadFromIndividualFiles(pkgName.data(), dataPath, tocEntryPathSuffix,
                             path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
-#ifdef UDATA_TZFILES_DEBUG
+#if APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
             if (isTimeZoneFile(name, type)) {
                 fprintf(stderr, "# dOC std indiv files, doLoadFromIndividualFiles end; status %d, retVal %p\n", *pErrorCode, retVal);
             }
-#endif
+#endif // APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
             if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
                 return retVal;
             }
@@ -1417,20 +1432,22 @@ doOpenChoice(const char *path, const char *type, const char *name,
 #ifdef UDATA_DEBUG
         fprintf(stderr, "Trying packages (UDATA_ONLY_PACKAGES || UDATA_FILES_FIRST)\n");
 #endif
-#ifdef UDATA_TZFILES_DEBUG
+#if APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
         if (isTimeZoneFile(name, type)) {
             fprintf(stderr, "# dOC std common 2, doLoadFromCommonData start; U_TIMEZONE_PACKAGE: path: %s, tocEntryName.data(): %s, name: %s\n",
                             path, tocEntryName.data(), name);
         }
-#endif
+#endif // APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
         retVal = doLoadFromCommonData(isICUData,
                             pkgName.data(), dataPath, tocEntryPathSuffix, tocEntryName.data(),
                             path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
-#ifdef UDATA_TZFILES_DEBUG
+#if APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
         if (isTimeZoneFile(name, type)) {
             fprintf(stderr, "# dOC std common 2, doLoadFromCommonData end; status %d, retVal %p\n", *pErrorCode, retVal);
         }
-#endif
+#endif  // APPLE_ICU_CHANGES && defined (UDATA_TZFILES_DEBUG)
         if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
             return retVal;
         }

@@ -98,8 +98,6 @@ void BundleDiskRep::setup(const Context *ctx)
 
 	// validate the bundle root; fish around for the desired framework version
 	string root = cfStringRelease(copyCanonicalPath());
-	if (filehasExtendedAttribute(root, XATTR_FINDERINFO_NAME))
-		recordStrictError(errSecCSInvalidAssociatedFileData);
 	string contents = root + "/Contents";
 	string supportFiles = root + "/Support Files";
 	string version = root + "/Versions/"
@@ -375,7 +373,9 @@ BundleDiskRep::RawComponentMap BundleDiskRep::createRawComponents()
 	int const slots[] = {
 		cdCodeDirectorySlot, cdSignatureSlot, cdResourceDirSlot,
 		cdTopDirectorySlot, cdEntitlementSlot, cdEntitlementDERSlot,
-		cdRepSpecificSlot, cdLaunchConstraintSelf, cdLaunchConstraintParent, cdLaunchConstraintResponsible};
+		cdRepSpecificSlot, cdLaunchConstraintSelf, cdLaunchConstraintParent, cdLaunchConstraintResponsible,
+		cdLibraryConstraint,
+	};
 	
 	for (int slot = 0; slot < (int)(sizeof(slots)/sizeof(slots[0])); ++slot) {
 		/* Here, we only handle metaData slots, i.e. slots that
@@ -743,16 +743,36 @@ void BundleDiskRep::strictValidateStructure(const CodeDirectory* cd, const Toler
 	if (!(flags & kSecCSQuickCheck))
 		validateMetaDirectory(cd, flags);
 	
-	// check accumulated strict errors and report them
-	if (!(flags & kSecCSRestrictSidebandData))	// tolerate resource forks etc.
-		mStrictErrors.erase(errSecCSInvalidAssociatedFileData);
+	string root = cfStringRelease(copyCanonicalPath());
+	UnixPlusPlus::AutoFileDesc fd(root);
+
+	if (flags & kSecCSStripDisallowedXattrs) {
+		if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME)) {
+			fd.removeAttr(XATTR_RESOURCEFORK_NAME);
+		}
+		if (fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME)) {
+			fd.removeAttr(XATTR_FINDERINFO_NAME);
+		}
+	}
 	
+	if (flags & kSecCSRestrictSidebandData) {
+		if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME)) {
+			CFStringRef message = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Disallowed xattr %s found on %s"), XATTR_RESOURCEFORK_NAME, root.c_str());
+			CSError::throwMe(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, message);
+		}
+		if (fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME)) {
+			CFStringRef message = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Disallowed xattr %s found on %s"), XATTR_FINDERINFO_NAME, root.c_str());
+			CSError::throwMe(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, message);
+		}
+	}
+
+	// check accumulated strict errors and report them
 	std::vector<OSStatus> fatalErrors;
 	set_difference(mStrictErrors.begin(), mStrictErrors.end(), tolerated.begin(), tolerated.end(), back_inserter(fatalErrors));
 	if (!fatalErrors.empty())
 		MacOSError::throwMe(fatalErrors[0]);
 	
-	// if app focus is requested and this doesn't look like an app, fail - but allow whitelist overrides
+	// if app focus is requested and this doesn't look like an app, fail - but allow allowlist overrides
 	if (flags & kSecCSRestrictToAppLike)
 		if (!mAppLike)
 			if (tolerated.find(kSecCSRestrictToAppLike) == tolerated.end())
@@ -853,13 +873,6 @@ void BundleDiskRep::checkPlainFile(FileDesc fd, const std::string& path)
 {
 	if (!fd.isPlainFile(path))
 		recordStrictError(errSecCSRegularFile);
-	checkForks(fd);
-}
-	
-void BundleDiskRep::checkForks(FileDesc fd)
-{
-	if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME) || fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME))
-		recordStrictError(errSecCSInvalidAssociatedFileData);
 }
 
 
@@ -890,6 +903,7 @@ void BundleDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef
 		if (!execWriter->attribute(writerLastResort))	// willing to take the data...
 			return execWriter->component(slot, data);	// ... so hand it through
 		// execWriter doesn't want the data; store it as a resource file (below)
+		[[fallthrough]];
 	case cdResourceDirSlot:
 		// the resource directory always goes into a bundle file
 		if (const char *name = CodeDirectory::canonicalSlotName(slot)) {
@@ -995,8 +1009,14 @@ void BundleDiskRep::Writer::purgeMetaDirectory()
 
 void BundleDiskRep::registerStapledTicket()
 {
+	CFRef<CFDataRef> ticket = copyStapledTicket();
+	registerStapledTicketWithSystem(ticket);
+}
+
+CFDataRef BundleDiskRep::copyStapledTicket()
+{
 	string root = cfStringRelease(copyCanonicalPath());
-	registerStapledTicketInBundle(root);
+	return copyStapledTicketInBundle(root);
 }
 
 } // end namespace CodeSigning

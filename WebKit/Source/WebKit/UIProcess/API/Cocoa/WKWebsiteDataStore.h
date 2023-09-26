@@ -27,6 +27,10 @@
 
 #import <WebKit/WKWebsiteDataRecord.h>
 
+#if __has_include(<Network/proxy_config.h>)
+#import <Network/Network.h>
+#endif
+
 NS_ASSUME_NONNULL_BEGIN
 
 @class WKHTTPCookieStore;
@@ -78,6 +82,43 @@ WK_CLASS_AVAILABLE(macos(10.11), ios(9.0))
 
 /*! @abstract Returns the cookie store representing HTTP cookies in this website data store. */
 @property (nonatomic, readonly) WKHTTPCookieStore *httpCookieStore WK_API_AVAILABLE(macos(10.13), ios(11.0));
+
+/*! @abstract Get identifier for a data store.
+ @discussion Returns nil for default and non-persistent data store .
+ */
+@property (nonatomic, readonly, nullable) NSUUID *identifier WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+/*! @abstract Get a persistent data store.
+ @param identifier An identifier that is used to uniquely identify the data store.
+ @discussion If a data store with this identifier does not exist yet, it will be created. Throws exception if identifier
+ is 0.
+*/
++ (WKWebsiteDataStore *)dataStoreForIdentifier:(NSUUID *)identifier WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+/*! @abstract Delete a persistent data store.
+ @param identifier An identifier that is used to uniquely identify the data store.
+ @param completionHandler A block to invoke with optional error when the operation completes.
+ @discussion This should be called when the data store is not used any more. Returns error if removal fails
+ to complete. WKWebView using the data store must be released before removal.
+*/
++ (void)removeDataStoreForIdentifier:(NSUUID *)identifier completionHandler:(void(^)(NSError * _Nullable))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+/*! @abstract Fetch all data stores identifiers.
+ @param completionHandler A block to invoke with an array of identifiers when the operation completes.
+ @discussion Default or non-persistent data store do not have an identifier.
+*/
++ (void)fetchAllDataStoreIdentifiers:(void(^)(NSArray<NSUUID *> *))completionHandler WK_SWIFT_ASYNC_NAME(getter:allDataStoreIdentifiers()) WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+#if ((TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 140000) \
+    || ((TARGET_OS_IOS || TARGET_OS_MACCATALYST) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 170000) \
+    || (TARGET_OS_WATCH && __WATCH_OS_VERSION_MAX_ALLOWED >= 100000) \
+    || (TARGET_OS_TV && __TV_OS_VERSION_MAX_ALLOWED >= 170000))
+/*! @abstract Gets or sets the proxy configurations to be used to override networking in all WKWebViews that use this WKWebsiteDataStore.
+ @discussion Changing the proxy configurations might interupt current networking operations in any WKWebView that use this WKWebsiteDataStore,
+ so it is encouraged to finish setting the proxy configurations before starting any page loads.
+*/
+@property (nullable, nonatomic, copy) NSArray<nw_proxy_config_t> *proxyConfigurations NS_REFINED_FOR_SWIFT API_AVAILABLE(macos(14.0), ios(17.0));
+#endif
 
 @end
 

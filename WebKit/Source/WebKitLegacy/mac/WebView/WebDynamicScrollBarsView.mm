@@ -30,8 +30,8 @@
 #import "WebFrameView.h"
 #import "WebHTMLViewInternal.h"
 #import <WebCore/DeprecatedGlobalSettings.h>
-#import <WebCore/Frame.h>
-#import <WebCore/FrameView.h>
+#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 
 using namespace WebCore;
@@ -186,11 +186,11 @@ static BOOL shouldRoundScrollOrigin(WebDynamicScrollBarsView *view)
     if (![documentView isKindOfClass:[WebHTMLView class]])
         return NO;
 
-    Frame* frame = core([(WebHTMLView *)documentView _frame]);
+    auto* frame = core([(WebHTMLView *)documentView _frame]);
     if (!frame)
         return NO;
     
-    FrameView *frameView = frame->view();
+    auto* frameView = frame->view();
     if (!frameView)
         return NO;
 
@@ -362,10 +362,20 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
         newHasHorizontalScroller = NO;
 
     _private->horizontalScrollingAllowedButScrollerHidden = newHasHorizontalScroller && _private->alwaysHideHorizontalScroller;
+    _private->verticalScrollingAllowedButScrollerHidden = newHasVerticalScroller && _private->alwaysHideVerticalScroller;
+
+    if ([documentView isKindOfClass:[WebHTMLView class]]) {
+        WebHTMLView* htmlView = (WebHTMLView*)documentView;
+        WebCore::ScrollbarWidth scrollbarWidthStyle = [htmlView _scrollbarWidthStyle];
+        if (scrollbarWidthStyle == WebCore::ScrollbarWidth::None) {
+            _private->horizontalScrollingAllowedButScrollerHidden = true;
+            _private->verticalScrollingAllowedButScrollerHidden = true;
+        }
+    }
+
     if (_private->horizontalScrollingAllowedButScrollerHidden)
         newHasHorizontalScroller = NO;
 
-    _private->verticalScrollingAllowedButScrollerHidden = newHasVerticalScroller && _private->alwaysHideVerticalScroller;
     if (_private->verticalScrollingAllowedButScrollerHidden)
         newHasVerticalScroller = NO;
 
@@ -538,7 +548,7 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
     NSEventPhase momentumPhase = [event momentumPhase];
     BOOL isLatchingEvent = momentumPhase & NSEventPhaseBegan || momentumPhase & NSEventPhaseStationary;
 
-    if (fabsf(deltaY) > fabsf(deltaX)) {
+    if (std::abs(deltaY) > std::abs(deltaX)) {
         if (![self allowsVerticalScrolling]) {
             [[self nextResponder] scrollWheel:event];
             return;

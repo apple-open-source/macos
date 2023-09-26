@@ -89,7 +89,7 @@ typedef struct {
 } IOHIDResourceDataQueueHeader;
 
 typedef struct __attribute__((packed)) {
-    mach_vm_address_t token;
+    user_addr_t token;
     uint32_t length;
 } IOHIDResourceOOBReportInfo;
 

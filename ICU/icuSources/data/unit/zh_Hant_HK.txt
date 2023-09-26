@@ -1,4 +1,4 @@
-// © 2016 and later: Unicode, Inc. and others.
+﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 zh_Hant_HK{
@@ -107,6 +107,10 @@ zh_Hant_HK{
                 dnam{"日"}
                 other{"{0}日"}
                 per{"{0}每日"}
+            }
+            decade{
+                dnam{"10年"}
+                other{"{0}0年"}
             }
             hour{
                 per{"{0}每小時"}
@@ -343,6 +347,10 @@ zh_Hant_HK{
     }
     unitsNarrow{
         acceleration{
+            g-force{
+                dnam{"G力"}
+                other{"{0} G"}
+            }
             meter-per-square-second{
                 dnam{"米每平方秒"}
             }
@@ -695,6 +703,10 @@ zh_Hant_HK{
                 other{"{0}日"}
                 per{"{0}每日"}
             }
+            decade{
+                dnam{"10年"}
+                other{"{0}0年"}
+            }
             hour{
                 per{"{0}每小時"}
             }
@@ -853,7 +865,6 @@ zh_Hant_HK{
         speed{
             kilometer-per-hour{
                 dnam{"公里每小時"}
-                other{"{0}公里/小時"}
             }
             meter-per-second{
                 dnam{"米每秒"}

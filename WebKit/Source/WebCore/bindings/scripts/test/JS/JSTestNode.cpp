@@ -154,8 +154,8 @@ template<> void JSTestNodeDOMConstructor::initializeProperties(VM& vm, JSDOMGlob
 
 static const HashTableValue JSTestNodePrototypeTableValues[] =
 {
-    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestNodeConstructor, 0 } },
-    { "name"_s, static_cast<unsigned>(JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestNode_name, setJSTestNode_name } },
+    { "constructor"_s, static_cast<unsigned>(PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestNodeConstructor, 0 } },
+    { "name"_s, JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute, NoIntrinsic, { HashTableValue::GetterSetterType, jsTestNode_name, setJSTestNode_name } },
     { "testWorkerPromise"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestNodePrototypeFunction_testWorkerPromise, 0 } },
     { "calculateSecretResult"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestNodePrototypeFunction_calculateSecretResult, 0 } },
     { "getSecretBoolean"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestNodePrototypeFunction_getSecretBoolean, 0 } },
@@ -242,16 +242,11 @@ JSTestNode::JSTestNode(Structure* structure, JSDOMGlobalObject& globalObject, Re
 {
 }
 
-void JSTestNode::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-}
-
 JSObject* JSTestNode::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNodePrototype::create(vm, &globalObject, JSTestNodePrototype::createStructure(vm, &globalObject, JSNode::prototype(vm, globalObject)));
+    auto* structure = JSTestNodePrototype::createStructure(vm, &globalObject, JSNode::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSTestNodePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNode::prototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -494,7 +489,7 @@ void JSTestNode::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
     auto* thisObject = jsCast<JSTestNode*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

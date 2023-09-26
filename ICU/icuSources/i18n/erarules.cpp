@@ -156,8 +156,8 @@ EraRules* EraRules::createInstance(const char *calType, UBool includeTentativeEr
             return nullptr;
         }
 
-        UBool hasName = TRUE;
-        UBool hasEnd = TRUE;
+        UBool hasName = true;
+        UBool hasEnd = true;
         int32_t len;
         while (ures_hasNext(eraRuleRes.getAlias())) {
             LocalUResourceBundlePointer res(ures_getNextResource(eraRuleRes.getAlias(), nullptr, &status));
@@ -178,10 +178,10 @@ EraRules* EraRules::createInstance(const char *calType, UBool includeTentativeEr
             } else if (uprv_strcmp(key, "named") == 0) {
                 const UChar *val = ures_getString(res.getAlias(), &len, &status);
                 if (u_strncmp(val, VAL_FALSE, VAL_FALSE_LEN) == 0) {
-                    hasName = FALSE;
+                    hasName = false;
                 }
             } else if (uprv_strcmp(key, "end") == 0) {
-                hasEnd = TRUE;
+                hasEnd = true;
             }
         }
 
@@ -243,7 +243,13 @@ void EraRules::getStartDate(int32_t eraIdx, int32_t (&fields)[3], UErrorCode& st
 }
 
 int32_t EraRules::getStartYear(int32_t eraIdx, UErrorCode& status) const {
-    int year = MAX_INT32/2;   // bogus value (/2 so don't overflow elsewhere <rdar://problem/49714633>)
+#if APPLE_ICU_CHANGES
+// rdar:/
+// (This may no longer be relevant due to overflow fixes elsewhere in OSICU)
+    int year = MAX_INT32/2;   // bogus value (/2 so don't overflow elsewhere rdar://49714633)
+#else
+    int year = MAX_INT32;   // bogus value
+#endif  // APPLE_ICU_CHANGES
     if(U_FAILURE(status)) {
         return year;
     }
@@ -300,7 +306,7 @@ void EraRules::initCurrentEra() {
     // If we failed to create the default time zone, we are in a bad state and don't
     // really have many options. Carry on using UTC millis as a fallback.
     if (zone != nullptr) {
-        zone->getOffset(localMillis, FALSE, rawOffset, dstOffset, ec);
+        zone->getOffset(localMillis, false, rawOffset, dstOffset, ec);
         delete zone;
         localMillis += (rawOffset + dstOffset);
     }

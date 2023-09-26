@@ -186,6 +186,7 @@ int secd_61_account_leave_not_in_kansas_anymore(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(82);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests();
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);

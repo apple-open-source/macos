@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include <WebKit/WKType.h>
 #include <algorithm>
 #include <wtf/HashTraits.h>
@@ -221,21 +223,6 @@ template<typename T, typename U> inline bool operator==(T* a, const WKRetainPtr<
     return a == b.get(); 
 }
 
-template<typename T, typename U> inline bool operator!=(const WKRetainPtr<T>& a, const WKRetainPtr<U>& b)
-{ 
-    return a.get() != b.get(); 
-}
-
-template<typename T, typename U> inline bool operator!=(const WKRetainPtr<T>& a, U* b)
-{
-    return a.get() != b; 
-}
-
-template<typename T, typename U> inline bool operator!=(T* a, const WKRetainPtr<U>& b)
-{ 
-    return a != b.get(); 
-}
-
 #if (defined(WIN32) || defined(_WIN32)) && !((_MSC_VER > 1900) && __clang__)
 template<typename T> inline WKRetainPtr<T> adoptWK(T) _Check_return_;
 #else
@@ -277,3 +264,5 @@ template<typename P> struct HashTraits<WKRetainPtr<P>> : SimpleClassHashTraits<W
 };
 
 } // namespace WTF
+
+#endif

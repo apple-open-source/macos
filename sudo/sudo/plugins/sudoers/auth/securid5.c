@@ -63,14 +63,22 @@ sudo_securid_init(struct passwd *pw, sudo_auth *auth)
     static SDI_HANDLE sd_dat;			/* SecurID handle */
     debug_decl(sudo_securid_init, SUDOERS_DEBUG_AUTH);
 
-    auth->data = (void *) &sd_dat;		/* For method-specific data */
-
-    /* Start communications */
-    if (AceInitialize() != SD_FALSE)
+    /* Only initialize once. */
+    if (auth->data != NULL)
 	debug_return_int(AUTH_SUCCESS);
 
-    sudo_warnx("%s", U_("failed to initialise the ACE API library"));
-    debug_return_int(AUTH_FATAL);
+    if (IS_NONINTERACTIVE(auth))
+        debug_return_int(AUTH_NONINTERACTIVE);
+
+    /* Start communications */
+    if (AceInitialize() == SD_FALSE) {
+	sudo_warnx("%s", U_("failed to initialise the ACE API library"));
+	debug_return_int(AUTH_FATAL);
+    }
+
+    auth->data = (void *) &sd_dat;		/* For method-specific data */
+
+    debug_return_int(AUTH_SUCCESS);
 }
 
 /*
@@ -130,7 +138,7 @@ sudo_securid_setup(struct passwd *pw, char **promptp, sudo_auth *auth)
  *
  * Arguments in:
  *     pw - struct passwd for username
- *     pass - UNUSED
+ *     prompt - UNUSED
  *     auth - sudo authentication structure for SecurID handle
  *
  * Results out:
@@ -138,9 +146,10 @@ sudo_securid_setup(struct passwd *pw, char **promptp, sudo_auth *auth)
  *                   incorrect authentication, fatal on errors
  */
 int
-sudo_securid_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_securid_verify(struct passwd *pw, const char *promp, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     SDI_HANDLE *sd = (SDI_HANDLE *) auth->data;
+    char *pass;
     int ret;
     debug_decl(sudo_securid_verify, SUDOERS_DEBUG_AUTH);
 

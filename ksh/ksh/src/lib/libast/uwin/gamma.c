@@ -164,7 +164,7 @@ extern double gamma(x)
 			else return (one/x);
 		one+1e-20;		/* Raise inexact flag. */
 		return (one/x);
-	} else if (!finite(x)) {
+	} else if (!isfinite(x)) {
 		if (_IEEE)		/* x = NaN, -Inf */
 			return (x*x);
 		else

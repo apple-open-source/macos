@@ -1,18 +1,18 @@
 <dict>
+	<key>OpenSourceProject</key>
+	<string>tail</string>
+	<key>OpenSourceVersion</key>
+	<string>2023-03-16</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/tail?id=fa3af3ce5010740f28faed22e0a1e819491f26b4</string>
 	<key>OpenSourceImportDate</key>
-	<string>2021-05-18</string>
+	<string>2023-03-16</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>Don't read directories (3849683).</string>
+		<string>tail.c: skip read directories (3849683)</string>
 		<string>tail.c: remove capsicum support</string>
-		<string>Fix UNIX compliance issue with following stdin (76241318)</string>
+		<string>forward.c: don't use mmap</string>
 	</array>
-	<key>OpenSourceProject</key>
-	<string>tail</string>
-	<key>OpenSourceVersion</key>
-	<string>2021-02-02</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/tail/</string>
 </dict>

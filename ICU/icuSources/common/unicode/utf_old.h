@@ -292,9 +292,14 @@ typedef int32_t UTextOffset;
 */
 #ifdef U_UTF8_IMPL
 // No forward declaration if compiling utf_impl.cpp, which defines utf8_countTrailBytes.
-#else
+#elif APPLE_ICU_CHANGES
+// rdar://86727185 Please adopt InstallAPI & enable Deadstripping...
 U_CAPI const uint8_t U_EXPORT2 utf8_countTrailBytes[];
-#endif
+#elif defined(U_STATIC_IMPLEMENTATION) || defined(U_COMMON_IMPLEMENTATION)
+U_CAPI const uint8_t utf8_countTrailBytes[];
+#else
+U_CFUNC U_IMPORT const uint8_t utf8_countTrailBytes[];
+#endif 
 
 /**
  * Count the trail bytes for a UTF-8 lead byte.
@@ -600,6 +605,7 @@ U_CAPI const uint8_t U_EXPORT2 utf8_countTrailBytes[];
 } UPRV_BLOCK_MACRO_END
 
 /** @deprecated ICU 2.4. Use U16_GET instead, see utf_old.h. */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define UTF16_GET_CHAR_SAFE(s, start, i, length, c, strict) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[i]; \
     if(UTF_IS_SURROGATE(c)) { \
@@ -668,6 +674,7 @@ U_CAPI const uint8_t U_EXPORT2 utf8_countTrailBytes[];
 } UPRV_BLOCK_MACRO_END
 
 /** @deprecated ICU 2.4. Use U16_NEXT instead, see utf_old.h. */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define UTF16_NEXT_CHAR_SAFE(s, i, length, c, strict) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[(i)++]; \
     if(UTF_IS_FIRST_SURROGATE(c)) { \
@@ -743,6 +750,7 @@ U_CAPI const uint8_t U_EXPORT2 utf8_countTrailBytes[];
 } UPRV_BLOCK_MACRO_END
 
 /** @deprecated ICU 2.4. Use U16_PREV instead, see utf_old.h. */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define UTF16_PREV_CHAR_SAFE(s, start, i, c, strict) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[--(i)]; \
     if(UTF_IS_SECOND_SURROGATE(c)) { \

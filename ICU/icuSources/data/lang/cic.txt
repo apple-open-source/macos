@@ -6,7 +6,7 @@ cic{
         cic{"Chikashshanompaʼ"}
         cic_Latn{"Chikashshanompaʼ"}
     }
-	Scripts{
-		Latn{"Latin"}
-	}
+    Scripts{
+        Latn{"Latin"}
+    }
 }

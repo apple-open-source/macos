@@ -18,7 +18,7 @@ __attribute__((visibility("hidden")))
 {
     OTSupportType _supported;
     struct {
-        int supported:1;
+        uint supported:1;
     } _has;
 }
 

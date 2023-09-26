@@ -1,6 +1,12 @@
 #!/bin/bash -e -x
 # exit immediately on failure
 
+if [ "${PLATFORM_NAME}" = "macosx" ]; then
+    EMBEDDED_PRIVATE_HEADERS_DIR=/usr/include
+else
+    EMBEDDED_PRIVATE_HEADERS_DIR=/usr/local/include
+fi
+
 function InstallHeaders() {
 	DESTDIR="$DSTROOT/$1"
 	shift
@@ -10,14 +16,16 @@ function InstallHeaders() {
 
 InstallHeaders /usr/include \
 	gen.subproj/ifaddrs.h \
-	lookup.subproj/aliasdb.h \
-	lookup.subproj/bootparams.h \
 	lookup.subproj/grp.h \
 	lookup.subproj/netdb.h \
-	lookup.subproj/printerdb.h \
 	lookup.subproj/pwd.h \
 	membership.subproj/membership.h \
 	membership.subproj/ntsid.h
+
+InstallHeaders "$EMBEDDED_PRIVATE_HEADERS_DIR" \
+    lookup.subproj/aliasdb.h \
+    lookup.subproj/bootparams.h \
+    lookup.subproj/printerdb.h
 
 InstallHeaders /usr/local/include \
 	gen.subproj/configuration_profile.h \
@@ -39,9 +47,6 @@ InstallHeaders /usr/include/rpc \
 	rpc.subproj/auth.h \
 	rpc.subproj/auth_unix.h \
 	rpc.subproj/clnt.h \
-	rpc.subproj/pmap_clnt.h \
-	rpc.subproj/pmap_prot.h \
-	rpc.subproj/pmap_rmt.h \
 	rpc.subproj/rpc.h \
 	rpc.subproj/rpc_msg.h \
 	rpc.subproj/svc.h \
@@ -49,9 +54,37 @@ InstallHeaders /usr/include/rpc \
 	rpc.subproj/types.h \
 	rpc.subproj/xdr.h
 
-InstallHeaders /usr/include/rpcsvc \
+InstallHeaders "$EMBEDDED_PRIVATE_HEADERS_DIR/rpc" \
+    rpc.subproj/pmap_clnt.h \
+    rpc.subproj/pmap_prot.h \
+    rpc.subproj/pmap_rmt.h
+
+InstallHeaders "$EMBEDDED_PRIVATE_HEADERS_DIR/rpcsvc" \
 	nis.subproj/yp_prot.h \
 	nis.subproj/ypclnt.h
+
+function InstallModuleMaps() {
+    DESTDIR="$DSTROOT/$1"
+    shift
+    install -d -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" -m 0755 "$DESTDIR"
+    
+    if [ "${PLATFORM_NAME}" = "macosx" ]; then
+        UNIFDEF_FLAGS="-DBUILDING_FOR_MACOS"
+    else
+        UNIFDEF_FLAGS="-UBUILDING_FOR_MACOS"
+    fi
+    for MODULEMAP in "$@"; do
+        xcrun unifdef $UNIFDEF_FLAGS -o "$DESTDIR/`basename "$MODULEMAP"`" "$MODULEMAP" || test $? -eq 1
+    done
+}
+
+InstallModuleMaps /usr/include/rpc \
+    rpc.subproj/module.modulemap
+
+if [ "${PLATFORM_NAME}" != "macosx" ]; then
+    InstallModuleMaps /usr/local/include \
+        rpc.subproj/rpc_private.modulemap
+fi
 
 # Don't install man pages for installhdrs, installapi, nor simulator builds
 if [[ "${ACTION}" == "installhdrs" ]] || [[ "${ACTION}" == "installapi" ]]; then

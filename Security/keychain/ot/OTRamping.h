@@ -47,8 +47,7 @@ NS_ASSUME_NONNULL_BEGIN
                reachabilityTracker:(CKKSReachabilityTracker*) reachabilityTracker
   fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordRecordsOperationClass;
 
--(void)fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior
-                  reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock;
+-(void)fetchRampRecordWithReply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock;
 -(BOOL)checkRampStateWithError:(NSError**)error;
 @end
 NS_ASSUME_NONNULL_END

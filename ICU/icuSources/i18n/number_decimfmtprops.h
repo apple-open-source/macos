@@ -142,7 +142,10 @@ struct U_I18N_API DecimalFormatProperties : public UMemory {
     NullableValue<RoundingMode> roundingMode;
     int32_t secondaryGroupingSize;
     bool signAlwaysShown;
-    bool formatFullPrecision; // Apple addition for <rdar://problem/39240173>
+#if APPLE_ICU_CHANGES
+// rdar:/
+    bool formatFullPrecision; // Apple addition for rdar://39240173
+#endif  // APPLE_ICU_CHANGES
 
     DecimalFormatProperties();
 

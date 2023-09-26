@@ -650,8 +650,7 @@ static bool DetermineDepthTextureANGLESupport(const TextureCapsMap &textureCaps)
 {
     constexpr GLenum requiredFormats[] = {
         GL_DEPTH_COMPONENT16,
-#if !defined(ANGLE_PLATFORM_APPLE_EMBEDDED) && \
-    (!defined(ANGLE_PLATFORM_MACCATALYST) || !defined(ANGLE_CPU_ARM64))
+#if !ANGLE_PLATFORM_IOS_FAMILY
         // anglebug.com/6082
         // TODO(dino): Temporarily Removing the need for GL_DEPTH_COMPONENT32_OES
         // because it is not supported on iOS.
@@ -669,8 +668,7 @@ static bool DetermineDepthTextureOESSupport(const TextureCapsMap &textureCaps)
 {
     constexpr GLenum requiredFormats[] = {
         GL_DEPTH_COMPONENT16,
-#if !defined(ANGLE_PLATFORM_APPLE_EMBEDDED) && \
-    (!defined(ANGLE_PLATFORM_MACCATALYST) || !defined(ANGLE_CPU_ARM64))
+#if !ANGLE_PLATFORM_IOS_FAMILY
         // anglebug.com/6082
         // TODO(dino): Temporarily Removing the need for GL_DEPTH_COMPONENT32_OES
         // because it is not supported on iOS.
@@ -1168,6 +1166,11 @@ Caps GenerateMinimumCaps(const Version &clientVersion, const Extensions &extensi
         caps.maxShaderStorageBlockSize          = 1 << 27;
         caps.maxCombinedShaderStorageBlocks     = 4;
         caps.shaderStorageBufferOffsetAlignment = 256;
+    }
+
+    if (extensions.blendFuncExtendedEXT)
+    {
+        caps.maxDualSourceDrawBuffers = 1;
     }
 
     if (extensions.textureRectangleANGLE)

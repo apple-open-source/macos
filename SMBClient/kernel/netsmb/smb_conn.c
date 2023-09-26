@@ -585,6 +585,12 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     uuid_generate(sessionp->uuid);
     
     /*
+     * SMB2_SIGNING_AES_CMAC is picked by default if there was no
+     * SMB2_SIGNING_CAPABILITIES negotiate context
+     */
+    sessionp->session_smb3_signing_algorithm = SMB2_SIGNING_AES_CMAC;
+
+    /*
      * <72239144> Save the original IP address that we connected to so we can
      * return it later. Used when checking for IP address matching for sharing
      * a session.
@@ -725,7 +731,15 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 			sessionp->session_misc_flags |= SMBV_SMB3_SIGNING_REQUIRED;
 		}
 	}
-	
+
+    /* What SMB 3.1.1 signing algoritms are enabled? */
+    if (session_spec->ioc_extra_flags & SMB_ENABLE_AES_128_CMAC) {
+        sessionp->session_misc_flags |= SMBV_ENABLE_AES_128_CMAC;
+    }
+    if (session_spec->ioc_extra_flags & SMB_ENABLE_AES_128_GMAC) {
+        sessionp->session_misc_flags |= SMBV_ENABLE_AES_128_GMAC;
+    }
+
     /* What SMB 3.1.1 encryption algoritms are enabled? */
     if (session_spec->ioc_extra_flags & SMB_ENABLE_AES_128_CCM) {
         sessionp->session_misc_flags |= SMBV_ENABLE_AES_128_CCM;
@@ -772,19 +786,31 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     sessionp->iod_readSizes[1] = kReadMediumQuantumSize;
     sessionp->iod_readSizes[2] = kLargeReadQuantumSize;
 
+    sessionp->iod_readCounts[0] = kQuantumMaxNumber;
+    sessionp->iod_readCounts[1] = kQuantumMedNumber;
+    sessionp->iod_readCounts[2] = kQuantumMinNumber;
+
     sessionp->iod_writeSizes[0] = kSmallWriteQuantumSize;
     sessionp->iod_writeSizes[1] = kWriteMediumQuantumSize;
     sessionp->iod_writeSizes[2] = kLargeWriteQuantumSize;
+
+    sessionp->iod_writeCounts[0] = kQuantumMaxNumber;
+    sessionp->iod_writeCounts[1] = kQuantumMedNumber;
+    sessionp->iod_writeCounts[2] = kQuantumMinNumber;
 
     sessionp->iod_readQuantumSize = sessionp->iod_readSizes[1];
     sessionp->iod_readQuantumNumber = kQuantumMedNumber;
     sessionp->iod_writeQuantumSize = sessionp->iod_writeSizes[1];
     sessionp->iod_writeQuantumNumber = kQuantumMedNumber;
 
+    sessionp->rw_thread_control = 0;
+    
     lck_mtx_unlock(&sessionp->iod_quantum_lock);
 
     sessionp->session_gone_iod_total_tx_bytes = 0;
     sessionp->session_gone_iod_total_rx_bytes = 0;
+    sessionp->session_gone_iod_total_tx_packets = 0;
+    sessionp->session_gone_iod_total_rx_packets = 0;
     sessionp->session_setup_time.tv_sec = 0;
     sessionp->session_reconnect_count = 0;
 

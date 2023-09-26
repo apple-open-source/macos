@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,11 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFPropertyList.h>
 #include <Security/Security.h>
+#if ! TARGET_OS_IPHONE
 #include <Security/Authorization.h>
+#else /* ! TARGET_OS_IPHONE */
+#include <SystemConfiguration/SCPreferences.h>
+#endif /* ! TARGET_OS_IPHONE */
 #include <sys/cdefs.h>
 
 typedef struct __EAPOLClientConfiguration * EAPOLClientConfigurationRef;
@@ -499,6 +503,42 @@ EAPOLClientConfigurationSetSystemProfile(EAPOLClientConfigurationRef cfg,
 					 CFStringRef if_name,
 					 EAPOLClientProfileRef profile);
 
+
+
+/*
+ * Function: EAPOLClientConfigurationCopyAllSystemProfiles
+ *
+ * Purpose:
+ *   Determine which interfaces have System mode configured.  
+ *   Return the results in a dictionary of EAPOLClientProfile
+ *   keyed by the interface name.
+ *
+ * Returns:
+ *    NULL if no interfaces are configured for System mode,
+ *    non-NULL CFDictionary of (CFString, EAPOLClientProfile) otherwise.
+ */
+CFDictionaryRef /* of (CFString, EAPOLClientProfile) */
+EAPOLClientConfigurationCopyAllSystemProfiles(EAPOLClientConfigurationRef cfg);
+
+/*
+ * Function: EAPOLClientConfigurationCopyAllLoginWindowProfiles
+ *
+ * Purpose:
+ *   Determine which interfaces have LoginWindow mode configured.  
+ *   Return the results in a dictionary of arrays keyed by the interface name.
+ *   Each array contains EAPOLClientProfileRefs.
+ *   
+ * Returns:
+ *    NULL if no interfaces are configured for LoginWindow mode,
+ *    non-NULL CFDictionary of (CFString, CFArray[EAPOLClientProfile])
+ *    otherwise.
+ */
+CFDictionaryRef /* of (CFString, CFArray[EAPOLClientProfile]) */
+EAPOLClientConfigurationCopyAllLoginWindowProfiles(EAPOLClientConfigurationRef
+						   cfg);
+
+#endif /* ! TARGET_OS_IPHONE */
+
 /*
  * Function: EAPOLClientConfigurationGetSystemEthernetProfile
  *
@@ -537,41 +577,6 @@ EAPOLClientConfigurationGetSystemEthernetProfile(EAPOLClientConfigurationRef cfg
 Boolean
 EAPOLClientConfigurationSetSystemEthernetProfile(EAPOLClientConfigurationRef cfg,
 						 EAPOLClientProfileRef profile);
-
-/*
- * Function: EAPOLClientConfigurationCopyAllSystemProfiles
- *
- * Purpose:
- *   Determine which interfaces have System mode configured.  
- *   Return the results in a dictionary of EAPOLClientProfile
- *   keyed by the interface name.
- *
- * Returns:
- *    NULL if no interfaces are configured for System mode,
- *    non-NULL CFDictionary of (CFString, EAPOLClientProfile) otherwise.
- */
-CFDictionaryRef /* of (CFString, EAPOLClientProfile) */
-EAPOLClientConfigurationCopyAllSystemProfiles(EAPOLClientConfigurationRef cfg);
-
-/*
- * Function: EAPOLClientConfigurationCopyAllLoginWindowProfiles
- *
- * Purpose:
- *   Determine which interfaces have LoginWindow mode configured.  
- *   Return the results in a dictionary of arrays keyed by the interface name.
- *   Each array contains EAPOLClientProfileRefs.
- *   
- * Returns:
- *    NULL if no interfaces are configured for LoginWindow mode,
- *    non-NULL CFDictionary of (CFString, CFArray[EAPOLClientProfile])
- *    otherwise.
- */
-CFDictionaryRef /* of (CFString, CFArray[EAPOLClientProfile]) */
-EAPOLClientConfigurationCopyAllLoginWindowProfiles(EAPOLClientConfigurationRef
-						   cfg);
-
-
-#endif /* ! TARGET_OS_IPHONE */
 
 /*
  * Function: EAPOLClientConfigurationGetDefaultAuthenticationProperties

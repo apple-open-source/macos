@@ -60,6 +60,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)createNTLMCredential:(struct peer * _Nullable)peer returningDictionary:(CFDictionaryRef _Nonnull *_Nonnull)dict;
 + (BOOL)createNTLMCredential:(struct peer * _Nullable)peer attributes:(CFDictionaryRef _Nullable)attributes returningDictionary:(CFDictionaryRef _Nullable *_Nonnull)dict;
 
++ (BOOL)addNTLMChallenge:(struct peer * _Nullable)peer challenge:(uint8_t [8])challenge;
++ (BOOL)checkNTLMChallenge:(struct peer * _Nullable)peer challenge:(uint8_t [8])challenge;
+
 #pragma mark -
 #pragma mark move
 

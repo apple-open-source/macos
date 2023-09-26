@@ -1098,6 +1098,7 @@ usage(void)
 	printf("       ndp -R\n");
 	printf("       ndp -w\n");
 	printf("       ndp -W cfgfile\n");
+	printf("       ndp -x\n");
 	exit(1);
 }
 

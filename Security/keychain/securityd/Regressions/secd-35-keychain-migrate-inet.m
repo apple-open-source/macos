@@ -117,7 +117,7 @@ int secd_35_keychain_migrate_inet(int argc, char *const *argv)
     is_status(SecItemCopyMatching(query, &results), errSecItemNotFound);
 
     /* Reset keybag */
-    SecItemServerResetKeychainKeybag();
+    SecItemServerSetKeychainKeybagToDefault();
 
     // Reset server accessgroups.
     SecAccessGroupsSetCurrent(old_ag);

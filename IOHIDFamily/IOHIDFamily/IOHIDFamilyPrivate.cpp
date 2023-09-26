@@ -224,11 +224,18 @@ bool CompareProductID( IOService * owner, OSDictionary * matching, SInt32 * scor
     SInt32 arrayScore = 0;
     SInt32 maskScore = 0;
     SInt32 maskArrayScore = 0;
+
+    OSString * str = NULL;
     
     // Compare each of the types of productID matching. Then in order of highest score to least
     // see if we have any hits. Once we find one hit that matches properly then we can return
     // true after incrementing the score.
-    pidMatch = CompareProperty(owner, matching, kIOHIDProductIDKey, &pidScore, kHIDVendor2ScoreIncrement);
+    if ((str = OSDynamicCast(OSString, matching->getObject(kIOHIDProductIDKey))) && str->isEqualTo("*")) {
+        pidMatch = true;
+        pidScore += kHIDVendor2ScoreIncrement;
+    } else {
+        pidMatch = CompareProperty(owner, matching, kIOHIDProductIDKey, &pidScore, kHIDVendor2ScoreIncrement);
+    }
     arrayMatch = CompareNumberPropertyArray(owner, matching, kIOHIDProductIDArrayKey, kIOHIDProductIDKey, &arrayScore, kHIDVendor2ArrayScoreIncrement);
     maskMatch = CompareNumberPropertyMask(owner, matching, kIOHIDProductIDKey, kIOHIDProductIDMaskKey, &maskScore, kHIDVendor2MaskScoreIncrement);
     maskArrayMatch = CompareNumberPropertyArrayWithMask(owner, matching, kIOHIDProductIDArrayKey, kIOHIDProductIDKey, kIOHIDProductIDMaskKey, &maskArrayScore, kHIDVendor2ArrayMaskScoreIncrement);

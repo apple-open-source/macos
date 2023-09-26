@@ -23,7 +23,6 @@
 
 #import "KeychainXCTest.h"
 #import "SecItemServer.h"
-#import "SFKeychainServer.h"
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
@@ -62,12 +61,6 @@ typedef enum {
 - (void)setEntitlements:(NSDictionary<NSString *, id> *)entitlements validated:(BOOL)validated;
 
 - (NSData*)getDatabaseKeyDataWithError:(NSError**)error;
-
-@end
-
-@interface SFKeychainServerFakeConnection : SFKeychainServerConnection
-
-- (void)setFakeAccessGroups:(NSArray*)fakeAccessGroups;
 
 @end
 

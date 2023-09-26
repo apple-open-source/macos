@@ -20,10 +20,11 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <stdio.h>
 
 #ifndef _FSCK_MESSAGES_H
 #define _FSCK_MESSAGES_H
+
+#include <stdio.h>
 
 /*
  * Internal structure for each fsck message.  This is the same 
@@ -41,7 +42,8 @@ struct fsck_message {
 };
 typedef struct fsck_message fsck_message_t;
 
-typedef void *fsck_ctx_t;
+typedef void* fsck_ctx_t;
+
 
 /* Type of fsck message string.
  * These values are internal values used in the mapping array of 
@@ -141,25 +143,24 @@ typedef enum fsck_block_phase_type fsck_block_phase_t;
  * the third is a va_list of the arguments for the message.
  */
 
-typedef fsck_block_status_t (^fsckBlock_t)(fsck_ctx_t, int, va_list);
+typedef fsck_block_status_t (^fsckBlock_t)(fsck_ctx_t c, int, va_list ap);
 
-extern fsckBlock_t fsckGetBlock(fsck_ctx_t, fsck_block_phase_t);
-extern void fsckSetBlock(fsck_ctx_t, fsck_block_phase_t, fsckBlock_t);
+fsckBlock_t fsckGetBlock(fsck_ctx_t c, fsck_block_phase_t phase);
+void fsckSetBlock(fsck_ctx_t c, fsck_block_phase_t phase, fsckBlock_t bp);
 
-extern fsck_ctx_t fsckCreate(void);
-extern int fsckSetOutput(fsck_ctx_t, FILE*);
-extern int fsckSetFile(fsck_ctx_t, int);
-extern int fsckSetWriter(fsck_ctx_t, void (*)(fsck_ctx_t, const char *));
-extern int fsckSetLogger(fsck_ctx_t, void (*)(fsck_ctx_t, const char *));
-extern int fsckSetVerbosity(fsck_ctx_t, int);
-extern int fsckGetVerbosity(fsck_ctx_t);
-extern int fsckSetOutputStyle(fsck_ctx_t, enum fsck_output_type);
-extern enum fsck_output_type fsckGetOutputStyle(fsck_ctx_t);
-extern int fsckSetDefaultResponse(fsck_ctx_t, enum fsck_default_answer_type);
-extern int fsckAskPrompt(fsck_ctx_t, const char *, ...) __printflike(2, 3);
-extern int fsckAddMessages(fsck_ctx_t, fsck_message_t *msgs);
-extern int fsckPrint(fsck_ctx_t, int msgNum, ...);
-extern enum fsck_msgtype fsckMsgClass(fsck_ctx_t, int msgNum);
-extern void fsckDestroy(fsck_ctx_t);
+fsck_ctx_t fsckMsgsCreate(void);
+int fsckSetOutput(fsck_ctx_t c, FILE* fp);
+int fsckSetFile(fsck_ctx_t c, int fd);
+int fsckSetWriter(fsck_ctx_t c, void (*)(fsck_ctx_t, const char *));
+int fsckSetLogger(fsck_ctx_t c, void (*)(fsck_ctx_t, const char *));
+int fsckSetVerbosity(fsck_ctx_t c, int);
+int fsckSetOutputStyle(fsck_ctx_t, enum fsck_output_type);
+enum fsck_output_type fsckGetOutputStyle(fsck_ctx_t);
+int fsckSetDefaultResponse(fsck_ctx_t, enum fsck_default_answer_type);
+int fsckAskPrompt(fsck_ctx_t, const char *, ...) __printflike(2, 3);
+int fsckAddMessages(fsck_ctx_t, fsck_message_t *msgs);
+int fsckPrint(fsck_ctx_t, int msgNum, va_list ap);
+enum fsck_msgtype fsckMsgClass(fsck_ctx_t, int msgNum);
+void fsckMsgsDestroy(fsck_ctx_t);
 
 #endif /* _FSCK_MESSAGES_H */

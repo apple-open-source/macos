@@ -63,8 +63,8 @@ connection_create(process_t proc)
     require(conn != NULL, done);
     
     conn->proc = (process_t)CFRetain(proc);
-    conn->dispatch_queue = dispatch_queue_create(NULL, DISPATCH_QUEUE_SERIAL);
-    conn->dispatch_queue_internal = dispatch_queue_create(NULL, DISPATCH_QUEUE_SERIAL);
+    conn->dispatch_queue = dispatch_queue_create("Connection Dispatch Queue", DISPATCH_QUEUE_SERIAL);
+    conn->dispatch_queue_internal = dispatch_queue_create("Connection Internal Queue", DISPATCH_QUEUE_SERIAL);
     
 done:
     return conn;

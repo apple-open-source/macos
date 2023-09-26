@@ -25,6 +25,7 @@
 #import "config.h"
 #import "AXTextMarker.h"
 
+#import <Foundation/NSRange.h>
 #if PLATFORM(MAC)
 #import "WebAccessibilityObjectWrapperMac.h"
 #import <pal/spi/mac/HIServicesSPI.h>
@@ -40,18 +41,23 @@ AXTextMarker::AXTextMarker(PlatformTextMarkerData platformData)
         return;
 
 #if PLATFORM(MAC)
-    ASSERT(CFGetTypeID(platformData) == AXTextMarkerGetTypeID());
-    if (CFGetTypeID(platformData) != AXTextMarkerGetTypeID())
+    if (CFGetTypeID(platformData) != AXTextMarkerGetTypeID()) {
+        ASSERT_NOT_REACHED();
         return;
+    }
 
-    ASSERT(AXTextMarkerGetLength(platformData) == sizeof(m_data));
-    if (AXTextMarkerGetLength(platformData) != sizeof(m_data))
+    if (AXTextMarkerGetLength(platformData) != sizeof(m_data)) {
+        ASSERT_NOT_REACHED();
         return;
+    }
 
     memcpy(&m_data, AXTextMarkerGetBytePtr(platformData), sizeof(m_data));
 #else // PLATFORM(IOS_FAMILY)
     [platformData getBytes:&m_data length:sizeof(m_data)];
 #endif
+
+    if (isMainThread())
+        setNodeIfNeeded();
 }
 
 RetainPtr<PlatformTextMarkerData> AXTextMarker::platformData() const
@@ -66,7 +72,10 @@ RetainPtr<PlatformTextMarkerData> AXTextMarker::platformData() const
 #if PLATFORM(MAC)
 AXTextMarkerRange::AXTextMarkerRange(AXTextMarkerRangeRef textMarkerRangeRef)
 {
-    ASSERT(CFGetTypeID(textMarkerRangeRef) == AXTextMarkerRangeGetTypeID());
+    if (!textMarkerRangeRef || CFGetTypeID(textMarkerRangeRef) != AXTextMarkerRangeGetTypeID()) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
 
     auto start = AXTextMarkerRangeCopyStartMarker(textMarkerRangeRef);
     auto end = AXTextMarkerRangeCopyEndMarker(textMarkerRangeRef);
@@ -86,5 +95,10 @@ RetainPtr<AXTextMarkerRangeRef> AXTextMarkerRange::platformData() const
     ));
 }
 #endif // PLATFORM(MAC)
+
+std::optional<NSRange> AXTextMarkerRange::nsRange() const
+{
+    return characterRange();
+}
 
 } // namespace WebCore

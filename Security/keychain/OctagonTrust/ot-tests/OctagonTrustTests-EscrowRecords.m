@@ -176,6 +176,11 @@
     return nil;
 }
 
+- (NSError*)backupForRecoveryKeyWithInfo:(NSDictionary*)info
+{
+    return nil;
+}
+
 - (void)setExpectRecoveryKeySetFail:(BOOL)shouldFail
 {
     self.failRecoveryKeySet = shouldFail;
@@ -480,7 +485,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -502,7 +506,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -526,7 +529,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -548,7 +550,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -564,7 +565,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -587,7 +587,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -611,9 +610,10 @@
 
 - (void)testFetchRecordsOctagonNotViableSOSViable
 {
+    enableSOSCompatibilityForTests();
+    
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -644,7 +644,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -661,7 +660,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -770,7 +768,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -828,7 +825,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 
@@ -893,7 +889,6 @@
 {
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
     cliqueContextConfiguration.altDSID = @"altdsid";
     cliqueContextConfiguration.otControl = self.otControl;
 

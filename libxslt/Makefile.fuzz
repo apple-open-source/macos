@@ -10,6 +10,8 @@
 fuzz_dir = ./libxslt/tests/fuzz
 top_srcdir = ./..
 
+XCODEBUILD_FUZZER_FLAGS = ENABLE_LIBFUZZER=YES ENABLE_ADDRESS_SANITIZER=YES ENABLE_UNDEFINED_BEHAVIOR_SANITIZER=YES
+
 .PHONY: $(fuzz_dir)/xpath $(fuzz_dir)/xslt
 
 all: xpath xslt
@@ -17,13 +19,13 @@ all: xpath xslt
 xpath: $(fuzz_dir)/xpath
 $(fuzz_dir)/xpath: $(fuzz_dir)/xpath.c $(fuzz_dir)/fuzz.c
 	rm -f $(fuzz_dir)/fuzz-xpath $(fuzz_dir)/xpath
-	xcodebuild -target fuzz-xpath -configuration Debug LIBXSLT_FUZZER=YES
+	xcodebuild -target fuzz-xpath -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
 	mv -f $(fuzz_dir)/fuzz-xpath $(fuzz_dir)/xpath
 
 xslt: $(fuzz_dir)/xslt
 $(fuzz_dir)/xslt: $(fuzz_dir)/xslt.c $(fuzz_dir)/fuzz.c
 	rm -f $(fuzz_dir)/fuzz-xslt $(fuzz_dir)/xslt
-	xcodebuild -target fuzz-xslt -configuration Debug LIBXSLT_FUZZER=YES
+	xcodebuild -target fuzz-xslt -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
 	mv -f $(fuzz_dir)/fuzz-xslt $(fuzz_dir)/xslt
 
 .PHONY: corpus clean-corpus merge-corpus
@@ -67,4 +69,4 @@ fuzz-xslt: $(fuzz_dir)/xslt
 	    corpus/xslt seed/xslt
 
 dylib:
-	xcodebuild -target All -configuration Debug LIBXSLT_FUZZER=YES
+	xcodebuild -target All -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)

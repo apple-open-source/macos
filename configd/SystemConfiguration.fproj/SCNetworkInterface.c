@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,8 +43,9 @@
 #include "SCHelper_client.h"
 #include "plugin_shared.h"
 
-#define kIOIsEphemeralKey	"IsEphemeral"
-#define kIOSelfNamedKey 	"SelfNamed"
+#define kIOIsEphemeralKey		"IsEphemeral"
+#define kIOSupportsVMNETBridgedModeKey	"SupportsVMNETBridgedMode"
+#define kIOSelfNamedKey 		"SelfNamed"
 
 #if	!TARGET_OS_IPHONE
 #include <EAP8021X/EAPClientProperties.h>
@@ -215,6 +216,8 @@ const SCNetworkInterfaceRef kSCNetworkInterfaceLoopback	= (SCNetworkInterfaceRef
 
 static CFMutableSetRef	vendor_interface_types	= NULL;
 
+static Boolean
+getBooleanValue(CFTypeRef t, Boolean default_value);
 
 #pragma mark -
 #pragma mark SCNetworkInterface configuration details
@@ -696,23 +699,17 @@ __SCNetworkInterfaceEqual(CFTypeRef cf1, CFTypeRef cf2)
 static CFHashCode
 __SCNetworkInterfaceHash(CFTypeRef cf)
 {
-	CFHashCode			hash			= 0;
-	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)cf;
+	CFHashCode		hash = 0;
+	SCNetworkInterfaceRef	interface = (SCNetworkInterfaceRef)cf;
 
-	if (interfacePrivate->entity_device != NULL) {
-		if (interfacePrivate->entity_device_unique == NULL) {
-			hash = CFHash(interfacePrivate->entity_device);
+	if (interface->entity_device != NULL) {
+		if (interface->entity_device_unique == NULL) {
+			hash = CFHash(interface->entity_device);
 		} else {
-			CFStringRef	str;
-
-			str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@+%@"),
-						       interfacePrivate->entity_device,
-						       interfacePrivate->entity_device_unique);
-			hash = CFHash(str);
-			CFRelease(str);
+			hash = CFHash(interface->entity_device);
+			hash ^= CFHash(interface->entity_device_unique);
 		}
 	}
-
 	return hash;
 }
 
@@ -1806,6 +1803,8 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 				interfacePrivate->interface_type	= kSCNetworkInterfaceTypeEthernet;
 				interfacePrivate->entity_type		= kSCValNetInterfaceTypeEthernet;
 				interfacePrivate->sort_order		= kSortWWANEthernet;
+			} else if (IOObjectConformsTo(controller, "IOUserEthernetController")) {
+				interfacePrivate->isUserEthernet = TRUE;
 			}
 
 			if (interfacePrivate->interface_type == NULL) {
@@ -1905,6 +1904,15 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 				// always treat AirPort interfaces as built-in
 				interfacePrivate->builtin = TRUE;
 			}
+			// ephemeral
+			val = CFDictionaryGetValue(interface_dict,
+						   CFSTR(kIOIsEphemeralKey));
+			interfacePrivate->isEphemeral = getBooleanValue(val, FALSE);
+
+			// supports vmnet bridged mode
+			val = CFDictionaryGetValue(interface_dict,
+						   CFSTR(kIOSupportsVMNETBridgedModeKey));
+			interfacePrivate->supportsVMNETBridgedMode = getBooleanValue(val, FALSE);
 
 			// location
 			interfacePrivate->location = IODictionaryCopyCFStringValue(interface_dict, CFSTR(kIOLocation));
@@ -2626,7 +2634,8 @@ createInterface(io_registry_entry_t	interface,
 		CFSTR(kIOTTYBaseNameKey),
 		CFSTR(kIOSerialBSDTypeKey),
 		CFSTR(kIOLocation),
-		CFSTR(kIOIsEphemeralKey)
+		CFSTR(kIOIsEphemeralKey),
+		CFSTR(kIOSupportsVMNETBridgedModeKey)
 	};
 
 	const CFStringRef controller_dict_keys[] = {
@@ -2700,12 +2709,6 @@ createInterface(io_registry_entry_t	interface,
 	interfacePrivate->path = __SC_IORegistryEntryCopyPath(interface, kIOServicePlane);
 	interfacePrivate->entryID = entryID;
 	interfacePrivate->isSelfNamed = self_named;
-	if (interface_dict != NULL) {
-		// set whether the interface is ephemeral
-		val = CFDictionaryGetValue(interface_dict,
-					   CFSTR(kIOIsEphemeralKey));
-		interfacePrivate->isEphemeral = getBooleanValue(val, FALSE);
-	}
 
 	// configuration [PPP, Modem, DNS, IPv4, IPv6, Proxies, SMB] template overrides
 	val = IORegistryEntrySearchCFProperty(interface,
@@ -6180,7 +6183,7 @@ _SCNetworkInterfaceForceConfigurationRefresh(CFStringRef ifName)
 static Boolean
 __SCNetworkInterfaceForceConfigurationRefresh_helper(SCPreferencesRef prefs, CFStringRef ifName)
 {
-#ifndef TEST_SCNETWORKINTERFACE
+#if !defined(TEST_SCNETWORKINTERFACE) && !defined(TEST_SCNETWORK_DEFAULT_SET) && !defined(TEST_SCNETWORK_SETTINGS)
 	CFDataRef		data		= NULL;
 	Boolean			ok;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
@@ -8220,6 +8223,18 @@ _SCNetworkInterfaceIsEphemeral(SCNetworkInterfaceRef interface)
 }
 
 Boolean
+_SCNetworkInterfaceSupportsVMNETBridgedMode(SCNetworkInterfaceRef interface)
+{
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
+	return interfacePrivate->supportsVMNETBridgedMode;
+}
+
+Boolean
 _SCNetworkInterfaceIsSelfNamed(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
@@ -8229,6 +8244,17 @@ _SCNetworkInterfaceIsSelfNamed(SCNetworkInterfaceRef interface)
 	}
 
 	return interfacePrivate->isSelfNamed;
+}
+
+
+Boolean
+_SCNetworkInterfaceIsUserEthernet(SCNetworkInterfaceRef interface)
+{
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
+	return interface->isUserEthernet;
 }
 
 

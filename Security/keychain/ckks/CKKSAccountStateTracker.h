@@ -59,7 +59,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 @interface SOSAccountStatus : NSObject
 @property SOSCCStatus status;
 @property (nullable) NSError* error;
-- (instancetype)init:(SOSCCStatus)status error:error;
+- (instancetype)init:(SOSCCStatus)status error:(NSError* _Nullable)error;
 @end
 
 @interface OTCliqueStatusWrapper : NSObject
@@ -74,7 +74,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 @property (readonly, nullable) NSString* octagonPeerID;
 
 // A little bit of a abstraction violation, but it'll do.
-- (void)setHSA2iCloudAccountStatus:(CKKSAccountStatus)status;
+- (void)setCDPCapableiCloudAccountStatus:(CKKSAccountStatus)status;
 @end
 
 #pragma mark -- Listener Protocols
@@ -123,8 +123,8 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 @property (readonly) CKKSCondition* octagonInformationInitialized;
 
 // Filled by Octagon, as it's fairly hard to compute.
-@property (readonly) CKKSAccountStatus hsa2iCloudAccountStatus;
-@property (readonly) CKKSCondition* hsa2iCloudAccountInitialized;
+@property (readonly) CKKSAccountStatus cdpCapableiCloudAccountStatus;
+@property (readonly) CKKSCondition* cdpCapableiCloudAccountInitialized;
 
 - (instancetype)init:(CKContainer*)container nsnotificationCenterClass:(Class<CKKSNSNotificationCenter>)nsnotificationCenterClass;
 
@@ -142,7 +142,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 
 - (dispatch_group_t _Nullable)checkForAllDeliveries;
 
-- (void)setHSA2iCloudAccountStatus:(CKKSAccountStatus)status;
+- (void)setCDPCapableiCloudAccountStatus:(CKKSAccountStatus)status;
 
 + (SOSAccountStatus*)getCircleStatus;
 + (void)fetchCirclePeerID:(void (^)(NSString* _Nullable peerID, NSError* _Nullable error))callback;

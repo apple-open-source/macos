@@ -8,6 +8,6 @@
 set -ex
 
 for variant in e f z ze zf bz bze bzf; do
-    ln ${DSTROOT}/usr/bin/grep ${DSTROOT}/usr/bin/${variant}grep
-    ln ${DSTROOT}/usr/share/man/man1/grep.1 ${DSTROOT}/usr/share/man/man1/${variant}grep.1
+    ln -f ${DSTROOT}/usr/bin/grep ${DSTROOT}/usr/bin/${variant}grep
+    ln -f ${DSTROOT}/usr/share/man/man1/grep.1 ${DSTROOT}/usr/share/man/man1/${variant}grep.1
 done

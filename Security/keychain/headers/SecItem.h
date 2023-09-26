@@ -232,8 +232,9 @@ extern const CFStringRef kSecClassIdentity
            affect all copies of the item, not just the one on your local device.
            Be sure that it makes sense to use the same password on all devices
            before deciding to make a password synchronizable.
-         - Only password items can currently be synchronized. Keychain syncing
-           is not supported for certificates or cryptographic keys.
+         - Starting in iOS 14, macOS 11, and watchOS 7, the keychain
+           synchronizes passwords, certificates, and cryptographic keys.
+           Earlier OS versions synchronize only passwords.
          - Items stored or obtained using the kSecAttrSynchronizable key cannot
            specify SecAccessRef-based access control with kSecAttrAccess. If a
            password is intended to be shared between multiple applications, the
@@ -243,10 +244,8 @@ extern const CFStringRef kSecClassIdentity
          - Items stored or obtained using the kSecAttrSynchronizable key may
            not also specify a kSecAttrAccessible value which is incompatible
            with syncing (namely, those whose names end with "ThisDeviceOnly".)
-         - Items stored or obtained using the kSecAttrSynchronizable key cannot
-           be specified by reference. You must pass kSecReturnAttributes and/or
-           kSecReturnData to retrieve results; kSecReturnRef is currently not
-           supported for synchronizable items.
+         - On macOS, when kSecAttrSynchronizable is set to true, returning
+           references is supported only for Certificate, Key or Identity items.
          - Persistent references to synchronizable items should be avoided;
            while they may work locally, they cannot be moved between devices,
            and may not resolve if the item is modified on some other device.
@@ -947,7 +946,11 @@ extern const CFStringRef kSecMatchLimitAll
         CFBooleanRef. A value of kCFBooleanTrue indicates that a reference
         should be returned. Depending on the item class requested, the
         returned reference(s) may be of type SecKeychainItemRef, SecKeyRef,
-        SecCertificateRef, or SecIdentityRef.
+        SecCertificateRef, or SecIdentityRef. Note that returning references is
+        supported only for Certificate, Key or Identity items on iOS, watchOS and
+        tvOS. Similarly, returning references is supported only for Certificate, Key
+        or Identity items on macOS when either kSecUseDataProtectionKeychain
+        is set to true or kSecAttrSynchronizable is set to true.
     @constant kSecReturnPersistentRef Specifies a dictionary key whose value
         is of type CFBooleanRef. A value of kCFBooleanTrue indicates that a
         persistent reference to an item (CFDataRef) should be returned.
@@ -1023,6 +1026,8 @@ extern const CFStringRef kSecValuePersistentRef
     @constant kSecUseDataProtectionKeychain Specifies a dictionary key whose value
         is a CFBooleanRef. Set to kCFBooleanTrue to use kSecAttrAccessGroup and/or
         kSecAttrAccessible on macOS without requiring the item to be marked synchronizable.
+        Note that when kSecUseDataProtectionKeychain is set to true, returning references is
+        supported only for Certificate, Key or Identity items.
     @constant kSecUseUserIndependentKeychain Specifies a dctionary key whose value is a CFBooleanRef
         indicating whether the item is shared with other personas on the system.
 */
@@ -1057,7 +1062,7 @@ extern const CFStringRef kSecUseUserIndependentKeychain
     @constant kSecUseAuthenticationUIFail Specifies that the error
         errSecInteractionNotAllowed will be returned if an item needs
         to authenticate with UI
-    @constant kSecUseAuthenticationUIAllowSkip Specifies that all items which need
+    @constant kSecUseAuthenticationUISkip Specifies that all items which need
         to authenticate with UI will be silently skipped. This value can be used
         only with SecItemCopyMatching.
 */
@@ -1130,7 +1135,11 @@ extern const CFStringRef kSecAttrAccessGroupToken
         kSecReturnAttributes with a value of kCFBooleanTrue.
       * To obtain a reference to a matching item (SecKeychainItemRef,
         SecKeyRef, SecCertificateRef, or SecIdentityRef), specify kSecReturnRef
-        with a value of kCFBooleanTrue.
+        with a value of kCFBooleanTrue. Note that returning references is
+        supported only for Certificate, Key or Identity items on iOS, watchOS and
+        tvOS. Similarly, returning references is supported only for Certificate, Key
+        or Identity items on macOS when either kSecUseDataProtectionKeychain
+        is set to true or kSecAttrSynchronizable is set to true.
       * To obtain a persistent reference to a matching item (CFDataRef),
         specify kSecReturnPersistentRef with a value of kCFBooleanTrue. Note
         that unlike normal references, a persistent reference may be stored
@@ -1182,6 +1191,13 @@ OSStatus SecItemCopyMatching(CFDictionaryRef query, CFTypeRef * __nullable CF_RE
         On OSX, To add an item to a particular keychain, supply kSecUseKeychain
         with a SecKeychainRef as its value.
 
+        On iOS, watchOS & tvOS, Certificate, Key, and Identity items may be
+        added by reference, but neither Internet Passwords nor Generic Passwords
+        may be. Similarly, on macOS with either kSecUseDataProtectionKeychain
+        set to true or kSecAttrSynchronizable set to true, Certificate, Key, and Identity
+        items may be added by reference, but neither Internet Passwords nor Generic
+        Passwords may be.
+
     Result types are specified as follows:
 
       * To obtain the data of the added item (CFDataRef), specify
@@ -1189,8 +1205,9 @@ OSStatus SecItemCopyMatching(CFDictionaryRef query, CFTypeRef * __nullable CF_RE
       * To obtain all the attributes of the added item (CFDictionaryRef),
         specify kSecReturnAttributes with a value of kCFBooleanTrue.
       * To obtain a reference to the added item (SecKeychainItemRef, SecKeyRef,
-        SecCertiicateRef, or SecIdentityRef), specify kSecReturnRef with a
-        value of kCFBooleanTrue.
+        SecCertificateRef, or SecIdentityRef), specify kSecReturnRef with a
+        value of kCFBooleanTrue. See also note about kSecReturnRef and
+        macOS.
       * To obtain a persistent reference to the added item (CFDataRef), specify
         kSecReturnPersistentRef with a value of kCFBooleanTrue. Note that
         unlike normal references, a persistent reference may be stored on disk

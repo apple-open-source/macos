@@ -361,12 +361,12 @@ test_libntlm_v2(const char *test_name, int flags,
 	ret = heim_ntlm_decode_targetinfo(&type2.targetinfo, 1, &ti);
 	if (ret)
 	    errx(1, "heim_ntlm_decode_targetinfo: %d", ret);
-	
+
 	if (ti.domainname == NULL)
 	    errx(1, "no domain name, windows clients hates this");
 	if (ti.servername == NULL)
 	    errx(1, "no servername name, windows clients hates this");
-	
+
 	heim_ntlm_free_targetinfo(&ti);
     } else {
 	warnx("no targetinfo");

@@ -23,7 +23,10 @@ static void TestDateIntervalFormat(void);
 static void TestFPos_SkelWithSeconds(void);
 static void TestFormatToResult(void);
 static void TestFormatCalendarToResult(void);
+#if APPLE_ICU_CHANGES
+// rdar://
 static void TestOpen(void);
+#endif  // APPLE_ICU_CHANGES
 
 void addDateIntervalFormatTest(TestNode** root);
 
@@ -35,11 +38,16 @@ void addDateIntervalFormatTest(TestNode** root)
     TESTCASE(TestFPos_SkelWithSeconds);
     TESTCASE(TestFormatToResult);
     TESTCASE(TestFormatCalendarToResult);
+#if APPLE_ICU_CHANGES
+// rdar://
     TESTCASE(TestOpen);
+#endif  // APPLE_ICU_CHANGES
 }
 
 static const char tzUSPacific[] = "US/Pacific";
 static const char tzAsiaTokyo[] = "Asia/Tokyo";
+#if APPLE_ICU_CHANGES
+// rdar://
 static const char tzAmericaLosAngeles[] = "America/Los_Angeles";
 #define Date201103021030 1299090600000.0 /* 2011-Mar-02 Wed 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
 #define Date201009270800 1285599629000.0 /* 2010-Sep-27 Mon 0800 in US/Pacific */
@@ -47,6 +55,10 @@ static const char tzAmericaLosAngeles[] = "America/Los_Angeles";
 #define Date200101012200 1546322400000.0 /* 2001-Jan-01 2200 in US/Pacific */
 #define Date202208302200 1661922030000.0 /* 2022-Aug-30 2200 in America/Los_Angeles */
 #define Date202208312200 1662008430000.0 /* 2022-Aug-31 2200 in America/Los_Angeles */
+#else
+#define Date201103021030 1299090600000.0 /* 2011-Mar-02 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
+#define Date201009270800 1285599629000.0 /* 2010-Sep-27 0800 in US/Pacific */
+#endif  // APPLE_ICU_CHANGES
 #define Date158210140000 -12219379142000.0
 #define Date158210160000 -12219206342000.0
 #define _MINUTE (60.0*1000.0)
@@ -57,138 +69,180 @@ typedef struct {
     const char * locale;
     const char * skeleton;
     UDisplayContext context;
+#if APPLE_ICU_CHANGES
+// rdar://
     UDateIntervalFormatAttributeValue minimizeType;
+#endif  // APPLE_ICU_CHANGES
     const char * tzid;
     const UDate  from;
     const UDate  to;
-    const char * resultExpected;
+    const UChar * resultExpected;
 } DateIntervalFormatTestItem;
 
 #define CAP_NONE  UDISPCTX_CAPITALIZATION_NONE
 #define CAP_BEGIN UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE
 #define CAP_LIST  UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU
 #define CAP_ALONE UDISPCTX_CAPITALIZATION_FOR_STANDALONE
+#if APPLE_ICU_CHANGES
+// rdar://
 #define CAP_MENU  UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU
 #define MIN_NONE   UDTITVFMT_MINIMIZE_NONE
 #define MIN_MONTHS UDTITVFMT_MINIMIZE_ADJACENT_MONTHS
 #define MIN_DAYS   UDTITVFMT_MINIMIZE_ADJACENT_DAYS
+#endif  // APPLE_ICU_CHANGES
 
 /* Just a small set of tests for now, the real functionality is tested in the C++ tests */
+#if APPLE_ICU_CHANGES
+// rdar://
 static const DateIntervalFormatTestItem testItems[] = {
-    { "en",    "MMMdHHmm",  CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 7.0*_HOUR,  "Mar 2, 10:30\\u2009\\u2013\\u200917:30" },
-    { "en",    "MMMdHHmm",  CAP_NONE,  MIN_NONE,   tzAsiaTokyo, Date201103021030,              Date201103021030 + 7.0*_HOUR,  "Mar 3, 03:30\\u2009\\u2013\\u200910:30" },
-    { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 12.0*_HOUR, "Mon, Sep 27, 2010" },
-    { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 31.0*_DAY,  "Mon, Sep 27\\u2009\\u2013\\u2009Thu, Oct 28, 2010" },
-    { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 410.0*_DAY, "Mon, Sep 27, 2010\\u2009\\u2013\\u2009Fri, Nov 11, 2011" },
-    { "de",    "Hm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 12.0*_HOUR, "08:00\\u201320:00 Uhr" },
-    { "de",    "Hm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 31.0*_DAY,  "27.9.2010, 08:00\\u2009\\u2013\\u200928.10.2010, 08:00" },
-    { "ja",    "MMMd",      CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   "9\\u670827\\u65E5\\uFF5E28\\u65E5" },
+    { "en",    "MMMdHHmm",  CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 7.0*_HOUR,  u"Mar 2, 10:30\u2009\u2013\u200917:30" },
+    { "en",    "MMMdHHmm",  CAP_NONE,  MIN_NONE,   tzAsiaTokyo, Date201103021030,              Date201103021030 + 7.0*_HOUR,  u"Mar 3, 03:30\u2009\u2013\u200910:30" },
+    { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 12.0*_HOUR, u"Mon, Sep 27, 2010" },
+    { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 31.0*_DAY,  u"Mon, Sep 27\u2009\u2013\u2009Thu, Oct 28, 2010" },
+    { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 410.0*_DAY, u"Mon, Sep 27, 2010\u2009\u2013\u2009Fri, Nov 11, 2011" },
+    { "de",    "Hm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 12.0*_HOUR, u"08:00\u201320:00 Uhr" },
+    { "de",    "Hm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 31.0*_DAY,  u"27.9.2010, 08:00\u2009\u2013\u200928.10.2010, 08:00" },
+    { "ja",    "MMMd",      CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   u"9月27日～28日" },
 
-    { "cs",    "MMMEd",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  "po 27.\\u202F9.\\u2009\\u2013\\u2009p\\u00E1 26.\\u202F11." },
-    { "cs",    "yMMMM",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  "z\\u00E1\\u0159\\u00ED\\u2013listopad 2010" },
-    { "cs",    "yMMMM",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   "z\\u00E1\\u0159\\u00ED 2010" },
+    { "cs",    "MMMEd",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  u"po 27.\u202F9.\u2009\u2013\u2009pá 26.\u202F11." },
+    { "cs",    "yMMMM",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  u"září\u2013listopad 2010" },
+    { "cs",    "yMMMM",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   u"září 2010" },
 #if !UCONFIG_NO_BREAK_ITERATION
-    { "cs",    "MMMEd",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  "Po 27.\\u202F9.\\u2009\\u2013\\u2009p\\u00E1 26.\\u202F11." },
-    { "cs",    "yMMMM",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  "Z\\u00E1\\u0159\\u00ED\\u2013listopad 2010" },
-    { "cs",    "yMMMM",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   "Z\\u00E1\\u0159\\u00ED 2010" },
-    { "cs",    "MMMEd",     CAP_LIST,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  "Po 27.\\u202F9.\\u2009\\u2013\\u2009p\\u00E1 26.\\u202F11." },
-    { "cs",    "yMMMM",     CAP_LIST,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  "Z\\u00E1\\u0159\\u00ED\\u2013listopad 2010" },
-    { "cs",    "yMMMM",     CAP_LIST,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   "Z\\u00E1\\u0159\\u00ED 2010" },
-    { "cs",    "MMMEd",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  "po 27.\\u202F9.\\u2009\\u2013\\u2009p\\u00E1 26.\\u202F11." },
+    { "cs",    "MMMEd",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  u"Po 27.\u202F9.\u2009\u2013\u2009pá 26.\u202F11." },
+    { "cs",    "yMMMM",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  u"Září\u2013listopad 2010" },
+    { "cs",    "yMMMM",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   u"Září 2010" },
+    { "cs",    "MMMEd",     CAP_LIST,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  u"Po 27.\u202F9.\u2009\u2013\u2009pá 26.\u202F11." },
+    { "cs",    "yMMMM",     CAP_LIST,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  u"Září\u2013listopad 2010" },
+    { "cs",    "yMMMM",     CAP_LIST,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   u"Září 2010" },
+    { "cs",    "MMMEd",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  u"po 27.\u202F9.\u2009\u2013\u2009pá 26.\u202F11." },
 #endif
-    { "cs",    "yMMMM",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  "z\\u00E1\\u0159\\u00ED\\u2013listopad 2010" },
-    { "cs",    "yMMMM",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   "z\\u00E1\\u0159\\u00ED 2010" },
+    { "cs",    "yMMMM",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 60.0*_DAY,  u"září\u2013listopad 2010" },
+    { "cs",    "yMMMM",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   u"září 2010" },
 
     
-    { "en",    "jm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 1.0*_HOUR,  "10:30\\u2009\\u2013\\u200911:30 AM" },
-    { "en",    "jm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 12.0*_HOUR, "10:30 AM\\u2009\\u2013\\u200910:30 PM" },
-    { "it",    "yMMMMd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 15.0*_DAY,  "2\\u201317 marzo 2011" },
-    { "en_SA", "MMMd",      CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   "18\\u2009\\u2013\\u200924 Shwl." },
-    { "en@calendar=islamic-umalqura", "MMMd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800, Date201009270800 + 6.0*_DAY,   "Shwl. 18\\u2009\\u2013\\u200924" },
-    { "fr",    "E",         CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   "mer.\\u2009\\u2013\\u2009sam." },
-    { "fr",    "E",         CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   "Mer.\\u2009\\u2013\\u2009sam." },
-    { "fr",    "E",         CAP_MENU,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   "mer.\\u2009\\u2013\\u2009sam." },
-    { "fr",    "E",         CAP_ALONE, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   "Mer.\\u2009\\u2013\\u2009sam." },
-    { "fr",    "yMMMM",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   "mars 2011" },
-    { "fr",    "yMMMM",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   "Mars 2011" },
-    { "fr",    "yMMMM",     CAP_MENU,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   "mars 2011" },
-    { "fr",    "yMMMM",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   "Mars 2011" },
-    { "fr",    "yMMMM",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 40.0*_DAY,  "mars\\u2009\\u2013\\u2009avril 2011" },
-    { "fr",    "yMMMM",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 40.0*_DAY,  "Mars\\u2009\\u2013\\u2009avril 2011" },
-    { "fr",    "yMMMM",     CAP_MENU,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 40.0*_DAY,  "mars\\u2009\\u2013\\u2009avril 2011" },
-    { "fr",    "yMMMM",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 40.0*_DAY,  "Mars\\u2009\\u2013\\u2009avril 2011" },
+    { "en",    "jm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 1.0*_HOUR,  u"10:30\u2009\u2013\u200911:30\u202FAM" },
+    { "en",    "jm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 12.0*_HOUR, u"10:30\u202FAM\u2009\u2013\u200910:30\u202FPM" },
+    { "it",    "yMMMMd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 15.0*_DAY,  u"2\u201317 marzo 2011" },
+    { "en_SA", "MMMd",      CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   u"18\u2009\u2013\u200924 Shwl." },
+    { "en@calendar=islamic-umalqura", "MMMd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800, Date201009270800 + 6.0*_DAY, u"Shwl. 18\u2009\u2013\u200924" },
+    { "fr",    "E",         CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"mer.\u2009\u2013\u2009sam." },
+    { "fr",    "E",         CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"Mer.\u2009\u2013\u2009sam." },
+    { "fr",    "E",         CAP_MENU,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"mer.\u2009\u2013\u2009sam." },
+    { "fr",    "E",         CAP_ALONE, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"Mer.\u2009\u2013\u2009sam." },
+    { "fr",    "yMMMM",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"mars 2011" },
+    { "fr",    "yMMMM",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"Mars 2011" },
+    { "fr",    "yMMMM",     CAP_MENU,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"mars 2011" },
+    { "fr",    "yMMMM",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"Mars 2011" },
+    { "fr",    "yMMMM",     CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 40.0*_DAY,  u"mars\u2009\u2013\u2009avril 2011" },
+    { "fr",    "yMMMM",     CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 40.0*_DAY,  u"Mars\u2009\u2013\u2009avril 2011" },
+    { "fr",    "yMMMM",     CAP_MENU,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 40.0*_DAY,  u"mars\u2009\u2013\u2009avril 2011" },
+    { "fr",    "yMMMM",     CAP_ALONE, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 40.0*_DAY,  u"Mars\u2009\u2013\u2009avril 2011" },
     // Apple-specific
-    { "en",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   "Sep 27\\u2009\\u2013\\u20093" },
-    { "en",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 32.0*_DAY,  "Sep 27\\u2009\\u2013\\u2009Oct 29" },
-    { "en",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 6.0*_DAY,   "Dec 30\\u2009\\u2013\\u20095" }, // across year boundary
-    { "en",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 32.0*_DAY,  "Dec 30, 2017\\u2009\\u2013\\u2009Jan 31, 2018" }, // across year boundary but > 1 month
-    { "fr",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   "27\\u20133 oct." },
-    { "fr",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 32.0*_DAY,  "27 sept.\\u2009\\u2013\\u200929 oct." },
-    { "fr",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 6.0*_DAY,   "30\\u20135 janv." }, // across year boundary
-    { "fr",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017\\u2009\\u2013\\u200931 janv. 2018" }, // across year boundary but > 1 month
+    { "en",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   u"Sep 27\u2009\u2013\u20093" },
+    { "en",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 32.0*_DAY,  u"Sep 27\u2009\u2013\u2009Oct 29" },
+    { "en",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 6.0*_DAY,   u"Dec 30\u2009\u2013\u20095" }, // across year boundary
+    { "en",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 32.0*_DAY,  u"Dec 30, 2017\u2009\u2013\u2009Jan 31, 2018" }, // across year boundary but > 1 month
+    { "fr",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   u"27\u20133 oct." },
+    { "fr",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 32.0*_DAY,  u"27 sept.\u2009\u2013\u200929 oct." },
+    { "fr",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 6.0*_DAY,   u"30\u20135 janv." }, // across year boundary
+    { "fr",    "MMMd",      CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 32.0*_DAY,  u"30 d\u00E9c. 2017\u2009\u2013\u200931 janv. 2018" }, // across year boundary but > 1 month
 
-    { "en",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   "Sep 27\\u2009\\u2013\\u20093, 2010" },
-    { "en",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 32.0*_DAY,  "Sep 27\\u2009\\u2013\\u2009Oct 29, 2010" },
-    { "en",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 6.0*_DAY,   "Dec 30, 2017\\u2009\\u2013\\u2009Jan 5, 2018" }, // across year boundary
-    { "en",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 32.0*_DAY,  "Dec 30, 2017\\u2009\\u2013\\u2009Jan 31, 2018" }, // across year boundary but > 1 month
-    { "fr",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   "27\\u20133 oct. 2010" },
-    { "fr",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 32.0*_DAY,  "27 sept.\\u2009\\u2013\\u200929 oct. 2010" },
-    { "fr",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 6.0*_DAY,   "30 d\\u00E9c. 2017\\u2009\\u2013\\u20095 janv. 2018" }, // across year boundary
-    { "fr",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017\\u2009\\u2013\\u200931 janv. 2018" }, // across year boundary but > 1 month
+    { "en",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   u"Sep 27\u2009\u2013\u20093, 2010" },
+    { "en",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 32.0*_DAY,  u"Sep 27\u2009\u2013\u2009Oct 29, 2010" },
+    { "en",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 6.0*_DAY,   u"Dec 30, 2017\u2009\u2013\u2009Jan 5, 2018" }, // across year boundary
+    { "en",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 32.0*_DAY,  u"Dec 30, 2017\u2009\u2013\u2009Jan 31, 2018" }, // across year boundary but > 1 month
+    { "fr",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   u"27\u20133 oct. 2010" },
+    { "fr",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201009270800,              Date201009270800 + 32.0*_DAY,  u"27 sept.\u2009\u2013\u200929 oct. 2010" },
+    { "fr",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 6.0*_DAY,   u"30 d\u00E9c. 2017\u2009\u2013\u20095 janv. 2018" }, // across year boundary
+    { "fr",    "yMMMd",     CAP_NONE,  MIN_MONTHS, tzUSPacific, Date201712300900,              Date201712300900 + 32.0*_DAY,  u"30 d\u00E9c. 2017\u2009\u2013\u200931 janv. 2018" }, // across year boundary but > 1 month
 
-    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 10.0*_HOUR, "Sep 27, 8:00 AM\\u2009\\u2013\\u20096:00 PM" },
-    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, "Sep 27 at 8:00 AM\\u2009\\u2013\\u2009Sep 28 at 1:00 AM" },
-    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u20091:00 AM" },
-    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "Sep 27 at 8:00 PM\\u2009\\u2013\\u2009Sep 28 at 10:00 AM" },
-    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "Sep 27 at 8:00 PM\\u2009\\u2013\\u2009Sep 28 at 7:00 PM" },
-    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 10.0*_HOUR, "27 sept. \\u00E0 08:00\\u2009\\u2013\\u200918:00" },
-    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 08:00\\u2009\\u2013\\u200928 sept. \\u00E0 01:00" },
-    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200901:00" },
-    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 10:00" },
-    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 19:00" },
+    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 10.0*_HOUR, u"Sep 27, 8:00\u202FAM\u2009\u2013\u20096:00\u202FPM" },
+    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"Sep 27 at 8:00\u202FAM\u2009\u2013\u2009Sep 28 at 1:00\u202FAM" },
+    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"Sep 27, 8:00\u202FPM\u2009\u2013\u20091:00\u202FAM" },
+    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, u"Sep 27 at 8:00\u202FPM\u2009\u2013\u2009Sep 28 at 10:00\u202FAM" },
+    { "en",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, u"Sep 27 at 8:00\u202FPM\u2009\u2013\u2009Sep 28 at 7:00\u202FPM" },
+    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 10.0*_HOUR, u"27 sept., 08:00\u2009\u2013\u200918:00" },
+    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"27 sept. \u00E0 08:00\u2009\u2013\u200928 sept. \u00E0 01:00" },
+    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27 sept., 20:00\u2009\u2013\u200901:00" },
+    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, u"27 sept. \u00E0 20:00\u2009\u2013\u200928 sept. \u00E0 10:00" },
+    { "fr",    "MMMdjmm",   CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, u"27 sept. \u00E0 20:00\u2009\u2013\u200928 sept. \u00E0 19:00" },
 
-    // additional tests for rdar://problem/26911014 (spot check only for now)
-    { "fr_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, "27 septembre \\u00E0 8:00 AM\\u2009\\u2013\\u200928 septembre \\u00E0 1:00 AM" },
-    { "fr_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00E0 8:00 PM\\u2009\\u2013\\u20091:00 AM" },
-    { "fr_AR", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, "27 septembre \\u00e0 08:00\\u2009\\u2013\\u200928 septembre \\u00e0 01:00" },
-    { "fr_AR", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00e0 20:00\\u2009\\u2013\\u200901:00" },
-    { "fr_JP", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, "27 septembre \\u00e0 08:00\\u2009\\u2013\\u200928 septembre \\u00e0 01:00" },
-    { "fr_JP", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00e0 20:00\\u2009\\u2013\\u200901:00" },
-    { "ja_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, "9\\u670827\\u65e5 \\u5348\\u524d8:00\\uff5e9\\u670828\\u65e5 \\u5348\\u524d1:00" },
-    { "ja_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "9\\u670827\\u65e5 \\u5348\\u5f8c8\\u664200\\u5206\\uff5e\\u5348\\u524d1\\u664200\\u5206" },
+    // additional tests for rdar://26911014 (spot check only for now)
+    { "fr_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"27 septembre \u00E0 8:00\u202FAM\u2009\u2013\u200928 septembre \u00E0 1:00\u202FAM" },
+    { "fr_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27 septembre, 8:00\u202FPM\u2009\u2013\u20091:00\u202FAM" },
+    { "fr_AR", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"27 septembre \u00e0 08:00\u2009\u2013\u200928 septembre \u00e0 01:00" },
+    { "fr_AR", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27 septembre, 20:00\u2009\u2013\u200901:00" },
+    { "fr_JP", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"27 septembre \u00e0 08:00\u2009\u2013\u200928 septembre \u00e0 01:00" },
+    { "fr_JP", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27 septembre, 20:00\u2009\u2013\u200901:00" },
+    { "ja_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"9\u670827\u65e5 \u5348\u524d8:00\uff5e9\u670828\u65e5 \u5348\u524d1:00" },
+    { "ja_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"9\u670827\u65e5 \u5348\u5f8c8\u664200\u5206\uff5e\u5348\u524d1\u664200\u5206" },
     
     // additional tests for rdar://63628118 (spot check only for now)
-    { "fr_DE", "yMEd",      CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201103021030,              Date201712300900,              "mer. 02.03.2011\\u2009\\u2013\\u2009sam. 30.12.2017" },
-    { "de_FR", "yMEd",      CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201103021030,              Date201712300900,              "Mi. 02/03/2011\\u2009\\u2013\\u2009Sa. 30/12/2017" },
-    { "fr_SA", "yMEd",      CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201103021030,              Date201712300900,              "mer.\\u060c 27/3/1432 \\u2013 sam.\\u060c 12/4/1439" },
+    { "fr_DE", "yMEd",      CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201103021030,              Date201712300900,              u"mer. 02.03.2011\u2009\u2013\u2009sam. 30.12.2017" },
+    { "de_FR", "yMEd",      CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201103021030,              Date201712300900,              u"Mi. 02/03/2011\u2009\u2013\u2009Sa. 30/12/2017" },
+    { "fr_SA", "yMEd",      CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201103021030,              Date201712300900,              u"mer.\u060c 27/3/1432 \u2013 sam.\u060c 12/4/1439" },
     
     // tests for rdar://63926701 (the first test is the 'real' test; the second one never failed and is there to guard against regressions)
-    { "fi_US", "yMdhmm",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date200101012200,              Date200101012200 + 1.5*_HOUR, "12/31/2018 klo 10.00\\u201311.30 ip." },
-    { "fi_US", "yMdjmm",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date200101012200,              Date200101012200 + 1.5*_HOUR, "12/31/2018 klo 10.00\\u201311.30 ip." },
+    { "fi_US", "yMdhmm",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date200101012200,              Date200101012200 + 1.5*_HOUR,  u"12/31/2018 10.00\u201311.30\u202Fip." },
+    { "fi_US", "yMdjmm",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date200101012200,              Date200101012200 + 1.5*_HOUR,  u"12/31/2018 10.00\u201311.30\u202Fip." },
 
     // rdar://55667608 and https://unicode-org.atlassian.net/browse/CLDR-10321
-    { "fi",    "MMMdjjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27.9. klo 20.00\\u20131.00" },
+    { "fi",    "MMMdjjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27.9. 20.00\u20131.00" },
     
     // rdar://72744707
-    { "hi@calendar=japanese", "yMMMEd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800,     Date201009270800 + 31.0*_DAY,  "\\u0938\\u094B\\u092E, 27 \\u0938\\u093F\\u0924\\u0970 \\u2013 \\u0917\\u0941\\u0930\\u0941, 28 \\u0905\\u0915\\u094D\\u0924\\u0942\\u0970 22 \\u0939\\u0947\\u0907\\u0938\\u0947\\u0907" }, // "सोम, 27 सित॰ \\u2013 गुरु, 28 अक्तू॰ 22 हेइसेइ"
-    { "hi@calendar=japanese", "yMMMEd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800,     Date201009270800 + 410.0*_DAY, "\\u0938\\u094B\\u092E, 27 \\u0938\\u093F\\u0924\\u0970 22 \\u2013 \\u0936\\u0941\\u0915\\u094D\\u0930, 11 \\u0928\\u0935\\u0970 23 \\u0939\\u0947\\u0907\\u0938\\u0947\\u0907" }, // "सोम, 27 सित॰ 22 \\u2013 शुक्र, 11 नव॰ 23 हेइसेइ"
+    { "hi@calendar=japanese", "yMMMEd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800,     Date201009270800 + 31.0*_DAY,  u"\u0938\u094B\u092E, 27 \u0938\u093F\u0924\u0970 \u2013 \u0917\u0941\u0930\u0941, 28 \u0905\u0915\u094D\u0924\u0942\u0970 22 \u0939\u0947\u0907\u0938\u0947\u0907" }, // "सोम, 27 सित॰ \u2013 गुरु, 28 अक्तू॰ 22 हेइसेइ"
+    { "hi@calendar=japanese", "yMMMEd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800,     Date201009270800 + 410.0*_DAY, u"\u0938\u094B\u092E, 27 \u0938\u093F\u0924\u0970 22 \u2013 \u0936\u0941\u0915\u094D\u0930, 11 \u0928\u0935\u0970 23 \u0939\u0947\u0907\u0938\u0947\u0907" }, // "सोम, 27 सित॰ 22 \u2013 शुक्र, 11 नव॰ 23 हेइसेइ"
 
     // rdar://99978866 tests for UDTITVFMT_MINIMIZE_ADJACENT_DAYS
     // First demonstrate the old behavior, minimizing across a day boundary that is not also a month boundary.
     // We only minimize if the interval is < 12 hours, so 3rd and 4th example should not minimize (in which case we have the date for both ends of interval).
     // When we do minimize (1st and 2nd example), we only include the date if it is in the skeleton (as in the 2nd example). 
-    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 8.0*_HOUR,  "10:00 PM\\u2009\\u2013\\u20096:00 AM" },
-    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 8.0*_HOUR,  "8/30/2022, 10:00 PM\\u2009\\u2013\\u20096:00 AM" },
-    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 13.0*_HOUR, "8/30/2022, 10:00 PM\\u2009\\u2013\\u20098/31/2022, 11:00 AM" },
-    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 13.0*_HOUR, "8/30/2022, 10:00 PM\\u2009\\u2013\\u20098/31/2022, 11:00 AM" },
+    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 8.0*_HOUR,  u"10:00\u202FPM\u2009\u2013\u20096:00\u202FAM" },
+    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 8.0*_HOUR,  u"8/30/2022, 10:00\u202FPM\u2009\u2013\u20096:00\u202FAM" },
+    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 13.0*_HOUR, u"8/30/2022, 10:00\u202FPM\u2009\u2013\u20098/31/2022, 11:00\u202FAM" },
+    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208302200,      Date202208302200 + 13.0*_HOUR, u"8/30/2022, 10:00\u202FPM\u2009\u2013\u20098/31/2022, 11:00\u202FAM" },
     // Now test that the new behavior (minimizing across a day boundary that is also a month boundary) is parallel.
-    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 8.0*_HOUR,  "10:00 PM\\u2009\\u2013\\u20096:00 AM" },
-    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 8.0*_HOUR,  "8/31/2022, 10:00 PM\\u2009\\u2013\\u20096:00 AM" },
-    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 13.0*_HOUR, "8/31/2022, 10:00 PM\\u2009\\u2013\\u20099/1/2022, 11:00 AM" },
-    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 13.0*_HOUR, "8/31/2022, 10:00 PM\\u2009\\u2013\\u20099/1/2022, 11:00 AM" },
+    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 8.0*_HOUR,  u"10:00\u202FPM\u2009\u2013\u20096:00\u202FAM" },
+    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 8.0*_HOUR,  u"8/31/2022, 10:00\u202FPM\u2009\u2013\u20096:00\u202FAM" },
+    { "en",    "jmm",       CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 13.0*_HOUR, u"8/31/2022, 10:00\u202FPM\u2009\u2013\u20099/1/2022, 11:00\u202FAM" },
+    { "en",    "yMdjmm",    CAP_NONE,  MIN_DAYS,   tzAmericaLosAngeles, Date202208312200,      Date202208312200 + 13.0*_HOUR, u"8/31/2022, 10:00\u202FPM\u2009\u2013\u20099/1/2022, 11:00\u202FAM" },
+    
+    // rdar://103558581 (added spaces around dash in Russian date intervals)
+    { "ru",    "yMd",       CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201103021030,      Date201712300900,              u"02.03.2011—30.12.2017" },
+    { "ru",    "yMMMMd",    CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201103021030,      Date201712300900,              u"2 марта 2011 — 30 декабря 2017 г." },
+    { "ru",    "yMEd",      CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201103021030,      Date201712300900,              u"Ср, 02.03.2011 — Сб, 30.12.2017" },
+    { "ru",    "GyMd",      CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201103021030,      Date201712300900,              u"02.03.2011—30.12.2017 н. э." },
+
 
     { NULL,    NULL,        CAP_NONE,  MIN_NONE,   NULL,        0,                             0,                             NULL }
 };
+#else
+static const DateIntervalFormatTestItem testItems[] = {
+    { "en", "MMMdHHmm", CAP_NONE,  tzUSPacific, Date201103021030, Date201103021030 + 7.0*_HOUR,  u"Mar 2, 10:30\u2009\u2013\u200917:30" },
+    { "en", "MMMdHHmm", CAP_NONE,  tzAsiaTokyo, Date201103021030, Date201103021030 + 7.0*_HOUR,  u"Mar 3, 03:30\u2009\u2013\u200910:30" },
+    { "en", "yMMMEd",   CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 12.0*_HOUR, u"Mon, Sep 27, 2010" },
+    { "en", "yMMMEd",   CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 31.0*_DAY,  u"Mon, Sep 27\u2009\u2013\u2009Thu, Oct 28, 2010" },
+    { "en", "yMMMEd",   CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 410.0*_DAY, u"Mon, Sep 27, 2010\u2009\u2013\u2009Fri, Nov 11, 2011" },
+    { "de", "Hm",       CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 12.0*_HOUR, u"08:00\u201320:00 Uhr" },
+    { "de", "Hm",       CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 31.0*_DAY,  u"27.9.2010, 08:00\u2009\u2013\u200928.10.2010, 08:00" },
+    { "ja", "MMMd",     CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"9月27日～28日" },
+    { "cs", "MMMEd",    CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"po 27. 9. \u2013 pá 26. 11." },
+    { "cs", "yMMMM",    CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"září\u2013listopad 2010" },
+    { "cs", "yMMMM",    CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"září 2010" },
+#if !UCONFIG_NO_BREAK_ITERATION
+    { "cs", "MMMEd",    CAP_BEGIN, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Po 27. 9. \u2013 pá 26. 11." },
+    { "cs", "yMMMM",    CAP_BEGIN, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Září\u2013listopad 2010" },
+    { "cs", "yMMMM",    CAP_BEGIN, tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"Září 2010" },
+    { "cs", "MMMEd",    CAP_LIST,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Po 27. 9. \u2013 pá 26. 11." },
+    { "cs", "yMMMM",    CAP_LIST,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Září\u2013listopad 2010" },
+    { "cs", "yMMMM",    CAP_LIST,  tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"Září 2010" },
+    { "cs", "MMMEd",    CAP_ALONE, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"po 27. 9. \u2013 pá 26. 11." },
+#endif
+    { "cs", "yMMMM",    CAP_ALONE, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"září\u2013listopad 2010" },
+    { "cs", "yMMMM",    CAP_ALONE, tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"září 2010" },
+    { NULL, NULL,       CAP_NONE,  NULL,        0,                0,                             NULL }
+};
+#endif  // APPLE_ICU_CHANGES
 
 enum {
     kSkelBufLen = 32,
@@ -220,58 +274,82 @@ static void TestDateIntervalFormat()
         udtitvfmt = udtitvfmt_open(testItemPtr->locale, skelBuf, -1, tzidBuf, tzidLen, &status);
         if ( U_SUCCESS(status) ) {
             UChar result[kFormatBufLen];
-            UChar resultExpected[kFormatBufLen];
+#if APPLE_ICU_CHANGES
+// rdar://
             udtitvfmt_setAttribute(udtitvfmt, UDTITVFMT_MINIMIZE_TYPE, testItemPtr->minimizeType, &status);
             if ( U_FAILURE(status) ) {
                 log_err("FAIL: udtitvfmt_setAttribute for locale %s, skeleton %s, tzid %s, minimizeType %d: %s\n",
                         testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType, myErrorName(status) );
                 continue;
             }
+#endif  // APPLE_ICU_CHANGES
             udtitvfmt_setContext(udtitvfmt, testItemPtr->context, &status);
             if ( U_FAILURE(status) ) {
+#if APPLE_ICU_CHANGES
+// rdar://
                 log_err("FAIL: udtitvfmt_setContext for locale %s, skeleton %s, tzid %s, context %04X: %s\n",
                         testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->context, myErrorName(status) );
                 continue;
+#else
+                log_err("FAIL: udtitvfmt_setContext for locale %s, skeleton %s, context %04X -  %s\n",
+                        testItemPtr->locale, testItemPtr->skeleton, (unsigned)testItemPtr->context, myErrorName(status) );
+#endif  // APPLE_ICU_CHANGES
             } else {
                 UDisplayContext getContext = udtitvfmt_getContext(udtitvfmt, UDISPCTX_TYPE_CAPITALIZATION, &status);
                 if ( U_FAILURE(status) ) {
+#if APPLE_ICU_CHANGES
+// rdar://
                     log_err("FAIL: udtitvfmt_getContext for locale %s, skeleton %s, tzid %s, context %04X: %s\n",
                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->context, myErrorName(status) );
                     continue;
+#else
+                    log_err("FAIL: udtitvfmt_getContext for locale %s, skeleton %s, context %04X -  %s\n",
+                            testItemPtr->locale, testItemPtr->skeleton, (unsigned)testItemPtr->context, myErrorName(status) );
+#endif  // APPLE_ICU_CHANGES
                 } else if (getContext != testItemPtr->context) {
+#if APPLE_ICU_CHANGES
+// rdar://
                     log_err("FAIL: udtitvfmt_getContext for locale %s, skeleton %s, tzid %s, set context %04X but got %04X\n",
                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->context, getContext );
                     continue;
+#else
+                    log_err("FAIL: udtitvfmt_getContext for locale %s, skeleton %s, context %04X -  got context %04X\n",
+                            testItemPtr->locale, testItemPtr->skeleton, (unsigned)testItemPtr->context, (unsigned)getContext );
+#endif  // APPLE_ICU_CHANGES
                 }
             }
             status = U_ZERO_ERROR;
-
             int32_t fmtLen = udtitvfmt_format(udtitvfmt, testItemPtr->from, testItemPtr->to, result, kFormatBufLen, NULL, &status);
             if (fmtLen >= kFormatBufLen) {
                 result[kFormatBufLen-1] = 0;
             }
             if ( U_SUCCESS(status) ) {
-                u_unescape(testItemPtr->resultExpected, resultExpected, kFormatBufLen);
-                if ( u_strcmp(result, resultExpected) != 0 ) {
-                    char bcharBuf[kFormatBufLen];
-#if 0
-                    log_err("ERROR: udtitvfmt_format for locale %s, skeleton %s, tzid %s, minimizeType %d, from %.1f, to %.1f: expect %s, get %s\n",
-                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType,
-                             testItemPtr->from, testItemPtr->to, testItemPtr->resultExpected, u_austrcpy(bcharBuf,result) );
-#else
-                    // Apple-specific version
-                    char bexpbuf[kFormatBufLen];
-                    u_strToUTF8(bexpbuf, kFormatBufLen, NULL, resultExpected, -1, &status);
-                    u_strToUTF8(bcharBuf, kFormatBufLen, NULL, result, fmtLen, &status);
+                if ( u_strcmp(result, testItemPtr->resultExpected) != 0 ) {
+                    char bcharBufExp[kFormatBufLen];
+                    char bcharBufGet[kFormatBufLen];
+#if APPLE_ICU_CHANGES
+// rdar://
                     log_err("ERROR: udtitvfmt_format for locale %s, skeleton %s, tzid %s, minimizeType %d, context %04X, from %.1f, to %.1f: expect %s, get %s\n",
-                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType, (int)testItemPtr->context,
-                             testItemPtr->from, testItemPtr->to, bexpbuf, bcharBuf );
-#endif
+                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog,
+                             (int)testItemPtr->minimizeType, (int)testItemPtr->context,
+                             testItemPtr->from, testItemPtr->to,
+                             u_austrcpy(bcharBufExp,testItemPtr->resultExpected), u_austrcpy(bcharBufGet,result) );
+#else
+                    log_err("ERROR: udtitvfmt_format for locale %s, skeleton %s, tzid %s, from %.1f, to %.1f: expect %s, get %s\n",
+                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, testItemPtr->from, testItemPtr->to,
+                             u_austrcpy(bcharBufExp,testItemPtr->resultExpected), u_austrcpy(bcharBufGet,result) );
+#endif  // APPLE_ICU_CHANGES
                 }
             } else {
+#if APPLE_ICU_CHANGES
+// rdar://
                 log_err("FAIL: udtitvfmt_format for locale %s, skeleton %s, tzid %s, minimizeType %d, from %.1f, to %.1f: %s\n",
                         testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType,
                         testItemPtr->from, testItemPtr->to, myErrorName(status) );
+#else
+                log_err("FAIL: udtitvfmt_format for locale %s, skeleton %s, tzid %s, from %.1f, to %.1f: %s\n",
+                        testItemPtr->locale, testItemPtr->skeleton, tzidForLog, testItemPtr->from, testItemPtr->to, myErrorName(status) );
+#endif  // APPLE_ICU_CHANGES
             }
             udtitvfmt_close(udtitvfmt);
         } else {
@@ -371,15 +449,28 @@ static const ExpectPosAndFormat exp_en_yyMMddHHmmss[kNumDeltas] = {
 };
 
 static const ExpectPosAndFormat exp_en_yMMMdhmmssz[kNumDeltas] = {
-    { 18, 20, "Nov 20, 2014 at 9:00:00 AM GMT" },
-    { 18, 20, "Nov 20, 2014 at 9:00:00 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u20099:00:20 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u20099:20:00 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u200911:00:00 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u20099:00:00 PM GMT" },
-    { 18, 20, "Nov 20, 2014 at 9:00:00 AM GMT\\u2009\\u2013\\u2009Nov 28, 2014 at 9:00:00 AM GMT" },
-    { 18, 20, "Nov 20, 2014 at 9:00:00 AM GMT\\u2009\\u2013\\u2009Dec 6, 2014 at 9:00:00 AM GMT" },
-    { 18, 20, "Nov 20, 2014 at 9:00:00 AM GMT\\u2009\\u2013\\u2009Feb 28, 2015 at 9:00:00 AM GMT" }
+#if APPLE_ICU_CHANGES
+// rdar://
+    { 18, 20, "Nov 20, 2014 at 9:00:00\\u202FAM GMT" },
+    { 18, 20, "Nov 20, 2014 at 9:00:00\\u202FAM GMT" },
+#else
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT" },
+#endif  // APPLE_ICU_CHANGES
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT\\u2009\\u2013\\u20099:00:20\\u202FAM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT\\u2009\\u2013\\u20099:20:00\\u202FAM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT\\u2009\\u2013\\u200911:00:00\\u202FAM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT\\u2009\\u2013\\u20099:00:00\\u202FPM GMT" },
+#if APPLE_ICU_CHANGES
+// rdar://
+    { 18, 20, "Nov 20, 2014 at 9:00:00\\u202FAM GMT\\u2009\\u2013\\u2009Nov 28, 2014 at 9:00:00\\u202FAM GMT" },
+    { 18, 20, "Nov 20, 2014 at 9:00:00\\u202FAM GMT\\u2009\\u2013\\u2009Dec 6, 2014 at 9:00:00\\u202FAM GMT" },
+    { 18, 20, "Nov 20, 2014 at 9:00:00\\u202FAM GMT\\u2009\\u2013\\u2009Feb 28, 2015 at 9:00:00\\u202FAM GMT" }
+#else
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT\\u2009\\u2013\\u2009Nov 28, 2014, 9:00:00\\u202FAM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT\\u2009\\u2013\\u2009Dec 6, 2014, 9:00:00\\u202FAM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00\\u202FAM GMT\\u2009\\u2013\\u2009Feb 28, 2015, 9:00:00\\u202FAM GMT" }
+#endif  // APPLE_ICU_CHANGES
 };
 
 static const ExpectPosAndFormat exp_ja_yyMMddHHmm[kNumDeltas] = {
@@ -418,18 +509,21 @@ static const ExpectPosAndFormat exp_ja_yMMMdHHmmss[kNumDeltas] = {
     { 14, 16, "2014\\u5E7411\\u670820\\u65E5 9:00:00\\uFF5E2015\\u5E742\\u670828\\u65E5 9:00:00" }
 };
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // rdar://55667608 and https://unicode-org.atlassian.net/browse/CLDR-10321
 static const ExpectPosAndFormat exp_fi_MMMdjjmm[kNumDeltas] = {
     { 13, 15, "20.11. klo 9.00" },
     { 13, 15, "20.11. klo 9.00" },
     { 13, 15, "20.11. klo 9.00" },
-    { 13, 15, "20.11. klo 9.00\\u20139.20" },
-    { 13, 15, "20.11. klo 9.00\\u201311.00" },
-    { 13, 15, "20.11. klo 9.00\\u201321.00" },
+    {  9, 11, "20.11. 9.00\\u20139.20" },
+    {  9, 11, "20.11. 9.00\\u201311.00" },
+    {  9, 11, "20.11. 9.00\\u201321.00" },
     { 13, 15, "20.11. klo 9.00\\u201328.11. klo 9.00" },
     { 13, 15, "20.11. klo 9.00\\u20136.12. klo 9.00" },
     { 17, 19, "20.11.2014 klo 9.00\\u201328.2.2015 klo 9.00" }
 };
+#endif  // APPLE_ICU_CHANGES
 
 typedef struct {
 	const char * locale;
@@ -448,7 +542,10 @@ static const LocaleAndSkeletonItem locSkelItems[] = {
 	{ "ja",		"yyMMddHHmm",   UDAT_MINUTE_FIELD, exp_ja_yyMMddHHmm },
 	{ "ja",		"yyMMddHHmmss", UDAT_MINUTE_FIELD, exp_ja_yyMMddHHmmss },
 	{ "ja",		"yMMMdHHmmss",  UDAT_MINUTE_FIELD, exp_ja_yMMMdHHmmss },
+#if APPLE_ICU_CHANGES
+// rdar://
     { "fi",     "MMMdjjmm",     UDAT_MINUTE_FIELD, exp_fi_MMMdjjmm },
+#endif  // APPLE_ICU_CHANGES
 	{ NULL, NULL, (UDateFormatField)0, NULL }
 };
 
@@ -504,7 +601,7 @@ static void TestFormatToResult() {
 
     {
         const char* message = "Field position test 1";
-        const UChar* expectedString = u"27. September 2010 um 15:00\u2009–\u20092. März 2011 um 18:30";
+        const UChar* expectedString = u"27. September 2010 um 15:00\u2009\u2013\u20092. März 2011 um 18:30";
         udtitvfmt_formatToResult(fmt, Date201009270800, Date201103021030, fdi, &ec);
         assertSuccess("Formatting", &ec);
         static const UFieldPositionWithCategory expectedFieldPositions[] = {
@@ -574,7 +671,7 @@ static void TestFormatCalendarToResult() {
 
     {
         const char* message = "Field position test 1";
-        const UChar* expectedString = u"27. September 2010 um 15:00 – 2. März 2011 um 18:30";
+        const UChar* expectedString = u"27. September 2010 um 15:00\u2009\u2013\u20092. März 2011 um 18:30";
         udtitvfmt_formatCalendarToResult(fmt, ucal1, ucal2, fdi, &ec);
         assertSuccess("Formatting", &ec);
         static const UFieldPositionWithCategory expectedFieldPositions[] = {
@@ -627,9 +724,9 @@ static void TestFormatCalendarToResult() {
         // Date across Julian Gregorian change date.
         ucal_setMillis(ucal4, Date158210140000, &ec);
         ucal_setMillis(ucal5, Date158210160000, &ec);
-        //                                        1         2         3         4
-        //                              012345678901234567890123456789012345678901234567890
-        const UChar* expectedString = u"4. Oktober 1582 um 00:00 – 16. Oktober 1582 um 00:00";
+        //                                        1         2                        3         4
+        //                              0123456789012345678901234     5     6     789012345678901234567890
+        const UChar* expectedString = u"4. Oktober 1582 um 00:00\u2009\u2013\u200916. Oktober 1582 um 00:00";
         udtitvfmt_formatCalendarToResult(fmt, ucal4, ucal5, fdi, &ec);
         assertSuccess("Formatting", &ec);
         static const UFieldPositionWithCategory expectedFieldPositions[] = {
@@ -661,9 +758,9 @@ static void TestFormatCalendarToResult() {
         ucal_setMillis(ucal4, Date158210140000, &ec);
         ucal_setMillis(ucal5, Date158210160000, &ec);
         const char* message = "Field position test 4";
-        //                                        1         2         3         4
-        //                              012345678901234567890123456789012345678901234567890
-        const UChar* expectedString = u"14. Oktober 1582 um 00:00 – 16. Oktober 1582 um 00:00";
+        //                                        1         2                        3         4
+        //                              01234567890123456789012345     6     7     89012345678901234567890
+        const UChar* expectedString = u"14. Oktober 1582 um 00:00\u2009\u2013\u200916. Oktober 1582 um 00:00";
         udtitvfmt_formatCalendarToResult(fmt, ucal4, ucal5, fdi, &ec);
         assertSuccess("Formatting", &ec);
         static const UFieldPositionWithCategory expectedFieldPositions[] = {
@@ -697,6 +794,8 @@ static void TestFormatCalendarToResult() {
     udtitvfmt_closeResult(fdi);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 static const char* openLocales[] = {
     "en",
     "en@calendar=japanese",
@@ -809,5 +908,6 @@ static void TestOpen()
         }
     }
 }
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

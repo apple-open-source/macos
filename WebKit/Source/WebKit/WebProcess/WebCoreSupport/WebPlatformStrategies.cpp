@@ -37,8 +37,8 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
 #include "WebFrame.h"
-#include "WebFrameLoaderClient.h"
 #include "WebLoaderStrategy.h"
+#include "WebLocalFrameLoaderClient.h"
 #include "WebMediaStrategy.h"
 #include "WebPage.h"
 #include "WebPasteboardOverrides.h"
@@ -49,8 +49,8 @@
 #include <WebCore/Color.h>
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
-#include <WebCore/Frame.h>
 #include <WebCore/LoaderStrategy.h>
+#include <WebCore/LocalFrame.h>
 #include <WebCore/MediaStrategy.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/Page.h>
@@ -130,7 +130,7 @@ void WebPlatformStrategies::getTypes(Vector<String>& types, const String& pasteb
         return;
 
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::GetPasteboardTypes(pasteboardName, pageIdentifier(context)), 0);
-    if (sendResult)
+    if (sendResult.succeeded())
         std::tie(types) = sendResult.takeReply();
 }
 
@@ -151,7 +151,7 @@ void WebPlatformStrategies::getPathnamesForType(Vector<String>& pathnames, const
 {
     Vector<SandboxExtension::Handle> sandboxExtensionsHandleArray;
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::GetPasteboardPathnamesForType(pasteboardName, pasteboardType, pageIdentifier(context)), 0);
-    if (sendResult)
+    if (sendResult.succeeded())
         std::tie(pathnames, sandboxExtensionsHandleArray) = sendResult.takeReply();
     ASSERT(pathnames.size() == sandboxExtensionsHandleArray.size());
     SandboxExtension::consumePermanently(sandboxExtensionsHandleArray);
@@ -256,7 +256,7 @@ String WebPlatformStrategies::urlStringSuitableForLoading(const String& pasteboa
 {
     String url;
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::URLStringSuitableForLoading(pasteboardName, pageIdentifier(context)), 0);
-    if (sendResult)
+    if (sendResult.succeeded())
         std::tie(url, title) = sendResult.takeReply();
     return url;
 }
@@ -336,6 +336,13 @@ void WebPlatformStrategies::clearClipboard(const String& pasteboardName)
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebPasteboardProxy::ClearClipboard(pasteboardName), 0);
 }
 
+int64_t WebPlatformStrategies::changeCount(const String& pasteboardName)
+{
+    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::GetPasteboardChangeCount(pasteboardName), 0);
+    auto [changeCount] = sendResult.takeReplyOr(0);
+    return changeCount;
+}
+
 #endif // PLATFORM(GTK)
 
 #if USE(LIBWPE)
@@ -344,7 +351,7 @@ void WebPlatformStrategies::clearClipboard(const String& pasteboardName)
 void WebPlatformStrategies::getTypes(Vector<String>& types)
 {
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::GetPasteboardTypes(), 0);
-    if (sendResult)
+    if (sendResult.succeeded())
         std::tie(types) = sendResult.takeReply();
 }
 
@@ -428,7 +435,7 @@ URL WebPlatformStrategies::readURLFromPasteboard(size_t index, const String& pas
 {
     String urlString;
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::ReadURLFromPasteboard(index, pasteboardName, pageIdentifier(context)), 0);
-    if (sendResult)
+    if (sendResult.succeeded())
         std::tie(urlString, title) = sendResult.takeReply();
     return URL({ }, urlString);
 }

@@ -33,7 +33,6 @@
 #include "SameDocumentNavigationType.h"
 #include "ShareableBitmap.h"
 #include "WebColorPicker.h"
-#include "WebDataListSuggestionsDropdown.h"
 #include "WebDateTimePicker.h"
 #include "WebPopupMenuProxy.h"
 #include "WindowKind.h"
@@ -47,6 +46,7 @@
 #include <WebCore/FocusDirection.h>
 #include <WebCore/InputMode.h>
 #include <WebCore/MediaControlsContextMenuItem.h>
+#include <WebCore/ScrollTypes.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/ValidationBubble.h>
 #include <variant>
@@ -56,7 +56,6 @@
 #include <wtf/WeakPtr.h>
 
 #if PLATFORM(COCOA)
-#include "RemoteLayerTreeNode.h"
 #include "WKFoundation.h"
 
 #if PLATFORM(IOS_FAMILY)
@@ -80,6 +79,7 @@ OBJC_CLASS UIScrollView;
 OBJC_CLASS _WKRemoteObjectRegistry;
 
 #if USE(APPKIT)
+OBJC_CLASS NSWindow;
 OBJC_CLASS WKView;
 #endif
 #endif
@@ -114,7 +114,7 @@ enum class TextIndicatorLifetime : uint8_t;
 enum class TextIndicatorDismissalAnimation : uint8_t;
 enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
-enum class ScrollIsAnimated : uint8_t;
+enum class ScrollIsAnimated : bool;
 
 struct AppHighlight;
 struct DataDetectorElementInfo;
@@ -150,6 +150,7 @@ class NativeWebGestureEvent;
 class NativeWebKeyboardEvent;
 class NativeWebMouseEvent;
 class NativeWebWheelEvent;
+class RemoteLayerTreeNode;
 class RemoteLayerTreeTransaction;
 class SafeBrowsingWarning;
 class UserData;
@@ -209,7 +210,7 @@ public:
     virtual ~PageClient() { }
 
     // Create a new drawing area proxy for the given page.
-    virtual std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) = 0;
+    virtual std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy() = 0;
 
     // Tell the view to invalidate the given region. The region is in view coordinates.
     virtual void setViewNeedsDisplay(const WebCore::Region&) = 0;
@@ -268,13 +269,13 @@ public:
     virtual void didFailProvisionalLoadForMainFrame() { };
     virtual void didCommitLoadForMainFrame(const String& mimeType, bool useCustomContentProvider) = 0;
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
+#if ENABLE(PDFKIT_PLUGIN)
     virtual void createPDFHUD(PDFPluginIdentifier, const WebCore::IntRect&) = 0;
     virtual void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&) = 0;
     virtual void removePDFHUD(PDFPluginIdentifier) = 0;
     virtual void removeAllPDFHUDs() = 0;
 #endif
-    
+
     virtual bool handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, const FrameInfoData&, API::OpenPanelParameters*, WebOpenPanelResultListenerProxy*) { return false; }
     virtual bool showShareSheet(const WebCore::ShareDataWithParsedURL&, WTF::CompletionHandler<void (bool)>&&) { return false; }
     virtual void showContactPicker(const WebCore::ContactsRequestData&, WTF::CompletionHandler<void(std::optional<Vector<WebCore::ContactInfo>>&&)>&& completionHandler) { completionHandler(std::nullopt); }
@@ -291,10 +292,11 @@ public:
 #if PLATFORM(GTK)
     virtual void startDrag(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>, RefPtr<ShareableBitmap>&& dragImage, WebCore::IntPoint&& dragImageHotspot) = 0;
 #else
-    virtual void startDrag(const WebCore::DragItem&, const ShareableBitmapHandle&) { }
+    virtual void startDrag(const WebCore::DragItem&, ShareableBitmap::Handle&&) { }
 #endif
     virtual void didPerformDragOperation(bool) { }
     virtual void didPerformDragControllerAction() { }
+    virtual void didChangeDragCaretRect(const WebCore::IntRect& /*previousCaretRect*/, const WebCore::IntRect& /*caretRect*/) { }
 #endif // ENABLE(DRAG_SUPPORT)
 
     virtual void setCursor(const WebCore::Cursor&) = 0;
@@ -319,6 +321,11 @@ public:
 #if ENABLE(MAC_GESTURE_EVENTS)
     virtual void gestureEventWasNotHandledByWebCore(const NativeWebGestureEvent&) = 0;
 #endif
+#endif
+
+#if PLATFORM(MAC)
+    virtual CALayer *headerBannerLayer() const = 0;
+    virtual CALayer *footerBannerLayer() const = 0;
 #endif
 
 #if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
@@ -456,8 +463,6 @@ public:
     virtual void registerInsertionUndoGrouping() = 0;
 
     virtual void setEditableElementIsFocused(bool) = 0;
-
-    virtual void setCaretDecorationVisibility(bool) = 0;
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(COCOA)
@@ -473,7 +478,7 @@ public:
     virtual void restorePageState(std::optional<WebCore::FloatPoint> scrollPosition, const WebCore::FloatPoint& scrollOrigin, const WebCore::FloatBoxExtent& obscuredInsetsOnSave, double scale) = 0;
     virtual void restorePageCenterAndScale(std::optional<WebCore::FloatPoint> center, double scale) = 0;
 
-    virtual void elementDidFocus(const FocusedElementInformation&, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState::Flag> activityStateChanges, API::Object* userData) = 0;
+    virtual void elementDidFocus(const FocusedElementInformation&, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, API::Object* userData) = 0;
     virtual void updateInputContextAfterBlurringAndRefocusingElement() = 0;
     virtual void elementDidBlur() = 0;
     virtual void focusedElementDidChangeInputMode(WebCore::InputMode) = 0;
@@ -510,15 +515,19 @@ public:
 #endif
 
     virtual WebCore::Color contentViewBackgroundColor() = 0;
+    virtual WebCore::Color insertionPointColor() = 0;
+
     virtual String sceneID() = 0;
 
-    virtual void beginTextRecognitionForFullscreenVideo(const ShareableBitmapHandle&, AVPlayerViewController *) = 0;
+    virtual void beginTextRecognitionForFullscreenVideo(ShareableBitmap::Handle&&, AVPlayerViewController *) = 0;
     virtual void cancelTextRecognitionForFullscreenVideo(AVPlayerViewController *) = 0;
 #endif
     virtual bool isTextRecognitionInFullscreenVideoEnabled() const { return false; }
 
-    virtual void beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmapHandle&, WebCore::FloatRect) { }
+#if ENABLE(VIDEO)
+    virtual void beginTextRecognitionForVideoInElementFullscreen(ShareableBitmap::Handle&&, WebCore::FloatRect) { }
     virtual void cancelTextRecognitionForVideoInElementFullscreen() { }
+#endif
 
     // Auxiliary Client Creation
 #if ENABLE(FULLSCREEN_API)
@@ -568,7 +577,7 @@ public:
     virtual bool hasResizableWindows() const { return false; }
 
 #if ENABLE(IMAGE_ANALYSIS)
-    virtual void requestTextRecognition(const URL& imageURL, const ShareableBitmapHandle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completion) { completion({ }); }
+    virtual void requestTextRecognition(const URL& imageURL, ShareableBitmap::Handle&& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completion) { completion({ }); }
     virtual void computeHasVisualSearchResults(const URL&, ShareableBitmap&, CompletionHandler<void(bool)>&& completion) { completion(false); }
 #endif
 
@@ -619,7 +628,6 @@ public:
     virtual void didHandleAdditionalDragItemsRequest(bool added) = 0;
     virtual void willReceiveEditDragSnapshot() = 0;
     virtual void didReceiveEditDragSnapshot(std::optional<WebCore::TextIndicatorData>) = 0;
-    virtual void didChangeDragCaretRect(const WebCore::IntRect& previousCaretRect, const WebCore::IntRect& caretRect) = 0;
 #endif
 
     virtual void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) = 0;

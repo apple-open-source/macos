@@ -93,6 +93,6 @@ TIDY_EXPORT void TIDY_CALL tidyInitInputBuffer( TidyInputSource* inp, TidyBuffer
 TIDY_EXPORT void TIDY_CALL tidyInitOutputBuffer( TidyOutputSink* outp, TidyBuffer* buf );
 
 #ifdef __cplusplus
-}
+} /* extern "C" */
 #endif
 #endif /* __TIDY_BUFFIO_H__ */

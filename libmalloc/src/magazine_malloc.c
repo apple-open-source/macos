@@ -904,7 +904,7 @@ szone_check(szone_t *szone)
 	return szone_check_all(szone, "");
 }
 
-// To support the quarantine zone, we need to be able to perform zone enumeration across different
+// To support the sanitizer zone, we need to be able to perform zone enumeration across different
 // architecture slices on macOS, because ReportCrash is always running as a native (arm64e) process,
 // but we also need to be able to inspect x86_64 targets that are running under Rosetta. So the data
 // layout and zone logic needs to match between x86_64 and arm64(e).
@@ -1048,6 +1048,15 @@ szone_print(task_t task, unsigned level, vm_address_t zone_address,
 			zone_address, info[0], info[1], info[2], info[3], info[12]);
 	printer("\ttiny=%u(%u) small=%u(%u) large=%u(%u)\n", info[4],
 			info[5], info[6], info[7], info[8], info[9]);
+
+	// FIXME: The rest of the code here assumes that regions have their normal
+	// alignment, which isn't guaranteed when looking at regions mapped from
+	// other processes
+	if (!mach_task_is_self(task)) {
+		printer("(unable to safely further examine remote process)\n");
+		return;
+	}
+
 	// tiny
 	printer("%lu tiny regions:\n", mapped_szone->tiny_rack.num_regions);
 	if (mapped_szone->tiny_rack.num_regions_dealloc) {

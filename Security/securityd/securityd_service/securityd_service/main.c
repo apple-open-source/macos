@@ -32,12 +32,49 @@
 
 #include <IOKit/IOKitLib.h>
 #include <Kernel/IOKit/crypto/AppleFDEKeyStoreDefs.h>
-
+#include <Security/SecBase64.h>
 #include <os/bsd.h>
 
 #define LOG(...)    os_log_debug(OS_LOG_DEFAULT, ##__VA_ARGS__);
 
 static bool check_signature(xpc_connection_t connection);
+
+static bool is_smartcard_password(const void *password, UInt32 password_len)
+{
+    size_t data_len = 0;
+    CFDictionaryRef context = NULL;
+    CFMutableDataRef data = NULL;
+    bool retval = false;
+    
+    require_action(password && password_len, done, os_log_error(OS_LOG_DEFAULT, "Get login context - wrong params"));
+
+    data_len = SecBase64Decode((const char *)password, password_len, NULL, 0);
+    require_action(data_len, done, os_log_debug(OS_LOG_DEFAULT, "Invalid base64 encoded token data"));
+    
+    data = CFDataCreateMutable(kCFAllocatorDefault, data_len);
+    require_action(data, done, os_log_error(OS_LOG_DEFAULT, "Out of mem CFDataCreateMutable"));
+
+    data_len = SecBase64Decode((const char *)password, password_len, CFDataGetMutableBytePtr(data), data_len);
+    // debug level here and on the other lines is intentional because we do not want false alarm for normal passwords
+    require_action(data_len, done, os_log_debug(OS_LOG_DEFAULT, "Invalid base64 encoded token data"));
+
+    CFDataSetLength(data, data_len);
+
+    // Content of the password consists of a serialized dictionary
+    context = (CFDictionaryRef)CFPropertyListCreateWithData(kCFAllocatorDefault,
+                                                             data,
+                                                             kCFPropertyListImmutable,
+                                                             NULL,
+                                                             NULL);
+    require_action(context, done, os_log_debug(OS_LOG_DEFAULT, "Invalid property list"));
+    require_action(CFGetTypeID(context) == CFDictionaryGetTypeID(), done, os_log_debug(OS_LOG_DEFAULT, "Invalid property list type"));
+    retval = true;
+
+done:
+    if (data) { CFRelease(data); }
+        if (context) { CFRelease(context); }
+    return retval;
+}
 
 static pid_t get_caller_pid(audit_token_t * token)
 {
@@ -728,7 +765,6 @@ mkb_to_kb(int mkb_rc)
         case kMobileKeyBagNotFoundError:
             return KB_BagNotLoaded;
         case kMobileKeyBagError:
-            /* FALLTHROUGH */
         default:
             return KB_GeneralError;
     }
@@ -748,6 +784,8 @@ service_kb_unlock(service_context_t * context, const void * secret, int secret_l
     /* technically, session_handle is not needed. Call this to handle lazy keybag loading */
     require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
 
+    require_action(is_smartcard_password(secret, secret_len) == false, done, os_log_info(OS_LOG_DEFAULT, "Skipping MKBUnlockDevice because SmartCard is being used"));
+    
     require(passcode = CFDataCreateWithBytesNoCopy(NULL, secret, secret_len, kCFAllocatorNull), done);
 
     mkb_rc = MKBUnlockDevice(passcode, options);

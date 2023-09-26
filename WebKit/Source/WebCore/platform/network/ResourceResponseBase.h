@@ -31,11 +31,11 @@
 #include "HTTPHeaderMap.h"
 #include "NetworkLoadMetrics.h"
 #include "ParsedContentRange.h"
+#include <span>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Box.h>
 #include <wtf/EnumTraits.h>
 #include <wtf/Markable.h>
-#include <wtf/Span.h>
 #include <wtf/URL.h>
 #include <wtf/WallTime.h>
 #include <wtf/persistence/PersistentCoders.h>
@@ -200,7 +200,7 @@ public:
     WEBCORE_EXPORT String suggestedFilename() const;
     WEBCORE_EXPORT static String sanitizeSuggestedFilename(const String&);
 
-    WEBCORE_EXPORT void includeCertificateInfo(Span<const std::byte> = { }) const;
+    WEBCORE_EXPORT void includeCertificateInfo(std::span<const std::byte> = { }) const;
     void setCertificateInfo(CertificateInfo&& info) { m_certificateInfo = WTFMove(info); }
     const std::optional<CertificateInfo>& certificateInfo() const { return m_certificateInfo; };
     bool usedLegacyTLS() const { return m_usedLegacyTLS == UsedLegacyTLS::Yes; }
@@ -265,7 +265,7 @@ public:
     void setTainting(Tainting tainting) { m_tainting = tainting; }
     Tainting tainting() const { return m_tainting; }
 
-    enum class PerformExposeAllHeadersCheck : uint8_t { Yes, No };
+    enum class PerformExposeAllHeadersCheck : bool { No, Yes };
     static ResourceResponse filter(const ResourceResponse&, PerformExposeAllHeadersCheck);
 
     WEBCORE_EXPORT static ResourceResponse syntheticRedirectResponse(const URL& fromURL, const URL& toURL);
@@ -302,7 +302,7 @@ protected:
 
     // The ResourceResponse subclass should shadow these functions to lazily initialize platform specific fields
     void platformLazyInit(InitLevel) { }
-    CertificateInfo platformCertificateInfo(Span<const std::byte>) const { return CertificateInfo(); };
+    CertificateInfo platformCertificateInfo(std::span<const std::byte>) const { return CertificateInfo(); };
     String platformSuggestedFileName() const { return String(); }
 
     static bool platformCompare(const ResourceResponse&, const ResourceResponse&) { return true; }
@@ -333,9 +333,9 @@ protected:
 
 private:
     mutable Markable<Seconds, Seconds::MarkableTraits> m_age;
-    mutable Markable<WallTime, WallTime::MarkableTraits> m_date;
-    mutable Markable<WallTime, WallTime::MarkableTraits> m_expires;
-    mutable Markable<WallTime, WallTime::MarkableTraits> m_lastModified;
+    mutable Markable<WallTime> m_date;
+    mutable Markable<WallTime> m_expires;
+    mutable Markable<WallTime> m_lastModified;
     mutable ParsedContentRange m_contentRange;
     mutable CacheControlDirectives m_cacheControlDirectives;
 

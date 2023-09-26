@@ -1560,6 +1560,9 @@ IOReturn IOHIDLibUserClient::updateElementValues(const IOHIDElementCookie * lCoo
     if (!(options & kIOHIDElementPreventPoll)) {
         ret = fNub->updateElementValues((IOHIDElementCookie *)lCookies, cookieCount, options, timeout, completion, elementData);
         require_noerr_action(ret, exit, HIDLibUserClientLogError("updateElementValues failed: 0x%x", ret));
+    } else if (completion) {
+        // This option is not compatible with async calls
+        ret = kIOReturnUnsupported;
     }
 
     require_quiet(!completion, exit);

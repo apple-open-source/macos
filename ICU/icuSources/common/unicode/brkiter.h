@@ -622,6 +622,8 @@ public:
      */
     virtual BreakIterator &refreshInputText(UText *input, UErrorCode &status) = 0;
 
+#if APPLE_ICU_CHANGES
+    // rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
 #ifndef U_HIDE_INTERNAL_API
     /**
      * Set the ULineWordOptions for this break iterator.
@@ -630,6 +632,7 @@ public:
      */
     void setLineWordOpts(ULineWordOptions lineWordOpts);
 #endif  /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 
  private:
     static BreakIterator* buildInstance(const Locale& loc, const char *type, UErrorCode& status);
@@ -652,7 +655,10 @@ protected:
     /** @internal. Assignment Operator, used by RuleBasedBreakIterator. */
     BreakIterator &operator = (const BreakIterator &other);
 #endif  /* U_HIDE_INTERNAL_API */
+#if APPLE_ICU_CHANGES
+    // rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
     ULineWordOptions fLineWordOpts;
+#endif // APPLE_ICU_CHANGES
 
 private:
 
@@ -661,10 +667,13 @@ private:
     char validLocale[ULOC_FULLNAME_CAPACITY];
 };
 
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
 inline void BreakIterator::setLineWordOpts(ULineWordOptions lineWordOpts)
 {
     fLineWordOpts = lineWordOpts;
 }
+#endif // APPLE_ICU_CHANGES
 
 #ifndef U_HIDE_DEPRECATED_API
 

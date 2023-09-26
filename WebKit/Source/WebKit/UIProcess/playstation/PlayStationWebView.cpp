@@ -30,7 +30,33 @@
 #include "DrawingAreaProxyCoordinatedGraphics.h"
 #include "WebProcessPool.h"
 
+#if USE(WPE_BACKEND_PLAYSTATION)
+#include <wpe/playstation.h>
+#endif
+
 namespace WebKit {
+
+#if USE(WPE_BACKEND_PLAYSTATION)
+
+RefPtr<PlayStationWebView> PlayStationWebView::create(struct wpe_view_backend* backend, const API::PageConfiguration& configuration)
+{
+    return adoptRef(*new PlayStationWebView(backend, configuration));
+}
+
+PlayStationWebView::PlayStationWebView(struct wpe_view_backend* backend, const API::PageConfiguration& conf)
+    : m_pageClient(makeUnique<PageClientImpl>(*this))
+    , m_viewStateFlags { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsFocused, WebCore::ActivityState::IsVisible, WebCore::ActivityState::IsInWindow }
+    , m_backend(backend)
+{
+    auto configuration = conf.copy();
+    auto* pool = configuration->processPool();
+    m_page = pool->createWebPage(*m_pageClient, WTFMove(configuration));
+
+    wpe_view_backend_initialize(m_backend);
+    m_page->initializeWebPage();
+}
+
+#else
 
 RefPtr<PlayStationWebView> PlayStationWebView::create(const API::PageConfiguration& configuration)
 {
@@ -47,6 +73,8 @@ PlayStationWebView::PlayStationWebView(const API::PageConfiguration& conf)
 
     m_page->initializeWebPage();
 }
+
+#endif // USE(WPE_BACKEND_PLAYSTATION)
 
 PlayStationWebView::~PlayStationWebView()
 {
@@ -65,7 +93,7 @@ void PlayStationWebView::setViewSize(WebCore::IntSize viewSize)
     m_viewSize = viewSize;
 }
 
-void PlayStationWebView::setViewState(OptionSet<WebCore::ActivityState::Flag> flags)
+void PlayStationWebView::setViewState(OptionSet<WebCore::ActivityState> flags)
 {
     auto changedFlags = m_viewStateFlags ^ flags;
     m_viewStateFlags = flags;

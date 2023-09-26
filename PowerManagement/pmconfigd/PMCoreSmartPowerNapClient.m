@@ -22,7 +22,7 @@
 */
 //
 //  PMCoreSmartPowerNapClient.m
-//  powerd-binary-Embedded
+//  powerd-binary powerd-binary-Embedded
 //
 //  Created by Prateek Malhotra on 12/7/22.
 //

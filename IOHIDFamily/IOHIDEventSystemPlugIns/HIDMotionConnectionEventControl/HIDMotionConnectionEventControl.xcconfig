@@ -1,0 +1,16 @@
+//
+//  HIDMotionConnectionEventControl.xcconfig
+//  IOHIDFamily
+//
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+
+INSTALL_PATH = /System/Library/HIDPlugins/ConnectionPlugins
+
+INFOPLIST_FILE = IOHIDEventSystemPlugIns/HIDMotionConnectionEventControl/Info.plist
+
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.HIDMotionConnectionEventControl
+

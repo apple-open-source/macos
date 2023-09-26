@@ -88,7 +88,7 @@ public:
    * Useful constants for HebrewCalendar.
    * @internal
    */
-  enum EEras {
+  enum Month {
     /** 
      * Constant for Tishri, the 1st month of the Hebrew year. 
      */
@@ -179,14 +179,6 @@ public:
      * @internal
      */
     HebrewCalendar(const HebrewCalendar& source);
-
-    /**
-     * Default assignment operator
-     * @param right    the object to be copied.
-     * @internal
-     */
-    //FIXME: unimplemented
-    //HebrewCalendar& operator=(const HebrewCalendar& right);
 
     /**
      * Create and return a polymorphic copy of this calendar.

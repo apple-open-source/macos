@@ -1,11 +1,17 @@
 /*
 ***************************************************************************
-* Copyright (C) 2006-2008, 2018 Apple Inc. All Rights Reserved.                 *
+* Copyright (C) 2006-2008, 2018 Apple Inc. All Rights Reserved.  
+*
+* originally added per rdar://4755956 Add Apple tokenizer subclass of RBBI
+* updated per
+* rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+* rdar://37249396 Add ICU 57 version of RBBI classes, urbtok57 interfaces for access via RBT, and better tests
+* rdar://5378823 Add urbtok_openBinaryRulesNoCopy().
 ***************************************************************************
 *
 ***************************************************************************
 * This uses the ICU 57 legacy version of RuleBasedBreakIterator for
-* performanc reasons, does not support the RuleBasedBreakIterator rule
+* performance reasons, does not support the RuleBasedBreakIterator rule
 * syntax updates from ICU 60 and later, and requires both forward and
 * reverse rules (as in ICU 57).
 ***************************************************************************

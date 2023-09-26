@@ -102,7 +102,7 @@ template<> void JSTestDefaultToJSONIndirectInheritanceDOMConstructor::initialize
 
 static const HashTableValue JSTestDefaultToJSONIndirectInheritancePrototypeTableValues[] =
 {
-    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONIndirectInheritanceConstructor, 0 } },
+    { "constructor"_s, static_cast<unsigned>(PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestDefaultToJSONIndirectInheritanceConstructor, 0 } },
 };
 
 const ClassInfo JSTestDefaultToJSONIndirectInheritancePrototype::s_info = { "TestDefaultToJSONIndirectInheritance"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestDefaultToJSONIndirectInheritancePrototype) };
@@ -121,18 +121,13 @@ JSTestDefaultToJSONIndirectInheritance::JSTestDefaultToJSONIndirectInheritance(S
 {
 }
 
-void JSTestDefaultToJSONIndirectInheritance::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSONIndirectInheritance>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSONIndirectInheritance>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestDefaultToJSONIndirectInheritance::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestDefaultToJSONIndirectInheritancePrototype::create(vm, &globalObject, JSTestDefaultToJSONIndirectInheritancePrototype::createStructure(vm, &globalObject, JSTestDefaultToJSONInherit::prototype(vm, globalObject)));
+    auto* structure = JSTestDefaultToJSONIndirectInheritancePrototype::createStructure(vm, &globalObject, JSTestDefaultToJSONInherit::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSTestDefaultToJSONIndirectInheritancePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestDefaultToJSONIndirectInheritance::prototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -170,7 +165,7 @@ void JSTestDefaultToJSONIndirectInheritance::analyzeHeap(JSCell* cell, HeapAnaly
     auto* thisObject = jsCast<JSTestDefaultToJSONIndirectInheritance*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

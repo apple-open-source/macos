@@ -794,13 +794,11 @@ public:
      */
     virtual UBool isEmpty(void) const;
 
-#ifndef U_HIDE_DRAFT_API
     /**
      * @return true if this set contains multi-character strings or the empty string.
-     * @draft ICU 70
+     * @stable ICU 70
      */
     UBool hasStrings() const;
-#endif  // U_HIDE_DRAFT_API
 
     /**
      * Returns true if this set contains the given character.
@@ -1229,7 +1227,6 @@ public:
      */
     UnicodeSet& retain(UChar32 c);
 
-#ifndef U_HIDE_DRAFT_API
     /**
      * Retains only the specified string from this set if it is present.
      * Upon return this set will be empty if it did not contain s, or
@@ -1238,10 +1235,9 @@ public:
      *
      * @param s the source string
      * @return this object, for chaining
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UnicodeSet& retain(const UnicodeString &s);
-#endif  // U_HIDE_DRAFT_API
 
     /**
      * Removes the specified range from this set if it is present.
@@ -1558,7 +1554,10 @@ private:
 
 private:
     friend class RBBIRuleScanner;
+#if APPLE_ICU_CHANGES
+// rdar://37249396 Add ICU 57 version of RBBI classes, urbtok57 interfaces for access via RBT, and better tests
     friend class RBBIRuleScanner57;
+#endif // APPLE_ICU_CHANGES
 
     //----------------------------------------------------------------
     // Implementation: Clone as thawed (see ICU4J Freezable)
@@ -1681,9 +1680,6 @@ private:
                               UnicodeString& rebuiltPat,
                               UErrorCode& ec);
 
-    // FIXME: unimplemented
-    //static const UnicodeSet* getInclusions(int32_t src, UErrorCode &status);
-
     /**
      * A filter that returns true if the given code point should be
      * included in the UnicodeSet being constructed.
@@ -1703,12 +1699,6 @@ private:
                      void* context,
                      const UnicodeSet* inclusions,
                      UErrorCode &status);
-
-    // UCPMap is now stable ICU 63
-    // FIXME: unimplemented
-    //void applyIntPropertyValue(const UCPMap *map,
-    //                           UCPMapValueFilter *filter, const void *context,
-    //                           UErrorCode &errorCode);
 
     /**
      * Set the new pattern to cache.

@@ -270,7 +270,7 @@ extern double erf(x)
 	double x;
 {
 	double R,S,P,Q,ax,s,y,z,r,fabs(),exp();
-	if(!finite(x)) {		/* erf(nan)=nan */
+	if(!isfinite(x)) {		/* erf(nan)=nan */
 	    if (isnan(x))
 		return(x);
 	    return (x > 0 ? one : -one); /* erf(+/-inf)= +/-1 */

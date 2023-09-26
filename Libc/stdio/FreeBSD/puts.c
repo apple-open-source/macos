@@ -51,8 +51,7 @@ __private_extern__ char const __puts_null__[] = "(null)";
  * Write the given string to stdout, appending a newline.
  */
 int
-puts(s)
-	char const *s;
+puts(char const *s)
 {
 	int retval;
 	size_t c;

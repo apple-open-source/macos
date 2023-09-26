@@ -29,11 +29,11 @@ __attribute__((visibility("hidden")))
     NSMutableArray<SECC2MPCloudKitOperationGroupInfo *> *_operationGroups;
     BOOL _anonymous;
     struct {
-        int reportClientOperationFrequency:1;
-        int reportClientOperationFrequencyBase:1;
-        int reportOperationGroupFrequency:1;
-        int reportOperationGroupFrequencyBase:1;
-        int anonymous:1;
+        uint reportClientOperationFrequency:1;
+        uint reportClientOperationFrequencyBase:1;
+        uint reportOperationGroupFrequency:1;
+        uint reportOperationGroupFrequencyBase:1;
+        uint anonymous:1;
     } _has;
 }
 

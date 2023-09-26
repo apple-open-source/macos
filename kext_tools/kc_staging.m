@@ -54,7 +54,7 @@ static void unmountPreboot(void *volpath)
 	newargv[2] = volpath;
 	newargv[3] = NULL;
 
-	LOG("Unmounting Preboot: \"%s\"", volpath);
+	LOG("Unmounting Preboot: \"%s\"", ((char *)volpath));
 
 	if (g_prebootFD > -1) {
 		close(g_prebootFD);

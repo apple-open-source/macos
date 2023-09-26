@@ -36,6 +36,8 @@ HEIMCRED_CONST(CFStringRef, kHEIMTypeNTLM);
 HEIMCRED_CONST(CFStringRef, kHEIMTypeConfiguration);
 HEIMCRED_CONST(CFStringRef, kHEIMTypeSchema);
 HEIMCRED_CONST(CFStringRef, kHEIMTypeKerberosAcquireCred);
+HEIMCRED_CONST(CFStringRef, kHEIMTypeNTLMRelfection);
+HEIMCRED_CONST(CFStringRef, kHEIMTypeSCRAM);
 
 /* schema types */
 HEIMCRED_CONST(CFStringRef, kHEIMObjectType);
@@ -44,6 +46,8 @@ HEIMCRED_CONST(CFStringRef, kHEIMObjectNTLM);
 HEIMCRED_CONST(CFStringRef, kHEIMObjectGeneric);
 HEIMCRED_CONST(CFStringRef, kHEIMObjectConfiguration);
 HEIMCRED_CONST(CFStringRef, kHEIMObjectKerberosAcquireCred);
+HEIMCRED_CONST(CFStringRef, kHEIMObjectNTLMReflection);
+HEIMCRED_CONST(CFStringRef, kHEIMObjectSCRAM);
 HEIMCRED_CONST(CFStringRef, kHEIMObjectAny);
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrClientName);
@@ -87,6 +91,9 @@ HEIMCRED_CONST(CFTypeRef, kHEIMAttrBundleIdentifierACL); /* CFArray[bundle-id] *
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrDefaultCredential); /* BooleanRef */
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrTemporaryCache); /* BooleanRef */
+#ifdef ENABLE_KCM_COMPAT
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrCompatabilityCache); /* BooleanRef */
+#endif
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrKerberosTicketGrantingTicket); /* BooleanRef */
 
@@ -107,5 +114,16 @@ HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMClientTargetName);
 HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMClientFlags);
 HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMSessionKey);
 HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMKCMFlags);
+
+/* SCRAM */
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMUsername);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMIterations);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMSalt);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMC1);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMS1);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMC2NoProof);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMProof);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMServer);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMSessionKey);
 
 #define HEIMCRED_NTLM_FLAG_AV_GUEST 8

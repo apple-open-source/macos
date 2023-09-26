@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -299,13 +299,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 89F255880DAABEAD00CA7984 /* Build configuration list for PBXNativeTarget "BootCache.kext" */;
 			buildPhases = (
-				89F2557B0DAABEAD00CA7984 /* ShellScript */,
 				89F2557D0DAABEAD00CA7984 /* Headers */,
 				89F2557F0DAABEAD00CA7984 /* Resources */,
 				89F255810DAABEAD00CA7984 /* Sources */,
 				89F255850DAABEAD00CA7984 /* Frameworks */,
-				89F255860DAABEAD00CA7984 /* Rez */,
-				89F255870DAABEAD00CA7984 /* ShellScript */,
 				C669CB370DF4A8900082DED3 /* ShellScript */,
 			);
 			buildRules = (
@@ -325,7 +322,6 @@
 				89F255920DAABEAD00CA7984 /* Headers */,
 				89F255940DAABEAD00CA7984 /* Sources */,
 				89F255970DAABEAD00CA7984 /* Frameworks */,
-				89F255980DAABEAD00CA7984 /* Rez */,
 				72B0D74311669F7100EAA900 /* CopyFiles */,
 				7246077313A981E800DDF965 /* CopyFiles */,
 			);
@@ -345,8 +341,9 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 				DefaultBuildSystemTypeForWorkspace = Latest;
-				LastUpgradeCheck = 1300;
+				LastUpgradeCheck = 1500;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -381,42 +378,7 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXRezBuildPhase section */
-		89F255860DAABEAD00CA7984 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		89F255980DAABEAD00CA7984 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
-
 /* Begin PBXShellScriptBuildPhase section */
-		89F2557B0DAABEAD00CA7984 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
-		};
-		89F255870DAABEAD00CA7984 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
-		};
 		C669CB370DF4A8900082DED3 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -425,6 +387,7 @@
 			inputPaths = (
 			);
 			outputPaths = (
+				"${DSTROOT}/private/var/db/BootCache.data",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
@@ -503,10 +466,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 158;
+				CURRENT_PROJECT_VERSION = 159;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -528,8 +493,6 @@
 				);
 				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -564,9 +527,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 158;
+				CURRENT_PROJECT_VERSION = 159;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
@@ -583,8 +548,6 @@
 					"-ftrivial-auto-var-init=zero",
 				);
 				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -601,7 +564,9 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				INSTALL_PATH = /usr/local/lib;
+				IS_ZIPPERED = YES;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
 			};
@@ -612,8 +577,10 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib;
+				IS_ZIPPERED = YES;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -626,6 +593,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = BootCache;
 				SECTORDER_FLAGS = "";
@@ -638,6 +606,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = BootCache;
 				SECTORDER_FLAGS = "";
@@ -648,17 +617,22 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
+				CLANG_ANALYZER_DIVIDE_BY_ZERO = NO;
+				CLANG_ANALYZER_NULL_DEREFERENCE = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 158;
+				MODULE_VERSION = 159;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -677,11 +651,12 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 158;
+				MODULE_VERSION = 159;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
@@ -690,7 +665,6 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 					"-Wno-error=#warnings",
-					"-Wno-error=frame-larger-than=",
 					"-Wframe-larger-than=768",
 				);
 				WRAPPER_EXTENSION = kext;
@@ -702,6 +676,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;
@@ -714,6 +689,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2004-2005, 2007-2018 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2004-2005, 2007-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,6 +22,10 @@
  */
 
 #include <config.h>
+#ifdef __APPLE_MDM_SUPPORT__
+#include <os/log.h>
+#endif // __APPLE_MDM_SUPPORT__
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +34,10 @@
 #include "parse.h"
 #include "sudo_lbuf.h"
 #include <gram.h>
+
+#ifdef __APPLE_MDM_SUPPORT__
+bool copyMdmPath(const char **result, const char *fullPath, bool isDir);
+#endif // __APPLE_MDM_SUPPORT__
 
 struct sudo_file_handle {
     FILE *fp;
@@ -60,6 +68,7 @@ sudo_file_open(struct sudo_nss *nss)
     debug_decl(sudo_file_open, SUDOERS_DEBUG_NSS);
     struct sudo_file_handle *handle;
 
+    /* Note: relies on defaults being initialized early. */
     if (def_ignore_local_sudoers)
 	debug_return_int(-1);
 
@@ -68,10 +77,21 @@ sudo_file_open(struct sudo_nss *nss)
 	    "%s: called with non-NULL handle %p", __func__, nss->handle);
 	sudo_file_close(nss);
     }
+	
+#ifdef __APPLE_MDM_SUPPORT__
+    const char *mdmPath = NULL;
+    copyMdmPath(&mdmPath, sudoers_file, false); // do not care about the result because we have probably no better option than continue with the original file in case of the problem
+    os_log(OS_LOG_DEFAULT, "Reading%s config", mdmPath ? " managed":"");
+#endif // __APPLE_MDM_SUPPORT__
 
     handle = malloc(sizeof(*handle));
     if (handle != NULL) {
+#ifdef __APPLE_MDM_SUPPORT__
+	handle->fp = open_sudoers(mdmPath ?:sudoers_file, false, NULL);
+#else
 	handle->fp = open_sudoers(sudoers_file, false, NULL);
+#endif // __APPLE_MDM_SUPPORT__
+
 	if (handle->fp != NULL) {
 	    init_parse_tree(&handle->parse_tree, NULL, NULL);
 	} else {
@@ -79,6 +99,12 @@ sudo_file_open(struct sudo_nss *nss)
 	    handle = NULL;
 	}
     }
+#ifdef __APPLE_MDM_SUPPORT__
+    if (mdmPath) {
+	sudo_rcstr_delref(mdmPath);
+    }
+#endif // __APPLE_MDM_SUPPORT__
+
     nss->handle = handle;
     debug_return_int(nss->handle ? 0 : -1);
 }
@@ -101,18 +127,9 @@ sudo_file_parse(struct sudo_nss *nss)
 
     sudoersin = handle->fp;
     error = sudoersparse();
-    if (error || parse_error) {
-	if (errorlineno != -1) {
-	    log_warningx(SLOG_SEND_MAIL|SLOG_NO_STDERR,
-		N_("parse error in %s near line %d"), errorfile, errorlineno);
-	} else {
-	    log_warningx(SLOG_SEND_MAIL|SLOG_NO_STDERR,
-		N_("parse error in %s"), errorfile);
-	}
-	if (error || !sudoers_recovery) {
-	    /* unrecoverable error */
-	    debug_return_ptr(NULL);
-	}
+    if (error || (parse_error && !sudoers_recovery)) {
+	/* unrecoverable error */
+	debug_return_ptr(NULL);
     }
 
     /* Move parsed sudoers policy to nss handle. */
@@ -144,6 +161,7 @@ sudo_file_getdefs(struct sudo_nss *nss)
 /* sudo_nss implementation */
 struct sudo_nss sudo_nss_file = {
     { NULL, NULL },
+    "sudoers",
     sudo_file_open,
     sudo_file_close,
     sudo_file_parse,

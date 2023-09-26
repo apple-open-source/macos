@@ -28,14 +28,17 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "RenderingUpdateID.h"
-#include <WebCore/DecomposedGlyphs.h>
-#include <WebCore/NativeImage.h>
-#include <WebCore/RenderingResourceIdentifier.h>
+#include <WebCore/RenderingResource.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
+class DecomposedGlyphs;
+class Filter;
 class Font;
+class Gradient;
 class ImageBuffer;
+class NativeImage;
+struct FontCustomPlatformData;
 }
 
 namespace WebKit {
@@ -43,7 +46,7 @@ namespace WebKit {
 class RemoteImageBufferProxy;
 class RemoteRenderingBackendProxy;
 
-class RemoteResourceCacheProxy : public WebCore::NativeImage::Observer, public WebCore::DecomposedGlyphs::Observer {
+class RemoteResourceCacheProxy : public WebCore::RenderingResource::Observer {
 public:
     RemoteResourceCacheProxy(RemoteRenderingBackendProxy&);
     ~RemoteResourceCacheProxy();
@@ -53,42 +56,48 @@ public:
     void releaseImageBuffer(RemoteImageBufferProxy&);
     void forgetImageBuffer(WebCore::RenderingResourceIdentifier);
 
+    WebCore::NativeImage* cachedNativeImage(WebCore::RenderingResourceIdentifier) const;
+
     void recordNativeImageUse(WebCore::NativeImage&);
     void recordFontUse(WebCore::Font&);
     void recordImageBufferUse(WebCore::ImageBuffer&);
     void recordDecomposedGlyphsUse(WebCore::DecomposedGlyphs&);
+    void recordGradientUse(WebCore::Gradient&);
+    void recordFilterUse(WebCore::Filter&);
+    void recordFontCustomPlatformDataUse(const WebCore::FontCustomPlatformData&);
 
     void didPaintLayers();
 
     void remoteResourceCacheWasDestroyed();
     void releaseMemory();
+    void releaseAllImageResources();
     
-    unsigned imagesCount() const { return m_nativeImages.size(); }
+    unsigned imagesCount() const;
 
     void clear();
 
 private:
     using ImageBufferHashMap = HashMap<WebCore::RenderingResourceIdentifier, WeakPtr<RemoteImageBufferProxy>>;
-    using NativeImageHashMap = HashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<WebCore::NativeImage>>;
+    using RenderingResourceHashMap = HashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<WebCore::RenderingResource>>;
     using FontHashMap = HashMap<WebCore::RenderingResourceIdentifier, uint64_t>;
-    using DecomposedGlyphsHashMap = HashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<WebCore::DecomposedGlyphs>>;
-    
-    void releaseNativeImage(WebCore::RenderingResourceIdentifier) override;
-    void releaseDecomposedGlyphs(WebCore::RenderingResourceIdentifier) override;
+
+    void releaseRenderingResource(WebCore::RenderingResourceIdentifier) override;
+    void clearRenderingResourceMap();
     void clearNativeImageMap();
-    void clearDecomposedGlyphsMap();
 
     void finalizeRenderingUpdateForFonts();
     void prepareForNextRenderingUpdate();
     void clearFontMap();
+    void clearFontCustomPlatformDataMap();
     void clearImageBufferBackends();
 
     ImageBufferHashMap m_imageBuffers;
-    NativeImageHashMap m_nativeImages;
+    RenderingResourceHashMap m_renderingResources;
     FontHashMap m_fonts;
-    DecomposedGlyphsHashMap m_decomposedGlyphs;
+    FontHashMap m_fontCustomPlatformDatas;
 
     unsigned m_numberOfFontsUsedInCurrentRenderingUpdate { 0 };
+    unsigned m_numberOfFontCustomPlatformDatasUsedInCurrentRenderingUpdate { 0 };
 
     RemoteRenderingBackendProxy& m_remoteRenderingBackendProxy;
     uint64_t m_renderingUpdateID;

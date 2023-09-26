@@ -1,8 +1,11 @@
 #******************************************************************************
-#
 #   Copyright (c) 2006-2008,2014,2016,2018 Apple Inc.
 #   All Rights Reserved.
 #
+#   originally added per rdar://4755956 Add Apple tokenizer subclass of RBBI
+#   updated per
+#   rdar://4448220 Add user dictionary support [aaplbfct]
+#   rdar://37249396 Add ICU 57 version of RBBI classes, urbtok57 interfaces for access via RBT, and better tests
 #******************************************************************************
 ## Makefile.local for Apple Inc.
 

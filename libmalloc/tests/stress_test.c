@@ -34,7 +34,7 @@
 
 #if DARWINTEST
 #include <darwintest.h>
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
 
 #endif
 

@@ -74,6 +74,7 @@ typedef enum {
     kIOHIDLogCategorySignpost,
     kIOHIDLogCategoryUPS,
     kIOHIDLogCategoryClient,
+    kIOHIDLogCategoryOversized,
     kIOHIDLogCategoryCount
 } IOHIDLogCategory;
 
@@ -98,6 +99,9 @@ extern uint32_t gIOHIDDebugConfig;
 #define UPSLog(fmt, ...)              os_log(_IOHIDLogCategory(kIOHIDLogCategoryUPS), fmt, ##__VA_ARGS__)
 #define UPSLogError(fmt, ...)         os_log_error(_IOHIDLogCategory(kIOHIDLogCategoryUPS), fmt, ##__VA_ARGS__)
 #define UPSLogDebug(fmt, ...)         os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryUPS), fmt, ##__VA_ARGS__)
+
+#define HIDOversizedLog(fmt, ...)     os_log(_IOHIDLogCategory(kIOHIDLogCategoryOversized), fmt, ##__VA_ARGS__)
+#define HIDOversizedLogInfo(fmt, ...) os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryOversized), fmt, ##__VA_ARGS__)
 
 #define HIDLogActivityDebug(fmt, ...) os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryActivity), fmt, ##__VA_ARGS__)
 

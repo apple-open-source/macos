@@ -1,7 +1,7 @@
 Project         = db
 Extra_CFLAGS	= -no-cpp-precomp
 Extra_LDFLAGS	= -force_flat_namespace -bind_at_load
-Extra_CC_Flags	= -Wno-error=implicit-function-declaration
+Extra_CC_Flags	= -Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-deprecated-non-prototype
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 

@@ -26,20 +26,29 @@
 #pragma once
 
 #include "WebFrame.h"
+#include "WebFrameLoaderClient.h"
+#include <WebCore/MessageWithMessagePorts.h>
+#include <WebCore/ProcessIdentifier.h>
 #include <WebCore/RemoteFrameClient.h>
+#include <WebCore/SecurityOriginData.h>
 #include <wtf/Scope.h>
 
 namespace WebKit {
 
-class WebRemoteFrameClient final : public WebCore::RemoteFrameClient {
+class WebRemoteFrameClient final : public WebCore::RemoteFrameClient, public WebFrameLoaderClient {
 public:
     explicit WebRemoteFrameClient(Ref<WebFrame>&&, ScopeExit<Function<void()>>&& frameInvalidator);
     ~WebRemoteFrameClient();
 
-    WebFrame& webFrame() const { return m_frame.get(); }
+    ScopeExit<Function<void()>> takeFrameInvalidator() { return WTFMove(m_frameInvalidator); }
 
 private:
-    Ref<WebFrame> m_frame;
+    void frameDetached() final;
+    void sizeDidChange(WebCore::IntSize) final;
+    void postMessageToRemote(WebCore::ProcessIdentifier, WebCore::FrameIdentifier, std::optional<WebCore::SecurityOriginData>, const WebCore::MessageWithMessagePorts&) final;
+    void changeLocation(WebCore::FrameLoadRequest&&) final;
+    String renderTreeAsText(WebCore::ProcessIdentifier, WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>) final;
+
     ScopeExit<Function<void()>> m_frameInvalidator;
 };
 

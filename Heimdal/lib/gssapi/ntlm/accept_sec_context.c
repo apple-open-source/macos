@@ -34,6 +34,7 @@
  */
 
 #include "ntlm.h"
+#include "heimcred.h"
 
 /*
  *
@@ -243,6 +244,9 @@ _gss_ntlm_accept_sec_context
     OM_uint32 junk;
     ntlm_ctx ctx;
 
+    data.data = NULL;
+    data.length = 0;
+
     output_token->value = NULL;
     output_token->length = 0;
 
@@ -268,8 +272,11 @@ _gss_ntlm_accept_sec_context
     if (*context_handle == GSS_C_NO_CONTEXT) {
 	struct ntlm_type1 type1;
 	OM_uint32 major_status;
-	OM_uint32 retflags;
+	OM_uint32 retflags = 0;
 	struct ntlm_buf out;
+
+	out.data = NULL;
+	out.length = 0;
 
 	major_status = _gss_ntlm_allocate_ctx(minor_status, NULL, &ctx);
 	if (major_status)
@@ -292,7 +299,7 @@ _gss_ntlm_accept_sec_context
 #ifdef HAVE_KCM
 		krb5_kcm_ntlm_challenge(context, ctx->challenge);
 #else
-		_gss_mg_log(1, "krb5_kcm_ntlm_challenge -  GSS_S_UNAVAILABLE");
+		HeimCredAddNTLMChallenge(ctx->challenge);
 #endif
 	    }
 	}
@@ -336,8 +343,8 @@ _gss_ntlm_accept_sec_context
 	    return major_status;
 	}
 
-	output_token->value = malloc(out.length);
-	if (output_token->value == NULL && out.length != 0) {
+        output_token->value = malloc(out.length);
+	if ((output_token->value == NULL && out.length != 0) || out.length == 0) {
 	    heim_ntlm_free_buf(&out);
 	    _gss_ntlm_delete_sec_context(&junk, context_handle, NULL);
 	    _gss_mg_log(1, "ntlm-asc-type2 failed with no packet");

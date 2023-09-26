@@ -179,7 +179,8 @@ private:
 
             length = other._ids.size();
             for(i = 0; i < length; ++i) {
-                _ids.addElementX(((UnicodeString *)other._ids.elementAt(i))->clone(), status);
+                LocalPointer<UnicodeString> clonedId(((UnicodeString *)other._ids.elementAt(i))->clone(), status);
+                _ids.adoptElement(clonedId.orphan(), status);
             }
 
             if(U_SUCCESS(status)) {
@@ -214,11 +215,11 @@ public:
     UBool upToDate(UErrorCode& status) const {
         if (U_SUCCESS(status)) {
             if (_timestamp == _service->getTimestamp()) {
-                return TRUE;
+                return true;
             }
             status = U_ENUM_OUT_OF_SYNC_ERROR;
         }
-        return FALSE;
+        return false;
     }
 
     virtual int32_t count(UErrorCode& status) const override {

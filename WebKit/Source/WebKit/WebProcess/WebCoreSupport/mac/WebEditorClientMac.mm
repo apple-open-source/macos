@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,14 +32,16 @@
 
 #if PLATFORM(MAC)
 
+#import "MessageSenderInlines.h"
 #import "WebPage.h"
 #import "WebPageProxyMessages.h"
 #import "WebProcess.h"
 #import <WebCore/Editor.h>
 #import <WebCore/FocusController.h>
-#import <WebCore/Frame.h>
 #import <WebCore/KeyboardEvent.h>
+#import <WebCore/LocalFrame.h>
 #import <WebCore/NotImplemented.h>
+#import <WebCore/Page.h>
 #import <wtf/cocoa/NSURLExtras.h>
 
 namespace WebKit {
@@ -77,21 +79,21 @@ static void changeWordCase(WebPage* page, NSString *(*changeCase)(NSString *))
 
 void WebEditorClient::uppercaseWord()
 {
-    changeWordCase(m_page, [] (NSString *string) {
+    changeWordCase(m_page.get(), [] (NSString *string) {
         return [string uppercaseString];
     });
 }
 
 void WebEditorClient::lowercaseWord()
 {
-    changeWordCase(m_page, [] (NSString *string) {
+    changeWordCase(m_page.get(), [] (NSString *string) {
         return [string lowercaseString];
     });
 }
 
 void WebEditorClient::capitalizeWord()
 {
-    changeWordCase(m_page, [] (NSString *string) {
+    changeWordCase(m_page.get(), [] (NSString *string) {
         return [string capitalizedString];
     });
 }
@@ -178,11 +180,6 @@ void WebEditorClient::toggleAutomaticSpellingCorrection()
 }
 
 #endif // USE(AUTOMATIC_TEXT_REPLACEMENT)
-
-void WebEditorClient::setCaretDecorationVisibility(bool visibility)
-{
-    m_page->send(Messages::WebPageProxy::SetCaretDecorationVisibility(visibility));
-}
 
 } // namespace WebKit
 

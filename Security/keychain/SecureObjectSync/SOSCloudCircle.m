@@ -74,6 +74,7 @@ const char * kSOSCCHoldLockForInitialSync = "com.apple.security.secureobjectsync
 const char * kSOSCCPeerAvailable = "com.apple.security.secureobjectsync.peeravailable";
 const char * kSOSCCRecoveryKeyChanged = "com.apple.security.secureobjectsync.recoverykeychanged";
 const char * kSOSCCCircleOctagonKeysChangedNotification = "com.apple.security.sosoctagonbitschanged";
+const char * kSOSCCSOSIsNowOFF = "com.apple.security.sos.off";
 
 #define do_if_registered(sdp, ...) if (gSecurityd && gSecurityd->sdp) { return gSecurityd->sdp(__VA_ARGS__); }
 
@@ -493,6 +494,21 @@ static bool cfdata_and_int_error_request_returns_bool(enum SecXPCOperation op, C
         }
         
         return success;
+    }, ^(xpc_object_t response, __unused CFErrorRef *error) {
+        result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+        return (bool)true;
+    });
+    
+    return result;
+}
+
+static bool bool_and_error_request_returns_bool(enum SecXPCOperation op, bool sosCompatibilityMode, CFErrorRef *error) {
+    __block bool result = false;
+    
+    sec_trace_enter_api(NULL);
+    securityd_send_sync_and_do(op, error, ^(xpc_object_t message, CFErrorRef *error) {
+        xpc_dictionary_set_bool(message, kSecXPCKeySOSCompatibilityMode, sosCompatibilityMode);
+        return true;
     }, ^(xpc_object_t response, __unused CFErrorRef *error) {
         result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
         return (bool)true;
@@ -1679,6 +1695,78 @@ bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
     }, NULL)
 }
 
+bool SOSCCSetCompatibilityMode(bool compatibilityMode, CFErrorRef *error) {
+    secnotice("sos-compatibility-mode", "enter SOSCCSetCompatibilityMode");
+
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_SOSCCSetCompatibilityMode, compatibilityMode, error);
+
+        return bool_and_error_request_returns_bool(kSecXPCOpSetSOSCompatibilityMode, compatibilityMode, error);
+    }, NULL)
+}
+
+bool SOSCCFetchCompatibilityMode(CFErrorRef *error) {
+    secnotice("sos-compatibility-mode", "enter SOSCCFetchCompatibilityMode");
+
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_SOSCCFetchCompatibilityMode, error);
+
+        return simple_bool_error_request(kSecXPCOpFetchCompatibilityMode, error);
+    }, NULL)
+}
+
+bool SOSCCIsSOSTrustAndSyncingEnabled(void)
+{
+    secnotice("sos-compatibility-mode", "enter SOSCCIsSOSTrustAndSyncingEnabled");
+
+    bool isEnabled = true;
+    if (OctagonPlatformSupportsSOS() && SOSCompatibilityModeEnabled()) {
+        secnotice("sos-compatibility-mode", "SOS Compatibility Mode feature flag enabled, checking platform availability and sos compat mode");
+        CFErrorRef fetchError = NULL;
+        isEnabled = SOSCCFetchCompatibilityMode(&fetchError);
+        secnotice("sos-compatibility-mode", "sos trust and syncing is %@", isEnabled ? @"enabled" : @"disabled");
+        if (fetchError) {
+            secerror("sos-compatibility-mode: fetching compatibility mode error: %@", fetchError);
+        }
+        CFReleaseNull(fetchError);
+    } else if (!OctagonPlatformSupportsSOS()) {
+        isEnabled = false;
+    }
+    
+    return isEnabled;
+}
+
+
+bool SOSCCFetchCompatibilityModeCachedValue(CFErrorRef *error) {
+    secnotice("sos-compatibility-mode-cached", "enter SOSCCFetchCompatibilityModeCachedValue");
+
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_SOSCCFetchCompatibilityModeCachedValue, error);
+
+        return simple_bool_error_request(kSecXPCOpFetchCompatibilityModeCachedValue, error);
+    }, NULL)
+}
+
+bool SOSCCIsSOSTrustAndSyncingEnabledCachedValue(void)
+{
+    secnotice("sos-compatibility-mode-cached", "enter SOSCCIsSOSTrustAndSyncingEnabledCachedValue");
+
+    bool isEnabled = true;
+    if (OctagonPlatformSupportsSOS() && SOSCompatibilityModeEnabled()) {
+        secnotice("sos-compatibility-mode-cached", "SOS Compatibility Mode feature flag enabled, checking platform availability and sos compat mode");
+        CFErrorRef fetchError = NULL;
+        isEnabled = SOSCCFetchCompatibilityModeCachedValue(&fetchError);
+        secnotice("sos-compatibility-mode-cached", "sos trust and syncing is %@", isEnabled ? @"enabled" : @"disabled");
+        if (fetchError) {
+            secerror("sos-compatibility-mode-cached: fetching compatibility mode error: %@", fetchError);
+        }
+        CFReleaseNull(fetchError);
+    } else if (!OctagonPlatformSupportsSOS()) {
+        isEnabled = false;
+    }
+    
+    return isEnabled;
+}
 /*
  * SecSOSStatus interfaces
  */

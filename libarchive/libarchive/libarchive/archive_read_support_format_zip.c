@@ -59,6 +59,8 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read_support_format_zip.c 201102
 #include <lzma.h>
 #endif
 
+#include <stdbool.h>
+
 #include "archive.h"
 #include "archive_digest_private.h"
 #include "archive_cryptor_private.h"
@@ -3635,8 +3637,12 @@ bomb_cmp_node(const struct archive_rb_node *n1,
 static int
 bomb_cmp_key(const struct archive_rb_node *n, const void *key)
 {
+    if (!key) {
+        __archive_errx(1, "Programming error");
+    }
+
     const struct bomb_entry *e = (const struct bomb_entry *)n;
-    int64_t k = (int64_t)key;
+    int64_t k = *(int64_t *)key;
 
     if (e->local_entry_offset_begin > k)
         return -1;
@@ -3735,16 +3741,16 @@ bomb_detect_overlap(struct zip *zip,
         return ARCHIVE_FATAL;
     
     struct bomb_entry *leq = (struct bomb_entry *)
-        __archive_rb_tree_find_node_leq(tree_bomb, begin);
+        __archive_rb_tree_find_node_leq(tree_bomb, &begin);
     struct bomb_entry *geq = (struct bomb_entry *)
-        __archive_rb_tree_find_node_geq(tree_bomb, begin);
+        __archive_rb_tree_find_node_geq(tree_bomb, &begin);
     
     if (leq != NULL && leq->local_entry_offset_end >= begin)
         return ARCHIVE_FATAL;
     
     if (geq != NULL && geq->local_entry_offset_begin <= end)
         return ARCHIVE_FATAL;
-    
+
     bool prev = leq
         && leq->local_entry_offset_end >= 0
         && begin == leq->local_entry_offset_end+1;
@@ -4080,6 +4086,10 @@ slurp_central_directory(struct archive_read *a, struct archive_entry* entry,
                  * end with '/'.
                  */
                 size_t tmp_length = filename_length;
+                if (tmp_length == 0) {
+                    archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT, "Invalid header");
+                    return ARCHIVE_FATAL;
+                }
                 if (name[tmp_length - 1] == '/') {
                     tmp_length--;
                     r = rsrc_basename(name, tmp_length);

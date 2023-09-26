@@ -145,10 +145,20 @@ CKKSAnalyticsFailableEvent* const OctagonEventCheckTrustState = (CKKSAnalyticsFa
 
 CKKSAnalyticsFailableEvent* const OctagonEventBottledPeerRestore = (CKKSAnalyticsFailableEvent*)@"OctagonEventBottledPeerRestore";
 CKKSAnalyticsFailableEvent* const OctagonEventRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventRecoveryKey";
-CKKSAnalyticsFailableEvent* const OctagonEventCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventCustodianRecoveryKey";
+
+CKKSAnalyticsFailableEvent* const OctagonEventCreateCustodianRecoveryKey2 = (CKKSAnalyticsFailableEvent*)@"OctagonEventCreateCustodianRecoveryKey2";
+CKKSAnalyticsFailableEvent* const OctagonEventJoinCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinCustodianRecoveryKey";
 CKKSAnalyticsFailableEvent* const OctagonEventPreflightCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightCustodianRecoveryKey";
-CKKSAnalyticsFailableEvent* const OctagonEventInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventRemoveCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventRemoveCustodianRecoveryKey";
+CKKSAnalyticsFailableEvent* const OctagonEventCheckCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventCheckCustodianRecoveryKey";
+
+CKKSAnalyticsFailableEvent* const OctagonEventCreateInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventCreateInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventGenerateInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventGenerateInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventStoreInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventStoreInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventJoinInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinInheritanceKey";
 CKKSAnalyticsFailableEvent* const OctagonEventPreflightInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventRemoveInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventRemoveInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventCheckInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventCheckInheritanceKey";
 
 CKKSAnalyticsFailableEvent* const OctagonEventFetchAllBottles = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchAllBottles";
 CKKSAnalyticsFailableEvent* const OctagonEventFetchEscrowContents = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchEscrowContents";
@@ -180,7 +190,6 @@ CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithInheritanceKey =
 CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithInheritanceKey";
 
 CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventSetRecoveryKey";
-CKKSAnalyticsFailableEvent* const OctagonEventCreateCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventCreateCustodianRecoveryKey";
 
 CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKeyValidationFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventSetRecoveryKeyValidationFailed";
 CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyValidationFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyValidationFailed";
@@ -189,6 +198,10 @@ CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleResetFailed =
 CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyEnrollFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyEnrollFailed";
 CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyFailed";
 CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKey";
+
+CKKSAnalyticsFailableEvent* const OctagonEventCreateCustodianRecoveryKeyTPH = (CKKSAnalyticsFailableEvent*)@"OctagonEventCreateCustodianRecoveryKeyTPH";
+CKKSAnalyticsFailableEvent* const OctagonEventRemoveCustodianRecoveryKeyTPH = (CKKSAnalyticsFailableEvent*)@"OctagonEventRemoveCustodianRecoveryKeyTPH";
+CKKSAnalyticsFailableEvent* const OctagonEventCheckCustodianRecoveryKeyTPH = (CKKSAnalyticsFailableEvent*)@"OctagonEventCheckCustodianRecoveryKeyTPH";
 
 CKKSAnalyticsFailableEvent* const OctagonEventReset = (CKKSAnalyticsFailableEvent*)@"OctagonEventReset";
 
@@ -253,6 +266,29 @@ CKKSAnalyticsActivity* const OctagonActivityLeaveClique = (CKKSAnalyticsActivity
 CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveFriendsInClique";
 
 
+// SOS Deferral
+
+CKKSAnalyticsActivity* const SOSDeferralActivitySetCompatibilityMode = (CKKSAnalyticsActivity *)@"SOSDeferralActivitySetCompatibilityMode";
+CKKSAnalyticsFailableEvent* const SOSDeferralEventCompatibilityModeEnabled = (CKKSAnalyticsFailableEvent *)@"SOSDeferralEventCompatibilityModeEnabled";
+CKKSAnalyticsFailableEvent* const SOSDeferralEventCompatibilityModeDisabled = (CKKSAnalyticsFailableEvent *)@"SOSDeferralEventCompatibilityModeDisabled";
+
+CKKSAnalyticsFailableEvent* const SOSDeferralEventJoinCircleAfterRestore = (CKKSAnalyticsFailableEvent *)@"SOSDeferralEventJoinCircleAfterRestore";
+CKKSAnalyticsFailableEvent* const SOSDeferralEventResetToOffering = (CKKSAnalyticsFailableEvent *)@"SOSDeferralEventResetToOffering";
+CKKSAnalyticsFailableEvent* const SOSDeferralEventReset = (CKKSAnalyticsFailableEvent *)@"SOSDeferralEventReset";
+CKKSAnalyticsFailableEvent* const SOSDeferralEventPiggybacking = (CKKSAnalyticsFailableEvent *)@"SOSDeferralEventPiggybacking";
+CKKSAnalyticsFailableEvent* const SOSDeferralEventPairing = (CKKSAnalyticsFailableEvent *)@"SOSDeferralEventPairing";
+CKKSAnalyticsFailableEvent* const SOSDeferralEventFetchCompatibilityMode = (CKKSAnalyticsFailableEvent *)@"SOSDeferralEventFetchCompatibilityMode";
+
+NSString* const SOSDeferralAnalyticsSOSEnabled = @"SOSEnabled";
+NSString* const SOSDeferralAnalyticsJoiningSOSResult = @"JoiningSOSResult";
+NSString* const SOSDeferralAnalyticsCircleContainsLegacy = @"CircleContainsLegacy";
+NSString* const SOSDeferralAnalyticsSOSJoinMethod = @"SOSJoinMethod";
+
+NSString* const SOSDeferralAnalyticsReset = @"Reset";
+NSString* const SOSDeferralAnalyticsPiggybacking = @"Piggybacking";
+NSString* const SOSDeferralAnalyticsPairing = @"Pairing";
+NSString* const SOSDeferralAnalyticsRestore = @"Restore";
+NSString* const SOSDeferralAnalyticsResetToOffering = @"ResetToOffering";
 
 @implementation CKKSAnalytics
 

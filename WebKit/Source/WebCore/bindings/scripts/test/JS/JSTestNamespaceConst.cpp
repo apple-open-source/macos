@@ -49,8 +49,8 @@ using JSTestNamespaceConstDOMConstructor = JSDOMConstructorNotCallable<JSTestNam
 
 static const HashTableValue JSTestNamespaceConstConstructorTableValues[] =
 {
-    { "TEST_FLAG"_s, JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::ConstantInteger, NoIntrinsic, { HashTableValue::ConstantType, false } },
-    { "TEST_BIT_MASK"_s, JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::ConstantInteger, NoIntrinsic, { HashTableValue::ConstantType, 0x0000fc00 } },
+    { "TEST_FLAG"_s, PropertyAttribute::ReadOnly | PropertyAttribute::DontDelete | PropertyAttribute::ConstantInteger, NoIntrinsic, { HashTableValue::ConstantType, false } },
+    { "TEST_BIT_MASK"_s, PropertyAttribute::ReadOnly | PropertyAttribute::DontDelete | PropertyAttribute::ConstantInteger, NoIntrinsic, { HashTableValue::ConstantType, 0x0000fc00 } },
 };
 
 static_assert(TestNamespaceConst::TEST_FLAG == false, "TEST_FLAG in TestNamespaceConst does not match value from IDL");
@@ -76,14 +76,7 @@ const ClassInfo JSTestNamespaceConst::s_info = { "TestNamespaceConst"_s, &Base::
 JSTestNamespaceConst::JSTestNamespaceConst(Structure* structure, JSDOMGlobalObject& globalObject)
     : JSDOMObject(structure, globalObject) { }
 
-void JSTestNamespaceConst::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestNamespaceConst>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestNamespaceConst>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSValue JSTestNamespaceConst::getConstructor(VM& vm, const JSGlobalObject* globalObject)
 {

@@ -28,6 +28,7 @@
 
 #include <ast.h>
 #include <ast_tty.h>
+#include <sys/ioctl.h>
 
 #if defined(__STDPP__directive) && defined(__STDPP__hide)
 __STDPP__directive pragma pp:hide ioctl sleep

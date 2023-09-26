@@ -1339,6 +1339,7 @@ _krb5_kcm_noop(krb5_context context,
     return ret;
 }
 
+#endif /* HAVE_KCM */
 
 /*
  * Request:
@@ -1361,10 +1362,10 @@ _krb5_kcm_get_initial_ticket(krb5_context context,
 			     krb5_principal server,
 			     const char *password)
 {
-    krb5_kcmcache *k = KCMCACHE(id);
     krb5_error_code ret;
+#ifdef HAVE_KCM
+    krb5_kcmcache *k = KCMCACHE(id);
     krb5_storage *request;
-
     if (id->ops == &krb5_xcc_ops || id->ops == &krb5_xcc_api_ops) {
 	return _krb5_xcc_get_initial_ticket(context, id, client, server, password);
     } else
@@ -1411,9 +1412,13 @@ _krb5_kcm_get_initial_ticket(krb5_context context,
 
     ret = krb5_kcm_call(context, request, NULL, NULL);
     krb5_storage_free(request);
-
+#else
+    ret = _krb5_xcc_get_initial_ticket(context, id, client, server, password);
+#endif
     return ret;
 }
+
+#ifdef HAVE_KCM
 
 KRB5_LIB_FUNCTION const char * KRB5_LIB_CALL
 _krb5_kcm_get_status(int status)
@@ -1562,6 +1567,9 @@ krb5_kcm_check_ntlm_challenge(krb5_context context,
     return ret;
 }
 
+#endif /* HAVE_KCM */
+
+#if HAVE_KCM || ENABLE_KCM_COMPAT
 /*
  * Request:
  *
@@ -1571,6 +1579,7 @@ krb5_kcm_check_ntlm_challenge(krb5_context context,
 KRB5_LIB_FUNCTION CFArrayRef KRB5_LIB_CALL
 krb5_kcm_get_principal_list(krb5_context context)
 {
+#ifdef HAVE_KCM
     krb5_error_code ret;
     krb5_storage *request = NULL, *response = NULL;
     krb5_data response_data;
@@ -1658,6 +1667,9 @@ krb5_kcm_get_principal_list(krb5_context context)
     krb5_data_free(&response_data);
 
     return array;
+#else
+    return NULL;
+#endif /*  HAVE_KCM */
 }
 
-#endif /* HAVE_KCM */
+#endif /*  HAVE_KCM || ENABLE_KCM_COMPAT */

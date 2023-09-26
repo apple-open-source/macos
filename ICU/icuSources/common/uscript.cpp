@@ -83,9 +83,12 @@ getCodesFromLocale(const char *locale,
     }
     // Explicit script code.
     if(scriptLength != 0) {
-        if (0 == uprv_strcmp(script, "Aran")) { // Apple <rdar://problem/47494884>
+#if APPLE_ICU_CHANGES
+// rdar://47494884 de70bade5d.. For ur and ks, support both Arab and Aran (aliased). Add some localized names for Aran.
+        if (0 == uprv_strcmp(script, "Aran")) {
             uprv_strcpy(script, "Arab");
         }
+#endif // APPLE_ICU_CHANGES
         UScriptCode scriptCode = (UScriptCode)u_getPropertyValueEnum(UCHAR_SCRIPT, script);
         if(scriptCode != USCRIPT_INVALID_CODE) {
             if(scriptCode == USCRIPT_SIMPLIFIED_HAN || scriptCode == USCRIPT_TRADITIONAL_HAN) {
@@ -115,18 +118,21 @@ uscript_getCode(const char* nameOrAbbrOrLocale,
         *err = U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }
-    if (0 == uprv_strcmp(nameOrAbbrOrLocale, "Aran")) { // Apple <rdar://problem/47494884>
+#if APPLE_ICU_CHANGES
+// rdar://47494884 de70bade5d.. For ur and ks, support both Arab and Aran (aliased). Add some localized names for Aran.
+    if (0 == uprv_strcmp(nameOrAbbrOrLocale, "Aran")) {
         nameOrAbbrOrLocale = "Arab";
     }
+#endif // APPLE_ICU_CHANGES
 
-    triedCode = FALSE;
+    triedCode = false;
     if(uprv_strchr(nameOrAbbrOrLocale, '-')==NULL && uprv_strchr(nameOrAbbrOrLocale, '_')==NULL ){
         /* try long and abbreviated script names first */
         UScriptCode code = (UScriptCode) u_getPropertyValueEnum(UCHAR_SCRIPT, nameOrAbbrOrLocale);
         if(code!=USCRIPT_INVALID_CODE) {
             return setOneCode(code, fillIn, capacity, err);
         }
-        triedCode = TRUE;
+        triedCode = true;
     }
     internalErrorCode = U_ZERO_ERROR;
     length = getCodesFromLocale(nameOrAbbrOrLocale, fillIn, capacity, err);

@@ -26,7 +26,7 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: test_arrays.c,v 1.3 2008/02/09 18:09:43 tom Exp $
+ * $Id: test_arrays.c,v 1.5 2010/11/13 19:57:57 tom Exp $
  *
  * Author: Thomas E Dickey
  *
@@ -47,7 +47,8 @@ extern NCURSES_EXPORT_VAR(NCURSES_CONST char * const ) strfnames[];
 #define USE_TINFO
 #include <test.priv.h>
 
-#if defined(NCURSES_VERSION) || !defined(_XOPEN_CURSES)
+#if HAVE_TIGETSTR
+#if defined(HAVE_CURSES_DATA_BOOLNAMES) || defined(DECL_CURSES_DATA_BOOLNAMES)
 
 #define DUMP(name) dump_array(#name, name)
 
@@ -88,3 +89,11 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
     ExitProgram(EXIT_FAILURE);
 }
 #endif
+#else /* !HAVE_TIGETSTR */
+int
+main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
+{
+    printf("This program requires the terminfo functions such as tigetstr\n");
+    ExitProgram(EXIT_FAILURE);
+}
+#endif /* HAVE_TIGETSTR */

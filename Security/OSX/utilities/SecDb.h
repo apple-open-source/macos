@@ -177,6 +177,9 @@ void SecDbCorrupt(SecDbConnectionRef dbconn, CFErrorRef error);
 // Testing only. Normally this calls exit() so make it do something more test-friendly instead
 extern void (*SecDbCorruptionExitHandler)(void);
 void SecDbResetCorruptionExitHandler(void);
+
+int SecDBGetInteger(SecDbConnectionRef dbconn, CFStringRef sql, int defaultValue);
+
 __END_DECLS
 
 #endif /* !_UTILITIES_SECDB_H_ */

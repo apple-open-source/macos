@@ -136,8 +136,8 @@ const char * ZEXPORT zError(err)
     return ERR_MSG(err);
 }
 
-#if defined(_WIN32_WCE)
-    /* The Microsoft C Run-Time Library for Windows CE doesn't have
+#if defined(_WIN32_WCE) && _WIN32_WCE < 0x800
+    /* The older Microsoft C Run-Time Library for Windows CE doesn't have
      * errno.  We define it as a global variable to simplify porting.
      * Its value is always 0 and should not be used.
      */
@@ -308,15 +308,8 @@ voidpf ZLIB_INTERNAL zcalloc (opaque, items, size)
     unsigned size;
 {
     (void)opaque;
-    if (sizeof(uInt) > 2) {
-        /*
-            to prevent use of uninitialized memory, malloc and bzero
-        */
-        voidpf  p = malloc(items * size);
-        bzero(p, items * size);
-        return p;
-    } else
-        return (voidpf)calloc(items, size);
+    return sizeof(uInt) > 2 ? (voidpf)malloc(items * size) :
+                              (voidpf)calloc(items, size);
 }
 
 void ZLIB_INTERNAL zcfree (opaque, ptr)

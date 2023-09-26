@@ -29,6 +29,9 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_virtual.c 201098 2009-12-28 02:5
 #include "archive.h"
 #include "archive_entry.h"
 #include "archive_private.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 int
 archive_filter_code(struct archive *a, int n)
@@ -59,6 +62,9 @@ archive_free(struct archive *a)
 {
 	if (a == NULL)
 		return (ARCHIVE_OK);
+#ifdef __APPLE__
+	archive_entitlement_cleanup();
+#endif
 	return ((a->vtable->archive_free)(a));
 }
 

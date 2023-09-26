@@ -599,11 +599,17 @@ void MachORep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef data
 
 void MachORep::registerStapledTicket()
 {
+	CFRef<CFDataRef> data = copyStapledTicket();
+	registerStapledTicketWithSystem(data);
+}
+
+CFDataRef MachORep::copyStapledTicket()
+{
 	CFRef<CFDataRef> data = NULL;
 	if (mSigningData) {
 		data.take(mSigningData->component(cdTicketSlot));
-		registerStapledTicketInMachO(data);
 	}
+	return data.yield();
 }
 
 } // end namespace CodeSigning

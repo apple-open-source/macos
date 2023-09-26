@@ -405,8 +405,8 @@ cache_close(si_mod_t *si)
 	free(pp);
 }
 
-si_mod_t *
-si_module_static_cache(void)
+static si_mod_t *
+si_module_cache_byname(si_mod_t *si, dispatch_once_t *once, const char *name)
 {
 	static const struct si_mod_vtable_s cache_vtable =
 	{
@@ -466,25 +466,17 @@ si_module_static_cache(void)
 		.sim_nameinfo = &cache_nameinfo,
 	};
 
-	static si_mod_t si =
-	{
-		.vers = 1,
-		.refcount = 1,
-		.flags = SI_MOD_FLAG_STATIC,
-
-		.private = NULL,
-		.vtable = &cache_vtable,
-	};
-
-	static dispatch_once_t once;
-
-	dispatch_once(&once, ^{
+	dispatch_once(once, ^{
 		cache_si_private_t *cache;
 		int i, j;
-		
+
 		cache = calloc(1, sizeof(cache_si_private_t));
-		si.name = strdup("cache");
-		si.private = cache;
+		si->name = strdup(name);
+		si->vers = 1;
+		si->refcount = 1;
+		si->flags = SI_MOD_FLAG_STATIC;
+		si->private = cache;
+		si->vtable = &cache_vtable;
 
 		for (i = 0; i < CACHE_COUNT; i++) {
 			for (j = 0; j < CACHE_MAX; j++) {
@@ -493,7 +485,23 @@ si_module_static_cache(void)
 		}
 	});
 
-	return &si;
+	return si;
+}
+
+si_mod_t *
+si_module_static_cache(void)
+{
+	static si_mod_t si = {};
+	static dispatch_once_t once;
+	return si_module_cache_byname(&si, &once, "cache");
+}
+
+si_mod_t *
+si_module_static_cache_file(void)
+{
+	static si_mod_t si = {};
+	static dispatch_once_t once;
+	return si_module_cache_byname(&si, &once, "cache_file");
 }
 
 void
@@ -509,7 +517,7 @@ si_cache_add_item(si_mod_t *si, si_mod_t *src, si_item_t *item)
 	if (si == src) return;
 
 	if (src->name == NULL) return;
-	if (string_equal(src->name, "cache")) return;
+	if (string_equal(src->name, si->name)) return;
 	if (!si_module_allows_caching(src)) return;
 
 	cat = item->type;
@@ -547,7 +555,7 @@ si_cache_add_list(si_mod_t *si, si_mod_t *src, si_list_t *list)
 	if (si == src) return;
 
 	if (src->name == NULL) return;
-	if (string_equal(src->name, "cache")) return;
+	if (string_equal(src->name, si->name)) return;
 	if (!si_module_allows_caching(src)) return;
 
 	item = list->entry[0];

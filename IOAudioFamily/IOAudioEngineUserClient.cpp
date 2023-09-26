@@ -1846,7 +1846,8 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
         IOAudioClientBufferSet  *bufferSet;
         __Require_Action_String(firstSampleFrame < audioEngine->numSampleFramesPerBuffer, UnlockExit, result = kIOReturnBadArgument, "firstSampleFrame out of range");
         bufferSet = findBufferSet(bufferSetID);
-        __Require_Action_String(bufferSet != NULL, UnlockExit, result = kIOReturnError, "no bufferset");
+        // rdar://107077069 - performClientIO call is called from HAL even in the case of there being no bufferset, so the expected behavior is to jump out of the call and return Success
+        __Require_Quiet(bufferSet != NULL, UnlockExit);
         if (inputIO)
         {
             result = performClientInput(firstSampleFrame, bufferSet);

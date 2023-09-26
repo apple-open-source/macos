@@ -52,6 +52,9 @@ __FBSDID("$FreeBSD$");
 #include "archive_endian.h"
 #include "archive_private.h"
 #include "archive_read_private.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 #if HAVE_ZSTD_H && HAVE_LIBZSTD
 
@@ -84,6 +87,13 @@ archive_read_support_filter_zstd(struct archive *_a)
 {
 	struct archive_read *a = (struct archive_read *)_a;
 	struct archive_read_filter_bidder *bidder;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("zstd")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Filter not allow-listed in entitlement");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_filter_zstd");

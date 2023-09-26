@@ -187,11 +187,11 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'waitforhsa2'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
 
         XCTAssertNoThrow(try self.cuttlefishContext.idmsTrustLevelChanged(), "Notification of IDMS trust level shouldn't error")
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
         XCTAssertEqual(self.defaultCKKS.viewList.count, 0, "Should have no CKKS views in an SA account")
@@ -200,7 +200,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.accountStatus = .noAccount
         self.accountStateTracker.notifyCKAccountStatusChangeAndWaitForSignal()
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
@@ -235,7 +235,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.idmsTrustLevelChanged(), "Notification of IDMS trust level shouldn't error")
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
         // Account promotes to HSA2
@@ -296,7 +296,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.idmsTrustLevelChanged(), "Notification of IDMS trust level shouldn't error")
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
         // Account promotes to HSA2
@@ -348,7 +348,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         self.cuttlefishContext.startOctagonStateMachine()
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
         // Calling OTClique API should error (eventually)
@@ -356,7 +356,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         XCTAssertThrowsError(try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated), "establishing new friends in an SA account should error")
 
         // And octagon should still believe everything is terrible
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
         XCTAssertEqual(self.cuttlefishContext.currentMemoizedTrustState(), .UNKNOWN, "Trust state should be unknown")
 
         let statusexpectation = self.expectation(description: "trust status returns")

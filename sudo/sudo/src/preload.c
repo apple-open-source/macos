@@ -34,15 +34,15 @@
 # endif
 #endif
 
-#include "sudo_plugin.h"
-#include "sudo_compat.h"
+#include "sudo.h"
 #include "sudo_dso.h"
+#include "sudo_plugin.h"
 
 #ifdef STATIC_SUDOERS_PLUGIN
 
 extern struct policy_plugin sudoers_policy;
 extern struct io_plugin sudoers_io;
-extern struct io_plugin sudoers_audit;
+extern struct audit_plugin sudoers_audit;
 
 static struct sudo_preload_symbol sudo_rtld_default_symbols[] = {
 # ifdef HAVE_GSS_KRB5_CCACHE_NAME
@@ -64,7 +64,7 @@ static struct sudo_preload_symbol sudo_sudoers_plugin_symbols[] = {
  */
 static struct sudo_preload_table sudo_preload_table[] = {
     { (char *)0, SUDO_DSO_DEFAULT, sudo_rtld_default_symbols },
-    { "sudoers.so", &sudo_sudoers_plugin_symbols, sudo_sudoers_plugin_symbols },
+    { _PATH_SUDOERS_PLUGIN, &sudo_sudoers_plugin_symbols, sudo_sudoers_plugin_symbols },
     { (char *)0, (void *)0, (struct sudo_preload_symbol *)0 }
 };
 

@@ -38,6 +38,7 @@ void LoadParameters::encode(IPC::Encoder& encoder) const
     encoder << host;
 #endif
     encoder << navigationID;
+    encoder << frameIdentifier;
     encoder << request;
 
     encoder << static_cast<bool>(request.httpBody());
@@ -65,6 +66,7 @@ void LoadParameters::encode(IPC::Encoder& encoder) const
     encoder << existingNetworkResourceLoadIdentifierToResume;
     encoder << isServiceWorkerLoad;
     encoder << sessionHistoryVisibility;
+    encoder << advancedPrivacyProtections;
     platformEncode(encoder);
 }
 
@@ -81,6 +83,9 @@ bool LoadParameters::decode(IPC::Decoder& decoder, LoadParameters& data)
 #endif
 
     if (!decoder.decode(data.navigationID))
+        return false;
+
+    if (!decoder.decode(data.frameIdentifier))
         return false;
 
     if (!decoder.decode(data.request))
@@ -167,6 +172,9 @@ bool LoadParameters::decode(IPC::Decoder& decoder, LoadParameters& data)
         return false;
     
     if (!decoder.decode(data.sessionHistoryVisibility))
+        return false;
+
+    if (!decoder.decode(data.advancedPrivacyProtections))
         return false;
 
     if (!platformDecode(decoder, data))

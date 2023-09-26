@@ -104,7 +104,7 @@ int32_t NGramParser::nextByte(InputText *det)
 void NGramParser::parseCharacters(InputText *det)
 {
     int32_t b;
-    bool ignoreSpace = FALSE;
+    bool ignoreSpace = false;
 
     while ((b = nextByte(det)) >= 0) {
         uint8_t mb = charMap[b];
@@ -211,7 +211,7 @@ int32_t NGramParser_IBM420::nextByte(InputText *det)
 void NGramParser_IBM420::parseCharacters(InputText *det)
 {
 	int32_t b;
-    bool ignoreSpace = FALSE;
+    bool ignoreSpace = false;
 
     while ((b = nextByte(det)) >= 0) {
         uint8_t mb = charMap[b];
@@ -902,10 +902,13 @@ UBool CharsetRecog_8859_1::match(InputText *textIn, CharsetMatch *results) const
             bestConfidenceSoFar = confidence;
         }
     }
-    if (bestConfidenceSoFar < 10 && textIn->fOnlyTypicalASCII) { // rdar://56373519
+#if APPLE_ICU_CHANGES
+// rdar://56373519 Better heuristic for ASCII to prevent detection as UTF16
+    if (bestConfidenceSoFar < 10 && textIn->fOnlyTypicalASCII) {
         bestConfidenceSoFar = 15;
         results->set(textIn, this, bestConfidenceSoFar, name);
     }
+#endif  // APPLE_ICU_CHANGES
     return (bestConfidenceSoFar > 0);
 }
 

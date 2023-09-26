@@ -244,6 +244,8 @@ public:
      */
     virtual UBool isModulusSubstitution() const;
     
+#if APPLE_ICU_CHANGES
+// rdar:/
     /**
      * Apple addition
      * @return true if this is a decimal format-only substitution
@@ -255,7 +257,8 @@ public:
      * @return true if this substitution only points to another ruleSet (no numberFormat)
      */
     //virtual UBool isRuleSetSubstitutionOnly() const;
-    
+#endif  // APPLE_ICU_CHANGES
+
 private:
     NFSubstitution(const NFSubstitution &other) = delete; // forbid copying of this class
     NFSubstitution &operator=(const NFSubstitution &other) = delete; // forbid copying of this class

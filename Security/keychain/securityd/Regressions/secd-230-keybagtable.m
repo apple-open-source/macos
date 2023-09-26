@@ -142,7 +142,7 @@ static int keychainTestEnvironment(const char *environmentName, dispatch_block_t
 
     // Reset keybag
     if (haveCustomKeybag)
-        SecItemServerResetKeychainKeybag();
+        SecItemServerSetKeychainKeybagToDefault();
 
     // Reset server accessgroups
     SecAccessGroupsSetCurrent(old_ag);

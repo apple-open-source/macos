@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "BaselineAlignmentInlines.h"
 #include "Grid.h"
 #include "GridMasonryLayout.h"
 #include "GridTrackSizingAlgorithm.h"
@@ -77,11 +78,18 @@ public:
 
     void updateGridAreaLogicalSize(RenderBox&, std::optional<LayoutUnit> width, std::optional<LayoutUnit> height) const;
     bool isBaselineAlignmentForChild(const RenderBox&) const;
-    bool isBaselineAlignmentForChild(const RenderBox& child, GridAxis, AllowedBaseLine = BothLines) const;
+    bool isBaselineAlignmentForChild(const RenderBox& child, GridAxis, AllowedBaseLine = AllowedBaseLine::BothLines) const;
 
     StyleSelfAlignmentData selfAlignmentForChild(GridAxis, const RenderBox&, const RenderStyle* = nullptr) const;
 
     StyleContentAlignmentData contentAlignment(GridTrackSizingDirection) const;
+
+    // These functions handle the actual implementation of layoutBlock based on if
+    // the grid is a standard grid or a masonry one. While masonry is an extension of grid,
+    // keeping the logic in the same function was leading to a messy amount of if statements being added to handle
+    // specific masonry cases.
+    void layoutGrid(bool);
+    void layoutMasonry(bool);
 
     // Computes the span relative to this RenderGrid, even if the RenderBox is a child
     // of a descendant subgrid.
@@ -142,6 +150,7 @@ private:
     bool namedGridLinesDefinitionDidChange(const RenderStyle&) const;
     bool implicitGridLinesDefinitionDidChange(const RenderStyle&) const;
 
+    bool shouldCheckExplicitIntrinsicInnerLogicalSize(GridTrackSizingDirection) const;
     std::optional<LayoutUnit> explicitIntrinsicInnerLogicalSize(GridTrackSizingDirection) const;
     unsigned computeAutoRepeatTracksCount(GridTrackSizingDirection, std::optional<LayoutUnit> availableSize) const;
 
@@ -149,7 +158,8 @@ private:
 
     std::unique_ptr<OrderedTrackIndexSet> computeEmptyTracksForAutoRepeat(GridTrackSizingDirection) const;
 
-    void performGridItemsPreLayout(const GridTrackSizingAlgorithm&) const;
+    enum class ShouldUpdateGridAreaLogicalSize : bool { No, Yes };
+    void performGridItemsPreLayout(const GridTrackSizingAlgorithm&, const ShouldUpdateGridAreaLogicalSize) const;
 
     void placeItemsOnGrid(std::optional<LayoutUnit> availableLogicalWidth);
     void populateExplicitGridAndOrderIterator();
@@ -180,7 +190,10 @@ private:
     void repeatTracksSizingIfNeeded(LayoutUnit availableSpaceForColumns, LayoutUnit availableSpaceForRows);
 
     void updateGridAreaForAspectRatioItems(const Vector<RenderBox*>&);
+
     void layoutGridItems();
+    void layoutMasonryItems();
+
     void populateGridPositionsForDirection(GridTrackSizingDirection);
 
     LayoutUnit gridAreaBreadthForOutOfFlowChild(const RenderBox&, GridTrackSizingDirection);
@@ -208,14 +221,14 @@ private:
     void applySubgridStretchAlignmentToChildIfNeeded(RenderBox&);
     bool hasAutoSizeInColumnAxis(const RenderBox& child) const;
     bool hasAutoSizeInRowAxis(const RenderBox& child) const;
-    bool allowedToStretchChildAlongColumnAxis(const RenderBox& child) const { return alignSelfForChild(child).position() == ItemPosition::Stretch && hasAutoSizeInColumnAxis(child) && !hasAutoMarginsInColumnAxis(child); }
-    bool allowedToStretchChildAlongRowAxis(const RenderBox& child) const { return justifySelfForChild(child).position() == ItemPosition::Stretch && hasAutoSizeInRowAxis(child) && !hasAutoMarginsInRowAxis(child); }
+    inline bool allowedToStretchChildAlongColumnAxis(const RenderBox& child) const;
+    inline bool allowedToStretchChildAlongRowAxis(const RenderBox& child) const;
     bool hasAutoMarginsInColumnAxis(const RenderBox&) const;
     bool hasAutoMarginsInRowAxis(const RenderBox&) const;
     void resetAutoMarginsAndLogicalTopInColumnAxis(RenderBox& child);
     void updateAutoMarginsInColumnAxisIfNeeded(RenderBox&);
     void updateAutoMarginsInRowAxisIfNeeded(RenderBox&);
-    bool shouldTrimChildMargin(MarginTrimType, const RenderBox&) const final;
+    bool isChildEligibleForMarginTrim(MarginTrimType, const RenderBox&) const final;
 
     LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
     std::optional<LayoutUnit> firstLineBaseline() const final;

@@ -5,11 +5,11 @@
 #import <Foundation/Foundation.h>
 #import <ProtocolBuffer/PBCodable.h>
 
-@class SECC2MPDeviceInfo;
 @class SECC2MPCloudKitInfo;
-@class SECC2MPServerInfo;
-@class SECC2MPNetworkEvent;
+@class SECC2MPDeviceInfo;
 @class SECC2MPGenericEvent;
+@class SECC2MPNetworkEvent;
+@class SECC2MPServerInfo;
 
 typedef NS_ENUM(int32_t, SECC2MPMetric_Type) {
     SECC2MPMetric_Type_none_type = 0,
@@ -97,10 +97,10 @@ __attribute__((visibility("hidden")))
     SECC2MPNetworkEvent *_networkEvent;
     SECC2MPServerInfo *_serverInfo;
     struct {
-        int reportFrequency:1;
-        int reportFrequencyBase:1;
-        int triggers:1;
-        int metricType:1;
+        uint reportFrequency:1;
+        uint reportFrequencyBase:1;
+        uint triggers:1;
+        uint metricType:1;
     } _has;
 }
 

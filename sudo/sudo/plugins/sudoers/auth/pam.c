@@ -90,8 +90,9 @@ static int converse(int, PAM_CONST struct pam_message **,
 		    struct pam_response **, void *);
 static struct sudo_conv_callback *conv_callback;
 static struct pam_conv pam_conv = { converse, &conv_callback };
-static char *def_prompt = PASSPROMPT;
+static const char *def_prompt = PASSPROMPT;
 static bool getpass_error;
+static bool noninteractive;
 static pam_handle_t *pamh;
 static struct conv_filter *conv_filter;
 
@@ -198,16 +199,21 @@ sudo_pam_init2(struct passwd *pw, sudo_auth *auth, bool quiet)
     /* Stash pointer to last pam status. */
     auth->data = &pam_status;
 
-#ifdef _AIX
     if (pamh != NULL) {
-	/* Already initialized (may happen with AIX). */
+	/* Already initialized (may happen with AIX or with sub-commands). */
 	debug_return_int(AUTH_SUCCESS);
     }
-#endif /* _AIX */
 
-    /* Initial PAM. */
-    pam_service = ISSET(sudo_mode, MODE_LOGIN_SHELL) ?
-	def_pam_login_service : def_pam_service;
+    /* Stash value of noninteractive flag for conversation function. */
+    noninteractive = IS_NONINTERACTIVE(auth);
+
+    /* Initialize PAM. */
+    if (ISSET(sudo_mode, MODE_ASKPASS) && def_pam_askpass_service != NULL) {
+	pam_service = def_pam_askpass_service;
+    } else {
+	pam_service = ISSET(sudo_mode, MODE_LOGIN_SHELL) ?
+	    def_pam_login_service : def_pam_service;
+    }
     pam_status = pam_start(pam_service, pw->pw_name, &pam_conv, &pamh);
     if (pam_status != PAM_SUCCESS) {
 	errstr = sudo_pam_strerror(NULL, pam_status);
@@ -243,16 +249,7 @@ sudo_pam_init2(struct passwd *pw, sudo_auth *auth, bool quiet)
 		"pam_set_item(pamh, PAM_RHOST, %s): %s", user_host, errstr);
 	}
     }
-
-#if defined(__LINUX_PAM__) || defined(__sun__)
-    /*
-     * Some PAM modules assume PAM_TTY is set and will misbehave (or crash)
-     * if it is not.  Known offenders include pam_lastlog and pam_time.
-     */
-    if (ttypath == NULL)
-	ttypath = "";
-#endif
-    if (ttypath != NULL) { // -V547
+    if (ttypath != NULL) {
 	rc = pam_set_item(pamh, PAM_TTY, ttypath);
 	if (rc != PAM_SUCCESS) {
 	    errstr = sudo_pam_strerror(pamh, rc);
@@ -286,7 +283,7 @@ sudo_pam_init_quiet(struct passwd *pw, sudo_auth *auth)
 #endif /* _AIX */
 
 int
-sudo_pam_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_pam_verify(struct passwd *pw, const char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
 	const char *envccname;
     const char *s;
@@ -311,6 +308,9 @@ sudo_pam_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_co
     /* PAM_SILENT prevents the authentication service from generating output. */
     *pam_status = pam_authenticate(pamh, PAM_SILENT);
 
+    /* Restore def_prompt, the passed-in prompt may be freed later. */
+    def_prompt = PASSPROMPT;
+
 	/* Restore KRB5CCNAME to its original value. */
 	if (envccname == NULL && sudo_unsetenv("KRB5CCNAME") != 0) {
 		sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
@@ -319,8 +319,8 @@ sudo_pam_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_co
 	}
 
     if (getpass_error) {
-	/* error or ^C from tgetpass() */
-	debug_return_int(AUTH_INTR);
+	/* error or ^C from tgetpass() or running non-interactive */
+	debug_return_int(noninteractive ? AUTH_NONINTERACTIVE : AUTH_INTR);
     }
     switch (*pam_status) {
 	case PAM_SUCCESS:
@@ -525,7 +525,6 @@ sudo_pam_begin_session(struct passwd *pw, char **user_envp[], sudo_auth *auth)
 	    if (!env_init(*user_envp) || !env_merge(pam_envp))
 		status = AUTH_FATAL;
 	    *user_envp = env_get();
-	    (void)env_init(NULL);
 	    free(pam_envp);
 	    /* XXX - we leak any duplicates that were in pam_envp */
 	}
@@ -674,7 +673,6 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
     const char *prompt;
     char *pass;
     int n, type;
-    int ret = PAM_SUCCESS;
     debug_decl(converse, SUDOERS_DEBUG_AUTH);
 
     if (num_msg <= 0 || num_msg > PAM_MAX_NUM_MSG) {
@@ -689,7 +687,6 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
 	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	debug_return_int(PAM_BUF_ERR);
     }
-    *reply_out = reply;
 
     if (vcallback != NULL)
 	callback = *((struct sudo_conv_callback **)vcallback);
@@ -705,7 +702,13 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
 	    case PAM_PROMPT_ECHO_OFF:
 		/* Error out if the last password read was interrupted. */
 		if (getpass_error)
-		    goto done;
+		    goto bad;
+
+		/* Treat non-interactive mode as a getpass error. */
+		if (noninteractive) {
+		    getpass_error = true;
+		    goto bad;
+		}
 
 		/* Choose either the sudo prompt or the PAM one. */
 		prompt = use_pam_prompt(pm->msg) ? pm->msg : def_prompt;
@@ -715,15 +718,14 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
 		if (pass == NULL) {
 		    /* Error (or ^C) reading password, don't try again. */
 		    getpass_error = true;
-		    ret = PAM_CONV_ERR;
-		    goto done;
+		    goto bad;
 		}
 		if (strlen(pass) >= PAM_MAX_RESP_SIZE) {
 		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 			"password longer than %d", PAM_MAX_RESP_SIZE);
-		    ret = PAM_CONV_ERR;
-		    explicit_bzero(pass, strlen(pass));
-		    goto done;
+		    freezero(pass, strlen(pass));
+		    pass = NULL;
+		    goto bad;
 		}
 		reply[n].resp = pass;	/* auth_getpass() malloc's a copy */
 		break;
@@ -740,26 +742,25 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
 	    default:
 		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 		    "unsupported message style: %d", pm->msg_style);
-		ret = PAM_CONV_ERR;
-		goto done;
+		goto bad;
 	}
     }
 
-done:
-    if (ret != PAM_SUCCESS) {
-	/* Zero and free allocated memory and return an error. */
-	for (n = 0; n < num_msg; n++) {
-	    struct pam_response *pr = &reply[n];
+    *reply_out = reply;
+    debug_return_int(PAM_SUCCESS);
 
-	    if (pr->resp != NULL) {
-		freezero(pr->resp, strlen(pr->resp));
-		pr->resp = NULL;
-	    }
+bad:
+    /* Zero and free allocated memory and return an error. */
+    for (n = 0; n < num_msg; n++) {
+	struct pam_response *pr = &reply[n];
+
+	if (pr->resp != NULL) {
+	    freezero(pr->resp, strlen(pr->resp));
+	    pr->resp = NULL;
 	}
-	free(reply);
-	*reply_out = NULL;
     }
-    debug_return_int(ret);
+    free(reply);
+    debug_return_int(PAM_CONV_ERR);
 }
 
 #endif /* HAVE_PAM */

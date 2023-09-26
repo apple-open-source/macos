@@ -43,9 +43,13 @@ static const char *TrailerMagic = "t8lr";
 namespace Security {
 namespace CodeSigning {
 
-static void
+void
 registerStapledTicketWithSystem(CFDataRef data)
 {
+	if (data == NULL) {
+		return;
+	}
+
 	secinfo("notarization", "Registering stapled ticket with system");
 
 #if TARGET_OS_OSX
@@ -223,8 +227,8 @@ lb_exit:
 	}
 }
 
-void
-registerStapledTicketInBundle(const std::string& path)
+CFDataRef
+copyStapledTicketInBundle(const std::string& path)
 {
 	int fd = 0;
 	struct stat st;
@@ -280,33 +284,11 @@ registerStapledTicketInBundle(const std::string& path)
 		goto lb_exit;
 	}
 
-	secinfo("notarization", "successfully found stapled ticket for: %s", path.c_str());
-	registerStapledTicketWithSystem(data);
-
 lb_exit:
 	if (fd) {
 		close(fd);
 	}
-}
-
-void
-registerStapledTicketInDMG(CFDataRef ticketData)
-{
-	if (ticketData == NULL) {
-		return;
-	}
-	secinfo("notarization", "successfully found stapled ticket in DMG");
-	registerStapledTicketWithSystem(ticketData);
-}
-
-void
-registerStapledTicketInMachO(CFDataRef ticketData)
-{
-	if (ticketData == NULL) {
-		return;
-	}
-	secinfo("notarization", "successfully found stapled ticket in MachO");
-	registerStapledTicketWithSystem(ticketData);
+	return data.yield();
 }
 
 }

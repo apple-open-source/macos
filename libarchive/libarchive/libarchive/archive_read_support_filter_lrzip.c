@@ -44,6 +44,9 @@ __FBSDID("$FreeBSD$");
 #include "archive.h"
 #include "archive_private.h"
 #include "archive_read_private.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 #define LRZIP_HEADER_MAGIC "LRZI"
 #define LRZIP_HEADER_MAGIC_LEN 4
@@ -65,6 +68,13 @@ archive_read_support_filter_lrzip(struct archive *_a)
 {
 	struct archive_read *a = (struct archive_read *)_a;
 	struct archive_read_filter_bidder *reader;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("lrzip")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Format not allow-listed in entitlements");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_filter_lrzip");

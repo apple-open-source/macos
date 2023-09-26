@@ -28,9 +28,9 @@
 
 #if USE(CG)
 
+#include "CGSubimageCacheWithTimer.h"
 #include "GeometryUtilities.h"
 #include "GraphicsContextCG.h"
-#include "SubimageCacheWithTimer.h"
 
 namespace WebCore {
 
@@ -73,10 +73,9 @@ DestinationColorSpace NativeImage::colorSpace() const
 void NativeImage::draw(GraphicsContext& context, const FloatSize& imageSize, const FloatRect& destinationRect, const FloatRect& sourceRect, const ImagePaintingOptions& options)
 {
     auto isHDRColorSpace = [](CGColorSpaceRef colorSpace) -> bool {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         return CGColorSpaceIsHDR(colorSpace);
-#pragma clang diagnostic pop
+ALLOW_DEPRECATED_DECLARATIONS_END
     };
 
     auto isHDRNativeImage = [&](const NativeImage& image) -> bool {
@@ -135,7 +134,7 @@ void NativeImage::draw(GraphicsContext& context, const FloatSize& imageSize, con
 void NativeImage::clearSubimages()
 {
 #if CACHE_SUBIMAGES
-    SubimageCacheWithTimer::clearImage(m_platformImage.get());
+    CGSubimageCacheWithTimer::clearImage(m_platformImage.get());
 #endif
 }
 

@@ -365,28 +365,33 @@ static void resolveLocaleRegion(const char* locale,
     
     const int32_t kKeyValueMax = 15;
     UErrorCode localStatus;
-    UBool usedOverride = FALSE;
+    UBool usedOverride = false;
     // First check for ms overrides, except in certain categories
     if (uprv_strcmp(category, "concentr") != 0 && uprv_strcmp(category, "duration") != 0) {
         char msValue[kKeyValueMax + 1];
         localStatus = U_ZERO_ERROR;
-        int32_t msValueLen = uloc_getKeywordValue(locale, "ms", msValue, kKeyValueMax, &localStatus);
+        int32_t msValueLen = uloc_getKeywordValue(locale, "measure", msValue, kKeyValueMax, &localStatus);
+        if (U_FAILURE(localStatus) || msValueLen <= 2) {
+            // I don't think an old-style locale ID with "ms" is technically legal, but continue to support it for backward compatibility
+            localStatus = U_ZERO_ERROR;
+            msValueLen = uloc_getKeywordValue(locale, "ms", msValue, kKeyValueMax, &localStatus);
+        }
         if (U_SUCCESS(localStatus) && msValueLen> 2) {
             msValue[kKeyValueMax] = 0; // ensure termination
             if (uprv_strcmp(msValue, "metric") == 0) {
                 uprv_strcpy(region, "001");
-                usedOverride = TRUE;
+                usedOverride = true;
             } else if (uprv_strcmp(msValue, "ussystem") == 0) {
                 uprv_strcpy(region, "US");
-                usedOverride = TRUE;
+                usedOverride = true;
             } else if (uprv_strcmp(msValue, "uksystem") == 0) {
                 uprv_strcpy(region, "GB");
-                usedOverride = TRUE;
+                usedOverride = true;
             }
         }
     }
     if (!usedOverride) {
-        (void)ulocimp_getRegionForSupplementalData(locale, TRUE, region, ULOC_COUNTRY_CAPACITY, status);
+        (void)ulocimp_getRegionForSupplementalData(locale, true, region, ULOC_COUNTRY_CAPACITY, status);
     }
 }
 
@@ -415,17 +420,16 @@ uameasfmt_getUnitsForUsage( const char*     locale,
         return 0;
     }
     
-    const UnitPreference *const *prefs = nullptr;
-    int32_t prefCount = 0;
-    
-    prefsGetter->getPreferencesFor(resolvedCategory.data(), resolvedUsage.data(), region, prefs, prefCount, *status);
-    if (U_FAILURE(*status) || prefCount == 0) {
+    // rdar://97937093 Integrate ICU 72: Update the following per changes in https://github.com/unicode-org/icu/pull/2182
+    Locale regLoc("und", region);    
+    auto prefs = prefsGetter->getPreferencesFor(resolvedCategory.data(), resolvedUsage.data(), regLoc, *status);
+    if (U_FAILURE(*status) || prefs.length() <= 0) {
         return 0;
     }
     
-    if (entryOffset >= prefCount) {
+    if (entryOffset >= prefs.length()) {
         // if the alias table gave us an offset off the end of the array, just use the last element in the array
-        entryOffset = prefCount - 1;
+        entryOffset = prefs.length() - 1;
     }
     MeasureUnit unit(MeasureUnit::forIdentifier(prefs[entryOffset]->unit.data(), *status));
     if (U_FAILURE(*status)) {

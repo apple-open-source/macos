@@ -403,7 +403,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     return _database;
 }
 
-- (void)removeState
+- (void)removeStateAndUnlinkFile:(BOOL)unlinkFile
 {
     [_samplers removeAllObjects];
     [_multisamplers removeAllObjects];
@@ -413,11 +413,18 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         __strong __typeof(self) strongSelf = weakSelf;
         if (strongSelf) {
             [strongSelf.database close];
-            [strongSelf.database remove];
+            if (unlinkFile) {
+                [strongSelf.database remove];
+            }
             strongSelf->_database = nil;
             [strongSelf->_metricsHooks removeAllObjects];
         }
     });
+}
+
+- (void)removeState
+{
+    [self removeStateAndUnlinkFile:YES];
 }
 
 - (void)setDateProperty:(NSDate*)date forKey:(NSString*)key

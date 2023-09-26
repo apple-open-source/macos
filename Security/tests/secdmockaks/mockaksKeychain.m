@@ -446,6 +446,62 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     XCTAssertEqual(result, 0, @"failed to delete item");
 }
 
+- (void)testBackupRestoreItemUsingNewStyleAks
+{
+    [self createManyItems];
+    [self createManyKeys];
+    [self createManyACLKeyItems];
+
+    NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecValueData : [@"🗡🐟" dataUsingEncoding:NSUTF8StringEncoding],
+                            (id)kSecAttrAccount : @"NewTestAccount",
+                            (id)kSecAttrService : @"NewTestService",
+                            (id)kSecUseDataProtectionKeychain : @(YES) };
+
+    OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+    XCTAssertEqual(result, 0, @"failed to add test item to keychain");
+
+    NSMutableDictionary* dataQuery = item.mutableCopy;
+    [dataQuery removeObjectForKey:(id)kSecValueData];
+    dataQuery[(id)kSecReturnData] = @(YES);
+    CFTypeRef foundItem = NULL;
+
+    /*
+     * Create backup using NULLs for both keybag & passcode, which means "use the currently registered backup keybag"
+     */
+
+    CFDataRef backup = _SecKeychainCopyBackup(NULL, NULL);
+    XCTAssert(backup, "expected to have a backup");
+
+    result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
+    XCTAssertEqual(result, 0, @"failed to delete item");
+
+    result = SecItemCopyMatching((__bridge CFDictionaryRef)dataQuery, &foundItem);
+    XCTAssertEqual(result, errSecItemNotFound,
+                   @"failed to find the data for the item we just added in the keychain");
+    CFReleaseNull(foundItem);
+
+    /*
+     * Restore backup and see that item is resurrected
+     */
+
+    CFDataRef keybag = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)"magic backup keybag!", 20);
+    CFDataRef password = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)"swordfish", 9);
+
+    XCTAssertEqual(0, _SecKeychainRestoreBackup(backup, keybag, password));
+
+    CFReleaseNull(backup);
+    CFReleaseNull(password);
+    CFReleaseNull(keybag);
+
+    result = SecItemCopyMatching((__bridge CFDictionaryRef)dataQuery, &foundItem);
+    XCTAssertEqual(result, 0, @"failed to find the data for the item we just added in the keychain");
+    CFReleaseNull(foundItem);
+
+    result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
+    XCTAssertEqual(result, 0, @"failed to delete item");
+}
+
 - (void)testCreateSampleDatabase
 {
     // The keychain code only does the right thing with generation count if TARGET_HAS_KEYSTORE

@@ -45,7 +45,10 @@ void addUSpoofTest(TestNode** root);
 #if !UCONFIG_NO_FORMATTING
 void addGendInfoForTest(TestNode** root);
 #endif
+#if APPLE_ICU_CHANGES
+// rdar://
 void addDataDumper(TestNode** root); // Apple addition
+#endif  // APPLE_ICU_CHANGES
 
 void addAllTests(TestNode** root)
 {
@@ -90,5 +93,8 @@ void addAllTests(TestNode** root)
 #if !UCONFIG_NO_FORMATTING
     addGendInfoForTest(root);
 #endif
+#if APPLE_ICU_CHANGES
+// rdar://
     addDataDumper(root);
+#endif  // APPLE_ICU_CHANGES
 }

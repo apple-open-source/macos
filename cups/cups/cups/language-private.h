@@ -66,10 +66,15 @@ extern const char	*_cupsAppleLocale(CFStringRef languageName, char *locale, size
 extern void		_cupsCharmapFlush(void) _CUPS_INTERNAL;
 extern const char	*_cupsEncodingName(cups_encoding_t encoding) _CUPS_PRIVATE;
 extern void		_cupsLangPrintError(const char *prefix, const char *message) _CUPS_PRIVATE;
+__attribute__((format(printf, 3, 4)))
 extern int		_cupsLangPrintFilter(FILE *fp, const char *prefix, const char *message, ...) _CUPS_FORMAT(3, 4) _CUPS_PRIVATE;
+__attribute__((format(printf, 2, 3)))
 extern int		_cupsLangPrintf(FILE *fp, const char *message, ...) _CUPS_FORMAT(2, 3) _CUPS_PRIVATE;
 extern int		_cupsLangPuts(FILE *fp, const char *message) _CUPS_PRIVATE;
+
+__attribute__((format_arg(2)))
 extern const char	*_cupsLangString(cups_lang_t *lang, const char *message) _CUPS_PRIVATE;
+
 extern void		_cupsMessageFree(cups_array_t *a) _CUPS_PRIVATE;
 extern cups_array_t	*_cupsMessageLoad(const char *filename, int flags) _CUPS_PRIVATE;
 extern const char	*_cupsMessageLookup(cups_array_t *a, const char *m) _CUPS_PRIVATE;

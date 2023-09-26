@@ -28,19 +28,21 @@
 #include "Document.h"
 #include "Event.h"
 #include "EventHandler.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
+#include "LocalFrame.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
+#include "NodeName.h"
 #include "Page.h"
 #include "PluginData.h"
 #include "PluginReplacement.h"
 #include "PluginViewBase.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderLayer.h"
+#include "RenderStyleInlines.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "ScriptController.h"
@@ -61,10 +63,9 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLPlugInElement);
 using namespace HTMLNames;
 
 HTMLPlugInElement::HTMLPlugInElement(const QualifiedName& tagName, Document& document)
-    : HTMLFrameOwnerElement(tagName, document)
+    : HTMLFrameOwnerElement(tagName, document, CreateHTMLPlugInElement)
     , m_swapRendererTimer(*this, &HTMLPlugInElement::swapRendererTimerFired)
 {
-    setHasCustomStyleResolveCallbacks();
 }
 
 HTMLPlugInElement::~HTMLPlugInElement()
@@ -85,7 +86,7 @@ void HTMLPlugInElement::willDetachRenderers()
     m_instance = nullptr;
 
     if (m_isCapturingMouseEvents) {
-        if (RefPtr<Frame> frame = document().frame())
+        if (RefPtr frame = document().frame())
             frame->eventHandler().setCapturingMouseEventsElement(nullptr);
         m_isCapturingMouseEvents = false;
     }
@@ -123,7 +124,7 @@ PluginViewBase* HTMLPlugInElement::pluginWidget(PluginLoadingPolicy loadPolicy) 
 
 RenderWidget* HTMLPlugInElement::renderWidgetLoadingPlugin() const
 {
-    RefPtr<FrameView> view = document().view();
+    RefPtr view = document().view();
     if (!view || (!view->inUpdateEmbeddedObjects() && !view->layoutContext().isInLayout() && !view->isPainting())) {
         // Needs to load the plugin immediatedly because this function is called
         // when JavaScript code accesses the plugin.
@@ -135,27 +136,43 @@ RenderWidget* HTMLPlugInElement::renderWidgetLoadingPlugin() const
 
 bool HTMLPlugInElement::hasPresentationalHintsForAttribute(const QualifiedName& name) const
 {
-    if (name == widthAttr || name == heightAttr || name == vspaceAttr || name == hspaceAttr || name == alignAttr)
+    switch (name.nodeName()) {
+    case AttributeNames::widthAttr:
+    case AttributeNames::heightAttr:
+    case AttributeNames::vspaceAttr:
+    case AttributeNames::hspaceAttr:
+    case AttributeNames::alignAttr:
         return true;
+    default:
+        break;
+    }
     return HTMLFrameOwnerElement::hasPresentationalHintsForAttribute(name);
 }
 
 void HTMLPlugInElement::collectPresentationalHintsForAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
 {
-    if (name == widthAttr)
+    switch (name.nodeName()) {
+    case AttributeNames::widthAttr:
         addHTMLLengthToStyle(style, CSSPropertyWidth, value);
-    else if (name == heightAttr)
+        break;
+    case AttributeNames::heightAttr:
         addHTMLLengthToStyle(style, CSSPropertyHeight, value);
-    else if (name == vspaceAttr) {
+        break;
+    case AttributeNames::vspaceAttr:
         addHTMLLengthToStyle(style, CSSPropertyMarginTop, value);
         addHTMLLengthToStyle(style, CSSPropertyMarginBottom, value);
-    } else if (name == hspaceAttr) {
+        break;
+    case AttributeNames::hspaceAttr:
         addHTMLLengthToStyle(style, CSSPropertyMarginLeft, value);
         addHTMLLengthToStyle(style, CSSPropertyMarginRight, value);
-    } else if (name == alignAttr)
+        break;
+    case AttributeNames::alignAttr:
         applyAlignmentAttributeToStyle(value, style);
-    else
+        break;
+    default:
         HTMLFrameOwnerElement::collectPresentationalHintsForAttribute(name, value, style);
+        break;
+    }
 }
 
 void HTMLPlugInElement::defaultEventHandler(Event& event)

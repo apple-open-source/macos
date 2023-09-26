@@ -2,6 +2,8 @@
 // localsvc.cpp -- Apple-specific service hook
 // Copyright (c) 2007 Apple Inc. All rights reserved.
 //
+// originally added per rdar://4448220 Add user dictionary support
+//
 
 #include "unicode/utypes.h"
 

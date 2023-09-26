@@ -8,7 +8,10 @@
 
 #include "udbgutil.h"
 #include <string.h>
+#if APPLE_ICU_CHANGES
+// rdar://
 #include <stdio.h>
+#endif  // APPLE_ICU_CHANGES
 #include "ustr_imp.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -16,7 +19,10 @@
 #include "unicode/ulocdata.h"
 #include "unicode/ucnv.h"
 #include "unicode/unistr.h"
+#if APPLE_ICU_CHANGES
+// rdar://
 #include "unicode/ucol.h"
+#endif  // APPLE_ICU_CHANGES
 #include "cstr.h"
 
 /*
@@ -241,7 +247,7 @@ static const Field names_UDebugEnumType[] =
 
 /**
  * @param type type of item
- * @param actual TRUE: for the actual enum's type (UCAL_FIELD_COUNT, etc), or FALSE for the string count
+ * @param actual true: for the actual enum's type (UCAL_FIELD_COUNT, etc), or false for the string count
  */
 static int32_t _udbg_enumCount(UDebugEnumType type, UBool actual) {
 	switch(type) {
@@ -290,16 +296,16 @@ static const Field* _udbg_enumFields(UDebugEnumType type) {
 // implementation
 
 int32_t  udbg_enumCount(UDebugEnumType type) {
-	return _udbg_enumCount(type, FALSE);
+	return _udbg_enumCount(type, false);
 }
 
 int32_t  udbg_enumExpectedCount(UDebugEnumType type) {
-	return _udbg_enumCount(type, TRUE);
+	return _udbg_enumCount(type, true);
 }
 
 const char *  udbg_enumName(UDebugEnumType type, int32_t field) {
 	if(field<0 ||
-				field>=_udbg_enumCount(type,FALSE)) { // also will catch unsupported items
+				field>=_udbg_enumCount(type,false)) { // also will catch unsupported items
 		return NULL;
 	} else {
 		const Field *fields = _udbg_enumFields(type);
@@ -313,7 +319,7 @@ const char *  udbg_enumName(UDebugEnumType type, int32_t field) {
 
 int32_t  udbg_enumArrayValue(UDebugEnumType type, int32_t field) {
 	if(field<0 ||
-				field>=_udbg_enumCount(type,FALSE)) { // also will catch unsupported items
+				field>=_udbg_enumCount(type,false)) { // also will catch unsupported items
 		return -1;
 	} else {
 		const Field *fields = _udbg_enumFields(type);
@@ -326,18 +332,18 @@ int32_t  udbg_enumArrayValue(UDebugEnumType type, int32_t field) {
 }
 
 int32_t udbg_enumByName(UDebugEnumType type, const char *value) {
-    if(type<0||type>=_udbg_enumCount(UDBG_UDebugEnumType, TRUE)) {
+    if(type<0||type>=_udbg_enumCount(UDBG_UDebugEnumType, true)) {
         return -1; // type out of range
     }
 	const Field *fields = _udbg_enumFields(type);
     if (fields != NULL) {
-        for(int32_t field = 0;field<_udbg_enumCount(type, FALSE);field++) {
+        for(int32_t field = 0;field<_udbg_enumCount(type, false);field++) {
             if(!strcmp(value, fields[field].str + fields[field].prefix)) {
                 return fields[field].num;
             }
         }
         // try with the prefix
-        for(int32_t field = 0;field<_udbg_enumCount(type, FALSE);field++) {
+        for(int32_t field = 0;field<_udbg_enumCount(type, false);field++) {
             if(!strcmp(value, fields[field].str)) {
                 return fields[field].num;
             }
@@ -469,6 +475,8 @@ paramCldrVersion(const USystemParams * /* param */, char *target, int32_t target
   }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // Apple addition
 static void versionBinToString(UVersionInfo icu, char* str) {
     sprintf(str, "%d.%d.%d.%d", icu[0], icu[1], icu[2], icu[3]);
@@ -545,7 +553,7 @@ paramCollZhVersion(const USystemParams * /* param */, char *target, int32_t targ
     return 0;
   }
 }
-
+#endif  // APPLE_ICU_CHANGES
 
 #if !UCONFIG_NO_FORMATTING
 U_CAPI  int32_t
@@ -569,7 +577,7 @@ U_CAPI  int32_t
 paramLocaleDefaultBcp47(const USystemParams * /* param */, char *target, int32_t targetCapacity, UErrorCode *status) {
   if(U_FAILURE(*status))return 0;
   const char *def = uloc_getDefault();
-  return uloc_toLanguageTag(def,target,targetCapacity,FALSE,status);
+  return uloc_toLanguageTag(def,target,targetCapacity,false,status);
 }
 
 
@@ -606,10 +614,13 @@ static const USystemParams systemParams[] = {
   { "icudata.path", paramIcudataPath, NULL, 0},
 
   { "cldr.version", paramCldrVersion, NULL, 0},
+#if APPLE_ICU_CHANGES
+// rdar://
   { "coll-uca.version", paramCollUCAVersion, NULL, 0},
   { "coll-root.version", paramCollRootVersion, NULL, 0},
   { "coll-en.version", paramCollEnVersion, NULL, 0},
   { "coll-zh.version", paramCollZhVersion, NULL, 0},
+#endif  // APPLE_ICU_CHANGES
 
 #if !UCONFIG_NO_FORMATTING
   { "tz.version", paramTimezoneVersion, NULL, 0},
@@ -733,18 +744,18 @@ void KnownIssues::add(const char *ticketStr, const char *where, const UChar *msg
 {
   const std::string ticket = mapTicketId(ticketStr);
   if(fTable.find(ticket) == fTable.end()) {
-    if(firstForTicket!=NULL) *firstForTicket = TRUE;
+    if(firstForTicket!=NULL) *firstForTicket = true;
     fTable[ticket] = std::map < std::string, std::set < std::string > >();
   } else {
-    if(firstForTicket!=NULL) *firstForTicket = FALSE;
+    if(firstForTicket!=NULL) *firstForTicket = false;
   }
   if(where==NULL) return;
 
   if(fTable[ticket].find(where) == fTable[ticket].end()) {
-    if(firstForWhere!=NULL) *firstForWhere = TRUE;
+    if(firstForWhere!=NULL) *firstForWhere = true;
     fTable[ticket][where] = std::set < std::string >();
   } else {
-    if(firstForWhere!=NULL) *firstForWhere = FALSE;
+    if(firstForWhere!=NULL) *firstForWhere = false;
   }
   if(msg==NULL || !*msg) return;
 
@@ -757,18 +768,18 @@ void KnownIssues::add(const char *ticketStr, const char *where, const char *msg,
 {
   const std::string ticket = mapTicketId(ticketStr);
   if(fTable.find(ticket) == fTable.end()) {
-    if(firstForTicket!=NULL) *firstForTicket = TRUE;
+    if(firstForTicket!=NULL) *firstForTicket = true;
     fTable[ticket] = std::map < std::string, std::set < std::string > >();
   } else {
-    if(firstForTicket!=NULL) *firstForTicket = FALSE;
+    if(firstForTicket!=NULL) *firstForTicket = false;
   }
   if(where==NULL) return;
 
   if(fTable[ticket].find(where) == fTable[ticket].end()) {
-    if(firstForWhere!=NULL) *firstForWhere = TRUE;
+    if(firstForWhere!=NULL) *firstForWhere = true;
     fTable[ticket][where] = std::set < std::string >();
   } else {
-    if(firstForWhere!=NULL) *firstForWhere = FALSE;
+    if(firstForWhere!=NULL) *firstForWhere = false;
   }
   if(msg==NULL || !*msg) return;
 
@@ -779,7 +790,7 @@ void KnownIssues::add(const char *ticketStr, const char *where, const char *msg,
 UBool KnownIssues::print()
 {
   if(fTable.empty()) {
-    return FALSE;
+    return false;
   }
 
   std::cout << "KNOWN ISSUES" << std::endl;
@@ -806,7 +817,7 @@ UBool KnownIssues::print()
       }
     }
   }
-  return TRUE;
+  return true;
 }
 
 U_CAPI void *udbg_knownIssue_openU(void *ptr, const char *ticket, char *where, const UChar *msg, UBool *firstForTicket,
@@ -836,10 +847,10 @@ U_CAPI void *udbg_knownIssue_open(void *ptr, const char *ticket, char *where, co
 U_CAPI UBool udbg_knownIssue_print(void *ptr) {
   KnownIssues *t = static_cast<KnownIssues*>(ptr);
   if(t==NULL) {
-    return FALSE;
+    return false;
   } else {
     t->print();
-    return TRUE;
+    return true;
   }
 }
 

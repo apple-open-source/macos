@@ -122,7 +122,7 @@ template<> void JSTestOperationConditionalDOMConstructor::initializeProperties(V
 
 static const HashTableValue JSTestOperationConditionalPrototypeTableValues[] =
 {
-    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestOperationConditionalConstructor, 0 } },
+    { "constructor"_s, static_cast<unsigned>(PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestOperationConditionalConstructor, 0 } },
 #if ENABLE(ConditionBase)
     { "nonConditionalOperation"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestOperationConditionalPrototypeFunction_nonConditionalOperation, 0 } },
 #else
@@ -151,18 +151,13 @@ JSTestOperationConditional::JSTestOperationConditional(Structure* structure, JSD
 {
 }
 
-void JSTestOperationConditional::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestOperationConditional>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestOperationConditional>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestOperationConditional::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestOperationConditionalPrototype::create(vm, &globalObject, JSTestOperationConditionalPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestOperationConditionalPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestOperationConditionalPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestOperationConditional::prototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -242,7 +237,7 @@ void JSTestOperationConditional::analyzeHeap(JSCell* cell, HeapAnalyzer& analyze
     auto* thisObject = jsCast<JSTestOperationConditional*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

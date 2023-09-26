@@ -119,10 +119,10 @@ _cupsLangPrintFilter(
   */
 
   va_start(ap, message);
-  snprintf(temp, sizeof(temp), "%s: %s\n", prefix,
-	   _cupsLangString(cg->lang_default, message));
-  vsnprintf(buffer, sizeof(buffer), temp, ap);
+  vsnprintf(temp, sizeof(temp), _cupsLangString(cg->lang_default, message), ap);
   va_end(ap);
+
+  snprintf(buffer, sizeof(buffer), "%s: %s\n", prefix, temp);
 
  /*
   * Transcode to the destination charset...

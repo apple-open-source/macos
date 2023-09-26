@@ -62,7 +62,6 @@ static os_log_t smartpowernap_log = NULL;
 
 NSString *const kPMSmartPowerNapServiceName = @"com.apple.powerd.smartpowernap";
 
-
 @implementation _PMSmartPowerNap
 
 - (instancetype)init {
@@ -87,6 +86,14 @@ NSString *const kPMSmartPowerNapServiceName = @"com.apple.powerd.smartpowernap";
             INFO_LOG("Connection to powerd interrupted");
             client.connection_interrupted = YES;
         }];
+        [_connection setInvalidationHandler:^{
+            typeof(self) client = welf;
+            if (!client) {
+                return;
+            }
+            INFO_LOG("Connection to powerd invalidated");
+        }];
+
         [_connection resume];
         _connection_interrupted = NO;
         INFO_LOG("Initialized connection");
@@ -111,13 +118,15 @@ NSString *const kPMSmartPowerNapServiceName = @"com.apple.powerd.smartpowernap";
     return self;
 }
 
-- (void)registerWithCallback:(dispatch_queue_t)queue callback:(_PMSmartPowerNapCallback)callback {
+- (void)dealloc {
+    [_connection invalidate];
+}
 
+- (void)registerWithCallback:(dispatch_queue_t)queue callback:(_PMSmartPowerNapCallback)callback {
     pid_t my_pid = getpid();
     char name[128];
     proc_name(my_pid, name, sizeof(name));
-    NSString *client_name = [NSString stringWithFormat:@"%s", name];
-    _identifier = client_name;
+    _identifier = [NSString stringWithFormat:@"%@:%s", [[NSUUID UUID] UUIDString], name];
     [self registerWithIdentifier:_identifier];
     _callback_queue = queue;
     _callback = callback;

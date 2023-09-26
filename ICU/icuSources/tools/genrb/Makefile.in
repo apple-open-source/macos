@@ -35,6 +35,7 @@ TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(srcdir) -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil -I$(top_srcdir)/io
 CPPFLAGS += -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit
+# rdar:// add overrides
 override CFLAGS += $(TOOLSEXTRAFLAGS)
 override CXXFLAGS += $(TOOLSEXTRAFLAGS)
 LIBS = $(LIBICUTOOLUTIL) $(LIBICUI18N) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
@@ -49,6 +50,7 @@ DERB_DEPS = $(DERB_OBJ:.o=.d)
 
 -include Makefile.local
 
+# rdar:// log info
 $(info # genrb TOOLSEXTRAFLAGS=$(TOOLSEXTRAFLAGS))
 $(info # genrb CFLAGS=$(CFLAGS))
 $(info # genrb CXXFLAGS=$(CXXFLAGS))

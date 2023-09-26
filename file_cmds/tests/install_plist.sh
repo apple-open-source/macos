@@ -13,6 +13,8 @@ xcrun clang -x c -C -P -E               \
         "$inpath"                       \
         -o "$outpath"
 
+plutil -lint "$outpath"
+
 if test $PLATFORM_NAME != macosx; then
     plutil -convert binary1 "$outpath"
 else

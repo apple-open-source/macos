@@ -46,7 +46,10 @@
 #include <sys/syslimits.h>
 #include <pwd.h>
 #include <string.h>
+#include "Logging.h"
 
+PAM_DEFINE_LOG(nologin)
+#define PAM_LOG PAM_LOG_nologin()
 /*
  * here, we make a definition for the externally accessible function
  * in this file (this definition is required for static a module
@@ -83,21 +86,21 @@ int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc,
        /* root can still log in; lusers cannot */
        if ((pam_get_user(pamh, &username, NULL) != PAM_SUCCESS)
            || !username) {
-		   openpam_log(PAM_LOG_ERROR, "Failed to obtain the username.");
+		   os_log_error(PAM_LOG, "Failed to obtain the username.");
          return PAM_SERVICE_ERR;
        }
        if (getpwnam_r(username, &pwdbuf, pwbuffer, sizeof(pwbuffer), &user_pwd) != 0) {
-         openpam_log(PAM_LOG_ERROR, "The getpwnam_r call failed.");
+         os_log_error(PAM_LOG, "The getpwnam_r call failed.");
          user_pwd = NULL;
        }
        if (user_pwd && user_pwd->pw_uid == 0) {
          message.msg_style = PAM_TEXT_INFO;
        } else {
 	   if (!user_pwd) {
-		   openpam_log(PAM_LOG_ERROR, "The user is invalid.");
+		   os_log_error(PAM_LOG, "The user is invalid.");
 	       retval = PAM_USER_UNKNOWN;
 	   } else {
-		   openpam_log(PAM_LOG_ERROR, "Denying non-root login.");
+		   os_log_error(PAM_LOG, "Denying non-root login.");
 	       retval = PAM_AUTH_ERR;
 	   }
 	   message.msg_style = PAM_ERROR_MSG;
@@ -105,13 +108,13 @@ int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc,
 
        /* fill in message buffer with contents of /etc/nologin */
 	   if (fstat(fd, &st) < 0) {/* give up trying to display message */
-		   openpam_log(PAM_LOG_DEBUG, "Failure displaying the message.");
+		   os_log_debug(PAM_LOG, "Failure displaying the message.");
 		   return retval;
 	   }
        message.msg = mtmp = malloc(st.st_size+1);
        /* if malloc failed... */
 	   if (!message.msg){
-		   openpam_log(PAM_LOG_DEBUG, "The message is empty.");
+		   os_log_debug(PAM_LOG, "The message is empty.");
 		   return retval;
 	   }
        read(fd, mtmp, st.st_size);

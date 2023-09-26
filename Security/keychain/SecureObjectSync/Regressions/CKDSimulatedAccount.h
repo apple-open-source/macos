@@ -21,7 +21,7 @@
 - (bool) ensurePeerRegistration: (NSError**) error;
 
 - (NSSet<NSString*>*) syncWithPeers: (NSSet<NSString*>*) peerIDs backups: (NSSet<NSString*>*) backupPeerIDs error: (NSError**) error;
-- (bool) syncWithAllPeers: (NSError**) error;
+- (SyncWithAllPeersReason) syncWithAllPeers: (NSError**) error;
 
 - (NSDictionary<NSString*, NSObject*>*) extractKeyChanges;
 - (NSSet<NSString*>*) extractPeerChanges;

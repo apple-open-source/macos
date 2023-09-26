@@ -1,7 +1,7 @@
 // © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /************************************************************************
- * Copyright (C) 1996-2008,2014 International Business Machines Corporation *
+ * Copyright (C) 1996-2008, International Business Machines Corporation *
  * and others. All Rights Reserved.                                     *
  ************************************************************************
  *  2003-nov-07   srl       Port from Java
@@ -466,6 +466,8 @@ public:
   // The Sun
   //-------------------------------------------------------------------------
 
+#if APPLE_ICU_CHANGES
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
   /**
    * Returns sunLongitude which may be adjusted for correctness
    * based on the time, using a table which only has data covering
@@ -483,6 +485,7 @@ public:
    * @internal
    */
   static double getSunLongitudeForTime(UDate theTime);
+#endif  // APPLE_ICU_CHANGES
 
   /**
    * The longitude of the sun at the time specified by this object.
@@ -500,7 +503,12 @@ public:
   /**
    * TODO Make this public when the entire class is package-private.
    */
+#if APPLE_ICU_CHANGES
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
   /*public*/ static void getSunLongitude(double julianDay, double &longitude, double &meanAnomaly);
+#else
+  /*public*/ void getSunLongitude(double julianDay, double &longitude, double &meanAnomaly);
+#endif  // APPLE_ICU_CHANGES
 
   /**
    * The position of the sun at this object's current date and time,
@@ -639,6 +647,8 @@ public:
    */
 //  static const MoonAge LAST_QUARTER();
 
+#if APPLE_ICU_CHANGES
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
   /**
    * Find the next or previous time of a new moon if date is in the
    * range handled by this function (approx gregorian 1900-2100),
@@ -651,6 +661,7 @@ public:
    * @internal
    */
   static UDate getNewMoonTimeInRange(UDate theTime, UBool next);
+#endif  // APPLE_ICU_CHANGES
 
   /**
    * Find the next or previous time at which the Moon's ecliptic

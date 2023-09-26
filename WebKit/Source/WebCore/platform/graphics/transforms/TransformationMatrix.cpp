@@ -213,7 +213,7 @@ static bool inverse(const TransformationMatrix::Matrix4& matrix, TransformationM
     // then the inverse matrix is not unique.
     double det = determinant4x4(matrix);
 
-    if (fabs(det) < SMALL_NUMBER)
+    if (std::abs(det) < SMALL_NUMBER)
         return false;
 
     // Scale the adjoint matrix to get the inverse
@@ -579,7 +579,6 @@ TransformationMatrix::TransformationMatrix(const AffineTransform& t)
 {
     setMatrix(t.a(), t.b(), t.c(), t.d(), t.e(), t.f());
 }
-
 
 // FIXME: Once https://bugs.webkit.org/show_bug.cgi?id=220856 is addressed we can reuse this function in TransformationMatrix::recompose4().
 TransformationMatrix TransformationMatrix::fromQuaternion(double qx, double qy, double qz, double qw)
@@ -1586,7 +1585,7 @@ bool TransformationMatrix::isInvertible() const
     if (type == Type::IdentityOrTranslation)
         return true;
 
-    return fabs(type == Type::Affine ? (m11() * m22() - m12() * m21()) : WebCore::determinant4x4(m_matrix)) >= SMALL_NUMBER;
+    return std::abs(type == Type::Affine ? (m11() * m22() - m12() * m21()) : WebCore::determinant4x4(m_matrix)) >= SMALL_NUMBER;
 }
 
 std::optional<TransformationMatrix> TransformationMatrix::inverse() const
@@ -1612,7 +1611,7 @@ std::optional<TransformationMatrix> TransformationMatrix::inverse() const
         double e = m41();
         double f = m42();
         double determinant = a * d - b * c;
-        if (fabs(determinant) < SMALL_NUMBER)
+        if (std::abs(determinant) < SMALL_NUMBER)
             return std::nullopt;
 
         double inverseDeterminant = 1 / determinant;
@@ -1698,7 +1697,7 @@ void TransformationMatrix::blend2(const TransformationMatrix& from, double progr
     if (!toDecomp.angle)
         toDecomp.angle = 360;
 
-    if (fabs(fromDecomp.angle - toDecomp.angle) > 180) {
+    if (std::abs(fromDecomp.angle - toDecomp.angle) > 180) {
         if (fromDecomp.angle > toDecomp.angle)
             fromDecomp.angle -= 360;
         else
@@ -1953,7 +1952,7 @@ bool TransformationMatrix::isBackFaceVisible() const
     double determinant = WebCore::determinant4x4(m_matrix);
 
     // If the matrix is not invertible, then we assume its backface is not visible.
-    if (fabs(determinant) < SMALL_NUMBER)
+    if (std::abs(determinant) < SMALL_NUMBER)
         return false;
 
     double cofactor33 = determinant3x3(m11(), m12(), m14(), m21(), m22(), m24(), m41(), m42(), m44());

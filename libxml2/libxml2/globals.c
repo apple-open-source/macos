@@ -119,11 +119,27 @@ void xmlCleanupGlobals(void)
  *									*
  ************************************************************************/
 
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+
 void *xmlMallocZero(size_t size);
 void *xmlMallocZero(size_t size)
 {
-    return calloc(1, size);
+    void *result = calloc(1, size);
+    if (LIKELY(result))
+        return result;
+    abort();
 }
+
+void *xmlReallocChecked(void *ptr, size_t size);
+void *xmlReallocChecked(void *ptr, size_t size)
+{
+    void *result = realloc(ptr, size);
+    if (LIKELY(result))
+        return result;
+    abort();
+}
+
+#undef LIKELY
 
 /*
  * Memory allocation routines
@@ -177,7 +193,7 @@ xmlMallocFunc xmlMallocAtomic = xmlMallocZero;
  *
  * Returns a pointer to the newly reallocated block or NULL in case of error
  */
-xmlReallocFunc xmlRealloc = realloc;
+xmlReallocFunc xmlRealloc = xmlReallocChecked;
 /**
  * xmlPosixStrdup
  * @cur:  the input char *
@@ -602,7 +618,7 @@ xmlInitializeGlobalState(xmlGlobalStatePtr gs)
     gs->xmlFree = (xmlFreeFunc) free;
     gs->xmlMalloc = (xmlMallocFunc) xmlMallocZero;
     gs->xmlMallocAtomic = (xmlMallocFunc) xmlMallocZero;
-    gs->xmlRealloc = (xmlReallocFunc) realloc;
+    gs->xmlRealloc = (xmlReallocFunc) xmlReallocChecked;
     gs->xmlMemStrdup = (xmlStrdupFunc) xmlStrdup;
 #endif
     gs->xmlGetWarningsDefaultValue = xmlGetWarningsDefaultValueThrDef;

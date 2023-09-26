@@ -1,7 +1,6 @@
-/*	$OpenBSD: ar_subs.c,v 1.32 2008/05/06 06:54:28 henning Exp $	*/
-/*	$NetBSD: ar_subs.c,v 1.5 1995/03/21 09:07:06 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,41 +33,40 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)ar_subs.c	8.2 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] = "$OpenBSD: ar_subs.c,v 1.32 2008/05/06 06:54:28 henning Exp $";
+static char sccsid[] = "@(#)ar_subs.c	8.2 (Berkeley) 4/18/94";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/param.h>
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
-#include <stdlib.h>
 #ifdef __APPLE__
+#include <stdlib.h>
 #include <sys/param.h>
 #include <copyfile.h>
 #include <libgen.h>
 #include <sys/queue.h>
-#endif
-#include "pax.h"
 #include "options.h"
+#endif /* __APPLE__ */
+#include "pax.h"
 #include "extern.h"
 
+#ifdef __APPLE__
 static int path_check(ARCHD *, int);
+#endif /* __APPLE__ */
 static void wr_archive(ARCHD *, int is_app);
 static int get_arc(void);
 static int next_head(ARCHD *);
-extern sigset_t s_mask;
 
 /*
  * Routines which control the overall operation modes of pax as specified by
@@ -78,6 +76,7 @@ extern sigset_t s_mask;
 static char hdbuf[BLKMULT];		/* space for archive header on read */
 u_long flcnt;				/* number of files processed */
 
+#ifdef __APPLE__
 static char	cwdpath[MAXPATHLEN];	/* current working directory path */
 static size_t	cwdpathlen;		/* current working directory path len */
 
@@ -144,6 +143,7 @@ path_check(ARCHD *arcn, int level)
 	*p = '/';
 	return 0;
 }
+#endif /* __APPLE__ */
 
 /*
  * list()
@@ -180,6 +180,7 @@ list(void)
 	 * step through the archive until the format says it is done
 	 */
 	while (next_head(arcn) == 0) {
+#ifdef __APPLE__
 		if (arcn->type == PAX_GLL || arcn->type == PAX_GLF) {
 			/*
 			 * we need to read, to get the real filename
@@ -190,6 +191,7 @@ list(void)
 				(void)rd_skip(cnt + arcn->pad);
 			continue;
 		}
+#endif /* __APPLE__ */
 
 		/*
 		 * check for pattern, and user specified options match.
@@ -286,6 +288,7 @@ extract(void)
 	 * says it is done
 	 */
 	while (next_head(arcn) == 0) {
+#ifdef __APPLE__
 		if (arcn->type == PAX_GLL || arcn->type == PAX_GLF) {
 			/*
 			 * we need to read, to get the real filename
@@ -295,6 +298,7 @@ extract(void)
 				(void)rd_skip(cnt + arcn->pad);
 			continue;
 		}
+#endif /* __APPLE__ */
 
 		/*
 		 * check for pattern, and user specified options match. When
@@ -380,7 +384,11 @@ extract(void)
 			if (vflag > 1)
 				ls_list(arcn, now, listf);
 			else {
+#ifdef __APPLE__
 				(void)safe_print(arcn->name, listf);
+#else
+				(void)fputs(arcn->name, listf);
+#endif /* __APPLE__ */
 				vfpart = 1;
 			}
 		}
@@ -389,12 +397,18 @@ extract(void)
 		 * if required, chdir around.
 		 */
 		if ((arcn->pat != NULL) && (arcn->pat->chdname != NULL))
+#ifdef __APPLE__
 			dochdir(arcn->pat->chdname);
 
 		if (secure && path_check(arcn, 0) != 0) {
 			(void)rd_skip(arcn->skip + arcn->pad);
 			continue;
 		}
+#else
+			if (chdir(arcn->pat->chdname) != 0)
+				syswarn(1, errno, "Cannot chdir to %s",
+				    arcn->pat->chdname);
+#endif /* __APPLE__ */
 
 		/*
 		 * all ok, extract this member based on type
@@ -454,12 +468,18 @@ extract(void)
 				free(cle->src);
 			}
 		}
-#endif
+#endif /* __APPLE__ */
 		/*
 		 * if required, chdir around.
 		 */
 		if ((arcn->pat != NULL) && (arcn->pat->chdname != NULL))
+#ifdef __APPLE__
 			fdochdir(cwdfd);
+#else
+			if (fchdir(cwdfd) != 0)
+				syswarn(1, errno,
+				    "Can't fchdir to starting directory");
+#endif /* __APPLE__ */
 	}
 #ifdef __APPLE__
 	LIST_FOREACH(cle, &copyfile_list, link)
@@ -520,8 +540,10 @@ wr_archive(ARCHD *arcn, int is_app)
 	if (((hlk = frmt->hlk) == 1) && (lnk_start() < 0))
 		return;
 
+#ifdef __APPLE__
 	if (hlk && want_linkdata) hlk=0; /* Treat hard links as individual files */
 
+#endif /* __APPLE__ */
 	/*
 	 * start up the file traversal code and format specific write
 	 */
@@ -537,7 +559,7 @@ wr_archive(ARCHD *arcn, int is_app)
 		return;
 
 	/*
-	 * if this is not append, and there are no files, we do not write a 
+	 * if this is not append, and there are no files, we do not write a
 	 * trailer
 	 */
 	wr_one = is_app;
@@ -652,6 +674,7 @@ next:
 		 * link to a file already stored
 		 */
 		ftree_sel(arcn);
+#ifdef __APPLE__
 		if (hlk && (chk_lnk(arcn) < 0)) {
 			if (md_fname) {
 				unlink(md_fname);
@@ -660,6 +683,10 @@ next:
 			}
 			break;
 		}
+#else
+		if (hlk && (chk_lnk(arcn) < 0))
+			break;
+#endif /* __APPLE__ */
 
 		if ((arcn->type == PAX_REG) || (arcn->type == PAX_HRG) ||
 		    (arcn->type == PAX_CTG)) {
@@ -715,7 +742,11 @@ next:
 			if (vflag > 1)
 				ls_list(arcn, now, listf);
 			else {
+#ifdef __APPLE__
 				(void)safe_print(arcn->name, listf);
+#else
+				(void)fputs(arcn->name, listf);
+#endif
 				vfpart = 1;
 			}
 		}
@@ -817,7 +848,7 @@ append(void)
 	ARCHD *arcn;
 	int res;
 	ARCHD archd;
-	const FSUB *orgfrmt;
+	FSUB *orgfrmt;
 	int udev;
 	off_t tlen;
 
@@ -988,6 +1019,7 @@ copy(void)
 	char dirbuf[PAXPATHLEN+1];
 
 	arcn = &archd;
+#ifdef __APPLE__
 	if (frmt && strcmp(frmt->name, NM_PAX)==0) {
 		/* Copy using pax format:  must check if any -o options */
 		if ((*frmt->options)() < 0)
@@ -995,22 +1027,29 @@ copy(void)
 		if (pax_invalid_action==0)
 			pax_invalid_action = PAX_INVALID_ACTION_BYPASS;
 	}
+#endif /* __APPLE__ */
 	/*
 	 * set up the destination dir path and make sure it is a directory. We
 	 * make sure we have a trailing / on the destination
 	 */
+#ifdef __APPLE__
 	dlen = strlcpy(dirbuf, dirptr, sizeof(dirbuf));
 	if (dlen >= sizeof(dirbuf) ||
 	    (dlen == sizeof(dirbuf) - 1 && dirbuf[dlen - 1] != '/')) {
 		paxwarn(1, "directory name is too long %s", dirptr);
 		return;
 	}
+#else
+	dlen = l_strncpy(dirbuf, dirptr, sizeof(dirbuf) - 1);
+#endif /* __APPLE__ */
 	dest_pt = dirbuf + dlen;
 	if (*(dest_pt-1) != '/') {
 		*dest_pt++ = '/';
-		*dest_pt = '\0';
 		++dlen;
 	}
+#ifndef __APPLE__
+	*dest_pt = '\0';
+#endif /* __APPLE__ */
 	drem = PAXPATHLEN - dlen;
 
 	if (stat(dirptr, &sb) < 0) {
@@ -1048,11 +1087,13 @@ copy(void)
 	while (next_file(arcn) == 0) {
 		fdsrc = -1;
 
+#ifdef __APPLE__
 		/*
 		 * Fill in arcn from any pax options
 		 */
 		adjust_copy_for_pax_options(arcn);
 
+#endif /* __APPLE__ */
 		/*
 		 * check if this file meets user specified options
 		 */
@@ -1075,12 +1116,24 @@ copy(void)
 			/*
 			 * create the destination name
 			 */
+#ifdef __APPLE__
 			if (strlcpy(dest_pt, arcn->name + (*arcn->name == '/'),
 			    drem + 1) > drem) {
+#else
+			if (*(arcn->name) == '/')
+				res = 1;
+			else
+				res = 0;
+			if ((arcn->nlen - res) > drem) {
+#endif /* __APPLE__ */
 				paxwarn(1, "Destination pathname too long %s",
 					arcn->name);
 				continue;
 			}
+#ifndef __APPLE__
+			(void)strncpy(dest_pt, arcn->name + res, drem);
+			dirbuf[PAXPATHLEN] = '\0';
+#endif /* __APPLE__ */
 
 			/*
 			 * if existing file is same age or newer skip
@@ -1088,10 +1141,10 @@ copy(void)
 			res = lstat(dirbuf, &sb);
 			*dest_pt = '\0';
 
-			if (res == 0) {
+		    	if (res == 0) {
 				if (uflag && Dflag) {
 					if ((arcn->sb.st_mtime<=sb.st_mtime) &&
-					    (arcn->sb.st_ctime<=sb.st_ctime))
+			    		    (arcn->sb.st_ctime<=sb.st_ctime))
 						continue;
 				} else if (Dflag) {
 					if (arcn->sb.st_ctime <= sb.st_ctime)
@@ -1134,7 +1187,11 @@ copy(void)
 		}
 
 		if (vflag) {
+#ifdef __APPLE__
 			(void)safe_print(arcn->name, listf);
+#else
+			(void)fputs(arcn->name, listf);
+#endif /* __APPLE__ */
 			vfpart = 1;
 		}
 		++flcnt;
@@ -1256,7 +1313,7 @@ next_head(ARCHD *arcn)
 	int res;
 	int shftsz;
 	int hsz;
-	int in_resync = 0;		/* set when we are in resync mode */
+	int in_resync = 0; 	/* set when we are in resync mode */
 	int cnt = 0;			/* counter for trailer function */
 	int first = 1;			/* on 1st read, EOF isn't premature. */
 
@@ -1267,7 +1324,7 @@ next_head(ARCHD *arcn)
 	res = hsz = frmt->hsz;
 	hdend = hdbuf;
 	shftsz = hsz - 1;
-	for (;;) {
+	for(;;) {
 		/*
 		 * keep looping until we get a contiguous FULL buffer
 		 * (frmt->hsz is the proper size)
@@ -1331,7 +1388,7 @@ next_head(ARCHD *arcn)
 			/*
 			 * this format has trailers outside of valid headers
 			 */
-			if ((ret = (*frmt->trail)(arcn,hdbuf,in_resync,&cnt)) == 0){
+			if ((ret = (*frmt->trail_tar)(hdbuf,in_resync,&cnt)) == 0){
 				/*
 				 * valid trailer found, drain input as required
 				 */
@@ -1374,11 +1431,10 @@ next_head(ARCHD *arcn)
 	}
 
 	/*
-	 * ok got a valid header, check for trailer if format encodes it in the
-	 * the header. NOTE: the parameters are different than trailer routines
-	 * which encode trailers outside of the header!
+	 * ok got a valid header, check for trailer if format encodes it in
+	 * the header.
 	 */
-	if (frmt->inhead && ((*frmt->trail)(arcn,NULL,0,NULL) == 0)) {
+	if (frmt->inhead && ((*frmt->trail_cpio)(arcn) == 0)) {
 		/*
 		 * valid trailer found, drain input as required
 		 */
@@ -1423,7 +1479,7 @@ get_arc(void)
 	res = BLKMULT;
 	hdsz = 0;
 	hdend = hdbuf;
-	for (;;) {
+	for(;;) {
 		for (;;) {
 			/*
 			 * fill the buffer with at least the smallest header

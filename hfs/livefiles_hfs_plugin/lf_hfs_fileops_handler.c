@@ -372,7 +372,7 @@ exit:
     return iErr;
 }
 
-int LFHFS_Reclaim ( UVFSFileNode psNode, __unused int flags )
+int LFHFS_Reclaim ( UVFSFileNode psNode, __unused unsigned int flags )
 {
     LFHFS_LOG(LEVEL_DEBUG, "LFHFS_Reclaim\n");
 
@@ -426,6 +426,12 @@ int LFHFS_SymLink ( UVFSFileNode psNode, const char *pcName, const char *psConte
     if (!vnode_isdir(psParentVnode))
     {
         iErr = ENOTDIR;
+        goto exit;
+    }
+
+    if (psContent == NULL)
+    {
+        iErr = EINVAL;
         goto exit;
     }
 

@@ -39,8 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/div.c,v 1.3 2007/01/09 00:28:09 imp Exp 
 #include <stdlib.h>		/* div_t */
 
 div_t
-div(num, denom)
-	int num, denom;
+div(int num, int denom)
 {
 	div_t r;
 

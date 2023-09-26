@@ -452,6 +452,8 @@ struct nfs_open_file {
 	nfsnode_t                       nof_np;                 /* nfsnode this open is for */
 	nfs_stateid                     nof_stateid;            /* open stateid */
 	thread_t                        nof_creator;            /* thread that created file */
+	thread_t                        nof_busyowner;          /* thread that marked this open as busy */
+	uint32_t                        nof_busycnt;            /* busy file count */
 	uint32_t                        nof_opencnt;            /* open file count */
 	uint16_t                        nof_flags;              /* see below */
 	uint8_t                         nof_access:4;           /* access mode for this open */
@@ -650,6 +652,8 @@ struct nfsnode {
 	/* open state */
 	lck_mtx_t               n_openlock;     /* nfs node open lock */
 	uint32_t                n_openflags;    /* open state flags */
+	thread_t                n_openstate_busyowner; /* thread that marked this open state as busy */
+	uint32_t                n_openstate_busycnt;   /* open state busy file count */
 	uint32_t                n_openrefcnt;   /* # non-file opens */
 	TAILQ_HEAD(, nfs_open_file) n_opens;     /* list of open files */
 	/* lock state */
@@ -851,6 +855,8 @@ void nfs_data_unlock(nfsnode_t);
 void nfs_data_unlock_noupdate(nfsnode_t);
 void nfs_data_unlock_internal(nfsnode_t, int);
 void nfs_data_update_size(nfsnode_t, int);
+void nfs_data_shared_to_exclusive(nfsnode_t);
+int nfs_data_exclusive_to_shared(nfsnode_t);
 
 /* other stuff */
 int nfs_removeit(struct nfs_sillyrename *);

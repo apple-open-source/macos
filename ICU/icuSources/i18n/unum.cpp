@@ -60,6 +60,11 @@ unum_open(  UNumberFormatStyle    style,
     case UNUM_CURRENCY_ACCOUNTING:
     case UNUM_CASH_CURRENCY:
     case UNUM_CURRENCY_STANDARD:
+#if APPLE_ICU_CHANGES
+// rdar://106781569, rdar://107388819, https://unicode-org.atlassian.net/browse/ICU-22340, ported back from ICU 73
+#else
+    case UNUM_NUMBERING_SYSTEM:
+#endif
         retVal = NumberFormat::createInstance(Locale(locale), style, *status);
         break;
 
@@ -113,10 +118,24 @@ unum_open(  UNumberFormatStyle    style,
         retVal = new RuleBasedNumberFormat(URBNF_DURATION, Locale(locale), *status);
         break;
 
-    case UNUM_NUMBERING_SYSTEM:
-        retVal = new RuleBasedNumberFormat(URBNF_NUMBERING_SYSTEM, Locale(locale), *status);
-        break;
-#endif
+#if APPLE_ICU_CHANGES
+// rdar://106781569, rdar://107388819, https://unicode-org.atlassian.net/browse/ICU-22340, ported back from ICU 73
+    case UNUM_NUMBERING_SYSTEM: {
+        // if the locale ID specifies a numbering system, go through NumberFormat::createInstance()
+        // to handle it properly (we have to specify UNUM_DEFAULT to get it to handle the numbering
+        // system, but we'll always get a RuleBasedNumberFormat back); otherwise, just go ahead and
+        // create a RuleBasedNumberFormat ourselves
+        UErrorCode localErr = U_ZERO_ERROR;
+        Locale localeObj(locale);
+        int32_t keywordLength = localeObj.getKeywordValue("numbers", nullptr, 0, localErr);
+        if (keywordLength > 0) {
+            retVal = NumberFormat::createInstance(localeObj, UNUM_DEFAULT, *status);
+        } else {
+            retVal = new RuleBasedNumberFormat(URBNF_NUMBERING_SYSTEM, localeObj, *status);
+        }
+    } break;
+#endif // APPLE_ICU_CHANGES
+#endif // U_HAVE_RBNF
 
     case UNUM_DECIMAL_COMPACT_SHORT:
         retVal = CompactDecimalFormat::createInstance(Locale(locale), UNUM_SHORT, *status);
@@ -209,12 +228,17 @@ unum_formatInt64(const UNumberFormat* fmt,
     if(pos != 0)
         fp.setField(pos->field);
     
+#if APPLE_ICU_CHANGES
+// rdar://
     const CompactDecimalFormat* cdf = dynamic_cast<const CompactDecimalFormat*>((const NumberFormat*)fmt);
     if (cdf != NULL) {
         cdf->format(number, res, fp); // CompactDecimalFormat does not override the version with UErrorCode& !!
     } else {
         ((const NumberFormat*)fmt)->format(number, res, fp, *status);
     }
+#else
+    ((const NumberFormat*)fmt)->format(number, res, fp, *status);
+#endif  // APPLE_ICU_CHANGES
 
     if(pos != 0) {
         pos->beginIndex = fp.getBeginIndex();
@@ -247,12 +271,17 @@ unum_formatDouble(    const    UNumberFormat*  fmt,
   if(pos != 0)
     fp.setField(pos->field);
   
+#if APPLE_ICU_CHANGES
+// rdar://
   const CompactDecimalFormat* cdf = dynamic_cast<const CompactDecimalFormat*>((const NumberFormat*)fmt);
   if (cdf != NULL) {
       cdf->format(number, res, fp); // CompactDecimalFormat does not override the version with UErrorCode& !!
   } else {
       ((const NumberFormat*)fmt)->format(number, res, fp, *status);
   }
+#else
+  ((const NumberFormat*)fmt)->format(number, res, fp, *status);
+#endif  // APPLE_ICU_CHANGES
   
   if(pos != 0) {
     pos->beginIndex = fp.getBeginIndex();
@@ -516,6 +545,28 @@ U_CAPI int32_t U_EXPORT2
 unum_countAvailable()
 {
     return uloc_countAvailable();
+}
+
+U_CAPI bool U_EXPORT2
+unum_hasAttribute(const UNumberFormat*          fmt,
+          UNumberFormatAttribute  attr)
+{
+    const NumberFormat* nf = reinterpret_cast<const NumberFormat*>(fmt);
+    bool isDecimalFormat = dynamic_cast<const DecimalFormat*>(nf) != NULL;
+    
+    switch (attr) {
+        case UNUM_LENIENT_PARSE:
+        case UNUM_MAX_INTEGER_DIGITS:
+        case UNUM_MIN_INTEGER_DIGITS:
+        case UNUM_INTEGER_DIGITS:
+        case UNUM_MAX_FRACTION_DIGITS:
+        case UNUM_MIN_FRACTION_DIGITS:
+        case UNUM_FRACTION_DIGITS:
+        case UNUM_ROUNDING_MODE:
+            return true;
+        default:
+            return isDecimalFormat;
+    }
 }
 
 U_CAPI int32_t U_EXPORT2

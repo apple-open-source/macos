@@ -56,6 +56,7 @@ TokenDaemon::TokenDaemon(RefPointer<Bundle> code,
 		break;
 	default:
 		assert(false);
+		break;
 	}
 }
 

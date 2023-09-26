@@ -21,10 +21,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 messages -> RemoteMediaPlayerProxy {
-    PrepareForPlayback(bool privateMode, enum:uint8_t WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, enum:uint8_t WebCore::DynamicRangeMode mode)
+    PrepareForPlayback(bool privateMode, enum:uint8_t WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, enum:uint8_t WebCore::DynamicRangeMode mode)
 
     Load(URL url, std::optional<WebKit::SandboxExtension::Handle> sandboxExtension, WebCore::ContentType contentType, String keySystem, bool requiresRemotePlayback) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration)
 #if ENABLE(MEDIA_SOURCE)
@@ -107,7 +107,7 @@ messages -> RemoteMediaPlayerProxy {
     TextTrackSetMode(WebKit::TrackPrivateRemoteIdentifier identifier, enum:uint8_t WebCore::InbandTextTrackPrivate::Mode mode)
 
     PerformTaskAtMediaTime(MediaTime mediaTime, MonotonicTime messageTime) -> (std::optional<MediaTime> mediaTime, std::optional<MonotonicTime> monotonicTime)
-    IsCrossOrigin(struct WebCore::SecurityOriginData origin) -> (std::optional<bool> crossOrigin) Synchronous
+    IsCrossOrigin(WebCore::SecurityOriginData origin) -> (std::optional<bool> crossOrigin) Synchronous
 
     SetVideoPlaybackMetricsUpdateInterval(double interval)
 
@@ -141,6 +141,8 @@ messages -> RemoteMediaPlayerProxy {
     PlayerContentBoxRectChanged(WebCore::LayoutRect contentRect)
 
     SetShouldDisableHDR(bool shouldDisable)
+
+    RequestHostingContextID() -> (uint32_t contextID)
 }
 
 #endif

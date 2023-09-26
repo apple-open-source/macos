@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -85,6 +85,13 @@
  * - specifies the DHCP DUID type to use
  */
 #define kDHCPDUIDType			CFSTR("DHCPDUIDType")	/* int */
+
+
+/*
+ * kHideBSSID
+ * - indicates whether the BSSID should be hidden or not
+ */
+#define kHideBSSID			CFSTR("HideBSSID")	/* boolean */
 
 
 STATIC SCPreferencesRef				S_prefs;
@@ -314,6 +321,11 @@ prefs_set_string(CFStringRef key, CFStringRef str)
     return;
 }
 
+STATIC void
+prefs_set_boolean_value(CFStringRef key, Boolean val)
+{
+	prefs_set_boolean(key, val ? kCFBooleanTrue : kCFBooleanFalse);
+}
 
 typedef struct {
     IPConfigurationInterfaceTypes	type;
@@ -366,31 +378,31 @@ IPConfigurationInterfaceTypesToString(IPConfigurationInterfaceTypes types)
  ** Get
  **/
 PRIVATE_EXTERN Boolean
-IPConfigurationControlPrefsGetVerbose(void)
+IPConfigurationControlPrefsGetVerbose(Boolean default_val)
 {
-    CFBooleanRef	val;
-    Boolean		verbose = FALSE;
+	CFBooleanRef	val;
+	Boolean		verbose = default_val;
 
-    val = prefs_get_boolean(kVerbose);
-    if (val != NULL) {
-	verbose = CFBooleanGetValue(val);
-    }
-    return (verbose);
+	val = prefs_get_boolean(kVerbose);
+	if (val != NULL) {
+		verbose = CFBooleanGetValue(val);
+	}
+	return (verbose);
 }
 
 PRIVATE_EXTERN IPConfigurationInterfaceTypes
 IPConfigurationControlPrefsGetAWDReportInterfaceTypes(void)
 {
-    CFStringRef	types;
+	CFStringRef	types;
 
-    types = prefs_get_string(kAWDReportInterfaceTypes);
-    return (IPConfigurationInterfaceTypesFromString(types));
+	types = prefs_get_string(kAWDReportInterfaceTypes);
+	return (IPConfigurationInterfaceTypesFromString(types));
 }
 
 PRIVATE_EXTERN Boolean
-IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(void)
+IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(Boolean default_val)
 {
-	Boolean		enabled = FALSE;
+	Boolean		enabled = default_val;
 	CFBooleanRef	val;
 
 	val = prefs_get_boolean(kCellularCLAT46AutoEnable);
@@ -401,9 +413,9 @@ IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(void)
 }
 
 PRIVATE_EXTERN Boolean
-IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(void)
+IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(Boolean default_val)
 {
-	Boolean		expires = TRUE;
+	Boolean		expires = default_val;
 	CFBooleanRef	val;
 
 	val = prefs_get_boolean(kIPv6LinkLocalModifierExpires);
@@ -426,6 +438,24 @@ IPConfigurationControlPrefsGetDHCPDUIDType(void)
 	return (type);
 }
 
+PRIVATE_EXTERN Boolean
+IPConfigurationControlPrefsGetHideBSSID(Boolean default_val,
+					Boolean * ret_was_set)
+{
+	Boolean		hide = default_val;
+	CFBooleanRef	val;
+	Boolean		was_set = FALSE;
+
+	val = prefs_get_boolean(kHideBSSID);
+	if (val != NULL) {
+		hide = CFBooleanGetValue(val);
+		was_set = TRUE;
+	}
+	if (ret_was_set != NULL) {
+		*ret_was_set = was_set;
+	}
+	return (hide);
+}
 
 /**
  ** Set
@@ -433,13 +463,8 @@ IPConfigurationControlPrefsGetDHCPDUIDType(void)
 PRIVATE_EXTERN Boolean
 IPConfigurationControlPrefsSetVerbose(Boolean verbose)
 {
-    if (verbose == FALSE) {
-	prefs_set_boolean(kVerbose, NULL);
-    }
-    else {
-	prefs_set_boolean(kVerbose, kCFBooleanTrue); 
-    }
-    return (IPConfigurationControlPrefsSave());
+	prefs_set_boolean_value(kVerbose, verbose);
+	return (IPConfigurationControlPrefsSave());
 }
 
 PRIVATE_EXTERN Boolean
@@ -456,26 +481,14 @@ IPConfigurationControlPrefsSetAWDReportInterfaceTypes(IPConfigurationInterfaceTy
 PRIVATE_EXTERN Boolean
 IPConfigurationControlPrefsSetCellularCLAT46AutoEnable(Boolean enable)
 {
-	if (enable == FALSE) {
-		prefs_set_boolean(kCellularCLAT46AutoEnable, NULL);
-	}
-	else {
-		prefs_set_boolean(kCellularCLAT46AutoEnable, kCFBooleanTrue);
-	}
+	prefs_set_boolean_value(kCellularCLAT46AutoEnable, enable);
 	return (IPConfigurationControlPrefsSave());
 }
 
 PRIVATE_EXTERN Boolean
 IPConfigurationControlPrefsSetIPv6LinkLocalModifierExpires(Boolean expires)
 {
-	if (expires) {
-		/* default is that the IPv6LL modifier expires */
-		prefs_set_boolean(kIPv6LinkLocalModifierExpires, NULL);
-	}
-	else {
-		prefs_set_boolean(kIPv6LinkLocalModifierExpires,
-				  kCFBooleanFalse);
-	}
+	prefs_set_boolean_value(kIPv6LinkLocalModifierExpires, expires);
 	return (IPConfigurationControlPrefsSave());
 }
 
@@ -494,5 +507,12 @@ IPConfigurationControlPrefsSetDHCPDUIDType(DHCPDUIDType type)
 		prefs_set_number(kDHCPDUIDType, n);
 		CFRelease(n);
 	}
+	return (IPConfigurationControlPrefsSave());
+}
+
+PRIVATE_EXTERN Boolean
+IPConfigurationControlPrefsSetHideBSSID(Boolean hide)
+{
+	prefs_set_boolean_value(kHideBSSID, hide);
 	return (IPConfigurationControlPrefsSave());
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -155,6 +155,8 @@
 #endif /* TARGET_OS_OSX */
 
 #define	BOOTPD_PLIST_PATH		BOOTPD_PLIST_ROOT "/bootpd.plist"
+
+static const char *	S_bootpd_plist_path = BOOTPD_PLIST_PATH;
 
 /* local defines */
 #define	MAXIDLE			(5*60)	/* we hang around for five minutes */
@@ -889,7 +891,7 @@ S_update_services()
     CFDictionaryRef	plist = NULL;
     CFTypeRef		prop;
 
-    plist = my_CFPropertyListCreateFromFile(BOOTPD_PLIST_PATH);
+    plist = my_CFPropertyListCreateFromFile(S_bootpd_plist_path);
     if (plist != NULL) {
 	if (isA_CFDictionary(plist) == NULL) {
 	    CFRelease(plist);
@@ -1082,23 +1084,16 @@ usage()
 {
     fprintf(stderr, "usage: bootpd <options>\n"
 	    "<options> are:\n"
-	    "[ -a ] 	support anonymous binding for BOOTP clients\n"
 	    "[ -D ]	be a DHCP server\n"
-	    "[ -B ]	don't service BOOTP requests\n"
 	    "[ -b ] 	bootfile must exist or we don't respond\n"
 	    "[ -d ]	debug mode, stay in foreground\n"
+	    "[ -f <filename> ] load bootpd.plist from <filename>\n"
 	    "[ -I ]	disable re-initialization on IP address changes\n"
 	    "[ -i <interface> [ -i <interface> ... ] ]\n"
-#if NETBOOT_SERVER_SUPPORT
-	    "[ -m ] 	be an old NetBoot (1.0) server\n"
-#endif /* NETBOOT_SERVER_SUPPORT */
-	    "[ -n <domain> [ -n <domain> [...] ] ]\n"
-#if NETBOOT_SERVERS_SUPPORT
-	    "[ -N ]	be a NetBoot 2.0 server\n"
-#endif /* NETBOOT_SERVER_SUPPORT */
 	    "[ -q ]	be quiet as possible\n"
 	    "[ -r <server ip> [ -o <max hops> ] ] relay packets to server, "
 	    "optionally set the hop count (default is 4 hops)\n"
+	    "[ -S ]	enable BOOTP service\n"
 	    "[ -v ] 	verbose mode, extra information\n"
 	    );
     exit(1);
@@ -1176,7 +1171,7 @@ main(int argc, char * argv[])
 
     S_get_interfaces();
 
-    while ((ch =  getopt(argc, argv, "aBbc:DdhHi:I"
+    while ((ch =  getopt(argc, argv, "aBbc:Ddf:hHi:I"
 #if NETBOOT_SERVER_SUPPORT
         "mN"
 #endif /* NETBOOT_SERVER_SUPPORT */
@@ -1201,6 +1196,9 @@ main(int argc, char * argv[])
 	    break;
 	case 'd':		/* stay in the foreground */
 	    d_flag = TRUE;
+	    break;
+	case 'f':
+	    S_bootpd_plist_path = optarg;
 	    break;
 	case 'h':
 	case 'H':

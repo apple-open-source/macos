@@ -36,8 +36,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/abs.c,v 1.3 2007/01/09 00:28:09 imp Exp 
 #include <stdlib.h>
 
 int
-abs(j)
-	int j;
+abs(int j)
 {
 	return(j < 0 ? -j : j);
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2019-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2019-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -43,28 +48,34 @@
 #include "sudo_eventlog.h"
 #include "sudo_gettext.h"
 #include "sudo_iolog.h"
+#include "sudo_fatal.h"
 #include "sudo_queue.h"
 #include "sudo_util.h"
 
-#include "log_server.pb-c.h"
 #include "logsrvd.h"
 
-static inline bool
-has_numval(InfoMessage *info)
+static bool
+type_matches(InfoMessage *info, const char *source,
+    InfoMessage__ValueCase value_case)
 {
-    return info->value_case == INFO_MESSAGE__VALUE_NUMVAL;
-}
+    const void *val = info->u.strval;	/* same for strlistval */
+    debug_decl(type_matches, SUDO_DEBUG_UTIL);
 
-static inline bool
-has_strval(InfoMessage *info)
-{
-    return info->value_case == INFO_MESSAGE__VALUE_STRVAL;
-}
-
-static inline bool
-has_strlistval(InfoMessage *info)
-{
-    return info->value_case == INFO_MESSAGE__VALUE_STRLISTVAL;
+    if (info->key == NULL) {
+	sudo_warnx(U_("%s: protocol error: NULL key"), source);
+	debug_return_bool(false);
+    }
+    if (info->value_case != value_case) {
+	sudo_warnx(U_("%s: protocol error: wrong type for %s"),
+	    source, info->key);
+	debug_return_bool(false);
+    }
+    if (value_case != INFO_MESSAGE__VALUE_NUMVAL && val == NULL) {
+	sudo_warnx(U_("%s: protocol error: NULL value found in %s"),
+	    source, info->key);
+	debug_return_bool(false);
+    }
+    debug_return_bool(true);
 }
 
 /*
@@ -81,14 +92,12 @@ strlist_copy(InfoMessage__StringList *strlist)
 
     dst = reallocarray(NULL, len + 1, sizeof(char *));
     if (dst == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "reallocarray(NULL, %zu, %zu)", len + 1, sizeof(char *));
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	goto bad;
     }
     for (i = 0; i < len; i++) {
 	if ((dst[i] = strdup(src[i])) == NULL) {
-	    sudo_debug_printf(
-		SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO, "strdup");
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto bad;
 	}
     }
@@ -110,19 +119,31 @@ bad:
  * Returns true on success and false on failure.
  */
 struct eventlog *
-evlog_new(TimeSpec *submit_time, InfoMessage **info_msgs, size_t infolen)
+evlog_new(TimeSpec *submit_time, InfoMessage **info_msgs, size_t infolen,
+    struct connection_closure *closure)
 {
+    const char *source = closure->journal_path ? closure->journal_path :
+	closure->ipaddr;
     struct eventlog *evlog;
+    unsigned char uuid[16];
     size_t idx;
     debug_decl(evlog_new, SUDO_DEBUG_UTIL);
 
     evlog = calloc(1, sizeof(*evlog));
     if (evlog == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "calloc(1, %zu)", sizeof(*evlog));
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	goto bad;
     }
-    memset(evlog, 0, sizeof(*evlog));
+
+    /* Create a UUID to store in the event log. */
+    sudo_uuid_create(uuid);
+    if (sudo_uuid_to_string(uuid, evlog->uuid_str, sizeof(evlog->uuid_str)) == NULL) {
+       sudo_warnx("%s", U_("unable to generate UUID"));
+       goto bad;
+    }
+
+    /* Client/peer IP address. */
+    evlog->peeraddr = closure->ipaddr;
 
     /* Submit time. */
     if (submit_time != NULL) {
@@ -135,6 +156,7 @@ evlog_new(TimeSpec *submit_time, InfoMessage **info_msgs, size_t infolen)
     evlog->columns = 80;
     evlog->runuid = (uid_t)-1;
     evlog->rungid = (gid_t)-1;
+    evlog->exit_value = -1;
 
     /* Pull out values by key from info array. */
     for (idx = 0; idx < infolen; idx++) {
@@ -143,220 +165,170 @@ evlog_new(TimeSpec *submit_time, InfoMessage **info_msgs, size_t infolen)
 	switch (key[0]) {
 	case 'c':
 	    if (strcmp(key, "columns") == 0) {
-		if (!has_numval(info)) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"columns specified but not a number");
-		} else if (info->u.numval <= 0 || info->u.numval > INT_MAX) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"columns (%" PRId64 ") out of range", info->u.numval);
-		} else {
-		    evlog->columns = info->u.numval;
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_NUMVAL)) {
+		    if (info->u.numval <= 0 || info->u.numval > INT_MAX) {
+			errno = ERANGE;
+			sudo_warn(U_("%s: %s"), source, "columns");
+		    } else {
+			evlog->columns = info->u.numval;
+		    }
 		}
 		continue;
 	    }
 	    if (strcmp(key, "command") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->command = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"command specified but not a string");
 		}
 		continue;
 	    }
 	    break;
 	case 'l':
 	    if (strcmp(key, "lines") == 0) {
-		if (!has_numval(info)) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"lines specified but not a number");
-		} else if (info->u.numval <= 0 || info->u.numval > INT_MAX) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"lines (%" PRId64 ") out of range", info->u.numval);
-		} else {
-		    evlog->lines = info->u.numval;
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_NUMVAL)) {
+		    if (info->u.numval <= 0 || info->u.numval > INT_MAX) {
+			errno = ERANGE;
+			sudo_warn(U_("%s: %s"), source, "lines");
+		    } else {
+			evlog->lines = info->u.numval;
+		    }
 		}
 		continue;
 	    }
 	    break;
 	case 'r':
 	    if (strcmp(key, "runargv") == 0) {
-		if (has_strlistval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRLISTVAL)) {
 		    evlog->argv = strlist_copy(info->u.strlistval);
 		    if (evlog->argv == NULL)
 			goto bad;
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"runargv specified but not a string list");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runchroot") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->runchroot = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"runchroot specified but not a string");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runcwd") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->runcwd = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"runcwd specified but not a string");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runenv") == 0) {
-		if (has_strlistval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRLISTVAL)) {
 		    evlog->envp = strlist_copy(info->u.strlistval);
 		    if (evlog->envp == NULL)
 			goto bad;
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"runenv specified but not a string list");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "rungid") == 0) {
-		if (!has_numval(info)) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"rungid specified but not a number");
-		} else if (info->u.numval < 0 || info->u.numval > INT_MAX) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"rungid (%" PRId64 ") out of range", info->u.numval);
-		} else {
-		    evlog->rungid = info->u.numval;
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_NUMVAL)) {
+		    if (info->u.numval < 0 || info->u.numval > UINT_MAX) {
+			errno = ERANGE;
+			sudo_warn(U_("%s: %s"), source, "rungid");
+		    } else {
+			evlog->rungid = info->u.numval;
+		    }
 		}
 		continue;
 	    }
 	    if (strcmp(key, "rungroup") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->rungroup = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"rungroup specified but not a string");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runuid") == 0) {
-		if (!has_numval(info)) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"runuid specified but not a number");
-		} else if (info->u.numval < 0 || info->u.numval > INT_MAX) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"runuid (%" PRId64 ") out of range", info->u.numval);
-		} else {
-		    evlog->runuid = info->u.numval;
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_NUMVAL)) {
+		    if (info->u.numval < 0 || info->u.numval > UINT_MAX) {
+			errno = ERANGE;
+			sudo_warn(U_("%s: %s"), source, "runuid");
+		    } else {
+			evlog->runuid = info->u.numval;
+		    }
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runuser") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->runuser = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"runuser specified but not a string");
 		}
 		continue;
 	    }
 	    break;
 	case 's':
 	    if (strcmp(key, "submitcwd") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->cwd = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"submitcwd specified but not a string");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "submitgroup") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->submitgroup = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"submitgroup specified but not a string");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "submithost") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->submithost = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"submithost specified but not a string");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "submituser") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->submituser = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"submituser specified but not a string");
 		}
 		continue;
 	    }
 	    break;
 	case 't':
 	    if (strcmp(key, "ttyname") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->ttyname = strdup(info->u.strval)) == NULL) {
-			sudo_debug_printf(
-			    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-			    "strdup");
+			sudo_warnx(U_("%s: %s"), __func__,
+			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"ttyname specified but not a string");
 		}
 		continue;
 	    }
@@ -366,57 +338,49 @@ evlog_new(TimeSpec *submit_time, InfoMessage **info_msgs, size_t infolen)
 
     /* Check for required settings */
     if (evlog->submituser == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "missing submituser in AcceptMessage");
+	sudo_warnx(U_("%s: protocol error: %s missing from AcceptMessage"),
+	    source, "submituser");
 	goto bad;
     }
     if (evlog->submithost == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "missing submithost in AcceptMessage");
+	sudo_warnx(U_("%s: protocol error: %s missing from AcceptMessage"),
+	    source, "submithost");
 	goto bad;
     }
     if (evlog->runuser == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "missing runuser in AcceptMessage");
+	sudo_warnx(U_("%s: protocol error: %s missing from AcceptMessage"),
+	    source, "runuser");
 	goto bad;
     }
     if (evlog->command == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "missing command in AcceptMessage");
+	sudo_warnx(U_("%s: protocol error: %s missing from AcceptMessage"),
+	    source, "command");
 	goto bad;
     }
 
     /* Other settings that must exist for event logging. */
     if (evlog->cwd == NULL) {
 	if ((evlog->cwd = strdup("unknown")) == NULL) {
-	    sudo_debug_printf(
-		SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-		"strdup");
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto bad;
 	}
     }
     if (evlog->runcwd == NULL) {
 	if ((evlog->runcwd = strdup(evlog->cwd)) == NULL) {
-	    sudo_debug_printf(
-		SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-		"strdup");
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto bad;
 	}
     }
     if (evlog->submitgroup == NULL) {
 	/* TODO: make submitgroup required */
 	if ((evlog->submitgroup = strdup("unknown")) == NULL) {
-	    sudo_debug_printf(
-		SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-		"strdup");
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto bad;
 	}
     }
     if (evlog->ttyname == NULL) {
 	if ((evlog->ttyname = strdup("unknown")) == NULL) {
-	    sudo_debug_printf(
-		SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-		"strdup");
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto bad;
 	}
     }
@@ -450,8 +414,7 @@ fill_seq(char *str, size_t strsize, void *v)
     len = snprintf(str, strsize, "%c%c/%c%c/%c%c", sessid[0],
 	sessid[1], sessid[2], sessid[3], sessid[4], sessid[5]);
     if (len < 0 || len >= (ssize_t)strsize) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to format session id");
+	sudo_warnx(U_("%s: unable to format session id"), __func__);
 	debug_return_size_t(strsize); /* handle non-standard snprintf() */
     }
     debug_return_size_t(len);
@@ -465,8 +428,7 @@ fill_user(char *str, size_t strsize, void *v)
     debug_decl(fill_user, SUDO_DEBUG_UTIL);
 
     if (evlog->submituser == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "submituser not set");
+	sudo_warnx(U_("%s: %s is not set"), __func__, "submituser");
 	debug_return_size_t(strsize);
     }
     debug_return_size_t(strlcpy(str, evlog->submituser, strsize));
@@ -480,8 +442,7 @@ fill_group(char *str, size_t strsize, void *v)
     debug_decl(fill_group, SUDO_DEBUG_UTIL);
 
     if (evlog->submitgroup == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "submitgroup not set");
+	sudo_warnx(U_("%s: %s is not set"), __func__, "submitgroup");
 	debug_return_size_t(strsize);
     }
     debug_return_size_t(strlcpy(str, evlog->submitgroup, strsize));
@@ -495,8 +456,7 @@ fill_runas_user(char *str, size_t strsize, void *v)
     debug_decl(fill_runas_user, SUDO_DEBUG_UTIL);
 
     if (evlog->runuser == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "runuser not set");
+	sudo_warnx(U_("%s: %s is not set"), __func__, "runuser");
 	debug_return_size_t(strsize);
     }
     debug_return_size_t(strlcpy(str, evlog->runuser, strsize));
@@ -511,8 +471,7 @@ fill_runas_group(char *str, size_t strsize, void *v)
 
     /* FIXME: rungroup not guaranteed to be set */
     if (evlog->rungroup == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "rungroup not set");
+	sudo_warnx(U_("%s: %s is not set"), __func__, "rungroup");
 	debug_return_size_t(strsize);
     }
     debug_return_size_t(strlcpy(str, evlog->rungroup, strsize));
@@ -526,8 +485,7 @@ fill_hostname(char *str, size_t strsize, void *v)
     debug_decl(fill_hostname, SUDO_DEBUG_UTIL);
 
     if (evlog->submithost == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "submithost not set");
+	sudo_warnx(U_("%s: %s is not set"), __func__, "submithost");
 	debug_return_size_t(strsize);
     }
     debug_return_size_t(strlcpy(str, evlog->submithost, strsize));
@@ -541,8 +499,7 @@ fill_command(char *str, size_t strsize, void *v)
     debug_decl(fill_command, SUDO_DEBUG_UTIL);
 
     if (evlog->command == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "command not set");
+	sudo_warnx(U_("%s: %s is not set"), __func__, "command");
 	debug_return_size_t(strsize);
     }
     debug_return_size_t(strlcpy(str, evlog->command, strsize));
@@ -578,15 +535,15 @@ create_iolog_path(struct connection_closure *closure)
 
     if (!expand_iolog_path(logsrvd_conf_iolog_dir(), expanded_dir,
 	    sizeof(expanded_dir), &path_escapes[1], &path_closure)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to expand iolog dir %s", logsrvd_conf_iolog_dir());
+	sudo_warnx(U_("unable to expand iolog path %s"),
+	    logsrvd_conf_iolog_dir());
 	goto bad;
     }
 
     if (!expand_iolog_path(logsrvd_conf_iolog_file(), expanded_file,
 	    sizeof(expanded_file), &path_escapes[0], &path_closure)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to expand iolog dir %s", logsrvd_conf_iolog_file());
+	sudo_warnx(U_("unable to expand iolog path %s"),
+	    logsrvd_conf_iolog_file());
 	goto bad;
     }
 
@@ -594,8 +551,7 @@ create_iolog_path(struct connection_closure *closure)
 	expanded_file);
     if (len >= sizeof(pathbuf)) {
 	errno = ENAMETOOLONG;
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "%s/%s", expanded_dir, expanded_file);
+	sudo_warn("%s/%s", expanded_dir, expanded_file);
 	goto bad;
     }
 
@@ -604,13 +560,11 @@ create_iolog_path(struct connection_closure *closure)
      * Calls mkdtemp() if pathbuf ends in XXXXXX.
      */
     if (!iolog_mkpath(pathbuf)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "unable to mkdir iolog path %s", pathbuf);
+	sudo_warnx(U_("unable to create iolog path %s"), pathbuf);
         goto bad;
     }
     if ((evlog->iolog_path = strdup(pathbuf)) == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "strdup");
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	goto bad;
     }
     evlog->iolog_file = evlog->iolog_path + strlen(expanded_dir) + 1;
@@ -619,8 +573,7 @@ create_iolog_path(struct connection_closure *closure)
     closure->iolog_dir_fd =
 	iolog_openat(AT_FDCWD, evlog->iolog_path, O_RDONLY);
     if (closure->iolog_dir_fd == -1) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "%s", evlog->iolog_path);
+	sudo_warn("%s", evlog->iolog_path);
 	goto bad;
     }
 
@@ -631,14 +584,13 @@ bad:
     debug_return_bool(false);
 }
 
-static bool
+bool
 iolog_create(int iofd, struct connection_closure *closure)
 {
     debug_decl(iolog_create, SUDO_DEBUG_UTIL);
 
     if (iofd < 0 || iofd >= IOFD_MAX) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "invalid iofd %d", iofd);
+	sudo_warnx(U_("invalid iofd %d"), iofd);
 	debug_return_bool(false);
     }
 
@@ -652,20 +604,38 @@ iolog_close_all(struct connection_closure *closure)
 {
     const char *errstr;
     int i;
-    debug_decl(iolog_close, SUDO_DEBUG_UTIL);
+    debug_decl(iolog_close_all, SUDO_DEBUG_UTIL);
 
     for (i = 0; i < IOFD_MAX; i++) {
 	if (!closure->iolog_files[i].enabled)
 	    continue;
 	if (!iolog_close(&closure->iolog_files[i], &errstr)) {
-	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		"error closing iofd %d: %s", i, errstr);
+	    sudo_warnx(U_("error closing iofd %d: %s"), i, errstr);
 	}
     }
     if (closure->iolog_dir_fd != -1)
 	close(closure->iolog_dir_fd);
 
     debug_return;
+}
+
+bool
+iolog_flush_all(struct connection_closure *closure)
+{
+    const char *errstr;
+    int i, ret = true;
+    debug_decl(iolog_flush_all, SUDO_DEBUG_UTIL);
+
+    for (i = 0; i < IOFD_MAX; i++) {
+	if (!closure->iolog_files[i].enabled)
+	    continue;
+	if (!iolog_flush(&closure->iolog_files[i], &errstr)) {
+	    sudo_warnx(U_("error flushing iofd %d: %s"), i, errstr);
+	    ret = false;
+	}
+    }
+
+    debug_return_bool(ret);
 }
 
 bool
@@ -727,8 +697,31 @@ iolog_copy(struct iolog_file *src, struct iolog_file *dst, off_t remainder,
     debug_return_bool(true);
 }
 
-/* Compressed logs don't support random access, need to rewrite them. */
+/*
+ * Like rename(2) but changes UID as needed.
+ */
 static bool
+iolog_rename(const char *from, const char *to)
+{
+    bool ok, uid_changed = false;
+    debug_decl(iolog_rename, SUDO_DEBUG_UTIL);
+
+    ok = rename(from, to) == 0;
+    if (!ok && errno == EACCES) {
+	uid_changed = iolog_swapids(false);
+	if (uid_changed)
+	    ok = rename(from, to) == 0;
+    }
+
+    if (uid_changed) {
+	if (!iolog_swapids(true))
+	    ok = false;
+    }
+    debug_return_bool(ok);
+}
+
+/* Compressed logs don't support random access, need to rewrite them. */
+bool
 iolog_rewrite(const struct timespec *target, struct connection_closure *closure)
 {
     const struct eventlog *evlog = closure->evlog;
@@ -741,6 +734,9 @@ iolog_rewrite(const struct timespec *target, struct connection_closure *closure)
     bool ret = false;
     debug_decl(iolog_rewrite, SUDO_DEBUG_UTIL);
 
+    memset(&timing, 0, sizeof(timing));
+    timing.decimal = ".";
+
     /* Parse timing file until we reach the target point. */
     /* TODO: use iolog_seekto with a callback? */
     for (;;) {
@@ -752,8 +748,8 @@ iolog_rewrite(const struct timespec *target, struct connection_closure *closure)
 	if (timing.event < IOFD_TIMING) {
 	    if (!closure->iolog_files[timing.event].enabled) {
 		/* Missing log file. */
-		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		    "iofd %d referenced but not open", timing.event);
+		sudo_warnx(U_("invalid I/O log %s: %s referenced but not present"),
+		    evlog->iolog_path, iolog_fd_to_name(timing.event));
 		goto done;
 	    }
 	    iolog_file_sizes[timing.event] += timing.u.nbytes;
@@ -764,11 +760,8 @@ iolog_rewrite(const struct timespec *target, struct connection_closure *closure)
 		break;
 
 	    /* Mismatch between resume point and stored log. */
-	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		"resume point mismatch, target [%lld, %ld], have [%lld, %ld]",
-		(long long)target->tv_sec, target->tv_nsec,
-		(long long)closure->elapsed_time.tv_sec,
-		closure->elapsed_time.tv_nsec);
+	    sudo_warnx(U_("%s: unable to find resume point [%lld, %ld]"),
+		evlog->iolog_path, (long long)target->tv_sec, target->tv_nsec);
 	    goto done;
 	}
     }
@@ -780,18 +773,16 @@ iolog_rewrite(const struct timespec *target, struct connection_closure *closure)
     len = snprintf(tmpdir, sizeof(tmpdir), "%s/restart.XXXXXX",
 	evlog->iolog_path);
     if (len < 0 || len >= ssizeof(tmpdir)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to format %s/restart.XXXXXX", evlog->iolog_path);
+	errno = ENAMETOOLONG;
+	sudo_warn("%s/restart.XXXXXX", evlog->iolog_path);
 	goto done;
     }
     if (!iolog_mkdtemp(tmpdir)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "unable to mkdtemp %s", tmpdir);
+	sudo_warn(U_("unable to mkdir %s"), tmpdir);
 	goto done;
     }
     if ((tmpdir_fd = iolog_openat(AT_FDCWD, tmpdir, O_RDONLY)) == -1) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "unable to open %s", tmpdir);
+	sudo_warn(U_("unable to open %s"), tmpdir);
 	goto done;
     }
 
@@ -803,9 +794,8 @@ iolog_rewrite(const struct timespec *target, struct connection_closure *closure)
 	new_iolog_files[iofd].enabled = true;
 	if (!iolog_open(&new_iolog_files[iofd], tmpdir_fd, iofd, "w")) {
 	    if (errno != ENOENT) {
-		sudo_debug_printf(
-		    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-		    "unable to open %s/%s", tmpdir, iolog_fd_to_name(iofd));
+		sudo_warn(U_("unable to open %s/%s"),
+		    tmpdir, iolog_fd_to_name(iofd));
 		goto done;
 	    }
 	}
@@ -817,8 +807,7 @@ iolog_rewrite(const struct timespec *target, struct connection_closure *closure)
 	if (!iolog_copy(&closure->iolog_files[iofd], &new_iolog_files[iofd],
 		iolog_file_sizes[iofd], &errstr)) {
 	    name = iolog_fd_to_name(iofd);
-	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		"unable to copy %s/%s to %s/%s: %s",
+	    sudo_warnx(U_("unable to copy %s/%s to %s/%s: %s"),
 		evlog->iolog_path, name, tmpdir, name, errstr);
 	    goto done;
 	}
@@ -835,21 +824,19 @@ iolog_rewrite(const struct timespec *target, struct connection_closure *closure)
 	name = iolog_fd_to_name(iofd);
 	len = snprintf(from, sizeof(from), "%s/%s", tmpdir, name);
 	if (len < 0 || len >= ssizeof(from)) {
-	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		"unable to format %s/%s", tmpdir, name);
+	    errno = ENAMETOOLONG;
+	    sudo_warn("%s/%s", tmpdir, name);
 	    goto done;
 	}
 	len = snprintf(to, sizeof(to), "%s/%s", evlog->iolog_path,
 	    name);
 	if (len < 0 || len >= ssizeof(from)) {
-	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		"unable to format %s/%s", evlog->iolog_path, name);
+	    errno = ENAMETOOLONG;
+	    sudo_warn("%s/%s", evlog->iolog_path, name);
 	    goto done;
 	}
 	if (!iolog_rename(from, to)) {
-	    sudo_debug_printf(
-		SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-		"unable to rename %s to %s", from, to);
+	    sudo_warn(U_("unable to rename %s to %s"), from, to);
 	    goto done;
 	}
     }
@@ -880,82 +867,11 @@ done:
     debug_return_bool(ret);
 }
 
-bool
-iolog_restart(RestartMessage *msg, struct connection_closure *closure)
-{
-    struct eventlog *evlog = closure->evlog;
-    struct timespec target;
-    struct stat sb;
-    int iofd;
-    debug_decl(iolog_restart, SUDO_DEBUG_UTIL);
-
-    target.tv_sec = msg->resume_point->tv_sec;
-    target.tv_nsec = msg->resume_point->tv_nsec;
-
-    if ((evlog->iolog_path = strdup(msg->log_id)) == NULL) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "strdup");
-	goto bad;
-    }
-
-    /* We use iolog_dir_fd in calls to openat(2) */
-    closure->iolog_dir_fd =
-	iolog_openat(AT_FDCWD, evlog->iolog_path, O_RDONLY);
-    if (closure->iolog_dir_fd == -1) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "%s", evlog->iolog_path);
-	goto bad;
-    }
-
-    /* If the timing file write bit is clear, log is already complete. */
-    if (fstatat(closure->iolog_dir_fd, "timing", &sb, 0) == -1) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "unable to stat %s/timing", evlog->iolog_path);
-	goto bad;
-    }
-    if (!ISSET(sb.st_mode, S_IWUSR)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "%s already complete", evlog->iolog_path);
-	closure->errstr = _("log is already complete, cannot be restarted");
-	goto bad;
-    }
-
-    /* Open existing I/O log files. */
-    if (!iolog_open_all(closure->iolog_dir_fd, evlog->iolog_path,
-	    closure->iolog_files, "r+"))
-	goto bad;
-
-    /* Compressed logs don't support random access, so rewrite them. */
-    for (iofd = 0; iofd < IOFD_MAX; iofd++) {
-	if (closure->iolog_files[iofd].compressed)
-	    debug_return_bool(iolog_rewrite(&target, closure));
-    }
-
-    /* Parse timing file until we reach the target point. */
-    if (!iolog_seekto(closure->iolog_dir_fd, evlog->iolog_path,
-	    closure->iolog_files, &closure->elapsed_time, &target))
-	goto bad;
-
-    /* Must seek or flush before switching from read -> write. */
-    if (iolog_seek(&closure->iolog_files[IOFD_TIMING], 0, SEEK_CUR) == -1) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "lseek(IOFD_TIMING, 0, SEEK_CUR)");
-	goto bad;
-    }
-
-    /* Ready to log I/O buffers. */
-    debug_return_bool(true);
-bad:
-    if (closure->errstr == NULL)
-	closure->errstr = _("unable to restart log");
-    debug_return_bool(false);
-}
-
 /*
  * Add given delta to elapsed time.
  * We cannot use timespecadd here since delta is not struct timespec.
  */
-static void
+void
 update_elapsed_time(TimeSpec *delta, struct timespec *elapsed)
 {
     debug_decl(update_elapsed_time, SUDO_DEBUG_UTIL);
@@ -967,122 +883,10 @@ update_elapsed_time(TimeSpec *delta, struct timespec *elapsed)
 	elapsed->tv_sec++;
 	elapsed->tv_nsec -= 1000000000;
     }
+    sudo_debug_printf(SUDO_DEBUG_DEBUG|SUDO_DEBUG_LINENO,
+	"%s: delta [%lld, %d], elapsed time now [%lld, %ld]",
+	__func__, (long long)delta->tv_sec, delta->tv_nsec,
+	(long long)elapsed->tv_sec, elapsed->tv_nsec);
 
     debug_return;
-}
-
-int
-store_iobuf(int iofd, IoBuffer *msg, struct connection_closure *closure)
-{
-    const struct eventlog *evlog = closure->evlog;
-    const char *errstr;
-    char tbuf[1024];
-    int len;
-    debug_decl(store_iobuf, SUDO_DEBUG_UTIL);
-
-    /* Open log file as needed. */
-    if (!closure->iolog_files[iofd].enabled) {
-	if (!iolog_create(iofd, closure))
-	    debug_return_int(-1);
-    }
-
-    /* Format timing data. */
-    /* FIXME - assumes IOFD_* matches IO_EVENT_* */
-    len = snprintf(tbuf, sizeof(tbuf), "%d %lld.%09d %zu\n",
-	iofd, (long long)msg->delay->tv_sec, (int)msg->delay->tv_nsec,
-	msg->data.len);
-    if (len < 0 || len >= ssizeof(tbuf)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to format timing buffer, len %d", len);
-	debug_return_int(-1);
-    }
-
-    /* Write to specified I/O log file. */
-    if (!iolog_write(&closure->iolog_files[iofd], msg->data.data,
-	    msg->data.len, &errstr)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to write to %s/%s: %s", evlog->iolog_path,
-	    iolog_fd_to_name(iofd), errstr);
-	debug_return_int(-1);
-    }
-
-    /* Write timing data. */
-    if (!iolog_write(&closure->iolog_files[IOFD_TIMING], tbuf,
-	    len, &errstr)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to write to %s/%s: %s", evlog->iolog_path,
-	    iolog_fd_to_name(IOFD_TIMING), errstr);
-	debug_return_int(-1);
-    }
-
-    update_elapsed_time(msg->delay, &closure->elapsed_time);
-
-    debug_return_int(0);
-}
-
-int
-store_suspend(CommandSuspend *msg, struct connection_closure *closure)
-{
-    const struct eventlog *evlog = closure->evlog;
-    const char *errstr;
-    char tbuf[1024];
-    int len;
-    debug_decl(store_suspend, SUDO_DEBUG_UTIL);
-
-    /* Format timing data including suspend signal. */
-    len = snprintf(tbuf, sizeof(tbuf), "%d %lld.%09d %s\n", IO_EVENT_SUSPEND,
-	(long long)msg->delay->tv_sec, (int)msg->delay->tv_nsec,
-	msg->signal);
-    if (len < 0 || len >= ssizeof(tbuf)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to format timing buffer, len %d, signal %s",
-	    len, msg->signal);
-	debug_return_int(-1);
-    }
-
-    /* Write timing data. */
-    if (!iolog_write(&closure->iolog_files[IOFD_TIMING], tbuf,
-	    len, &errstr)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to write to %s/%s: %s", evlog->iolog_path,
-	    iolog_fd_to_name(IOFD_TIMING), errstr);
-	debug_return_int(-1);
-    }
-
-    update_elapsed_time(msg->delay, &closure->elapsed_time);
-
-    debug_return_int(0);
-}
-
-int
-store_winsize(ChangeWindowSize *msg, struct connection_closure *closure)
-{
-    const struct eventlog *evlog = closure->evlog;
-    const char *errstr;
-    char tbuf[1024];
-    int len;
-    debug_decl(store_winsize, SUDO_DEBUG_UTIL);
-
-    /* Format timing data including new window size. */
-    len = snprintf(tbuf, sizeof(tbuf), "%d %lld.%09d %d %d\n", IO_EVENT_WINSIZE,
-	(long long)msg->delay->tv_sec, (int)msg->delay->tv_nsec,
-	msg->rows, msg->cols);
-    if (len < 0 || len >= ssizeof(tbuf)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to format timing buffer, len %d", len);
-	debug_return_int(-1);
-    }
-
-    /* Write timing data. */
-    if (!iolog_write(&closure->iolog_files[IOFD_TIMING], tbuf,
-	    len, &errstr)) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-	    "unable to write to %s/%s: %s", evlog->iolog_path,
-	    iolog_fd_to_name(IOFD_TIMING), errstr);
-	debug_return_int(-1);
-    }
-
-    update_elapsed_time(msg->delay, &closure->elapsed_time);
-
-    debug_return_int(0);
 }

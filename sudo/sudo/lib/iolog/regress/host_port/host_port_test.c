@@ -45,8 +45,8 @@ struct host_port_test {
     const char *host;		/* parsed host */
     const char *port;		/* parsed port */
     bool tls;			/* parsed TLS flag */
-    char *defport;		/* default port */
-    char *defport_tls;		/* default port */
+    const char *defport;	/* default port */
+    const char *defport_tls;	/* default port */
     bool ret;			/* return value */
 };
 
@@ -141,5 +141,5 @@ main(int argc, char *argv[])
 	printf("%s: %d tests run, %d errors, %d%% success rate\n",
 	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
     }
-    exit(errors);
+    return errors;
 }

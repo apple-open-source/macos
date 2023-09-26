@@ -1,3 +1,4 @@
+include(platform/Adwaita.cmake)
 include(platform/Cairo.cmake)
 include(platform/FreeType.cmake)
 include(platform/GCrypt.cmake)
@@ -5,7 +6,6 @@ include(platform/GStreamer.cmake)
 include(platform/ImageDecoders.cmake)
 include(platform/Soup.cmake)
 include(platform/TextureMapper.cmake)
-include(PlatformGLib.cmake)
 
 if (USE_EXTERNAL_HOLEPUNCH)
     include(platform/HolePunch.cmake)
@@ -20,13 +20,11 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/accessibility/atspi"
     "${WEBCORE_DIR}/crypto/openssl"
-    "${WEBCORE_DIR}/platform/adwaita"
     "${WEBCORE_DIR}/platform/audio/glib"
     "${WEBCORE_DIR}/platform/glib"
     "${WEBCORE_DIR}/platform/graphics/egl"
     "${WEBCORE_DIR}/platform/graphics/epoxy"
     "${WEBCORE_DIR}/platform/graphics/gbm"
-    "${WEBCORE_DIR}/platform/graphics/glx"
     "${WEBCORE_DIR}/platform/graphics/gstreamer"
     "${WEBCORE_DIR}/platform/graphics/opengl"
     "${WEBCORE_DIR}/platform/graphics/opentype"
@@ -54,15 +52,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
 set(CSS_VALUE_PLATFORM_DEFINES "HAVE_OS_DARK_MODE_SUPPORT=1")
 
-list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
-    ${WEBCORE_DIR}/css/themeAdwaita.css
-    ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.css
-)
-
-set(WebCore_USER_AGENT_SCRIPTS
-    ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
-)
-
 set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/wpe/RenderThemeWPE.cpp)
 
 list(APPEND WebCore_LIBRARIES
@@ -82,7 +71,7 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${UPOWERGLIB_INCLUDE_DIRS}
 )
 
-if (USE_WPE_VIDEO_PLANE_DISPLAY_DMABUF OR USE_WPEBACKEND_FDO_AUDIO_EXTENSION)
+if (USE_WPEBACKEND_FDO_AUDIO_EXTENSION)
     list(APPEND WebCore_LIBRARIES ${WPEBACKEND_FDO_LIBRARIES})
     list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES ${WPE_INCLUDE_DIRS})
     list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES ${WPEBACKEND_FDO_INCLUDE_DIRS})
@@ -131,13 +120,12 @@ if (USE_ATSPI)
     )
 endif ()
 
-if (USE_LIBGBM)
+if (USE_GBM)
     list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${GBM_INCLUDE_DIR}
         ${LIBDRM_INCLUDE_DIR}
     )
     list(APPEND WebCore_LIBRARIES
-        ${GBM_LIBRARIES}
+        GBM::GBM
         ${LIBDRM_LIBRARIES}
     )
 endif ()

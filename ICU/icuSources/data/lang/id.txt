@@ -43,6 +43,7 @@ id{
         am{"Amharik"}
         an{"Aragon"}
         ang{"Inggris Kuno"}
+        ann{"Obolo"}
         anp{"Angika"}
         apw{"Apache, Barat"}
         apw_Latn{"Apache, Barat"}
@@ -60,6 +61,7 @@ id{
         asa{"Asu"}
         ase{"Bahasa Isyarat Amerika"}
         ast{"Asturia"}
+        atj{"Atikamekw"}
         av{"Avar"}
         awa{"Awadhi"}
         ay{"Aymara"}
@@ -75,6 +77,7 @@ id{
         be{"Belarusia"}
         bej{"Beja"}
         bem{"Bemba"}
+        ber{"Amazigh"}
         bew{"Betawi"}
         bez{"Bena"}
         bfd{"Bafut"}
@@ -102,7 +105,7 @@ id{
         byv{"Medumba"}
         ca{"Katalan"}
         cad{"Kado"}
-        car{"Karib"}
+        car{"Karibia"}
         cay{"Cayuga"}
         cch{"Atsam"}
         ccp{"Chakma"}
@@ -123,13 +126,21 @@ id{
         cic{"Chickasaw"}
         cic_Latn{"Chickasaw"}
         ckb{"Kurdi Sorani"}
+        clc{"Chilcotin"}
         co{"Korsika"}
         cop{"Koptik"}
         cr{"Kree"}
+        crg{"Michif"}
         crh{"Tatar Krimea"}
+        crj{"East Cree Selatan"}
+        crk{"Cree Dataran"}
+        crl{"East Cree Utara"}
+        crm{"Moose Cree"}
+        crr{"Carolina Algonquian"}
         crs{"Seselwa Kreol Prancis"}
         cs{"Cheska"}
         csb{"Kashubia"}
+        csw{"Cree Rawa"}
         cu{"Bahasa Gereja Slavonia"}
         cv{"Chuvash"}
         cy{"Welsh"}
@@ -161,7 +172,7 @@ id{
         el{"Yunani"}
         elx{"Elam"}
         en{"Inggris"}
-        en_GB{"Inggris (Inggris)"}
+        en_GB{"Inggris (Britania)"}
         enm{"Inggris Abad Pertengahan"}
         eo{"Esperanto"}
         es{"Spanyol"}
@@ -215,6 +226,7 @@ id{
         ha{"Hausa"}
         hai{"Haida"}
         haw{"Hawaii"}
+        hax{"Haida Selatan"}
         he{"Ibrani"}
         hi{"Hindi"}
         hif{"Hindi Fiji"}
@@ -227,6 +239,7 @@ id{
         ht{"Kreol Haiti"}
         hu{"Magyar"}
         hup{"Hupa"}
+        hur{"Halkomelem"}
         hy{"Armenia"}
         hz{"Herero"}
         ia{"Interlingua"}
@@ -237,6 +250,7 @@ id{
         ig{"Igbo"}
         ii{"Sichuan Yi"}
         ik{"Inupiak"}
+        ikt{"Inuktitut Kanada Barat"}
         ilo{"Iloko"}
         inh{"Ingushetia"}
         io{"Ido"}
@@ -298,6 +312,7 @@ id{
         kut{"Kutenai"}
         kv{"Komi"}
         kw{"Kornish"}
+        kwk{"Kwakʼwala"}
         ky{"Kirgiz"}
         la{"Latin"}
         lad{"Ladino"}
@@ -309,6 +324,7 @@ id{
         lg{"Ganda"}
         li{"Limburgia"}
         lij{"Liguria"}
+        lil{"Lillooet"}
         lkt{"Lakota"}
         ln{"Lingala"}
         lo{"Lao"}
@@ -316,6 +332,7 @@ id{
         lou{"Kreol Louisiana"}
         loz{"Lozi"}
         lrc{"Luri Utara"}
+        lsm{"Saamia"}
         lt{"Lituavi"}
         lu{"Luba-Katanga"}
         lua{"Luba-Lulua"}
@@ -346,12 +363,14 @@ id{
         mh{"Marshall"}
         mi{"Maori"}
         mic{"Mikmak"}
+        mid{"Mandaik"}
         min{"Minangkabau"}
         mk{"Makedonia"}
         ml{"Malayalam"}
         mn{"Mongolia"}
         mnc{"Manchuria"}
         mni{"Manipuri"}
+        moe{"Innu-aimun"}
         moh{"Mohawk"}
         mos{"Mossi"}
         mr{"Marathi"}
@@ -382,6 +401,7 @@ id{
         nmg{"Kwasio"}
         nn{"Nynorsk Norsk"}
         nnh{"Ngiemboon"}
+        nnp{"Wancho"}
         no{"Norsk"}
         nog{"Nogai"}
         non{"Norse Kuno"}
@@ -398,6 +418,11 @@ id{
         nzi{"Nzima"}
         oc{"Ositania"}
         oj{"Ojibwa"}
+        ojb{"Ojibwe Barat Laut"}
+        ojc{"Ojibwe Tengah"}
+        ojs{"Oji-Cree"}
+        ojw{"Ojibwe Barat"}
+        oka{"Okanagan"}
         om{"Oromo"}
         or{"Oriya"}
         os{"Ossetia"}
@@ -415,8 +440,10 @@ id{
         peo{"Persia Kuno"}
         phn{"Funisia"}
         pi{"Pali"}
+        pis{"Pijin"}
         pl{"Polski"}
         pon{"Pohnpeia"}
+        pqm{"Wolastoqey"}
         prg{"Prusia"}
         pro{"Provencal Lama"}
         ps{"Pashto"}
@@ -427,6 +454,7 @@ id{
         raj{"Rajasthani"}
         rap{"Rapanui"}
         rar{"Rarotonga"}
+        rej{"Rejang"}
         rhg{"Rohingya"}
         rm{"Reto-Roman"}
         rn{"Rundi"}
@@ -470,6 +498,7 @@ id{
         sid{"Sidamo"}
         sk{"Slovak"}
         sl{"Sloven"}
+        slh{"Lushootseed Selatan"}
         sli{"Silesia Rendah"}
         sly{"Selayar"}
         sm{"Samoa"}
@@ -488,6 +517,7 @@ id{
         ss{"Swati"}
         ssy{"Saho"}
         st{"Sotho Selatan"}
+        str{"Salish Selat"}
         su{"Sunda"}
         suk{"Sukuma"}
         sus{"Susu"}
@@ -500,6 +530,7 @@ id{
         syr{"Suriah"}
         szl{"Silesia"}
         ta{"Tamil"}
+        tce{"Tutchone Selatan"}
         tcy{"Tulu"}
         te{"Telugu"}
         tem{"Timne"}
@@ -507,7 +538,9 @@ id{
         ter{"Tereno"}
         tet{"Tetun"}
         tg{"Tajik"}
+        tgx{"Tagish"}
         th{"Thai"}
+        tht{"Tahltan"}
         ti{"Tigrinya"}
         tig{"Tigre"}
         tiv{"Tiv"}
@@ -520,6 +553,7 @@ id{
         tn{"Tswana"}
         to{"Tonga"}
         tog{"Nyasa Tonga"}
+        tok{"Toki Pona"}
         tpi{"Tok Pisin"}
         tr{"Turki"}
         tru{"Turoyo"}
@@ -527,6 +561,7 @@ id{
         ts{"Tsonga"}
         tsi{"Tsimshia"}
         tt{"Tatar"}
+        ttm{"Tutchone Utara"}
         ttt{"Tat Muslim"}
         tum{"Tumbuka"}
         tvl{"Tuvalu"}
@@ -569,6 +604,7 @@ id{
         ybb{"Yemba"}
         yi{"Yiddish"}
         yo{"Yoruba"}
+        yrl{"Nheengatu"}
         yue{"Kanton"}
         za{"Zhuang"}
         zap{"Zapotek"}
@@ -591,8 +627,10 @@ id{
     }
     Languages%short{
         az{"Azeri"}
+        en_GB{"Inggris (UK)"}
     }
     Languages%variant{
+        hi_Latn{"Hinglish"}
         ps{"Pushto"}
         ug{"Uighur"}
     }
@@ -811,11 +849,11 @@ id{
             gregorian{"Kalender Gregorian"}
             hebrew{"Kalender Ibrani"}
             indian{"Kalender Nasional India"}
-            islamic{"Kalender Islam"}
-            islamic-civil{"Kalender Sipil Islam"}
-            islamic-rgsa{"Kalender Islam (Arab Saudi, penglihatan)"}
-            islamic-tbla{"Kalender Astronomi Islam"}
-            islamic-umalqura{"Kalender Islam (Umm al-Qura)"}
+            islamic{"Kalender Hijriah"}
+            islamic-civil{"Kalender Hijriah (Sipil)"}
+            islamic-rgsa{"Kalender Hijriah (Arab Saudi, penglihatan)"}
+            islamic-tbla{"Kalender Hijriah (Astronomi)"}
+            islamic-umalqura{"Kalender Hijriah (Umm al-Qura)"}
             iso8601{"Kalender ISO-8601"}
             japanese{"Kalender Jepang"}
             persian{"Kalender Persia"}
@@ -864,7 +902,7 @@ id{
             ducet{"Aturan Pengurutan Unicode Default"}
             emoji{"Urutan Sortir Emoji"}
             eor{"Aturan Pengurutan Eropa"}
-            gb2312han{"Urutan Sortir Tionghoa Aks. Sederhana - GB2312"}
+            gb2312han{"Urutan Sortir Tionghoa (Sederhana) - GB2312"}
             phonebook{"Urutan Sortir Buku Telepon"}
             phonetic{"Urutan Sortir Fonetik"}
             pinyin{"Urutan Sortir Pinyin"}
@@ -959,7 +997,7 @@ id{
             mymr{"Angka Myanmar"}
             mymrshan{"Angka Myanmar Shan"}
             mymrtlng{"Angka Myanmar Tai Laing"}
-            native{"Digit Asli"}
+            native{"Angka Asli"}
             nkoo{"Angka N’Ko"}
             olck{"Angka Ol Chiki"}
             orya{"Angka Oriya"}

@@ -25,6 +25,9 @@
 #ifndef _SECURITY_TRUSTDFILELOCATIONS_H_
 #define _SECURITY_TRUSTDFILELOCATIONS_H_
 
+#include <sys/types.h>
+#include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 #include "utilities/SecFileLocations.h"
 
@@ -35,6 +38,10 @@ __BEGIN_DECLS
 #define TRUST_SETTINGS_STAFF_GID    20
 #define TRUST_SETTINGS_USER_MODE    0600    /* owner can read/write, no others have access */
 #define TRUST_SETTINGS_ADMIN_MODE   0666    /* writable only if entitled, but as any uid */
+
+// Utility functions to return uuid for the supplied uid
+CFStringRef SecCopyUUIDStringForUID(uid_t uid);
+CFDataRef SecCopyUUIDDataForUID(uid_t uid);
 
 // Returns a boolean for whether the current instance is the system trustd
 bool SecOTAPKIIsSystemTrustd(void);

@@ -29,10 +29,43 @@
         F_ADDFILESIGS_RETURN
         F_CHECK_LV
         F_GETPATH
-        F_SETFD))
+        F_GETPROTECTIONCLASS
+        F_SETFD
+        F_SETFL
+        F_SETNOSIGPIPE))
 
 (with-filter (mac-policy-name "Sandbox")
-    (allow system-mac-syscall (mac-syscall-number 5 67)))
+    (allow system-mac-syscall (mac-syscall-number 5)))
+
+(allow iokit-open-service
+    (iokit-registry-entry-class
+        "AppleM2ScalerCSCDriver"
+        "AppleParavirtGPU"
+        "AppleVideoToolboxParavirtualizationDriver"
+        "IOSurfaceRoot"))
+(allow iokit-open-service
+    (iokit-registry-entry-class-prefix "AGXAcceleratorG"))
+
+(allow darwin-notification-post
+    (notification-name
+        "AppleDatePreferencesChangedNotification"
+        "AppleLanguagePreferencesChangedNotification"
+        "AppleMeasurementSystemPreferencesChangedNotification"
+        "AppleNumberPreferencesChangedNotification"
+        "AppleTemperatureUnitPreferencesChangedNotification"
+        "AppleTextBehaviorPreferencesChangedNotification"
+        "AppleTimePreferencesChangedNotification"
+        "com.apple.CFPreferences._domainsChangedExternally"
+        "com.apple.Metal.AGXEnableOSSignposts"
+        "com.apple.WebKit.LibraryPathDiagnostics"
+        "com.apple.gpumemd.check_in_request"
+        "com.apple.mobile.keybagd.user_changed"
+        "com.apple.system.logging.prefschanged"
+        "org.WebKit.lowMemory"
+        "org.WebKit.lowMemory.begin"
+        "org.WebKit.lowMemory.end"))
+
+(allow process-info-codesignature (target others))
 #endif
 
 ;;;
@@ -371,7 +404,7 @@
         (with-filter
             (extension
                 "com.apple.app-sandbox.read-write")
-            (allow file-write* (with telemetry))
+            (allow file-write*)
             (allow file-issue-extension
                    (extension-class "com.apple.app-sandbox.read-write"
                                     "com.apple.mediaserverd.read-write"))))
@@ -563,7 +596,8 @@
         "kern.osvariant_status"
         "kern.secure_kernel"
         "kern.osversion"
-        "vm.footprint_suspend"))
+        "vm.footprint_suspend"
+        "vm.malloc_ranges")) ;; <rdar://problem/105161083>
 
 (allow iokit-get-properties
     (iokit-property "AAPL,DisplayPipe")
@@ -678,8 +712,10 @@
 
 ;; Silence reports about things we do not want access to:
 (deny mach-lookup (with no-report)
-    (global-name "com.apple.fontservicesd")
-)
+    (global-name
+        "com.apple.audioanalyticsd"
+        "com.apple.coremedia.mediaparserd.utilities"
+        "com.apple.fontservicesd"))
 
 (deny file-write-create (vnode-type SYMLINK))
 (deny file-read-xattr file-write-xattr (xattr-prefix "com.apple.security.private."))
@@ -732,6 +768,8 @@
 
 (when (defined? 'syscall-unix)
     (deny syscall-unix (with telemetry))
+    (deny syscall-unix (with no-report) (syscall-number
+        SYS_faccessat))
     (allow syscall-unix (syscall-number
         SYS___disable_threadsignal
         SYS___mac_syscall
@@ -879,6 +917,7 @@
         MSC_semaphore_signal_trap
         MSC_semaphore_timedwait_trap
         MSC_semaphore_wait_trap
+        MSC_semaphore_wait_signal_trap
         MSC_syscall_thread_switch
         MSC_task_name_for_pid
         MSC_task_self_trap
@@ -886,6 +925,66 @@
 
 (when (defined? 'MSC_mach_msg2_trap)
     (allow syscall-mach (machtrap-number MSC_mach_msg2_trap)))
+
+(define (kernel-mig-routine-in-use-watchos)
+    (kernel-mig-routine
+        io_connect_set_notification_port
+        mach_make_memory_entry
+        mach_make_memory_entry_64
+        vm_copy
+        vm_remap_external))
+
+(deny syscall-mig (with telemetry))
+(allow syscall-mig (kernel-mig-routine
+    _mach_make_memory_entry
+    clock_get_time
+    host_get_clock_service
+    host_get_io_master
+    host_get_special_port
+    host_info
+    io_connect_async_method
+    io_connect_method
+    io_connect_set_notification_port_64
+    io_iterator_next
+    io_registry_entry_from_path
+    io_registry_entry_get_property_bin_buf
+    io_registry_entry_get_property_bytes
+    io_registry_entry_get_registry_entry_id
+    io_server_version
+    io_service_close
+    io_service_get_matching_service_bin
+    io_service_get_matching_services_bin
+    io_service_open_extended
+    mach_eventlink_associate
+    mach_exception_raise
+    mach_memory_entry_ownership
+    mach_port_extract_right
+    mach_port_get_context_from_user
+    mach_port_get_refs
+    mach_port_is_connection_for_service
+    mach_port_request_notification
+    mach_port_set_attributes
+    mach_vm_copy
+    mach_vm_map_external
+    (when (defined? 'mach_vm_range_create) mach_vm_range_create) ;; <rdar://105161083>
+    mach_vm_region
+    mach_vm_remap_external
+    semaphore_create
+    semaphore_destroy
+    task_get_special_port_from_user
+    task_info_from_user
+    task_restartable_ranges_register
+    task_restartable_ranges_synchronize
+    task_set_special_port
+    thread_policy
+    thread_policy_set
+    thread_resume
+    thread_suspend))
+
+#if PLATFORM(WATCHOS)
+    (allow syscall-mig
+        (kernel-mig-routine-in-use-watchos))
+#endif
 
 #if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
 #include <WebKitAdditions/SystemContentSandbox-ios.defs>

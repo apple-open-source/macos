@@ -34,6 +34,7 @@
 #include "DAStage.h"
 #include "DASupport.h"
 #include "DAThread.h"
+#include "FSKitdWatcher.h"
 
 #include <assert.h>
 #include <dirent.h>
@@ -80,6 +81,7 @@ CFMutableArrayRef      gDAFileSystemList               = NULL;
 CFMutableArrayRef      gDAFileSystemProbeList          = NULL;
 Boolean                gDAIdle                         = TRUE;
 Boolean                gDAIdleTimerRunning             = FALSE;
+CFAbsoluteTime         gDAIdleStartTime;
 io_iterator_t          gDAMediaAppearedNotification    = IO_OBJECT_NULL;
 io_iterator_t          gDAMediaDisappearedNotification = IO_OBJECT_NULL;
 IONotificationPortRef  gDAMediaPort                    = NULL;
@@ -94,6 +96,8 @@ CFMutableArrayRef      gDAResponseList                 = NULL;
 CFMutableArrayRef      gDASessionList                  = NULL;
 CFMutableDictionaryRef gDAUnitList                     = NULL;
 Boolean                gDAUnlockedState                = FALSE;
+
+Boolean                gFSKitMissing                   = FALSE; // Set when watcher starts
 
 #if __CODECOVERAGE__
 #define __segment_start_sym(_sym, _seg) extern void *_sym __asm("segment$start$" #_seg)
@@ -669,6 +673,12 @@ static void __DAMain( void *__unused context )
     }
 
     /*
+     * Freshen the preference list.
+     */
+
+    DAPreferenceListRefresh( );
+
+    /*
      * Freshen the file system list.
      */
 
@@ -687,10 +697,12 @@ static void __DAMain( void *__unused context )
     DAMountMapListRefresh2( );
 
     /*
-     * Freshen the preference list.
+     * Start watching fskitd.
      */
+#ifdef DA_FSKIT
 
-    DAPreferenceListRefresh( );
+    DAStartFSKitdWatcher( );
+#endif /* DA_FSKIT */
 
     /*
      * Process the initial set of media objects in I/O Kit.
@@ -706,10 +718,9 @@ static void __DAMain( void *__unused context )
                                  ^(xpc_object_t event)
     {
         DALogDebug( "iokit.matching: got event object to process:");
-        notify_post("com.apple.diskarbitrationd.iokitevent");
     });
 #endif
-    
+    notify_post("com.apple.diskarbitrationd.launched");
 }
 
 int main( int argc, char * argv[], char * envp[] )

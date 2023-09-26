@@ -23,6 +23,8 @@ namespace sh
 namespace
 {
 constexpr ImmutableString kEmulatedDepthRangeParams = ImmutableString("ANGLEDepthRangeParams");
+constexpr ImmutableString kDriverUniformsBlockName  = ImmutableString("ANGLEUniformBlock");
+constexpr ImmutableString kDriverUniformsVarName    = ImmutableString("ANGLEUniforms");
 
 constexpr const char kAcbBufferOffsets[] = "acbBufferOffsets";
 constexpr const char kDepthRange[]       = "depthRange";
@@ -69,8 +71,7 @@ bool DriverUniform::addComputeDriverUniformsToShader(TIntermBlock *root, TSymbol
 
     mDriverUniforms = DeclareInterfaceBlock(root, symbolTable, driverFieldList, EvqUniform,
                                             layoutQualifier, TMemoryQualifier::Create(), 0,
-                                            ImmutableString(vk::kDriverUniformsBlockName),
-                                            ImmutableString(vk::kDriverUniformsVarName));
+                                            kDriverUniformsBlockName, kDriverUniformsVarName);
     return mDriverUniforms != nullptr;
 }
 
@@ -171,8 +172,7 @@ bool DriverUniform::addGraphicsDriverUniformsToShader(TIntermBlock *root, TSymbo
 
         mDriverUniforms = DeclareInterfaceBlock(root, symbolTable, driverFieldList, EvqUniform,
                                                 layoutQualifier, TMemoryQualifier::Create(), 0,
-                                                ImmutableString(vk::kDriverUniformsBlockName),
-                                                ImmutableString(vk::kDriverUniformsVarName));
+                                                kDriverUniformsBlockName, kDriverUniformsVarName);
     }
     else
     {
@@ -180,10 +180,10 @@ bool DriverUniform::addGraphicsDriverUniformsToShader(TIntermBlock *root, TSymbo
         // This code path is taken only by the direct-to-Metal backend, and the assumptions
         // about the naming conventions of ANGLE-internal variables run too deeply to rename
         // this one.
-        auto varName    = ImmutableString("ANGLE_angleUniforms");
-        auto result     = DeclareStructure(root, symbolTable, driverFieldList, EvqUniform,
-                                           TMemoryQualifier::Create(), 0,
-                                           ImmutableString(vk::kDriverUniformsBlockName), &varName);
+        auto varName = ImmutableString("ANGLE_angleUniforms");
+        auto result =
+            DeclareStructure(root, symbolTable, driverFieldList, EvqUniform,
+                             TMemoryQualifier::Create(), 0, kDriverUniformsBlockName, &varName);
         mDriverUniforms = result.second;
     }
 
@@ -366,6 +366,21 @@ TIntermTyped *DriverUniform::getTransformDepth() const
 
     TIntermSequence args = {
         transformDepth,
+    };
+    return TIntermAggregate::CreateConstructor(*StaticType::GetBasic<EbtBool, EbpUndefined>(),
+                                               &args);
+}
+
+TIntermTyped *DriverUniform::getAlphaToCoverage() const
+{
+    TIntermTyped *miscRef         = createDriverUniformRef(kMisc);
+    TIntermTyped *alphaToCoverage = new TIntermBinary(
+        EOpBitShiftRight, miscRef, CreateUIntNode(vk::kDriverUniformsMiscAlphaToCoverageOffset));
+    alphaToCoverage = new TIntermBinary(EOpBitwiseAnd, alphaToCoverage,
+                                        CreateUIntNode(vk::kDriverUniformsMiscAlphaToCoverageMask));
+
+    TIntermSequence args = {
+        alphaToCoverage,
     };
     return TIntermAggregate::CreateConstructor(*StaticType::GetBasic<EbtBool, EbpUndefined>(),
                                                &args);

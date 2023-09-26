@@ -71,6 +71,7 @@ create(int fd)
 		warnx("%s: error: device already contains a GPT", device_name);
 		return 1;
 	}
+	map = map_find(MAP_TYPE_MBR);
 	if (map != NULL) {
 		if (!force) {
 			warnx("%s: error: device contains a MBR", device_name);

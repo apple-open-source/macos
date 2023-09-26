@@ -1,4 +1,4 @@
-module CommonCrypto_Private [system] [extern_c] {
+module CommonCrypto_Private [system] {
     umbrella header "CommonCryptoPriv.h"
     export *
     explicit module * { export * }

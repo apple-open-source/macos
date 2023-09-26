@@ -42,14 +42,14 @@
 #include "sudoers.h"
 #include "check.h"
 
-static bool display_lecture(int);
-static struct passwd *get_authpw(int);
-
 struct getpass_closure {
     int tstat;
+    int lectured;
     void *cookie;
     struct passwd *auth_pw;
 };
+
+static struct passwd *get_authpw(int);
 
 /*
  * Called when getpass is suspended so we can drop the lock.
@@ -87,26 +87,30 @@ getpass_resume(int signo, void *vclosure)
 static int
 check_user_interactive(int validated, int mode, struct getpass_closure *closure)
 {
-    struct sudo_conv_callback cb, *callback = NULL;
+    struct sudo_conv_callback callback;
     int ret = -1;
     char *prompt;
-    bool lectured;
     debug_decl(check_user_interactive, SUDOERS_DEBUG_AUTH);
+
+    /* Construct callback for getpass function. */
+    memset(&callback, 0, sizeof(callback));
+    callback.version = SUDO_CONV_CALLBACK_VERSION;
+    callback.closure = closure;
+    callback.on_suspend = getpass_suspend;
+    callback.on_resume = getpass_resume;
 
     /* Open, lock and read time stamp file if we are using it. */
     if (!ISSET(mode, MODE_IGNORE_TICKET)) {
 	/* Open time stamp file and check its status. */
 	closure->cookie = timestamp_open(user_name, user_sid);
-	if (timestamp_lock(closure->cookie, closure->auth_pw))
-	    closure->tstat = timestamp_status(closure->cookie, closure->auth_pw);
-
-	/* Construct callback for getpass function. */
-	memset(&cb, 0, sizeof(cb));
-	cb.version = SUDO_CONV_CALLBACK_VERSION;
-	cb.closure = closure;
-	cb.on_suspend = getpass_suspend;
-	cb.on_resume = getpass_resume;
-	callback = &cb;
+	if (closure->cookie != NULL) {
+	    if (timestamp_lock(closure->cookie, closure->auth_pw)) {
+		closure->tstat = timestamp_status(closure->cookie,
+		    closure->auth_pw);
+	    }
+	    callback.on_suspend = getpass_suspend;
+	    callback.on_resume = getpass_resume;
+	}
     }
 
     switch (closure->tstat) {
@@ -125,15 +129,11 @@ check_user_interactive(int validated, int mode, struct getpass_closure *closure)
 	FALLTHROUGH;
 
     default:
-	/* Bail out if we are non-interactive and a password is required */
-	if (ISSET(mode, MODE_NONINTERACTIVE)) {
-	    validated |= FLAG_NON_INTERACTIVE;
+	if (ISSET(mode, MODE_NONINTERACTIVE) && !def_noninteractive_auth) {
+	    validated |= FLAG_NO_USER_INPUT;
 	    log_auth_failure(validated, 0);
 	    goto done;
 	}
-
-	/* XXX - should not lecture if askpass helper is being used. */
-	lectured = display_lecture(closure->tstat);
 
 	/* Expand any escapes in the prompt. */
 	prompt = expand_prompt(user_prompt ? user_prompt : def_passprompt,
@@ -141,8 +141,8 @@ check_user_interactive(int validated, int mode, struct getpass_closure *closure)
 	if (prompt == NULL)
 	    goto done;
 
-	ret = verify_user(closure->auth_pw, prompt, validated, callback);
-	if (ret == true && lectured)
+	ret = verify_user(closure->auth_pw, prompt, validated, &callback);
+	if (ret == true && closure->lectured)
 	    (void)set_lectured();	/* lecture error not fatal */
 	free(prompt);
 	break;
@@ -165,12 +165,22 @@ check_user(int validated, int mode)
     debug_decl(check_user, SUDOERS_DEBUG_AUTH);
 
     /*
+     * In intercept mode, only check the user if configured to do so.
+     * We already have a session so no need to init the auth subsystem.
+     */
+    if (ISSET(sudo_mode, MODE_POLICY_INTERCEPTED)) {
+	if (!def_intercept_authenticate) {
+	    debug_return_int(true);
+	}
+    }
+
+    /*
      * Init authentication system regardless of whether we need a password.
      * Required for proper PAM session support.
      */
     if ((closure.auth_pw = get_authpw(mode)) == NULL)
 	goto done;
-    if (sudo_auth_init(closure.auth_pw) == -1)
+    if (sudo_auth_init(closure.auth_pw, mode) == -1)
 	goto done;
 
     /*
@@ -189,6 +199,9 @@ check_user(int validated, int mode)
 	(!runas_gr || user_in_group(sudo_user.pw, runas_gr->gr_name)))) {
 #ifdef HAVE_SELINUX
 	if (user_role == NULL && user_type == NULL)
+#endif
+#ifdef HAVE_APPARMOR
+	if (user_apparmor_profile == NULL)
 #endif
 #ifdef HAVE_PRIV_SET
 	if (runas_privs == NULL && runas_limitprivs == NULL)
@@ -212,8 +225,8 @@ done:
 	 * Only update time stamp if user validated and was approved.
 	 * Failure to update the time stamp is not a fatal error.
 	 */
-	if (ret == true && closure.tstat != TS_ERROR) {
-	    if (ISSET(validated, VALIDATE_SUCCESS))
+	if (ret == true && ISSET(validated, VALIDATE_SUCCESS)) {
+	    if (ISSET(mode, MODE_UPDATE_TICKET) && closure.tstat != TS_ERROR)
 		(void)timestamp_update(closure.cookie, closure.auth_pw);
 	}
     }
@@ -229,20 +242,26 @@ done:
  * Display sudo lecture (standard or custom).
  * Returns true if the user was lectured, else false.
  */
-static bool
-display_lecture(int status)
+void
+display_lecture(struct sudo_conv_callback *callback)
 {
-    struct sudo_conv_message msg;
-    struct sudo_conv_reply repl;
+    struct getpass_closure *closure;
+    struct sudo_conv_message msg[2];
+    struct sudo_conv_reply repl[2];
     char buf[BUFSIZ];
     struct stat sb;
     ssize_t nread;
-    int fd;
+    int fd, msgcount = 1;
     debug_decl(lecture, SUDOERS_DEBUG_AUTH);
 
-    if (def_lecture == never ||
-	(def_lecture == once && already_lectured(status)))
-	debug_return_bool(false);
+    if (callback == NULL || (closure = callback->closure) == NULL)
+	debug_return;
+
+    if (closure->lectured)
+	debug_return;
+
+    if (def_lecture == never || (def_lecture == once && already_lectured()))
+	debug_return;
 
     memset(&msg, 0, sizeof(msg));
     memset(&repl, 0, sizeof(repl));
@@ -254,17 +273,16 @@ display_lecture(int status)
 		(void) fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
 		while ((nread = read(fd, buf, sizeof(buf) - 1)) > 0) {
 		    buf[nread] = '\0';
-		    msg.msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
-		    msg.msg = buf;
-		    sudo_conv(1, &msg, &repl, NULL);
+		    msg[0].msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
+		    msg[0].msg = buf;
+		    sudo_conv(1, msg, repl, NULL);
 		}
-		close(fd);
-		if (nread == -1) {
-		    log_warning(SLOG_RAW_MSG,
-			N_("error reading lecture file %s"), def_lecture_file);
-		    debug_return_bool(false);
+		if (nread == 0) {
+		    close(fd);
+		    goto done;
 		}
-		debug_return_bool(true);
+		log_warning(SLOG_RAW_MSG,
+		    N_("error reading lecture file %s"), def_lecture_file);
 	    } else {
 		log_warningx(SLOG_RAW_MSG,
 		    N_("ignoring lecture file %s: not a regular file"),
@@ -279,15 +297,23 @@ display_lecture(int status)
     }
 
     /* Default sudo lecture. */
-    msg.msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
-    msg.msg = _("\n"
+    msg[0].msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
+    msg[0].msg = _("\n"
 	"We trust you have received the usual lecture from the local System\n"
 	"Administrator. It usually boils down to these three things:\n\n"
 	"    #1) Respect the privacy of others.\n"
 	"    #2) Think before you type.\n"
 	"    #3) With great power comes great responsibility.\n\n");
-    sudo_conv(1, &msg, &repl, NULL);
-    debug_return_bool(true);
+    if (!def_pwfeedback) {
+	msg[1].msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
+	msg[1].msg = _("For security reasons, the password you type will not be visible.\n\n");
+	msgcount++;
+    }
+    sudo_conv(msgcount, msg, repl, NULL);
+
+done:
+    closure->lectured = true;
+    debug_return;
 }
 
 /*
@@ -299,8 +325,10 @@ user_is_exempt(void)
     bool ret = false;
     debug_decl(user_is_exempt, SUDOERS_DEBUG_AUTH);
 
-    if (def_exempt_group)
-	ret = user_in_group(sudo_user.pw, def_exempt_group);
+    if (def_exempt_group) {
+	if (user_in_group(sudo_user.pw, def_exempt_group))
+	    ret = true;
+    }
     debug_return_bool(ret);
 }
 
@@ -322,17 +350,17 @@ get_authpw(int mode)
     } else {
 	if (def_rootpw) {
 	    if ((pw = sudo_getpwuid(ROOT_UID)) == NULL) {
-		log_warningx(SLOG_SEND_MAIL, N_("unknown uid: %u"), ROOT_UID);
+		log_warningx(SLOG_SEND_MAIL, N_("unknown uid %u"), ROOT_UID);
 	    }
 	} else if (def_runaspw) {
 	    if ((pw = sudo_getpwnam(def_runas_default)) == NULL) {
 		log_warningx(SLOG_SEND_MAIL,
-		    N_("unknown user: %s"), def_runas_default);
+		    N_("unknown user %s"), def_runas_default);
 	    }
 	} else if (def_targetpw) {
 	    if (runas_pw->pw_name == NULL) {
 		/* This should never be NULL as we fake up the passwd struct */
-		log_warningx(SLOG_RAW_MSG, N_("unknown uid: %u"),
+		log_warningx(SLOG_RAW_MSG, N_("unknown uid %u"),
 		    (unsigned int) runas_pw->pw_uid);
 	    } else {
 		sudo_pw_addref(runas_pw);

@@ -1,0 +1,23 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>df</string>
+		<key>OpenSourceVersion</key>
+		<string>2023-01-17</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/df?id=c968598479917f52022b86d0089a9835ddcf2799</string>
+		<key>OpenSourceImportDate</key>
+		<string>2023-01-17</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>BSD -T option renamed to -Y</string>
+			<string>BSD -t option renamed to -T</string>
+			<string>POSIX -t option added</string>
+			<string>Compat kludge for -t / -T</string>
+			<string>Different column names in Unix03 mode</string>
+			<string>Different rounding rules in Unix03 mode</string>
+			<string>Print an error on output failure</string>
+			<string>Add -I option to suppress inode counts</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

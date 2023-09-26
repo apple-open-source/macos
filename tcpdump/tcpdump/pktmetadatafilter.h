@@ -34,6 +34,7 @@ typedef struct node node_t;
 
 struct pkt_meta_data {
 	const char *itf;
+	uint32_t dlt;
 	const char *proc;
 	const char *eproc;
 	pid_t pid;

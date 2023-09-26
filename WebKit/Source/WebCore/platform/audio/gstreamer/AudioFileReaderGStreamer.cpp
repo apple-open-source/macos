@@ -41,15 +41,6 @@ namespace WebCore {
 GST_DEBUG_CATEGORY(webkit_audio_file_reader_debug);
 #define GST_CAT_DEFAULT webkit_audio_file_reader_debug
 
-static void initializeDebugCategory()
-{
-    ensureGStreamerInitialized();
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
-        GST_DEBUG_CATEGORY_INIT(webkit_audio_file_reader_debug, "webkitaudiofilereader", 0, "WebKit WebAudio FileReader");
-    });
-}
-
 class AudioFileReader : public CanMakeWeakPtr<AudioFileReader> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(AudioFileReader);
@@ -84,6 +75,46 @@ private:
     GRefPtr<GstElement> m_deInterleave;
     bool m_errorOccurred { false };
 };
+
+#if PLATFORM(BCM_NEXUS) || PLATFORM(BROADCOM) || PLATFORM(REALTEK)
+int decodebinAutoplugSelectCallback(GstElement*, GstPad*, GstCaps*, GstElementFactory* factory, gpointer)
+{
+    static int GST_AUTOPLUG_SELECT_SKIP;
+    static int GST_AUTOPLUG_SELECT_TRY;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        GEnumClass* enumClass = G_ENUM_CLASS(g_type_class_ref(g_type_from_name("GstAutoplugSelectResult")));
+        GEnumValue* value = g_enum_get_value_by_name(enumClass, "GST_AUTOPLUG_SELECT_SKIP");
+        GST_AUTOPLUG_SELECT_SKIP = value->value;
+        value = g_enum_get_value_by_name(enumClass, "GST_AUTOPLUG_SELECT_TRY");
+        GST_AUTOPLUG_SELECT_TRY = value->value;
+        g_type_class_unref(enumClass);
+    });
+
+    const Vector<String> pluginsToSkip = {
+#if PLATFORM(BCM_NEXUS) || PLATFORM(BROADCOM)
+        "brcmaudfilter"_s,
+#endif
+#if PLATFORM(REALTEK)
+        "omxaacdec"_s,
+        "omxac3dec"_s,
+        "omxac4dec"_s,
+        "omxeac3dec"_s,
+        "omxflacdec"_s,
+        "omxlpcmdec"_s,
+        "omxmp3dec"_s,
+        "omxopusdec"_s,
+        "omxvorbisdec"_s,
+#endif
+    };
+    auto factoryName = StringView::fromLatin1(gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)));
+    for (const auto& pluginToSkip : pluginsToSkip) {
+        if (pluginToSkip == factoryName)
+            return GST_AUTOPLUG_SELECT_SKIP;
+    }
+    return GST_AUTOPLUG_SELECT_TRY;
+}
+#endif
 
 static void copyGstreamerBuffersToAudioChannel(const GRefPtr<GstBufferList>& buffers, AudioChannel* audioChannel)
 {
@@ -133,6 +164,9 @@ AudioFileReader::~AudioFileReader()
 
     if (m_decodebin) {
         g_signal_handlers_disconnect_matched(m_decodebin.get(), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
+#if PLATFORM(BCM_NEXUS) || PLATFORM(BROADCOM) || PLATFORM(REALTEK)
+        g_signal_handlers_disconnect_matched(m_decodebin.get(), G_SIGNAL_MATCH_FUNC, 0, 0, nullptr, reinterpret_cast<gpointer>(decodebinAutoplugSelectCallback), nullptr);
+#endif
         m_decodebin = nullptr;
     }
 
@@ -287,6 +321,10 @@ void AudioFileReader::handleNewDeinterleavePad(GstPad* pad)
         // new_event
         nullptr,
 #endif
+#if GST_CHECK_VERSION(1, 23, 0)
+        // propose_allocation
+        nullptr,
+#endif
         { nullptr }
     };
     gst_app_sink_set_callbacks(GST_APP_SINK(sink), &callbacks, this, nullptr);
@@ -383,6 +421,9 @@ void AudioFileReader::decodeAudioForBusCreation()
     g_object_set(source, "stream", memoryStream.get(), nullptr);
 
     m_decodebin = makeGStreamerElement("decodebin", "decodebin");
+#if PLATFORM(BCM_NEXUS) || PLATFORM(BROADCOM) || PLATFORM(REALTEK)
+    g_signal_connect(m_decodebin.get(), "autoplug-select", G_CALLBACK(decodebinAutoplugSelectCallback), nullptr);
+#endif
     g_signal_connect_swapped(m_decodebin.get(), "pad-added", G_CALLBACK(decodebinPadAddedCallback), this);
 
     gst_bin_add_many(GST_BIN(m_pipeline.get()), source, m_decodebin.get(), nullptr);
@@ -432,7 +473,12 @@ RefPtr<AudioBus> AudioFileReader::createBus(float sampleRate, bool mixToMono)
 
 RefPtr<AudioBus> createBusFromInMemoryAudioFile(const void* data, size_t dataSize, bool mixToMono, float sampleRate)
 {
-    initializeDebugCategory();
+    ensureGStreamerInitialized();
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        GST_DEBUG_CATEGORY_INIT(webkit_audio_file_reader_debug, "webkitaudiofilereader", 0, "WebKit WebAudio FileReader");
+    });
+
     GST_DEBUG("Creating bus from in-memory audio data (%zu bytes)", dataSize);
     RefPtr<AudioBus> bus;
     auto thread = Thread::create("AudioFileReader", [&bus, data, dataSize, mixToMono, sampleRate] {
@@ -441,6 +487,8 @@ RefPtr<AudioBus> createBusFromInMemoryAudioFile(const void* data, size_t dataSiz
     thread->waitForCompletion();
     return bus;
 }
+
+#undef GST_CAT_DEFAULT
 
 } // WebCore
 

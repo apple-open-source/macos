@@ -73,15 +73,16 @@ enum SecItemFilter {
     kSecBackupableItemFilter,
 };
 
+// NULL dest_keybag means to ask AKS to use the currently configured backup keybag
 CFDictionaryRef SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
                                            struct SecurityClient *client,
-                                           keybag_handle_t src_keybag,
-                                           keybag_handle_t dest_keybag,
+                                           keybag_handle_t* dest_keybag,
                                            enum SecItemFilter filter,
                                            CFErrorRef *error);
 bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt,
                                     struct SecurityClient *client,
                                     keybag_handle_t src_keybag,
+                                    struct backup_keypair* src_bkp,
                                     keybag_handle_t dest_keybag,
                                     CFDictionaryRef keychain,
                                     enum SecItemFilter filter,

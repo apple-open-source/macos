@@ -203,6 +203,9 @@ static struct val2str str_alg_enc[] = {
 #ifdef SADB_X_EALG_CHACHA20POLY1305
 	{ SADB_X_EALG_CHACHA20POLY1305, "chacha20-poly1305", },
 #endif
+#ifdef SADB_X_EALG_AES_GMAC
+    { SADB_X_EALG_AES_GMAC, "aes-gmac", },
+#endif
 	{ -1, NULL, },
 };
 

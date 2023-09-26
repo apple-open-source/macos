@@ -276,7 +276,7 @@ AC_CHECK_FUNC(memmove, , [
 #--------------------------------------------------------------------
 
 SC_TCL_CHECK_BROKEN_FUNC(strstr, [
-    extern int strstr();
+    extern char *strstr(const char *, const char *);
     exit(strstr("\0test", "test") ? 1 : 0);
 ])
 
@@ -287,7 +287,7 @@ SC_TCL_CHECK_BROKEN_FUNC(strstr, [
 #--------------------------------------------------------------------
 
 SC_TCL_CHECK_BROKEN_FUNC(strtoul, [
-    extern int strtoul();
+    extern unsigned long strtoul(const char *, char **, int);
     char *term, *string = "0";
     exit(strtoul(string,&term,0) != 0 || term != string+1);
 ])
@@ -298,7 +298,7 @@ SC_TCL_CHECK_BROKEN_FUNC(strtoul, [
 #--------------------------------------------------------------------
 
 SC_TCL_CHECK_BROKEN_FUNC(strtod, [
-    extern double strtod();
+    extern double strtod(const char *, char **);
     char *term, *string = " +69";
     exit(strtod(string,&term) != 69 || term != string+4);
 ])

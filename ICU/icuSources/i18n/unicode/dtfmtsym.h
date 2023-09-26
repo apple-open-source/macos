@@ -1020,23 +1020,30 @@ public:
     static DateFormatSymbols * U_EXPORT2 createForLocale(
             const Locale &locale, UErrorCode &status);
 
+#if APPLE_ICU_CHANGES
+// rdar://
     /**
      * Apple addition
      * Get whether to capitalize based on usage.
      * @param usage the usage.
      * @param context 0 for menu, 1 for standalone
-     * @return TRUE to capitalize, FALSE otherwise
+     * @return true to capitalize, false otherwise
      * @internal For ICU use only.
      */
     UBool capitalizeForUsage(ECapitalizationContextUsageType usage, int32_t context) const;
+#endif  // APPLE_ICU_CHANGES
+
 #endif  /* U_HIDE_INTERNAL_API */
 };
 
+#if APPLE_ICU_CHANGES
+// rdar://
 inline UBool
 DateFormatSymbols::capitalizeForUsage(DateFormatSymbols::ECapitalizationContextUsageType usage, int32_t context) const
 {
     return fCapitalization[usage][context];
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_END
 

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -62,7 +62,7 @@
 		6003DADF071F234300B23FF4 /* gpt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gpt; sourceTree = BUILT_PRODUCTS_DIR; };
 		603F5D42071F0F5F00F87582 /* remove.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = remove.c; sourceTree = "<group>"; };
 		6086946205D071D70071FCB4 /* add.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = add.c; sourceTree = "<group>"; };
-		6086946305D071D70071FCB4 /* create.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = create.c; sourceTree = "<group>"; };
+		6086946305D071D70071FCB4 /* create.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = create.c; sourceTree = "<group>"; usesTabs = 1; };
 		6086946405D071D70071FCB4 /* destroy.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = destroy.c; sourceTree = "<group>"; };
 		6086946505D071D70071FCB4 /* gpt.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = gpt.c; sourceTree = "<group>"; };
 		6086946605D071D70071FCB4 /* gpt.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gpt.h; sourceTree = "<group>"; };
@@ -239,6 +239,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = gpt;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -251,18 +252,39 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = gpt;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
 		60E856F30B5D518E00817AFD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 			};
 			name = Debug;
 		};
 		60E856F40B5D518E00817AFD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 			};
 			name = Release;
 		};

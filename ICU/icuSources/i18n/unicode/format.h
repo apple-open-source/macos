@@ -111,7 +111,12 @@ public:
      *                 Objects of different subclasses are considered unequal.
      * @stable ICU 2.0
      */
+#if APPLE_ICU_CHANGES
+// rdar://
     virtual bool operator==(const Format& other) const;
+#else
+    virtual bool operator==(const Format& other) const = 0;
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Return true if the given Format objects are not semantically

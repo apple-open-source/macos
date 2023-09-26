@@ -26,16 +26,16 @@
 }
 - (void)setMetricType:(SECC2MPMetric_Type)v
 {
-    _has.metricType = YES;
+    _has.metricType = (uint)YES;
     _metricType = v;
 }
 - (void)setHasMetricType:(BOOL)f
 {
-    _has.metricType = f;
+    _has.metricType = (uint)f;
 }
 - (BOOL)hasMetricType
 {
-    return _has.metricType;
+    return _has.metricType != 0;
 }
 - (NSString *)metricTypeAsString:(SECC2MPMetric_Type)value
 {
@@ -63,44 +63,44 @@
 @synthesize triggers = _triggers;
 - (void)setTriggers:(uint64_t)v
 {
-    _has.triggers = YES;
+    _has.triggers = (uint)YES;
     _triggers = v;
 }
 - (void)setHasTriggers:(BOOL)f
 {
-    _has.triggers = f;
+    _has.triggers = (uint)f;
 }
 - (BOOL)hasTriggers
 {
-    return _has.triggers;
+    return _has.triggers != 0;
 }
 @synthesize reportFrequency = _reportFrequency;
 - (void)setReportFrequency:(uint64_t)v
 {
-    _has.reportFrequency = YES;
+    _has.reportFrequency = (uint)YES;
     _reportFrequency = v;
 }
 - (void)setHasReportFrequency:(BOOL)f
 {
-    _has.reportFrequency = f;
+    _has.reportFrequency = (uint)f;
 }
 - (BOOL)hasReportFrequency
 {
-    return _has.reportFrequency;
+    return _has.reportFrequency != 0;
 }
 @synthesize reportFrequencyBase = _reportFrequencyBase;
 - (void)setReportFrequencyBase:(uint64_t)v
 {
-    _has.reportFrequencyBase = YES;
+    _has.reportFrequencyBase = (uint)YES;
     _reportFrequencyBase = v;
 }
 - (void)setHasReportFrequencyBase:(BOOL)f
 {
-    _has.reportFrequencyBase = f;
+    _has.reportFrequencyBase = (uint)f;
 }
 - (BOOL)hasReportFrequencyBase
 {
-    return _has.reportFrequencyBase;
+    return _has.reportFrequencyBase != 0;
 }
 - (BOOL)hasNetworkEvent
 {
@@ -178,7 +178,7 @@ BOOL SECC2MPMetricReadFrom(__unsafe_unretained SECC2MPMetric *self, __unsafe_unr
 
             case 1 /* metricType */:
             {
-                self->_has.metricType = YES;
+                self->_has.metricType = (uint)YES;
                 self->_metricType = PBReaderReadInt32(reader);
             }
             break;
@@ -238,19 +238,19 @@ BOOL SECC2MPMetricReadFrom(__unsafe_unretained SECC2MPMetric *self, __unsafe_unr
             break;
             case 100 /* triggers */:
             {
-                self->_has.triggers = YES;
+                self->_has.triggers = (uint)YES;
                 self->_triggers = PBReaderReadUint64(reader);
             }
             break;
             case 101 /* reportFrequency */:
             {
-                self->_has.reportFrequency = YES;
+                self->_has.reportFrequency = (uint)YES;
                 self->_reportFrequency = PBReaderReadUint64(reader);
             }
             break;
             case 102 /* reportFrequencyBase */:
             {
-                self->_has.reportFrequencyBase = YES;
+                self->_has.reportFrequencyBase = (uint)YES;
                 self->_reportFrequencyBase = PBReaderReadUint64(reader);
             }
             break;

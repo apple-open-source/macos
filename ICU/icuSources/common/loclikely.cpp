@@ -21,6 +21,7 @@
 
 #include "unicode/bytestream.h"
 #include "unicode/utypes.h"
+#include "unicode/localebuilder.h"
 #include "unicode/locid.h"
 #include "unicode/putil.h"
 #include "unicode/uchar.h"
@@ -92,6 +93,15 @@ findLikelySubtags(const char* localeID,
             }
             else {
                 u_UCharsToChars(s, buffer, resLen + 1);
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
+#else
+                if (resLen >= 3 &&
+                    uprv_strnicmp(buffer, unknownLanguage, 3) == 0 &&
+                    (resLen == 3 || buffer[3] == '_')) {
+                    uprv_memmove(buffer, buffer + 3, resLen - 3 + 1);
+                }
+#endif // APPLE_ICU_CHANGES
                 result = buffer;
             }
         } else {
@@ -117,9 +127,20 @@ appendTag(
     const char* tag,
     int32_t tagLength,
     char* buffer,
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
     int32_t* bufferLength) {
+#else
+    int32_t* bufferLength,
+    UBool withSeparator) {
+#endif // APPLE_ICU_CHANGES
 
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
     if (*bufferLength > 0) {
+#else
+    if (withSeparator) {
+#endif // APPLE_ICU_CHANGES
         buffer[*bufferLength] = '_';
         ++(*bufferLength);
     }
@@ -195,16 +216,24 @@ createTagStringWithAlternates(
          **/
         char tagBuffer[ULOC_FULLNAME_CAPACITY];
         int32_t tagLength = 0;
-        UBool regionAppended = FALSE;
+        UBool regionAppended = false;
 
         if (langLength > 0) {
             appendTag(
                 lang,
                 langLength,
                 tagBuffer,
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
                 &tagLength);
+#else
+                &tagLength,
+                /*withSeparator=*/false);
+#endif // APPLE_ICU_CHANGES
         }
         else if (alternateTags == NULL) {
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
             /*
              * Append the value for an unknown language, if
              * we found no language.
@@ -214,6 +243,12 @@ createTagStringWithAlternates(
                 (int32_t)uprv_strlen(unknownLanguage),
                 tagBuffer,
                 &tagLength);
+#else
+            /*
+             * Use the empty string for an unknown language, if
+             * we found no language.
+             */
+#endif // APPLE_ICU_CHANGES
         }
         else {
             /*
@@ -233,6 +268,8 @@ createTagStringWithAlternates(
                 goto error;
             }
             else if (alternateLangLength == 0) {
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
                 /*
                  * Append the value for an unknown language, if
                  * we found no language.
@@ -242,13 +279,25 @@ createTagStringWithAlternates(
                     (int32_t)uprv_strlen(unknownLanguage),
                     tagBuffer,
                     &tagLength);
+#else
+                /*
+                 * Use the empty string for an unknown language, if
+                 * we found no language.
+                 */
+#endif // APPLE_ICU_CHANGES
             }
             else {
                 appendTag(
                     alternateLang,
                     alternateLangLength,
                     tagBuffer,
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
                     &tagLength);
+#else
+                    &tagLength,
+                    /*withSeparator=*/false);
+#endif // APPLE_ICU_CHANGES
             }
         }
 
@@ -257,7 +306,13 @@ createTagStringWithAlternates(
                 script,
                 scriptLength,
                 tagBuffer,
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
                 &tagLength);
+#else
+                &tagLength,
+                /*withSeparator=*/true);
+#endif // APPLE_ICU_CHANGES
         }
         else if (alternateTags != NULL) {
             /*
@@ -281,7 +336,13 @@ createTagStringWithAlternates(
                     alternateScript,
                     alternateScriptLength,
                     tagBuffer,
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
                     &tagLength);
+#else
+                    &tagLength,
+                    /*withSeparator=*/true);
+#endif // APPLE_ICU_CHANGES
             }
         }
 
@@ -290,9 +351,15 @@ createTagStringWithAlternates(
                 region,
                 regionLength,
                 tagBuffer,
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
                 &tagLength);
+#else
+                &tagLength,
+                /*withSeparator=*/true);
+#endif // APPLE_ICU_CHANGES
 
-            regionAppended = TRUE;
+            regionAppended = true;
         }
         else if (alternateTags != NULL) {
             /*
@@ -315,9 +382,15 @@ createTagStringWithAlternates(
                     alternateRegion,
                     alternateRegionLength,
                     tagBuffer,
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
                     &tagLength);
+#else
+                    &tagLength,
+                    /*withSeparator=*/true);
+#endif // APPLE_ICU_CHANGES
 
-                regionAppended = TRUE;
+                regionAppended = true;
             }
         }
 
@@ -475,6 +548,8 @@ parseTagString(
 
     *langLength = subtagLength;
 
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
     /*
      * If no language was present, use the value of unknownLanguage
      * instead.  Otherwise, move past any separator.
@@ -485,6 +560,12 @@ parseTagString(
             unknownLanguage);
         *langLength = (int32_t)uprv_strlen(lang);
     }
+#else
+    /*
+     * If no language was present, use the empty string instead.
+     * Otherwise, move past any separator.
+     */
+#endif // APPLE_ICU_CHANGES
     if (_isIDSeparator(*position)) {
         ++position;
     }
@@ -626,7 +707,7 @@ createLikelySubtagsString(
                         likelySubtags,
                         sink,
                         err);
-            return TRUE;
+            return true;
         }
     }
 
@@ -682,7 +763,7 @@ createLikelySubtagsString(
                         likelySubtags,
                         sink,
                         err);
-            return TRUE;
+            return true;
         }
     }
 
@@ -738,7 +819,7 @@ createLikelySubtagsString(
                         likelySubtags,
                         sink,
                         err);
-            return TRUE;
+            return true;
         }
     }
 
@@ -793,11 +874,11 @@ createLikelySubtagsString(
                         likelySubtags,
                         sink,
                         err);
-            return TRUE;
+            return true;
         }
     }
 
-    return FALSE;
+    return false;
 
 error:
 
@@ -805,7 +886,7 @@ error:
         *err = U_ILLEGAL_ARGUMENT_ERROR;
     }
 
-    return FALSE;
+    return false;
 }
 
 #define CHECK_TRAILING_VARIANT_SIZE(trailing, trailingLength) UPRV_BLOCK_MACRO_BEGIN { \
@@ -840,7 +921,7 @@ _uloc_addLikelySubtags(const char* localeID,
     const char* trailing = "";
     int32_t trailingLength = 0;
     int32_t trailingIndex = 0;
-    UBool success = FALSE;
+    UBool success = false;
 
     if(U_FAILURE(*err)) {
         goto error;
@@ -905,7 +986,7 @@ error:
     if (!U_FAILURE(*err)) {
         *err = U_ILLEGAL_ARGUMENT_ERROR;
     }
-    return FALSE;
+    return false;
 }
 
 // Add likely subtags to the sink
@@ -929,7 +1010,7 @@ _uloc_minimizeSubtags(const char* localeID,
     const char* trailing = "";
     int32_t trailingLength = 0;
     int32_t trailingIndex = 0;
-    UBool successGetMax = FALSE;
+    UBool successGetMax = false;
 
     if(U_FAILURE(*err)) {
         goto error;
@@ -1048,7 +1129,13 @@ _uloc_minimizeSubtags(const char* localeID,
         if(U_FAILURE(*err)) {
             goto error;
         }
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
         else if (uprv_strnicmp(
+#else
+        else if (!tagBuffer.isEmpty() &&
+                 uprv_strnicmp(
+#endif // APPLE_ICU_CHANGES
                     maximizedTagBuffer.data(),
                     tagBuffer.data(),
                     tagBuffer.length()) == 0) {
@@ -1251,7 +1338,7 @@ _ulocimp_addLikelySubtags(const char* localeID,
     if (U_SUCCESS(*status)) {
         return _uloc_addLikelySubtags(localeBuffer.getBuffer(), sink, status);
     } else {
-        return FALSE;
+        return false;
     }
 }
 
@@ -1323,14 +1410,14 @@ uloc_isRightToLeft(const char *locale) {
         char lang[8];
         int32_t langLength = uloc_getLanguage(locale, lang, UPRV_LENGTHOF(lang), &errorCode);
         if (U_FAILURE(errorCode) || errorCode == U_STRING_NOT_TERMINATED_WARNING) {
-            return FALSE;
+            return false;
         }
         if (langLength > 0) {
             const char* langPtr = uprv_strstr(LANG_DIR_STRING, lang);
             if (langPtr != NULL) {
                 switch (langPtr[langLength]) {
-                case '-': return FALSE;
-                case '+': return TRUE;
+                case '-': return false;
+                case '+': return true;
                 default: break;  // partial match of a longer code
                 }
             }
@@ -1343,17 +1430,20 @@ uloc_isRightToLeft(const char *locale) {
             ulocimp_addLikelySubtags(locale, sink, &errorCode);
         }
         if (U_FAILURE(errorCode) || errorCode == U_STRING_NOT_TERMINATED_WARNING) {
-            return FALSE;
+            return false;
         }
         scriptLength = uloc_getScript(likely.data(), script, UPRV_LENGTHOF(script), &errorCode);
         if (U_FAILURE(errorCode) || errorCode == U_STRING_NOT_TERMINATED_WARNING ||
                 scriptLength == 0) {
-            return FALSE;
+            return false;
         }
     }
+#if APPLE_ICU_CHANGES
+// rdar://51447187 Fix uloc_isRightToLeft for "Aran"; add basic locale support for ks_Deva, sd_Deva
     if (uprv_strcmp(script,"Aran")==0) {
         uprv_strcpy(script,"Arab"); // The properties functions do not understand Aran
     }
+#endif // APPLE_ICU_CHANGES
     UScriptCode scriptCode = (UScriptCode)u_getPropertyValueEnum(UCHAR_SCRIPT, script);
     return uscript_isRightToLeft(scriptCode);
 }
@@ -1385,11 +1475,19 @@ ulocimp_getRegionForSupplementalData(const char *localeID, UBool inferRegion,
         rgLen = 0;
     } else {
         // rgBuf guaranteed to be zero terminated here, with text len 6
+#if APPLE_ICU_CHANGES
+//rdar://106566783 (Migrated locale from es_US to es_ES@rg=uszzzz changed formatters systemwide unexpectedly)
+        // chop off the subdivision code (which will generally be "zzzz" anyway)
+        rgLen = 2;
+        rgBuf[0] = uprv_toupper(rgBuf[0]);
+        rgBuf[1] = uprv_toupper(rgBuf[1]);
+#else
         char *rgPtr = rgBuf;
         for (; *rgPtr!= 0; rgPtr++) {
             *rgPtr = uprv_toupper(*rgPtr);
         }
         rgLen = (uprv_strcmp(rgBuf+2, "ZZZZ") == 0)? 2: 0;
+#endif
     }
 
     if (rgLen == 0) {
@@ -1398,7 +1496,7 @@ ulocimp_getRegionForSupplementalData(const char *localeID, UBool inferRegion,
         if (U_FAILURE(*status)) {
             rgLen = 0;
         } else if (rgLen == 0 && inferRegion) {
-            // no unicode_region_subtag but inferRegion TRUE, try likely subtags
+            // no unicode_region_subtag but inferRegion true, try likely subtags
             rgStatus = U_ZERO_ERROR;
             icu::CharString locBuf;
             {
@@ -1418,4 +1516,39 @@ ulocimp_getRegionForSupplementalData(const char *localeID, UBool inferRegion,
     uprv_strncpy(region, rgBuf, regionCapacity);
     return u_terminateChars(region, regionCapacity, rgLen, status);
 }
+
+#if APPLE_ICU_CHANGES
+//rdar://106566783 (Migrated locale from es_US to es_ES@rg=uszzzz changed formatters systemwide unexpectedly)
+U_CAPI int32_t U_EXPORT2
+ulocimp_setRegionToSupplementalRegion(const char *localeID, char *newLocaleID, int32_t newLocaleIDCapacity, UErrorCode* status) {
+    UErrorCode err = U_ZERO_ERROR;
+    icu::Locale locale(localeID);
+    std::string supplementalRegion = locale.getKeywordValue<std::string>("rg", err);
+    if (U_SUCCESS(err) && supplementalRegion.length() >= 2) {
+        icu::LocaleBuilder builder;
+        
+        builder.setLanguage(locale.getLanguage());
+        builder.setScript(locale.getScript());
+        
+        // strip off the subdivision code (which will generally be "zzzz" anyway) and convert to upper case
+        supplementalRegion.resize(2);
+        supplementalRegion[0] = uprv_toupper(supplementalRegion[0]);
+        supplementalRegion[1] = uprv_toupper(supplementalRegion[1]);
+        builder.setRegion(supplementalRegion);
+
+        err = U_ZERO_ERROR;
+        icu::Locale newLocale = builder.build(err);
+        if (U_SUCCESS(err)) {
+            const char* newID = newLocale.getName();
+            int32_t newIDLength = uprv_strlen(newID);
+            uprv_strncpy(newLocaleID, newID, newLocaleIDCapacity);
+            return u_terminateChars(newLocaleID, newLocaleIDCapacity, newIDLength, &err);
+        } else {
+            return 0;
+        }
+    } else {
+        return 0;
+    }
+}
+#endif // APPLE_ICU_CHANGES
 

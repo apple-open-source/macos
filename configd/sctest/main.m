@@ -35,7 +35,12 @@ usage(void)
 		SCTestLog("  %15s:   %s", [testClass command].UTF8String, [testClass commandDescription].UTF8String);
 	}
 
-	SCTestLog(kSCTestOptionHelp "\n");
+	SCTestLog("\n\nOptions:");
+#if !TARGET_OS_BRIDGE
+	SCTestLog(kSCTestOptionHelpAllPlatforms kSCTestOptionHelpNonBridgeOS "\n");
+#else // !TARGET_OS_BRIDGE
+	SCTestLog(kSCTestOptionHelpAllPlatforms "\n");
+#endif // !TARGET_OS_BRIDGE
 
 	ERR_EXIT;
 }

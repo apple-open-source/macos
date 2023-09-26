@@ -12,11 +12,9 @@ static char *rcsid = "$OpenBSD: l64a.c,v 1.3 1997/08/17 22:58:34 millert Exp $";
 
 char *
 #ifdef __LP64__
-l64a(v)
-	long v;
+l64a(long v)
 #else /* !__LP64__ */
-l64a(value)
-	long value;
+l64a(long value)
 #endif /* __LP64__ */
 {
 	static char buf[8];

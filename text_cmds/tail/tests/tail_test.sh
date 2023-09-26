@@ -359,6 +359,60 @@ follow_rename_body()
 	atf_check kill $pid
 }
 
+atf_test_case silent_header
+silent_header_head() {
+	atf_set "descr" "Test tail(1)'s silent header feature"
+}
+silent_header_body() {
+	jot 11 1 11 > file1
+	jot 11 2 12 > file2
+	jot 10 2 11 > expectfile
+	jot 10 3 12 >> expectfile
+	tail -q file1 file2 > outfile
+	atf_check cmp outfile expectfile
+}
+
+atf_test_case verbose_header
+verbose_header_head() {
+	atf_set "descr" "Test tail(1)'s verbose header feature"
+}
+verbose_header_body() {
+	jot 11 1 11 > file1
+	echo '==> file1 <==' > expectfile
+	jot 10 2 11 >> expectfile
+	tail -v file1 > outfile
+	atf_check cmp outfile expectfile
+}
+
+atf_test_case si_number
+si_number_head() {
+	atf_set "descr" "Test tail(1)'s SI number feature"
+}
+si_number_body() {
+	jot -b aaaaaaa 129 > file1
+	jot -b aaaaaaa 128 > expectfile
+	tail -c 1k file1 > outfile
+	atf_check cmp outfile expectfile
+	jot 1025 1 1025 > file1
+	jot 1024 2 1025 > expectfile
+	tail -n 1k file1 > outfile
+	atf_check cmp outfile expectfile
+}
+
+atf_test_case no_lf_at_eof
+no_lf_at_eof_head()
+{
+	atf_set "descr" "File does not end in newline"
+}
+no_lf_at_eof_body()
+{
+	printf "a\nb\nc" >infile
+	atf_check -o inline:"c" tail -1 infile
+	atf_check -o inline:"b\nc" tail -2 infile
+	atf_check -o inline:"a\nb\nc" tail -3 infile
+	atf_check -o inline:"a\nb\nc" tail -4 infile
+}
+
 #ifdef __APPLE__
 atf_test_case blkbof
 blkbof_head()
@@ -385,6 +439,23 @@ blkbof_body()
 	atf_check -o match:"first line" -x \
 		'tail -n 3 blkbof.in | head -1'
 }
+
+atf_test_case radr_13271328
+radr_13271328_head()
+{
+	atf_set "descr" "Regression test for radr://13271328"
+}
+radr_13271328_body()
+{
+	# Measure file system block size
+	truncate -s 0 infile
+	local blksize=$(stat -f%k infile)
+	# A file with two lines, larger than three blocks
+	local linelen=$((blksize*3/2))
+	(jot -b 'a' -s '' $linelen ; jot -b 'b' -s '' $linelen) >infile
+	atf_check -o save:outfile tail -1 infile
+	atf_check -o match:"1 outfile" wc -l outfile
+}
 #endif
 
 atf_init_test_cases()
@@ -407,7 +478,12 @@ atf_init_test_cases()
 	atf_add_test_case follow
 	atf_add_test_case follow_stdin
 	atf_add_test_case follow_rename
+	atf_add_test_case silent_header
+	atf_add_test_case verbose_header
+	atf_add_test_case si_number
+	atf_add_test_case no_lf_at_eof
 #ifdef __APPLE__
 	atf_add_test_case blkbof
+	atf_add_test_case radr_13271328
 #endif
 }

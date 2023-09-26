@@ -133,6 +133,7 @@ VAR cupsd_statbuf_t *NotifierStatusBuffer VALUE(NULL);
  * Prototypes...
  */
 
+__attribute__((format(printf, 4, 5)))
 extern void	cupsdAddEvent(cupsd_eventmask_t event, cupsd_printer_t *dest,
 		              cupsd_job_t *job, const char *text, ...);
 extern cupsd_subscription_t *

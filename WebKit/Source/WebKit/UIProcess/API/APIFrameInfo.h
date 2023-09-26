@@ -27,15 +27,15 @@
 
 #include "APIObject.h"
 #include "FrameInfoData.h"
-#include "WebPageProxy.h"
 #include <WebCore/ResourceRequest.h>
 
 namespace WebCore {
-struct SecurityOriginData;
+class SecurityOriginData;
 }
 
 namespace WebKit {
 class WebFrameProxy;
+class WebPageProxy;
 struct FrameInfoData;
 }
 
@@ -50,11 +50,13 @@ public:
     virtual ~FrameInfo();
 
     bool isMainFrame() const { return m_data.isMainFrame; }
+    bool isLocalFrame() const { return m_data.frameType == WebKit::FrameType::Local; }
     const WebCore::ResourceRequest& request() const { return m_data.request; }
     WebCore::SecurityOriginData& securityOrigin() { return m_data.securityOrigin; }
     Ref<FrameHandle> handle() const;
     WebKit::WebPageProxy* page() { return m_page.get(); }
     RefPtr<FrameHandle> parentFrameHandle() const;
+    ProcessID processID() const { return m_data.processID; }
 
 private:
     FrameInfo(WebKit::FrameInfoData&&, RefPtr<WebKit::WebPageProxy>&&);

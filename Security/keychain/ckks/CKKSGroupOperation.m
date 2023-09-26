@@ -335,7 +335,7 @@
     return blockOp;
 }
 
-+ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSGroupOperation* strongOp))block
++ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSResultOperation* strongOp))block
 {
     CKKSGroupOperation* op = [[self alloc] init];
     __weak __typeof(op) weakOp = op;

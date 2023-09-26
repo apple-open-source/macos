@@ -279,6 +279,17 @@
 			name = "All-EmbeddedSimulator";
 			productName = EmbeddedSimulator;
 		};
+		8AE1A25D28B8405C00D54F88 /* configd_executables_bridgeOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 8AE1A27028B8405C00D54F88 /* Build configuration list for PBXAggregateTarget "configd_executables_bridgeOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				8AE1A26A28B8405C00D54F88 /* PBXTargetDependency */,
+			);
+			name = configd_executables_bridgeOS;
+			productName = configd_executables;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -923,9 +934,6 @@
 		15D92B9E1FFC61F400DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92B9D1FFC61F400DF2632 /* libnetwork.tbd */; };
 		15D92B9F1FFC640200DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92B9D1FFC61F400DF2632 /* libnetwork.tbd */; };
 		15D92BA11FFC641500DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92BA01FFC641500DF2632 /* libnetwork.tbd */; };
-		15D92BA21FFC646600DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92BA01FFC641500DF2632 /* libnetwork.tbd */; };
-		15D92BA31FFC647800DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92BA01FFC641500DF2632 /* libnetwork.tbd */; };
-		15D92BA41FFC648900DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92B9D1FFC61F400DF2632 /* libnetwork.tbd */; };
 		15D92BA51FFC64DB00DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92BA01FFC641500DF2632 /* libnetwork.tbd */; };
 		15DA6E6F267551530077A9BF /* SCControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 15DA6E6E267551460077A9BF /* SCControlPrefs.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15DA6E70267551530077A9BF /* SCControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15DA6E6D267551460077A9BF /* SCControlPrefs.c */; };
@@ -1140,6 +1148,9 @@
 		72D3E6611AE6EA3A00DB4C69 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E6601AE6EA3A00DB4C69 /* main.swift */; };
 		72D3E66C1AE6EAF600DB4C69 /* test-objC.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E66B1AE6EAF600DB4C69 /* test-objC.m */; };
 		78C951FE1F797B44000EA36B /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 78C951FD1F797B43000EA36B /* libnetwork.tbd */; };
+		94109B672A4A9BBA00EAE26A /* SCTestRankAssertion.m in Sources */ = {isa = PBXBuildFile; fileRef = 94D7F5DA29A4140D001088C5 /* SCTestRankAssertion.m */; };
+		949FE9C229277A5F00988AC3 /* SCTestNetworkConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = 949FE9C129277A5F00988AC3 /* SCTestNetworkConfiguration.m */; };
+		94D7F5DB29A4140D001088C5 /* SCTestRankAssertion.m in Sources */ = {isa = PBXBuildFile; fileRef = 94D7F5DA29A4140D001088C5 /* SCTestRankAssertion.m */; };
 		B03FEFB616376D2800A1B88F /* VPNAppLayer.c in Sources */ = {isa = PBXBuildFile; fileRef = B03FEFB516376D2800A1B88F /* VPNAppLayer.c */; };
 		B03FEFB716376D2800A1B88F /* VPNAppLayer.c in Sources */ = {isa = PBXBuildFile; fileRef = B03FEFB516376D2800A1B88F /* VPNAppLayer.c */; };
 		B03FEFBA16382C0700A1B88F /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15BAA32207F0699A00D9EC95 /* libbsm.dylib */; };
@@ -1177,6 +1188,14 @@
 		D6986A79136891650091C931 /* network_information.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A77136891300091C931 /* network_information.c */; };
 		E49173E1137C4E4F0000089F /* network_state_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_state_information_priv.c */; };
 		E4F211D3137B0AB900BBB915 /* network_state_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_state_information_priv.c */; };
+		F90D81CF291EABD300B4BDFE /* CategoryManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F90D81CE291EABC600B4BDFE /* CategoryManagerInternal.h */; };
+		F90D81D0291EABD900B4BDFE /* CategoryManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F90D81CE291EABC600B4BDFE /* CategoryManagerInternal.h */; };
+		F90D81D1291EAD9A00B4BDFE /* CategoryManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FE025D291AC994005771AD /* CategoryManager.c */; };
+		F90D81D2291EAD9D00B4BDFE /* CategoryManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FE025D291AC994005771AD /* CategoryManager.c */; };
+		F90D81D5291EADFE00B4BDFE /* SCNetworkCategory.c in Sources */ = {isa = PBXBuildFile; fileRef = F90D81D3291EADFE00B4BDFE /* SCNetworkCategory.c */; };
+		F90D81D6291EADFE00B4BDFE /* SCNetworkCategory.c in Sources */ = {isa = PBXBuildFile; fileRef = F90D81D3291EADFE00B4BDFE /* SCNetworkCategory.c */; };
+		F90D81D7291EADFE00B4BDFE /* SCNetworkCategoryManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F90D81D4291EADFE00B4BDFE /* SCNetworkCategoryManager.c */; };
+		F90D81D8291EADFE00B4BDFE /* SCNetworkCategoryManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F90D81D4291EADFE00B4BDFE /* SCNetworkCategoryManager.c */; };
 		F90E43562012AD4F00EF27C4 /* SCNetworkInterfaceProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = F90E43542012AD3900EF27C4 /* SCNetworkInterfaceProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F90E43572012AD6000EF27C4 /* SCNetworkInterfaceProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = F90E43542012AD3900EF27C4 /* SCNetworkInterfaceProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F90E43582012AD6900EF27C4 /* SCNetworkInterfaceProvider.c in Sources */ = {isa = PBXBuildFile; fileRef = F90E43552012AD4500EF27C4 /* SCNetworkInterfaceProvider.c */; };
@@ -1208,6 +1227,21 @@
 		F95B8A430B03E07A00993BA3 /* SCNetworkSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */; };
 		F95B8A460B03E09300993BA3 /* SCNetworkSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F95B8A470B03E09300993BA3 /* SCNetworkSignaturePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40ED293A8D6E00645955 /* SCNetworkCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40EE293A8D6E00645955 /* SCNetworkCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40EF293A8D6E00645955 /* SCNetworkCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40F0293A8D6E00645955 /* SCNetworkCategoryTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EB293A8D6E00645955 /* SCNetworkCategoryTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40F1293A8D6E00645955 /* SCNetworkCategoryTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EB293A8D6E00645955 /* SCNetworkCategoryTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40F2293A8D6E00645955 /* SCNetworkCategoryTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EB293A8D6E00645955 /* SCNetworkCategoryTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40F3293A8D6E00645955 /* SCNetworkCategoryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EC293A8D6E00645955 /* SCNetworkCategoryManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40F4293A8D6E00645955 /* SCNetworkCategoryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EC293A8D6E00645955 /* SCNetworkCategoryManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40F5293A8D6E00645955 /* SCNetworkCategoryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EC293A8D6E00645955 /* SCNetworkCategoryManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40F9294B9B8900645955 /* SCNetworkSettingsManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40F8294B9B8900645955 /* SCNetworkSettingsManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40FA294B9B8900645955 /* SCNetworkSettingsManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40F8294B9B8900645955 /* SCNetworkSettingsManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40FB294B9B8900645955 /* SCNetworkSettingsManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40F8294B9B8900645955 /* SCNetworkSettingsManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A40FD294B9B9900645955 /* SCNetworkSettingsManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F97A40FC294B9B9900645955 /* SCNetworkSettingsManager.c */; };
+		F97A40FE294B9B9900645955 /* SCNetworkSettingsManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F97A40FC294B9B9900645955 /* SCNetworkSettingsManager.c */; };
+		F97A40FF294B9B9900645955 /* SCNetworkSettingsManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F97A40FC294B9B9900645955 /* SCNetworkSettingsManager.c */; };
 		F9939D8F2656F3BE002998DE /* prefsmon_log.c in Sources */ = {isa = PBXBuildFile; fileRef = F955668B2652EBC8002EAD01 /* prefsmon_log.c */; };
 		F9939D912656F3D6002998DE /* prefsmon_log.h in Headers */ = {isa = PBXBuildFile; fileRef = F95566902652EBF0002EAD01 /* prefsmon_log.h */; };
 		F9960DCC2819D65C00C2BC51 /* libBASupport.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = F9960DCB2819D65C00C2BC51 /* libBASupport.tbd */; settings = {ATTRIBUTES = (Weak, ); }; };
@@ -1243,6 +1277,38 @@
 		F9DAB81F273D854700E0F229 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		F9E8B87428132B9500523749 /* Network.tiff in Resources */ = {isa = PBXBuildFile; fileRef = F9E8B87228132B9500523749 /* Network.tiff */; };
 		F9E8B87628132B9500523749 /* WiFi.tiff in Resources */ = {isa = PBXBuildFile; fileRef = F9E8B87328132B9500523749 /* WiFi.tiff */; };
+		F9FC44C32951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */; };
+		F9FC44C42951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */; };
+		F9FC44C52951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */; };
+		F9FC44C62954D39900BDBA54 /* CategoryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FE024E291AC893005771AD /* CategoryManager.h */; };
+		F9FC44C72954D39E00BDBA54 /* CategoryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FE024E291AC893005771AD /* CategoryManager.h */; };
+		F9FC44C82954D3A500BDBA54 /* CategoryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FE024E291AC893005771AD /* CategoryManager.h */; };
+		F9FC44CB2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C92954FBC200BDBA54 /* CategoryManagerCommon.h */; };
+		F9FC44CC2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C92954FBC200BDBA54 /* CategoryManagerCommon.h */; };
+		F9FC44CD2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C92954FBC200BDBA54 /* CategoryManagerCommon.h */; };
+		F9FC44CE2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C92954FBC200BDBA54 /* CategoryManagerCommon.h */; };
+		F9FC44CF2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C92954FBC200BDBA54 /* CategoryManagerCommon.h */; };
+		F9FC44D02954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FC44CA2954FBC200BDBA54 /* CategoryManagerCommon.c */; };
+		F9FC44D12954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FC44CA2954FBC200BDBA54 /* CategoryManagerCommon.c */; };
+		F9FC44D22954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FC44CA2954FBC200BDBA54 /* CategoryManagerCommon.c */; };
+		F9FC44D32954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FC44CA2954FBC200BDBA54 /* CategoryManagerCommon.c */; };
+		F9FC44D42954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FC44CA2954FBC200BDBA54 /* CategoryManagerCommon.c */; };
+		F9FC44D52964BB8800BDBA54 /* SCNetworkCategory.c in Sources */ = {isa = PBXBuildFile; fileRef = F90D81D3291EADFE00B4BDFE /* SCNetworkCategory.c */; };
+		F9FC44D62964BB9700BDBA54 /* SCNetworkCategoryManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F90D81D4291EADFE00B4BDFE /* SCNetworkCategoryManager.c */; };
+		F9FC44D72964BF1200BDBA54 /* CategoryManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FE025D291AC994005771AD /* CategoryManager.c */; };
+		F9FC44D92964DACC00BDBA54 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44D82964DA7800BDBA54 /* symbol_scope.h */; };
+		F9FC44DA2964DAD100BDBA54 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44D82964DA7800BDBA54 /* symbol_scope.h */; };
+		F9FC44DB2964DAD600BDBA54 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44D82964DA7800BDBA54 /* symbol_scope.h */; };
+		F9FC44DC2964DB1600BDBA54 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44D82964DA7800BDBA54 /* symbol_scope.h */; };
+		F9FC44DD2964DB1F00BDBA54 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44D82964DA7800BDBA54 /* symbol_scope.h */; };
+		F9FC44DE2964DB2200BDBA54 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44D82964DA7800BDBA54 /* symbol_scope.h */; };
+		F9FC44DF2964DB2A00BDBA54 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44D82964DA7800BDBA54 /* symbol_scope.h */; };
+		F9FE0257291AC8D7005771AD /* CategoryManagerServer.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0256291AC893005771AD /* CategoryManagerServer.c */; };
+		F9FE0258291AC8E2005771AD /* CategoryManagerServer.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0256291AC893005771AD /* CategoryManagerServer.c */; };
+		F9FE0259291AC93E005771AD /* CategoryManagerServer.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FE0251291AC893005771AD /* CategoryManagerServer.h */; };
+		F9FE025A291AC944005771AD /* CategoryManagerServer.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FE0251291AC893005771AD /* CategoryManagerServer.h */; };
+		F9FE025B291AC957005771AD /* CategoryManagerPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FE024D291AC893005771AD /* CategoryManagerPrivate.h */; };
+		F9FE025C291AC95A005771AD /* CategoryManagerPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FE024D291AC893005771AD /* CategoryManagerPrivate.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1798,6 +1864,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 155847430754FDCD0046C2E9;
 			remoteInfo = scutil;
+		};
+		8AE1A26B28B8405C00D54F88 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72573D251D667372004975AD;
+			remoteInfo = sctest;
 		};
 		C453EED12086992B00BF504E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2362,6 +2435,9 @@
 		72D3E6691AE6EAF600DB4C69 /* SCTest-ObjC */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "SCTest-ObjC"; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D3E66B1AE6EAF600DB4C69 /* test-objC.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "test-objC.m"; sourceTree = "<group>"; };
 		78C951FD1F797B43000EA36B /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
+		8AE1A27428B94A1D00D54F88 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		949FE9C129277A5F00988AC3 /* SCTestNetworkConfiguration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SCTestNetworkConfiguration.m; sourceTree = "<group>"; };
+		94D7F5DA29A4140D001088C5 /* SCTestRankAssertion.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SCTestRankAssertion.m; sourceTree = "<group>"; };
 		9EE943F306AF409B00772EB5 /* BondConfiguration.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BondConfiguration.c; sourceTree = "<group>"; };
 		B03FEFB516376D2800A1B88F /* VPNAppLayer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = VPNAppLayer.c; sourceTree = "<group>"; };
 		B084710E16385121006C92A3 /* SCNetworkConnectionInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkConnectionInternal.h; sourceTree = "<group>"; };
@@ -2392,6 +2468,9 @@
 		D6986A781368913C0091C931 /* network_information.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = network_information.h; path = nwi/network_information.h; sourceTree = "<group>"; };
 		D6AEB89815AE4446009F2FAF /* ip_plugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ip_plugin.h; sourceTree = "<group>"; };
 		F9022F20280A415E00F91B50 /* PrivacyAccounting.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PrivacyAccounting.framework; path = System/Library/PrivateFrameworks/PrivacyAccounting.framework; sourceTree = DEVELOPER_DIR; };
+		F90D81CE291EABC600B4BDFE /* CategoryManagerInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CategoryManagerInternal.h; sourceTree = "<group>"; };
+		F90D81D3291EADFE00B4BDFE /* SCNetworkCategory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SCNetworkCategory.c; sourceTree = "<group>"; };
+		F90D81D4291EADFE00B4BDFE /* SCNetworkCategoryManager.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SCNetworkCategoryManager.c; sourceTree = "<group>"; };
 		F90E43542012AD3900EF27C4 /* SCNetworkInterfaceProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkInterfaceProvider.h; sourceTree = "<group>"; };
 		F90E43552012AD4500EF27C4 /* SCNetworkInterfaceProvider.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SCNetworkInterfaceProvider.c; sourceTree = "<group>"; };
 		F9103032283D71480001D434 /* PrivateStrings.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = PrivateStrings.plist; sourceTree = "<group>"; };
@@ -2408,6 +2487,11 @@
 		F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SCNetworkSignature.c; sourceTree = "<group>"; };
 		F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignature.h; sourceTree = "<group>"; };
 		F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignaturePrivate.h; sourceTree = "<group>"; };
+		F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategory.h; sourceTree = "<group>"; };
+		F97A40EB293A8D6E00645955 /* SCNetworkCategoryTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategoryTypes.h; sourceTree = "<group>"; };
+		F97A40EC293A8D6E00645955 /* SCNetworkCategoryManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategoryManager.h; sourceTree = "<group>"; };
+		F97A40F8294B9B8900645955 /* SCNetworkSettingsManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkSettingsManager.h; sourceTree = "<group>"; };
+		F97A40FC294B9B9900645955 /* SCNetworkSettingsManager.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SCNetworkSettingsManager.c; sourceTree = "<group>"; };
 		F9960DC92819D3FE00C2BC51 /* libBASupport.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libBASupport.tbd; path = usr/lib/libBASupport.tbd; sourceTree = DEVELOPER_DIR; };
 		F9960DCB2819D65C00C2BC51 /* libBASupport.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libBASupport.tbd; path = usr/lib/libBASupport.tbd; sourceTree = SDKROOT; };
 		F99A33B127B21CA400BD5FDA /* WiFiUtil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WiFiUtil.h; sourceTree = "<group>"; };
@@ -2432,6 +2516,15 @@
 		F9DA26732702404D00B31870 /* WatchdogClient.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchdogClient.framework; path = System/Library/PrivateFrameworks/WatchdogClient.framework; sourceTree = SDKROOT; };
 		F9E8B87228132B9500523749 /* Network.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Network.tiff; sourceTree = "<group>"; };
 		F9E8B87328132B9500523749 /* WiFi.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = WiFi.tiff; sourceTree = "<group>"; };
+		F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategoryManagerInternal.h; sourceTree = "<group>"; };
+		F9FC44C92954FBC200BDBA54 /* CategoryManagerCommon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CategoryManagerCommon.h; sourceTree = "<group>"; };
+		F9FC44CA2954FBC200BDBA54 /* CategoryManagerCommon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CategoryManagerCommon.c; sourceTree = "<group>"; };
+		F9FC44D82964DA7800BDBA54 /* symbol_scope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = symbol_scope.h; sourceTree = "<group>"; };
+		F9FE024D291AC893005771AD /* CategoryManagerPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CategoryManagerPrivate.h; sourceTree = "<group>"; };
+		F9FE024E291AC893005771AD /* CategoryManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CategoryManager.h; sourceTree = "<group>"; };
+		F9FE0251291AC893005771AD /* CategoryManagerServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CategoryManagerServer.h; sourceTree = "<group>"; };
+		F9FE0256291AC893005771AD /* CategoryManagerServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CategoryManagerServer.c; sourceTree = "<group>"; };
+		F9FE025D291AC994005771AD /* CategoryManager.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CategoryManager.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2505,7 +2598,6 @@
 				153786F92513EFA1004EB6B1 /* IOKit.framework in Frameworks */,
 				15539D5A2513FBD100221E6C /* Security.framework in Frameworks */,
 				B03FEFBB16382C1300A1B88F /* libbsm.dylib in Frameworks */,
-				15D92BA31FFC647800DF2632 /* libnetwork.tbd in Frameworks */,
 				158FC7951FE08CC000B2493C /* libCrashReporterClient.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2632,7 +2724,6 @@
 				153787482513EFCB004EB6B1 /* IOKit.framework in Frameworks */,
 				15539D5B2513FC5600221E6C /* Security.framework in Frameworks */,
 				B0FEF41A164406F400174B99 /* libbsm.dylib in Frameworks */,
-				15D92BA21FFC646600DF2632 /* libnetwork.tbd in Frameworks */,
 				158FC7931FE08B3900B2493C /* libCrashReporterClient.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2653,7 +2744,6 @@
 				153786AA2513EF45004EB6B1 /* IOKit.framework in Frameworks */,
 				15539D0B2513F5FF00221E6C /* Security.framework in Frameworks */,
 				B03FEFBA16382C0700A1B88F /* libbsm.dylib in Frameworks */,
-				15D92BA41FFC648900DF2632 /* libnetwork.tbd in Frameworks */,
 				15FBB54C17D6834C0035D752 /* libCrashReporterClient.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3241,6 +3331,11 @@
 		15C330DC134B9BA20028E36B /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */,
+				F97A40F8294B9B8900645955 /* SCNetworkSettingsManager.h */,
+				F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */,
+				F97A40EC293A8D6E00645955 /* SCNetworkCategoryManager.h */,
+				F97A40EB293A8D6E00645955 /* SCNetworkCategoryTypes.h */,
 				15AD7A380670A85900BFE03C /* SCNetworkConfiguration.h */,
 				15AD7A3A0670A85900BFE03C /* SCNetworkConfigurationInternal.h */,
 				155A1E6B081079CC00F70D98 /* SCNetworkConfigurationPrivate.h */,
@@ -3251,6 +3346,9 @@
 		15C330DD134B9BB20028E36B /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				F97A40FC294B9B9900645955 /* SCNetworkSettingsManager.c */,
+				F90D81D3291EADFE00B4BDFE /* SCNetworkCategory.c */,
+				F90D81D4291EADFE00B4BDFE /* SCNetworkCategoryManager.c */,
 				15AD7A390670A85900BFE03C /* SCNetworkConfigurationInternal.c */,
 				15D427212166F6F50082AA78 /* SCNetworkConfigurationPrivate.c */,
 				15AD7A3B0670A85900BFE03C /* SCNetworkInterface.c */,
@@ -3340,10 +3438,11 @@
 				15CB69C205C0722B0099E85F /* configd */,
 				159D53A207528B06004F8947 /* Plugins */,
 				F9B7AE5B1862116500C78D18 /* IPMonitorControl */,
+				F9FE024C291AC893005771AD /* CategoryManager */,
 				15CB6A3705C0722B0099E85F /* scutil */,
 				15CB6A2205C0722B0099E85F /* scselect */,
-				72573D271D667372004975AD /* sctest */,
 				C4666C73206ED01800247AB6 /* EventFactory */,
+				72573D271D667372004975AD /* sctest */,
 				72D3E66A1AE6EAF600DB4C69 /* SCTest-ObjC */,
 				72D3E65F1AE6EA3A00DB4C69 /* SCTest-Swift */,
 				F9B686D1273D839C00918A9C /* netconfig */,
@@ -3416,21 +3515,21 @@
 		15CB691205C0722B0099E85F /* Other Headers */ = {
 			isa = PBXGroup;
 			children = (
+				15CB691305C0722B0099E85F /* SystemConfiguration.h */,
+				15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */,
+				15CB693D05C0722B0099E85F /* DHCPClientPreferences.h */,
+				15CB691505C0722B0099E85F /* SCPrivate.h */,
+				15CB691705C0722B0099E85F /* SCDPlugin.h */,
 				F9389E0A2805E6D00080BFDB /* SCInternal.h */,
 				1510A3EA251BF03B005524C1 /* strict.h */,
 				158FC77E1FDAE27900B2493C /* SystemConfigurationInternal.h */,
 				15D8B2291450D8450090CECF /* SCD.h */,
-				15CB691305C0722B0099E85F /* SystemConfiguration.h */,
 				150607DE075A00A300B147BA /* SCSchemaDefinitions.h */,
 				157A88880A470D0F003A4256 /* SCSchemaDefinitionsPrivate.h */,
-				15CB691705C0722B0099E85F /* SCDPlugin.h */,
-				15CB691505C0722B0099E85F /* SCPrivate.h */,
 				15CB693305C0722B0099E85F /* SCNetwork.h */,
 				F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */,
 				F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */,
 				15CB693905C0722B0099E85F /* SCValidation.h */,
-				15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */,
-				15CB693D05C0722B0099E85F /* DHCPClientPreferences.h */,
 				D61AAEB41522C9BD0066B003 /* scprefs_observer.h */,
 			);
 			name = "Other Headers";
@@ -3699,20 +3798,23 @@
 		72573D271D667372004975AD /* sctest */ = {
 			isa = PBXGroup;
 			children = (
+				8AE1A27428B94A1D00D54F88 /* Makefile */,
 				72573D361D668B3C004975AD /* genSCTestOptions.c */,
 				72573D381D6692BA004975AD /* SCTestOptions.h */,
 				72573D391D6692BA004975AD /* SCTestOptions.m */,
 				72573D301D6675AF004975AD /* SCTestUtils.h */,
 				72573D311D667686004975AD /* SCTestUtils.m */,
 				72573D2F1D6673C6004975AD /* SCTest.h */,
-				72573D281D667372004975AD /* main.m */,
 				72573D2D1D6673B6004975AD /* SCTest.m */,
 				72573D3B1D6695B4004975AD /* SCTestDynamicStore.m */,
 				72573D3D1D669AA6004975AD /* SCTestPreferences.m */,
 				72573D411D6B7989004975AD /* SCTestConfigAgents.m */,
 				728E0E951D70229A00E0613A /* SCTestReachability.m */,
 				15FA163923C6341100573B3C /* SCTestInterfaceNamer.m */,
+				949FE9C129277A5F00988AC3 /* SCTestNetworkConfiguration.m */,
+				94D7F5DA29A4140D001088C5 /* SCTestRankAssertion.m */,
 				72573D3F1D67B2BE004975AD /* SCTestUnitTest.m */,
+				72573D281D667372004975AD /* main.m */,
 				72573D431D6B9E72004975AD /* sctest-entitlements.plist */,
 				72C12CAA1D6E9ED4000EE61C /* npt_configd.plist */,
 			);
@@ -3885,6 +3987,7 @@
 		F9121F842805FDDD00D05246 /* common */ = {
 			isa = PBXGroup;
 			children = (
+				F9FC44D82964DA7800BDBA54 /* symbol_scope.h */,
 				F9121F852805FDDD00D05246 /* scdtest.h */,
 				F9121F862805FDDD00D05246 /* reference_output.sh */,
 			);
@@ -3912,6 +4015,21 @@
 				F9B7AE631862116500C78D18 /* symbol_scope.h */,
 			);
 			path = IPMonitorControl;
+			sourceTree = "<group>";
+		};
+		F9FE024C291AC893005771AD /* CategoryManager */ = {
+			isa = PBXGroup;
+			children = (
+				F9FC44CA2954FBC200BDBA54 /* CategoryManagerCommon.c */,
+				F9FC44C92954FBC200BDBA54 /* CategoryManagerCommon.h */,
+				F90D81CE291EABC600B4BDFE /* CategoryManagerInternal.h */,
+				F9FE025D291AC994005771AD /* CategoryManager.c */,
+				F9FE024D291AC893005771AD /* CategoryManagerPrivate.h */,
+				F9FE024E291AC893005771AD /* CategoryManager.h */,
+				F9FE0251291AC893005771AD /* CategoryManagerServer.h */,
+				F9FE0256291AC893005771AD /* CategoryManagerServer.c */,
+			);
+			path = CategoryManager;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -3990,12 +4108,14 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F97A40EE293A8D6E00645955 /* SCNetworkCategory.h in Headers */,
 				1572C4CB0CFB55B400E2776E /* pppcontroller.h in Headers */,
 				15DA6E71267551590077A9BF /* SCControlPrefs.h in Headers */,
 				1572C4CA0CFB55B400E2776E /* pppcontroller_types.h in Headers */,
 				1572C581171CD00E00870549 /* pppcontroller_mach_defines.h in Headers */,
 				1572C4A90CFB55B400E2776E /* SCSchemaDefinitions.h in Headers */,
 				1572C4AA0CFB55B400E2776E /* SystemConfiguration.h in Headers */,
+				F9FC44CD2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */,
 				1572C4AB0CFB55B400E2776E /* SCPrivate.h in Headers */,
 				1572C4AC0CFB55B400E2776E /* SCDPlugin.h in Headers */,
 				1572C4AD0CFB55B400E2776E /* SCDynamicStoreInternal.h in Headers */,
@@ -4003,17 +4123,22 @@
 				1572C4AF0CFB55B400E2776E /* SCDynamicStorePrivate.h in Headers */,
 				1572C4B00CFB55B400E2776E /* SCDynamicStoreKey.h in Headers */,
 				1572C4B10CFB55B400E2776E /* SCDynamicStoreCopySpecific.h in Headers */,
+				F9FC44C62954D39900BDBA54 /* CategoryManager.h in Headers */,
 				1572C4B20CFB55B400E2776E /* SCDynamicStoreCopySpecificPrivate.h in Headers */,
 				1572C4B30CFB55B400E2776E /* SCDynamicStoreSetSpecificPrivate.h in Headers */,
 				1572C4B40CFB55B400E2776E /* SCPreferencesInternal.h in Headers */,
 				1572C4B50CFB55B400E2776E /* SCPreferences.h in Headers */,
 				1572C4B60CFB55B400E2776E /* SCPreferencesPrivate.h in Headers */,
 				1572C4B70CFB55B400E2776E /* SCPreferencesPath.h in Headers */,
+				F9FC44C42951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */,
 				1572C4B80CFB55B400E2776E /* SCPreferencesSetSpecific.h in Headers */,
 				1572C4B90CFB55B400E2776E /* SCNetworkConfiguration.h in Headers */,
 				1572C4BA0CFB55B400E2776E /* SCNetworkConfigurationInternal.h in Headers */,
 				D61AAEB61522C9E60066B003 /* scprefs_observer.h in Headers */,
+				F97A40FA294B9B8900645955 /* SCNetworkSettingsManager.h in Headers */,
 				F90E43572012AD6000EF27C4 /* SCNetworkInterfaceProvider.h in Headers */,
+				F97A40F4293A8D6E00645955 /* SCNetworkCategoryManager.h in Headers */,
+				F97A40F1293A8D6E00645955 /* SCNetworkCategoryTypes.h in Headers */,
 				1572C4BB0CFB55B400E2776E /* SCNetwork.h in Headers */,
 				1572C4BC0CFB55B400E2776E /* SCNetworkConnection.h in Headers */,
 				1572C4BD0CFB55B400E2776E /* SCNetworkReachability.h in Headers */,
@@ -4034,6 +4159,7 @@
 				1572AA901D8237810021E093 /* plugin_shared.h in Headers */,
 				F9389E0C2805E6D00080BFDB /* SCInternal.h in Headers */,
 				F9347FF9187C7993003D4178 /* IPMonitorControlPrivate.h in Headers */,
+				F9FC44DA2964DAD100BDBA54 /* symbol_scope.h in Headers */,
 				F9347FFA187C7993003D4178 /* symbol_scope.h in Headers */,
 				1572C4D60CFB55B400E2776E /* SCSchemaDefinitionsPrivate.h in Headers */,
 				1572C4D70CFB55B400E2776E /* SCNetworkSignature.h in Headers */,
@@ -4171,6 +4297,7 @@
 				157A84F70D56C7E800B6F1A0 /* set-hostname.h in Headers */,
 				F9B7AE6F186211F600C78D18 /* symbol_scope.h in Headers */,
 				1581BCD61E2867AF00F69B1E /* IPMonitorControlPrefs.h in Headers */,
+				F9FC44DC2964DB1600BDBA54 /* symbol_scope.h in Headers */,
 				F9B7AE68186211C900C78D18 /* IPMonitorControlPrivate.h in Headers */,
 				F9B7AE6C186211DE00C78D18 /* IPMonitorControlServer.h in Headers */,
 				153E16A61EE5008A0027698E /* SCNetworkReachabilityInternal.h in Headers */,
@@ -4211,7 +4338,12 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9FE025A291AC944005771AD /* CategoryManagerServer.h in Headers */,
+				F9FC44CE2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */,
 				F9939D912656F3D6002998DE /* prefsmon_log.h in Headers */,
+				F9FC44DF2964DB2A00BDBA54 /* symbol_scope.h in Headers */,
+				F90D81D0291EABD900B4BDFE /* CategoryManagerInternal.h in Headers */,
+				F9FE025B291AC957005771AD /* CategoryManagerPrivate.h in Headers */,
 				1572AA911D82379E0021E093 /* plugin_shared.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4272,6 +4404,7 @@
 				158FC7851FDAEF6600B2493C /* network_state_information_priv.h in Headers */,
 				15D48EC00F67061700B4711E /* dnsinfo_create.h in Headers */,
 				15CB8F791EE4DD3B00726685 /* dnsinfo_logging.h in Headers */,
+				F9FC44DD2964DB1F00BDBA54 /* symbol_scope.h in Headers */,
 				7280159D1BE1812B009F4F60 /* dnsAgent.h in Headers */,
 				155D223B0AF13A7300D52ED0 /* dns-configuration.h in Headers */,
 				1596A7B414EDB73D00798C39 /* libSystemConfiguration_server.h in Headers */,
@@ -4302,7 +4435,12 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9FC44CC2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */,
 				F95566912652EBF0002EAD01 /* preboot.h in Headers */,
+				F9FE0259291AC93E005771AD /* CategoryManagerServer.h in Headers */,
+				F9FC44DE2964DB2200BDBA54 /* symbol_scope.h in Headers */,
+				F9FE025C291AC95A005771AD /* CategoryManagerPrivate.h in Headers */,
+				F90D81CF291EABD300B4BDFE /* CategoryManagerInternal.h in Headers */,
 				1572AA8D1D8235940021E093 /* plugin_shared.h in Headers */,
 				F95566922652EBF0002EAD01 /* prefsmon_log.h in Headers */,
 			);
@@ -4326,12 +4464,14 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F97A40EF293A8D6E00645955 /* SCNetworkCategory.h in Headers */,
 				15A5A2090D5B94190087BDA0 /* pppcontroller.h in Headers */,
 				15DA6E73267551650077A9BF /* SCControlPrefs.h in Headers */,
 				15EF899F21894452003B2C5C /* SCNetworkInterfaceProvider.h in Headers */,
 				15EF89CC21894B28003B2C5C /* IPMonitorControl.h in Headers */,
 				15A5A2080D5B94190087BDA0 /* pppcontroller_types.h in Headers */,
 				1572C57F171CCFE200870549 /* pppcontroller_mach_defines.h in Headers */,
+				F9FC44CF2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */,
 				15A5A1E70D5B94190087BDA0 /* SCSchemaDefinitions.h in Headers */,
 				15A5A1E80D5B94190087BDA0 /* SystemConfiguration.h in Headers */,
 				15A5A1E90D5B94190087BDA0 /* SCPrivate.h in Headers */,
@@ -4339,17 +4479,22 @@
 				15A5A1EB0D5B94190087BDA0 /* SCDynamicStoreInternal.h in Headers */,
 				15A5A1EC0D5B94190087BDA0 /* SCDynamicStore.h in Headers */,
 				15A5A1ED0D5B94190087BDA0 /* SCDynamicStorePrivate.h in Headers */,
+				F9FC44C72954D39E00BDBA54 /* CategoryManager.h in Headers */,
 				15A5A1EE0D5B94190087BDA0 /* SCDynamicStoreKey.h in Headers */,
 				15A5A1EF0D5B94190087BDA0 /* SCDynamicStoreCopySpecific.h in Headers */,
 				15A5A1F00D5B94190087BDA0 /* SCDynamicStoreCopySpecificPrivate.h in Headers */,
 				15A5A1F10D5B94190087BDA0 /* SCDynamicStoreSetSpecificPrivate.h in Headers */,
 				15A5A1F20D5B94190087BDA0 /* SCPreferencesInternal.h in Headers */,
 				15A5A1F30D5B94190087BDA0 /* SCPreferences.h in Headers */,
+				F9FC44C52951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */,
 				15A5A1F40D5B94190087BDA0 /* SCPreferencesPrivate.h in Headers */,
 				15A5A1F50D5B94190087BDA0 /* SCPreferencesPath.h in Headers */,
 				15A5A1F60D5B94190087BDA0 /* SCPreferencesSetSpecific.h in Headers */,
 				15A5A1F70D5B94190087BDA0 /* SCNetworkConfiguration.h in Headers */,
+				F97A40FB294B9B8900645955 /* SCNetworkSettingsManager.h in Headers */,
 				15A5A1F80D5B94190087BDA0 /* SCNetworkConfigurationInternal.h in Headers */,
+				F97A40F5293A8D6E00645955 /* SCNetworkCategoryManager.h in Headers */,
+				F97A40F2293A8D6E00645955 /* SCNetworkCategoryTypes.h in Headers */,
 				727AF257191386DA009AB153 /* VPNTunnel.h in Headers */,
 				15A5A1F90D5B94190087BDA0 /* SCNetwork.h in Headers */,
 				15A5A1FA0D5B94190087BDA0 /* SCNetworkConnection.h in Headers */,
@@ -4370,6 +4515,7 @@
 				15A5A20E0D5B94190087BDA0 /* SCNetworkConfigurationPrivate.h in Headers */,
 				F9389E0D2805E6D00080BFDB /* SCInternal.h in Headers */,
 				15A5A2100D5B94190087BDA0 /* SCHelper_client.h in Headers */,
+				F9FC44DB2964DAD600BDBA54 /* symbol_scope.h in Headers */,
 				15A5A2110D5B94190087BDA0 /* SCNetworkConnectionPrivate.h in Headers */,
 				15A5A2120D5B94190087BDA0 /* SCPreferencesKeychainPrivate.h in Headers */,
 				15A5A2130D5B94190087BDA0 /* SCSchemaDefinitionsPrivate.h in Headers */,
@@ -4411,12 +4557,14 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F97A40ED293A8D6E00645955 /* SCNetworkCategory.h in Headers */,
 				15DAD66507591A1A0084A6ED /* pppcontroller.h in Headers */,
 				15DA6E6F267551530077A9BF /* SCControlPrefs.h in Headers */,
 				1572C580171CCFF000870549 /* pppcontroller_mach_defines.h in Headers */,
 				15DAD66407591A1A0084A6ED /* pppcontroller_types.h in Headers */,
 				1506081A075A00A300B147BA /* SCSchemaDefinitions.h in Headers */,
 				15DAD64307591A1A0084A6ED /* SystemConfiguration.h in Headers */,
+				F9FC44CB2954FBC300BDBA54 /* CategoryManagerCommon.h in Headers */,
 				15DAD64407591A1A0084A6ED /* SCPrivate.h in Headers */,
 				15DAD64507591A1A0084A6ED /* SCDPlugin.h in Headers */,
 				15DAD64607591A1A0084A6ED /* SCDynamicStoreInternal.h in Headers */,
@@ -4424,17 +4572,22 @@
 				15DAD64807591A1A0084A6ED /* SCDynamicStorePrivate.h in Headers */,
 				15DAD64907591A1A0084A6ED /* SCDynamicStoreKey.h in Headers */,
 				15DAD64A07591A1A0084A6ED /* SCDynamicStoreCopySpecific.h in Headers */,
+				F9FC44C82954D3A500BDBA54 /* CategoryManager.h in Headers */,
 				15DAD64B07591A1A0084A6ED /* SCDynamicStoreCopySpecificPrivate.h in Headers */,
 				15DAD64C07591A1A0084A6ED /* SCDynamicStoreSetSpecificPrivate.h in Headers */,
 				15DAD64D07591A1A0084A6ED /* SCPreferencesInternal.h in Headers */,
 				7264C14614731A1F004FD76D /* CaptiveNetwork.h in Headers */,
 				15DAD64E07591A1A0084A6ED /* SCPreferences.h in Headers */,
 				15DAD64F07591A1A0084A6ED /* SCPreferencesPrivate.h in Headers */,
+				F9FC44C32951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */,
 				15DAD65007591A1A0084A6ED /* SCPreferencesPath.h in Headers */,
 				15DAD65107591A1A0084A6ED /* SCPreferencesSetSpecific.h in Headers */,
 				15DAD65207591A1A0084A6ED /* SCNetworkConfiguration.h in Headers */,
 				D61AAEB51522C9D00066B003 /* scprefs_observer.h in Headers */,
+				F97A40F9294B9B8900645955 /* SCNetworkSettingsManager.h in Headers */,
 				F90E43562012AD4F00EF27C4 /* SCNetworkInterfaceProvider.h in Headers */,
+				F97A40F3293A8D6E00645955 /* SCNetworkCategoryManager.h in Headers */,
+				F97A40F0293A8D6E00645955 /* SCNetworkCategoryTypes.h in Headers */,
 				15DAD65307591A1A0084A6ED /* SCNetworkConfigurationInternal.h in Headers */,
 				F9B7AE66186211BE00C78D18 /* IPMonitorControlPrivate.h in Headers */,
 				15DAD65407591A1A0084A6ED /* SCNetwork.h in Headers */,
@@ -4455,6 +4608,7 @@
 				1572AA8E1D8235A40021E093 /* plugin_shared.h in Headers */,
 				F9389E0B2805E6D00080BFDB /* SCInternal.h in Headers */,
 				155B7BF80847776D00F0E262 /* SCHelper_client.h in Headers */,
+				F9FC44D92964DACC00BDBA54 /* symbol_scope.h in Headers */,
 				15D8B22A1450D8450090CECF /* SCD.h in Headers */,
 				15A297300A13C08C009879B3 /* SCNetworkConnectionPrivate.h in Headers */,
 				152E68C10A2C89C70011FDA8 /* SCPreferencesKeychainPrivate.h in Headers */,
@@ -5557,7 +5711,7 @@
 		15CB6A7705C0722B0099E85F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1320;
+				LastUpgradeCheck = 1400;
 				TargetAttributes = {
 					15401C1C21991506006326B7 = {
 						CreatedOnToolsVersion = 11.0;
@@ -5615,6 +5769,7 @@
 				155F49861C864F1400E47D08 /* QoSMarking */,
 				155F498E1C864F3700E47D08 /* QoSMarking.bundle */,
 				155847FA07550D210046C2E9 /* configd_executables */,
+				8AE1A25D28B8405C00D54F88 /* configd_executables_bridgeOS */,
 				151D05FA1EC1491600E02E48 /* liblog_SystemConfiguration */,
 				159D549F07529FFF004F8947 /* configd */,
 				1558481207550EC10046C2E9 /* scselect */,
@@ -5856,7 +6011,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK}\" = \"YES\" ]; then\n    mkdir -p ${DSTROOT}/System/Library/Frameworks\n    cd ${DSTROOT}/System/Library/Frameworks\n    rm -rf SystemConfiguration.framework\n    ln -s ../PrivateFrameworks/SystemConfiguration.framework .\nfi";
+			shellScript = "if [ \"${USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK}\" = \"YES\" ]; then\n    mkdir -p ${DSTROOT}/System/Library/Frameworks\n    cd ${DSTROOT}/System/Library/Frameworks\n    rm -rf SystemConfiguration.framework\n    ln -s ../PrivateFrameworks/SystemConfiguration.framework .\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		151F63DB09328A3C0096DCC9 /* ShellScript */ = {
@@ -6235,7 +6390,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [ ${UID} -eq 0 ]; then\n\tchown 0:0 \"${DSTROOT}/AppleInternal/CoreOS/BATS/npt_tests/npt_configd.plist\"\nfi\n\nexit 0";
+			shellScript = "if [ ${UID} -eq 0 ]; then\n\tchown 0:0 \"${DSTROOT}/AppleInternal/CoreOS/BATS/npt_tests/npt_configd.plist\"\nfi\n\nexit 0\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -6327,6 +6482,7 @@
 				1572C5140CFB55B400E2776E /* config.defs in Sources */,
 				158E595F1107CAE80062081E /* helper.defs in Sources */,
 				1572C5090CFB55B400E2776E /* pppcontroller.defs in Sources */,
+				F90D81D6291EADFE00B4BDFE /* SCNetworkCategory.c in Sources */,
 				1572C4DF0CFB55B400E2776E /* SCSchemaDefinitions.c in Sources */,
 				1572C4E00CFB55B400E2776E /* SCD.c in Sources */,
 				1572C4E10CFB55B400E2776E /* SCDKeys.c in Sources */,
@@ -6347,6 +6503,7 @@
 				1572C4F30CFB55B400E2776E /* SCDNotifierInformViaCallback.c in Sources */,
 				1572C4F50CFB55B400E2776E /* SCDNotifierInformViaFD.c in Sources */,
 				1572C4F70CFB55B400E2776E /* SCDNotifierCancel.c in Sources */,
+				F90D81D2291EAD9D00B4BDFE /* CategoryManager.c in Sources */,
 				1572C4F80CFB55B400E2776E /* SCDSnapshot.c in Sources */,
 				1572C4F90CFB55B400E2776E /* SCP.c in Sources */,
 				1572C4FA0CFB55B400E2776E /* SCPOpen.c in Sources */,
@@ -6380,16 +6537,19 @@
 				1565D85118B847F20097062B /* SCNetworkMigration.c in Sources */,
 				1572C5200CFB55B400E2776E /* SCHelper_client.c in Sources */,
 				1572C5210CFB55B400E2776E /* SCPreferencesKeychainPrivate.c in Sources */,
+				F9FC44D22954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */,
 				1572C5220CFB55B400E2776E /* SCNetworkSignature.c in Sources */,
 				15A1FF3310597F17004C9CC9 /* CaptiveNetwork.c in Sources */,
 				159A7520107FEAA400A57EAB /* VPNConfiguration.c in Sources */,
 				15AAA7F6108E310700C2A607 /* VPNTunnel.c in Sources */,
 				152691DB1129EEA6006BD2D5 /* BridgeConfiguration.c in Sources */,
+				F97A40FE294B9B9900645955 /* SCNetworkSettingsManager.c in Sources */,
 				152691DE1129EEC2006BD2D5 /* VLANConfiguration.c in Sources */,
 				D61AAEB01522C99C0066B003 /* scprefs_observer.c in Sources */,
 				C4F1848116237AFC00D97043 /* VPNService.c in Sources */,
 				B03FEFB716376D2800A1B88F /* VPNAppLayer.c in Sources */,
 				15DA6E72267551590077A9BF /* SCControlPrefs.c in Sources */,
+				F90D81D8291EADFE00B4BDFE /* SCNetworkCategoryManager.c in Sources */,
 				F9347FF7187C796E003D4178 /* IPMonitorControl.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6556,7 +6716,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9FE0258291AC8E2005771AD /* CategoryManagerServer.c in Sources */,
 				F9939D8F2656F3BE002998DE /* prefsmon_log.c in Sources */,
+				F9FC44D32954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */,
 				157A853F0D56C96F00B6F1A0 /* prefsmon.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6662,9 +6824,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9FE0257291AC8D7005771AD /* CategoryManagerServer.c in Sources */,
 				F955668D2652EBC8002EAD01 /* prefsmon_log.c in Sources */,
 				159D541C07528E58004F8947 /* prefsmon.c in Sources */,
 				F955668E2652EBC8002EAD01 /* preboot.m in Sources */,
+				F9FC44D12954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6706,9 +6870,11 @@
 				158E59611107CAF40062081E /* helper.defs in Sources */,
 				15A5A2480D5B94190087BDA0 /* pppcontroller.defs in Sources */,
 				15A5A21E0D5B94190087BDA0 /* SCSchemaDefinitions.c in Sources */,
+				F9FC44D52964BB8800BDBA54 /* SCNetworkCategory.c in Sources */,
 				15A5A21F0D5B94190087BDA0 /* SCD.c in Sources */,
 				15A5A2200D5B94190087BDA0 /* SCDKeys.c in Sources */,
 				15A5A2210D5B94190087BDA0 /* SCDPrivate.c in Sources */,
+				F97A40FF294B9B9900645955 /* SCNetworkSettingsManager.c in Sources */,
 				15A5A2220D5B94190087BDA0 /* SCDPlugin.c in Sources */,
 				15A5A2230D5B94190087BDA0 /* SCDOpen.c in Sources */,
 				15A5A2260D5B94190087BDA0 /* SCDList.c in Sources */,
@@ -6751,12 +6917,15 @@
 				15A5A2500D5B94190087BDA0 /* LinkConfiguration.c in Sources */,
 				15A5A2540D5B94190087BDA0 /* SCPreferencesPathKey.c in Sources */,
 				15A5A2580D5B94190087BDA0 /* SCNetworkConfigurationInternal.c in Sources */,
+				F9FC44D62964BB9700BDBA54 /* SCNetworkCategoryManager.c in Sources */,
 				15A5A2590D5B94190087BDA0 /* SCNetworkInterface.c in Sources */,
 				15A5A25A0D5B94190087BDA0 /* SCNetworkProtocol.c in Sources */,
+				F9FC44D42954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */,
 				15A5A25B0D5B94190087BDA0 /* SCNetworkService.c in Sources */,
 				15A5A25C0D5B94190087BDA0 /* SCNetworkSet.c in Sources */,
 				1565D85018B847590097062B /* SCNetworkMigration.c in Sources */,
 				15A5A25F0D5B94190087BDA0 /* SCHelper_client.c in Sources */,
+				F9FC44D72964BF1200BDBA54 /* CategoryManager.c in Sources */,
 				15A5A2600D5B94190087BDA0 /* SCPreferencesKeychainPrivate.c in Sources */,
 				15A5A2610D5B94190087BDA0 /* SCNetworkSignature.c in Sources */,
 				15A1FF3510597F17004C9CC9 /* CaptiveNetwork.c in Sources */,
@@ -6840,6 +7009,7 @@
 				15DAD69307591A1A0084A6ED /* SCDHostName.c in Sources */,
 				15DAD69407591A1A0084A6ED /* SCLocation.c in Sources */,
 				15DAD69507591A1A0084A6ED /* SCNetwork.c in Sources */,
+				F97A40FD294B9B9900645955 /* SCNetworkSettingsManager.c in Sources */,
 				15DAD69707591A1A0084A6ED /* SCNetworkConnection.c in Sources */,
 				15A2972F0A13C08C009879B3 /* SCNetworkConnectionPrivate.c in Sources */,
 				15DAD69807591A1A0084A6ED /* SCNetworkReachability.c in Sources */,
@@ -6849,6 +7019,7 @@
 				15DAD69F07591A1A0084A6ED /* VLANConfiguration.c in Sources */,
 				15DAD6A207591A1A0084A6ED /* SCPreferencesPathKey.c in Sources */,
 				15DAD6A607591A1A0084A6ED /* SCNetworkConfigurationInternal.c in Sources */,
+				F90D81D7291EADFE00B4BDFE /* SCNetworkCategoryManager.c in Sources */,
 				15DAD6A707591A1A0084A6ED /* SCNetworkInterface.c in Sources */,
 				15DAD6A807591A1A0084A6ED /* SCNetworkProtocol.c in Sources */,
 				15DAD6A907591A1A0084A6ED /* SCNetworkService.c in Sources */,
@@ -6857,10 +7028,13 @@
 				55A3DB9E183C2AD900ED3DB7 /* SCNetworkMigration.c in Sources */,
 				15DAD6AB07591A1A0084A6ED /* BondConfiguration.c in Sources */,
 				15FD7B3C101E439200C56621 /* BridgeConfiguration.c in Sources */,
+				F9FC44D02954FBC300BDBA54 /* CategoryManagerCommon.c in Sources */,
 				15DAF2DC08466D4900D1B2BD /* SCHelper_client.c in Sources */,
 				152E68C30A2C89E30011FDA8 /* SCPreferencesKeychainPrivate.c in Sources */,
 				F95B8A430B03E07A00993BA3 /* SCNetworkSignature.c in Sources */,
 				159A7527107FEAA400A57EAB /* VPNConfiguration.c in Sources */,
+				F90D81D5291EADFE00B4BDFE /* SCNetworkCategory.c in Sources */,
+				F90D81D1291EAD9A00B4BDFE /* CategoryManager.c in Sources */,
 				15AAA7F9108E310700C2A607 /* VPNTunnel.c in Sources */,
 				D61AAEAE1522C99C0066B003 /* scprefs_observer.c in Sources */,
 				C4F1848016237AFC00D97043 /* VPNService.c in Sources */,
@@ -6940,6 +7114,7 @@
 			files = (
 				72573D3C1D6695B4004975AD /* SCTestDynamicStore.m in Sources */,
 				72573D3A1D6692BA004975AD /* SCTestOptions.m in Sources */,
+				949FE9C229277A5F00988AC3 /* SCTestNetworkConfiguration.m in Sources */,
 				72573D321D667686004975AD /* SCTestUtils.m in Sources */,
 				72573D401D67B2BE004975AD /* SCTestUnitTest.m in Sources */,
 				728E0E961D70229A00E0613A /* SCTestReachability.m in Sources */,
@@ -6947,6 +7122,7 @@
 				72573D421D6B798A004975AD /* SCTestConfigAgents.m in Sources */,
 				15FA163A23C6341100573B3C /* SCTestInterfaceNamer.m in Sources */,
 				72573D3E1D669AA6004975AD /* SCTestPreferences.m in Sources */,
+				94D7F5DB29A4140D001088C5 /* SCTestRankAssertion.m in Sources */,
 				72573D2E1D6673B6004975AD /* SCTest.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6961,6 +7137,7 @@
 				7271EA211D76600B0055B1AA /* SCTestUnitTest.m in Sources */,
 				7271EA221D76600B0055B1AA /* SCTestReachability.m in Sources */,
 				7271EA231D76600B0055B1AA /* main.m in Sources */,
+				94109B672A4A9BBA00EAE26A /* SCTestRankAssertion.m in Sources */,
 				7271EA241D76600B0055B1AA /* SCTestConfigAgents.m in Sources */,
 				7271EA251D76600B0055B1AA /* SCTestPreferences.m in Sources */,
 				7271EA261D76600B0055B1AA /* SCTest.m in Sources */,
@@ -7406,6 +7583,11 @@
 			target = 155847430754FDCD0046C2E9 /* scutil */;
 			targetProxy = 72C4A47F1BE44D19009D570E /* PBXContainerItemProxy */;
 		};
+		8AE1A26A28B8405C00D54F88 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72573D251D667372004975AD /* sctest */;
+			targetProxy = 8AE1A26B28B8405C00D54F88 /* PBXContainerItemProxy */;
+		};
 		C453EED22086992B00BF504E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C4666C70206ED01800247AB6 /* SystemConfigurationEventFactory */;
@@ -7822,6 +8004,10 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl,-upward_framework,Network",
+				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS -I$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h --verify-api-skip-external-headers";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -7845,6 +8031,10 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl,-upward_framework,Network",
+				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS -I$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h --verify-api-skip-external-headers";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -8348,6 +8538,7 @@
 				DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
+				ENABLE_MODULE_VERIFIER = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -8367,6 +8558,8 @@
 				"INTERPOSITION_SIM_SUFFIX[sdk=appletvsimulator*]" = _sim;
 				"INTERPOSITION_SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 				"INTERPOSITION_SIM_SUFFIX[sdk=watchsimulator*]" = _sim;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "c c++ objective-c objective-c++";
+				MODULE_VERIFIER_VERBOSE = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -8386,6 +8579,7 @@
 				SUPPORTS_TEXT_BASED_API = YES;
 				SWIFT_VERSION = 5.0;
 				TAPI_VERIFY_MODE = Pedantic;
+				USE_HEADERMAP = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\")))";
 				WARNING_CFLAGS = (
@@ -8457,6 +8651,7 @@
 				DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
+				ENABLE_MODULE_VERIFIER = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -8469,6 +8664,8 @@
 				"INTERPOSITION_SIM_SUFFIX[sdk=appletvsimulator*]" = _sim;
 				"INTERPOSITION_SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 				"INTERPOSITION_SIM_SUFFIX[sdk=watchsimulator*]" = _sim;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "c c++ objective-c objective-c++";
+				MODULE_VERIFIER_VERBOSE = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-fconstant-cfstrings",
@@ -8487,6 +8684,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SWIFT_VERSION = 5.0;
 				TAPI_VERIFY_MODE = Pedantic;
+				USE_HEADERMAP = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\")))";
 				WARNING_CFLAGS = (
@@ -8569,6 +8767,10 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl,-upward_framework,Network",
+				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h -DNO_TAPI_WARNINGS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -8599,6 +8801,10 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl,-upward_framework,Network",
+				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h -DNO_TAPI_WARNINGS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -9463,6 +9669,10 @@
 					"-idirafter",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl,-upward_framework,Network",
+				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h -DNO_TAPI_WARNINGS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -9496,6 +9706,10 @@
 					"$(inherited)",
 					"-idirafter",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl,-upward_framework,Network",
 				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h -DNO_TAPI_WARNINGS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
@@ -9986,6 +10200,20 @@
 					"-Wnon-modular-include-in-module",
 					"-fmodules-cache-path=$(CLANG_MODULE_CACHE_PATH)",
 				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		8AE1A27128B8405C00D54F88 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8AE1A27228B8405C00D54F88 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -10799,6 +11027,15 @@
 			buildConfigurations = (
 				72D3E66E1AE6EAF600DB4C69 /* Debug */,
 				72D3E66F1AE6EAF600DB4C69 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8AE1A27028B8405C00D54F88 /* Build configuration list for PBXAggregateTarget "configd_executables_bridgeOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8AE1A27128B8405C00D54F88 /* Debug */,
+				8AE1A27228B8405C00D54F88 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

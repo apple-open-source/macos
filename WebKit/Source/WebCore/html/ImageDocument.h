@@ -34,7 +34,7 @@ class HTMLImageElement;
 class ImageDocument final : public HTMLDocument {
     WTF_MAKE_ISO_ALLOCATED(ImageDocument);
 public:
-    static Ref<ImageDocument> create(Frame& frame, const URL& url)
+    static Ref<ImageDocument> create(LocalFrame& frame, const URL& url)
     {
         auto document = adoptRef(*new ImageDocument(frame, url));
         document->addToContextsMap();
@@ -49,12 +49,11 @@ public:
     void disconnectImageElement() { m_imageElement = nullptr; }
 
 #if !PLATFORM(IOS_FAMILY)
-    void windowSizeChanged();
     void imageClicked(int x, int y);
 #endif
 
 private:
-    ImageDocument(Frame&, const URL&);
+    ImageDocument(LocalFrame&, const URL&);
 
     Ref<DocumentParser> createParser() override;
 
@@ -66,6 +65,7 @@ private:
     void restoreImageSize();
     bool imageFitsInWindow();
     float scale();
+    void didChangeViewSize() final;
 #endif
 
     void imageUpdated();

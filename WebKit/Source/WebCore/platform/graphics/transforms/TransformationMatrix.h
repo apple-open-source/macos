@@ -99,6 +99,16 @@ public:
     {
     }
 
+    constexpr TransformationMatrix(double tx, double ty)
+        : m_matrix {
+            { 1, 0, 0, 0 },
+            { 0, 1, 0, 0 },
+            { 0, 0, 1, 0 },
+            { tx, ty, 0, 1 },
+        }
+    {
+    }
+
     constexpr TransformationMatrix(
         double m11, double m12, double m13, double m14,
         double m21, double m22, double m23, double m24,
@@ -369,8 +379,6 @@ public:
                 m_matrix[3][2] == m2.m_matrix[3][2] &&
                 m_matrix[3][3] == m2.m_matrix[3][3]);
     }
-
-    bool operator!=(const TransformationMatrix& other) const { return !(*this == other); }
 
     // *this = *this * t
     TransformationMatrix& operator*=(const TransformationMatrix& t)

@@ -68,7 +68,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     struct passwd pwdbuf;
 
     /* determine the required bufsize for getpwnam_r */
-    int bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+    long bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
     if (bufsize == -1) {
         bufsize = 2 * PATH_MAX;
     }

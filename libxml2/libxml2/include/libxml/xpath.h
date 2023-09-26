@@ -404,7 +404,7 @@ struct _xmlXPathParserContext {
     int xptr;				/* it this an XPointer expression */
     xmlNodePtr         ancestor;	/* used for walking preceding axis */
 
-    int              valueFrame;        /* used to limit Pop on the stack */
+    int              valueFrame;        /* always zero for compatibility */
 };
 
 /************************************************************************

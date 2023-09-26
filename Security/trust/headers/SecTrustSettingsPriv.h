@@ -280,6 +280,11 @@ void SecTrustSettingsPurgeCache(void);
 
 /* Determines if the given cert has any trust settings in the admin or user domains */
 bool SecTrustSettingsUserAdminDomainsContain(SecCertificateRef certRef);
+
+/* This function should only be called by trustd on macOS (requires trustd entitlement).
+   It sends its arguments to the system instance of trustd for ingestion. */
+OSStatus SecTrustSettingsXPCMigrate(CFPropertyListRef plist, CFDictionaryRef certificates);
+
 #endif /* SEC_OS_OSX_INCLUDES */
 
 __END_DECLS

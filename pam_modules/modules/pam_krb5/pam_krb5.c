@@ -74,6 +74,10 @@
 #include <security/pam_appl.h>
 #include <security/pam_modules.h>
 #include <security/openpam.h>
+#include "Logging.h"
+
+PAM_DEFINE_LOG(krb5)
+#define PAM_LOG PAM_LOG_krb5()
 
 /* _krb5_kcm_get_initial_ticket is SPI, so define it here for now */
 krb5_error_code _krb5_kcm_get_initial_ticket(krb5_context context,
@@ -108,11 +112,11 @@ static void	compat_free_data_contents(krb5_context, krb5_data *);
 #define PAM_OPT_AUTH_AS_SELF	"auth_as_self"
 #define PAM_OPT_DEBUG		"debug"
 
-#define	PAM_LOG(...) \
-	openpam_log(PAM_LOG_DEBUG, __VA_ARGS__)
+#define	PAM_LOG_DEBUG(...) \
+	os_log_debug(PAM_LOG, __VA_ARGS__)
 
 #define	PAM_VERBOSE_ERROR(...) \
-openpam_log(PAM_LOG_ERROR, __VA_ARGS__)
+    os_log_error(PAM_LOG, __VA_ARGS__)
 
 #ifdef COMPAT_MIT
 #define krb5_get_err_text(c,e) error_message(e)
@@ -151,20 +155,20 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 	if (retval != PAM_SUCCESS)
 		return (retval);
 
-	PAM_LOG("Got user: %s", user);
+    PAM_LOG_DEBUG("Got user: %s", user);
 
 	retval = pam_get_item(pamh, PAM_RUSER, &sourceuser);
 	if (retval != PAM_SUCCESS)
 		return (retval);
 
-	PAM_LOG("Got ruser: %s", (const char *)sourceuser);
+    PAM_LOG_DEBUG("Got ruser: %s", (const char *)sourceuser);
 
 	service = NULL;
 	pam_get_item(pamh, PAM_SERVICE, &service);
 	if (service == NULL)
 		service = "unknown";
 
-	PAM_LOG("Got service: %s", (const char *)service);
+    PAM_LOG_DEBUG("Got service: %s", (const char *)service);
 
 	krbret = krb5_init_context(&pam_context);
 	if (krbret != 0) {
@@ -180,20 +184,20 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 	else
 		principal = strdup(user);
 	if (principal == NULL) {
-		PAM_LOG("Failed to determine Kerberos principal name.");
+        PAM_VERBOSE_ERROR("Failed to determine Kerberos principal name.");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup3;
 	}
 
-	PAM_LOG("Context initialised");
+    PAM_LOG_DEBUG("Context initialised");
 
 	/* if we are running with KCMINIT, just store the password in the kcm cache */
 	if (openpam_get_option(pamh, PAM_OPT_USE_KCMINIT)) {
-		PAM_LOG("Stashing kcm credentials in enviroment for kcminit: %s", principal);
+		PAM_LOG_DEBUG("Stashing kcm credentials in enviroment for kcminit: %s", principal);
 
 		retval = pam_get_authtok(pamh, PAM_AUTHTOK, (const char **)&pass, PASSWORD_PROMPT);
 		if (retval != PAM_SUCCESS) {
-			PAM_LOG("no password: %s", principal);
+            PAM_VERBOSE_ERROR("no password: %s", principal);
 			goto cleanup3;
 		}
 
@@ -225,39 +229,37 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 		goto cleanup3;
 	}
 
-	PAM_LOG("Created principal: %s", principal);
+	PAM_LOG_DEBUG("Created principal: %s", principal);
 
 	krbret = krb5_parse_name(pam_context, principal, &princ);
 	free(principal);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_parse_name(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_parse_name(): %s",
 		    krb5_get_err_text(pam_context, krbret));
-		PAM_VERBOSE_ERROR("Kerberos 5 error");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup3;
 	}
 
-	PAM_LOG("Done krb5_parse_name()");
+    PAM_LOG_DEBUG("Done krb5_parse_name()");
 
 	/* Now convert the principal name into something human readable */
 	princ_name = NULL;
 	krbret = krb5_unparse_name(pam_context, princ, &princ_name);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_unparse_name(): %s",
+		PAM_VERBOSE_ERROR("Error krb5_unparse_name(): %s",
 		    krb5_get_err_text(pam_context, krbret));
-		PAM_VERBOSE_ERROR("Kerberos 5 error");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup2;
 	}
 
-	PAM_LOG("Got principal: %s", princ_name);
+    PAM_LOG_DEBUG("Got principal: %s", princ_name);
 
 	/* Get password */
 	retval = pam_get_authtok(pamh, PAM_AUTHTOK, (const char **)&pass, PASSWORD_PROMPT);
 	if (retval != PAM_SUCCESS)
 		goto cleanup2;
 
-	PAM_LOG("Got password");
+    PAM_LOG_DEBUG("Got password");
 
 	/* Verify the local user exists (AFTER getting the password) */
 	if (strchr(user, '@')) {
@@ -265,8 +267,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 		krbret = krb5_aname_to_localname(pam_context, princ,
 		    sizeof(luser), luser);
 		if (krbret != 0) {
-			PAM_VERBOSE_ERROR("Kerberos 5 error");
-			PAM_LOG("Error krb5_aname_to_localname(): %s",
+            PAM_VERBOSE_ERROR("Error krb5_aname_to_localname(): %s",
 			    krb5_get_err_text(pam_context, krbret));
 			retval = PAM_USER_UNKNOWN;
 			goto cleanup2;
@@ -276,7 +277,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 		if (retval != PAM_SUCCESS)
 			goto cleanup2;
 
-		PAM_LOG("PAM_USER Redone");
+        PAM_LOG_DEBUG("PAM_USER Redone");
 	}
 
 	if (getpwnam_r(user, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) != 0 || pwd == NULL) {
@@ -284,14 +285,14 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 		goto cleanup2;
 	}
 
-	PAM_LOG("Done getpwnam()");
+    PAM_LOG_DEBUG("Done getpwnam()");
 
 	/* Get a TGT */
 	if (NULL == openpam_get_option(pamh, PAM_OPT_NO_FORWARDABLE)) {
 		krb5_get_init_creds_opt_set_forwardable(opts, 1);
 		krb5_get_init_creds_opt_set_proxiable(opts, 1);
 
-		PAM_LOG("Attempting to get forwardable TGT.");
+        PAM_LOG_DEBUG("Attempting to get forwardable TGT.");
 		memset(&creds, 0, sizeof(krb5_creds));
 		krbret = krb5_get_init_creds_password(pam_context, &creds, princ,
 			pass, NULL, pamh, 0, NULL, opts);
@@ -299,48 +300,44 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 			krb5_get_init_creds_opt_set_forwardable(opts, 0);
 			krb5_get_init_creds_opt_set_proxiable(opts, 0);
 		} else {
-			PAM_LOG("Have a forwardable TGT.");
+            PAM_LOG_DEBUG("Have a forwardable TGT.");
 			have_tickets = 1;
 		}
 	}
 
 	if (!have_tickets) {
-		PAM_LOG("Attempting to get non-forwardable TGT.");
+        PAM_LOG_DEBUG("Attempting to get non-forwardable TGT.");
 		memset(&creds, 0, sizeof(krb5_creds));
 		krbret = krb5_get_init_creds_password(pam_context, &creds, princ,
 			pass, NULL, pamh, 0, NULL, opts);
 		if (krbret != 0) {
-			PAM_VERBOSE_ERROR("Kerberos 5 error");
-			PAM_LOG("Error krb5_get_init_creds_password(): %s",
+            PAM_VERBOSE_ERROR("Error krb5_get_init_creds_password(): %s",
 				krb5_get_err_text(pam_context, krbret));
 			retval = PAM_AUTH_ERR;
 			goto cleanup2;
 		}
 	}
 
-	PAM_LOG("Got TGT");
+    PAM_LOG_DEBUG("Got TGT");
 
 	/* Generate a temporary cache */
 	krbret = krb5_cc_new_unique(pam_context, "FILE", NULL, &ccache);
 	if (krbret != 0) {
-		PAM_VERBOSE_ERROR("Kerberos 5 error");
-		PAM_LOG("Error krb5_cc_gen_new(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_cc_gen_new(): %s",
 		    krb5_get_err_text(pam_context, krbret));
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 	krbret = krb5_cc_initialize(pam_context, ccache, creds.client);
 	if (krbret != 0) {
-		PAM_VERBOSE_ERROR("Kerberos 5 error");
-		PAM_LOG("Error krb5_cc_initialize(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_cc_initialize(): %s",
 		    krb5_get_err_text(pam_context, krbret));
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 	krbret = krb5_cc_store_cred(pam_context, ccache, &creds);
 	if (krbret != 0) {
-		PAM_VERBOSE_ERROR("Kerberos 5 error");
-		PAM_LOG("Error krb5_cc_store_cred(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_cc_store_cred(): %s",
 		    krb5_get_err_text(pam_context, krbret));
 		krb5_cc_destroy(pam_context, ccache);
 		retval = PAM_SERVICE_ERR;
@@ -349,7 +346,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 	if (0 == strcmp("FILE", krb5_cc_get_type(pam_context, ccache)))
 		chown(krb5_cc_get_name(pam_context, ccache), pwd->pw_uid, pwd->pw_gid);
 
-	PAM_LOG("Credentials stashed");
+    PAM_LOG_DEBUG("Credentials stashed");
 
 	/* Verify them */
 	if ((srvdup = strdup(service)) == NULL) {
@@ -366,7 +363,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 		goto cleanup;
 	}
 
-	PAM_LOG("Credentials stash verified");
+    PAM_LOG_DEBUG("Credentials stash verified");
 
 	retval = pam_get_data(pamh, "ccache", &ccache_data);
 	if (retval == PAM_SUCCESS) {
@@ -376,7 +373,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 		goto cleanup;
 	}
 
-	PAM_LOG("Credentials stash not pre-existing");
+    PAM_LOG_DEBUG("Credentials stash not pre-existing");
 
 	asprintf(&ccache_name, "%s:%s", krb5_cc_get_type(pam_context,
 		ccache), krb5_cc_get_name(pam_context, ccache));
@@ -393,15 +390,18 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 		goto cleanup;
 	}
 
-	PAM_LOG("Credentials stash saved");
+    PAM_LOG_DEBUG("Credentials stash saved");
 
 cleanup:
 	krb5_free_cred_contents(pam_context, &creds);
-	PAM_LOG("Done cleanup");
+    PAM_LOG_DEBUG("Done cleanup");
 cleanup2:
 	krb5_free_principal(pam_context, princ);
-	PAM_LOG("Done cleanup2");
+    PAM_LOG_DEBUG("Done cleanup2");
 cleanup3:
+    if (principal)
+        free(principal);
+
 	if (princ_name)
 		free(princ_name);
 
@@ -410,10 +410,10 @@ cleanup3:
 
 	krb5_free_context(pam_context);
 
-	PAM_LOG("Done cleanup3");
+    PAM_LOG_DEBUG("Done cleanup3");
 
 	if (retval != PAM_SUCCESS)
-		PAM_LOG("Kerberos 5 refuses you");
+        PAM_LOG_DEBUG("Kerberos 5 refuses you");
 
 	return (retval);
 }
@@ -438,11 +438,11 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 	int retval;
 	const char *cache_type, *cache_name, *q;
 	const void *user;
-	const void *cache_data;
     const void *login;
+	const void *cache_data;
 	char *cache_name_buf = NULL, *p = NULL, *cache_type_colon_name = NULL;
 	int use_kcminit;
-
+    
 	uid_t euid;
 	gid_t egid;
 
@@ -451,7 +451,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 
 		krbret = krb5_init_context(&pam_context);
 		if (krbret != 0) {
-			PAM_LOG("Error krb5_init_secure_context() failed");
+            PAM_LOG_DEBUG("Error krb5_init_secure_context() failed");
 			retval = PAM_SERVICE_ERR;
 			goto cleanup4;
 		}
@@ -488,54 +488,54 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		goto cleanup4;
 	}
 
-    /* If a persistent cache isn't desired, stop now. */
-    if (openpam_get_option(pamh, PAM_OPT_NO_CCACHE)) {
-        retval = PAM_SUCCESS;
-        goto cleanup4;
-    }
-   
+	/* If a persistent cache isn't desired, stop now. */
+	if (openpam_get_option(pamh, PAM_OPT_NO_CCACHE)) {
+		retval = PAM_SUCCESS;
+		goto cleanup4;
+	}
+    
     pam_get_data(pamh, "login", &login);
     if (!login && openpam_get_option(pamh, PAM_OPT_NO_AUTH_CCACHE)) {
         retval = PAM_SUCCESS;
-        PAM_LOG("no_auth_ccache is set");
+        PAM_LOG_DEBUG("no_auth_ccache is set");
         goto cleanup4;
     }
-    
-	PAM_LOG("Establishing credentials");
+
+    PAM_LOG_DEBUG("Establishing credentials");
 
 	/* Get username */
 	retval = pam_get_item(pamh, PAM_USER, &user);
 	if (retval != PAM_SUCCESS)
 		goto cleanup4;
 
-	PAM_LOG("Got user: %s", (const char *)user);
+    PAM_LOG_DEBUG("Got user: %s", (const char *)user);
 
 	krbret = krb5_init_context(&pam_context);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_init_secure_context() failed");
+        PAM_VERBOSE_ERROR("Error krb5_init_secure_context() failed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup4;
 	}
 
-	PAM_LOG("Context initialised");
+    PAM_LOG_DEBUG("Context initialised");
 
 	euid = geteuid();	/* Usually 0 */
 	egid = getegid();
 
-	PAM_LOG("Got euid, egid: %d %d", euid, egid);
+    PAM_LOG_DEBUG("Got euid, egid: %d %d", euid, egid);
 
 	use_kcminit = (openpam_get_option(pamh, PAM_OPT_USE_KCMINIT) != NULL);
 
 	if (!use_kcminit) {
 		/* Retrieve the temporary cache */
 		if ((cache_data = pam_getenv(pamh, "krb5_ccache")) == NULL) {
-			PAM_LOG("Error pam_getenv failed.");
+            PAM_LOG_DEBUG("Error pam_getenv failed.");
 			retval = PAM_IGNORE;
 			goto cleanup3;
 		}
 		krbret = krb5_cc_resolve(pam_context, cache_data, &ccache_temp);
 		if (krbret != 0) {
-			PAM_LOG("Error krb5_cc_resolve(\"%s\"): %s", (const char *)cache_data,
+            PAM_LOG_DEBUG("Error krb5_cc_resolve(\"%s\"): %s", (const char *)cache_data,
 				krb5_get_err_text(pam_context, krbret));
 			retval = PAM_SERVICE_ERR;
 			goto cleanup3;
@@ -547,7 +547,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		goto cleanup3;
 	}
 
-	PAM_LOG("Done getpwnam()");
+    PAM_LOG_DEBUG("Done getpwnam()");
 
 	/* Avoid following a symlink as root */
 	if (0 == egid && 0 != setegid(pwd->pw_gid)) {
@@ -559,7 +559,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		goto cleanup3;
 	}
 
-	PAM_LOG("Done setegid() & seteuid()");
+    PAM_LOG_DEBUG("Done setegid() & seteuid()");
 
 
 	if (use_kcminit) {
@@ -568,14 +568,14 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 
 		principal = pam_getenv(pamh, user_key);
 		if (principal == NULL) {
-			PAM_LOG("pam_sm_setcred: krb5 user %s doesn't have a principal", (char *)user);
+			PAM_VERBOSE_ERROR("pam_sm_setcred: krb5 user %s doesn't have a principal", (char *)user);
 			retval = PAM_SERVICE_ERR;
 			goto cleanup3;
 		}
 
 		password = pam_getenv(pamh, password_key);
 		if (password == NULL) {
-			PAM_LOG("pam_sm_setcred: krb5 user %s doesn't have a password", (char *)user);
+            PAM_VERBOSE_ERROR("pam_sm_setcred: krb5 user %s doesn't have a password", (char *)user);
 			retval = PAM_SERVICE_ERR;
 			goto cleanup3;
 		}
@@ -594,7 +594,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
                 retval = PAM_SERVICE_ERR;
                 goto cleanup3;
             }
-            PAM_LOG("pam_sm_setcred: init credential cache");
+            PAM_LOG_DEBUG("pam_sm_setcred: init credential cache");
 
             krbret = krb5_cc_initialize(pam_context, ccache_perm, princ);
             if (krbret) {
@@ -605,11 +605,11 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
             }
         }
 
-		PAM_LOG("pam_sm_setcred: storing credential for: %s", principal);
+        PAM_LOG_DEBUG("pam_sm_setcred: storing credential for: %s", principal);
 		krbret = _krb5_kcm_get_initial_ticket(pam_context, ccache_perm, princ, NULL, password);
 		krb5_free_principal(pam_context, princ);
 		if (krbret) {
-			PAM_LOG("kcm init failed: %d", krbret);
+            PAM_VERBOSE_ERROR("kcm init failed: %d", krbret);
 			retval = PAM_SERVICE_ERR;
 			goto cleanup3;
 		}
@@ -619,7 +619,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		/* Initialize the new ccache */
 		krbret = krb5_cc_get_principal(pam_context, ccache_temp, &princ);
 		if (krbret != 0) {
-			PAM_LOG("Error krb5_cc_get_principal(): %s",
+            PAM_VERBOSE_ERROR("Error krb5_cc_get_principal(): %s",
 				krb5_get_err_text(pam_context, krbret));
 			retval = PAM_SERVICE_ERR;
 			goto cleanup3;
@@ -636,7 +636,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 			q = cache_name;
 
 			if (p == NULL) {
-				PAM_LOG("Error malloc(): failure");
+                PAM_VERBOSE_ERROR("Error malloc(): failure");
 				retval = PAM_BUF_ERR;
 				goto cleanup3;
 			}
@@ -668,11 +668,11 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 				}
 			}
 
-			PAM_LOG("Got cache_name: %s", cache_name);
+            PAM_LOG_DEBUG("Got cache_name: %s", cache_name);
 
 			krbret = krb5_cc_resolve(pam_context, cache_name, &ccache_perm);
 			if (krbret != 0) {
-				PAM_LOG("Error krb5_cc_resolve(): %s",
+                PAM_VERBOSE_ERROR("Error krb5_cc_resolve(): %s",
 					krb5_get_err_text(pam_context, krbret));
 				retval = PAM_SERVICE_ERR;
 				goto cleanup2;
@@ -680,32 +680,32 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		}
 		krbret = krb5_cc_initialize(pam_context, ccache_perm, princ);
 		if (krbret != 0) {
-			PAM_LOG("Error krb5_cc_initialize(): %s",
+            PAM_VERBOSE_ERROR("Error krb5_cc_initialize(): %s",
 				krb5_get_err_text(pam_context, krbret));
 			retval = PAM_SERVICE_ERR;
 			goto cleanup2;
 		}
 
-		PAM_LOG("Cache initialised");
+        PAM_LOG_DEBUG("Cache initialised");
 
 		/* Prepare for iteration over creds */
 		krbret = krb5_cc_start_seq_get(pam_context, ccache_temp, &cursor);
 		if (krbret != 0) {
-			PAM_LOG("Error krb5_cc_start_seq_get(): %s",
+            PAM_VERBOSE_ERROR("Error krb5_cc_start_seq_get(): %s",
 				krb5_get_err_text(pam_context, krbret));
 			krb5_cc_destroy(pam_context, ccache_perm);
 			retval = PAM_SERVICE_ERR;
 			goto cleanup2;
 		}
 
-		PAM_LOG("Prepared for iteration");
+        PAM_LOG_DEBUG("Prepared for iteration");
 
 		/* Copy the creds (should be two of them) */
 		while ((krbret = krb5_cc_next_cred(pam_context, ccache_temp,
 						   &cursor, &creds) == 0)) {
 			krbret = krb5_cc_store_cred(pam_context, ccache_perm, &creds);
 			if (krbret != 0) {
-				PAM_LOG("Error krb5_cc_store_cred(): %s",
+                PAM_VERBOSE_ERROR("Error krb5_cc_store_cred(): %s",
 					krb5_get_err_text(pam_context, krbret));
 				krb5_cc_destroy(pam_context, ccache_perm);
 				krb5_free_cred_contents(pam_context, &creds);
@@ -713,44 +713,44 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 				goto cleanup2;
 			}
 			krb5_free_cred_contents(pam_context, &creds);
-			PAM_LOG("Iteration");
+            PAM_LOG_DEBUG("Iteration");
 		}
 		krb5_cc_end_seq_get(pam_context, ccache_temp, &cursor);
 
-		PAM_LOG("Done iterating");
+        PAM_LOG_DEBUG("Done iterating");
 
 		krbret = krb5_cc_destroy(pam_context, ccache_temp);
 		if (krbret != 0) {
-			PAM_LOG("Error krb5_cc_destroy(): %s",
+            PAM_VERBOSE_ERROR("Error krb5_cc_destroy(): %s",
 					krb5_get_err_text(pam_context, krbret));
 			krb5_cc_destroy(pam_context, ccache_perm);
 			retval = PAM_SERVICE_ERR;
 			goto cleanup2;
 		}
-		PAM_LOG("Temporary FILE cache destroyed");
+        PAM_LOG_DEBUG("Temporary FILE cache destroyed");
 	}
 
 	/* Get the cache type and name */
 	cache_type = krb5_cc_get_type(pam_context, ccache_perm);
 	cache_name = krb5_cc_get_name(pam_context, ccache_perm);
-	PAM_LOG("Got cache_name: %s:%s", cache_type, cache_name);
+    PAM_LOG_DEBUG("Got cache_name: %s:%s", cache_type, cache_name);
 
 	if (0 == strcmp(cache_type, "FILE")) {
 		if (chown(cache_name, pwd->pw_uid, pwd->pw_gid) == -1) {
-			PAM_LOG("Error chown(): %s", strerror(errno));
+            PAM_VERBOSE_ERROR("Error chown(): %s", strerror(errno));
 			krb5_cc_destroy(pam_context, ccache_perm);
 			retval = PAM_SERVICE_ERR;
 			goto cleanup2;
 		}
-		PAM_LOG("Done chown()");
+        PAM_LOG_DEBUG("Done chown()");
 
 		if (chmod(cache_name, (S_IRUSR | S_IWUSR)) == -1) {
-			PAM_LOG("Error chmod(): %s", strerror(errno));
+            PAM_VERBOSE_ERROR("Error chmod(): %s", strerror(errno));
 			krb5_cc_destroy(pam_context, ccache_perm);
 			retval = PAM_SERVICE_ERR;
 			goto cleanup2;
 		}
-		PAM_LOG("Done chmod()");
+        PAM_LOG_DEBUG("Done chmod()");
 	} else {
 		(void)krb5_cc_switch(pam_context, ccache_perm);
 	}
@@ -761,29 +761,29 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 	retval = pam_setenv(pamh, "KRB5CCNAME", cache_type_colon_name, 1);
 	free(cache_type_colon_name);
 	if (retval != PAM_SUCCESS) {
-		PAM_LOG("Error pam_setenv(): %s", pam_strerror(pamh, retval));
+        PAM_VERBOSE_ERROR("Error pam_setenv(): %s", pam_strerror(pamh, retval));
 		krb5_cc_destroy(pam_context, ccache_perm);
 		retval = PAM_SERVICE_ERR;
 		goto cleanup2;
 	}
 
-	PAM_LOG("Environment done: KRB5CCNAME=%s", cache_name);
+    PAM_LOG_DEBUG("Environment done: KRB5CCNAME=%s", cache_name);
 
 	krb5_cc_close(pam_context, ccache_perm);
 
-	PAM_LOG("Cache closed");
+    PAM_LOG_DEBUG("Cache closed");
 
 cleanup2:
 	if (NULL != princ)
 		krb5_free_principal(pam_context, princ);
-	PAM_LOG("Done cleanup2");
+    PAM_LOG_DEBUG("Done cleanup2");
 cleanup3:
-	PAM_LOG("Done cleanup3");
+    PAM_LOG_DEBUG("Done cleanup3");
 
 	seteuid(euid);
 	setegid(egid);
 
-	PAM_LOG("Done seteuid() & setegid()");
+    PAM_LOG_DEBUG("Done seteuid() & setegid()");
 
 	if (cache_name_buf != NULL)
 		free(cache_name_buf);
@@ -792,7 +792,7 @@ cleanup4:
 		krb5_free_context(pam_context);
 	pam_unsetenv(pamh, user_key);
 	pam_unsetenv(pamh, password_key);
-	PAM_LOG("Done cleanup4");
+    PAM_LOG_DEBUG("Done cleanup4");
 
 	return (retval);
 #endif
@@ -820,42 +820,42 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
 	if (retval != PAM_SUCCESS)
 		return (retval);
 
-	PAM_LOG("Got user: %s", (const char *)user);
+    PAM_LOG_DEBUG("Got user: %s", (const char *)user);
 
 	retval = pam_get_data(pamh, "ccache", &ccache_name);
 	if (retval != PAM_SUCCESS)
 		return (PAM_SUCCESS);
 
-	PAM_LOG("Got credentials");
+    PAM_LOG_DEBUG("Got credentials");
 
 	krbret = krb5_init_context(&pam_context);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_init_secure_context() failed");
+        PAM_VERBOSE_ERROR("Error krb5_init_secure_context() failed");
 		return (PAM_PERM_DENIED);
 	}
 
-	PAM_LOG("Context initialised");
+    PAM_LOG_DEBUG("Context initialised");
 
 	krbret = krb5_cc_resolve(pam_context, (const char *)ccache_name, &ccache);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_cc_resolve(\"%s\"): %s", (const char *)ccache_name,
+        PAM_VERBOSE_ERROR("Error krb5_cc_resolve(\"%s\"): %s", (const char *)ccache_name,
 		    krb5_get_err_text(pam_context, krbret));
 		krb5_free_context(pam_context);
 		return (PAM_PERM_DENIED);
 	}
 
-	PAM_LOG("Got ccache %s", (const char *)ccache_name);
+    PAM_LOG_DEBUG("Got ccache %s", (const char *)ccache_name);
 
 
 	krbret = krb5_cc_get_principal(pam_context, ccache, &princ);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_cc_get_principal(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_cc_get_principal(): %s",
 		    krb5_get_err_text(pam_context, krbret));
 		retval = PAM_PERM_DENIED;;
 		goto cleanup;
 	}
 
-	PAM_LOG("Got principal");
+    PAM_LOG_DEBUG("Got principal");
 
 	if (krb5_kuserok(pam_context, princ, (const char *)user))
 		retval = PAM_SUCCESS;
@@ -863,11 +863,11 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
 		retval = PAM_PERM_DENIED;
 	krb5_free_principal(pam_context, princ);
 
-	PAM_LOG("Done kuserok()");
+    PAM_LOG_DEBUG("Done kuserok()");
 
 cleanup:
 	krb5_free_context(pam_context);
-	PAM_LOG("Done cleanup");
+    PAM_LOG_DEBUG("Done cleanup");
 
 	return (retval);
 
@@ -898,24 +898,24 @@ pam_sm_chauthtok(pam_handle_t *pamh, int flags,
 	if (retval != PAM_SUCCESS)
 		return (retval);
 
-	PAM_LOG("Got user: %s", (const char *)user);
+    PAM_LOG_DEBUG("Got user: %s", (const char *)user);
 
 	krbret = krb5_init_context(&pam_context);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_init_secure_context() failed");
+        PAM_VERBOSE_ERROR("Error krb5_init_secure_context() failed");
 		return (PAM_SERVICE_ERR);
 	}
 
-	PAM_LOG("Context initialised");
+    PAM_LOG_DEBUG("Context initialised");
 
 	krb5_get_init_creds_opt_alloc(pam_context, &opts);
 
-	PAM_LOG("Credentials options initialised");
+    PAM_LOG_DEBUG("Credentials options initialised");
 
 	/* Get principal name */
 	krbret = krb5_parse_name(pam_context, (const char *)user, &princ);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_parse_name(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_parse_name(): %s",
 		    krb5_get_err_text(pam_context, krbret));
 		retval = PAM_USER_UNKNOWN;
 		goto cleanup3;
@@ -925,32 +925,32 @@ pam_sm_chauthtok(pam_handle_t *pamh, int flags,
 	princ_name = NULL;
 	krbret = krb5_unparse_name(pam_context, princ, &princ_name);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_unparse_name(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_unparse_name(): %s",
 		    krb5_get_err_text(pam_context, krbret));
 		retval = PAM_SERVICE_ERR;
 		goto cleanup2;
 	}
 
-	PAM_LOG("Got principal: %s", princ_name);
+    PAM_LOG_DEBUG("Got principal: %s", princ_name);
 
 	/* Get password */
 	retval = pam_get_authtok(pamh, PAM_OLDAUTHTOK, (const char **)&pass, PASSWORD_PROMPT);
 	if (retval != PAM_SUCCESS)
 		goto cleanup2;
 
-	PAM_LOG("Got password");
+    PAM_LOG_DEBUG("Got password");
 
 	memset(&creds, 0, sizeof(krb5_creds));
 	krbret = krb5_get_init_creds_password(pam_context, &creds, princ,
 	    pass, NULL, pamh, 0, "kadmin/changepw", opts);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_get_init_creds_password(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_get_init_creds_password(): %s",
 		    krb5_get_err_text(pam_context, krbret));
 		retval = PAM_AUTH_ERR;
 		goto cleanup2;
 	}
 
-	PAM_LOG("Credentials established");
+    PAM_LOG_DEBUG("Credentials established");
 
 	/* Now get the new password */
 	for (;;) {
@@ -963,7 +963,7 @@ pam_sm_chauthtok(pam_handle_t *pamh, int flags,
 	if (retval != PAM_SUCCESS)
 		goto cleanup;
 
-	PAM_LOG("Got new password");
+	PAM_LOG_DEBUG("Got new password");
 
 	/* Change it */
 	if ((passdup = strdup(pass)) == NULL) {
@@ -974,18 +974,18 @@ pam_sm_chauthtok(pam_handle_t *pamh, int flags,
 	    &result_code, &result_code_string, &result_string);
 	free(passdup);
 	if (krbret != 0) {
-		PAM_LOG("Error krb5_change_password(): %s",
+        PAM_VERBOSE_ERROR("Error krb5_change_password(): %s",
 		    krb5_get_err_text(pam_context, krbret));
 		retval = PAM_AUTHTOK_ERR;
 		goto cleanup;
 	}
 	if (result_code) {
-		PAM_LOG("Error krb5_change_password(): (result_code)");
+        PAM_VERBOSE_ERROR("Error krb5_change_password(): (result_code)");
 		retval = PAM_AUTHTOK_ERR;
 		goto cleanup;
 	}
 
-	PAM_LOG("Password changed");
+    PAM_LOG_DEBUG("Password changed");
 
 	if (result_string.data)
 		free(result_string.data);
@@ -994,10 +994,10 @@ pam_sm_chauthtok(pam_handle_t *pamh, int flags,
 
 cleanup:
 	krb5_free_cred_contents(pam_context, &creds);
-	PAM_LOG("Done cleanup");
+    PAM_LOG_DEBUG("Done cleanup");
 cleanup2:
 	krb5_free_principal(pam_context, princ);
-	PAM_LOG("Done cleanup2");
+    PAM_LOG_DEBUG("Done cleanup2");
 cleanup3:
 	if (princ_name)
 		free(princ_name);
@@ -1007,7 +1007,7 @@ cleanup3:
 
 	krb5_free_context(pam_context);
 
-	PAM_LOG("Done cleanup3");
+    PAM_LOG_DEBUG("Done cleanup3");
 
 	return (retval);
 }
@@ -1062,7 +1062,7 @@ verify_krb_v5_tgt(krb5_context context, krb5_ccache ccache,
 		    KRB5_NT_SRV_HST, &princ);
 		if (retval != 0) {
 			if (debug)
-				openpam_log(PAM_LOG_DEBUG,
+				os_log_debug(PAM_LOG,
 				    "pam_krb5: verify_krb_v5_tgt(): %s: %s",
 				    "krb5_sname_to_principal()",
 				    krb5_get_err_text(context, retval));
@@ -1091,7 +1091,7 @@ verify_krb_v5_tgt(krb5_context context, krb5_ccache ccache,
 	if (retval != 0) {	/* failed to find key */
 		/* Keytab or service key does not exist */
 		if (debug)
-			openpam_log(PAM_LOG_DEBUG,
+			os_log_debug(PAM_LOG,
 			    "pam_krb5: verify_krb_v5_tgt(): %s: %s",
 			    "krb5_kt_read_service_key()",
 			    krb5_get_err_text(context, retval));
@@ -1111,7 +1111,7 @@ verify_krb_v5_tgt(krb5_context context, krb5_ccache ccache,
 	}
 	if (retval) {
 		if (debug)
-			openpam_log(PAM_LOG_DEBUG,
+			os_log_debug(PAM_LOG,
 			    "pam_krb5: verify_krb_v5_tgt(): %s: %s",
 			    "krb5_mk_req()",
 			    krb5_get_err_text(context, retval));
@@ -1124,7 +1124,7 @@ verify_krb_v5_tgt(krb5_context context, krb5_ccache ccache,
 	    NULL, NULL);
 	if (retval) {
 		if (debug)
-			openpam_log(PAM_LOG_DEBUG,
+			os_log_debug(PAM_LOG,
 			    "pam_krb5: verify_krb_v5_tgt(): %s: %s",
 			    "krb5_rd_req()",
 			    krb5_get_err_text(context, retval));

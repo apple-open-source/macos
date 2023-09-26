@@ -55,7 +55,6 @@ HEIMCRED_CONST(CFTypeRef, kHEIMTargetName);
  */
 
 HeimCredContext HeimCredCTX;
-typedef struct HeimCredEventContext_s *HeimCredEventContextRef;
 
 /*
  *
@@ -238,6 +237,7 @@ _HeimCredInitCommon(void)
 
 #if HEIMCRED_SERVER
 	    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	    HeimCredCTX.challenges = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 #else
 	    HeimCredCTX.items = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 #endif

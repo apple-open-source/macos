@@ -94,6 +94,7 @@
     HeimCredGlobalCTX.decryptData = ksDecryptData;
     HeimCredGlobalCTX.managedAppManager = self.mockManagedAppManager;
     HeimCredGlobalCTX.useUidMatching = NO;
+    HeimCredGlobalCTX.disableNTLMReflectionDetection = NO;
     HeimCredGlobalCTX.verifyAppleSigned = verifyAppleSignedMock;
     HeimCredGlobalCTX.sessionExists = sessionExistsMock;
     HeimCredGlobalCTX.saveToDiskIfNeeded = saveToDiskIfNeededMock;
@@ -121,6 +122,7 @@
     _HeimCredRegisterKerberos();
     _HeimCredRegisterKerberosAcquireCred();
     _HeimCredRegisterNTLM();
+    _HeimCredRegisterNTLMReflection();
     
     CFRELEASE_NULL(HeimCredCTX.globalSchema);
     
@@ -132,6 +134,9 @@
     _HeimCredInitCommon();
     CFRELEASE_NULL(HeimCredCTX.sessions);
     HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    CFRELEASE_NULL(HeimCredCTX.challenges);
+    HeimCredCTX.challenges = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     
     //always start clean
     NSError *error;

@@ -147,6 +147,12 @@
 #endif
 
 
+#if APPLE_ICU_CHANGES
+// rdar://71262794 Cannot include unicode/utext.h and unicode/umutablecptrie.h together
+#else
+U_CDECL_BEGIN
+#endif // APPLE_ICU_CHANGES
+
 struct UText;
 typedef struct UText UText; /**< C typedef for struct UText. @stable ICU 3.6 */
 
@@ -745,19 +751,6 @@ utext_extract(UText *ut,
   *
   * @stable ICU 3.8
   */
-#if LOG_UTEXT_SETNATIVEINDEX
-/* Add logging for <rdar://problem/44884660> */
-#define UTEXT_SETNATIVEINDEX(ut, ix) UPRV_BLOCK_MACRO_BEGIN { \
-    int64_t __offset = (ix) - (ut)->chunkNativeStart; \
-    if ((ut)->chunkContents!=0 && __offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit && (ut)->chunkContents[__offset]<0xdc00) { \
-        (ut)->chunkOffset=(int32_t)__offset; \
-    } else if ((ut)->chunkContents==0 && __offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit) { \
-        os_log(OS_LOG_DEFAULT, "# UTEXT_SETNATIVEINDEX (ut) %p, (ut)->chunkContents 0, __offset %lld", (ut), __offset); \
-    } else { \
-        utext_setNativeIndex((ut), (ix));
-    } \
-} UPRV_BLOCK_MACRO_END
-#else
 #define UTEXT_SETNATIVEINDEX(ut, ix) UPRV_BLOCK_MACRO_BEGIN { \
     int64_t __offset = (ix) - (ut)->chunkNativeStart; \
     if (__offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit && (ut)->chunkContents[__offset]<0xdc00) { \
@@ -766,7 +759,6 @@ utext_extract(UText *ut,
         utext_setNativeIndex((ut), (ix)); \
     } \
 } UPRV_BLOCK_MACRO_END
-#endif
 
 
 
@@ -955,7 +947,11 @@ enum {
      UTEXT_PROVIDER_OWNS_TEXT = 5
 };
 
+#if APPLE_ICU_CHANGES
+// rdar://71262794 Cannot include unicode/utext.h and unicode/umutablecptrie.h together
+// move U_CDECL_BEGIN down here from above
 U_CDECL_BEGIN
+#endif // APPLE_ICU_CHANGES
 
 /**
   * Function type declaration for UText.clone().

@@ -1,7 +1,6 @@
-/*	$OpenBSD: options.c,v 1.70 2008/06/11 00:49:08 pvalchev Exp $	*/
-/*	$NetBSD: options.c,v 1.6 1996/03/26 23:54:18 mrg Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,23 +33,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
 #if 0
-static const char sccsid[] = "@(#)options.c	8.2 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] = "$OpenBSD: options.c,v 1.70 2008/06/11 00:49:08 pvalchev Exp $";
-#endif
+#ifndef lint
+static char sccsid[] = "@(#)options.c	8.2 (Berkeley) 4/18/94";
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
-#include <sys/time.h>
 #include <sys/stat.h>
-#include <search.h>
 #ifndef __APPLE__
 #include <sys/mtio.h>
-#endif	/* __APPLE__ */
-#include <sys/param.h>
+#endif /* __APPLE__ */
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -58,7 +54,9 @@ __used static const char rcsid[] = "$OpenBSD: options.c,v 1.70 2008/06/11 00:49:
 #include <stdlib.h>
 #include <limits.h>
 #include <paths.h>
+#ifdef __APPLE__
 #include <getopt.h>
+#endif /* __APPLE__ */
 #include "pax.h"
 #include "options.h"
 #include "cpio.h"
@@ -77,18 +75,18 @@ static int no_op(void);
 static void printflg(unsigned int);
 static int c_frmt(const void *, const void *);
 static off_t str_offt(char *);
-static char *pax_getline(FILE *fp);
+static char *get_line(FILE *fp);
 static void pax_options(int, char **);
-void pax_usage(void);
+static void pax_usage(void);
 static void tar_options(int, char **);
 static void tar_usage(void);
 static void cpio_options(int, char **);
 static void cpio_usage(void);
 
-/* errors from getline */
+/* errors from get_line */
 #define GETLINE_FILE_CORRUPT 1
 #define GETLINE_OUT_OF_MEM 2
-static int getline_error;
+static int get_line_error;
 
 char *chdname;
 
@@ -105,62 +103,77 @@ char *chdname;
  *	rd_data, wr_data, options
  */
 
-const FSUB fsub[] = {
-/* OLD BINARY CPIO */
+FSUB fsub[] = {
+/* 0: OLD BINARY CPIO */
 	{"bcpio", 5120, sizeof(HD_BCPIO), 1, 0, 0, 1, bcpio_id, cpio_strd,
 	bcpio_rd, bcpio_endrd, cpio_stwr, bcpio_wr, cpio_endwr, cpio_trail,
-	rd_wrfile, wr_rdfile, bad_opt},
+	NULL, rd_wrfile, wr_rdfile, bad_opt},
 
-/* OLD OCTAL CHARACTER CPIO */
+/* 1: OLD OCTAL CHARACTER CPIO */
 	{"cpio", 5120, sizeof(HD_CPIO), 1, 0, 0, 1, cpio_id, cpio_strd,
 	cpio_rd, cpio_endrd, cpio_stwr, cpio_wr, cpio_endwr, cpio_trail,
-	rd_wrfile, wr_rdfile, bad_opt},
+	NULL, rd_wrfile, wr_rdfile, bad_opt},
 
+#ifdef __APPLE__
 /* POSIX 3 PAX */
 	{"pax", 5120, BLKMULT, 0, 1, BLKMULT, 0, pax_id, ustar_strd,
-	pax_rd, tar_endrd, ustar_stwr, pax_wr, tar_endwr, tar_trail,
+	pax_rd, tar_endrd, ustar_stwr, pax_wr, tar_endwr, NULL,	tar_trail,
 	rd_wrfile, wr_rdfile, pax_opt},
+#endif /* __APPLE__ */
 
-/* SVR4 HEX CPIO */
+/* 2: SVR4 HEX CPIO */
 	{"sv4cpio", 5120, sizeof(HD_VCPIO), 1, 0, 0, 1, vcpio_id, cpio_strd,
 	vcpio_rd, vcpio_endrd, cpio_stwr, vcpio_wr, cpio_endwr, cpio_trail,
-	rd_wrfile, wr_rdfile, bad_opt},
+	NULL, rd_wrfile, wr_rdfile, bad_opt},
 
-/* SVR4 HEX CPIO WITH CRC */
+/* 3: SVR4 HEX CPIO WITH CRC */
 	{"sv4crc", 5120, sizeof(HD_VCPIO), 1, 0, 0, 1, crc_id, crc_strd,
 	vcpio_rd, vcpio_endrd, crc_stwr, vcpio_wr, cpio_endwr, cpio_trail,
-	rd_wrfile, wr_rdfile, bad_opt},
+	NULL, rd_wrfile, wr_rdfile, bad_opt},
 
-/* OLD TAR */
+/* 4: OLD TAR */
 	{"tar", 10240, BLKMULT, 0, 1, BLKMULT, 0, tar_id, no_op,
-	tar_rd, tar_endrd, no_op, tar_wr, tar_endwr, tar_trail,
+	tar_rd, tar_endrd, no_op, tar_wr, tar_endwr, NULL, tar_trail,
 	rd_wrfile, wr_rdfile, tar_opt},
 
-/* POSIX USTAR */
+/* 5: POSIX USTAR */
 	{"ustar", 10240, BLKMULT, 0, 1, BLKMULT, 0, ustar_id, ustar_strd,
-	ustar_rd, tar_endrd, ustar_stwr, ustar_wr, tar_endwr, tar_trail,
+	ustar_rd, tar_endrd, ustar_stwr, ustar_wr, tar_endwr, NULL, tar_trail,
 	rd_wrfile, wr_rdfile, bad_opt},
 };
 #define F_OCPIO	0	/* format when called as cpio -6 */
 #define F_ACPIO	1	/* format when called as cpio -c */
+#ifdef __APPLE__
 #define F_PAX	2	/* -x pax */
-#define F_SCPIO	3	/* -x sv4cpio */
+#define F_SCPIO	3	/* format when called with -x sv4cpio */
 #define F_CPIO	4	/* format when called as cpio */
 #define F_OTAR	5	/* format when called as tar -o */
 #define F_TAR	6	/* format when called as tar */
+#else
+#define F_SCPIO	2	/* format when called with -x sv4cpio */
+#define F_CPIO	3	/* format when called as cpio */
+#define F_OTAR	4	/* format when called as tar -o */
+#define F_TAR	5	/* format when called as tar */
+#endif /* __APPLE__ */
 #define DEFLT	F_TAR	/* default write format from list above */
 
 /*
  * ford is the archive search order used by get_arc() to determine what kind
- * of archive we are dealing with. This helps to properly id archive formats
+ * of archive we are dealing with. This helps to properly id  archive formats
  * some formats may be subsets of others....
  */
+#ifdef __APPLE__
 int ford[] = {F_PAX, F_TAR, F_OTAR, F_CPIO, F_SCPIO, F_ACPIO, F_OCPIO, -1 };
+#else
+int ford[] = {F_TAR, F_OTAR, F_CPIO, F_SCPIO, F_ACPIO, F_OCPIO, -1 };
+#endif /* __APPLE__ */
 
+#ifdef __APPLE__
 /*
  * Do we have -C anywhere?
  */
 int havechd = 0;
+#endif /* __APPLE__ */
 
 /*
  * options()
@@ -183,7 +196,8 @@ options(int argc, char **argv)
 	if (strcmp(NM_TAR, argv0) == 0) {
 		tar_options(argc, argv);
 		return;
-	} else if (strcmp(NM_CPIO, argv0) == 0) {
+	}
+	else if (strcmp(NM_CPIO, argv0) == 0) {
 		cpio_options(argc, argv);
 		return;
 	}
@@ -192,13 +206,16 @@ options(int argc, char **argv)
 	 */
 	argv0 = NM_PAX;
 	pax_options(argc, argv);
+	return;
 }
 
+#ifdef __APPLE__
 #define OPT_INSECURE 1
 struct option pax_longopts[] = {
 	{ "insecure",       no_argument,        0,  OPT_INSECURE },
 	{ 0,                0,                  0,  0 },
 };
+#endif /* __APPLE__ */
 
 /*
  * pax_options()
@@ -215,15 +232,21 @@ pax_options(int argc, char **argv)
 	unsigned int bflg = 0;
 	char *pt;
 	FSUB tmp;
-	size_t n_fsub;
+#ifdef __APPLE__
 	char * tmp_name;
+#endif /* __APPLE__ */
 
-	listf = stderr;
 	/*
 	 * process option flags
 	 */
+#ifdef __APPLE__
 	while ((c=getopt_long(argc,argv,"0ab:cdf:ijklno:p:rs:tuvwx:zB:DE:G:HLOPT:U:XYZ", pax_longopts, NULL)) != -1) {
+#else
+	while ((c=getopt(argc,argv,"ab:cdf:iklno:p:rs:tuvwx:zB:DE:G:HLOPT:U:XYZ"))
+	    != -1) {
+#endif /* __APPLE__ */
 		switch (c) {
+#ifdef __APPLE__
 		case '0':
 			/*
 			 * Use \0 as pathname terminator.
@@ -232,6 +255,7 @@ pax_options(int argc, char **argv)
 			zeroflag = 1;
 			flg |= C0F;
 			break;
+#endif /* __APPLE__ */
 		case 'a':
 			/*
 			 * append
@@ -266,6 +290,7 @@ pax_options(int argc, char **argv)
 			/*
 			 * filename where the archive is stored
 			 */
+#ifdef __APPLE__
 			if ((optarg[0] == '-') && (optarg[1]== '\0')) {
 				/*
 				 * treat a - as stdin (like tar)
@@ -273,6 +298,7 @@ pax_options(int argc, char **argv)
 				arcname = NULL;
 				break;
 			}
+#endif /* __APPLE__ */
 			arcname = optarg;
 			flg |= FF;
 			break;
@@ -283,12 +309,14 @@ pax_options(int argc, char **argv)
 			iflag = 1;
 			flg |= IF;
 			break;
+#ifdef __APPLE__
 		case 'j':
 			/*
 			 * use bzip2.  Non standard option.
 			 */
 			gzip_program = BZIP2_CMD;
 			break;
+#endif /* __APPLE__ */
 		case 'k':
 			/*
 			 * do not clobber files that exist
@@ -315,7 +343,11 @@ pax_options(int argc, char **argv)
 			 * pass format specific options
 			 */
 			flg |= OF;
+#ifdef __APPLE__
 			if (pax_format_opt_add(optarg) < 0)
+#else
+			if (opt_add(optarg) < 0)
+#endif /* __APPLE__*/
 				pax_usage();
 			break;
 		case 'p':
@@ -323,7 +355,7 @@ pax_options(int argc, char **argv)
 			 * specify file characteristic options
 			 */
 			for (pt = optarg; *pt != '\0'; ++pt) {
-				switch (*pt) {
+				switch(*pt) {
 				case 'a':
 					/*
 					 * do not preserve access time
@@ -370,7 +402,9 @@ pax_options(int argc, char **argv)
 			/*
 			 * read the archive
 			 */
+#ifdef __APPLE__
 			pax_read_or_list_mode=1;
+#endif /* __APPLE__ */
 			flg |= RF;
 			break;
 		case 's':
@@ -385,7 +419,7 @@ pax_options(int argc, char **argv)
 			break;
 		case 't':
 			/*
-			 * preserve access time on filesystem nodes we read
+			 * preserve access time on file system nodes we read
 			 */
 			tflag = 1;
 			flg |= TF;
@@ -415,9 +449,8 @@ pax_options(int argc, char **argv)
 			 * specify an archive format on write
 			 */
 			tmp.name = optarg;
-			n_fsub = sizeof(fsub)/sizeof(FSUB);
-			if ((frmt = (FSUB *)bsearch(&tmp, fsub, n_fsub, sizeof(FSUB),
-						    c_frmt)) != NULL) {
+			if ((frmt = (FSUB *)bsearch((void *)&tmp, (void *)fsub,
+			    sizeof(fsub)/sizeof(FSUB), sizeof(FSUB), c_frmt)) != NULL) {
 				flg |= XF;
 				break;
 			}
@@ -489,8 +522,10 @@ pax_options(int argc, char **argv)
 			 */
 			Hflag = 1;
 			flg |= CHF;
+#ifdef __APPLE__
 			Lflag = 0;	/* -H and -L are mutually exclusive	*/
 			flg &= ~CLF;	/* only use the last one seen		*/
+#endif /* __APPLE__ */
 			break;
 		case 'L':
 			/*
@@ -498,14 +533,16 @@ pax_options(int argc, char **argv)
 			 */
 			Lflag = 1;
 			flg |= CLF;
+#ifdef __APPLE__
 			Hflag = 0;	/* -H and -L are mutually exclusive	*/
 			flg &= ~CHF;	/* only use the last one seen		*/
+#endif /* __APPLE__ */
 			break;
 		case 'O':
 			/*
-			 * Force one volume.  Non standard option.
+			 * Force one volume. Non standard option.
 			 */
-			force_one_volume = 1;
+			Oflag = 1;
 			break;
 		case 'P':
 			/*
@@ -559,15 +596,18 @@ pax_options(int argc, char **argv)
 			Zflag = 1;
 			flg |= CZF;
 			break;
+#ifdef __APPLE__
 		case OPT_INSECURE:
 			secure = 0;
 			break;
+#endif /* __APPLE__ */
 		default:
 			pax_usage();
 			break;
 		}
 	}
 
+#ifdef __APPLE__
 	/*
 	 * Fix for POSIX.cmd/pax/pax.ex test 132: force -wu options to look
 	 * like -wua options were specified.
@@ -575,6 +615,7 @@ pax_options(int argc, char **argv)
 	if (uflag && (flg & WF) && !(flg & RF)) {	/* -w but not -r -w */
 		flg |= AF;
 	}
+#endif /* __APPLE__ */
 
 	/*
 	 * figure out the operation mode of pax read,write,extract,copy,append
@@ -583,7 +624,9 @@ pax_options(int argc, char **argv)
 	 */
 	if (ISLIST(flg)) {
 		act = LIST;
+#ifdef __APPLE__
 		pax_read_or_list_mode=1;
+#endif /* __APPLE__ */
 		listf = stdout;
 		bflg = flg & BDLIST;
 	} else if (ISEXTRACT(flg)) {
@@ -613,6 +656,7 @@ pax_options(int argc, char **argv)
 	if (!(flg & XF) && (act == ARCHIVE))
 		frmt = &(fsub[DEFLT]);
 
+#ifdef __APPLE__
 	/*
 	 * if copying (-r and -w) and there is no -x specified, we act as
 	 * if -x pax was specified.
@@ -629,6 +673,7 @@ pax_options(int argc, char **argv)
 	} else {
 		header_name_g = "/tmp/GlobalHead.%p.%n";
 	}
+#endif /* __APPLE__ */
 
 	/*
 	 * process the args as they are interpreted by the operation mode
@@ -647,7 +692,7 @@ pax_options(int argc, char **argv)
 		}
 		--argc;
 		dirptr = argv[argc];
-		/* FALL THROUGH */
+		/* FALLTHROUGH */
 	case ARCHIVE:
 	case APPND:
 		for (; optind < argc; optind++)
@@ -673,7 +718,7 @@ tar_options(int argc, char **argv)
 {
 	int c;
 	int fstdin = 0;
-	int Oflag = 0;
+	int tar_Oflag = 0;
 	int nincfiles = 0;
 	int incfiles_max = 0;
 	struct incfile {
@@ -691,8 +736,12 @@ tar_options(int argc, char **argv)
 	 * process option flags
 	 */
 	while ((c = getoldopt(argc, argv,
+#ifdef __APPLE__
 	    "b:cef:hjmopqruts:vwxzBC:HI:LOPXZ014578")) != -1) {
-		switch (c) {
+#else
+	    "b:cef:hjmopqruts:vwxyzBC:HI:LOPXZ014578")) != -1) {
+#endif /* __APPLE__ */
+		switch(c) {
 		case 'b':
 			/*
 			 * specify blocksize in 512-byte blocks
@@ -737,6 +786,9 @@ tar_options(int argc, char **argv)
 			Lflag = 1;
 			break;
 		case 'j':
+#ifdef __APPLE__
+		case 'y':
+#endif /* __APPLE__ */
 			/*
 			 * use bzip2.  Non standard option.
 			 */
@@ -748,11 +800,11 @@ tar_options(int argc, char **argv)
 			 */
 			pmtime = 0;
 			break;
-		case 'O':
-			Oflag = 1;
-			break;
 		case 'o':
-			Oflag = 2;
+			if (opt_add("write_opt=nodir") < 0)
+				tar_usage();
+		case 'O':
+			tar_Oflag = 1;
 			break;
 		case 'p':
 			/*
@@ -821,7 +873,9 @@ tar_options(int argc, char **argv)
 			 */
 			break;
 		case 'C':
+#ifdef __APPLE__
 			havechd++;
+#endif /* __APPLE__ */
 			chdname = optarg;
 			break;
 		case 'H':
@@ -894,15 +948,28 @@ tar_options(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
+#ifdef __APPLE__
 	/* Traditional tar behaviour (pax uses stderr unless in list mode) */
 	if (fstdin == 1 && act == ARCHIVE)
 		listf = stderr;
 	else
 		listf = stdout;
 
+#endif /* __APPLE__ */
 	/* Traditional tar behaviour (pax wants to read file list from stdin) */
 	if ((act == ARCHIVE || act == APPND) && argc == 0 && nincfiles == 0)
 		exit(0);
+
+	/*
+	 * if we are writing (ARCHIVE) specify tar, otherwise run like pax
+	 * (unless -o specified)
+	 */
+	if (act == ARCHIVE || act == APPND)
+		frmt = &(fsub[tar_Oflag ? F_OTAR : F_TAR]);
+	else if (tar_Oflag) {
+		paxwarn(1, "The -O/-o options are only valid when writing an archive");
+		tar_usage();		/* only valid when writing */
+	}
 
 	/*
 	 * process the args as they are interpreted by the operation mode
@@ -945,14 +1012,14 @@ tar_options(int argc, char **argv)
 						paxwarn(1, "Unable to open file '%s' for read", file);
 						tar_usage();
 					}
-					while ((str = pax_getline(fp)) != NULL) {
+					while ((str = get_line(fp)) != NULL) {
 						if (pat_add(str, dir) < 0)
 							tar_usage();
 						sawpat = 1;
 					}
 					if (strcmp(file, "-") != 0)
 						fclose(fp);
-					if (getline_error) {
+					if (get_line_error) {
 						paxwarn(1, "Problem with file '%s'", file);
 						tar_usage();
 					}
@@ -960,28 +1027,22 @@ tar_options(int argc, char **argv)
 					if (*++argv == NULL)
 						break;
 					chdname = *argv++;
-					havechd++;
 				} else if (pat_add(*argv++, chdname) < 0)
 					tar_usage();
 				else
 					sawpat = 1;
 			}
 			/*
-			 * if patterns were added, we are doing	chdir()
+			 * if patterns were added, we are doing chdir()
 			 * on a file-by-file basis, else, just one
 			 * global chdir (if any) after opening input.
 			 */
 			if (sawpat > 0)
-				chdname = NULL;
+				chdname = NULL;	
 		}
 		break;
 	case ARCHIVE:
 	case APPND:
-		frmt = &(fsub[Oflag ? F_OTAR : F_TAR]);
-
-		if (Oflag == 2 && opt_add("write_opt=nodir") < 0)
-			tar_usage();
-
 		if (chdname != NULL) {	/* initial chdir() */
 			if (ftree_add(chdname, 1) < 0)
 				tar_usage();
@@ -1024,13 +1085,13 @@ tar_options(int argc, char **argv)
 					paxwarn(1, "Unable to open file '%s' for read", file);
 					tar_usage();
 				}
-				while ((str = pax_getline(fp)) != NULL) {
+				while ((str = get_line(fp)) != NULL) {
 					if (ftree_add(str, 0) < 0)
 						tar_usage();
 				}
 				if (strcmp(file, "-") != 0)
 					fclose(fp);
-				if (getline_error) {
+				if (get_line_error) {
 					paxwarn(1, "Problem with file '%s'",
 					    file);
 					tar_usage();
@@ -1040,7 +1101,6 @@ tar_options(int argc, char **argv)
 					break;
 				if (ftree_add(*argv++, 1) < 0)
 					tar_usage();
-				havechd++;
 			} else if (ftree_add(*argv++, 0) < 0)
 				tar_usage();
 		}
@@ -1057,9 +1117,7 @@ tar_options(int argc, char **argv)
 	}
 }
 
-int mkpath(char *);
-
-int
+static int
 mkpath(char *path)
 {
 	struct stat sb;
@@ -1100,11 +1158,11 @@ mkpath(char *path)
 static void
 cpio_options(int argc, char **argv)
 {
-	int c, i;
+	int c;
+	size_t i;
 	char *str;
 	FSUB tmp;
 	FILE *fp;
-	size_t n_fsub;
 
 	kflag = 1;
 	pids = 1;
@@ -1114,7 +1172,7 @@ cpio_options(int argc, char **argv)
 	dflag = 1;
 	act = -1;
 	nodirs = 1;
-	while ((c=getopt(argc,argv,"abcdfijklmoprstuvzABC:E:F:H:I:LO:SZ6")) != -1)
+	while ((c=getopt(argc,argv,"abcdfiklmoprstuvzABC:E:F:H:I:LO:SZ6")) != -1)
 		switch (c) {
 			case 'a':
 				/*
@@ -1150,12 +1208,6 @@ cpio_options(int argc, char **argv)
 				 * restore an archive
 				 */
 				act = EXTRACT;
-				break;
-			case 'j':
-				/*
-				 * use bzip2.  Non standard option.
-				 */
-				gzip_program = BZIP2_CMD;
 				break;
 			case 'k':
 				break;
@@ -1246,11 +1298,11 @@ cpio_options(int argc, char **argv)
 					paxwarn(1, "Unable to open file '%s' for read", optarg);
 					cpio_usage();
 				}
-				while ((str = pax_getline(fp)) != NULL) {
+				while ((str = get_line(fp)) != NULL) {
 					pat_add(str, NULL);
 				}
 				fclose(fp);
-				if (getline_error) {
+				if (get_line_error) {
 					paxwarn(1, "Problem with file '%s'", optarg);
 					cpio_usage();
 				}
@@ -1275,9 +1327,8 @@ cpio_options(int argc, char **argv)
 				 * specify an archive format on write
 				 */
 				tmp.name = optarg;
-				n_fsub = sizeof(fsub)/sizeof(FSUB);
 				if ((frmt = (FSUB *)bsearch((void *)&tmp, (void *)fsub,
-						n_fsub, sizeof(FSUB), c_frmt)) != NULL)
+				    sizeof(fsub)/sizeof(FSUB), sizeof(FSUB), c_frmt)) != NULL)
 					break;
 				paxwarn(1, "Unknown -H format: %s", optarg);
 				(void)fputs("cpio: Known -H formats are:", stderr);
@@ -1337,7 +1388,7 @@ cpio_options(int argc, char **argv)
 				cpio_usage();
 			--argc;
 			++argv;
-			/* FALL THROUGH */
+			/* FALLTHROUGH */
 		case ARCHIVE:
 		case APPND:
 			if (*argv != NULL)
@@ -1346,10 +1397,10 @@ cpio_options(int argc, char **argv)
 			 * no read errors allowed on updates/append operation!
 			 */
 			maxflt = 0;
-			while ((str = pax_getline(stdin)) != NULL) {
+			while ((str = get_line(stdin)) != NULL) {
 				ftree_add(str, 0);
 			}
-			if (getline_error) {
+			if (get_line_error) {
 				paxwarn(1, "Problem while reading stdin");
 				cpio_usage();
 			}
@@ -1427,6 +1478,7 @@ bad_opt(void)
 	 * print all we were given
 	 */
 	paxwarn(1,"These format options are not supported");
+#ifdef __APPLE__
 	while ((opt = opt_next()) != NULL) {
 		if (opt->separator == SEP_EQ) {
 			(void)fprintf(stderr, "\t%s = %s\n", opt->name, opt->value);
@@ -1436,6 +1488,10 @@ bad_opt(void)
 			(void)fprintf(stderr, "\t%s\n", opt->name);
 		}
 	}
+#else
+	while ((opt = opt_next()) != NULL)
+		(void)fprintf(stderr, "\t%s = %s\n", opt->name, opt->value);
+#endif /* __APPLE__ */
 	pax_usage();
 	return(0);
 }
@@ -1455,18 +1511,22 @@ opt_add(const char *str)
 	OPLIST *opt;
 	char *frpt;
 	char *pt;
-	char *dstr;
 	char *endpt;
+	char *lstr;
 
 	if ((str == NULL) || (*str == '\0')) {
 		paxwarn(0, "Invalid option name");
 		return(-1);
 	}
-	if ((dstr = strdup(str)) == NULL) {
+	if ((lstr = strdup(str)) == NULL) {
 		paxwarn(0, "Unable to allocate space for option list");
 		return(-1);
 	}
-	frpt = dstr;
+#ifdef __APPLE__
+	frpt = lstr;
+#else
+	frpt = endpt = lstr;
+#endif /* __APPLE__ */
 
 	/*
 	 * break into name and values pieces and stuff each one into a
@@ -1478,18 +1538,23 @@ opt_add(const char *str)
 			*endpt = '\0';
 		if ((pt = strchr(frpt, '=')) == NULL) {
 			paxwarn(0, "Invalid options format");
-			free(dstr);
+			free(lstr);
 			return(-1);
 		}
 		if ((opt = (OPLIST *)malloc(sizeof(OPLIST))) == NULL) {
 			paxwarn(0, "Unable to allocate space for option list");
-			free(dstr);
+			free(lstr);
 			return(-1);
 		}
+#ifndef __APPLE__
+		lstr = NULL;	/* parts of string going onto the OPLIST */
+#endif /* __APPLE__ */
 		*pt++ = '\0';
 		opt->name = frpt;
 		opt->value = pt;
+#ifdef __APPLE__
 		opt->separator = SEP_EQ;
+#endif /* __APPLE__ */
 		opt->fow = NULL;
 		if (endpt != NULL)
 			frpt = endpt + 1;
@@ -1502,9 +1567,13 @@ opt_add(const char *str)
 		optail->fow = opt;
 		optail = opt;
 	}
+#ifndef __APPLE__
+	free(lstr);
+#endif /* __APPLE__ */
 	return(0);
 }
 
+#ifdef __APPLE__
 /*
  * pax_format_opt_add()
  *	breaks the value supplied to -o into a option name and value. options
@@ -1574,6 +1643,7 @@ pax_format_opt_add(register char *str)
 	}
 	return(0);
 }
+#endif /* __APPLE__ */
 
 /*
  * str_offt()
@@ -1596,16 +1666,11 @@ str_offt(char *val)
 	char *expr;
 	off_t num, t;
 
-#	ifdef LONG_OFF_T
-	num = strtol(val, &expr, 0);
-	if ((num == LONG_MAX) || (num <= 0) || (expr == val))
-#	else
 	num = strtoq(val, &expr, 0);
 	if ((num == QUAD_MAX) || (num <= 0) || (expr == val))
-#	endif
 		return(0);
 
-	switch (*expr) {
+	switch(*expr) {
 	case 'b':
 		t = num;
 		num *= 512;
@@ -1636,7 +1701,7 @@ str_offt(char *val)
 		break;
 	}
 
-	switch (*expr) {
+	switch(*expr) {
 		case '\0':
 			break;
 		case '*':
@@ -1653,21 +1718,21 @@ str_offt(char *val)
 }
 
 char *
-pax_getline(FILE *f)
+get_line(FILE *f)
 {
 	char *name, *temp;
 	size_t len;
 
 	name = fgetln(f, &len);
 	if (!name) {
-		getline_error = ferror(f) ? GETLINE_FILE_CORRUPT : 0;
+		get_line_error = ferror(f) ? GETLINE_FILE_CORRUPT : 0;
 		return(0);
 	}
 	if (name[len-1] != '\n')
 		len++;
 	temp = malloc(len);
 	if (!temp) {
-		getline_error = GETLINE_OUT_OF_MEM;
+		get_line_error = GETLINE_OUT_OF_MEM;
 		return(0);
 	}
 	memcpy(temp, name, len-1);
@@ -1696,17 +1761,57 @@ no_op(void)
 void
 pax_usage(void)
 {
-	(void)fputs(
-	    "usage: pax [-0cdjnOvz] [-E limit] [-f archive] [-G group] [-s replstr]\n"
-	    "           [-T range] [-U user] [--insecure] [pattern ...]\n"
-	    "       pax -r [-0cDdijknOuvYZz] [-E limit] [-f archive] [-G group] [-o options]\n"
-	    "           [-p string] [-s replstr] [-T range] [-U user] [--insecure] [pattern ...]\n"
-	    "       pax -w [-0adHijLOPtuvXz] [-B bytes] [-b blocksize] [-f archive]\n"
-	    "           [-G group] [-o options] [-s replstr] [-T range] [-U user]\n"
-	    "           [-x format] [--insecure] [file ...]\n"
-	    "       pax -rw [-0DdHikLlnOPtuvXYZ] [-G group] [-p string] [-s replstr]\n"
-	    "           [-T range] [-U user] [--insecure] [file ...] directory\n",
-	    stderr);
+#ifdef __APPLE__
+	(void)fputs("usage: pax [-0cdjnOvz] [-E limit] [-f archive] ", stderr);
+#else
+	(void)fputs("usage: pax [-cdnOvz] [-E limit] [-f archive] ", stderr);
+#endif
+	(void)fputs("[-s replstr] ... [-U user] ...", stderr);
+	(void)fputs("\n	   [-G group] ... ", stderr);
+	(void)fputs("[-T [from_date][,to_date]] ... ", stderr);
+#ifdef __APPLE__
+	(void)fputs("[--insecure] ", stderr);
+#endif
+	(void)fputs("[pattern ...]\n", stderr);
+#ifdef __APPLE__
+	(void)fputs("       pax -r [-0cdijknOuvzDYZ] [-E limit] ", stderr);
+#else
+	(void)fputs("       pax -r [-cdiknOuvzDYZ] [-E limit] ", stderr);
+#endif
+	(void)fputs("[-f archive] [-o options] ... \n", stderr);
+	(void)fputs("	   [-p string] ... [-s replstr] ... ", stderr);
+	(void)fputs("[-U user] ... [-G group] ...\n	   ", stderr);
+	(void)fputs("[-T [from_date][,to_date]] ... ", stderr);
+#ifdef __APPLE__
+	(void)fputs("[--insecure] ", stderr);
+#endif
+	(void)fputs(" [pattern ...]\n", stderr);
+#ifdef __APPLE__
+	(void)fputs("       pax -w [-0dijtuvzHLOPX] [-b blocksize] ", stderr);
+#else
+	(void)fputs("       pax -w [-dituvzHLOPX] [-b blocksize] ", stderr);
+#endif
+	(void)fputs("[ [-a] [-f archive] ] [-x format] \n", stderr);
+	(void)fputs("	   [-B bytes] [-s replstr] ... ", stderr);
+	(void)fputs("[-o options] ... [-U user] ...", stderr);
+	(void)fputs("\n	   [-G group] ... ", stderr);
+	(void)fputs("[-T [from_date][,to_date][/[c][m]]] ... ", stderr);
+#ifdef __APPLE__
+	(void)fputs("[--insecure] ", stderr);
+#endif
+	(void)fputs("[file ...]\n", stderr);
+#ifdef __APPLE__
+	(void)fputs("       pax -r -w [-0dijklntuvDHLOPXYZ] ", stderr);
+#else
+	(void)fputs("       pax -r -w [-diklntuvDHLOPXYZ] ", stderr);
+#endif
+	(void)fputs("[-p string] ... [-s replstr] ...", stderr);
+	(void)fputs("\n	   [-U user] ... [-G group] ... ", stderr);
+	(void)fputs("[-T [from_date][,to_date][/[c][m]]] ... ", stderr);
+#ifdef __APPLE__
+	(void)fputs("[--insecure] ", stderr);
+#endif
+	(void)fputs("\n	   [file ...] directory\n", stderr);
 	exit(1);
 }
 
@@ -1718,12 +1823,9 @@ pax_usage(void)
 void
 tar_usage(void)
 {
-	(void)fputs(
-	    "usage: tar {crtux}[014578befHhjLmOoPpqsvwXZz]\n"
-	    "           [blocking-factor | archive | replstr] [-C directory] [-I file]\n"
-	    "           [file ...]\n"
-	    "       tar {-crtux} [-014578eHhjLmOoPpqvwXZz] [-b blocking-factor]\n"
-	    "           [-C directory] [-f archive] [-I file] [-s replstr] [file ...]\n",
+	(void)fputs("usage: tar [-]{crtux}[-befhjmopqsvwyzHLOPXZ014578] [blocksize] ",
+		 stderr);
+	(void)fputs("[archive] [replstr] [-C directory] [-I file] [file ...]\n",
 	    stderr);
 	exit(1);
 }
@@ -1736,12 +1838,10 @@ tar_usage(void)
 void
 cpio_usage(void)
 {
-	(void)fputs(
-	    "usage: cpio -o [-AaBcjLvZz] [-C bytes] [-F archive] [-H format]\n"
-	    "            [-O archive] < name-list [> archive]\n"
-	    "       cpio -i [-6BbcdfjmrSstuvZz] [-C bytes] [-E file] [-F archive] [-H format]\n"
-	    "            [-I archive] [pattern ...] [< archive]\n"
-	    "       cpio -p [-adLlmuv] destination-directory < name-list\n",
-	    stderr);
+	(void)fputs("usage: cpio -o [-aABcLvVzZ] [-C bytes] [-H format] [-O archive]\n", stderr);
+	(void)fputs("               [-F archive] < name-list [> archive]\n", stderr);
+	(void)fputs("       cpio -i [-bBcdfmnrsStuvVzZ6] [-C bytes] [-E file] [-H format]\n", stderr);
+	(void)fputs("               [-I archive] [-F archive] [pattern...] [< archive]\n", stderr);
+	(void)fputs("       cpio -p [-adlLmuvV] destination-directory < name-list\n", stderr);
 	exit(1);
 }

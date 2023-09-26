@@ -67,7 +67,7 @@
 //                                                              / / / / / ,------------ D : Returned to client as data in queries (implied by C)
 //                                                             / / / / / / ,----------- R : Returned to client as ref/persistent ref in queries
 //                                                            / / / / / / / ,---------- C : Part of encrypted blob
-//                                                           / / / / / / / / ,--------- H : Attribute is part of item SHA1 hash
+//                                                           / / / / / / / / ,--------- H : Attribute is part of item SHA1 hash (requires C or U)
 //                                                          / / / / / / / / / ,-------- B : Attribute is part of iTunes/iCloud backup bag
 //                                                         / / / / / / / / / / ,------- Z : Attribute has a default value of 0
 //                                                        / / / / / / / / / / / ,------ E : Attribute has a default value of "" or empty data
@@ -262,6 +262,30 @@ SECDB_ATTR(v12_ggrp, "ggrp", String, SecDbFlags(P,L,I, ,A, , , ,H, , , , ,U,  , 
 
 SECDB_ATTR(v12_2contextID,    "contextID",     String,   SecDbFlags(P,L, , , , , , , , , ,E,N, ,  , ), NULL, NULL);
 
+
+SECDB_ATTR(v12_8suggestDeletion, "suggestDeletion", Number, SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+
+const SecDbClass v12_8_ckmirror_class = {
+    .name = CFSTR("ckmirror"),
+    .itemclass = false,
+    .attrs = {
+        &v10ckzone,
+        &v10syncuuid,
+        &v10parentKeyUUID,
+        &v10gencount,
+        &v10wrappedkey,
+        &v10encrypteditem,
+        &v10encodedCKRecord,
+        &v10encryptionver,
+        &v10_1wasCurrent,
+        &v12_8suggestDeletion,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v12_2contextID,
+        0
+    }
+};
 
 const SecDbClass v12_2_outgoing_queue_class = {
     .name = CFSTR("outgoingqueue"),
@@ -1642,6 +1666,76 @@ const SecDbClass v_identity_class = {
     },
 };
 
+
+/*
+ * Version 12.8
+ */
+const SecDbSchema v12_8_schema = {
+    .majorVersion = 12,
+    .minorVersion = 8,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_8_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_2_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+/*
+ * Version 12.7
+ */
+const SecDbSchema v12_7_schema = {
+    .majorVersion = 12,
+    .minorVersion = 7,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_2_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_2_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
 
 /*
  * Version 12.6
@@ -3638,6 +3732,8 @@ static const SecDbSchema v5_schema = {
 SecDbSchema const * const * kc_schemas = NULL;
 
 const SecDbSchema *v10_kc_schemas[] = {
+    &v12_8_schema,
+    &v12_7_schema,
     &v12_6_schema,
     &v12_5_schema,
     &v12_4_schema,
@@ -3749,3 +3845,19 @@ const SecDbClass* tversion_class(void) {
     return find_class_helper(CFSTR("tversion"), &onceToken, &tversion);
 }
 
+
+// Per https://www.sqlite.org/pragma.html#pragma_user_version & https://www.sqlite.org/fileformat2.html#database_header
+// the user version is a 4-byte integer.
+int32_t getDbUserVersion(SecDbConnectionRef dbconn) {
+    return SecDBGetInteger(dbconn, CFSTR("PRAGMA user_version"), 0);
+}
+
+bool setDbUserVersion(int32_t version, SecDbConnectionRef dbconn, CFErrorRef* error) {
+    CFStringRef setVersion = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("PRAGMA user_version = %d"), version);
+    bool ok = SecDbExec(dbconn, setVersion, error);
+    if (!ok) {
+        secerror("setDbUserVersion failed: %@", error ? *error : nil);
+    }
+    CFReleaseNull(setVersion);
+    return ok;
+}

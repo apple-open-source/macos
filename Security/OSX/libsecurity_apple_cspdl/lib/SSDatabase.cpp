@@ -186,7 +186,7 @@ SSDatabaseImpl::commonCreate(const DLDbIdentifier &dlDbIdentifier, bool &autoCom
 
 			newOpenParameters.mask = inOpenParameters->mask;
 			newOpenParameters.mode = inOpenParameters->mode;
-			/*DROPTHROUGH*/
+			[[fallthrough]];
 		case 0:
 			//if (inOpenParameters->length < sizeof(CSSM_APPLEDL_OPEN_PARAMETERS_V0))
 			//	CssmError::throwMe(CSSMERR_APPLEDL_INVALID_OPEN_PARAMETERS);

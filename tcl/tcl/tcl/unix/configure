@@ -2798,6 +2798,7 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <ctype.h>
+#include <stdlib.h>
 #if ((' ' & 0x0FF) == 0x020)
 # define ISLOWER(c) ('a' <= (c) && (c) <= 'z')
 # define TOUPPER(c) (ISLOWER(c) ? 'A' + ((c) - 'a') : (c))
@@ -13563,7 +13564,7 @@ _ACEOF
     # (like convex) have timezone functions, etc.
     #
     echo "$as_me:$LINENO: checking long timezone variable" >&5
-echo $ECHO_N "checking long timezone variable... $ECHO_C" >&6
+echo $ECHO_N "checking long timezone variable unix... $ECHO_C" >&6
 if test "${tcl_cv_timezone_long+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -13575,6 +13576,7 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <time.h>
+#include <stdlib.h>
 int
 main ()
 {
@@ -14389,7 +14391,7 @@ fi
 
     if test "$tcl_ok" = 1; then
 	echo "$as_me:$LINENO: checking proper strstr implementation" >&5
-echo $ECHO_N "checking proper strstr implementation... $ECHO_C" >&6
+echo $ECHO_N "checking proper strstr implementation unix... $ECHO_C" >&6
 if test "${tcl_cv_strstr_unbroken+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -14402,8 +14404,9 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+#include <stdlib.h>
 int main() {
-    extern int strstr();
+    extern char *strstr(const char *, const char *);
     exit(strstr("\0test", "test") ? 1 : 0);
 }
 _ACEOF
@@ -14556,7 +14559,7 @@ fi
 
     if test "$tcl_ok" = 1; then
 	echo "$as_me:$LINENO: checking proper strtoul implementation" >&5
-echo $ECHO_N "checking proper strtoul implementation... $ECHO_C" >&6
+echo $ECHO_N "checking proper strtoul implementation unix... $ECHO_C" >&6
 if test "${tcl_cv_strtoul_unbroken+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -14569,8 +14572,10 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+#include <stdlib.h>
+
 int main() {
-    extern int strtoul();
+    extern unsigned long strtoul(const char *, char **, int);
     char *term, *string = "0";
     exit(strtoul(string,&term,0) != 0 || term != string+1);
 }
@@ -14723,7 +14728,7 @@ fi
 
     if test "$tcl_ok" = 1; then
 	echo "$as_me:$LINENO: checking proper strtod implementation" >&5
-echo $ECHO_N "checking proper strtod implementation... $ECHO_C" >&6
+echo $ECHO_N "checking proper strtod implementation unix... $ECHO_C" >&6
 if test "${tcl_cv_strtod_unbroken+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -14736,8 +14741,9 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+#include <stdlib.h>
 int main() {
-    extern double strtod();
+    extern double strtod(const char *, char **);
     char *term, *string = " +69";
     exit(strtod(string,&term) != 69 || term != string+4);
 }
@@ -14906,6 +14912,7 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
+#include <stdlib.h>
 
 		extern double strtod();
 		int main() {
@@ -16395,6 +16402,8 @@ cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 
 	#include <stdlib.h>
+	#include <string.h>
+
 	#define OURVAR "havecopy=yes"
 	int main (int argc, char *argv[])
 	{

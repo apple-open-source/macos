@@ -38,7 +38,7 @@ static void ItclReportObjectUsage _ANSI_ARGS_((Tcl_Interp *interp,
     ItclObject* obj));
 
 static char* ItclTraceThisVar _ANSI_ARGS_((ClientData cdata,
-    Tcl_Interp *interp, CONST char *name1, CONST char *name2, int flags));
+    Tcl_Interp *interp, char *name1, char *name2, int flags));
 
 static void ItclDestroyObject _ANSI_ARGS_((ClientData cdata));
 static void ItclFreeObject _ANSI_ARGS_((char* cdata));
@@ -193,7 +193,7 @@ Itcl_CreateObject(interp, name, cdefn, objc, objv, roPtr)
                     ItclCreateObjVar(interp, vdefn, newObj);
                     Tcl_SetVar2(interp, "this", (char*)NULL, "", 0);
                     Tcl_TraceVar2(interp, "this", NULL,
-                        TCL_TRACE_READS|TCL_TRACE_WRITES, ItclTraceThisVar,
+                        TCL_TRACE_READS|TCL_TRACE_WRITES, &ItclTraceThisVar,
                         (ClientData)newObj);
                 }
             }
@@ -851,8 +851,8 @@ static char*
 ItclTraceThisVar(cdata, interp, name1, name2, flags)
     ClientData cdata;	    /* object instance data */
     Tcl_Interp *interp;	    /* interpreter managing this variable */
-    CONST char *name1;	    /* variable name */
-    CONST char *name2;	    /* unused */
+    char *name1;	    /* variable name */
+    char *name2;	    /* unused */
     int flags;		    /* flags indicating read/write */
 {
     ItclObject *contextObj = (ItclObject*)cdata;

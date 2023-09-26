@@ -16,6 +16,8 @@
 #include <../private/malloc_private.h>
 #include <../src/internal.h>
 
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+
 extern malloc_zone_t **malloc_zones;
 
 void check_stats(malloc_zone_t *zone, malloc_statistics_t *stats) 
@@ -80,7 +82,8 @@ T_DECL(nano_statistics_test, "Test that we can introspect nano zone statistics",
 
 
 T_DECL(szone_statistics_test, "Test that we can introspect szone zone statistics",
-	   T_META_ENVVAR("MallocNanoZone=0"), T_META_CHECK_LEAKS(false))
+	   T_META_ENVVAR("MallocNanoZone=0"), T_META_CHECK_LEAKS(false),
+	   T_META_TAG_XZONE)
 {
 	(void)malloc(16);
 	T_ASSERT_EQ(malloc_engaged_nano(), 0, "Nanozone not engaged");

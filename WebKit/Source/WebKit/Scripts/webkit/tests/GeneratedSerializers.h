@@ -35,12 +35,15 @@ enum class EnumWithoutNamespace : uint8_t;
 #if ENABLE(UINT16_ENUM)
 namespace EnumNamespace { enum class EnumType : uint16_t; }
 #endif
+enum class OptionSetEnumFirstCondition : uint32_t;
+enum class OptionSetEnumLastCondition : uint32_t;
+enum class OptionSetEnumAllCondition : uint32_t;
 #if ENABLE(TEST_FEATURE)
 namespace Namespace::Subnamespace { struct StructName; }
 #endif
 namespace Namespace { class ReturnRefClass; }
 namespace Namespace { struct EmptyConstructorStruct; }
-namespace Namespace { class EmptyConstructorNullable; }
+namespace Namespace { class EmptyConstructorWithIf; }
 class WithoutNamespace;
 class WithoutNamespaceWithAttributes;
 namespace WebCore { class InheritsFrom; }
@@ -53,6 +56,14 @@ using FloatBoxExtent = ScrollSnapOffsetsInfo<float, double>;
 }
 struct NullableSoftLinkedMember;
 namespace WebCore { class TimingFunction; }
+#if ENABLE(TEST_FEATURE)
+namespace Namespace { class ConditionalCommonClass; }
+#endif
+namespace Namespace { class CommonClass; }
+namespace Namespace { class AnotherCommonClass; }
+namespace WebCore { class MoveOnlyBaseClass; }
+namespace WebCore { class MoveOnlyDerivedClass; }
+namespace WebKit { class PlatformClass; }
 
 namespace IPC {
 
@@ -78,9 +89,9 @@ template<> struct ArgumentCoder<Namespace::EmptyConstructorStruct> {
     static std::optional<Namespace::EmptyConstructorStruct> decode(Decoder&);
 };
 
-template<> struct ArgumentCoder<Namespace::EmptyConstructorNullable> {
-    static void encode(Encoder&, const Namespace::EmptyConstructorNullable&);
-    static std::optional<Namespace::EmptyConstructorNullable> decode(Decoder&);
+template<> struct ArgumentCoder<Namespace::EmptyConstructorWithIf> {
+    static void encode(Encoder&, const Namespace::EmptyConstructorWithIf&);
+    static std::optional<Namespace::EmptyConstructorWithIf> decode(Decoder&);
 };
 
 template<> struct ArgumentCoder<WithoutNamespace> {
@@ -129,6 +140,38 @@ template<> struct ArgumentCoder<WebCore::TimingFunction> {
     static std::optional<Ref<WebCore::TimingFunction>> decode(Decoder&);
 };
 
+#if ENABLE(TEST_FEATURE)
+template<> struct ArgumentCoder<Namespace::ConditionalCommonClass> {
+    static void encode(Encoder&, const Namespace::ConditionalCommonClass&);
+    static std::optional<Namespace::ConditionalCommonClass> decode(Decoder&);
+};
+#endif
+
+template<> struct ArgumentCoder<Namespace::CommonClass> {
+    static void encode(Encoder&, const Namespace::CommonClass&);
+    static std::optional<Namespace::CommonClass> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<Namespace::AnotherCommonClass> {
+    static void encode(Encoder&, const Namespace::AnotherCommonClass&);
+    static std::optional<Ref<Namespace::AnotherCommonClass>> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::MoveOnlyBaseClass> {
+    static void encode(Encoder&, WebCore::MoveOnlyBaseClass&&);
+    static std::optional<WebCore::MoveOnlyBaseClass> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::MoveOnlyDerivedClass> {
+    static void encode(Encoder&, WebCore::MoveOnlyDerivedClass&&);
+    static std::optional<WebCore::MoveOnlyDerivedClass> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebKit::PlatformClass> {
+    static void encode(Encoder&, const WebKit::PlatformClass&);
+    static std::optional<WebKit::PlatformClass> decode(Decoder&);
+};
+
 } // namespace IPC
 
 
@@ -138,5 +181,8 @@ template<> bool isValidEnum<EnumWithoutNamespace, void>(uint8_t);
 #if ENABLE(UINT16_ENUM)
 template<> bool isValidEnum<EnumNamespace::EnumType, void>(uint16_t);
 #endif
+template<> bool isValidOptionSet<OptionSetEnumFirstCondition>(OptionSet<OptionSetEnumFirstCondition>);
+template<> bool isValidOptionSet<OptionSetEnumLastCondition>(OptionSet<OptionSetEnumLastCondition>);
+template<> bool isValidOptionSet<OptionSetEnumAllCondition>(OptionSet<OptionSetEnumAllCondition>);
 
 } // namespace WTF

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1066,6 +1066,7 @@ _SCVLANInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 		Boolean			found		= FALSE;
 		CFIndex			j;
 		CFBooleanRef		supported;
+		Boolean			c_vlan_physical_iopath = FALSE;
 
 		c_vlan          = CFArrayGetValueAtIndex(config, i);
 		c_vlan_if       = SCNetworkInterfaceGetBSDName(c_vlan);
@@ -1074,6 +1075,12 @@ _SCVLANInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 		if (c_vlan_physical == NULL) {
 			continue;
 		}
+
+		// Check if physical interface has IO path
+		if (_SCNetworkInterfaceGetIOPath(c_vlan_physical) != NULL) {
+			c_vlan_physical_iopath = TRUE;
+		}
+
 		// determine if the physical interface supports VLANs
 		supported = CFDictionaryGetValue(devices, c_vlan_physical);
 		if (supported == NULL) {
@@ -1122,7 +1129,7 @@ _SCVLANInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 			}
 		}
 
-		if (!found && CFBooleanGetValue(supported)) {
+		if (!found && CFBooleanGetValue(supported) && c_vlan_physical_iopath) {
 			// if the physical interface supports VLANs, add new interface
 			Boolean		created;
 

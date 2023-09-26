@@ -1,4 +1,5 @@
 %x string s_name charmap defn nchar subs subs2 ldef elem
+%option noyywrap
 %{
 /*-
  * Copyright (c) 1995 Alex Tatmanjants <alex@elvisti.kiev.ua>
@@ -53,7 +54,12 @@ YYSTYPE yylval;
 #endif /* FLEX_DEBUG */
 int yylex(void);
 static int localedefmode = 0;
+#ifdef __APPLE__
+/* rdar://problem/102105949 - No more implicit int */
+static int orderpass = 0;
+#else
 static orderpass = 0;
+#endif
 %}
 %%
 <INITIAL,charmap,nchar,subs,subs2,ldef>[ \t]+      ;

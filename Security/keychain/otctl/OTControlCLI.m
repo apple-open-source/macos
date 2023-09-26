@@ -29,6 +29,8 @@
 
 #import <AppleFeatures/AppleFeatures.h>
 
+#include <Security/OTClique+Private.h>
+
 static NSString * fetch_pet(NSString * appleID, NSString * dsid)
 {
     if(!appleID && !dsid) {
@@ -352,7 +354,13 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
         ret = 0;
         NSMutableArray<NSString *>* escrowRecords = [NSMutableArray array];
         for(OTEscrowRecord* record in records){
-            SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, NULL, (__bridge CFDataRef)record.escrowInformationMetadata.peerInfo);
+            CFErrorRef cfError = NULL;
+            SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, &cfError, (__bridge CFDataRef)record.escrowInformationMetadata.peerInfo);
+            if (peer == NULL) {
+                NSError* nsError = (__bridge_transfer NSError*)cfError;
+                fprintf(stderr, "Failed SOSPeerInfoCreateFromData: %s\n", nsError.description.UTF8String);
+                continue;
+            }
             CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
             [escrowRecords addObject:(__bridge NSString *)peerID];
         }
@@ -439,8 +447,14 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
     OTEscrowRecord* record = nil;
     
     for (OTEscrowRecord* r in escrowRecords) {
-        CFErrorRef* localError = NULL;
-        SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, localError, (__bridge CFDataRef)r.escrowInformationMetadata.peerInfo);
+        CFErrorRef cfError = NULL;
+        SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, &cfError, (__bridge CFDataRef)r.escrowInformationMetadata.peerInfo);
+        if (peer == NULL) {
+            NSError* nsError = (__bridge_transfer NSError*)cfError;
+            fprintf(stderr, "Failed SOSPeerInfoCreateFromData: %s\n", nsError.description.UTF8String);
+            continue;
+        }
+
         CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
         
         if ([(__bridge NSString *)peerID isEqualToString:recordID]) {
@@ -742,12 +756,14 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 
 - (int)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
+            repair:(BOOL)repair
 {
 #if OCTAGON
     __block int ret = 1;
 
     [self.control healthCheck:arguments
         skipRateLimitingCheck:skipRateLimitingCheck
+                       repair:repair
                         reply:^(NSError* _Nullable error) {
         if(error) {
             fprintf(stderr, "Error checking health: %s\n", [[error description] UTF8String]);
@@ -881,17 +897,27 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 }
 
 - (int)createCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
+                                    uuidString:(NSString*_Nullable)uuidString
                                           json:(bool)json
                                        timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
+    NSUUID *uuid = nil;
+    if (uuidString != nil) {
+        uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+        if (uuid == nil) {
+            fprintf(stderr, "bad format for custodianUUID\n");
+            return 1;
+        }
+    }
+
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
     __block int ret = 1;
     __block bool retry;
     do {
         retry = false;
         [self.control createCustodianRecoveryKey:arguments
-                                            uuid:nil
+                                            uuid:uuid
                                            reply:^(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error) {
             if (error) {
                 fprintf(stderr, "createCustodianRecoveryKey failed: %s\n", [[error description] UTF8String]);
@@ -1166,7 +1192,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
         if (error) {
             fprintf(stderr, "set recovery key failed: %s\n", [[error description] UTF8String]);
         } else {
-            printf("successful set of recovery key\n");
+            printf("successfully registered recovery key %s, in octagon\n", [recoveryKey UTF8String]);
             ret = 0;
         }
     }];
@@ -1178,17 +1204,27 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 }
 
 - (int)createInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                              uuidString:(NSString*_Nullable)uuidString
                                     json:(bool)json
                                  timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
+    NSUUID *uuid = nil;
+    if (uuidString != nil) {
+        uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+        if (uuid == nil) {
+            fprintf(stderr, "bad format for inheritanceUUID\n");
+            return 1;
+        }
+    }
+
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
     __block int ret = 1;
     __block bool retry;
     do {
         retry = false;
         [self.control createInheritanceKey:arguments
-                                      uuid:nil
+                                      uuid:uuid
                                      reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
             if (error) {
                 fprintf(stderr, "createInheritanceKey failed: %s\n", [[error description] UTF8String]);
@@ -1745,33 +1781,40 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 }
 
 - (int)fetchAccountWideSettingsWithArguments:(OTControlArguments*)arguments
+                                  useDefault:(bool)useDefault
                                   forceFetch:(bool)forceFetch
                                         json:(bool)json
 {
 #if OCTAGON
     __block int ret = 1;
     
-    [self.control fetchAccountWideSettingsWithForceFetch:forceFetch
-                                               arguments:arguments
-                                                   reply:^(OTAccountSettings * _Nullable setting, NSError * _Nullable replyError) {
-        if (replyError) {
-            if(json) {
-                print_json(@{@"error" : [replyError description]});
-            } else {
-                fprintf(stderr, "Failed to fetch account wide settings: %s\n", [[replyError description] UTF8String]);
-            }
+    OTAccountSettings *setting = nil;
+    NSError* error = nil;
+
+    if (useDefault) {
+        setting = [OTClique fetchAccountWideSettingsDefaultWithForceFetch:forceFetch configuration:[arguments makeConfigurationContext] error:&error];
+    
+    } else {
+        setting = [OTClique fetchAccountWideSettingsWithForceFetch:forceFetch configuration:[arguments makeConfigurationContext] error:&error];
+    }
+    
+    if (error) {
+        if(json) {
+            print_json(@{@"error" : [error description]});
         } else {
-            if(json) {
-                NSDictionary* result = @{@"walrus" : @(setting.walrus.enabled), @"webAccess" : @(setting.webAccess.enabled)};
-                print_json(result);
-            } else {
-                printf("successfully fetched account wide settings!\n");
-                printf("walrus enabled? %s\n", setting.walrus.enabled ?  [@"YES" UTF8String] : [@"NO" UTF8String]);
-                printf("web access enabled? %s\n", setting.webAccess.enabled ? [@"YES" UTF8String] : [@"NO" UTF8String]);
-            }
-            ret = 0;
+            fprintf(stderr, "Failed to fetch account wide settings: %s\n", [[error description] UTF8String]);
         }
-    }];
+    } else {
+        if(json) {
+            NSDictionary* result = @{@"walrus" : @(setting.walrus.enabled), @"webAccess" : @(setting.webAccess.enabled)};
+            print_json(result);
+        } else {
+            printf("successfully fetched account wide settings!\n");
+            printf("walrus enabled? %s\n", setting.walrus.enabled ?  [@"YES" UTF8String] : [@"NO" UTF8String]);
+            printf("web access enabled? %s\n", setting.webAccess.enabled ? [@"YES" UTF8String] : [@"NO" UTF8String]);
+        }
+        ret = 0;
+    }
     
     return ret;
 #else
@@ -1828,6 +1871,35 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
             }
         }
     }];
+    
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)reset:(OTControlArguments*)arguments appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid
+{
+#if OCTAGON
+    __block int ret = 1;
+    
+    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
+    data.passwordEquivalentToken = fetch_pet(appleID, dsid);
+    data.authenticationAppleID = appleID;
+    data.altDSID = arguments.altDSID;
+    data.context = arguments.contextID;
+    data.containerName = arguments.containerName;
+
+    NSError* localError = nil;
+    BOOL result = [OTClique resetAcountData:data error:&localError];
+    if (localError || !result) {
+        fprintf(stderr, "Failed to wipe account data: %s\n", [[localError description] UTF8String]);
+    } else {
+        printf("Account data wiped.\n");
+        ret = 0;
+    }
+    
     
     return ret;
 #else

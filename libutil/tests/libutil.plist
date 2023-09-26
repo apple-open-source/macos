@@ -21,6 +21,19 @@
 				<string>NIGHTLY</string>
 			</array>
 		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libutil/tzlinkd_test</string>
+			</array>
+			<key>TestName</key>
+			<string>tzlinkd_test</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+		</dict>
 	</array>
 	<key>Timeout</key>
 	<integer>30</integer>

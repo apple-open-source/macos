@@ -30,10 +30,18 @@ __BEGIN_DECLS
 
 #include <IOKit/IODataQueueClient.h>
 
+enum {
+    kIODataQueueDeliveryNotificationForce         = (1<<0),
+    kIODataQueueDeliveryNotificationSuppress      = (1<<1)
+};
+
 typedef uint32_t (*IODataQueueClientEnqueueReadBytesCallback)(void * refcon, void *data, uint32_t dataSize);
 
 IOReturn
 _IODataQueueEnqueueWithReadCallback(IODataQueueMemory *dataQueue, uint64_t queueSize, mach_msg_header_t *msgh, uint32_t dataSize, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon);
+
+IOReturn
+_IODataQueueEnqueueWithReadCallbackOptions(IODataQueueMemory *dataQueue, uint64_t queueSize, mach_msg_header_t *msgh, uint32_t dataSize, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon, uint32_t options);
 
 /*
  * Internal Peek and Dequeue functions. These functions allow us to pass in the
@@ -43,6 +51,9 @@ _IODataQueueEnqueueWithReadCallback(IODataQueueMemory *dataQueue, uint64_t queue
 IODataQueueEntry *_IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t queueSize,  size_t *entrySize);
 
 IOReturn _IODataQueueDequeue(IODataQueueMemory *dataQueue, uint64_t queueSize, void *data, uint32_t *dataSize);
+
+IOReturn _IODataQueueSendDataAvailableNotification(IODataQueueMemory *dataQueue, mach_msg_header_t *msgh);
+
 
 __END_DECLS
 

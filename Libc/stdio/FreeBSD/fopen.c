@@ -58,9 +58,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fopen.c,v 1.14 2008/04/22 17:03:32 jhb Ex
 #include "local.h"
 
 FILE *
-fopen(file, mode)
-	const char * __restrict file;
-	const char * __restrict mode;
+fopen(const char * __restrict file, const char * __restrict mode)
 {
 	FILE *fp;
 	int f;

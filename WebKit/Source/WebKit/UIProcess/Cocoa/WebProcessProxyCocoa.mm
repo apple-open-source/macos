@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +34,13 @@
 #import "ObjCObjectGraph.h"
 #import "SandboxUtilities.h"
 #import "SharedBufferReference.h"
+#import "WKAPICast.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WKTypeRefWrapper.h"
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
+#import <WebCore/ActivityState.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <sys/sysctl.h>
 #import <wtf/NeverDestroyed.h>
@@ -77,7 +79,7 @@ const MemoryCompactLookupOnlyRobinHoodHashSet<String>& WebProcessProxy::platform
 {
     static NeverDestroyed<MemoryCompactLookupOnlyRobinHoodHashSet<String>> platformPathsWithAssumedReadAccess(std::initializer_list<String> {
         [NSBundle bundleWithIdentifier:@"com.apple.WebCore"].resourcePath.stringByStandardizingPath,
-        [NSBundle bundleWithIdentifier:@"com.apple.WebKit"].resourcePath.stringByStandardizingPath
+        [NSBundle bundleForClass:NSClassFromString(@"WKWebView")].resourcePath.stringByStandardizingPath
     });
 
     return platformPathsWithAssumedReadAccess;
@@ -96,10 +98,10 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
             if (dynamic_objc_cast<WKBrowsingContextHandle>(object))
                 return true;
 
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return true;
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             return false;
         }
 
@@ -107,18 +109,18 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
         {
             if (auto* handle = dynamic_objc_cast<WKBrowsingContextHandle>(object)) {
                 if (auto webPageProxy = m_webProcessProxy.webPage(handle.pageProxyID)) {
-                    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
                     return [WKBrowsingContextController _browsingContextControllerForPageRef:toAPI(webPageProxy.get())];
-                    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
                 }
 
                 return [NSNull null];
             }
 
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(m_webProcessProxy.transformHandlesToObjects(toImpl(wrapper.object)).get())]);
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
 
@@ -133,23 +135,23 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformObjectsToHandles(ObjCObjectGra
     struct Transformer final : ObjCObjectGraph::Transformer {
         bool shouldTransformObject(id object) const override
         {
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (dynamic_objc_cast<WKBrowsingContextController>(object))
                 return true;
             if (dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return true;
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             return false;
         }
 
         RetainPtr<id> transformObject(id object) const override
         {
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (auto* controller = dynamic_objc_cast<WKBrowsingContextController>(object))
                 return controller.handle;
             if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(transformObjectsToHandles(toImpl(wrapper.object)).get())]);
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
     };
@@ -242,7 +244,7 @@ void WebProcessProxy::unblockAccessibilityServerIfNeeded()
     if (!_AXSApplicationAccessibilityEnabled())
         return;
 #endif
-    if (!processIdentifier())
+    if (!processID())
         return;
     if (!canSendMessage())
         return;
@@ -250,7 +252,6 @@ void WebProcessProxy::unblockAccessibilityServerIfNeeded()
     Vector<SandboxExtension::Handle> handleArray;
 #if PLATFORM(IOS_FAMILY)
     handleArray = SandboxExtension::createHandlesForMachLookup({ "com.apple.iphone.axserver-systemwide"_s, "com.apple.frontboard.systemappservices"_s }, auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
-    ASSERT(handleArray.size() == 3);
 #endif
 
     send(Messages::WebProcess::UnblockServicesRequiredByAccessibility(handleArray), 0);
@@ -301,7 +302,7 @@ bool WebProcessProxy::messageSourceIsValidWebContentProcess()
     }
 
 #if USE(APPLE_INTERNAL_SDK)
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     // FIXME(rdar://80908833): On iOS, we can only perform the below checks for platform binaries until rdar://80908833 is fixed.
     if (!currentProcessIsPlatformBinary())
         return true;

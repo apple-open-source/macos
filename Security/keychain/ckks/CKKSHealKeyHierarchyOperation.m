@@ -400,8 +400,6 @@
             modifyRecordsOp.longLived = NO; // The keys are only in memory; mark this explicitly not long-lived
 
             // This needs to happen for CKKS to be usable by PCS/cloudd. Make it happen.
-            modifyRecordsOp.configuration.automaticallyRetryNetworkFailures = NO;
-            modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
             modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
             if(SecCKKSHighPriorityOperations()) {
@@ -412,12 +410,12 @@
             modifyRecordsOp.group = self.deps.ckoperationGroup;
             ckksnotice("ckksheal", viewState.zoneID, "Operation group is %@", self.deps.ckoperationGroup);
 
-            modifyRecordsOp.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
+            modifyRecordsOp.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
                 // These should all fail or succeed as one. Do the hard work in the records completion block.
                 if(!error) {
-                    ckksnotice("ckksheal", viewState.zoneID, "Successfully completed upload for %@", record.recordID.recordName);
+                    ckksnotice("ckksheal", viewState.zoneID, "Successfully completed upload for %@", recordID.recordName);
                 } else {
-                    ckkserror("ckksheal", viewState.zoneID, "error on row: %@ %@", error, record);
+                    ckkserror("ckksheal", viewState.zoneID, "error on row: %@ %@", error, recordID);
                 }
             };
 

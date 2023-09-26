@@ -52,7 +52,6 @@ struct messages {
  * where it goes, etc.  It's an opaque type so that it can change size
  * in the future without affecting any clients of the code.
  */
-
 struct context {
 	FILE	*fp;	// output file structure
 	int	flags;	// various flags, mostly private
@@ -264,13 +263,13 @@ convertfmt(const char *in)
 }
 
 /*
- * fsckCreate()
+ * fsckMsgsCreate()
  * Allocates space for an fsck_ctx_t context.  It also sets up
  * the standard message blocks (defined earlier in this file).
  * It will return NULL in the case of any error.
  */
 fsck_ctx_t
-fsckCreate(void) 
+fsckMsgsCreate(void)
 {
 	struct context *rv = NULL;
 
@@ -279,7 +278,7 @@ fsckCreate(void)
 		return NULL;
 	}
 	if (fsckAddMessages(rv, fsck_messages_common) == -1) {
-		fsckDestroy(rv);
+        fsckMsgsDestroy(rv);
 		return NULL;
 	}
 	fsckSetWriter(rv, &stdprint);
@@ -442,18 +441,6 @@ fsckSetVerbosity(fsck_ctx_t c, int v)
 }
 
 /*
- * fsckGetVerbosity(context)
- * Return the verbosity level previously set, or -1 on error.
- */
-int
-fsckGetVerbosity(fsck_ctx_t c) 
-{
-	struct context *ctx = c;
-
-	return ctx ? ctx->verb : -1;
-}
-
-/*
  * fsckSetOutputStyle(context, output_type)
  * Set the output style to one of the defined style:
  * Traditional (normal terminal-output); GUI (the parenthesized
@@ -590,12 +577,12 @@ done:
 }
 
 /*
- * fsckDestroy(context)
+ * fsckMsgsDestroy(context)
  * Finish up with a context, and release any resources
  * it had.
  */
 void
-fsckDestroy(fsck_ctx_t c) 
+fsckMsgsDestroy(fsck_ctx_t c)
 {
 	struct context *ctx = c;
 
@@ -1048,13 +1035,13 @@ fsckPrintGUI(struct context *ctx, fsck_message_t *m, va_list ap)
  * else.
  */
 static int
-fsckPrintNothing(struct context *ctx, fsck_message_t *m, va_list ap) 
+fsckPrintNothing(__unused struct context *ctx, __unused fsck_message_t *m, __unused va_list ap)
 {
 	return -1;
 }
 
 /*
- * fsckPrint(context, msgnum, ...)
+ * fsckPrint(context, msgnum,  va_list ap)
  * Print out a message identified by msgnum, using the data and
  * context information in the contexxt.  This will look up the message,
  * and then print it out to the requested output stream using the style
@@ -1064,15 +1051,12 @@ fsckPrintNothing(struct context *ctx, fsck_message_t *m, va_list ap)
  * therefore take care of generating the output correctly.
  */
 int
-fsckPrint(fsck_ctx_t c, int m, ...) 
+fsckPrint(fsck_ctx_t c, int m, va_list ap)
 {
 	int (*func)(struct context *, fsck_message_t *, va_list);
 	struct context *ctx = c;
 	fsck_message_t *msg;
-	va_list ap;
 	int retval = 0;
-
-	va_start(ap, m);
 
 	if (c == NULL)
 		return -1;
@@ -1244,7 +1228,7 @@ main(int ac, char **av)
 	int (*func)(fsck_ctx_t, int, ...);
 	int i;
 
-	fctx = fsckCreate();
+	fctx = fsckMsgsCreate();
 
 	if (ac == 2) {
 		if (!strcmp(av[1], "-g")) {
@@ -1262,16 +1246,16 @@ main(int ac, char **av)
 	}
 
 	fsckSetOutput(fctx, stdout);
-	fsckPrint(fctx, fsckInformation, "fsck", "version");
+    fsckPrint(fctx, fsckInformation, "fsck", "version");
 	
 	i = fsckAskPrompt(fctx, "Unknown file %s; remove? [y|n] ", "/tmp/foo");
 	if (i == 1) {
-		fprintf(stderr, "\n\nfile %s is to be removed\n\n", "/tmp/foo");
+        fprintf(stderr, "\n\nfile %s is to be removed\n\n", "/tmp/foo");
 	}
-	fsckPrint(fctx, fsckProgress, 10);
-	fsckPrint(fctx, fsckVolumeNotRepaired);
+    fsckPrint(fctx, fsckProgress, 10);
+    fsckPrint(fctx, fsckVolumeNotRepaired);
 
-	fsckDestroy(fctx);
+	fsckMsgsDestroy(fctx);
 
 	return 0;
 }

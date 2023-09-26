@@ -67,6 +67,7 @@ OSStatus SecItemAdd_osx(CFDictionaryRef attributes, CFTypeRef *result);
 OSStatus SecItemCopyMatching_osx(CFDictionaryRef query, CFTypeRef *result);
 OSStatus SecItemUpdate_osx(CFDictionaryRef query, CFDictionaryRef attributesToUpdate);
 OSStatus SecItemDelete_osx(CFDictionaryRef query);
+OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, bool &can_target_osx, bool &useDataProtectionKeychainFlag);
 
 extern "C" {
 OSStatus SecItemAdd_ios(CFDictionaryRef attributes, CFTypeRef *result);
@@ -1979,7 +1980,7 @@ malloc_attrPtr_failed:
 
 calloc_attrListPtr_failed:
 
-	return ( errSecBufferTooSmall );
+	return status;
 }
 
 
@@ -4091,7 +4092,7 @@ extern "C" Boolean SecKeyIsCDSAKey(SecKeyRef ref);
 //
 // Function to find out which keychains are targetted by the query.
 //
-static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, bool &can_target_osx, bool &useDataProtectionKeychainFlag)
+OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, bool &can_target_osx, bool &useDataProtectionKeychainFlag)
 {
 	// By default, target both keychain.
 	can_target_osx = can_target_ios = true;
@@ -4116,7 +4117,7 @@ static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_i
 
 
     CFTypeRef useSystem = NULL;
-    if (CFDictionaryGetValueIfPresent(query, kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS, &useSystem) && readNumber(useSystem)) {
+    if (CFDictionaryGetValueIfPresent(query, kSecUseSystemKeychainAlways, &useSystem) && readNumber(useSystem)) {
         // If using DP system keychain, the data protection attribute must be omitted or true.
         if (useDataProtection && !readNumber(useDataProtection)) {
             return errSecParam;
@@ -4128,6 +4129,19 @@ static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_i
         useDataProtectionKeychainFlag = readNumber(useDataProtection);
 		can_target_ios = useDataProtectionKeychainFlag;
 		can_target_osx = !can_target_ios;
+
+		CFTypeRef returnRef = NULL;
+		if (CFDictionaryGetValueIfPresent(query, kSecReturnRef, &returnRef) && readNumber(returnRef)) {
+			CFStringRef item_class_string = (CFStringRef)CFDictionaryGetValue(query, kSecClass);
+			if (CFEqualSafe(item_class_string, kSecClassGenericPassword)) {
+				static dispatch_once_t genpOnceler;
+				countLegacyAPI(&genpOnceler, "kSecReturnRef for genp in DP");
+			} else if (CFEqualSafe(item_class_string, kSecClassInternetPassword)) {
+				static dispatch_once_t inetOnceler;
+				countLegacyAPI(&inetOnceler, "kSecReturnRef for inet in DP");
+			}
+		}
+
 		return errSecSuccess;
 	}
 
@@ -4163,6 +4177,18 @@ static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_i
 	// Synchronizable items should go to iOS keychain only.
 	if (SecItemSynchronizable(query)) {
 		can_target_osx = false;
+
+		CFTypeRef returnRef = NULL;
+		if (CFDictionaryGetValueIfPresent(query, kSecReturnRef, &returnRef) && readNumber(returnRef)) {
+			CFStringRef item_class_string = (CFStringRef)CFDictionaryGetValue(query, kSecClass);
+			if (CFEqualSafe(item_class_string, kSecClassGenericPassword)) {
+				static dispatch_once_t genpOnceler;
+				countLegacyAPI(&genpOnceler, "kSecReturnRef for genp and sync");
+			} else if (CFEqualSafe(item_class_string, kSecClassInternetPassword)) {
+				static dispatch_once_t inetOnceler;
+				countLegacyAPI(&inetOnceler, "kSecReturnRef for inet and sync");
+			}
+		}
 	}
 
 	value = CFDictionaryGetValue(query, kSecValuePersistentRef);

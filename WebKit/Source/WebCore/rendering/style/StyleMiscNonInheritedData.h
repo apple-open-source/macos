@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "LengthPoint.h"
 #include "StyleContentAlignmentData.h"
 #include "StyleSelfAlignmentData.h"
 #include <memory>
@@ -38,6 +39,7 @@ namespace WebCore {
 class AnimationList;
 class ContentData;
 class FillLayer;
+class ShadowData;
 class StyleDeprecatedFlexibleBoxData;
 class StyleFilterData;
 class StyleFlexibleBoxData;
@@ -56,7 +58,6 @@ public:
     ~StyleMiscNonInheritedData();
 
     bool operator==(const StyleMiscNonInheritedData&) const;
-    bool operator!=(const StyleMiscNonInheritedData& other) const { return !(*this == other); }
 
     bool hasOpacity() const { return opacity < 1; }
     bool hasFilters() const;
@@ -89,13 +90,12 @@ public:
     LengthPoint objectPosition;
     int order;
 
-    unsigned hasAttrContent : 1;
+    unsigned hasAttrContent : 1 { false };
     unsigned aspectRatioType : 2; // AspectRatioType
     unsigned appearance : appearanceBitWidth; // EAppearance
     unsigned effectiveAppearance : appearanceBitWidth; // EAppearance
     unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
     unsigned userDrag : 2; // UserDrag
-    unsigned isNotFinal : 1;
     unsigned objectFit : 3; // ObjectFit
     unsigned resize : 3; // Resize
 

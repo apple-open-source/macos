@@ -169,10 +169,6 @@ proc_2020_fall_os_sdk_or_later(void)
 	}
 }
 
-#if MACH_ASSERT
-vnode_t fbdp_vp = NULL;
-#endif /* MACH_ASSERT */
-
 /*
  * XXX Internally, we use VM_PROT_* somewhat interchangeably, but the correct
  * XXX usage is PROT_* from an interface perspective.  Thus the values of
@@ -378,10 +374,16 @@ mmap(proc_t p, struct mmap_args *uap, user_addr_t *retval)
 		}
 	}
 	if (flags & MAP_TPRO) {
+		/*
+		 * MAP_TPRO without VM_PROT_WRITE is not valid here because
+		 * the TPRO mapping is handled at the PMAP layer with implicit RW
+		 * protections.
+		 *
+		 * This would enable bypassing of file-based protections, i.e.
+		 * a file open/mapped as read-only could be written to.
+		 */
 		if ((prot & VM_PROT_EXECUTE) ||
-		    !(prot & VM_PROT_WRITE) ||
-		    (flags & MAP_SHARED) ||
-		    !(flags & MAP_ANON)) {
+		    !(prot & VM_PROT_WRITE)) {
 			return EPERM;
 		}
 	}
@@ -419,10 +421,11 @@ mmap(proc_t p, struct mmap_args *uap, user_addr_t *retval)
 
 #endif
 
-#if CONFIG_MAP_RANGES
-	/* default to placing mappings in the heap range. */
-	vmk_flags.vmkf_range_id = UMEM_RANGE_ID_HEAP;
-#endif /* CONFIG_MAP_RANGES */
+	/* Entitlement check against code signing monitor */
+	if ((flags & MAP_JIT) && (vm_map_csm_allow_jit(user_map) != KERN_SUCCESS)) {
+		printf("[%d] code signing monitor denies JIT mapping\n", proc_pid(p));
+		return EPERM;
+	}
 
 	if (flags & MAP_ANON) {
 		maxprot = VM_PROT_ALL;
@@ -469,15 +472,20 @@ mmap(proc_t p, struct mmap_args *uap, user_addr_t *retval)
 				vm_flags |= VM_FLAGS_ANYWHERE;
 			}
 			vm_map_kernel_flags_set_vmflags(&vmk_flags, vm_flags);
-			if (vm_flags & VM_FLAGS_ALIAS_MASK) {
-				/*
-				 * if the client specified a tag,
-				 * let the system policy apply.
-				 */
-				vmk_flags.vmkf_range_id = UMEM_RANGE_ID_DEFAULT;
-				vm_map_kernel_flags_update_range_id(&vmk_flags, user_map);
-			}
 		}
+
+#if CONFIG_MAP_RANGES
+		/*
+		 * if the client specified a tag, let the system policy apply.
+		 *
+		 * otherwise, force the heap range.
+		 */
+		if (vmk_flags.vm_tag) {
+			vm_map_kernel_flags_update_range_id(&vmk_flags, user_map);
+		} else {
+			vmk_flags.vmkf_range_id = UMEM_RANGE_ID_HEAP;
+		}
+#endif /* CONFIG_MAP_RANGES */
 
 		handle = NULL;
 		file_pos = 0;
@@ -637,6 +645,10 @@ mmap(proc_t p, struct mmap_args *uap, user_addr_t *retval)
 		 * No copy-on-read for mmap() mappings themselves.
 		 */
 		vmk_flags.vmkf_no_copy_on_read = 1;
+#if CONFIG_MAP_RANGES && !XNU_PLATFORM_MacOSX
+		/* force file ranges on !macOS */
+		vmk_flags.vmkf_range_id = UMEM_RANGE_ID_HEAP;
+#endif /* CONFIG_MAP_RANGES && !XNU_PLATFORM_MacOSX */
 	}
 
 	if (user_size == 0) {
@@ -794,24 +806,51 @@ map_anon_retry:
 			goto bad;
 		}
 
-#if MACH_ASSERT
-#define FBDP_PATH_NAME "/private/var/db/timezone/tz/2022a.1.1/icutz/"
-#define FBDP_FILE_NAME "icutz44l.dat"
-		if (fbdp_vp == NULL &&
-		    !strncmp(vp->v_name, FBDP_FILE_NAME, strlen(FBDP_FILE_NAME))) {
+#if FBDP_DEBUG_OBJECT_NO_PAGER
+//#define FBDP_PATH_NAME1 "/private/var/db/timezone/tz/2022a.1.1/icutz/"
+#define FBDP_PATH_NAME1 "/private/var/db/timezone/tz/202"
+#define FBDP_FILE_NAME1 "icutz44l.dat"
+#define FBDP_PATH_NAME2 "/private/var/mobile/Containers/Data/InternalDaemon/"
+#define FBDP_FILE_NAME_START2 "com.apple.LaunchServices-"
+#define FBDP_FILE_NAME_END2 "-v2.csstore"
+		if (!strncmp(vp->v_name, FBDP_FILE_NAME1, strlen(FBDP_FILE_NAME1))) {
 			char *path;
 			int len;
+			bool already_tracked;
 			len = MAXPATHLEN;
 			path = zalloc_flags(ZV_NAMEI, Z_WAITOK | Z_NOFAIL);
 			vn_getpath(vp, path, &len);
-			if (!strncmp(path, FBDP_PATH_NAME, strlen(FBDP_PATH_NAME))) {
-				fbdp_vp = vp;
-				memory_object_mark_for_fbdp(control);
-				printf("FBDP %s:%d marked vp %p \"%s\" moc %p as 'fbdp'\n", __FUNCTION__, __LINE__, vp, path, control);
+			if (!strncmp(path, FBDP_PATH_NAME1, strlen(FBDP_PATH_NAME1))) {
+				if (memory_object_mark_as_tracked(control,
+				    true,
+				    &already_tracked) == KERN_SUCCESS &&
+				    !already_tracked) {
+					printf("FBDP %s:%d marked vp %p \"%s\" moc %p as tracked\n", __FUNCTION__, __LINE__, vp, path, control);
+				}
+			}
+			zfree(ZV_NAMEI, path);
+		} else if (!strncmp(vp->v_name, FBDP_FILE_NAME_START2, strlen(FBDP_FILE_NAME_START2)) &&
+		    strlen(vp->v_name) > strlen(FBDP_FILE_NAME_START2) + strlen(FBDP_FILE_NAME_END2) &&
+		    !strncmp(vp->v_name + strlen(vp->v_name) - strlen(FBDP_FILE_NAME_END2),
+		    FBDP_FILE_NAME_END2,
+		    strlen(FBDP_FILE_NAME_END2))) {
+			char *path;
+			int len;
+			bool already_tracked;
+			len = MAXPATHLEN;
+			path = zalloc_flags(ZV_NAMEI, Z_WAITOK | Z_NOFAIL);
+			vn_getpath(vp, path, &len);
+			if (!strncmp(path, FBDP_PATH_NAME2, strlen(FBDP_PATH_NAME2))) {
+				if (memory_object_mark_as_tracked(control,
+				    true,
+				    &already_tracked) == KERN_SUCCESS &&
+				    !already_tracked) {
+					printf("FBDP %s:%d marked vp %p \"%s\" moc %p as tracked\n", __FUNCTION__, __LINE__, vp, path, control);
+				}
 			}
 			zfree(ZV_NAMEI, path);
 		}
-#endif /* MACH_ASSERT */
+#endif /* FBDP_DEBUG_OBJECT_NO_PAGER */
 
 		/*
 		 *  Set credentials:

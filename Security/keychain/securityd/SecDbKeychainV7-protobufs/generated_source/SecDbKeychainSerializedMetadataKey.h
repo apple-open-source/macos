@@ -19,8 +19,8 @@
     NSData *_baguuid;
     int32_t _keyclass;
     struct {
-        int actualKeyclass:1;
-        int keyclass:1;
+        uint actualKeyclass:1;
+        uint keyclass:1;
     } _has;
 }
 

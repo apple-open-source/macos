@@ -9,6 +9,7 @@
 // Helpful in toString methods and elsewhere.
 #define UNISTR_FROM_STRING_EXPLICIT
 
+#include <stdbool.h>
 #include <stdio.h>
 #include "unicode/unumberformatter.h"
 #include "unicode/umisc.h"
@@ -32,13 +33,15 @@ static void TestToDecimalNumber(void);
 
 static void TestPerUnitInArabic(void);
 
-// Apple rdar://79621279
-static void TestPressureUnits(void);
-
 static void Test21674_State(void);
 
-// Apple test for rdar://97323645
 static void TestNegativeDegrees(void);
+
+#if APPLE_ICU_CHANGES
+// rdar://
+// Apple rdar://79621279
+static void TestPressureUnits(void);
+#endif  // APPLE_ICU_CHANGES
 
 void addUNumberFormatterTest(TestNode** root);
 
@@ -52,10 +55,12 @@ void addUNumberFormatterTest(TestNode** root) {
     TESTCASE(TestSkeletonParseError);
     TESTCASE(TestToDecimalNumber);
     TESTCASE(TestPerUnitInArabic);
-    TESTCASE(TestPressureUnits);  // rdar://79621279
     TESTCASE(Test21674_State);
-    TESTCASE(TestNegativeDegrees); // rdar://97323645
-
+    TESTCASE(TestNegativeDegrees);
+#if APPLE_ICU_CHANGES
+// rdar://
+    TESTCASE(TestPressureUnits);  // rdar://79621279
+#endif  // APPLE_ICU_CHANGES
 }
 
 
@@ -69,14 +74,14 @@ static void TestSkeletonFormatToString() {
     // setup:
     UNumberFormatter* f = unumf_openForSkeletonAndLocale(
                               u"precision-integer currency/USD sign-accounting", -1, "en", &ec);
-    assertSuccessCheck("Should create without error", &ec, TRUE);
+    assertSuccessCheck("Should create without error", &ec, true);
     result = unumf_openResult(&ec);
     assertSuccess("Should create result without error", &ec);
 
     // int64 test:
     unumf_formatInt(f, -444444, result, &ec);
     // Missing data will give a U_MISSING_RESOURCE_ERROR here.
-    if (assertSuccessCheck("Should format integer without error", &ec, TRUE)) {
+    if (assertSuccessCheck("Should format integer without error", &ec, true)) {
         unumf_resultToString(result, buffer, CAPACITY, &ec);
         assertSuccess("Should print string to buffer without error", &ec);
         assertUEquals("Should produce expected string result", u"($444,444)", buffer);
@@ -109,11 +114,11 @@ static void TestSkeletonFormatToFields() {
     // setup:
     UNumberFormatter* uformatter = unumf_openForSkeletonAndLocale(
             u".00 measure-unit/length-meter sign-always", -1, "en", &ec);
-    assertSuccessCheck("Should create without error", &ec, TRUE);
+    assertSuccessCheck("Should create without error", &ec, true);
     UFormattedNumber* uresult = unumf_openResult(&ec);
     assertSuccess("Should create result without error", &ec);
     unumf_formatInt(uformatter, 9876543210L, uresult, &ec); // "+9,876,543,210.00 m"
-    if (assertSuccessCheck("unumf_formatInt() failed", &ec, TRUE)) {
+    if (assertSuccessCheck("unumf_formatInt() failed", &ec, true)) {
 
         // field position test:
         UFieldPosition ufpos = {UNUM_DECIMAL_SEPARATOR_FIELD, 0, 0};
@@ -123,7 +128,7 @@ static void TestSkeletonFormatToFields() {
 
         // field position iterator test:
         ufpositer = ufieldpositer_open(&ec);
-        if (assertSuccessCheck("Should create iterator without error", &ec, TRUE)) {
+        if (assertSuccessCheck("Should create iterator without error", &ec, true)) {
 
             unumf_resultGetAllFieldPositions(uresult, ufpositer, &ec);
             static const UFieldPosition expectedFields[] = {
@@ -194,11 +199,11 @@ static void TestExampleCode() {
     UNumberFormatter* uformatter = unumf_openForSkeletonAndLocale(u"precision-integer", -1, "en", &ec);
     UFormattedNumber* uresult = unumf_openResult(&ec);
     UChar* buffer = NULL;
-    assertSuccessCheck("There should not be a failure in the example code", &ec, TRUE);
+    assertSuccessCheck("There should not be a failure in the example code", &ec, true);
 
     // Format a double:
     unumf_formatDouble(uformatter, 5142.3, uresult, &ec);
-    if (assertSuccessCheck("There should not be a failure in the example code", &ec, TRUE)) {
+    if (assertSuccessCheck("There should not be a failure in the example code", &ec, true)) {
 
         // Export the string to a malloc'd buffer:
         int32_t len = unumf_resultToString(uresult, NULL, 0, &ec);
@@ -221,12 +226,12 @@ static void TestFormattedValue() {
     UErrorCode ec = U_ZERO_ERROR;
     UNumberFormatter* uformatter = unumf_openForSkeletonAndLocale(
             u".00 compact-short", -1, "en", &ec);
-    assertSuccessCheck("Should create without error", &ec, TRUE);
+    assertSuccessCheck("Should create without error", &ec, true);
     UFormattedNumber* uresult = unumf_openResult(&ec);
     assertSuccess("Should create result without error", &ec);
 
     unumf_formatInt(uformatter, 55000, uresult, &ec); // "55.00 K"
-    if (assertSuccessCheck("Should format without error", &ec, TRUE)) {
+    if (assertSuccessCheck("Should format without error", &ec, true)) {
         const UFormattedValue* fv = unumf_resultAsValue(uresult, &ec);
         assertSuccess("Should convert without error", &ec);
         static const UFieldPosition expectedFieldPositions[] = {
@@ -282,13 +287,13 @@ static void TestToDecimalNumber() {
         -1,
         "en-US",
         &ec);
-    assertSuccessCheck("Should create without error", &ec, TRUE);
+    assertSuccessCheck("Should create without error", &ec, true);
     UFormattedNumber* uresult = unumf_openResult(&ec);
     assertSuccess("Should create result without error", &ec);
 
     unumf_formatDouble(uformatter, 3.0, uresult, &ec);
     const UChar* str = ufmtval_getString(unumf_resultAsValue(uresult, &ec), NULL, &ec);
-    assertSuccessCheck("Formatting should succeed", &ec, TRUE);
+    assertSuccessCheck("Formatting should succeed", &ec, true);
     assertUEquals("Should produce expected string result", u"$3.00", str);
 
     char buffer[CAPACITY];
@@ -388,41 +393,6 @@ static void TestPerUnitInArabic() {
     unumf_closeResult(formatted);
 }
 
-static void TestPressureUnits(void) {
-    UErrorCode status = U_ZERO_ERROR;
-
-    UChar* testData[] = {
-        u"measure-unit/pressure-megapascal usage/default",                  u"455 psi",
-        u"measure-unit/pressure-millibar usage/default",                    u"0.046 psi",
-        u"measure-unit/pressure-pound-force-per-square-inch usage/default", u"3.1 psi",
-        u"measure-unit/pressure-inch-ofhg usage/default",                   u"1.5 psi",
-        u"measure-unit/pressure-millimeter-ofhg usage/default",             u"0.061 psi",
-    };
-    
-    for (int32_t i = 0; i < UPRV_LENGTHOF(testData); i += 2) {
-        UErrorCode err = U_ZERO_ERROR;
-        UChar resultStr[200];
-        UNumberFormatter* nf = unumf_openForSkeletonAndLocale(testData[i], -1, "en_US", &err);
-        UFormattedNumber* result = unumf_openResult(&err);
-        
-        unumf_formatDouble(nf, 3.140000, result, &err);
-        unumf_resultToString(result, resultStr, 200, &err);
-        
-        char testCaseName[200];
-        char errorMessage[200];
-        char testFailureMessage[200];
-        sprintf(testCaseName, "Skeleton: \"%s\"", austrdup(testData[i]));
-        sprintf(errorMessage, "Failure formatting number: %s", testCaseName);
-        sprintf(testFailureMessage, "Wrong formatting result: %s", testCaseName);
-        
-        if (assertSuccess(errorMessage, &err)) {
-            assertUEquals(testFailureMessage, testData[i + 1], resultStr);
-        }
-        
-        unumf_closeResult(result);
-        unumf_close(nf);
-    }
-}
 
 static void Test21674_State() {
     UErrorCode status = U_ZERO_ERROR;
@@ -464,12 +434,12 @@ cleanup:
     unumf_closeResult(result);
 }
 
-// Apple test for rdar://97323645
+// Test for ICU-22105
 static void TestNegativeDegrees(void) {
     typedef struct {
-        UChar* skeleton;
+        const UChar* skeleton;
         double value;
-        UChar* expectedResult;
+        const UChar* expectedResult;
     } TestCase;
     
     TestCase testCases[] = {
@@ -502,7 +472,43 @@ static void TestNegativeDegrees(void) {
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
+static void TestPressureUnits(void) {
+    UErrorCode status = U_ZERO_ERROR;
 
-
+    UChar* testData[] = {
+        u"measure-unit/pressure-megapascal usage/default",                  u"455 psi",
+        u"measure-unit/pressure-millibar usage/default",                    u"0.046 psi",
+        u"measure-unit/pressure-pound-force-per-square-inch usage/default", u"3.1 psi",
+        u"measure-unit/pressure-inch-ofhg usage/default",                   u"1.5 psi",
+        u"measure-unit/pressure-millimeter-ofhg usage/default",             u"0.061 psi",
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testData); i += 2) {
+        UErrorCode err = U_ZERO_ERROR;
+        UChar resultStr[200];
+        UNumberFormatter* nf = unumf_openForSkeletonAndLocale(testData[i], -1, "en_US", &err);
+        UFormattedNumber* result = unumf_openResult(&err);
+        
+        unumf_formatDouble(nf, 3.140000, result, &err);
+        unumf_resultToString(result, resultStr, 200, &err);
+        
+        char testCaseName[200];
+        char errorMessage[200];
+        char testFailureMessage[200];
+        sprintf(testCaseName, "Skeleton: \"%s\"", austrdup(testData[i]));
+        sprintf(errorMessage, "Failure formatting number: %s", testCaseName);
+        sprintf(testFailureMessage, "Wrong formatting result: %s", testCaseName);
+        
+        if (assertSuccess(errorMessage, &err)) {
+            assertUEquals(testFailureMessage, testData[i + 1], resultStr);
+        }
+        
+        unumf_closeResult(result);
+        unumf_close(nf);
+    }
+}
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

@@ -113,19 +113,23 @@ std::shared_ptr<WaitableCompileEvent> ShaderMtl::compile(const gl::Context *cont
         options->initOutputVariables = true;
     }
 
-    if (displayMtl->getFeatures().intelExplicitBoolCastWorkaround.enabled)
+    options->metal.generateShareableShaders =
+        displayMtl->getFeatures().generateShareableShaders.enabled;
+
+    if (displayMtl->getFeatures().intelExplicitBoolCastWorkaround.enabled ||
+        options->metal.generateShareableShaders)
     {
         options->addExplicitBoolCasts = true;
     }
 
     options->clampPointSize = true;
-#if defined(AANGLE_PLATFORM_APPLE_EMBEDDED) && !defined(ANGLE_PLATFORM_MACCATALYST)
+#if ANGLE_PLATFORM_IOS_FAMILY && !ANGLE_PLATFORM_MACCATALYST
     options->clampFragDepth = true;
 #endif
 
-    if (displayMtl->getFeatures().rewriteRowMajorMatrices.enabled)
+    if (displayMtl->getFeatures().emulateAlphaToCoverage.enabled)
     {
-        options->rewriteRowMajorMatrices = true;
+        options->emulateAlphaToCoverage = true;
     }
 
     // Constants:

@@ -4,19 +4,13 @@ VERSIONING_SYSTEM = ""
 
 // Standard settings
 SDKROOT = macosx.internal
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator driverkit
 BUILD_VARIANTS = normal debug dyld static
 
 EXECUTABLE_PREFIX = lib
 
-// Pick the right install locations depending on whether building for DriverKit SDK or not
-SDK_INSTALL_VARIANT = $(SDK_INSTALL_VARIANT_$(DRIVERKIT))
-SDK_INSTALL_VARIANT_1 = driverkit
-SDK_INSTALL_VARIANT_ = default
-SDK_INSTALL_ROOT = $(SDK_INSTALL_ROOT_$(SDK_INSTALL_VARIANT))
-SDK_INSTALL_ROOT_driverkit = $(DRIVERKITROOT)
-SDK_INSTALL_HEADERS_ROOT = $(SDK_INSTALL_HEADERS_ROOT_$(SDK_INSTALL_VARIANT))
-SDK_INSTALL_HEADERS_ROOT_driverkit = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_PREFIX)
+SDK_INSTALL_ROOT[sdk=driverkit*] = $(DRIVERKITROOT)
+SDK_INSTALL_HEADERS_ROOT[sdk=driverkit*] = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_PREFIX)
 SDK_RUNTIME_HEADERS_PREFIX = Runtime
 
 INSTALL_PATH = $(SDK_INSTALL_ROOT)/usr/lib/system
@@ -61,8 +55,9 @@ STRIP_INSTALLED_PRODUCT_debug = YES
 
 SRCROOT_SEARCH_PATHS = $(SRCROOT)/private $(SRCROOT)/include $(SRCROOT)/internal
 HEADER_SEARCH_PATHS = $(SRCROOT_SEARCH_PATHS) $(inherited)
-SYSTEM_HEADER_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include
-SYSTEM_FRAMEWORK_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks
+SYSTEM_HEADER_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*] = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include
+SYSTEM_FRAMEWORK_SEARCH_PATHS[sdk=driverkit*] = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks
 
 DEAD_CODE_STRIPPING = NO
 

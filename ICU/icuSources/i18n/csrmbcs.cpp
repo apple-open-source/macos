@@ -92,7 +92,8 @@ static const uint16_t commonChars_gb_18030[] = {
 0xcfb5, 0xcfc2, 0xcfd6, 0xd0c2, 0xd0c5, 0xd0d0, 0xd0d4, 0xd1a7, 0xd2aa, 0xd2b2,
 0xd2b5, 0xd2bb, 0xd2d4, 0xd3c3, 0xd3d0, 0xd3fd, 0xd4c2, 0xd4da, 0xd5e2, 0xd6d0};
 
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
 static const uint8_t keyStrings_sjis[][MAX_KEY_STRING_WITH_NULL] = {
     {0x82,0xa9,0x82,0xe7,0x91,0x97,0x90,0x4d,0}, // Signatures - Sent from my ...
     {0x93,0x5d,0x91,0x97,0x83,0x81,0x83,0x62,0x83,0x5a,0x81,0x5b,0x83,0x57,0}, // forward
@@ -120,7 +121,7 @@ static const uint8_t keyStrings_gb_18030[][MAX_KEY_STRING_WITH_NULL] = {
     {0xd7,0xaa,0xb7,0xa2,0xb5,0xc4,0xd3,0xca,0xbc,0xfe,0}, // forward
     {0}
 };
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
 static int32_t binarySearch(const uint16_t *array, int32_t len, uint16_t value)
 {
@@ -144,7 +145,8 @@ static int32_t binarySearch(const uint16_t *array, int32_t len, uint16_t value)
     return -1;
 }
 
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
 // If testPrefix is a prefix of base, return its length, else return 0
 static int32_t isPrefix(const uint8_t *testPrefix, const uint8_t *base, const uint8_t *baseLimit) {
     const uint8_t *testPrefixStart = testPrefix;
@@ -154,10 +156,10 @@ static int32_t isPrefix(const uint8_t *testPrefix, const uint8_t *base, const ui
     }
     return (*testPrefix == 0)? (int32_t)(testPrefix-testPrefixStart): 0;
 }
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
 IteratedChar::IteratedChar() : 
-charValue(0), index(-1), nextIndex(0), error(FALSE), done(FALSE)
+charValue(0), index(-1), nextIndex(0), error(false), done(false)
 {
     // nothing else to do.
 }
@@ -167,14 +169,14 @@ charValue(0), index(-1), nextIndex(0), error(FALSE), done(FALSE)
     charValue = 0;
     index     = -1;
     nextIndex = 0;
-    error     = FALSE;
-    done      = FALSE;
+    error     = false;
+    done      = false;
 }*/
 
 int32_t IteratedChar::nextByte(InputText *det)
 {
     if (nextIndex >= det->fRawLength) {
-        done = TRUE;
+        done = true;
 
         return -1;
     }
@@ -187,20 +189,22 @@ CharsetRecog_mbcs::~CharsetRecog_mbcs()
     // nothing to do.
 }
 
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
+// rdar://11810267&11721802 c5bdd7da51.. After ICU50m2 import, re-add rdar://10748760
 int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars[], int32_t commonCharsLen, const uint8_t (*keyStrings)[MAX_KEY_STRING_WITH_NULL] ) const {
 #else
 int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars[], int32_t commonCharsLen) const {
-#endif
-    int32_t singleByteCharCount = 0;
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
     int32_t doubleByteCharCount = 0;
     int32_t commonCharCount     = 0;
     int32_t badCharCount        = 0;
     int32_t totalCharCount      = 0;
     int32_t confidence          = 0;
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
     int32_t confidenceFromKeys  = 0;
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
     IteratedChar iter;
 
     while (nextChar(&iter, det)) {
@@ -209,9 +213,7 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
         if (iter.error) {
             badCharCount++;
         } else {
-            if (iter.charValue <= 0xFF) {
-                singleByteCharCount++;
-            } else {
+            if (iter.charValue > 0xFF) {
                 doubleByteCharCount++;
 
                 if (commonChars != 0) {
@@ -219,7 +221,8 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
                         commonCharCount += 1;
                     }
                 }
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
                 if (doubleByteCharCount <= 20) {
                     int32_t keyIndex;
                     for ( keyIndex = 0; keyStrings[keyIndex][0] != 0; keyIndex++ ) {
@@ -227,7 +230,7 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
                         confidenceFromKeys += prefixLen*5;
                     }
                 }
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
             }
         }
 
@@ -250,7 +253,8 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
         else {
             //   ASCII or ISO file?  It's probably not our encoding,
             //   but is not incompatible with our encoding, so don't give it a zero.
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
             if (confidenceFromKeys > 90) {
                 confidenceFromKeys = 90;
             } else if (confidenceFromKeys > 0 && confidenceFromKeys < 70) {
@@ -259,7 +263,7 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
             confidence = 10 + confidenceFromKeys;
 #else
             confidence = 10;
-#endif
+#endif  // APPLE_ICU_CHANGES
         }
 
         return confidence;
@@ -280,9 +284,10 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
         //  Assess confidence purely on having a reasonable number of
         //  multi-byte characters (the more the better)
         confidence = 30 + doubleByteCharCount - 20*badCharCount;
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
         confidence += confidenceFromKeys;
-#endif
+#endif  // APPLE_ICU_CHANGES
 
         if (confidence > 100) {
             confidence = 100;
@@ -295,9 +300,10 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
         double maxVal = log((double)doubleByteCharCount / 4); /*(float)?*/
         double scaleFactor = 90.0 / maxVal;
         confidence = (int32_t)(log((double)commonCharCount+1) * scaleFactor + 10.0);
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
         confidence += confidenceFromKeys;
-#endif
+#endif  // APPLE_ICU_CHANGES
 
         confidence = min(confidence, 100);
     }
@@ -316,16 +322,16 @@ CharsetRecog_sjis::~CharsetRecog_sjis()
 
 UBool CharsetRecog_sjis::nextChar(IteratedChar* it, InputText* det) const {
     it->index = it->nextIndex;
-    it->error = FALSE;
+    it->error = false;
 
     int32_t firstByte = it->charValue = it->nextByte(det);
 
     if (firstByte < 0) {
-        return FALSE;
+        return false;
     }
 
     if (firstByte <= 0x7F || (firstByte > 0xA0 && firstByte <= 0xDF)) {
-        return TRUE;
+        return true;
     }
 
     int32_t secondByte = it->nextByte(det);
@@ -336,18 +342,21 @@ UBool CharsetRecog_sjis::nextChar(IteratedChar* it, InputText* det) const {
 
     if (! ((secondByte >= 0x40 && secondByte <= 0x7F) || (secondByte >= 0x80 && secondByte <= 0xFE))) {
         // Illegal second byte value.
-        it->error = TRUE;
+        it->error = true;
     }
 
-    return TRUE;
+    return true;
 }
 
 UBool CharsetRecog_sjis::match(InputText* det, CharsetMatch *results) const {
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
+// rdar://11810267&11721802 c5bdd7da51.. After ICU50m2 import, re-add rdar://10748760
+// rdar://24620562 9746332e99.. OSS changes for 57.1rc , Import_ibm > master with adjustments...
     int32_t confidence = match_mbcs(det, commonChars_sjis, UPRV_LENGTHOF(commonChars_sjis), keyStrings_sjis);
 #else
     int32_t confidence = match_mbcs(det, commonChars_sjis, UPRV_LENGTHOF(commonChars_sjis));
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
     results->set(det, this, confidence);
     return (confidence > 0);
 }
@@ -373,17 +382,17 @@ UBool CharsetRecog_euc::nextChar(IteratedChar* it, InputText* det) const {
     int32_t thirdByte  = 0;
 
     it->index = it->nextIndex;
-    it->error = FALSE;
+    it->error = false;
     firstByte = it->charValue = it->nextByte(det);
 
     if (firstByte < 0) {
         // Ran off the end of the input data
-        return FALSE;
+        return false;
     }
 
     if (firstByte <= 0x8D) {
         // single byte char
-        return TRUE;
+        return true;
     }
 
     secondByte = it->nextByte(det);
@@ -395,10 +404,10 @@ UBool CharsetRecog_euc::nextChar(IteratedChar* it, InputText* det) const {
     if (firstByte >= 0xA1 && firstByte <= 0xFE) {
         // Two byte Char
         if (secondByte < 0xA1) {
-            it->error = TRUE;
+            it->error = true;
         }
 
-        return TRUE;
+        return true;
     }
 
     if (firstByte == 0x8E) {
@@ -409,10 +418,10 @@ UBool CharsetRecog_euc::nextChar(IteratedChar* it, InputText* det) const {
         // Treat it like EUC-JP.  If the data really was EUC-TW, the following two
         //   bytes will look like a well formed 2 byte char.
         if (secondByte < 0xA1) {
-            it->error = TRUE;
+            it->error = true;
         }
 
-        return TRUE;
+        return true;
     }
 
     if (firstByte == 0x8F) {
@@ -423,11 +432,11 @@ UBool CharsetRecog_euc::nextChar(IteratedChar* it, InputText* det) const {
 
         if (thirdByte < 0xa1) {
             // Bad second byte or ran off the end of the input data with a non-ASCII first byte.
-            it->error = TRUE;
+            it->error = true;
         }
     }
 
-    return TRUE;
+    return true;
 
 }
 
@@ -448,11 +457,14 @@ const char *CharsetRecog_euc_jp::getLanguage() const
 
 UBool CharsetRecog_euc_jp::match(InputText *det, CharsetMatch *results) const
 {
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
+// rdar://11810267&11721802 c5bdd7da51.. After ICU50m2 import, re-add rdar://10748760
+// rdar://24620562 9746332e99.. OSS changes for 57.1rc , Import_ibm > master with adjustments...
     int32_t confidence = match_mbcs(det, commonChars_euc_jp, UPRV_LENGTHOF(commonChars_euc_jp), keyStrings_euc_jp);
 #else
     int32_t confidence = match_mbcs(det, commonChars_euc_jp, UPRV_LENGTHOF(commonChars_euc_jp));
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
     results->set(det, this, confidence);
     return (confidence > 0);
 }
@@ -474,11 +486,14 @@ const char *CharsetRecog_euc_kr::getLanguage() const
 
 UBool CharsetRecog_euc_kr::match(InputText *det, CharsetMatch *results) const
 {
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
+// rdar://11810267&11721802 c5bdd7da51.. After ICU50m2 import, re-add rdar://10748760
+// rdar://24620562 9746332e99.. OSS changes for 57.1rc , Import_ibm > master with adjustments...
     int32_t confidence =  match_mbcs(det, commonChars_euc_kr, UPRV_LENGTHOF(commonChars_euc_kr), keyStrings_euc_kr);
 #else
     int32_t confidence =  match_mbcs(det, commonChars_euc_kr, UPRV_LENGTHOF(commonChars_euc_kr));
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
     results->set(det, this, confidence);
     return (confidence > 0);
 }
@@ -493,16 +508,16 @@ UBool CharsetRecog_big5::nextChar(IteratedChar* it, InputText* det) const
     int32_t firstByte;
 
     it->index = it->nextIndex;
-    it->error = FALSE;
+    it->error = false;
     firstByte = it->charValue = it->nextByte(det);
 
     if (firstByte < 0) {
-        return FALSE;
+        return false;
     }
 
     if (firstByte <= 0x7F || firstByte == 0xFF) {
         // single byte character.
-        return TRUE;
+        return true;
     }
 
     int32_t secondByte = it->nextByte(det);
@@ -512,10 +527,10 @@ UBool CharsetRecog_big5::nextChar(IteratedChar* it, InputText* det) const
     // else we'll handle the error later.
 
     if (secondByte < 0x40 || secondByte == 0x7F || secondByte == 0xFF) {
-        it->error = TRUE;
+        it->error = true;
     }
 
-    return TRUE;
+    return true;
 }
 
 const char *CharsetRecog_big5::getName() const
@@ -530,11 +545,14 @@ const char *CharsetRecog_big5::getLanguage() const
 
 UBool CharsetRecog_big5::match(InputText *det, CharsetMatch *results) const
 {
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
+// rdar://11810267&11721802 c5bdd7da51.. After ICU50m2 import, re-add rdar://10748760
+// rdar://24620562 9746332e99.. OSS changes for 57.1rc , Import_ibm > master with adjustments...
     int32_t confidence = match_mbcs(det, commonChars_big5, UPRV_LENGTHOF(commonChars_big5), keyStrings_big5);
 #else
     int32_t confidence = match_mbcs(det, commonChars_big5, UPRV_LENGTHOF(commonChars_big5));
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
     results->set(det, this, confidence);
     return (confidence > 0);
 }
@@ -551,17 +569,17 @@ UBool CharsetRecog_gb_18030::nextChar(IteratedChar* it, InputText* det) const {
     int32_t fourthByte = 0;
 
     it->index = it->nextIndex;
-    it->error = FALSE;
+    it->error = false;
     firstByte = it->charValue = it->nextByte(det);
 
     if (firstByte < 0) {
         // Ran off the end of the input data
-        return FALSE;
+        return false;
     }
 
     if (firstByte <= 0x80) {
         // single byte char
-        return TRUE;
+        return true;
     }
 
     secondByte = it->nextByte(det);
@@ -573,7 +591,7 @@ UBool CharsetRecog_gb_18030::nextChar(IteratedChar* it, InputText* det) const {
     if (firstByte >= 0x81 && firstByte <= 0xFE) {
         // Two byte Char
         if ((secondByte >= 0x40 && secondByte <= 0x7E) || (secondByte >=80 && secondByte <= 0xFE)) {
-            return TRUE;
+            return true;
         }
 
         // Four byte char
@@ -586,16 +604,16 @@ UBool CharsetRecog_gb_18030::nextChar(IteratedChar* it, InputText* det) const {
                 if (fourthByte >= 0x30 && fourthByte <= 0x39) {
                     it->charValue = (it->charValue << 16) | (thirdByte << 8) | fourthByte;
 
-                    return TRUE;
+                    return true;
                 }
             }
         }
 
         // Something wasn't valid, or we ran out of data (-1).
-        it->error = TRUE;
+        it->error = true;
     }
 
-    return TRUE;
+    return true;
 }
 
 const char *CharsetRecog_gb_18030::getName() const
@@ -610,11 +628,14 @@ const char *CharsetRecog_gb_18030::getLanguage() const
 
 UBool CharsetRecog_gb_18030::match(InputText *det, CharsetMatch *results) const
 {
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
+// rdar://11810267&11721802 c5bdd7da51.. After ICU50m2 import, re-add rdar://10748760
+// rdar://24620562 9746332e99.. OSS changes for 57.1rc , Import_ibm > master with adjustments...
     int32_t confidence = match_mbcs(det, commonChars_gb_18030, UPRV_LENGTHOF(commonChars_gb_18030), keyStrings_gb_18030);
 #else
     int32_t confidence = match_mbcs(det, commonChars_gb_18030, UPRV_LENGTHOF(commonChars_gb_18030));
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
     results->set(det, this, confidence);
     return (confidence > 0);
 }

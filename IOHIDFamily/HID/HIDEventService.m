@@ -1,11 +1,11 @@
-//
-//  HIDEventService.m
-//  HID
-//
-//  Created by dekom on 9/13/18.
-//
+/*!
+ * HIDEventService.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
-#import "HIDEventServicePrivate.h"
+#import <HID/HIDEventService.h>
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDServicePrivate.h>
 

@@ -52,6 +52,7 @@
 #define SMB_MC_REF_LOG_LEVEL       0x0100
 #define SMB_LEASING_LOG_LEVEL      0x0200
 #define SMB_FILE_OPS_LOG_LEVEL     0x0400
+#define SMB_UBC_LOG_LEVEL          0x0800
 
 extern int smbfs_loglevel;
 
@@ -202,6 +203,18 @@ extern int smbfs_loglevel;
 
 #define SMB_LOG_FILE_OPS_LOCK(np, format, args...) do { \
     if (smbfs_loglevel & SMB_FILE_OPS_LOG_LEVEL) { \
+        lck_rw_lock_shared(&(np)->n_name_rwlock); \
+        printf("%s: " format, __FUNCTION__ ,## args); \
+        lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } \
+    } while(0)
+#define SMB_LOG_UBC(format, args...) do { \
+    if (smbfs_loglevel & SMB_UBC_LOG_LEVEL) \
+        printf("%s: " format, __FUNCTION__ ,## args); \
+    } while(0)
+
+#define SMB_LOG_UBC_LOCK(np, format, args...) do { \
+    if (smbfs_loglevel & SMB_UBC_LOG_LEVEL) { \
         lck_rw_lock_shared(&(np)->n_name_rwlock); \
         printf("%s: " format, __FUNCTION__ ,## args); \
         lck_rw_unlock_shared(&(np)->n_name_rwlock); \

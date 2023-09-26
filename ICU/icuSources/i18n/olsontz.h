@@ -289,7 +289,12 @@ private:
      * Default constructor.  Creates a time zone with an empty ID and
      * a fixed GMT offset of zero.
      */
+#if APPLE_ICU_CHANGES
+// rdar://
     OlsonTimeZone() = delete;
+#else
+    OlsonTimeZone();
+#endif  // APPLE_ICU_CHANGES
 
 private:
 
@@ -400,7 +405,7 @@ private:
     TimeArrayTimeZoneRule   **historicRules;
     int16_t             historicRuleCount;
     SimpleTimeZone      *finalZoneWithStartYear; // hack
-    UInitOnce           transitionRulesInitOnce = U_INITONCE_INITIALIZER;
+    UInitOnce           transitionRulesInitOnce {};
 };
 
 inline int16_t

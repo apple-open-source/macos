@@ -57,18 +57,13 @@ cmnd_allowed(char *cmnd, size_t cmnd_size, const char *runchroot,
 	debug_return_bool(true);	/* nothing to check */
 
     /* We compare the base names to avoid excessive stat()ing. */
-    if ((cmnd_base = strrchr(cmnd, '/')) == NULL)
-	debug_return_bool(false);	/* can't happen */
-    cmnd_base++;
+    cmnd_base = sudo_basename(cmnd);
 
     for (al = allowlist; *al != NULL; al++) {
 	const char *base, *path = *al;
 	struct stat sb;
 
-	if ((base = strrchr(path, '/')) == NULL)
-	    continue;		/* XXX - warn? */
-	base++;
-
+	base = sudo_basename(path);
 	if (strcmp(cmnd_base, base) != 0)
 	    continue;
 
@@ -101,6 +96,9 @@ find_path(const char *infile, char **outfile, struct stat *sbp,
     bool checkdot = false;
     int len;
     debug_decl(find_path, SUDOERS_DEBUG_UTIL);
+
+    sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
+	"resolving %s", infile);
 
     /*
      * If we were given a fully qualified or relative path
@@ -164,6 +162,8 @@ find_path(const char *infile, char **outfile, struct stat *sbp,
 
 done:
     if (found) {
+	sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
+	    "found %s", command);
 	if ((*outfile = strdup(command)) == NULL)
 	    debug_return_int(NOT_FOUND_ERROR);
 	debug_return_int(FOUND);

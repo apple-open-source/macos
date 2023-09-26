@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2017-2023 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,13 +28,17 @@
 
 #if USE(CG)
 
-#include "ImageSourceCG.h"
 #include "MIMETypeRegistry.h"
-
+#include "UTIUtilities.h"
 #include <ImageIO/ImageIO.h>
 #include <wtf/HashSet.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/RetainPtr.h>
 #include <wtf/RobinHoodHashSet.h>
+
+#if PLATFORM(IOS_FAMILY)
+#import <MobileCoreServices/MobileCoreServices.h>
+#endif
 
 namespace WebCore {
 
@@ -49,10 +53,8 @@ const MemoryCompactLookupOnlyRobinHoodHashSet<String>& defaultSupportedImageType
             "public.jpeg"_s,
             "public.png"_s,
             "public.tiff"_s,
-#if !PLATFORM(WIN)
             "public.jpeg-2000"_s,
             "public.mpo-image"_s,
-#endif
 #if HAVE(WEBP)
             "public.webp"_s,
             "com.google.webp"_s,
@@ -61,6 +63,16 @@ const MemoryCompactLookupOnlyRobinHoodHashSet<String>& defaultSupportedImageType
 #if HAVE(AVIF)
             "public.avif"_s,
             "public.avis"_s,
+#endif
+#if HAVE(JPEGXL)
+            "public.jxl"_s,
+            "public.jpegxl"_s,
+            "public.jpeg-xl"_s,
+#endif
+#if HAVE(HEIC)
+            "public.heic"_s,
+            "public.heics"_s,
+            "public.heif"_s,
 #endif
         };
 
@@ -121,6 +133,18 @@ bool isSupportedImageType(const String& imageType)
 bool isGIFImageType(StringView imageType)
 {
     return imageType == "com.compuserve.gif"_s;
+}
+
+String MIMETypeForImageType(const String& uti)
+{
+    return MIMETypeFromUTI(uti);
+}
+
+String preferredExtensionForImageType(const String& uti)
+{
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    return adoptCF(UTTypeCopyPreferredTagWithClass(uti.createCFString().get(), kUTTagClassFilenameExtension)).get();
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 }

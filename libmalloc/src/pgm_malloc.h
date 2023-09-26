@@ -29,8 +29,12 @@
 #include <stdbool.h>
 
 MALLOC_NOEXPORT
+void
+pgm_init_config(bool internal_build);
+
+MALLOC_NOEXPORT
 bool
-pgm_should_enable(bool internal_build);
+pgm_should_enable();
 
 MALLOC_NOEXPORT
 malloc_zone_t *

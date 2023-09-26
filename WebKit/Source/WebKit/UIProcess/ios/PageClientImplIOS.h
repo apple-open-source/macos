@@ -45,6 +45,8 @@ struct PromisedAttachmentInfo;
 
 namespace WebKit {
 
+class RemoteLayerTreeNode;
+
 enum class UndoOrRedo : bool;
 
 class PageClientImpl final : public PageClientImplCocoa
@@ -58,7 +60,7 @@ public:
     
 private:
     // PageClient
-    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
+    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy() override;
     void setViewNeedsDisplay(const WebCore::Region&) override;
     void requestScroll(const WebCore::FloatPoint& scrollPosition, const WebCore::IntPoint& scrollOrigin, WebCore::ScrollIsAnimated) override;
     WebCore::FloatPoint viewScrollPosition() override;
@@ -122,7 +124,7 @@ private:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(const URL& imageURL, const ShareableBitmapHandle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&) final;
+    void requestTextRecognition(const URL& imageURL, ShareableBitmap::Handle&& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&) final;
 #endif
 
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
@@ -177,7 +179,7 @@ private:
     void restorePageState(std::optional<WebCore::FloatPoint>, const WebCore::FloatPoint&, const WebCore::FloatBoxExtent&, double) override;
     void restorePageCenterAndScale(std::optional<WebCore::FloatPoint>, double) override;
 
-    void elementDidFocus(const FocusedElementInformation&, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState::Flag> activityStateChanges, API::Object* userData) override;
+    void elementDidFocus(const FocusedElementInformation&, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, API::Object* userData) override;
     void updateInputContextAfterBlurringAndRefocusingElement() final;
     void elementDidBlur() override;
     void focusedElementDidChangeInputMode(WebCore::InputMode) override;
@@ -274,7 +276,7 @@ private:
     void didPerformDragOperation(bool handled) override;
     void didHandleDragStartRequest(bool started) override;
     void didHandleAdditionalDragItemsRequest(bool added) override;
-    void startDrag(const WebCore::DragItem&, const ShareableBitmapHandle& image) override;
+    void startDrag(const WebCore::DragItem&, ShareableBitmap::Handle&& image) override;
     void willReceiveEditDragSnapshot() override;
     void didReceiveEditDragSnapshot(std::optional<WebCore::TextIndicatorData>) override;
     void didChangeDragCaretRect(const WebCore::IntRect& previousCaretRect, const WebCore::IntRect& caretRect) override;
@@ -302,14 +304,18 @@ private:
 #endif
 
     WebCore::Color contentViewBackgroundColor() final;
+    WebCore::Color insertionPointColor() final;
+
     String sceneID() final;
 
-    void beginTextRecognitionForFullscreenVideo(const ShareableBitmapHandle&, AVPlayerViewController *) final;
+    void beginTextRecognitionForFullscreenVideo(ShareableBitmap::Handle&&, AVPlayerViewController *) final;
     void cancelTextRecognitionForFullscreenVideo(AVPlayerViewController *) final;
     bool isTextRecognitionInFullscreenVideoEnabled() const final;
 
-    void beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmapHandle&, WebCore::FloatRect) final;
+#if ENABLE(VIDEO)
+    void beginTextRecognitionForVideoInElementFullscreen(ShareableBitmap::Handle&&, WebCore::FloatRect) final;
     void cancelTextRecognitionForVideoInElementFullscreen() final;
+#endif
 
     bool hasResizableWindows() const final;
 
@@ -317,6 +323,8 @@ private:
     void didEnterFullscreen() final;
     void didExitFullscreen() final;
 #endif
+
+    RetainPtr<WKContentView> contentView() const { return m_contentView.get(); }
 
     WeakObjCPtr<WKContentView> m_contentView;
     RetainPtr<WKEditorUndoTarget> m_undoTarget;

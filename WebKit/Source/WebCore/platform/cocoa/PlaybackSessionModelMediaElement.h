@@ -54,7 +54,6 @@ public:
 
     WEBCORE_EXPORT void handleEvent(WebCore::ScriptExecutionContext&, WebCore::Event&) final;
     void updateForEventName(const AtomString&);
-    bool operator==(const EventListener& rhs) const final { return static_cast<const WebCore::EventListener*>(this) == &rhs; }
 
     WEBCORE_EXPORT void addClient(PlaybackSessionModelClient&);
     WEBCORE_EXPORT void removeClient(PlaybackSessionModelClient&);
@@ -110,6 +109,11 @@ private:
     void progressEventTimerFired();
     static const Vector<AtomString>& observedEventNames();
     const AtomString& eventNameAll();
+
+#if !RELEASE_LOG_DISABLED
+    const void* logIdentifier() const final;
+    const Logger* loggerPtr() const final;
+#endif
 
     RefPtr<HTMLMediaElement> m_mediaElement;
     bool m_isListening { false };

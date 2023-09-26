@@ -141,9 +141,7 @@ void	 usage __P((void));
 
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 #ifndef __APPLE__
 	register struct fstab *fs;

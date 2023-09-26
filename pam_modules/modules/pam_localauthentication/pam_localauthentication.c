@@ -39,13 +39,17 @@
 
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
+#include "Logging.h"
+
+PAM_DEFINE_LOG(LA)
+#define PAM_LOG PAM_LOG_LA()
 
 #define CONTINUITY_UNLOCK_PARAM "continuityunlock"
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-    openpam_log(PAM_LOG_NOTICE, "pam_localauthentication: pam_sm_authenticate");
+    os_log_debug(PAM_LOG, "pam_sm_authenticate");
 
     int retval = PAM_AUTH_ERR;
     int tmpval = 0;
@@ -63,7 +67,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     struct passwd pwdbuf;
     
     /* determine the required bufsize for getpwnam_r */
-    int bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+    long bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
     if (bufsize == -1) {
         bufsize = 2 * PATH_MAX;
     }
@@ -72,7 +76,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     char *buffer = malloc(bufsize);
     if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS || !user ||
         getpwnam_r(user, &pwdbuf, buffer, bufsize, &pwd) != 0 || !pwd) {
-        openpam_log(PAM_LOG_ERROR, "unable to obtain the username.");
+        os_log_error(PAM_LOG, "unable to obtain the username.");
         retval = PAM_AUTHINFO_UNAVAIL;
         goto cleanup;
     }
@@ -80,14 +84,14 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     /* get the externalized context */
     tmpval = pam_get_data(pamh, isContinuityUnlock ? "token_lacont" : "token_la", (void *)&externalized_context);
     if (tmpval != PAM_SUCCESS) {
-        openpam_log(PAM_LOG_ERROR, "error obtaining the token: %d", tmpval);
+        os_log_error(PAM_LOG, "error obtaining the token: %d", tmpval);
         retval = PAM_AUTHINFO_UNAVAIL;
         goto cleanup;
     }
 
     /* check that the externalized context is valid */
     if (!*externalized_context) {
-        openpam_log(PAM_LOG_ERROR, "invalid token");
+        os_log_error(PAM_LOG, "invalid token");
         retval = PAM_AUTHTOK_ERR;
         goto cleanup;
     }
@@ -95,7 +99,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     /* create a new LA context from the externalized context */
     context = LACreateNewContextWithACMContext(*externalized_context, &error);
     if (!context) {
-        openpam_log(PAM_LOG_ERROR, "context creation failed: %ld", CFErrorGetCode(error));
+        os_log_error(PAM_LOG, "context creation failed: %ld", CFErrorGetCode(error));
         retval = PAM_AUTHTOK_ERR;
         goto cleanup;
     }
@@ -113,14 +117,14 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     /* evaluate policy */
     int policy = isContinuityUnlock ? kLAPolicyContinuityUnlock : kLAPolicyDeviceOwnerAuthenticationWithBiometrics;
     if (!LAEvaluatePolicy(context, policy, options, &error)) {
-        openpam_log(PAM_LOG_ERROR, "policy %d evaluation failed: %ld", policy, CFErrorGetCode(error));
+        os_log_error(PAM_LOG, "policy %d evaluation failed: %ld", policy, CFErrorGetCode(error));
         retval = PAM_AUTH_ERR;
         goto cleanup;
     }
 
     /* verify that M8 is not spoofed */
     if (!isContinuityUnlock && !LAVerifySEP(pwd->pw_uid, &error)) {
-        openpam_log(PAM_LOG_ERROR, "LAVerifySEP failed: %ld", CFErrorGetCode(error));
+        os_log_error(PAM_LOG, "LAVerifySEP failed: %ld", CFErrorGetCode(error));
         retval = PAM_AUTH_ERR;
         goto cleanup;
     }
@@ -152,7 +156,8 @@ cleanup:
     if (buffer) {
         free(buffer);
     }
-    openpam_log(PAM_LOG_NOTICE, "pam_localauthentication: pam_sm_authenticate returned %d", retval);
+    
+    os_log(PAM_LOG, "pam_sm_authenticate(cont:%d) returned %d", isContinuityUnlock, retval);
     return retval;
 }
 
@@ -160,6 +165,8 @@ cleanup:
 PAM_EXTERN int
 pam_sm_setcred(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
+    os_log_debug(PAM_LOG, "pam_sm_setcred");
+
     return PAM_SUCCESS;
 }
 
@@ -167,5 +174,7 @@ pam_sm_setcred(pam_handle_t * pamh, int flags, int argc, const char **argv)
 PAM_EXTERN int
 pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
+    os_log_debug(PAM_LOG, "pam_sm_acct_mgmt");
+
     return PAM_SUCCESS;
 }

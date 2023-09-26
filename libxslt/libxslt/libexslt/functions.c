@@ -10,6 +10,7 @@
 #include <libxml/debugXML.h>
 
 #include "xsltutils.h"
+#include "xsltutilsInternal.h"
 #include "variables.h"
 #include "xsltInternals.h"
 #include "extensions.h"
@@ -775,7 +776,16 @@ exsltFuncResultElem (xsltTransformContextPtr ctxt,
 	}
         /* Mark as function result. */
         xsltRegisterLocalRVT(ctxt, container);
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+        if (linkedOnOrAfterFall2023OSVersions()) {
+            container->compression = XSLT_RVT_FUNC_RESULT;
+        } else {
+            container->psvi = (void *)XSLT_RVT_FUNC_RESULT;
+        }
+#else
         container->psvi = XSLT_RVT_FUNC_RESULT;
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
+
 
 	oldInsert = ctxt->insert;
 	ctxt->insert = (xmlNodePtr) container;

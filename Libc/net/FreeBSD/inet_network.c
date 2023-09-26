@@ -55,8 +55,7 @@ __FBSDID("$FreeBSD: src/lib/libc/inet/inet_network.c,v 1.5 2008/01/14 22:55:20 c
  * network numbers.
  */
 in_addr_t
-inet_network(cp)
-	const char *cp;
+inet_network(const char *cp)
 {
 	in_addr_t val, base, n;
 	char c;

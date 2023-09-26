@@ -348,6 +348,7 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
 
 struct print_cred {
     rtbl_t t;
+    dispatch_semaphore_t sema;
 };
 
 static void
@@ -360,6 +361,10 @@ print_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
     gss_name_t name;
     const char *str;
     OM_uint32 expire;
+
+    if (oid == NULL && cred == NULL) {
+	dispatch_semaphore_signal(pc->sema);
+    }
 
     if (cred == NULL)
 	return;
@@ -409,6 +414,7 @@ print_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
 static void
 diag_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
 {
+    struct print_cred *pc = ctx;
     const char *delim = "----------------";
     gss_buffer_set_t data_set;
     gss_buffer_desc buffer;
@@ -416,6 +422,10 @@ diag_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
     gss_name_t name;
     const char *mech;
     size_t n;
+
+    if (oid == NULL && cred == NULL) {
+	dispatch_semaphore_signal(pc->sema);
+    }
 
     if (cred == NULL)
 	return;
@@ -428,7 +438,7 @@ diag_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
     gss_release_name(&junk, &name);
     if (major)
 	return;
-    
+
     mech = gss_oid_to_name(oid);
 
     printf("@GSSCred\n%s\n%s: %.*s\n",
@@ -473,10 +483,12 @@ list_credentials(struct list_credentials_options *opt, int argc, char **argv)
 	    errx(1, "No such mech: %s", opt->mech_string);
     }
 
+    pc.sema = dispatch_semaphore_create(0);
+
     if (opt->verbose_flag) {
 
-	gss_iter_creds_f(&junk, 0, mech, NULL, diag_cred);
-
+	gss_iter_creds_f(&junk, 0, mech, &pc, diag_cred);
+	dispatch_semaphore_wait(pc.sema, DISPATCH_TIME_FOREVER);
     } else {
 
 	pc.t = rtbl_create();
@@ -490,10 +502,13 @@ list_credentials(struct list_credentials_options *opt, int argc, char **argv)
 	rtbl_add_column(pc.t, COL_UUID, 0);
 	
 	gss_iter_creds_f(&junk, 0, mech, &pc, print_cred);
-	
+	dispatch_semaphore_wait(pc.sema, DISPATCH_TIME_FOREVER);
+
 	rtbl_format(pc.t, stdout);
 	rtbl_destroy(pc.t);
     }
+
+    pc.sema = NULL;
 
     return 0;
 }
@@ -534,6 +549,11 @@ static void
 destroy_cred(void *arg1, gss_const_OID oid, gss_cred_id_t cred)
 {
     OM_uint32 junk;
+
+    if (oid == NULL && cred == NULL) {
+	return;
+    }
+
     gss_destroy_cred(&junk, &cred);
 }
 

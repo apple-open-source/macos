@@ -856,10 +856,7 @@ __svfscanf(FILE * __restrict fp, const char * __restrict fmt0, va_list ap)
  * considered part of the scanset.
  */
 static const u_char *
-__sccl(tab, fmt, loc)
-	char *tab;
-	const u_char *fmt;
-	locale_t loc;
+__sccl(char *tab, const u_char *fmt, locale_t loc)
 {
 	int c, n, v, i;
 

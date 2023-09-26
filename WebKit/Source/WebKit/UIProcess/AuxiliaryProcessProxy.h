@@ -68,15 +68,21 @@ public:
     enum class ShouldStartProcessThrottlerActivity : bool { No, Yes };
     using AsyncReplyID = IPC::Connection::AsyncReplyID;
     template<typename T, typename C> AsyncReplyID sendWithAsyncReply(T&&, C&&, uint64_t destinationID = 0, OptionSet<IPC::SendOption> = { }, ShouldStartProcessThrottlerActivity = ShouldStartProcessThrottlerActivity::Yes);
-    
-    template<typename T, typename U>
-    bool send(T&& message, ObjectIdentifier<U> destinationID, OptionSet<IPC::SendOption> sendOptions = { })
+
+    template<typename T, typename C>
+    AsyncReplyID sendWithAsyncReply(T&& message, C&& completionHandler, const ObjectIdentifierGenericBase& destinationID, OptionSet<IPC::SendOption> sendOptions = { }, ShouldStartProcessThrottlerActivity shouldStartProcessThrottlerActivity = ShouldStartProcessThrottlerActivity::Yes)
+    {
+        return sendWithAsyncReply(std::forward<T>(message), std::forward<C>(completionHandler), destinationID.toUInt64(), sendOptions, shouldStartProcessThrottlerActivity);
+    }
+
+    template<typename T>
+    bool send(T&& message, const ObjectIdentifierGenericBase& destinationID, OptionSet<IPC::SendOption> sendOptions = { })
     {
         return send<T>(WTFMove(message), destinationID.toUInt64(), sendOptions);
     }
     
-    template<typename T, typename U>
-    SendSyncResult<T> sendSync(T&& message, ObjectIdentifier<U> destinationID, IPC::Timeout timeout = 1_s, OptionSet<IPC::SendSyncOption> sendSyncOptions = { })
+    template<typename T>
+    SendSyncResult<T> sendSync(T&& message, const ObjectIdentifierGenericBase& destinationID, IPC::Timeout timeout = 1_s, OptionSet<IPC::SendSyncOption> sendSyncOptions = { })
     {
         return sendSync<T>(WTFMove(message), destinationID.toUInt64(), timeout, sendSyncOptions);
     }
@@ -102,14 +108,12 @@ public:
     void removeMessageReceiver(IPC::ReceiverName, uint64_t destinationID);
     void removeMessageReceiver(IPC::ReceiverName);
     
-    template <typename T>
-    void addMessageReceiver(IPC::ReceiverName messageReceiverName, ObjectIdentifier<T> destinationID, IPC::MessageReceiver& receiver)
+    void addMessageReceiver(IPC::ReceiverName messageReceiverName, const ObjectIdentifierGenericBase& destinationID, IPC::MessageReceiver& receiver)
     {
         addMessageReceiver(messageReceiverName, destinationID.toUInt64(), receiver);
     }
     
-    template <typename T>
-    void removeMessageReceiver(IPC::ReceiverName messageReceiverName, ObjectIdentifier<T> destinationID)
+    void removeMessageReceiver(IPC::ReceiverName messageReceiverName, const ObjectIdentifierGenericBase& destinationID)
     {
         removeMessageReceiver(messageReceiverName, destinationID.toUInt64());
     }
@@ -124,7 +128,7 @@ public:
     bool isLaunching() const { return state() == State::Launching; }
     bool wasTerminated() const;
 
-    ProcessID processIdentifier() const { return m_processLauncher ? m_processLauncher->processIdentifier() : 0; }
+    ProcessID processID() const { return m_processLauncher ? m_processLauncher->processID() : 0; }
 
     bool canSendMessage() const { return state() != State::Terminated;}
     bool sendMessage(UniqueRef<IPC::Encoder>&&, OptionSet<IPC::SendOption>, std::optional<IPC::Connection::AsyncReplyHandler> = std::nullopt, ShouldStartProcessThrottlerActivity = ShouldStartProcessThrottlerActivity::Yes);
@@ -139,6 +143,7 @@ public:
     bool platformIsBeingDebugged() const;
 
 #if PLATFORM(MAC) && USE(RUNNINGBOARD)
+    bool runningBoardThrottlingEnabled();
     void setRunningBoardThrottlingEnabled();
 #endif
 
@@ -155,9 +160,12 @@ public:
     void deref() final { ThreadSafeRefCounted::deref(); }
 
     bool operator==(const AuxiliaryProcessProxy& other) const { return (this == &other); }
-    bool operator!=(const AuxiliaryProcessProxy& other) const { return !(this == &other); }
 
     std::optional<SandboxExtension::Handle> createMobileGestaltSandboxExtensionIfNeeded() const;
+
+#if USE(RUNNINGBOARD)
+    void wakeUpTemporarilyForIPC();
+#endif
 
 protected:
     // ProcessLauncher::Client
@@ -196,6 +204,7 @@ protected:
 private:
     virtual void connectionWillOpen(IPC::Connection&);
     virtual void processWillShutDown(IPC::Connection&) = 0;
+    void outgoingMessageQueueIsGrowingLarge();
 
     void populateOverrideLanguagesLaunchOptions(ProcessLauncher::LaunchOptions&) const;
     Vector<String> platformOverrideLanguages() const;
@@ -211,8 +220,12 @@ private:
     WebCore::ProcessIdentifier m_processIdentifier { WebCore::ProcessIdentifier::generate() };
     std::optional<UseLazyStop> m_delayedResponsivenessCheck;
     MonotonicTime m_processStart;
-#if PLATFORM(MAC) && USE(RUNNINGBOARD)
+#if USE(RUNNINGBOARD)
+    ProcessThrottler::TimedActivity m_timedActivityForIPC;
+#if PLATFORM(MAC)
     std::unique_ptr<ProcessThrottler::ForegroundActivity> m_lifetimeActivity;
+    RefPtr<ProcessAssertion> m_boostedJetsamAssertion;
+#endif
 #endif
 };
 
@@ -233,7 +246,7 @@ AuxiliaryProcessProxy::SendSyncResult<T> AuxiliaryProcessProxy::sendSync(T&& mes
     static_assert(T::isSync, "Sync message expected");
 
     if (!m_connection)
-        return { };
+        return { IPC::Error::InvalidConnection };
 
     TraceScope scope(SyncMessageStart, SyncMessageEnd);
 

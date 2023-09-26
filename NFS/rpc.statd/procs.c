@@ -144,7 +144,7 @@ sm_stat_1_svc(sm_name * arg, struct svc_req * req)
 		res.res_stat = stat_fail;
 	}
 	if (err != 0) {
-		DEBUG(1, "stat called for host %s", arg->mon_name);
+		STATD_DEBUG(1, "stat called for host %s", arg->mon_name);
 		if (getaddrinfo(arg->mon_name, NULL, NULL, &ai) == 0) {
 			res.res_stat = stat_succ;
 			freeaddrinfo(ai);
@@ -182,8 +182,8 @@ sm_mon_1_svc(mon * arg, struct svc_req * req)
 		return &res;
 	}
 
-	DEBUG(1, "monitor request for host %s", arg->mon_id.mon_name);
-	DEBUG(1, "recall host: %s prog: %d ver: %d proc: %d",
+	STATD_DEBUG(1, "monitor request for host %s", arg->mon_id.mon_name);
+	STATD_DEBUG(1, "recall host: %s prog: %d ver: %d proc: %d",
 	    arg->mon_id.my_id.my_name, arg->mon_id.my_id.my_prog,
 	    arg->mon_id.my_id.my_vers, arg->mon_id.my_id.my_proc);
 	res.state = ntohl(status_info->fh_state);
@@ -283,8 +283,8 @@ sm_unmon_1_svc(mon_id * arg, struct svc_req * req __unused)
 	static sm_stat res;
 	MonitoredHost *mhp;
 
-	DEBUG(1, "un-monitor request for host %s", arg->mon_name);
-	DEBUG(1, "recall host: %s prog: %d ver: %d proc: %d", arg->my_id.my_name,
+	STATD_DEBUG(1, "un-monitor request for host %s", arg->mon_name);
+	STATD_DEBUG(1, "recall host: %s prog: %d ver: %d proc: %d", arg->my_id.my_name,
 	    arg->my_id.my_prog, arg->my_id.my_vers, arg->my_id.my_proc);
 
 	if ((mhp = find_host(arg->mon_name, FALSE))) {
@@ -324,7 +324,7 @@ sm_unmon_all_1_svc(my_id * arg, struct svc_req * req __unused)
 	off_t off;
 	uint i;
 
-	DEBUG(1, "unmon_all for host: %s prog: %d ver: %d proc: %d",
+	STATD_DEBUG(1, "unmon_all for host: %s prog: %d ver: %d proc: %d",
 	    arg->my_name, arg->my_prog, arg->my_vers, arg->my_proc);
 
 	bzero(&mhtmp, sizeof(mhtmp));
@@ -371,7 +371,7 @@ sm_simu_crash_1_svc(void *v __unused, struct svc_req * req)
 	off_t off;
 	uint i;
 
-	if (!config.simu_crash_allowed) {
+	if (!statd_config.simu_crash_allowed) {
 		struct sockaddr *claddr;
 		char hname[NI_MAXHOST];
 
@@ -450,7 +450,7 @@ sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 	struct addrinfo *ai, *ailist;
 	int error, sock, result;
 
-	DEBUG(1, "notify from host %s, new state %d", arg->mon_name, arg->state);
+	STATD_DEBUG(1, "notify from host %s, new state %d", arg->mon_name, arg->state);
 
 	mhp = find_host(arg->mon_name, FALSE);
 	if (!mhp) {
@@ -492,13 +492,13 @@ sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 				mhp = find_host(addrstr(claddr), FALSE);
 			}
 			if (mhp) {
-				DEBUG(1, "Notification from host %s found as %s",
+				STATD_DEBUG(1, "Notification from host %s found as %s",
 				    arg->mon_name, HOSTINFO(mhp->mh_hostinfo_offset)->hi_name);
 			}
 		}
 		if (!mhp) {
 			/* Never heard of this host - why is it notifying us?		 */
-			DEBUG(1, "Unsolicited notification from host %s", arg->mon_name);
+			STATD_DEBUG(1, "Unsolicited notification from host %s", arg->mon_name);
 			return &dummy;
 		}
 	}
@@ -535,11 +535,11 @@ sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 
 		/* try each address until we get success */
 		for (ai = ailist; ai && (result == FALSE); ai = ai->ai_next) {
-			if (config.send_using_tcp) {
+			if (statd_config.send_using_tcp) {
 				sock = RPC_ANYSOCK;
 				cli = clnttcp_create_sa(ai->ai_addr, np->n_prog, np->n_vers, &sock, 0, 0);
 			}
-			if (!config.send_using_tcp || !cli) {
+			if (!statd_config.send_using_tcp || !cli) {
 				cli = clntudp_create_sa(ai->ai_addr, np->n_prog, np->n_vers, try, &sock);
 			}
 			if (!cli) {

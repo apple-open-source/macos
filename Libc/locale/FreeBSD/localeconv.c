@@ -201,7 +201,7 @@ localeconv_l(locale_t loc)
  * Return the current locale conversion.
  */
 struct lconv *
-localeconv()
+localeconv(void)
 {
 #ifdef __APPLE_PR3417676_HACK__
     /*--------------------------------------------------------------------

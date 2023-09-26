@@ -49,10 +49,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fgets.c,v 1.14 2007/01/09 00:28:06 imp Ex
  * Return first argument, or NULL if no characters were read.
  */
 char *
-fgets(buf, n, fp)
-	char *buf;
-	int n;
-	FILE *fp;
+fgets(char *buf, int n, FILE *fp)
 {
 	size_t len;
 	char *s;

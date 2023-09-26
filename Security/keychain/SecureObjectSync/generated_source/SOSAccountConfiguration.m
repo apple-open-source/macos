@@ -41,12 +41,12 @@
 @synthesize ringUpdateFlag = _ringUpdateFlag;
 - (void)setRingUpdateFlag:(BOOL)v
 {
-    _has.ringUpdateFlag = YES;
+    _has.ringUpdateFlag = (uint)YES;
     _ringUpdateFlag = v;
 }
 - (void)setHasRingUpdateFlag:(BOOL)f
 {
-    _has.ringUpdateFlag = f;
+    _has.ringUpdateFlag = (uint)f;
 }
 - (BOOL)hasRingUpdateFlag
 {
@@ -99,7 +99,7 @@ BOOL SOSAccountConfigurationReadFrom(__unsafe_unretained SOSAccountConfiguration
             break;
             case 2 /* ringUpdateFlag */:
             {
-                self->_has.ringUpdateFlag = YES;
+                self->_has.ringUpdateFlag = (uint)YES;
                 self->_ringUpdateFlag = PBReaderReadBOOL(reader);
             }
             break;

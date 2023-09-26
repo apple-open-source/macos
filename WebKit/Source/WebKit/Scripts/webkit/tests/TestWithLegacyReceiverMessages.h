@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,8 +33,8 @@
 #endif
 #include "MessageNames.h"
 #include "Plugin.h"
-#include <WebCore/GraphicsLayer.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/PlatformLayerIdentifier.h>
 #include <WebCore/PluginData.h>
 #include <utility>
 #include <wtf/Forward.h>
@@ -74,9 +74,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -96,9 +96,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -119,9 +119,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -142,9 +142,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -165,9 +165,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -187,9 +187,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -203,9 +203,9 @@ public:
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_Close; }
     static constexpr bool isSync = false;
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -224,9 +224,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -245,9 +245,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -266,9 +266,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -290,9 +290,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -314,9 +314,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -338,9 +338,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -361,9 +361,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -379,9 +379,9 @@ public:
 
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
     using ReplyArguments = std::tuple<>;
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -400,9 +400,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -421,9 +421,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -432,23 +432,23 @@ private:
 
 class SetVideoLayerID {
 public:
-    using Arguments = std::tuple<WebCore::GraphicsLayer::PlatformLayerID>;
+    using Arguments = std::tuple<WebCore::PlatformLayerIdentifier>;
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithLegacyReceiver_SetVideoLayerID; }
     static constexpr bool isSync = false;
 
-    explicit SetVideoLayerID(const WebCore::GraphicsLayer::PlatformLayerID& videoLayerID)
+    explicit SetVideoLayerID(const WebCore::PlatformLayerIdentifier& videoLayerID)
         : m_arguments(videoLayerID)
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
-    std::tuple<const WebCore::GraphicsLayer::PlatformLayerID&> m_arguments;
+    std::tuple<const WebCore::PlatformLayerIdentifier&> m_arguments;
 };
 
 #if PLATFORM(MAC)
@@ -464,9 +464,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -490,9 +490,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -513,9 +513,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -536,9 +536,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:

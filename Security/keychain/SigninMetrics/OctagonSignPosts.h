@@ -147,6 +147,8 @@ typedef struct octagon_signpost_s {
 #define SOSSignpostNameSOSCCCopyRecoveryPublicKey               "SOSCCCopyRecoveryPublicKey"
 #define SOSSignpostNameSOSCCMessageFromPeerIsPending            "SOSCCMessageFromPeerIsPending"
 #define SOSSignpostNameSOSCCSendToPeerIsPending                 "SOSCCSendToPeerIsPending"
+#define SOSSignpostNameSOSCCSetCompatibilityMode                "SOSCCSetCompatibilityMode"
+#define SOSSignpostNameSOSCCFetchCompatibilityMode              "SOSCCFetchCompatibilityMode"
 
 #define OctagonSignpostString1(label) " "#label"=%{public,signpost.telemetry:string1,name="#label"}@ "
 #define OctagonSignpostString2(label) " "#label"=%{public,signpost.telemetry:string2,name="#label"}@ "

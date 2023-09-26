@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -2036,6 +2036,42 @@ dhcp_provide_summary(ServiceRef service_p, CFMutableDictionaryRef summary)
     return;
 }
 
+STATIC void
+dhcp_delayed_start(ServiceRef service_p, void * arg2, void * arg3)
+{
+#pragma unused(arg2)
+#pragma unused(arg3)
+    if (ServiceIsNetBoot(service_p)) {
+	struct in_addr	our_ip = { 0 };
+
+	dhcp_init_reboot(service_p, IFEventID_start_e, &our_ip);
+    }
+    else {
+	dhcp_check_link(service_p, IFEventID_start_e);
+    }
+    return;
+}
+
+STATIC void
+dhcp_start(ServiceRef service_p)
+{
+    Service_dhcp_t *	dhcp = (Service_dhcp_t *)ServiceGetPrivate(service_p);
+    interface_t *	if_p = service_interface(service_p);
+    struct timeval	tv;
+
+    my_log(LOG_NOTICE, "DHCP %s: start", if_name(if_p));
+    DHCPLeaseListInit(&dhcp->lease_list);
+    dhcp->xid = arc4random();
+    if (!ServiceIsNetBoot(service_p)) {
+	recover_lease(service_p);
+    }
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    timer_set_relative(dhcp->timer, tv,
+		       (timer_func_t *)dhcp_delayed_start,
+		       service_p, NULL, NULL);
+}
+
 PRIVATE_EXTERN ipconfig_status_t
 dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 {
@@ -2047,7 +2083,6 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     switch (event_id) {
       case IFEventID_start_e: {
 	  ipconfig_method_data_t	method_data;
-	  struct in_addr		our_ip;
 	  char				timer_name[32];
 
 	  if (if_flags(if_p) & IFF_LOOPBACK) {
@@ -2106,17 +2141,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      bcopy(method_data->dhcp.client_id, 
 		    dhcp->client_id, dhcp->client_id_len);
 	  }
-	  my_log(LOG_NOTICE, "DHCP %s: start", if_name(if_p));
-	  dhcp->xid = arc4random();
-	  DHCPLeaseListInit(&dhcp->lease_list);
-	  our_ip.s_addr = 0;
-	  if (ServiceIsNetBoot(service_p)) {
-	      dhcp_init_reboot(service_p, IFEventID_start_e, &our_ip);
-	  }
-	  else {
-	      recover_lease(service_p);
-	      dhcp_check_link(service_p, IFEventID_start_e);
-	  }
+	  dhcp_start(service_p);
 	  break;
       }
       case IFEventID_stop_e: {
@@ -2132,12 +2157,9 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      (void)dhcp_release(service_p);
 	  }
 
-	  /* remove IP address */
-	  service_remove_address(service_p);
-
-	  service_disable_autoaddr(service_p);
-
 	  /* clean-up resources */
+	  dhcp_failed(service_p, ipconfig_status_media_inactive_e);
+
 	  if (dhcp->timer) {
 	      timer_callout_free(&dhcp->timer);
 	  }

@@ -45,6 +45,7 @@ struct PromisedAttachmentInfo;
 
 namespace WebKit {
 
+class RemoteLayerTreeNode;
 class WebViewImpl;
 
 class PageClientImpl final : public PageClientImplCocoa
@@ -63,7 +64,7 @@ public:
 
 private:
     // PageClient
-    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
+    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy() override;
     void setViewNeedsDisplay(const WebCore::Region&) override;
     void requestScroll(const WebCore::FloatPoint& scrollPosition, const WebCore::IntPoint& scrollOrigin, WebCore::ScrollIsAnimated) override;
     WebCore::FloatPoint viewScrollPosition() override;
@@ -80,6 +81,8 @@ private:
     WebCore::DestinationColorSpace colorSpace() override;
     void setRemoteLayerTreeRootNode(RemoteLayerTreeNode*) override;
     CALayer *acceleratedCompositingRootLayer() const override;
+    CALayer *headerBannerLayer() const override;
+    CALayer *footerBannerLayer() const override;
 
     void processDidExit() override;
     void processWillSwap() override;
@@ -99,7 +102,7 @@ private:
     bool canUndoRedo(UndoOrRedo) override;
     void executeUndoRedo(UndoOrRedo) override;
     bool executeSavedCommandBySelector(const String& selector) override;
-    void startDrag(const WebCore::DragItem&, const ShareableBitmapHandle& image) override;
+    void startDrag(const WebCore::DragItem&, ShareableBitmap::Handle&& image) override;
     void setPromisedDataForImage(const String& pasteboardName, Ref<WebCore::FragmentedSharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title,
         const String& url, const String& visibleURL, RefPtr<WebCore::FragmentedSharedBuffer>&& archiveBuffer, const String& originIdentifier) override;
     void updateSecureInputState() override;
@@ -133,7 +136,7 @@ private:
     void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) override;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(const URL& imageURL, const ShareableBitmapHandle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&) override;
+    void requestTextRecognition(const URL& imageURL, ShareableBitmap::Handle&& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&) override;
     void computeHasVisualSearchResults(const URL&, ShareableBitmap&, CompletionHandler<void(bool)>&&) override;
 #endif
 
@@ -194,19 +197,15 @@ private:
 
     void setEditableElementIsFocused(bool) override;
 
-    void setCaretDecorationVisibility(bool) override;
-
     void didCommitLayerTree(const RemoteLayerTreeTransaction&) override;
     void layerTreeCommitComplete() override;
 
     void registerInsertionUndoGrouping() override;
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
     void createPDFHUD(PDFPluginIdentifier, const WebCore::IntRect&) override;
     void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&) override;
     void removePDFHUD(PDFPluginIdentifier) override;
     void removeAllPDFHUDs() override;
-#endif
 
     // Auxiliary Client Creation
 #if ENABLE(FULLSCREEN_API)
@@ -266,7 +265,7 @@ private:
     bool useFormSemanticContext() const override;
 
     bool isTextRecognitionInFullscreenVideoEnabled() const final { return true; }
-    void beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmapHandle&, WebCore::FloatRect) final;
+    void beginTextRecognitionForVideoInElementFullscreen(ShareableBitmap::Handle&&, WebCore::FloatRect) final;
     void cancelTextRecognitionForVideoInElementFullscreen() final;
 
 #if ENABLE(DRAG_SUPPORT)

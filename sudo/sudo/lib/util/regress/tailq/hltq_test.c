@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "sudo_compat.h"
 #include "sudo_fatal.h"
@@ -51,10 +52,22 @@ main(int argc, char *argv[])
     struct test_data d1, d2, d3;
     struct test_data *hltq;
     struct test_data_list tq;
-    int errors = 0;
-    int ntests = 0;
+    int ch, errors = 0, ntests = 0;
 
     initprogname(argc > 0 ? argv[0] : "hltq_test");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignore */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     /*
      * Initialize three data elements and concatenate them in order.
@@ -183,8 +196,10 @@ main(int argc, char *argv[])
     }
     ntests++;
 
-    printf("%s: %d tests run, %d errors, %d%% success rate\n", getprogname(),
-	ntests, errors, (ntests - errors) * 100 / ntests);
+    if (ntests != 0) {
+	printf("%s: %d tests run, %d errors, %d%% success rate\n",
+	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
+    }
 
     exit(errors);
 }

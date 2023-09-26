@@ -239,8 +239,6 @@ show_cert_trust_panel(CFArrayRef cert_list, SInt32 trust_status, CFStringRef hos
 		[panel setShowsHelp:YES];
 	}
 	
-	[[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
-	
 	ret_val = (int)[panel runModalForTrust:trust message:text];
 	
 	switch (ret_val)

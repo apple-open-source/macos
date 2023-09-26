@@ -436,8 +436,7 @@ API_AVAILABLE(macos(10.7), ios(5.0));
 
 /*!
     @function   CCRSACryptorCreateFromData
-	@abstract   For FIPS CAVS testing we need the ability to create an RSA
-    			key from an exponent and Modulus.
+	@abstract   Create an RSA key from an exponent and Modulus.
     @discussion If the keyType is ccRSAKeyPublic, the inputs are modulus, modulusLength, publicExponent and publicExponentLength.
                 If the keyType is ccRSAKeyPrivate, the inputs are publicExponent, publicExponentLength, p, pLength, q and qLength.
                 Unused inputs are ignored, in either case.

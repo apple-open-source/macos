@@ -82,15 +82,8 @@ static bool _enabled(void)
     static bool enabled = false;
     
     dispatch_once(&onceToken, ^{
-        int acond = au_get_state();
-        switch (acond) {
-            case AUC_NOAUDIT:
-                break;
-            case AUC_AUDITING:
-                enabled = true;
-                break;
-            default:
-                os_log_error(AUTHD_LOG, "ccaudit: error checking auditing status (%d)", acond);
+        if (au_get_state() == AUC_AUDITING) {
+            enabled = true;
         }
     });
 

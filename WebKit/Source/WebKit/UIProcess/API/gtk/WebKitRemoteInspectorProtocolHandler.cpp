@@ -4,7 +4,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2,1 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,6 +23,7 @@
 #if ENABLE(REMOTE_INSPECTOR)
 
 #include "APIContentWorld.h"
+#include "PageLoadState.h"
 #include "WebKitError.h"
 #include "WebKitNavigationPolicyDecision.h"
 #include "WebKitUserContentManagerPrivate.h"
@@ -158,7 +159,7 @@ void RemoteInspectorProtocolHandler::updateTargetList(WebKitWebView* webView)
     GString* script = g_string_new("document.getElementById('targetlist').innerHTML='");
     clientForWebView->appendTargertList(script, RemoteInspectorClient::InspectorType::UI, RemoteInspectorClient::ShouldEscapeSingleQuote::Yes);
     g_string_append(script, "';");
-    webkit_web_view_run_javascript(webView, script->str, nullptr, nullptr, nullptr);
+    webkit_web_view_evaluate_javascript(webView, script->str, script->len, nullptr, nullptr, nullptr, nullptr, nullptr);
     g_string_free(script, TRUE);
 }
 

@@ -15,6 +15,7 @@
  * to fit.
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "unicode/utypes.h"
@@ -3222,16 +3223,16 @@ ucol_getFunctionalEquivalent(char* result, int32_t resultCapacity,
                                      &isAvailable, &ec);
     if (assertSuccess("getFunctionalEquivalent", &ec)) {
         assertEquals("getFunctionalEquivalent(de)", "root", loc);
-        assertTrue("getFunctionalEquivalent(de).isAvailable==TRUE",
-                   isAvailable == TRUE);
+        assertTrue("getFunctionalEquivalent(de).isAvailable==true",
+                   isAvailable == true);
     }
 
     n = ucol_getFunctionalEquivalent(loc, sizeof(loc), "collation", "de_DE",
                                      &isAvailable, &ec);
     if (assertSuccess("getFunctionalEquivalent", &ec)) {
         assertEquals("getFunctionalEquivalent(de_DE)", "root", loc);
-        assertTrue("getFunctionalEquivalent(de_DE).isAvailable==FALSE",
-                   isAvailable == FALSE);
+        assertTrue("getFunctionalEquivalent(de_DE).isAvailable==false",
+                   isAvailable == false);
     }
 }
 
@@ -3290,6 +3291,8 @@ static void TestBeforePinyin(void) {
         "xAx"
     };
 
+#if APPLE_ICU_CHANGES
+// rdar://
     const static char *test3[] = { // rdar://53741390
         "\\u85CF", // 藏 cáng
         "\\u92BA", // 銺 zàng
@@ -3297,12 +3300,16 @@ static void TestBeforePinyin(void) {
         "\\u85CF\\u8BED", // 藏语 zàngyǔ
         "\\u81D3", // 臓 zàng
     };
+#endif  // APPLE_ICU_CHANGES
 
     genericRulesStarter(rules, test, UPRV_LENGTHOF(test));
     genericLocaleStarter("zh", test, UPRV_LENGTHOF(test));
     genericRulesStarter(rules, test2, UPRV_LENGTHOF(test2));
     genericLocaleStarter("zh", test2, UPRV_LENGTHOF(test2));
+#if APPLE_ICU_CHANGES
+// rdar://
     genericLocaleStarter("zh", test3, UPRV_LENGTHOF(test3));
+#endif  // APPLE_ICU_CHANGES
 }
 
 static void TestBeforeTightening(void) {
@@ -4041,7 +4048,7 @@ TestSortKeyConsistency(void)
     uint8_t bufPart[TSKC_DATA_SIZE][TSKC_BUF_SIZE];
     int32_t i, j, i2;
 
-    ucol = ucol_openFromShortString("LEN_S4", FALSE, NULL, &icuRC);
+    ucol = ucol_openFromShortString("LEN_S4", false, NULL, &icuRC);
     if (U_FAILURE(icuRC))
     {
         log_err_status(icuRC, "ucol_openFromShortString failed -> %s\n", u_errorName(icuRC));
@@ -4071,8 +4078,8 @@ TestSortKeyConsistency(void)
 
         for (i2=0; i2<i; i2++)
         {
-            UBool fullMatch = TRUE;
-            UBool partMatch = TRUE;
+            UBool fullMatch = true;
+            UBool partMatch = true;
             for (j=0; j<TSKC_BUF_SIZE; j++)
             {
                 fullMatch = fullMatch && (bufFull[i][j] != bufFull[i2][j]);
@@ -4107,7 +4114,7 @@ static void TestCroatianSortKey(void) {
     size_t actualSortKeyLen;
     uint32_t uStateInfo[2] = { 0, 0 };
 
-    ucol = ucol_openFromShortString(collString, FALSE, NULL, &status);
+    ucol = ucol_openFromShortString(collString, false, NULL, &status);
     if (U_FAILURE(status)) {
         log_err_status(status, "ucol_openFromShortString error in Craotian test. -> %s\n", u_errorName(status));
         return;
@@ -4151,7 +4158,7 @@ static void TestHiragana(void) {
     int32_t keySize1;
     int32_t keySize2;
 
-    ucol = ucol_openFromShortString("LJA_AN_CX_EX_FX_HO_NX_S4", FALSE, NULL,
+    ucol = ucol_openFromShortString("LJA_AN_CX_EX_FX_HO_NX_S4", false, NULL,
             &status);
     if (U_FAILURE(status)) {
         log_err_status(status, "Error status: %s; Unable to open collator from short string.\n", u_errorName(status));
@@ -4953,9 +4960,9 @@ static void TestReorderingAPIWithRuleCreatedCollator(void)
 static UBool containsExpectedScript(const int32_t scripts[], int32_t length, int32_t expectedScript) {
     int32_t i;
     for (i = 0; i < length; ++i) {
-        if (expectedScript == scripts[i]) { return TRUE; }
+        if (expectedScript == scripts[i]) { return true; }
     }
-    return FALSE;
+    return false;
 }
 
 static void TestEquivalentReorderingScripts(void) {
@@ -5872,6 +5879,166 @@ static void TestNextSortKeyPartJaIdentical(void)
     ucol_close(coll);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://104369003 use full pinyin/stroke collations
+
+typedef struct {
+    const UChar* chartest;
+    const UChar* charbefore;
+    const UChar* charafter;
+} CharSortPosition;
+
+static const CharSortPosition pinyinAddsTestData[] = {
+    // char / code, chrs before & after in old short pinyin
+    { u"㙦" /* 3666*/, u"綊", u"熁" },
+    { u"䓬" /* 44EC*/, u"禚", u"劅" },
+    { u"鿍" /* 9FCD*/, u"港", u"焵" },
+    { u"鿎" /* 9FCE*/, u"蹹", u"塔" },
+    { u"鿏" /* 9FCF*/, u"衇", u"勱" },
+    { u"𠅤" /*20164*/, u"席", u"習" },
+    { u"𠙶" /*20676*/, u"齵", u"吘" },
+    { u"𠳐" /*20CD0*/, u"帮", u"捠" },
+    { u"𡎚" /*2139A*/, u"覑", u"貵" },
+    { u"𣗋" /*235CB*/, u"谠", u"擋" },
+    { u"𣸣" /*23E23*/, u"棼", u"焚" },
+    { u"𤧛" /*249DB*/, u"僀", u"禘" },
+    { u"𤩽" /*24A7D*/, u"環", u"豲" },
+    { u"𥔲" /*25532*/, u"鹗", u"蕚" },
+    { u"𥕢" /*25562*/, u"槽", u"褿" },
+    { u"𥖨" /*255A8*/, u"竃", u"譟" },
+    { u"𥻗" /*25ED7*/, u"碴", u"檫" },
+    { u"𦙶" /*26676*/, u"牯", u"骨" },
+    { u"𦭜" /*26B5C*/, u"胝", u"衼" },
+    { u"𨐈" /*28408*/, u"胱", u"僙" },
+    { u"𨚕" /*28695*/, u"苄", u"釆" },
+    { u"𨭉" /*28B49*/, u"辬", u"阪" },
+    { u"𨱏" /*28C4F*/, u"撘", u"鎝" },
+    { u"𨱑" /*28C51*/, u"鍠", u"餭" },
+    { u"𨱔" /*28C54*/, u"樽", u"繜" },
+    { u"𩽾" /*29F7E*/, u"誝", u"鞌" },
+    { u"𩾃" /*29F83*/, u"緬", u"澠" },
+    { u"𩾌" /*29F8C*/, u"鏮", u"鱇" },
+    { u"𪟝" /*2A7DD*/, u"剤", u"紒" },
+    { u"𪣻" /*2A8FB*/, u"喽", u"溇" },
+    { u"𪤗" /*2A917*/, u"尞", u"廖" },
+    { u"𫄨" /*2B128*/, u"彨", u"胵" },
+    { u"𫐄" /*2B404*/, u"礿", u"岳" },
+    { u"𫓧" /*2B4E7*/, u"衭", u"垺" },
+    { u"𫔍" /*2B50D*/, u"襎", u"羳" },
+    { u"𫖯" /*2B5AF*/, u"腑", u"滏" },
+    { u"𫖳" /*2B5B3*/, u"蒕", u"氳" },
+    { u"𫗴" /*2B5F4*/, u"霑", u"氈" },
+    { u"𫘪" /*2B62A*/, u"蒝", u"榞" },
+    { u"𫚖" /*2B696*/, u"皉", u"鮆" },
+    { u"𫛭" /*2B6ED*/, u"軠", u"誑" },
+    { u"𫞩" /*2B7A9*/, u"璊", u"鍆" },
+    { u"𫟹" /*2B7F9*/, u"谹", u"鸿" },
+    { u"𫟼" /*2B7FC*/, u"達", u"跶" },
+    { u"𫠜" /*2B81C*/, u"鲵", u"鯢" },
+    { u"𫢸" /*2B8B8*/, u"柦", u"疍" },
+    { u"𫫇" /*2BAC7*/, u"鈪", u"廅" },
+    { u"𫶇" /*2BD87*/, u"堞", u"幉" },
+    { u"𬃊" /*2C0CA*/, u"智", u"滞" },
+    { u"𬇙" /*2C1D9*/, u"孛", u"狈" },
+    { u"𬇹" /*2C1F9*/, u"帼", u"腘" },
+    { u"𬊤" /*2C2A4*/, u"阐", u"蒇" },
+    { u"𬌗" /*2C317*/, u"核", u"盉" },
+    { u"𬍡" /*2C361*/, u"档", u"菪" },
+    { u"𬒔" /*2C494*/, u"梗", u"綆" },
+    { u"𬘘" /*2C618*/, u"抌", u"玬" },
+    { u"𬘡" /*2C621*/, u"洇", u"茵" },
+    { u"𬘫" /*2C62B*/, u"桓", u"萈" },
+    { u"𬘭" /*2C62D*/, u"捵", u"琛" },
+    { u"𬘯" /*2C62F*/, u"埻", u"凖" },
+    { u"𬟽" /*2C7FD*/, u"菄", u"徚" },
+    { u"𬣞" /*2C8DE*/, u"主", u"宔" },
+    { u"𬣳" /*2C8F3*/, u"佷", u"很" },
+    { u"𬤇" /*2C907*/, u"裀", u"铟" },
+    { u"𬨎" /*2CA0E*/, u"猷", u"鈾" },
+    { u"𬬮" /*2CB2E*/, u"昶", u"惝" },
+    { u"𬬿" /*2CB3F*/, u"釗", u"啁" },
+    { u"𬭊" /*2CB4A*/, u"渡", u"靯" },
+    { u"𬭎" /*2CB4E*/, u"鈜", u"閎" },
+    { u"𬭚" /*2CB5A*/, u"蒓", u"鹑" },
+    { u"𬭛" /*2CB5B*/, u"鉢", u"僠" },
+    { u"𬭤" /*2CB64*/, u"睺", u"篌" },
+    { u"𬭶" /*2CB76*/, u"潶", u"拫" },
+    { u"𬮱" /*2CBB1*/, u"絪", u"歅" },
+    { u"𬮿" /*2CBBF*/, u"钙", u"盖" },
+    { u"𬱖" /*2CC56*/, u"笛", u"觌" },
+    { u"𬴂" /*2CD02*/, u"菲", u"扉" },
+    { u"𬶐" /*2CD90*/, u"趙", u"曌" },
+    { u"𬷕" /*2CDD5*/, u"補", u"鵏" },
+    { u"𬸘" /*2CE18*/, u"褗", u"戭" },
+    { u"𬸚" /*2CE1A*/, u"鉞", u"閱" },
+    { u"𬸣" /*2CE23*/, u"韯", u"嬐" },
+    { u"𬸦" /*2CE26*/, u"篧", u"擢" },
+    { u"𬸪" /*2CE2A*/, u"襎", u"羳" },
+    { u"𬹼" /*2CE7C*/, u"谢", u"僁" },
+    { u"𬺈" /*2CE88*/, u"螘", u"檥" },
+    { u"𬺓" /*2CE93*/, u"礎", u"齭" },
+    { NULL, NULL, NULL }
+};
+
+static const CharSortPosition strokeAddsTestData[] = {
+    // char / code, chrs before & after in old short stroke
+    { u"䓬" /* 44EC*/, u"䓫", u"蒐" },
+    { u"鿍" /* 9FCD*/, u"城", u"㘶" },
+    { u"鿏" /* 9FCF*/, u"锕", u"镻" },
+    { u"𠅤" /*20164*/, u"㐢", u"偀" },
+    { u"𠙶" /*20676*/, u"凶", u"刅" },
+    { u"𦰡" /*26C21*/, u"𦯷", u"莭" },
+    { u"𨙸" /*28678*/, u"邝", u"钆" },
+    { u"𨟠" /*287E0*/, u"酃", u"醲" },
+    { u"𩾌" /*29F8C*/, u"鳛", u"鵡" },
+    { u"𪟝" /*2A7DD*/, u"𠡳", u"匎" },
+    { u"𫓯" /*2B4EF*/, u"铷", u"镹" },
+    { u"𫚭" /*2B6AD*/, u"鱪", u"鷡" },
+    { u"𫠜" /*2B81C*/, u"齓", u"龍" },
+    { NULL, NULL, NULL }
+};
+
+typedef struct {
+    const char*             collLocale;;
+    const CharSortPosition* collAddsTestData;
+} TestZhCollAddsItem;
+
+static const TestZhCollAddsItem zhCollAddsItems[] = {
+    { "zh@collation=pinyin", pinyinAddsTestData },
+    { "zh@collation=stroke", strokeAddsTestData },
+    { NULL, NULL }
+};
+
+static void TestZhCollAdds(void) {
+    const TestZhCollAddsItem* zhCollAddsItemPtr = zhCollAddsItems;
+    for (; zhCollAddsItemPtr->collLocale != NULL; zhCollAddsItemPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UCollator *coll = ucol_open(zhCollAddsItemPtr->collLocale, &status);
+        if (U_FAILURE(status)) {
+            log_err_status(status, "ERROR: ucol_open for locale %s: %s\n", zhCollAddsItemPtr->collLocale, myErrorName(status));
+            continue;
+        }
+        const CharSortPosition* addsTestDataPtr = zhCollAddsItemPtr->collAddsTestData;
+        for (; addsTestDataPtr->chartest != NULL; addsTestDataPtr++) {
+            char btest[8];
+            char bother[8];
+            if (!ucol_greater(coll, addsTestDataPtr->chartest, -1, addsTestDataPtr->charbefore, -1)) {
+                u_austrncpy(btest, addsTestDataPtr->chartest, 1);
+                u_austrncpy(bother, addsTestDataPtr->charbefore, 1);
+                log_err_status(status, "ERROR: locale %s, expected %s < %s test, wasn't\n", zhCollAddsItemPtr->collLocale, bother, btest);
+            }
+            if (!ucol_greater(coll, addsTestDataPtr->charafter, -1, addsTestDataPtr->chartest, -1)) {
+                u_austrncpy(btest, addsTestDataPtr->chartest, 1);
+                u_austrncpy(bother, addsTestDataPtr->charafter, 1);
+                log_err_status(status, "ERROR: locale %s, expected test %s < %s, wasn't\n", zhCollAddsItemPtr->collLocale, btest, bother);
+            }
+        }
+        ucol_close(coll);
+    }
+}
+
+#endif  // APPLE_ICU_CHANGES
+
 #define TEST(x) addTest(root, &x, "tscoll/cmsccoll/" # x)
 
 void addMiscCollTest(TestNode** root)
@@ -5977,6 +6144,10 @@ void addMiscCollTest(TestNode** root)
     
     TEST(TestCaseLevelBufferOverflow);
     TEST(TestNextSortKeyPartJaIdentical);
+#if APPLE_ICU_CHANGES
+// rdar://104369003 use full pinyin/stroke collations
+    TEST(TestZhCollAdds);
+#endif  // APPLE_ICU_CHANGES
 }
 
 #endif /* #if !UCONFIG_NO_COLLATION */

@@ -771,9 +771,9 @@ free_large(szone_t *szone, void *ptr, bool try)
 				// to two different malloc() calls. By checking here the (illegal) double free
 				// is accommodated, matching the behavior of the previous implementation.]
 				while (1) { // Scan large_entry_cache starting with most recent entry
-					vm_size_t curr_size = szone->large_entry_cache[idx].size;
 					vm_address_t addr = szone->large_entry_cache[idx].address;
 #if CONFIG_DEFERRED_RECLAIM
+					vm_size_t curr_size = szone->large_entry_cache[idx].size;
 					uint64_t reclaim_index = szone->large_entry_cache[idx].reclaim_index;
 					if (curr_size + 2 * large_vm_page_quanta_size <= UINT32_MAX &&
 							!mvm_reclaim_is_available(reclaim_index)) {
@@ -1136,7 +1136,7 @@ large_deallocate_cache_entry(szone_t *szone, large_entry_t *entry)
 		mvm_deallocate_pages((void *)entry->address, entry->size, szone->debug_flags);
 	}
 #else // CONFIG_DEFERRED_RECLAIM
-	mvm_deallocate_pages(entry->address, entry->size, szone->debug_flags);
+	mvm_deallocate_pages((void *)entry->address, entry->size, szone->debug_flags);
 #endif // CONFIG_DEFERRED_RECLAIM
 }
 

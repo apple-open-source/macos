@@ -87,7 +87,7 @@ int stuff_keychain(int argc, char * const *argv)
     }
 
     if (!authSucceeded) {
-        fprintf(stderr, "Authentication required!\n");
+        fprintf(stderr, "Authentication is required to interact with keychain items. Add -y after the subcommand for interactive authentication, or -Y <passcode> to authenticate directly, which is insecure.\n");
         return 1;
     }
 

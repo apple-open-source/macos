@@ -168,7 +168,7 @@ OSBitXorAtomic(UInt32 mask, volatile UInt32 * value)
 }
 
 static Boolean
-OSTestAndSetClear(UInt32 bit, Boolean wantSet, volatile UInt8 * startAddress)
+OSTestAndSetClear(UInt32 bit, bool wantSet, volatile UInt8 * startAddress)
 {
 	UInt8           mask = 1;
 	UInt8           oldValue, newValue;

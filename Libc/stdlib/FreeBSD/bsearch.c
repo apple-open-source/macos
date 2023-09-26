@@ -53,12 +53,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/bsearch.c,v 1.4 2007/01/09 00:28:09 imp 
  * look at item 3.
  */
 void *
-bsearch(key, base0, nmemb, size, compar)
-	const void *key;
-	const void *base0;
-	size_t nmemb;
-	size_t size;
-	int (*compar)(const void *, const void *);
+bsearch(const void *key, const void *base0, size_t nmemb, size_t size,
+    int (*compar)(const void *, const void *))
 {
 	const char *base = base0;
 	size_t lim;
@@ -80,12 +76,8 @@ bsearch(key, base0, nmemb, size, compar)
 
 #ifdef __BLOCKS__
 void *
-bsearch_b(key, base0, nmemb, size, compar)
-	const void *key;
-	const void *base0;
-	size_t nmemb;
-	size_t size;
-	int (^compar)(const void *, const void *);
+bsearch_b(const void *key, const void *base0, size_t nmemb, size_t size,
+    int (^compar)(const void *, const void *))
 {
 	const char *base = base0;
 	size_t lim;

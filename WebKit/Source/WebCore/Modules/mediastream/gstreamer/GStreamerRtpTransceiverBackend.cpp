@@ -25,7 +25,6 @@
 #include "GStreamerRtpReceiverBackend.h"
 #include "GStreamerRtpSenderBackend.h"
 #include "GStreamerWebRTCUtils.h"
-#include "NotImplemented.h"
 #include "RTCRtpCodecCapability.h"
 #include <wtf/glib/GUniquePtr.h>
 
@@ -37,8 +36,17 @@ namespace WebCore {
 GStreamerRtpTransceiverBackend::GStreamerRtpTransceiverBackend(GRefPtr<GstWebRTCRTPTransceiver>&& rtcTransceiver)
     : m_rtcTransceiver(WTFMove(rtcTransceiver))
 {
-    // FIXME: Enable FEC once flexfec is available. ULPFEC is a disaster, see also
-    // https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1407 ...
+    GstWebRTCKind kind;
+    g_object_get(m_rtcTransceiver.get(), "kind", &kind, nullptr);
+
+    gst_util_set_object_arg(G_OBJECT(m_rtcTransceiver.get()), "fec-type", "ulp-red");
+
+    // Enable nack only for video transceivers, so that RTX payloads are not signaled in SDP
+    // offer/answer. Those are confusing some media servers... Internally webrtcbin will always
+    // setup RTX, RED and FEC anyway.
+    if (kind != GST_WEBRTC_KIND_VIDEO)
+        return;
+
     g_object_set(m_rtcTransceiver.get(), "do-nack", TRUE, nullptr);
 }
 
@@ -74,29 +82,34 @@ std::optional<RTCRtpTransceiverDirection> GStreamerRtpTransceiverBackend::curren
 
 void GStreamerRtpTransceiverBackend::setDirection(RTCRtpTransceiverDirection direction)
 {
-    g_object_set(m_rtcTransceiver.get(), "direction", fromRTCRtpTransceiverDirection(direction), nullptr);
+    auto gstDirection = fromRTCRtpTransceiverDirection(direction);
+#ifndef GST_DISABLE_GST_DEBUG
+    GUniquePtr<char> directionString(g_enum_to_string(GST_TYPE_WEBRTC_RTP_TRANSCEIVER_DIRECTION, gstDirection));
+    GST_DEBUG_OBJECT(m_rtcTransceiver.get(), "Setting direction to %s", directionString.get());
+#endif
+    g_object_set(m_rtcTransceiver.get(), "direction", gstDirection, nullptr);
 }
 
 String GStreamerRtpTransceiverBackend::mid()
 {
     GUniqueOutPtr<char> mid;
     g_object_get(m_rtcTransceiver.get(), "mid", &mid.outPtr(), nullptr);
-    return String::fromLatin1(mid.get());
+    return String::fromUTF8(mid.get());
 }
 
 void GStreamerRtpTransceiverBackend::stop()
 {
-    // FIXME: webrtcbin transceivers can't be stopped yet.
-    notImplemented();
+    // Ideally we should also stop webrtcbin transceivers but it's not supported yet.
+    m_isStopped = true;
 }
 
 bool GStreamerRtpTransceiverBackend::stopped() const
 {
-    // FIXME: webrtcbin transceivers can't be stopped yet.
-    return false;
+    // Ideally this should be queried on webrtcbin, but its transceivers can't be stopped yet.
+    return m_isStopped;
 }
 
-static inline WARN_UNUSED_RETURN ExceptionOr<GstCaps*> toRtpCodecCapability(const RTCRtpCodecCapability& codec, int payloadType)
+static inline WARN_UNUSED_RETURN ExceptionOr<GstCaps*> toRtpCodecCapability(const RTCRtpCodecCapability& codec, int& dynamicPayloadType)
 {
     if (!codec.mimeType.startsWith("video/"_s) && !codec.mimeType.startsWith("audio/"_s))
         return Exception { InvalidModificationError, "RTCRtpCodecCapability bad mimeType"_s };
@@ -105,6 +118,7 @@ static inline WARN_UNUSED_RETURN ExceptionOr<GstCaps*> toRtpCodecCapability(cons
     const auto mediaType = components[0];
     const auto codecName = components[1];
 
+    int payloadType = payloadTypeForEncodingName(codecName.ascii().data()).value_or(dynamicPayloadType++);
     auto* caps = gst_caps_new_simple("application/x-rtp", "media", G_TYPE_STRING, mediaType.ascii().data(), "encoding-name", G_TYPE_STRING, codecName.ascii().data(), "clock-rate", G_TYPE_INT, codec.clockRate, "payload", G_TYPE_INT, payloadType, nullptr);
     if (codec.channels)
         gst_caps_set_simple(caps, "channels", G_TYPE_INT, *codec.channels, nullptr);
@@ -128,17 +142,18 @@ static inline WARN_UNUSED_RETURN ExceptionOr<GstCaps*> toRtpCodecCapability(cons
 ExceptionOr<void> GStreamerRtpTransceiverBackend::setCodecPreferences(const Vector<RTCRtpCodecCapability>& codecs)
 {
     auto gstCodecs = adoptGRef(gst_caps_new_empty());
-    int payloadType = 96;
+    int dynamicPayloadType = 96;
     for (auto& codec : codecs) {
-        auto result = toRtpCodecCapability(codec, payloadType);
+        auto result = toRtpCodecCapability(codec, dynamicPayloadType);
         if (result.hasException())
             return result.releaseException();
-        payloadType++;
         gst_caps_append(gstCodecs.get(), result.releaseReturnValue());
     }
     g_object_set(m_rtcTransceiver.get(), "codec-preferences", gstCodecs.get(), nullptr);
     return { };
 }
+
+#undef GST_CAT_DEFAULT
 
 } // namespace WebCore
 

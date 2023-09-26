@@ -1,11 +1,13 @@
+/*!
+ * HIDEvent+HIDEventFields.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
-// HIDEvent+HIDEventDesc.m
-// HID
+#import <HID/HIDEvent+HIDEventFields.h>
 
-
-#import "HIDEvent+HIDEventFields.h"
-
-#import "HIDEventFieldsPrivate.h"
+#import <HID/HIDEventFields_Internal.h>
 #import <AssertMacros.h>
 
 NS_ASSUME_NONNULL_BEGIN

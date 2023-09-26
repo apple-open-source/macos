@@ -47,21 +47,15 @@ eofread(void *, char *, int);
 
 /* ARGSUSED */
 static int
-eofread(cookie, buf, len)
-	void *cookie;
-	char *buf;
-	int len;
+eofread(void *cookie, char *buf, int len)
 {
 
 	return (0);
 }
 
 int
-vsscanf_l(str, loc, fmt, ap)
-	const char * __restrict str;
-	locale_t loc;
-	const char * __restrict fmt;
-	__va_list ap;
+vsscanf_l(const char * __restrict str, locale_t loc,
+    const char * __restrict fmt, __va_list ap)
 {
 	FILE f;
 	struct __sFILEX ext;
@@ -81,10 +75,7 @@ vsscanf_l(str, loc, fmt, ap)
 }
 
 int
-vsscanf(str, fmt, ap)
-	const char * __restrict str;
-	const char * __restrict fmt;
-	__va_list ap;
+vsscanf(const char * __restrict str, const char * __restrict fmt, __va_list ap)
 {
 	return vsscanf_l(str, __current_locale(), fmt, ap);
 }

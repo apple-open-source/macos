@@ -1309,11 +1309,9 @@ bool IOHIPointing::updateProperties( void )
     bool	ok;
     UInt32	res = resolution();
 
-    ok = setProperty( kIOHIDPointerResolutionKey, res, 32)
-    &    setProperty( kIOHIDPointerConvertAbsoluteKey, &_convertAbsoluteToRelative,
-                        sizeof( _convertAbsoluteToRelative))
-    &    setProperty( kIOHIDPointerContactToMoveKey, &_contactToMove,
-                        sizeof( _contactToMove));
+    ok = setProperty( kIOHIDPointerResolutionKey, res, 32) &&
+         setProperty( kIOHIDPointerConvertAbsoluteKey, &_convertAbsoluteToRelative, sizeof( _convertAbsoluteToRelative)) &&
+         setProperty( kIOHIDPointerContactToMoveKey, &_contactToMove, sizeof( _contactToMove));
 
     return( ok & super::updateProperties() );
 }

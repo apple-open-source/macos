@@ -116,6 +116,8 @@ udtitvfmt_format(const UDateIntervalFormat* formatter,
     return res.extract(result, resultCapacity, *status);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 U_CAPI void U_EXPORT2
 udtitvfmt_setAttribute(UDateIntervalFormat*             formatter,
                       UDateIntervalFormatAttribute      attr,
@@ -127,6 +129,7 @@ udtitvfmt_setAttribute(UDateIntervalFormat*             formatter,
     }
     ((DateIntervalFormat*)formatter)->setAttribute( attr, value, *status );
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_CAPI void U_EXPORT2
 udtitvfmt_formatToResult(
@@ -146,6 +149,8 @@ udtitvfmt_formatToResult(
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // Apple-specific @stable 67 stub
 U_CAPI void U_EXPORT2
 udtitvfmt_formatToResultA(
@@ -156,6 +161,7 @@ udtitvfmt_formatToResultA(
                 UErrorCode*     status) {
     udtitvfmt_formatToResult(formatter, fromDate, toDate, result, status);
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_CAPI void U_EXPORT2
 udtitvfmt_formatCalendarToResult(
@@ -174,6 +180,8 @@ udtitvfmt_formatCalendarToResult(
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // Apple-specific @stable 67 stub
 U_CAPI void U_EXPORT2
 udtitvfmt_formatCalendarToResultA(
@@ -184,6 +192,7 @@ udtitvfmt_formatCalendarToResultA(
                 UErrorCode*     status) {
     udtitvfmt_formatCalendarToResult(formatter, fromCalendar, toCalendar, result, status);
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_CAPI void U_EXPORT2
 udtitvfmt_setContext(UDateIntervalFormat* formatter,
@@ -205,6 +214,8 @@ udtitvfmt_getContext(const UDateIntervalFormat* formatter,
     return reinterpret_cast<const DateIntervalFormat*>(formatter)->getContext( type, *status );
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 U_CAPI void U_EXPORT2
 udtitvfmt_getPatternString(const UDateIntervalFormat* formatter,
                            const UChar* skeleton,
@@ -218,5 +229,6 @@ udtitvfmt_getPatternString(const UDateIntervalFormat* formatter,
     dif->getDateIntervalInfo()->getIntervalPattern(UnicodeString(skeleton), field, pattern, *status);
     pattern.extract(result, resultCapacity, *status);
 }
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

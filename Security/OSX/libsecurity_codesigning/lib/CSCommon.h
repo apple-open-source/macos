@@ -29,19 +29,20 @@
 #ifndef _H_CSCOMMON
 #define _H_CSCOMMON
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <TargetConditionals.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <stdint.h>
-#include <CoreFoundation/CoreFoundation.h>
 
 /*
  * Some macOS API's use the old style defined name CSSM_DATA and CSSM_OID.
  * These are just typedefs for SecAsn* which are available for iOS. We complete
  * those here in case they're not available for compatibility.
  */
-#include <TargetConditionals.h>
 #if TARGET_OS_IPHONE
 
 #ifndef CSSM_DATA
@@ -164,6 +165,7 @@ extern const CFStringRef kSecCFErrorResourceAdded;	/* CFURLRef: unsealed resourc
 extern const CFStringRef kSecCFErrorResourceAltered; /* CFURLRef: modified resource found */
 extern const CFStringRef kSecCFErrorResourceMissing; /* CFURLRef: sealed (non-optional) resource missing */
 extern const CFStringRef kSecCFErrorResourceSideband; /* CFURLRef: sealed resource has invalid sideband data (resource fork, etc.) */
+extern const CFStringRef kSecCFErrorResourceRecursive; /* CFURLRef: resource is main executable, resulting in infinite recursion */
 extern const CFStringRef kSecCFErrorInfoPlist;		/* CFTypeRef: Info.plist dictionary or component thereof found invalid */
 extern const CFStringRef kSecCFErrorGuestAttributes; /* CFTypeRef: Guest attribute set of element not accepted */
 extern const CFStringRef kSecCFErrorRequirementSyntax; /* CFStringRef: compilation error for Requirement source */
@@ -242,6 +244,7 @@ typedef CF_OPTIONS(uint32_t, SecCSFlags) {
 	kSecCSCheckTrustedAnchors = 1 << 27, /* build certificate chain to system trust anchors, not to any self-signed certificate */
 	kSecCSQuickCheck = 1 << 26,		/* (internal) */
 	kSecCSApplyEmbeddedPolicy = 1 << 25, /* Apply Embedded (iPhone) policy regardless of the platform we're running on */
+	kSecCSStripDisallowedXattrs = 1 << 24, /* Strip disallowed xattrs, such as com.apple.FinderInfo and com.apple.ResourceFork */
 };
 
 

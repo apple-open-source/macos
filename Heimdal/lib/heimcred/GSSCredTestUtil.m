@@ -232,6 +232,7 @@
     CFDictionarySetValue(allAttrs, kHEIMAttrType, kHEIMTypeNTLM);
     CFDictionarySetValue(allAttrs, kHEIMAttrNTLMUsername, CFSTR("foo"));
     CFDictionarySetValue(allAttrs, kHEIMAttrNTLMDomain, CFSTR("bar"));
+    CFDictionarySetValue(allAttrs, kHEIMAttrData, (__bridge CFDataRef)[@"this is fake data" dataUsingEncoding:NSUTF8StringEncoding]);
     
     xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(request, "command", "auth");
@@ -255,6 +256,61 @@
     }
     
     return YES;
+}
+
++ (BOOL)addNTLMChallenge:(struct peer *)peer challenge:(uint8_t [8])challenge
+{
+    CFDataRef data = CFDataCreate(NULL, challenge, 8);
+
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "add-challenge");
+    xpc_dictionary_set_data(request, "challenge", CFDataGetBytePtr(data), CFDataGetLength(data));
+    xpc_dictionary_set_int64(request, "version", 0);
+
+    xpc_object_t reply = xpc_dictionary_create(NULL, NULL, 0);
+    do_AddChallenge(peer, request, reply);
+
+    CFRELEASE_NULL(data);
+    [self flushCache];  //we must flush the cache here or the newly elected cred will not be saved to disk.  This is handled for us in server.m
+
+    xpc_object_t error = xpc_dictionary_get_dictionary(reply, "error");
+    if (error) {
+	return NO;
+    }
+
+    return YES;
+}
+
+// returns true if there is a NTLM reflection attack
++ (BOOL)checkNTLMChallenge:(struct peer *)peer challenge:(uint8_t [8])challenge
+{
+    CFDataRef data =  CFDataCreate(NULL, challenge, 8);
+
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "check-challenge");
+    xpc_dictionary_set_data(request, "challenge", CFDataGetBytePtr(data), CFDataGetLength(data));
+    xpc_dictionary_set_int64(request, "version", 0);
+
+    xpc_object_t reply = xpc_dictionary_create(NULL, NULL, 0);
+    do_CheckChallenge(peer, request, reply);
+
+    CFRELEASE_NULL(data);
+    [self flushCache];  //we must flush the cache here or the newly elected cred will not be saved to disk.  This is handled for us in server.m
+
+    xpc_object_t error = xpc_dictionary_get_dictionary(reply, "error");
+    if (error) {
+	int64_t errorCode = xpc_dictionary_get_int64(error, "error-code");
+	if (errorCode == kHeimCredErrorReflectionDetected) {
+	    return YES;
+	}
+    }
+
+    xpc_object_t result = xpc_dictionary_get_value(reply, "challenge-result");
+    if (result && !xpc_bool_get_value(result)) {
+	return NO;
+    }
+
+    return NO;
 }
 
 #pragma mark -

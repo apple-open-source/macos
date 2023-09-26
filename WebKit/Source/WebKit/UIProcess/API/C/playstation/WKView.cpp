@@ -26,12 +26,14 @@
 #include "config.h"
 #include "WKView.h"
 
+#include "APIClient.h"
 #include "APIPageConfiguration.h"
 #include "APIViewClient.h"
 #include "PlayStationWebView.h"
 #include "WKAPICast.h"
 #include "WKSharedAPICast.h"
 #include <WebCore/Cursor.h>
+#include <WebCore/Region.h>
 
 namespace API {
 template<> struct ClientTraits<WKViewClientBase> {
@@ -54,7 +56,20 @@ WKCursorType toWKCursorType(const WebCore::Cursor& cursor)
 
 WKViewRef WKViewCreate(WKPageConfigurationRef configuration)
 {
+#if USE(WPE_BACKEND_PLAYSTATION)
+    RELEASE_ASSERT_WITH_MESSAGE(false, "API unavailable with WPE Backend PlayStation");
+#else
     return WebKit::toAPI(WebKit::PlayStationWebView::create(*WebKit::toImpl(configuration)).leakRef());
+#endif
+}
+
+WKViewRef WKViewCreateWPE(struct wpe_view_backend* backend, WKPageConfigurationRef configuration)
+{
+#if USE(WPE_BACKEND_PLAYSTATION)
+    return WebKit::toAPI(WebKit::PlayStationWebView::create(backend, *WebKit::toImpl(configuration)).leakRef());
+#else
+    RELEASE_ASSERT_WITH_MESSAGE(false, "API unavailable without WPE Backend PlayStation");
+#endif
 }
 
 WKPageRef WKViewGetPage(WKViewRef view)
@@ -67,7 +82,7 @@ void WKViewSetSize(WKViewRef view, WKSize viewSize)
     WebKit::toImpl(view)->setViewSize(WebKit::toIntSize(viewSize));
 }
 
-static void setViewActivityStateFlag(WKViewRef view, WebCore::ActivityState::Flag flag, bool set)
+static void setViewActivityStateFlag(WKViewRef view, WebCore::ActivityState flag, bool set)
 {
     auto viewState = WebKit::toImpl(view)->viewState();
     if (set)

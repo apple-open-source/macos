@@ -27,6 +27,7 @@
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicyPriv.h>
 #include "OSX/utilities/SecCFWrappers.h"
+#include <libDER/oids.h>
 
 #import "TrustEvaluationTestCase.h"
 #include "../TestMacroConversions.h"
@@ -180,6 +181,38 @@ errOut:
                              result:true
                       failureReason:&failureReason],
        "REGRESSION: key size test 384-bit leaf: %@", failureReason);
+}
+
+- (void)testEdDSA {
+    /* This leaf uses X25519, which we don't support for certificate keys, so we get a weak key size error for it.
+     * A better test would use a chain that's entirely Ed25519. */
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _ed25519_root, sizeof(_ed25519_root));
+    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _ed25519_leaf, sizeof(_ed25519_leaf));
+    XCTAssertNotEqual(root, NULL);
+    XCTAssertNotEqual(leaf, NULL);
+
+    SecTrustRef trust = NULL;
+    XCTAssertEqual(errSecSuccess, SecTrustCreateWithCertificates(leaf, NULL, &trust));
+    XCTAssertEqual(errSecSuccess, SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)@[(__bridge id)root]));
+    XCTAssertEqual(errSecSuccess, SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:700000000.0])); // March 8, 2023 at 12:26:40 PM PST
+
+    CFErrorRef error = NULL;
+    bool trustResult = SecTrustEvaluateWithError(trust, &error);
+    XCTAssertFalse(trustResult);
+    XCTAssertNotEqual(error, NULL);
+    NSArray *chain = CFBridgingRelease(SecTrustCopyCertificateChain(trust));
+    XCTAssertNotNil(chain);
+#if LIBDER_HAS_EDDSA
+    // guard for rdar://106052612
+    XCTAssertEqual(chain.count, 2); // If we support EdDSA, we should be able to find the root and verify the signature on the leaf
+#else
+    XCTAssertEqual(chain.count, 1);
+#endif
+
+    CFReleaseNull(root);
+    CFReleaseNull(leaf);
+    CFReleaseNull(trust);
+    CFReleaseNull(error);
 }
 
 - (bool)runTrust:(NSArray *)certs

@@ -54,4 +54,10 @@ test_libarchive_r28101193()
   assertTrue 'Radar 28101193 /tmp/myfile exists' "${?}"
 }
 
+test_libarchive_r107759049()
+{
+  /usr/bin/tar -tvf "${SCRATCHDIR}"/radar-107759049.zip
+  assertEqual 'Radar 107759049' "${?}" 1
+}
+
 . /usr/local/bin/shunit2_coreos

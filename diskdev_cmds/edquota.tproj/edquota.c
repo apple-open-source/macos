@@ -135,9 +135,7 @@ int	qfupdate(int, uid_t, int, struct dqblk *);
 
 
 int
-main(argc, argv)
-	register char **argv;
-	int argc;
+main(int argc, char *argv[])
 {
 	register struct quotause *qup, *protoprivs, *curprivs;
 	extern char *optarg;

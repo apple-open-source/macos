@@ -34,6 +34,7 @@
  */
 
 #include "gssdigest.h"
+#include "scram.h"
 
 OM_uint32 _gss_scram_release_cred
            (OM_uint32 * minor_status,
@@ -45,8 +46,18 @@ OM_uint32 _gss_scram_release_cred
 
     if (cred_handle == NULL || *cred_handle == GSS_C_NO_CREDENTIAL)
 	return GSS_S_COMPLETE;
-
+#ifdef HAVE_KCM
     free(*cred_handle);
+#else
+    scram_cred cred = (scram_cred)cred_handle;
+    if (cred) {
+	if (cred->name) {
+	    free(cred->name);
+	    cred->name = NULL;
+	}
+	free(*cred_handle);
+    }
+#endif
     *cred_handle = GSS_C_NO_CREDENTIAL;
 
     return GSS_S_COMPLETE;

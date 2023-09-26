@@ -25,12 +25,12 @@ en_SE{
                 "HH:mm",
                 "EEEE, d MMMM y G",
                 "d MMMM y G",
-                "d MMM y G",
+                "dd MMM y G",
                 "G y-MM-dd",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             DateTimeSkeletons{
@@ -44,11 +44,6 @@ en_SE{
                 "GyMMdd",
             }
             availableFormats{
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                hmsv{"h:mm:ss a v"}
-                hmv{"h:mm a v"}
                 yyyyM{"y-MM G"}
                 yyyyMEd{"E y-MM-dd G"}
                 yyyyMd{"y-MM-dd G"}
@@ -65,9 +60,9 @@ en_SE{
                 "d MMM y",
                 "y-MM-dd",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             availableFormats{

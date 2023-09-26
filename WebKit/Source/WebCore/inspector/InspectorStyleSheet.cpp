@@ -52,7 +52,6 @@
 #include "FrameDestructionObserverInlines.h"
 #include "HTMLHeadElement.h"
 #include "HTMLNames.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLStyleElement.h"
 #include "InspectorCSSAgent.h"
 #include "InspectorDOMAgent.h"
@@ -321,7 +320,7 @@ void StyleSheetHandler::startRuleHeader(StyleRuleType type, unsigned offset)
 template <typename CharacterType> inline void StyleSheetHandler::setRuleHeaderEnd(const CharacterType* dataStart, unsigned listEndOffset)
 {
     while (listEndOffset > m_currentRuleDataStack.last()->ruleHeaderRange.start) {
-        if (isHTMLSpace<CharacterType>(*(dataStart + listEndOffset - 1)))
+        if (isASCIIWhitespace<CharacterType>(*(dataStart + listEndOffset - 1)))
             --listEndOffset;
         else
             break;
@@ -429,7 +428,7 @@ static inline void fixUnparsedProperties(const CharacterType* characters, CSSRul
         else
             propertyEnd = styleStart + nextData->range.start - 1;
         
-        while (isHTMLSpace<CharacterType>(characters[propertyEnd]))
+        while (isASCIIWhitespace<CharacterType>(characters[propertyEnd]))
             --propertyEnd;
         
         // propertyEnd points at the last property text character.
@@ -444,7 +443,7 @@ static inline void fixUnparsedProperties(const CharacterType* characters, CSSRul
             if (valueStart < propertyEnd)
                 ++valueStart;
 
-            while (valueStart < propertyEnd && isHTMLSpace<CharacterType>(characters[valueStart]))
+            while (valueStart < propertyEnd && isASCIIWhitespace<CharacterType>(characters[valueStart]))
                 ++valueStart;
             
             // Need to exclude the trailing ';' from the property value.
@@ -478,14 +477,14 @@ void StyleSheetHandler::observeProperty(unsigned startOffset, unsigned endOffset
         ++endOffset;
     
     ASSERT(startOffset < endOffset);
-    StringView propertyString = StringView(m_parsedText).substring(startOffset, endOffset - startOffset).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
+    auto propertyString = StringView(m_parsedText).substring(startOffset, endOffset - startOffset).trim(deprecatedIsSpaceOrNewline);
     if (propertyString.endsWith(';'))
         propertyString = propertyString.left(propertyString.length() - 1);
     size_t colonIndex = propertyString.find(':');
     ASSERT(colonIndex != notFound);
 
-    String name = propertyString.left(colonIndex).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline).toString();
-    String value = propertyString.substring(colonIndex + 1, propertyString.length()).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline).toString();
+    auto name = propertyString.left(colonIndex).trim(deprecatedIsSpaceOrNewline).toString();
+    auto value = propertyString.substring(colonIndex + 1, propertyString.length()).trim(deprecatedIsSpaceOrNewline).toString();
     
     // FIXME-NEWPARSER: The property range is relative to the declaration start offset, but no
     // good reason for it, and it complicates fixUnparsedProperties.
@@ -510,7 +509,7 @@ void StyleSheetHandler::observeComment(unsigned startOffset, unsigned endOffset)
     // Require well-formed comments.
     if (!commentTextView.endsWith("*/"_s))
         return;
-    commentTextView = commentTextView.left(commentTextView.length() - 2).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
+    commentTextView = commentTextView.left(commentTextView.length() - 2).trim(deprecatedIsSpaceOrNewline);
     if (commentTextView.isEmpty())
         return;
 
@@ -1263,12 +1262,12 @@ RefPtr<Protocol::CSS::CSSStyleSheetBody> InspectorStyleSheet::buildObjectForStyl
 
 RefPtr<Protocol::CSS::CSSStyleSheetHeader> InspectorStyleSheet::buildObjectForStyleSheetInfo()
 {
-    CSSStyleSheet* styleSheet = pageStyleSheet();
+    auto* styleSheet = pageStyleSheet();
     if (!styleSheet)
         return nullptr;
 
-    Document* document = styleSheet->ownerDocument();
-    Frame* frame = document ? document->frame() : nullptr;
+    auto* document = styleSheet->ownerDocument();
+    auto* frame = document ? document->frame() : nullptr;
     return Protocol::CSS::CSSStyleSheetHeader::create()
         .setStyleSheetId(id())
         .setOrigin(m_origin)
@@ -1305,7 +1304,7 @@ static Ref<Protocol::CSS::CSSSelector> buildObjectForSelectorHelper(const String
 
 static Ref<JSON::ArrayOf<Protocol::CSS::CSSSelector>> selectorsFromSource(const CSSRuleSourceData* sourceData, const String& sheetText, const Vector<const CSSSelector*> selectors)
 {
-    static NeverDestroyed<JSC::Yarr::RegularExpression> comment("/\\*[^]*?\\*/"_s, JSC::Yarr::TextCaseSensitive, JSC::Yarr::MultilineEnabled);
+    static NeverDestroyed<JSC::Yarr::RegularExpression> comment("/\\*[^]*?\\*/"_s, OptionSet<JSC::Yarr::Flags> { JSC::Yarr::Flags::Multiline });
 
     auto result = JSON::ArrayOf<Protocol::CSS::CSSSelector>::create();
     unsigned selectorIndex = 0;
@@ -1320,7 +1319,7 @@ static Ref<JSON::ArrayOf<Protocol::CSS::CSSSelector>> selectorsFromSource(const 
 
         // We don't want to see any comments in the selector components, only the meaningful parts.
         replace(selectorText, comment, String());
-        result->addItem(buildObjectForSelectorHelper(selectorText.stripWhiteSpace(), *selectors.at(selectorIndex)));
+        result->addItem(buildObjectForSelectorHelper(selectorText.trim(deprecatedIsSpaceOrNewline), *selectors.at(selectorIndex)));
 
         ++selectorIndex;
     }

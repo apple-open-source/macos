@@ -43,9 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/putw.c,v 1.10 2007/01/09 00:28:07 imp Exp
 #include "libc_private.h"
 
 int
-putw(w, fp)
-	int w;
-	FILE *fp;
+putw(int w, FILE *fp)
 {
 	int retval;
 	struct __suio uio;

@@ -21,9 +21,9 @@ if	aso note{ gcc 4.1+ 64 bit memory atomic operations model }end link{
 		#define _aso_inc64(p)		__sync_fetch_and_add(p,1)
 		#define _aso_dec64(p)		__sync_fetch_and_sub(p,1)
 		#if _ast_sizeof_pointer == 8
-		#define _aso_casptr(p,o,n)	((void*)__sync_val_compare_and_swap(p,(uint64_t)o,(uint64_t)n))
+		#define _aso_casptr(p,o,n)	((void*)__sync_val_compare_and_swap((uint64_t*)p,(uint64_t)o,(uint64_t)n))
 		#else
-		#define _aso_casptr(p,o,n)	((void*)__sync_val_compare_and_swap(p,(uint32_t)o,(uint32_t)n))
+		#define _aso_casptr(p,o,n)	((void*)__sync_val_compare_and_swap((uint32_t*)p,(uint32_t)o,(uint32_t)n))
 		#endif
 	}
 elif	aso note{ gcc 4.1+ 32 bit memory atomic operations model }end link{

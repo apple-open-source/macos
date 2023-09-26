@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #import "WKTextFinderClient.h"
 #import <WebKit/WKUIDelegatePrivate.h>
 #import "WebBackForwardList.h"
+#import "WebFrameProxy.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
 #import "WebViewImpl.h"
@@ -133,14 +134,48 @@ std::optional<WebCore::ScrollbarOverlayStyle> toCoreScrollbarStyle(_WKOverlayScr
     _impl->prepareContentInRect(NSRectToCGRect(rect));
 }
 
+- (BOOL)_holdWindowResizeSnapshotIfNeeded
+{
+#if HAVE(NSWINDOW_SNAPSHOT_READINESS_HANDLER)
+    if (self->_windowSnapshotReadinessHandler)
+        return NO;
+
+    if (!self.window || ![self.window respondsToSelector:@selector(_holdResizeSnapshotWithReason:)])
+        return NO;
+
+    _windowSnapshotReadinessHandler = makeBlockPtr([self.window _holdResizeSnapshotWithReason:@"full screen"]);
+    return !!_windowSnapshotReadinessHandler;
+#else
+    return NO;
+#endif
+}
+
+- (void)_doWindowSnapshotReadinessUpdate
+{
+#if HAVE(NSWINDOW_SNAPSHOT_READINESS_HANDLER)
+    [self _doAfterNextPresentationUpdate:makeBlockPtr([weakSelf = WeakObjCPtr<WKWebView>(self)] {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf)
+            return;
+
+        [strongSelf _invalidateWindowSnapshotReadinessHandler];
+    }).get()];
+#endif
+}
+
 - (void)setFrameSize:(NSSize)size
 {
+    BOOL didCreateWindowSnapshotReadinessHandler = [self _holdWindowResizeSnapshotIfNeeded];
+
     [super setFrameSize:size];
     [_safeBrowsingWarning setFrame:self.bounds];
     if (_impl)
         _impl->setFrameSize(NSSizeToCGSize(size));
 
     [self _recalculateViewportSizesWithMinimumViewportInset:_minimumViewportInset maximumViewportInset:_maximumViewportInset throwOnInvalidInput:NO];
+
+    if (didCreateWindowSnapshotReadinessHandler)
+        [self _doWindowSnapshotReadinessUpdate];
 }
 
 - (void)setUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)userInterfaceLayoutDirection
@@ -1114,9 +1149,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (id)_web_superAccessibilityAttributeValue:(NSString *)attribute
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return [super accessibilityAttributeValue:attribute];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (void)_web_superDoCommandBySelector:(SEL)selector
@@ -1480,6 +1515,32 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)_setInspectorAttachmentView:(NSView *)newView
 {
     _impl->setInspectorAttachmentView(newView);
+}
+
+- (void)_setHeaderBannerLayer:(CALayer *)headerBannerLayer
+{
+    if (headerBannerLayer)
+        [headerBannerLayer setContentsScale:_page->pageScaleFactor()];
+
+    _impl->setHeaderBannerLayer(headerBannerLayer);
+}
+
+- (CALayer *)_headerBannerLayer
+{
+    return _impl->headerBannerLayer();
+}
+
+- (void)_setFooterBannerLayer:(CALayer *)footerBannerLayer
+{
+    if (footerBannerLayer)
+        [footerBannerLayer setContentsScale:_page->pageScaleFactor()];
+
+    _impl->setFooterBannerLayer(footerBannerLayer);
+}
+
+- (CALayer *)_footerBannerLayer
+{
+    return _impl->footerBannerLayer();
 }
 
 - (void)_setThumbnailView:(_WKThumbnailView *)thumbnailView

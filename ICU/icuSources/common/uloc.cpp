@@ -36,7 +36,10 @@
 #include "unicode/utypes.h"
 #include "unicode/ustring.h"
 #include "unicode/uloc.h"
+#if APPLE_ICU_CHANGES
+// rdar://74314220 #189 Add ualoc_canonicalForm, C wrapper for Locale::createCanonical
 #include "unicode/locid.h"
+#endif // APPLE_ICU_CHANGES
 
 #include "bytesinkutil.h"
 #include "putilimp.h"
@@ -98,12 +101,22 @@ U_CFUNC const char *locale_get_default(void);
 static const char * const LANGUAGES[] = {
     "aa",  "ab",  "ace", "ach", "ada", "ady", "ae",  "aeb",
     "af",  "afh", "agq", "ain", "ak",  "akk", "akz", "ale",
+#if APPLE_ICU_CHANGES
+// rdar://89394823 #286 add locales for apw,sm; add loc names for apw; fix dz autonym
     "aln", "alt", "am",  "an",  "ang", "anp", "apw", "ar",  "arc",
+#else
+    "aln", "alt", "am",  "an",  "ang", "anp", "ar",  "arc",
+#endif // APPLE_ICU_CHANGES
     "arn", "aro", "arp", "arq", "ars", "arw", "ary", "arz", "as",
     "asa", "ase", "ast", "av",  "avk", "awa", "ay",  "az",
     "ba",  "bal", "ban", "bar", "bas", "bax", "bbc", "bbj",
+#if APPLE_ICU_CHANGES
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm
+    "be",  "bej", "bem", "ber", "bew", "bez", "bfd", "bfq", "bg",
+#else
     "be",  "bej", "bem", "bew", "bez", "bfd", "bfq", "bg",
-    "bgn", "bho", "bi",  "bik", "bin", "bjn", "bkm", "bla",
+#endif // APPLE_ICU_CHANGES		
+    "bgc", "bgn", "bho", "bi",  "bik", "bin", "bjn", "bkm", "bla",
     "bm",  "bn",  "bo",  "bpy", "bqi", "br",  "bra", "brh",
     "brx", "bs",  "bss", "bua", "bug", "bum", "byn", "byv",
     "ca",  "cad", "car", "cay", "cch", "ccp", "ce",  "ceb", "cgg",
@@ -143,21 +156,47 @@ static const char * const LANGUAGES[] = {
     "lun", "luo", "lus", "luy", "lv",  "lzh", "lzz",
     "mad", "maf", "mag", "mai", "mak", "man", "mas", "mde",
     "mdf", "mdh", "mdr", "men", "mer", "mfe", "mg",  "mga",
+#if APPLE_ICU_CHANGES
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm
+    "mgh", "mgo", "mh",  "mi",  "mic", "mid", "min", "mis", "mk",
+#else
     "mgh", "mgo", "mh",  "mi",  "mic", "min", "mis", "mk",
+#endif // APPLE_ICU_CHANGES	
     "ml",  "mn",  "mnc", "mni",
     "moh", "mos", "mr",  "mrj",
     "ms",  "mt",  "mua", "mul", "mus", "mwl", "mwr", "mwv",
     "my",  "mye", "myv", "mzn",
     "na",  "nan", "nap", "naq", "nb",  "nd",  "nds", "ne",
     "new", "ng",  "nia", "niu", "njo", "nl",  "nmg", "nn",
+#if APPLE_ICU_CHANGES
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm
+    "nnh", "nnp", "no",  "nog", "non", "nov", "nqo", "nr",  "nso",
+#else	
     "nnh", "no",  "nog", "non", "nov", "nqo", "nr",  "nso",
+#endif // APPLE_ICU_CHANGES		
     "nus", "nv",  "nwc", "ny",  "nym", "nyn", "nyo", "nzi",
+#if APPLE_ICU_CHANGES
+// rdar://80374611 #259 Add to LANGUAGES[]: otk, oui (for Old Turkish)
     "oc",  "oj",  "om",  "or",  "os",  "osa", "ota", "otk", "oui",
+#else
+    "oc",  "oj",  "om",  "or",  "os",  "osa", "ota",
+#endif // APPLE_ICU_CHANGES
     "pa",  "pag", "pal", "pam", "pap", "pau", "pcd", "pcm", "pdc",
     "pdt", "peo", "pfl", "phn", "pi",  "pl",  "pms", "pnt",
+#if APPLE_ICU_CHANGES
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm	
+    "pon", "pqm", "prg", "pro", "ps",  "pt",
+#else	
     "pon", "prg", "pro", "ps",  "pt",
+#endif // APPLE_ICU_CHANGES	
     "qu",  "quc", "qug",
-    "raj", "rap", "rar", "rgn", "rhg", "rif", "rm",  "rn",  "ro",
+#if APPLE_ICU_CHANGES
+// rdar://74820154 #195 Add locales for ain,nv,rhg; update names for syr,ti
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm	
+    "raj", "rap", "rar", "rej", "rgn", "rhg", "rif", "rm",  "rn",  "ro",
+#else
+    "raj", "rap", "rar", "rgn", "rif", "rm",  "rn",  "ro",
+#endif // APPLE_ICU_CHANGES
     "rof", "rom", "rtm", "ru",  "rue", "rug", "rup",
     "rw",  "rwk",
     "sa",  "sad", "sah", "sam", "saq", "sas", "sat", "saz",
@@ -187,10 +226,10 @@ NULL
 };
 
 static const char* const DEPRECATED_LANGUAGES[]={
-    "in", "iw", "ji", "jw", NULL, NULL
+    "in", "iw", "ji", "jw", "mo", NULL, NULL
 };
 static const char* const REPLACEMENT_LANGUAGES[]={
-    "id", "he", "yi", "jv", NULL, NULL
+    "id", "he", "yi", "jv", "ro", NULL, NULL
 };
 
 /**
@@ -215,12 +254,22 @@ static const char* const REPLACEMENT_LANGUAGES[]={
 static const char * const LANGUAGES_3[] = {
     "aar", "abk", "ace", "ach", "ada", "ady", "ave", "aeb",
     "afr", "afh", "agq", "ain", "aka", "akk", "akz", "ale",
+#if APPLE_ICU_CHANGES
+// rdar://89394823 #286 add locales for apw,sm; add loc names for apw; fix dz autonym
     "aln", "alt", "amh", "arg", "ang", "anp", "apw", "ara", "arc",
+#else
+    "aln", "alt", "amh", "arg", "ang", "anp", "ara", "arc",
+#endif // APPLE_ICU_CHANGES
     "arn", "aro", "arp", "arq", "ars", "arw", "ary", "arz", "asm",
     "asa", "ase", "ast", "ava", "avk", "awa", "aym", "aze",
     "bak", "bal", "ban", "bar", "bas", "bax", "bbc", "bbj",
+#if APPLE_ICU_CHANGES
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm	
+    "bel", "bej", "bem", "ber", "bew", "bez", "bfd", "bfq", "bul",
+#else
     "bel", "bej", "bem", "bew", "bez", "bfd", "bfq", "bul",
-    "bgn", "bho", "bis", "bik", "bin", "bjn", "bkm", "bla",
+#endif // APPLE_ICU_CHANGES			
+    "bgc", "bgn", "bho", "bis", "bik", "bin", "bjn", "bkm", "bla",
     "bam", "ben", "bod", "bpy", "bqi", "bre", "bra", "brh",
     "brx", "bos", "bss", "bua", "bug", "bum", "byn", "byv",
     "cat", "cad", "car", "cay", "cch", "ccp", "che", "ceb", "cgg",
@@ -260,21 +309,47 @@ static const char * const LANGUAGES_3[] = {
     "lun", "luo", "lus", "luy", "lav", "lzh", "lzz",
     "mad", "maf", "mag", "mai", "mak", "man", "mas", "mde",
     "mdf", "mdh", "mdr", "men", "mer", "mfe", "mlg", "mga",
-    "mgh", "mgo", "mah", "mri", "mic", "min", "mis", "mkd",
+#if APPLE_ICU_CHANGES
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm	
+    "mgh", "mgo", "mah", "mri", "mic", "mid", "min", "mis", "mkd",
+#else
+    "mgh", "mgo", "mah", "mri", "mic", "min", "mis", "mkd",	
+#endif // APPLE_ICU_CHANGES		
     "mal", "mon", "mnc", "mni",
     "moh", "mos", "mar", "mrj",
     "msa", "mlt", "mua", "mul", "mus", "mwl", "mwr", "mwv",
     "mya", "mye", "myv", "mzn",
     "nau", "nan", "nap", "naq", "nob", "nde", "nds", "nep",
     "new", "ndo", "nia", "niu", "njo", "nld", "nmg", "nno",
-    "nnh", "nor", "nog", "non", "nov", "nqo", "nbl", "nso",
+#if APPLE_ICU_CHANGES
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm		
+    "nnh", "nnp", "nor", "nog", "non", "nov", "nqo", "nbl", "nso",
+#else	
+    "nnh", "nor", "nog", "non", "nov", "nqo", "nbl", "nso",	
+#endif // APPLE_ICU_CHANGES		
     "nus", "nav", "nwc", "nya", "nym", "nyn", "nyo", "nzi",
+#if APPLE_ICU_CHANGES
+// rdar://80374611 #259 Add to LANGUAGES[]: otk, oui (for Old Turkish)
     "oci", "oji", "orm", "ori", "oss", "osa", "ota", "otk", "oui",
+#else
+    "oci", "oji", "orm", "ori", "oss", "osa", "ota",
+#endif // APPLE_ICU_CHANGES
     "pan", "pag", "pal", "pam", "pap", "pau", "pcd", "pcm", "pdc",
     "pdt", "peo", "pfl", "phn", "pli", "pol", "pms", "pnt",
+#if APPLE_ICU_CHANGES
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm
+    "pon", "pqm", "prg", "pro", "pus", "por",
+#else	
     "pon", "prg", "pro", "pus", "por",
+#endif // APPLE_ICU_CHANGES	
     "que", "quc", "qug",
-    "raj", "rap", "rar", "rgn", "rhg", "rif", "roh", "run", "ron",
+#if APPLE_ICU_CHANGES
+// rdar://74820154 #195 Add locales for ain,nv,rhg; update names for syr,ti
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm	
+    "raj", "rap", "rar", "rej", "rgn", "rhg", "rif", "roh", "run", "ron",
+#else
+    "raj", "rap", "rar", "rgn", "rif", "roh", "run", "ron",
+#endif // APPLE_ICU_CHANGES
     "rof", "rom", "rtm", "rus", "rue", "rug", "rup",
     "kin", "rwk",
     "san", "sad", "sah", "sam", "saq", "sas", "sat", "saz",
@@ -329,12 +404,22 @@ NULL
  * http://www.iso.org/iso/en/prods-services/iso3166ma/03updates-on-iso-3166/nlv3e-rou.html
  */
 static const char * const COUNTRIES[] = {
+#if APPLE_ICU_CHANGES
+// rdar://23673316 1cb3008756.. Update uloc COUNTRIES[_3] lists to include all valid CLDR regular regions
     "AC",  "AD",  "AE",  "AF",  "AG",  "AI",  "AL",  "AM",
+#else
+    "AD",  "AE",  "AF",  "AG",  "AI",  "AL",  "AM",
+#endif // APPLE_ICU_CHANGES
     "AO",  "AQ",  "AR",  "AS",  "AT",  "AU",  "AW",  "AX",  "AZ",
     "BA",  "BB",  "BD",  "BE",  "BF",  "BG",  "BH",  "BI",
     "BJ",  "BL",  "BM",  "BN",  "BO",  "BQ",  "BR",  "BS",  "BT",  "BV",
     "BW",  "BY",  "BZ",  "CA",  "CC",  "CD",  "CF",  "CG",
+#if APPLE_ICU_CHANGES
+// rdar://23673316 1cb3008756.. Update uloc COUNTRIES[_3] lists to include all valid CLDR regular regions
     "CH",  "CI",  "CK",  "CL",  "CM",  "CN",  "CO",  "CP",  "CR",
+#else
+    "CH",  "CI",  "CK",  "CL",  "CM",  "CN",  "CO",  "CR",
+#endif // APPLE_ICU_CHANGES
     "CU",  "CV",  "CW",  "CX",  "CY",  "CZ",  "DE",  "DG",  "DJ",  "DK",
     "DM",  "DO",  "DZ",  "EA",  "EC",  "EE",  "EG",  "EH",  "ER",
     "ES",  "ET",  "FI",  "FJ",  "FK",  "FM",  "FO",  "FR",
@@ -354,7 +439,12 @@ static const char * const COUNTRIES[] = {
     "PW",  "PY",  "QA",  "RE",  "RO",  "RS",  "RU",  "RW",  "SA",
     "SB",  "SC",  "SD",  "SE",  "SG",  "SH",  "SI",  "SJ",
     "SK",  "SL",  "SM",  "SN",  "SO",  "SR",  "SS",  "ST",  "SV",
+#if APPLE_ICU_CHANGES
+// rdar://23673316 1cb3008756.. Update uloc COUNTRIES[_3] lists to include all valid CLDR regular regions
     "SX",  "SY",  "SZ",  "TA",  "TC",  "TD",  "TF",  "TG",  "TH",  "TJ",
+#else
+    "SX",  "SY",  "SZ",  "TC",  "TD",  "TF",  "TG",  "TH",  "TJ",
+#endif // APPLE_ICU_CHANGES
     "TK",  "TL",  "TM",  "TN",  "TO",  "TR",  "TT",  "TV",
     "TW",  "TZ",  "UA",  "UG",  "UM",  "US",  "UY",  "UZ",
     "VA",  "VC",  "VE",  "VG",  "VI",  "VN",  "VU",  "WF",
@@ -386,8 +476,14 @@ static const char* const REPLACEMENT_COUNTRIES[] = {
  * the two lists in COUNTRIES.
  */
 static const char * const COUNTRIES_3[] = {
+#if APPLE_ICU_CHANGES
+// rdar://23673316 1cb3008756.. Update uloc COUNTRIES[_3] lists to include all valid CLDR regular regions
 /*  "AC",  "AD",  "AE",  "AF",  "AG",  "AI",  "AL",  "AM",      */
     "ASC", "AND", "ARE", "AFG", "ATG", "AIA", "ALB", "ARM",
+#else
+/*  "AD",  "AE",  "AF",  "AG",  "AI",  "AL",  "AM",      */
+    "AND", "ARE", "AFG", "ATG", "AIA", "ALB", "ARM",
+#endif // APPLE_ICU_CHANGES
 /*  "AO",  "AQ",  "AR",  "AS",  "AT",  "AU",  "AW",  "AX",  "AZ",     */
     "AGO", "ATA", "ARG", "ASM", "AUT", "AUS", "ABW", "ALA", "AZE",
 /*  "BA",  "BB",  "BD",  "BE",  "BF",  "BG",  "BH",  "BI",     */
@@ -396,8 +492,14 @@ static const char * const COUNTRIES_3[] = {
     "BEN", "BLM", "BMU", "BRN", "BOL", "BES", "BRA", "BHS", "BTN", "BVT",
 /*  "BW",  "BY",  "BZ",  "CA",  "CC",  "CD",  "CF",  "CG",     */
     "BWA", "BLR", "BLZ", "CAN", "CCK", "COD", "CAF", "COG",
+#if APPLE_ICU_CHANGES
+// rdar://23673316 1cb3008756.. Update uloc COUNTRIES[_3] lists to include all valid CLDR regular regions
 /*  "CH",  "CI",  "CK",  "CL",  "CM",  "CN",  "CO",  "CP",  "CR",     */
     "CHE", "CIV", "COK", "CHL", "CMR", "CHN", "COL", "CPT", "CRI",
+#else
+/*  "CH",  "CI",  "CK",  "CL",  "CM",  "CN",  "CO",  "CR",     */
+    "CHE", "CIV", "COK", "CHL", "CMR", "CHN", "COL", "CRI",
+#endif // APPLE_ICU_CHANGES
 /*  "CU",  "CV",  "CW",  "CX",  "CY",  "CZ",  "DE",  "DG",  "DJ",  "DK",     */
     "CUB", "CPV", "CUW", "CXR", "CYP", "CZE", "DEU", "DGA", "DJI", "DNK",
 /*  "DM",  "DO",  "DZ",  "EA",  "EC",  "EE",  "EG",  "EH",  "ER",     */
@@ -436,8 +538,14 @@ static const char * const COUNTRIES_3[] = {
     "SLB", "SYC", "SDN", "SWE", "SGP", "SHN", "SVN", "SJM",
 /*  "SK",  "SL",  "SM",  "SN",  "SO",  "SR",  "SS",  "ST",  "SV",     */
     "SVK", "SLE", "SMR", "SEN", "SOM", "SUR", "SSD", "STP", "SLV",
+#if APPLE_ICU_CHANGES
+// rdar://23673316 1cb3008756.. Update uloc COUNTRIES[_3] lists to include all valid CLDR regular regions
 /*  "SX",  "SY",  "SZ",  "TA",  "TC",  "TD",  "TF",  "TG",  "TH",  "TJ",     */
     "SXM", "SYR", "SWZ", "TAA", "TCA", "TCD", "ATF", "TGO", "THA", "TJK",
+#else
+/*  "SX",  "SY",  "SZ",  "TC",  "TD",  "TF",  "TG",  "TH",  "TJ",     */
+    "SXM", "SYR", "SWZ", "TCA", "TCD", "ATF", "TGO", "THA", "TJK",
+#endif // APPLE_ICU_CHANGES
 /*  "TK",  "TL",  "TM",  "TN",  "TO",  "TR",  "TT",  "TV",     */
     "TKL", "TLS", "TKM", "TUN", "TON", "TUR", "TTO", "TUV",
 /*  "TW",  "TZ",  "UA",  "UG",  "UM",  "US",  "UY",  "UZ",     */
@@ -445,7 +553,7 @@ static const char * const COUNTRIES_3[] = {
 /*  "VA",  "VC",  "VE",  "VG",  "VI",  "VN",  "VU",  "WF",     */
     "VAT", "VCT", "VEN", "VGB", "VIR", "VNM", "VUT", "WLF",
 /*  "WS",  "XK",  "YE",  "YT",  "ZA",  "ZM",  "ZW",          */
-    "WSM", "XXK", "YEM", "MYT", "ZAF", "ZMB", "ZWE",
+    "WSM", "XKK", "YEM", "MYT", "ZAF", "ZMB", "ZWE",
 NULL,
 /*  "AN",  "BU",  "CS",  "FX",  "RO", "SU",  "TP",  "YD",  "YU",  "ZR" */
     "ANT", "BUR", "SCG", "FXX", "ROM", "SUN", "TMP", "YMD", "YUG", "ZAR",
@@ -462,9 +570,13 @@ typedef struct CanonicalizationMap {
  * different semantic kinds of transformations.
  */
 static const CanonicalizationMap CANONICALIZE_MAP[] = {
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 985404ca1e.., Merge ICU 64rc3: Further adjustments for compatibility probs in mapping root/und/""
+// Apple ICU restores (in modified form) these first 3 mappings deleted in OSICU 64
     { "",               "en_US_POSIX" }, /* .NET name */ // open ICU 64 deleted, we restore
     { "c",              "en_US_POSIX" }, /* POSIX name */ // open ICU 64 deleted, we restore
     { "posix",          "en_US_POSIX" }, /* POSIX name (alias of C) */ // open ICU 64 deleted, we restore
+#endif // APPLE_ICU_CHANGES
     { "art__LOJBAN",    "jbo" }, /* registered name */
     { "hy__AREVELA",    "hy" }, /* Registered IANA variant */
     { "hy__AREVMDA",    "hyw" }, /* Registered IANA variant */
@@ -506,20 +618,20 @@ static int32_t getShortestSubtagLength(const char *localeID) {
     int32_t length = localeIDLength;
     int32_t tmpLength = 0;
     int32_t i;
-    UBool reset = TRUE;
+    UBool reset = true;
 
     for (i = 0; i < localeIDLength; i++) {
         if (localeID[i] != '_' && localeID[i] != '-') {
             if (reset) {
                 tmpLength = 0;
-                reset = FALSE;
+                reset = false;
             }
             tmpLength++;
         } else {
             if (tmpLength != 0 && tmpLength < length) {
                 length = tmpLength;
             }
-            reset = TRUE;
+            reset = true;
         }
     }
 
@@ -624,7 +736,7 @@ ulocimp_getKeywords(const char *localeID,
     if(prev == '@') { /* start of keyword definition */
         /* we will grab pairs, trim spaces, lowercase keywords, sort and return */
         do {
-            UBool duplicate = FALSE;
+            UBool duplicate = false;
             /* skip leading spaces */
             while(*pos == ' ') {
                 pos++;
@@ -697,7 +809,7 @@ ulocimp_getKeywords(const char *localeID,
             /* If this is a duplicate keyword, then ignore it */
             for (j=0; j<numKeywords; ++j) {
                 if (uprv_strcmp(keywordList[j].keyword, keywordList[numKeywords].keyword) == 0) {
-                    duplicate = TRUE;
+                    duplicate = true;
                     break;
                 }
             }
@@ -708,7 +820,7 @@ ulocimp_getKeywords(const char *localeID,
 
         /* now we have a list of keywords */
         /* we need to sort it */
-        uprv_sortArray(keywordList, numKeywords, sizeof(KeywordStruct), compareKeywordStructs, NULL, FALSE, status);
+        uprv_sortArray(keywordList, numKeywords, sizeof(KeywordStruct), compareKeywordStructs, NULL, false, status);
 
         /* Now construct the keyword part */
         for(i = 0; i < numKeywords; i++) {
@@ -885,7 +997,7 @@ uloc_setKeywordValue(const char* keywordName,
     char* startSearchHere = NULL;
     char* keywordStart = NULL;
     CharString updatedKeysAndValues;
-    UBool handledInputKeyAndValue = FALSE;
+    UBool handledInputKeyAndValue = false;
     char keyValuePrefix = '@';
 
     if(U_FAILURE(*status)) {
@@ -1024,7 +1136,7 @@ uloc_setKeywordValue(const char* keywordName,
                 updatedKeysAndValues.append('=', *status);
                 updatedKeysAndValues.append(keywordValueBuffer, keywordValueLen, *status);
             } /* else removing this entry, don't emit anything */
-            handledInputKeyAndValue = TRUE;
+            handledInputKeyAndValue = true;
         } else {
            /* input keyword sorts earlier than current entry, add before current entry */
             if (rc < 0 && keywordValueLen > 0 && !handledInputKeyAndValue) {
@@ -1034,7 +1146,7 @@ uloc_setKeywordValue(const char* keywordName,
                 updatedKeysAndValues.append(keywordNameBuffer, keywordNameLen, *status);
                 updatedKeysAndValues.append('=', *status);
                 updatedKeysAndValues.append(keywordValueBuffer, keywordValueLen, *status);
-                handledInputKeyAndValue = TRUE;
+                handledInputKeyAndValue = true;
             }
             /* copy the current entry */
             updatedKeysAndValues.append(keyValuePrefix, *status);
@@ -1050,7 +1162,7 @@ uloc_setKeywordValue(const char* keywordName,
             updatedKeysAndValues.append(keywordNameBuffer, keywordNameLen, *status);
             updatedKeysAndValues.append('=', *status);
             updatedKeysAndValues.append(keywordValueBuffer, keywordValueLen, *status);
-            handledInputKeyAndValue = TRUE;
+            handledInputKeyAndValue = true;
         }
         keywordStart = nextSeparator;
     } /* end loop searching */
@@ -1093,7 +1205,7 @@ uloc_setKeywordValue(const char* keywordName,
 
 #define _isPrefixLetter(a) ((a=='x')||(a=='X')||(a=='i')||(a=='I'))
 
-/*returns TRUE if one of the special prefixes is here (s=string)
+/*returns true if one of the special prefixes is here (s=string)
   'x-' or 'i-' */
 #define _isIDPrefix(s) (_isPrefixLetter(s[0])&&_isIDSeparator(s[1]))
 
@@ -1156,6 +1268,20 @@ ulocimp_getLanguage(const char *localeID,
                     const char **pEnd,
                     UErrorCode &status) {
     CharString result;
+
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
+#else
+    if (uprv_stricmp(localeID, "root") == 0) {
+        localeID += 4;
+    } else if (uprv_strnicmp(localeID, "und", 3) == 0 &&
+               (localeID[3] == '\0' ||
+                localeID[3] == '-' ||
+                localeID[3] == '_' ||
+                localeID[3] == '@')) {
+        localeID += 3;
+    }
+#endif // APPLE_ICU_CHANGES
 
     /* if it starts with i- or x- then copy that prefix */
     if(_isIDPrefix(localeID)) {
@@ -1264,7 +1390,7 @@ _getVariant(const char *localeID,
             char prev,
             ByteSink& sink,
             UBool needSeparator) {
-    UBool hasVariant = FALSE;
+    UBool hasVariant = false;
 
     /* get one or more variant tags and separate them with '_' */
     if(_isIDSeparator(prev)) {
@@ -1272,12 +1398,12 @@ _getVariant(const char *localeID,
         while(!_isTerminator(*localeID)) {
             if (needSeparator) {
                 sink.Append("_", 1);
-                needSeparator = FALSE;
+                needSeparator = false;
             }
             char c = (char)uprv_toupper(*localeID);
             if (c == '-') c = '_';
             sink.Append(&c, 1);
-            hasVariant = TRUE;
+            hasVariant = true;
             localeID++;
         }
     }
@@ -1294,7 +1420,7 @@ _getVariant(const char *localeID,
         while(!_isTerminator(*localeID)) {
             if (needSeparator) {
                 sink.Append("_", 1);
-                needSeparator = FALSE;
+                needSeparator = false;
             }
             char c = (char)uprv_toupper(*localeID);
             if (c == '-' || c == ',') c = '_';
@@ -1447,7 +1573,7 @@ uloc_openKeywords(const char* localeID,
     if((tmpLocaleID = locale_getKeywordsStart(tmpLocaleID)) != NULL) {
         CharString keywords;
         CharStringByteSink sink(&keywords);
-        ulocimp_getKeywords(tmpLocaleID+1, '@', sink, FALSE, status);
+        ulocimp_getKeywords(tmpLocaleID+1, '@', sink, false, status);
         if (U_FAILURE(*status)) {
             return NULL;
         }
@@ -1567,7 +1693,7 @@ _canonicalize(const char* localeID,
                 variantSize = -tag.length();
                 {
                     CharStringByteSink s(&tag);
-                    _getVariant(tmpLocaleID+1, *tmpLocaleID, s, FALSE);
+                    _getVariant(tmpLocaleID+1, *tmpLocaleID, s, false);
                 }
                 variantSize += tag.length();
                 if (variantSize > 0) {
@@ -1579,13 +1705,13 @@ _canonicalize(const char* localeID,
 
     /* Copy POSIX-style charset specifier, if any [mr.utf8] */
     if (!OPTION_SET(options, _ULOC_CANONICALIZE) && *tmpLocaleID == '.') {
-        UBool done = FALSE;
+        UBool done = false;
         do {
             char c = *tmpLocaleID;
             switch (c) {
             case 0:
             case '@':
-                done = TRUE;
+                done = true;
                 break;
             default:
                 tag.append(c, *err);
@@ -1658,7 +1784,7 @@ _canonicalize(const char* localeID,
             (!separatorIndicator || separatorIndicator > keywordAssign)) {
             sink.Append("@", 1);
             ++fieldCount;
-            ulocimp_getKeywords(tmpLocaleID+1, '@', sink, TRUE, err);
+            ulocimp_getKeywords(tmpLocaleID+1, '@', sink, true, err);
         }
     }
 }
@@ -1687,9 +1813,22 @@ uloc_getParent(const char*    localeID,
         i=0;
     }
 
+#if APPLE_ICU_CHANGES
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
     if(i>0 && parent != localeID) {
         uprv_memcpy(parent, localeID, uprv_min(i, parentCapacity));
     }
+#else
+    if (i > 0) {
+        if (uprv_strnicmp(localeID, "und_", 4) == 0) {
+            localeID += 3;
+            i -= 3;
+            uprv_memmove(parent, localeID, uprv_min(i, parentCapacity));
+        } else if (parent != localeID) {
+            uprv_memcpy(parent, localeID, uprv_min(i, parentCapacity));
+        }
+    }
+#endif // APPLE_ICU_CHANGES
 
     return u_terminateChars(parent, parentCapacity, i, err);
 }
@@ -1835,7 +1974,7 @@ uloc_getVariant(const char* localeID,
                 }
 
                 CheckedArrayByteSink sink(variant, variantCapacity);
-                _getVariant(tmpLocaleID+1, *tmpLocaleID, sink, FALSE);
+                _getVariant(tmpLocaleID+1, *tmpLocaleID, sink, false);
 
                 i = sink.NumberOfBytesAppended();
 
@@ -1962,6 +2101,8 @@ ulocimp_canonicalize(const char* localeID,
     _canonicalize(localeID, sink, _ULOC_CANONICALIZE, err);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://74314220 #189 Add ualoc_canonicalForm, C wrapper for Locale::createCanonical
 U_CAPI int32_t  U_EXPORT2
 ualoc_canonicalForm(const char* localeID,
                   char* name,
@@ -1977,6 +2118,7 @@ ualoc_canonicalForm(const char* localeID,
     uprv_memcpy(name, canonicalName, uprv_min(nameLen, nameCapacity));
     return u_terminateChars(name, nameCapacity, nameLen, err);
 }
+#endif // APPLE_ICU_CHANGES
 
 U_CAPI const char*  U_EXPORT2
 uloc_getISO3Language(const char* localeID)
@@ -2162,11 +2304,11 @@ isWellFormedLegacyKey(const char* legacyKey)
     const char* p = legacyKey;
     while (*p) {
         if (!UPRV_ISALPHANUM(*p)) {
-            return FALSE;
+            return false;
         }
         p++;
     }
-    return TRUE;
+    return true;
 }
 
 static UBool
@@ -2177,13 +2319,13 @@ isWellFormedLegacyType(const char* legacyType)
     while (*p) {
         if (*p == '_' || *p == '/' || *p == '-') {
             if (alphaNumLen == 0) {
-                return FALSE;
+                return false;
             }
             alphaNumLen = 0;
         } else if (UPRV_ISALPHANUM(*p)) {
             alphaNumLen++;
         } else {
-            return FALSE;
+            return false;
         }
         p++;
     }

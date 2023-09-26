@@ -38,10 +38,6 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 
-#if HAVE(CPP20_INCOMPATIBLE_INTERNAL_HEADERS)
-#define CGCOLORTAGGEDPOINTER_H_
-#endif
-
 #include <CoreGraphics/CGContextDelegatePrivate.h>
 #include <CoreGraphics/CGFontCache.h>
 #include <CoreGraphics/CGPathPrivate.h>
@@ -318,10 +314,6 @@ CGColorRef CGStyleGetColor(CGStyleRef);
 bool CGColorSpaceEqualToColorSpace(CGColorSpaceRef, CGColorSpaceRef);
 CFStringRef CGColorSpaceCopyICCProfileDescription(CGColorSpaceRef);
 
-#if HAVE(CGPATH_GET_NUMBER_OF_ELEMENTS)
-size_t CGPathGetNumberOfElements(CGPathRef);
-#endif
-
 #if HAVE(IOSURFACE)
 CGContextRef CGIOSurfaceContextCreate(IOSurfaceRef, size_t, size_t, size_t, size_t, CGColorSpaceRef, CGBitmapInfo);
 CGImageRef CGIOSurfaceContextCreateImage(CGContextRef);
@@ -376,17 +368,6 @@ CGStyleRef CGStyleCreateColorMatrix(const CGColorMatrixStyle*);
 #endif
 
 #endif // PLATFORM(COCOA)
-
-#if PLATFORM(WIN)
-CGFontCache* CGFontCacheGetLocalCache();
-void CGFontCacheSetShouldAutoExpire(CGFontCache*, bool);
-void CGFontCacheSetMaxSize(CGFontCache*, size_t);
-void CGContextSetFontSmoothingContrast(CGContextRef, CGFloat);
-void CGContextSetFontSmoothingStyle(CGContextRef, uint32_t);
-uint32_t CGContextGetFontSmoothingStyle(CGContextRef);
-void CGContextSetShouldUsePlatformNativeGlyphs(CGContextRef, bool);
-void CGContextSetFocusRingWithColor(CGContextRef, CGFloat blur, CGColorRef, const CGRect *clipRect, CFDictionaryRef options);
-#endif // PLATFORM(WIN)
 
 #if PLATFORM(MAC)
 

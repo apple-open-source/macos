@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "SecurityOriginData.h"
 #include <wtf/URL.h>
 
 namespace WebCore {
@@ -33,29 +34,31 @@ namespace WebCore {
 class URLKeepingBlobAlive {
 public:
     URLKeepingBlobAlive() = default;
-    URLKeepingBlobAlive(URL&&);
-    URLKeepingBlobAlive(const URL& url) : URLKeepingBlobAlive(URL { url }) { }
-    ~URLKeepingBlobAlive();
+    URLKeepingBlobAlive(const URL&, const std::optional<SecurityOriginData>& = std::nullopt);
+    WEBCORE_EXPORT ~URLKeepingBlobAlive();
 
     URLKeepingBlobAlive(URLKeepingBlobAlive&&) = default;
-    URLKeepingBlobAlive(const URLKeepingBlobAlive&);
-    URLKeepingBlobAlive& operator=(const URLKeepingBlobAlive&);
     URLKeepingBlobAlive& operator=(URLKeepingBlobAlive&&);
+
+    URLKeepingBlobAlive(const URLKeepingBlobAlive&) = delete;
+    URLKeepingBlobAlive& operator=(const URLKeepingBlobAlive&) = delete;
 
     operator const URL&() const { return m_url; }
     const URL& url() const { return m_url; }
+    bool isEmpty() const { return m_url.isEmpty(); }
+    std::optional<SecurityOriginData> topOrigin() const { return m_topOrigin; }
 
-    URLKeepingBlobAlive& operator=(URL&&);
-    URLKeepingBlobAlive& operator=(const URL& url) { return *this = URL { url }; }
+    void clear();
 
-    URLKeepingBlobAlive WARN_UNUSED_RETURN isolatedCopy() const &;
-    URLKeepingBlobAlive WARN_UNUSED_RETURN isolatedCopy() &&;
+    // We do not introduce a && version since it might break the register/unregister balance.
+    WEBCORE_EXPORT URLKeepingBlobAlive WARN_UNUSED_RETURN isolatedCopy() const;
 
 private:
     void registerBlobURLHandleIfNecessary();
     void unregisterBlobURLHandleIfNecessary();
 
     URL m_url;
+    Markable<SecurityOriginData, SecurityOriginDataMarkableTraits> m_topOrigin;
 };
 
 } // namespace WebCore

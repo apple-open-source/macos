@@ -37,7 +37,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)operationWithBlock:(void (^)(void))block;
 + (instancetype)named:(NSString*)name withBlock:(void (^)(void))block;
-+ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSGroupOperation* strongOp))block;
++ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSResultOperation* strongOp))block;
 
 @property NSOperationQueue* operationQueue;
 

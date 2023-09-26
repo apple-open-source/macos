@@ -23,7 +23,7 @@
 
 /*!
 	@header SecECKey
-	The functions provided in SecECKey.h implement and manage a rsa
+	The functions provided in SecECKey.h implement and manage an elliptic-curve
     public or private key.
 */
 

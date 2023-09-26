@@ -421,6 +421,8 @@ bool IONetworkController::start(IOService * provider)
 
 void IONetworkController::stop(IOService * provider)
 {
+    DLOG("IONetworkController::%s(%p)\n", __FUNCTION__, provider);
+
     // Called by a policy-maker to resign its responsibilities as the
     // policy-maker.
 
@@ -659,6 +661,7 @@ bool IONetworkController::handleOpen(IOService *  client,
 
 void IONetworkController::handleClose(IOService * client, IOOptionBits options)
 {
+    DLOG("IONetworkController::%s(%p)\n", __FUNCTION__, client);
     _clientSet->removeObject(client);
 }
 
@@ -671,10 +674,14 @@ void IONetworkController::handleClose(IOService * client, IOOptionBits options)
 
 bool IONetworkController::handleIsOpen(const IOService * client) const
 {
+    bool ret;
+
     if (client)
-        return _clientSet->containsObject(client);
+        ret = _clientSet->containsObject(client);
     else
-        return (_clientSet->getCount() > 0);
+        ret = (_clientSet->getCount() > 0);
+
+    return ret;
 }
 
 //---------------------------------------------------------------------------
@@ -683,6 +690,8 @@ bool IONetworkController::handleIsOpen(const IOService * client) const
 
 void IONetworkController::free()
 {
+    DLOG("IONetworkController::%s()\n", __FUNCTION__);
+
     // We should have no clients at this point. If we do,
     // then something is very wrong! It means that a client
     // has an open on us, and yet we are being freed.

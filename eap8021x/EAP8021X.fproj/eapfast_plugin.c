@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019, 2022-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -2649,7 +2649,11 @@ process_crypto_binding(EAPFASTPluginDataRef context,
 	   imck + S_IMCK_LENGTH, CMK_LENGTH,
 	   (unsigned char *)cb_p, sizeof(*cb_p), compound_mac);
     memcpy(cb_p->cb_compound_mac, compound_mac, sizeof(compound_mac));
-    BufferAdvanceWritePtr(buf, CRYPTO_BINDING_TLV_LENGTH + TLV_HEADER_LENGTH);
+    if (BufferAdvanceWritePtr(buf, CRYPTO_BINDING_TLV_LENGTH + TLV_HEADER_LENGTH)
+	== FALSE) {
+	EAPLOG(LOG_NOTICE, "EAP-FAST: process_crypto_binding: buffer too small");
+	goto done;
+    }
 
     /* remember S-IMCK[j] in last_s_imck for subsequent calculations */
     memcpy(context->last_s_imck, imck, sizeof(context->last_s_imck));
@@ -3015,6 +3019,8 @@ eapfast_verify_server(EAPClientPluginDataRef plugin,
     context->trust_status
 	= EAPTLSVerifyServerCertificateChain(plugin->properties, 
 					     context->server_certs,
+					     FALSE,
+					     NULL,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
 	EAPLOG_FL(LOG_NOTICE, "server certificate not trusted, status %d %d",

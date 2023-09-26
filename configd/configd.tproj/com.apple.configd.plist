@@ -27,12 +27,5 @@
 	<true/>
 	<key>_ExponentialThrottling</key>
 	<true/>
-	<key>LimitLoadToSessionType</key>
-	<dict>
-		<key>#IfFeatureFlagEnabled</key>
-		<string>UserManagement/SystemSessionD1</string>
-		<key>#Then</key>
-		<string>System</string>
-	</dict>
 </dict>
 </plist>

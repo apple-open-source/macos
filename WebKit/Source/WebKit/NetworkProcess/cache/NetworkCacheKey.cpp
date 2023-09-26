@@ -86,7 +86,7 @@ static void hashString(SHA1& sha1, const String& string)
     if (string.isNull())
         return;
 
-    if (string.is8Bit() && string.isAllASCII()) {
+    if (string.is8Bit() && string.containsOnlyASCII()) {
         const uint8_t nullByte = 0;
         sha1.addBytes(string.characters8(), string.length());
         sha1.addBytes(&nullByte, 1);
@@ -114,12 +114,22 @@ Key::HashType Key::computeHash(const Salt& salt) const
     return hash;
 }
 
+String Key::partitionToPartitionHashAsString(const String& partition, const Salt& salt)
+{
+    return hashAsString(partitionToPartitionHash(partition, salt));
+}
+
 Key::HashType Key::computePartitionHash(const Salt& salt) const
+{
+    return partitionToPartitionHash(m_partition, salt);
+}
+
+Key::HashType Key::partitionToPartitionHash(const String& partition, const Salt& salt)
 {
     SHA1 sha1;
     sha1.addBytes(salt.data(), salt.size());
 
-    hashString(sha1, m_partition);
+    hashString(sha1, partition);
 
     SHA1::Digest hash;
     sha1.computeHash(hash);

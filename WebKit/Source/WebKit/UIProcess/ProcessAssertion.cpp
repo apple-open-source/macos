@@ -34,8 +34,8 @@ namespace WebKit {
 ASCIILiteral processAssertionTypeDescription(ProcessAssertionType type)
 {
     switch (type) {
-    case ProcessAssertionType::Suspended:
-        return "suspended"_s;
+    case ProcessAssertionType::NearSuspended:
+        return "near-suspended"_s;
     case ProcessAssertionType::Background:
         return "background"_s;
     case ProcessAssertionType::UnboundedNetworking:
@@ -46,13 +46,15 @@ ASCIILiteral processAssertionTypeDescription(ProcessAssertionType type)
         return "media-playback"_s;
     case ProcessAssertionType::FinishTaskInterruptable:
         return "finish-task-interruptible"_s;
+    case ProcessAssertionType::BoostedJetsam:
+        return "boosted-jetsam"_s;
     }
     return "unknown"_s;
 }
 
 #if !PLATFORM(COCOA) || !USE(RUNNINGBOARD)
 
-ProcessAssertion::ProcessAssertion(ProcessID pid, const String& reason, ProcessAssertionType assertionType)
+ProcessAssertion::ProcessAssertion(ProcessID pid, const String& reason, ProcessAssertionType assertionType, const String&)
     : m_assertionType(assertionType)
     , m_pid(pid)
     , m_reason(reason)
@@ -81,8 +83,8 @@ void ProcessAssertion::acquireSync()
 {
 }
 
-ProcessAndUIAssertion::ProcessAndUIAssertion(ProcessID pid, const String& reason, ProcessAssertionType assertionType)
-    : ProcessAssertion(pid, reason, assertionType)
+ProcessAndUIAssertion::ProcessAndUIAssertion(ProcessID pid, const String& reason, ProcessAssertionType assertionType, const String& environmentIdentifier)
+    : ProcessAssertion(pid, reason, assertionType, environmentIdentifier)
 {
 }
 

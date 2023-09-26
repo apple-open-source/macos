@@ -50,12 +50,14 @@
 #include "uvector.h"
 #include "uvectr32.h"
 
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
+// Needed for Apple perf tests
 #if U_PLATFORM_IS_DARWIN_BASED
-// Needed for Apple perf tests <rdar://problem/51193810>
 #include <unistd.h>
 #include <mach/mach_time.h>
 #endif
-
+#endif // APPLE_ICU_CHANGES
 
 #if !UCONFIG_NO_FILTERED_BREAK_ITERATION
 #include "unicode/filteredbrk.h"
@@ -145,6 +147,7 @@ void RBBITest::runIndexedTest( int32_t index, UBool exec, const char* &name, cha
     TESTCASE_AUTO(TestUnpairedSurrogate);
     TESTCASE_AUTO(TestLSTMThai);
     TESTCASE_AUTO(TestLSTMBurmese);
+    TESTCASE_AUTO(TestRandomAccess);
 
 #if U_ENABLE_TRACING
     TESTCASE_AUTO(TestTraceCreateCharacter);
@@ -155,6 +158,10 @@ void RBBITest::runIndexedTest( int32_t index, UBool exec, const char* &name, cha
     TESTCASE_AUTO(TestTraceCreateLineNormal);
     TESTCASE_AUTO(TestTraceCreateLineLoose);
     TESTCASE_AUTO(TestTraceCreateLineStrict);
+    TESTCASE_AUTO(TestTraceCreateLineNormalPhrase);
+    TESTCASE_AUTO(TestTraceCreateLineLoosePhrase);
+    TESTCASE_AUTO(TestTraceCreateLineStrictPhrase);
+    TESTCASE_AUTO(TestTraceCreateLinePhrase);
     TESTCASE_AUTO(TestTraceCreateBreakEngine);
 #endif
 
@@ -763,7 +770,7 @@ void RBBITest::TestExtended() {
     //
     //  Put the test data into a UnicodeString
     //
-    UnicodeString testString(FALSE, testFile, len);
+    UnicodeString testString(false, testFile, len);
 
     enum EParseState{
         PARSE_COMMENT,
@@ -786,13 +793,15 @@ void RBBITest::TestExtended() {
     UnicodeString       rules;           // Holds rules from a <rules> ... </rules> block
     int32_t             rulesFirstLine = 0;  // Line number of the start of current <rules> block
 
-    // <rdar://problem/51193810>
+#if APPLE_ICU_CHANGES
+    // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 #if U_PLATFORM_IS_DARWIN_BASED
     mach_timebase_info_data_t info;
     mach_timebase_info(&info);
 #endif
     uint64_t start, durationOpen = 0.0, durationUse = 0.0;
-    UBool isLine = FALSE;
+    UBool isLine = false;
+#endif // APPLE_ICU_CHANGES
 
     for (charIdx = 0; charIdx < len; ) {
         status = U_ZERO_ERROR;
@@ -831,7 +840,10 @@ void RBBITest::TestExtended() {
                 tp.bi = BreakIterator::createWordInstance(locale,  status);
                 skipTest = false;
                 charIdx += 5;
-                isLine = FALSE;
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
+                isLine = false;
+#endif // APPLE_ICU_CHANGES
                 break;
             }
             if (testString.compare(charIdx-1, 6, u"<char>") == 0) {
@@ -839,21 +851,33 @@ void RBBITest::TestExtended() {
                 tp.bi = BreakIterator::createCharacterInstance(locale,  status);
                 skipTest = false;
                 charIdx += 5;
-                isLine = FALSE;
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
+                isLine = false;
+#endif // APPLE_ICU_CHANGES
                 break;
             }
             if (testString.compare(charIdx-1, 6, u"<line>") == 0) {
                 delete tp.bi;
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 #if U_PLATFORM_IS_DARWIN_BASED
-                start = mach_absolute_time(); // <rdar://problem/51193810>
+                start = mach_absolute_time();
 #endif
+#endif // APPLE_ICU_CHANGES
                 tp.bi = BreakIterator::createLineInstance(locale,  status);
+#if APPLE_ICU_CHANGES
+                // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 #if U_PLATFORM_IS_DARWIN_BASED
                 durationOpen += (((mach_absolute_time() - start) * info.numer)/info.denom);
 #endif
+#endif // APPLE_ICU_CHANGES
                 skipTest = false;
                 charIdx += 5;
-                isLine = TRUE;
+#if APPLE_ICU_CHANGES
+                // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
+                isLine = true;
+#endif // APPLE_ICU_CHANGES
                 break;
             }
             if (testString.compare(charIdx-1, 6, u"<sent>") == 0) {
@@ -867,7 +891,10 @@ void RBBITest::TestExtended() {
                 delete tp.bi;
                 tp.bi = BreakIterator::createTitleInstance(locale,  status);
                 charIdx += 6;
-                isLine = FALSE;
+#if APPLE_ICU_CHANGES
+                // rdar://51193810 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
+               isLine = false;
+#endif // APPLE_ICU_CHANGES
                 break;
             }
 
@@ -877,7 +904,10 @@ void RBBITest::TestExtended() {
                 parseState = PARSE_RULES;
                 rules.remove();
                 rulesFirstLine = lineNum;
-                isLine = FALSE;
+#if APPLE_ICU_CHANGES
+                // rdar://51193810 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
+                isLine = false;
+#endif // APPLE_ICU_CHANGES
                 break;
             }
 
@@ -937,7 +967,7 @@ void RBBITest::TestExtended() {
             break;
 
         case PARSE_DATA:
-            if (c == u'\u2022') { // u'•'
+            if (c == u'•') {
                 int32_t  breakIdx = tp.dataToBreak.length();
                 if (tp.expectedBreaks->size() > breakIdx) {
                     errln("rbbitst.txt:%d:%d adjacent expected breaks with no intervening test text",
@@ -966,15 +996,21 @@ void RBBITest::TestExtended() {
                     // RUN THE TEST!
                     status = U_ZERO_ERROR;
                     tp.setUTF16(status);
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 #if U_PLATFORM_IS_DARWIN_BASED
-                    start = mach_absolute_time(); // <rdar://problem/51193810>
+                    start = mach_absolute_time();
 #endif
+#endif // APPLE_ICU_CHANGES
                     executeTest(&tp, status);
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 #if U_PLATFORM_IS_DARWIN_BASED
                     if (isLine) {
                         durationUse += (((mach_absolute_time() - start) * info.numer)/info.denom);
                     }
 #endif
+#endif // APPLE_ICU_CHANGES
                     TEST_ASSERT_SUCCESS(status);
 
                     // Run again, this time with UTF-8 text wrapped in a UText.
@@ -1161,12 +1197,13 @@ void RBBITest::TestExtended() {
         errln("rbbitst.txt:%d <data> block not closed.", lineNum);
     }
 
-    //
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 #if U_PLATFORM_IS_DARWIN_BASED
     infoln("TestExtended total time in createLineInstance     (nsec):\t%llu\n", durationOpen);
     infoln("TestExtended total time in linebreak test execute (nsec):\t%llu\n", durationUse);
 #endif
-
+#endif // APPLE_ICU_CHANGES
 
 end_test:
     delete [] testFile;
@@ -1298,16 +1335,21 @@ UBool RBBITest::testCaseIsKnownIssue(const UnicodeString &testCase, const char *
         {"21097", "LineBreakTest.txt", u"\uBD10\uC694\u002E\u0020\u0041\u002E\u0033\u0020\uBABB"},
         {"21097", "LineBreakTest.txt", u"\uC694\u002E\u0020\u0041\u002E\u0034\u0020\uBABB"},
         {"21097", "LineBreakTest.txt", u"a.2\u3000\u300C"},
+
+        // ICU-22127 until UAX #29 wordbreak is update for the colon changes in ICU-22112,
+        // need to skip some tests in WordBreakTest.txt
+        {"22127", "WordBreakTest.txt", u"a:"},
+        {"22127", "WordBreakTest.txt", u"A:"},
     };
 
     for (int n=0; n<UPRV_LENGTHOF(badTestCases); n++) {
         const TestCase &badCase = badTestCases[n];
         if (!strcmp(fileName, badCase.fFileName) &&
-                testCase == UnicodeString(badCase.fString)) {
+                testCase.startsWith(UnicodeString(badCase.fString))) {
             return logKnownIssue(badCase.fTicketNum);
         }
     }
-    return FALSE;
+    return false;
 }
 
 
@@ -1343,7 +1385,7 @@ void RBBITest::runUnicodeTestData(const char *fileName, RuleBasedBreakIterator *
     if (U_FAILURE(status) || testFile == NULL) {
         return; /* something went wrong, error already output */
     }
-    UnicodeString testFileAsString(TRUE, testFile, len);
+    UnicodeString testFileAsString(true, testFile, len);
 
     //
     //  Parse the test data file using a regular expression.
@@ -1576,7 +1618,7 @@ std::string RBBIMonkeyKind::classNameFromCodepoint(const UChar32 c) {
             return classNames[aClassNum];
         }
     }
-    U_ASSERT(FALSE);  // This should not happen.
+    U_ASSERT(false);  // This should not happen.
     return "bad class name";
 }
 
@@ -1946,11 +1988,16 @@ RBBIWordMonkey::RBBIWordMonkey()
     fKatakanaSet      = new UnicodeSet(u"[\\p{Word_Break = Katakana}]",     status);
     fRegionalIndicatorSet =  new UnicodeSet(u"[\\p{Word_Break = Regional_Indicator}]", status);
     fHebrew_LetterSet = new UnicodeSet(u"[\\p{Word_Break = Hebrew_Letter}]", status);
+#if APPLE_ICU_CHANGES
+// rdar://107455494 revert adding '@' to $ALetter 
     fALetterSet       = new UnicodeSet(u"[\\p{Word_Break = ALetter}]", status);
+#else
+    fALetterSet       = new UnicodeSet(u"[\\p{Word_Break = ALetter} @]", status);
+#endif  // APPLE_ICU_CHANGES
     fSingle_QuoteSet  = new UnicodeSet(u"[\\p{Word_Break = Single_Quote}]",    status);
     fDouble_QuoteSet  = new UnicodeSet(u"[\\p{Word_Break = Double_Quote}]",    status);
     fMidNumLetSet     = new UnicodeSet(u"[\\p{Word_Break = MidNumLet}]",    status);
-    fMidLetterSet     = new UnicodeSet(u"[\\p{Word_Break = MidLetter} - [\\:]]",    status);
+    fMidLetterSet     = new UnicodeSet(u"[\\p{Word_Break = MidLetter} - [\\: \\uFE55 \\uFF1A]]",    status);
     fMidNumSet        = new UnicodeSet(u"[\\p{Word_Break = MidNum}]",       status);
     fNumericSet       = new UnicodeSet(u"[\\p{Word_Break = Numeric}]", status);
     fFormatSet        = new UnicodeSet(u"[\\p{Word_Break = Format}]",       status);
@@ -2706,7 +2753,13 @@ RBBILineMonkey::RBBILineMonkey() :
     fHY    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=HY}]"), status);
     fH2    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=H2}]"), status);
     fH3    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=H3}]"), status);
-    fCL    = new UnicodeSet(UNICODE_STRING_SIMPLE("[[\\p{Line_break=CL}] [\\u201D]]"), status); // en adjustments for rdar://problem/51193810
+#if APPLE_ICU_CHANGES
+    // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
+    // rdar://63475386 U+2019 apostrophe should remain linebreak class QU
+    fCL    = new UnicodeSet(UNICODE_STRING_SIMPLE("[[\\p{Line_break=CL}] [\\u201D]]"), status); // en adjustments
+#else
+    fCL    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=CL}]"), status);
+#endif // APPLE_ICU_CHANGES
     fCP    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=CP}]"), status);
     fEX    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=EX}]"), status);
     fIN    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=IN}]"), status);
@@ -2714,8 +2767,15 @@ RBBILineMonkey::RBBILineMonkey() :
     fJV    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=JV}]"), status);
     fJT    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=JT}]"), status);
     fNS    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=NS}]"), status);
+#if APPLE_ICU_CHANGES
+    // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
+    // rdar://63475386 U+2019 apostrophe should remain linebreak class QU
     fOP    = new UnicodeSet(UNICODE_STRING_SIMPLE("[[\\p{Line_break=OP}] [\\u201C\\u2018]]"), status); // en adjustments
     fQU    = new UnicodeSet(UNICODE_STRING_SIMPLE("[[\\p{Line_break=QU}]-[\\u201C\\u2018\\u201D]]"), status); // en adjustments
+#else
+    fOP    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=OP}]"), status);
+    fQU    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=QU}]"), status);
+#endif // APPLE_ICU_CHANGES
     fIS    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=IS}]"), status);
     fNU    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=NU}]"), status);
     fPO    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=PO}]"), status);
@@ -2729,10 +2789,20 @@ RBBILineMonkey::RBBILineMonkey() :
     fRI    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=RI}]"), status);
     fSG    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\ud800-\\udfff]"), status);
     fXX    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=XX}]"), status);
+#if APPLE_ICU_CHANGES
+// rdar://
     fEB    = new UnicodeSet(UNICODE_STRING_SIMPLE("[[\\p{Line_break=EB}] \\U0001F46A-\\U0001F46D\\U0001F46F\\U0001F91D\\U0001F93C]"), status);
+#else
+    fEB    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=EB}]"), status);
+#endif // APPLE_ICU_CHANGES
     fEM    = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=EM}]"), status);
     fZWJ   = new UnicodeSet(UNICODE_STRING_SIMPLE("[\\p{Line_break=ZWJ}]"), status);
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
     fOP30  = new UnicodeSet(u"[[\\p{Line_break=OP} [\\u201C\\u2018]]-[\\p{ea=F}\\p{ea=W}\\p{ea=H}]]", status); // en adjustments
+#else
+    fOP30  = new UnicodeSet(u"[\\p{Line_break=OP}-[\\p{ea=F}\\p{ea=W}\\p{ea=H}]]", status);
+#endif // APPLE_ICU_CHANGES
     fCP30  = new UnicodeSet(u"[\\p{Line_break=CP}-[\\p{ea=F}\\p{ea=W}\\p{ea=H}]]", status);
     fExtPictUnassigned = new UnicodeSet(u"[\\p{Extended_Pictographic}&\\p{Cn}]", status);
 
@@ -3750,7 +3820,7 @@ void RBBITest::TestLineBreaks(void)
         // printf("looping %d\n", loop);
         int32_t t = u_unescape(strlist[loop], str, STRSIZE);
         if (t >= STRSIZE) {
-            TEST_ASSERT(FALSE);
+            TEST_ASSERT(false);
             continue;
         }
 
@@ -3855,9 +3925,9 @@ void RBBITest::TestMonkey() {
     int32_t        seed      = 1;
     UnicodeString  breakType = "all";
     Locale         locale("en");
-    UBool          useUText  = FALSE;
+    UBool          useUText  = false;
 
-    if (quick == FALSE) {
+    if (quick == false) {
         loopCount = 10000;
     }
 
@@ -3875,7 +3945,7 @@ void RBBITest::TestMonkey() {
 
         RegexMatcher u(" *utext", p, 0, status);
         if (u.find()) {
-            useUText = TRUE;
+            useUText = true;
             u.reset();
             p = u.replaceFirst("", status);
         }
@@ -3899,9 +3969,9 @@ void RBBITest::TestMonkey() {
         BreakIterator  *bi = BreakIterator::createCharacterInstance(locale, status);
         if (U_SUCCESS(status)) {
             RunMonkey(bi, m, "char", seed, loopCount, useUText);
-            if (breakType == "all" && useUText==FALSE) {
+            if (breakType == "all" && useUText==false) {
                 // Also run a quick test with UText when "all" is specified
-                RunMonkey(bi, m, "char", seed, loopCount, TRUE);
+                RunMonkey(bi, m, "char", seed, loopCount, true);
             }
         }
         else {
@@ -4170,8 +4240,9 @@ void RBBITest::RunMonkey(BreakIterator *bi, RBBIMonkeyKind &mk, const char *name
                 currentBreakData = precedingBreaks;
             }
 
+#if APPLE_ICU_CHANGES
+// rdar://103845821  Unicode 15 integration:
             if (errorType != NULL && i > 0) {
-                // rdar://103845821  Unicode 15 integration:
                 // Test seems to think there should be a break between PR (curr sym) and OP (here 2018) if followed by CM NU
                 // but that seems to violate LB 25. Temp skip the single error report while this gets sorted out (may be
                 // an incompleteness in how the tests handle our modified classes for quotes).
@@ -4182,6 +4253,7 @@ void RBBITest::RunMonkey(BreakIterator *bi, RBBIMonkeyKind &mk, const char *name
                     }
                 }
             }
+#endif // APPLE_ICU_CHANGES
 
             if (errorType != NULL) {
                 // Format a range of the test text that includes the failure as
@@ -5196,7 +5268,7 @@ void RBBITest::TestTraceCreateLine(void) {
     LocalPointer<BreakIterator> brkitr(
         BreakIterator::createLineInstance("zh-CN", status));
     status.errIfFailureAndReset();
-    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "");
+    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "line");
 }
 
 void RBBITest::TestTraceCreateLineStrict(void) {
@@ -5205,7 +5277,7 @@ void RBBITest::TestTraceCreateLineStrict(void) {
     LocalPointer<BreakIterator> brkitr(
         BreakIterator::createLineInstance("zh-CN-u-lb-strict", status));
     status.errIfFailureAndReset();
-    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "strict");
+    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "line_strict");
 }
 
 void RBBITest::TestTraceCreateLineNormal(void) {
@@ -5214,7 +5286,7 @@ void RBBITest::TestTraceCreateLineNormal(void) {
     LocalPointer<BreakIterator> brkitr(
         BreakIterator::createLineInstance("zh-CN-u-lb-normal", status));
     status.errIfFailureAndReset();
-    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "normal");
+    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "line_normal");
 }
 
 void RBBITest::TestTraceCreateLineLoose(void) {
@@ -5223,7 +5295,43 @@ void RBBITest::TestTraceCreateLineLoose(void) {
     LocalPointer<BreakIterator> brkitr(
         BreakIterator::createLineInstance("zh-CN-u-lb-loose", status));
     status.errIfFailureAndReset();
-    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "loose");
+    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "line_loose");
+}
+
+void RBBITest::TestTraceCreateLineLoosePhrase(void) {
+    SetupTestTrace();
+    IcuTestErrorCode status(*this, "TestTraceCreateLineLoosePhrase");
+    LocalPointer<BreakIterator> brkitr(
+        BreakIterator::createLineInstance("ja-u-lb-loose-lw-phrase", status));
+    status.errIfFailureAndReset();
+    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "line_loose_phrase");
+}
+
+void RBBITest::TestTraceCreateLineNormalPhrase(void) {
+    SetupTestTrace();
+    IcuTestErrorCode status(*this, "TestTraceCreateLineNormalPhrase");
+    LocalPointer<BreakIterator> brkitr(
+        BreakIterator::createLineInstance("ja-u-lb-normal-lw-phrase", status));
+    status.errIfFailureAndReset();
+    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "line_normal_phrase");
+}
+
+void RBBITest::TestTraceCreateLineStrictPhrase(void) {
+    SetupTestTrace();
+    IcuTestErrorCode status(*this, "TestTraceCreateLineStrictPhrase");
+    LocalPointer<BreakIterator> brkitr(
+        BreakIterator::createLineInstance("ja-u-lb-strict-lw-phrase", status));
+    status.errIfFailureAndReset();
+    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "line_strict_phrase");
+}
+
+void RBBITest::TestTraceCreateLinePhrase(void) {
+    SetupTestTrace();
+    IcuTestErrorCode status(*this, "TestTraceCreateLinePhrase");
+    LocalPointer<BreakIterator> brkitr(
+        BreakIterator::createLineInstance("ja-u-lw-phrase", status));
+    status.errIfFailureAndReset();
+    assertTestTraceResult(UTRACE_UBRK_CREATE_LINE, "line_phrase");
 }
 
 void RBBITest::TestTraceCreateBreakEngine(void) {
@@ -5347,7 +5455,7 @@ void RBBITest::runLSTMTestFromFile(const char* filename, UScriptCode script) {
     }
 
     //  Put the test data into a UnicodeString
-    UnicodeString testString(FALSE, testFile, len);
+    UnicodeString testString(false, testFile, len);
 
     int32_t start = 0;
 
@@ -5463,6 +5571,68 @@ void RBBITest::TestLSTMThai() {
 
 void RBBITest::TestLSTMBurmese() {
     runLSTMTestFromFile("Burmese_graphclust_model5_heavy_Test.txt", USCRIPT_MYANMAR);
+}
+
+
+// Test preceding(index) and following(index), with semi-random indexes.
+// The random indexes are produced in clusters that are relatively closely spaced,
+// to increase the occurrences of hits to the internal break cache.
+
+void RBBITest::TestRandomAccess() {
+    static constexpr int32_t CACHE_SIZE = 128;
+
+    UnicodeString testData;
+    for (int i=0; i<CACHE_SIZE*2; ++i) {
+        testData.append(u"aaaa\n");
+    }
+
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<RuleBasedBreakIterator> bi(
+            (RuleBasedBreakIterator *)BreakIterator::createLineInstance(Locale::getEnglish(), status),
+            status);
+    if (!assertSuccess(WHERE, status)) { return; };
+
+    bi->setText(testData);
+
+    auto expectedPreceding = [](int from) {
+        if (from == 0) {return UBRK_DONE;}
+        if (from % 5 == 0) {return from - 5;}
+        return from - (from % 5);
+    };
+
+    auto expectedFollow = [testData](int from) {
+        if (from >= testData.length()) {return UBRK_DONE;}
+        if (from % 5 == 0) {return from + 5;}
+        return from + (5 - (from % 5));
+    };
+
+    auto randomStringIndex = [testData]() {
+        static icu_rand randomGenerator;  // produces random uint32_t values.
+        static int lastNum;
+        static int clusterCount;
+        static constexpr int CLUSTER_SIZE = 100;
+        static constexpr int CLUSTER_LENGTH = 10;
+
+        if (clusterCount < CLUSTER_LENGTH) {
+            ++clusterCount;
+            lastNum += (randomGenerator() % CLUSTER_SIZE);
+            lastNum -= CLUSTER_SIZE / 2;
+            lastNum = std::max(0, lastNum);
+            // Deliberately test indexes > testData.length.
+            lastNum = std::min(testData.length() + 5, lastNum);
+        } else {
+            clusterCount = 0;
+            lastNum = randomGenerator() % testData.length();
+        }
+        return lastNum;
+    };
+
+    for (int i=0; i<5000; ++i) {
+        int idx = randomStringIndex();
+        assertEquals(WHERE, expectedFollow(idx), bi->following(idx));
+        idx = randomStringIndex();
+        assertEquals(WHERE, expectedPreceding(idx), bi->preceding(idx));
+    }
 }
 
 #endif // #if !UCONFIG_NO_BREAK_ITERATION

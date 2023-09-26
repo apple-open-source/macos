@@ -11,6 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FDF276580FC60EE600D7A3C6 /* Build configuration list for PBXAggregateTarget "Embedded" */;
 			buildPhases = (
+				CB2FE68C29758D520068C9C2 /* Install test files */,
 			);
 			dependencies = (
 				D3D4D6A82601949B00C8FE88 /* PBXTargetDependency */,
@@ -23,6 +24,7 @@
 			buildConfigurationList = FDF276570FC60EE600D7A3C6 /* Build configuration list for PBXAggregateTarget "Desktop" */;
 			buildPhases = (
 				3247F2CE282E8E9000230C0A /* Install OpenSource plist */,
+				CB2171E829758BEF00A9CD7F /* Install test files */,
 			);
 			dependencies = (
 				FDF2775B0FC6102600D7A3C6 /* PBXTargetDependency */,
@@ -40,6 +42,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2E859FEF29971BE6000E6212 /* password_enabled.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E859FEE29971BE6000E6212 /* password_enabled.c */; };
+		CB2171E629758BAF00A9CD7F /* tftp_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB2171E529758BAF00A9CD7F /* tftp_test.sh */; };
 		D3D4D1162601859700C8FE88 /* logger.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1132601859000C8FE88 /* logger.c */; };
 		D3D4D1292601859D00C8FE88 /* logger.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = D3D4D1152601859000C8FE88 /* logger.1 */; };
 		D3D4D1F12601867400C8FE88 /* msgs.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1D92601861600C8FE88 /* msgs.c */; };
@@ -191,6 +195,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		CB2171E429758B7400A9CD7F /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/remote_cmds/tftp;
+			dstSubfolderSpec = 0;
+			files = (
+				CB2171E629758BAF00A9CD7F /* tftp_test.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		D3D4D2AE2601889000C8FE88 /* Install launchd plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -304,6 +319,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2E859FEE29971BE6000E6212 /* password_enabled.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = password_enabled.c; sourceTree = "<group>"; };
+		CB2171E529758BAF00A9CD7F /* tftp_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = tftp_test.sh; path = tftp/tests/tftp_test.sh; sourceTree = "<group>"; };
 		D3343E8D26095DF1005A89FC /* generate_plist.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = generate_plist.sh; sourceTree = "<group>"; };
 		D3343ED226095FC0005A89FC /* install_plist.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = install_plist.sh; sourceTree = "<group>"; };
 		D3D4D1132601859000C8FE88 /* logger.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = logger.c; sourceTree = "<group>"; };
@@ -610,6 +627,7 @@
 		FDF276410FC60E9000D7A3C6 = {
 			isa = PBXGroup;
 			children = (
+				CB2171E529758BAF00A9CD7F /* tftp_test.sh */,
 				FDF276DA0FC60FD800D7A3C6 /* Source */,
 				FDF2765D0FC60EF600D7A3C6 /* Products */,
 				D3D4D2362601874300C8FE88 /* Frameworks */,
@@ -634,6 +652,7 @@
 		FDF276DA0FC60FD800D7A3C6 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				2E859FEE29971BE6000E6212 /* password_enabled.c */,
 				D3D4D1122601859000C8FE88 /* logger */,
 				D3D4D1D82601861600C8FE88 /* talk */,
 				D3D4D1C82601861600C8FE88 /* talkd */,
@@ -729,6 +748,7 @@
 				FDF276900FC60F4B00D7A3C6 /* Sources */,
 				FDF276910FC60F4B00D7A3C6 /* Frameworks */,
 				FDF278E70FC620B600D7A3C6 /* Install man1 */,
+				CB2171E429758B7400A9CD7F /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -845,6 +865,42 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh\n";
+		};
+		CB2171E829758BEF00A9CD7F /* Install test files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install test files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-test-files.sh\n";
+		};
+		CB2FE68C29758D520068C9C2 /* Install test files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install test files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-test-files.sh\n";
 		};
 		D3343E8F26095EC9005A89FC /* Generate launchd plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1018,6 +1074,7 @@
 				D3D4D39626018B7B00C8FE88 /* utility.c in Sources */,
 				D3D4D39726018B7B00C8FE88 /* state.c in Sources */,
 				D3D4D39926018B7B00C8FE88 /* pathnames.h in Sources */,
+				2E859FEF29971BE6000E6212 /* password_enabled.c in Sources */,
 				D3D4D39A26018B7B00C8FE88 /* telnetd.h in Sources */,
 				D3D4D39B26018B7B00C8FE88 /* sys_term.c in Sources */,
 				D3D4D39E26018B7B00C8FE88 /* global.c in Sources */,

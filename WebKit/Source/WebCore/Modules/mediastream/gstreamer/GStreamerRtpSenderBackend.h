@@ -21,7 +21,6 @@
 
 #if ENABLE(WEB_RTC) && USE(GSTREAMER_WEBRTC)
 
-#include "GStreamerPeerConnectionBackend.h"
 #include "GUniquePtrGStreamer.h"
 #include "RTCRtpSenderBackend.h"
 #include "RealtimeOutgoingAudioSourceGStreamer.h"
@@ -35,21 +34,9 @@ class GStreamerPeerConnectionBackend;
 class GStreamerRtpSenderBackend final : public RTCRtpSenderBackend {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    GStreamerRtpSenderBackend(GStreamerPeerConnectionBackend& backend, GRefPtr<GstWebRTCRTPSender>&& rtcSender, GUniquePtr<GstStructure>&& initData)
-        : m_peerConnectionBackend(WeakPtr { &backend })
-        , m_rtcSender(WTFMove(rtcSender))
-        , m_initData(WTFMove(initData))
-    {
-    }
-
+    GStreamerRtpSenderBackend(GStreamerPeerConnectionBackend&, GRefPtr<GstWebRTCRTPSender>&&, GUniquePtr<GstStructure>&& initData);
     using Source = std::variant<std::nullptr_t, Ref<RealtimeOutgoingAudioSourceGStreamer>, Ref<RealtimeOutgoingVideoSourceGStreamer>>;
-    GStreamerRtpSenderBackend(GStreamerPeerConnectionBackend& backend, GRefPtr<GstWebRTCRTPSender>&& rtcSender, Source&& source, GUniquePtr<GstStructure>&& initData)
-        : m_peerConnectionBackend(WeakPtr { &backend })
-        , m_rtcSender(WTFMove(rtcSender))
-        , m_source(WTFMove(source))
-        , m_initData(WTFMove(initData))
-    {
-    }
+    GStreamerRtpSenderBackend(GStreamerPeerConnectionBackend&, GRefPtr<GstWebRTCRTPSender>&&, Source&&, GUniquePtr<GstStructure>&& initData);
 
     void setRTCSender(GRefPtr<GstWebRTCRTPSender>&& rtcSender) { m_rtcSender = WTFMove(rtcSender); }
     GstWebRTCRTPSender* rtcSender() { return m_rtcSender.get(); }
@@ -78,26 +65,11 @@ public:
         );
     }
 
-    void clearSource()
-    {
-        ASSERT(hasSource());
-        m_source = nullptr;
-    }
+    void clearSource();
+    void setSource(Source&&);
+    void takeSource(GStreamerRtpSenderBackend&);
 
-    void setSource(Source&& source)
-    {
-        ASSERT(!hasSource());
-        m_source = WTFMove(source);
-        ASSERT(hasSource());
-    }
-
-    void takeSource(GStreamerRtpSenderBackend& backend)
-    {
-        ASSERT(backend.hasSource());
-        setSource(WTFMove(backend.m_source));
-    }
-
-    WARN_UNUSED_RETURN GRefPtr<GstElement> stopSource();
+    void stopSource();
 
 private:
     bool replaceTrack(RTCRtpSender&, MediaStreamTrack*) final;

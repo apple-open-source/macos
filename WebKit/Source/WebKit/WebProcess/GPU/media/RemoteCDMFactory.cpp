@@ -39,8 +39,7 @@ namespace WebKit {
 
 using namespace WebCore;
 
-RemoteCDMFactory::RemoteCDMFactory(WebProcess& process)
-    : m_process(process)
+RemoteCDMFactory::RemoteCDMFactory(WebProcess&)
 {
 }
 
@@ -58,7 +57,7 @@ const char* RemoteCDMFactory::supplementName()
 
 GPUProcessConnection& RemoteCDMFactory::gpuProcessConnection()
 {
-    return m_process.ensureGPUProcessConnection();
+    return WebProcess::singleton().ensureGPUProcessConnection();
 }
 
 bool RemoteCDMFactory::supportsKeySystem(const String& keySystem)
@@ -97,7 +96,7 @@ void RemoteCDMFactory::removeInstance(RemoteCDMInstanceIdentifier identifier)
 
 void RemoteCDMFactory::didReceiveSessionMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (auto session = m_sessions.get(makeObjectIdentifier<RemoteCDMInstanceSessionIdentifierType>(decoder.destinationID())))
+    if (auto session = m_sessions.get(ObjectIdentifier<RemoteCDMInstanceSessionIdentifierType>(decoder.destinationID())))
         session->didReceiveMessage(connection, decoder);
 }
 

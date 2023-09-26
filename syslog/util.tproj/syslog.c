@@ -1943,15 +1943,17 @@ sort_compare_key(asl_msg_t *a, asl_msg_t *b, const char *key)
 }
 
 int
-sort_compare(const void **ap, const void **bp)
+sort_compare(const void *ap, const void *bp)
 {
 	int cmp;
 	asl_msg_t *a, *b;
 
 	if (sort_key == NULL) return 0;
 
-	a = (asl_msg_t *)*ap;
-	b = (asl_msg_t *)*bp;
+	// The compare function must take void* as args, but we know the args point to asl_mst_t*
+	// This is ugly, but we have to cast to asl_mst_t** and dereference
+	a = *(const asl_msg_t**)ap;
+	b = *(const asl_msg_t**)bp;
 
 	cmp = sort_compare_key(a, b, sort_key);
 	if ((cmp == 0) && (sort_key_2 != NULL)) cmp = sort_compare_key(a, b, sort_key_2);

@@ -254,8 +254,14 @@ protected:
     ResourceValue() {}
 
 private:
+#if APPLE_ICU_CHANGES
+// rdar://86727185 Please adopt InstallAPI & enable Deadstripping...
     ResourceValue(const ResourceValue &) = delete;  // no copy constructor
     ResourceValue &operator=(const ResourceValue &) = delete;  // no assignment operator
+#else
+    ResourceValue(const ResourceValue &);  // no copy constructor
+    ResourceValue &operator=(const ResourceValue &);  // no assignment operator
+#endif  // APPLE_ICU_CHANGES
 };
 
 /**

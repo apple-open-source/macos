@@ -229,6 +229,8 @@ void Graph::dump(PrintStream& out, const char* prefixStr, Node* node, DumpContex
         out.print(comma, SpeculationDump(node->prediction()));
     if (node->hasNumberOfArgumentsToSkip())
         out.print(comma, "numberOfArgumentsToSkip = ", node->numberOfArgumentsToSkip());
+    if (node->hasNumberOfBoundArguments())
+        out.print(comma, "numberOfBoundArguments = ", node->numberOfBoundArguments());
     if (node->hasArrayMode())
         out.print(comma, node->arrayMode());
     if (node->hasArithUnaryType())
@@ -287,6 +289,8 @@ void Graph::dump(PrintStream& out, const char* prefixStr, Node* node, DumpContex
     }
     if (node->hasQueriedType())
         out.print(comma, node->queriedType());
+    if (node->hasStructureFlags())
+        out.print(comma, node->structureFlags());
     if (node->hasStorageAccessData()) {
         StorageAccessData& storageAccessData = node->storageAccessData();
         out.print(comma, "id", storageAccessData.identifierNumber, "{", identifiers()[storageAccessData.identifierNumber], "}");
@@ -389,6 +393,8 @@ void Graph::dump(PrintStream& out, const char* prefixStr, Node* node, DumpContex
         out.print(comma, *node->putByStatus());
     if (node->hasEnumeratorMetadata())
         out.print(comma, "enumeratorModes = ", node->enumeratorMetadata().toRaw());
+    if (node->hasExtractOffset())
+        out.print(comma, "<<", node->extractOffset());
     if (node->isJump())
         out.print(comma, "T:", *node->targetBlock());
     if (node->isBranch())
@@ -679,6 +685,11 @@ void Graph::packNodeIndices()
     m_nodes.packIndices();
 }
 
+void Graph::clearAbstractValues()
+{
+    m_abstractValuesCache->clear();
+}
+
 void Graph::dethread()
 {
     if (m_form == LoadStore || m_form == SSA)
@@ -763,7 +774,9 @@ public:
             for (unsigned phiIndex = block->phis.size(); phiIndex--;)
                 block->phis[phiIndex]->setRefCount(0);
         }
-    
+        for (auto& tupleData : m_graph.m_tupleData)
+            tupleData.refCount = 0;
+
         // Now find the roots:
         // - Nodes that are must-generate.
         // - Nodes that are reachable from type checks.
@@ -818,8 +831,7 @@ private:
         // will just not have gotten around to it.
         if (edge.isProved() || edge.willNotHaveCheck())
             return;
-        if (!edge->postfixRef())
-            m_worklist.append(edge.node());
+        countNode(edge.node());
     }
     
     void countNode(Node* node)
@@ -829,11 +841,14 @@ private:
         m_worklist.append(node);
     }
     
-    void countEdge(Node*, Edge edge)
+    void countEdge(Node* node, Edge edge)
     {
         // Don't count edges that are already counted for their type checks.
         if (!(edge.isProved() || edge.willNotHaveCheck()))
             return;
+        // Tuples are special and have a reference count for each result.
+        if (node->op() == ExtractFromTuple)
+            m_graph.m_tupleData.at(node->tupleIndex()).refCount++;
         countNode(edge.node());
     }
     
@@ -1448,6 +1463,22 @@ JSArrayBufferView* Graph::tryGetFoldableView(JSValue value, ArrayMode arrayMode)
     return tryGetFoldableView(value);
 }
 
+JSValue Graph::tryGetConstantGetter(Node* getterSetter)
+{
+    auto* cell = getterSetter->dynamicCastConstant<GetterSetter*>();
+    if (!cell)
+        return JSValue();
+    return cell->getterConcurrently();
+}
+
+JSValue Graph::tryGetConstantSetter(Node* getterSetter)
+{
+    auto* cell = getterSetter->dynamicCastConstant<GetterSetter*>();
+    if (!cell)
+        return JSValue();
+    return cell->setterConcurrently();
+}
+
 void Graph::registerFrozenValues()
 {
     ConcurrentJSLocker locker(m_codeBlock->m_lock);
@@ -1912,6 +1943,18 @@ void Graph::freeDFGIRAfterLowering()
     m_backwardsCFG = nullptr;
     m_backwardsDominators = nullptr;
     m_controlEquivalenceAnalysis = nullptr;
+}
+
+const BoyerMooreHorspoolTable<uint8_t>* Graph::tryAddStringSearchTable8(const String& string)
+{
+    constexpr unsigned minPatternLength = 9;
+    if (string.length() > BoyerMooreHorspoolTable<uint8_t>::maxPatternLength)
+        return nullptr;
+    if (string.length() < minPatternLength)
+        return nullptr;
+    return m_stringSearchTable8.ensure(string, [&]() {
+        return makeUnique<BoyerMooreHorspoolTable<uint8_t>>(string);
+    }).iterator->value.get();
 }
 
 void Prefix::dump(PrintStream& out) const

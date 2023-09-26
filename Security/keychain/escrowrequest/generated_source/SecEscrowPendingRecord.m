@@ -21,12 +21,12 @@
 @synthesize certCached = _certCached;
 - (void)setCertCached:(BOOL)v
 {
-    _has.certCached = YES;
+    _has.certCached = (uint)YES;
     _certCached = v;
 }
 - (void)setHasCertCached:(BOOL)f
 {
-    _has.certCached = f;
+    _has.certCached = (uint)f;
 }
 - (BOOL)hasCertCached
 {
@@ -40,12 +40,12 @@
 @synthesize lastCloudServicesTriggerTime = _lastCloudServicesTriggerTime;
 - (void)setLastCloudServicesTriggerTime:(uint64_t)v
 {
-    _has.lastCloudServicesTriggerTime = YES;
+    _has.lastCloudServicesTriggerTime = (uint)YES;
     _lastCloudServicesTriggerTime = v;
 }
 - (void)setHasLastCloudServicesTriggerTime:(BOOL)f
 {
-    _has.lastCloudServicesTriggerTime = f;
+    _has.lastCloudServicesTriggerTime = (uint)f;
 }
 - (BOOL)hasLastCloudServicesTriggerTime
 {
@@ -54,12 +54,12 @@
 @synthesize lastEscrowAttemptTime = _lastEscrowAttemptTime;
 - (void)setLastEscrowAttemptTime:(uint64_t)v
 {
-    _has.lastEscrowAttemptTime = YES;
+    _has.lastEscrowAttemptTime = (uint)YES;
     _lastEscrowAttemptTime = v;
 }
 - (void)setHasLastEscrowAttemptTime:(BOOL)f
 {
-    _has.lastEscrowAttemptTime = f;
+    _has.lastEscrowAttemptTime = (uint)f;
 }
 - (BOOL)hasLastEscrowAttemptTime
 {
@@ -68,12 +68,12 @@
 @synthesize uploadCompleted = _uploadCompleted;
 - (void)setUploadCompleted:(BOOL)v
 {
-    _has.uploadCompleted = YES;
+    _has.uploadCompleted = (uint)YES;
     _uploadCompleted = v;
 }
 - (void)setHasUploadCompleted:(BOOL)f
 {
-    _has.uploadCompleted = f;
+    _has.uploadCompleted = (uint)f;
 }
 - (BOOL)hasUploadCompleted
 {
@@ -82,12 +82,12 @@
 @synthesize uploadRetries = _uploadRetries;
 - (void)setUploadRetries:(uint64_t)v
 {
-    _has.uploadRetries = YES;
+    _has.uploadRetries = (uint)YES;
     _uploadRetries = v;
 }
 - (void)setHasUploadRetries:(BOOL)f
 {
-    _has.uploadRetries = f;
+    _has.uploadRetries = (uint)f;
 }
 - (BOOL)hasUploadRetries
 {
@@ -101,12 +101,12 @@
 @synthesize triggerRequestTime = _triggerRequestTime;
 - (void)setTriggerRequestTime:(uint64_t)v
 {
-    _has.triggerRequestTime = YES;
+    _has.triggerRequestTime = (uint)YES;
     _triggerRequestTime = v;
 }
 - (void)setHasTriggerRequestTime:(BOOL)f
 {
-    _has.triggerRequestTime = f;
+    _has.triggerRequestTime = (uint)f;
 }
 - (BOOL)hasTriggerRequestTime
 {
@@ -193,7 +193,7 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
             break;
             case 2 /* certCached */:
             {
-                self->_has.certCached = YES;
+                self->_has.certCached = (uint)YES;
                 self->_certCached = PBReaderReadBOOL(reader);
             }
             break;
@@ -205,25 +205,25 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
             break;
             case 4 /* lastCloudServicesTriggerTime */:
             {
-                self->_has.lastCloudServicesTriggerTime = YES;
+                self->_has.lastCloudServicesTriggerTime = (uint)YES;
                 self->_lastCloudServicesTriggerTime = PBReaderReadUint64(reader);
             }
             break;
             case 5 /* lastEscrowAttemptTime */:
             {
-                self->_has.lastEscrowAttemptTime = YES;
+                self->_has.lastEscrowAttemptTime = (uint)YES;
                 self->_lastEscrowAttemptTime = PBReaderReadUint64(reader);
             }
             break;
             case 6 /* uploadCompleted */:
             {
-                self->_has.uploadCompleted = YES;
+                self->_has.uploadCompleted = (uint)YES;
                 self->_uploadCompleted = PBReaderReadBOOL(reader);
             }
             break;
             case 7 /* uploadRetries */:
             {
-                self->_has.uploadRetries = YES;
+                self->_has.uploadRetries = (uint)YES;
                 self->_uploadRetries = PBReaderReadUint64(reader);
             }
             break;
@@ -235,7 +235,7 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
             break;
             case 9 /* triggerRequestTime */:
             {
-                self->_has.triggerRequestTime = YES;
+                self->_has.triggerRequestTime = (uint)YES;
                 self->_triggerRequestTime = PBReaderReadUint64(reader);
             }
             break;

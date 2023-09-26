@@ -26,8 +26,8 @@
 #import "config.h"
 #import "RenderThemeCocoa.h"
 
-#import "ApplePayLogoSystemImage.h"
 #import "AttachmentLayout.h"
+#import "CaretRectComputation.h"
 #import "DrawGlyphsRecorder.h"
 #import "FloatRoundedRect.h"
 #import "FontCacheCoreText.h"
@@ -40,22 +40,29 @@
 #import <CoreGraphics/CoreGraphics.h>
 #import <algorithm>
 #import <pal/spi/cf/CoreTextSPI.h>
+#import <pal/spi/cocoa/FeatureFlagsSPI.h>
 #import <wtf/Language.h>
+
+#if ENABLE(APPLE_PAY)
+#import "ApplePayButtonPart.h"
+#import "ApplePayLogoSystemImage.h"
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+#import <UIKit/UIFont.h>
+#endif
 
 #if ENABLE(VIDEO)
 #import "LocalizedStrings.h"
 #import <wtf/BlockObjCExceptions.h>
 #endif
 
-#if PLATFORM(MAC)
-#import <AppKit/NSFont.h>
-#else
-#import <UIKit/UIFont.h>
-#import <pal/ios/UIKitSoftLink.h>
-#endif
-
 #if ENABLE(APPLE_PAY)
 #import <pal/cocoa/PassKitSoftLink.h>
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+#import <pal/ios/UIKitSoftLink.h>
 #endif
 
 @interface WebCoreRenderThemeBundle : NSObject
@@ -70,6 +77,15 @@ constexpr int kThumbnailBorderStrokeWidth = 1;
 constexpr int kThumbnailBorderCornerRadius = 1;
 constexpr int kVisibleBackgroundImageWidth = 1;
 constexpr int kMultipleThumbnailShrinkSize = 2;
+
+static inline bool canShowCapsLockIndicator()
+{
+#if HAVE(ACCELERATED_TEXT_INPUT)
+    if (redesignedTextCursorEnabled())
+        return false;
+#endif
+    return true;
+}
 
 RenderThemeCocoa& RenderThemeCocoa::singleton()
 {
@@ -89,7 +105,7 @@ void RenderThemeCocoa::purgeCaches()
 
 bool RenderThemeCocoa::shouldHaveCapsLockIndicator(const HTMLInputElement& element) const
 {
-    return element.isPasswordField();
+    return canShowCapsLockIndicator() && element.isPasswordField();
 }
 
 Color RenderThemeCocoa::pictureFrameColor(const RenderObject& buttonRenderer)
@@ -149,26 +165,6 @@ void RenderThemeCocoa::adjustApplePayButtonStyle(RenderStyle& style, const Eleme
         auto cornerRadius = PKApplePayButtonDefaultCornerRadius;
         style.setBorderRadius({ { cornerRadius, LengthType::Fixed }, { cornerRadius, LengthType::Fixed } });
     }
-}
-
-bool RenderThemeCocoa::paintApplePayButton(const RenderObject& renderer, const PaintInfo& paintInfo, const IntRect& paintRect)
-{
-    auto& style = renderer.style();
-    auto largestCornerRadius = std::max<CGFloat>({
-        floatValueForLength(style.borderTopLeftRadius().height, paintRect.height()),
-        floatValueForLength(style.borderTopLeftRadius().width, paintRect.width()),
-        floatValueForLength(style.borderTopRightRadius().height, paintRect.height()),
-        floatValueForLength(style.borderTopRightRadius().width, paintRect.width()),
-        floatValueForLength(style.borderBottomLeftRadius().height, paintRect.height()),
-        floatValueForLength(style.borderBottomLeftRadius().width, paintRect.width()),
-        floatValueForLength(style.borderBottomRightRadius().height, paintRect.height()),
-        floatValueForLength(style.borderBottomRightRadius().width, paintRect.width())
-    });
-    String locale = style.computedLocale();
-    if (locale.isEmpty())
-        locale = defaultLanguage(ShouldMinimizeLanguages::No);
-    paintInfo.context().drawSystemImage(ApplePayButtonSystemImage::create(style.applePayButtonType(), style.applePayButtonStyle(), locale, largestCornerRadius), paintRect);
-    return false;
 }
 
 #endif // ENABLE(APPLE_PAY)
@@ -261,5 +257,33 @@ void RenderThemeCocoa::paintAttachmentText(GraphicsContext& context, AttachmentL
 }
 
 #endif
+
+Color RenderThemeCocoa::platformSpellingMarkerColor(OptionSet<StyleColorOptions> options) const
+{
+    auto useDarkMode = options.contains(StyleColorOptions::UseDarkAppearance);
+    return useDarkMode ? SRGBA<uint8_t> { 255, 140, 140, 217 } : SRGBA<uint8_t> { 255, 59, 48, 191 };
+}
+
+Color RenderThemeCocoa::platformDictationAlternativesMarkerColor(OptionSet<StyleColorOptions> options) const
+{
+    auto useDarkMode = options.contains(StyleColorOptions::UseDarkAppearance);
+    return useDarkMode ? SRGBA<uint8_t> { 40, 145, 255, 217 } : SRGBA<uint8_t> { 0, 122, 255, 191 };
+}
+
+Color RenderThemeCocoa::platformGrammarMarkerColor(OptionSet<StyleColorOptions> options) const
+{
+    auto useDarkMode = options.contains(StyleColorOptions::UseDarkAppearance);
+#if ENABLE(POST_EDITING_GRAMMAR_CHECKING)
+    static bool useBlueForGrammar = false;
+    static std::once_flag flag;
+    std::call_once(flag, [] {
+        useBlueForGrammar = os_feature_enabled(TextComposer, PostEditing) && os_feature_enabled(TextComposer, PostEditingUseBlueDots);
+    });
+
+    if (useBlueForGrammar)
+        return useDarkMode ? SRGBA<uint8_t> { 40, 145, 255, 217 } : SRGBA<uint8_t> { 0, 122, 255, 191 };
+#endif
+    return useDarkMode ? SRGBA<uint8_t> { 50, 215, 75, 217 } : SRGBA<uint8_t> { 25, 175, 50, 191 };
+}
 
 }

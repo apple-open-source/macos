@@ -669,6 +669,54 @@
 		<key>CertDirectory</key>
 		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
+		<string>AppleXROSAppSigning</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest-Test</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.113</string>
+		</dict>
+		<key>Leaf</key>
+		<string>test_xros_app_signing</string>
+		<key>Intermediates</key>
+		<string>AppleWWDR-G5</string>
+		<key>Anchors</key>
+		<string>AppleRootCA</string>
+		<key>VerifyDate</key>
+		<date>2022-11-11T19:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>AppleXROSAppSigning</string>
+		<key>MinorTestName</key>
+		<string>NegativeTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.113</string>
+		</dict>
+		<key>Leaf</key>
+		<string>test_tvos_app_signing</string>
+		<key>Intermediates</key>
+		<string>AppleWWDR-G5</string>
+		<key>Anchors</key>
+		<string>AppleRootCA</string>
+		<key>VerifyDate</key>
+		<date>2022-11-11T19:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
 		<string>EAPTLS</string>
 		<key>MinorTestName</key>
 		<string>InvalidEKU</string>
@@ -3990,43 +4038,6 @@
 		<key>MajorTestName</key>
 		<string>kSecPolicyCheckCAspkiSHA256</string>
 		<key>MinorTestName</key>
-		<string>root-good</string>
-		<key>Policies</key>
-		<dict>
-			<key>PolicyIdentifier</key>
-			<string>1.2.840.113635.100.1.3</string>
-			<key>Properties</key>
-			<dict>
-				<key>SecPolicyName</key>
-				<string>init.ess.apple.com</string>
-				<key>SecPolicyClient</key>
-				<false/>
-				<key>CAspkiSHA256</key>
-				<array>
-					<string>QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=</string>
-					<string>pmuYhKz98VG4gaGpUvi3y7CEl5+yJNGQ8/ARWg4FVnw=</string>
-				</array>
-			</dict>
-		</dict>
-		<key>Leaf</key>
-		<string>ids_test</string>
-		<key>Intermediates</key>
-		<string>TestAppleServerAuthentication</string>
-		<key>Anchors</key>
-		<string>TestAppleRootCA</string>
-		<key>ExpectedResult</key>
-		<integer>4</integer>
-		<key>ChainLength</key>
-		<integer>3</integer>
-		<key>VerifyDate</key>
-		<date>2020-09-15T00:00:00Z</date>
-	</dict>
-	<dict>
-		<key>CertDirectory</key>
-		<string>si-20-sectrust-policies-data</string>
-		<key>MajorTestName</key>
-		<string>kSecPolicyCheckCAspkiSHA256</string>
-		<key>MinorTestName</key>
 		<string>leaf-good-intermediate-good-root-good</string>
 		<key>Policies</key>
 		<dict>
@@ -4255,6 +4266,35 @@
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>PolicyOrder</string>
+		<key>MinorTestName</key>
+		<string>UnknownExtension</string>
+		<key>Policies</key>
+		<array>
+			<dict>
+				<key>PolicyIdentifier</key>
+				<string>1.2.840.113635.100.1.21</string>
+			</dict>
+			<dict>
+				<key>PolicyIdentifier</key>
+				<string>1.2.840.113635.100.1.2</string>
+			</dict>
+		</array>
+		<key>Leaf</key>
+		<string>UnknownCriticalExtension</string>
+		<key>Anchors</key>
+		<string>NISTRoot</string>
+		<key>VerifyDate</key>
+		<date>2015-09-01T00:19:45Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
+		<key>ChainLength</key>
+		<integer>2</integer>
 	</dict>
 </array>
 </plist>

@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998,2008 Free Software Foundation, Inc.                   --
+-- Copyright (c) 1998-2011,2014 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -35,31 +35,23 @@
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.9 $
---  $Date: 2008/07/26 18:49:47 $
+--  $Revision: 1.13 $
+--  $Date: 2014/05/24 21:31:05 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 with Terminal_Interface.Curses.Aux; use Terminal_Interface.Curses.Aux;
 
 package body Terminal_Interface.Curses.Forms.Field_Types.IPV4_Address is
 
-   procedure Set_Field_Type (Fld : in Field;
-                             Typ : in Internet_V4_Address_Field)
+   procedure Set_Field_Type (Fld : Field;
+                             Typ : Internet_V4_Address_Field)
    is
-      C_IPV4_Field_Type : C_Field_Type;
-      pragma Import (C, C_IPV4_Field_Type, "TYPE_IPV4");
+      function Set_Fld_Type (F : Field := Fld)
+                             return Eti_Error;
+      pragma Import (C, Set_Fld_Type, "set_field_type_ipv4");
 
-      function Set_Fld_Type (F    : Field := Fld;
-                             Cft  : C_Field_Type := C_IPV4_Field_Type)
-                             return C_Int;
-      pragma Import (C, Set_Fld_Type, "set_field_type");
-
-      Res : Eti_Error;
    begin
-      Res := Set_Fld_Type;
-      if Res /= E_Ok then
-         Eti_Exception (Res);
-      end if;
+      Eti_Exception (Set_Fld_Type);
       Wrap_Builtin (Fld, Typ);
    end Set_Field_Type;
 

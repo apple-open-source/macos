@@ -207,7 +207,7 @@ BlobValue::evaluate(const CssmData &inData1, const CssmData &inData2, CSSM_DB_OP
             return false;
 		data2 += (length2 - length1);
 		length2 = length1;
-        // dropthrough...
+        [[fallthrough]];
 
     case CSSM_DB_EQUAL:
 	DB_EQUAL:

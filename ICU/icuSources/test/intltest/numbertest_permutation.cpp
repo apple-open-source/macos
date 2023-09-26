@@ -106,6 +106,11 @@ void NumberPermutationTest::testPermutations() {
     std::vector<UnicodeString> resultLines;
     resultLines.push_back(u"# © 2019 and later: Unicode, Inc. and others.");
     resultLines.push_back(u"# License & terms of use: http://www.unicode.org/copyright.html");
+#if APPLE_ICU_CHANGES
+// rdar://
+    resultLines.push_back(u"# Note: comment lines added here need also to be added in NumberPermutationTest::testPermutations()");
+    resultLines.push_back(u"# rdar:// updated per Apple changes for zh-TW spacing, es-MX percent format");
+#endif  // APPLE_ICU_CHANGES
     resultLines.push_back(UnicodeString());
 
     // Take combinations of 3 orthogonal options
@@ -163,7 +168,7 @@ outerEnd:
 
     // Compare it to the golden file
     const char* codePage = "UTF-8";
-    LocalUCHARBUFPointer f(ucbuf_open(goldenFilePath.data(), &codePage, TRUE, FALSE, status));
+    LocalUCHARBUFPointer f(ucbuf_open(goldenFilePath.data(), &codePage, true, false, status));
     if (!assertSuccess("Can't open data file", status)) {
         return;
     }

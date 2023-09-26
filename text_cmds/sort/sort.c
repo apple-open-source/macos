@@ -489,10 +489,12 @@ set_signal_handler(void)
 		perror("sigaction");
 		return;
 	}
+#ifndef __APPLE__
 	if (sigaction(SIGABRT, &sa, NULL) < 0) {
 		perror("sigaction");
 		return;
 	}
+#endif
 	if (sigaction(SIGBUS, &sa, NULL) < 0) {
 		perror("sigaction");
 		return;

@@ -31,11 +31,11 @@
 
 #import "BridgeJSC.h"
 #import "CommonVM.h"
-#import "DOMWindow.h"
-#import "Frame.h"
 #import "FrameLoader.h"
-#import "FrameLoaderClient.h"
-#import "JSDOMWindow.h"
+#import "JSLocalDOMWindow.h"
+#import "LocalDOMWindow.h"
+#import "LocalFrame.h"
+#import "LocalFrameLoaderClient.h"
 #import "WebScriptObjectPrivate.h"
 #import "Widget.h"
 #import "objc_instance.h"
@@ -75,7 +75,7 @@ RefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWidget(
 
 WebScriptObject *ScriptController::windowScriptObject()
 {
-    if (!canExecuteScripts(NotAboutToExecuteScript))
+    if (!canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
         return nil;
 
     if (!m_windowScriptObject) {
@@ -90,7 +90,7 @@ WebScriptObject *ScriptController::windowScriptObject()
 JSContext *ScriptController::javaScriptContext()
 {
 #if JSC_OBJC_API_ENABLED
-    if (!canExecuteScripts(NotAboutToExecuteScript))
+    if (!canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
         return 0;
     JSContext *context = [JSContext contextWithJSGlobalContextRef:toGlobalRef(bindingRootObject()->globalObject())];
     return context;

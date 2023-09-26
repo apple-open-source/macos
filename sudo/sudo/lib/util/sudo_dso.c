@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010, 2012-2014 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010, 2012-2014, 2021-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,6 +23,11 @@
 
 #include <config.h>
 
+#ifdef __linux__
+# include <sys/stat.h>
+# include <sys/utsname.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +40,7 @@
 
 #include "sudo_compat.h"
 #include "sudo_dso.h"
+#include "sudo_util.h"
 
 /*
  * Pointer for statically compiled symbols.
@@ -118,7 +124,7 @@ sudo_dso_findsym_v1(void *vhandle, const char *symbol)
     }
 
     /*
-     * Note that the behavior of of SUDO_DSO_NEXT and SUDO_DSO_SELF 
+     * Note that the behavior of of SUDO_DSO_NEXT and SUDO_DSO_SELF
      * differs from most implementations when called from
      * a shared library.
      */
@@ -156,21 +162,67 @@ sudo_dso_strerror_v1(void)
 
 #elif defined(HAVE_DLOPEN)
 
-# ifndef RTLD_GLOBAL
-#  define RTLD_GLOBAL	0
-# endif
-
 #ifdef __APPLE_DYNAMIC_LV__
 #include <System/sys/codesign.h>
 #include <unistd.h>
 #include <fcntl.h>
 #endif /* __APPLE_DYNAMIC_LV__ */
 
+# ifndef RTLD_GLOBAL
+#  define RTLD_GLOBAL	0
+# endif
+
+/* Default member names for AIX when dlopen()ing an ar (.a) file. */
+# ifdef RTLD_MEMBER
+#  ifdef __LP64__
+#   define SUDO_DSO_MEMBER	"shr_64.o"
+#  else
+#   define SUDO_DSO_MEMBER	"shr.o"
+#  endif
+# endif
+
+# if defined(__linux__)
+/*
+ * On Linux systems that use multi-arch, the actual DSO may be
+ * in a machine-specific subdirectory.  If the specified path
+ * contains /lib/ or /libexec/, insert a multi-arch directory
+ * after it.
+ */
+static void *
+dlopen_multi_arch(const char *path, int flags)
+{
+    void *ret = NULL;
+    struct stat sb;
+    char *newpath;
+
+    /* Only try multi-arch if the original path does not exist.  */
+    if (stat(path, &sb) == -1 && errno == ENOENT) {
+	newpath = sudo_stat_multiarch(path, &sb);
+	if (newpath != NULL) {
+	    ret = dlopen(newpath, flags);
+	    free(newpath);
+	}
+    }
+    return ret;
+}
+# else
+static void *
+dlopen_multi_arch(const char *path, int flags)
+{
+    return NULL;
+}
+# endif /* __linux__ */
+
 void *
 sudo_dso_load_v1(const char *path, int mode)
 {
     struct sudo_preload_table *pt;
     int flags = 0;
+    void *ret;
+# ifdef RTLD_MEMBER
+    char *cp;
+    size_t pathlen;
+# endif
 
     /* Check prelinked symbols first. */
     if (preload_table != NULL) {
@@ -182,43 +234,104 @@ sudo_dso_load_v1(const char *path, int mode)
 
     /* Map SUDO_DSO_* -> RTLD_* */
     if (ISSET(mode, SUDO_DSO_LAZY))
-	flags |= RTLD_LAZY;
+	SET(flags, RTLD_LAZY);
     if (ISSET(mode, SUDO_DSO_NOW))
-	flags |= RTLD_NOW;
+	SET(flags, RTLD_NOW);
     if (ISSET(mode, SUDO_DSO_GLOBAL))
-	flags |= RTLD_GLOBAL;
+	SET(flags, RTLD_GLOBAL);
     if (ISSET(mode, SUDO_DSO_LOCAL))
-	flags |= RTLD_LOCAL;
+	SET(flags, RTLD_LOCAL);
+
+# ifdef RTLD_MEMBER
+    /* Check for AIX shlib.a(member) syntax and dlopen() with RTLD_MEMBER. */
+    pathlen = strlen(path);
+    if (pathlen > 2 && path[pathlen - 1] == ')') {
+	cp = strrchr(path, '(');
+	if (cp != NULL && cp > path + 2 && cp[-2] == '.' && cp[-1] == 'a') {
+	    /* Only for archive files (e.g. sudoers.a). */
+	    SET(flags, RTLD_MEMBER);
+	}
+    }
+# endif /* RTLD_MEMBER */
+    ret = dlopen(path, flags);
+# if defined(RTLD_MEMBER)
+    /* Special fallback handling for AIX shared objects. */
+    if (ret == NULL && !ISSET(flags, RTLD_MEMBER)) {
+	switch (errno) {
+	case ENOEXEC:
+	    /*
+	     * If we try to dlopen() an AIX .a file without an explicit member
+	     * it will fail with ENOEXEC.  Try again using the default member.
+	     */
+	    if (pathlen > 2 && strcmp(&path[pathlen - 2], ".a") == 0) {
+		int len = asprintf(&cp, "%s(%s)", path, SUDO_DSO_MEMBER);
+		if (len != -1) {
+		    ret = dlopen(cp, flags|RTLD_MEMBER);
+		    free(cp);
+		}
+		if (ret == NULL) {
+		    /* Retry with the original path to get the correct error. */
+		    ret = dlopen(path, flags);
+		}
+	    }
+	    break;
+	case ENOENT:
+	    /*
+	     * If the .so file is missing but the .a file exists, try to
+	     * dlopen() the AIX .a file using the .so name as the member.
+	     * This is for compatibility with versions of sudo that use
+	     * SVR4-style shared libs, not AIX-style shared libs.
+	     */
+	    if (pathlen > 3 && strcmp(&path[pathlen - 3], ".so") == 0) {
+		int len = asprintf(&cp, "%.*s.a(%s)", (int)(pathlen - 3),
+		    path, sudo_basename(path));
+		if (len != -1) {
+		    ret = dlopen(cp, flags|RTLD_MEMBER);
+		    free(cp);
+		}
+		if (ret == NULL) {
+		    /* Retry with the original path to get the correct error. */
+		    ret = dlopen(path, flags);
+		}
+	    }
+	    break;
+	}
+    }
+# endif /* RTLD_MEMBER */
 	
 #ifdef __APPLE_DYNAMIC_LV__
-    void *dlh = dlopen(path, flags);
-    if (dlh != NULL || faccessat(AT_FDCWD, path, R_OK, AT_EACCESS) != 0)
-        return dlh;
+    if (ret == NULL && faccessat(AT_FDCWD, path, R_OK, AT_EACCESS) == 0) {
+        /*
+         * The module exists and is readable, but failed to load.
+         * If library validation is enabled, try disabling it and then re-attempt loading again.
+         */
+	int csflags = 0;
+	int rv = 0;
+	pid_t pid = getpid();
+	rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+	if (rv != 0 || (csflags & (CS_FORCED_LV | CS_REQUIRE_LV)) == 0) {
+	    return NULL; // should be safe to exit here because dlopen_multi_arch is defined for Linux only
+	}
 	
-    /*
-     * The module exists and is readable, but failed to load.
-     * If library validation is enabled, try disabling it and then re-attempt loading again.
-     */
-    int csflags = 0;
-    int rv = 0;
-    pid_t pid = getpid();
-    rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
-    if (rv != 0 || (csflags & (CS_FORCED_LV | CS_REQUIRE_LV)) == 0)
-	return NULL;
-
-    rv = csops(pid, CS_OPS_CLEAR_LV, NULL, 0);
-    if (rv != 0)
-	return NULL;
-    
-    dlh = dlopen(path, flags);
-    if (dlh == NULL) {
-	/* Failed to load even with LV disabled: re-enable LV. */
-	csflags = CS_REQUIRE_LV;
-	(void)csops(pid, CS_OPS_SET_STATUS, &csflags, sizeof(csflags));
+	rv = csops(pid, CS_OPS_CLEAR_LV, NULL, 0);
+	if (rv != 0) {
+	    return NULL;
+	}
+	
+	ret = dlopen(path, flags);
+	if (ret == NULL) {
+	    /* Failed to load even with LV disabled: re-enable LV. */
+	    csflags = CS_REQUIRE_LV;
+	    (void)csops(pid, CS_OPS_SET_STATUS, &csflags, sizeof(csflags));
+	}
     }
-    return dlh;
 #endif /* __APPLE_DYNAMIC_LV__ */
-    return dlopen(path, flags);
+	
+    /* On failure, try again with a multi-arch path where possible. */
+    if (ret == NULL)
+	ret = dlopen_multi_arch(path, flags);
+
+    return ret;
 }
 
 int

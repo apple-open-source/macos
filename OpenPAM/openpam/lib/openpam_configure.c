@@ -275,6 +275,10 @@ openpam_read_chain_from_path(pam_handle_t *pamh,
 }
 
 static const char *openpam_policy_path[] = {
+#ifdef __APPLE_MDM_SUPPORT__
+    "/private/var/db/ManagedConfigurationFiles/com.apple.pam/etc/pam.d/",
+    "/private/var/db/ManagedConfigurationFiles/com.apple.pam/etc/pam.conf",
+#endif // __APPLE_MDM_SUPPORT__
 	"/etc/pam.d/",
 	"/etc/pam.conf",
 	"/usr/local/etc/pam.d/",

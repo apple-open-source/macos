@@ -20,6 +20,11 @@
  * http://man.openbsd.org/getentropy.2
  */
 
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
 #include <config.h>
 
 #ifndef HAVE_GETENTROPY
@@ -29,7 +34,7 @@
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#ifdef HAVE_SYSCTL
+#ifdef HAVE_SYS_SYSCTL_H
 # include <sys/sysctl.h>
 #endif
 #ifdef HAVE_SYS_STATVFS_H
@@ -64,6 +69,12 @@
 #ifdef HAVE_DL_ITERATE_PHDR
 # include <link.h>
 #endif
+#ifdef HAVE_OPENSSL
+# if defined(HAVE_WOLFSSL)
+#  include <wolfssl/options.h>
+# endif
+# include <openssl/rand.h>
+#endif
 
 #include "sudo_compat.h"
 #include "sudo_digest.h"
@@ -71,6 +82,10 @@
 
 #if !defined(MAP_ANON) && defined(MAP_ANONYMOUS)
 # define MAP_ANON MAP_ANONYMOUS
+#endif
+
+#ifndef MAP_FAILED
+# define MAP_FAILED ((void *) -1)
 #endif
 
 #define REPEAT 5
@@ -129,6 +144,11 @@ sudo_getentropy(void *buf, size_t len)
 	ret = getentropy_getrandom(buf, len);
 	if (ret != -1)
 		return (ret);
+
+#ifdef HAVE_OPENSSL
+	if (RAND_bytes(buf, len) == 1)
+		return (0);
+#endif
 
 	ret = getentropy_sysctl(buf, len);
 	if (ret != -1)
@@ -615,7 +635,7 @@ getentropy_fallback(void *buf, size_t len)
 done:
 	sudo_digest_free(ctx);
 	if (results != NULL)
-		freezero(results, sizeof(results));
+		freezero(results, digest_len);
 	return (ret);
 }
 

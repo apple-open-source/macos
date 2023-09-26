@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 53;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -218,39 +218,11 @@
 		4DE6C76D1535052A00C11066 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */; };
 		4DE6C76E1535052C00C11066 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DE6C7461535012200C11066 /* IOKit.framework */; };
 		4DE6C76F1535052E00C11066 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DE6C74A1535018100C11066 /* libutil.dylib */; };
-		4DFD944F153600060039B6BA /* cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9416153600060039B6BA /* cache.c */; };
-		4DFD9450153600060039B6BA /* BlockCache.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9419153600060039B6BA /* BlockCache.c */; };
-		4DFD9451153600060039B6BA /* BTree.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD941A153600060039B6BA /* BTree.c */; };
-		4DFD9452153600060039B6BA /* BTreeAllocate.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD941C153600060039B6BA /* BTreeAllocate.c */; };
-		4DFD9453153600060039B6BA /* BTreeMiscOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD941D153600060039B6BA /* BTreeMiscOps.c */; };
-		4DFD9454153600060039B6BA /* BTreeNodeOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD941E153600060039B6BA /* BTreeNodeOps.c */; };
-		4DFD9455153600060039B6BA /* BTreeScanner.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9420153600060039B6BA /* BTreeScanner.c */; };
-		4DFD9456153600060039B6BA /* BTreeTreeOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9422153600060039B6BA /* BTreeTreeOps.c */; };
-		4DFD9457153600060039B6BA /* CatalogCheck.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9424153600060039B6BA /* CatalogCheck.c */; };
-		4DFD9459153600060039B6BA /* dirhardlink.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9429153600060039B6BA /* dirhardlink.c */; };
-		4DFD945A153600060039B6BA /* HardLinkCheck.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD942B153600060039B6BA /* HardLinkCheck.c */; };
-		4DFD945B153600060039B6BA /* hfs_endian.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD942C153600060039B6BA /* hfs_endian.c */; };
-		4DFD945D153600060039B6BA /* SAllocate.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD942F153600060039B6BA /* SAllocate.c */; };
-		4DFD945E153600060039B6BA /* SBTree.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9430153600060039B6BA /* SBTree.c */; };
-		4DFD945F153600060039B6BA /* SCatalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9431153600060039B6BA /* SCatalog.c */; };
-		4DFD9460153600060039B6BA /* SControl.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9433153600060039B6BA /* SControl.c */; };
-		4DFD9461153600060039B6BA /* SDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9434153600060039B6BA /* SDevice.c */; };
-		4DFD9462153600060039B6BA /* SExtents.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9435153600060039B6BA /* SExtents.c */; };
-		4DFD9463153600060039B6BA /* SKeyCompare.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9436153600060039B6BA /* SKeyCompare.c */; };
-		4DFD9464153600060039B6BA /* SRebuildBTree.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9437153600060039B6BA /* SRebuildBTree.c */; };
-		4DFD9465153600060039B6BA /* SRepair.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9438153600060039B6BA /* SRepair.c */; };
-		4DFD9466153600060039B6BA /* SStubs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943A153600060039B6BA /* SStubs.c */; };
-		4DFD9467153600060039B6BA /* SUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943B153600060039B6BA /* SUtils.c */; };
-		4DFD9468153600060039B6BA /* SVerify1.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943C153600060039B6BA /* SVerify1.c */; };
-		4DFD9469153600060039B6BA /* SVerify2.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943D153600060039B6BA /* SVerify2.c */; };
-		4DFD946A153600060039B6BA /* uuid.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943E153600060039B6BA /* uuid.c */; };
-		4DFD946B153600060039B6BA /* VolumeBitmapCheck.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943F153600060039B6BA /* VolumeBitmapCheck.c */; };
 		4DFD946C153600060039B6BA /* fsck_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9442153600060039B6BA /* fsck_debug.c */; };
 		4DFD946D153600060039B6BA /* fsck_hfs_strings.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9445153600060039B6BA /* fsck_hfs_strings.c */; };
 		4DFD946E153600060039B6BA /* fsck_hfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9447153600060039B6BA /* fsck_hfs.c */; };
 		4DFD946F153600060039B6BA /* fsck_messages.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944A153600060039B6BA /* fsck_messages.c */; };
 		4DFD9470153600060039B6BA /* fsck_strings.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944D153600060039B6BA /* fsck_strings.c */; };
-		4DFD9471153600060039B6BA /* utilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944E153600060039B6BA /* utilities.c */; };
 		4DFD9472153601F50039B6BA /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */; };
 		4DFD9473153601F80039B6BA /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DE6C7461535012200C11066 /* IOKit.framework */; };
 		4DFD94A5153649070039B6BA /* newfs_hfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DE6C7681535050700C11066 /* newfs_hfs.c */; };
@@ -262,11 +234,14 @@
 		4DFD94B315364B4B0039B6BA /* mount_hfs.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4D0E89A61534FF48004CD678 /* mount_hfs.8 */; };
 		4DFD94B415364B690039B6BA /* newfs_hfs.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4DE6C7671535050700C11066 /* newfs_hfs.8 */; };
 		4DFD94B515364B7B0039B6BA /* fsck_hfs.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4DFD9446153600060039B6BA /* fsck_hfs.8 */; };
-		4DFD94C215373C2C0039B6BA /* fsck_messages.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944A153600060039B6BA /* fsck_messages.c */; };
-		4DFD94C315373C2C0039B6BA /* fsck_strings.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944D153600060039B6BA /* fsck_strings.c */; };
-		4DFD94C415373C2C0039B6BA /* fsck_hfs_strings.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9445153600060039B6BA /* fsck_hfs_strings.c */; };
 		4DFD9538153746210039B6BA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4DFD9536153746210039B6BA /* InfoPlist.strings */; };
 		4DFD953C15377BD80039B6BA /* fsck_keys.h in Copy fsck_keys.h */ = {isa = PBXBuildFile; fileRef = 4DFD9449153600060039B6BA /* fsck_keys.h */; };
+		5238D1A7290186F00049FA98 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD9A06BD28EC398400813DF0 /* CoreFoundation.framework */; };
+		5297A8B9291A2E9E0076318E /* fsck_messages.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944A153600060039B6BA /* fsck_messages.c */; };
+		529AEA962917ECE20098AB4F /* utilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944E153600060039B6BA /* utilities.c */; };
+		52AE99A129018CA500CED2F3 /* lf_hfs_logger.c in Sources */ = {isa = PBXBuildFile; fileRef = 900BDEFC1FF9246F002F7EC0 /* lf_hfs_logger.c */; };
+		52AE99AD29019AA800CED2F3 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52AE99AC29019AA800CED2F3 /* FSKit.framework */; };
+		52AF068A2917D5AC0062F9DE /* cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9416153600060039B6BA /* cache.c */; };
 		7279A68D1593AA5C00192947 /* fsck_journal.c in Sources */ = {isa = PBXBuildFile; fileRef = 7279A68B1593AA5C00192947 /* fsck_journal.c */; };
 		862C904C1834311200BAD882 /* iterate_hfs_metadata.h in Headers */ = {isa = PBXBuildFile; fileRef = 862C904B1834311200BAD882 /* iterate_hfs_metadata.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		863D03971820761900A4F0C4 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = 863D03961820761900A4F0C4 /* util.c */; };
@@ -342,9 +317,9 @@
 		D39F154B287D55BD00366492 /* hfs_xctests.m in Sources */ = {isa = PBXBuildFile; fileRef = D39F154A287D55BD00366492 /* hfs_xctests.m */; };
 		D39F154C287D55BD00366492 /* livefiles_hfs.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */; };
 		D39F1555287D563300366492 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D39F1554287D563300366492 /* CoreFoundation.framework */; };
-		900BDEEB1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h in Headers */ = {isa = PBXBuildFile; fileRef = 900BDEE91FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h */; };
-		D32E9DF9287D577100D15536 /* UVFSPluginTesting.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */; };
-		D3A4BC40287D61EC00866287 /* UserFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3A4BC3F287D61EB00866287 /* UserFS.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		D3BA72A429A35E8F00175EEA /* HFSFileSystem.m in Sources */ = {isa = PBXBuildFile; fileRef = D3BA72A229A35E8F00175EEA /* HFSFileSystem.m */; };
+		D3BA72A629A3601D00175EEA /* HFSFileSystem.entitlements in Resources */ = {isa = PBXBuildFile; fileRef = D3BA72A129A35E8F00175EEA /* HFSFileSystem.entitlements */; };
+		D3BA72A729A360AC00175EEA /* HFSFileSystem.m in Sources */ = {isa = PBXBuildFile; fileRef = D3BA72A229A35E8F00175EEA /* HFSFileSystem.m */; };
 		D759E27020AD75FC00792EDA /* lf_hfs_link.h in Headers */ = {isa = PBXBuildFile; fileRef = D759E26E20AD75FC00792EDA /* lf_hfs_link.h */; };
 		D759E27120AD75FC00792EDA /* lf_hfs_link.c in Sources */ = {isa = PBXBuildFile; fileRef = D759E26F20AD75FC00792EDA /* lf_hfs_link.c */; };
 		D769A1CC206107190022791F /* lf_hfs_vnode.c in Sources */ = {isa = PBXBuildFile; fileRef = D769A1CB206107190022791F /* lf_hfs_vnode.c */; };
@@ -374,6 +349,39 @@
 		D79784412060037400E93B37 /* lf_hfs_raw_read_write.h in Headers */ = {isa = PBXBuildFile; fileRef = D797843F2060037400E93B37 /* lf_hfs_raw_read_write.h */; };
 		D79784422060037400E93B37 /* lf_hfs_raw_read_write.c in Sources */ = {isa = PBXBuildFile; fileRef = D79784402060037400E93B37 /* lf_hfs_raw_read_write.c */; };
 		D7BD8F9C20AC388E00E93640 /* lf_hfs_catalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF82206409B800B21E94 /* lf_hfs_catalog.c */; };
+		DD3BDD4529420AA900F0F26B /* fsck_strings.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944D153600060039B6BA /* fsck_strings.c */; };
+		DD3BDD4629420AA900F0F26B /* fsck_hfs_strings.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9445153600060039B6BA /* fsck_hfs_strings.c */; };
+		DD76C2EB28EC21B800182DBD /* lf_hfs_volume_identifiers.h in Headers */ = {isa = PBXBuildFile; fileRef = DD76C2E928EC21B800182DBD /* lf_hfs_volume_identifiers.h */; };
+		DD76C2EC28EC21B800182DBD /* lf_hfs_volume_identifiers.c in Sources */ = {isa = PBXBuildFile; fileRef = DD76C2EA28EC21B800182DBD /* lf_hfs_volume_identifiers.c */; };
+		DDEE298B28F6893F000386F8 /* lf_hfs_volume_identifiers.c in Sources */ = {isa = PBXBuildFile; fileRef = DD76C2EA28EC21B800182DBD /* lf_hfs_volume_identifiers.c */; };
+		DDFD01F529178D6A00C814A9 /* lib_fsck_hfs.c in Sources */ = {isa = PBXBuildFile; fileRef = DDFD01CE2912510600C814A9 /* lib_fsck_hfs.c */; };
+		DDFD01F629178D7F00C814A9 /* check.c in Sources */ = {isa = PBXBuildFile; fileRef = DDFD01D1291257ED00C814A9 /* check.c */; };
+		DDFD01F72917B26F00C814A9 /* SControl.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9433153600060039B6BA /* SControl.c */; };
+		DDFD01F82917B26F00C814A9 /* BlockCache.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9419153600060039B6BA /* BlockCache.c */; };
+		DDFD01F92917B26F00C814A9 /* BTree.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD941A153600060039B6BA /* BTree.c */; };
+		DDFD01FA2917B26F00C814A9 /* BTreeAllocate.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD941C153600060039B6BA /* BTreeAllocate.c */; };
+		DDFD01FB2917B26F00C814A9 /* BTreeMiscOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD941D153600060039B6BA /* BTreeMiscOps.c */; };
+		DDFD01FC2917B26F00C814A9 /* BTreeNodeOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD941E153600060039B6BA /* BTreeNodeOps.c */; };
+		DDFD01FD2917B26F00C814A9 /* BTreeScanner.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9420153600060039B6BA /* BTreeScanner.c */; };
+		DDFD01FE2917B26F00C814A9 /* BTreeTreeOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9422153600060039B6BA /* BTreeTreeOps.c */; };
+		DDFD01FF2917B26F00C814A9 /* CatalogCheck.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9424153600060039B6BA /* CatalogCheck.c */; };
+		DDFD02002917B26F00C814A9 /* dirhardlink.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9429153600060039B6BA /* dirhardlink.c */; };
+		DDFD02012917B26F00C814A9 /* HardLinkCheck.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD942B153600060039B6BA /* HardLinkCheck.c */; };
+		DDFD02022917B26F00C814A9 /* hfs_endian.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD942C153600060039B6BA /* hfs_endian.c */; };
+		DDFD02032917B26F00C814A9 /* SAllocate.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD942F153600060039B6BA /* SAllocate.c */; };
+		DDFD02042917B26F00C814A9 /* SBTree.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9430153600060039B6BA /* SBTree.c */; };
+		DDFD02052917B26F00C814A9 /* SCatalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9431153600060039B6BA /* SCatalog.c */; };
+		DDFD02062917B26F00C814A9 /* SDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9434153600060039B6BA /* SDevice.c */; };
+		DDFD02072917B26F00C814A9 /* SExtents.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9435153600060039B6BA /* SExtents.c */; };
+		DDFD02082917B26F00C814A9 /* SKeyCompare.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9436153600060039B6BA /* SKeyCompare.c */; };
+		DDFD02092917B26F00C814A9 /* SRebuildBTree.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9437153600060039B6BA /* SRebuildBTree.c */; };
+		DDFD020A2917B26F00C814A9 /* SRepair.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD9438153600060039B6BA /* SRepair.c */; };
+		DDFD020B2917B26F00C814A9 /* SStubs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943A153600060039B6BA /* SStubs.c */; };
+		DDFD020C2917B26F00C814A9 /* SUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943B153600060039B6BA /* SUtils.c */; };
+		DDFD020D2917B26F00C814A9 /* SVerify1.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943C153600060039B6BA /* SVerify1.c */; };
+		DDFD020E2917B26F00C814A9 /* SVerify2.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943D153600060039B6BA /* SVerify2.c */; };
+		DDFD020F2917B26F00C814A9 /* uuid.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943E153600060039B6BA /* uuid.c */; };
+		DDFD02102917B26F00C814A9 /* VolumeBitmapCheck.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD943F153600060039B6BA /* VolumeBitmapCheck.c */; };
 		EE73740520644328004C2F0E /* lf_hfs_sbunicode.h in Headers */ = {isa = PBXBuildFile; fileRef = EE73740320644328004C2F0E /* lf_hfs_sbunicode.h */; };
 		EE73740620644328004C2F0E /* lf_hfs_sbunicode.c in Sources */ = {isa = PBXBuildFile; fileRef = EE73740420644328004C2F0E /* lf_hfs_sbunicode.c */; };
 		EE737408206443A1004C2F0E /* lf_hfs_utfconvdata.h in Headers */ = {isa = PBXBuildFile; fileRef = EE737407206443A1004C2F0E /* lf_hfs_utfconvdata.h */; };
@@ -582,6 +590,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4DFD94BC15373C2C0039B6BA;
 			remoteInfo = fsck_makestrings;
+		};
+		52F2FFE429277BFC008B6B88 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DD7B840A28C77ACF0049A0DB;
+			remoteInfo = hfs.appex;
 		};
 		9430FE97211658E7009CC8AF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1054,10 +1069,13 @@
 		4DFD9537153746210039B6BA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4DFD9539153746B30039B6BA /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		4DFD953D15377C7D0039B6BA /* hfs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = hfs.xcconfig; sourceTree = "<group>"; };
+		52AE99AA29019A9100CED2F3 /* UserFS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UserFS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		52AE99AC29019AA800CED2F3 /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/Frameworks/FSKit.framework; sourceTree = DEVELOPER_DIR; };
+		52C526F229265E6D006916EA /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
 		7204A9401BE94359007A9898 /* img-to-c.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "img-to-c.c"; sourceTree = "<group>"; };
 		7204A9811BE94BC9007A9898 /* gen-dmg.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "gen-dmg.sh"; sourceTree = "<group>"; };
-		7279A68B1593AA5C00192947 /* fsck_journal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = fsck_journal.c; path = dfalib/fsck_journal.c; sourceTree = "<group>"; };
-		7279A68C1593AA5C00192947 /* fsck_journal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = fsck_journal.h; path = dfalib/fsck_journal.h; sourceTree = "<group>"; };
+		7279A68B1593AA5C00192947 /* fsck_journal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fsck_journal.c; sourceTree = "<group>"; };
+		7279A68C1593AA5C00192947 /* fsck_journal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fsck_journal.h; sourceTree = "<group>"; };
 		862C904B1834311200BAD882 /* iterate_hfs_metadata.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = iterate_hfs_metadata.h; path = libhfs_metadata/iterate_hfs_metadata.h; sourceTree = SOURCE_ROOT; };
 		863D03961820761900A4F0C4 /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = util.c; sourceTree = "<group>"; };
 		86CBF37F183186C300A64A93 /* libhfs_metadata.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libhfs_metadata.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1141,11 +1159,15 @@
 		C1B6FD2B10CC0DB200778D48 /* hfs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hfs.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D377EBD728A3C9550030F8B8 /* hfs_testplan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = hfs_testplan.xctestplan; sourceTree = "<group>"; };
+		D383E4E029A35B3900EE6F19 /* hfs_xctests.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = hfs_xctests.entitlements; sourceTree = "<group>"; };
 		D39F1548287D55BD00366492 /* hfs_xctests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = hfs_xctests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D39F154A287D55BD00366492 /* hfs_xctests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = hfs_xctests.m; sourceTree = "<group>"; };
 		D39F1554287D563300366492 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
-		D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D3A4BC3F287D61EB00866287 /* UserFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.0.Internal.sdk/System/Library/PrivateFrameworks/UserFS.framework; sourceTree = DEVELOPER_DIR; };
+		D3BA72A029A35E8F00175EEA /* HFSFileSystem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HFSFileSystem.h; sourceTree = "<group>"; };
+		D3BA72A129A35E8F00175EEA /* HFSFileSystem.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = HFSFileSystem.entitlements; sourceTree = "<group>"; };
+		D3BA72A229A35E8F00175EEA /* HFSFileSystem.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HFSFileSystem.m; sourceTree = "<group>"; };
+		D3BA72A329A35E8F00175EEA /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D759E26E20AD75FC00792EDA /* lf_hfs_link.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_link.h; sourceTree = "<group>"; };
 		D759E26F20AD75FC00792EDA /* lf_hfs_link.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_link.c; sourceTree = "<group>"; };
 		D769A1CB206107190022791F /* lf_hfs_vnode.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_vnode.c; sourceTree = "<group>"; };
@@ -1175,6 +1197,17 @@
 		D797843D206001F000E93B37 /* lf_MAcOSStubs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_MAcOSStubs.c; sourceTree = "<group>"; };
 		D797843F2060037400E93B37 /* lf_hfs_raw_read_write.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_raw_read_write.h; sourceTree = "<group>"; };
 		D79784402060037400E93B37 /* lf_hfs_raw_read_write.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_raw_read_write.c; sourceTree = "<group>"; };
+		DD76C2E928EC21B800182DBD /* lf_hfs_volume_identifiers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_volume_identifiers.h; sourceTree = "<group>"; };
+		DD76C2EA28EC21B800182DBD /* lf_hfs_volume_identifiers.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_volume_identifiers.c; sourceTree = "<group>"; };
+		DD7B840B28C77ACF0049A0DB /* com.apple.fskit.hfs.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = com.apple.fskit.hfs.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD7B841D28C892960049A0DB /* hfs_xctests_utilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hfs_xctests_utilities.h; sourceTree = "<group>"; };
+		DD9A06BD28EC398400813DF0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		DDB4468E28D367540005D94D /* hfsutil_main.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = hfsutil_main.h; sourceTree = "<group>"; };
+		DDC3544828F6699F007E22EA /* UserFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/PrivateFrameworks/UserFS.framework; sourceTree = DEVELOPER_DIR; };
+		DDFD01CD2912510600C814A9 /* lib_fsck_hfs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lib_fsck_hfs.h; sourceTree = "<group>"; };
+		DDFD01CE2912510600C814A9 /* lib_fsck_hfs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lib_fsck_hfs.c; sourceTree = "<group>"; };
+		DDFD01D0291257ED00C814A9 /* check.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = check.h; sourceTree = "<group>"; };
+		DDFD01D1291257ED00C814A9 /* check.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = check.c; sourceTree = "<group>"; };
 		EE73740320644328004C2F0E /* lf_hfs_sbunicode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_sbunicode.h; sourceTree = "<group>"; };
 		EE73740420644328004C2F0E /* lf_hfs_sbunicode.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_sbunicode.c; sourceTree = "<group>"; };
 		EE737407206443A1004C2F0E /* lf_hfs_utfconvdata.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_utfconvdata.h; sourceTree = "<group>"; };
@@ -1388,7 +1421,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D3A4BC40287D61EC00866287 /* UserFS.framework in Frameworks */,
+				5238D1A7290186F00049FA98 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1426,6 +1459,14 @@
 				D39F154C287D55BD00366492 /* livefiles_hfs.dylib in Frameworks */,
 				D39F1555287D563300366492 /* CoreFoundation.framework in Frameworks */,
 				D32E9DF9287D577100D15536 /* UVFSPluginTesting.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD7B840828C77ACF0049A0DB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52AE99AD29019AA800CED2F3 /* FSKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1493,6 +1534,7 @@
 		08FB7794FE84155DC02AAC07 /* hfs */ = {
 			isa = PBXGroup;
 			children = (
+				DDFD01CC29124EE800C814A9 /* lib_fsck_hfs */,
 				070DB044268FD04800ACF231 /* Fuzzing.xcconfig */,
 				A64B3B8822E8D2A6009A2B10 /* livefiles_cs_plugin */,
 				900BDECD1FF91960002F7EC0 /* livefiles_hfs_plugin */,
@@ -1510,6 +1552,7 @@
 				FBBBE2811B55F354009F534D /* tests */,
 				FBCC52FF1B852759008B752C /* hfs-alloc-trace */,
 				D39F1549287D55BD00366492 /* hfs_xctests */,
+				D3BA729F29A35E8F00175EEA /* hfs_appex */,
 				FDD9FA4014A133A50043D4A9 /* Frameworks */,
 				C1B6FD2C10CC0DB200778D48 /* Products */,
 				FB02B8CE1B5ED0B50093DD47 /* make_opensource.sh */,
@@ -1559,74 +1602,18 @@
 		4DFD93F61535FF510039B6BA /* fsck_hfs */ = {
 			isa = PBXGroup;
 			children = (
-				7279A68B1593AA5C00192947 /* fsck_journal.c */,
-				7279A68C1593AA5C00192947 /* fsck_journal.h */,
-				4DFD9417153600060039B6BA /* cache.h */,
-				4DFD9443153600060039B6BA /* fsck_debug.h */,
-				4DFD9444153600060039B6BA /* fsck_hfs_msgnums.h */,
 				4DFD9448153600060039B6BA /* fsck_hfs.h */,
-				4DFD9449153600060039B6BA /* fsck_keys.h */,
 				4DFD944B153600060039B6BA /* fsck_messages.h */,
-				4DFD944C153600060039B6BA /* fsck_msgnums.h */,
-				4DFD9416153600060039B6BA /* cache.c */,
-				4DFD9442153600060039B6BA /* fsck_debug.c */,
-				4DFD9445153600060039B6BA /* fsck_hfs_strings.c */,
-				4DFD9447153600060039B6BA /* fsck_hfs.c */,
+				4DFD9449153600060039B6BA /* fsck_keys.h */,
 				4DFD944A153600060039B6BA /* fsck_messages.c */,
-				4DFD944D153600060039B6BA /* fsck_strings.c */,
 				4DFD944E153600060039B6BA /* utilities.c */,
-				4DFD9418153600060039B6BA /* dfalib */,
+				4DFD9447153600060039B6BA /* fsck_hfs.c */,
 				4DFD9440153600060039B6BA /* docs */,
 				4DFD9446153600060039B6BA /* fsck_hfs.8 */,
 				4D6E7827191D3E7E004E3F93 /* fsck_hfs.ios.entitlements */,
 				9D9067881B44633C003D2117 /* fsck_hfs.osx.entitlements */,
 			);
 			path = fsck_hfs;
-			sourceTree = "<group>";
-		};
-		4DFD9418153600060039B6BA /* dfalib */ = {
-			isa = PBXGroup;
-			children = (
-				4DFD941B153600060039B6BA /* BTree.h */,
-				4DFD941F153600060039B6BA /* BTreePrivate.h */,
-				4DFD9421153600060039B6BA /* BTreeScanner.h */,
-				4DFD9423153600060039B6BA /* CaseFolding.h */,
-				4DFD9425153600060039B6BA /* CheckHFS.h */,
-				4DFD9426153600060039B6BA /* DecompData.h */,
-				4DFD9427153600060039B6BA /* DecompDataEnums.h */,
-				4DFD942D153600060039B6BA /* hfs_endian.h */,
-				4DFD9432153600060039B6BA /* Scavenger.h */,
-				4DFD9439153600060039B6BA /* SRuntime.h */,
-				4DFD9419153600060039B6BA /* BlockCache.c */,
-				4DFD941A153600060039B6BA /* BTree.c */,
-				4DFD941C153600060039B6BA /* BTreeAllocate.c */,
-				4DFD941D153600060039B6BA /* BTreeMiscOps.c */,
-				4DFD941E153600060039B6BA /* BTreeNodeOps.c */,
-				4DFD9420153600060039B6BA /* BTreeScanner.c */,
-				4DFD9422153600060039B6BA /* BTreeTreeOps.c */,
-				4DFD9424153600060039B6BA /* CatalogCheck.c */,
-				4DFD9429153600060039B6BA /* dirhardlink.c */,
-				4DFD942B153600060039B6BA /* HardLinkCheck.c */,
-				4DFD942C153600060039B6BA /* hfs_endian.c */,
-				4DFD942F153600060039B6BA /* SAllocate.c */,
-				4DFD9430153600060039B6BA /* SBTree.c */,
-				4DFD9431153600060039B6BA /* SCatalog.c */,
-				4DFD9433153600060039B6BA /* SControl.c */,
-				4DFD9434153600060039B6BA /* SDevice.c */,
-				4DFD9435153600060039B6BA /* SExtents.c */,
-				4DFD9436153600060039B6BA /* SKeyCompare.c */,
-				4DFD9437153600060039B6BA /* SRebuildBTree.c */,
-				4DFD9438153600060039B6BA /* SRepair.c */,
-				4DFD943A153600060039B6BA /* SStubs.c */,
-				4DFD943B153600060039B6BA /* SUtils.c */,
-				4DFD943C153600060039B6BA /* SVerify1.c */,
-				4DFD943D153600060039B6BA /* SVerify2.c */,
-				4DFD943E153600060039B6BA /* uuid.c */,
-				4DFD943F153600060039B6BA /* VolumeBitmapCheck.c */,
-				4DFD9428153600060039B6BA /* DecompMakeData.c */,
-				4DFD942A153600060039B6BA /* FixDecompsNotes.txt */,
-			);
-			path = dfalib;
 			sourceTree = "<group>";
 		};
 		4DFD9440153600060039B6BA /* docs */ = {
@@ -1737,6 +1724,8 @@
 				D7850548206B831000B9C5E4 /* lf_hfs_xattr.c */,
 				D759E26E20AD75FC00792EDA /* lf_hfs_link.h */,
 				D759E26F20AD75FC00792EDA /* lf_hfs_link.c */,
+				DD76C2E928EC21B800182DBD /* lf_hfs_volume_identifiers.h */,
+				DD76C2EA28EC21B800182DBD /* lf_hfs_volume_identifiers.c */,
 			);
 			path = livefiles_hfs_plugin;
 			sourceTree = "<group>";
@@ -1785,6 +1774,7 @@
 				A64B3BEE22E8D388009A2B10 /* livefiles_cs_tester */,
 				070DB01E268FCDF500ACF231 /* hfs.util-fuzzer */,
 				D39F1548287D55BD00366492 /* hfs_xctests.xctest */,
+				DD7B840B28C77ACF0049A0DB /* com.apple.fskit.hfs.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1792,12 +1782,25 @@
 		D39F1549287D55BD00366492 /* hfs_xctests */ = {
 			isa = PBXGroup;
 			children = (
+				D383E4E029A35B3900EE6F19 /* hfs_xctests.entitlements */,
 				D377EBD728A3C9550030F8B8 /* hfs_testplan.xctestplan */,
+				DD7B841D28C892960049A0DB /* hfs_xctests_utilities.h */,
 				9A8C9A92287FF9600078618B /* hfs_xctests_utilities.m */,
 				9A8C9A91287FF95F0078618B /* hfs_xctests.h */,
 				D39F154A287D55BD00366492 /* hfs_xctests.m */,
 			);
 			path = hfs_xctests;
+			sourceTree = "<group>";
+		};
+		D3BA729F29A35E8F00175EEA /* hfs_appex */ = {
+			isa = PBXGroup;
+			children = (
+				D3BA72A029A35E8F00175EEA /* HFSFileSystem.h */,
+				D3BA72A129A35E8F00175EEA /* HFSFileSystem.entitlements */,
+				D3BA72A229A35E8F00175EEA /* HFSFileSystem.m */,
+				D3BA72A329A35E8F00175EEA /* Info.plist */,
+			);
+			path = hfs_appex;
 			sourceTree = "<group>";
 		};
 		D7978444206006CC00E93B37 /* Recovered References */ = {
@@ -1807,6 +1810,73 @@
 				D797843D206001F000E93B37 /* lf_MAcOSStubs.c */,
 			);
 			name = "Recovered References";
+			sourceTree = "<group>";
+		};
+		DDFD01CC29124EE800C814A9 /* lib_fsck_hfs */ = {
+			isa = PBXGroup;
+			children = (
+				DDFD01D729127F9600C814A9 /* dfalib */,
+				DDFD01CD2912510600C814A9 /* lib_fsck_hfs.h */,
+				DDFD01CE2912510600C814A9 /* lib_fsck_hfs.c */,
+				7279A68C1593AA5C00192947 /* fsck_journal.h */,
+				7279A68B1593AA5C00192947 /* fsck_journal.c */,
+				DDFD01D0291257ED00C814A9 /* check.h */,
+				DDFD01D1291257ED00C814A9 /* check.c */,
+				4DFD9417153600060039B6BA /* cache.h */,
+				4DFD9416153600060039B6BA /* cache.c */,
+				4DFD9443153600060039B6BA /* fsck_debug.h */,
+				4DFD9442153600060039B6BA /* fsck_debug.c */,
+				4DFD944D153600060039B6BA /* fsck_strings.c */,
+				4DFD9445153600060039B6BA /* fsck_hfs_strings.c */,
+				4DFD944C153600060039B6BA /* fsck_msgnums.h */,
+				4DFD9444153600060039B6BA /* fsck_hfs_msgnums.h */,
+			);
+			path = lib_fsck_hfs;
+			sourceTree = "<group>";
+		};
+		DDFD01D729127F9600C814A9 /* dfalib */ = {
+			isa = PBXGroup;
+			children = (
+				4DFD9423153600060039B6BA /* CaseFolding.h */,
+				4DFD9426153600060039B6BA /* DecompData.h */,
+				4DFD9421153600060039B6BA /* BTreeScanner.h */,
+				4DFD9427153600060039B6BA /* DecompDataEnums.h */,
+				4DFD941F153600060039B6BA /* BTreePrivate.h */,
+				4DFD9425153600060039B6BA /* CheckHFS.h */,
+				4DFD942D153600060039B6BA /* hfs_endian.h */,
+				4DFD9432153600060039B6BA /* Scavenger.h */,
+				4DFD941B153600060039B6BA /* BTree.h */,
+				4DFD9439153600060039B6BA /* SRuntime.h */,
+				4DFD9433153600060039B6BA /* SControl.c */,
+				4DFD9419153600060039B6BA /* BlockCache.c */,
+				4DFD941A153600060039B6BA /* BTree.c */,
+				4DFD941C153600060039B6BA /* BTreeAllocate.c */,
+				4DFD941D153600060039B6BA /* BTreeMiscOps.c */,
+				4DFD941E153600060039B6BA /* BTreeNodeOps.c */,
+				4DFD9420153600060039B6BA /* BTreeScanner.c */,
+				4DFD9422153600060039B6BA /* BTreeTreeOps.c */,
+				4DFD9424153600060039B6BA /* CatalogCheck.c */,
+				4DFD9429153600060039B6BA /* dirhardlink.c */,
+				4DFD942B153600060039B6BA /* HardLinkCheck.c */,
+				4DFD942C153600060039B6BA /* hfs_endian.c */,
+				4DFD942F153600060039B6BA /* SAllocate.c */,
+				4DFD9430153600060039B6BA /* SBTree.c */,
+				4DFD9431153600060039B6BA /* SCatalog.c */,
+				4DFD9434153600060039B6BA /* SDevice.c */,
+				4DFD9435153600060039B6BA /* SExtents.c */,
+				4DFD9436153600060039B6BA /* SKeyCompare.c */,
+				4DFD9437153600060039B6BA /* SRebuildBTree.c */,
+				4DFD9438153600060039B6BA /* SRepair.c */,
+				4DFD943A153600060039B6BA /* SStubs.c */,
+				4DFD943B153600060039B6BA /* SUtils.c */,
+				4DFD943C153600060039B6BA /* SVerify1.c */,
+				4DFD943D153600060039B6BA /* SVerify2.c */,
+				4DFD943E153600060039B6BA /* uuid.c */,
+				4DFD943F153600060039B6BA /* VolumeBitmapCheck.c */,
+				4DFD9428153600060039B6BA /* DecompMakeData.c */,
+				4DFD942A153600060039B6BA /* FixDecompsNotes.txt */,
+			);
+			path = dfalib;
 			sourceTree = "<group>";
 		};
 		FB20E0E11AE950C200CEBE7B /* core */ = {
@@ -2002,6 +2072,7 @@
 				C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */,
 				4D7C8964192141CA002013C9 /* hfs_util.ios.entitlements */,
 				9D7AAC871B44880B0001F573 /* hfs_util.osx.entitlements */,
+				DDB4468E28D367540005D94D /* hfsutil_main.h */,
 			);
 			path = hfs_util;
 			sourceTree = "<group>";
@@ -2009,6 +2080,11 @@
 		FDD9FA4014A133A50043D4A9 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				52C526F229265E6D006916EA /* libutil.tbd */,
+				52AE99AC29019AA800CED2F3 /* FSKit.framework */,
+				52AE99AA29019A9100CED2F3 /* UserFS.framework */,
+				DDC3544828F6699F007E22EA /* UserFS.framework */,
+				DD9A06BD28EC398400813DF0 /* CoreFoundation.framework */,
 				D3A4BC3F287D61EB00866287 /* UserFS.framework */,
 				D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */,
 				D39F1554287D563300366492 /* CoreFoundation.framework */,
@@ -2096,6 +2172,7 @@
 				90F5EBB12063A929004397B2 /* lf_hfs_defs.h in Headers */,
 				900BDEEE1FF91C46002F7EC0 /* lf_hfs_common.h in Headers */,
 				906EBF762063E44900B21E94 /* lf_hfs_readwrite_ops.h in Headers */,
+				DD76C2EB28EC21B800182DBD /* lf_hfs_volume_identifiers.h in Headers */,
 				D7978402205EC12700E93B37 /* lf_hfs_locks.h in Headers */,
 				D79783FD205EC09000E93B37 /* lf_hfs_vnode.h in Headers */,
 			);
@@ -2366,6 +2443,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				52F2FFE529277BFC008B6B88 /* PBXTargetDependency */,
 			);
 			name = livefiles_hfs;
 			productName = livefiles_hfs;
@@ -2442,6 +2520,23 @@
 			productName = hfs_xctests;
 			productReference = D39F1548287D55BD00366492 /* hfs_xctests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DD7B840A28C77ACF0049A0DB /* hfs.appex */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DD7B841128C77ACF0049A0DB /* Build configuration list for PBXNativeTarget "hfs.appex" */;
+			buildPhases = (
+				DD7B840728C77ACF0049A0DB /* Sources */,
+				DD7B840828C77ACF0049A0DB /* Frameworks */,
+				DD7B840928C77ACF0049A0DB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = hfs.appex;
+			productName = fsmodule;
+			productReference = DD7B840B28C77ACF0049A0DB /* com.apple.fskit.hfs.appex */;
+			productType = "com.apple.product-type.extensionkit-extension";
 		};
 		FB20E0DF1AE950C200CEBE7B /* kext */ = {
 			isa = PBXNativeTarget;
@@ -2620,6 +2715,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 1400;
 				LastUpgradeCheck = 0710;
 				TargetAttributes = {
 					07828B591E3FDD25009D2106 = {
@@ -2650,6 +2746,9 @@
 					DB1AAB7C20472D140036167F = {
 						CreatedOnToolsVersion = 9.3;
 						ProvisioningStyle = Automatic;
+					};
+					DD7B840A28C77ACF0049A0DB = {
+						CreatedOnToolsVersion = 14.0;
 					};
 					FB20E0DF1AE950C200CEBE7B = {
 						CreatedOnToolsVersion = 6.3;
@@ -2735,6 +2834,7 @@
 				A64B3BE122E8D388009A2B10 /* livefiles_cs_tester */,
 				070DB012268FCDF500ACF231 /* hfs.util-fuzzer */,
 				D39F1547287D55BD00366492 /* hfs_xctests */,
+				DD7B840A28C77ACF0049A0DB /* hfs.appex */,
 			);
 		};
 /* End PBXProject section */
@@ -2752,6 +2852,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD7B840928C77ACF0049A0DB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3BA72A629A3601D00175EEA /* HFSFileSystem.entitlements in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2779,7 +2887,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "${BUILT_PRODUCTS_DIR}/fsck_makestrings | iconv -f UTF-8 -t UTF-16 > ${DSTROOT}${FS_BUNDLE_ENGLISH_PATH}/fsck.strings";
+			shellScript = "${BUILT_PRODUCTS_DIR}/fsck_makestrings | iconv -f UTF-8 -t UTF-16 > ${DSTROOT}${FS_BUNDLE_ENGLISH_PATH}/fsck.strings\n";
 			showEnvVarsInLog = 0;
 		};
 		52C08E592179679300D1618E /* Create Symlink */ = {
@@ -2990,39 +3098,41 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				529AEA962917ECE20098AB4F /* utilities.c in Sources */,
+				52AF068A2917D5AC0062F9DE /* cache.c in Sources */,
+				DDFD01F72917B26F00C814A9 /* SControl.c in Sources */,
+				DDFD01F82917B26F00C814A9 /* BlockCache.c in Sources */,
+				DDFD01F92917B26F00C814A9 /* BTree.c in Sources */,
+				DDFD01FA2917B26F00C814A9 /* BTreeAllocate.c in Sources */,
+				DDFD01FB2917B26F00C814A9 /* BTreeMiscOps.c in Sources */,
+				DDFD01FC2917B26F00C814A9 /* BTreeNodeOps.c in Sources */,
+				DDFD01FD2917B26F00C814A9 /* BTreeScanner.c in Sources */,
+				DDFD01FE2917B26F00C814A9 /* BTreeTreeOps.c in Sources */,
+				DDFD01FF2917B26F00C814A9 /* CatalogCheck.c in Sources */,
+				DDFD02002917B26F00C814A9 /* dirhardlink.c in Sources */,
+				DDFD02012917B26F00C814A9 /* HardLinkCheck.c in Sources */,
+				DDFD02022917B26F00C814A9 /* hfs_endian.c in Sources */,
+				DDFD02032917B26F00C814A9 /* SAllocate.c in Sources */,
+				DDFD02042917B26F00C814A9 /* SBTree.c in Sources */,
+				DDFD02052917B26F00C814A9 /* SCatalog.c in Sources */,
+				DDFD02062917B26F00C814A9 /* SDevice.c in Sources */,
+				DDFD02072917B26F00C814A9 /* SExtents.c in Sources */,
+				DDFD02082917B26F00C814A9 /* SKeyCompare.c in Sources */,
+				DDFD02092917B26F00C814A9 /* SRebuildBTree.c in Sources */,
+				DDFD020A2917B26F00C814A9 /* SRepair.c in Sources */,
+				DDFD020B2917B26F00C814A9 /* SStubs.c in Sources */,
+				DDFD020C2917B26F00C814A9 /* SUtils.c in Sources */,
+				DDFD020D2917B26F00C814A9 /* SVerify1.c in Sources */,
+				DDFD020E2917B26F00C814A9 /* SVerify2.c in Sources */,
+				DDFD020F2917B26F00C814A9 /* uuid.c in Sources */,
+				DDFD02102917B26F00C814A9 /* VolumeBitmapCheck.c in Sources */,
+				DDFD01F629178D7F00C814A9 /* check.c in Sources */,
+				DDFD01F529178D6A00C814A9 /* lib_fsck_hfs.c in Sources */,
 				4DFD946E153600060039B6BA /* fsck_hfs.c in Sources */,
-				4DFD9471153600060039B6BA /* utilities.c in Sources */,
-				4DFD944F153600060039B6BA /* cache.c in Sources */,
 				4DFD946C153600060039B6BA /* fsck_debug.c in Sources */,
 				4DFD946F153600060039B6BA /* fsck_messages.c in Sources */,
 				4DFD9470153600060039B6BA /* fsck_strings.c in Sources */,
 				4DFD946D153600060039B6BA /* fsck_hfs_strings.c in Sources */,
-				4DFD945B153600060039B6BA /* hfs_endian.c in Sources */,
-				4DFD9450153600060039B6BA /* BlockCache.c in Sources */,
-				4DFD9451153600060039B6BA /* BTree.c in Sources */,
-				4DFD9452153600060039B6BA /* BTreeAllocate.c in Sources */,
-				4DFD9453153600060039B6BA /* BTreeMiscOps.c in Sources */,
-				4DFD9454153600060039B6BA /* BTreeNodeOps.c in Sources */,
-				4DFD9455153600060039B6BA /* BTreeScanner.c in Sources */,
-				4DFD9456153600060039B6BA /* BTreeTreeOps.c in Sources */,
-				4DFD9457153600060039B6BA /* CatalogCheck.c in Sources */,
-				4DFD945A153600060039B6BA /* HardLinkCheck.c in Sources */,
-				4DFD9459153600060039B6BA /* dirhardlink.c in Sources */,
-				4DFD945E153600060039B6BA /* SBTree.c in Sources */,
-				4DFD9460153600060039B6BA /* SControl.c in Sources */,
-				4DFD9468153600060039B6BA /* SVerify1.c in Sources */,
-				4DFD9469153600060039B6BA /* SVerify2.c in Sources */,
-				4DFD9465153600060039B6BA /* SRepair.c in Sources */,
-				4DFD9464153600060039B6BA /* SRebuildBTree.c in Sources */,
-				4DFD9467153600060039B6BA /* SUtils.c in Sources */,
-				4DFD9463153600060039B6BA /* SKeyCompare.c in Sources */,
-				4DFD9461153600060039B6BA /* SDevice.c in Sources */,
-				4DFD9462153600060039B6BA /* SExtents.c in Sources */,
-				4DFD945D153600060039B6BA /* SAllocate.c in Sources */,
-				4DFD945F153600060039B6BA /* SCatalog.c in Sources */,
-				4DFD9466153600060039B6BA /* SStubs.c in Sources */,
-				4DFD946B153600060039B6BA /* VolumeBitmapCheck.c in Sources */,
-				4DFD946A153600060039B6BA /* uuid.c in Sources */,
 				7279A68D1593AA5C00192947 /* fsck_journal.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3041,9 +3151,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4DFD94C215373C2C0039B6BA /* fsck_messages.c in Sources */,
-				4DFD94C315373C2C0039B6BA /* fsck_strings.c in Sources */,
-				4DFD94C415373C2C0039B6BA /* fsck_hfs_strings.c in Sources */,
+				5297A8B9291A2E9E0076318E /* fsck_messages.c in Sources */,
+				DD3BDD4529420AA900F0F26B /* fsck_strings.c in Sources */,
+				DD3BDD4629420AA900F0F26B /* fsck_hfs_strings.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3080,6 +3190,7 @@
 				90F5EBC12063CE12004397B2 /* lf_hfs_btree_allocate.c in Sources */,
 				90F5EBBF2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c in Sources */,
 				D7978404205EC12700E93B37 /* lf_hfs_locks.c in Sources */,
+				DD76C2EC28EC21B800182DBD /* lf_hfs_volume_identifiers.c in Sources */,
 				D7978423205FB57600E93B37 /* lf_hfs_chash.c in Sources */,
 				D7978417205EC9C300E93B37 /* lf_hfs_vfsops.c in Sources */,
 				906EBF7B2063F7CE00B21E94 /* lf_hfs_btree_node_reserve.c in Sources */,
@@ -3141,8 +3252,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D3BA72A729A360AC00175EEA /* HFSFileSystem.m in Sources */,
 				D39F154B287D55BD00366492 /* hfs_xctests.m in Sources */,
 				9A8C9A93287FF9600078618B /* hfs_xctests_utilities.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD7B840728C77ACF0049A0DB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3BA72A429A35E8F00175EEA /* HFSFileSystem.m in Sources */,
+				52AE99A129018CA500CED2F3 /* lf_hfs_logger.c in Sources */,
+				DDEE298B28F6893F000386F8 /* lf_hfs_volume_identifiers.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3375,6 +3497,11 @@
 			target = 4DFD94BC15373C2C0039B6BA /* fsck_makestrings */;
 			targetProxy = 4DBD52521548A4D4007AA736 /* PBXContainerItemProxy */;
 		};
+		52F2FFE529277BFC008B6B88 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DD7B840A28C77ACF0049A0DB /* hfs.appex */;
+			targetProxy = 52F2FFE429277BFC008B6B88 /* PBXContainerItemProxy */;
+		};
 		9430FE98211658E7009CC8AF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 900BDED31FF919C2002F7EC0 /* livefiles_hfs */;
@@ -3579,6 +3706,7 @@
 				ENABLE_TESTABILITY = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				USE_HEADERMAP = YES;
 			};
 			name = Fuzzing;
 		};
@@ -3586,6 +3714,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				USE_HEADERMAP = YES;
 			};
 			name = Fuzzing;
 		};
@@ -3723,6 +3852,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -3754,6 +3884,7 @@
 				PRODUCT_NAME = fsck_makestrings;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = YES;
 			};
 			name = Fuzzing;
 		};
@@ -4571,6 +4702,7 @@
 			buildSettings = {
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				USE_HEADERMAP = YES;
 			};
 			name = Release;
 		};
@@ -4623,6 +4755,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				USE_HEADERMAP = YES;
 			};
 			name = Release;
 		};
@@ -4665,6 +4798,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -4696,6 +4830,7 @@
 				PRODUCT_NAME = fsck_makestrings;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = YES;
 			};
 			name = Release;
 		};
@@ -5556,6 +5691,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = $SRCROOT/hfs_xctests/hfs_xctests.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
@@ -5584,7 +5720,9 @@
 				SDKROOT = iphoneos.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				USES_XCTRUNNER = YES;
 				USE_HEADERMAP = YES;
+				XCTRUNNER_LAUNCH_AS_TOOL = YES;
 			};
 			name = Release;
 		};
@@ -5620,6 +5758,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = $SRCROOT/hfs_xctests/hfs_xctests.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
@@ -5648,13 +5787,15 @@
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
+				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystem.hfs-xctests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				USES_XCTRUNNER = YES;
 				USE_HEADERMAP = YES;
+				XCTRUNNER_LAUNCH_AS_TOOL = YES;
 			};
 			name = Debug;
 		};
@@ -5690,6 +5831,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = $SRCROOT/hfs_xctests/hfs_xctests.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
@@ -5718,7 +5860,9 @@
 				SDKROOT = iphoneos.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				USES_XCTRUNNER = YES;
 				USE_HEADERMAP = YES;
+				XCTRUNNER_LAUNCH_AS_TOOL = YES;
 			};
 			name = Fuzzing;
 		};
@@ -5754,6 +5898,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = $SRCROOT/hfs_xctests/hfs_xctests.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
@@ -5782,7 +5927,9 @@
 				SDKROOT = iphoneos.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				USES_XCTRUNNER = YES;
 				USE_HEADERMAP = YES;
+				XCTRUNNER_LAUNCH_AS_TOOL = YES;
 			};
 			name = Coverage;
 		};
@@ -5807,6 +5954,311 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		DD7B841228C77ACF0049A0DB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = hfs_appex/HFSFileSystem.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_VERSION = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = hfs_appex/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = com.apple.fskit.hfs;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit.hfs;
+				PRODUCT_NAME = com.apple.fskit.hfs;
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DD7B841328C77ACF0049A0DB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = hfs_appex/HFSFileSystem.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_VERSION = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = hfs_appex/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = com.apple.fskit.hfs;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit.hfs;
+				PRODUCT_NAME = com.apple.fskit.hfs;
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DD7B841428C77ACF0049A0DB /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = hfs_appex/HFSFileSystem.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = hfs_appex/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = com.apple.fskit.hfs;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit.hfs;
+				PRODUCT_NAME = com.apple.fskit.hfs;
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Fuzzing;
+		};
+		DD7B841528C77ACF0049A0DB /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = hfs_appex/HFSFileSystem.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = hfs_appex/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = com.apple.fskit.hfs;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.fskit.hfs;
+				PRODUCT_NAME = com.apple.fskit.hfs;
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Coverage;
 		};
@@ -6635,6 +7087,7 @@
 				ENABLE_TESTABILITY = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				USE_HEADERMAP = YES;
 			};
 			name = Debug;
 		};
@@ -6642,6 +7095,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				USE_HEADERMAP = YES;
 			};
 			name = Debug;
 		};
@@ -6737,6 +7191,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -6771,6 +7226,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -6802,6 +7258,7 @@
 				PRODUCT_NAME = fsck_makestrings;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = YES;
 			};
 			name = Debug;
 		};
@@ -6917,6 +7374,7 @@
 				ENABLE_TESTABILITY = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				USE_HEADERMAP = YES;
 			};
 			name = Coverage;
 		};
@@ -6924,6 +7382,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				USE_HEADERMAP = YES;
 			};
 			name = Coverage;
 		};
@@ -7019,6 +7478,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -7053,6 +7513,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
@@ -7084,6 +7545,7 @@
 				PRODUCT_NAME = fsck_makestrings;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				USE_HEADERMAP = YES;
 			};
 			name = Coverage;
 		};
@@ -7754,6 +8216,17 @@
 				DB1AAB7E20472D140036167F /* Debug */,
 				070DB022268FD00800ACF231 /* Fuzzing */,
 				DB1AAB7F20472D140036167F /* Coverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DD7B841128C77ACF0049A0DB /* Build configuration list for PBXNativeTarget "hfs.appex" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DD7B841228C77ACF0049A0DB /* Release */,
+				DD7B841328C77ACF0049A0DB /* Debug */,
+				DD7B841428C77ACF0049A0DB /* Fuzzing */,
+				DD7B841528C77ACF0049A0DB /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

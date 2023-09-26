@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2007 Free Software Foundation, Inc.                        *
+ * Copyright (c) 2007-2011,2015 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,13 +26,18 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: savescreen.c,v 1.10 2007/07/21 17:57:37 tom Exp $
+ * $Id: savescreen.c,v 1.27 2015/03/28 23:21:28 tom Exp $
  *
  * Demonstrate save/restore functions from the curses library.
  * Thomas Dickey - 2007/7/14
  */
 
 #include <test.priv.h>
+
+#if HAVE_SCR_DUMP
+
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #if TIME_WITH_SYS_TIME
 # include <sys/time.h>
@@ -46,6 +51,14 @@
 #endif
 
 static bool use_init = FALSE;
+static bool keep_dumps = FALSE;
+
+static int
+fexists(const char *name)
+{
+    struct stat sb;
+    return (stat(name, &sb) == 0 && (sb.st_mode & S_IFMT) == S_IFREG);
+}
 
 static void
 setup_next(void)
@@ -59,8 +72,10 @@ cleanup(char *files[])
 {
     int n;
 
-    for (n = 0; files[n] != 0; ++n) {
-	unlink(files[n]);
+    if (!keep_dumps) {
+	for (n = 0; files[n] != 0; ++n) {
+	    unlink(files[n]);
+	}
     }
 }
 
@@ -93,13 +108,25 @@ after_load(void)
 static void
 show_what(int which, int last)
 {
-    int y, x;
-    time_t now = time((time_t *) 0);
+    int y, x, n;
+    time_t now;
+    char *mytime;
 
     getyx(stdscr, y, x);
 
     move(0, 0);
-    printw("Saved %d of %d - %s", which, last + 1, ctime(&now));
+    printw("Saved %d of %d (? for help)", which, last + 1);
+
+    now = time((time_t *) 0);
+    mytime = ctime(&now);
+    for (n = (int) strlen(mytime) - 1; n >= 0; --n) {
+	if (isspace(UChar(mytime[n]))) {
+	    mytime[n] = '\0';
+	} else {
+	    break;
+	}
+    }
+    mvprintw(0, (COLS - n - 2), " %s", mytime);
 
     move(y, x);
 
@@ -111,7 +138,7 @@ get_command(int which, int last)
 {
     int ch;
 
-    timeout(100);
+    timeout(50);
 
     do {
 	show_what(which, last);
@@ -122,6 +149,61 @@ get_command(int which, int last)
 }
 
 static void
+show_help(const char **help)
+{
+    WINDOW *mywin = newwin(LINES, COLS, 0, 0);
+    int n;
+
+    box(mywin, 0, 0);
+    wmove(mywin, 1, 1);
+    for (n = 0; help[n] != 0; ++n) {
+	wmove(mywin, 1 + n, 2);
+	wprintw(mywin, "%.*s", COLS - 4, help[n]);
+    }
+    wgetch(mywin);
+    delwin(mywin);
+    touchwin(stdscr);
+    refresh();
+}
+
+static void
+editor_help(void)
+{
+    static const char *msgs[] =
+    {
+	"You are now in the screen-editor, which allows you to make some",
+	"lines on the screen, as well as save copies of the screen to a",
+	"temporary file",
+	"",
+	"Keys:",
+	"   q           quit",
+	"   n           run the screen-loader to show the saved screens",
+	"   <space>     dump a screen",
+	"",
+	"   a           toggle between '#' and graphic symbol for drawing",
+	"   c           change color drawn by line to next in palette",
+	"   h,j,k,l or arrows to move around the screen, drawing",
+    };
+    show_help(msgs);
+}
+
+static void
+replay_help(void)
+{
+    static const char *msgs[] =
+    {
+	"You are now in the screen-loader, which allows you to view",
+	"the dumped/restored screens.",
+	"",
+	"Keys:",
+	"   q           quit",
+	"   <space>     load the next screen",
+	"   <backspace> load the previous screen",
+    };
+    show_help(msgs);
+}
+
+static void
 usage(void)
 {
     static const char *msg[] =
@@ -129,8 +211,10 @@ usage(void)
 	"Usage: savescreen [-r] files",
 	"",
 	"Options:",
-	" -i  use scr_init/scr_restore rather than scr_set",
-	" -r  replay the screen-dump files"
+	" -f file  fill/initialize screen using text from this file",
+	" -i       use scr_init/scr_restore rather than scr_set",
+	" -k       keep the restored dump-files rather than removing them",
+	" -r       replay the screen-dump files"
     };
     unsigned n;
     for (n = 0; n < SIZEOF(msg); ++n) {
@@ -148,11 +232,24 @@ main(int argc, char *argv[])
     bool replaying = FALSE;
     bool done = FALSE;
     char **files;
+    char *fill_by = 0;
+#if USE_WIDEC_SUPPORT
+    cchar_t mycc;
+    int myxx;
+#endif
 
-    while ((ch = getopt(argc, argv, "ir")) != -1) {
+    setlocale(LC_ALL, "");
+
+    while ((ch = getopt(argc, argv, "f:ikr")) != -1) {
 	switch (ch) {
+	case 'f':
+	    fill_by = optarg;
+	    break;
 	case 'i':
 	    use_init = TRUE;
+	    break;
+	case 'k':
+	    keep_dumps = TRUE;
 	    break;
 	case 'r':
 	    replaying = TRUE;
@@ -163,21 +260,61 @@ main(int argc, char *argv[])
 	}
     }
 
+    files = argv + optind;
+    last = argc - optind - 1;
+
+    if (replaying) {
+	while (last >= 0 && !fexists(files[last]))
+	    --last;
+    }
+
     initscr();
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
     if (has_colors()) {
+	short pair;
+	short color;
+
 	start_color();
-	for (ch = 0; ch < COLOR_PAIRS; ++ch) {
-	    short pair = ch % COLOR_PAIRS;
-	    init_pair(pair, COLOR_WHITE, ch % COLORS);
+	/*
+	 * Assume pairs is the square of colors, and assign pairs going down
+	 * so that there is minimal conflict with the background color (which
+	 * counts up).  The intent is just to show how color pair values are
+	 * saved and restored.
+	 */
+	for (pair = 0; pair < COLOR_PAIRS; ++pair) {
+	    color = (short) (pair % (COLORS - 1));
+	    init_pair(pair, (short) (COLOR_WHITE - color), color);
 	}
     }
 
-    files = argv + optind;
-    last = argc - optind - 1;
+    if (fill_by != 0) {
+	FILE *fp = fopen(fill_by, "r");
+	if (fp != 0) {
+	    bool filled = FALSE;
+	    move(1, 0);
+	    while ((ch = fgetc(fp)) != EOF) {
+		if (addch(UChar(ch)) == ERR) {
+		    filled = TRUE;
+		    break;
+		}
+	    }
+	    fclose(fp);
+	    if (!filled) {
+		while (addch(' ') != ERR) {
+		    ;
+		}
+	    }
+	    move(0, 0);
+	} else {
+	    endwin();
+	    fprintf(stderr, "Cannot open \"%s\"\n", fill_by);
+	    ExitProgram(EXIT_FAILURE);
+	}
+    }
+
     if (replaying) {
 
 	/*
@@ -209,7 +346,6 @@ main(int argc, char *argv[])
 		done = TRUE;
 		break;
 	    case 'q':
-		endwin();
 		cleanup(files);
 		done = TRUE;
 		break;
@@ -221,6 +357,9 @@ main(int argc, char *argv[])
 	    case ' ':
 		if (++which > last)
 		    which = 0;
+		break;
+	    case '?':
+		replay_help();
 		break;
 	    default:
 		beep();
@@ -238,26 +377,20 @@ main(int argc, char *argv[])
 		wrefresh(curscr);
 	    }
 	}
+	endwin();
     } else {
-	int y;
-	int x;
-
-	move(2, 0);
-	printw("Use h,j,k,l or arrows to move around the screen\n");
-	printw("Press 'q' to quit, ' ' to dump a screen\n");
-	printw("When the last screen has been dumped, press 'n' to run the\n");
-	printw("screen-loader.  That allows only 'q', backspace and ' ' for\n");
-	printw("stepping through the dumped/restored screens.\n");
-	getyx(stdscr, y, x);
+	int y = 0;
+	int x = 0;
+	int color = 0;
+	int altchars = 0;
 
 	while (!done) {
-	    switch (ch = get_command(which, last)) {
+	    switch (get_command(which, last)) {
 	    case 'n':
 		setup_next();
 		done = TRUE;
 		break;
 	    case 'q':
-		endwin();
 		cleanup(files);
 		done = TRUE;
 		break;
@@ -273,8 +406,32 @@ main(int argc, char *argv[])
 		    }
 		    ++which;
 		    if (has_colors()) {
-			short pair = which % COLOR_PAIRS;
-			bkgd(COLOR_PAIR(pair));
+			int cx, cy;
+			short pair = (short) (which % COLOR_PAIRS);
+			/*
+			 * Change the background color, to make it more
+			 * obvious.  But that changes the existing text-color. 
+			 * Copy the old values from the currently displayed
+			 * screen.
+			 */
+			bkgd((chtype) COLOR_PAIR(pair));
+			for (cy = 1; cy < LINES; ++cy) {
+			    for (cx = 0; cx < COLS; ++cx) {
+				wmove(curscr, cy, cx);
+				wmove(stdscr, cy, cx);
+#if USE_WIDEC_SUPPORT
+				if (win_wch(curscr, &mycc) != ERR) {
+				    myxx = wcwidth(mycc.chars[0]);
+				    if (myxx > 0) {
+					wadd_wchnstr(stdscr, &mycc, 1);
+					cx += (myxx - 1);
+				    }
+				}
+#else
+				waddch(stdscr, winch(curscr));
+#endif
+			    }
+			}
 		    }
 		} else {
 		    beep();
@@ -300,17 +457,37 @@ main(int argc, char *argv[])
 		if (++x >= COLS)
 		    x = 0;
 		break;
+	    case 'a':
+		altchars = !altchars;
+		break;
+	    case 'c':
+		color = (color + 1) % COLORS;
+		break;
+	    case '?':
+		editor_help();
+		break;
+	    default:
+		beep();
+		continue;
 	    }
 	    if (!done) {
-		time_t now = time((time_t *) 0);
-
-		move(0, 0);
-		addstr(ctime(&now));
+		attr_t attr = (A_REVERSE | COLOR_PAIR(color * COLORS));
+		chtype ch2 = (altchars ? ACS_DIAMOND : '#');
 		move(y, x);
-		addch('#' | A_REVERSE);
+		addch(ch2 | attr);
 		move(y, x);
 	    }
 	}
+	endwin();
     }
     ExitProgram(EXIT_SUCCESS);
 }
+
+#else
+int
+main(int argc, char *argv[])
+{
+    printf("This program requires the screen-dump functions\n");
+    ExitProgram(EXIT_FAILURE);
+}
+#endif

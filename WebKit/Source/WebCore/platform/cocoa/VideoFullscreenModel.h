@@ -42,13 +42,18 @@ OBJC_CLASS AVPlayerViewController;
 OBJC_CLASS UIViewController;
 #endif
 
+namespace WTF {
+class MachSendRight;
+}
+
 namespace WebCore {
 
 class VideoFullscreenModelClient;
 
-class VideoFullscreenModel : public CanMakeWeakPtr<VideoFullscreenModel> {
+class VideoFullscreenModel
+    : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<VideoFullscreenModel> {
 public:
-    virtual ~VideoFullscreenModel() { };
+    virtual ~VideoFullscreenModel() = default;
     virtual void addClient(VideoFullscreenModelClient&) = 0;
     virtual void removeClient(VideoFullscreenModelClient&)= 0;
 
@@ -66,11 +71,29 @@ public:
     virtual void willExitPictureInPicture() = 0;
     virtual void didExitPictureInPicture() = 0;
 
+    virtual void requestUpdateInlineRect() { };
+    virtual void requestVideoContentLayer() { };
+    virtual void returnVideoContentLayer() { };
+    virtual void returnVideoView() { };
+    virtual void didSetupFullscreen() { };
+    virtual void didEnterFullscreen(const FloatSize&) { };
+    virtual void failedToEnterFullscreen() { };
+    virtual void willExitFullscreen() { };
+    virtual void didExitFullscreen() { };
+    virtual void didCleanupFullscreen() { };
+    virtual void fullscreenMayReturnToInline() { };
+
     virtual void requestRouteSharingPolicyAndContextUID(CompletionHandler<void(RouteSharingPolicy, String)>&& completionHandler) { completionHandler(RouteSharingPolicy::Default, emptyString()); }
 
 #if PLATFORM(IOS_FAMILY)
     virtual UIViewController *presentingViewController() { return nullptr; }
     virtual RetainPtr<UIViewController> createVideoFullscreenViewController(AVPlayerViewController *) { return nullptr; }
+#endif
+
+#if !RELEASE_LOG_DISABLED
+    virtual const void* logIdentifier() const { return nullptr; }
+    virtual const void* nextChildIdentifier() const { return logIdentifier(); }
+    virtual const Logger* loggerPtr() const { return nullptr; }
 #endif
 };
 
@@ -84,7 +107,6 @@ public:
     virtual void failedToEnterPictureInPicture() { }
     virtual void willExitPictureInPicture() { }
     virtual void didExitPictureInPicture() { }
-    virtual void modelDestroyed() { }
     virtual void setPlayerIdentifier(std::optional<MediaPlayerIdentifier>) { }
 };
     

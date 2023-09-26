@@ -1975,10 +1975,11 @@ void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
     {
         if ((reserved->sessionOptions & kIOPCISessionOptionDriverkit) != 0)
         {
+			uint32_t viddid = savedConfigRead32(&configShadow(this)->configSave, 0);
             reserved->offloadEngineMMIODisable = 0;
             // Driverkit either called close or crashed. Turn off bus leading to prevent any further DMAs
             uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
-            uint16_t commandMask = getCloseCommandMask(reserved->configEntry->vendorProduct);
+            uint16_t commandMask = getCloseCommandMask(viddid);
             if ((command & commandMask) != 0)
             {
                 DLOG("IOPCIDevice::handleClose: disabling memory%s for client %s\n", commandMask & kIOPCICommandBusLead ? " and bus leading" : "", (forClient) ? forClient->getName() : "unknown");

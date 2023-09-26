@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,11 +29,7 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
 #include <EAP8021X/EAPOLControlTypes.h>
-#if TARGET_OS_OSX
 #include <EAP8021X/EAPOLClientConfiguration.h>
-#else /* TARGET_OS_OSX */
-typedef struct __EAPOLClientItemID * EAPOLClientItemIDRef;
-#endif /* TARGET_OS_OSX */
 
 /*
  * Function: EAPOLControlKeyCreate
@@ -108,7 +104,7 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config) API_AVAIL
 int
 EAPOLControlStartWithClientItemID(const char * if_name,
 				  EAPOLClientItemIDRef itemID,
-				  CFDictionaryRef auth_info) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
+				  CFDictionaryRef auth_info) API_AVAILABLE(macos(10.10), ios(17.0), watchos(10.0), tvos(17.0)) ;
 
 /*
  * Function: EAPOLControlUpdate
@@ -223,7 +219,7 @@ EAPOLControlDidUserCancel(const char * if_name) API_AVAILABLE(macos(10.10)) API_
  *   Currently the 'options' parameter is not used, pass NULL.
  */
 int
-EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
+EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options) API_AVAILABLE(macos(10.10), ios(17.0), watchos(10.0), tvos(17.0));
 
 /*
  * Function: EAPOLControlStartSystemWithClientItemID
@@ -236,7 +232,7 @@ EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options) AP
  */
 int
 EAPOLControlStartSystemWithClientItemID(const char * interface_name,
-					EAPOLClientItemIDRef itemID) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
+					EAPOLClientItemIDRef itemID) API_AVAILABLE(macos(10.10), ios(17.0), watchos(10.0), tvos(17.0));
 
 /*
  * Function: EAPOLControlCopyLoginWindowConfiguration

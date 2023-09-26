@@ -59,25 +59,45 @@ static const char* const rawData[33][8] = {
         // display script (English)
         {   "",     "",     "",     "",     "",   "",     "",   "Simplified Han" },
         // display country (English)
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         {   "United States",    "France",   "Spain",  "Greece",   "Norway",   "",     "YY",   "China mainland" },
+#else
+        {   "United States",    "France",   "Spain",  "Greece",   "Norway",   "",     "YY",   "China" },
+#endif  // APPLE_ICU_CHANGES
         // display variant (English)
         {   "",     "",     "",     "",     "NY",   "",     "",   ""},
         // display name (English)
         // Updated no_NO_NY English display name for new pattern-based algorithm
         // (part of Euro support).
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         {   "English (United States)", "French (France)", "Catalan (Spain)", "Greek (Greece)", "Norwegian (Norway, NY)", "Italian", "xx (YY)", "Chinese, Simplified (China mainland)" },
+#else
+        {   "English (United States)", "French (France)", "Catalan (Spain)", "Greek (Greece)", "Norwegian (Norway, NY)", "Italian", "xx (YY)", "Chinese (Simplified, China)" },
+#endif  // APPLE_ICU_CHANGES
 
         // display language (French)
         {   "anglais",  "fran\\u00E7ais",   "catalan", "grec",    "norv\\u00E9gien",    "italien", "xx", "chinois" },
         // display script (French)
         {   "",     "",     "",     "",     "",     "",     "",   "sinogrammes simplifi\\u00E9s" },
         // display country (French)
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         {   "\\u00C9tats-Unis",    "France",   "Espagne",  "Gr\\u00E8ce",   "Norv\\u00E8ge", "", "YY", "Chine continentale" },
+#else
+        {   "\\u00C9tats-Unis",    "France",   "Espagne",  "Gr\\u00E8ce",   "Norv\\u00E8ge", "", "YY", "Chine" },
+#endif  // APPLE_ICU_CHANGES
         // display variant (French)
         {   "",     "",     "",     "",     "NY",     "",     "",   "" },
         // display name (French)
         //{   "anglais (Etats-Unis)", "francais (France)", "catalan (Espagne)", "grec (Grece)", "norvegien (Norvege,Nynorsk)", "italien", "xx (YY)" },
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)", "italien", "xx (YY)", "chinois simplifi\\u00E9 (Chine continentale)" },
+#else
+        {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)", "italien", "xx (YY)", "chinois (simplifi\\u00E9, Chine)" },
+#endif  // APPLE_ICU_CHANGES
 
 
         /* display language (Catalan) */
@@ -85,11 +105,21 @@ static const char* const rawData[33][8] = {
         /* display script (Catalan) */
         {   "", "", "",                    "", "", "", "", "han simplificat" },
         /* display country (Catalan) */
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         {   "Estats Units", "Fran\\u00E7a", "Espanya",  "Gr\\u00E8cia", "Noruega", "", "", "Xina continental" },
+#else
+        {   "Estats Units", "Fran\\u00E7a", "Espanya",  "Gr\\u00E8cia", "Noruega", "", "", "Xina" },
+#endif  // APPLE_ICU_CHANGES
         /* display variant (Catalan) */
         {   "", "", "",                    "", "NY", "", "" },
         /* display name (Catalan) */
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
         {   "angl\\u00E8s (Estats Units)", "franc\\u00E8s (Fran\\u00E7a)", "catal\\u00E0 (Espanya)", "grec (Gr\\u00E8cia)", "noruec (Noruega, NY)", "itali\\u00E0", "", "xin\\u00E8s simplificat (Xina continental)" },
+#else
+        {   "angl\\u00E8s (Estats Units)", "franc\\u00E8s (Fran\\u00E7a)", "catal\\u00E0 (Espanya)", "grec (Gr\\u00E8cia)", "noruec (Noruega, NY)", "itali\\u00E0", "", "xin\\u00E8s (simplificat, Xina)" },
+#endif  // APPLE_ICU_CHANGES
 
         // display language (Greek)[actual values listed below]
         {   "\\u0391\\u03b3\\u03b3\\u03bb\\u03b9\\u03ba\\u03ac",
@@ -111,7 +141,12 @@ static const char* const rawData[33][8] = {
             "\\u039d\\u03bf\\u03c1\\u03b2\\u03b7\\u03b3\\u03af\\u03b1",
             "",
             "",
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
             "\\u039A\\u03AF\\u03BD\\u03B1 \\u03B7\\u03C0\\u03B5\\u03B9\\u03C1\\u03C9\\u03C4\\u03B9\\u03BA\\u03AE"
+#else
+            "\\u039A\\u03AF\\u03BD\\u03B1"
+#endif  // APPLE_ICU_CHANGES
         },
         // display variant (Greek)
         {   "", "", "", "", "NY", "", "" },
@@ -123,7 +158,12 @@ static const char* const rawData[33][8] = {
             "\\u039d\\u03bf\\u03c1\\u03b2\\u03b7\\u03b3\\u03b9\\u03ba\\u03ac (\\u039d\\u03bf\\u03c1\\u03b2\\u03b7\\u03b3\\u03af\\u03b1, NY)",
             "\\u0399\\u03c4\\u03b1\\u03bb\\u03b9\\u03ba\\u03ac",
             "",
+#if APPLE_ICU_CHANGES
+// rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
             "\\u0391\\u03c0\\u03bb\\u03bf\\u03c0\\u03bf\\u03b9\\u03b7\\u03bc\\u03ad\\u03bd\\u03b1 \\u039A\\u03B9\\u03BD\\u03B5\\u03B6\\u03B9\\u03BA\\u03AC (\\u039A\\u03AF\\u03BD\\u03B1 \\u03B7\\u03C0\\u03B5\\u03B9\\u03C1\\u03C9\\u03C4\\u03B9\\u03BA\\u03AE)"
+#else
+            "\\u039A\\u03B9\\u03BD\\u03B5\\u03B6\\u03B9\\u03BA\\u03AC (\\u0391\\u03c0\\u03bb\\u03bf\\u03c0\\u03bf\\u03b9\\u03b7\\u03bc\\u03ad\\u03bd\\u03bf, \\u039A\\u03AF\\u03BD\\u03B1)"
+#endif  // APPLE_ICU_CHANGES
         },
 
         // display language (<root>)
@@ -142,7 +182,7 @@ static const char* const rawData[33][8] = {
 
 /*
  Usage:
-    test_assert(    Test (should be TRUE)  )
+    test_assert(    Test (should be true)  )
 
    Example:
        test_assert(i==3);
@@ -159,7 +199,7 @@ static const char* const rawData[33][8] = {
 
 /*
  Usage:
-    test_assert_print(    Test (should be TRUE),  printable  )
+    test_assert_print(    Test (should be true),  printable  )
 
    Example:
        test_assert(i==3, toString(i));
@@ -288,6 +328,9 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
     TESTCASE_AUTO(TestNullDereferenceWrite21597);
     TESTCASE_AUTO(TestLongLocaleSetKeywordAssign);
     TESTCASE_AUTO(TestLongLocaleSetKeywordMoveAssign);
+#if !UCONFIG_NO_FORMATTING
+    TESTCASE_AUTO(TestSierraLeoneCurrency21997);
+#endif
     TESTCASE_AUTO_END;
 }
 
@@ -379,7 +422,7 @@ void LocaleTest::TestBasicGetters() {
 
     Locale bogusLang("THISISABOGUSLANGUAGE"); // Jitterbug 2864: language code too long
     if(!bogusLang.isBogus()) {
-        errln("Locale(\"THISISABOGUSLANGUAGE\").isBogus()==FALSE");
+        errln("Locale(\"THISISABOGUSLANGUAGE\").isBogus()==false");
     }
 
     bogusLang=Locale("eo");
@@ -924,8 +967,16 @@ LocaleTest::TestGetLangsAndCountries()
       ;
 
     /* TODO: Change this test to be more like the cloctst version? */
-    if (testCount != 599)
-        errln("Expected getISOLanguages() to return 599 languages; it returned %d", testCount);
+#if APPLE_ICU_CHANGES
+// rdar://80374611 #259 Add to LANGUAGES[]: otk, oui (for Old Turkish)
+// rdar://89394823 #286 add locales for apw,sm; add loc names for apw; fix dz autonym
+// rdar://104877633 #381 Add new locales to CLDR: mid, mic, ber, nqo, nnp, rej, hmn, pqm	
+    if (testCount != 605)
+        errln("Expected getISOLanguages() to return 605 languages; it returned %d", testCount);
+#else
+    if (testCount != 595)
+        errln("Expected getISOLanguages() to return 595 languages; it returned %d", testCount);
+#endif  // APPLE_ICU_CHANGES
     else {
         for (i = 0; i < 15; i++) {
             int32_t j;
@@ -955,8 +1006,14 @@ LocaleTest::TestGetLangsAndCountries()
     for(testCount=0;test[testCount];testCount++)
       ;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     if (testCount != 256){
         errln("Expected getISOCountries to return 256 countries; it returned %d", testCount);
+#else
+    if (testCount != 253){
+        errln("Expected getISOCountries to return 253 countries; it returned %d", testCount);
+#endif  // APPLE_ICU_CHANGES
     }else {
         for (i = 0; i < spot2Len; i++) {
             int32_t j;
@@ -1093,29 +1150,53 @@ LocaleTest::TestAtypicalLocales()
                                      "Russian (Mexico)",
                                      "English (France)",
                                      "Spanish (Germany)",
+#if APPLE_ICU_CHANGES
+// rdar://
                                      "Croatia",
                                      "Sweden",
                                      "Dominican Republic",
                                      "Belgium" };
+#else
+                                     "Unknown language (Croatia)",
+                                     "Unknown language (Sweden)",
+                                     "Unknown language (Dominican Republic)",
+                                     "Unknown language (Belgium)" };
+#endif  // APPLE_ICU_CHANGES
     UnicodeString frenchDisplayNames []= { "allemand (Canada)",
                                      "japonais (Afrique du Sud)",
                                      "russe (Mexique)",
                                      "anglais (France)",
                                      "espagnol (Allemagne)",
+#if APPLE_ICU_CHANGES
+// rdar://
                                      u"Croatie",
                                      u"Suède",
                                      u"République dominicaine",
                                      u"Belgique" };
+#else
+                                     u"langue indéterminée (Croatie)",
+                                     u"langue indéterminée (Suède)",
+                                     u"langue indéterminée (République dominicaine)",
+                                     u"langue indéterminée (Belgique)" };
+#endif  // APPLE_ICU_CHANGES
     UnicodeString spanishDisplayNames [] = {
                                      u"alemán (Canadá)",
                                      u"japonés (Sudáfrica)",
                                      u"ruso (México)",
                                      u"inglés (Francia)",
                                      u"español (Alemania)",
+#if APPLE_ICU_CHANGES
+// rdar://
                                      "Croacia",
                                      "Suecia",
                                      u"República Dominicana",
                                      u"Bélgica" };
+#else
+                                     "lengua desconocida (Croacia)",
+                                     "lengua desconocida (Suecia)",
+                                     u"lengua desconocida (República Dominicana)",
+                                     u"lengua desconocida (Bélgica)" };
+#endif  // APPLE_ICU_CHANGES
     // De-Anglicizing root required the change from
     // English display names to ISO Codes - ram 2003/09/26
     UnicodeString invDisplayNames [] = { "German (Canada)",
@@ -1123,10 +1204,18 @@ LocaleTest::TestAtypicalLocales()
                                      "Russian (Mexico)",
                                      "English (France)",
                                      "Spanish (Germany)",
+#if APPLE_ICU_CHANGES
+// rdar://
                                      "Croatia",
                                      "Sweden",
                                      "Dominican Republic",
                                      "Belgium" };
+#else
+                                     "Unknown language (Croatia)",
+                                     "Unknown language (Sweden)",
+                                     "Unknown language (Dominican Republic)",
+                                     "Unknown language (Belgium)" };
+#endif  // APPLE_ICU_CHANGES
 
     int32_t i;
     UErrorCode status = U_ZERO_ERROR;
@@ -1659,12 +1748,12 @@ void
 LocaleTest::TestSetIsBogus() {
     Locale l("en_US");
     l.setToBogus();
-    if(l.isBogus() != TRUE) {
-        errln("After setting bogus, didn't return TRUE");
+    if(l.isBogus() != true) {
+        errln("After setting bogus, didn't return true");
     }
     l = "en_US"; // This should reset bogus
-    if(l.isBogus() != FALSE) {
-        errln("After resetting bogus, didn't return FALSE");
+    if(l.isBogus() != false) {
+        errln("After resetting bogus, didn't return false");
     }
 }
 
@@ -1708,20 +1797,44 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
     } full_data[] = {
         {
             "und_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
             "und_Latn_AQ",
             "und_AQ"
+#else
+            "_Latn_AQ",
+            "_AQ"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "und_Zzzz_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
             "und_Latn_AQ",
             "und_AQ"
+#else
+            "_Latn_AQ",
+            "_AQ"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "und_Latn_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
             "und_Latn_AQ",
             "und_AQ"
+#else
+            "_Latn_AQ",
+            "_AQ"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "und_Moon_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
             "und_Moon_AQ",
             "und_Moon_AQ"
+#else
+            "_Moon_AQ",
+            "_Moon_AQ"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "aa",
             "aa_Latn_ET",
@@ -1975,6 +2088,8 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "kpe_Latn_LR",
             "kpe"
         }, {
+#if APPLE_ICU_CHANGES
+// rdar://
             "ks", // Apple addition
             "ks_Aran_IN",
             "ks"
@@ -1987,6 +2102,7 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "ks_Aran_IN",
             "ks"
         }, {
+#endif  // APPLE_ICU_CHANGES
             "ku",
             "ku_Latn_TR",
             "ku"
@@ -2095,6 +2211,8 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "pa_Guru_IN",
             "pa"
         }, {
+#if APPLE_ICU_CHANGES
+// rdar://
             "pa_Arab",
             "pa_Arab_PK",
             "pa_Arab" // Apple change
@@ -2107,6 +2225,16 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "pa_Aran_PK", // Apple change
             "pa_PK"
         }, {
+#else
+            "pa_Arab",
+            "pa_Arab_PK",
+            "pa_PK"
+        }, {
+            "pa_PK",
+            "pa_Arab_PK",
+            "pa_PK"
+        }, {
+#endif  // APPLE_ICU_CHANGES
             "pap",
             "pap_Latn_AW",
             "pap"
@@ -2333,11 +2461,21 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
         }, {
             "und_Arab_IN",
             "ur_Arab_IN",
+#if APPLE_ICU_CHANGES
+// rdar://
             "ur_Arab_IN" // Apple change
+#else
+            "ur_IN"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "und_Arab_PK",
             "ur_Arab_PK",
+#if APPLE_ICU_CHANGES
+// rdar://
             "ur_Arab" // Apple change
+#else
+            "ur"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "und_Arab_SN",
             "ar_Arab_SN",
@@ -3167,6 +3305,8 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "ii_Yiii_CN",
             "ii"
         }, {
+#if APPLE_ICU_CHANGES
+// rdar://
             "ur",
             "ur_Aran_PK", // Apple change
             "ur"
@@ -3183,6 +3323,12 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "ur_Aran_IN",
             "ur_IN"
         }, {
+#else
+            "ur",
+            "ur_Arab_PK",
+            "ur"
+        }, {
+#endif  // APPLE_ICU_CHANGES
             "uz",
             "uz_Latn_UZ",
             "uz"
@@ -3272,8 +3418,14 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "zh_HK"
         }, {
             "und_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
             "und_Latn_AQ", // Apple change
             "und_AQ" // Apple change
+#else
+            "_Latn_AQ",
+            "_AQ"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "und_Zzzz",
             "en_Latn_US",
@@ -3296,8 +3448,14 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "zh_HK"
         }, {
             "und_Zzzz_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
             "und_Latn_AQ", // Apple change
             "und_AQ" // Apple change
+#else
+            "_Latn_AQ",
+            "_AQ"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "und_Latn",
             "en_Latn_US",
@@ -3320,8 +3478,14 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "zh_Latn_HK"
         }, {
             "und_Latn_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
             "und_Latn_AQ", // Apple change
             "und_AQ" // Apple change
+#else
+            "_Latn_AQ",
+            "_AQ"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "und_Hans",
             "zh_Hans_CN",
@@ -3392,8 +3556,14 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
             "zh_Moon_HK"
         }, {
             "und_Moon_AQ",
+#if APPLE_ICU_CHANGES
+// rdar://
             "und_Moon_AQ", // Apple change
             "und_Moon_AQ" // Apple change
+#else
+            "_Moon_AQ",
+            "_Moon_AQ"
+#endif  // APPLE_ICU_CHANGES
         }, {
             "es",
             "es_Latn_ES",
@@ -3867,6 +4037,8 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
         Locale res(org);
         res.addLikelySubtags(status);
         status.errIfFailureAndReset("\"%s\"", org);
+#if APPLE_ICU_CHANGES
+// rdar://
         char message[32] = "addLikelySubtags ";
         uprv_strncat(message, org, 14);
         if (exp[0]) {
@@ -3874,6 +4046,13 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
         } else {
             assertEquals(message, org, res.getName());
         }
+#else
+        if (exp[0]) {
+            assertEquals("addLikelySubtags", exp, res.getName());
+        } else {
+            assertEquals("addLikelySubtags", org, res.getName());
+        }
+#endif  // APPLE_ICU_CHANGES
     }
 
     for (const auto& item : full_data) {
@@ -3882,6 +4061,8 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
         Locale res(org);
         res.minimizeSubtags(status);
         status.errIfFailureAndReset("\"%s\"", org);
+#if APPLE_ICU_CHANGES
+// rdar://
         char message[32] = "minimizeSubtags ";
         uprv_strncat(message, org, 14);
         if (exp[0]) {
@@ -3889,6 +4070,13 @@ LocaleTest::TestAddLikelyAndMinimizeSubtags() {
         } else {
             assertEquals(message, org, res.getName());
         }
+#else
+        if (exp[0]) {
+            assertEquals("minimizeSubtags", exp, res.getName());
+        } else {
+            assertEquals("minimizeSubtags", org, res.getName());
+        }
+#endif  // APPLE_ICU_CHANGES
     }
 }
 
@@ -4721,12 +4909,12 @@ void LocaleTest::checkRegisteredCollators(const char *expectExtra) {
 
     // 2. add all of NEW
     const UnicodeString *locStr;
-    UBool foundExpected = FALSE;
+    UBool foundExpected = false;
     while((locStr = newEnum->snext(status)) && U_SUCCESS(status)) {
         count2++;
 
         if(expectExtra != NULL && expectStr == *locStr) {
-            foundExpected = TRUE;
+            foundExpected = true;
             logln(UnicodeString("Found expected registered collator: ","") + expectStr);
         }
         (void)foundExpected;    // Hush unused variable compiler warning.
@@ -4859,11 +5047,17 @@ void LocaleTest::TestCanonicalization(void)
         // Before ICU 64, ICU locale canonicalization had some additional mappings.
         // They were removed for ICU-20187 "drop support for long-obsolete locale ID variants".
         // The following now use standard canonicalization.
+#if APPLE_ICU_CHANGES
+// rdar://
         // Apple ICU restores these first 3 mappings deleted in open ICU 64
         { "", "", "en_US_POSIX" },
         { "C", "c", "en_US_POSIX" },
         { "POSIX", "posix", "en_US_POSIX" },
-        //
+#else
+        { "", "", "" },
+        { "C", "c", "c" },
+        { "POSIX", "posix", "posix" },
+#endif  // APPLE_ICU_CHANGES
         { "ca_ES_PREEURO", "ca_ES_PREEURO", "ca_ES_PREEURO" },
         { "de_AT_PREEURO", "de_AT_PREEURO", "de_AT_PREEURO" },
         { "de_DE_PREEURO", "de_DE_PREEURO", "de_DE_PREEURO" },
@@ -5416,12 +5610,14 @@ void LocaleTest::TestIsRightToLeft() {
     assertFalse("root LTR", Locale::getRoot().isRightToLeft());
     assertFalse("zh LTR", Locale::getChinese().isRightToLeft());
     assertTrue("ar RTL", Locale("ar").isRightToLeft());
-    assertTrue("und-EG RTL", Locale("und-EG").isRightToLeft(), FALSE, TRUE);
+    assertTrue("und-EG RTL", Locale("und-EG").isRightToLeft(), false, true);
     assertFalse("fa-Cyrl LTR", Locale("fa-Cyrl").isRightToLeft());
     assertTrue("en-Hebr RTL", Locale("en-Hebr").isRightToLeft());
-    assertTrue("ckb RTL", Locale("ckb").isRightToLeft(), FALSE, TRUE);  // Sorani Kurdish
+    assertTrue("ckb RTL", Locale("ckb").isRightToLeft(), false, true);  // Sorani Kurdish
     assertFalse("fil LTR", Locale("fil").isRightToLeft());
     assertFalse("he-Zyxw LTR", Locale("he-Zyxw").isRightToLeft());
+#if APPLE_ICU_CHANGES
+// rdar://
     // Additional Apple tests for rdar://51447187
     assertTrue("sd RTL",        Locale("sd").isRightToLeft());
     assertTrue("sd_Arab RTL",   Locale("sd_Arab").isRightToLeft());
@@ -5441,6 +5637,7 @@ void LocaleTest::TestIsRightToLeft() {
     assertTrue("ur RTL",        Locale("ur").isRightToLeft());
     assertTrue("ur_Arab RTL",   Locale("ur_Arab").isRightToLeft());
     assertTrue("ur_Aran RTL",   Locale("ur_Aran").isRightToLeft());
+#endif  // APPLE_ICU_CHANGES
 }
 
 void LocaleTest::TestBug11421() {
@@ -6127,6 +6324,8 @@ void LocaleTest::TestUnd() {
     Locale und_build = LocaleBuilder().setLanguageTag(und).build(status);
     status.errIfFailureAndReset("\"%s\"", und);
 
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("getName() 1", empty, empty_ctor.getName());
     assertEquals("getName() 2", root, root_ctor.getName()); // open ICU expects empty
     assertEquals("getName() 3", und, und_ctor.getName()); // open ICU expects empty
@@ -6137,7 +6336,21 @@ void LocaleTest::TestUnd() {
 
     assertEquals("getName() 7", root, root_build.getName()); // open ICU expects empty
     assertEquals("getName() 8", empty, und_build.getName());
+#else
+    assertEquals("getName()", empty, empty_ctor.getName());
+    assertEquals("getName()", empty, root_ctor.getName());
+    assertEquals("getName()", empty, und_ctor.getName());
 
+    assertEquals("getName()", empty, empty_tag.getName());
+    assertEquals("getName()", empty, root_tag.getName());
+    assertEquals("getName()", empty, und_tag.getName());
+
+    assertEquals("getName()", empty, root_build.getName());
+    assertEquals("getName()", empty, und_build.getName());
+#endif  // APPLE_ICU_CHANGES
+
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("toLanguageTag() 1", und, empty_ctor.toLanguageTag<std::string>(status).c_str());
     assertEquals("toLanguageTag() 2", root, root_ctor.toLanguageTag<std::string>(status).c_str()); // open ICU expects und
     assertEquals("toLanguageTag() 3", und, und_ctor.toLanguageTag<std::string>(status).c_str());
@@ -6151,6 +6364,21 @@ void LocaleTest::TestUnd() {
     assertEquals("toLanguageTag() 7", root, root_build.toLanguageTag<std::string>(status).c_str()); // open ICU expects und
     assertEquals("toLanguageTag() 8", und, und_build.toLanguageTag<std::string>(status).c_str());
     status.errIfFailureAndReset();
+#else
+    assertEquals("toLanguageTag()", und, empty_ctor.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", und, root_ctor.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", und, und_ctor.toLanguageTag<std::string>(status).c_str());
+    status.errIfFailureAndReset();
+
+    assertEquals("toLanguageTag()", und, empty_tag.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", und, root_tag.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", und, und_tag.toLanguageTag<std::string>(status).c_str());
+    status.errIfFailureAndReset();
+
+    assertEquals("toLanguageTag()", und, root_build.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", und, und_build.toLanguageTag<std::string>(status).c_str());
+    status.errIfFailureAndReset();
+#endif  // APPLE_ICU_CHANGES
 
     assertTrue("empty_ctor == empty_tag", empty_ctor == empty_tag);
 
@@ -6158,26 +6386,47 @@ void LocaleTest::TestUnd() {
     assertTrue("root_ctor == root_build", root_ctor == root_build);
     assertTrue("root_tag == root_build", root_tag == root_build);
 
-    //assertTrue("und_ctor == und_tag", und_ctor == und_tag); // change from open ICU
-    //assertTrue("und_ctor == und_build", und_ctor == und_build); // change from open ICU
+#if APPLE_ICU_CHANGES
+// rdar://
+#else
+    assertTrue("und_ctor == und_tag", und_ctor == und_tag);
+    assertTrue("und_ctor == und_build", und_ctor == und_build);
+#endif  // APPLE_ICU_CHANGES
     assertTrue("und_tag == und_build", und_tag == und_build);
 
-    //assertTrue("empty_ctor == root_ctor", empty_ctor == root_ctor); // change from open ICU
-    //assertTrue("empty_ctor == und_ctor", empty_ctor == und_ctor); // change from open ICU
-    //assertTrue("root_ctor == und_ctor", root_ctor == und_ctor); // change from open ICU
+#if APPLE_ICU_CHANGES
+// rdar://
+#else
+    assertTrue("empty_ctor == root_ctor", empty_ctor == root_ctor);
+    assertTrue("empty_ctor == und_ctor", empty_ctor == und_ctor);
+    assertTrue("root_ctor == und_ctor", root_ctor == und_ctor);
+#endif  // APPLE_ICU_CHANGES
 
-    //assertTrue("empty_tag == root_tag", empty_tag == root_tag); // change from open ICU
+#if APPLE_ICU_CHANGES
+// rdar://
+#else
+    assertTrue("empty_tag == root_tag", empty_tag == root_tag);
+#endif  // APPLE_ICU_CHANGES
     assertTrue("empty_tag == und_tag", empty_tag == und_tag);
-    //assertTrue("root_tag == und_tag", root_tag == und_tag); // change from open ICU
+#if APPLE_ICU_CHANGES
+// rdar://
+#else
+    assertTrue("root_tag == und_tag", root_tag == und_tag);
 
-    //assertTrue("root_build == und_build", root_build == und_build); // change from open ICU
+    assertTrue("root_build == und_build", root_build == und_build);
+#endif  // APPLE_ICU_CHANGES
 
     static const Locale& displayLocale = Locale::getEnglish();
     static const UnicodeString displayName("Unknown language");
+#if APPLE_ICU_CHANGES
+// rdar://
     static const UnicodeString displayRoot("Root");
     static const UnicodeString displayEmpty("");
+#endif  // APPLE_ICU_CHANGES
     UnicodeString tmp;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("getDisplayName() 1", displayEmpty, empty_ctor.getDisplayName(displayLocale, tmp)); // change from open ICU
     assertEquals("getDisplayName() 2", displayRoot, root_ctor.getDisplayName(displayLocale, tmp)); // change from open ICU
     assertEquals("getDisplayName() 3", displayName, und_ctor.getDisplayName(displayLocale, tmp));
@@ -6188,6 +6437,18 @@ void LocaleTest::TestUnd() {
 
     assertEquals("getDisplayName() 7", displayRoot, root_build.getDisplayName(displayLocale, tmp)); // change from open ICU
     assertEquals("getDisplayName() 8", displayEmpty, und_build.getDisplayName(displayLocale, tmp)); // change from open ICU
+#else
+    assertEquals("getDisplayName()", displayName, empty_ctor.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, root_ctor.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, und_ctor.getDisplayName(displayLocale, tmp));
+
+    assertEquals("getDisplayName()", displayName, empty_tag.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, root_tag.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, und_tag.getDisplayName(displayLocale, tmp));
+
+    assertEquals("getDisplayName()", displayName, root_build.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, und_build.getDisplayName(displayLocale, tmp));
+#endif  // APPLE_ICU_CHANGES
 }
 
 void LocaleTest::TestUndScript() {
@@ -6196,7 +6457,10 @@ void LocaleTest::TestUndScript() {
     static const char id[] = "_Cyrl";
     static const char tag[] = "und-Cyrl";
     static const char script[] = "Cyrl";
+#if APPLE_ICU_CHANGES
+// rdar://
     static const char tag_[] = "und_Cyrl";
+#endif  // APPLE_ICU_CHANGES
 
     Locale locale_ctor(id);
     Locale locale_legacy(tag);
@@ -6204,10 +6468,18 @@ void LocaleTest::TestUndScript() {
     Locale locale_build = LocaleBuilder().setScript(script).build(status);
     status.errIfFailureAndReset("\"%s\"", tag);
 
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("getName() 1", id, locale_ctor.getName());
     assertEquals("getName() 2", tag_, locale_legacy.getName()); // change from open ICU
     assertEquals("getName() 3", id, locale_tag.getName());
     assertEquals("getName() 4", id, locale_build.getName());
+#else
+    assertEquals("getName()", id, locale_ctor.getName());
+    assertEquals("getName()", id, locale_legacy.getName());
+    assertEquals("getName()", id, locale_tag.getName());
+    assertEquals("getName()", id, locale_build.getName());
+#endif  // APPLE_ICU_CHANGES
 
     assertEquals("toLanguageTag()", tag, locale_ctor.toLanguageTag<std::string>(status).c_str());
     assertEquals("toLanguageTag()", tag, locale_legacy.toLanguageTag<std::string>(status).c_str());
@@ -6217,13 +6489,24 @@ void LocaleTest::TestUndScript() {
 
     static const Locale& displayLocale = Locale::getEnglish();
     static const UnicodeString displayName("Unknown language (Cyrillic)");
+#if APPLE_ICU_CHANGES
+// rdar://
     static const UnicodeString displayScript("Cyrillic");
+#endif  // APPLE_ICU_CHANGES
     UnicodeString tmp;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("getDisplayName() 1", displayScript, locale_ctor.getDisplayName(displayLocale, tmp)); // change from open-source
     assertEquals("getDisplayName() 2", displayName, locale_legacy.getDisplayName(displayLocale, tmp));
     assertEquals("getDisplayName() 3", displayScript, locale_tag.getDisplayName(displayLocale, tmp)); // change from open-source
     assertEquals("getDisplayName() 4", displayScript, locale_build.getDisplayName(displayLocale, tmp)); // change from open-source
+#else
+    assertEquals("getDisplayName()", displayName, locale_ctor.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, locale_legacy.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, locale_tag.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, locale_build.getDisplayName(displayLocale, tmp));
+#endif  // APPLE_ICU_CHANGES
 }
 
 void LocaleTest::TestUndRegion() {
@@ -6232,7 +6515,10 @@ void LocaleTest::TestUndRegion() {
     static const char id[] = "_AQ";
     static const char tag[] = "und-AQ";
     static const char region[] = "AQ";
+#if APPLE_ICU_CHANGES
+// rdar://
     static const char tag_[] = "und_AQ";
+#endif  // APPLE_ICU_CHANGES
 
     Locale locale_ctor(id);
     Locale locale_legacy(tag);
@@ -6240,10 +6526,18 @@ void LocaleTest::TestUndRegion() {
     Locale locale_build = LocaleBuilder().setRegion(region).build(status);
     status.errIfFailureAndReset("\"%s\"", tag);
 
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("getName() 1", id, locale_ctor.getName());
     assertEquals("getName() 2", tag_, locale_legacy.getName()); // change from open ICU
     assertEquals("getName() 3", id, locale_tag.getName());
     assertEquals("getName() 4", id, locale_build.getName());
+#else
+    assertEquals("getName()", id, locale_ctor.getName());
+    assertEquals("getName()", id, locale_legacy.getName());
+    assertEquals("getName()", id, locale_tag.getName());
+    assertEquals("getName()", id, locale_build.getName());
+#endif  // APPLE_ICU_CHANGES
 
     assertEquals("toLanguageTag()", tag, locale_ctor.toLanguageTag<std::string>(status).c_str());
     assertEquals("toLanguageTag()", tag, locale_legacy.toLanguageTag<std::string>(status).c_str());
@@ -6253,13 +6547,24 @@ void LocaleTest::TestUndRegion() {
 
     static const Locale& displayLocale = Locale::getEnglish();
     static const UnicodeString displayName("Unknown language (Antarctica)");
+#if APPLE_ICU_CHANGES
+// rdar://
     static const UnicodeString displayRegion("Antarctica");
+#endif  // APPLE_ICU_CHANGES
     UnicodeString tmp;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("getDisplayName() 1", displayRegion, locale_ctor.getDisplayName(displayLocale, tmp)); // change from open-source
     assertEquals("getDisplayName() 2", displayName, locale_legacy.getDisplayName(displayLocale, tmp));
     assertEquals("getDisplayName() 3", displayRegion, locale_tag.getDisplayName(displayLocale, tmp)); // change from open-source
     assertEquals("getDisplayName() 4", displayRegion, locale_build.getDisplayName(displayLocale, tmp)); // change from open-source
+#else
+    assertEquals("getDisplayName()", displayName, locale_ctor.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, locale_legacy.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, locale_tag.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName()", displayName, locale_build.getDisplayName(displayLocale, tmp));
+#endif  // APPLE_ICU_CHANGES
 }
 
 void LocaleTest::TestUndCAPI() {
@@ -6284,43 +6589,78 @@ void LocaleTest::TestUndCAPI() {
     reslen = uloc_getName(empty, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getName() 1", empty, tmp);
+#else
+    assertEquals("uloc_getName()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getName(root, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", root);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getName() 2", root, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getName()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getName(und, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getName() 3", und, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getName()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getName(empty_script, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty_script);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getName() 4", empty_script, tmp);
+#else
+    assertEquals("uloc_getName()", empty_script, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getName(empty_region, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty_region);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getName() 5", empty_region, tmp);
+#else
+    assertEquals("uloc_getName()", empty_region, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getName(und_script, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und_script);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getName() 6", und_script, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getName()", empty_script, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getName(und_region, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und_region);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getName() 7", und_region, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getName()", empty_region, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     // uloc_getBaseName()
 
@@ -6328,43 +6668,78 @@ void LocaleTest::TestUndCAPI() {
     reslen = uloc_getBaseName(empty, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getBaseName() 1", empty, tmp);
+#else
+    assertEquals("uloc_getBaseName()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getBaseName(root, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", root);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getBaseName() 2", root, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getBaseName()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getBaseName(und, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getBaseName() 3", und, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getBaseName()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getBaseName(empty_script, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty_script);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getBaseName() 4", empty_script, tmp);
+#else
+    assertEquals("uloc_getBaseName()", empty_script, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getBaseName(empty_region, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty_region);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getBaseName() 5", empty_region, tmp);
+#else
+    assertEquals("uloc_getBaseName()", empty_region, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getBaseName(und_script, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und_script);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getBaseName() 6", und_script, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getBaseName()", empty_script, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getBaseName(und_region, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und_region);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getBaseName() 7", und_region, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getBaseName()", empty_region, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     // uloc_getParent()
 
@@ -6372,43 +6747,78 @@ void LocaleTest::TestUndCAPI() {
     reslen = uloc_getParent(empty, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getParent() 1", empty, tmp);
+#else
+    assertEquals("uloc_getParent()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getParent(root, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", root);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getParent() 2", empty, tmp);
+#else
+    assertEquals("uloc_getParent()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getParent(und, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getParent() 3", empty, tmp);
+#else
+    assertEquals("uloc_getParent()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getParent(empty_script, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty_script);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getParent() 4", empty, tmp);
+#else
+    assertEquals("uloc_getParent()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getParent(empty_region, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty_region);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getParent() 5", empty, tmp);
+#else
+    assertEquals("uloc_getParent()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getParent(und_script, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und_script);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getParent() 6", und, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getParent()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getParent(und_region, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und_region);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getParent() 7", und, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getParent()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     // uloc_getLanguage()
 
@@ -6416,43 +6826,78 @@ void LocaleTest::TestUndCAPI() {
     reslen = uloc_getLanguage(empty, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getLanguage() 1", empty, tmp);
+#else
+    assertEquals("uloc_getLanguage()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getLanguage(root, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", root);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getLanguage() 2", root, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getLanguage()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getLanguage(und, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getLanguage() 3", und, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getLanguage()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getLanguage(empty_script, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty_script);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getLanguage() 4", empty, tmp);
+#else
+    assertEquals("uloc_getLanguage()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getLanguage(empty_region, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", empty_region);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getLanguage() 5", empty, tmp);
+#else
+    assertEquals("uloc_getLanguage()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getLanguage(und_script, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und_script);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getLanguage() 6", und, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getLanguage()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 
     uprv_memset(tmp, '!', sizeof tmp);
     reslen = uloc_getLanguage(und_region, tmp, sizeof tmp, status);
     status.errIfFailureAndReset("\"%s\"", und_region);
     assertTrue("reslen >= 0", reslen >= 0);
+#if APPLE_ICU_CHANGES
+// rdar://
     assertEquals("uloc_getLanguage() 7", und, tmp); // change from open ICU
+#else
+    assertEquals("uloc_getLanguage()", empty, tmp);
+#endif  // APPLE_ICU_CHANGES
 }
 
 #define ARRAY_RANGE(array) (array), ((array) + UPRV_LENGTHOF(array))
@@ -6673,3 +7118,20 @@ void LocaleTest::TestNullDereferenceWrite21597() {
     l.canonicalize(status);
     status.expectErrorAndReset(U_ILLEGAL_ARGUMENT_ERROR);
 }
+#if !UCONFIG_NO_FORMATTING
+void LocaleTest::TestSierraLeoneCurrency21997() {
+    // CLDR 41: Check that currency of Sierra Leone is SLL (which is legal tender)
+    // and not the newer currency SLE (which is not legal tender), as of CLDR 41.
+    // Test will fail once SLE is declared legal.
+    // CLDR 42: Now check that currency of Sierra Leone is SLE (which is legal tender)
+    UnicodeString sllStr("SLE", ""), resultStr;
+    UChar tmp[4];
+    UErrorCode status = U_ZERO_ERROR;
+
+    ucurr_forLocale("en_SL", tmp, 4, &status);
+    resultStr.setTo(tmp);
+    if (sllStr != resultStr) {
+        errcheckln(status, "Fail: en_SL didn't return SLE - %s", u_errorName(status));
+    }
+}
+#endif

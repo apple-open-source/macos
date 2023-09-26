@@ -868,7 +868,7 @@ OSStatus SecTrustSettingsSetTrustSettings(
 	unique_ptr<TrustSettings>_(ts);
 
 	ts->setTrustSettings(certRef, trustSettingsDictOrArray);
-	ts->flushToDisk();
+	ts->flushToDisk(certRef, trustSettingsDictOrArray);
 	tsTrustSettingsChanged();
 	return errSecSuccess;
 
@@ -901,7 +901,7 @@ OSStatus SecTrustSettingsRemoveTrustSettings(
 	trustSettingsDbg("SecTrustSettingsRemoveTrustSettings: deleting from domain %d",
 		(int)domain);
 	ts->deleteTrustSettings(cert);
-	ts->flushToDisk();
+	ts->flushToDisk(cert, NULL);
 	tsTrustSettingsChanged();
 	return errSecSuccess;
 
@@ -947,7 +947,7 @@ static OSStatus SecTrustSettingsCopyCertificates_internal(
 				/* if we fail to read user keychains, we still want to search the admin & system stores */
 				secnotice("trustsettings", "SecTrustSettingsCopyCertificates: handling error %ld for user domain", (long)err.osStatus());
 			}
-			/* drop thru to next case */
+			[[fallthrough]];
 		case kSecTrustSettingsDomainAdmin:
 			/* admin certs in system keychain */
 			try {
@@ -958,11 +958,12 @@ static OSStatus SecTrustSettingsCopyCertificates_internal(
 				/* if we fail to read the system keychain, we still want to get the system root store */
 				secnotice("trustsettings", "SecTrustSettingsCopyCertificates: handling error %ld for admin domain", (long)err.osStatus());
 			}
-			/* drop thru to next case */
+			[[fallthrough]];
 		case kSecTrustSettingsDomainSystem:
 			/* and, for all cases, immutable system root store */
 			sysRootKc = globals().storageManager.make(SYSTEM_ROOT_STORE_PATH, false);
 			keychains.push_back(sysRootKc);
+            break;
 		default:
 			/* already validated when we created the TrustSettings */
 			break;
@@ -1190,7 +1191,7 @@ OSStatus SecTrustSettingsImportExternalRepresentation(
 
 	unique_ptr<TrustSettings>_(ts);
 
-	ts->flushToDisk();
+	ts->flushToDisk(NULL, NULL);
 	tsTrustSettingsChanged();
 	return errSecSuccess;
 

@@ -3,6 +3,117 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 hi_Latn{
     %%Parent{"en_IN"}
+    units{
+        concentr{
+            percent{
+                dnam{"percent"}
+                one{"{0} percent"}
+                other{"{0} percent"}
+            }
+        }
+        consumption{
+            mile-per-gallon-imperial{
+                dnam{"miles per Imp. gallon"}
+                one{"{0} mile per Imp. gallon"}
+                other{"{0} miles per Imp. gallon"}
+            }
+        }
+        duration{
+            day{
+                one{"{0} din"}
+                other{"{0} din"}
+                per{"{0} har din"}
+            }
+            hour{
+                one{"{0} ghanta"}
+                other{"{0} ghante"}
+                per{"{0} har ghante"}
+            }
+            minute{
+                per{"{0} har minute"}
+            }
+            month{
+                per{"{0} har month"}
+            }
+            second{
+                per{"{0} har second"}
+            }
+            week{
+                per{"{0} har week"}
+            }
+            year{
+                one{"{0} saal"}
+                other{"{0} saal"}
+                per{"{0} har saal"}
+            }
+        }
+        graphics{
+            em{
+                dnam{"typographic em"}
+            }
+        }
+        length{
+            micrometer{
+                dnam{"micrometres"}
+            }
+            mile-scandinavian{
+                dnam{"Scandinavian miles"}
+            }
+        }
+        mass{
+            stone{
+                dnam{"stones"}
+                one{"{0} stone"}
+                other{"{0} stones"}
+            }
+        }
+        pressure{
+            inch-ofhg{
+                one{"{0} inch mercury"}
+                other{"{0} inches mercury"}
+            }
+            millimeter-ofhg{
+                dnam{"millimetres mercury"}
+                one{"{0} millimetre mercury"}
+                other{"{0} millimetres mercury"}
+            }
+        }
+        temperature{
+            generic{
+                dnam{"degrees temperature"}
+                one{"{0} degree temperature"}
+                other{"{0} degrees temperature"}
+            }
+            kelvin{
+                dnam{"kelvins"}
+                one{"{0} kelvin"}
+                other{"{0} kelvins"}
+            }
+        }
+        volume{
+            dessert-spoon{
+                dnam{"dessert spoons"}
+                one{"{0} dessert spoon"}
+                other{"{0} dessert spoons"}
+            }
+            dessert-spoon-imperial{
+                dnam{"Imp. dessert spoons"}
+                one{"{0} Imp. dessert spoon"}
+                other{"{0} Imp. dessert spoons"}
+            }
+            gallon-imperial{
+                dnam{"Imp. gallons"}
+                one{"{0} Imp. gallon"}
+                other{"{0} Imp. gallons"}
+                per{"{0} per Imp. gallon"}
+            }
+            quart-imperial{
+                dnam{"Imp. quarts"}
+                one{"{0} Imp. quart"}
+                other{"{0} Imp. quarts"}
+            }
+        }
+    }
     unitsNarrow{
         concentr{
             karat{
@@ -11,12 +122,15 @@ hi_Latn{
                 other{"{0}kt"}
             }
         }
+        consumption{
+            mile-per-gallon-imperial{
+                one{"{0}m/gUK"}
+                other{"{0}m/gUK"}
+            }
+        }
         digital{
             gigabyte{
                 dnam{"GByte"}
-            }
-            kilobyte{
-                dnam{"kByte"}
             }
             megabyte{
                 dnam{"MByte"}
@@ -24,19 +138,16 @@ hi_Latn{
             petabyte{
                 dnam{"PByte"}
             }
-            terabyte{
-                dnam{"TByte"}
-            }
-        }
-        duration{
-            month{
-                one{"{0}m"}
-                other{"{0}m"}
-            }
         }
         length{
             meter{
                 dnam{"metre"}
+            }
+        }
+        mass{
+            pound{
+                one{"{0}#"}
+                other{"{0}#"}
             }
         }
         pressure{
@@ -57,10 +168,34 @@ hi_Latn{
             }
         }
         volume{
+            dessert-spoon{
+                dnam{"dsp"}
+                one{"{0}dsp"}
+                other{"{0}dsp"}
+            }
+            dessert-spoon-imperial{
+                dnam{"Imp dsp"}
+                one{"{0}dsp-Imp"}
+                other{"{0}dsp-Imp"}
+            }
+            fluid-ounce{
+                dnam{"fl oz"}
+                one{"{0}fl oz"}
+                other{"{0}fl oz"}
+            }
             fluid-ounce-imperial{
                 dnam{"Imp fl oz"}
                 one{"{0}fl oz Im"}
                 other{"{0}fl oz Im"}
+            }
+            gallon-imperial{
+                one{"{0}galIm"}
+                other{"{0}galIm"}
+            }
+            quart-imperial{
+                dnam{"Imp qt"}
+                one{"{0}qt-Imp."}
+                other{"{0}qt-Imp."}
             }
         }
     }
@@ -71,7 +206,17 @@ hi_Latn{
                 other{"{0} rev"}
             }
         }
+        compound{
+            10p-6{"μ {0}"}
+            10p-9{"n {0}"}
+            10p12{"T {0}"}
+            10p15{"P {0}"}
+            10p6{"M {0}"}
+        }
         concentr{
+            karat{
+                dnam{"karats"}
+            }
             millimole-per-liter{
                 dnam{"millimol/litre"}
             }
@@ -80,21 +225,34 @@ hi_Latn{
             mile-per-gallon{
                 dnam{"miles/gal US"}
             }
+            mile-per-gallon-imperial{
+                one{"{0} mpg Imp."}
+                other{"{0} mpg Imp."}
+            }
         }
         duration{
+            day{
+                one{"{0} din"}
+                other{"{0} din"}
+            }
             minute{
-                dnam{"mins"}
                 one{"{0} min"}
                 other{"{0} mins"}
             }
-            month{
-                per{"{0}/m"}
+        }
+        graphics{
+            dot{
+                one{"{0} px"}
+                other{"{0} px"}
             }
         }
         mass{
             carat{
                 one{"{0} CD"}
                 other{"{0} CD"}
+            }
+            stone{
+                dnam{"stones"}
             }
         }
         pressure{
@@ -109,14 +267,46 @@ hi_Latn{
             }
         }
         volume{
+            dessert-spoon{
+                dnam{"dstspn"}
+                one{"{0} dstspn"}
+                other{"{0} dstspn"}
+            }
+            dessert-spoon-imperial{
+                dnam{"Imp dstspn"}
+                one{"{0} Imp dstspn"}
+                other{"{0} Imp dstspn"}
+            }
+            dram{
+                dnam{"dram fluid"}
+                one{"{0} dram fl"}
+                other{"{0} dram fl"}
+            }
+            drop{
+                one{"{0} drop"}
+                other{"{0} drop"}
+            }
+            fluid-ounce-imperial{
+                dnam{"Imp. fl oz"}
+                one{"{0} fl oz Imp."}
+                other{"{0} fl oz Imp."}
+            }
             gallon{
                 one{"{0} gal US"}
                 other{"{0} gal US"}
             }
-            quart{
-                dnam{"qts"}
-                one{"{0} qt"}
-                other{"{0} qt"}
+            gallon-imperial{
+                one{"{0} gal"}
+                other{"{0} gal Imp."}
+            }
+            pinch{
+                one{"{0} pinch"}
+                other{"{0} pinch"}
+            }
+            quart-imperial{
+                dnam{"Imp. qt"}
+                one{"{0} Imp. qt"}
+                other{"{0} Imp. qt"}
             }
         }
     }

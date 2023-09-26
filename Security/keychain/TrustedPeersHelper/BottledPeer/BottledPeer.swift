@@ -80,6 +80,9 @@ class BottledPeer: NSObject {
         // Encrypt the contents
         let op = BottledPeer.encryptionOperation()
         let cipher = try op.encrypt(clearContentsData, with: escrowKeys.symmetricKey)
+        guard let cipher = cipher as? _SFAuthenticatedCiphertext else {
+            throw Error.OTErrorAuthCipherTextCreation
+        }
 
         let escrowSigningECPubKey: _SFECPublicKey = (escrowKeys.signingKey.publicKey as! _SFECPublicKey)
         let escrowEncryptionECPubKey: _SFECPublicKey = escrowKeys.encryptionKey.publicKey as! _SFECPublicKey

@@ -76,9 +76,7 @@ static int fnmatch1(const char *, const char *, const char *, int, mbstate_t,
 		mbstate_t, locale_t, int);
 
 int
-fnmatch(pattern, string, flags)
-	const char *pattern, *string;
-	int flags;
+fnmatch(const char *pattern, const char *string, int flags)
 {
 	static const mbstate_t initial;
 #if __DARWIN_UNIX03
@@ -89,12 +87,8 @@ fnmatch(pattern, string, flags)
 }
 
 static int
-fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
-	const char *pattern, *string, *stringstart;
-	int flags;
-	mbstate_t patmbs, strmbs;
-	locale_t loc;
-	int recursion;
+fnmatch1(const char *pattern, const char *string, const char *stringstart,
+    int flags, mbstate_t patmbs, mbstate_t strmbs, locale_t loc, int recursion)
 {
 	const char *bt_pattern, *bt_string;
 	mbstate_t bt_patmbs, bt_strmbs;
@@ -263,13 +257,9 @@ fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
 
 #ifndef BUILDING_VARIANT
 __private_extern__ int
-rangematch(pattern, test, string, flags, newp, news, patmbs, strmbs, loc)
-	const char *pattern, *string;
-	wchar_t test;
-	int flags;
-	char **newp, **news;
-	mbstate_t *patmbs, *strmbs;
-	locale_t loc;
+rangematch(const char *pattern, wchar_t test, const char *string, int flags,
+    char **newp, char **news, mbstate_t *patmbs, mbstate_t *strmbs,
+    locale_t loc)
 {
 	int negate, ok, special;
 	wchar_t c, c2;

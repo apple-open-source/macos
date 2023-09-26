@@ -37,8 +37,7 @@ static char rcsid[] = "$FreeBSD: /repoman/r/ncvs/src/lib/libcompat/4.1/ftime.c,v
 #include <sys/timeb.h>
 
 int
-ftime(tbp)
-        struct timeb *tbp;
+ftime(struct timeb *tbp)
 {
         struct timezone tz;
         struct timeval t;

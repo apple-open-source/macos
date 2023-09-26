@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>dd</string>
 		<key>OpenSourceVersion</key>
-		<string>2020-06-04</string>
+		<string>2023-05-05</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/bin/dd?id=f4b4526f233c5a84388390279fc40ef8ecaa359f</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/dd?id=5807f35c541c26bbd91a3ae12506cd8dd8f20688</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-05-18</string>
+		<string>2023-05-05</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>args.c: skip -- for conformance (3570289)</string>

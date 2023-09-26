@@ -73,6 +73,7 @@
     (global-name "com.apple.dnssd.service")
     (xpc-service-name "com.apple.powerlog.plxpclogger.xpc")
     (global-name "com.apple.nesessionmanager.content-filter")
+    (global-name "com.apple.tccd")
     (global-name "com.apple.trustdFileHelper")
     (global-name "com.apple.AppSSO.service-xpc")
     (global-name "com.apple.GSSCred"))

@@ -30,12 +30,11 @@
 
 #include <Security/SecureTransport.h>
 #include <Security/SecTrust.h>
+#include <Security/sslTypes.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Security/sslTypes.h>
 
 /* Enum defining connection strength for TLS connections. */
 typedef CF_ENUM(int, SSLConnectionStrength) {

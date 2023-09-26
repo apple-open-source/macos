@@ -107,7 +107,8 @@
         "kern.osversion"
         "kern.secure_kernel"
         "kern.version"
-        "vm.footprint_suspend")
+        "vm.footprint_suspend"
+        "vm.malloc_ranges") ;; <rdar://problem/105161083>
     (sysctl-name-prefix "kern.proc.pid.")
 )
 
@@ -127,8 +128,7 @@
 ;; AWD
 (allow mach-lookup
     (global-name
-        "com.apple.analyticsd"
-        "com.apple.awdd"))
+        "com.apple.analyticsd"))
 
 ;; Various services required by CFNetwork and other frameworks
 (allow mach-lookup

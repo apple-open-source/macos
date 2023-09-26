@@ -1,0 +1,8 @@
+analytics "com.apple.genwrap_test" noargs
+
+application "foo"
+	cwdpath "bin/foo"
+	flag "a"
+	flag "b" arg
+	flag "count" "c" optional_arg
+	flag "d"

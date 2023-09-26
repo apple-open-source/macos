@@ -270,6 +270,7 @@ __unused static char copyright[] =
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
 #include <netinet/udp.h>
+#include <netinet/ip.h>
 
 #ifdef IPSEC
 #include <net/route.h>
@@ -347,12 +348,14 @@ u_long max_hops = 30;
 u_int16_t srcport;
 u_int16_t port = 32768+666;	/* start udp dest port # for probe packets */
 u_int16_t ident;
+int tclass = -1;
 int options;			/* socket options */
 int verbose;
 int waittime = 5;		/* time to wait for response (in seconds) */
 int nflag;			/* print addresses numerically */
 int useproto = IPPROTO_UDP;	/* protocol to use to send packet */
 int lflag;			/* print both numerical address & hostname */
+int ecn = 0;		/* set ECN bits */
 
 int
 main(argc, argv)
@@ -404,10 +407,13 @@ main(argc, argv)
 
 	seq = 0;
 
-	while ((ch = getopt(argc, argv, "df:g:Ilm:nNp:q:rs:Uvw:")) != -1)
+	while ((ch = getopt(argc, argv, "dEf:g:Ilm:nNp:q:rs:Uvw:")) != -1)
 		switch (ch) {
 		case 'd':
 			options |= SO_DEBUG;
+			break;
+		case 'E':
+			ecn = 1;
 			break;
 		case 'f':
 			ep = NULL;
@@ -559,7 +565,7 @@ main(argc, argv)
 		}
 		break;
 	case IPPROTO_NONE:
-        	if ((sndsock = socket(AF_INET6, SOCK_RAW, IPPROTO_NONE)) < 0) {
+		if ((sndsock = socket(AF_INET6, SOCK_RAW, IPPROTO_NONE)) < 0) {
 			perror("socket(SOCK_RAW)");
 			exit(5);
 		}
@@ -575,9 +581,22 @@ main(argc, argv)
 		exit(1);
 	}
 
+	if (ecn) {
+		tclass = 0;
+		tclass |= IPTOS_ECN_ECT1;
+	}
+
 	/* revoke privs */
 	seteuid(getuid());
 	setuid(getuid());
+
+	if (tclass != -1) {
+		if (setsockopt(sndsock, IPPROTO_IPV6, IPV6_TCLASS, &tclass,
+			sizeof(int)) == -1) {
+			perror("setsockopt(IPV6_TCLASS)");
+			exit(7);
+		}
+	}
 
 	if (argc < 1 || argc > 2)
 		usage();
@@ -1238,6 +1257,19 @@ packet_ok(mhdr, cc, seq)
 				warnx("failed to get upper layer header");
 			return(0);
 		}
+
+		if (ecn) {
+			u_char input_ecn = (ntohl(hip->ip6_flow & IPV6_FLOW_ECN_MASK) >> 20);
+			u_char output_ecn = tclass & IPTOS_ECN_MASK;
+			if (input_ecn == output_ecn) {
+				printf(" (ecn=passed)");
+			} else if (input_ecn == IPTOS_ECN_CE) {
+				printf(" (ecn=mangled)");
+			} else if (input_ecn == IPTOS_ECN_NOTECT) {
+				printf(" (ecn=bleached)");
+			}
+		}
+
 		switch (useproto) {
 		case IPPROTO_ICMPV6:
 			if (((struct icmp6_hdr *)up)->icmp6_id == ident &&
@@ -1417,7 +1449,7 @@ usage()
 {
 
 	fprintf(stderr,
-"usage: traceroute6 [-dIlnNrUv] [-f firsthop] [-g gateway] [-m hoplimit]\n"
+"usage: traceroute6 [-dEIlnNrUv] [-f firsthop] [-g gateway] [-m hoplimit]\n"
 "       [-p port] [-q probes] [-s src] [-w waittime] target [datalen]\n");
 	exit(1);
 }

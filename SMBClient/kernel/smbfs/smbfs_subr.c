@@ -67,6 +67,9 @@
 /*  Number of seconds between 1970 and 1601 year */
 uint64_t DIFF1970TO1601 = 11644473600ULL;
 
+/*  Number of 100 nanosecond intervals in a second*/
+uint64_t HUNDRED_NSEC_PER_SEC = (NSEC_PER_SEC/100);
+
 /*
  * The nsec field is a NT Style File Time.
  *
@@ -78,7 +81,8 @@ uint64_t DIFF1970TO1601 = 11644473600ULL;
 void
 smb_time_NT2local(uint64_t nsec, struct timespec *tsp)
 {
-	tsp->tv_sec = (long)(nsec / 10000000 - DIFF1970TO1601);
+	tsp->tv_sec = (long)(nsec / HUNDRED_NSEC_PER_SEC - DIFF1970TO1601);
+    tsp->tv_nsec = 100 * (nsec % HUNDRED_NSEC_PER_SEC);
 }
 
 void
@@ -90,9 +94,17 @@ smb_time_local2NT(struct timespec *tsp, uint64_t *nsec, int fat_fstype)
 	 * the two second interval on FAT File Systems.
 	 */
 	if (fat_fstype)
-		*nsec = (((uint64_t)(tsp->tv_sec) & ~1) + DIFF1970TO1601) * (uint64_t)10000000;
-	else
-		*nsec = ((uint64_t)tsp->tv_sec + DIFF1970TO1601) * (uint64_t)10000000;
+		*nsec = (((uint64_t)(tsp->tv_sec) & ~1) + DIFF1970TO1601)
+                                                * HUNDRED_NSEC_PER_SEC;
+    else {
+        /*
+         * the SMB protocol supports time resolution of 100-nanoseconds intervals
+         * therefore, the two least significant digits are not needed
+         * remove the first two digits and only keep the 100-nanoseconds intervals
+         */
+        *nsec = (((uint64_t)tsp->tv_sec + DIFF1970TO1601) * HUNDRED_NSEC_PER_SEC)
+                + (tsp->tv_nsec / 100);
+    }
 }
 
 int 

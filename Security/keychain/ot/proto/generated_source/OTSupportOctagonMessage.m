@@ -20,12 +20,12 @@
 }
 - (void)setSupported:(OTSupportType)v
 {
-    _has.supported = YES;
+    _has.supported = (uint)YES;
     _supported = v;
 }
 - (void)setHasSupported:(BOOL)f
 {
-    _has.supported = f;
+    _has.supported = (uint)f;
 }
 - (BOOL)hasSupported
 {
@@ -73,7 +73,7 @@ BOOL OTSupportOctagonMessageReadFrom(__unsafe_unretained OTSupportOctagonMessage
 
             case 1 /* supported */:
             {
-                self->_has.supported = YES;
+                self->_has.supported = (uint)YES;
                 self->_supported = PBReaderReadInt32(reader);
             }
             break;

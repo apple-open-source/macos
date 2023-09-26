@@ -2,9 +2,10 @@
 //  PSUtilities.m
 //  CertificateTool
 //
-//  Copyright (c) 2012-2014 Apple Inc. All Rights Reserved.
+//  Copyright (c) 2012-2014,2023 Apple Inc. All Rights Reserved.
 //
 
+#import <CommonCrypto/CommonCrypto.h>
 #import "PSUtilities.h"
 
 @implementation PSUtilities
@@ -36,98 +37,27 @@
 
 + (NSString *)digestAndEncode:(CFDataRef)cfData useSHA1:(BOOL)useSHA1;
 {
-    CFErrorRef cfError  = NULL;
+    NSData* data = (__bridge NSData*)cfData;
+    NSData* digestData = nil;
     NSString* result = nil;
-    CFTypeRef digestType = kSecDigestSHA2;
-    CFIndex digestLength = 256;
-    
-    if (useSHA1)
-    {
-        digestType = kSecDigestSHA1;
-        digestLength = 0;
-    }
-    
-    SecTransformRef digestXForm = SecDigestTransformCreate(digestType, digestLength, &cfError);
-    if (NULL != cfError)
-    {
-        if (NULL != digestXForm)
-        {
-            CFRelease(digestXForm);
-        }
-        CFRelease(cfData);
-		[PSUtilities outputError:@"Could not create the digesting transform." withError:cfError];
+    uint8_t digest[CC_SHA256_DIGEST_LENGTH] = {0};
+    if (nil == data) {
+        [PSUtilities outputError:@"No data provided to digest" withError:NULL];
         return result;
     }
-    
- 	if (!SecTransformSetAttribute(digestXForm, kSecTransformInputAttributeName, cfData, &cfError))
-    {
-        CFRelease(cfData);
-        CFRelease(digestXForm);
-        [PSUtilities outputError:@"Could not set the input attribute" withError:cfError];
+    if (useSHA1) {
+        CC_SHA1([data bytes],  (CC_LONG)[data length], digest);
+        digestData = [NSData dataWithBytes:digest length:CC_SHA1_DIGEST_LENGTH];
+    } else {
+        CC_SHA256([data bytes], (CC_LONG)[data length], digest);
+        digestData = [NSData dataWithBytes:digest length:CC_SHA256_DIGEST_LENGTH];
+    }
+    if (nil == digestData) {
+        [PSUtilities outputError:@"Failed to obtain digest of data" withError:NULL];
         return result;
     }
-    
-    SecTransformRef base64Xform = SecEncodeTransformCreate(kSecBase64Encoding, &cfError);
-    
-    if (NULL != cfError)
-    {
-            
-        if (NULL != base64Xform)
-        {
-           CFRelease(base64Xform); 
-        }
-        CFRelease(cfData);
-        CFRelease(digestXForm);
-		[PSUtilities outputError:@"Could not create the encoding transform." withError:cfError];
-        return result;
-    }
-    
-    SecGroupTransformRef groupXForm = SecTransformCreateGroupTransform();
-    if (NULL == groupXForm)
-    {
-        CFRelease(digestXForm);
-        CFRelease(base64Xform);
-        NSLog(@"Could not create the group transform");
-        return result;
-    }
-    
-    SecTransformConnectTransforms(digestXForm, kSecTransformOutputAttributeName,
-                                  base64Xform, kSecTransformInputAttributeName,
-                                  groupXForm, &cfError);
-    CFRelease(digestXForm);
-    CFRelease(base64Xform);
-    
-    if (NULL != cfError)
-    {
-        if (NULL != groupXForm)
-        {
-            CFRelease(groupXForm);
-        }
-		[PSUtilities outputError:@"Could not connect the transforms" withError:cfError];
-        return result;
-    }
-    
-    CFDataRef cfResult = (CFDataRef)SecTransformExecute(groupXForm, &cfError);
-    CFRelease(groupXForm);
-    if (NULL != cfError)
-    {
-        if (NULL != cfResult)
-        {
-            CFRelease(cfResult);
-        }
-        
-        [PSUtilities outputError:@"Could not execute the transform." withError:cfError];
-        return result;
-    }
-    const void* pPtr = (const void*)CFDataGetBytePtr(cfResult);
-    NSUInteger len = (NSUInteger)CFDataGetLength(cfResult);
-    
-	NSData* temp_data = [[NSData alloc] initWithBytes:pPtr length:len];
-    CFRelease(cfResult);
-	result = [[NSString alloc] initWithData:temp_data encoding:NSUTF8StringEncoding];
-    
+    result = [digestData base64EncodedStringWithOptions:0];
     return result;
-    
 }
 
 + (NSData *)readFile:(NSString *)file_path
@@ -215,11 +145,10 @@
         return result;
     }
     
-    SecKeyRef aPublicKey = NULL;
-    OSStatus err = SecCertificateCopyPublicKey(cert, &aPublicKey);
-    if (errSecSuccess == err && NULL != aPublicKey)
+    SecKeyRef aPublicKey = SecCertificateCopyKey(cert);
+    if (NULL != aPublicKey)
     {
-        err = SecItemExport(aPublicKey, kSecFormatBSAFE, 0, NULL, &result);
+        OSStatus err = SecItemExport(aPublicKey, kSecFormatBSAFE, 0, NULL, &result);
         if (errSecSuccess != err)
         {
             result = NULL;
@@ -246,115 +175,9 @@
 
 + (NSString *)signAndEncode:(CFDataRef)data usingKey:(SecKeyRef)key useSHA1:(BOOL)useSHA1
 {
-	NSString* result = nil;
-	if (NULL == data || NULL == key)
-	{
-		return result;
-	}
-	
-    CFTypeRef digestType = kSecDigestHMACSHA2;
-    CFIndex digestLength = 256;
-    
-    if (useSHA1)
-    {
-        digestType = kSecDigestSHA1;
-        digestLength = 0;
-    }
-    
-	CFErrorRef error = NULL;
-	SecTransformRef signXForm =  SecSignTransformCreate(key, &error);
-	if (NULL != error)
-	{
-        if (NULL != signXForm)
-        {
-            CFRelease(signXForm);
-        }
-		[PSUtilities outputError:@"Unable to create the signing transform" withError:error];
-		return result;
-	}
-    
-    if (!SecTransformSetAttribute(signXForm, kSecTransformInputAttributeName, data, &error))
-    {
-        CFRelease(signXForm);
-		[PSUtilities outputError:@"Could not set the input attribute" withError:error];
-        return result;
-    }
-	
-	if (!SecTransformSetAttribute(signXForm, kSecDigestTypeAttribute, digestType, &error))
-	{
-		CFRelease(signXForm);
-		[PSUtilities outputError:@"Unable to set the digest type attribute" withError:error];
-		return result;
-	}
-	
-    CFNumberRef digest_length_number  = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &digestLength);
-	if (!SecTransformSetAttribute(signXForm, kSecDigestLengthAttribute, digest_length_number, &error))
-	{
-		CFRelease(signXForm);
-        CFRelease(digest_length_number);
-		[PSUtilities outputError:@"Unable to set the digest length attribute" withError:error];
-		return result;
-	}
-    CFRelease(digest_length_number);
-	
-	if (!SecTransformSetAttribute(signXForm, kSecInputIsAttributeName, kSecInputIsPlainText, &error))
-	{
-		CFRelease(signXForm);
-		[PSUtilities outputError:@"Unable to set the is plain text attribute" withError:error];
-		return result;
-	}
-	
-	SecTransformRef base64Xform = SecEncodeTransformCreate(kSecBase64Encoding, &error);
-    if (NULL != error)
-    {
-        if (NULL != base64Xform)
-        {
-            CFRelease(base64Xform);
-        }
-		CFRelease(signXForm);
-		[PSUtilities outputError:@"Could not create the encoding transform." withError:error];
-		return result;
-    }
-    
-    SecGroupTransformRef groupXForm = SecTransformCreateGroupTransform();
-    if (NULL == groupXForm)
-    {
-        CFRelease(signXForm);
-        CFRelease(base64Xform);
-        NSLog(@"Could not create the group transform");
-        return result;
-    }
-    
-    SecTransformConnectTransforms(signXForm, kSecTransformOutputAttributeName,
-                                  base64Xform, kSecTransformInputAttributeName,
-                                  groupXForm, &error);
-    CFRelease(signXForm);
-    CFRelease(base64Xform);
-	if (NULL != error)
-    {
-        CFRelease(groupXForm);
-		[PSUtilities outputError:@"Could connect the signing and encoding transforms." withError:error];
-		return result;
-    }
-    
-	CFDataRef cfResult = (CFDataRef)SecTransformExecute(groupXForm, &error);
-    CFRelease(groupXForm);
-    if (NULL != error)
-    {
-        if (NULL != cfResult)
-        {
-            CFRelease( cfResult);
-        }
-        [PSUtilities outputError:@"Could not execute the transform." withError:error];
-        return result;
-    }
-    const void* pPtr = (const void*)CFDataGetBytePtr(cfResult);
-    NSUInteger len = (NSUInteger)CFDataGetLength(cfResult);
-    
-    NSData* temp_data = [[NSData alloc] initWithBytes:pPtr length:len];
-    CFRelease(cfResult);
-    result = [[NSString alloc] initWithData:temp_data encoding:NSUTF8StringEncoding];
-	return result;
+    NSString* result = nil;
+    NSLog(@"ERROR: signAndEncode is no longer implemented!");
+    return result;
 }
 
 + (NSString *)getCommonNameFromCertificate:(SecCertificateRef)cert

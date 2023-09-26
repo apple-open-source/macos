@@ -140,40 +140,10 @@ bool MacApplication::isAppleMail()
     return isAppleMail;
 }
 
-bool MacApplication::isITunes()
-{
-    static bool isITunes = applicationBundleIsEqualTo("com.apple.iTunes"_s);
-    return isITunes;
-}
-
-bool MacApplication::isMicrosoftMessenger()
-{
-    static bool isMicrosoftMessenger = applicationBundleIsEqualTo("com.microsoft.Messenger"_s);
-    return isMicrosoftMessenger;
-}
-
 bool MacApplication::isAdobeInstaller()
 {
     static bool isAdobeInstaller = applicationBundleIsEqualTo("com.adobe.Installers.Setup"_s);
     return isAdobeInstaller;
-}
-
-bool MacApplication::isAOLInstantMessenger()
-{
-    static bool isAOLInstantMessenger = applicationBundleIsEqualTo("com.aol.aim.desktop"_s);
-    return isAOLInstantMessenger;
-}
-
-bool MacApplication::isMicrosoftMyDay()
-{
-    static bool isMicrosoftMyDay = applicationBundleIsEqualTo("com.microsoft.myday"_s);
-    return isMicrosoftMyDay;
-}
-
-bool MacApplication::isMicrosoftOutlook()
-{
-    static bool isMicrosoftOutlook = applicationBundleIsEqualTo("com.microsoft.Outlook"_s);
-    return isMicrosoftOutlook;
 }
 
 bool MacApplication::isMiniBrowser()
@@ -186,12 +156,6 @@ bool MacApplication::isQuickenEssentials()
 {
     static bool isQuickenEssentials = applicationBundleIsEqualTo("com.intuit.QuickenEssentials"_s);
     return isQuickenEssentials;
-}
-
-bool MacApplication::isAperture()
-{
-    static bool isAperture = applicationBundleIsEqualTo("com.apple.Aperture"_s);
-    return isAperture;
 }
 
 bool MacApplication::isVersions()
@@ -222,6 +186,12 @@ bool MacApplication::isEpsonSoftwareUpdater()
 {
     static bool isEpsonSoftwareUpdater = applicationBundleIsEqualTo("com.epson.EPSON_Software_Updater"_s);
     return isEpsonSoftwareUpdater;
+}
+
+bool MacApplication::isMimeoPhotoProject()
+{
+    static bool isMimeoPhotoProject = applicationBundleIsEqualTo("com.mimeo.Mimeo.PhotoProject"_s);
+    return isMimeoPhotoProject;
 }
 
 #endif // PLATFORM(MAC)
@@ -261,6 +231,12 @@ bool IOSApplication::isIMDb()
 {
     static bool isIMDb = applicationBundleIsEqualTo("com.imdb.imdb"_s);
     return isIMDb;
+}
+
+bool IOSApplication::isGmail()
+{
+    static bool isGmail = applicationBundleIsEqualTo("com.google.Gmail"_s);
+    return isGmail;
 }
 
 bool IOSApplication::isWebBookmarksD()
@@ -335,6 +311,12 @@ bool IOSApplication::isFirefox()
 {
     static bool isFirefox = applicationBundleIsEqualTo("org.mozilla.ios.Firefox"_s);
     return isFirefox;
+}
+
+bool IOSApplication::isHoYoLAB()
+{
+    static bool isHoYoLAB = applicationBundleIsEqualTo("com.miHoYo.HoYoLAB"_s);
+    return isHoYoLAB;
 }
 
 bool IOSApplication::isAppleApplication()

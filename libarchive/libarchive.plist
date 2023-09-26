@@ -43,6 +43,8 @@
 		<string>libarchive/archive_read_support_format_tar.c: fix heap buffer overflow (82788199)</string>
 		<string>libarchive/archive_read_support_format_zip.c: fix out of bounds read (91342172)</string>
 		<string>libarchive/archive_write_disk_posix.c: prefer ffsctl instead of fchflags for UF_COMPRESSED (46284949)</string>
+		<string>libarchive/archive_read_support_format_zip.c: fix truncated pointer (84515518)</string>
+		<string>Backport patch for CVE-2022-36227 (#102745018)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

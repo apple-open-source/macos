@@ -195,7 +195,7 @@ bool PointerCaptureController::preventsCompatibilityMouseEventsForIdentifier(Poi
     return capturingData && capturingData->preventsCompatibilityMouseEvents;
 }
 
-#if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
+#if ENABLE(TOUCH_EVENTS) && (PLATFORM(IOS_FAMILY) || PLATFORM(WPE))
 static bool hierarchyHasCapturingEventListeners(Element* target, const AtomString& eventName)
 {
     for (RefPtr<ContainerNode> currentNode = target; currentNode; currentNode = currentNode->parentInComposedTree()) {
@@ -205,12 +205,12 @@ static bool hierarchyHasCapturingEventListeners(Element* target, const AtomStrin
     return false;
 }
 
-void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target, const PlatformTouchEvent& platformTouchEvent, unsigned index, bool isPrimary, WindowProxy& view)
+void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target, const PlatformTouchEvent& platformTouchEvent, unsigned index, bool isPrimary, WindowProxy& view, const IntPoint& touchDelta)
 {
     RELEASE_ASSERT(is<Element>(target));
 
     auto dispatchOverOrOutEvent = [&](const AtomString& type, EventTarget* target) {
-        dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view), target);
+        dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view, touchDelta), target);
     };
 
     auto dispatchEnterOrLeaveEvent = [&](const AtomString& type, Element& targetElement) {
@@ -230,14 +230,14 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
 
         if (type == eventNames().pointerenterEvent) {
             for (auto& element : makeReversedRange(targetChain))
-                dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view), element.ptr());
+                dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view, touchDelta), element.ptr());
         } else {
             for (auto& element : targetChain)
-                dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view), element.ptr());
+                dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view, touchDelta), element.ptr());
         }
     };
 
-    auto pointerEvent = PointerEvent::create(platformTouchEvent, index, isPrimary, view);
+    auto pointerEvent = PointerEvent::create(platformTouchEvent, index, isPrimary, view, touchDelta);
 
     Ref capturingData = ensureCapturingDataForPointerEvent(pointerEvent);
 
@@ -278,7 +278,7 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
 
         for (auto& chain : leftElementsChain) {
             if (hasCapturingPointerLeaveListener || chain->hasEventListeners(eventNames().pointerleaveEvent))
-                dispatchEvent(PointerEvent::create(eventNames().pointerleaveEvent, platformTouchEvent, index, isPrimary, view), chain.ptr());
+                dispatchEvent(PointerEvent::create(eventNames().pointerleaveEvent, platformTouchEvent, index, isPrimary, view, touchDelta), chain.ptr());
         }
 
         if (currentTarget)
@@ -286,7 +286,7 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
 
         for (auto& chain : makeReversedRange(enteredElementsChain)) {
             if (hasCapturingPointerEnterListener || chain->hasEventListeners(eventNames().pointerenterEvent))
-                dispatchEvent(PointerEvent::create(eventNames().pointerenterEvent, platformTouchEvent, index, isPrimary, view), chain.ptr());
+                dispatchEvent(PointerEvent::create(eventNames().pointerenterEvent, platformTouchEvent, index, isPrimary, view, touchDelta), chain.ptr());
         }
     }
 
@@ -386,30 +386,28 @@ void PointerCaptureController::pointerEventWillBeDispatched(const PointerEvent& 
 
     auto pointerId = event.pointerId();
 
+    auto& element = downcast<Element>(*target);
     if (event.pointerType() != touchPointerEventType()) {
         if (RefPtr capturingData = m_activePointerIdsToCapturingData.get(pointerId))
             capturingData->pointerIsPressed = isPointerdown;
-        return;
+    } else if (isPointerdown) {
+        // https://w3c.github.io/pointerevents/#implicit-pointer-capture
+
+        // Some input devices (such as touchscreens) implement a "direct manipulation" metaphor where a pointer is intended to act primarily on the UI
+        // element it became active upon (providing a physical illusion of direct contact, instead of indirect contact via a cursor that conceptually
+        // floats above the UI). Such devices are identified by the InputDeviceCapabilities.pointerMovementScrolls property and should have "implicit
+        // pointer capture" behavior as follows.
+
+        // Direct manipulation devices should behave exactly as if setPointerCapture was called on the target element just before the invocation of any
+        // pointerdown listeners. The hasPointerCapture API may be used (eg. within any pointerdown listener) to determine whether this has occurred. If
+        // releasePointerCapture is not called for the pointer before the next pointer event is fired, then a gotpointercapture event will be dispatched
+        // to the target (as normal) indicating that capture is active.
+
+        auto capturingData = ensureCapturingDataForPointerEvent(event);
+        capturingData->pointerIsPressed = true;
+        setPointerCapture(&element, pointerId);
     }
-
-    if (!isPointerdown)
-        return;
-
-    // https://w3c.github.io/pointerevents/#implicit-pointer-capture
-
-    // Some input devices (such as touchscreens) implement a "direct manipulation" metaphor where a pointer is intended to act primarily on the UI
-    // element it became active upon (providing a physical illusion of direct contact, instead of indirect contact via a cursor that conceptually
-    // floats above the UI). Such devices are identified by the InputDeviceCapabilities.pointerMovementScrolls property and should have "implicit
-    // pointer capture" behavior as follows.
-
-    // Direct manipulation devices should behave exactly as if setPointerCapture was called on the target element just before the invocation of any
-    // pointerdown listeners. The hasPointerCapture API may be used (eg. within any pointerdown listener) to determine whether this has occurred. If
-    // releasePointerCapture is not called for the pointer before the next pointer event is fired, then a gotpointercapture event will be dispatched
-    // to the target (as normal) indicating that capture is active.
-
-    auto capturingData = ensureCapturingDataForPointerEvent(event);
-    capturingData->pointerIsPressed = true;
-    setPointerCapture(downcast<Element>(target), pointerId);
+    element.document().handlePopoverLightDismiss(event, element);
 }
 
 auto PointerCaptureController::ensureCapturingDataForPointerEvent(const PointerEvent& event) -> Ref<CapturingData>
@@ -476,7 +474,7 @@ void PointerCaptureController::cancelPointer(PointerID pointerId, const IntPoint
     capturingData->pendingTargetOverride = nullptr;
     capturingData->state = CapturingData::State::Cancelled;
 
-#if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
+#if ENABLE(TOUCH_EVENTS) && (PLATFORM(IOS_FAMILY) || PLATFORM(WPE))
     capturingData->previousTarget = nullptr;
 #endif
 
@@ -484,7 +482,10 @@ void PointerCaptureController::cancelPointer(PointerID pointerId, const IntPoint
         if (capturingData->targetOverride)
             return capturingData->targetOverride;
         constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
-        return Ref(m_page.mainFrame())->eventHandler().hitTestResultAtPoint(documentPoint, hitType).innerNonSharedElement();
+        auto* localMainFrame = dynamicDowncast<LocalFrame>(m_page.mainFrame());
+        if (!localMainFrame)
+            return nullptr;
+        return Ref(*localMainFrame)->eventHandler().hitTestResultAtPoint(documentPoint, hitType).innerNonSharedElement();
     }();
 
     if (!target)

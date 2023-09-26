@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,10 +50,7 @@
 #if ENABLE(WEBGL)
 #include "Settings.h"
 #include "WebGLRenderingContext.h"
-
-#if ENABLE(WEBGL2)
 #include "WebGL2RenderingContext.h"
-#endif
 #endif // ENABLE(WEBGL)
 
 namespace WebCore {
@@ -140,7 +137,7 @@ Ref<OffscreenCanvas> OffscreenCanvas::create(ScriptExecutionContext& scriptExecu
 
 OffscreenCanvas::OffscreenCanvas(ScriptExecutionContext& scriptExecutionContext, unsigned width, unsigned height)
     : ActiveDOMObject(&scriptExecutionContext)
-    , CanvasBase(IntSize(width, height))
+    , CanvasBase(IntSize(width, height), scriptExecutionContext.noiseInjectionHashSalt())
     , m_placeholderData(PlaceholderData::create())
 {
 }
@@ -185,12 +182,15 @@ void OffscreenCanvas::setSize(const IntSize& newSize)
 {
     CanvasBase::setSize(newSize);
     reset();
+
+    if (m_context && m_context->isGPUBased())
+        downcast<GPUBasedCanvasRenderingContext>(*m_context).reshape(width(), height());
 }
 
 #if ENABLE(WEBGL)
 static bool requiresAcceleratedCompositingForWebGL()
 {
-#if PLATFORM(GTK) || PLATFORM(WIN_CAIRO)
+#if PLATFORM(GTK) || PLATFORM(WIN)
     return false;
 #else
     return true;
@@ -208,6 +208,8 @@ static bool shouldEnableWebGL(const Settings::Values& settings, bool isWorker)
 #if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
     if (isWorker && !settings.useGPUProcessForWebGLEnabled)
         return false;
+#else
+    UNUSED_PARAM(isWorker);
 #endif
 
     if (!requiresAcceleratedCompositingForWebGL())
@@ -231,12 +233,8 @@ void OffscreenCanvas::createContextWebGL(RenderingContextType contextType, WebGL
             return;
     } else
         return;
-    GraphicsContextGLWebGLVersion webGLVersion = GraphicsContextGLWebGLVersion::WebGL1;
-#if ENABLE(WEBGL2)
-    webGLVersion = (contextType == RenderingContextType::Webgl) ? GraphicsContextGLWebGLVersion::WebGL1 : GraphicsContextGLWebGLVersion::WebGL2;
-#else
-    UNUSED_PARAM(contextType);
-#endif
+
+    auto webGLVersion = (contextType == RenderingContextType::Webgl) ? GraphicsContextGLWebGLVersion::WebGL1 : GraphicsContextGLWebGLVersion::WebGL2;
     m_context = WebGLRenderingContextBase::create(*this, attrs, webGLVersion);
 }
 
@@ -258,7 +256,7 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
         auto settings = convert<IDLDictionary<CanvasRenderingContext2DSettings>>(state, arguments.isEmpty() ? JSC::jsUndefined() : (arguments[0].isObject() ? arguments[0].get() : JSC::jsNull()));
         RETURN_IF_EXCEPTION(scope, Exception { ExistingExceptionError });
 
-        m_context = makeUnique<OffscreenCanvasRenderingContext2D>(*this, WTFMove(settings));
+        m_context = OffscreenCanvasRenderingContext2D::create(*this, WTFMove(settings));
         if (!m_context)
             return { { std::nullopt } };
 
@@ -285,10 +283,10 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
         if (m_context) {
             if (is<WebGLRenderingContext>(*m_context))
                 return { { RefPtr<WebGLRenderingContext> { &downcast<WebGLRenderingContext>(*m_context) } } };
-#if ENABLE(WEBGL2)
+
             if (is<WebGL2RenderingContext>(*m_context))
                 return { { RefPtr<WebGL2RenderingContext> { &downcast<WebGL2RenderingContext>(*m_context) } } };
-#endif
+
             return { { std::nullopt } };
         }
 
@@ -300,10 +298,9 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
         if (!m_context)
             return { { std::nullopt } };
 
-#if ENABLE(WEBGL2)
         if (is<WebGL2RenderingContext>(*m_context))
             return { { RefPtr<WebGL2RenderingContext> { &downcast<WebGL2RenderingContext>(*m_context) } } };
-#endif
+
         return { { RefPtr<WebGLRenderingContext> { &downcast<WebGLRenderingContext>(*m_context) } } };
     }
 #endif
@@ -426,8 +423,9 @@ void OffscreenCanvas::convertToBlob(ImageEncodeOptions&& options, Ref<DeferredPr
     promise->resolveWithNewlyCreated<IDLInterface<Blob>>(WTFMove(blob));
 }
 
-void OffscreenCanvas::didDraw(const std::optional<FloatRect>& rect)
+void OffscreenCanvas::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
+    CanvasBase::didDraw(rect, shouldApplyPostProcessingToDirtyRect);
     clearCopiedImage();
     scheduleCommitToPlaceholderCanvas();
     notifyObserversCanvasChanged(rect);
@@ -552,7 +550,7 @@ void OffscreenCanvas::setImageBufferAndMarkDirty(RefPtr<ImageBuffer>&& buffer)
     m_hasCreatedImageBuffer = true;
     setImageBuffer(WTFMove(buffer));
 
-    didDraw(FloatRect(FloatPoint(), size()));
+    CanvasBase::didDraw(FloatRect(FloatPoint(), size()));
 }
 
 std::unique_ptr<SerializedImageBuffer> OffscreenCanvas::takeImageBuffer() const

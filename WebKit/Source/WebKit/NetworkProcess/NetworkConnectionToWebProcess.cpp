@@ -29,6 +29,7 @@
 #include "BlobDataFileReferenceWithSandboxExtension.h"
 #include "CacheStorageEngineConnectionMessages.h"
 #include "DataReference.h"
+#include "LogInitialization.h"
 #include "Logging.h"
 #include "NetworkBroadcastChannelRegistry.h"
 #include "NetworkBroadcastChannelRegistryMessages.h"
@@ -37,6 +38,7 @@
 #include "NetworkLoad.h"
 #include "NetworkLoadScheduler.h"
 #include "NetworkMDNSRegisterMessages.h"
+#include "NetworkOriginAccessPatterns.h"
 #include "NetworkProcess.h"
 #include "NetworkProcessConnectionMessages.h"
 #include "NetworkProcessMessages.h"
@@ -50,8 +52,6 @@
 #include "NetworkSession.h"
 #include "NetworkSocketChannel.h"
 #include "NetworkSocketChannelMessages.h"
-#include "NetworkSocketStream.h"
-#include "NetworkSocketStreamMessages.h"
 #include "NetworkStorageManager.h"
 #include "PingLoad.h"
 #include "PreconnectTask.h"
@@ -76,6 +76,7 @@
 #include <WebCore/ClientOrigin.h>
 #include <WebCore/DocumentStorageAccess.h>
 #include <WebCore/HTTPCookieAcceptPolicy.h>
+#include <WebCore/LogInitialization.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceLoadObserver.h>
@@ -83,6 +84,11 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SameSiteInfo.h>
 #include <WebCore/SecurityPolicy.h>
+#include <wtf/LogInitialization.h>
+
+#if PLATFORM(COCOA)
+#include <wtf/OSObjectPtr.h>
+#endif
 
 #if ENABLE(APPLE_PAY_REMOTE_UI)
 #include "WebPaymentCoordinatorProxyMessages.h"
@@ -113,12 +119,12 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<NetworkConnectionToWebProcess> NetworkConnectionToWebProcess::create(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, IPC::Connection::Identifier connectionIdentifier)
+Ref<NetworkConnectionToWebProcess> NetworkConnectionToWebProcess::create(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, NetworkProcessConnectionParameters parameters, IPC::Connection::Identifier connectionIdentifier)
 {
-    return adoptRef(*new NetworkConnectionToWebProcess(networkProcess, webProcessIdentifier, sessionID, connectionIdentifier));
+    return adoptRef(*new NetworkConnectionToWebProcess(networkProcess, webProcessIdentifier, sessionID, parameters, connectionIdentifier));
 }
 
-NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, IPC::Connection::Identifier connectionIdentifier)
+NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, NetworkProcessConnectionParameters parameters, IPC::Connection::Identifier connectionIdentifier)
     : m_connection(IPC::Connection::createServerConnection(connectionIdentifier))
     , m_networkProcess(networkProcess)
     , m_sessionID(sessionID)
@@ -128,6 +134,8 @@ NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& net
 #endif
     , m_webProcessIdentifier(webProcessIdentifier)
     , m_schemeRegistry(NetworkSchemeRegistry::create())
+    , m_originAccessPatterns(makeUniqueRef<NetworkOriginAccessPatterns>())
+    , m_allowTestOnlyIPC(parameters.allowTestOnlyIPC)
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
@@ -136,6 +144,12 @@ NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& net
     // reply from the Network process, which would be unsafe.
     m_connection->setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(true);
     m_connection->open(*this);
+#if USE(RUNNINGBOARD)
+    m_connection->setOutgoingMessageQueueIsGrowingLargeCallback([weakThis = WeakPtr { *this }] {
+        if (weakThis)
+            weakThis->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::WakeUpWebProcessForIPC(weakThis->m_webProcessIdentifier), 0);
+    });
+#endif
 
 #if ENABLE(SERVICE_WORKER)
     establishSWServerConnection();
@@ -228,22 +242,13 @@ void NetworkConnectionToWebProcess::didReceiveMessage(IPC::Connection& connectio
     if (decoder.messageReceiverName() == Messages::NetworkResourceLoader::messageReceiverName()) {
         RELEASE_ASSERT(RunLoop::isMain());
         RELEASE_ASSERT(decoder.destinationID());
-        if (auto* loader = m_networkResourceLoaders.get(makeObjectIdentifier<WebCore::ResourceLoader>(decoder.destinationID())))
+        if (auto* loader = m_networkResourceLoaders.get(AtomicObjectIdentifier<WebCore::ResourceLoader>(decoder.destinationID())))
             loader->didReceiveNetworkResourceLoaderMessage(connection, decoder);
         return;
     }
 
-    if (decoder.messageReceiverName() == Messages::NetworkSocketStream::messageReceiverName()) {
-        if (auto* socketStream = m_networkSocketStreams.get(makeObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID()))) {
-            socketStream->didReceiveMessage(connection, decoder);
-            if (decoder.messageName() == Messages::NetworkSocketStream::Close::name())
-                m_networkSocketStreams.remove(makeObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID()));
-        }
-        return;
-    }
-
     if (decoder.messageReceiverName() == Messages::NetworkSocketChannel::messageReceiverName()) {
-        if (auto* channel = m_networkSocketChannels.get(makeObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID())))
+        if (auto* channel = m_networkSocketChannels.get(AtomicObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID())))
             channel->didReceiveMessage(connection, decoder);
         return;
     }
@@ -411,6 +416,7 @@ bool NetworkConnectionToWebProcess::didReceiveSyncMessage(IPC::Connection& conne
 
 void NetworkConnectionToWebProcess::updateQuotaBasedOnSpaceUsageForTesting(ClientOrigin&& origin)
 {
+    NETWORK_PROCESS_MESSAGE_CHECK(allowTestOnlyIPC());
     if (auto* session = m_networkProcess->networkSession(sessionID()))
         session->storageManager().resetQuotaUpdatedBasedOnUsageForTesting(WTFMove(origin));
 }
@@ -476,25 +482,12 @@ void NetworkConnectionToWebProcess::didReceiveInvalidMessage(IPC::Connection&, I
     m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::TerminateWebProcess(m_webProcessIdentifier), 0);
 }
 
-void NetworkConnectionToWebProcess::createSocketStream(URL&& url, String cachePartition, WebSocketIdentifier identifier)
+void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier, WebPageProxyIdentifier webPageProxyID, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, const ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed, bool allowPrivacyProxy, OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, WebCore::StoredCredentialsPolicy storedCredentialsPolicy)
 {
-    ASSERT(!m_networkSocketStreams.contains(identifier));
-    WebCore::SourceApplicationAuditToken token = { };
-#if PLATFORM(COCOA)
-    token = { m_networkProcess->sourceApplicationAuditData() };
-#endif
-    auto acceptInsecureCertificates = false;
-#if !HAVE(NSURLSESSION_WEBSOCKET)
-    if (auto* session = networkSession())
-        acceptInsecureCertificates = session->shouldAcceptInsecureCertificatesForWebSockets();
-#endif
-    m_networkSocketStreams.add(identifier, NetworkSocketStream::create(m_networkProcess.get(), WTFMove(url), m_sessionID, cachePartition, identifier, m_connection, WTFMove(token), acceptInsecureCertificates));
-}
+    NETWORK_PROCESS_MESSAGE_CHECK(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, request.firstPartyForCookies()));
 
-void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier, WebPageProxyIdentifier webPageProxyID, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, const ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed, bool allowPrivacyProxy, OptionSet<NetworkConnectionIntegrity> networkConnectionIntegrityPolicy, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, WebCore::StoredCredentialsPolicy storedCredentialsPolicy)
-{
     ASSERT(!m_networkSocketChannels.contains(identifier));
-    if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, frameID, pageID, clientOrigin, hadMainFrameMainResourcePrivateRelayed, allowPrivacyProxy, networkConnectionIntegrityPolicy, shouldRelaxThirdPartyCookieBlocking, storedCredentialsPolicy))
+    if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, frameID, pageID, clientOrigin, hadMainFrameMainResourcePrivateRelayed, allowPrivacyProxy, advancedPrivacyProtections, shouldRelaxThirdPartyCookieBlocking, storedCredentialsPolicy))
         m_networkSocketChannels.add(identifier, WTFMove(channel));
 }
 
@@ -896,7 +889,7 @@ void NetworkConnectionToWebProcess::allCookiesDeleted()
 
 #endif
 
-void NetworkConnectionToWebProcess::registerFileBlobURL(const URL& url, const String& path, const String& replacementPath, SandboxExtension::Handle&& extensionHandle, const String& contentType)
+void NetworkConnectionToWebProcess::registerInternalFileBlobURL(const URL& url, const String& path, const String& replacementPath, SandboxExtension::Handle&& extensionHandle, const String& contentType)
 {
     NETWORK_PROCESS_MESSAGE_CHECK(!url.isEmpty());
 
@@ -905,20 +898,20 @@ void NetworkConnectionToWebProcess::registerFileBlobURL(const URL& url, const St
         return;
 
     m_blobURLs.add(url);
-    session->blobRegistry().registerFileBlobURL(url, BlobDataFileReferenceWithSandboxExtension::create(path, replacementPath, SandboxExtension::create(WTFMove(extensionHandle))), contentType);
+    session->blobRegistry().registerInternalFileBlobURL(url, BlobDataFileReferenceWithSandboxExtension::create(path, replacementPath, SandboxExtension::create(WTFMove(extensionHandle))), contentType);
 }
 
-void NetworkConnectionToWebProcess::registerBlobURL(const URL& url, Vector<BlobPart>&& blobParts, const String& contentType)
+void NetworkConnectionToWebProcess::registerInternalBlobURL(const URL& url, Vector<BlobPart>&& blobParts, const String& contentType)
 {
     auto* session = networkSession();
     if (!session)
         return;
 
     m_blobURLs.add(url);
-    session->blobRegistry().registerBlobURL(url, WTFMove(blobParts), contentType);
+    session->blobRegistry().registerInternalBlobURL(url, WTFMove(blobParts), contentType);
 }
 
-void NetworkConnectionToWebProcess::registerBlobURLFromURL(const URL& url, const URL& srcURL, PolicyContainer&& policyContainer)
+void NetworkConnectionToWebProcess::registerBlobURL(const URL& url, const URL& srcURL, PolicyContainer&& policyContainer)
 {
     auto* session = networkSession();
     if (!session)
@@ -928,7 +921,7 @@ void NetworkConnectionToWebProcess::registerBlobURLFromURL(const URL& url, const
     session->blobRegistry().registerBlobURL(url, srcURL, WTFMove(policyContainer));
 }
 
-void NetworkConnectionToWebProcess::registerBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, const String& fileBackedPath, const String& contentType)
+void NetworkConnectionToWebProcess::registerInternalBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, const String& fileBackedPath, const String& contentType)
 {
     NETWORK_PROCESS_MESSAGE_CHECK(!url.isEmpty() && !srcURL.isEmpty() && !fileBackedPath.isEmpty());
 
@@ -937,17 +930,17 @@ void NetworkConnectionToWebProcess::registerBlobURLOptionallyFileBacked(const UR
         return;
 
     m_blobURLs.add(url);
-    session->blobRegistry().registerBlobURLOptionallyFileBacked(url, srcURL, BlobDataFileReferenceWithSandboxExtension::create(fileBackedPath), contentType, { });
+    session->blobRegistry().registerInternalBlobURLOptionallyFileBacked(url, srcURL, BlobDataFileReferenceWithSandboxExtension::create(fileBackedPath), contentType, { });
 }
 
-void NetworkConnectionToWebProcess::registerBlobURLForSlice(const URL& url, const URL& srcURL, int64_t start, int64_t end, const String& contentType)
+void NetworkConnectionToWebProcess::registerInternalBlobURLForSlice(const URL& url, const URL& srcURL, int64_t start, int64_t end, const String& contentType)
 {
     auto* session = networkSession();
     if (!session)
         return;
 
     m_blobURLs.add(url);
-    session->blobRegistry().registerBlobURLForSlice(url, srcURL, start, end, contentType);
+    session->blobRegistry().registerInternalBlobURLForSlice(url, srcURL, start, end, contentType);
 }
 
 void NetworkConnectionToWebProcess::unregisterBlobURL(const URL& url)
@@ -1388,7 +1381,7 @@ void NetworkConnectionToWebProcess::broadcastConsoleMessage(JSC::MessageSource s
 
 void NetworkConnectionToWebProcess::setCORSDisablingPatterns(WebCore::PageIdentifier pageIdentifier, Vector<String>&& patterns)
 {
-    networkProcess().setCORSDisablingPatterns(pageIdentifier, WTFMove(patterns));
+    networkProcess().setCORSDisablingPatterns(*this, pageIdentifier, WTFMove(patterns));
 }
 
 void NetworkConnectionToWebProcess::setResourceLoadSchedulingMode(WebCore::PageIdentifier pageIdentifier, WebCore::LoadSchedulingMode mode)
@@ -1430,6 +1423,34 @@ void NetworkConnectionToWebProcess::installMockContentFilter(WebCore::MockConten
     MockContentFilterSettings::singleton() = WTFMove(settings);
 }
 #endif
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+void NetworkConnectionToWebProcess::logOnBehalfOfWebContent(IPC::DataReference&& logChannel, IPC::DataReference&& logCategory, IPC::DataReference&& logString, uint8_t logType, int32_t pid)
+{
+    OSObjectPtr<os_log_t> osLogChannel;
+    if (logChannel.data() && logCategory.data()) {
+        auto channel = reinterpret_cast<const char*>(logChannel.data());
+        auto category = reinterpret_cast<const char*>(logCategory.data());
+        osLogChannel = adoptOSObject(os_log_create(channel, category));
+    }
+    RELEASE_ASSERT(logType == OS_LOG_TYPE_DEFAULT || logType == OS_LOG_TYPE_INFO || logType == OS_LOG_TYPE_DEBUG || logType == OS_LOG_TYPE_ERROR || logType == OS_LOG_TYPE_FAULT);
+
+    // Use '%{public}s' in the format string for the preprocessed string from the WebContent process.
+    // This should not reveal any redacted information in the string, since it has already been composed in the WebContent process.
+    os_log_with_type(osLogChannel.get() ? osLogChannel.get() : OS_LOG_DEFAULT, static_cast<os_log_type_t>(logType), "WebContent[%d]: %{public}s", pid, logString.data());
+}
+#endif
+
+void NetworkConnectionToWebProcess::addAllowedFirstPartyForCookies(const RegistrableDomain& firstPartyForCookies)
+{
+    connection().send(Messages::NetworkProcessConnection::AddAllowedFirstPartyForCookies(firstPartyForCookies), 0);
+}
+
+void NetworkConnectionToWebProcess::useRedirectionForCurrentNavigation(WebCore::ResourceLoaderIdentifier identifier, WebCore::ResourceResponse&& response)
+{
+    if (auto* loader = m_networkResourceLoaders.get(identifier))
+        loader->useRedirectionForCurrentNavigation(WTFMove(response));
+}
 
 } // namespace WebKit
 

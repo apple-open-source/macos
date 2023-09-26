@@ -5,12 +5,7 @@
 
 /* @(#) $Id$ */
 
-#if defined __arm__
-#include <arm/arch.h>
-#endif
-
 #include "zutil.h"
-
 
 local uLong adler32_combine_ OF((uLong adler1, uLong adler2, z_off64_t len2));
 
@@ -71,6 +66,7 @@ uLong ZEXPORT adler32_z(adler, buf, len)
     z_size_t len;
 {
     unsigned long sum2;
+    unsigned n;
 
     /* split Adler-32 into component sums */
     sum2 = (adler >> 16) & 0xffff;
@@ -103,10 +99,26 @@ uLong ZEXPORT adler32_z(adler, buf, len)
         return adler | (sum2 << 16);
     }
 
+#if defined(VEC_OPTIMIZE)
+#if defined(__i386__) || defined(__x86_64__) || defined(_ARM_ARCH_6) || defined(__arm64__)
+    {
+      /* align and/or fix edge case */
+      while ((((uintptr_t)buf)&15) || (len > INT32_MAX))
+      {
+        len--;
+        adler += *buf++;
+        sum2 += adler;
+        if (adler >= BASE) adler -= BASE;
+        MOD28(sum2);             /* only added so many BASE's */
+      }
+      
+      return adler32_vec((unsigned int)adler, (unsigned int)sum2, buf, (int)len);
+    }
+#endif // Architectures
+#endif
 
     /* do length NMAX blocks -- requires just one modulo operation */
     while (len >= NMAX) {
-        unsigned n;
         len -= NMAX;
         n = NMAX / 16;          /* NMAX is divisible by 16 */
         do {

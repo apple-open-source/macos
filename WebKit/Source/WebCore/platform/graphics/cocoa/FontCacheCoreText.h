@@ -59,6 +59,18 @@ struct VariationDefaults {
     float defaultValue;
     float minimumValue;
     float maximumValue;
+
+    bool contains(float value) const
+    {
+        ASSERT(minimumValue <= maximumValue);
+        return value >= minimumValue && value <= maximumValue;
+    }
+
+    float clamp(float value) const
+    {
+        ASSERT(minimumValue <= maximumValue);
+        return std::clamp(value, minimumValue, maximumValue);
+    }
 };
 
 typedef HashMap<FontTag, VariationDefaults, FourCharacterTagHash, FourCharacterTagHashTraits> VariationDefaultsMap;
@@ -67,10 +79,7 @@ enum class FontTypeForPreparation : bool {
     SystemFont,
     NonSystemFont
 };
-enum class ApplyTraitsVariations : bool {
-    No,
-    Yes
-};
+enum class ApplyTraitsVariations : bool { No, Yes };
 RetainPtr<CTFontRef> preparePlatformFont(UnrealizedCoreTextFont&&, const FontDescription&, const FontCreationContext&, FontTypeForPreparation = FontTypeForPreparation::NonSystemFont, ApplyTraitsVariations = ApplyTraitsVariations::Yes);
 enum class ShouldComputePhysicalTraits : bool { No, Yes };
 SynthesisPair computeNecessarySynthesis(CTFontRef, const FontDescription&, ShouldComputePhysicalTraits = ShouldComputePhysicalTraits::No, bool isPlatformFont = false);

@@ -205,7 +205,7 @@ void UCollationPCE::init(const Collator &coll)
 
     strength    = coll.getAttribute(UCOL_STRENGTH, status);
     toShift     = coll.getAttribute(UCOL_ALTERNATE_HANDLING, status) == UCOL_SHIFTED;
-    isShifted   = FALSE;
+    isShifted   = false;
     variableTop = coll.getVariableTop(status);
 }
 
@@ -254,13 +254,13 @@ uint64_t UCollationPCE::processCE(uint32_t ce)
         }
 
         primary = secondary = tertiary = 0;
-        isShifted = TRUE;
+        isShifted = true;
     } else {
         if (strength >= UCOL_QUATERNARY) {
             quaternary = 0xFFFF;
         }
 
-        isShifted = FALSE;
+        isShifted = false;
     }
 
     return primary << 48 | secondary << 32 | tertiary << 16 | quaternary;
@@ -323,6 +323,8 @@ ucol_next(UCollationElements *elems,
     return CollationElementIterator::fromUCollationElements(elems)->next(*status);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // temporarily restore the following removed internal function which is used by Spotlight
 U_CAPI int64_t U_EXPORT2
 ucol_nextProcessed(UCollationElements *elems,
@@ -332,7 +334,7 @@ ucol_nextProcessed(UCollationElements *elems,
 {
     return (UCollationPCE(elems)).nextProcessed(ixLow, ixHigh, status);
 }
-
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_BEGIN
 
@@ -387,6 +389,8 @@ ucol_previous(UCollationElements *elems,
     return CollationElementIterator::fromUCollationElements(elems)->previous(*status);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // temporarily restore the following removed internal function which is used by Spotlight
 U_CAPI int64_t U_EXPORT2
 ucol_previousProcessed(UCollationElements *elems,
@@ -396,6 +400,7 @@ ucol_previousProcessed(UCollationElements *elems,
 {
     return (UCollationPCE(elems)).previousProcessed(ixLow, ixHigh, status);
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_BEGIN
 

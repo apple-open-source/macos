@@ -1,17 +1,17 @@
-//
-//  HIDDevice.m
-//  HID
-//
-//  Created by dekom on 10/9/17.
-//
+/*!
+ * HIDDevice.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDDevice.h>
 #import <IOKit/hid/IOHIDLibPrivate.h>
-#import "HIDDevicePrivate.h"
-#import "HIDElementPrivate.h"
-#import "NSError+IOReturn.h"
-#import "HIDTransaction.h"
+#import <HID/HIDDevice.h>
+#import <HID/HIDElement_Internal.h>
+#import <HID/NSError+IOReturn.h>
+#import <HID/HIDTransaction.h>
 #import <os/assumes.h>
 #import <stdatomic.h>
 
@@ -352,14 +352,15 @@ static void inputReportCallback(void *context,
     IOHIDDeviceOpen((__bridge IOHIDDeviceRef)self, 0);
 }
 
-- (BOOL)openSeize: (out NSError **)outError
+- (BOOL)openWithOptions:(HIDDeviceOptions)options error:(out NSError * _Nullable __autoreleasing *)outError
 {
-    IOReturn status = IOHIDDeviceOpen((__bridge IOHIDDeviceRef)self,
-                                      kIOHIDOptionsTypeSeizeDevice);
-    if (status && outError) {
-        *outError = [NSError errorWithIOReturn:status];
+    IOReturn ret = IOHIDDeviceOpen((__bridge IOHIDDeviceRef)self, (IOOptionBits)options);
+
+    if (ret != kIOReturnSuccess && outError) {
+        *outError = [NSError errorWithIOReturn:ret];
     }
-    return (status == kIOReturnSuccess);
+
+    return (ret == kIOReturnSuccess);
 }
 
 - (void)close

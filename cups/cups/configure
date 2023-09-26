@@ -5839,7 +5839,7 @@ INSTALLXPC=""
 case $host_os_name in
         darwin*)
                 BACKLIBS="$BACKLIBS -framework IOKit"
-                SERVERLIBS="$SERVERLIBS -framework IOKit -weak_framework ApplicationServices"
+                SERVERLIBS="$SERVERLIBS -framework IOKit -weak_framework ApplicationServices -lManagedConfigurationFiles"
                 LIBS="-framework CoreFoundation -framework Security $LIBS"
 
 				ac_fn_c_check_header_mongrel "$LINENO" "ApplicationServices/ApplicationServices.h" "ac_cv_header_ApplicationServices_ApplicationServices_h" "$ac_includes_default"
@@ -6905,7 +6905,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 	fi
 
 	# Add useful warning options for tracking down problems...
-	WARNING_OPTIONS="-Wall -Wno-format-y2k -Wunused -Wno-unused-result -Wsign-conversion"
+	WARNING_OPTIONS="-Wall -Wno-format-y2k -Wunused -Wno-unused-result -Wsign-conversion -Wformat-nonliteral"
 
 	# Test GCC version for certain warning flags since -Werror
 	# doesn't trigger...

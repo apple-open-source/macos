@@ -68,6 +68,7 @@ bool _SecServerRestoreSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataR
 
 #if TARGET_OS_IOS
 bool _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error);
+bool _SecServerTranscryptToSystemKeychainKeybag(SecurityClient *client, CFErrorRef *error);
 bool _SecServerTransmogrifyToSyncBubble(CFArrayRef services, uid_t uid, SecurityClient *client, CFErrorRef *error);
 bool _SecServerDeleteMUSERViews(SecurityClient *client, uid_t uid, CFErrorRef *error);
 #endif
@@ -113,7 +114,7 @@ SOSDataSourceFactoryRef SecItemDataSourceFactoryGetDefault(void);
 /* FIXME: there is a specific type for keybag handle (keybag_handle_t)
    but it's not defined for simulator so we just use an int32_t */
 void SecItemServerSetKeychainKeybag(int32_t keybag);
-void SecItemServerResetKeychainKeybag(void);
+void SecItemServerSetKeychainKeybagToDefault(void);
 
 void SecItemServerSetKeychainChangedNotification(const char *notification_name);
 
@@ -147,6 +148,8 @@ bool itemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
 void SecKeychainChanged(void);
 
 void deleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sqlite_int64 rowid);
+
+CFDataRef UUIDDataCreate(void);
 
 __END_DECLS
 

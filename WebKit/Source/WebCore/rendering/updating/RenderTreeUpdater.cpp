@@ -31,27 +31,29 @@
 #include "ComposedTreeIterator.h"
 #include "Document.h"
 #include "Element.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLSlotElement.h"
+#include "LayoutState.h"
+#include "LayoutTreeBuilder.h"
+#include "LocalFrameView.h"
+#include "LocalFrameViewLayoutContext.h"
 #include "NodeRenderStyle.h"
 #include "PseudoElement.h"
 #include "RenderDescendantIterator.h"
 #include "RenderInline.h"
+#include "RenderListItem.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSet.h"
 #include "RenderSVGResource.h"
+#include "RenderStyleConstants.h"
+#include "RenderStyleInlines.h"
 #include "RenderTreeUpdaterGeneratedContent.h"
 #include "RenderView.h"
 #include "SVGElement.h"
 #include "StyleResolver.h"
 #include "StyleTreeResolver.h"
 #include "TextManipulationController.h"
+#include <wtf/Scope.h>
 #include <wtf/SystemTracing.h>
-
-#include "FrameView.h"
-#include "FrameViewLayoutContext.h"
-#include "LayoutState.h"
-#include "LayoutTreeBuilder.h"
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
 #include "ContentChangeObserver.h"
@@ -161,7 +163,7 @@ void RenderTreeUpdater::updateRenderTree(ContainerNode& root)
             auto& text = downcast<Text>(node);
             auto* textUpdate = m_styleUpdate->textUpdate(text);
             bool didCreateParent = parent().update && parent().update->change == Style::Change::Renderer;
-            bool mayNeedUpdateWhitespaceOnlyRenderer = renderingParent().didCreateOrDestroyChildRenderer && text.data().isAllSpecialCharacters<isHTMLSpace>();
+            bool mayNeedUpdateWhitespaceOnlyRenderer = renderingParent().didCreateOrDestroyChildRenderer && text.data().containsOnly<isASCIIWhitespace>();
             if (didCreateParent || textUpdate || mayNeedUpdateWhitespaceOnlyRenderer)
                 updateTextRenderer(text, textUpdate);
 
@@ -193,7 +195,7 @@ void RenderTreeUpdater::updateRenderTree(ContainerNode& root)
 
         auto mayHaveRenderedDescendants = [&]() {
             if (element.renderer())
-                return !(element.isInTopLayer() && element.renderer()->style().effectiveSkipsContent());
+                return !(element.isInTopLayer() && element.renderer()->style().effectiveSkippedContent());
             return element.hasDisplayContents() && shouldCreateRenderer(element, renderTreePosition().parent());
         }();
 
@@ -322,9 +324,9 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
     auto elementUpdateStyle = RenderStyle::cloneIncludingPseudoElements(*elementUpdate.style);
 
     bool shouldTearDownRenderers = [&]() {
-        if (element.isInTopLayer() && elementUpdate.change == Style::Change::Inherited && elementUpdate.style->effectiveSkipsContent())
+        if (element.isInTopLayer() && elementUpdate.change == Style::Change::Inherited && elementUpdate.style->effectiveSkippedContent())
             return true;
-        return elementUpdate.change == Style::Change::Renderer && (element.renderer() || element.hasDisplayContents() || element.displayContentsChanged());
+        return elementUpdate.change == Style::Change::Renderer && (element.renderer() || element.hasDisplayContents());
     }();
 
     if (shouldTearDownRenderers) {
@@ -338,8 +340,6 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
         tearDownRenderers(element, teardownType, m_builder);
 
         renderingParent().didCreateOrDestroyChildRenderer = true;
-
-        element.setDisplayContentsChanged(false);
     }
 
     bool hasDisplayContents = elementUpdate.style->display() == DisplayType::Contents;
@@ -348,7 +348,23 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
     else
         element.clearDisplayContentsStyle();
 
-    bool shouldCreateNewRenderer = !element.renderer() && !hasDisplayContents && !(element.isInTopLayer() && renderTreePosition().parent().style().effectiveSkipsContent());
+    if (!hasDisplayContents) {
+        if (!elementUpdateStyle.containIntrinsicLogicalWidthHasAuto())
+            element.clearLastRememberedLogicalWidth();
+        if (!elementUpdateStyle.containIntrinsicLogicalHeightHasAuto())
+            element.clearLastRememberedLogicalHeight();
+    }
+    auto scopeExit = makeScopeExit([&] {
+        if (!hasDisplayContents) {
+            auto* box = element.renderBox();
+            if (box && box->style().hasAutoLengthContainIntrinsicSize() && !box->isSkippedContentRoot())
+                m_document.observeForContainIntrinsicSize(element);
+            else
+                m_document.unobserveForContainIntrinsicSize(element);
+        }
+    });
+
+    bool shouldCreateNewRenderer = !element.renderer() && !hasDisplayContents && !(element.isInTopLayer() && renderTreePosition().parent().style().effectiveSkippedContent());
     if (shouldCreateNewRenderer) {
         if (element.hasCustomStyleResolveCallbacks())
             element.willAttachRenderers();
@@ -425,7 +441,7 @@ bool RenderTreeUpdater::textRendererIsNeeded(const Text& textNode)
         return true;
     if (!textNode.length())
         return false;
-    if (!textNode.data().isAllSpecialCharacters<isHTMLSpace>())
+    if (!textNode.data().containsOnly<isASCIIWhitespace>())
         return true;
     if (is<RenderText>(renderingParent.previousChildRenderer))
         return true;
@@ -577,8 +593,6 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
         teardownStack.append(&element);
     };
 
-    auto& document = root.document();
-
     auto pop = [&] (unsigned depth) {
         while (teardownStack.size() > depth) {
             auto& element = *teardownStack.takeLast();
@@ -596,10 +610,10 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
                     styleable.willChangeRenderer();
                     break;
                 }
-                FALLTHROUGH;
+                element.clearHoverAndActiveStatusBeforeDetachingRenderer();
+                break;
             case TeardownType::Full:
-                if (document.renderTreeBeingDestroyed())
-                    styleable.cancelDeclarativeAnimations();
+                styleable.cancelDeclarativeAnimations();
                 element.clearHoverAndActiveStatusBeforeDetachingRenderer();
                 break;
             case TeardownType::RendererUpdateCancelingAnimations:
@@ -612,6 +626,16 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
 
             GeneratedContent::removeBeforePseudoElement(element, builder);
             GeneratedContent::removeAfterPseudoElement(element, builder);
+
+            if (!is<PseudoElement>(element)) {
+                // ::before and ::after cannot have a ::marker pseudo-element addressable via
+                // CSS selectors, and as such cannot possibly have animations on them. Additionally,
+                // we cannot create a Styleable with a PseudoElement.
+                if (auto* renderListItem = dynamicDowncast<RenderListItem>(element.renderer())) {
+                    if (renderListItem->markerRenderer())
+                        Styleable(element, PseudoId::Marker).cancelDeclarativeAnimations();
+                }
+            }
 
             if (auto* renderer = element.renderer()) {
                 builder.destroyAndCleanUpAnonymousWrappers(*renderer);

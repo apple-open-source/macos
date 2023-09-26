@@ -1130,6 +1130,7 @@ create_job(ippeve_client_t *client)	/* I - Client */
   if ((job = calloc(1, sizeof(ippeve_job_t))) == NULL)
   {
     perror("Unable to allocate memory for job");
+    _cupsRWUnlock(&(client->printer->rwlock));
     return (NULL);
   }
 
@@ -2846,6 +2847,7 @@ html_header(ippeve_client_t *client,	/* I - Client */
  * 'html_printf()' - Send formatted text to the client, quoting as needed.
  */
 
+__attribute__((format(printf, 2, 3)))
 static void
 html_printf(ippeve_client_t *client,	/* I - Client */
 	    const char    *format,	/* I - Printf-style format string */
@@ -2994,7 +2996,7 @@ html_printf(ippeve_client_t *client,	/* I - Client */
 	    if ((size_t)(width + 2) > sizeof(temp))
 	      break;
 
-	    sprintf(temp, tformat, va_arg(ap, double));
+	    sprintf(temp, fmtcheck(tformat, "%g"), va_arg(ap, double));
 
             httpWrite2(client->http, temp, strlen(temp));
 	    break;
@@ -3012,13 +3014,13 @@ html_printf(ippeve_client_t *client,	/* I - Client */
 
 #  ifdef HAVE_LONG_LONG
             if (size == 'L')
-	      sprintf(temp, tformat, va_arg(ap, long long));
+	      sprintf(temp, fmtcheck(tformat, "%lld"), va_arg(ap, long long));
 	    else
 #  endif /* HAVE_LONG_LONG */
             if (size == 'l')
-	      sprintf(temp, tformat, va_arg(ap, long));
+	      sprintf(temp, fmtcheck(tformat, "%ld"), va_arg(ap, long));
 	    else
-	      sprintf(temp, tformat, va_arg(ap, int));
+	      sprintf(temp, fmtcheck(tformat, "%d"), va_arg(ap, int));
 
             httpWrite2(client->http, temp, strlen(temp));
 	    break;
@@ -3027,7 +3029,7 @@ html_printf(ippeve_client_t *client,	/* I - Client */
 	    if ((size_t)(width + 2) > sizeof(temp))
 	      break;
 
-	    sprintf(temp, tformat, va_arg(ap, void *));
+	    sprintf(temp, fmtcheck(tformat, "%p"), va_arg(ap, void *));
 
             httpWrite2(client->http, temp, strlen(temp));
 	    break;
@@ -7817,7 +7819,7 @@ show_supplies(
       {
         level = atoi(val);      /* New level */
 
-        snprintf(supply_text, sizeof(supply_text), printer_supply[i], level);
+        snprintf(supply_text, sizeof(supply_text), fmtcheck(printer_supply[i], "%d"), level);
         if (supply)
           ippSetOctetString(printer->attrs, &supply, ippGetCount(supply), supply_text, (int)strlen(supply_text));
         else

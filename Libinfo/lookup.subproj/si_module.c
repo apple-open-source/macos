@@ -80,6 +80,7 @@ static si_async_workunit_t *si_async_worklist = NULL;
 
 si_mod_t *si_module_static_search(void);
 si_mod_t *si_module_static_cache(void);
+si_mod_t *si_module_static_cache_file(void);
 si_mod_t *si_module_static_file(void);
 #ifdef MUSER_AVAILABLE
 si_mod_t *si_module_static_muser(void);
@@ -88,6 +89,9 @@ si_mod_t *si_module_static_muser(void);
 si_mod_t *si_module_static_ds(void);
 #endif
 si_mod_t *si_module_static_mdns(void);
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+si_mod_t *si_module_static_darwin_directory(void);
+#endif
 
 static void *
 si_mod_dlsym(void *so, const char *name, const char *sym)
@@ -184,6 +188,8 @@ si_module_with_name(const char *name)
 	{
 		{ "search", si_module_static_search, NULL },
 		{ "cache", si_module_static_cache, NULL },
+		/* only used for getpwuid(< SYSTEM_UID_LIMIT) */
+		{ "cache_file", si_module_static_cache_file, NULL },
 		{ "file", si_module_static_file, NULL },
 #ifdef MUSER_AVAILABLE
 		{ "muser", si_module_static_muser, NULL },
@@ -192,6 +198,9 @@ si_module_with_name(const char *name)
 		{ "ds", si_module_static_ds, NULL },
 #endif
 		{ "mdns", si_module_static_mdns, NULL },
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+		{ "darwin_directory", si_module_static_darwin_directory, NULL },
+#endif
 		{ NULL, NULL },
 	};
 

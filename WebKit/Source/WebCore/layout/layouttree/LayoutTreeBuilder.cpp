@@ -51,7 +51,7 @@
 #include "RenderImage.h"
 #include "RenderInline.h"
 #include "RenderLineBreak.h"
-#include "RenderStyle.h"
+#include "RenderStyleSetters.h"
 #include "RenderTable.h"
 #include "RenderTableCaption.h"
 #include "RenderTableCell.h"
@@ -353,9 +353,11 @@ void TreeBuilder::buildSubTree(const RenderElement& parentRenderer, ElementBox& 
 #if ENABLE(TREE_DEBUGGING)
 void showInlineTreeAndRuns(TextStream& stream, const LayoutState& layoutState, const ElementBox& inlineFormattingRoot, size_t depth)
 {
-    auto& inlineFormattingState = layoutState.formattingStateForInlineFormattingContext(inlineFormattingRoot);
-    auto& lines = inlineFormattingState.lines();
-    auto& boxes = inlineFormattingState.boxes();
+    UNUSED_PARAM(layoutState);
+    UNUSED_PARAM(inlineFormattingRoot);
+    // FIXME: Populate inline display content.
+    auto lines = InlineDisplay::Lines { };
+    auto boxes = InlineDisplay::Boxes { };
 
     for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
         auto addSpacing = [&] {
@@ -368,8 +370,7 @@ void showInlineTreeAndRuns(TextStream& stream, const LayoutState& layoutState, c
         addSpacing();
         auto& line = lines[lineIndex];
         auto& lineBoxRect = line.lineBoxRect();
-        auto enclosingTopAndBottom = line.enclosingLogicalTopAndBottom();
-        stream << "line at (" << lineBoxRect.x() << "," << lineBoxRect.y() << ") size (" << lineBoxRect.width() << "x" << lineBoxRect.height() << ") baseline (" << line.baseline() << ") enclosing top (" << enclosingTopAndBottom.top << ") bottom (" << enclosingTopAndBottom.bottom << ")";
+        stream << "line at (" << lineBoxRect.x() << "," << lineBoxRect.y() << ") size (" << lineBoxRect.width() << "x" << lineBoxRect.height() << ") baseline (" << line.baseline() << ") enclosing top (" << line.enclosingContentLogicalTop() << ") bottom (" << line.enclosingContentLogicalBottom() << ")";
         stream.nextLine();
 
         addSpacing();

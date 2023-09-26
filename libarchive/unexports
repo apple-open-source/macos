@@ -178,3 +178,6 @@ _blake2sp_final
 _blake2sp_init
 _blake2sp_init_key
 _blake2sp_update
+_archive_allow_entitlement_format
+_archive_allow_entitlement_filter
+_archive_entitlement_cleanup

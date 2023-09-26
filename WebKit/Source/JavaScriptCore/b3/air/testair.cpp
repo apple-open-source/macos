@@ -47,6 +47,7 @@
 #include <wtf/NumberOfCores.h>
 #include <wtf/StdMap.h>
 #include <wtf/Threading.h>
+#include <wtf/WTFProcess.h>
 #include <wtf/text/StringCommon.h>
 
 // We don't have a NO_RETURN_DUE_TO_EXIT, nor should we. That's ridiculous.
@@ -56,7 +57,7 @@ static void usage()
 {
     dataLog("Usage: testair [<filter>]\n");
     if (hiddenTruthBecauseNoReturnIsStupid())
-        exit(1);
+        exitProcess(1);
 }
 
 #if ENABLE(B3_JIT)
@@ -1879,7 +1880,7 @@ void testInvalidateCachedTempRegisters()
 
     // In Patchpoint, Load things[0] -> tmp. This will materialize the address in x17 (dataMemoryRegister).
     B3::PatchpointValue* patchpoint1 = patchPoint1Root->appendNew<B3::PatchpointValue>(proc, B3::Void, B3::Origin());
-    patchpoint1->clobber(RegisterSetBuilder::macroClobberedRegisters());
+    patchpoint1->clobber(RegisterSetBuilder::macroClobberedGPRs());
     patchpoint1->setGenerator(
         [=] (CCallHelpers& jit, const B3::StackmapGenerationParams&) {
             AllowMacroScratchRegisterUsage allowScratch(jit);
@@ -1894,7 +1895,7 @@ void testInvalidateCachedTempRegisters()
     // In Patchpoint, Load things[2] -> tmp. This should not reuse the prior contents of x17.
     B3::BasicBlock* patchPoint2Root = proc.addBlock();
     B3::PatchpointValue* patchpoint2 = patchPoint2Root->appendNew<B3::PatchpointValue>(proc, B3::Void, B3::Origin());
-    patchpoint2->clobber(RegisterSetBuilder::macroClobberedRegisters());
+    patchpoint2->clobber(RegisterSetBuilder::macroClobberedGPRs());
     patchpoint2->setGenerator(
         [=] (CCallHelpers& jit, const B3::StackmapGenerationParams&) {
             AllowMacroScratchRegisterUsage allowScratch(jit);
@@ -1908,7 +1909,7 @@ void testInvalidateCachedTempRegisters()
     // This will use and cache both x16 (dataMemoryRegister) and x17 (dataTempRegister).
     B3::BasicBlock* patchPoint3Root = proc.addBlock();
     B3::PatchpointValue* patchpoint3 = patchPoint3Root->appendNew<B3::PatchpointValue>(proc, B3::Void, B3::Origin());
-    patchpoint3->clobber(RegisterSetBuilder::macroClobberedRegisters());
+    patchpoint3->clobber(RegisterSetBuilder::macroClobberedGPRs());
     patchpoint3->setGenerator(
         [=] (CCallHelpers& jit, const B3::StackmapGenerationParams&) {
             AllowMacroScratchRegisterUsage allowScratch(jit);
@@ -1924,7 +1925,7 @@ void testInvalidateCachedTempRegisters()
     // This should rematerialize both x16 (dataMemoryRegister) and x17 (dataTempRegister).
     B3::BasicBlock* patchPoint4Root = proc.addBlock();
     B3::PatchpointValue* patchpoint4 = patchPoint4Root->appendNew<B3::PatchpointValue>(proc, B3::Void, B3::Origin());
-    patchpoint4->clobber(RegisterSetBuilder::macroClobberedRegisters());
+    patchpoint4->clobber(RegisterSetBuilder::macroClobberedGPRs());
     patchpoint4->setGenerator(
         [=] (CCallHelpers& jit, const B3::StackmapGenerationParams&) {
             AllowMacroScratchRegisterUsage allowScratch(jit);
@@ -2539,6 +2540,80 @@ void testEarlyClobberInterference()
         CHECK(actualResult == expectedResult);
     }
 }
+
+#if CPU(ARM64)
+void testStorePair()
+{
+    B3::Procedure proc;
+    Code& code = proc.code();
+
+    BasicBlock* root = code.addBlock();
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR1), Arg::addr(Tmp(GPRInfo::argumentGPR0), 0));
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR2), Arg::addr(Tmp(GPRInfo::argumentGPR0), 8));
+    root->append(Ret64, nullptr, Tmp(GPRInfo::returnValueGPR));
+
+    uint64_t values[2] = { 0, 0 };
+    compileAndRun<uint64_t>(proc, values, 42, 43);
+    CHECK(values[0] == 42);
+    CHECK(values[1] == 43);
+}
+
+void testStorePairClobber()
+{
+    B3::Procedure proc;
+    Code& code = proc.code();
+
+    BasicBlock* root = code.addBlock();
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR1), Arg::addr(Tmp(GPRInfo::argumentGPR0), 0));
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR3), Tmp(GPRInfo::argumentGPR0));
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR2), Arg::addr(Tmp(GPRInfo::argumentGPR0), 8));
+    root->append(Ret64, nullptr, Tmp(GPRInfo::returnValueGPR));
+
+    uint64_t values1[2] = { 0, 0 };
+    uint64_t values2[2] = { 0, 0 };
+    compileAndRun<uint64_t>(proc, values1, 42, 43, values2);
+    CHECK(values1[0] == 42);
+    CHECK(values1[1] == 0);
+    CHECK(values2[0] == 0);
+    CHECK(values2[1] == 43);
+}
+
+void testStorePairClobberMemoryStore()
+{
+    B3::Procedure proc;
+    Code& code = proc.code();
+
+    BasicBlock* root = code.addBlock();
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR1), Arg::addr(Tmp(GPRInfo::argumentGPR0), 0));
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR1), Arg::addr(Tmp(GPRInfo::argumentGPR3), 8));
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR2), Arg::addr(Tmp(GPRInfo::argumentGPR0), 8));
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR0), Tmp(GPRInfo::returnValueGPR));
+    root->append(Ret64, nullptr, Tmp(GPRInfo::returnValueGPR));
+
+    uint64_t values1[2] = { 0, 0 };
+    compileAndRun<uint64_t>(proc, values1, 42, 43, values1);
+    CHECK(values1[0] == 42);
+    CHECK(values1[1] == 43);
+}
+
+void testStorePairClobberMemoryLoad()
+{
+    B3::Procedure proc;
+    Code& code = proc.code();
+
+    BasicBlock* root = code.addBlock();
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR1), Arg::addr(Tmp(GPRInfo::argumentGPR0), 0));
+    root->append(Move, nullptr, Arg::addr(Tmp(GPRInfo::argumentGPR3), 8), Tmp(GPRInfo::argumentGPR1));
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR2), Arg::addr(Tmp(GPRInfo::argumentGPR0), 8));
+    root->append(Move, nullptr, Tmp(GPRInfo::argumentGPR1), Tmp(GPRInfo::returnValueGPR));
+    root->append(Ret64, nullptr, Tmp(GPRInfo::returnValueGPR));
+
+    uint64_t values1[2] = { 0, 24 };
+    CHECK(compileAndRun<uint64_t>(proc, values1, 42, 43, values1) == 24);
+    CHECK(values1[0] == 42);
+    CHECK(values1[1] == 43);
+}
+#endif
 #endif
 
 #define PREFIX "O", Options::defaultB3OptLevel(), ": "
@@ -2649,6 +2724,13 @@ void run(const char* filter)
 
     RUN(testEarlyAndLateUseOfSameTmp());
     RUN(testEarlyClobberInterference());
+
+#if CPU(ARM64)
+    RUN(testStorePair());
+    RUN(testStorePairClobber());
+    RUN(testStorePairClobberMemoryStore());
+    RUN(testStorePairClobberMemoryLoad());
+#endif
 #endif
 
     if (tasks.isEmpty())

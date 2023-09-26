@@ -1,0 +1,121 @@
+diff --git a/agent/mibgroup/mibII.h b/agent/mibgroup/mibII.h
+index 1b94a59..b0c2de5 100644
+--- a/agent/mibgroup/mibII.h
++++ b/agent/mibgroup/mibII.h
+@@ -6,10 +6,10 @@ config_require(mibII/system_mib)
+ config_require(mibII/sysORTable)
+ config_require(mibII/at)
+ config_require(mibII/ifTable)
++#if !defined(darwin) || defined(HAVE_STRUCT_IN_IFADDR_IA_SUBNETMASK)
+ config_require(mibII/ip)
+ config_version_require((mibII/snmp_mib, 5.5, mibII/snmp_mib_5_5))
+ config_require(mibII/tcp)
+-config_require(mibII/icmp)
+ config_require(mibII/udp)
+ config_require(mibII/vacm_vars)
+ config_require(mibII/setSerialNo)
+@@ -19,9 +19,12 @@ config_require(mibII/setSerialNo)
+ config_require(mibII/ipv6)
+ #endif
+ 
++#endif /* defined(darwin) || defined(HAVE_STRUCT_IN_IFADDR_IA_SUBNETMASK) */
++config_require(mibII/icmp)
++
+ #ifdef NETSNMP_INCLUDE_IFTABLE_REWRITES
+ config_require(if-mib)
+-#endif
++#endif /* defined(NETSNMP_ENABLE_IPV6 */
+ 
+ /*
+  * these new module re-rewrites have only been implemented for
+diff --git a/agent/mibgroup/mibII/ip.h b/agent/mibgroup/mibII/ip.h
+index 04c5651..0e414f9 100644
+--- a/agent/mibgroup/mibII/ip.h
++++ b/agent/mibgroup/mibII/ip.h
+@@ -8,9 +8,15 @@
+ 
+ 
+ config_require(mibII/ifTable)
++#if !defined(darwin) || defined(HAVE_STRUCT_IN_IFADDR_IA_SUBNETMASK)
++/*
++ * To do: port mibII/ipAddr and mibII/var_route to Darwin versions that do not
++ * export struct in_ifaddr.
++ */
+ config_require(mibII/ipAddr)
+-config_require(mibII/at)
+ config_require(mibII/var_route mibII/route_write)
++#endif /* !defined(darwin) || defined(HAVE_STRUCT_IN_IFADDR_IA_SUBNETMASK) */
++config_require(mibII/at)
+ 
+ config_arch_require(solaris2,        kernel_sunos5)
+ config_arch_require(linux,     mibII/kernel_linux)
+diff --git a/agent/mibgroup/mibII/ipv6.h b/agent/mibgroup/mibII/ipv6.h
+index a377153..b121580 100644
+--- a/agent/mibgroup/mibII/ipv6.h
++++ b/agent/mibgroup/mibII/ipv6.h
+@@ -13,7 +13,14 @@ struct ip6_mib {
+ };
+ #endif
+ 
+-config_require(mibII/ifTable mibII/at mibII/var_route mibII/route_write)
++config_require(mibII/ifTable mibII/at)
++#if !defined(darwin) || defined(HAVE_STRUCT_IN_IFADDR_IA_SUBNETMASK)
++/*
++ * To do: port mibII/ipAddr and mibII/var_route to Darwin versions that do not
++ * export struct in_ifaddr.
++ */
++config_require(mibII/var_route mibII/route_write)
++#endif /* !defined(darwin) || defined(HAVE_STRUCT_IN_IFADDR_IA_SUBNETMASK) */
+ config_add_mib(IPV6-ICMP-MIB:IPV6-MIB:IPV6-TCP-MIB:IPV6-UDP-MIB)
+ config_arch_require(solaris2, kernel_sunos5)
+ #include "var_route.h"
+diff --git a/configure b/configure
+index c6e59f9..72c24fa 100755
+--- a/configure
++++ b/configure
+@@ -24302,6 +24302,25 @@ fi
+ #         the later 'config_types' sub-script
+ #
+ 
++#  Darwin: check whether or not struct in_ifaddr is available.
++#
++#
++ac_fn_c_check_member "$LINENO" "struct in_ifaddr" "ia_subnetmask" "ac_cv_member_struct_in_ifaddr_ia_subnetmask" "
++#ifdef HAVE_NETINET_IN_VAR_H
++#include <netinet/in_var.h>
++#endif
++
++"
++if test "x$ac_cv_member_struct_in_ifaddr_ia_subnetmask" = xyes; then :
++
++cat >>confdefs.h <<_ACEOF
++#define HAVE_STRUCT_IN_IFADDR_IA_SUBNETMASK 1
++_ACEOF
++
++
++fi
++
++
+ 
+ ##
+ #   Determine the IPv6 stack type
+diff --git a/configure.d/config_project_ipv6_types b/configure.d/config_project_ipv6_types
+index 35886a1..f86f9af 100644
+--- a/configure.d/config_project_ipv6_types
++++ b/configure.d/config_project_ipv6_types
+@@ -45,6 +45,15 @@ AC_CHECK_TYPES([mib2_ipIfStatsEntry_t],,,[#include <inet/mib2.h>])
+ #         the later 'config_types' sub-script
+ #
+ 
++#  Darwin: check whether or not struct in_ifaddr is available.
++#
++#
++AC_CHECK_MEMBERS([struct in_ifaddr.ia_subnetmask],,,[
++#ifdef HAVE_NETINET_IN_VAR_H
++#include <netinet/in_var.h>
++#endif
++])
++
+ 
+ ##
+ #   Determine the IPv6 stack type

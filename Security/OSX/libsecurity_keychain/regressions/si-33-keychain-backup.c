@@ -32,6 +32,7 @@
 #include <utilities/SecCFRelease.h>
 #include <libaks.h>
 #include <AssertMacros.h>
+#include "keychain/securityd/SOSCloudCircleServer.h"
 
 #define DATA_ARG(x) (x) ? CFDataGetBytePtr((x)) : NULL, (x) ? (int)CFDataGetLength((x)) : 0
 
@@ -107,8 +108,15 @@ int si_33_keychain_backup(int argc, char *const *argv)
 {
 	plan_tests(8);
     
+    CFErrorRef localError = NULL;
+
+    SOSCCSetCompatibilityMode(true, &localError);
+    CFReleaseNull(localError);
+	
+    tests();
     
-	tests();
-    
+    SOSCCSetCompatibilityMode(false, &localError);
+    CFReleaseNull(localError);
+
 	return 0;
 }

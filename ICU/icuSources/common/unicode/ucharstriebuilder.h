@@ -133,7 +133,7 @@ public:
     }
 
 private:
-    UCharsTrieBuilder(const UCharsTrieBuilder &other) = delete; // no copy constructor
+    UCharsTrieBuilder(const UCharsTrieBuilder &other) = delete;  // no copy constructor
     UCharsTrieBuilder &operator=(const UCharsTrieBuilder &other) = delete;  // no assignment operator
 
     void buildUChars(UStringTrieBuildOption buildOption, UErrorCode &errorCode);

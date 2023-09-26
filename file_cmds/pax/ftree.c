@@ -1,7 +1,6 @@
-/*	$OpenBSD: ftree.c,v 1.28 2008/05/06 06:54:28 henning Exp $	*/
-/*	$NetBSD: ftree.c,v 1.4 1995/03/21 09:07:21 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,19 +33,17 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)ftree.c	8.2 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] = "$OpenBSD: ftree.c,v 1.28 2008/05/06 06:54:28 henning Exp $";
+static char sccsid[] = "@(#)ftree.c	8.2 (Berkeley) 4/18/94";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/param.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
@@ -81,7 +78,9 @@ static FTSENT *ftent = NULL;		/* current file tree entry */
 static int ftree_skip;			/* when set skip to next file arg */
 
 static int ftree_arg(void);
+#ifdef __APPLE__
 static char *getpathname(char *, int);
+#endif /* __APPLE__ */
 
 /*
  * ftree_start()
@@ -97,18 +96,18 @@ int
 ftree_start(void)
 {
 	/*
-	 * set up the operation mode of fts, open the first file arg. We must
+	 * Set up the operation mode of fts, open the first file arg. We must
 	 * use FTS_NOCHDIR, as the user may have to open multiple archives and
 	 * if fts did a chdir off into the boondocks, we may create an archive
-	 * volume in an place where the user did not expect to.
+	 * volume in a place where the user did not expect to.
 	 */
 	ftsopts = FTS_NOCHDIR;
 
 	/*
 	 * optional user flags that effect file traversal
 	 * -H command line symlink follow only (half follow)
-	 * -L follow sylinks (logical)
-	 * -P do not follow sylinks (physical). This is the default.
+	 * -L follow symlinks (logical)
+	 * -P do not follow symlinks (physical). This is the default.
 	 * -X do not cross over mount points
 	 * -t preserve access times on files read.
 	 * -n select only the first member of a file tree when a match is found
@@ -171,7 +170,6 @@ ftree_add(char *str, int chflg)
 		str[len] = '\0';
 	ft->fname = str;
 	ft->refcnt = 0;
-	ft->newercnt = 0;
 	ft->chflg = chflg;
 	ft->fow = NULL;
 	if (fthead == NULL) {
@@ -229,19 +227,6 @@ ftree_notsel(void)
 }
 
 /*
- * ftree_skipped_newer()
- *	file has been skipped because a newer file exists and -u/-D given
- */
-
-void
-ftree_skipped_newer(ARCHD *arcn)
-{
-	/* skipped due to -u/-D, mark accordingly */
-	if (ftcur != NULL)
-		ftcur->newercnt = 1;
-}
-
-/*
  * ftree_chk()
  *	called at end on pax execution. Prints all those file args that did not
  *	have a selected member (reference count still 0)
@@ -264,7 +249,7 @@ ftree_chk(void)
 	 * that never had a match
 	 */
 	for (ft = fthead; ft != NULL; ft = ft->fow) {
-		if ((ft->refcnt > 0) || ft->newercnt > 0 || ft->chflg)
+		if ((ft->refcnt > 0) || ft->chflg)
 			continue;
 		if (wban == 0) {
 			paxwarn(1,"WARNING! These file names were not selected:");
@@ -287,6 +272,9 @@ ftree_chk(void)
 static int
 ftree_arg(void)
 {
+#ifndef __APPLE__
+	char *pt;
+#endif /* __APPLE__ */
 
 	/*
 	 * close off the current file tree
@@ -300,14 +288,21 @@ ftree_arg(void)
 	 * keep looping until we get a valid file tree to process. Stop when we
 	 * reach the end of the list (or get an eof on stdin)
 	 */
-	for (;;) {
+	for(;;) {
 		if (fthead == NULL) {
 			/*
 			 * the user didn't supply any args, get the file trees
 			 * to process from stdin;
 			 */
+#ifdef __APPLE__
 			if (getpathname(farray[0], PAXPATHLEN+1) == NULL)
 				return(-1);
+#else
+			if (fgets(farray[0], PAXPATHLEN+1, stdin) == NULL)
+				return(-1);
+			if ((pt = strchr(farray[0], '\n')) != NULL)
+				*pt = '\0';
+#endif /* __APPLE__ */
 		} else {
 			/*
 			 * the user supplied the file args as arguments to pax
@@ -318,24 +313,34 @@ ftree_arg(void)
 				return(-1);
 			if (ftcur->chflg) {
 				/* First fchdir() back... */
-				if (fdochdir(cwdfd) < 0) {
+#ifdef __APPLE__
+				if (fdochdir(cwdfd) == -1)
+					return(-1);
+#else
+				if (fchdir(cwdfd) < 0) {
 					syswarn(1, errno,
 					  "Can't fchdir to starting directory");
 					return(-1);
 				}
-				if (dochdir(ftcur->fname) < 0) {
+#endif /* __APPLE__ */
+#ifdef __APPLE__
+				if (dochdir(ftcur->fname) == -1)
+					return(-1);
+#else
+				if (chdir(ftcur->fname) < 0) {
 					syswarn(1, errno, "Can't chdir to %s",
 					    ftcur->fname);
 					return(-1);
 				}
+#endif /* __APPLE__ */
 				continue;
 			} else
 				farray[0] = ftcur->fname;
 		}
 
 		/*
-		 * watch it, fts wants the file arg stored in a array of char
-		 * ptrs, with the last one a null. we use a two element array
+		 * Watch it, fts wants the file arg stored in an array of char
+		 * ptrs, with the last one a null. We use a two element array
 		 * and set farray[0] to point at the buffer with the file name
 		 * in it. We cannot pass all the file args to fts at one shot
 		 * as we need to keep a handle on which file arg generates what
@@ -359,7 +364,11 @@ int
 next_file(ARCHD *arcn)
 {
 	int cnt;
-	time_t atime_sec, atime_nsec, mtime_sec, mtime_nsec;
+	time_t atime;
+	time_t mtime;
+#ifdef __APPLE__
+	time_t atime_nsec, mtime_nsec;
+#endif
 
 	/*
 	 * ftree_sel() might have set the ftree_skip flag if the user has the
@@ -379,10 +388,12 @@ next_file(ARCHD *arcn)
 	/*
 	 * loop until we get a valid file to process
 	 */
-	for (;;) {
+	for(;;) {
 		if ((ftent = fts_read(ftsp)) == NULL) {
+#ifdef __APPLE__
 			if (errno)
 				syswarn(1, errno, "next_file");
+#endif /* __APPLE__ */
 			/*
 			 * out of files in this tree, go to next arg, if none
 			 * we are done
@@ -395,15 +406,19 @@ next_file(ARCHD *arcn)
 		/*
 		 * handle each type of fts_read() flag
 		 */
-		switch (ftent->fts_info) {
+		switch(ftent->fts_info) {
 		case FTS_D:
 		case FTS_DEFAULT:
 		case FTS_F:
 		case FTS_SL:
+#ifndef __APPLE__
+		case FTS_SLNONE:
+#endif /* __APPLE__ */
 			/*
 			 * these are all ok
 			 */
 			break;
+#ifdef __APPLE__
 		case FTS_SLNONE:	/* was same as above cases except Unix
 					   conformance requires this error check */
 			if (Hflag || Lflag) {       /* -H or -L was specified */
@@ -412,6 +427,7 @@ next_file(ARCHD *arcn)
 						ftent->fts_name, strerror(ftent->fts_errno));
 			}
 			break;
+#endif /* __APPLE__ */
 		case FTS_DP:
 			/*
 			 * already saw this directory. If the user wants file
@@ -422,12 +438,20 @@ next_file(ARCHD *arcn)
 			 * directory, not a created directory).
 			 */
 			if (!tflag || (get_atdir(ftent->fts_statp->st_dev,
-						 ftent->fts_statp->st_ino,
-						 &mtime_sec, &mtime_nsec,
-						 &atime_sec, &atime_nsec) < 0))
+#ifdef __APPLE__
+			    ftent->fts_statp->st_ino,
+			    &mtime, &mtime_nsec,
+			    &atime, &atime_nsec) < 0))
+#else
+			    ftent->fts_statp->st_ino, &mtime, &atime) < 0))
+#endif /* __APPLE__ */
 				continue;
-			set_ftime(ftent->fts_path, mtime_sec, mtime_nsec,
-				  atime_sec, atime_nsec, 1);
+#ifdef __APPLE__
+			set_ftime(ftent->fts_path, mtime, mtime_nsec,
+				  atime, atime_nsec, 1);
+#else
+			set_ftime(ftent->fts_path, mtime, atime, 1);
+#endif /* __APPLE__ */
 			continue;
 		case FTS_DC:
 			/*
@@ -458,7 +482,7 @@ next_file(ARCHD *arcn)
 		arcn->pad = 0;
 		arcn->ln_nlen = 0;
 		arcn->ln_name[0] = '\0';
-		memcpy(&arcn->sb, ftent->fts_statp, sizeof(arcn->sb));
+		arcn->sb = *(ftent->fts_statp);
 
 		/*
 		 * file type based set up and copy into the arcn struct
@@ -470,15 +494,20 @@ next_file(ARCHD *arcn)
 		 * end in case we cut short a file tree traversal). However
 		 * there is no way to reset access times on symlinks.
 		 */
-		switch (S_IFMT & arcn->sb.st_mode) {
+		switch(S_IFMT & arcn->sb.st_mode) {
 		case S_IFDIR:
 			arcn->type = PAX_DIR;
 			if (!tflag)
 				break;
 			add_atdir(ftent->fts_path, arcn->sb.st_dev,
-			    arcn->sb.st_ino, arcn->sb.st_mtime_sec,
-			    arcn->sb.st_mtime_nsec, arcn->sb.st_atime_sec,
+			    arcn->sb.st_ino, arcn->sb.st_mtime,
+#ifdef __APPLE__
+			    arcn->sb.st_mtime_nsec, arcn->sb.st_atime,
 			    arcn->sb.st_atime_nsec);
+
+#else
+			    arcn->sb.st_atime);
+#endif /* __APPLE__ */
 			break;
 		case S_IFCHR:
 			arcn->type = PAX_CHR;
@@ -502,7 +531,7 @@ next_file(ARCHD *arcn)
 			 * have to read the symlink path from the file
 			 */
 			if ((cnt = readlink(ftent->fts_path, arcn->ln_name,
-			    PAXPATHLEN)) < 0) {
+			    PAXPATHLEN - 1)) < 0) {
 				syswarn(1, errno, "Unable to read symlink %s",
 				    ftent->fts_path);
 				continue;
@@ -539,6 +568,7 @@ next_file(ARCHD *arcn)
 	return(0);
 }
 
+#ifdef __APPLE__
 /*
  * getpathname()
  *	Reads a pathname from stdin, handling NUL- or newline-termination.
@@ -586,3 +616,4 @@ getpathname(char *buf, int buflen)
 	paxwarn(1, "Ignoring too-long pathname: %s", buf);
 	return(NULL);
 }
+#endif /* __APPLE__ */

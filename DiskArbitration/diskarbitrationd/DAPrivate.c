@@ -449,28 +449,65 @@ _DADiskSetEncodingErr:
     return status;
 }
 
-errno_t _DADiskGetEncryptionStatus( CFAllocatorRef allocator, DADiskRef disk, CFBooleanRef *encryption_status, CFNumberRef *encryption_details )
+int  _DADiskGetEncryptionStatus( void *parameter)
 {
-    bool encrypted = kCFBooleanFalse;
-    UInt32 detail = 0;
+    __DADiskEncryptionContext *context = parameter;
     errno_t error = 0;
 #if TARGET_OS_OSX
-   error = _FSGetMediaEncryptionStatusAtPath( DADiskGetBSDPath(disk, FALSE), &encrypted, &detail );
+    error = _FSGetMediaEncryptionStatusAtPath( DADiskGetBSDPath(context->disk, FALSE), &context->encrypted, &context->detail );
 #endif
+    return error;
+}
 
-    if ( error == 0 )
+void _DADiskEncryptionStatusCallback(int status, void *parameter)
+{
+    __DADiskEncryptionContext *context = parameter;
+    DADiskRef disk = context->disk;
+    CFBooleanRef encrypted = NULL;
+    CFNumberRef  encryptionDetail = NULL;
+    CFMutableArrayRef keys;
+
+    keys = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+    
+    if (keys)
     {
-        if ( encryption_status )
+        if ( status == 0 )
         {
-             *encryption_status = encrypted ? kCFBooleanTrue : kCFBooleanFalse;
-        }
-        if ( encryption_details )
-        {
-            *encryption_details = CFNumberCreate( allocator, kCFNumberSInt32Type, &detail);
+            encrypted = context->encrypted ? kCFBooleanTrue : kCFBooleanFalse;
+            
+            if ( DADiskCompareDescription( disk, kDADiskDescriptionMediaEncryptedKey, encrypted ) )
+            {
+                DADiskSetDescription( disk, kDADiskDescriptionMediaEncryptedKey, encrypted );
+                
+                CFArrayAppendValue( keys, kDADiskDescriptionMediaEncryptedKey );
+            }
+#if TARGET_OS_OSX
+            encryptionDetail = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &context->detail);
+            
+            if ( DADiskCompareDescription( disk, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail ) )
+            {
+                DADiskSetDescription( disk, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail );
+                
+                CFArrayAppendValue( keys, kDADiskDescriptionMediaEncryptionDetailKey );
+            }
+#endif
         }
     }
 
-    return error;
+    if ( CFArrayGetCount( keys ) )
+    {
+        DALogInfo( "encryption status changed, id = %@.", disk );
+        
+        if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
+        {
+            DADiskDescriptionChangedCallback( disk, keys );
+        }
+    }
+    
+    if ( keys  )  CFRelease( keys  );
+    if ( encryptionDetail )  CFRelease( encryptionDetail );
+    CFRelease(context->disk);
+    free (context);
 }
 
 Boolean _DAUnitIsUnreadable( DADiskRef disk )

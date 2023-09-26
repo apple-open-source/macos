@@ -234,12 +234,18 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
 
     // Next calendar type
     UnicodeString nextCalendarType;
-    
+
+#if APPLE_ICU_CHANGES
+// rdar:/
     UBool onlyProcessShortDateSkeletons;
     UBool stripRightToLeftMarks;
     
     DateIntervalSink(DateIntervalInfo &diInfo, const char *currentCalendarType, UBool onlyProcessShortDateSkeletons, UBool stripRightToLeftMarks)
             : dateIntervalInfo(diInfo), nextCalendarType(currentCalendarType, -1, US_INV), onlyProcessShortDateSkeletons(onlyProcessShortDateSkeletons), stripRightToLeftMarks(stripRightToLeftMarks) { }
+#else
+    DateIntervalSink(DateIntervalInfo &diInfo, const char *currentCalendarType)
+            : dateIntervalInfo(diInfo), nextCalendarType(currentCalendarType, -1, US_INV) { }
+#endif  // APPLE_ICU_CHANGES
     virtual ~DateIntervalSink();
 
     virtual void put(const char *key, ResourceValue &value, UBool /*noFallback*/, UErrorCode &errorCode) override {
@@ -272,7 +278,12 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
                 ResourceTable skeletonData = value.getTable(errorCode);
                 if (U_FAILURE(errorCode)) { return; }
                 for (int32_t j = 0; skeletonData.getKeyAndValue(j, key, value); j++) {
+#if APPLE_ICU_CHANGES
+// rdar:/
                     if (shouldProcessSkeleton(key) && value.getType() == URES_TABLE) {
+#else
+                    if (value.getType() == URES_TABLE) {
+#endif  // APPLE_ICU_CHANGES
                         // Process the skeleton
                         processSkeletonTable(key, value, errorCode);
                         if (U_FAILURE(errorCode)) { return; }
@@ -307,10 +318,12 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
             }
         }
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     
     UBool shouldProcessSkeleton(const char *key) {
         if (!onlyProcessShortDateSkeletons) {
-            return TRUE;
+            return true;
         }
         
         // if we're only processing short date skeletons, look at the skeleton string: if it contains at least
@@ -325,11 +338,12 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
             }
         }
         if (mCount < 3 && ((yCount > 0 && mCount > 0) || (yCount > 0 && dCount > 0) || (mCount > 0 && dCount > 0))) {
-            return TRUE;
+            return true;
         } else {
-            return FALSE;
+            return false;
         }
     }
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Extracts the calendar type from the path.
@@ -393,12 +407,15 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
 
         if (patternsOfOneSkeleton == nullptr || patternsOfOneSkeleton[index].isEmpty()) {
             UnicodeString pattern = value.getUnicodeString(errorCode);
+#if APPLE_ICU_CHANGES
+// rdar:/
             if (stripRightToLeftMarks) {
                 // if the pattern string came from a right-to-left locale, it might contain Unicode right-to-left
                 // marks to ensure proper display in a RTL context; we want to strip these if the interval formatter's
                 // actual locale is a LTR locale
                 pattern.findAndReplace(UnicodeString(u'\u200f'), UnicodeString());
             }
+#endif  // APPLE_ICU_CHANGES
             dateIntervalInfo.setIntervalPatternInternally(skeleton, lrgDiffCalUnit,
                                                           pattern, errorCode);
         }
@@ -433,7 +450,7 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& status)
     char         localeWithCalendarKey[ULOC_LOCALE_IDENTIFIER_CAPACITY];
     // obtain a locale that always has the calendar key value that should be used
     (void)ures_getFunctionalEquivalent(localeWithCalendarKey, ULOC_LOCALE_IDENTIFIER_CAPACITY, nullptr,
-                                     "calendar", "calendar", locName, nullptr, FALSE, &status);
+                                     "calendar", "calendar", locName, nullptr, false, &status);
     localeWithCalendarKey[ULOC_LOCALE_IDENTIFIER_CAPACITY-1] = 0; // ensure null termination
     // now get the calendar key value from that locale
     int32_t calendarTypeLen = uloc_getKeywordValue(localeWithCalendarKey, "calendar", calendarType,
@@ -444,15 +461,26 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& status)
     status = U_ZERO_ERROR;
 
     // Instantiate the resource bundles
-    UBool hasCountryResource = FALSE;
+#if APPLE_ICU_CHANGES
+// rdar:/
+    UBool hasCountryResource = false;
     UResourceBundle *rb, *countryRB, *calBundle, *countryCalBundle;
+#else
+    UResourceBundle *rb, *calBundle;
+#endif  // APPLE_ICU_CHANGES
     rb = ures_open(nullptr, locName, &status);
+#if APPLE_ICU_CHANGES
+// rdar:/
     countryRB = ures_openWithCountryFallback(NULL, locName, &hasCountryResource, &status);
+#endif  // APPLE_ICU_CHANGES
     if (U_FAILURE(status)) {
         return;
     }
     calBundle = ures_getByKeyWithFallback(rb, gCalendarTag, nullptr, &status);
+#if APPLE_ICU_CHANGES
+// rdar:/
     countryCalBundle = ures_getByKeyWithFallback(countryRB, gCalendarTag, nullptr, &status);
+#endif  // APPLE_ICU_CHANGES
 
 
     if (U_SUCCESS(status)) {
@@ -472,22 +500,30 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& status)
         }
 
         if ( U_SUCCESS(status) && (resStr != nullptr)) {
-            UnicodeString pattern = UnicodeString(TRUE, resStr, resStrLen);
+            UnicodeString pattern = UnicodeString(true, resStr, resStrLen);
             setFallbackIntervalPattern(pattern, status);
         }
         ures_close(itvDtPtnResource);
         ures_close(calTypeBundle);
 
 
+#if APPLE_ICU_CHANGES
+// rdar:/
         UResourceBundle *curCalBundle = hasCountryResource ? countryCalBundle : calBundle;
         
         while (curCalBundle != NULL) {
+#endif  // APPLE_ICU_CHANGES
             // Instantiate the sink
+#if APPLE_ICU_CHANGES
+// rdar:/
             DateIntervalSink sink(*this, calendarTypeToUse, curCalBundle != calBundle, !locale.isRightToLeft());
+#else
+            DateIntervalSink sink(*this, calendarTypeToUse);
+#endif  // APPLE_ICU_CHANGES
             const UnicodeString &calendarTypeToUseUString = sink.getNextCalendarType();
 
             // Already loaded calendar types
-            Hashtable loadedCalendarTypes(FALSE, status);
+            Hashtable loadedCalendarTypes(false, status);
 
             if (U_SUCCESS(status)) {
                 while (!calendarTypeToUseUString.isBogus()) {
@@ -511,19 +547,29 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& status)
                     sink.resetNextCalendarType();
 
                     // Get all resources for this calendar type
+#if APPLE_ICU_CHANGES
+// rdar:/
                     ures_getAllItemsWithFallback(curCalBundle, calType, sink, status);
+#else
+                    ures_getAllItemsWithFallback(calBundle, calType, sink, status);
+#endif  // APPLE_ICU_CHANGES
                 }
             }
-            
+#if APPLE_ICU_CHANGES
+// rdar:/
             curCalBundle = (curCalBundle == calBundle) ? NULL : calBundle;
         }
+#endif  // APPLE_ICU_CHANGES
     }
 
     // Close the opened resource bundles
     ures_close(calBundle);
     ures_close(rb);
+#if APPLE_ICU_CHANGES
+// rdar:/
     ures_close(countryCalBundle);
     ures_close(countryRB);
+#endif  // APPLE_ICU_CHANGES
 }
 
 void
@@ -547,7 +593,7 @@ DateIntervalInfo::setIntervalPatternInternally(const UnicodeString& skeleton,
     }
 
     patternsOfOneSkeleton[index] = intervalPattern;
-    if ( emptyHash == TRUE ) {
+    if ( emptyHash == true ) {
         fIntervalPatterns->put(skeleton, patternsOfOneSkeleton, status);
     }
 }
@@ -781,7 +827,7 @@ U_CDECL_BEGIN
  *
  * @param val1  one value in comparison
  * @param val2  the other value in comparison
- * @return      TRUE if 2 values are the same, FALSE otherwise
+ * @return      true if 2 values are the same, false otherwise
  */
 static UBool U_CALLCONV dtitvinfHashTableValueComparator(UHashTok val1, UHashTok val2);
 
@@ -789,9 +835,9 @@ static UBool
 U_CALLCONV dtitvinfHashTableValueComparator(UHashTok val1, UHashTok val2) {
     const UnicodeString* pattern1 = (UnicodeString*)val1.pointer;
     const UnicodeString* pattern2 = (UnicodeString*)val2.pointer;
-    UBool ret = TRUE;
+    UBool ret = true;
     int8_t i;
-    for ( i = 0; i < DateIntervalInfo::kMaxIntervalPatternIndex && ret == TRUE; ++i ) {
+    for ( i = 0; i < DateIntervalInfo::kMaxIntervalPatternIndex && ret == true; ++i ) {
         ret = (pattern1[i] == pattern2[i]);
     }
     return ret;
@@ -806,7 +852,7 @@ DateIntervalInfo::initHash(UErrorCode& status) {
         return nullptr;
     }
     Hashtable* hTable;
-    if ( (hTable = new Hashtable(FALSE, status)) == nullptr ) {
+    if ( (hTable = new Hashtable(false, status)) == nullptr ) {
         status = U_MEMORY_ALLOCATION_ERROR;
         return nullptr;
     }

@@ -31,6 +31,9 @@ class WebKit::NetworkLoadParameters {
     RefPtr<WebCore::SecurityOrigin> topOrigin;
     RefPtr<WebCore::SecurityOrigin> sourceOrigin;
     WTF::ProcessID parentPID;
+#if HAVE(AUDIT_TOKEN)
+    [NotSerialized] std::optional<audit_token_t> networkProcessAuditToken;
+#endif
     WebCore::ResourceRequest request;
     
     WebCore::ContentSniffingPolicy contentSniffingPolicy;
@@ -43,12 +46,13 @@ class WebKit::NetworkLoadParameters {
     bool isMainFrameNavigation;
     bool isMainResourceNavigationForAnyFrame;
     WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking;
-    
+    [NotSerialized] Vector<RefPtr<WebCore::BlobDataFileReference>> blobFileReferences;
     WebKit::PreconnectOnly shouldPreconnectOnly;
+    [NotSerialized] std::optional<WebKit::NetworkActivityTracker> networkActivityTracker;
     std::optional<WebKit::NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain;
     bool hadMainFrameMainResourcePrivateRelayed;
     bool allowPrivacyProxy;
-    OptionSet<WebCore::NetworkConnectionIntegrity> networkConnectionIntegrityPolicy;
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
 }
 
 class WebKit::NetworkResourceLoadParameters : WebKit::NetworkLoadParameters {
@@ -104,4 +108,5 @@ class WebKit::NetworkResourceLoadParameters : WebKit::NetworkLoadParameters {
     std::optional<WebKit::UserContentControllerIdentifier> userContentControllerIdentifier;
 #endif
 
+    bool linkPreconnectEarlyHintsEnabled;
 };

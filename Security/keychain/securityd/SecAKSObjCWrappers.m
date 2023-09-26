@@ -36,7 +36,7 @@
     if (personaId) {
         result = ks_crypt_diversify(kAKSKeyOpEncrypt, keybag, keyclass, (uint32_t)plaintext.length, plaintext.bytes, outKeyclass, (__bridge CFMutableDataRef)ciphertext, personaId, personaIdLength, &cfError);
     } else {
-        result = ks_crypt(kAKSKeyOpEncrypt, keybag, keyclass, (uint32_t)plaintext.length, plaintext.bytes, outKeyclass, (__bridge CFMutableDataRef)ciphertext, &cfError);
+        result = ks_crypt(kAKSKeyOpEncrypt, keybag, NULL, keyclass, (uint32_t)plaintext.length, plaintext.bytes, outKeyclass, (__bridge CFMutableDataRef)ciphertext, false, &cfError);
     }
     BridgeCFErrorToNSErrorOut(error, cfError);
     return result;
@@ -50,7 +50,7 @@
     if (personaId) {
         result = ks_crypt_diversify(kAKSKeyOpDecrypt, keybag, keyclass, (uint32_t)ciphertext.length, ciphertext.bytes, outKeyclass, (__bridge CFMutableDataRef)plaintext, personaId, personaIdLength, &cfError);
     } else {
-        result = ks_crypt(kAKSKeyOpDecrypt, keybag, keyclass, (uint32_t)ciphertext.length, ciphertext.bytes, outKeyclass, (__bridge CFMutableDataRef)plaintext, &cfError);
+        result = ks_crypt(kAKSKeyOpDecrypt, keybag, NULL, keyclass, (uint32_t)ciphertext.length, ciphertext.bytes, outKeyclass, (__bridge CFMutableDataRef)plaintext, false, &cfError);
     }
     BridgeCFErrorToNSErrorOut(error, cfError);
     return result;

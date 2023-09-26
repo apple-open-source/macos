@@ -996,7 +996,7 @@ SCNetworkServiceGetTypeID			(void)						API_AVAILABLE(macos(10.4))
 /*!
 	@function SCNetworkServiceAddProtocolType
 	@discussion Adds a network protocol of the specified type to the
-		service.  The protocal configuration is set to default values
+		service.  The protocol configuration is set to default values
 		that are appropriate for the interface associated with the
 		service.
 	@param service The network service.

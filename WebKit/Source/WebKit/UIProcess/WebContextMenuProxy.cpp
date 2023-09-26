@@ -29,6 +29,7 @@
 #if ENABLE(CONTEXT_MENUS)
 
 #include "APIContextMenuClient.h"
+#include "MessageSenderInlines.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
@@ -54,9 +55,13 @@ Vector<Ref<WebContextMenuItem>> WebContextMenuProxy::proposedItems() const
 void WebContextMenuProxy::show()
 {
     ASSERT(m_context.webHitTestResultData());
-    
+
+    RefPtr page = this->page();
+    if (!page)
+        return;
+
     m_contextMenuListener = WebContextMenuListenerProxy::create(*this);
-    page()->contextMenuClient().getContextMenuFromProposedMenu(*page(), proposedItems(), *m_contextMenuListener, m_context.webHitTestResultData().value(), page()->process().transformHandlesToObjects(m_userData.object()).get());
+    page->contextMenuClient().getContextMenuFromProposedMenu(*page, proposedItems(), *m_contextMenuListener, m_context.webHitTestResultData().value(), page->process().transformHandlesToObjects(m_userData.object()).get());
 }
 
 void WebContextMenuProxy::useContextMenuItems(Vector<Ref<WebContextMenuItem>>&& items)

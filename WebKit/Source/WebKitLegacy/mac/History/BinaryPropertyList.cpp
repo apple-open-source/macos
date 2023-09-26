@@ -58,7 +58,8 @@ public:
 
     bool isDeletedValue() const { return HashTraits<size_t>::isDeletedValue(m_size); }
 
-    const int* integers() const { ASSERT(!isDeletedValue()); return m_integers; }
+    using value_type = const int; // For std::span.
+    const int* data() const { ASSERT(!isDeletedValue()); return m_integers; }
     size_t size() const { ASSERT(!isDeletedValue()); return m_size; }
 
 private:
@@ -76,7 +77,7 @@ inline bool operator==(const IntegerArray& a, const IntegerArray& b)
 
 inline void add(Hasher& hasher, const IntegerArray& array)
 {
-    add(hasher, Span { array.integers(), array.size() });
+    add(hasher, std::span(array.data(), array.size()));
 }
 
 struct IntegerArrayHashTraits : HashTraits<IntegerArray> {
@@ -97,7 +98,7 @@ bool IntegerArrayHash::equal(const IntegerArray& a, const IntegerArray& b)
     if (a.size() != b.size())
         return false;
     for (size_t i = 0; i < a.size(); ++i) {
-        if (a.integers()[i] != b.integers()[i])
+        if (a.data()[i] != b.data()[i])
             return false;
     }
     return true;
@@ -282,7 +283,7 @@ void BinaryPropertyListPlan::writeStringObject(const String& string)
 {
     unsigned length = string.length();
     m_byteCount += markerPlusLengthByteCount(length) + length;
-    if (!string.isAllASCII())
+    if (!string.containsOnlyASCII())
         m_byteCount += length;
 }
 
@@ -689,7 +690,7 @@ void BinaryPropertyListSerializer::appendStringObject(const String& string)
 {
     startObject();
     unsigned length = string.length();
-    if (string.isAllASCII()) {
+    if (string.containsOnlyASCII()) {
         if (length <= maxLengthInMarkerByte)
             appendByte(static_cast<unsigned char>(asciiStringMarkerByte | length));
         else {

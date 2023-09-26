@@ -121,6 +121,8 @@ int secd_231_v0Peers(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(41);
+    enableSOSCompatibilityForTests();
+
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests();
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);

@@ -92,8 +92,7 @@ extern pthread_mutex_t pidlist_mutex;
 #define	THREAD_UNLOCK()	if (__isthreaded) _pthread_mutex_unlock(&pidlist_mutex)
 
 FILE *
-popen(command, type)
-	const char *command, *type;
+popen(const char *command, const char *type)
 {
 	struct pid *cur;
 	FILE *iop;
@@ -173,6 +172,13 @@ popen(command, type)
 		}
 		(void)posix_spawn_file_actions_addclose(&file_actions, pdes[1]);
 	}
+
+	/*
+	 * rdar://problem/103144366 - it's possibly to race a concurrent
+	 * pclose() against posix_spawn() here, such that we end up getting a
+	 * spurious EBADF.
+	 */
+	THREAD_LOCK();
 	SLIST_FOREACH(p, &pidlist, next)
 		(void)posix_spawn_file_actions_addclose(&file_actions, p->fd);
 
@@ -182,6 +188,7 @@ popen(command, type)
 	argv[3] = NULL;
 
 	err = posix_spawn(&pid, _PATH_BSHELL, &file_actions, NULL, argv, environ);
+	THREAD_UNLOCK();
 	posix_spawn_file_actions_destroy(&file_actions);
 
 	if (err == ENOMEM || err == EAGAIN) { /* as if fork failed */
@@ -219,8 +226,7 @@ popen(command, type)
  *	if already `pclosed', or waitpid returns an error.
  */
 int
-pclose(iop)
-	FILE *iop;
+pclose(FILE *iop)
 {
 	struct pid *cur, *last = NULL;
 	int pstat;

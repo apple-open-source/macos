@@ -25,6 +25,10 @@
 	<true/>
 	<key>com.apple.private.security.storage.SFAnalytics</key>
 	<true/>
+	<key>com.apple.private.tcc.manager.check-by-audit-token</key>
+	<array>
+		<string>kTCCServiceUserTracking</string>
+	</array>
 	<key>com.apple.private.trustd.FileHelp</key>
 	<true/>
 </dict>

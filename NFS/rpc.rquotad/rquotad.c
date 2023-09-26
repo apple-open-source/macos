@@ -77,6 +77,7 @@ void check_mounts(void);
 void sigmux(int);
 void *rquotad_thread(void *arg);
 
+#undef DEBUG
 #if 0
 #define DEBUG(args...)  printf(args)
 #else
@@ -95,14 +96,14 @@ struct nfs_conf_server {
 	int udp;
 	int verbose;
 };
-const struct nfs_conf_server config_defaults =
+const struct nfs_conf_server r_config_defaults =
 {
 	0,              /* rquota_port */
 	1,              /* tcp */
 	1,              /* udp */
 	0               /* verbose */
 };
-int config_read(struct nfs_conf_server *conf);
+int config_read(struct nfs_conf_server *conf, const char *conf_path);
 
 /*
  * structure containing informations about file systems with quota files
@@ -117,19 +118,19 @@ struct fsq_stat {
 };
 TAILQ_HEAD(fsqhead, fsq_stat) fsqhead;
 pthread_mutex_t fsq_mutex;              /* mutex for file system quota list */
-int gotterm = 0;
-struct nfs_conf_server config;
+int r_gotterm = 0;
+struct nfs_conf_server r_config;
 
 const char *qfextension[] = INITQFNAMES;
 
 void
 sigmux(__unused int dummy)
 {
-	gotterm = 1;
+	r_gotterm = 1;
 }
 
 int
-main(__unused int argc, __unused char *argv[])
+rquotad_imp(__unused int argc, __unused char *argv[], const char *conf_path)
 {
 	SVCXPRT *transp = NULL;
 	struct sockaddr_storage saddr;
@@ -148,8 +149,8 @@ main(__unused int argc, __unused char *argv[])
 	/* If we are serving UDP, set up the RQUOTA/UDP sockets. */
 
 	/* set defaults then do config_read() to get config values */
-	config = config_defaults;
-	config_read(&config);
+	r_config = r_config_defaults;
+	config_read(&r_config, conf_path);
 
 	openlog("rpc.rquotad", LOG_CONS | LOG_PID, LOG_DAEMON);
 
@@ -180,7 +181,7 @@ main(__unused int argc, __unused char *argv[])
 	rqudp6sock = rqtcp6sock = -1;
 
 	/* If we are serving UDP, set up the RQUOTA/UDP sockets. */
-	if (config.udp) {
+	if (r_config.udp) {
 		/* IPv4 */
 		if ((rqudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 			syslog(LOG_WARNING, "can't create UDP IPv4 socket: %s (%d)", strerror(errno), errno);
@@ -188,7 +189,7 @@ main(__unused int argc, __unused char *argv[])
 		if (rqudpsock >= 0) {
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
-			sin->sin_port = htons(config.rquota_port);
+			sin->sin_port = htons(r_config.rquota_port);
 			sin->sin_len = sizeof(*sin);
 			if (bindresvport_sa(rqudpsock, (struct sockaddr *)sin) < 0) {
 				syslog(LOG_WARNING, "can't bind UDP IPv4 addr: %s (%d)", strerror(errno), errno);
@@ -230,7 +231,7 @@ main(__unused int argc, __unused char *argv[])
 			}
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
-			sin6->sin6_port = htons(config.rquota_port);
+			sin6->sin6_port = htons(r_config.rquota_port);
 			sin6->sin6_len = sizeof(*sin6);
 			if (bindresvport_sa(rqudp6sock, (struct sockaddr *)sin6) < 0) {
 				syslog(LOG_WARNING, "can't bind UDP IPv6 addr: %s (%d)", strerror(errno), errno);
@@ -264,7 +265,7 @@ main(__unused int argc, __unused char *argv[])
 	}
 
 	/* If we are serving TCP, set up the RQUOTA/TCP sockets. */
-	if (config.tcp) {
+	if (r_config.tcp) {
 		/* IPv4 */
 		if ((rqtcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			syslog(LOG_WARNING, "can't create TCP IPv4 socket: %s (%d)", strerror(errno), errno);
@@ -275,7 +276,7 @@ main(__unused int argc, __unused char *argv[])
 			}
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
-			sin->sin_port = htons(config.rquota_port);
+			sin->sin_port = htons(r_config.rquota_port);
 			sin->sin_len = sizeof(*sin);
 			if (bindresvport_sa(rqtcpsock, (struct sockaddr *)sin) < 0) {
 				syslog(LOG_WARNING, "can't bind TCP IPv4 addr: %s (%d)", strerror(errno), errno);
@@ -318,7 +319,7 @@ main(__unused int argc, __unused char *argv[])
 			setsockopt(rqtcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
-			sin6->sin6_port = htons(config.rquota_port);
+			sin6->sin6_port = htons(r_config.rquota_port);
 			sin6->sin6_len = sizeof(*sin6);
 			if (bindresvport_sa(rqtcp6sock, (struct sockaddr *)sin6) < 0) {
 				syslog(LOG_WARNING, "can't bind TCP IPv6 addr: %s (%d)", strerror(errno), errno);
@@ -393,7 +394,7 @@ main(__unused int argc, __unused char *argv[])
 		exit(1);
 	}
 
-	while (!gotterm) {
+	while (!r_gotterm) {
 		rv = kevent(kq, NULL, 0, &ke, 1, NULL);
 		if ((rv > 0) && !(ke.flags & EV_ERROR) && (ke.fflags & (VQ_MOUNT | VQ_UNMOUNT))) {
 			/* syslog(LOG_DEBUG, "mount list changed: 0x%x", ke.fflags); */
@@ -893,16 +894,20 @@ check_mounts(void)
  * read the NFS server values from nfs.conf
  */
 int
-config_read(struct nfs_conf_server *conf)
+config_read(struct nfs_conf_server *conf, const char *conf_path)
 {
 	FILE *f;
 	size_t len, linenum = 0;
 	char *line, *p, *key, *value;
 	long val;
 
-	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
+	if (conf_path == NULL) {
+		conf_path = _PATH_NFS_CONF;
+	}
+
+	if (!(f = fopen(conf_path, "r"))) {
 		if (errno != ENOENT) {
-			syslog(LOG_WARNING, "%s", _PATH_NFS_CONF);
+			syslog(LOG_WARNING, "%s", conf_path);
 		}
 		return 1;
 	}
@@ -942,7 +947,7 @@ config_read(struct nfs_conf_server *conf)
 		}
 
 		val = !value ? 1 : strtol(value, NULL, 0);
-		DEBUG("%4ld %s=%s (%d)\n", linenum, key, value ? value : "", val);
+		DEBUG("%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", val);
 
 		if (!strcmp(key, "nfs.server.rquota.port")) {
 			if (value && val) {

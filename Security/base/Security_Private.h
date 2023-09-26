@@ -157,7 +157,7 @@
 #include <Security/sslTypes.h>
 #include <Security/TrustSettingsSchema.h>
 #include <Security/tsaSupport.h>
-#else
+#else   // SEC_OS_OSX_INCLUDES
 #include <Security/certextensions.h>
 #include <Security/CMSDecoder.h>
 #include <Security/CMSEncoder.h>
@@ -186,8 +186,9 @@
 #include <Security/SecTask.h>
 #include <Security/SecTrustSettings.h>
 #include <Security/SecureObjectSync/SOSPeerInfoV2.h>
-#endif
-#endif
 
+
+#endif  // SEC_OS_OSX_INCLUDES
+#endif  // __building_module(Security_Private)
 
 #endif // _SECURITY_PRIVATE_H_

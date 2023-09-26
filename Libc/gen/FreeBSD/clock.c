@@ -45,7 +45,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/clock.c,v 1.4 2007/01/09 00:27:53 imp Exp $
 			 + (r).tv_usec / (1000000 / CLOCKS_PER_SEC))
 
 clock_t
-clock()
+clock(void)
 {
 	struct rusage ru;
 

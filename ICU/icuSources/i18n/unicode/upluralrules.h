@@ -244,6 +244,9 @@ U_CAPI UEnumeration* U_EXPORT2
 uplrules_getKeywords(const UPluralRules *uplrules,
                      UErrorCode *status);
 
+
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
 /**
  * Internal function for unit testing only.
@@ -253,6 +256,7 @@ uplrules_getSampleForKeyword(const UPluralRules *uplrules,
                              const UChar* keyword,
                              UErrorCode *status);
 #endif // U_HIDE_INTERNAL_API
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

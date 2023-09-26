@@ -806,6 +806,6 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUHashtablePointer, UHashtable, uhash_close);
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 #endif

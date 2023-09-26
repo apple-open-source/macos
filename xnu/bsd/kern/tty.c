@@ -3361,7 +3361,7 @@ tty_from_waitq(struct waitq *wq, int seltype)
 static struct tty *
 tty_from_knote(struct knote *kn)
 {
-	return (struct tty *)kn->kn_hook;
+	return (struct tty *)knote_kn_hook_get_raw(kn);
 }
 
 static int
@@ -3401,7 +3401,7 @@ filt_ttyattach(struct knote *kn, __unused struct kevent_qos_s *kev)
 
 		/* Attach the knote to selinfo's klist and take a ref */
 		ttyhold(tp);
-		kn->kn_hook = tp;
+		knote_kn_hook_set_raw(kn, tp);
 		KNOTE_ATTACH(&si->si_note, kn);
 	};
 
@@ -3410,7 +3410,7 @@ filt_ttyattach(struct knote *kn, __unused struct kevent_qos_s *kev)
 	selres = VNOP_SELECT(vp, knote_get_seltype(kn) | FMARK, 0, block, ctx);
 	uth->uu_selset = old_wqs;
 
-	if (kn->kn_hook == NULL) {
+	if (knote_kn_hook_get_raw(kn) == NULL) {
 		/*
 		 * The driver didn't call selrecord --
 		 * there's no tty hooked up so we can't attach.
@@ -3444,7 +3444,7 @@ filt_ttydetach(struct knote *kn)
 	}
 
 	// Remove dangling reference
-	kn->kn_hook = NULL;
+	knote_kn_hook_set_raw(kn, NULL);
 
 	tty_unlock(tp);
 	ttyfree(tp);

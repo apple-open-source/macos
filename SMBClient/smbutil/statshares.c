@@ -170,7 +170,8 @@ static void
 interpret_and_display(char *share, SMBShareAttributes *sattrs)
 {
     int ret = 0;
-    time_t local_time;
+    time_t local_time = {0};
+    char buf[1024] = {0};
 
     /* share name and server */
     fprintf(stdout, "%-30s\n", share);
@@ -270,6 +271,37 @@ interpret_and_display(char *share, SMBShareAttributes *sattrs)
             break;
     }
     
+    /* SMB 3.1.1 Signing Algorithms enabled */
+    print_if_attr(stdout, sattrs->session_misc_flags,
+                  SMBV_ENABLE_AES_128_CMAC, "SMB_SIGN_ALGORITHMS",
+                  "AES_128_CMAC_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->session_misc_flags,
+                  SMBV_ENABLE_AES_128_GMAC, "SMB_SIGN_ALGORITHMS",
+                  "AES_128_GMAC_ENABLED", &ret);
+
+    /* Current in use signing algorithm */
+    switch (sattrs->session_signing_algorithm) {
+        case 0:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_SIGN_ALGORITHM",
+                          "OFF", &ret);
+            break;
+            
+        case 1:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_SIGN_ALGORITHM",
+                          "AES_128_CMAC", &ret);
+            break;
+            
+        case 2:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_SIGN_ALGORITHM",
+                          "AES_128_GMAC", &ret);
+            break;
+        
+        default:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_SIGN_ALGORITHM",
+                          "UNKNOWN", &ret);
+            break;
+    }
+
    /*
      * Note: No way to get file system type since the type is determined at
      * mount time and not just by a Tree Connect.  If we ever wanted to display
@@ -383,7 +415,23 @@ interpret_and_display(char *share, SMBShareAttributes *sattrs)
                   SMB_FLAGS2_SECURITY_SIGNATURE, "SIGNING_ON",
                   "TRUE", &ret);
 
-	if (verbose) {
+    /* Reconnect Info */
+    if (sattrs->session_reconnect_count > 0 &&
+        sattrs->session_reconnect_time.tv_sec > 0) {
+        strftime(buf, sizeof buf, "%F %T",
+                 localtime(&sattrs->session_reconnect_time.tv_sec));
+        fprintf(stdout, "%-30s%-30s%s\n", "","SESSION_RECONNECT_TIME", buf);
+    }
+    else {
+        fprintf(stdout, "%-30s%-30s%ld:%ld\n", "","SESSION_RECONNECT_TIME",
+                sattrs->session_reconnect_time.tv_sec,
+                sattrs->session_reconnect_time.tv_nsec);
+    }
+    
+    fprintf(stdout, "%-30s%-30s%d\n", "","SESSION_RECONNECT_COUNT",
+            sattrs->session_reconnect_count);
+
+    if (verbose) {
         fprintf(stdout, "session_flags: 0x%x\n", sattrs->session_flags);
         fprintf(stdout, "session_hflags: 0x%x\n", sattrs->session_hflags);
         fprintf(stdout, "session_hflags2: 0x%x\n", sattrs->session_hflags2);
@@ -404,8 +452,8 @@ static CFMutableDictionaryRef
 display_json(char *share, SMBShareAttributes *sattrs)
 {
     int res = 0;
-    char buf[32];
-    time_t local_time;
+    char buf[1024] = {0};
+    time_t local_time = {0};
 
     CFMutableDictionaryRef dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (dict == NULL) {
@@ -419,6 +467,11 @@ display_json(char *share, SMBShareAttributes *sattrs)
     }
     CFMutableArrayRef arr2 = CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks);
     if (arr2 == NULL) {
+        fprintf(stderr, "CFArrayCreateMutable failed\n");
+        return NULL;
+    }
+    CFMutableArrayRef SigningArray = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    if (SigningArray == NULL) {
         fprintf(stderr, "CFArrayCreateMutable failed\n");
         return NULL;
     }
@@ -531,7 +584,38 @@ display_json(char *share, SMBShareAttributes *sattrs)
                                  CFSTR("UNKNOWN"));
             break;
     }
- 
+    
+    /* SMB 3.1.1 Signing Algorithms enabled */
+    if (sattrs->session_misc_flags & SMBV_ENABLE_AES_128_CMAC) {
+        CFArrayAppendValue(SigningArray, CFSTR("AES_128_CMAC_ENABLED"));
+    }
+    if (sattrs->session_misc_flags & SMBV_ENABLE_AES_128_GMAC) {
+        CFArrayAppendValue(SigningArray, CFSTR("AES_128_GMAC_ENABLED"));
+    }
+    CFDictionarySetValue(dict, CFSTR("SMB_SIGNING_ALGORITHMS"), SigningArray);
+
+    /* Current in use signing algorithm */
+    switch (sattrs->session_signing_algorithm) {
+        case 0:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_SIGN_ALGORITHM"),
+                                 kCFNull);
+            break;
+            
+        case 1:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_SIGN_ALGORITHM"),
+                                 CFSTR("AES-128-CMAC"));
+            break;
+            
+        case 2:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_SIGN_ALGORITHM"),
+                                 CFSTR("AES-128-GMAC"));
+            break;
+            
+        default:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_SIGN_ALGORITHM"),
+                                 CFSTR("UNKNOWN"));
+            break;
+    }
     /*
      * Note: No way to get file system type since the type is determined at
      * mount time and not just by a Tree Connect.  If we ever wanted to display
@@ -589,6 +673,20 @@ display_json(char *share, SMBShareAttributes *sattrs)
     json_add_bool(dict, "ENCRYPTION_REQUIRED",          sattrs->ss_flags & SMB2_SHAREFLAG_ENCRYPT_DATA);
     json_add_bool(dict, "SIGNING_ON",                   sattrs->session_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE);
     
+    /* Reconnect Info */
+    if (sattrs->session_reconnect_count > 0 &&
+        sattrs->session_reconnect_time.tv_sec > 0) {
+        strftime(buf, sizeof buf, "%F %T",
+                 localtime(&sattrs->session_reconnect_time.tv_sec));
+        json_add_str(dict, "SESSION_RECONNECT_TIME", buf);
+    }
+    else {
+        json_add_str(dict, "SESSION_RECONNECT_TIME", "0:0");
+    }
+
+    json_add_num(dict, "SESSION_RECONNECT_COUNT", &sattrs->session_reconnect_count,
+                 sizeof(sattrs->session_reconnect_count));
+
     if (verbose) {
         sprintf(buf, "0x%x", sattrs->session_flags);
         json_add_str(dict, "session_flags", buf);

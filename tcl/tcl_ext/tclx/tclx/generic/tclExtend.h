@@ -20,6 +20,8 @@
 #define TCLEXTEND_H
 
 #include <stdio.h>
+// allow panic functions and friends
+#undef TCL_NO_DEPRECATED
 #include "tcl.h"
 
 /*

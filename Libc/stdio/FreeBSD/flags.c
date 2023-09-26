@@ -49,9 +49,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/flags.c,v 1.10 2007/01/09 00:28:06 imp Ex
  * Return 0 on error.
  */
 int
-__sflags(mode, optr)
-	const char *mode;
-	int *optr;
+__sflags(const char *mode, int *optr)
 {
 	int ret, m, o;
 

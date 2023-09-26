@@ -22,16 +22,16 @@
 }
 - (void)setType:(SECC2MPGenericEvent_Type)v
 {
-    _has.type = YES;
+    _has.type = (uint)YES;
     _type = v;
 }
 - (void)setHasType:(BOOL)f
 {
-    _has.type = f;
+    _has.type = (uint)f;
 }
 - (BOOL)hasType
 {
-    return _has.type;
+    return _has.type != 0;
 }
 - (NSString *)typeAsString:(SECC2MPGenericEvent_Type)value
 {
@@ -49,30 +49,30 @@
 @synthesize timestampStart = _timestampStart;
 - (void)setTimestampStart:(uint64_t)v
 {
-    _has.timestampStart = YES;
+    _has.timestampStart = (uint)YES;
     _timestampStart = v;
 }
 - (void)setHasTimestampStart:(BOOL)f
 {
-    _has.timestampStart = f;
+    _has.timestampStart = (uint)f;
 }
 - (BOOL)hasTimestampStart
 {
-    return _has.timestampStart;
+    return _has.timestampStart != 0;
 }
 @synthesize timestampEnd = _timestampEnd;
 - (void)setTimestampEnd:(uint64_t)v
 {
-    _has.timestampEnd = YES;
+    _has.timestampEnd = (uint)YES;
     _timestampEnd = v;
 }
 - (void)setHasTimestampEnd:(BOOL)f
 {
-    _has.timestampEnd = f;
+    _has.timestampEnd = (uint)f;
 }
 - (BOOL)hasTimestampEnd
 {
-    return _has.timestampEnd;
+    return _has.timestampEnd != 0;
 }
 @synthesize metrics = _metrics;
 - (void)clearMetrics
@@ -154,7 +154,7 @@ BOOL SECC2MPGenericEventReadFrom(__unsafe_unretained SECC2MPGenericEvent *self, 
 
             case 1 /* type */:
             {
-                self->_has.type = YES;
+                self->_has.type = (uint)YES;
                 self->_type = PBReaderReadInt32(reader);
             }
             break;
@@ -166,13 +166,13 @@ BOOL SECC2MPGenericEventReadFrom(__unsafe_unretained SECC2MPGenericEvent *self, 
             break;
             case 201 /* timestampStart */:
             {
-                self->_has.timestampStart = YES;
+                self->_has.timestampStart = (uint)YES;
                 self->_timestampStart = PBReaderReadUint64(reader);
             }
             break;
             case 202 /* timestampEnd */:
             {
-                self->_has.timestampEnd = YES;
+                self->_has.timestampEnd = (uint)YES;
                 self->_timestampEnd = PBReaderReadUint64(reader);
             }
             break;

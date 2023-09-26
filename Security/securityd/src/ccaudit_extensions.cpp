@@ -55,17 +55,8 @@ AuditLogger::open()
     if (-1 != mAuditFd)
         return true;
     
-    // @@@  use audit_get_cond() when it's available
-    int acond = au_get_state();
-    switch (acond)
-    {
-        case AUC_NOAUDIT:
-            return false;
-        case AUC_AUDITING:
-            break;
-        default:
-            logInternalError("error checking auditing status (%d)", acond);
-            UnixError::throwMe(acond);  // assume it's a Unix error
+    if (au_get_state() != AUC_AUDITING) {
+        return false;
     }
     if ((mAuditFd = au_open()) < 0)
     {

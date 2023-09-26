@@ -27,6 +27,7 @@ static int signIn = false;
 static int signOut = false;
 static int resetoctagon = false;
 static int resetProtectedData = false;
+static int reset = false;
 static int userControllableViewsSyncStatus = false;
 
 static int fetchAllBottles = false;
@@ -70,6 +71,7 @@ static int checkInheritanceKey = false;
 
 static int fetchAccountSettings = false;
 static int fetchAccountWideSettings = false;
+static int fetchAccountWideSettingsDefault = false;
 
 static int enableWalrus = false;
 static int disableWalrus = false;
@@ -106,6 +108,7 @@ static int notifyIdMS = false;
 static int printAccountMetadata = false;
 
 static int forceFetch = false;
+static int repair = false;
 
 static char* altDSIDArg = NULL;
 static char* containerStr = NULL;
@@ -138,6 +141,7 @@ int main(int argc, char** argv)
         {.shortname = 'P', .longname = "pause", .flag = &argPause, .flagval = true, .description = "Pause something (pair with a modification command)"},
 	{.longname = "notifyIdMS", .flag = &notifyIdMS, .flagval = true, .description = "Notify IdMS on reset", .internal_only = true},
         {.longname = "forceFetch", .flag = &forceFetch, .flagval = true, .description = "Force fetch from cuttlefish"},
+        {.longname = "repair", .flag = &repair, .flagval = true, .description = "Perform repair as part of health check"},
 
         {.shortname = 'a', .longname = "machineID", .argument = &machineIDArg, .description = "machineID override"},
 
@@ -167,6 +171,7 @@ int main(int argc, char** argv)
 
         {.command = "resetoctagon", .flag = &resetoctagon, .flagval = true, .description = "Reset and establish new Octagon trust", .internal_only = true},
         {.command = "resetProtectedData", .flag = &resetProtectedData, .flagval = true, .description = "Reset ProtectedData", .internal_only = true},
+        {.command = "reset", .flag = &reset, .flagval = true, .description = "Reset Octagon trust", .internal_only = true},
 
         {.command = "user-controllable-views", .flag = &userControllableViewsSyncStatus, .flagval = true, .description = "Modify or view user-controllable views status (If one of --enable or --pause is passed, will modify status)", .internal_only = true},
 
@@ -216,6 +221,7 @@ int main(int argc, char** argv)
         {.command = "disable-webaccess", .flag = &disableWebAccess, .flagval = true, .description = "Disable Web Access Setting", .internal_only = true},
         {.command = "fetch-account-state", .flag = &fetchAccountSettings, .flagval = true, .description = "Fetch Account Settings", .internal_only = true},
         {.command = "fetch-account-wide-state", .flag = &fetchAccountWideSettings, .flagval = true, .description = "Fetch Account Wide Settings", .internal_only = true},
+        {.command = "fetch-account-wide-state-default", .flag = &fetchAccountWideSettingsDefault, .flagval = true, .description = "Fetch Account Wide Settings with Default", .internal_only = true},
 
 #if TARGET_OS_WATCH
         {.command = "pairme", .flag = &pairme, .flagval = true, .description = "Perform pairing (watchOS only)"},
@@ -281,6 +287,9 @@ int main(int argc, char** argv)
         }
         if(resetProtectedData) {
             return [ctl resetProtectedData:arguments appleID:appleID dsid:dsid idmsTargetContext:idmsTargetContextString idmsCuttlefishPassword:idmsCuttlefishPasswordString notifyIdMS:notifyIdMS];
+        }
+        if(reset) {
+            return [ctl reset:arguments appleID:appleID dsid:dsid];
         }
         if(userControllableViewsSyncStatus) {
             if(argEnable && argPause) {
@@ -374,7 +383,7 @@ int main(int argc, char** argv)
             } else {
                 skip = NO;
             }
-            return [ctl healthCheck:arguments skipRateLimitingCheck:skip];
+            return [ctl healthCheck:arguments skipRateLimitingCheck:skip repair:repair];
         }
         if(tlkRecoverability) {
             return [ctl tlkRecoverability:arguments];
@@ -392,7 +401,7 @@ int main(int argc, char** argv)
             return [ctl resetAccountCDPContentsWithArguments:arguments idmsTargetContext:idmsTargetContextString idmsCuttlefishPassword:idmsCuttlefishPasswordString notifyIdMS:notifyIdMS ];
         }
         if(createCustodianRecoveryKey) {
-            return [ctl createCustodianRecoveryKeyWithArguments:arguments json:json timeout:timeout];
+            return [ctl createCustodianRecoveryKeyWithArguments:arguments uuidString:custodianUUIDString json:json timeout:timeout];
         }
         if(joinWithCustodianRecoveryKey) {
             if (!wrappingKey || !wrappedKey || !custodianUUIDString) {
@@ -445,7 +454,7 @@ int main(int argc, char** argv)
         }
         
         if(createInheritanceKey) {
-            return [ctl createInheritanceKeyWithArguments:arguments json:json timeout:timeout];
+            return [ctl createInheritanceKeyWithArguments:arguments uuidString:inheritanceUUIDString json:json timeout:timeout];
         }
         if(generateInheritanceKey) {
             return [ctl generateInheritanceKeyWithArguments:arguments json:json timeout:timeout];
@@ -520,7 +529,11 @@ int main(int argc, char** argv)
             return [ctl fetchAccountSettingsWithArguments:arguments json:json];
         }
         if(fetchAccountWideSettings) {
-            return [ctl fetchAccountWideSettingsWithArguments:arguments forceFetch:forceFetch json:json];
+            return [ctl fetchAccountWideSettingsWithArguments:arguments useDefault:false forceFetch:forceFetch json:json];
+        }
+
+        if(fetchAccountWideSettingsDefault) {
+            return [ctl fetchAccountWideSettingsWithArguments:arguments useDefault:true forceFetch:forceFetch json:json];
         }
 
         if(er_trigger) {

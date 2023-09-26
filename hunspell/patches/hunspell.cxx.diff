@@ -1,5 +1,23 @@
---- src/tools/hunspell.cxx.orig	2018-11-15 13:39:39.000000000 -0800
-+++ src/tools/hunspell.cxx	2018-11-15 13:33:06.000000000 -0800
+--- src/tools/hunspell.cxx.orig	2023-05-24 14:29:29
++++ src/tools/hunspell.cxx	2023-05-24 14:34:15
+@@ -18,7 +18,7 @@
+ #define HUNSPELL_VERSION VERSION
+ #define INPUTLEN 50
+ 
+-#define HUNSPELL_PIPE_HEADING "@(#) International Ispell Version 3.2.06 (but really Hunspell "VERSION")\n"
++#define HUNSPELL_PIPE_HEADING "@(#) International Ispell Version 3.2.06 (but really Hunspell 1.2.8)\n"
+ #define HUNSPELL_HEADING "Hunspell "
+ 
+ //for debugging only
+@@ -392,7 +392,7 @@
+ {
+     char * w;
+     
+-    if (((w = strstr(word + 1, "/")) == NULL)) {
++    if ((w = strstr(word + 1, "/")) == NULL) {
+         if (*word == '*') return pMS->remove(word + 1);
+ 	else return pMS->add(word);
+     } else {
 @@ -499,8 +499,8 @@
    TextParser * parser = get_parser(format, NULL, pMS[0]);
  

@@ -39,14 +39,11 @@ using namespace WebCore;
 template<> struct ArgumentCoder<LOGFONT> {
     static void encode(Encoder& encoder, const LOGFONT& logFont)
     {
-        encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(&logFont), sizeof logFont, 1);
+        encoder.encodeObject(logFont);
     }
     static std::optional<LOGFONT> decode(Decoder& decoder)
     {
-        LOGFONT logFont;
-        if (!decoder.decodeFixedLengthData(reinterpret_cast<uint8_t*>(&logFont), sizeof(logFont), 1))
-            return std::nullopt;
-        return logFont;
+        return decoder.decodeObject<LOGFONT>();
     }
 };
 
@@ -91,8 +88,7 @@ std::optional<FontPlatformData> ArgumentCoder<Font>::decodePlatformData(Decoder&
     if (!includesCreationData)
         return std::nullopt;
 
-    std::unique_ptr<FontCustomPlatformData> fontCustomPlatformData;
-    FontPlatformData::CreationData* creationData = nullptr;
+    RefPtr<FontCustomPlatformData> fontCustomPlatformData;
 
     if (includesCreationData.value()) {
         std::optional<Ref<SharedBuffer>> fontFaceData;
@@ -108,7 +104,6 @@ std::optional<FontPlatformData> ArgumentCoder<Font>::decodePlatformData(Decoder&
         fontCustomPlatformData = createFontCustomPlatformData(fontFaceData.value(), itemInCollection.value());
         if (!fontCustomPlatformData)
             return std::nullopt;
-        creationData = &fontCustomPlatformData->creationData;
     }
 
     std::optional<LOGFONT> logFont;
@@ -123,7 +118,24 @@ std::optional<FontPlatformData> ArgumentCoder<Font>::decodePlatformData(Decoder&
     if (!gdiFont)
         return std::nullopt;
 
-    return FontPlatformData(WTFMove(gdiFont), *size, *syntheticBold, *syntheticOblique, false, creationData);
+    return FontPlatformData(WTFMove(gdiFont), *size, *syntheticBold, *syntheticOblique, fontCustomPlatformData.get());
 }
+
+void ArgumentCoder<WebCore::FontPlatformData::Attributes>::encodePlatformData(Encoder& encoder, const WebCore::FontPlatformData::Attributes& data)
+{
+    encoder << data.m_font;
+}
+
+bool ArgumentCoder<WebCore::FontPlatformData::Attributes>::decodePlatformData(Decoder& decoder, WebCore::FontPlatformData::Attributes& data)
+{
+    std::optional<LOGFONT> logFont;
+    decoder >> logFont;
+    if (!logFont)
+        return false;
+
+    data.m_font = *logFont;
+    return true;
+}
+
 
 } // namespace IPC

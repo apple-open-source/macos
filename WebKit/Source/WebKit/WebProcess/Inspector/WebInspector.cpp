@@ -34,13 +34,13 @@
 #include "WebProcess.h"
 #include <WebCore/Chrome.h>
 #include <WebCore/Document.h>
-#include <WebCore/Frame.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/FrameView.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/InspectorFrontendClient.h>
 #include <WebCore/InspectorPageAgent.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameView.h>
 #include <WebCore/NavigationAction.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
@@ -68,6 +68,11 @@ WebInspector::~WebInspector()
 {
     if (m_frontendConnection)
         m_frontendConnection->invalidate();
+}
+
+WebPage* WebInspector::page() const
+{
+    return m_page.get();
 }
 
 void WebInspector::openLocalInspectorFrontend(bool underTest)
@@ -190,7 +195,7 @@ void WebInspector::showMainResourceForFrame(WebCore::FrameIdentifier frameIdenti
 
     m_page->corePage()->inspectorController().show();
 
-    String inspectorFrameIdentifier = m_page->corePage()->inspectorController().ensurePageAgent().frameId(frame->coreFrame());
+    String inspectorFrameIdentifier = m_page->corePage()->inspectorController().ensurePageAgent().frameId(frame->coreLocalFrame());
 
     whenFrontendConnectionEstablished([=, this] {
         m_frontendConnection->send(Messages::WebInspectorUI::ShowMainResourceForFrame(inspectorFrameIdentifier), 0);
@@ -279,8 +284,11 @@ bool WebInspector::canAttachWindow()
         return true;
 
     // Don't allow the attach if the window would be too small to accommodate the minimum inspector size.
-    unsigned inspectedPageHeight = m_page->corePage()->mainFrame().view()->visibleHeight();
-    unsigned inspectedPageWidth = m_page->corePage()->mainFrame().view()->visibleWidth();
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_page->corePage()->mainFrame());
+    if (!localMainFrame)
+        return false;
+    unsigned inspectedPageHeight = localMainFrame->view()->visibleHeight();
+    unsigned inspectedPageWidth = localMainFrame->view()->visibleWidth();
     unsigned maximumAttachedHeight = inspectedPageHeight * maximumAttachedHeightRatio;
     return minimumAttachedHeight <= maximumAttachedHeight && minimumAttachedWidth <= inspectedPageWidth;
 }

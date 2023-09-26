@@ -48,6 +48,10 @@ namespace IPC {
 class SharedBufferReference;
 }
 
+namespace WebCore {
+class RegistrableDomain;
+}
+
 namespace WebKit {
 
 class SandboxInitializationParameters;
@@ -71,14 +75,12 @@ public:
     void removeMessageReceiver(IPC::ReceiverName);
     void removeMessageReceiver(IPC::MessageReceiver&);
     
-    template <typename T>
-    void addMessageReceiver(IPC::ReceiverName messageReceiverName, ObjectIdentifier<T> destinationID, IPC::MessageReceiver& receiver)
+    void addMessageReceiver(IPC::ReceiverName messageReceiverName, const ObjectIdentifierGenericBase& destinationID, IPC::MessageReceiver& receiver)
     {
         addMessageReceiver(messageReceiverName, destinationID.toUInt64(), receiver);
     }
     
-    template <typename T>
-    void removeMessageReceiver(IPC::ReceiverName messageReceiverName, ObjectIdentifier<T> destinationID)
+    void removeMessageReceiver(IPC::ReceiverName messageReceiverName, const ObjectIdentifierGenericBase& destinationID)
     {
         removeMessageReceiver(messageReceiverName, destinationID.toUInt64());
     }
@@ -162,6 +164,9 @@ protected:
 
     // IPC::Connection::Client.
     void didClose(IPC::Connection&) override;
+
+    bool allowsFirstPartyForCookies(const URL&, Function<bool()>&&);
+    bool allowsFirstPartyForCookies(const WebCore::RegistrableDomain&, HashSet<WebCore::RegistrableDomain>&);
 
 private:
     virtual bool shouldOverrideQuarantine() { return true; }

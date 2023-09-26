@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -869,6 +869,11 @@ updateInterfaces(SCDynamicStoreRef store, CFArrayRef newInterfaces)
 		CFStringRef	interfaceName;
 
 		interfaceName = CFArrayGetValueAtIndex(newInterfaces, i);
+
+		/* Do not update pktap interface */
+		if (CFStringHasPrefix(interfaceName, CFSTR("pktap"))) {
+			continue;
+		}
 
 		if ((n_old == 0) ||
 		    !CFArrayContainsValue(oldInterfaces,

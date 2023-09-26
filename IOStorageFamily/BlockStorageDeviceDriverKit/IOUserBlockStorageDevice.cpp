@@ -69,7 +69,7 @@ IMPL(IOUserBlockStorageDevice, DoAsyncUnmap)
 
 	retVal = DoAsyncUnmapPriv(requestID, (struct BlockRange *)map->GetAddress(), numOfRanges);
 
-	OSSafeReleaseNULL(map)
+	OSSafeReleaseNULL(map);
 out:
 	return retVal;
 }

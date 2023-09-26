@@ -497,10 +497,11 @@ put(argc, argv)
 			printf("putting %s to %s:%s [%s]\n",
 #ifdef __APPLE__
 				argv[n], hostname, targbuf, mode);
+		xmitfile(fd, targbuf, mode);
 #else /* !__APPLE__ */
 				argv[n], hostname, targ, mode);
-#endif /* __APPLE__ */
 		xmitfile(fd, targ, mode);
+#endif /* __APPLE__ */
 	}
 }
 

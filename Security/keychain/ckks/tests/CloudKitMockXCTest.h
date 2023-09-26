@@ -127,11 +127,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (CloudKitAccount* _Nullable)accountForAltDSID:(NSString*)altDSID;
 
 - (BOOL)accountIsDemoAccountByAltDSID:(nonnull NSString *)altDSID error:(NSError *__autoreleasing  _Nullable * _Nullable)error;
-- (BOOL)accountIsHSA2ByAltDSID:(nonnull NSString *)altDSID;
+- (BOOL)accountIsCDPCapableByAltDSID:(nonnull NSString *)altDSID;
 
 - (NSSet<NSString*>*)currentDeviceList;
-- (void)fetchCurrentDeviceListByAltDSID:(nonnull NSString *)altDSID
-                                  reply:(nonnull void (^)(NSSet<NSString *> * _Nullable, NSError * _Nullable))complete;
+- (void)fetchCurrentDeviceListByAltDSID:(NSString *)altDSID
+                                  reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs, NSString* _Nullable version, NSError * _Nullable error))complete;
 - (NSString * _Nullable)machineID:(NSError *__autoreleasing  _Nullable * _Nullable)error;
 
 - (void)registerNotification:(id<OTAuthKitAdapterNotifier>)notifier;

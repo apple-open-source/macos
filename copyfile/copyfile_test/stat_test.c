@@ -65,11 +65,11 @@ static bool test_special_dir_with_flag(const char *source_directory, const char 
 	// (2) Make sure that the resulting folder (and optionally, its well-known subfile)
 	// have the specified bit set.
 	assert_no_err(stat(special_dir, &sb));
-	success &= verify_st_flags(&sb, flag_to_test);
+	success &= verify_st_flags(&sb, flag_to_test, flag_to_test);
 
 	if (flag_to_test != SF_NOUNLINK) {
 		assert_no_err(stat(test_file, &sb));
-		success &= verify_st_flags(&sb, flag_to_test);
+		success &= verify_st_flags(&sb, flag_to_test, flag_to_test);
 	}
 
 	// Finally, copy the contents of the special directory into our regular directory.
@@ -90,7 +90,7 @@ static bool test_special_dir_with_flag(const char *source_directory, const char 
 		assert_with_errno(snprintf(test_file, BSIZE_B, "%s/" TEST_FILE_NAME, regular_dir) > 0);
 
 		assert_no_err(stat(test_file, &sb));
-		success &= verify_st_flags(&sb, 0);
+		success &= verify_st_flags(&sb, 0, 0);
 	}
 
 	// Clean up after the test.

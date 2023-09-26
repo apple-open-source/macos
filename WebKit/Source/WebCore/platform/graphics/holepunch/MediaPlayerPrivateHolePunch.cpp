@@ -110,12 +110,12 @@ static HashSet<String, ASCIICaseInsensitiveHash>& mimeTypeCache()
     if (typeListInitialized)
         return cache;
 
-    const char* mimeTypes[] = {
-        "video/holepunch"
+    const ASCIILiteral mimeTypes[] = {
+        "video/holepunch"_s
     };
 
     for (unsigned i = 0; i < (sizeof(mimeTypes) / sizeof(*mimeTypes)); ++i)
-        cache.get().add(String(mimeTypes[i]));
+        cache.get().add(mimeTypes[i]);
 
     typeListInitialized = true;
 
@@ -170,23 +170,27 @@ void MediaPlayerPrivateHolePunch::registerMediaEngine(MediaEngineRegistrar regis
 void MediaPlayerPrivateHolePunch::notifyReadyState()
 {
     // Notify the ready state so the GraphicsLayer gets created.
-    m_player->readyStateChanged();
+    if (auto player = m_player.get())
+        player->readyStateChanged();
 }
 
 void MediaPlayerPrivateHolePunch::setNetworkState(MediaPlayer::NetworkState networkState)
 {
     m_networkState = networkState;
-    m_player->networkStateChanged();
+    if (auto player = m_player.get())
+        player->networkStateChanged();
 }
 
 void MediaPlayerPrivateHolePunch::load(const String&)
 {
-    if (!m_player)
+    auto player = m_player.get();
+    if (!player)
         return;
 
-    auto mimeType = m_player->contentMIMEType();
+    auto mimeType = player->contentMIMEType();
     if (mimeType.isEmpty() || !mimeTypeCache().contains(mimeType))
         setNetworkState(MediaPlayer::NetworkState::FormatError);
 }
-}
+
+} // namespace WebCore
 #endif // USE(EXTERNAL_HOLEPUNCH)

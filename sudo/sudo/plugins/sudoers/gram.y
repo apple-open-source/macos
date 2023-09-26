@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2007-2013, 2014-2020
+ * Copyright (c) 1996, 1998-2005, 2007-2013, 2014-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -29,9 +29,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#if defined(YYBISON) && defined(HAVE_ALLOCA_H) && !defined(__GNUC__)
-# include <alloca.h>
-#endif /* YYBISON && HAVE_ALLOCA_H && !__GNUC__ */
 #include <errno.h>
 
 #include "sudoers.h"
@@ -46,20 +43,28 @@
 #define this_lineno	(sudoerschar == '\n' ? sudolineno - 1 : sudolineno)
 
 // PVS Studio suppression
-// -V::1037, 1042
+// -V::560, 592, 1037, 1042
 
 /*
  * Globals
  */
 bool sudoers_warnings = true;
+bool sudoers_recovery = true;
 bool sudoers_strict = false;
 bool parse_error = false;
-int errorlineno = -1;
-char *errorfile = NULL;
+
+/* Optional logging function for parse errors. */
+sudoers_logger_t sudoers_error_hook;
 
 static int alias_line, alias_column;
 
+#ifdef NO_LEAKS
+static struct parser_leak_list parser_leak_list =
+    SLIST_HEAD_INITIALIZER(parser_leak_list);
+#endif
+
 struct sudoers_parse_tree parsed_policy = {
+    { NULL, NULL }, /* entries */
     TAILQ_HEAD_INITIALIZER(parsed_policy.userspecs),
     TAILQ_HEAD_INITIALIZER(parsed_policy.defaults),
     NULL, /* aliases */
@@ -91,6 +96,7 @@ static void alias_error(const char *name, int errnum);
     struct command_options options;
     struct cmndtag tag;
     char *string;
+    const char *cstring;
     int tok;
 }
 
@@ -124,6 +130,8 @@ static void alias_error(const char *name, int errnum);
 %token <tok>	 NOMAIL			/* don't mail log message */
 %token <tok>	 FOLLOWLNK		/* follow symbolic links */
 %token <tok>	 NOFOLLOWLNK		/* don't follow symbolic links */
+%token <tok>	 INTERCEPT		/* intercept children of command */
+%token <tok>	 NOINTERCEPT		/* disable intercepting of children */
 %token <tok>	 ALL			/* ALL keyword */
 %token <tok>	 HOSTALIAS		/* Host_Alias keyword */
 %token <tok>	 CMNDALIAS		/* Cmnd_Alias keyword */
@@ -138,6 +146,7 @@ static void alias_error(const char *name, int errnum);
 %token <tok>	 CWD			/* working directory for command */
 %token <tok>	 TYPE			/* SELinux type */
 %token <tok>	 ROLE			/* SELinux role */
+%token <tok>	 APPARMOR_PROFILE	/* AppArmor profile */
 %token <tok>	 PRIVS			/* Solaris privileges */
 %token <tok>	 LIMITPRIVS		/* Solaris limit privileges */
 %token <tok>	 CMND_TIMEOUT		/* command timeout */
@@ -176,6 +185,7 @@ static void alias_error(const char *name, int errnum);
 %type <string>	  chrootspec
 %type <string>	  rolespec
 %type <string>	  typespec
+%type <string>	  apparmor_profilespec
 %type <string>	  privsspec
 %type <string>	  limitprivsspec
 %type <string>	  timeoutspec
@@ -185,7 +195,7 @@ static void alias_error(const char *name, int errnum);
 %type <string>	  includedir
 %type <digest>	  digestspec
 %type <digest>	  digestlist
-%type <string>	  reserved_word
+%type <cstring>	  reserved_word
 
 %%
 
@@ -206,18 +216,18 @@ entry		:	'\n' {
 			    yyerrok;
 			}
 		|	include {
-			    if (!push_include($1, false)) {
-				free($1);
-				YYERROR;
-			    }
+			    const bool success = push_include($1, false);
+			    parser_leak_remove(LEAK_PTR, $1);
 			    free($1);
+			    if (!success && !sudoers_recovery)
+				YYERROR;
 			}
 		|	includedir {
-			    if (!push_include($1, true)) {
-				free($1);
-				YYERROR;
-			    }
+			    const bool success = push_include($1, true);
+			    parser_leak_remove(LEAK_PTR, $1);
 			    free($1);
+			    if (!success && !sudoers_recovery)
+				YYERROR;
 			}
 		|	userlist privileges '\n' {
 			    if (!add_userspec($1, $2)) {
@@ -279,6 +289,7 @@ includedir	:	INCLUDEDIR WORD '\n' {
 
 defaults_list	:	defaults_entry
 		|	defaults_list ',' defaults_entry {
+			    parser_leak_remove(LEAK_DEFAULTS, $3);
 			    HLTQ_CONCAT($1, $3, entries);
 			    $$ = $1;
 			}
@@ -290,6 +301,8 @@ defaults_entry	:	DEFVAR {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_DEFAULTS, $$);
 			}
 		|	'!' DEFVAR {
 			    $$ = new_default($2, NULL, false);
@@ -297,6 +310,8 @@ defaults_entry	:	DEFVAR {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $2);
+			    parser_leak_add(LEAK_DEFAULTS, $$);
 			}
 		|	DEFVAR '=' WORD {
 			    $$ = new_default($1, $3, true);
@@ -304,6 +319,9 @@ defaults_entry	:	DEFVAR {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_remove(LEAK_PTR, $3);
+			    parser_leak_add(LEAK_DEFAULTS, $$);
 			}
 		|	DEFVAR '+' WORD {
 			    $$ = new_default($1, $3, '+');
@@ -311,6 +329,9 @@ defaults_entry	:	DEFVAR {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_remove(LEAK_PTR, $3);
+			    parser_leak_add(LEAK_DEFAULTS, $$);
 			}
 		|	DEFVAR '-' WORD {
 			    $$ = new_default($1, $3, '-');
@@ -318,11 +339,15 @@ defaults_entry	:	DEFVAR {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_remove(LEAK_PTR, $3);
+			    parser_leak_add(LEAK_DEFAULTS, $$);
 			}
 		;
 
 privileges	:	privilege
 		|	privileges ':' privilege {
+			    parser_leak_remove(LEAK_PRIVILEGE, $3);
 			    HLTQ_CONCAT($1, $3, entries);
 			    $$ = $1;
 			}
@@ -338,8 +363,11 @@ privilege	:	hostlist '=' cmndspeclist {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_PRIVILEGE, p);
 			    TAILQ_INIT(&p->defaults);
+			    parser_leak_remove(LEAK_MEMBER, $1);
 			    HLTQ_TO_TAILQ(&p->hostlist, $1, entries);
+			    parser_leak_remove(LEAK_CMNDSPEC, $3);
 			    HLTQ_TO_TAILQ(&p->cmndlist, $3, entries);
 			    HLTQ_INIT(p, entries);
 			    $$ = p;
@@ -362,6 +390,8 @@ host		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	ALL {
 			    $$ = new_member(NULL, ALL);
@@ -369,6 +399,7 @@ host		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	NETGROUP {
 			    $$ = new_member($1, NETGROUP);
@@ -376,6 +407,8 @@ host		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	NTWKADDR {
 			    $$ = new_member($1, NTWKADDR);
@@ -383,6 +416,8 @@ host		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	WORD {
 			    $$ = new_member($1, WORD);
@@ -390,6 +425,8 @@ host		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		;
 
@@ -397,6 +434,7 @@ cmndspeclist	:	cmndspec
 		|	cmndspeclist ',' cmndspec {
 			    struct cmndspec *prev;
 			    prev = HLTQ_LAST($1, cmndspec, entries);
+			    parser_leak_remove(LEAK_CMNDSPEC, $3);
 			    HLTQ_CONCAT($1, $3, entries);
 
 			    /* propagate runcwd and runchroot */
@@ -431,6 +469,8 @@ cmndspeclist	:	cmndspec
 				$3->tags.nopasswd = prev->tags.nopasswd;
 			    if ($3->tags.noexec == UNSPEC)
 				$3->tags.noexec = prev->tags.noexec;
+			    if ($3->tags.intercept == UNSPEC)
+				$3->tags.intercept = prev->tags.intercept;
 			    if ($3->tags.setenv == UNSPEC &&
 				prev->tags.setenv != IMPLIED)
 				$3->tags.setenv = prev->tags.setenv;
@@ -459,6 +499,7 @@ cmndspec	:	runasspec options cmndtag digcmnd {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_CMNDSPEC, cs);
 			    if ($1 != NULL) {
 				if ($1->runasusers != NULL) {
 				    cs->runasuserlist =
@@ -468,6 +509,7 @@ cmndspec	:	runasspec options cmndtag digcmnd {
 					sudoerserror(N_("unable to allocate memory"));
 					YYERROR;
 				    }
+				    /* g/c done via runas container */
 				    HLTQ_TO_TAILQ(cs->runasuserlist,
 					$1->runasusers, entries);
 				}
@@ -479,26 +521,39 @@ cmndspec	:	runasspec options cmndtag digcmnd {
 					sudoerserror(N_("unable to allocate memory"));
 					YYERROR;
 				    }
+				    /* g/c done via runas container */
 				    HLTQ_TO_TAILQ(cs->runasgrouplist,
 					$1->runasgroups, entries);
 				}
+				parser_leak_remove(LEAK_RUNAS, $1);
 				free($1);
 			    }
 #ifdef HAVE_SELINUX
 			    cs->role = $2.role;
+			    parser_leak_remove(LEAK_PTR, $2.role);
 			    cs->type = $2.type;
+			    parser_leak_remove(LEAK_PTR, $2.type);
+#endif
+#ifdef HAVE_APPARMOR
+			    cs->apparmor_profile = $2.apparmor_profile;
+			    parser_leak_remove(LEAK_PTR, $2.apparmor_profile);
 #endif
 #ifdef HAVE_PRIV_SET
 			    cs->privs = $2.privs;
+			    parser_leak_remove(LEAK_PTR, $2.privs);
 			    cs->limitprivs = $2.limitprivs;
+			    parser_leak_remove(LEAK_PTR, $2.limitprivs);
 #endif
 			    cs->notbefore = $2.notbefore;
 			    cs->notafter = $2.notafter;
 			    cs->timeout = $2.timeout;
 			    cs->runcwd = $2.runcwd;
+			    parser_leak_remove(LEAK_PTR, $2.runcwd);
 			    cs->runchroot = $2.runchroot;
+			    parser_leak_remove(LEAK_PTR, $2.runchroot);
 			    cs->tags = $3;
 			    cs->cmnd = $4;
+			    parser_leak_remove(LEAK_MEMBER, $4);
 			    HLTQ_INIT(cs, entries);
 			    /* sudo "ALL" implies the SETENV tag */
 			    if (cs->cmnd->type == ALL && !cs->cmnd->negated &&
@@ -514,6 +569,8 @@ digestspec	:	SHA224_TOK ':' DIGEST {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $3);
+			    parser_leak_add(LEAK_DIGEST, $$);
 			}
 		|	SHA256_TOK ':' DIGEST {
 			    $$ = new_digest(SUDO_DIGEST_SHA256, $3);
@@ -521,6 +578,8 @@ digestspec	:	SHA224_TOK ':' DIGEST {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $3);
+			    parser_leak_add(LEAK_DIGEST, $$);
 			}
 		|	SHA384_TOK ':' DIGEST {
 			    $$ = new_digest(SUDO_DIGEST_SHA384, $3);
@@ -528,6 +587,8 @@ digestspec	:	SHA224_TOK ':' DIGEST {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $3);
+			    parser_leak_add(LEAK_DIGEST, $$);
 			}
 		|	SHA512_TOK ':' DIGEST {
 			    $$ = new_digest(SUDO_DIGEST_SHA512, $3);
@@ -535,11 +596,14 @@ digestspec	:	SHA224_TOK ':' DIGEST {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $3);
+			    parser_leak_add(LEAK_DIGEST, $$);
 			}
 		;
 
 digestlist	:	digestspec
 		|	digestlist ',' digestspec {
+			    parser_leak_remove(LEAK_DIGEST, $3);
 			    HLTQ_CONCAT($1, $3, entries);
 			    $$ = $1;
 			}
@@ -556,14 +620,7 @@ digcmnd		:	opcmnd {
 				sudoerserror(N_("a digest requires a path name"));
 				YYERROR;
 			    }
-			    if (c == NULL) {
-				/* lazy-allocate sudo_command for ALL */
-				if ((c = new_command(NULL, NULL)) == NULL) {
-				    sudoerserror(N_("unable to allocate memory"));
-				    YYERROR;
-				}
-				$2->name = (char *)c;
-			    }
+			    parser_leak_remove(LEAK_DIGEST, $1);
 			    HLTQ_TO_TAILQ(&c->digests, $1, entries);
 			    $$ = $2;
 			}
@@ -587,6 +644,10 @@ chdirspec	:	CWD '=' WORD {
 				    YYERROR;
 				}
 			    }
+			    if (strlen($3) >= PATH_MAX) {
+				sudoerserror(N_("\"CWD\" path too long"));
+				YYERROR;
+			    }
 			    $$ = $3;
 			}
 		;
@@ -598,6 +659,10 @@ chrootspec	:	CHROOT '=' WORD {
 					" start with a '/', '~', or '*'"));
 				    YYERROR;
 				}
+			    }
+			    if (strlen($3) >= PATH_MAX) {
+				sudoerserror(N_("\"CHROOT\" path too long"));
+				YYERROR;
 			    }
 			    $$ = $3;
 			}
@@ -624,6 +689,11 @@ rolespec	:	ROLE '=' WORD {
 
 typespec	:	TYPE '=' WORD {
 			    $$ = $3;
+			}
+		;
+
+apparmor_profilespec	:	APPARMOR_PROFILE '=' WORD {
+				$$ = $3;
 			}
 		;
 
@@ -658,6 +728,7 @@ runaslist	:	/* empty */ {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_RUNAS, $$);
 			}
 		|	userlist {
 			    $$ = calloc(1, sizeof(struct runascontainer));
@@ -665,6 +736,8 @@ runaslist	:	/* empty */ {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_RUNAS, $$);
+			    parser_leak_remove(LEAK_MEMBER, $1);
 			    $$->runasusers = $1;
 			    /* $$->runasgroups = NULL; */
 			}
@@ -674,6 +747,9 @@ runaslist	:	/* empty */ {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_RUNAS, $$);
+			    parser_leak_remove(LEAK_MEMBER, $1);
+			    parser_leak_remove(LEAK_MEMBER, $3);
 			    $$->runasusers = $1;
 			    $$->runasgroups = $3;
 			}
@@ -683,6 +759,8 @@ runaslist	:	/* empty */ {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_RUNAS, $$);
+			    parser_leak_remove(LEAK_MEMBER, $2);
 			    /* $$->runasusers = NULL; */
 			    $$->runasgroups = $2;
 			}
@@ -700,6 +778,7 @@ runaslist	:	/* empty */ {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_RUNAS, $$);
 			}
 		;
 
@@ -713,6 +792,7 @@ reserved_word	:	ALL		{ $$ = "ALL"; }
 		|	TYPE		{ $$ = "TYPE"; }
 		|	PRIVS		{ $$ = "PRIVS"; }
 		|	LIMITPRIVS	{ $$ = "LIMITPRIVS"; }
+		|	APPARMOR_PROFILE { $$ = "APPARMOR_PROFILE"; }
 		;
 
 reserved_alias	:	reserved_word {
@@ -725,15 +805,18 @@ options		:	/* empty */ {
 			    init_options(&$$);
 			}
 		|	options chdirspec {
+			    parser_leak_remove(LEAK_PTR, $$.runcwd);
 			    free($$.runcwd);
 			    $$.runcwd = $2;
 			}
 		|	options chrootspec {
+			    parser_leak_remove(LEAK_PTR, $$.runchroot);
 			    free($$.runchroot);
 			    $$.runchroot = $2;
 			}
 		|	options notbeforespec {
 			    $$.notbefore = parse_gentime($2);
+			    parser_leak_remove(LEAK_PTR, $2);
 			    free($2);
 			    if ($$.notbefore == -1) {
 				sudoerserror(N_("invalid notbefore value"));
@@ -742,6 +825,7 @@ options		:	/* empty */ {
 			}
 		|	options notafterspec {
 			    $$.notafter = parse_gentime($2);
+			    parser_leak_remove(LEAK_PTR, $2);
 			    free($2);
 			    if ($$.notafter == -1) {
 				sudoerserror(N_("invalid notafter value"));
@@ -750,6 +834,7 @@ options		:	/* empty */ {
 			}
 		|	options timeoutspec {
 			    $$.timeout = parse_timeout($2);
+			    parser_leak_remove(LEAK_PTR, $2);
 			    free($2);
 			    if ($$.timeout == -1) {
 				if (errno == ERANGE)
@@ -761,24 +846,35 @@ options		:	/* empty */ {
 			}
 		|	options rolespec {
 #ifdef HAVE_SELINUX
+			    parser_leak_remove(LEAK_PTR, $$.role);
 			    free($$.role);
 			    $$.role = $2;
 #endif
 			}
 		|	options typespec {
 #ifdef HAVE_SELINUX
+			    parser_leak_remove(LEAK_PTR, $$.type);
 			    free($$.type);
 			    $$.type = $2;
 #endif
 			}
+		|	options apparmor_profilespec {
+#ifdef HAVE_APPARMOR
+			    parser_leak_remove(LEAK_PTR, $$.apparmor_profile);
+			    free($$.apparmor_profile);
+			    $$.apparmor_profile = $2;
+#endif
+			}
 		|	options privsspec {
 #ifdef HAVE_PRIV_SET
+			    parser_leak_remove(LEAK_PTR, $$.privs);
 			    free($$.privs);
 			    $$.privs = $2;
 #endif
 			}
 		|	options limitprivsspec {
 #ifdef HAVE_PRIV_SET
+			    parser_leak_remove(LEAK_PTR, $$.limitprivs);
 			    free($$.limitprivs);
 			    $$.limitprivs = $2;
 #endif
@@ -799,6 +895,12 @@ cmndtag		:	/* empty */ {
 			}
 		|	cmndtag EXEC {
 			    $$.noexec = false;
+			}
+		|	cmndtag INTERCEPT {
+			    $$.intercept = true;
+			}
+		|	cmndtag NOINTERCEPT {
+			    $$.intercept = false;
 			}
 		|	cmndtag SETENV {
 			    $$.setenv = true;
@@ -833,11 +935,18 @@ cmndtag		:	/* empty */ {
 		;
 
 cmnd		:	ALL {
-			    $$ = new_member(NULL, ALL);
+			    struct sudo_command *c;
+
+			    if ((c = new_command(NULL, NULL)) == NULL) {
+				sudoerserror(N_("unable to allocate memory"));
+				YYERROR;
+			    }
+			    $$ = new_member((char *)c, ALL);
 			    if ($$ == NULL) {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	ALIAS {
 			    $$ = new_member($1, ALIAS);
@@ -845,10 +954,16 @@ cmnd		:	ALL {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	COMMAND {
 			    struct sudo_command *c;
 
+			    if (strlen($1.cmnd) >= PATH_MAX) {
+				sudoerserror(N_("command too long"));
+				YYERROR;
+			    }
 			    if ((c = new_command($1.cmnd, $1.args)) == NULL) {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
@@ -859,6 +974,9 @@ cmnd		:	ALL {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1.cmnd);
+			    parser_leak_remove(LEAK_PTR, $1.args);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		;
 
@@ -875,12 +993,15 @@ hostalias	:	ALIAS {
 				alias_error($1, errno);
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_remove(LEAK_MEMBER, $4);
 			}
 		|	reserved_alias '=' hostlist
 		;
 
 hostlist	:	ophost
 		|	hostlist ',' ophost {
+			    parser_leak_remove(LEAK_MEMBER, $3);
 			    HLTQ_CONCAT($1, $3, entries);
 			    $$ = $1;
 			}
@@ -899,12 +1020,15 @@ cmndalias	:	ALIAS {
 				alias_error($1, errno);
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_remove(LEAK_MEMBER, $4);
 			}
 		|	reserved_alias '=' cmndlist
 		;
 
 cmndlist	:	digcmnd
 		|	cmndlist ',' digcmnd {
+			    parser_leak_remove(LEAK_MEMBER, $3);
 			    HLTQ_CONCAT($1, $3, entries);
 			    $$ = $1;
 			}
@@ -923,6 +1047,8 @@ runasalias	:	ALIAS {
 				alias_error($1, errno);
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_remove(LEAK_MEMBER, $4);
 			}
 		|	reserved_alias '=' userlist
 		;
@@ -940,12 +1066,15 @@ useralias	:	ALIAS {
 				alias_error($1, errno);
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_remove(LEAK_MEMBER, $4);
 			}
 		|	reserved_alias '=' userlist
 		;
 
 userlist	:	opuser
 		|	userlist ',' opuser {
+			    parser_leak_remove(LEAK_MEMBER, $3);
 			    HLTQ_CONCAT($1, $3, entries);
 			    $$ = $1;
 			}
@@ -967,6 +1096,8 @@ user		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	ALL {
 			    $$ = new_member(NULL, ALL);
@@ -974,6 +1105,7 @@ user		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	NETGROUP {
 			    $$ = new_member($1, NETGROUP);
@@ -981,6 +1113,8 @@ user		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	USERGROUP {
 			    $$ = new_member($1, USERGROUP);
@@ -988,6 +1122,8 @@ user		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	WORD {
 			    $$ = new_member($1, WORD);
@@ -995,11 +1131,14 @@ user		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		;
 
 grouplist	:	opgroup
 		|	grouplist ',' opgroup {
+			    parser_leak_remove(LEAK_MEMBER, $3);
 			    HLTQ_CONCAT($1, $3, entries);
 			    $$ = $1;
 			}
@@ -1021,6 +1160,8 @@ group		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	ALL {
 			    $$ = new_member(NULL, ALL);
@@ -1028,6 +1169,7 @@ group		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		|	WORD {
 			    $$ = new_member($1, WORD);
@@ -1035,6 +1177,8 @@ group		:	ALIAS {
 				sudoerserror(N_("unable to allocate memory"));
 				YYERROR;
 			    }
+			    parser_leak_remove(LEAK_PTR, $1);
+			    parser_leak_add(LEAK_MEMBER, $$);
 			}
 		;
 %%
@@ -1042,37 +1186,37 @@ group		:	ALIAS {
 void
 sudoerserrorf(const char *fmt, ...)
 {
+    const int column = sudolinebuf.toke_start + 1;
+    va_list ap;
     debug_decl(sudoerserrorf, SUDOERS_DEBUG_PARSER);
 
-    /* The lexer displays more detailed messages for ERROR tokens. */
-    if (sudoerschar == ERROR)
-	debug_return;
-
-    /* Save the line the first error occurred on. */
-    if (errorlineno == -1) {
-	errorlineno = this_lineno;
-	rcstr_delref(errorfile);
-	errorfile = rcstr_addref(sudoers);
+    if (sudoers_error_hook != NULL) {
+	va_start(ap, fmt);
+	sudoers_error_hook(sudoers, this_lineno, column, fmt, ap);
+	va_end(ap);
     }
     if (sudoers_warnings && fmt != NULL) {
 	LEXTRACE("<*> ");
 #ifndef TRACELEXER
 	if (trace_print == NULL || trace_print == sudoers_trace_print) {
-	    char *s, *tofree = NULL;
+	    char *tofree = NULL;
+	    const char *s;
 	    int oldlocale;
-	    va_list ap;
 
 	    /* Warnings are displayed in the user's locale. */
 	    sudoers_setlocale(SUDOERS_LOCALE_USER, &oldlocale);
+
 	    va_start(ap, fmt);
 	    if (strcmp(fmt, "%s") == 0) {
 		/* Optimize common case, a single string. */
 		s = _(va_arg(ap, char *));
 	    } else {
-		if (vasprintf(&s, fmt, ap) != -1)
-		    tofree = s;
-		else
+		if (vasprintf(&tofree, _(fmt), ap) != -1) {
+		    s = tofree;
+		} else {
 		    s = _("syntax error");
+		    tofree = NULL;
+		}
 	    }
 	    sudo_printf(SUDO_CONV_ERROR_MSG, _("%s:%d:%d: %s\n"), sudoers,
 		this_lineno, (int)sudolinebuf.toke_start + 1, s);
@@ -1107,11 +1251,21 @@ sudoerserrorf(const char *fmt, ...)
 void
 sudoerserror(const char *s)
 {
-    // -V:sudoerserror:575, 618
+    if (sudoerschar == ERROR) {
+	/* Use error string from lexer. */
+	s = sudoers_errstr;
+	sudoers_errstr = NULL;
+    }
+
+#pragma pvs(push)
+#pragma pvs(disable: 575, 618)
+
     if (s == NULL)
 	sudoerserrorf(NULL);
     else
 	sudoerserrorf("%s", s);
+
+#pragma pvs(pop)
 }
 
 static void
@@ -1139,10 +1293,10 @@ new_default(char *var, char *val, short op)
     d->val = val;
     /* d->type = 0; */
     d->op = op;
-    /* d->binding = NULL */
+    /* d->binding = NULL; */
     d->line = this_lineno;
     d->column = sudolinebuf.toke_start + 1;
-    d->file = rcstr_addref(sudoers);
+    d->file = sudo_rcstr_addref(sudoers);
     HLTQ_INIT(d, entries);
 
     debug_return_ptr(d);
@@ -1167,16 +1321,6 @@ new_member(char *name, int type)
     debug_return_ptr(m);
 }
 
-/*
- * Like new_member() but uses ALL for the type.
- * Used by the ldap and sssd back-ends, which don't include gram.h.
- */
-struct member *
-new_member_all(char *name)
-{
-    return new_member(name, ALL);
-}
-
 static struct sudo_command *
 new_command(char *cmnd, char *args)
 {
@@ -1188,6 +1332,7 @@ new_command(char *cmnd, char *args)
 	    "unable to allocate memory");
 	debug_return_ptr(NULL);
     }
+    /* garbage collected as part of struct member */
 
     c->cmnd = cmnd;
     c->args = args;
@@ -1221,43 +1366,65 @@ new_digest(int digest_type, char *digest_str)
     debug_return_ptr(digest);
 }
 
+static void
+free_defaults_binding(struct defaults_binding *binding)
+{
+    debug_decl(free_defaults_binding, SUDOERS_DEBUG_PARSER);
+
+    /* Bindings may be shared among multiple Defaults entries. */
+    if (binding != NULL) {
+	if (--binding->refcnt == 0) {
+	    free_members(&binding->members);
+	    free(binding);
+	}
+    }
+
+    debug_return;
+}
+
 /*
  * Add a list of defaults structures to the defaults list.
- * The binding, if non-NULL, specifies a list of hosts, users, or
- * runas users the entries apply to (specified by the type).
+ * The bmem argument, if non-NULL, specifies a list of hosts, users,
+ * or runas users the entries apply to (determined by the type).
  */
 static bool
 add_defaults(int type, struct member *bmem, struct defaults *defs)
 {
     struct defaults *d, *next;
-    struct member_list *binding;
+    struct defaults_binding *binding;
     bool ret = true;
     debug_decl(add_defaults, SUDOERS_DEBUG_PARSER);
 
-    if (defs != NULL) {
-	/*
-	 * We use a single binding for each entry in defs.
-	 */
-	if ((binding = malloc(sizeof(*binding))) == NULL) {
-	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		"unable to allocate memory");
-	    sudoerserror(N_("unable to allocate memory"));
-	    debug_return_bool(false);
-	}
-	if (bmem != NULL)
-	    HLTQ_TO_TAILQ(binding, bmem, entries);
-	else
-	    TAILQ_INIT(binding);
+    if (defs == NULL)
+	debug_return_bool(false);
 
-	/*
-	 * Set type and binding (who it applies to) for new entries.
-	 * Then add to the global defaults list.
-	 */
-	HLTQ_FOREACH_SAFE(d, defs, entries, next) {
-	    d->type = type;
-	    d->binding = binding;
-	    TAILQ_INSERT_TAIL(&parsed_policy.defaults, d, entries);
-	}
+    /*
+     * We use a single binding for each entry in defs.
+     */
+    if ((binding = malloc(sizeof(*binding))) == NULL) {
+	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+	    "unable to allocate memory");
+	sudoerserror(N_("unable to allocate memory"));
+	debug_return_bool(false);
+    }
+    if (bmem != NULL) {
+	parser_leak_remove(LEAK_MEMBER, bmem);
+	HLTQ_TO_TAILQ(&binding->members, bmem, entries);
+    } else {
+	TAILQ_INIT(&binding->members);
+    }
+    binding->refcnt = 0;
+
+    /*
+     * Set type and binding (who it applies to) for new entries.
+     * Then add to the global defaults list.
+     */
+    parser_leak_remove(LEAK_DEFAULTS, defs);
+    HLTQ_FOREACH_SAFE(d, defs, entries, next) {
+	d->type = type;
+	d->binding = binding;
+	binding->refcnt++;
+	TAILQ_INSERT_TAIL(&parsed_policy.defaults, d, entries);
     }
 
     debug_return_bool(ret);
@@ -1278,10 +1445,13 @@ add_userspec(struct member *members, struct privilege *privs)
 	    "unable to allocate memory");
 	debug_return_bool(false);
     }
-    u->line = this_lineno;
+    /* We already parsed the newline so sudolineno is off by one. */
+    u->line = sudolineno - 1;
     u->column = sudolinebuf.toke_start + 1;
-    u->file = rcstr_addref(sudoers);
+    u->file = sudo_rcstr_addref(sudoers);
+    parser_leak_remove(LEAK_MEMBER, members);
     HLTQ_TO_TAILQ(&u->users, members, entries);
+    parser_leak_remove(LEAK_PRIVILEGE, privs);
     HLTQ_TO_TAILQ(&u->privileges, privs, entries);
     STAILQ_INIT(&u->comments);
     TAILQ_INSERT_TAIL(&parsed_policy.userspecs, u, entries);
@@ -1334,31 +1504,24 @@ free_members(struct member_list *members)
 void
 free_defaults(struct defaults_list *defs)
 {
-    struct member_list *prev_binding = NULL;
     struct defaults *def;
     debug_decl(free_defaults, SUDOERS_DEBUG_PARSER);
 
     while ((def = TAILQ_FIRST(defs)) != NULL) {
 	TAILQ_REMOVE(defs, def, entries);
-	free_default(def, &prev_binding);
+	free_default(def);
     }
 
     debug_return;
 }
 
 void
-free_default(struct defaults *def, struct member_list **binding)
+free_default(struct defaults *def)
 {
     debug_decl(free_default, SUDOERS_DEBUG_PARSER);
 
-    if (def->binding != *binding) {
-	*binding = def->binding;
-	if (def->binding != NULL) {
-	    free_members(def->binding);
-	    free(def->binding);
-	}
-    }
-    rcstr_delref(def->file);
+    free_defaults_binding(def->binding);
+    sudo_rcstr_delref(def->file);
     free(def->var);
     free(def->val);
     free(def);
@@ -1367,12 +1530,71 @@ free_default(struct defaults *def, struct member_list **binding)
 }
 
 void
-free_privilege(struct privilege *priv)
+free_cmndspec(struct cmndspec *cs, struct cmndspec_list *csl)
+{
+    struct cmndspec *prev, *next;
+    debug_decl(free_cmndspec, SUDOERS_DEBUG_PARSER);
+
+    prev = TAILQ_PREV(cs, cmndspec_list, entries);
+    next = TAILQ_NEXT(cs, entries);
+    TAILQ_REMOVE(csl, cs, entries);
+
+    /* Don't free runcwd/runchroot that are in use by other entries. */
+    if ((prev == NULL || cs->runcwd != prev->runcwd) &&
+	(next == NULL || cs->runcwd != next->runcwd)) {
+	free(cs->runcwd);
+    }
+    if ((prev == NULL || cs->runchroot != prev->runchroot) &&
+	(next == NULL || cs->runchroot != next->runchroot)) {
+	free(cs->runchroot);
+    }
+#ifdef HAVE_SELINUX
+    /* Don't free root/type that are in use by other entries. */
+    if ((prev == NULL || cs->role != prev->role) &&
+	(next == NULL || cs->role != next->role)) {
+	free(cs->role);
+    }
+    if ((prev == NULL || cs->type != prev->type) &&
+	(next == NULL || cs->type != next->type)) {
+	free(cs->type);
+    }
+#endif /* HAVE_SELINUX */
+#ifdef HAVE_PRIV_SET
+    /* Don't free privs/limitprivs that are in use by other entries. */
+    if ((prev == NULL || cs->privs != prev->privs) &&
+	(next == NULL || cs->privs != next->privs)) {
+	free(cs->privs);
+    }
+    if ((prev == NULL || cs->limitprivs != prev->limitprivs) &&
+	(next == NULL || cs->limitprivs != next->limitprivs)) {
+	free(cs->limitprivs);
+    }
+#endif /* HAVE_PRIV_SET */
+    /* Don't free user/group lists that are in use by other entries. */
+    if (cs->runasuserlist != NULL) {
+	if ((prev == NULL || cs->runasuserlist != prev->runasuserlist) &&
+	    (next == NULL || cs->runasuserlist != next->runasuserlist)) {
+	    free_members(cs->runasuserlist);
+	    free(cs->runasuserlist);
+	}
+    }
+    if (cs->runasgrouplist != NULL) {
+	if ((prev == NULL || cs->runasgrouplist != prev->runasgrouplist) &&
+	    (next == NULL || cs->runasgrouplist != next->runasgrouplist)) {
+	    free_members(cs->runasgrouplist);
+	    free(cs->runasgrouplist);
+	}
+    }
+    free_member(cs->cmnd);
+    free(cs);
+
+    debug_return;
+}
+
+void
+free_cmndspecs(struct cmndspec_list *csl)
 {
     struct member_list *runasuserlist = NULL, *runasgrouplist = NULL;
-    struct member_list *prev_binding = NULL;
-    struct cmndspec *cs;
-    struct defaults *def;
     char *runcwd = NULL, *runchroot = NULL;
 #ifdef HAVE_SELINUX
     char *role = NULL, *type = NULL;
@@ -1380,12 +1602,12 @@ free_privilege(struct privilege *priv)
 #ifdef HAVE_PRIV_SET
     char *privs = NULL, *limitprivs = NULL;
 #endif /* HAVE_PRIV_SET */
-    debug_decl(free_privilege, SUDOERS_DEBUG_PARSER);
+    struct cmndspec *cs;
+    debug_decl(free_cmndspecs, SUDOERS_DEBUG_PARSER);
 
-    free(priv->ldap_role);
-    free_members(&priv->hostlist);
-    while ((cs = TAILQ_FIRST(&priv->cmndlist)) != NULL) {
-	TAILQ_REMOVE(&priv->cmndlist, cs, entries);
+    while ((cs = TAILQ_FIRST(csl)) != NULL) {
+	TAILQ_REMOVE(csl, cs, entries);
+
 	/* Only free the first instance of runcwd/runchroot. */
 	if (cs->runcwd != runcwd) {
 	    runcwd = cs->runcwd;
@@ -1431,9 +1653,22 @@ free_privilege(struct privilege *priv)
 	free_member(cs->cmnd);
 	free(cs);
     }
+
+    debug_return;
+}
+
+void
+free_privilege(struct privilege *priv)
+{
+    struct defaults *def;
+    debug_decl(free_privilege, SUDOERS_DEBUG_PARSER);
+
+    free(priv->ldap_role);
+    free_members(&priv->hostlist);
+    free_cmndspecs(&priv->cmndlist);
     while ((def = TAILQ_FIRST(&priv->defaults)) != NULL) {
 	TAILQ_REMOVE(&priv->defaults, def, entries);
-	free_default(def, &prev_binding);
+	free_default(def);
     }
     free(priv);
 
@@ -1471,7 +1706,7 @@ free_userspec(struct userspec *us)
 	free(comment->str);
 	free(comment);
     }
-    rcstr_delref(us->file);
+    sudo_rcstr_delref(us->file);
     free(us);
 
     debug_return;
@@ -1479,10 +1714,10 @@ free_userspec(struct userspec *us)
 
 /*
  * Initialized a sudoers parse tree.
+ * Takes ownership of lhost and shost.
  */
 void
-init_parse_tree(struct sudoers_parse_tree *parse_tree, const char *lhost,
-    const char *shost)
+init_parse_tree(struct sudoers_parse_tree *parse_tree, char *lhost, char *shost)
 {
     TAILQ_INIT(&parse_tree->userspecs);
     TAILQ_INIT(&parse_tree->defaults);
@@ -1513,6 +1748,10 @@ free_parse_tree(struct sudoers_parse_tree *parse_tree)
     free_defaults(&parse_tree->defaults);
     free_aliases(parse_tree->aliases);
     parse_tree->aliases = NULL;
+    free(parse_tree->lhost);
+    if (parse_tree->shost != parse_tree->lhost)
+	free(parse_tree->shost);
+    parse_tree->lhost = parse_tree->shost = NULL;
 }
 
 /*
@@ -1526,11 +1765,12 @@ init_parser(const char *path, bool quiet, bool strict)
     debug_decl(init_parser, SUDOERS_DEBUG_PARSER);
 
     free_parse_tree(&parsed_policy);
+    parser_leak_init();
     init_lexer();
 
-    rcstr_delref(sudoers);
+    sudo_rcstr_delref(sudoers);
     if (path != NULL) {
-	if ((sudoers = rcstr_dup(path)) == NULL) {
+	if ((sudoers = sudo_rcstr_dup(path)) == NULL) {
 	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    ret = false;
 	}
@@ -1539,9 +1779,6 @@ init_parser(const char *path, bool quiet, bool strict)
     }
 
     parse_error = false;
-    errorlineno = -1;
-    rcstr_delref(errorfile);
-    errorfile = NULL;
     sudoers_warnings = !quiet;
     sudoers_strict = strict;
 
@@ -1567,4 +1804,224 @@ init_options(struct command_options *opts)
     opts->privs = NULL;
     opts->limitprivs = NULL;
 #endif
+#ifdef HAVE_APPARMOR
+    opts->apparmor_profile = NULL;
+#endif
+}
+
+bool
+parser_leak_add(enum parser_leak_types type, void *v)
+{
+#ifdef NO_LEAKS
+    struct parser_leak_entry *entry;
+    debug_decl(parser_leak_add, SUDOERS_DEBUG_PARSER);
+
+    if (v == NULL)
+	debug_return_bool(false);
+
+    entry = calloc(1, sizeof(*entry));
+    if (entry == NULL) {
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	debug_return_bool(false);
+    }
+    switch (type) {
+    case LEAK_PRIVILEGE:
+	entry->u.p = v;
+	break;
+    case LEAK_CMNDSPEC:
+	entry->u.cs = v;
+	break;
+    case LEAK_DEFAULTS:
+	entry->u.d = v;
+	break;
+    case LEAK_MEMBER:
+	entry->u.m = v;
+	break;
+    case LEAK_DIGEST:
+	entry->u.dig = v;
+	break;
+    case LEAK_RUNAS:
+	entry->u.rc = v;
+	break;
+    case LEAK_PTR:
+	entry->u.ptr = v;
+	break;
+    default:
+	free(entry);
+	sudo_warnx("unexpected leak type %d", type);
+	debug_return_bool(false);
+    }
+    entry->type = type;
+    SLIST_INSERT_HEAD(&parser_leak_list, entry, entries);
+    debug_return_bool(true);
+#else
+    return true;
+#endif /* NO_LEAKS */
+}
+
+bool
+parser_leak_remove(enum parser_leak_types type, void *v)
+{
+#ifdef NO_LEAKS
+    struct parser_leak_entry *entry, *prev = NULL;
+    debug_decl(parser_leak_remove, SUDOERS_DEBUG_PARSER);
+
+    if (v == NULL)
+	debug_return_bool(false);
+
+    SLIST_FOREACH(entry, &parser_leak_list, entries) {
+	switch (entry->type) {
+	case LEAK_PRIVILEGE:
+	    if (entry->u.p == v)
+	    	goto found;
+	    break;
+	case LEAK_CMNDSPEC:
+	    if (entry->u.cs == v)
+	    	goto found;
+	    break;
+	case LEAK_DEFAULTS:
+	    if (entry->u.d == v)
+	    	goto found;
+	    break;
+	case LEAK_MEMBER:
+	    if (entry->u.m == v)
+	    	goto found;
+	    break;
+	case LEAK_DIGEST:
+	    if (entry->u.dig == v)
+	    	goto found;
+	    break;
+	case LEAK_RUNAS:
+	    if (entry->u.rc == v)
+	    	goto found;
+	    break;
+	case LEAK_PTR:
+	    if (entry->u.ptr == v)
+	    	goto found;
+	    break;
+	default:
+	    sudo_warnx("unexpected leak type %d in %p", entry->type, entry);
+	}
+	prev = entry;
+    }
+    /* If this happens, there is a bug in the leak tracking code. */
+    sudo_warnx("%s: unable to find %p, type %d", __func__, v, type);
+    debug_return_bool(false);
+found:
+    if (prev == NULL)
+	SLIST_REMOVE_HEAD(&parser_leak_list, entries);
+    else
+	SLIST_REMOVE_AFTER(prev, entries);
+    free(entry);
+    debug_return_bool(true);
+#else
+    return true;
+#endif /* NO_LEAKS */
+}
+
+#ifdef NO_LEAKS
+static void
+parser_leak_free(void)
+{
+    struct parser_leak_entry *entry;
+    void *next;
+    debug_decl(parser_leak_run, SUDOERS_DEBUG_PARSER);
+
+    /* Free the leaks. */
+    while ((entry = SLIST_FIRST(&parser_leak_list))) {
+	SLIST_REMOVE_HEAD(&parser_leak_list, entries);
+	switch (entry->type) {
+	case LEAK_PRIVILEGE:
+	    {
+		struct privilege *priv;
+
+		HLTQ_FOREACH_SAFE(priv, entry->u.p, entries, next)
+		    free_privilege(priv);
+		free(entry);
+	    }
+	    break;
+	case LEAK_CMNDSPEC:
+	    {
+		struct cmndspec_list specs;
+
+		HLTQ_TO_TAILQ(&specs, entry->u.cs, entries);
+		free_cmndspecs(&specs);
+		free(entry);
+	    }
+	    break;
+	case LEAK_DEFAULTS:
+	    {
+		struct defaults_list defs;
+
+		HLTQ_TO_TAILQ(&defs, entry->u.d, entries);
+		free_defaults(&defs);
+		free(entry);
+	    }
+	    break;
+	case LEAK_MEMBER:
+	    {
+		struct member *m;
+
+		HLTQ_FOREACH_SAFE(m, entry->u.m, entries, next)
+		    free_member(m);
+		free(entry);
+	    }
+	    break;
+	case LEAK_DIGEST:
+	    {
+		struct command_digest *dig;
+
+		HLTQ_FOREACH_SAFE(dig, entry->u.dig, entries, next) {
+		    free(dig->digest_str);
+		    free(dig);
+		}
+		free(entry);
+	    }
+	    break;
+	case LEAK_RUNAS:
+	    {
+		struct member *m;
+
+		if (entry->u.rc->runasusers != NULL) {
+		    HLTQ_FOREACH_SAFE(m, entry->u.rc->runasusers, entries, next)
+			free_member(m);
+		}
+		if (entry->u.rc->runasgroups != NULL) {
+		    HLTQ_FOREACH_SAFE(m, entry->u.rc->runasgroups, entries, next)
+			free_member(m);
+		}
+		free(entry->u.rc);
+		free(entry);
+		break;
+	    }
+	case LEAK_PTR:
+	    free(entry->u.ptr);
+	    free(entry);
+	    break;
+	default:
+	    sudo_warnx("unexpected garbage type %d", entry->type);
+	}
+    }
+
+    debug_return;
+}
+#endif /* NO_LEAKS */
+
+void
+parser_leak_init(void)
+{
+#ifdef NO_LEAKS
+    static bool initialized;
+    debug_decl(parser_leak_init, SUDOERS_DEBUG_PARSER);
+
+    if (!initialized) {
+	atexit(parser_leak_free);
+	initialized = true;
+	debug_return;
+    }
+
+    /* Already initialized, free existing leaks. */
+    parser_leak_free();
+    debug_return;
+#endif /* NO_LEAKS */
 }

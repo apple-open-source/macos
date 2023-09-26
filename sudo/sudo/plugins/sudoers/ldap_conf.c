@@ -242,7 +242,8 @@ sudo_ldap_parse_uri(const struct ldap_config_str_list *uri_list)
 
     hostbuf[0] = '\0';
     STAILQ_FOREACH(entry, uri_list, entries) {
-	char *cp, *host, *last, *port, *uri;
+	char *cp, *last, *uri;
+	const char *host, *port;
 
 	buf = strdup(entry->val);
 	if (buf == NULL) {
@@ -398,6 +399,7 @@ sudo_ldap_parse_keyword(const char *keyword, const char *value,
 	if (strcasecmp(keyword, cur->conf_str) == 0) {
 	    switch (cur->type) {
 	    case CONF_DEREF_VAL:
+#ifdef LDAP_OPT_DEREF
 		if (strcasecmp(value, "searching") == 0)
 		    *(int *)(cur->valp) = LDAP_DEREF_SEARCHING;
 		else if (strcasecmp(value, "finding") == 0)
@@ -406,6 +408,7 @@ sudo_ldap_parse_keyword(const char *keyword, const char *value,
 		    *(int *)(cur->valp) = LDAP_DEREF_ALWAYS;
 		else
 		    *(int *)(cur->valp) = LDAP_DEREF_NEVER;
+#endif /* LDAP_OPT_DEREF */
 		break;
 	    case CONF_REQCERT_VAL:
 #ifdef LDAP_OPT_X_TLS_REQUIRE_CERT
@@ -461,6 +464,14 @@ sudo_ldap_parse_keyword(const char *keyword, const char *value,
 		    }
 		}
 		break;
+	    default:
+		sudo_warnx(
+		    "internal error: unhandled CONF_ value %d for option %s",
+		    cur->type, cur->conf_str);
+		sudo_warnx(
+		    "update %s to add missing support for CONF_ value %d",
+		    __func__, cur->type);
+		break;
 	    }
 	    debug_return_bool(true);
 	}
@@ -498,7 +509,7 @@ sudo_krb5_ccname_path(const char *old_ccname)
 static bool
 sudo_check_krb5_ccname(const char *ccname)
 {
-    int fd = -1;
+    int fd;
     const char *ccname_path;
     debug_decl(sudo_check_krb5_ccname, SUDOERS_DEBUG_LDAP);
 
@@ -817,6 +828,8 @@ sudo_ldap_set_options_table(LDAP *ld, struct ldap_config_table *table)
 	    continue;
 
 	switch (cur->type) {
+	case CONF_DEREF_VAL:
+	case CONF_REQCERT_VAL:
 	case CONF_BOOL:
 	case CONF_INT:
 	    ival = *(int *)(cur->valp);
@@ -842,6 +855,14 @@ sudo_ldap_set_options_table(LDAP *ld, struct ldap_config_table *table)
 		}
 	    }
 	    break;
+	case CONF_LIST_STR:
+	    /* Lists are iterated over and don't set LDAP options directly. */
+	    break;
+	default:
+	    sudo_warnx("internal error: unhandled CONF_ value %d for option %s",
+		cur->type, cur->conf_str);
+	    sudo_warnx("update %s to add missing support for CONF_ value %d",
+		__func__, cur->type);
 	}
     }
     debug_return_int(errors ? -1 : LDAP_SUCCESS);

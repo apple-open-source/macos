@@ -44,6 +44,44 @@ es_GT{
                         other{"¤000MRD"}
                     }
                 }
+                currencyFormat%alphaNextToNumber{
+                    1000{
+                        one{"¤ 0K"}
+                        other{"¤ 0K"}
+                    }
+                    10000{
+                        one{"¤ 00K"}
+                        other{"¤ 00K"}
+                    }
+                    100000{
+                        one{"¤ 000K"}
+                        other{"¤ 000K"}
+                    }
+                    1000000{
+                        one{"¤ 0M"}
+                        other{"¤ 0M"}
+                    }
+                    10000000{
+                        one{"¤ 00M"}
+                        other{"¤ 00M"}
+                    }
+                    100000000{
+                        one{"¤ 000M"}
+                        other{"¤ 000M"}
+                    }
+                    1000000000{
+                        one{"¤ 0000M"}
+                        other{"¤ 0000M"}
+                    }
+                    10000000000{
+                        one{"¤ 00MRD"}
+                        other{"¤ 00MRD"}
+                    }
+                    100000000000{
+                        one{"¤ 000MRD"}
+                        other{"¤ 000MRD"}
+                    }
+                }
             }
         }
     }
@@ -127,8 +165,8 @@ es_GT{
                 "p. m.",
             }
             AmPmMarkersAbbr{
-                "a. m.",
-                "p. m.",
+                "a. m.",
+                "p. m.",
             }
             DateTimePatterns{
                 "HH:mm:ss zzzz",
@@ -157,9 +195,9 @@ es_GT{
             }
             dayPeriod{
                 stand-alone{
-                    abbreviated{
-                        am{"a. m."}
-                        pm{"p. m."}
+                    narrow{
+                        am{"a. m."}
+                        pm{"p. m."}
                     }
                     wide{
                         am{"a. m."}
@@ -182,10 +220,6 @@ es_GT{
                 Md{
                     M{"d/MM – d/MM"}
                     d{"d/MM – d/MM"}
-                }
-                hm{
-                    h{"h:mm – h:mm a"}
-                    m{"h:mm – h:mm a"}
                 }
                 y{
                     y{"y 'al' y"}

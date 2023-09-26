@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,7 +51,7 @@ void
 IPConfigurationControlPrefsSynchronize(void);
 
 Boolean
-IPConfigurationControlPrefsGetVerbose(void);
+IPConfigurationControlPrefsGetVerbose(Boolean default_val);
 
 Boolean
 IPConfigurationControlPrefsSetVerbose(Boolean verbose);
@@ -77,13 +77,13 @@ IPConfigurationInterfaceTypes
 IPConfigurationControlPrefsGetAWDReportInterfaceTypes(void);
 
 Boolean
-IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(void);
+IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(Boolean default_val);
 
 Boolean
 IPConfigurationControlPrefsSetCellularCLAT46AutoEnable(Boolean enable);
 
 Boolean
-IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(void);
+IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(Boolean default_val);
 
 Boolean
 IPConfigurationControlPrefsSetIPv6LinkLocalModifierExpires(Boolean expires);
@@ -93,5 +93,11 @@ IPConfigurationControlPrefsGetDHCPDUIDType(void);
 
 Boolean
 IPConfigurationControlPrefsSetDHCPDUIDType(DHCPDUIDType type);
+
+Boolean
+IPConfigurationControlPrefsGetHideBSSID(Boolean default_val,
+                                        Boolean * ret_was_set);
+Boolean
+IPConfigurationControlPrefsSetHideBSSID(Boolean hide);
 
 #endif /* _S_IPCONFIGURATIONCONTROLPREFS_H */

@@ -118,7 +118,7 @@ __guard_setup(const char *apple[])
 static const char *stackoverflow_msg = "stack buffer overflow";
 
 void
-__stack_chk_fail()
+__stack_chk_fail(void)
 {
 	CRSetCrashLogMessage(stackoverflow_msg);
 

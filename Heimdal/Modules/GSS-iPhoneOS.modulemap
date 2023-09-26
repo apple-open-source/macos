@@ -1,7 +1,14 @@
-framework module GSS [extern_c] {
+framework module GSS {
   export *
   header "gssapi.h"
-
+  // The headers below are all included from gssapi.h
+  // and aren't standalone (depend on defs from gssapi.h).
+  // Include them textually and re-export general content
+  // in the matching submodules.
+  textual header "gssapi_oid.h"
+  textual header "gssapi_protos.h"
+  textual header "gssapi_apple.h"
+  
   module apple {
     header "gssapi_apple.h"
     export *

@@ -22,6 +22,7 @@
  */
 
 #include "testhelpers.h"
+#include <unistd.h>
 
 #include "sudo_dso.h"
 
@@ -44,11 +45,12 @@ DECL_PLUGIN(audit_plugin, python_audit);
 DECL_PLUGIN(sudoers_group_plugin, group_plugin);
 
 static struct passwd example_pwd;
+static bool verbose;
 
 static int _init_symbols(void);
 static int _unlink_symbols(void);
 
-void
+static void
 create_plugin_options(const char *module_name, const char *class_name, const char *extra_option)
 {
     char opt_module_path[PATH_MAX + 256];
@@ -64,7 +66,7 @@ create_plugin_options(const char *module_name, const char *class_name, const cha
                                            opt_classname, extra_option, NULL);
 }
 
-void
+static void
 create_io_plugin_options(const char *log_path)
 {
     char opt_logpath[PATH_MAX + 16];
@@ -72,19 +74,19 @@ create_io_plugin_options(const char *log_path)
     create_plugin_options("example_io_plugin", "SudoIOPlugin", opt_logpath);
 }
 
-void
+static void
 create_debugging_plugin_options(void)
 {
     create_plugin_options("example_debugging", "DebugDemoPlugin", NULL);
 }
 
-void
+static void
 create_audit_plugin_options(const char *extra_argument)
 {
     create_plugin_options("example_audit_plugin", "SudoAuditPlugin", extra_argument);
 }
 
-void
+static void
 create_conversation_plugin_options(void)
 {
     char opt_logpath[PATH_MAX + 16];
@@ -92,34 +94,31 @@ create_conversation_plugin_options(void)
     create_plugin_options("example_conversation", "ReasonLoggerIOPlugin", opt_logpath);
 }
 
-void
+static void
 create_policy_plugin_options(void)
 {
     create_plugin_options("example_policy_plugin", "SudoPolicyPlugin", NULL);
 }
 
-int
+static int
 init(void)
 {
     // always start each test from clean state
     memset(&data, 0, sizeof(data));
 
     memset(&example_pwd, 0, sizeof(example_pwd));
-    example_pwd.pw_name = "pw_name";
-    example_pwd.pw_passwd = "pw_passwd";
-    example_pwd.pw_gecos = "pw_gecos";
-    example_pwd.pw_shell ="pw_shell";
-    example_pwd.pw_dir = "pw_dir";
+    example_pwd.pw_name = (char *)"pw_name";
+    example_pwd.pw_passwd = (char *)"pw_passwd";
+    example_pwd.pw_gecos = (char *)"pw_gecos";
+    example_pwd.pw_shell = (char *)"pw_shell";
+    example_pwd.pw_dir = (char *)"pw_dir";
     example_pwd.pw_uid = (uid_t)1001;
     example_pwd.pw_gid = (gid_t)101;
 
     VERIFY_TRUE(asprintf(&data.tmp_dir, TEMP_PATH_TEMPLATE) >= 0);
     VERIFY_NOT_NULL(mkdtemp(data.tmp_dir));
 
-    // by default we test in developer mode, so the python plugin can be loaded
     sudo_conf_clear_paths();
-    VERIFY_INT(sudo_conf_read(sudo_conf_developer_mode, SUDO_CONF_ALL), true);
-    VERIFY_TRUE(sudo_conf_developer_mode());
 
     // some default values for the plugin open:
     data.settings = create_str_array(1, NULL);
@@ -133,7 +132,7 @@ init(void)
     return true;
 }
 
-int
+static int
 cleanup(int success)
 {
     if (!success) {
@@ -159,7 +158,7 @@ cleanup(int success)
     return true;
 }
 
-int
+static int
 check_example_io_plugin_version_display(int is_verbose)
 {
     const char *errstr = NULL;
@@ -187,7 +186,7 @@ check_example_io_plugin_version_display(int is_verbose)
     return true;
 }
 
-int
+static int
 check_example_io_plugin_command_log(void)
 {
     const char *errstr = NULL;
@@ -232,7 +231,7 @@ check_example_io_plugin_command_log(void)
 
 typedef struct io_plugin * (io_clone_func)(void);
 
-int
+static int
 check_example_io_plugin_command_log_multiple(void)
 {
     const char *errstr = NULL;
@@ -329,7 +328,7 @@ check_example_io_plugin_command_log_multiple(void)
     return true;
 }
 
-int
+static int
 check_example_io_plugin_failed_to_start_command(void)
 {
     const char *errstr = NULL;
@@ -357,7 +356,7 @@ check_example_io_plugin_failed_to_start_command(void)
     return true;
 }
 
-int
+static int
 check_example_io_plugin_fails_with_python_backtrace(void)
 {
     const char *errstr = NULL;
@@ -376,7 +375,7 @@ check_example_io_plugin_fails_with_python_backtrace(void)
     return true;
 }
 
-int
+static int
 check_io_plugin_reports_error(void)
 {
     const char *errstr = NULL;
@@ -444,7 +443,7 @@ check_io_plugin_reports_error(void)
     return true;
 }
 
-int
+static int
 check_example_group_plugin(void)
 {
     create_plugin_options("example_group_plugin", "SudoGroupPlugin", NULL);
@@ -462,7 +461,8 @@ check_example_group_plugin(void)
     return true;
 }
 
-const char *
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+static const char *
 create_debug_config(const char *debug_spec)
 {
     char *result = NULL;
@@ -471,8 +471,7 @@ create_debug_config(const char *debug_spec)
     snprintf(config_path, sizeof(config_path), "%s/sudo.conf", data.tmp_dir);
 
     char *content = NULL;
-    if (asprintf(&content, "Set developer_mode true\n"
-                           "Debug %s %s/debug.log %s\n",
+    if (asprintf(&content, "Debug %s %s/debug.log %s\n",
                  "python_plugin.so", data.tmp_dir, debug_spec) < 0)
     {
         printf("Failed to allocate string\n");
@@ -492,7 +491,7 @@ cleanup:
     return result;
 }
 
-int
+static int
 check_example_group_plugin_is_able_to_debug(void)
 {
     const char *config_path = create_debug_config("py_calls@diag");
@@ -514,8 +513,9 @@ check_example_group_plugin_is_able_to_debug(void)
 
     return true;
 }
+#endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
 
-int
+static int
 check_plugin_unload(void)
 {
     // You can call this test to avoid having a lot of subinterpreters
@@ -527,7 +527,8 @@ check_plugin_unload(void)
     return true;
 }
 
-int
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+static int
 check_example_debugging(const char *debug_spec)
 {
     const char *errstr = NULL;
@@ -557,8 +558,9 @@ check_example_debugging(const char *debug_spec)
     free(debug_flags_setting);
     return true;
 }
+#endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
 
-int
+static int
 check_loading_fails(const char *name)
 {
     const char *errstr = NULL;
@@ -575,7 +577,7 @@ check_loading_fails(const char *name)
     return true;
 }
 
-int
+static int
 check_loading_fails_with_missing_path(void)
 {
     str_array_free(&data.plugin_options);
@@ -583,7 +585,7 @@ check_loading_fails_with_missing_path(void)
     return check_loading_fails("missing_path");
 }
 
-int
+static int
 check_loading_succeeds_with_missing_classname(void)
 {
     str_array_free(&data.plugin_options);
@@ -604,7 +606,7 @@ check_loading_succeeds_with_missing_classname(void)
     return true;
 }
 
-int
+static int
 check_loading_fails_with_missing_classname(void)
 {
     str_array_free(&data.plugin_options);
@@ -612,14 +614,14 @@ check_loading_fails_with_missing_classname(void)
     return check_loading_fails("missing_classname");
 }
 
-int
+static int
 check_loading_fails_with_wrong_classname(void)
 {
     create_plugin_options("example_debugging", "MispelledPluginName", NULL);
     return check_loading_fails("wrong_classname");
 }
 
-int
+static int
 check_loading_fails_with_wrong_path(void)
 {
     str_array_free(&data.plugin_options);
@@ -627,17 +629,7 @@ check_loading_fails_with_wrong_path(void)
     return check_loading_fails("wrong_path");
 }
 
-int
-check_loading_fails_plugin_is_not_owned_by_root(void)
-{
-    sudo_conf_clear_paths();
-    VERIFY_INT(sudo_conf_read(sudo_conf_normal_mode, SUDO_CONF_ALL), true);
-
-    create_debugging_plugin_options();
-    return check_loading_fails("not_owned_by_root");
-}
-
-int
+static int
 check_example_conversation_plugin_reason_log(int simulate_suspend, const char *description)
 {
     const char *errstr = NULL;
@@ -666,7 +658,7 @@ check_example_conversation_plugin_reason_log(int simulate_suspend, const char *d
     return true;
 }
 
-int
+static int
 check_example_conversation_plugin_user_interrupts(void)
 {
     const char *errstr = NULL;
@@ -691,7 +683,7 @@ check_example_conversation_plugin_user_interrupts(void)
     return true;
 }
 
-int
+static int
 check_example_policy_plugin_version_display(int is_verbose)
 {
     const char *errstr = NULL;
@@ -720,7 +712,7 @@ check_example_policy_plugin_version_display(int is_verbose)
     return true;
 }
 
-int
+static int
 check_example_policy_plugin_accepted_execution(void)
 {
     const char *errstr = NULL;
@@ -772,7 +764,7 @@ check_example_policy_plugin_accepted_execution(void)
     return true;
 }
 
-int
+static int
 check_example_policy_plugin_failed_execution(void)
 {
     const char *errstr = NULL;
@@ -810,7 +802,7 @@ check_example_policy_plugin_failed_execution(void)
     return true;
 }
 
-int
+static int
 check_example_policy_plugin_denied_execution(void)
 {
     const char *errstr = NULL;
@@ -845,7 +837,7 @@ check_example_policy_plugin_denied_execution(void)
     return true;
 }
 
-int
+static int
 check_example_policy_plugin_list(void)
 {
     const char *errstr = NULL;
@@ -903,15 +895,17 @@ check_example_policy_plugin_list(void)
     return true;
 }
 
-int
+static int
 check_example_policy_plugin_validate_invalidate(void)
 {
     const char *errstr = NULL;
 
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     // the plugin does not do any meaningful for these, so using log to validate instead
     const char *config_path = create_debug_config("py_calls@diag");
     VERIFY_NOT_NULL(config_path);
     VERIFY_INT(sudo_conf_read(config_path, SUDO_CONF_ALL), true);
+#endif
 
     create_policy_plugin_options();
 
@@ -928,13 +922,15 @@ check_example_policy_plugin_validate_invalidate(void)
 
     python_policy->close(0, 0); // no command execution
 
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     VERIFY_LOG_LINES(expected_path("check_example_policy_plugin_validate_invalidate.log"));
+#endif
     VERIFY_STR(data.stderr_str, "");
     VERIFY_STR(data.stdout_str, "");
     return true;
 }
 
-int
+static int
 check_policy_plugin_callbacks_are_optional(void)
 {
     const char *errstr = NULL;
@@ -960,7 +956,7 @@ check_policy_plugin_callbacks_are_optional(void)
     return true;
 }
 
-int
+static int
 check_policy_plugin_reports_error(void)
 {
     const char *errstr = NULL;
@@ -1023,7 +1019,7 @@ check_policy_plugin_reports_error(void)
     return true;
 }
 
-int
+static int
 check_io_plugin_callbacks_are_optional(void)
 {
     const char *errstr = NULL;
@@ -1050,7 +1046,7 @@ check_io_plugin_callbacks_are_optional(void)
     return true;
 }
 
-int
+static int
 check_python_plugins_do_not_affect_each_other(void)
 {
     const char *errstr = NULL;
@@ -1077,7 +1073,7 @@ check_python_plugins_do_not_affect_each_other(void)
     return true;
 }
 
-int
+static int
 check_example_audit_plugin_receives_accept(void)
 {
     create_audit_plugin_options("");
@@ -1116,7 +1112,7 @@ check_example_audit_plugin_receives_accept(void)
     return true;
 }
 
-int
+static int
 check_example_audit_plugin_receives_reject(void)
 {
     create_audit_plugin_options(NULL);
@@ -1146,7 +1142,7 @@ check_example_audit_plugin_receives_reject(void)
     return true;
 }
 
-int
+static int
 check_example_audit_plugin_receives_error(void)
 {
     create_audit_plugin_options("");
@@ -1178,7 +1174,7 @@ check_example_audit_plugin_receives_error(void)
 
 typedef struct audit_plugin * (audit_clone_func)(void);
 
-int
+static int
 check_example_audit_plugin_workflow_multiple(void)
 {
     // verify multiple python audit plugins are available
@@ -1246,7 +1242,7 @@ check_example_audit_plugin_workflow_multiple(void)
     return true;
 }
 
-int
+static int
 check_example_audit_plugin_version_display(void)
 {
     create_audit_plugin_options(NULL);
@@ -1274,7 +1270,7 @@ check_example_audit_plugin_version_display(void)
     return true;
 }
 
-int
+static int
 check_audit_plugin_callbacks_are_optional(void)
 {
     const char *errstr = NULL;
@@ -1299,7 +1295,7 @@ check_audit_plugin_callbacks_are_optional(void)
     return true;
 }
 
-int
+static int
 check_audit_plugin_reports_error(void)
 {
     const char *errstr = NULL;
@@ -1511,13 +1507,26 @@ _unlink_symbols(void)
 int
 main(int argc, char *argv[])
 {
-    int errors = 0;
+    int ch, errors = 0, ntests = 0;
 
-    if (argc != 2) {
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+        switch (ch) {
+        case 'v':
+            verbose = true;
+            break;
+        default:
+            fprintf(stderr, "usage: %s [-v]\n", getprogname());
+            return EXIT_FAILURE;
+        }
+    }
+    argc -= optind;
+    argv += optind;
+
+    if (argc != 1) {
         printf("Please specify the python_plugin.so as argument!\n");
         return EXIT_FAILURE;
     }
-    python_plugin_so_path = argv[1];
+    python_plugin_so_path = argv[0];
 
     RUN_TEST(check_example_io_plugin_version_display(true));
     RUN_TEST(check_example_io_plugin_version_display(false));
@@ -1530,7 +1539,9 @@ main(int argc, char *argv[])
     RUN_TEST(check_plugin_unload());
 
     RUN_TEST(check_example_group_plugin());
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     RUN_TEST(check_example_group_plugin_is_able_to_debug());
+#endif
     RUN_TEST(check_plugin_unload());
 
     RUN_TEST(check_loading_fails_with_missing_path());
@@ -1538,7 +1549,6 @@ main(int argc, char *argv[])
     RUN_TEST(check_loading_fails_with_missing_classname());
     RUN_TEST(check_loading_fails_with_wrong_classname());
     RUN_TEST(check_loading_fails_with_wrong_path());
-    RUN_TEST(check_loading_fails_plugin_is_not_owned_by_root());
     RUN_TEST(check_plugin_unload());
 
     RUN_TEST(check_example_conversation_plugin_reason_log(false, "without_suspend"));
@@ -1584,6 +1594,7 @@ main(int argc, char *argv[])
     RUN_TEST(check_python_plugins_do_not_affect_each_other());
     RUN_TEST(check_plugin_unload());
 
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     RUN_TEST(check_example_debugging("plugin@err"));
     RUN_TEST(check_example_debugging("plugin@info"));
     RUN_TEST(check_example_debugging("load@diag"));
@@ -1594,6 +1605,12 @@ main(int argc, char *argv[])
     RUN_TEST(check_example_debugging("py_calls@info"));
     RUN_TEST(check_example_debugging("plugin@err"));
     RUN_TEST(check_plugin_unload());
+#endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
+
+    if (ntests != 0) {
+        printf("%s: %d tests run, %d errors, %d%% success rate\n",
+            getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
+    }
 
     return errors;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,15 +46,13 @@
 #include <EAP8021X/EAPClientProperties.h>
 #include <EAP8021X/EAPOLControlTypes.h>
 #include <EAP8021X/EAPOLControlTypesPrivate.h>
+#include <EAP8021X/EAPOLClientConfiguration.h>
+#include <EAP8021X/EAPOLClientConfigurationPrivate.h>
 #include <EAP8021X/EAPOLControl.h>
 #include <EAP8021X/SupplicantTypes.h>
 #include <EAP8021X/EAPKeychainUtil.h>
 #include <TargetConditionals.h>
-#if ! TARGET_OS_IPHONE
-#include <EAP8021X/EAPOLClientConfiguration.h>
-#include <EAP8021X/EAPOLClientConfigurationPrivate.h>
 #include <notify.h>
-#endif /* ! TARGET_OS_IPHONE */
 #include <EAP8021X/EAPCertificateUtil.h>
 #include <EAP8021X/EAPSecurity.h>
 #include <CoreFoundation/CFString.h>
@@ -162,18 +160,18 @@ struct Supplicant_s {
 
     CFArrayRef			identity_attributes;
 
-#if ! TARGET_OS_IPHONE
     EAPOLClientItemIDRef	itemID;
     EAPOLClientConfigurationRef	eapolcfg;
-    AlertDialogueRef		alert_prompt;
-    CredentialsDialogueRef	cred_prompt;
-    TrustDialogueRef		trust_prompt;
-    long			credentials_access_time;
     CFStringRef			manager_name;
     struct {
 	CFMachPortRef		mp;
 	int			token;
     } config_change;
+#if ! TARGET_OS_IPHONE
+    AlertDialogueRef		alert_prompt;
+    CredentialsDialogueRef	cred_prompt;
+    TrustDialogueRef		trust_prompt;
+    long			credentials_access_time;
     int				failure_count;
 #endif /* ! TARGET_OS_IPHONE */
 
@@ -2393,6 +2391,83 @@ fetch_mib_eap_configuration(SupplicantRef supp)
     return;
 }
 
+static void
+S_config_changed(CFMachPortRef port, void * msg, CFIndex size, void * info)
+{
+    EAPOLClientConfigurationRef	cfg;
+    CFStringRef			profileID;
+    SupplicantRef		supp = (SupplicantRef)info;
+
+    if (supp->itemID == NULL) {
+	return;
+    }
+    profileID = EAPOLClientItemIDGetProfileID(supp->itemID);
+    if (profileID == NULL) {
+	return;
+    }
+#if ! TARGET_OS_IPHONE
+    cfg = EAPOLClientConfigurationCreate(NULL);
+#else
+    cfg = EAPOLClientConfigurationCreateWithAuthorization(NULL, NULL);
+#endif
+    if (cfg == NULL) {
+	EAPLOG_FL(LOG_ERR, "EAPOLClientConfiguration() failed");
+	return;
+    }
+    if (EAPOLClientConfigurationGetProfileWithID(cfg, profileID) == NULL) {
+	EAPLOG(LOG_NOTICE, "%s: profile no longer exists, stopping",
+	       EAPOLSocketIfName(supp->sock, NULL));
+	EAPOLControlStop(EAPOLSocketIfName(supp->sock, NULL));
+    }
+    CFRelease(cfg);
+    return;
+}
+
+static void
+S_add_config_notification(SupplicantRef supp)
+{
+    CFMachPortContext		context = {0, NULL, NULL, NULL, NULL};
+    CFMachPortRef		notify_port_cf;
+    mach_port_t			notify_port;
+    int				notify_token;
+    CFRunLoopSourceRef		rls;
+    uint32_t			status;
+
+    if (supp->config_change.mp != NULL) {
+	/* already registered, nothing to do */
+	return;
+    }
+    notify_port = MACH_PORT_NULL;
+    status
+	= notify_register_mach_port(kEAPOLClientConfigurationChangedNotifyKey,
+				    &notify_port, 0, &notify_token);
+    if (status != NOTIFY_STATUS_OK) {
+	EAPLOG_FL(LOG_ERR, "notify_register_mach_port() failed");
+	return;
+    }
+    context.info = supp;
+    notify_port_cf = _SC_CFMachPortCreateWithPort("eapolclient", notify_port,
+						  S_config_changed,
+						  &context);
+    if (notify_port_cf == NULL) {
+	/* _SC_CFMachPortCreateWithPort already logged the failure */
+	(void)notify_cancel(notify_token);
+	return;
+    }
+    rls = CFMachPortCreateRunLoopSource(NULL, notify_port_cf, 0);
+    if (rls == NULL) {
+	EAPLOG_FL(LOG_ERR, "CFMachPortCreateRunLoopSource() failed");
+	CFRelease(notify_port_cf);
+	(void)notify_cancel(notify_token);
+	return;
+    }
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
+    supp->config_change.mp = notify_port_cf;
+    supp->config_change.token = notify_token;
+    return;
+}
+
 #if ! TARGET_OS_IPHONE
 
 static Boolean
@@ -2561,79 +2636,6 @@ dictInsertAuthenticatorMACAddress(CFMutableDictionaryRef dict,
 			sizeof(*authenticator_mac));
     CFDictionarySetValue(dict, kEAPOLControlAuthenticatorMACAddress, data);
     CFRelease(data);
-    return;
-}
-
-static void
-S_config_changed(CFMachPortRef port, void * msg, CFIndex size, void * info)
-{
-    EAPOLClientConfigurationRef	cfg;
-    CFStringRef			profileID;
-    SupplicantRef		supp = (SupplicantRef)info;
-
-    if (supp->itemID == NULL) {
-	return;
-    }
-    profileID = EAPOLClientItemIDGetProfileID(supp->itemID);
-    if (profileID == NULL) {
-	return;
-    }
-    cfg = EAPOLClientConfigurationCreate(NULL);
-    if (cfg == NULL) {
-	EAPLOG_FL(LOG_ERR, "EAPOLClientConfiguration() failed");
-	return;
-    }
-    if (EAPOLClientConfigurationGetProfileWithID(cfg, profileID) == NULL) {
-	EAPLOG(LOG_NOTICE, "%s: profile no longer exists, stopping",
-	       EAPOLSocketIfName(supp->sock, NULL));
-	EAPOLControlStop(EAPOLSocketIfName(supp->sock, NULL));
-    }
-    CFRelease(cfg);
-    return;
-}
-
-static void
-S_add_config_notification(SupplicantRef supp)
-{
-    CFMachPortContext		context = {0, NULL, NULL, NULL, NULL};
-    CFMachPortRef		notify_port_cf;
-    mach_port_t			notify_port;
-    int				notify_token;
-    CFRunLoopSourceRef		rls;
-    uint32_t			status;
-
-    if (supp->config_change.mp != NULL) {
-	/* already registered, nothing to do */
-	return;
-    }
-    notify_port = MACH_PORT_NULL;
-    status 
-	= notify_register_mach_port(kEAPOLClientConfigurationChangedNotifyKey,
-				    &notify_port, 0, &notify_token);
-    if (status != NOTIFY_STATUS_OK) {
-	EAPLOG_FL(LOG_ERR, "notify_register_mach_port() failed");
-	return;
-    }
-    context.info = supp;
-    notify_port_cf = _SC_CFMachPortCreateWithPort("eapolclient", notify_port,
-						  S_config_changed,
-						  &context);
-    if (notify_port_cf == NULL) {
-	/* _SC_CFMachPortCreateWithPort already logged the failure */
-	(void)notify_cancel(notify_token);
-	return;
-    }
-    rls = CFMachPortCreateRunLoopSource(NULL, notify_port_cf, 0);
-    if (rls == NULL) {
-	EAPLOG_FL(LOG_ERR, "CFMachPortCreateRunLoopSource() failed");
-	CFRelease(notify_port_cf);
-	(void)notify_cancel(notify_token);
-	return;
-    }
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    CFRelease(rls);
-    supp->config_change.mp = notify_port_cf;
-    supp->config_change.token = notify_token;
     return;
 }
 
@@ -3283,15 +3285,27 @@ S_filter_eap_accept_types(SupplicantRef supp, CFArrayRef accept_types,
     return;
 }
 
+static Boolean
+is_identity_privacy_required(CFDictionaryRef config_dict)
+{
+    if (config_dict != NULL) {
+	CFStringRef tls_min_ver = CFDictionaryGetValue(config_dict, kEAPClientPropTLSMinimumVersion);
+	if (isA_CFString(tls_min_ver) != NULL) {
+	    return (CFEqual(tls_min_ver, kEAPTLSVersion1_3));
+	}
+    }
+    return FALSE;
+}
 
 static bool
 S_set_credentials(SupplicantRef supp)
 {
     CFArrayRef			accept_types = NULL;
     bool			cert_required = FALSE;
+    bool			identity_privacy_required = FALSE;
     bool			change = FALSE;
+    EAPOLClientDomain		domain = kEAPOLClientDomainUser;
 #if ! TARGET_OS_IPHONE
-    EAPOLClientDomain		domain;
     CFStringRef			nodename = NULL;
 #endif /* ! TARGET_OS_IPHONE */
     EAPSecIdentityHandleRef	id_handle = NULL;
@@ -3325,9 +3339,9 @@ S_set_credentials(SupplicantRef supp)
     switch (EAPOLSocketGetMode(supp->sock)) {
     case kEAPOLControlModeSystem:
 	system_mode = TRUE;
+	domain = kEAPOLClientDomainSystem;
 #if ! TARGET_OS_IPHONE
 	S_set_credentials_access_time(supp);
-	domain = kEAPOLClientDomainSystem;
 #endif /* ! TARGET_OS_IPHONE */
 	break;
     case kEAPOLControlModeUser:
@@ -3443,7 +3457,6 @@ S_set_credentials(SupplicantRef supp)
 			  EAPOLSocketIfName(supp->sock, NULL));
 	    }
 	}
-#if ! TARGET_OS_IPHONE
 	else if (name == NULL && supp->itemID != NULL) {
 	    CFDataRef		name_data = NULL;
 	    CFDataRef		password_data = NULL;
@@ -3462,7 +3475,6 @@ S_set_credentials(SupplicantRef supp)
 		my_CFRelease(&password_data);
 	    }
 	}
-#endif /* ! TARGET_OS_IPHONE */
     }
 
     /* check for a SecIdentity */
@@ -3476,7 +3488,13 @@ S_set_credentials(SupplicantRef supp)
 	    = myCFDictionaryGetBooleanValue(supp->config_dict,
 					    kEAPClientPropTLSCertificateIsRequired,
 					    tls_specified);
+	/* identity privacy requirement check */
+	if (tls_specified) {
+	    identity_privacy_required = is_identity_privacy_required(supp->config_dict);
+	}
     }
+    EAPLOG_FL(LOG_NOTICE, "EAP identity privacy %s required",
+	      identity_privacy_required ? "is" : "is not");
     if (cert_required) {
 	id_handle = CFDictionaryGetValue(supp->config_dict,
 					 kEAPClientPropTLSIdentityHandle);
@@ -3493,12 +3511,10 @@ S_set_credentials(SupplicantRef supp)
 	    }
 	}
 
-#if ! TARGET_OS_IPHONE
 	/* grab itemID-based identity */
 	if (sec_identity == NULL && supp->itemID != NULL) {
 	    sec_identity = EAPOLClientItemIDCopyIdentity(supp->itemID, domain);
 	}
-#endif /* ! TARGET_OS_IPHONE */
 	if (supp->in_box_auth_requested && supp->mib_eap_configuration != NULL &&
 	    supp->mib_eap_configuration->tlsClientIdentity) {
 	    sec_identity = CFRetain(supp->mib_eap_configuration->tlsClientIdentity);
@@ -3506,7 +3522,19 @@ S_set_credentials(SupplicantRef supp)
 	my_CFRelease(&supp->sec_identity);
 	supp->sec_identity = sec_identity;
 
-	if (name == NULL && sec_identity != NULL) {
+	if (identity_privacy_required == TRUE) {
+	    outer_identity_cf = CFDictionaryGetValue(supp->config_dict,
+						     kEAPClientPropOuterIdentity);
+	    outer_identity_cf = isA_CFString(outer_identity_cf);
+	    if (outer_identity_cf != NULL) {
+		name = my_CFStringToCString(outer_identity_cf,
+					    kCFStringEncodingUTF8);
+	    } else {
+		EAPLOG_FL(LOG_NOTICE, "%@ is not configured, unable to prompt for EAP Identity",
+			  kEAPClientPropOuterIdentity);
+		Supplicant_set_no_ui(supp);
+	    }
+	} else if (name == NULL && sec_identity != NULL) {
 	    name = S_identity_copy_name(sec_identity);
 	    if (name != NULL) {
 		username_derived = TRUE;
@@ -3612,14 +3640,12 @@ PRIVATE_EXTERN bool
 Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 				bool * should_stop)
 {
-#if ! TARGET_OS_IPHONE
     EAPOLClientConfigurationRef	cfg = NULL;
     EAPOLClientItemIDRef	itemID = NULL;
     CFDictionaryRef		item_dict;
     CFStringRef			manager_name;
     EAPOLClientProfileRef	profile = NULL;
     CFDictionaryRef		password_info = NULL;
-#endif /* ! TARGET_OS_IPHONE */
     bool			change = FALSE;
     CFStringRef			config_id = NULL;
     CFDictionaryRef		eap_config;
@@ -3630,7 +3656,6 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	*should_stop = FALSE;
     }
 
-#if ! TARGET_OS_IPHONE
     /* check for a manager name */
     my_CFRelease(&supp->manager_name);
     manager_name = CFDictionaryGetValue(config_dict,
@@ -3651,7 +3676,11 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	}
 	my_CFRelease(&supp->itemID);
 	my_CFRelease(&supp->eapolcfg);
+#if TARGET_OS_IPHONE
+	cfg = EAPOLClientConfigurationCreateWithAuthorization(NULL, NULL);
+#else
 	cfg = EAPOLClientConfigurationCreate(NULL);
+#endif
 	if (cfg == NULL) {
 	    EAPLOG_FL(LOG_NOTICE, "couldn't create configuration");
 	    if (should_stop != NULL) {
@@ -3698,7 +3727,6 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
     else {
 	my_CFRelease(&supp->itemID);
 	my_CFRelease(&supp->eapolcfg);
-#endif /* ! TARGET_OS_IPHONE */
 
 	/* get the new configuration */
 	eap_config = CFDictionaryGetValue(config_dict,
@@ -3708,10 +3736,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	}
 	config_id = CFDictionaryGetValue(config_dict,
 					 kEAPOLControlUniqueIdentifier);
-
-#if ! TARGET_OS_IPHONE
     }
-#endif /* ! TARGET_OS_IPHONE */
 
     /* keep a copy of the original around */
     my_CFRelease(&supp->orig_config_dict);
@@ -3822,9 +3847,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	change = TRUE;
     }
 
-#if ! TARGET_OS_IPHONE
  done:
-#endif /* ! TARGET_OS_IPHONE */
     return (change);
 }
 

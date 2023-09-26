@@ -50,7 +50,11 @@ typedef void(^_PMCoreSmartPowerNapCallback)(_PMCoreSmartPowerNapState state);
 // only to be used by testing tools. Entitlement will be enforced
 - (void)setState:(_PMCoreSmartPowerNapState)state;
 
+- (void)setCSPNQueryDelta:(uint32_t)seconds;
+
 - (void)setCSPNRequeryDelta:(uint32_t)seconds;
+
+- (void)setCSPNIgnoreRemoteClient:(uint32_t)state;
 
 - (void)setCSPNMotionAlarmThreshold:(uint32_t)seconds;
 

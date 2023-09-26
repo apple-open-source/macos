@@ -42,6 +42,9 @@ public:
     virtual void sendProcessDidResume(ResumeReason) = 0;
     virtual void didChangeThrottleState(ProcessThrottleState) { };
     virtual ASCIILiteral clientName() const = 0;
+    virtual String environmentIdentifier() const { return emptyString(); }
+    virtual void prepareToDropLastAssertion(CompletionHandler<void()>&& completionHandler) { completionHandler(); }
+    virtual void didDropLastAssertion() { }
 };
 
 } // namespace WebKit

@@ -112,7 +112,7 @@ extern CFTypeID DAApprovalSessionGetTypeID( void ) CF_SWIFT_UNAVAILABLE( "Use DA
  * caller also implicitly retains the object and is responsible for releasing it.
  */
 
-extern DAApprovalSessionRef __nullable DAApprovalSessionCreate( CFAllocatorRef __nullable allocator ) CF_SWIFT_UNAVAILABLE( "Use DASessionCreate instead" ) API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+extern DAApprovalSessionRef __nullable DAApprovalSessionCreate( CFAllocatorRef __nullable allocator ) CF_SWIFT_UNAVAILABLE( "Use DASessionCreate instead" ) API_AVAILABLE(macCatalyst(13.1)) API_UNAVAILABLE(ios, tvos, watchos);
 
 /*
  * @function   DAApprovalSessionScheduleWithRunLoop
@@ -122,7 +122,7 @@ extern DAApprovalSessionRef __nullable DAApprovalSessionCreate( CFAllocatorRef _
  * @param      runLoopMode The run loop mode in which the approval session should be scheduled.
  */
 
-extern void DAApprovalSessionScheduleWithRunLoop( DAApprovalSessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode ) CF_SWIFT_UNAVAILABLE( "Use DASessionSetDispatchQueue instead" ) API_AVAILABLE( macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+extern void DAApprovalSessionScheduleWithRunLoop( DAApprovalSessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode ) CF_SWIFT_UNAVAILABLE( "Use DASessionSetDispatchQueue instead" ) API_AVAILABLE( macCatalyst(13.1)) API_UNAVAILABLE(ios, tvos, watchos);
 /*
  * @function   DAApprovalSessionUnscheduleFromRunLoop
  * @abstract   Unschedules the approval session from a run loop.
@@ -131,7 +131,7 @@ extern void DAApprovalSessionScheduleWithRunLoop( DAApprovalSessionRef session, 
  * @param      runLoopMode The run loop mode in which the approval session is scheduled.
  */
 
-extern void DAApprovalSessionUnscheduleFromRunLoop( DAApprovalSessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode ) CF_SWIFT_UNAVAILABLE( "Use DASessionSetDispatchQueue instead" ) API_AVAILABLE( macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+extern void DAApprovalSessionUnscheduleFromRunLoop( DAApprovalSessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode ) CF_SWIFT_UNAVAILABLE( "Use DASessionSetDispatchQueue instead" ) API_AVAILABLE( macCatalyst(13.1)) API_UNAVAILABLE(ios, tvos, watchos);
 
 #endif /* !__DISKARBITRATIOND__ */
 

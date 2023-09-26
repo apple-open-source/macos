@@ -1,6 +1,6 @@
 /*
     scardcontrol.c: sample code to use/test SCardControl() API
-    Copyright (C) 2004-2019   Ludovic Rousseau
+    Copyright (C) 2004-2022   Ludovic Rousseau
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
 #ifdef __APPLE__
 #include <PCSC/winscard.h>
 #include <PCSC/wintypes.h>
@@ -36,11 +37,6 @@
 #define VERIFY_PIN
 #undef MODIFY_PIN
 #undef GET_GEMPC_FIRMWARE
-
-#ifndef TRUE
-#define TRUE 1
-#define FALSE 0
-#endif
 
 #define IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE     SCARD_CTL_CODE(1)
 
@@ -68,13 +64,13 @@ if (rv != SCARD_S_SUCCESS) \
 	goto end; \
 } \
 else \
-	printf(text ": " BLUE "OK\n\n" NORMAL);
+	printf(text ": " BLUE "OK\n" NORMAL);
 
 #define PCSC_ERROR_CONT(rv, text) \
 if (rv != SCARD_S_SUCCESS) \
 	printf(text ": " RED "%s (0x%"LF"X)\n" NORMAL, pcsc_stringify_error(rv), rv); \
 else \
-	printf(text ": " BLUE "OK\n\n" NORMAL);
+	printf(text ": " BLUE "OK\n" NORMAL);
 
 #define PRINT_GREEN(text, value) \
 	printf("%s: " GREEN "%s\n" NORMAL, text, value)
@@ -123,9 +119,20 @@ static void parse_properties(unsigned char *bRecvBuffer, int length)
 		{
 			case PCSCv2_PART10_PROPERTY_wLcdLayout:
 				PRINT_GREEN_HEX4(" wLcdLayout", value);
+				if (value)
+					printf("  Display with %d lines of %d columns\n",
+						value >> 8, value & 0xFF);
+				else
+					printf("  No display\n");
 				break;
 			case PCSCv2_PART10_PROPERTY_bEntryValidationCondition:
 				PRINT_GREEN_HEX2(" bEntryValidationCondition", value);
+				if (value & 1)
+					printf("  Max size reached (1)\n");
+				if (value & 2)
+					printf("  Validation key pressed (2)\n");
+				if (value & 4)
+					printf("  Timeout occurred (3)\n");
 				break;
 			case PCSCv2_PART10_PROPERTY_bTimeOut2:
 				PRINT_GREEN_HEX2(" bTimeOut2", value);
@@ -206,6 +213,15 @@ static const char *pinpad_return_codes(int length,
 		}
 	}
 
+	/* error codes specific to my test applet */
+	if (0x6A == bRecvBuffer[0])
+	{
+#define FORMAT "Error on data byte %2d"
+		static char ret2[10 + sizeof FORMAT];
+		sprintf(ret2, FORMAT, (char)bRecvBuffer[1]);
+		ret = ret2;
+	}
+
 	return ret;
 }
 
@@ -237,6 +253,7 @@ int main(int argc, char *argv[])
 	PCSC_TLV_STRUCTURE *pcsc_tlv;
 #if defined(VERIFY_PIN) | defined(MODIFY_PIN)
 	int offset;
+	unsigned int sw1, sw2;
 #endif
 #ifdef VERIFY_PIN
 	PIN_VERIFY_STRUCTURE *pin_verify;
@@ -244,7 +261,7 @@ int main(int argc, char *argv[])
 #ifdef MODIFY_PIN
 	PIN_MODIFY_STRUCTURE *pin_modify;
 #endif
-	char error;
+	bool error;
 	int PIN_min_size = 4;
 	int PIN_max_size = 8;
 
@@ -502,7 +519,19 @@ int main(int argc, char *argv[])
 		pin_properties = (PIN_PROPERTIES_STRUCTURE *)bRecvBuffer;
 		bEntryValidationCondition = pin_properties ->	bEntryValidationCondition;
 		PRINT_GREEN_HEX4(" wLcdLayout", pin_properties -> wLcdLayout);
+		if (pin_properties -> wLcdLayout)
+			printf("  Display with %d lines of %d columns\n",
+				pin_properties -> wLcdLayout >> 8,
+				pin_properties -> wLcdLayout & 0xFF);
+		else
+			printf("  No display\n");
 		PRINT_GREEN_DEC(" bEntryValidationCondition", bEntryValidationCondition);
+		if (bEntryValidationCondition & 1)
+			printf("  Max size reached (1)\n");
+		if (bEntryValidationCondition & 2)
+			printf("  Validation key pressed (2)\n");
+		if (bEntryValidationCondition & 4)
+			printf("  Timeout occurred (4)\n");
 		PRINT_GREEN_DEC(" bTimeOut2", pin_properties -> bTimeOut2);
 
 		printf("\n");
@@ -592,11 +621,11 @@ int main(int argc, char *argv[])
 	length = sizeof(bRecvBuffer);
 	rv = SCardTransmit(hCard, &pioSendPci, bSendBuffer, send_length,
 		&pioRecvPci, bRecvBuffer, &length);
+	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	printf(" card response:");
 	for (i=0; i<length; i++)
 		printf(" %02X", bRecvBuffer[i]);
-	printf("\n");
-	PCSC_ERROR_EXIT(rv, "SCardTransmit")
+	printf("\n\n");
 	if ((bRecvBuffer[0] != 0x90) || (bRecvBuffer[1] != 0x00))
 	{
 		printf("Error: test applet not found!\n");
@@ -680,17 +709,24 @@ int main(int argc, char *argv[])
 			printf("\n");
 	}
 
-	error = FALSE;
+	error = false;
 	if (length != 2 || bRecvBuffer[0] != 0x90 || bRecvBuffer[1] != 0x00)
-		error = TRUE;
+		error = true;
 
+	PCSC_ERROR_CONT(rv, "SCardControl")
 	printf(error ? RED : GREEN);
 	printf(" card response [%"LF"d bytes]:", length);
 	for (i=0; i<length; i++)
 		printf(" %02X", bRecvBuffer[i]);
 	printf(": %s", pinpad_return_codes(length, bRecvBuffer));
 	printf(NORMAL "\n");
-	PCSC_ERROR_CONT(rv, "SCardControl")
+	if (2 == length)
+	{
+		sw1 = bRecvBuffer[0];
+		sw2 = bRecvBuffer[1];
+	}
+	else
+		sw1 = sw2 = -1;
 
 	/* verify PIN dump */
 	printf("\nverify PIN dump:");
@@ -703,11 +739,11 @@ int main(int argc, char *argv[])
 	length = sizeof(bRecvBuffer);
 	rv = SCardTransmit(hCard, &pioSendPci, bSendBuffer, send_length,
 		&pioRecvPci, bRecvBuffer, &length);
+	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	printf(" card response:");
 	for (i=0; i<length; i++)
 		printf(" %02X", bRecvBuffer[i]);
 	printf("\n");
-	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 
 	if ((2 == length) && (0x6C == bRecvBuffer[0]))
 	{
@@ -722,12 +758,22 @@ int main(int argc, char *argv[])
 		length = sizeof(bRecvBuffer);
 		rv = SCardTransmit(hCard, &pioSendPci, bSendBuffer, send_length,
 			&pioRecvPci, bRecvBuffer, &length);
+		PCSC_ERROR_EXIT(rv, "SCardTransmit")
 		printf(" card response:");
 		for (i=0; i<length; i++)
 			printf(" %02X", bRecvBuffer[i]);
 		printf("\n");
-		PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	}
+
+	/* error codes specific to my test applet */
+	if (0x6A == sw1)
+	{
+		printf(" error at ---------------------");
+		for (i=0; i<sw2; i++)
+			printf("---");
+		printf("^^\n");
+	}
+	printf("\n");
 #endif
 
 	/* check if the reader supports Modify PIN */
@@ -843,17 +889,24 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	error = FALSE;
+	error = false;
 	if (length != 2 || bRecvBuffer[0] != 0x90 || bRecvBuffer[1] != 0x00)
-		error = TRUE;
+		error = true;
 
+	PCSC_ERROR_CONT(rv, "SCardControl")
 	printf(error ? RED : GREEN);
 	printf(" card response [%"LF"d bytes]:", length);
 	for (i=0; i<length; i++)
 		printf(" %02X", bRecvBuffer[i]);
 	printf(": %s", pinpad_return_codes(length, bRecvBuffer));
 	printf(NORMAL "\n");
-	PCSC_ERROR_CONT(rv, "SCardControl")
+	if (2 == length)
+	{
+		sw1 = bRecvBuffer[0];
+		sw2 = bRecvBuffer[1];
+	}
+	else
+		sw1 = sw2 = -1;
 
 	/* modify PIN dump */
 	printf("\nmodify PIN dump:");
@@ -866,11 +919,11 @@ int main(int argc, char *argv[])
 	length = sizeof(bRecvBuffer);
 	rv = SCardTransmit(hCard, &pioSendPci, bSendBuffer, send_length,
 		&pioRecvPci, bRecvBuffer, &length);
+	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	printf(" card response:");
 	for (i=0; i<length; i++)
 		printf(" %02X", bRecvBuffer[i]);
 	printf("\n");
-	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 
 	if ((2 == length) && (0x6C == bRecvBuffer[0]))
 	{
@@ -885,12 +938,22 @@ int main(int argc, char *argv[])
 		length = sizeof(bRecvBuffer);
 		rv = SCardTransmit(hCard, &pioSendPci, bSendBuffer, send_length,
 			&pioRecvPci, bRecvBuffer, &length);
+		PCSC_ERROR_EXIT(rv, "SCardTransmit")
 		printf(" card response:");
 		for (i=0; i<length; i++)
 			printf(" %02X", bRecvBuffer[i]);
 		printf("\n");
-		PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	}
+
+	/* error codes specific to my test applet */
+	if (0x6A == sw1)
+	{
+		printf(" error at ---------------------");
+		for (i=0; i<sw2; i++)
+			printf("---");
+		printf("^^\n");
+	}
+	printf("\n");
 #endif
 
 	/* card disconnect */

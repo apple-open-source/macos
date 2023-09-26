@@ -28,6 +28,7 @@
 #endif
 #include <pwd.h>
 #include <grp.h>
+#include <unistd.h>
 
 #include "sudo_compat.h"
 #include "sudo_fatal.h"
@@ -48,10 +49,24 @@ main(int argc, char *argv[])
     struct passwd *pw;
     struct group *grp;
     char *username;
-    int i, j, ntests = 0;
+    int ch, i, j, ntests = 0;
     int ngroups;
     gid_t basegid;
+
     initprogname(argc > 0 ? argv[0] : "getgrouplist_test");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignore */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     if ((pw = getpwuid(0)) == NULL)
 	sudo_fatal_nodebug("getpwuid(0)");
@@ -91,10 +106,12 @@ main(int argc, char *argv[])
 	    continue;
 	}
     }
-    if (errors != 0) {
+    if (ntests != 0) {
 	printf("%s: %d tests run, %d errors, %d%% success rate\n",
 	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
     }
+    free(username);
+    free(groups);
 #endif /* HAVE_GETGROUPLIST_2 */
-    exit(errors);
+    return errors;
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2018 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2018-2021 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -219,7 +219,7 @@ format_cmnd(struct sudo_command *c, bool negated)
     int len;
     debug_decl(format_cmnd, SUDOERS_DEBUG_UTIL);
 
-    cmnd = c->cmnd ? c->cmnd : "ALL";
+    cmnd = c->cmnd ? c->cmnd : (char *)"ALL";
     bufsiz = negated + strlen(cmnd) + 1;
     if (c->args != NULL)
 	bufsiz += 1 + strlen(c->args);
@@ -316,12 +316,13 @@ static void
 print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     struct cmndspec *cs, struct cmndspec **nextp, struct defaults_list *options)
 {
+    char timebuf[sizeof("20120727121554Z")];
     struct cmndspec *next = *nextp;
     struct member *m;
-    struct tm *tp;
+    struct tm gmt;
     char *attr_val;
     bool last_one;
-    char timebuf[sizeof("20120727121554Z")];
+    int len;
     debug_decl(print_cmndspec_ldif, SUDOERS_DEBUG_UTIL);
 
     /* Print runasuserlist as sudoRunAsUser attributes */
@@ -342,10 +343,12 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 
     /* Print sudoNotBefore and sudoNotAfter attributes */
     if (cs->notbefore != UNSPEC) {
-	if ((tp = gmtime(&cs->notbefore)) == NULL) {
+	if (gmtime_r(&cs->notbefore, &gmt) == NULL) {
 	    sudo_warn("%s", U_("unable to get GMT time"));
 	} else {
-	    if (strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", tp) == 0) {
+	    timebuf[sizeof(timebuf) - 1] = '\0';
+	    len = strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", &gmt);
+	    if (len == 0 || timebuf[sizeof(timebuf) - 1] != '\0') {
 		sudo_warnx("%s", U_("unable to format timestamp"));
 	    } else {
 		print_attribute_ldif(fp, "sudoNotBefore", timebuf);
@@ -353,10 +356,12 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	}
     }
     if (cs->notafter != UNSPEC) {
-	if ((tp = gmtime(&cs->notafter)) == NULL) {
+	if (gmtime_r(&cs->notafter, &gmt) == NULL) {
 	    sudo_warn("%s", U_("unable to get GMT time"));
 	} else {
-	    if (strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", tp) == 0) {
+	    timebuf[sizeof(timebuf) - 1] = '\0';
+	    len = strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", &gmt);
+	    if (len == 0 || timebuf[sizeof(timebuf) - 1] != '\0') {
 		sudo_warnx("%s", U_("unable to format timestamp"));
 	    } else {
 		print_attribute_ldif(fp, "sudoNotAfter", timebuf);
@@ -385,6 +390,10 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	if (tag.noexec != UNSPEC) {
 	    print_attribute_ldif(fp, "sudoOption",
 		tag.noexec ? "noexec" : "!noexec");
+	}
+	if (tag.intercept != UNSPEC) {
+	    print_attribute_ldif(fp, "sudoOption",
+		tag.intercept ? "intercept" : "!intercept");
 	}
 	if (tag.send_mail != UNSPEC) {
 	    if (tag.send_mail) {
@@ -450,6 +459,18 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	free(attr_val);
     }
 #endif /* HAVE_SELINUX */
+
+#ifdef HAVE_APPARMOR
+    /* Print AppArmor profile */
+    if (cs->apparmor_profile != NULL) {
+	if (asprintf(&attr_val, "apparmor_profile=%s", cs->apparmor_profile) == -1) {
+	    sudo_fatalx(U_("%s: %s"), __func__,
+		U_("unable to allocate memory"));
+	}
+	print_attribute_ldif(fp, "sudoOption", attr_val);
+	free(attr_val);
+    }
+#endif /* HAVE_APPARMOR */
 
 #ifdef HAVE_PRIV_SET
     /* Print Solaris privs/limitprivs */

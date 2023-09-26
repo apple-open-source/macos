@@ -26,30 +26,30 @@
 @synthesize operationTriggered = _operationTriggered;
 - (void)setOperationTriggered:(BOOL)v
 {
-    _has.operationTriggered = YES;
+    _has.operationTriggered = (uint)YES;
     _operationTriggered = v;
 }
 - (void)setHasOperationTriggered:(BOOL)f
 {
-    _has.operationTriggered = f;
+    _has.operationTriggered = (uint)f;
 }
 - (BOOL)hasOperationTriggered
 {
-    return _has.operationTriggered;
+    return _has.operationTriggered != 0;
 }
 @synthesize operationGroupIndex = _operationGroupIndex;
 - (void)setOperationGroupIndex:(uint32_t)v
 {
-    _has.operationGroupIndex = YES;
+    _has.operationGroupIndex = (uint)YES;
     _operationGroupIndex = v;
 }
 - (void)setHasOperationGroupIndex:(BOOL)f
 {
-    _has.operationGroupIndex = f;
+    _has.operationGroupIndex = (uint)f;
 }
 - (BOOL)hasOperationGroupIndex
 {
-    return _has.operationGroupIndex;
+    return _has.operationGroupIndex != 0;
 }
 
 - (NSString *)description
@@ -109,13 +109,13 @@ BOOL SECC2MPCloudKitOperationInfoReadFrom(__unsafe_unretained SECC2MPCloudKitOpe
             break;
             case 101 /* operationTriggered */:
             {
-                self->_has.operationTriggered = YES;
+                self->_has.operationTriggered = (uint)YES;
                 self->_operationTriggered = PBReaderReadBOOL(reader);
             }
             break;
             case 201 /* operationGroupIndex */:
             {
-                self->_has.operationGroupIndex = YES;
+                self->_has.operationGroupIndex = (uint)YES;
                 self->_operationGroupIndex = PBReaderReadUint32(reader);
             }
             break;

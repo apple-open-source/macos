@@ -167,6 +167,8 @@ NumberFormatterImpl::macrosToMicroGenerator(const MacroProps& macros, bool safe,
                        macros.unit.getComplexity(status) == UMEASURE_UNIT_MIXED;
 
     // Select the numbering system.
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
     const NumberingSystem* ns = nullptr;
     if (macros.symbols.isNumberingSystem()) {
         ns = macros.symbols.getNumberingSystem();
@@ -180,6 +182,21 @@ NumberFormatterImpl::macrosToMicroGenerator(const MacroProps& macros, bool safe,
     //    rdar://51672521) we can get the name from DecimalFormatSymbols which we need
     //    here anyway.
     const char* nsName = (ns != nullptr)? ns->getName() : nullptr;
+#else
+    LocalPointer<const NumberingSystem> nsLocal;
+    const NumberingSystem* ns;
+    if (macros.symbols.isNumberingSystem()) {
+        ns = macros.symbols.getNumberingSystem();
+    } else {
+        // TODO: Is there a way to avoid creating the NumberingSystem object?
+        ns = NumberingSystem::createInstance(macros.locale, status);
+        // Give ownership to the function scope.
+        nsLocal.adoptInstead(ns);
+    }
+    const char* nsName = U_SUCCESS(status) ? ns->getName() : "latn";
+    uprv_strncpy(fMicros.nsName, nsName, 8);
+    fMicros.nsName[8] = 0; // guarantee NUL-terminated
+#endif  // APPLE_ICU_CHANGES
 
     // Default gender: none.
     fMicros.gender = "";
@@ -189,8 +206,14 @@ NumberFormatterImpl::macrosToMicroGenerator(const MacroProps& macros, bool safe,
         fMicros.symbols = macros.symbols.getDecimalFormatSymbols();
     } else {
         LocalPointer<DecimalFormatSymbols> newSymbols(
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
+// rdar://107351099 SImpleDateFormat perf
+// at this point, macros.forDateFormat is true if this is for a date fmt; in that case usually
+// (always?) ns and nsName are both null (DecimalFormatSymbols will get NumberingSystem from locale).
             (ns != nullptr)?
-            new DecimalFormatSymbols(macros.locale, *ns, status):
+            new DecimalFormatSymbols(macros.locale, *ns, macros.forDateFormat, status):
+#endif  // APPLE_ICU_CHANGES
             new DecimalFormatSymbols(macros.locale, *ns, status), status);
         if (U_FAILURE(status)) {
             return nullptr;
@@ -204,6 +227,8 @@ NumberFormatterImpl::macrosToMicroGenerator(const MacroProps& macros, bool safe,
         fMicros.symbols = newSymbols.getAlias();
         fSymbols.adoptInstead(newSymbols.orphan());
     }
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
     // Resolve nsName and save (Apple rdar://51672521)
     if (nsName == nullptr && U_SUCCESS(status)) {
         nsName = fMicros.symbols->getNSName();
@@ -213,6 +238,7 @@ NumberFormatterImpl::macrosToMicroGenerator(const MacroProps& macros, bool safe,
     }
     uprv_strncpy(fMicros.nsName, nsName, 8);
     fMicros.nsName[8] = 0; // guarantee NUL-terminated
+#endif  // APPLE_ICU_CHANGES
 
     // Load and parse the pattern string. It is used for grouping sizes and affixes only.
     // If we are formatting currency, check for a currency-specific pattern.
@@ -364,7 +390,9 @@ NumberFormatterImpl::macrosToMicroGenerator(const MacroProps& macros, bool safe,
     }
     fPatternModifier.adoptInstead(patternModifier);
     const AffixPatternProvider* affixProvider =
-        macros.affixProvider != nullptr
+        macros.affixProvider != nullptr && (
+                // For more information on this condition, see ICU-22073
+                !isCompactNotation || isCurrency == macros.affixProvider->hasCurrencySign())
             ? macros.affixProvider
             : static_cast<const AffixPatternProvider*>(fPatternInfo.getAlias());
     patternModifier->setPatternInfo(affixProvider, kUndefinedField);

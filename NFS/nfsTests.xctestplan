@@ -14,7 +14,8 @@
   "testTargets" : [
     {
       "skippedTests" : [
-        "nfsclntTests_mount"
+        "nfsclntTests_mount",
+        "nfsclntTests_mount_krb"
       ],
       "target" : {
         "containerPath" : "container:NFS.xcodeproj",

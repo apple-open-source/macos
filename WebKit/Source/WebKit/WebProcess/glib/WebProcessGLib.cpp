@@ -27,10 +27,11 @@
 #include "config.h"
 #include "WebProcess.h"
 
-#include "WebKitExtensionManager.h"
-#include "WebKitWebExtensionPrivate.h"
+#include "Logging.h"
+#include "WebKitWebProcessExtensionPrivate.h"
 #include "WebPage.h"
 #include "WebProcessCreationParameters.h"
+#include "WebProcessExtensionManager.h"
 
 #if ENABLE(REMOTE_INSPECTOR)
 #include <JavaScriptCore/RemoteInspector.h>
@@ -48,12 +49,25 @@
 #include <wpe/wpe.h>
 #endif
 
+#if USE(GBM)
+#include <WebCore/GBMDevice.h>
+#endif
+
+#if PLATFORM(GTK)
+#include <WebCore/PlatformDisplayGBM.h>
+#include <WebCore/PlatformDisplaySurfaceless.h>
+#endif
+
 #if PLATFORM(GTK) && !USE(GTK4)
 #include <WebCore/ScrollbarThemeGtk.h>
 #endif
 
 #if ENABLE(MEDIA_STREAM)
 #include "UserMediaCaptureManager.h"
+#endif
+
+#if HAVE(MALLOC_TRIM)
+#include <malloc.h>
 #endif
 
 #if OS(LINUX)
@@ -68,6 +82,12 @@
 #include "GtkSettingsManagerProxy.h"
 #include <gtk/gtk.h>
 #endif
+
+#include <WebCore/CairoUtilities.h>
+
+#define RELEASE_LOG_SESSION_ID (m_sessionID ? m_sessionID->toUInt64() : 0)
+#define WEBPROCESS_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [sessionID=%" PRIu64 "] WebProcess::" fmt, this, RELEASE_LOG_SESSION_ID, ##__VA_ARGS__)
+#define WEBPROCESS_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [sessionID=%" PRIu64 "] WebProcess::" fmt, this, RELEASE_LOG_SESSION_ID, ##__VA_ARGS__)
 
 namespace WebKit {
 
@@ -117,14 +137,32 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     }
 #endif
 
+#if USE(GBM)
+    WebCore::GBMDevice::singleton().initialize(parameters.renderDeviceFile);
+#endif
+
+#if PLATFORM(GTK)
+    if (parameters.useDMABufSurfaceForCompositing) {
+#if USE(GBM)
+        const char* disableGBM = getenv("WEBKIT_DMABUF_RENDERER_DISABLE_GBM");
+        if (!disableGBM || !strcmp(disableGBM, "0")) {
+            if (auto* device = WebCore::GBMDevice::singleton().device())
+                m_displayForCompositing = WebCore::PlatformDisplayGBM::create(device);
+        }
+#endif
+        if (!m_displayForCompositing)
+            m_displayForCompositing = WebCore::PlatformDisplaySurfaceless::create();
+    }
+#endif
+
 #if PLATFORM(WAYLAND)
-    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland && !parameters.isServiceWorkerProcess) {
+    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland && !parameters.isServiceWorkerProcess && !parameters.useDMABufSurfaceForCompositing) {
         auto hostClientFileDescriptor = parameters.hostClientFileDescriptor.release();
         if (hostClientFileDescriptor != -1) {
             wpe_loader_init(parameters.implementationLibraryName.data());
-            m_wpeDisplay = WebCore::PlatformDisplayLibWPE::create();
-            if (!m_wpeDisplay->initialize(hostClientFileDescriptor))
-                m_wpeDisplay = nullptr;
+            m_displayForCompositing = WebCore::PlatformDisplayLibWPE::create();
+            if (!downcast<WebCore::PlatformDisplayLibWPE>(*m_displayForCompositing).initialize(hostClientFileDescriptor))
+                m_displayForCompositing = nullptr;
         }
     }
 #endif
@@ -155,10 +193,12 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     AccessibilityAtspi::singleton().connect(parameters.accessibilityBusAddress);
 #endif
 
+    if (parameters.disableFontHintingForTesting)
+        disableCairoFontHintingForTesting();
+
 #if PLATFORM(GTK)
     GtkSettingsManagerProxy::singleton().applySettings(WTFMove(parameters.gtkSettings));
 #endif
-
 }
 
 void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParameters&&)
@@ -169,10 +209,10 @@ void WebProcess::platformTerminate()
 {
 }
 
-void WebProcess::sendMessageToWebExtension(UserMessage&& message)
+void WebProcess::sendMessageToWebProcessExtension(UserMessage&& message)
 {
-    if (auto* extension = WebKitExtensionManager::singleton().extension())
-        webkitWebExtensionDidReceiveUserMessage(extension, WTFMove(message));
+    if (auto* extension = WebProcessExtensionManager::singleton().extension())
+        webkitWebProcessExtensionDidReceiveUserMessage(extension, WTFMove(message));
 }
 
 #if PLATFORM(GTK) && !USE(GTK4)
@@ -194,4 +234,24 @@ void WebProcess::switchFromStaticFontRegistryToUserFontRegistry(Vector<WebKit::S
 {
 }
 
+void WebProcess::releaseSystemMallocMemory()
+{
+#if HAVE(MALLOC_TRIM)
+#if !RELEASE_LOG_DISABLED
+    const auto startTime = MonotonicTime::now();
+#endif
+
+    malloc_trim(0);
+
+#if !RELEASE_LOG_DISABLED
+    const auto endTime = MonotonicTime::now();
+    WEBPROCESS_RELEASE_LOG(ProcessSuspension, "releaseSystemMallocMemory: took %.2fms", (endTime - startTime).milliseconds());
+#endif
+#endif
+}
+
 } // namespace WebKit
+
+#undef RELEASE_LOG_SESSION_ID
+#undef WEBPROCESS_RELEASE_LOG
+#undef WEBPROCESS_RELEASE_LOG_ERROR

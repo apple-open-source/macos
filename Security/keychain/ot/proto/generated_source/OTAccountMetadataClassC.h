@@ -9,8 +9,8 @@
  * The state of accounts on the system is complicated. Here's how we handle them:
  *  If there is no account, we will be in NO_ACCOUNT and have no altDSID
  *  If there is an SA account, we will bt in NO_ACCOUNT and have an altDSID
- *  If there is an HSA2 account, we will be in ACCOUNT_AVAILABLE and have an altDSID
- * Once you're in an HSA2 account, CDP might be enabled or disabled. If it's not enabled,
+ *  If there is an HSA2/Managed account, we will be in ACCOUNT_AVAILABLE and have an altDSID
+ * Once you're in an HSA2/Managed account, CDP might be enabled or disabled. If it's not enabled,
  * then Octagon shouldn't be active.
  */
 typedef NS_ENUM(int32_t, OTAccountMetadataClassC_AccountState) {

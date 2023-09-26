@@ -1,4 +1,216 @@
-@@ -430,80 +218,15 @@
+@@ -13,32 +13,13 @@
+ 			buildPhases = (
+ 			);
+ 			dependencies = (
+-				CCC0E8AB270ADDBD00EBE058 /* PBXTargetDependency */,
+ 				4D3DCB7708E084D400C78A0B /* PBXTargetDependency */,
+ 				4D3DCB7B08E084D400C78A0B /* PBXTargetDependency */,
+ 				4D9CE48B150080EE00186084 /* PBXTargetDependency */,
+-				D3DE083B27BD255900CDEF4C /* PBXTargetDependency */,
+ 			);
+ 			name = "msdosfs OSX";
+ 			productName = "msdosfs (Aggregate)";
+ 		};
+-		4D5A7D0C1816FB7E00D5FE60 /* msdosfs iOS */ = {
+-			isa = PBXAggregateTarget;
+-			buildConfigurationList = 4D5A7D0D1816FB7E00D5FE60 /* Build configuration list for PBXAggregateTarget "msdosfs iOS" */;
+-			buildPhases = (
+-			);
+-			dependencies = (
+-				DBB91EE51FBCD25C006380E0 /* PBXTargetDependency */,
+-				DBB91EE71FBCD35B006380E0 /* PBXTargetDependency */,
+-				4D5A7D121816FB8D00D5FE60 /* PBXTargetDependency */,
+-				F9E147F523A7EA1400047008 /* PBXTargetDependency */,
+-				FE9A4CD626FB5649005420EC /* PBXTargetDependency */,
+-				FE9A4CD426FB5603005420EC /* PBXTargetDependency */,
+-				D39A451C27BCFF010070182A /* PBXTargetDependency */,
+-			);
+-			name = "msdosfs iOS";
+-			productName = "msdosfs iOS";
+-		};
+ 		4D9CE47A15007F7000186084 /* executables */ = {
+ 			isa = PBXAggregateTarget;
+ 			buildConfigurationList = 4D9CE47B15007F7000186084 /* Build configuration list for PBXAggregateTarget "executables" */;
+@@ -102,81 +68,12 @@
+ 		4D3DCF1C08E0BBF700C78A0B /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0E08E0BBF700C78A0B /* main.c */; };
+ 		4D91A5630920294E0067C87B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4D91A5610920294E0067C87B /* InfoPlist.strings */; };
+ 		4D93F090137DD814007F8174 /* msdosfs_kdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */; };
+-		4DDD3EF60BB0466300CCD5E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */; };
+-		901090A31F94B33E00259D7C /* Conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 901090A21F94B33E00259D7C /* Conv.c */; };
+-		9022EC4C1FA5F75B00D1BCC4 /* Logger.c in Sources */ = {isa = PBXBuildFile; fileRef = 9022EC4A1FA5F75B00D1BCC4 /* Logger.c */; };
+-		9022EC4D1FA5F75B00D1BCC4 /* Logger.h in Headers */ = {isa = PBXBuildFile; fileRef = 9022EC4B1FA5F75B00D1BCC4 /* Logger.h */; };
+-		905417B11F94A07C0033E46D /* Conv.h in Headers */ = {isa = PBXBuildFile; fileRef = 905417B01F94A07C0033E46D /* Conv.h */; };
+-		905417B21F94A0DE0033E46D /* msdosfs_conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */; };
+-		90778B1D1FCD5EBF000D829F /* ZeroFill.h in Headers */ = {isa = PBXBuildFile; fileRef = 90778B1B1FCD5EBF000D829F /* ZeroFill.h */; };
+-		90778B1E1FCD5EBF000D829F /* ZeroFill.c in Sources */ = {isa = PBXBuildFile; fileRef = 90778B1C1FCD5EBF000D829F /* ZeroFill.c */; };
+-		9A772CCC286DBB1700978E45 /* msdos_performance_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A772CCB286DBB1700978E45 /* msdos_performance_tests.m */; };
+-		9A772CCD286DBB1700978E45 /* livefiles_msdos.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */; };
+-		9A772CD5286DBC5200978E45 /* UVFSPluginTesting.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9A772CD4286DBC5200978E45 /* UVFSPluginTesting.framework */; };
+-		9A772CD7286DBC5D00978E45 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9A772CD6286DBC5D00978E45 /* CoreFoundation.framework */; };
+-		9A772CD8286DBDC300978E45 /* msdos_tests_utilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 9AC7DFFA2869C96000A7A4BF /* msdos_tests_utilities.m */; };
+-		9AC7DFFB2869C96000A7A4BF /* msdos_tests_utilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 9AC7DFFA2869C96000A7A4BF /* msdos_tests_utilities.m */; };
+-		D124C374200E46F300BA6242 /* Randomizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D124C373200E46F300BA6242 /* Randomizer.swift */; };
+-		D124C375200E46F300BA6242 /* Randomizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D124C373200E46F300BA6242 /* Randomizer.swift */; };
+-		D12A83A21FFCC4CE00A02A42 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D12A83A11FFCC4CE00A02A42 /* Foundation.framework */; };
+-		D14D43D82003B33E007BBAF3 /* Hexdump.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14D43D72003B33E007BBAF3 /* Hexdump.swift */; };
+-		D14D43D92003B33E007BBAF3 /* Hexdump.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14D43D72003B33E007BBAF3 /* Hexdump.swift */; };
+-		D14F86EA2015CE5700A703BE /* FSTree.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14F86E92015CE5700A703BE /* FSTree.swift */; };
+-		D14F86EB2015CE5700A703BE /* FSTree.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14F86E92015CE5700A703BE /* FSTree.swift */; };
+-		D1898C961FFCC5A30004C0FB /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898C951FFCC5A30004C0FB /* main.swift */; };
+-		D1898C981FFCC5EB0004C0FB /* LiveFilesTester-Bridging-Header.c in Sources */ = {isa = PBXBuildFile; fileRef = D1898C971FFCC5EB0004C0FB /* LiveFilesTester-Bridging-Header.c */; };
+-		D1898C9E1FFCC6660004C0FB /* Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898C9D1FFCC6660004C0FB /* Tests.swift */; };
+-		D1898CA31FFCC6B70004C0FB /* Global.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CA21FFCC6B70004C0FB /* Global.swift */; };
+-		D1898CA51FFCC6D00004C0FB /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CA41FFCC6D00004C0FB /* Version.swift */; };
+-		D1898CA91FFCC7080004C0FB /* TestResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CA81FFCC7080004C0FB /* TestResult.swift */; };
+-		D1898CAB1FFCC7260004C0FB /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CAA1FFCC7260004C0FB /* Utils.swift */; };
+-		D1898CAD1FFCC73B0004C0FB /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CAC1FFCC73B0004C0FB /* Logger.swift */; };
+-		D1A226AD2010CFCF00496F6D /* Node.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A226AC2010CFCF00496F6D /* Node.swift */; };
+-		D1A226AE2010CFCF00496F6D /* Node.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A226AC2010CFCF00496F6D /* Node.swift */; };
+-		D1AD93E820036C1700FF5EF7 /* TestResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CA81FFCC7080004C0FB /* TestResult.swift */; };
+-		D1AD93EA20036C1700FF5EF7 /* Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898C9D1FFCC6660004C0FB /* Tests.swift */; };
+-		D1AD93EB20036C1700FF5EF7 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898C951FFCC5A30004C0FB /* main.swift */; };
+-		D1AD93EE20036C1700FF5EF7 /* LiveFilesTester-Bridging-Header.c in Sources */ = {isa = PBXBuildFile; fileRef = D1898C971FFCC5EB0004C0FB /* LiveFilesTester-Bridging-Header.c */; };
+-		D1AD93EF20036C1700FF5EF7 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CAC1FFCC73B0004C0FB /* Logger.swift */; };
+-		D1AD93F020036C1700FF5EF7 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CAA1FFCC7260004C0FB /* Utils.swift */; };
+-		D1AD93F120036C1700FF5EF7 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CA41FFCC6D00004C0FB /* Version.swift */; };
+-		D1AD93F220036C1700FF5EF7 /* Global.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1898CA21FFCC6B70004C0FB /* Global.swift */; };
+-		D1AD93F420036C1700FF5EF7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D12A83A11FFCC4CE00A02A42 /* Foundation.framework */; };
+-		D1CB821F20FF6EFB00DC5F54 /* LiveFilesTester.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CB821C20FF6EFB00DC5F54 /* LiveFilesTester.swift */; };
+-		D1CB822020FF6EFB00DC5F54 /* ArgsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CB821D20FF6EFB00DC5F54 /* ArgsParser.swift */; };
+-		D1CB822120FF6EFB00DC5F54 /* BaseTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CB821E20FF6EFB00DC5F54 /* BaseTest.swift */; };
+-		D1CB822220FF6F4100DC5F54 /* ArgsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CB821D20FF6EFB00DC5F54 /* ArgsParser.swift */; };
+-		D1CB822320FF6F4100DC5F54 /* BaseTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CB821E20FF6EFB00DC5F54 /* BaseTest.swift */; };
+-		D1CB822420FF6F4100DC5F54 /* LiveFilesTester.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CB821C20FF6EFB00DC5F54 /* LiveFilesTester.swift */; };
+-		D1F123A4201F2B8A00552274 /* DMGTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1F123A3201F2B8A00552274 /* DMGTools.swift */; };
+-		D1F123A5201F2B8A00552274 /* DMGTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1F123A3201F2B8A00552274 /* DMGTools.swift */; };
+-		D32A18FE27A9647C00574BF7 /* msdos_unit_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = D32A18FD27A9647C00574BF7 /* msdos_unit_tests.m */; };
+-		D32A190327A964D200574BF7 /* livefiles_msdos.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */; };
+-		D32A190527A964D800574BF7 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D32A190427A964D800574BF7 /* CoreFoundation.framework */; };
+-		D32A190727A964E100574BF7 /* UVFSPluginTesting.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D32A190627A964E100574BF7 /* UVFSPluginTesting.framework */; };
+-		D7238A7E1F7D491500D5F313 /* FAT_Access_M.c in Sources */ = {isa = PBXBuildFile; fileRef = D7238A7C1F7D491500D5F313 /* FAT_Access_M.c */; };
+-		D7238A7F1F7D491500D5F313 /* FAT_Access_M.h in Headers */ = {isa = PBXBuildFile; fileRef = D7238A7D1F7D491500D5F313 /* FAT_Access_M.h */; };
+-		D7238A811F7D49DB00D5F313 /* Common.h in Headers */ = {isa = PBXBuildFile; fileRef = D7238A801F7D49DB00D5F313 /* Common.h */; };
+-		D75D8D6F2021CA6C0078CC24 /* diagnostic.h in Headers */ = {isa = PBXBuildFile; fileRef = D75D8D6D2021CA6C0078CC24 /* diagnostic.h */; };
+-		D75D8D702021CA6C0078CC24 /* diagnostic.c in Sources */ = {isa = PBXBuildFile; fileRef = D75D8D6E2021CA6C0078CC24 /* diagnostic.c */; };
+-		D77EA67821F082E800719E7C /* utfconvdata.h in Headers */ = {isa = PBXBuildFile; fileRef = D77EA67721F082E800719E7C /* utfconvdata.h */; };
+-		D77EE24D1F69587200DB5C41 /* usbstorage_tester.c in Sources */ = {isa = PBXBuildFile; fileRef = D77EE23C1F69581C00DB5C41 /* usbstorage_tester.c */; };
+-		D77EE2501F6958DB00DB5C41 /* livefiles_msdos.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */; };
+-		D77EE2531F6958F800DB5C41 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D77EE2521F6958F800DB5C41 /* CoreFoundation.framework */; };
+-		D77EE2541F69592400DB5C41 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D77EE2521F6958F800DB5C41 /* CoreFoundation.framework */; };
+-		D787B4741F829CB800AF1565 /* MR_SW_Lock.c in Sources */ = {isa = PBXBuildFile; fileRef = D787B4721F829CB800AF1565 /* MR_SW_Lock.c */; };
+-		D787B4751F829CB800AF1565 /* MR_SW_Lock.h in Headers */ = {isa = PBXBuildFile; fileRef = D787B4731F829CB800AF1565 /* MR_SW_Lock.h */; };
+-		D7B8A84622119E5D001F693F /* Naming_Hash.c in Sources */ = {isa = PBXBuildFile; fileRef = D79F2C912211983E003F8E27 /* Naming_Hash.c */; };
+-		D7C983731F938071006C2ED3 /* DirOPS_Handler.c in Sources */ = {isa = PBXBuildFile; fileRef = D7C983711F938071006C2ED3 /* DirOPS_Handler.c */; };
+-		D7C983751F938071006C2ED3 /* DirOPS_Handler.h in Headers */ = {isa = PBXBuildFile; fileRef = D7C983721F938071006C2ED3 /* DirOPS_Handler.h */; };
+-		D7C983771F93807C006C2ED3 /* RawFile_Access_M.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B494101F8BB63A00E5468E /* RawFile_Access_M.h */; };
+-		D7C983781F938091006C2ED3 /* FileRecord_M.h in Headers */ = {isa = PBXBuildFile; fileRef = 7228011F1F84DE840029992C /* FileRecord_M.h */; };
+-		D7C983791F938095006C2ED3 /* FileRecord_M.c in Sources */ = {isa = PBXBuildFile; fileRef = 722801201F84DE840029992C /* FileRecord_M.c */; };
+-		D7C9837A1F93809B006C2ED3 /* RawFile_Access_M.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B494111F8BB63A00E5468E /* RawFile_Access_M.c */; };
+-		D7C9837D1F9380C5006C2ED3 /* FileOPS_Handler.c in Sources */ = {isa = PBXBuildFile; fileRef = D7C9837B1F9380C5006C2ED3 /* FileOPS_Handler.c */; };
+-		D7C9837E1F9380C5006C2ED3 /* FileOPS_Handler.h in Headers */ = {isa = PBXBuildFile; fileRef = D7C9837C1F9380C5006C2ED3 /* FileOPS_Handler.h */; };
+-		D7C983811F9380DD006C2ED3 /* FSOPS_Handler.c in Sources */ = {isa = PBXBuildFile; fileRef = D7C9837F1F9380DD006C2ED3 /* FSOPS_Handler.c */; };
+-		D7C983821F9380DD006C2ED3 /* FSOPS_Handler.h in Headers */ = {isa = PBXBuildFile; fileRef = D7C983801F9380DD006C2ED3 /* FSOPS_Handler.h */; };
++		F9399E3628F6722F00C7DA02 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9399E3528F6722F00C7DA02 /* CoreFoundation.framework */; };
++		F9399E3828F6725A00C7DA02 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9399E3728F6725A00C7DA02 /* IOKit.framework */; };
++		F9399E3928F6727A00C7DA02 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9399E3528F6722F00C7DA02 /* CoreFoundation.framework */; };
++		F9399E3A28F6728300C7DA02 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9399E3728F6725A00C7DA02 /* IOKit.framework */; };
++		F9399E3B28F672B200C7DA02 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9399E3528F6722F00C7DA02 /* CoreFoundation.framework */; };
++		F9399E3C28F672C800C7DA02 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9399E3728F6725A00C7DA02 /* IOKit.framework */; };
+ /* End PBXBuildFile section */
+ 
+ /* Begin PBXContainerItemProxy section */
+@@ -277,90 +167,6 @@
+ 			remoteGlobalIDString = 4D9CE47A15007F7000186084;
+ 			remoteInfo = executables;
+ 		};
+-		9A772CCE286DBB1700978E45 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D77EE2311F69579900DB5C41;
+-			remoteInfo = livefiles_msdos;
+-		};
+-		CCC0E8AA270ADDBD00EBE058 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D77EE2311F69579900DB5C41;
+-			remoteInfo = livefiles_msdos;
+-		};
+-		D39A451B27BCFF010070182A /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D32A18FA27A9647C00574BF7;
+-			remoteInfo = msdos_tests;
+-		};
+-		D3DE083A27BD255900CDEF4C /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D32A18FA27A9647C00574BF7;
+-			remoteInfo = msdos_tests;
+-		};
+-		D3E54F2127BD28D3006B6BD1 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D77EE2311F69579900DB5C41;
+-			remoteInfo = livefiles_msdos;
+-		};
+-		D77EE24E1F6958AE00DB5C41 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D77EE2311F69579900DB5C41;
+-			remoteInfo = usbstorage_plugin;
+-		};
+-		D7C30DBB2067E6C500951FE9 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D1AD93E520036C1700FF5EF7;
+-			remoteInfo = livefiles_tester;
+-		};
+-		DBB91EE41FBCD25C006380E0 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D77EE2311F69579900DB5C41;
+-			remoteInfo = usbstorage_plugin;
+-		};
+-		DBB91EE61FBCD35B006380E0 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = D77EE2431F69585600DB5C41;
+-			remoteInfo = usbstorage_tester;
+-		};
+-		F9E147F423A7EA1400047008 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = 4D3DCC4208E0B73400C78A0B;
+-			remoteInfo = newfs_msdos;
+-		};
+-		FE9A4CD326FB5603005420EC /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = 4D3DCB5608E084D400C78A0B;
+-			remoteInfo = msdos.fs;
+-		};
+-		FE9A4CD526FB5649005420EC /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = 4D3DCB6708E084D400C78A0B;
+-			remoteInfo = msdos.util;
+-		};
+ /* End PBXContainerItemProxy section */
+ 
+ /* Begin PBXCopyFilesBuildPhase section */
+@@ -471,80 +259,15 @@
  		4D8BCB260A0278BC008334F3 /* Locking.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Locking.rtf; sourceTree = "<group>"; };
  		4D91A5620920294E0067C87B /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = en; path = msdos_util.tproj/en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
  		4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = msdosfs_kdebug.h; sourceTree = "<group>"; };
@@ -81,7 +293,87 @@
  /* End PBXFileReference section */
  
  /* Begin PBXFrameworksBuildPhase section */
-@@ -723,132 +389,16 @@
+@@ -580,59 +304,6 @@
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+-		9A772CC6286DBB1700978E45 /* Frameworks */ = {
+-			isa = PBXFrameworksBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				9A772CCD286DBB1700978E45 /* livefiles_msdos.dylib in Frameworks */,
+-				9A772CD7286DBC5D00978E45 /* CoreFoundation.framework in Frameworks */,
+-				9A772CD5286DBC5200978E45 /* UVFSPluginTesting.framework in Frameworks */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D12A839D1FFCC4CE00A02A42 /* Frameworks */ = {
+-			isa = PBXFrameworksBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D12A83A21FFCC4CE00A02A42 /* Foundation.framework in Frameworks */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D1AD93F320036C1700FF5EF7 /* Frameworks */ = {
+-			isa = PBXFrameworksBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D1AD93F420036C1700FF5EF7 /* Foundation.framework in Frameworks */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D32A18F827A9647C00574BF7 /* Frameworks */ = {
+-			isa = PBXFrameworksBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D32A190327A964D200574BF7 /* livefiles_msdos.dylib in Frameworks */,
+-				D32A190527A964D800574BF7 /* CoreFoundation.framework in Frameworks */,
+-				D32A190727A964E100574BF7 /* UVFSPluginTesting.framework in Frameworks */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D77EE22F1F69579900DB5C41 /* Frameworks */ = {
+-			isa = PBXFrameworksBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D77EE2541F69592400DB5C41 /* CoreFoundation.framework in Frameworks */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D77EE2411F69585600DB5C41 /* Frameworks */ = {
+-			isa = PBXFrameworksBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D77EE2531F6958F800DB5C41 /* CoreFoundation.framework in Frameworks */,
+-				D77EE2501F6958DB00DB5C41 /* livefiles_msdos.dylib in Frameworks */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+ /* End PBXFrameworksBuildPhase section */
+ 
+ /* Begin PBXGroup section */
+@@ -711,7 +382,6 @@
+ 		7D8BA341010E490C02CA2964 /* msdosfs */ = {
+ 			isa = PBXGroup;
+ 			children = (
+-				D77EE2371F6957A900DB5C41 /* msdosfs_usbstorage_plugin */,
+ 				4D71368E112F748200BC4A72 /* msdosfs.xcconfig */,
+ 				4D8BCB260A0278BC008334F3 /* Locking.rtf */,
+ 				4D3DCC0808E0B48600C78A0B /* msdosfs.kext */,
+@@ -719,11 +389,7 @@
+ 				4D3DCC3008E0B53A00C78A0B /* msdos.util */,
+ 				4D3DCC5608E0B79E00C78A0B /* newfs_msdos.tproj */,
+ 				4D3DCF0408E0BBF700C78A0B /* fsck_msdos.tproj */,
+-				D12A83A31FFCC4CE00A02A42 /* LiveFilesTester */,
+-				D32A18FC27A9647C00574BF7 /* msdos_tests */,
+ 				7D8BA376010E490C02CA2964 /* Products */,
+-				7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */,
+-				4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */,
+ 				4D027E2513B91F1400B48B76 /* libutil1.0.dylib */,
+ 				4D3DCB6508E084D400C78A0B /* Info-msdos_fs.plist */,
+ 				4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */,
+@@ -747,132 +413,16 @@
  				4D3DCB7408E084D400C78A0B /* msdos.util */,
  				4D3DCC5008E0B73400C78A0B /* newfs_msdos */,
  				4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */,
@@ -216,7 +508,379 @@
  				D12A83A11FFCC4CE00A02A42 /* Foundation.framework */,
  			);
  			name = Frameworks;
-@@ -2207,835 +1381,6 @@
+@@ -933,26 +483,6 @@
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+-		D77EE2301F69579900DB5C41 /* Headers */ = {
+-			isa = PBXHeadersBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D7238A7F1F7D491500D5F313 /* FAT_Access_M.h in Headers */,
+-				D77EA67821F082E800719E7C /* utfconvdata.h in Headers */,
+-				D75D8D6F2021CA6C0078CC24 /* diagnostic.h in Headers */,
+-				D7C983781F938091006C2ED3 /* FileRecord_M.h in Headers */,
+-				90778B1D1FCD5EBF000D829F /* ZeroFill.h in Headers */,
+-				D7C983751F938071006C2ED3 /* DirOPS_Handler.h in Headers */,
+-				D7C983821F9380DD006C2ED3 /* FSOPS_Handler.h in Headers */,
+-				9022EC4D1FA5F75B00D1BCC4 /* Logger.h in Headers */,
+-				D787B4751F829CB800AF1565 /* MR_SW_Lock.h in Headers */,
+-				D7238A811F7D49DB00D5F313 /* Common.h in Headers */,
+-				D7C9837E1F9380C5006C2ED3 /* FileOPS_Handler.h in Headers */,
+-				905417B11F94A07C0033E46D /* Conv.h in Headers */,
+-				D7C983771F93807C006C2ED3 /* RawFile_Access_M.h in Headers */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+ /* End PBXHeadersBuildPhase section */
+ 
+ /* Begin PBXNativeTarget section */
+@@ -1078,111 +608,6 @@
+ 			productReference = 4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */;
+ 			productType = "com.apple.product-type.tool";
+ 		};
+-		9A772CC8286DBB1700978E45 /* msdos_performance_tests */ = {
+-			isa = PBXNativeTarget;
+-			buildConfigurationList = 9A772CD0286DBB1700978E45 /* Build configuration list for PBXNativeTarget "msdos_performance_tests" */;
+-			buildPhases = (
+-				9A772CC5286DBB1700978E45 /* Sources */,
+-				9A772CC6286DBB1700978E45 /* Frameworks */,
+-				9A772CC7286DBB1700978E45 /* Resources */,
+-			);
+-			buildRules = (
+-			);
+-			dependencies = (
+-				9A772CCF286DBB1700978E45 /* PBXTargetDependency */,
+-			);
+-			name = msdos_performance_tests;
+-			productName = msdos_performance_tests;
+-			productReference = 9A772CC9286DBB1700978E45 /* msdos_performance_tests.xctest */;
+-			productType = "com.apple.product-type.bundle.unit-test";
+-		};
+-		D12A839F1FFCC4CE00A02A42 /* LiveFilesTester */ = {
+-			isa = PBXNativeTarget;
+-			buildConfigurationList = D12A83AB1FFCC4CE00A02A42 /* Build configuration list for PBXNativeTarget "LiveFilesTester" */;
+-			buildPhases = (
+-				D1AC333C1FFCC8800066739C /* ShellScript */,
+-				D12A839C1FFCC4CE00A02A42 /* Sources */,
+-				D12A839D1FFCC4CE00A02A42 /* Frameworks */,
+-				D12A839E1FFCC4CE00A02A42 /* CopyFiles */,
+-			);
+-			buildRules = (
+-			);
+-			dependencies = (
+-			);
+-			name = LiveFilesTester;
+-			productName = LiveFilesTester;
+-			productReference = D12A83A01FFCC4CE00A02A42 /* LiveFilesTester */;
+-			productType = "com.apple.product-type.tool";
+-		};
+-		D1AD93E520036C1700FF5EF7 /* livefiles_tester */ = {
+-			isa = PBXNativeTarget;
+-			buildConfigurationList = D1AD93F620036C1700FF5EF7 /* Build configuration list for PBXNativeTarget "livefiles_tester" */;
+-			buildPhases = (
+-				D1AD93E720036C1700FF5EF7 /* Sources */,
+-				D1AD93F320036C1700FF5EF7 /* Frameworks */,
+-			);
+-			buildRules = (
+-			);
+-			dependencies = (
+-			);
+-			name = livefiles_tester;
+-			productName = LiveFilesTester;
+-			productReference = D1AD93FA20036C1700FF5EF7 /* livefiles_tester */;
+-			productType = "com.apple.product-type.tool";
+-		};
+-		D32A18FA27A9647C00574BF7 /* msdos_unit_tests */ = {
+-			isa = PBXNativeTarget;
+-			buildConfigurationList = D32A190227A9647C00574BF7 /* Build configuration list for PBXNativeTarget "msdos_unit_tests" */;
+-			buildPhases = (
+-				D32A18F727A9647C00574BF7 /* Sources */,
+-				D32A18F827A9647C00574BF7 /* Frameworks */,
+-				D32A18F927A9647C00574BF7 /* Resources */,
+-			);
+-			buildRules = (
+-			);
+-			dependencies = (
+-				D3E54F2227BD28D3006B6BD1 /* PBXTargetDependency */,
+-			);
+-			name = msdos_unit_tests;
+-			productName = msdos_tests;
+-			productReference = D32A18FB27A9647C00574BF7 /* msdos_unit_tests.xctest */;
+-			productType = "com.apple.product-type.bundle.unit-test";
+-		};
+-		D77EE2311F69579900DB5C41 /* livefiles_msdos */ = {
+-			isa = PBXNativeTarget;
+-			buildConfigurationList = D77EE2361F69579900DB5C41 /* Build configuration list for PBXNativeTarget "livefiles_msdos" */;
+-			buildPhases = (
+-				D77EE22E1F69579900DB5C41 /* Sources */,
+-				D77EE22F1F69579900DB5C41 /* Frameworks */,
+-				D77EE2301F69579900DB5C41 /* Headers */,
+-			);
+-			buildRules = (
+-			);
+-			dependencies = (
+-			);
+-			name = livefiles_msdos;
+-			productName = usbstorage_plugin;
+-			productReference = D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */;
+-			productType = "com.apple.product-type.library.dynamic";
+-		};
+-		D77EE2431F69585600DB5C41 /* livefiles_msdos_tester */ = {
+-			isa = PBXNativeTarget;
+-			buildConfigurationList = D77EE2481F69585600DB5C41 /* Build configuration list for PBXNativeTarget "livefiles_msdos_tester" */;
+-			buildPhases = (
+-				D77EE2401F69585600DB5C41 /* Sources */,
+-				D77EE2411F69585600DB5C41 /* Frameworks */,
+-				D77EE2421F69585600DB5C41 /* CopyFiles */,
+-			);
+-			buildRules = (
+-			);
+-			dependencies = (
+-				D77EE24F1F6958AE00DB5C41 /* PBXTargetDependency */,
+-			);
+-			name = livefiles_msdos_tester;
+-			productName = usbstorage_tester;
+-			productReference = D77EE2441F69585600DB5C41 /* livefiles_msdos_tester */;
+-			productType = "com.apple.product-type.tool";
+-		};
+ /* End PBXNativeTarget section */
+ 
+ /* Begin PBXProject section */
+@@ -1198,32 +623,6 @@
+ 					4D3DCB2B08E084D300C78A0B = {
+ 						LastSwiftMigration = 0900;
+ 					};
+-					9A772CC8286DBB1700978E45 = {
+-						CreatedOnToolsVersion = 14.0;
+-						ProvisioningStyle = Automatic;
+-					};
+-					D12A839F1FFCC4CE00A02A42 = {
+-						CreatedOnToolsVersion = 9.3;
+-						LastSwiftMigration = 0930;
+-						ProvisioningStyle = Automatic;
+-					};
+-					D1AD93E520036C1700FF5EF7 = {
+-						ProvisioningStyle = Automatic;
+-					};
+-					D32A18FA27A9647C00574BF7 = {
+-						CreatedOnToolsVersion = 14.0;
+-						ProvisioningStyle = Automatic;
+-					};
+-					D77EE2311F69579900DB5C41 = {
+-						CreatedOnToolsVersion = 9.0;
+-					};
+-					D77EE2431F69585600DB5C41 = {
+-						CreatedOnToolsVersion = 9.0;
+-					};
+-					DB1AAB73204727B30036167F = {
+-						CreatedOnToolsVersion = 9.3;
+-						ProvisioningStyle = Automatic;
+-					};
+ 				};
+ 			};
+ 			buildConfigurationList = 4DAA598E08D79EF4007BE920 /* Build configuration list for PBXProject "msdosfs" */;
+@@ -1353,12 +750,6 @@
+ 				4D3DCB4708E084D400C78A0B /* mount_msdos */,
+ 				4D3DCC4208E0B73400C78A0B /* newfs_msdos */,
+ 				4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */,
+-				D77EE2311F69579900DB5C41 /* livefiles_msdos */,
+-				D77EE2431F69585600DB5C41 /* livefiles_msdos_tester */,
+-				D12A839F1FFCC4CE00A02A42 /* LiveFilesTester */,
+-				D1AD93E520036C1700FF5EF7 /* livefiles_tester */,
+-				D32A18FA27A9647C00574BF7 /* msdos_unit_tests */,
+-				9A772CC8286DBB1700978E45 /* msdos_performance_tests */,
+ 			);
+ 		};
+ /* End PBXProject section */
+@@ -1379,20 +770,6 @@
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+-		9A772CC7286DBB1700978E45 /* Resources */ = {
+-			isa = PBXResourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D32A18F927A9647C00574BF7 /* Resources */ = {
+-			isa = PBXResourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+ /* End PBXResourcesBuildPhase section */
+ 
+ /* Begin PBXRezBuildPhase section */
+@@ -1478,98 +842,6 @@
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+-		9A772CC5286DBB1700978E45 /* Sources */ = {
+-			isa = PBXSourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				9A772CD8286DBDC300978E45 /* msdos_tests_utilities.m in Sources */,
+-				9A772CCC286DBB1700978E45 /* msdos_performance_tests.m in Sources */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D12A839C1FFCC4CE00A02A42 /* Sources */ = {
+-			isa = PBXSourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D1898CA91FFCC7080004C0FB /* TestResult.swift in Sources */,
+-				D1898C9E1FFCC6660004C0FB /* Tests.swift in Sources */,
+-				D1898C961FFCC5A30004C0FB /* main.swift in Sources */,
+-				D1898C981FFCC5EB0004C0FB /* LiveFilesTester-Bridging-Header.c in Sources */,
+-				D1CB822020FF6EFB00DC5F54 /* ArgsParser.swift in Sources */,
+-				D14D43D82003B33E007BBAF3 /* Hexdump.swift in Sources */,
+-				D1898CAD1FFCC73B0004C0FB /* Logger.swift in Sources */,
+-				D124C374200E46F300BA6242 /* Randomizer.swift in Sources */,
+-				D14F86EA2015CE5700A703BE /* FSTree.swift in Sources */,
+-				D1CB822120FF6EFB00DC5F54 /* BaseTest.swift in Sources */,
+-				D1898CAB1FFCC7260004C0FB /* Utils.swift in Sources */,
+-				D1898CA51FFCC6D00004C0FB /* Version.swift in Sources */,
+-				D1898CA31FFCC6B70004C0FB /* Global.swift in Sources */,
+-				D1A226AD2010CFCF00496F6D /* Node.swift in Sources */,
+-				D1F123A4201F2B8A00552274 /* DMGTools.swift in Sources */,
+-				D1CB821F20FF6EFB00DC5F54 /* LiveFilesTester.swift in Sources */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D1AD93E720036C1700FF5EF7 /* Sources */ = {
+-			isa = PBXSourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D1CB822220FF6F4100DC5F54 /* ArgsParser.swift in Sources */,
+-				D1CB822320FF6F4100DC5F54 /* BaseTest.swift in Sources */,
+-				D1CB822420FF6F4100DC5F54 /* LiveFilesTester.swift in Sources */,
+-				D1AD93E820036C1700FF5EF7 /* TestResult.swift in Sources */,
+-				D1AD93EA20036C1700FF5EF7 /* Tests.swift in Sources */,
+-				D1AD93EB20036C1700FF5EF7 /* main.swift in Sources */,
+-				D1AD93EE20036C1700FF5EF7 /* LiveFilesTester-Bridging-Header.c in Sources */,
+-				D14D43D92003B33E007BBAF3 /* Hexdump.swift in Sources */,
+-				D1AD93EF20036C1700FF5EF7 /* Logger.swift in Sources */,
+-				D124C375200E46F300BA6242 /* Randomizer.swift in Sources */,
+-				D14F86EB2015CE5700A703BE /* FSTree.swift in Sources */,
+-				D1AD93F020036C1700FF5EF7 /* Utils.swift in Sources */,
+-				D1AD93F120036C1700FF5EF7 /* Version.swift in Sources */,
+-				D1AD93F220036C1700FF5EF7 /* Global.swift in Sources */,
+-				D1A226AE2010CFCF00496F6D /* Node.swift in Sources */,
+-				D1F123A5201F2B8A00552274 /* DMGTools.swift in Sources */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D32A18F727A9647C00574BF7 /* Sources */ = {
+-			isa = PBXSourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D32A18FE27A9647C00574BF7 /* msdos_unit_tests.m in Sources */,
+-				9AC7DFFB2869C96000A7A4BF /* msdos_tests_utilities.m in Sources */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D77EE22E1F69579900DB5C41 /* Sources */ = {
+-			isa = PBXSourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				905417B21F94A0DE0033E46D /* msdosfs_conv.c in Sources */,
+-				D7C983811F9380DD006C2ED3 /* FSOPS_Handler.c in Sources */,
+-				D787B4741F829CB800AF1565 /* MR_SW_Lock.c in Sources */,
+-				90778B1E1FCD5EBF000D829F /* ZeroFill.c in Sources */,
+-				D75D8D702021CA6C0078CC24 /* diagnostic.c in Sources */,
+-				D7C983791F938095006C2ED3 /* FileRecord_M.c in Sources */,
+-				D7C9837D1F9380C5006C2ED3 /* FileOPS_Handler.c in Sources */,
+-				D7238A7E1F7D491500D5F313 /* FAT_Access_M.c in Sources */,
+-				D7B8A84622119E5D001F693F /* Naming_Hash.c in Sources */,
+-				901090A31F94B33E00259D7C /* Conv.c in Sources */,
+-				D7C9837A1F93809B006C2ED3 /* RawFile_Access_M.c in Sources */,
+-				D7C983731F938071006C2ED3 /* DirOPS_Handler.c in Sources */,
+-				9022EC4C1FA5F75B00D1BCC4 /* Logger.c in Sources */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		D77EE2401F69585600DB5C41 /* Sources */ = {
+-			isa = PBXSourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				D77EE24D1F69587200DB5C41 /* usbstorage_tester.c in Sources */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+ /* End PBXSourcesBuildPhase section */
+ 
+ /* Begin PBXTargetDependency section */
+@@ -1753,66 +1020,6 @@
+ 			target = 4D9CE47A15007F7000186084 /* executables */;
+ 			targetProxy = 4D9CE48A150080EE00186084 /* PBXContainerItemProxy */;
+ 		};
+-		9A772CCF286DBB1700978E45 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D77EE2311F69579900DB5C41 /* livefiles_msdos */;
+-			targetProxy = 9A772CCE286DBB1700978E45 /* PBXContainerItemProxy */;
+-		};
+-		CCC0E8AB270ADDBD00EBE058 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D77EE2311F69579900DB5C41 /* livefiles_msdos */;
+-			targetProxy = CCC0E8AA270ADDBD00EBE058 /* PBXContainerItemProxy */;
+-		};
+-		D39A451C27BCFF010070182A /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D32A18FA27A9647C00574BF7 /* msdos_unit_tests */;
+-			targetProxy = D39A451B27BCFF010070182A /* PBXContainerItemProxy */;
+-		};
+-		D3DE083B27BD255900CDEF4C /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D32A18FA27A9647C00574BF7 /* msdos_unit_tests */;
+-			targetProxy = D3DE083A27BD255900CDEF4C /* PBXContainerItemProxy */;
+-		};
+-		D3E54F2227BD28D3006B6BD1 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D77EE2311F69579900DB5C41 /* livefiles_msdos */;
+-			targetProxy = D3E54F2127BD28D3006B6BD1 /* PBXContainerItemProxy */;
+-		};
+-		D77EE24F1F6958AE00DB5C41 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D77EE2311F69579900DB5C41 /* livefiles_msdos */;
+-			targetProxy = D77EE24E1F6958AE00DB5C41 /* PBXContainerItemProxy */;
+-		};
+-		D7C30DBC2067E6C500951FE9 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D1AD93E520036C1700FF5EF7 /* livefiles_tester */;
+-			targetProxy = D7C30DBB2067E6C500951FE9 /* PBXContainerItemProxy */;
+-		};
+-		DBB91EE51FBCD25C006380E0 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D77EE2311F69579900DB5C41 /* livefiles_msdos */;
+-			targetProxy = DBB91EE41FBCD25C006380E0 /* PBXContainerItemProxy */;
+-		};
+-		DBB91EE71FBCD35B006380E0 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = D77EE2431F69585600DB5C41 /* livefiles_msdos_tester */;
+-			targetProxy = DBB91EE61FBCD35B006380E0 /* PBXContainerItemProxy */;
+-		};
+-		F9E147F523A7EA1400047008 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = 4D3DCC4208E0B73400C78A0B /* newfs_msdos */;
+-			targetProxy = F9E147F423A7EA1400047008 /* PBXContainerItemProxy */;
+-		};
+-		FE9A4CD426FB5603005420EC /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = 4D3DCB5608E084D400C78A0B /* msdos.fs */;
+-			targetProxy = FE9A4CD326FB5603005420EC /* PBXContainerItemProxy */;
+-		};
+-		FE9A4CD626FB5649005420EC /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = 4D3DCB6708E084D400C78A0B /* msdos.util */;
+-			targetProxy = FE9A4CD526FB5649005420EC /* PBXContainerItemProxy */;
+-		};
+ /* End PBXTargetDependency section */
+ 
+ /* Begin PBXVariantGroup section */
+@@ -2237,835 +1411,6 @@
  			};
  			name = CodeCoverage;
  		};
@@ -1052,3 +1716,80 @@
  /* End XCBuildConfiguration section */
  
  /* Begin XCConfigurationList section */
+@@ -3470,76 +1805,6 @@
+ 				4DAA598F08D79EF4007BE920 /* Debug */,
+ 				4DD699530D6A5A24007E8D14 /* CodeCoverage */,
+ 				4DAA599008D79EF4007BE920 /* Release */,
+-			);
+-			defaultConfigurationIsVisible = 0;
+-			defaultConfigurationName = Release;
+-		};
+-		9A772CD0286DBB1700978E45 /* Build configuration list for PBXNativeTarget "msdos_performance_tests" */ = {
+-			isa = XCConfigurationList;
+-			buildConfigurations = (
+-				9A772CD1286DBB1700978E45 /* Debug */,
+-				9A772CD2286DBB1700978E45 /* CodeCoverage */,
+-				9A772CD3286DBB1700978E45 /* Release */,
+-			);
+-			defaultConfigurationIsVisible = 0;
+-			defaultConfigurationName = Release;
+-		};
+-		D12A83AB1FFCC4CE00A02A42 /* Build configuration list for PBXNativeTarget "LiveFilesTester" */ = {
+-			isa = XCConfigurationList;
+-			buildConfigurations = (
+-				D12A83A81FFCC4CE00A02A42 /* Debug */,
+-				D12A83A91FFCC4CE00A02A42 /* CodeCoverage */,
+-				D12A83AA1FFCC4CE00A02A42 /* Release */,
+-			);
+-			defaultConfigurationIsVisible = 0;
+-			defaultConfigurationName = Release;
+-		};
+-		D1AD93F620036C1700FF5EF7 /* Build configuration list for PBXNativeTarget "livefiles_tester" */ = {
+-			isa = XCConfigurationList;
+-			buildConfigurations = (
+-				D1AD93F720036C1700FF5EF7 /* Debug */,
+-				D1AD93F820036C1700FF5EF7 /* CodeCoverage */,
+-				D1AD93F920036C1700FF5EF7 /* Release */,
+-			);
+-			defaultConfigurationIsVisible = 0;
+-			defaultConfigurationName = Release;
+-		};
+-		D32A190227A9647C00574BF7 /* Build configuration list for PBXNativeTarget "msdos_unit_tests" */ = {
+-			isa = XCConfigurationList;
+-			buildConfigurations = (
+-				D32A18FF27A9647C00574BF7 /* Debug */,
+-				D32A190027A9647C00574BF7 /* CodeCoverage */,
+-				D32A190127A9647C00574BF7 /* Release */,
+-			);
+-			defaultConfigurationIsVisible = 0;
+-			defaultConfigurationName = Release;
+-		};
+-		D77EE2361F69579900DB5C41 /* Build configuration list for PBXNativeTarget "livefiles_msdos" */ = {
+-			isa = XCConfigurationList;
+-			buildConfigurations = (
+-				D77EE2331F69579900DB5C41 /* Debug */,
+-				D77EE2341F69579900DB5C41 /* CodeCoverage */,
+-				D77EE2351F69579900DB5C41 /* Release */,
+-			);
+-			defaultConfigurationIsVisible = 0;
+-			defaultConfigurationName = Release;
+-		};
+-		D77EE2481F69585600DB5C41 /* Build configuration list for PBXNativeTarget "livefiles_msdos_tester" */ = {
+-			isa = XCConfigurationList;
+-			buildConfigurations = (
+-				D77EE2491F69585600DB5C41 /* Debug */,
+-				D77EE24A1F69585600DB5C41 /* CodeCoverage */,
+-				D77EE24B1F69585600DB5C41 /* Release */,
+-			);
+-			defaultConfigurationIsVisible = 0;
+-			defaultConfigurationName = Release;
+-		};
+-		DB1AAB77204727B30036167F /* Build configuration list for PBXAggregateTarget "Swift_iOS" */ = {
+-			isa = XCConfigurationList;
+-			buildConfigurations = (
+-				DB1AAB74204727B30036167F /* Debug */,
+-				DB1AAB75204727B30036167F /* CodeCoverage */,
+-				DB1AAB76204727B30036167F /* Release */,
+ 			);
+ 			defaultConfigurationIsVisible = 0;
+ 			defaultConfigurationName = Release;

@@ -82,11 +82,11 @@ void SecABCTrigger(CFStringRef type,
     }
 
     (void)[diagnosticReporter snapshotWithSignature:signature
-                                                   duration:5.0
-                                                     events:events
-                                                    payload:payload
-                                                    actions:NULL
-                                                      reply:^void(NSDictionary *response)
+                                              delay:5.0
+                                             events:events
+                                            payload:payload
+                                            actions:nil
+                                              reply:^void(NSDictionary *response)
     {
         os_log_info(OS_LOG_DEFAULT,
                     "Received response from Diagnostic Reporter - %{public}@/%{public}@/%{public}@: %{public}@",

@@ -461,14 +461,16 @@ ALWAYS_INLINE EncodedJSValue genericTypedArrayViewProtoFuncJoin(VM& vm, JSGlobal
         IdempotentArrayBufferByteLengthGetter<std::memory_order_seq_cst> getter;
         auto updatedLength = integerIndexedObjectLength(thisObject, getter);
         if (UNLIKELY(!updatedLength)) {
-            JSStringJoiner joiner(globalObject, separator, length);
+            JSStringJoiner joiner(separator);
+            joiner.reserveCapacity(globalObject, length);
             RETURN_IF_EXCEPTION(scope, { });
             for (size_t i = 0; i < length; i++)
                 joiner.appendEmptyString();
             RELEASE_AND_RETURN(scope, JSValue::encode(joiner.join(globalObject)));
         }
 
-        JSStringJoiner joiner(globalObject, separator, length);
+        JSStringJoiner joiner(separator);
+        joiner.reserveCapacity(globalObject, length);
         RETURN_IF_EXCEPTION(scope, { });
 
         size_t accessibleLength = std::min(length, updatedLength.value());
@@ -493,10 +495,8 @@ ALWAYS_INLINE EncodedJSValue genericTypedArrayViewProtoFuncJoin(VM& vm, JSGlobal
     };
 
     JSValue separatorValue = callFrame->argument(0);
-    if (separatorValue.isUndefined()) {
-        const LChar* comma = reinterpret_cast<const LChar*>(",");
-        return joinWithSeparator({ comma, 1 });
-    }
+    if (separatorValue.isUndefined())
+        return joinWithSeparator(","_s);
 
     JSString* separatorString = separatorValue.toString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });

@@ -58,7 +58,6 @@
 #include "SecOTRSession.h"
 
 #include <os/activity.h>
-#include <os/state_private.h>
 #include <Security/OTConstants.h>
 
 static CFStringRef sErrorDomain = CFSTR("com.apple.security.sos.transport.error");
@@ -104,32 +103,6 @@ CFDictionaryRef SOSCloudCopyKVSState(void) {
     return retval;
 }
 
-
-os_state_block_t kvsStateBlock = ^os_state_data_t(os_state_hints_t hints) {
-    os_state_data_t retval = NULL;
-    __block CFDictionaryRef kvsdict = NULL;
-    CFDataRef serializedKVS = NULL;
-
-    require_quiet(hints->osh_api == 3, errOut); // only grab on sysdiagnose or command lin
-    
-    kvsdict = SOSCloudCopyKVSState();
-
-    require_quiet(kvsdict, errOut);
-    serializedKVS = CFPropertyListCreateData(kCFAllocatorDefault, kvsdict, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
-    size_t statelen = CFDataGetLength(serializedKVS);
-    retval = (os_state_data_t)calloc(1, OS_STATE_DATA_SIZE_NEEDED(statelen));
-    require_quiet(retval, errOut);
-    
-    retval->osd_type = OS_STATE_DATA_SERIALIZED_NSCF_OBJECT;
-    memcpy(retval->osd_data, CFDataGetBytePtr(serializedKVS), statelen);
-    retval->osd_size = statelen;
-    strcpy(retval->osd_title, "CloudCircle KVS Object");
-errOut:
-    CFReleaseNull(kvsdict);
-    CFReleaseNull(serializedKVS);
-    return retval;
-};
-
 static SOSCloudTransportRef defaultTransport = NULL;
 
 void
@@ -144,8 +117,6 @@ static SOSCloudTransportRef SOSCloudTransportDefaultTransport(void)
     dispatch_once(&sTransportOnce, ^{
         if (defaultTransport == NULL) {
             defaultTransport = SOSCloudTransportCreateXPCTransport();
-            // provide state handler to sysdiagnose and logging
-            os_state_add_handler(dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), kvsStateBlock);
         }
     });
     return defaultTransport;

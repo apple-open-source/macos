@@ -32,5 +32,10 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>dossier</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+	</dict>
 </dict>
 </plist>

@@ -76,6 +76,15 @@ This makes it possible to have all sudo I/O logs on a central server."
 	odocdir="${docdir}"
 	oexampledir="${exampledir}"
 
+	# docdir and exampledir are installed with "sudo" as the package
+	# name which may not be correct.
+	docdir="`echo \"${docdir}\" | sed 's#/sudo$#/'\"${name}\"'#'`"
+	if test "${exampledir}" = "${odocdir}/examples"; then
+	    exampledir="${docdir}/examples"
+	else
+	    exampledir="`echo \"${exampledir}\" | sed 's#/sudo$#/'\"${name}\"'#'`"
+	fi
+
 	# For RedHat the doc dir is expected to include version and release
 	case "$pp_rpm_distro" in
 	centos*|rhel*|f[0-9]*)
@@ -83,11 +92,6 @@ This makes it possible to have all sudo I/O logs on a central server."
 		exampledir="${docdir}/examples"
 		;;
 	esac
-
-	# docdir and exampledir are installed with "sudo" as the package
-	# name which may not be correct.
-	docdir="`echo \"${docdir}\" | sed \"s#/sudo#/${name}#g\"`"
-	exampledir="`echo \"${exampledir}\" | sed \"s#/sudo#/${name}#g\"`"
 
 	# Copy docdir and exampledir to new names if needed
 	if test ! -d "${pp_destdir}${docdir}"; then
@@ -104,7 +108,7 @@ This makes it possible to have all sudo I/O logs on a central server."
 	pp_deb_release="$pp_rpm_release"
 	pp_deb_version="$pp_rpm_version"
 	pp_deb_section=admin
-	install -D -m 644 ${pp_destdir}$docdir/LICENSE ${pp_wrkdir}/${name}/usr/share/doc/${name}/copyright
+	install -D -m 644 ${pp_destdir}$docdir/LICENSE.md ${pp_wrkdir}/${name}/usr/share/doc/${name}/copyright
 	install -D -m 644 ${pp_destdir}$docdir/ChangeLog ${pp_wrkdir}/${name}/usr/share/doc/${name}/changelog
 	gzip -9f ${pp_wrkdir}/${name}/usr/share/doc/${name}/changelog
 	printf "$name ($pp_deb_version-$pp_deb_release) admin; urgency=low\n\n  * see upstream changelog\n\n -- $pp_deb_maintainer  `date '+%a, %d %b %Y %T %z'`\n" > ${pp_wrkdir}/${name}/usr/share/doc/${name}/changelog.Debian
@@ -117,6 +121,10 @@ This makes it possible to have all sudo I/O logs on a central server."
 	$name: unstripped-binary-or-object
 	EOF
 	chmod 644 ${pp_wrkdir}/${name}/usr/share/lintian/overrides/${name}
+	# If libssl_dep not passed in, try to figure it out
+	if test -z "$libssl_dep"; then
+	    libssl_dep="`ldd $libexecdir/sudo/sudoers.so 2>&1 | sed -n 's/^[ 	]*libssl\.so\([0-9.]*\).*/libssl\1/p'`"
+	fi
 %endif
 
 %if [rpm]
@@ -124,6 +132,10 @@ This makes it possible to have all sudo I/O logs on a central server."
 	osrelease=`echo "$pp_rpm_distro" | sed -e 's/^[^0-9]*\([0-9]\{1,2\}\).*/\1/'`
 	case "$pp_rpm_distro" in
 	centos*|rhel*|f[0-9]*)
+		# CentOS Stream has a single-digit version
+		if test $osrelease -lt 10; then
+		    osrelease="${osrelease}0"
+		fi
 		pp_rpm_release="$pp_rpm_release.el${osrelease%%[0-9]}"
 		;;
 	sles*)
@@ -133,10 +145,12 @@ This makes it possible to have all sudo I/O logs on a central server."
 %endif
 
 %if [macos]
-	pp_macos_bundle_id=ws.sudo.pkg.sudo-logsrvd
-	pp_macos_pkg_license=${pp_destdir}$docdir/LICENSE
-	pp_macos_pkg_readme=${pp_wrkdir}/ReadMe.txt
 	pp_macos_pkg_type=flat
+	pp_macos_bundle_id=ws.sudo.pkg.sudo-logsrvd
+	pp_macos_pkg_background=${srcdir}/etc/macos-background.png
+	pp_macos_pkg_background_dark=${srcdir}/etc/macos-background.png
+	pp_macos_pkg_license=${pp_destdir}$docdir/LICENSE.md
+	pp_macos_pkg_readme=${pp_wrkdir}/ReadMe.txt
 	perl -pe 'last if (/^What/i && $seen++)' ${pp_destdir}$docdir/NEWS > ${pp_wrkdir}/ReadMe.txt
 %endif
 
@@ -146,6 +160,7 @@ This makes it possible to have all sudo I/O logs on a central server."
 	ln -s -f ${sbindir}/sudo_logsrvd ${pp_destdir}/usr/sbin
 %endif
 
+%if [!rpm,deb]
 	# Package parent directories when not installing under /usr
 	if test "${prefix}" != "/usr"; then
 	    extradirs=`echo ${pp_destdir}${mandir}/[mc]* | sed "s#${pp_destdir}##g"`
@@ -159,6 +174,7 @@ This makes it possible to have all sudo I/O logs on a central server."
 	    done
 	    parentdirs=`echo $parentdirs | tr " " "\n" | sort -u`
 	fi
+%endif
 
 %depend [deb]
 	libc6, zlib1g, sudo

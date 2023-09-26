@@ -150,6 +150,10 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 API_DEPRECATED("SecKeychain is deprecated", macos(10.12, 10.12))
 API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
+OSStatus SecKeychainStoreUnlockKeyWithPubKeyHashAndPassword(CFDataRef pubKeyHash, CFStringRef tokenID, CFDataRef wrapPubKeyHash, SecKeychainRef userKeychain, CFStringRef keychainPassword, CFStringRef userPassword)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.12, 10.12))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+
 OSStatus SecKeychainEraseUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash)
 API_DEPRECATED("SecKeychain is deprecated", macos(10.12, 10.12))
 API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);

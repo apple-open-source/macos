@@ -310,6 +310,7 @@ zu{
         CI{"i-Ivory Coast"}
         CZ{"i-Czech Republic"}
         FK{"i-Falkland Islands (Islas Malvinas)"}
+        NZ{"i-Aotearoa New Zealand"}
         TL{"i-East Timor"}
     }
 }

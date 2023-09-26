@@ -33,6 +33,7 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <CoreFoundation/CFRuntime.h>
 #import <CommonCrypto/CommonHMAC.h>
+#import <Security/SecCFAllocator.h>
 #import <os/log.h>
 
 #import "roken.h"
@@ -42,9 +43,84 @@
 #import "heimntlm.h"
 #import "common.h"
 #import "gsscred.h"
+#include "heimscram.h"
 
 #if ENABLE_NTLM
 
+#if TARGET_OS_OSX
+#import <SystemConfiguration/SystemConfiguration.h>
+
+static dispatch_queue_t ntlmDomainQueue;
+static char *ntlmDomain;
+
+static void
+update_ntlm(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
+{
+    CFDictionaryRef settings;
+    CFStringRef n;
+
+    if (store == NULL)
+	return;
+
+    settings = (CFDictionaryRef)SCDynamicStoreCopyValue(store, CFSTR("com.apple.smb"));
+    if (settings == NULL)
+	return;
+
+    n = CFDictionaryGetValue(settings, CFSTR("NetBIOSName"));
+    if (n == NULL || CFGetTypeID(n) != CFStringGetTypeID() || CFStringGetLength(n) == 0)
+	goto fin;
+
+    if (ntlmDomain)
+	free(ntlmDomain);
+    ntlmDomain = rk_cfstring2cstring(n);
+    strupr(ntlmDomain);
+
+fin:
+    CFRELEASE_NULL(settings);
+    return;
+}
+
+static void
+setup_ntlm_notification(void)
+{
+    SCDynamicStoreRef store = NULL;
+
+    store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("gsscred-NetBIOSName"), update_ntlm, NULL);
+    if (store == NULL)
+	return;
+
+    CFTypeRef key[] = {CFSTR("com.apple.smb")};
+    CFArrayRef keys = CFArrayCreate(kCFAllocatorDefault, key, 1, NULL);
+    SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+    CFRELEASE_NULL(keys);
+
+    ntlmDomainQueue = dispatch_queue_create("gsscred-NetBIOSName", NULL);
+
+    SCDynamicStoreSetDispatchQueue(store, ntlmDomainQueue);
+
+    dispatch_sync(ntlmDomainQueue, ^{ update_ntlm(store, NULL, NULL); });
+    CFRELEASE_NULL(store);
+}
+
+static char *
+copy_netbios_name(void)
+{
+    __block char *domain = NULL;
+    dispatch_sync(ntlmDomainQueue, ^{
+	    if (ntlmDomain)
+		domain = strdup(ntlmDomain);
+	});
+    if (domain == NULL)
+	domain = strdup("workstation");
+    return domain;
+}
+#endif // TARGET_OS_OSX
+
+static int
+ntlm_domain_is_hostname(const char *name)
+{
+    return (name[0] == '\\');
+}
 
 static CFTypeRef
 DictionaryGetTypedValue(CFDictionaryRef dict, CFStringRef key, CFTypeID reqType)
@@ -56,7 +132,7 @@ DictionaryGetTypedValue(CFDictionaryRef dict, CFStringRef key, CFTypeID reqType)
 }
 
 static CFDictionaryRef
-NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
+NTLMAuthCallback(struct peer *peer, HeimCredRef cred, CFDictionaryRef input)
 {
 	CFDictionaryRef result_cfdict = NULL;
 	CFDataRef type1_cfdata = NULL;
@@ -94,17 +170,25 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 	static uint8_t zeros[16] = { 0 };
 	int ret;
 
-	os_log_debug(OS_LOG_DEFAULT, "NTLMAuthCallback");  // kcm_op_do_ntlm
+	os_log_debug(GSSOSLog(), "NTLMAuthCallback");
 
-	memset(&cb, 0, sizeof(cb));
+#if TARGET_OS_OSX
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+	setup_ntlm_notification();
+    });
+#endif
+    
 	memset(&nthash, 0, sizeof(nthash));
 	memset(&ndata, 0, sizeof(ndata));
 	memset(&type1data, 0, sizeof(type1data));
 	memset(&type2data, 0, sizeof(type2data));
 	memset(&sessionkey, 0, sizeof(sessionkey));
 	memset(&tidata, 0, sizeof(tidata));
+	memset(&cb, 0, sizeof(cb));
 	memset(&type2, 0, sizeof(type2));
 	memset(&type3, 0, sizeof(type3));
+	memset(&ti, 0, sizeof(ti));
 
 	/* ntlm hash  data*/
 	credential_cfdict = HeimCredGetAttributes(cred);
@@ -168,6 +252,7 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 	domain_cfstr = DictionaryGetTypedValue(input, kHEIMAttrNTLMDomain, CFStringGetTypeID());
 	if (domain_cfstr == NULL)
 		goto error;
+	CFRetain(domain_cfstr);
 	domain_cstr = rk_cfstring2cstring(domain_cfstr);
 	if (domain_cstr == NULL)
 		goto error;
@@ -177,28 +262,38 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 
 	ret = heim_ntlm_decode_type2(&ndata, &type2); /* ndata(encoded type2 data) -> decoded type2 data  */
 	if (ret) {
-		os_log_error(OS_LOG_DEFAULT, "heim_ntlm_decode_type2 (%d)\n", ret);
+		os_log_error(GSSOSLog(), "heim_ntlm_decode_type2 (%d)\n", ret);
 		goto error;
 	}
 
-	// TODO NTLM Reflection Detection
+	if (checkNTLMChallenge(peer, type2.challenge)) {
+		os_log_error(GSSOSLog(), "NTLM Mirror attack detected");
+		goto error;
+	    }
 
-	// TODO select domain over hostname for targetname
-
+	/* if service name or case matching with domain, let pick the domain */
+	if (ntlm_domain_is_hostname(domain_cstr) || strcasecmp(domain_cstr, type2.targetname) == 0) {
+	    free(domain_cstr);
+	    CFRELEASE_NULL(domain_cfstr);
+	    domain_cfstr = CFStringCreateWithCString(NULL, type2.targetname, kCFStringEncodingUTF8);
+	    if (domain_cfstr == NULL) {
+		goto error;
+	    }
+	    domain_cstr = rk_cfstring2cstring(domain_cfstr);
+	    if (domain_cstr == NULL)
+		goto error;
+	}
+    
 	/* NTLM type3 data */
 	type3.username = username_cstr;
 	type3.flags = type2.flags;
 	/* only allow what we negotiated ourself */
 	type3.flags &= type1flags;
 	type3.targetname = domain_cstr;
-	// TODO  NetBIOSName
-	//	1) store and retrieve from SCDynamicStore - com.apple.smb/NetBIOSName
-	// 	<OR>
-	// 	2) generate from Device Name (ie. "John Doe's Device"
-#ifdef __APPLE_TARGET_EMBEDDED__
-	type3.ws = strdup("MOBILE");
+#if TARGET_OS_OSX
+	type3.ws = copy_netbios_name();
 #else
-	type3.ws = strdup("WORKSTATION");
+	type3.ws = strdup("MOBILE");
 #endif
 	/* verify infotarget */
 	ret = heim_ntlm_decode_targetinfo(&type2.targetinfo, 1, &ti);
@@ -229,7 +324,8 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 	}
 
 	ret = heim_ntlm_encode_targetinfo(&ti, TRUE, &tidata);
-
+    if (ret)
+	    goto error;
 	ti.targetname = NULL;
 	ti.channel_bindings.data = NULL;
 	ti.channel_bindings.length = 0;
@@ -303,13 +399,13 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 
 	/* kcm flags  */
 	kcmflags_cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &flags);
-	if (!kcmflags_cfnum)
+	if (kcmflags_cfnum == NULL)
 		goto error;
 
 	/*  flags */
 	CFRELEASE_NULL(flags_cfnum);
 	flags_cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &type3.flags);
-	if (!flags_cfnum)
+	if (flags_cfnum == NULL)
 		goto error;
 
 	/* sessionkey */
@@ -322,7 +418,7 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 
 	heim_ntlm_unparse_flags(type3.flags, flagname, sizeof(flagname));
 
-	os_log_info(OS_LOG_DEFAULT, "ntlm v2 request processed for %s\\%s flags: %s",
+	os_log_info(GSSOSLog(), "ntlm v2 request processed for %s\\%s flags: %s",
 		domain_cstr, username_cstr, flagname);
 
 	const void *add_keys[] = {
@@ -367,6 +463,7 @@ error:
 	CFRELEASE_NULL(kcmflags_cfnum);
 	CFRELEASE_NULL(flags_cfnum);
 	CFRELEASE_NULL(sessionkey_cfdata);
+	CFRELEASE_NULL(domain_cfstr);
 
 	return result_cfdict;
 }
@@ -386,7 +483,7 @@ _HeimCredRegisterNTLM(void)
 
 	schema = _HeimCredCreateBaseSchema(kHEIMObjectNTLM);
 
-	CFDictionarySetValue(schema, kHEIMAttrData, CFSTR("d"));
+	CFDictionarySetValue(schema, kHEIMAttrData, CFSTR("Wd"));
 	CFDictionarySetValue(schema, kHEIMAttrNTLMUsername, CFSTR("Rs"));
 	CFDictionarySetValue(schema, kHEIMAttrNTLMDomain, CFSTR("Rs"));
 	CFDictionarySetValue(schema, kHEIMAttrTransient, CFSTR("b"));
@@ -397,6 +494,231 @@ _HeimCredRegisterNTLM(void)
 	CFRELEASE_NULL(schema);
 
 	_HeimCredRegisterMech(kHEIMTypeNTLM, set, NULL, NTLMAuthCallback, NULL, DefaultTraceCallback, false, NULL);
+	CFRELEASE_NULL(set);
+#endif /* ENABLE_NTLM */
+}
+
+void
+_HeimCredRegisterNTLMReflection(void)
+{
+#if ENABLE_NTLM
+    CFMutableSetRef set = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+    CFMutableDictionaryRef schema;
+
+    schema = _HeimCredCreateBaseSchema(kHEIMObjectNTLMReflection);
+
+    CFDictionarySetValue(schema, kHEIMAttrData, CFSTR("WRd"));
+
+    CFSetAddValue(set, schema);
+    CFRELEASE_NULL(schema);
+
+    _HeimCredRegisterMech(kHEIMTypeNTLMRelfection, set, NULL, NULL, NULL, DefaultTraceCallback, false, NULL);
+    CFRELEASE_NULL(set);
+#endif /* ENABLE_NTLM */
+}
+
+#if ENABLE_SCRAM
+static CFDictionaryRef
+SCRAMAuthCallback(struct peer *peer, HeimCredRef cred, CFDictionaryRef input)
+{
+    heim_scram_data proof, server, client_key, stored, server_key, session_key;
+    heim_scram_method method = HEIM_SCRAM_DIGEST_SHA1;
+    krb5_data salt, c1, s1, c2noproof;
+    krb5_error_code ret;
+    uint32_t iterations;
+    unsigned char *p, *q;
+    size_t n;
+
+    memset(&proof, 0, sizeof(proof));
+    memset(&server, 0, sizeof(server));
+    memset(&client_key, 0, sizeof(client_key));
+    memset(&stored, 0, sizeof(stored));
+    memset(&server_key, 0, sizeof(server_key));
+    memset(&session_key, 0, sizeof(session_key));
+    krb5_data_zero(&salt);
+    krb5_data_zero(&c1);
+    krb5_data_zero(&s1);
+    krb5_data_zero(&c2noproof);
+
+    CFNumberRef iterations_number = NULL;
+    CFDataRef salt_data = NULL;
+    CFDataRef c1_data = NULL;
+    CFDataRef s1_data = NULL;
+    CFDataRef c2noproof_data = NULL;
+    CFDataRef password_data = NULL;
+    CFStringRef pw_string = NULL;
+
+    CFDataRef proof_data = NULL;
+    CFDataRef server_data = NULL;
+    CFDataRef sessionkey_data = NULL;
+
+    CFDictionaryRef attr_cfdict = NULL;
+
+    iterations_number = CFDictionaryGetValue(input, kHEIMAttrSCRAMIterations);
+    if (iterations_number != NULL) {
+	CFNumberGetValue(iterations_number, kCFNumberIntType, &iterations);
+	if (iterations <= 0) {
+	    goto out;
+	}
+    } else {
+	goto out;
+    }
+
+    salt_data = CFDictionaryGetValue(input, kHEIMAttrSCRAMSalt);
+    if (salt_data) {
+	salt.length = CFDataGetLength(salt_data);
+	salt.data = calloc(1, salt.length);
+	if (salt.data == NULL) {
+	    ret = ENOMEM;
+	    goto out;
+	}
+	CFDataGetBytes(salt_data, CFRangeMake(0, CFDataGetLength(salt_data)), salt.data);
+    }
+
+    c1_data = CFDictionaryGetValue(input, kHEIMAttrSCRAMC1);
+    if (c1_data) {
+	c1.length = CFDataGetLength(c1_data);
+	c1.data = calloc(1, c1.length);
+	if (c1.data == NULL) {
+	    ret = ENOMEM;
+	    goto out;
+	}
+	CFDataGetBytes(c1_data, CFRangeMake(0, CFDataGetLength(c1_data)), c1.data);
+    }
+
+    s1_data = CFDictionaryGetValue(input, kHEIMAttrSCRAMS1);
+    if (s1_data) {
+	s1.length = CFDataGetLength(s1_data);
+	s1.data = calloc(1, s1.length);
+	if (s1.data == NULL) {
+	    ret = ENOMEM;
+	    goto out;
+	}
+	CFDataGetBytes(s1_data, CFRangeMake(0, CFDataGetLength(s1_data)), s1.data);
+    }
+
+    c2noproof_data = CFDictionaryGetValue(input, kHEIMAttrSCRAMC2NoProof);
+    if (c2noproof_data) {
+	c2noproof.length = CFDataGetLength(c2noproof_data);
+	c2noproof.data = calloc(1, c2noproof.length);
+	if (c2noproof.data == NULL) {
+	    ret = ENOMEM;
+	    goto out;
+	}
+	CFDataGetBytes(c2noproof_data, CFRangeMake(0, CFDataGetLength(c2noproof_data)), c2noproof.data);
+    }
+
+    password_data = CFDictionaryGetValue(cred->attributes, kHEIMAttrData);
+    if (!password_data) {
+	goto out;
+    }
+
+    pw_string = CFStringCreateWithBytes(SecCFAllocatorZeroize(), CFDataGetBytePtr(password_data), CFDataGetLength(password_data), kCFStringEncodingUTF8, false);
+
+    ret = heim_scram_stored_key(method, [(__bridge NSString *)pw_string UTF8String], iterations, &salt, &client_key, &stored, &server_key);
+    if (ret) {
+	goto out;
+    }
+
+    ret = heim_scram_generate(method, &stored, &server_key,
+			      &c1, &s1, &c2noproof, &proof, &server);
+    if (ret) {
+	goto out;
+    }
+
+
+    ret = heim_scram_session_key(method, &stored, &client_key,
+				 &c1, &s1, &c2noproof,
+				 &session_key);
+    if (ret) {
+	goto out;
+    }
+
+    /*
+     * Now client_key XOR proof
+     */
+    p = proof.data;
+    q = client_key.data;
+
+    for (n = 0 ; n < client_key.length; n++) {
+	p[n] = p[n] ^ q[n];
+    }
+
+    proof_data = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)proof.data, proof.length );
+    if (!proof_data) {
+	ret = KRB5_CC_IO;
+	goto out;
+    }
+
+    server_data = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)server.data, server.length );
+    if (!server_data) {
+	ret = KRB5_CC_IO;
+	goto out;
+    }
+
+    sessionkey_data = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)session_key.data, session_key.length );
+    if (!sessionkey_data) {
+	ret = KRB5_CC_IO;
+	goto out;
+    }
+
+    //add to attributes
+    const void *attr_keys[] = {
+	kHEIMAttrSCRAMProof,
+	kHEIMAttrSCRAMServer,
+	kHEIMAttrSCRAMSessionKey
+    };
+    const void *attr_values[] = {
+	proof_data,
+	server_data,
+	sessionkey_data
+    };
+
+    attr_cfdict = CFDictionaryCreate(NULL, attr_keys, attr_values, sizeof(attr_keys) / sizeof(attr_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+
+out:
+
+
+    krb5_data_free(&salt);
+    krb5_data_free(&c1);
+    krb5_data_free(&s1);
+    krb5_data_free(&c2noproof);
+
+    heim_scram_data_free(&proof);
+    heim_scram_data_free(&server);
+    heim_scram_data_free(&client_key);
+    heim_scram_data_free(&stored);
+    heim_scram_data_free(&server_key);
+    heim_scram_data_free(&session_key);
+
+    CFRELEASE_NULL(pw_string);
+
+    CFRELEASE_NULL(proof_data);
+    CFRELEASE_NULL(server_data);
+    CFRELEASE_NULL(sessionkey_data);
+
+    return attr_cfdict;
+
+}
+#endif
+
+void
+_HeimCredRegisterSCRAM(void)
+{
+#if ENABLE_SCRAM
+	CFMutableSetRef set = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+	CFMutableDictionaryRef schema;
+
+	schema = _HeimCredCreateBaseSchema(kHEIMObjectSCRAM);
+
+	CFDictionarySetValue(schema, kHEIMAttrData, CFSTR("Wd"));
+	CFDictionarySetValue(schema, kHEIMAttrSCRAMUsername, CFSTR("Rs"));
+
+	CFSetAddValue(set, schema);
+	CFRELEASE_NULL(schema);
+
+	_HeimCredRegisterMech(kHEIMTypeSCRAM, set, NULL, SCRAMAuthCallback, NULL, DefaultTraceCallback, false, NULL);
 	CFRELEASE_NULL(set);
 #endif /* ENABLE_NTLM */
 }

@@ -1,7 +1,14 @@
 #!/bin/sh
 set -e -x
 
-mkdir -p "$DSTROOT/usr/include"
+if [ $PLATFORM_NAME = "macosx" ]
+then
+    HEADERS_DIR=usr/include
+else
+    HEADERS_DIR=usr/local/include
+fi
+
+mkdir -p "$DSTROOT/$HEADERS_DIR"
 install -g "$INSTALL_GROUP" -o "$INSTALL_OWNER" -m "$INSTALL_MODE_FLAG" \
 	./ncurses/include/tic.h \
 	./ncurses/menu/eti.h \
@@ -15,5 +22,6 @@ install -g "$INSTALL_GROUP" -o "$INSTALL_OWNER" -m "$INSTALL_MODE_FLAG" \
 	"$BUILT_PRODUCTS_DIR"/curses.h \
 	./ncurses/menu/menu.h \
 	./ncurses/include/term_entry.h \
-	"$DSTROOT/usr/include"
-ln -s -f curses.h "$DSTROOT/usr/include/ncurses.h"
+	"$BUILT_PRODUCTS_DIR"/ncurses.modulemap \
+	"$DSTROOT/$HEADERS_DIR"
+ln -s -f curses.h "$DSTROOT/$HEADERS_DIR/ncurses.h"

@@ -2,8 +2,6 @@
 #ifndef __gssapi_protos_h__
 #define __gssapi_protos_h__
 
-#include <stdarg.h>
-
 #ifndef HEIMDAL_PRINTF_ATTRIBUTE
 #if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
 #define HEIMDAL_PRINTF_ATTRIBUTE(x) __attribute__((format x))

@@ -91,6 +91,11 @@ typedef struct
  * Globals...
  */
 
+// this will setup ConfigurationFile and CupsFilesFile if necessary
+extern bool cupsdValidatePathsForConfigurationFiles(void);
+
+VAR bool		 ConfigurationDirManaged VALUE(false);	/* are ConfigurationFile and CupsFilesFile in the management directory */
+
 VAR char		*ConfigurationFile	VALUE(NULL),
 					/* cupsd.conf file to use */
 			*CupsFilesFile		VALUE(NULL),

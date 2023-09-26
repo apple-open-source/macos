@@ -4,7 +4,7 @@
 # Require autoconf 2.61
 AC_PREREQ([2.69])
 
-AC_INIT([ccid],[1.5.0])
+AC_INIT([ccid],[1.5.1])
 AC_CONFIG_SRCDIR(src/ifdhandler.c)
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip subdir-objects foreign)
@@ -279,6 +279,17 @@ AC_ARG_ENABLE(zlp,
 
 if test x$use_zlp = xyes; then
   AC_DEFINE(ENABLE_ZLP, 1, [Enable Zero Length Packet patch])
+fi
+
+# --enable-strict
+AC_ARG_ENABLE(
+	[strict],
+	[AS_HELP_STRING([--enable-strict],[enable strict compile mode @<:@enabled@:>@])],
+	,
+	[enable_strict="no"]
+)
+if test "${enable_strict}" = "yes"; then
+	CFLAGS="-Wall -Wextra -Werror ${CFLAGS}"
 fi
 
 # Setup dist stuff

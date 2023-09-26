@@ -23,7 +23,7 @@
 
 
 /*
- *  si-40-seckey.c
+ *  si-41-sececkey.c
  *  Security
  *
  *  Copyright (c) 2007-2009,2012-2014 Apple Inc. All Rights Reserved.
@@ -50,7 +50,7 @@
 #include <unistd.h>
 #include <corecrypto/ccsha2.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 static void testdigestandsignalg(SecKeyRef privKey, SecKeyRef pubKey, const SecAsn1AlgId *algId) {
     uint8_t dataToDigest[256] = {0,};
@@ -127,6 +127,7 @@ static void testkeygen(size_t keySizeInBits) {
 	CFMutableDictionaryRef kgp = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
 	CFDictionaryAddValue(kgp, kSecAttrKeyType, kSecAttrKeyTypeEC);
 	CFDictionaryAddValue(kgp, kSecAttrKeySizeInBits, kzib);
+    CFDictionaryAddValue(kgp, kSecUseDataProtectionKeychain, kCFBooleanTrue);
 
 	OSStatus status;
 	ok_status(status = SecKeyGeneratePair(kgp, &pubKey, &privKey),
@@ -210,6 +211,7 @@ static void testkeygen2(size_t keySizeInBits) {
 
 	kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
     CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                                        kSecAttrKeyType, kSecAttrKeyTypeEC,
                                                        kSecAttrKeySizeInBits, kzib,
                                                        kSecAttrIsPermanent, kCFBooleanTrue,
@@ -308,6 +310,7 @@ static void testkeywrap(unsigned long keySizeInBits, CFTypeRef alg)
 
     kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
     CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                                        kSecAttrKeyType, kSecAttrKeyTypeEC,
                                                        kSecAttrKeySizeInBits, kzib,
                                                        kSecAttrIsPermanent, kCFBooleanFalse,
@@ -360,7 +363,7 @@ static void testkeywrap(unsigned long keySizeInBits, CFTypeRef alg)
     CFReleaseNull(pubKey);
 }
 
-const uint8_t EC_P256_KeyDER[]={
+static const uint8_t EC_P256_KeyDER[]={
     0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20, 0x86, 0x87, 0x79, 0x59, 0xd1,
     0xc6, 0x3c, 0x50, 0x24, 0x30, 0xa4, 0xaf, 0x89, 0x1d, 0xd1, 0x94, 0x23,
     0x56, 0x79, 0x46, 0x93, 0x72, 0x31, 0x39, 0x24, 0xe6, 0x01, 0x96, 0xc8,
@@ -372,7 +375,7 @@ const uint8_t EC_P256_KeyDER[]={
     0x1b, 0xfe, 0xe4, 0xf0, 0xa0, 0x63, 0xc0, 0x73, 0x24, 0x97, 0x92, 0x04,
     0xc7};
 
-const uint8_t EC_P256_SigDER[]={
+static const uint8_t EC_P256_SigDER[]={
     0x30, 0x45, 0x02, 0x20, 0x4b, 0x37, 0x7f, 0x45, 0xd0, 0x5d, 0xa6, 0x53,
     0xb3, 0x62, 0x6f, 0x32, 0xdb, 0xfc, 0xf6, 0x3b, 0x84, 0xfa, 0x5a, 0xd9,
     0x17, 0x67, 0x03, 0x73, 0x48, 0x0c, 0xad, 0x89, 0x13, 0x69, 0x61, 0xb3,
@@ -380,7 +383,7 @@ const uint8_t EC_P256_SigDER[]={
     0xc1, 0x23, 0x7d, 0xdb, 0x2c, 0xd1, 0x0d, 0xbb, 0xb4, 0x0f, 0x67, 0x26,
     0xff, 0x3f, 0xa6, 0x47, 0xa4, 0x13, 0x0d, 0xe0, 0x45, 0xd5, 0x6b};
 
-const uint8_t EC_P256_SigRaw[]= {
+static const uint8_t EC_P256_SigRaw[]= {
     0x4b, 0x37, 0x7f, 0x45, 0xd0, 0x5d, 0xa6, 0x53, 0xb3, 0x62, 0x6f, 0x32,
     0xdb, 0xfc, 0xf6, 0x3b, 0x84, 0xfa, 0x5a, 0xd9, 0x17, 0x67, 0x03, 0x73,
     0x48, 0x0c, 0xad, 0x89, 0x13, 0x69, 0x61, 0xb3, 0xd6, 0x23, 0xaf, 0xd9,
@@ -388,7 +391,7 @@ const uint8_t EC_P256_SigRaw[]= {
     0xbb, 0xb4, 0x0f, 0x67, 0x26, 0xff, 0x3f, 0xa6, 0x47, 0xa4, 0x13, 0x0d,
     0xe0, 0x45, 0xd5, 0x6b};
 
-const uint8_t EC_SigDigest[24] = "012345678912345678901234";
+static const uint8_t EC_SigDigest[24] = "012345678912345678901234";
 
 static void testsignformat(void)
 {
@@ -454,6 +457,7 @@ static void testkeyexchange(unsigned long keySizeInBits)
 
     kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
     CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                                        kSecAttrKeyType, kSecAttrKeyTypeEC,
                                                        kSecAttrKeySizeInBits, kzib,
                                                        kSecAttrIsPermanent, kCFBooleanFalse,
@@ -533,6 +537,7 @@ static void testsupportedalgos(size_t keySizeInBits)
 
     kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
     CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                                        kSecAttrKeyType, kSecAttrKeyTypeEC,
                                                        kSecAttrKeySizeInBits, kzib,
                                                        kSecAttrIsPermanent, kCFBooleanFalse,
@@ -548,6 +553,12 @@ static void testsupportedalgos(size_t keySizeInBits)
 
     const SecKeyAlgorithm sign[] = {
         kSecKeyAlgorithmECDSASignatureRFC4754,
+        kSecKeyAlgorithmECDSASignatureDigestRFC4754,
+        kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA1,
+        kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA224,
+        kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA256,
+        kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA384,
+        kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA512,
         kSecKeyAlgorithmECDSASignatureDigestX962,
         kSecKeyAlgorithmECDSASignatureDigestX962SHA1,
         kSecKeyAlgorithmECDSASignatureDigestX962SHA224,
@@ -606,6 +617,7 @@ static void testcreatewithdata(unsigned long keySizeInBits)
 
     CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
     CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                                        kSecAttrKeyType, kSecAttrKeyTypeEC,
                                                        kSecAttrKeySizeInBits, kzib,
                                                        kSecAttrIsPermanent, kCFBooleanFalse,
@@ -738,6 +750,7 @@ static void testcopyattributes(unsigned long keySizeInBits)
 
     CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
     CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                                        kSecAttrKeyType, kSecAttrKeyTypeEC,
                                                        kSecAttrKeySizeInBits, kzib,
                                                        kSecAttrIsPermanent, kCFBooleanFalse,
@@ -846,6 +859,7 @@ static void testcopypublickey(unsigned long keySizeInBits)
 
     CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
     CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                                        kSecAttrKeyType, kSecAttrKeyTypeEC,
                                                        kSecAttrKeySizeInBits, kzib,
                                                        kSecAttrIsPermanent, kCFBooleanFalse,
@@ -886,6 +900,7 @@ static void testsignverify(unsigned long keySizeInBits)
 
     CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
     CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                                        kSecAttrKeyType, kSecAttrKeyTypeEC,
                                                        kSecAttrKeySizeInBits, kzib,
                                                        kSecAttrIsPermanent, kCFBooleanFalse,
@@ -901,6 +916,7 @@ static void testsignverify(unsigned long keySizeInBits)
 
     SecKeyAlgorithm algorithms[] = {
         kSecKeyAlgorithmECDSASignatureRFC4754,
+        kSecKeyAlgorithmECDSASignatureDigestRFC4754,
         kSecKeyAlgorithmECDSASignatureDigestX962,
         kSecKeyAlgorithmECDSASignatureMessageX962SHA1,
         kSecKeyAlgorithmECDSASignatureMessageX962SHA224,
@@ -919,15 +935,16 @@ static void testsignverify(unsigned long keySizeInBits)
 
         for (uint32_t ix = 0; ix < array_size(algorithms); ++ix) {
             SecKeyAlgorithm algorithm = algorithms[ix];
-            SecKeyAlgorithm incompatibleAlgorithm = CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureRFC4754) ?
-            kSecKeyAlgorithmECDSASignatureDigestX962 : kSecKeyAlgorithmECDSASignatureRFC4754;
+            SecKeyAlgorithm incompatibleAlgorithm = ix < 2 /* kSecKeyAlgorithmECDSASignatureDigestRFC4754 */ ?
+            kSecKeyAlgorithmECDSASignatureDigestX962 : kSecKeyAlgorithmECDSASignatureDigestRFC4754;
 
             CFDataRef dataToSign = NULL;
             if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureRFC4754) ||
+                CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestRFC4754) ||
                 CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
                 dataToSign = CFDataCreateWithHash(kCFAllocatorDefault, ccsha256_di(),
                                                   CFDataGetBytePtr(testData), CFDataGetLength(testData));
-                ok(dataToSign, "creating digest failed for algorithm %d", (int)algorithm);
+                ok(dataToSign, "creating digest failed for algorithm %@", algorithm);
                 CFReleaseNull(error);
             }
             else {
@@ -938,27 +955,27 @@ static void testsignverify(unsigned long keySizeInBits)
                 skip("invalid data to sign", 7, dataToSign != NULL);
 
                 CFDataRef signature = SecKeyCreateSignature(pubKey, algorithm, dataToSign, &error);
-                ok(!signature, "SecKeyCopySignature succeeded with pub key for algorithm %d", (int)algorithm);
+                ok(!signature, "SecKeyCreateSignature succeeded with pub key for algorithm %@", algorithm);
                 CFReleaseNull(error);
                 CFReleaseNull(signature);
 
                 signature = SecKeyCreateSignature(privKey, algorithm, dataToSign, &error);
-                ok(signature, "SecKeyCopySignature failed for algorithm %d", (int)algorithm);
+                ok(signature, "SecKeyCreateSignature failed for algorithm %@", algorithm);
                 CFReleaseNull(error);
 
                 SKIP: {
                     skip("invalid signature", 5, signature != NULL);
 
                     ok(!SecKeyVerifySignature(privKey, algorithm, dataToSign, signature, &error),
-                       "SecKeyVerifySignature succeeded with priv key for %d", (int)algorithm);
+                       "SecKeyVerifySignature succeeded with priv key for %@", algorithm);
                     CFReleaseNull(error);
 
                     ok(!SecKeyVerifySignature(pubKey, incompatibleAlgorithm, dataToSign, signature, &error),
-                       "SecKeyVerifySignature succeeded with wrong algorithm for %d", (int)algorithm);
+                       "SecKeyVerifySignature succeeded with wrong algorithm for %@", algorithm);
                     CFReleaseNull(error);
 
                     ok(SecKeyVerifySignature(pubKey, algorithm, dataToSign, signature, &error),
-                       "SecKeyVerifySignature failed for algorithm %d", (int)algorithm);
+                       "SecKeyVerifySignature failed for algorithm %@", algorithm);
                     CFReleaseNull(error);
 
                     CFMutableDataRef modifiedSignature = CFDataCreateMutable(kCFAllocatorDefault, 0);
@@ -966,7 +983,7 @@ static void testsignverify(unsigned long keySizeInBits)
                     *CFDataGetMutableBytePtr(modifiedSignature) ^= 0xff;
 
                     ok(!SecKeyVerifySignature(pubKey, algorithm, dataToSign, modifiedSignature, &error),
-                       "SecKeyVerifySignature succeeded with bad signature for algorithm %d", (int)algorithm);
+                       "SecKeyVerifySignature succeeded with bad signature for algorithm %@", algorithm);
                     CFReleaseNull(error);
 
                     CFMutableDataRef modifiedDataToSign = CFDataCreateMutable(kCFAllocatorDefault, 0);
@@ -974,7 +991,7 @@ static void testsignverify(unsigned long keySizeInBits)
                     *CFDataGetMutableBytePtr(modifiedDataToSign) ^= 0xff;
 
                     ok(!SecKeyVerifySignature(pubKey, algorithm, modifiedDataToSign, signature, &error),
-                       "SecKeyVerifySignature succeeded with bad data for %d", (int)algorithm);
+                       "SecKeyVerifySignature succeeded with bad data for %@", algorithm);
                     CFReleaseNull(error);
 
                     CFReleaseNull(modifiedDataToSign);
@@ -1029,7 +1046,7 @@ static void tests(void)
 
 int si_41_sececkey(int argc, char *const *argv)
 {
-	plan_tests(557);
+	plan_tests(589);
 
 	tests();
 

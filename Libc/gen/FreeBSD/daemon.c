@@ -74,8 +74,7 @@ move_to_root_bootstrap(void)
 int daemon(int, int) __DARWIN_1050(daemon);
 
 int
-daemon(nochdir, noclose)
-	int nochdir, noclose;
+daemon(int nochdir, int noclose)
 {
 	struct sigaction osa, sa;
 	int fd;

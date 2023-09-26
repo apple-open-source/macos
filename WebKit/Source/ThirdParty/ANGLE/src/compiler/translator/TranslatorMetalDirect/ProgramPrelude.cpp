@@ -48,7 +48,7 @@ class ProgramPrelude : public TIntermTraverser
                 transform_feedback_guard();
                 break;
             case MetalShaderType::Fragment:
-                writeSampleMask();
+                functionConstants();
                 break;
             case MetalShaderType::Compute:
                 ASSERT(0 && "compute shaders not currently supported");
@@ -109,6 +109,7 @@ class ProgramPrelude : public TIntermTraverser
     void include_metal_common();
     void include_metal_geometric();
     void include_metal_graphics();
+    void include_metal_interpolate();
     void include_metal_math();
     void include_metal_matrix();
     void include_metal_pack();
@@ -179,7 +180,6 @@ class ProgramPrelude : public TIntermTraverser
     void castMatrix();
     void functionConstants();
     void gradient();
-    void writeSampleMask();
     void textureEnv();
     void texelFetch();
     void texelFetchOffset();
@@ -266,6 +266,10 @@ class ProgramPrelude : public TIntermTraverser
     void imageLoad();
     void imageStore();
     void memoryBarrierImage();
+    void interpolateAtCenter();
+    void interpolateAtCentroid();
+    void interpolateAtSample();
+    void interpolateAtOffset();
 
   private:
     TInfoSinkBase &mOut;
@@ -305,6 +309,7 @@ PROGRAM_PRELUDE_INCLUDE(metal_atomic)
 PROGRAM_PRELUDE_INCLUDE(metal_common)
 PROGRAM_PRELUDE_INCLUDE(metal_geometric)
 PROGRAM_PRELUDE_INCLUDE(metal_graphics)
+PROGRAM_PRELUDE_INCLUDE(metal_interpolate)
 PROGRAM_PRELUDE_INCLUDE(metal_math)
 PROGRAM_PRELUDE_INCLUDE(metal_matrix)
 PROGRAM_PRELUDE_INCLUDE(metal_pack)
@@ -1491,19 +1496,6 @@ template <int N>
 using ANGLE_gradient = typename ANGLE_gradient_traits<N>::type;
 )")
 
-PROGRAM_PRELUDE_DECLARE(writeSampleMask,
-                        R"(
-ANGLE_ALWAYS_INLINE void ANGLE_writeSampleMask(const uint32_t mask,
-                                               thread uint& gl_SampleMask)
-{
-    if (ANGLECoverageMaskEnabled)
-    {
-        gl_SampleMask = as_type<int>(mask);
-    }
-}
-)",
-                        functionConstants())
-
 PROGRAM_PRELUDE_DECLARE(textureEnv,
                         R"(
 template <typename T>
@@ -1516,17 +1508,21 @@ struct ANGLE_TextureEnv
 
 PROGRAM_PRELUDE_DECLARE(functionConstants,
                         R"(
-#define ANGLE_SAMPLE_COMPARE_GRADIENT_INDEX 0
-#define ANGLE_SAMPLE_COMPARE_LOD_INDEX      1
-#define ANGLE_RASTERIZATION_DISCARD_INDEX   2
-#define ANGLE_COVERAGE_MASK_ENABLED_INDEX   3
-#define ANGLE_DEPTH_WRITE_ENABLED_INDEX     4
+#define ANGLE_SAMPLE_COMPARE_GRADIENT_INDEX   0
+#define ANGLE_SAMPLE_COMPARE_LOD_INDEX        1
+#define ANGLE_RASTERIZATION_DISCARD_INDEX     2
+#define ANGLE_MULTISAMPLED_RENDERING_INDEX    3
+#define ANGLE_DEPTH_WRITE_ENABLED_INDEX       4
+#define ANGLE_EMULATE_ALPHA_TO_COVERAGE_INDEX 5
 
 constant bool ANGLEUseSampleCompareGradient [[function_constant(ANGLE_SAMPLE_COMPARE_GRADIENT_INDEX)]];
 constant bool ANGLEUseSampleCompareLod      [[function_constant(ANGLE_SAMPLE_COMPARE_LOD_INDEX)]];
 constant bool ANGLERasterizerDisabled       [[function_constant(ANGLE_RASTERIZATION_DISCARD_INDEX)]];
-constant bool ANGLECoverageMaskEnabled      [[function_constant(ANGLE_COVERAGE_MASK_ENABLED_INDEX)]];
+constant bool ANGLEMultisampledRendering    [[function_constant(ANGLE_MULTISAMPLED_RENDERING_INDEX)]];
 constant bool ANGLEDepthWriteEnabled        [[function_constant(ANGLE_DEPTH_WRITE_ENABLED_INDEX)]];
+constant bool ANGLEEmulateAlphaToCoverage   [[function_constant(ANGLE_EMULATE_ALPHA_TO_COVERAGE_INDEX)]];
+
+#define ANGLE_ALPHA0
 )")
 
 PROGRAM_PRELUDE_DECLARE(texelFetch,
@@ -3148,6 +3144,66 @@ ANGLE_ALWAYS_INLINE void ANGLE_memoryBarrierImage()
 }
 )")
 
+PROGRAM_PRELUDE_DECLARE(interpolateAtCenter,
+                        R"(
+template <typename T, typename P>
+ANGLE_ALWAYS_INLINE T ANGLE_interpolateAtCenter(
+    thread metal::interpolant<T, P> &interpolant)
+{
+    return interpolant.interpolate_at_center();
+}
+)",
+                        include_metal_interpolate())
+
+PROGRAM_PRELUDE_DECLARE(interpolateAtCentroid,
+                        R"(
+template <typename T, typename P>
+ANGLE_ALWAYS_INLINE T ANGLE_interpolateAtCentroid(
+    thread metal::interpolant<T, P> &interpolant)
+{
+    return interpolant.interpolate_at_centroid();
+}
+template <typename T>
+ANGLE_ALWAYS_INLINE T ANGLE_interpolateAtCentroid(T value) { return value; }
+)",
+                        include_metal_interpolate())
+
+PROGRAM_PRELUDE_DECLARE(interpolateAtSample,
+                        R"(
+template <typename T, typename P>
+ANGLE_ALWAYS_INLINE T ANGLE_interpolateAtSample(
+    thread metal::interpolant<T, P> &interpolant,
+    int const sample)
+{
+    if (ANGLEMultisampledRendering)
+    {
+        return interpolant.interpolate_at_sample(static_cast<uint32_t>(sample));
+    }
+    else
+    {
+        return interpolant.interpolate_at_center();
+    }
+}
+template <typename T>
+ANGLE_ALWAYS_INLINE T ANGLE_interpolateAtSample(T value, int) { return value; }
+)",
+                        include_metal_interpolate())
+
+PROGRAM_PRELUDE_DECLARE(interpolateAtOffset,
+                        R"(
+template <typename T, typename P>
+ANGLE_ALWAYS_INLINE T ANGLE_interpolateAtOffset(
+    thread metal::interpolant<T, P> &interpolant,
+    float2 const offset)
+{
+    return interpolant.interpolate_at_offset(metal::saturate(offset + 0.5f));
+}
+template <typename T>
+ANGLE_ALWAYS_INLINE T ANGLE_interpolateAtOffset(T value, float2) { return value; }
+)",
+                        include_metal_interpolate(),
+                        include_metal_math())
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Returned Name is valid for as long as `buffer` is still alive.
@@ -3548,6 +3604,11 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
     putBuiltIn("imageStore", EMIT_METHOD(imageStore));
     putBuiltIn("memoryBarrierImage", EMIT_METHOD(memoryBarrierImage));
 
+    putBuiltIn("interpolateAtCenter", EMIT_METHOD(interpolateAtCenter));
+    putBuiltIn("interpolateAtCentroid", EMIT_METHOD(interpolateAtCentroid));
+    putBuiltIn("interpolateAtSample", EMIT_METHOD(interpolateAtSample));
+    putBuiltIn("interpolateAtOffset", EMIT_METHOD(interpolateAtOffset));
+
     return map;
 
 #undef EMIT_METHOD
@@ -3632,6 +3693,7 @@ void ProgramPrelude::visitOperator(TOperator op,
         case TOperator::EOpFract:
         case TOperator::EOpRound:
         case TOperator::EOpRoundEven:
+        case TOperator::EOpSaturate:
         case TOperator::EOpModf:
         case TOperator::EOpLdexp:
         case TOperator::EOpFrexp:
@@ -4006,7 +4068,8 @@ void ProgramPrelude::visitVariable(const Name &name, const TType &type)
     else
     {
         if (name.rawName() == sh::mtl::kRasterizerDiscardEnabledConstName ||
-            name.rawName() == sh::mtl::kDepthWriteEnabledConstName)
+            name.rawName() == sh::mtl::kDepthWriteEnabledConstName ||
+            name.rawName() == sh::mtl::kEmulateAlphaToCoverageConstName)
         {
             functionConstants();
         }

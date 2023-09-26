@@ -26,7 +26,7 @@
 #include "config.h"
 #include "RemoteMediaPlayerManager.h"
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "MediaPlayerPrivateRemote.h"
 #include "RemoteMediaPlayerConfiguration.h"
@@ -103,8 +103,7 @@ private:
     RemoteMediaPlayerManager& m_manager;
 };
 
-RemoteMediaPlayerManager::RemoteMediaPlayerManager(WebProcess& process)
-    : m_process(process)
+RemoteMediaPlayerManager::RemoteMediaPlayerManager(WebProcess&)
 {
 }
 
@@ -175,6 +174,7 @@ std::unique_ptr<MediaPlayerPrivateInterface> RemoteMediaPlayerManager::createRem
     proxyConfiguration.documentSecurityOrigin = documentSecurityOrigin;
 
     proxyConfiguration.presentationSize = player->presentationSize();
+    proxyConfiguration.videoInlineSize = player->videoInlineSize();
 
     proxyConfiguration.allowedMediaContainerTypes = player->allowedMediaContainerTypes();
     proxyConfiguration.allowedMediaCodecTypes = player->allowedMediaCodecTypes();
@@ -235,7 +235,7 @@ bool RemoteMediaPlayerManager::supportsKeySystem(MediaPlayerEnums::MediaEngineId
 
 void RemoteMediaPlayerManager::didReceivePlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (const auto& player = m_players.get(makeObjectIdentifier<MediaPlayerIdentifierType>(decoder.destinationID())))
+    if (const auto& player = m_players.get(ObjectIdentifier<MediaPlayerIdentifierType>(decoder.destinationID())))
         player->didReceiveMessage(connection, decoder);
 }
 
@@ -249,7 +249,7 @@ void RemoteMediaPlayerManager::setUseGPUProcess(bool useGPUProcess)
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     if (useGPUProcess) {
-        WebCore::SampleBufferDisplayLayer::setCreator([](auto& client) {
+        WebCore::SampleBufferDisplayLayer::setCreator([](auto& client) -> RefPtr<WebCore::SampleBufferDisplayLayer> {
             return WebProcess::singleton().ensureGPUProcessConnection().sampleBufferDisplayLayerManager().createLayer(client);
         });
         WebCore::MediaPlayerPrivateMediaStreamAVFObjC::setNativeImageCreator([](auto& videoFrame) {
@@ -259,20 +259,22 @@ void RemoteMediaPlayerManager::setUseGPUProcess(bool useGPUProcess)
 #endif
 }
 
-GPUProcessConnection& RemoteMediaPlayerManager::gpuProcessConnection() const
+GPUProcessConnection& RemoteMediaPlayerManager::gpuProcessConnection()
 {
-    if (!m_gpuProcessConnection) {
-        m_gpuProcessConnection = &WebProcess::singleton().ensureGPUProcessConnection();
-        m_gpuProcessConnection->addClient(*this);
+    auto gpuProcessConnection = m_gpuProcessConnection.get();
+    if (!gpuProcessConnection) {
+        gpuProcessConnection = &WebProcess::singleton().ensureGPUProcessConnection();
+        m_gpuProcessConnection = gpuProcessConnection;
+        gpuProcessConnection = &WebProcess::singleton().ensureGPUProcessConnection();
+        gpuProcessConnection->addClient(*this);
     }
 
-    return *m_gpuProcessConnection;
+    return *gpuProcessConnection;
 }
 
 void RemoteMediaPlayerManager::gpuProcessConnectionDidClose(GPUProcessConnection& connection)
 {
-    ASSERT(m_gpuProcessConnection == &connection);
-    connection.removeClient(*this);
+    ASSERT(m_gpuProcessConnection.get() == &connection);
 
     m_gpuProcessConnection = nullptr;
 
@@ -287,4 +289,4 @@ void RemoteMediaPlayerManager::gpuProcessConnectionDidClose(GPUProcessConnection
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

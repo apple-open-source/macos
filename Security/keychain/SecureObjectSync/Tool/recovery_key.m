@@ -32,6 +32,7 @@
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 #include <Security/SecRecoveryKey.h>
+#import <Security/SecPasswordGenerate.h>
 
 #import <CoreCDP/CoreCDP.h>
 
@@ -45,29 +46,31 @@ recovery_key(int argc, char * const *argv)
     CFErrorRef error = NULL;
     BOOL hadError = false;
     SOSLogSetOutputTo(NULL, NULL); 
-
+    
     static struct option long_options[] =
     {
         /* These options set a flag. */
         {"recovery-string", no_argument, NULL, 'R' },
         {"generate",    required_argument, NULL, 'G'},
         {"set",         required_argument, NULL, 's'},
+        {"set-and-backup", required_argument, NULL, 'b'},
         {"get",         no_argument, NULL, 'g'},
         {"clear",       no_argument, NULL, 'c'},
+        {"clear-and-backup", no_argument, NULL, 'K'},
         {"follow-up",   no_argument, NULL, 'F'},
         {"verifier",   no_argument, NULL, 'V'},
         {0, 0, 0, 0}
     };
     int option_index = 0;
-
-    while ((ch = getopt_long(argc, argv, "FG:Rs:gcV:", long_options, &option_index)) != -1)
+    
+    while ((ch = getopt_long(argc, argv, "FG:Rs:b:gcKV:", long_options, &option_index)) != -1)
         switch  (ch) {
             case 'G': {
                 NSError *nserror = NULL;
                 NSString *testString = [NSString stringWithUTF8String:optarg];
                 if(testString == nil)
                     return SHOW_USAGE_MESSAGE;
-
+                
                 SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(testString, &nserror);
                 if(rk == nil) {
                     printmsg(CFSTR("SecRKCreateRecoveryKeyWithError: %@\n"), nserror);
@@ -76,7 +79,7 @@ recovery_key(int argc, char * const *argv)
                 NSData *publicKey = SecRKCopyBackupPublicKey(rk);
                 if(publicKey == nil)
                     return SHOW_USAGE_MESSAGE;
-
+                
                 printmsg(CFSTR("example (not registered) public recovery key: %@\n"), publicKey);
                 break;
             }
@@ -84,9 +87,9 @@ recovery_key(int argc, char * const *argv)
                 NSString *testString = SecRKCreateRecoveryKeyString(NULL);
                 if(testString == nil)
                     return SHOW_USAGE_MESSAGE;
-
+                
                 printmsg(CFSTR("public recovery string: %@\n"), testString);
-
+                
                 break;
             }
             case 's':
@@ -95,11 +98,63 @@ recovery_key(int argc, char * const *argv)
                 NSString *testString = [NSString stringWithUTF8String:optarg];
                 if(testString == nil)
                     return SHOW_USAGE_MESSAGE;
-
+                
                 SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(testString, &nserror);
                 if(rk == nil) {
                     printmsg(CFSTR("SecRKCreateRecoveryKeyWithError: %@\n"), nserror);
                     return SHOW_USAGE_MESSAGE;
+                }
+                
+                CFErrorRef cferror = NULL;
+                if(!SecRKRegisterBackupPublicKey(rk, &cferror)) {
+                    printmsg(CFSTR("Error from SecRKRegisterBackupPublicKey: %@\n"), cferror);
+                    CFReleaseNull(cferror);
+                    return SHOW_USAGE_MESSAGE;
+                }
+                break;
+            }
+            case 'b':
+            {
+                NSError *nserror = NULL;
+                NSString *testString = [NSString stringWithUTF8String:optarg];
+                if(testString == nil)
+                    return SHOW_USAGE_MESSAGE;
+                
+                SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(testString, &nserror);
+                if(rk == nil) {
+                    printmsg(CFSTR("SecRKCreateRecoveryKeyWithError: %@\n"), nserror);
+                    return SHOW_USAGE_MESSAGE;
+                }
+                CFErrorRef copyError = NULL;
+                SOSPeerInfoRef peer = SOSCCCopyMyPeerInfo(&copyError);
+                if (peer) {
+                    CFDataRef backupKey = SOSPeerInfoCopyBackupKey(peer);
+                    if (backupKey == NULL) {
+                        CFErrorRef cferr = NULL;
+                        NSString *str = CFBridgingRelease(SecPasswordGenerate(kSecPasswordTypeiCloudRecovery, &cferr, NULL));
+                        if (str) {
+                            NSData* secret = [str dataUsingEncoding:NSUTF8StringEncoding];
+                            
+                            CFErrorRef registerError = NULL;
+                            SOSPeerInfoRef peerInfo = SOSCCCopyMyPeerWithNewDeviceRecoverySecret((__bridge CFDataRef)secret, &registerError);
+                            if (peerInfo) {
+                                printmsg(CFSTR("octagon-register-recovery-key, registered backup key\n"));
+                            } else {
+                                printmsg(CFSTR("octagon-register-recovery-key, SOSCCCopyMyPeerWithNewDeviceRecoverySecret() failed: %@\n"), registerError);
+                            }
+                            CFReleaseNull(registerError);
+                            CFReleaseNull(peerInfo);
+                        } else {
+                            printmsg(CFSTR("octagon-register-recovery-key, SecPasswordGenerate() failed: %@\n"), cferr);
+                        }
+                        CFReleaseNull(cferr);
+                    } else {
+                        printmsg(CFSTR("octagon-register-recovery-key, backup key already registered\n"));
+                    }
+                    CFReleaseNull(backupKey);
+                    CFReleaseNull(peer);
+                } else {
+                    printmsg(CFSTR("octagon-register-recovery-key, SOSCCCopyMyPeerInfo() failed: %@\n"), copyError);
                 }
                 
                 CFErrorRef cferror = NULL;
@@ -122,6 +177,45 @@ recovery_key(int argc, char * const *argv)
             case 'c':
             {
                 hadError = SOSCCRegisterRecoveryPublicKey(NULL, &error) != true;
+                break;
+            }
+            case 'K':
+            {
+                CFErrorRef copyError = NULL;
+                SOSPeerInfoRef peer = SOSCCCopyMyPeerInfo(&copyError);
+                if (peer) {
+                    CFDataRef backupKey = SOSPeerInfoCopyBackupKey(peer);
+                    if (backupKey == NULL) {
+                        CFErrorRef cferr = NULL;
+                        NSString *str = CFBridgingRelease(SecPasswordGenerate(kSecPasswordTypeiCloudRecovery, &cferr, NULL));
+                        if (str) {
+                            NSData* secret = [str dataUsingEncoding:NSUTF8StringEncoding];
+                            
+                            CFErrorRef registerError = NULL;
+                            SOSPeerInfoRef peerInfo = SOSCCCopyMyPeerWithNewDeviceRecoverySecret((__bridge CFDataRef)secret, &registerError);
+                            if (peerInfo) {
+                                secnotice("octagon-register-recovery-key", "registered backup key");
+                            } else {
+                                secerror("octagon-register-recovery-key, SOSCCCopyMyPeerWithNewDeviceRecoverySecret() failed: %@", registerError);
+                            }
+                            CFReleaseNull(registerError);
+                            CFReleaseNull(peerInfo);
+                        } else {
+                            secerror("octagon-register-recovery-key, SecPasswordGenerate() failed: %@", cferr);
+                        }
+                        CFReleaseNull(cferr);
+                    } else {
+                        secnotice("octagon-register-recovery-key", "backup key already registered");
+                    }
+                    CFReleaseNull(backupKey);
+                    CFReleaseNull(peer);
+                } else {
+                    secerror("octagon-register-recovery-key, SOSCCCopyMyPeerInfo() failed: %@", copyError);
+                }
+                
+                CFReleaseNull(copyError);
+                hadError = SOSCCRegisterRecoveryPublicKey(NULL, &error) != true;
+
                 break;
             }
             case 'F':

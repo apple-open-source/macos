@@ -36,6 +36,7 @@ template<> U_I18N_API
 const SharedCalendar *LocaleCacheKey<SharedCalendar>::createObject(
         const void * /*unusedCreationContext*/, UErrorCode &status) const;
 
+
 U_NAMESPACE_END
 
 #endif

@@ -47,7 +47,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/getpagesize.c,v 1.6 2007/01/09 00:27:54 imp
  */
 
 int
-getpagesize()
+getpagesize(void)
 {
 	int mib[2]; 
 	static int value;

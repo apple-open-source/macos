@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2010-2013 Google Inc. All rights reserved.
  * Copyright (C) 2011-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,16 +37,15 @@
 #include "ChromeClient.h"
 #include "DOMFormData.h"
 #include "Editor.h"
-#include "ElementInlines.h"
 #include "ElementRareData.h"
 #include "EventLoop.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "FrameSelection.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
+#include "LocalFrame.h"
 #include "LocalizedStrings.h"
 #include "NodeRenderStyle.h"
 #include "Page.h"
@@ -63,6 +62,7 @@
 #include "TextEvent.h"
 #include "TextIterator.h"
 #include "TextNodeTraversal.h"
+#include "TypedElementDescendantIteratorInlines.h"
 #include "UserTypingGestureIndicator.h"
 #include "WheelEvent.h"
 
@@ -83,8 +83,6 @@ TextFieldInputType::TextFieldInputType(Type type, HTMLInputElement& element)
 
 TextFieldInputType::~TextFieldInputType()
 {
-    if (m_innerSpinButton)
-        m_innerSpinButton->removeSpinButtonOwner();
 #if ENABLE(DATALIST_ELEMENT)
     closeSuggestions();
 #endif
@@ -176,8 +174,7 @@ void TextFieldInputType::setValue(const String& sanitizedValue, bool valueChange
         break;
     }
 
-    // FIXME: Why do we do this when eventBehavior == DispatchNoEvent
-    if (!input->focused() || eventBehavior == DispatchNoEvent)
+    if (!input->focused())
         input->setTextAsOfLastFormControlChangeEvent(sanitizedValue);
 
     if (UserTypingGestureIndicator::processingUserTypingGesture())
@@ -507,14 +504,14 @@ bool TextFieldInputType::shouldOnlyShowDataListDropdownButtonWhenFocusedOrEdited
 
 #endif // ENABLE(DATALIST_ELEMENT)
 
-static String limitLength(const String& string, unsigned maxNumGraphemeClusters)
+static String limitLength(const String& string, unsigned maxLength)
 {
-    StringView stringView { string };
-
-    if (!stringView.is8Bit())
-        maxNumGraphemeClusters = numCodeUnitsInGraphemeClusters(stringView, maxNumGraphemeClusters);
-
-    return string.left(maxNumGraphemeClusters);
+    unsigned newLength = std::min(maxLength, string.length());
+    if (newLength == string.length())
+        return string;
+    if (newLength > 0 && U16_IS_LEAD(string[newLength - 1]))
+        --newLength;
+    return string.left(newLength);
 }
 
 static String autoFillButtonTypeToAccessibilityLabel(AutoFillButtonType autoFillButtonType)
@@ -594,7 +591,11 @@ static bool isAutoFillButtonTypeChanged(const AtomString& attribute, AutoFillBut
 
 String TextFieldInputType::sanitizeValue(const String& proposedValue) const
 {
-    return limitLength(proposedValue.removeCharacters(isHTMLLineBreak), HTMLInputElement::maxEffectiveLength);
+    // Passing a lambda instead of a function name helps the compiler inline isHTMLLineBreak.
+    auto proposedValueWithoutLineBreaks = proposedValue.removeCharacters([](auto character) {
+        return isHTMLLineBreak(character);
+    });
+    return limitLength(WTFMove(proposedValueWithoutLineBreaks), HTMLInputElement::maxEffectiveLength);
 }
 
 void TextFieldInputType::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent& event)
@@ -606,7 +607,7 @@ void TextFieldInputType::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent& 
     // because they can be mismatched by sanitizeValue() in
     // HTMLInputElement::subtreeHasChanged() in some cases.
     String innerText = element()->innerTextValue();
-    unsigned oldLength = numGraphemeClusters(innerText);
+    unsigned oldLength = innerText.length();
 
     // selectionLength represents the selection length of this text field to be
     // removed by this insertion.
@@ -618,8 +619,7 @@ void TextFieldInputType::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent& 
         ASSERT(enclosingTextFormControl(element()->document().frame()->selection().selection().start()) == element());
         unsigned selectionStart = element()->selectionStart();
         ASSERT(selectionStart <= element()->selectionEnd());
-        int selectionCodeUnitCount = element()->selectionEnd() - selectionStart;
-        selectionLength = selectionCodeUnitCount ? numGraphemeClusters(StringView(innerText).substring(selectionStart, selectionCodeUnitCount)) : 0;
+        selectionLength = element()->selectionEnd() - selectionStart;
     }
     ASSERT(oldLength >= selectionLength);
 
@@ -784,7 +784,7 @@ bool TextFieldInputType::shouldDrawCapsLockIndicator() const
     if (element()->hasAutoFillStrongPasswordButton())
         return false;
 
-    RefPtr<Frame> frame = element()->document().frame();
+    RefPtr frame { element()->document().frame() };
     if (!frame)
         return false;
 

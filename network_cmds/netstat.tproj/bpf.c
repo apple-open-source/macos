@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -37,8 +37,6 @@
 
 #include "netstat.h"
 
-#if _HAS_STRUCT_XBPF_D_
-
 static void
 proc_name(pid_t pid, char *buf, size_t buf_len)
 {
@@ -62,22 +60,23 @@ proc_name(pid_t pid, char *buf, size_t buf_len)
 static void
 bd_flags(struct xbpf_d *bd, char *flagbuf, size_t len)
 {
-	snprintf(flagbuf, len, "%c%c%c%c%c%c%c%c%c%c",
+	snprintf(flagbuf, len, "%c%c%c%c%c%c%c%c%c%c%c",
 		 bd->bd_promisc ? 'p' : '-',
 		 bd->bd_immediate ? 'i' : '-',
 		 bd->bd_hdrcmplt ? '-' : 'f',
 		 bd->bd_async ? 'a' : '-',
+#ifdef BPF_D_INOUT
+		 (bd->bd_direction & BPF_D_IN) ? 'I' : '-',
+		 (bd->bd_direction & BPF_D_OUT) ? 'O' : '-',
+#else /* BPF_D_INOUT */
 		 bd->bd_seesent ? 's' : '-',
+		 '-',
+#endif /* BPF_D_INOUT */
 		 bd->bd_headdrop ? 'h' : '-',
-#if _HAS_STRUCT_XBPF_D_ > 1
 		 bd->bh_compreq ? (bd->bh_compenabled ? 'C' : 'c') : '-',
 		 bd->bd_exthdr ? 'x' : '-',
 		 bd->bd_trunc ? 't' : '-',
-		 bd->bd_pkthdrv2 ? '2' : '-'
-#else /* _HAS_STRUCT_XBPF_D_ */
-		'-', '-', '-', '-'
-#endif /* _HAS_STRUCT_XBPF_D_ */
-		 );
+		 bd->bd_pkthdrv2 ? '2' : '-');
 }
 
 void
@@ -100,13 +99,13 @@ bpf_stats(char *interface)
 	if (sysctlbyname("debug.bpf_stats", buffer, &len, NULL, 0) != 0) {
 		err(EX_OSERR, "sysctlbyname debug.bpf_stats");
 	}
-	printf("%-9s %-14s %-10s %9s %9s %9s %12s %9s %9s %9s %9s %9s %9s %9s %12s %9s %9s %s\n",
+	printf("%-9s %-14s %-11s %9s %9s %9s %12s %9s %9s %9s %9s %9s %9s %9s %12s %9s %9s %s\n",
 	       "Device", "Netif", "Flags",
 	       "Recv", "RDrop", "RMatch", "RSize",
 	       "ReadCnt",
 	       "Bsize", "Sblen", "Scnt", "Hblen", "Hcnt",
 	       "Ccnt", "Csize",
-		   "Written", "WDrop",
+	       "Written", "WDrop",
 	       "Command");
 	for (bd = (struct xbpf_d *)buffer;
 	     (void *)(bd + 1) <= buffer + len;
@@ -121,35 +120,15 @@ bpf_stats(char *interface)
 
 		bd_flags(bd, flagbuf, sizeof(flagbuf));
 		proc_name(bd->bd_pid, namebuf, sizeof(namebuf));
-#if _HAS_STRUCT_XBPF_D_ == 1
-		printf("bpf%-6u %-14s %10s %9llu %9llu %9llu %12s %9s %9u %9u %9s %9u %9s %9s %12s %9llu %9llu %s.%d\n",
-		       bd->bd_dev_minor, bd->bd_ifname, flagbuf,
-		       bd->bd_rcount, bd->bd_dcount, bd->bd_fcount, "",
-		       "",
-		       bd->bd_bufsize, bd->bd_slen, "", bd->bd_hlen, "",
-		       "",  "",
-			   bd->bd_wcount, bd->bd_wdcount,
-		       namebuf, bd->bd_pid);
-#else /* _HAS_STRUCT_XBPF_D_ */
-		printf("bpf%-6u %-14s %10s %9llu %9llu %9llu %12llu %9llu %9u %9u %9u %9u %9u %9llu %12llu %9llu %9llu %s.%d\n",
+		printf("bpf%-6u %-14s %11s %9llu %9llu %9llu %12llu %9llu %9u %9u %9u %9u %9u %9llu %12llu %9llu %9llu %s.%d\n",
 		       bd->bd_dev_minor, bd->bd_ifname, flagbuf,
 		       bd->bd_rcount, bd->bd_dcount, bd->bd_fcount, bd->bd_fsize,
 		       bd->bd_read_count,
 		       bd->bd_bufsize, bd->bd_slen, bd->bd_scnt, bd->bd_hlen, bd->bd_hcnt,
 		       bd->bd_comp_count, bd->bd_comp_size,
-			   bd->bd_wcount, bd->bd_wdcount,
+		       bd->bd_wcount, bd->bd_wdcount,
 		       namebuf, bd->bd_pid);
-#endif /* _HAS_STRUCT_XBPF_D_ */
 	}
 
 	free(buffer);
 }
-
-#else /* _HAS_STRUCT_XBPF_D_ */
-
-void bpf_stats(__unused char *interface)
-{
-	return;
-}
-
-#endif /* _HAS_STRUCT_XBPF_D_ */

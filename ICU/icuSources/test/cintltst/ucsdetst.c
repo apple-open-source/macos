@@ -16,6 +16,7 @@
 #include "cintltst.h"
 #include "cmemory.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -31,9 +32,10 @@ static void TestChaining(void);
 static void TestBufferOverflow(void);
 static void TestIBM424(void);
 static void TestIBM420(void);
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+// rdar://
 static void TestMailFilterCSS(void);
-#endif
+#endif  // APPLE_ICU_CHANGES
 
 void addUCsdetTest(TestNode** root);
 
@@ -50,9 +52,10 @@ void addUCsdetTest(TestNode** root)
     addTest(root, &TestIBM424, "ucsdetst/TestIBM424");
     addTest(root, &TestIBM420, "ucsdetst/TestIBM420");
 #endif
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+// rdar://
     addTest(root, &TestMailFilterCSS, "ucsdetst/TestMailFilterCSS");
-#endif
+#endif  // APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
 }
 
 static int32_t preflight(const UChar *src, int32_t length, UConverter *cnv)
@@ -66,7 +69,7 @@ static int32_t preflight(const UChar *src, int32_t length, UConverter *cnv)
     do {
         dest = buffer;
         status = U_ZERO_ERROR;
-        ucnv_fromUnicode(cnv, &dest, destLimit, &src, srcLimit, 0, TRUE, &status);
+        ucnv_fromUnicode(cnv, &dest, destLimit, &src, srcLimit, 0, true, &status);
         result += (int32_t) (dest - buffer);
     } while (status == U_BUFFER_OVERFLOW_ERROR);
 
@@ -82,7 +85,7 @@ static char *extractBytes(const UChar *src, int32_t length, const char *codepage
     char *bytes = NEW_ARRAY(char, byteCount + 1);
     char *dest = bytes, *destLimit = bytes + byteCount + 1;
 
-    ucnv_fromUnicode(cnv, &dest, destLimit, &src, srcLimit, 0, TRUE, &status);
+    ucnv_fromUnicode(cnv, &dest, destLimit, &src, srcLimit, 0, true, &status);
     ucnv_close(cnv);
 
     *byteLength = byteCount;
@@ -152,7 +155,7 @@ static void TestUTF8(void)
 
     dLength = ucsdet_getUChars(match, detected, sLength, &status);
 
-    if (u_strCompare(detected, dLength, s, sLength, FALSE) != 0) {
+    if (u_strCompare(detected, dLength, s, sLength, false) != 0) {
         log_err("Round-trip test failed!\n");
     }
 
@@ -299,10 +302,10 @@ static void TestInputFilter(void)
     sLength = u_unescape(ss, s, sizeof(ss));
     bytes = extractBytes(s, sLength, "ISO-8859-1", &byteLength);
 
-    ucsdet_enableInputFilter(csd, TRUE);
+    ucsdet_enableInputFilter(csd, true);
 
     if (!ucsdet_isInputFilterEnabled(csd)) {
-        log_err("ucsdet_enableInputFilter(csd, TRUE) did not enable input filter!\n");
+        log_err("ucsdet_enableInputFilter(csd, true) did not enable input filter!\n");
     }
 
 
@@ -327,7 +330,7 @@ static void TestInputFilter(void)
     }
 
 turn_off:
-    ucsdet_enableInputFilter(csd, FALSE);
+    ucsdet_enableInputFilter(csd, false);
     ucsdet_setText(csd, bytes, byteLength, &status);
     match = ucsdet_detect(csd, &status);
 
@@ -408,6 +411,7 @@ static void TestBufferOverflow(void) {
     }
 
     for (idx = 0; idx < UPRV_LENGTHOF(testStrings); idx++) {
+        status = U_ZERO_ERROR;
         ucsdet_setText(csd, testStrings[idx], -1, &status);
         match = ucsdet_detect(csd, &status);
 
@@ -596,7 +600,8 @@ bail:
     ucsdet_close(csd);
 }
 
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+// rdar://
 #include <stdio.h>
 // read data from file into a malloc'ed buf, which must be freed by caller.
 // returns NULL if error. Copied from cbiapts.c
@@ -685,7 +690,7 @@ static void TestMailFilterCSS(void) {
                     log_data_err("ucsdet_setText fails for text file %s: %s\n", testPtr->sampleTextPath, u_errorName(status));
                 } else {
                     const UCharsetMatch *highestMatch = NULL;
-                    ucsdet_enableInputFilter(detector, TRUE);
+                    ucsdet_enableInputFilter(detector, true);
                     highestMatch = ucsdet_detect(detector, &status);
                     if (U_FAILURE(status) || highestMatch==NULL) {
                         log_err("ucsdet_detect fails for text file %s: %s\n", testPtr->sampleTextPath, u_errorName(status));
@@ -707,4 +712,4 @@ static void TestMailFilterCSS(void) {
         ucsdet_close(detector);
     }
 }
-#endif /* U_PLATFORM_IS_DARWIN_BASED */
+#endif  // APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED

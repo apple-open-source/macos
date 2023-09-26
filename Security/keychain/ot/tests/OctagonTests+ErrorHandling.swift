@@ -422,7 +422,6 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         let bNewOTCliqueContext = OTConfigurationContext()
         bNewOTCliqueContext.context = "restoreB"
-        bNewOTCliqueContext.dsid = self.otcliqueContext.dsid
         bNewOTCliqueContext.altDSID = self.otcliqueContext.altDSID
         bNewOTCliqueContext.otControl = self.otcliqueContext.otControl
         bNewOTCliqueContext.sbd = OTMockSecureBackup(bottleID: bottle.bottleID, entropy: entropy!)
@@ -652,7 +651,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
     }
 
     func testHandlePeerMissingOnHealthCheckNoJoinAttempt() throws {
-        self.mockSOSAdapter!.sosEnabled = false
+        self.mockSOSAdapter!.setSOSEnabled(false)
 
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -663,7 +662,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: joiner, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(containerName: OTCKContainerName, contextID: "joiner", altDSID: OTMockPersonaAdapter.defaultMockPersonaString()), skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(containerName: OTCKContainerName, contextID: "joiner", altDSID: OTMockPersonaAdapter.defaultMockPersonaString()), skipRateLimitingCheck: false, repair: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
@@ -690,7 +689,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
     }
 
     func testHandlePeerMissingOnTrustUpdateNoJoinAttempt() throws {
-        self.mockSOSAdapter!.sosEnabled = false
+        self.mockSOSAdapter!.setSOSEnabled(false)
         self.startCKAccountStatusMock()
         try self.cuttlefishContext.setCDPEnabled()
         self.cuttlefishContext.startOctagonStateMachine()

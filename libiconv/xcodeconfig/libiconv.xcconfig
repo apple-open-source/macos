@@ -18,6 +18,6 @@ GCC_PREPROCESSOR_DEFINITIONS = $(LIB_GCC_PREPROCESSOR_DEFINITIONS) BUILDING_LIBI
 // build systems since our SDK will allow -liconv wihtout -lcharset whereas
 // other platforms will explicitly require an -lcharset.
 OTHER_LDFLAGS = -Wl,-reexport-lcharset
-OTHER_TAPI_FLAGS = $(OTHER_TAPI_FLAGS_$(DEPLOYMENT_LOCATION))
+OTHER_TAPI_FLAGS = $(OTHER_TAPI_FLAGS_$(DEPLOYMENT_LOCATION)) -DIN_TAPI -I$(SRCROOT)/citrus
 OTHER_TAPI_FLAGS_YES = -reexport_library $(DSTROOT)$(INSTALL_PATH)/libcharset.1.tbd
 OTHER_TAPI_FLAGS_NO = -reexport_library $(BUILT_PRODUCTS_DIR)/libcharset.1.tbd

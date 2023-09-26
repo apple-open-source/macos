@@ -19,6 +19,7 @@
 *   for running the data building tools.
 *
 */
+
 #include "stubdata.h"
 
 extern "C" U_EXPORT const ICU_Data_Header U_ICUDATA_ENTRY_POINT = {

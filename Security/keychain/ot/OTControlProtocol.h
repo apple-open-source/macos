@@ -199,6 +199,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
+             repair:(BOOL)repair
               reply:(void (^)(NSError *_Nullable error))reply;
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
@@ -300,6 +301,13 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
 - (void)getAccountMetadata:(OTControlArguments*)arguments
                      reply:(void (^)(OTAccountMetadataClassC* _Nullable metadata, NSError* _Nullable replyError))reply;
+
+- (void)resetAcountData:(OTControlArguments*)arguments
+            resetReason:(CuttlefishResetReason)resetReason
+                  reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)totalTrustedPeers:(OTControlArguments*)arguments
+                    reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply;
 
 @end
 

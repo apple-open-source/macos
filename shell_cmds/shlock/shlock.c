@@ -1,4 +1,4 @@
-/*	$NetBSD: shlock.c,v 1.10 2008/04/28 20:24:14 martin Exp $	*/
+/*	$NetBSD: shlock.c,v 1.15 2021/04/17 00:02:19 christos Exp $	*/
 
 /*-
  * Copyright (c) 2006 The NetBSD Foundation, Inc.
@@ -64,11 +64,13 @@
 #include <sys/cdefs.h>
 
 #ifndef lint
-__RCSID("$NetBSD: shlock.c,v 1.10 2008/04/28 20:24:14 martin Exp $");
+__RCSID("$NetBSD: shlock.c,v 1.15 2021/04/17 00:02:19 christos Exp $");
 #endif
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/file.h>
+#include <err.h>
 #include <fcntl.h>			/* Needed on hpux */
 #include <stdio.h>
 #include <signal.h>
@@ -88,11 +90,13 @@ __RCSID("$NetBSD: shlock.c,v 1.10 2008/04/28 20:24:14 martin Exp $");
 #define	TRUE	1
 #define	FALSE	0
 
-int	Debug = FALSE;
-char	*Pname;
-const char USAGE[] = "%s: USAGE: %s [-du] [-p PID] -f file\n";
-const char E_unlk[] = "%s: unlink(%s): %s\n";
-const char E_open[] = "%s: open(%s): %s\n";
+static int	Debug = FALSE;
+static char	*Pname;
+static const char USAGE[] = "%s: USAGE: %s [-du] [-p PID] -f file\n";
+static const char E_unlk[] = "unlink(%s)";
+static const char E_link[] = "link(%s, %s)";
+static const char E_open[] = "open(%s)";
+static const char E_stat[] = "stat(%s)";
 
 #define	dprintf	if (Debug) printf
 
@@ -103,12 +107,11 @@ const char E_open[] = "%s: open(%s): %s\n";
 */
 
 /* the following is in case you need to make the prototypes go away. */
-char	*xtmpfile(char *, pid_t, int);
-int	p_exists(pid_t);
-int	cklock(char *, int);
-int	mklock(char *, pid_t, int);
-void	bad_usage(void);
-int	main(int, char **);
+static char	*xtmpfile(const char *, pid_t, int);
+static int	p_exists(pid_t);
+static int	cklock(const char *, struct stat *, int);
+static int	mklock(const char *, pid_t, int);
+__dead static void	bad_usage(void);
 
 /*
 ** Create a temporary file, all ready to lock with.
@@ -116,43 +119,37 @@ int	main(int, char **);
 ** gave us a full path, instead of using the current directory
 ** which might not be in the same filesystem.
 */
-char *
-xtmpfile(char *file, pid_t pid, int uucpstyle)
+static char *
+xtmpfile(const char *file, pid_t pid, int uucpstyle)
 {
 	int	fd;
-	int	len;
+	size_t	len;
 	char	*cp, buf[BUFSIZ];
 	static char	tempname[BUFSIZ];
 
-	sprintf(buf, "shlock%ld", (u_long)getpid());
-	if ((cp = strrchr(strcpy(tempname, file), '/')) != (char *)NULL) {
+	snprintf(buf, sizeof(buf), "shlock%jd", (intmax_t)getpid());
+	if ((cp = strrchr(strcpy(tempname, file), '/')) != NULL) {
 		*++cp = '\0';
 		(void) strcat(tempname, buf);
 	} else
 		(void) strcpy(tempname, buf);
 	dprintf("%s: temporary filename: %s\n", Pname, tempname);
 
-	sprintf(buf, "%ld\n", (u_long)pid);
+	snprintf(buf, sizeof(buf), "%jd\n", (intmax_t)pid);
 	len = strlen(buf);
-openloop:
-	if ((fd = open(tempname, O_RDWR|O_CREAT|O_EXCL, 0644)) < 0) {
+	while ((fd = open(tempname, O_RDWR|O_CREAT|O_TRUNC|O_SYNC|O_EXCL, 0644))
+	    == -1)
+	{
 		switch(errno) {
 		case EEXIST:
-			dprintf("%s: file %s exists already.\n",
-				Pname, tempname);
-			if (unlink(tempname) < 0) {
-				fprintf(stderr, E_unlk,
-					Pname, tempname, strerror(errno));
-				return((char *)NULL);
+			if (unlink(tempname) == -1) {
+				warn(E_unlk, tempname);
+				return NULL;
 			}
-			/*
-			** Further profanity
-			*/
-			goto openloop;
+			break;
 		default:
-			fprintf(stderr, E_open,
-				Pname, tempname, strerror(errno));
-			return((char *)NULL);
+			warn(E_open, tempname);
+			return NULL;
 		}
 	}
 
@@ -163,48 +160,46 @@ openloop:
 	*/
 	if (uucpstyle ?
 		(write(fd, &pid, sizeof(pid)) != sizeof(pid)) :
-		(write(fd, buf, len) < 0))
+		(write(fd, buf, len) != (ssize_t)len))
 	{
-		fprintf(stderr, "%s: write(%s,%ld): %s\n",
-			Pname, tempname, (u_long)pid, strerror(errno));
+		warn("write(%s,%jd)", tempname, (intmax_t)pid);
 		(void) close(fd);
-		if (unlink(tempname) < 0) {
-			fprintf(stderr, E_unlk,
-				Pname, tempname, strerror(errno));
+		if (unlink(tempname) == -1) {
+			warn(E_unlk, tempname);
 		}
-		return((char *)NULL);
+		return NULL;
 	}
 	(void) close(fd);
-	return(tempname);
+	return tempname;
 }
 
 /*
 ** Does the PID exist?
 ** Send null signal to find out.
 */
-int
+static int
 p_exists(pid_t pid)
 {
-	dprintf("%s: process %ld is ", Pname, (u_long)pid);
+	dprintf("%s: process %jd is ", Pname, (intmax_t)pid);
 	if (pid <= 0) {
 		dprintf("invalid\n");
-		return(FALSE);
+		return FALSE;
 	}
-	if (kill(pid, 0) < 0) {
+	if (kill(pid, 0) == -1) {
 		switch(errno) {
 		case ESRCH:
-			dprintf("dead\n");
-			return(FALSE);	/* pid does not exist */
+			dprintf("dead %jd\n", (intmax_t)pid);
+			return FALSE;	/* pid does not exist */
 		case EPERM:
 			dprintf("alive\n");
-			return(TRUE);	/* pid exists */
+			return TRUE;	/* pid exists */
 		default:
 			dprintf("state unknown: %s\n", strerror(errno));
-			return(TRUE);	/* be conservative */
+			return TRUE;	/* be conservative */
 		}
 	}
 	dprintf("alive\n");
-	return(TRUE);	/* pid exists */
+	return TRUE;	/* pid exists */
 }
 
 /*
@@ -222,8 +217,8 @@ p_exists(pid_t pid)
 **	o	No clean up to do if the system or application crashes.
 **
 */
-int
-cklock(char *file, int uucpstyle)
+static int
+cklock(const char *file, struct stat *st, int uucpstyle)
 {
 	int	fd = open(file, O_RDONLY);
 	ssize_t len;
@@ -231,10 +226,16 @@ cklock(char *file, int uucpstyle)
 	char	buf[BUFSIZ];
 
 	dprintf("%s: checking extant lock <%s>\n", Pname, file);
-	if (fd < 0) {
+	if (fd == -1) {
 		if (errno != ENOENT)
-			fprintf(stderr, E_open, Pname, file, strerror(errno));
-		return(TRUE);	/* might or might not; conservatism */
+			warn(E_open, file);
+		return TRUE;	/* might or might not; conservatism */
+	}
+
+	if (st != NULL && fstat(fd, st) == -1) {
+		warn(E_stat, file);
+		close(fd);
+		return TRUE;
 	}
 
 	if (uucpstyle ?
@@ -243,62 +244,117 @@ cklock(char *file, int uucpstyle)
 	{
 		close(fd);
 		dprintf("%s: lock file format error\n", Pname);
-		return(FALSE);
+		return FALSE;
 	}
 	close(fd);
 	buf[len + 1] = '\0';
-	return(p_exists(uucpstyle ? pid : atoi(buf)));
+	return p_exists(uucpstyle ? pid : atoi(buf));
 }
 
-int
-mklock(char *file, pid_t pid, int uucpstyle)
+static int
+mklock(const char *file, pid_t pid, int uucpstyle)
 {
-	char	*tmp;
+	char	*tmp, tmp2[BUFSIZ + 2];
 	int	retcode = FALSE;
+	struct stat stlock, sttmp, stlock2;
 
-	dprintf("%s: trying lock <%s> for process %ld\n", Pname, file,
-	    (u_long)pid);
-	if ((tmp = xtmpfile(file, pid, uucpstyle)) == (char *)NULL)
-		return(FALSE);
+	dprintf("%s: trying lock <%s> for process %jd\n", Pname, file,
+	    (intmax_t)pid);
+	if ((tmp = xtmpfile(file, pid, uucpstyle)) == NULL)
+		return FALSE;
 
-linkloop:
-	if (link(tmp, file) < 0) {
+	while (link(tmp, file) == -1) {
 		switch(errno) {
 		case EEXIST:
 			dprintf("%s: lock <%s> already exists\n", Pname, file);
-			if (cklock(file, uucpstyle)) {
+			if (cklock(file, &stlock, uucpstyle)) {
 				dprintf("%s: extant lock is valid\n", Pname);
-				break;
-			} else {
-				dprintf("%s: lock is invalid, removing\n",
-					Pname);
-				if (unlink(file) < 0) {
-					fprintf(stderr, E_unlk,
-						Pname, file, strerror(errno));
-					break;
-				}
+				goto out;
+			}
+			if (stat(tmp, &sttmp) == -1) {
+				warn(E_stat, tmp);
+				goto out;
 			}
 			/*
-			** I hereby profane the god of structured programming,
-			** Edsgar Dijkstra
-			*/
-			goto linkloop;
-		default:
-			fprintf(stderr, "%s: link(%s, %s): %s\n",
-				Pname, tmp, file, strerror(errno));
+			 * We need to take another lock against the lock
+			 * file to protect it against multiple removals
+			 */
+			snprintf(tmp2, sizeof(tmp2), "%s-2", tmp);
+			if (unlink(tmp2) == -1 && errno != ENOENT) {
+				warn(E_unlk, tmp2);
+				goto out;
+			}
+			if (stlock.st_ctime >= sttmp.st_ctime) {
+				dprintf("%s: lock time changed %jd >= %jd\n",
+				    Pname, (intmax_t)stlock.st_ctime,
+				    (intmax_t)stlock2.st_ctime);
+				goto out;
+			}
+			if (stlock.st_nlink != 1) {
+				dprintf("%s: someone else linked to it %d\n",
+				    Pname, stlock.st_nlink);
+				goto out;
+			}
+			if (link(file, tmp2) == -1) {
+				/* someone took our temp name! */
+				warn(E_link, file, tmp2);
+				goto out2;
+			}
+			if (stat(file, &stlock2) == -1) {
+				warn(E_stat, file);
+				goto out2;
+			}
+			if (stlock.st_ino != stlock2.st_ino) {
+				dprintf("%s: lock inode changed %jd != %jd\n",
+				    Pname, (intmax_t)stlock.st_ino,
+				    (intmax_t)stlock2.st_ino);
+				goto out2;
+			}
+			if (stlock2.st_nlink != 2) {
+				dprintf("%s: someone else linked to it %d\n",
+				    Pname, stlock2.st_nlink);
+				goto out2;
+			}
+				
+			dprintf("%s: lock is invalid, removing\n", Pname);
+			if (unlink(file) == -1) {
+				warn(E_unlk, file);
+				goto out2;
+			}
+			if (unlink(tmp2) == -1)
+				goto out2;
 			break;
+		default:
+			warn(E_link, tmp, file);
+			goto out;
 		}
-	} else {
+	}
+
+	if (stat(tmp, &sttmp) == -1) {
+		warn(E_stat, tmp);
+		goto out;
+	}
+
+	if (sttmp.st_nlink == 2) {
 		dprintf("%s: got lock <%s>\n", Pname, file);
 		retcode = TRUE;
+		goto out;
+
 	}
-	if (unlink(tmp) < 0) {
-		fprintf(stderr, E_unlk, Pname, tmp, strerror(errno));
+
+out2:
+	if (unlink(tmp2) == -1) {
+		warn(E_unlk, tmp2);
 	}
-	return(retcode);
+out:
+	if (unlink(tmp) == -1) {
+		warn(E_unlk, tmp);
+	}
+
+	return retcode;
 }
 
-void
+static void
 bad_usage(void)
 {
 	fprintf(stderr, USAGE, Pname, Pname);
@@ -309,7 +365,7 @@ int
 main(int ac, char **av)
 {
 	int	x;
-	char	*file = (char *)NULL;
+	char	*file = NULL;
 	pid_t	pid = 0;
 	int	uucpstyle = FALSE;	/* indicating UUCP style locks */
 	int	only_check = TRUE;	/* don't make a lock */
@@ -352,12 +408,12 @@ main(int ac, char **av)
 		}
 	}
 
-	if (file == (char *)NULL || (!only_check && pid <= 0)) {
+	if (file == NULL || (!only_check && pid <= 0)) {
 		bad_usage();
 	}
 
 	if (only_check) {
-		exit(cklock(file, uucpstyle) ? LOCK_GOOD : LOCK_BAD);
+		exit(cklock(file, NULL, uucpstyle) ? LOCK_GOOD : LOCK_BAD);
 	}
 
 	exit(mklock(file, pid, uucpstyle) ? LOCK_SET : LOCK_FAIL);

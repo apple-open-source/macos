@@ -17,12 +17,12 @@ awk -f "$PROJECT_DIR/ncurses/ncurses/tinfo/MKcodes.awk" bigstrings=1 "$CAPS" \
 	> "$BUILT_PRODUCTS_DIR"/codes.c
 
 # comp_captab.c
-pushd "$BUILT_PRODUCTS_DIR"
+cd "$BUILT_PRODUCTS_DIR"
 sh "$PROJECT_DIR"/ncurses/ncurses/tinfo/MKcaptab.sh "$AWK" 1 \
 	"$PROJECT_DIR"/ncurses/ncurses/tinfo/MKcaptab.awk \
 	"$CAPS" \
 	> "$BUILT_PRODUCTS_DIR"/comp_captab.c
-popd
+cd -
 
 # expanded.c
 sh "$PROJECT_DIR"/ncurses/ncurses/tty/MKexpanded.sh \

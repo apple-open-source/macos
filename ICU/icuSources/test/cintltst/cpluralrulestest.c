@@ -10,6 +10,8 @@
 
 #if !UCONFIG_NO_FORMATTING
 
+#include <stdbool.h>
+
 #include "unicode/upluralrules.h"
 #include "unicode/ustring.h"
 #include "unicode/uenum.h"
@@ -52,6 +54,8 @@ static const PluralRulesTestItem testItems[] = {
     { "en",   1, "one",   "other" },
     { "en", 1.5, "other", "other" },
     { "en",   2, "other", "other" },
+#if APPLE_ICU_CHANGES
+// rdar://
 
     { "pt_PT",   0, "other", "other" },
     { "pt_PT", 0.5, "other", "other" },
@@ -65,12 +69,12 @@ static const PluralRulesTestItem testItems[] = {
     { "pt_BR", 1.5, "one",   "one" },
     { "pt_BR",   2, "other", "other" },
 
+#endif  // APPLE_ICU_CHANGES
     { "fr",   0, "one",   "one" },
     { "fr", 0.5, "one",   "one" },
     { "fr",   1, "one",   "one" },
     { "fr", 1.5, "one",   "one" },
     { "fr",   2, "other", "other" },
-
     { "ru",   0, "many",  "other" },
     { "ru", 0.5, "other", "other" },
     { "ru",   1, "one",   "other" },
@@ -79,6 +83,8 @@ static const PluralRulesTestItem testItems[] = {
     { "ru",   5, "many",  "other" },
     { "ru",  10, "many",  "other" },
     { "ru",  11, "many",  "other" },
+#if APPLE_ICU_CHANGES
+// rdar://
 
     // ru rules should not be affected by script/lang/keywords <rdar://problem/49268649>
     { "ru_Cyrl_RU",   0, "many",  "other" },
@@ -108,6 +114,7 @@ static const PluralRulesTestItem testItems[] = {
     { "ru_Cyrl_RU@numbers=latn",  10, "many",  "other" },
     { "ru_Cyrl_RU@numbers=latn",  11, "many",  "other" },
 
+#endif  // APPLE_ICU_CHANGES
     { NULL,   0, NULL,    NULL }
 };
 
@@ -186,7 +193,7 @@ static void TestOrdinalRules() {
     }
     U_STRING_INIT(two, "two", 3);
     length = uplrules_select(upr, 2., keyword, 8, &errorCode);
-    if (U_FAILURE(errorCode) || u_strCompare(keyword, length, two, 3, FALSE) != 0) {
+    if (U_FAILURE(errorCode) || u_strCompare(keyword, length, two, 3, false) != 0) {
         log_data_err("uplrules_select(en-ordinal, 2) failed - %s\n", u_errorName(errorCode));
     }
     uplrules_close(upr);
@@ -230,7 +237,7 @@ static const KeywordsForLang getKeywordsItems[] = {
     { "lv", { "zero", "one", "other" } },
     { "hr", { "one", "few", "other" } },
     { "sl", { "one", "two", "few", "other" } },
-    { "he", { "one", "two", "many", "other" } },
+    { "he", { "one", "two", "other" } },
     { "cs", { "one", "few", "many", "other" } },
     { "ar", { "zero", "one", "two", "few", "many" , "other" } },
     { NULL, { NULL } }
@@ -254,13 +261,13 @@ static void TestGetKeywords() {
         
         /* initialize arrays for expected and get results */
         for (i = 0; i < kNumKeywords; i++) {
-            expectKeywords[i] = FALSE;
-            getKeywords[i] = FALSE;
+            expectKeywords[i] = false;
+            getKeywords[i] = false;
         }
         for (i = 0; i < kNumKeywords && itemPtr->keywords[i] != NULL; i++) {
             iKnown = getKeywordIndex(itemPtr->keywords[i]);
             if (iKnown >= 0) {
-                expectKeywords[iKnown] = TRUE;
+                expectKeywords[iKnown] = true;
             }
         }
         
@@ -280,7 +287,7 @@ static void TestGetKeywords() {
                 if (iKnown < 0) {
                     log_err("FAIL: uplrules_getKeywords for locale %s, unknown keyword %s\n", itemPtr->locale, keyword );
                 } else {
-                    getKeywords[iKnown] = TRUE;
+                    getKeywords[iKnown] = true;
                 }
                 keywordCount++;
             }

@@ -176,7 +176,7 @@ template<> void JSTestOverloadedConstructorsWithSequenceDOMConstructor::initiali
 
 static const HashTableValue JSTestOverloadedConstructorsWithSequencePrototypeTableValues[] =
 {
-    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestOverloadedConstructorsWithSequenceConstructor, 0 } },
+    { "constructor"_s, static_cast<unsigned>(PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestOverloadedConstructorsWithSequenceConstructor, 0 } },
 };
 
 const ClassInfo JSTestOverloadedConstructorsWithSequencePrototype::s_info = { "TestOverloadedConstructorsWithSequence"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestOverloadedConstructorsWithSequencePrototype) };
@@ -195,18 +195,13 @@ JSTestOverloadedConstructorsWithSequence::JSTestOverloadedConstructorsWithSequen
 {
 }
 
-void JSTestOverloadedConstructorsWithSequence::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestOverloadedConstructorsWithSequence>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestOverloadedConstructorsWithSequence>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestOverloadedConstructorsWithSequence::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestOverloadedConstructorsWithSequencePrototype::create(vm, &globalObject, JSTestOverloadedConstructorsWithSequencePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestOverloadedConstructorsWithSequencePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestOverloadedConstructorsWithSequencePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestOverloadedConstructorsWithSequence::prototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -250,7 +245,7 @@ void JSTestOverloadedConstructorsWithSequence::analyzeHeap(JSCell* cell, HeapAna
     auto* thisObject = jsCast<JSTestOverloadedConstructorsWithSequence*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

@@ -32,6 +32,7 @@ enum Command {
     case dump
     case depart
     case distrust(Set<String>)
+    case drop(Set<String>)
     case join(Data, Data)
     case establish
     case localReset
@@ -39,7 +40,6 @@ enum Command {
     case healthInquiry
     case update
     case reset
-    case validate
     case viableBottles // (OTEscrowRecordFetchSource)
     case vouch(String, Data, Data, Data, Data)
     case vouchWithBottle(String, Data, String)
@@ -60,6 +60,7 @@ func printUsage() {
     print("  dump                      Print the state of the world as this peer knows it")
     print("  depart                    Attempt to depart the account and mark yourself as untrusted")
     print("  distrust PEERID ...       Distrust one or more peers by peer ID")
+    print("  drop PEERID ...           Drop (delete) one or more peers by peer ID (but keep them in excluded/distrust list")
     print("  establish                 Calls Cuttlefish Establish, creating a new account-wide trust arena with a single peer (previously generated with prepare")
     print("  healthInquiry             Request peers to check in with reportHealth")
     print("  join VOUCHER VOUCHERSIG   Join a circle using this (base64) voucher and voucherSig")
@@ -69,7 +70,6 @@ func printUsage() {
     print("                            Creates a new identity and returns its attributes. If not provided, modelid and machineid will be given some defaults (ignoring the local device)")
     print("  supportApp                Get SupportApp information from Cuttlefish")
     print("  update                    Fetch new information from Cuttlefish, and perform any actions this node deems necessary")
-    print("  validate                  Vvalidate SOS and Octagon data structures from server side")
     print("  viable-bottles            Show bottles in preference order of server")
     print("  vouch PEERID PERMANENTINFO PERMANENTINFOSIG STABLEINFO STABLEINFOSIG")
     print("                            Create a voucher for a new peer. permanentInfo, permanentInfoSig, stableInfo, stableInfoSig should be base64 data")
@@ -274,6 +274,17 @@ while let arg = argIterator.next() {
         }
         commands.append(.distrust(peerIDs))
 
+    case "drop":
+        var peerIDs = Set<String>()
+        while let arg = argIterator.next() {
+            peerIDs.insert(arg)
+        }
+        guard peerIDs.count != 0 else {
+            print("Error: drop needs at least one peerID")
+            exitUsage(EXIT_FAILURE)
+        }
+        commands.append(.drop(peerIDs))
+
     case "establish":
         commands.append(.establish)
 
@@ -339,9 +350,6 @@ while let arg = argIterator.next() {
 
     case "supportApp":
         commands.append(.supportApp)
-
-    case "validate":
-        commands.append(.validate)
 
     case "viable-bottles":
         commands.append(.viableBottles)
@@ -586,6 +594,16 @@ for command in commands {
             print("Distrust successful")
         }
 
+    case .drop(let peerIDs):
+        logger.log("dropping \(peerIDs.description) for (\(container), \(context))")
+        tpHelper.dropPeerIDs(with: specificUser, peerIDs: peerIDs) { error in
+            guard error == nil else {
+                print("Error dropping:", error!)
+                return
+            }
+            print("Drop successful")
+        }
+
     case let .join(voucher, voucherSig):
         logger.log("joining (\(container), \(context))")
         tpHelper.join(with: specificUser,
@@ -748,25 +766,6 @@ for command in commands {
             print("Reset complete")
         }
 
-    case .validate:
-        logger.log("validate (\(container), \(context))")
-        tpHelper.validatePeers(with: specificUser) { reply, error in
-            guard error == nil else {
-                print("Error validating:", error!)
-                return
-            }
-
-            if let reply = reply {
-                do {
-                    print(try TPCTLObjectiveC.jsonSerialize(cleanDictionaryForJSON(reply)))
-                } catch {
-                    print("Error encoding JSON: \(error)")
-                }
-            } else {
-                print("Error: no results, but no error either?")
-            }
-        }
-
     case .viableBottles:
         logger.log("viableBottles (\(container), \(context))")
         tpHelper.fetchViableBottles(with: specificUser, source: .default) { sortedBottleIDs, partialBottleIDs, error in
@@ -869,12 +868,16 @@ for command in commands {
             }
             let semaphore = DispatchSemaphore(value: 0)
 
-            controller.fetchDeviceList(with: requestArguments) { deviceList, error in
+            controller.deviceList(with: requestArguments) { response, error in
                 guard error == nil else {
                     print("Unable to fetch IDMS device list: \(error!)")
                     abort()
                 }
-                guard let deviceList = deviceList else {
+                guard let response else {
+                    print("IDMS returned empty response")
+                    return
+                }
+                guard let deviceList = response.deviceList else {
                     print("IDMS returned empty device list")
                     return
                 }

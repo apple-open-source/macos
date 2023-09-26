@@ -325,6 +325,8 @@ struct nfsmount {
 	} nm_un;
 	/* common state */
 	TAILQ_HEAD(, nfs_open_owner) nm_open_owners; /* list of open owners */
+	lck_mtx_t nm_open_owners_lock;  /* open owners list lock */
+	lck_mtx_t nm_deleg_lock;        /* NFSv4 delegations list lock */
 	uint32_t nm_stateinuse;         /* state in use counter */
 	uint32_t nm_stategenid;         /* state generation counter */
 	time_t  nm_recover_start;       /* recover start time */
@@ -335,6 +337,7 @@ struct nfsmount {
 	struct nfsiod *nm_niod;         /* nfsiod processing this mount */
 	TAILQ_ENTRY(nfsmount) nm_iodlink; /* chain of mounts awaiting nfsiod */
 	int     nm_asyncwrites;         /* outstanding async I/O writes */
+	lck_mtx_t nm_asyncwrites_lock;  /* outstanding async I/O writes lock */
 	/* socket state */
 	uint8_t nm_sofamily;            /* (preferred) protocol family of socket */
 	uint8_t nm_sotype;              /* (preferred) type of socket */
@@ -346,6 +349,8 @@ struct nfsmount {
 	struct nfs_socket *nm_nso;      /* current socket */
 	struct sockaddr *nm_saddr;      /* Address of server */
 	u_short nm_sockflags;           /* socket state flags */
+	u_short nm_sndstate;            /* send state flags */
+	lck_mtx_t nm_sndstate_lock;     /* send state lock */
 	time_t  nm_deadto_start;        /* dead timeout start time */
 	time_t  nm_reconnect_start;     /* reconnect start time */
 	time_t  nm_lastrcv;             /* time of last successfully received rpc */
@@ -391,15 +396,17 @@ struct nfsmount {
 #define NFSSTA_GOTFSINFO        0x00100000  /* Got the V3 fsinfo */
 #define NFSSTA_WANTRQUOTA       0x00200000  /* Want rquota address */
 #define NFSSTA_RQUOTAINPROG     0x00400000  /* Getting rquota address */
-#define NFSSTA_SENDING          0x00800000  /* Sending on socket */
-#define NFSSTA_SNDLOCK          0x01000000  /* Send socket lock */
-#define NFSSTA_WANTSND          0x02000000  /* Want above */
 #define NFSSTA_DEAD             0x04000000  /* mount is dead */
 #define NFSSTA_RECOVER          0x08000000  /* mount state needs to be recovered */
 #define NFSSTA_RECOVER_EXPIRED  0x10000000  /* mount state expired */
 #define NFSSTA_REVOKE           0x20000000  /* need to scan for revoked nodes */
 #define NFSSTA_SQUISHY          0x40000000  /* we can ask to be forcibly unmounted */
 #define NFSSTA_MOUNT_DRAIN      0x80000000  /* mount is draining references */
+
+/* flags for nm_sndstate */
+#define NFSSENDSTA_SENDING      0x0001  /* Sending on socket */
+#define NFSSENDSTA_SNDLOCK      0x0002  /* Send socket lock */
+#define NFSSENDSTA_WANTSND      0x0004  /* Want above */
 
 /* flags for nm_sockflags */
 #define NMSOCK_READY            0x0001  /* socket is ready for use */

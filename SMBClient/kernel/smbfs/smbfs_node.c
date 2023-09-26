@@ -2053,7 +2053,10 @@ smbfs_attr_cacheenter(struct smb_share *share, vnode_t vp, struct smbfattr *fap,
                 SMBERROR_LOCK(np, "File <%s> changed while it was closed but still has dirty pages. Dropping the dirty pages. \n", np->n_name);
             }
 
-            //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+            SMB_LOG_UBC_LOCK(np, "UBC_INVALIDATE on <%s> due to vnode vtype changed \n",
+                             np->n_name);
+            
+            np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
             ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
         }
 
@@ -2082,12 +2085,18 @@ smbfs_attr_cacheenter(struct smb_share *share, vnode_t vp, struct smbfattr *fap,
                      * Although this will probably cause the file on the server
                      * to get materialized if its not already materialized.
                      */
-                    //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+                    SMB_LOG_UBC_LOCK(np, "UBC_PUSHDIRTY, UBC_INVALIDATE on <%s> due to dataless file changed \n",
+                                     np->n_name);
+                    
+                    np->n_flag &= ~(NNEEDS_UBC_INVALIDATE | NNEEDS_UBC_PUSHDIRTY);
                     ubc_msync (vp, 0, ubc_getsize(vp), NULL,
                                UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
                 }
                 else {
-                    //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+                    SMB_LOG_UBC_LOCK(np, "UBC_INVALIDATE on <%s> due to dataless file (not open) changed \n",
+                                     np->n_name);
+                    
+                    np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
                     ubc_msync (vp, 0, ubc_getsize(vp), NULL,
                                UBC_INVALIDATE);
                 }
@@ -2801,37 +2810,32 @@ smbfs_update_size(struct smbnode *np, struct timespec *reqtime,
              */
             if ((np->f_lockFID_refcnt > 0) || (np->f_sharedFID_refcnt > 0)) {
                 /* File has to be open for the msync to make sense */
-
-                /*
-                 * <91320504> Disable changes for 80278506 for now because it
-                 * is causing a third party app to save at very slow speeds
-                 * on Apple Silicon Macs for some unknown reason. We will come
-                 * back to investigate this later.
-                 */
-                //if (np->n_write_unsafe == false) {
-                if (1) {
+                if (np->n_write_unsafe == false) {
                     /* Did the vnop call that got us here allows us to write data? */
-                    SMB_LOG_IO_LOCK(np, "%s mod time change so invalidate UBC (%ld:%ld vs %ld:%ld)\n",
-                                    np->n_name,
-                                    fap->fa_mtime.tv_sec,
-                                    fap->fa_mtime.tv_nsec,
-                                    np->n_mtime.tv_sec,
-                                    np->n_mtime.tv_nsec);
+                    SMB_LOG_UBC_LOCK(np, "UBC_PUSHDIRTY, UBC_INVALIDATE on <%s> due to vnode mod time changed (%ld:%ld vs %ld:%ld) \n",
+                                     np->n_name,
+                                     fap->fa_mtime.tv_sec,
+                                     fap->fa_mtime.tv_nsec,
+                                     np->n_mtime.tv_sec,
+                                     np->n_mtime.tv_nsec);
 
-                    //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+                    np->n_flag &= ~(NNEEDS_UBC_INVALIDATE | NNEEDS_UBC_PUSHDIRTY);
                     ubc_msync (np->n_vnode, 0, ubc_getsize(np->n_vnode), NULL,
                                UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
-                } else {
+                }
+                else {
                    /*
                     * We should not push out our dirty data if we are in
                     * a read operation (i.e. getattr()) (rdar://80278506).
                     */
-                    SMB_LOG_IO_LOCK(np, "%s mod time change but can't invalidate UBC right now (%ld:%ld vs %ld:%ld)\n",
-                                    np->n_name,
-                                    fap->fa_mtime.tv_sec,
-                                    fap->fa_mtime.tv_nsec,
-                                    np->n_mtime.tv_sec,
-                                    np->n_mtime.tv_nsec);
+                    SMB_LOG_UBC_LOCK(np, "Postpone UBC_INVALIDATE on <%s> due to vnode mod time changed (%ld:%ld vs %ld:%ld) \n",
+                                     np->n_name,
+                                     fap->fa_mtime.tv_sec,
+                                     fap->fa_mtime.tv_nsec,
+                                     np->n_mtime.tv_sec,
+                                     np->n_mtime.tv_nsec);
+                    
+                    np->n_flag |= NNEEDS_UBC_INVALIDATE | NNEEDS_UBC_PUSHDIRTY;
                 }
             }
         }
@@ -2860,29 +2864,25 @@ smbfs_update_size(struct smbnode *np, struct timespec *reqtime,
 	 */
     if ((np->f_lockFID_refcnt > 0) || (np->f_sharedFID_refcnt > 0)) {
         /* File has to be open for the msync to make sense */
-        
-        /*
-         * <91320504> Disable changes for 80278506 for now because it
-         * is causing a third party app to save at very slow speeds
-         * on Apple Silicon Macs for some unknown reason. We will come
-         * back to investigate this later.
-         */
-        //if (np->n_write_unsafe == false) {
-        if (1) {
+        if (np->n_write_unsafe == false) {
             /* Did the vnop call that got us here allows us to write data? */
-            SMB_LOG_IO_LOCK(np, "%s file size change so invalidate UBC \n",
-                            np->n_name);
-            //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+            SMB_LOG_UBC_LOCK(np, "UBC_PUSHDIRTY, UBC_INVALIDATE on <%s> due to file size changed \n",
+                             np->n_name);
+
+            np->n_flag &= ~(NNEEDS_UBC_INVALIDATE | NNEEDS_UBC_PUSHDIRTY);
             ubc_msync (np->n_vnode, 0, ubc_getsize(np->n_vnode), NULL,
                        UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
-        } else {
+        }
+        else {
            /*
             * We better not push out our dirty data if we're in
             * a read operation (ie getattr()) (rdar://80278506). Our
             * data will get pushed later on.
             */
-            SMB_LOG_IO_LOCK(np, "%s file size change, but can't invalidate UBC for now\n",
-                            np->n_name);
+            SMB_LOG_UBC_LOCK(np, "Postpone UBC_PUSHDIRTY, UBC_INVALIDATE on <%s> due to file size changed \n",
+                             np->n_name);
+            
+            np->n_flag |= NNEEDS_UBC_INVALIDATE | NNEEDS_UBC_PUSHDIRTY;
         }
     }
 
@@ -3629,7 +3629,8 @@ smb2fs_reconnect_dur_handle(struct smb_share *share, vnode_t vp,
                 
                 if (temp_lease.flags & SMB2_LEASE_GRANTED) {
                     /* Update the vnode lease from the temp lease */
-                    warning = smbfs_add_update_lease(share, vp, &temp_lease, SMBFS_LEASE_UPDATE, 1,
+                    warning = smbfs_add_update_lease(share, vp, &temp_lease,
+                                                     SMBFS_LEASE_UPDATE | SMBFS_IN_RECONNECT, 1,
                                                      "ReconnectWorked");
                     if (warning) {
                         /* Shouldnt ever happen */
@@ -3658,7 +3659,8 @@ smb2fs_reconnect_dur_handle(struct smb_share *share, vnode_t vp,
             smbnode_lease_lock(&np->n_lease, smb2fs_reconnect_dur_handle);
 
             if (np->n_lease.flags != 0) {
-                warning = smbfs_add_update_lease(share, vp, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
+                warning = smbfs_add_update_lease(share, vp, &np->n_lease,
+                                                 SMBFS_LEASE_REMOVE | SMBFS_IN_RECONNECT, 1,
                                                  "ReconnectFailed");
                 if (warning) {
                     /* Shouldnt ever happen */
@@ -3894,7 +3896,8 @@ smb2fs_reconnect(struct smbmount *smp)
 						np->n_lease.flags |= SMB2_LEASE_BROKEN;
 						np->n_lease.flags &= ~SMB2_LEASE_GRANTED;
                         /* Try to remove the dir vnode lease */
-                        warning = smbfs_add_update_lease(smp->sm_share, np->n_vnode, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
+                        warning = smbfs_add_update_lease(smp->sm_share, np->n_vnode, &np->n_lease,
+                                                         SMBFS_LEASE_REMOVE | SMBFS_IN_RECONNECT, 1,
                                                          "ReconnectDir");
                         if (warning) {
                             /* Shouldnt ever happen */
@@ -4199,7 +4202,8 @@ smb2fs_reconnect(struct smbmount *smp)
                     smbnode_lease_lock(&np->n_lease, smb2fs_reconnect);
 
                     if (np->n_lease.flags != 0) {
-                        warning = smbfs_add_update_lease(smp->sm_share, np->n_vnode, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
+                        warning = smbfs_add_update_lease(smp->sm_share, np->n_vnode, &np->n_lease,
+                                                         SMBFS_LEASE_REMOVE | SMBFS_IN_RECONNECT, 1,
                                                          "ReconnectFailed2");
                         if (warning) {
                             /* Shouldnt ever happen */
@@ -5231,9 +5235,29 @@ smbfs_add_update_lease(struct smb_share *share, vnode_t vp, struct smb2_lease *i
             else {
                 /* Currently cacheable */
                 if (purge_cache) {
-                    SMB_LOG_LEASING_LOCK(np, "Purge UBC cache on <%s> \n",
-                                           np->n_name);
-                    ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
+                    if (flags & SMBFS_IN_RECONNECT) {
+                        /*
+                         * In reconnect, so it is not safe to do UBC invalidate,
+                         * do it later
+                         */
+                        SMB_LOG_LEASING_LOCK(np, "Delay purge UBC cache on <%s> \n",
+                                               np->n_name);
+                        
+                        SMB_LOG_UBC_LOCK(np, "Postpone UBC_INVALIDATE on <%s> because currently in reconnect \n",
+                                         np->n_name);
+
+                        np->n_flag |= NNEEDS_UBC_INVALIDATE;
+                    }
+                    else {
+                        SMB_LOG_LEASING_LOCK(np, "Purge UBC cache on <%s> \n",
+                                               np->n_name);
+
+                        SMB_LOG_UBC_LOCK(np, "UBC_INVALIDATE on <%s> due to lease update \n",
+                                         np->n_name);
+                        
+                        np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+                        ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
+                    }
                 }
 
                 if (allow_caching == 0) {
@@ -5700,14 +5724,27 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
             if (flush_cache) {
                 SMB_LOG_LEASING_LOCK(np, "Flush UBC cache on <%s> \n",
                                      np->n_name);
+                SMB_LOG_UBC_LOCK(np, "UBC_PUSHDIRTY on <%s> due to lease break \n",
+                                 np->n_name);
+                
+                np->n_flag &= ~NNEEDS_UBC_PUSHDIRTY;
                 ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC);
+                
+                /* Invalidate the meta data cache too */
+                np->attribute_cache_timer = 0;
             }
             
             if (purge_cache) {
                 SMB_LOG_LEASING_LOCK(np, "Purge UBC cache on <%s> \n",
                                      np->n_name);
-                //np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
+                SMB_LOG_UBC_LOCK(np, "UBC_INVALIDATE on <%s> due to lease break \n",
+                                 np->n_name);
+                
+                np->n_flag &= ~NNEEDS_UBC_INVALIDATE;
                 ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
+                
+                /* Invalidate the meta data cache too */
+                np->attribute_cache_timer = 0;
             }
 
             if ((allow_caching == 0) && (need_close_files == 0)) {

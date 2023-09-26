@@ -55,6 +55,7 @@
 - (void)updatePluginState:(BOOL)state;
 - (void)updateMotionState:(BOOL)state;
 - (void)updateAODEnabledStatus:(BOOL)status;
+- (void)updateAmbientState:(BOOL)state;
 
 /*
  Update parameters through pmtool

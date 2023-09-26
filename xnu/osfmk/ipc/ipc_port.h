@@ -327,9 +327,6 @@ extern void __ipc_right_delta_overflow_panic(
 #define ip_full_kernel(port)            imq_full_kernel(&(port)->ip_messages)
 #define ip_full(port)                   imq_full(&(port)->ip_messages)
 
-boolean_t
-__ip_strict_reply_port_semantics_violation(void);
-
 /*
  * IPC Port flags for reply port defense in depth
  *
@@ -343,25 +340,31 @@ __ip_strict_reply_port_semantics_violation(void);
  * PORT_MARK_PROVISIONAL_REPLY_PORT
  *   Port is marked as a provisional reply port with an eventual goal of making it port as PORT_MARK_REPLY_PORT.
  *
- * PORT_ENFORCE_STRICT_REPLY_PORT_SEMANTICS
+ * PORT_ENFORCE_RIGID_REPLY_PORT_SEMANTICS
  *   Same as PORT_ENFORCE_REPLY_PORT_SEMANTICS above, but does not allow for provisional reply ports.
- *   Once provisional reply ports no longer exist, this will be removed as "strictness" will be irrelavant.
+ *   Once provisional reply ports no longer exist, this will be removed as "rigidness/strictness" will be irrelavant.
+ *
+ * PORT_ID_PROTECTED_OPT_OUT
+ *   Port is opted out from identity protected enforcement for mach exceptions.
  */
 #define PORT_MARK_REPLY_PORT              0x01
 #define PORT_ENFORCE_REPLY_PORT_SEMANTICS 0x02
 #define PORT_MARK_PROVISIONAL_REPLY_PORT  0x03
-#define PORT_ENFORCE_STRICT_REPLY_PORT_SEMANTICS  0x04
+#define PORT_ENFORCE_RIGID_REPLY_PORT_SEMANTICS  0x04
+#define PORT_ID_PROTECTED_OPT_OUT                 0x05
 
 /* ip_reply_port_semantics can be read without a lock as it is never unset after port creation. */
 #define ip_is_reply_port(port)                          (((port)->ip_reply_port_semantics) == PORT_MARK_REPLY_PORT)
 #define ip_require_reply_port_semantics(port)           (((port)->ip_reply_port_semantics) == PORT_ENFORCE_REPLY_PORT_SEMANTICS)
 #define ip_is_provisional_reply_port(port)              (((port)->ip_reply_port_semantics) == PORT_MARK_PROVISIONAL_REPLY_PORT)
-#define ip_require_strict_reply_port_semantics(port)    (((port)->ip_reply_port_semantics) == PORT_ENFORCE_STRICT_REPLY_PORT_SEMANTICS)
+#define ip_require_rigid_reply_port_semantics(port)     (((port)->ip_reply_port_semantics) == PORT_ENFORCE_RIGID_REPLY_PORT_SEMANTICS)
+#define ip_is_id_prot_opted_out(port)                   (((port)->ip_reply_port_semantics) == PORT_ID_PROTECTED_OPT_OUT)
 
 #define ip_mark_reply_port(port)                        ((port)->ip_reply_port_semantics = PORT_MARK_REPLY_PORT)
 #define ip_enforce_reply_port_semantics(port)           ((port)->ip_reply_port_semantics = PORT_ENFORCE_REPLY_PORT_SEMANTICS)
 #define ip_mark_provisional_reply_port(port)            ((port)->ip_reply_port_semantics = PORT_MARK_PROVISIONAL_REPLY_PORT)
-#define ip_enforce_strict_reply_port_semantics(port)    ((port)->ip_reply_port_semantics = PORT_ENFORCE_STRICT_REPLY_PORT_SEMANTICS)
+#define ip_enforce_rigid_reply_port_semantics(port)     ((port)->ip_reply_port_semantics = PORT_ENFORCE_RIGID_REPLY_PORT_SEMANTICS)
+#define ip_mark_id_prot_opt_out(port)                   ((port)->ip_reply_port_semantics = PORT_ID_PROTECTED_OPT_OUT)
 
 #define ip_is_immovable_send(port)      ((port)->ip_immovable_send)
 #define ip_is_pinned(port)              ((port)->ip_pinned)
@@ -369,11 +372,18 @@ __ip_strict_reply_port_semantics_violation(void);
 #define ip_is_libxpc_connection_port(port) \
 	(!ip_is_kolabeled(port) && (!(port)->ip_service_port) && ((port)->ip_splabel != NULL))
 
-#define ip_violates_strict_reply_port_semantics(dest_port, reply_port) \
-	(ip_require_strict_reply_port_semantics(dest_port) && !ip_is_reply_port(reply_port) && __ip_strict_reply_port_semantics_violation())
+extern bool ip_violates_rigid_reply_port_semantics(ipc_port_t dest_port, ipc_port_t reply_port,
+    int *reply_port_semantics_violation);
 
-#define ip_violates_reply_port_semantics(dest_port, reply_port) \
-	(ip_require_reply_port_semantics(dest_port) && !ip_is_reply_port(reply_port) && !ip_is_provisional_reply_port(reply_port))
+extern bool ip_violates_reply_port_semantics(ipc_port_t dest_port, ipc_port_t reply_port,
+    int *reply_port_semantics_violation);
+
+/* Rigid Reply Port and Move Reply Port violators */
+#define REPLY_PORT_SEMANTICS_VIOLATOR    1 /* normal reply port semantics violator */
+#define RRP_HARDENED_RUNTIME_VIOLATOR    2
+#define MRP_HARDENED_RUNTIME_VIOLATOR    3
+#define MRP_3P_VIOLATOR                  4
+#define RRP_3P_VIOLATOR                  5
 
 /* Bits reserved in IO_BITS_PORT_INFO are defined here */
 
@@ -643,7 +653,8 @@ __options_decl(ipc_port_init_flags_t, uint32_t, {
 	IPC_PORT_INIT_REPLY                             = 0x00000040,
 	IPC_PORT_ENFORCE_REPLY_PORT_SEMANTICS           = 0x00000080,
 	IPC_PORT_INIT_PROVISIONAL_REPLY                 = 0x00000100,
-	IPC_PORT_ENFORCE_STRICT_REPLY_PORT_SEMANTICS    = 0x00000200,
+	IPC_PORT_INIT_PROVISIONAL_ID_PROT_OPTOUT        = 0x00000200,
+	IPC_PORT_ENFORCE_RIGID_REPLY_PORT_SEMANTICS     = 0x00000300,
 });
 
 /* Initialize a newly-allocated port */

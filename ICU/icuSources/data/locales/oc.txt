@@ -4,92 +4,9 @@
 oc{
     AuxExemplarCharacters{"[ă â å ä ã ā æ ĕ ê ë ē ì ĭ î ī ñ ŏ ô ö ø ō œ ù ŭ û ū ÿ]"}
     ExemplarCharacters{"[a á à b c ç d e é è f g h i í ï j k l m n o ó ò p q r s t u ú ü v w x y z]"}
-    ExemplarCharactersIndex{"[A Á À B C Ç D E É È F G H I Í Ï J K L M N O Ó Ò P Q R S T U V W X Y Z]"}
     ExemplarCharactersNumbers{"[\\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
         "[\\- ‐ ‑ – — , ; \\: ! ? . … ’ \u0022 “ ” « » ( ) \\[ \\] § @ * / \\& # † ‡ "
         "⋅]"
-    }
-    NumberElements{
-        latn{
-            symbols{
-                minusSign{"-"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-            }
-        }
-    }
-    calendar{
-        gregorian{
-            dayNames{
-                format{
-                    wide{
-                        "dimenge",
-                        "diluns",
-                        "dimarç",
-                        "dimècres",
-                        "dijòus",
-                        "divendres",
-                        "dissabte",
-                    }
-                }
-            }
-            monthNames{
-                stand-alone{
-                    wide{
-                        "genièr",
-                        "febrièr",
-                        "març",
-                        "abril",
-                        "mai",
-                        "junh",
-                        "julhet",
-                        "agost",
-                        "setembre",
-                        "octòbre",
-                        "novembre",
-                        "decembre",
-                    }
-                }
-            }
-        }
-    }
-    fields{
-        day{
-            dn{"jorn"}
-            relative{
-                "-1"{"ièr"}
-                "0"{"uèi"}
-                "1"{"deman"}
-            }
-        }
-        era{
-            dn{"èra"}
-        }
-        hour{
-            dn{"ora"}
-        }
-        minute{
-            dn{"minuta"}
-        }
-        month{
-            dn{"mes"}
-        }
-        second{
-            dn{"segonda"}
-        }
-        week{
-            dn{"setmana"}
-        }
-        weekday{
-            dn{"jorn de la setmana"}
-        }
-        year{
-            dn{"annada"}
-        }
-        zone{
-            dn{"zòna orària"}
-        }
     }
 }

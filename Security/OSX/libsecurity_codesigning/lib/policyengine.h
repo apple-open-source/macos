@@ -24,7 +24,7 @@
 #define _H_POLICYENGINE
 
 #include "SecAssessment.h"
-#include "opaquewhitelist.h"
+#include "opaqueallowlist.h"
 #include "evaluationmanager.h"
 #include "policydb.h"
 #include <security_utilities/globalizer.h>
@@ -88,10 +88,10 @@ private:
 	void recordOutcome(SecStaticCodeRef code, bool allow, AuthorityType type, double expires, SQLite::int64 authority);
 
 private:
-	OpaqueWhitelist* mOpaqueWhitelist;
-	CFDictionaryRef opaqueWhitelistValidationConditionsFor(SecStaticCodeRef code);
-	bool opaqueWhiteListContains(SecStaticCodeRef code, SecAssessmentFeedback feedback, OSStatus reason);
-	void opaqueWhitelistAdd(SecStaticCodeRef code);
+	OpaqueAllowlist* mOpaqueAllowlist;
+	CFDictionaryRef opaqueAllowlistValidationConditionsFor(SecStaticCodeRef code);
+	bool opaqueAllowlistContains(SecStaticCodeRef code, SecAssessmentFeedback feedback, OSStatus reason);
+	void opaqueAllowlistAdd(SecStaticCodeRef code);
 
     friend class EvaluationManager;
     friend class EvaluationTask;

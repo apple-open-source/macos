@@ -78,9 +78,9 @@
         return;
     }
 
-    // We'd also really like to know the HSA2-ness of the world
-    if([accountTracker.hsa2iCloudAccountInitialized wait:500*NSEC_PER_MSEC]) {
-        ckkserror_global("ckksdevice", "Not quite sure if the account is HSA2 or not. Probably will quit?");
+    // We'd also really like to know the HSA2/Managed-ness of the world
+    if([accountTracker.cdpCapableiCloudAccountInitialized wait:500*NSEC_PER_MSEC]) {
+        ckkserror_global("ckksdevice", "Not quite sure if the account is HSA2/Managed or not. Probably will quit?");
     }
 
     NSHashTable<CKDatabaseOperation*>* ckOperations = [NSHashTable weakObjectsHashTable];
@@ -140,11 +140,11 @@
             zoneModifyRecordsOperation.savePolicy = CKRecordSaveAllKeys; // Overwrite anything in CloudKit: this is our state now
             zoneModifyRecordsOperation.group = self.group;
 
-            zoneModifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
+            zoneModifyRecordsOperation.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
                 if(!error) {
-                    ckksnotice("ckksdevice", viewState.zoneID, "Device state record upload successful for %@: %@", record.recordID.recordName, record);
+                    ckksnotice("ckksdevice", viewState.zoneID, "Device state record upload successful for %@: %@", recordID.recordName, record);
                 } else {
-                    ckkserror("ckksdevice", viewState.zoneID, "error on row: %@ %@", error, record);
+                    ckkserror("ckksdevice", viewState.zoneID, "error on row: %@ %@", error, recordID);
                 }
             };
 

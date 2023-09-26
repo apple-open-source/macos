@@ -1,5 +1,5 @@
 /*	$OpenBSD: vfprintf.c,v 1.67 2014/12/21 00:23:30 daniel Exp $	*/
-/* 
+/*
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Copyright (c) 1999-2005, 2008, 2010-2016
@@ -47,8 +47,6 @@
     !defined(HAVE_VASPRINTF) || !defined(HAVE_ASPRINTF) || \
     defined(PREFER_PORTABLE_SNPRINTF)
 
-#include <sys/mman.h>
-
 #include <errno.h>
 #ifdef HAVE_NL_LANGINFO
 # include <langinfo.h>
@@ -71,6 +69,7 @@
 #include <fcntl.h>
 
 #include "sudo_compat.h"
+#include "sudo_util.h"
 
 /* Avoid printf format attacks by ignoring the %n escape. */
 #define NO_PRINTF_PERCENT_N
@@ -107,46 +106,9 @@ union arg {
 #endif
 };
 
-static int __find_arguments(const char *fmt0, va_list ap, union arg **argtable,
-    size_t *argtablesiz);
+static int __find_arguments(const char *fmt0, va_list ap, union arg **argtable);
 static int __grow_type_table(unsigned char **typetable, int *tablesize);
 static int xxxprintf(char **, size_t, int, const char *, va_list);
-
-#if !defined(MAP_ANON) && defined(MAP_ANONYMOUS)
-# define MAP_ANON MAP_ANONYMOUS
-#endif
-
-/*
- * Allocate "size" bytes via mmap.
- */
-static void *
-mmap_alloc(size_t size)
-{
-	void *p;
-#ifndef MAP_ANON
-	int fd;
-
-	if ((fd = open("/dev/zero", O_RDWR)) == -1)
-		return NULL;
-	p = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-	close(fd);
-#else
-	p = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
-#endif
-	if (p == MAP_FAILED)
-		return NULL;
-	return p;
-}
-
-/*
- * Unmap "size" bytes of the ptr.
- */
-static void
-mmap_free(void *ptr, size_t size)
-{
-	if (ptr != NULL)
-		munmap(ptr, size);
-}
 
 #ifdef PRINTF_WIDE_CHAR
 /*
@@ -169,10 +131,8 @@ __wcsconv(wchar_t *wcsarg, int prec)
 		memset(&mbs, 0, sizeof(mbs));
 		p = wcsarg;
 		nbytes = wcsrtombs(NULL, (const wchar_t **)&p, 0, &mbs);
-		if (nbytes == (size_t)-1) {
-			errno = EILSEQ;
+		if (nbytes == (size_t)-1)
 			return NULL;
-		}
 	} else {
 		/*
 		 * Optimisation: if the output precision is small enough,
@@ -192,10 +152,8 @@ __wcsconv(wchar_t *wcsarg, int prec)
 					break;
 				nbytes += clen;
 			}
-			if (clen == (size_t)-1) {
-				errno = EILSEQ;
+			if (clen == (size_t)-1)
 				return NULL;
-			}
 		}
 	}
 	if ((convbuf = malloc(nbytes + 1)) == NULL)
@@ -207,7 +165,6 @@ __wcsconv(wchar_t *wcsarg, int prec)
 	if ((nbytes = wcsrtombs(convbuf, (const wchar_t **)&p,
 	    nbytes, &mbs)) == (size_t)-1) {
 		free(convbuf);
-		errno = EILSEQ;
 		return NULL;
 	}
 	convbuf[nbytes] = '\0';
@@ -271,7 +228,7 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 {
 	char *fmt;		/* format string */
 	int ch;			/* character from fmt */
-	int n, n2;		/* handy integers (short term usage) */
+	int n;			/* handy integers (short term usage) */
 	char *cp;		/* handy char pointer (short term usage) */
 	int flags;		/* flags as above */
 	int ret;		/* return value accumulator */
@@ -326,7 +283,6 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 	char *estr;		/* pointer to last char in str */
 	union arg *argtable;	/* args, built due to positional arg */
 	union arg statargtable[STATIC_ARG_TBL_SIZE];
-	size_t argtablesiz;
 	int nextarg;		/* 1-based argument index */
 	va_list orgap;		/* original argument pointer */
 #ifdef PRINTF_WIDE_CHAR
@@ -347,6 +303,9 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 	static const char xdigs_lower[16] = "0123456789abcdef";
 	static const char xdigs_upper[16] = "0123456789ABCDEF";
 
+	/*
+	 * BEWARE, these `goto done' on error, and PAD uses `n'.
+	 */
 	/* Print chars to "str", (allocate as needed if alloc is set). */
 #define	PRINT(ptr, len) do { \
 	const char *p = ptr; \
@@ -369,7 +328,6 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 	} \
 } while (0)
 
-	/* BEWARE, PAD uses `n' and PRINTANDPAD uses `n2'. */
 #define	PAD(plen, pstr) do { \
 	if ((n = (plen)) > 0) { \
 		while (n > PADSIZE) { \
@@ -380,7 +338,7 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 	} \
 } while (0)
 #define	PRINTANDPAD(p, ep, len, with) do {	\
-	n2 = (ep) - (p);       			\
+	int n2 = (ep) - (p);			\
 	if (n2 > (len))				\
 		n2 = (len);			\
 	if (n2 > 0)				\
@@ -427,8 +385,8 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 	  * Get * arguments, including the form *nn$.  Preserve the nextarg
 	  * that the argument can be gotten once the type is determined.
 	  */
-#define GETASTER(val) \
-	n2 = 0; \
+#define GETASTER(val) do { \
+	int n2 = 0; \
 	cp = fmt; \
 	while (is_digit(*cp)) { \
 		APPEND_DIGIT(n2, *cp); \
@@ -438,7 +396,10 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 		int hold = nextarg; \
 		if (argtable == NULL) { \
 			argtable = statargtable; \
-			__find_arguments(fmt0, orgap, &argtable, &argtablesiz); \
+			if (__find_arguments(fmt0, orgap, &argtable) == -1) { \
+				ret = -1; \
+				goto done; \
+			} \
 		} \
 		nextarg = n2; \
 		val = GETARG(int); \
@@ -446,7 +407,8 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 		fmt = ++cp; \
 	} else { \
 		val = GETARG(int); \
-	}
+	} \
+} while (0)
 
 /*
 * Get the argument indexed by nextarg.   If the argument table is
@@ -487,12 +449,14 @@ xxxprintf(char **strp, size_t strsize, int alloc, const char *fmt0, va_list ap)
 	 */
 	for (;;) {
 		for (cp = fmt; (ch = *fmt) != '\0' && ch != '%'; fmt++)
-			/* void */;
-		if ((n = fmt - cp) != 0) {
-			if (n > INT_MAX - ret)
+			continue;
+
+		if (fmt != cp) {
+			ptrdiff_t m = fmt - cp;
+			if (m < 0 || m > INT_MAX - ret)
 				goto overflow;
-			PRINT(cp, n);
-			ret += n;
+			PRINT(cp, m);
+			ret += m;
 		}
 		if (ch == '\0')
 			goto done;
@@ -557,8 +521,11 @@ reswitch:	switch (ch) {
 				nextarg = n;
 				if (argtable == NULL) {
 					argtable = statargtable;
-					__find_arguments(fmt0, orgap,
-					    &argtable, &argtablesiz);
+					if (__find_arguments(fmt0, orgap,
+					    &argtable) == -1) {
+						ret = -1;
+						goto done;
+					}
 				}
 				goto rflag;
 			}
@@ -583,8 +550,11 @@ reswitch:	switch (ch) {
 				nextarg = n;
 				if (argtable == NULL) {
 					argtable = statargtable;
-					__find_arguments(fmt0, orgap,
-					    &argtable, &argtablesiz);
+					if (__find_arguments(fmt0, orgap,
+					    &argtable) == -1) {
+						ret = -1;
+						goto done;
+					}
 				}
 				goto rflag;
 			}
@@ -633,7 +603,7 @@ reswitch:	switch (ch) {
 				mbseqlen = wcrtomb(buf,
 				    (wchar_t)GETARG(wint_t), &mbs);
 				if (mbseqlen == (size_t)-1) {
-					errno = EILSEQ;
+					ret = -1;
 					goto done;
 				}
 				cp = buf;
@@ -834,44 +804,35 @@ fp_common:
 			xdigs = xdigs_lower;
 			ox[1] = 'x';
 			goto nosign;
-		case 's':
+		case 's': {
+			size_t len;
+
 #ifdef PRINTF_WIDE_CHAR
 			if (flags & LONGINT) {
 				wchar_t *wcp;
 
-				if (convbuf != NULL) {
-					free(convbuf);
-					convbuf = NULL;
-				}
+				free(convbuf);
+				convbuf = NULL;
 				if ((wcp = GETARG(wchar_t *)) == NULL) {
-					cp = "(null)";
+					cp = (char *)"(null)";
 				} else {
 					convbuf = __wcsconv(wcp, prec);
-					if (convbuf == NULL)
+					if (convbuf == NULL) {
+						ret = -1;
 						goto done;
+					}
 					cp = convbuf;
 				}
 			} else
 #endif /* PRINTF_WIDE_CHAR */
 			if ((cp = GETARG(char *)) == NULL)
-				cp = "(null)";
-			if (prec >= 0) {
-				/*
-				 * can't use strlen; can only look for the
-				 * NUL in the first `prec' characters, and
-				 * strlen() will go further.
-				 */
-				char *p = memchr(cp, 0, prec);
-
-				size = p ? (p - cp) : prec;
-			} else {
-				size_t len;
-
-				if ((len = strlen(cp)) > INT_MAX)
-					goto overflow;
-				size = (int)len;
-			}
+				cp = (char *)"(null)";
+			len = prec >= 0 ? strnlen(cp, prec) : strlen(cp);
+			if (len > INT_MAX)
+				goto overflow;
+			size = (int)len;
 			sign = '\0';
+			}
 			break;
 		case 'U':
 			flags |= LONGINT;
@@ -941,7 +902,7 @@ number:			if ((dprec = prec) >= 0)
 					break;
 
 				default:
-					cp = "bug in vfprintf: bad base";
+					cp = (char *)"bug in xxxprintf: bad base";
 					size = strlen(cp);
 					goto skipsize;
 				}
@@ -1064,15 +1025,14 @@ overflow:
 
 finish:
 #ifdef PRINTF_WIDE_CHAR
-	if (convbuf)
-		free(convbuf);
+	free(convbuf);
 #endif
 #ifdef FLOATING_POINT
 	if (dtoaresult)
 		__freedtoa(dtoaresult);
 #endif
 	if (argtable != NULL && argtable != statargtable) {
-		mmap_free(argtable, argtablesiz);
+		sudo_mmap_free(argtable);
 		argtable = NULL;
 	}
 	return ret;
@@ -1120,12 +1080,11 @@ finish:
  * problematic since we have nested functions..)
  */
 static int
-__find_arguments(const char *fmt0, va_list ap, union arg **argtable,
-    size_t *argtablesiz)
+__find_arguments(const char *fmt0, va_list ap, union arg **argtable)
 {
 	char *fmt;		/* format string */
 	int ch;			/* character from fmt */
-	int n, n2;		/* handy integer (short term usage) */
+	int n;			/* handy integer (short term usage) */
 	char *cp;		/* handy char pointer (short term usage) */
 	int flags;		/* flags as above */
 	unsigned char *typetable; /* table of types */
@@ -1145,7 +1104,7 @@ __find_arguments(const char *fmt0, va_list ap, union arg **argtable,
 	typetable[nextarg++] = type)
 
 #define	ADDSARG() \
-        ((flags&MAXINT) ? ADDTYPE(T_MAXINT) : \
+	((flags&MAXINT) ? ADDTYPE(T_MAXINT) : \
 	    ((flags&PTRINT) ? ADDTYPE(T_PTRINT) : \
 	    ((flags&SIZEINT) ? ADDTYPE(T_SSIZEINT) : \
 	    ((flags&LLONGINT) ? ADDTYPE(T_LLONG) : \
@@ -1154,7 +1113,7 @@ __find_arguments(const char *fmt0, va_list ap, union arg **argtable,
 	    ((flags&CHARINT) ? ADDTYPE(T_CHAR) : ADDTYPE(T_INT))))))))
 
 #define	ADDUARG() \
-        ((flags&MAXINT) ? ADDTYPE(T_MAXUINT) : \
+	((flags&MAXINT) ? ADDTYPE(T_MAXUINT) : \
 	    ((flags&PTRINT) ? ADDTYPE(T_PTRINT) : \
 	    ((flags&SIZEINT) ? ADDTYPE(T_SIZEINT) : \
 	    ((flags&LLONGINT) ? ADDTYPE(T_U_LLONG) : \
@@ -1165,8 +1124,8 @@ __find_arguments(const char *fmt0, va_list ap, union arg **argtable,
 	/*
 	 * Add * arguments to the type array.
 	 */
-#define ADDASTER() \
-	n2 = 0; \
+#define ADDASTER() do { \
+	int n2 = 0; \
 	cp = fmt; \
 	while (is_digit(*cp)) { \
 		APPEND_DIGIT(n2, *cp); \
@@ -1180,7 +1139,8 @@ __find_arguments(const char *fmt0, va_list ap, union arg **argtable,
 		fmt = ++cp; \
 	} else { \
 		ADDTYPE(T_INT); \
-	}
+	} \
+} while (0)
 	fmt = (char *)fmt0;
 	typetable = stattypetable;
 	tablesize = STATIC_ARG_TBL_SIZE;
@@ -1193,7 +1153,9 @@ __find_arguments(const char *fmt0, va_list ap, union arg **argtable,
 	 */
 	for (;;) {
 		for (cp = fmt; (ch = *fmt) != '\0' && ch != '%'; fmt++)
-			/* void */;
+			continue;
+		if (ch == '\0')
+			goto done;
 		fmt++;		/* skip over '%' */
 
 		flags = 0;
@@ -1350,8 +1312,8 @@ done:
 	 * Build the argument table.
 	 */
 	if (tablemax >= STATIC_ARG_TBL_SIZE) {
-		*argtablesiz = sizeof(union arg) * (tablemax + 1);
-		*argtable = mmap_alloc(*argtablesiz);
+		*argtable = sudo_mmap_allocarray(tablemax + 1,
+		    sizeof(union arg));
 		if (*argtable == NULL)
 			return -1;
 	}
@@ -1449,7 +1411,7 @@ overflow:
 
 finish:
 	if (typetable != NULL && typetable != stattypetable) {
-		mmap_free(typetable, *argtablesiz);
+		sudo_mmap_free(typetable);
 		typetable = NULL;
 	}
 	return ret;
@@ -1468,16 +1430,16 @@ __grow_type_table(unsigned char **typetable, int *tablesize)
 		newsize = sysconf(_SC_PAGESIZE);
 
 	if (*tablesize == STATIC_ARG_TBL_SIZE) {
-		*typetable = mmap_alloc(newsize);
+		*typetable = sudo_mmap_alloc(newsize);
 		if (*typetable == NULL)
 			return -1;
 		memcpy(*typetable, oldtable, *tablesize);
 	} else {
-		unsigned char *new = mmap_alloc(newsize);
+		unsigned char *new = sudo_mmap_alloc(newsize);
 		if (new == NULL)
 			return -1;
-		memmove(new, *typetable, *tablesize);
-		mmap_free(*typetable, *tablesize);
+		memcpy(new, *typetable, *tablesize);
+		sudo_mmap_free(*typetable);
 		*typetable = new;
 	}
 	memset(*typetable + *tablesize, T_UNUSED, (newsize - *tablesize));
@@ -1486,7 +1448,6 @@ __grow_type_table(unsigned char **typetable, int *tablesize)
 	return 0;
 }
 
- 
 #ifdef FLOATING_POINT
 static int
 exponent(char *p0, int exp, int fmtch)

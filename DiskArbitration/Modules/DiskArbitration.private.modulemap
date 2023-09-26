@@ -1,4 +1,4 @@
-framework module DiskArbitration_Private [extern_c] [system]
+framework module DiskArbitration_Private [system]
 {
     umbrella header "DiskArbitrationPrivate.h"
     export *

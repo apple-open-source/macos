@@ -24,6 +24,8 @@
 #include <string.h>
 #include "CommonCode.h"
 #include "DSX509Relation.h"
+#include <Security/oidsattr.h>
+#include <Security/oidscert.h>
 #include <security_utilities/debugging.h>
 #include "CommonCrypto/CommonDigest.h"
 

@@ -17,6 +17,8 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include <stdbool.h>
+
 typedef struct
 {
 	/*
@@ -152,7 +154,7 @@ typedef struct
 	/*
 	 * Zero Length Packet fixup (boolean)
 	 */
-	char zlp;
+	bool zlp;
 #endif
 } _ccid_descriptor;
 
@@ -246,6 +248,8 @@ typedef struct
 #define IDENTIV_uTrust4701F		0x04E65724
 #define BIT4ID_MINILECTOR		0x25DD3111
 #define SAFENET_ETOKEN_5100		0x05290620
+#define ALCOR_LINK_AK9567		0x2CE39567
+#define ALCOR_LINK_AK9572		0x2CE39573
 
 #define VENDOR_GEMALTO 0x08E6
 #define GET_VENDOR(readerID) ((readerID >> 16) & 0xFFFF)

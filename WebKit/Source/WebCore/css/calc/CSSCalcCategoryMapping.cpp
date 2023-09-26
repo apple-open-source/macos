@@ -135,6 +135,7 @@ CalculationCategory calculationCategoryForCombination(CSSUnitType type)
     case CSSUnitType::CSS_DPPX:
     case CSSUnitType::CSS_DPI:
     case CSSUnitType::CSS_DPCM:
+    case CSSUnitType::CSS_X:
         return CalculationCategory::Resolution;
     case CSSUnitType::CSS_EMS:
     case CSSUnitType::CSS_EXS:
@@ -269,14 +270,8 @@ bool hasDoubleValue(CSSUnitType type)
     case CSSUnitType::CSS_IDENT:
     case CSSUnitType::CustomIdent:
     case CSSUnitType::CSS_ATTR:
-    case CSSUnitType::CSS_COUNTER:
-    case CSSUnitType::CSS_RECT:
     case CSSUnitType::CSS_RGBCOLOR:
-    case CSSUnitType::CSS_PAIR:
-    case CSSUnitType::CSS_UNICODE_RANGE:
     case CSSUnitType::CSS_COUNTER_NAME:
-    case CSSUnitType::CSS_SHAPE:
-    case CSSUnitType::CSS_QUAD:
     case CSSUnitType::CSS_QUIRKY_EMS:
     case CSSUnitType::CSS_CALC:
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER:

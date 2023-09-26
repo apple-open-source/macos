@@ -37,8 +37,7 @@
 #include <sys/utsname.h>
 
 int
-uname(name)
-	struct utsname *name;
+uname(struct utsname *name)
 {
 	int mib[2], rval;
 	size_t len;

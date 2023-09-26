@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -51,12 +51,13 @@ bool _SecSystemKeychainAlwaysIsEnabled(void)
     static bool ffSystemKeychainAlwaysSupported = false;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
+#if TARGET_OS_OSX
+        ffSystemKeychainAlwaysSupported = true;
+        secnotice("keychain", "Enabling System Keychain Always due to platform");
+#else
         ffSystemKeychainAlwaysSupported = os_feature_enabled(Security, SecSystemKeychainAlwaysSupported);
         secnotice("keychain", "System Keychain Always Supported set via feature flag to %s", ffSystemKeychainAlwaysSupported ? "enabled" : "disabled");
-        if (os_variant_is_darwinos("com.apple.security")) {
-            ffSystemKeychainAlwaysSupported = true;
-            secnotice("keychain", "Enabling System Keychain Always due to subplatform");
-        }
+#endif
     });
 
     return ffSystemKeychainAlwaysSupported;
@@ -74,3 +75,39 @@ void _SecSystemKeychainAlwaysClearOverride(void)
     secnotice("keychain", "System Keychain Always Supported override removed");
 }
 
+
+bool _SecTrustSettingsUseXPCEnabled(void)
+{
+    static bool useXPCEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        useXPCEnabled = os_feature_enabled(Security, TrustSettingsUseXPC);
+        secnotice("trustsettings", "TrustSettingsUseXPC is %s (via feature flags)",
+                  useXPCEnabled ? "enabled" : "disabled");
+    });
+    return useXPCEnabled;
+}
+
+bool _SecTrustSettingsUseTrustStoreEnabled(void)
+{
+    static bool useTrustStoreEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        useTrustStoreEnabled = os_feature_enabled(Security, TrustSettingsUseTrustStore);
+        secnotice("trustsettings", "TrustSettingsUseTrustStore is %s (via feature flags)",
+                  useTrustStoreEnabled ? "enabled" : "disabled");
+    });
+    return useTrustStoreEnabled;
+}
+
+bool _SecTrustStoreUsesUUIDEnabled(void)
+{
+    static bool useTrustStoreUUIDEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        useTrustStoreUUIDEnabled = os_feature_enabled(Security, TrustStoreUsesUUID);
+        secnotice("trustsettings", "TrustStoreUsesUUID is %s (via feature flags)",
+                  useTrustStoreUUIDEnabled ? "enabled" : "disabled");
+    });
+    return useTrustStoreUUIDEnabled;
+}

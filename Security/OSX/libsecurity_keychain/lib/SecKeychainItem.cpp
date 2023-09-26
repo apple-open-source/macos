@@ -629,13 +629,19 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
     }
     // first, query the iOS keychain
     {
-        const void *keys[] = { kSecValueRef, kSecReturnPersistentRef, kSecUseDataProtectionKeychain };
-        const void *values[] = { itemRef, kCFBooleanTrue, kCFBooleanTrue };
-        CFRef<CFDictionaryRef> query = CFDictionaryCreate(kCFAllocatorDefault, keys, values,
-                                                          sizeof(keys) / sizeof(*keys),
-                                                          &kCFTypeDictionaryKeyCallBacks,
-                                                          &kCFTypeDictionaryValueCallBacks);
+        CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecValueRef, itemRef);
+        CFDictionarySetValue(query, kSecReturnPersistentRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+
         OSStatus status = SecItemCopyMatching(query, (CFTypeRef *)persistentItemRef);
+        if (status == errSecSuccess) {
+            return status;
+        }
+        // try the modern system keychain if not found in data protection keychain
+        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+        status = SecItemCopyMatching(query, (CFTypeRef *)persistentItemRef);
         if (status == errSecSuccess) {
             return status;
         }
@@ -677,13 +683,19 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
     KCThrowParamErrIf_(!persistentItemRef || !itemRef);
     // first, query the iOS keychain
     {
-        const void *keys[] = { kSecValuePersistentRef, kSecReturnRef, kSecUseDataProtectionKeychain};
-        const void *values[] = { persistentItemRef, kCFBooleanTrue, kCFBooleanTrue };
-        CFRef<CFDictionaryRef> query = CFDictionaryCreate(kCFAllocatorDefault, keys, values,
-                                                          sizeof(keys) / sizeof(*keys),
-                                                          &kCFTypeDictionaryKeyCallBacks,
-                                                          &kCFTypeDictionaryValueCallBacks);
+        CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecValuePersistentRef, persistentItemRef);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+
         OSStatus status = SecItemCopyMatching(query, (CFTypeRef *)itemRef);
+        if (status == errSecSuccess) {
+            return status;
+        }
+        // try the modern system keychain if not found in data protection keychain
+        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+        status = SecItemCopyMatching(query, (CFTypeRef *)itemRef);
         if (status == errSecSuccess) {
             return status;
         }

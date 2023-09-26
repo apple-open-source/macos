@@ -31,8 +31,10 @@
 #include "unicode/udata.h"
 #include "unicode/parseerr.h"
 #include "unicode/schriter.h"
-// for Apple addition:
+#if APPLE_ICU_CHANGES
+// rdar://35946337 (Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough)
 #include "unicode/urbtok.h"
+#endif // APPLE_ICU_CHANGES
 
 struct UCPTrie;
 
@@ -76,15 +78,18 @@ public:
     RBBIDataWrapper    *fData;
 private:
 
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
     /**
      * Character categories for the Latin1 subset of Unicode
      * @internal Apple-only
      */
     uint16_t *fLatin1Cat;
 
+    // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
     /**
      * Character category overrides
-     * @internal Apple-only <rdar://problem/51193810>
+     * @internal Apple-only
      */
     typedef struct {
         UChar32   c;
@@ -92,6 +97,7 @@ private:
     } CategoryOverride;
     CategoryOverride *fCatOverrides;
     int32_t         fCatOverrideCount;
+#endif // APPLE_ICU_CHANGES
 
     /**
       * The current  position of the iterator. Pinned, 0 < fPosition <= text.length.
@@ -166,13 +172,21 @@ private:
      */
     int32_t *fLookAheadMatches;
 
+    /**
+     *  A flag to indicate if phrase based breaking is enabled.
+     */
+    UBool fIsPhraseBreaking;
+
     //=======================================================================
     // constructors
     //=======================================================================
 
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
 // The following is intended to be private in open-source.
 // However Apple needs it to be public for urbtok.cpp
 public:
+#endif // APPLE_ICU_CHANGES
     /**
      * Constructor from a flattened set of RBBI data in malloced memory.
      *             RulesBasedBreakIterators built from a custom set of rules
@@ -184,7 +198,26 @@ public:
      * @internal (private)
      */
     RuleBasedBreakIterator(RBBIDataHeader* data, UErrorCode &status);
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+// resume private status
 private:
+#endif // APPLE_ICU_CHANGES
+
+    /**
+     * This constructor uses the udata interface to create a BreakIterator
+     * whose internal tables live in a memory-mapped file.  "image" is an
+     * ICU UDataMemory handle for the pre-compiled break iterator tables.
+     * @param image handle to the memory image for the break iterator data.
+     *        Ownership of the UDataMemory handle passes to the Break Iterator,
+     *        which will be responsible for closing it when it is no longer needed.
+     * @param status Information on any errors encountered.
+     * @param isPhraseBreaking true if phrase based breaking is required, otherwise false.
+     * @see udata_open
+     * @see #getBinaryRules
+     * @internal (private)
+     */
+    RuleBasedBreakIterator(UDataMemory* image, UBool isPhraseBreaking, UErrorCode &status);
 
     /** @internal */
     friend class RBBIRuleBuilder;
@@ -542,6 +575,8 @@ public:
     */
     virtual int32_t getRuleStatusVec(int32_t *fillInVec, int32_t capacity, UErrorCode &status) override;
 
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
     /**
      * Apple custom extension
      * Initializes Latin1 category
@@ -549,6 +584,7 @@ public:
      */
     void initLatin1Cat(void);
 
+	// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
     /**
      * Apple custom extension
      * Fetch the next set of tokens.
@@ -558,6 +594,7 @@ public:
      * @internal
      */
     int32_t tokenize(int32_t maxTokens, RuleBasedTokenRange *outTokenRanges, unsigned long *outTokenFlags);
+#endif // APPLE_ICU_CHANGES
 
     /**
      * Returns a unique class ID POLYMORPHICALLY.  Pure virtual override.
@@ -663,27 +700,22 @@ public:
      */
     virtual RuleBasedBreakIterator &refreshInputText(UText *input, UErrorCode &status) override;
 
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 #ifndef U_HIDE_INTERNAL_API
     /**
      * Set the break category overrides for this break iterator, based on delimiter data.
      * @param locale The locale whose delimiters to use.
-     * @internal Apple only <rdar://problem/51193810>
+     * @internal Apple only
      */
     virtual void setCategoryOverrides(Locale locale);
 #endif  /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 
 private:
     //=======================================================================
     // implementation
     //=======================================================================
-    /**
-     * Dumps caches and performs other actions associated with a complete change
-     * in text or iteration position.
-     * @internal (private)
-     */
-    // FIXME: unimplemented
-    //void reset(void);
-
     /**
       * Common initialization function, used by constructors and bufferClone.
       * @internal (private)
@@ -714,7 +746,11 @@ private:
      * @internal (private)
      */
     int32_t handleNext();
+#if APPLE_ICU_CHANGES
+// rdar://29855043 051a058c9a.. Merge OSS changes for ICU 60.1 + Apple loc adds from Import_ibm > master; temp skip rbtok, urbtok uses rbbi
+// (modified with import of OSICU version)
     int32_t handleNextInternal();
+#endif // APPLE_ICU_CHANGES
 
     /*
      * Templatized version of handleNext() and handleSafePrevious().
@@ -738,8 +774,12 @@ private:
     template<typename RowType, PTrieFunc trieFunc>
     int32_t handleNext();
 
+#if APPLE_ICU_CHANGES
+// rdar://70367682 #163 Integrate open-source ICU 68.2 into Apple ICU sources
+// (modified with import of OSICU version)
     template<typename RowType, PTrieFunc trieFunc>
     int32_t handleNextInternal();
+#endif // APPLE_ICU_CHANGES
 
     /**
      * This function returns the appropriate LanguageBreakEngine for a

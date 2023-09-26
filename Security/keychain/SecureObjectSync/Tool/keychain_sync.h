@@ -48,6 +48,10 @@ SECURITY_COMMAND(
     "    --remove-peer SPID     Remove a peer identified by the first 8 or more\n"
     "                           characters of its spid. Specify multiple times to\n"
     "                           remove more than one peer.\n"
+                 
+    "    --enable-sos-compatibility    Enable SOS Compatibility Mode\n"
+    "    --disable-sos-compatibility   Disable SOS Compatibility Mode\n"
+    "    --fetch-sos-compatibility     Fetch SOS Compatibility Mode\n"
 	"\n"
 	"Password\n"
 	"    -P     [label:]password  set password (optionally for a given label) for sync\n"

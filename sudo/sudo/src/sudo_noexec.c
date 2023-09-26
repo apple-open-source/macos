@@ -25,7 +25,7 @@
 
 #include <sys/types.h>
 
-#if defined(HAVE_DECL_SECCOMP_SET_MODE_FILTER) && HAVE_DECL_SECCOMP_SET_MODE_FILTER
+#if defined(HAVE_DECL_SECCOMP_MODE_FILTER) && HAVE_DECL_SECCOMP_MODE_FILTER
 # include <sys/prctl.h>
 # include <asm/unistd.h>
 # include <linux/filter.h>
@@ -88,32 +88,32 @@ typedef struct interpose_s {
 }
 
 #define EXEC_REPL1(fn, t1)			\
-sudo_dso_public int				\
-FN_NAME(fn)(t1 a1)				\
+sudo_dso_public int FN_NAME(fn)(t1 a1);		\
+int FN_NAME(fn)(t1 a1)				\
 EXEC_REPL_BODY					\
 INTERPOSE(fn)
 
 #define EXEC_REPL2(fn, t1, t2)			\
-sudo_dso_public int				\
-FN_NAME(fn)(t1 a1, t2 a2)			\
+sudo_dso_public int FN_NAME(fn)(t1 a1, t2 a2);	\
+int FN_NAME(fn)(t1 a1, t2 a2)			\
 EXEC_REPL_BODY					\
 INTERPOSE(fn)
 
 #define EXEC_REPL3(fn, t1, t2, t3)		\
-sudo_dso_public int				\
-FN_NAME(fn)(t1 a1, t2 a2, t3 a3)		\
+sudo_dso_public int FN_NAME(fn)(t1 a1, t2 a2, t3 a3); \
+int FN_NAME(fn)(t1 a1, t2 a2, t3 a3)		\
 EXEC_REPL_BODY					\
 INTERPOSE(fn)
 
 #define EXEC_REPL6(fn, t1, t2, t3, t4, t5, t6)	\
-sudo_dso_public int				\
-FN_NAME(fn)(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6)	\
+sudo_dso_public int FN_NAME(fn)(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6); \
+int FN_NAME(fn)(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6) \
 EXEC_REPL_BODY					\
 INTERPOSE(fn)
 
 #define EXEC_REPL_VA(fn, t1, t2)		\
-sudo_dso_public int				\
-FN_NAME(fn)(t1 a1, t2 a2, ...)			\
+sudo_dso_public int FN_NAME(fn)(t1 a1, t2 a2, ...); \
+int FN_NAME(fn)(t1 a1, t2 a2, ...)		\
 EXEC_REPL_BODY					\
 INTERPOSE(fn)
 
@@ -159,8 +159,8 @@ EXEC_REPL6(posix_spawnp, pid_t *, const char *, const posix_spawn_file_actions_t
  */
 EXEC_REPL1(system, const char *)
 
-sudo_dso_public FILE *
-FN_NAME(popen)(const char *c, const char *t)
+sudo_dso_public FILE *FN_NAME(popen)(const char *c, const char *t);
+FILE *FN_NAME(popen)(const char *c, const char *t)
 {
     errno = EACCES;
     return NULL;
@@ -174,8 +174,8 @@ INTERPOSE(popen)
  */
 typedef int (*sudo_fn_wordexp_t)(const char *, wordexp_t *, int);
 
-sudo_dso_public int
-FN_NAME(wordexp)(const char *words, wordexp_t *we, int flags)
+sudo_dso_public int FN_NAME(wordexp)(const char *words, wordexp_t *we, int flags);
+int FN_NAME(wordexp)(const char *words, wordexp_t *we, int flags)
 {
 #if defined(HAVE___INTERPOSE)
     return wordexp(words, we, flags | WRDE_NOCMD);
@@ -188,17 +188,10 @@ FN_NAME(wordexp)(const char *words, wordexp_t *we, int flags)
     void *fn = NULL;
     int idx = 0;
 
-    name = strrchr(myname, '/');
-    if (name != NULL)
-	myname = name + 1;
-
     /* Search for wordexp() but skip this shared object. */
+    myname = sudo_basename(myname);
     while (shl_get(idx++, &desc) == 0) {
-	name = strrchr(desc->filename, '/');
-	if (name == NULL)
-		name = desc->filename;
-	else
-		name++;
+	name = sudo_basename(desc->filename);
 	if (strcmp(name, myname) == 0)
 	    continue;
 	if (shl_findsym(&desc->handle, "wordexp", TYPE_PROCEDURE, &fn) == 0)
@@ -220,7 +213,7 @@ INTERPOSE(wordexp)
 /*
  * On Linux we can use a seccomp() filter to disable exec.
  */
-#if defined(HAVE_DECL_SECCOMP_SET_MODE_FILTER) && HAVE_DECL_SECCOMP_SET_MODE_FILTER
+#if defined(HAVE_DECL_SECCOMP_MODE_FILTER) && HAVE_DECL_SECCOMP_MODE_FILTER
 
 /* Older systems may not support execveat(2). */
 #ifndef __NR_execveat
@@ -255,4 +248,4 @@ noexec_ctor(void)
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) == 0)
 	(void)prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &exec_fprog);
 }
-#endif /* HAVE_DECL_SECCOMP_SET_MODE_FILTER */
+#endif /* HAVE_DECL_SECCOMP_MODE_FILTER */

@@ -26,11 +26,23 @@
 #include "config.h"
 #include "SharedMemory.h"
 
+#include "ArgumentCoders.h"
 #include <WebCore/SharedBuffer.h>
 
 namespace WebKit {
 
 using namespace WebCore;
+
+SharedMemoryHandle::SharedMemoryHandle(SharedMemoryHandle::Type&& handle, size_t size)
+    : m_handle(WTFMove(handle))
+    , m_size(size)
+{
+}
+
+bool SharedMemoryHandle::isNull() const
+{
+    return !m_handle;
+}
 
 RefPtr<SharedMemory> SharedMemory::copyBuffer(const FragmentedSharedBuffer& buffer)
 {
@@ -42,7 +54,7 @@ RefPtr<SharedMemory> SharedMemory::copyBuffer(const FragmentedSharedBuffer& buff
         return nullptr;
 
     auto sharedMemoryPtr = static_cast<char*>(sharedMemory->data());
-    buffer.forEachSegment([sharedMemoryPtr] (Span<const uint8_t> segment) mutable {
+    buffer.forEachSegment([sharedMemoryPtr] (std::span<const uint8_t> segment) mutable {
         memcpy(sharedMemoryPtr, segment.data(), segment.size());
         sharedMemoryPtr += segment.size();
     });
@@ -64,11 +76,11 @@ Ref<SharedBuffer> SharedMemory::createSharedBuffer(size_t dataSize) const
 }
 
 #if !PLATFORM(COCOA)
-void SharedMemory::Handle::takeOwnershipOfMemory(MemoryLedger) const
+void SharedMemoryHandle::takeOwnershipOfMemory(MemoryLedger) const
 {
 }
 
-void SharedMemory::Handle::setOwnershipOfMemory(const ProcessIdentity&, MemoryLedger) const
+void SharedMemoryHandle::setOwnershipOfMemory(const ProcessIdentity&, MemoryLedger) const
 {
 }
 #endif

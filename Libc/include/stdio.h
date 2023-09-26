@@ -64,6 +64,8 @@
 #include <_stdio.h>
 
 #ifndef UNIFDEF_DRIVERKIT
+#include <sys/_types/_seek_set.h>
+
 __BEGIN_DECLS
 extern FILE *__stdinp;
 extern FILE *__stdoutp;
@@ -114,16 +116,6 @@ __END_DECLS
 #endif
 #define	L_tmpnam	1024	/* XXX must be == PATH_MAX */
 #define	TMP_MAX		308915776
-
-#ifndef SEEK_SET
-#define	SEEK_SET	0	/* set file offset to offset */
-#endif
-#ifndef SEEK_CUR
-#define	SEEK_CUR	1	/* set file offset to current plus offset */
-#endif
-#ifndef SEEK_END
-#define	SEEK_END	2	/* set file offset to EOF plus offset */
-#endif
 
 #define	stdin	__stdinp
 #define	stdout	__stdoutp
@@ -252,8 +244,9 @@ __END_DECLS
 #if __DARWIN_C_LEVEL >= 198808L
 #define	L_ctermid	1024	/* size for ctermid(); PATH_MAX */
 
-__BEGIN_DECLS
 #include <_ctermid.h>
+
+__BEGIN_DECLS
 
 #if defined(_DARWIN_UNLIMITED_STREAMS) || defined(_DARWIN_C_SOURCE)
 FILE	*fdopen(int, const char *) __DARWIN_ALIAS_STARTING(__MAC_10_6, __IPHONE_3_2, __DARWIN_EXTSN(fdopen));

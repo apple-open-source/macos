@@ -66,6 +66,7 @@ public:
     virtual ~SourceBufferPrivateRemote();
 
     void clearMediaSource() { m_mediaSourcePrivate = nullptr; }
+    void disconnect() { m_disconnected = true; }
 
 private:
     SourceBufferPrivateRemote(GPUProcessConnection&, RemoteSourceBufferIdentifier, const MediaSourcePrivateRemote&, const MediaPlayerPrivateRemote&);
@@ -73,6 +74,8 @@ private:
     // SourceBufferPrivate overrides
     void setActive(bool) final;
     void append(Ref<WebCore::SharedBuffer>&&) final;
+    void appendInternal(Ref<WebCore::SharedBuffer>&&) final;
+    void resetParserStateInternal() final;
     void abort() final;
     void resetParserState() final;
     void removedFromMediaSource() final;
@@ -84,12 +87,12 @@ private:
     void reenqueueMediaIfNeeded(const MediaTime& currentMediaTime) final;
     void addTrackBuffer(const AtomString& trackId, RefPtr<WebCore::MediaDescription>&&) final;
     void resetTrackBuffers() final;
-    void clearTrackBuffers() final;
+    void clearTrackBuffers(bool) final;
     void setAllTrackBuffersNeedRandomAccess() final;
     void setGroupStartTimestamp(const MediaTime&) final;
     void setGroupStartTimestampToEndTimestamp() final;
     void setShouldGenerateTimestamps(bool) final;
-    void updateBufferedFromTrackBuffers(bool sourceIsEnded) final;
+    void clientReadyStateChanged(bool) final;
     void removeCodedFrames(const MediaTime& start, const MediaTime& end, const MediaTime& currentMediaTime, bool isEnded, CompletionHandler<void()>&&) final;
     void evictCodedFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded) final;
     void resetTimestampOffsetInTrackBuffers() final;
@@ -101,6 +104,8 @@ private:
     void updateTrackIds(Vector<std::pair<AtomString, AtomString>>&&) final;
     uint64_t totalTrackBufferSizeInBytes() const final;
 
+    void memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded) final;
+
     bool isActive() const final { return m_isActive; }
 
     // Internals Utility methods
@@ -110,26 +115,32 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     void sourceBufferPrivateDidReceiveInitializationSegment(InitializationSegmentInfo&&, CompletionHandler<void(WebCore::SourceBufferPrivateClient::ReceiveResult)>&&);
     void sourceBufferPrivateStreamEndedWithDecodeError();
-    void sourceBufferPrivateAppendError(bool decodeError);
-    void sourceBufferPrivateAppendComplete(WebCore::SourceBufferPrivateClient::AppendResult, const WebCore::PlatformTimeRanges& buffered, uint64_t totalTrackBufferSizeInBytes, const MediaTime& timestampOffset);
+    void sourceBufferPrivateAppendComplete(WebCore::SourceBufferPrivateClient::AppendResult, uint64_t totalTrackBufferSizeInBytes, const MediaTime& timestampOffset);
     void sourceBufferPrivateHighestPresentationTimestampChanged(const MediaTime&);
-    void sourceBufferPrivateDurationChanged(const MediaTime&);
+    void sourceBufferPrivateBufferedChanged(WebCore::PlatformTimeRanges&&, CompletionHandler<void()>&&);
+    void sourceBufferPrivateTrackBuffersChanged(Vector<WebCore::PlatformTimeRanges>&&);
+    void sourceBufferPrivateDurationChanged(const MediaTime&, CompletionHandler<void()>&&);
     void sourceBufferPrivateDidParseSample(double sampleDuration);
     void sourceBufferPrivateDidDropSample();
     void sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode);
-    void sourceBufferPrivateBufferedDirtyChanged(bool dirty);
     void sourceBufferPrivateReportExtraMemoryCost(uint64_t extraMemory);
+    MediaTime minimumUpcomingPresentationTimeForTrackID(const AtomString&) override;
+    void setMaximumQueueDepthForTrackID(const AtomString&, uint64_t) override;
 
-    WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
+    ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     RemoteSourceBufferIdentifier m_remoteSourceBufferIdentifier;
     WeakPtr<MediaSourcePrivateRemote> m_mediaSourcePrivate;
     WeakPtr<MediaPlayerPrivateRemote> m_mediaPlayerPrivate;
 
     HashMap<AtomString, TrackPrivateRemoteIdentifier> m_trackIdentifierMap;
     HashMap<AtomString, TrackPrivateRemoteIdentifier> m_prevTrackIdentifierMap;
+    Vector<WebCore::PlatformTimeRanges> m_trackBufferRanges;
 
     bool m_isActive { false };
     uint64_t m_totalTrackBufferSizeInBytes = { 0 };
+
+    bool isGPURunning() const { return !m_disconnected && m_gpuProcessConnection.get(); }
+    bool m_disconnected { false };
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }

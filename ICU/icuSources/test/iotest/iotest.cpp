@@ -374,7 +374,12 @@ static void U_CALLCONV ScanfMultipleIntegers(void)
     int32_t first = 0;
     int32_t second = 0;
     int32_t third = 0;
-    int32_t result = u_sscanf_u((UChar*)input.getBuffer(), (UChar*)fmt.getBuffer(), &first, &second, &third);
+#if APPLE_ICU_CHANGES
+// rdar://97937093 #nnn (Integrate ICU 72)
+    int32_t result = u_sscanf_u((const UChar *)input.getBuffer(), (const UChar *)fmt.getBuffer(), &first, &second, &third);
+#else
+    int32_t result = u_sscanf_u(input.getBuffer(), fmt.getBuffer(), &first, &second, &third);
+#endif  // APPLE_ICU_CHANGES
 
     if(first != expectedFirst){
         log_err("error in scanfmultipleintegers test 'first' Got: %d Exp: %d\n", 

@@ -1,0 +1,6 @@
+<doc xmlns="s:def">
+    <elem attr="value" xmlns:äöü="uri"/>
+    <text>text</text>
+    <!-- comment -->
+    <?pi content?>
+</doc>

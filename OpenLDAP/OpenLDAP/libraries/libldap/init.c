@@ -199,7 +199,7 @@ void _unlock_init(void)
 }
 
 dispatch_once_t ldap_global_opts_initialized = 0;
-void ldap_int_init_global_opts(void)
+void ldap_int_init_global_opts(__unused void * _Nullable unused)
 {
 	struct ldapoptions	*gopts;
 

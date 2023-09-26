@@ -46,15 +46,15 @@
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Editor.h>
 #import <WebCore/ElementInlines.h>
-#import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
-#import <WebCore/FrameLoaderClient.h>
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLFormControlElement.h>
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HTMLTableCellElement.h>
+#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameLoaderClient.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/NodeTraversal.h>
 #import <WebCore/Range.h>
@@ -180,7 +180,7 @@ static RetainPtr<NSArray> createNSArray(const HashSet<String, ASCIICaseInsensiti
         [webFrame _commitData:data];
 
     // If the document is a stand-alone media document, now is the right time to cancel the WebKit load
-    Frame* coreFrame = core(webFrame);
+    auto* coreFrame = core(webFrame);
     if (coreFrame->document()->isMediaDocument() && coreFrame->loader().documentLoader())
         coreFrame->loader().documentLoader()->cancelMainResourceLoad(coreFrame->loader().client().pluginWillHandleLoadError(coreFrame->loader().documentLoader()->response()));
 
@@ -234,7 +234,7 @@ static RetainPtr<NSArray> createNSArray(const HashSet<String, ASCIICaseInsensiti
         return adoptNS([[NSString alloc] initWithData:parsedArchiveData ? parsedArchiveData->createNSData().get() : nil encoding:NSUTF8StringEncoding]).autorelease();
     }
 
-    Frame* coreFrame = core([_private->dataSource webFrame]);
+    auto* coreFrame = core([_private->dataSource webFrame]);
     if (!coreFrame)
         return nil;
     Document* document = coreFrame->document();
@@ -271,7 +271,7 @@ static RetainPtr<NSArray> createNSArray(const HashSet<String, ASCIICaseInsensiti
     if (!startNode || !endNode)
         return adoptNS([[NSAttributedString alloc] init]).autorelease();
     auto range = SimpleRange { { *core(startNode), static_cast<unsigned>(startOffset) }, { *core(endNode), static_cast<unsigned>(endOffset) } };
-    return editingAttributedString(range).string.autorelease();
+    return editingAttributedString(range).nsAttributedString().autorelease();
 }
 
 #endif
@@ -385,7 +385,7 @@ static RegularExpression* regExpForLabels(NSArray *labels)
             pattern.append(i ? "|" : "", startsWithWordCharacter ? "\\b" : "", label, endsWithWordCharacter ? "\\b" : "");
         }
         pattern.append(')');
-        result = new RegularExpression(pattern.toString(), JSC::Yarr::TextCaseInsensitive);
+        result = new RegularExpression(pattern.toString(), { JSC::Yarr::Flags::IgnoreCase });
     }
 
     // add regexp to the cache, making sure it is at the front for LRU ordering
@@ -410,7 +410,7 @@ static RegularExpression* regExpForLabels(NSArray *labels)
 }
 
 // FIXME: This should take an Element&.
-static NSString* searchForLabelsBeforeElement(Frame* frame, NSArray* labels, Element* element, size_t* resultDistance, bool* resultIsInCellAbove)
+static NSString* searchForLabelsBeforeElement(LocalFrame* frame, NSArray* labels, Element* element, size_t* resultDistance, bool* resultIsInCellAbove)
 {
     ASSERT(element);
     RegularExpression* regExp = regExpForLabels(labels);

@@ -1217,6 +1217,8 @@ public:
      */
     const Locale& getSmpFmtLocale(void) const;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     /**
      * Apple addition
      * This is for ICU internal use only. Please do not use.
@@ -1228,6 +1230,8 @@ public:
      * @internal
      */
     BreakIterator* getCapitalizationBrkIter(void) const;
+#endif  // APPLE_ICU_CHANGES
+
 #endif  /* U_HIDE_INTERNAL_API */
 
 private:
@@ -1345,7 +1349,9 @@ private:
      *                      resources fails.
      */
     void construct(EStyle timeStyle, EStyle dateStyle, const Locale& locale, UErrorCode& status);
-    
+
+#if APPLE_ICU_CHANGES
+// rdar://
     UnicodeString getPatternForTimeStyle(EStyle timeStyle,
                                          const Locale& locale,
                                          UResourceBundle* dateTimePatterns,
@@ -1361,7 +1367,7 @@ private:
                                    UResourceBundle* dateTimePatterns,
                                    UnicodeString& ovrStr,
                                    UErrorCode& status);
-
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Called by construct() and the various constructors to set up the SimpleDateFormat's
@@ -1387,6 +1393,22 @@ private:
     int32_t matchString(const UnicodeString& text, int32_t start, UCalendarDateFields field,
                         const UnicodeString* stringArray, int32_t stringArrayCount,
                         const UnicodeString* monthPattern, Calendar& cal) const;
+
+    /**
+     * Private code-size reduction function used by subParse. Only for UCAL_MONTH
+     * @param text the time text being parsed.
+     * @param start where to start parsing.
+     * @param wideStringArray the wide string array to parsed.
+     * @param shortStringArray the short string array to parsed.
+     * @param stringArrayCount the size of the string arrays.
+     * @param cal a Calendar set to the date and time to be formatted
+     *            into a date/time string.
+     * @return the new start position if matching succeeded; a negative number
+     * indicating matching failure, otherwise.
+     */
+    int32_t matchAlphaMonthStrings(const UnicodeString& text, int32_t start,
+                        const UnicodeString* wideStringArray, const UnicodeString* shortStringArray,
+                        int32_t stringArrayCount, Calendar& cal) const;
 
     /**
      * Private code-size reduction function used by subParse.
@@ -1632,6 +1654,10 @@ private:
     UBool                fHasMinute;
     UBool                fHasSecond;
     UBool                fHasHanYearChar; // pattern contains the Han year character \u5E74
+#if APPLE_ICU_CHANGES
+// rdar://106782612 compatibility: format with plain spaces for specific app(s)
+    UBool                fUsePlainSpaces;
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Sets fHasMinutes and fHasSeconds.
@@ -1675,7 +1701,12 @@ private:
 
     UBool fHaveDefaultCentury;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     BreakIterator* fCapitalizationBrkIter;
+#else
+    const BreakIterator* fCapitalizationBrkIter;
+#endif  // APPLE_ICU_CHANGES
 };
 
 inline UDate
@@ -1684,11 +1715,14 @@ SimpleDateFormat::get2DigitYearStart(UErrorCode& /*status*/) const
     return fDefaultCenturyStart;
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 inline BreakIterator*
 SimpleDateFormat::getCapitalizationBrkIter() const
 {
     return fCapitalizationBrkIter;
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_END
 

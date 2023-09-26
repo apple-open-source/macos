@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 from __future__ import print_function
 
@@ -33,37 +33,17 @@ syms = None
 
 for header_index, header in enumerate(macho.headers):
 
-    try:
-        symtab = SymbolTable(macho, header=header)
-    except TypeError:
-        if syms is None:
-            # There's a bug in older versions of macholib, fall back on nm
-            print("warning: buggy macholib, falling back on nm", file=sys.stderr)
-            proc = subprocess.Popen(['nm', '-arch', 'all', args.dylib], stdout=subprocess.PIPE)
-            (out, err) = proc.communicate()
-            if proc.wait() != 0:
-                raise Exception("nm failed")
-            syms = list()
-            for line in out.splitlines():
-                m = re.match(r'([0-9a-fA-F]+)\s+a\s+page_max_size\s*$', line)
-                if m:
-                    syms.append(int(m.group(1), 16))
-        if len(syms) == 0:
-            raise Exception("didn't find symbol named 'page_max_size'")
-        if len(syms) != len(macho.headers):
-            raise Exception("didn't find one 'page_max_size' symbol per arch")
-        PAGE_MAX_SIZE = syms[header_index]
+    symtab = SymbolTable(macho, header=header)
+    for nlist, name in symtab.nlists:
+        if name == b'page_max_size':
+            PAGE_MAX_SIZE = nlist.n_value
+            break
     else:
-        for nlist, name in symtab.nlists:
-            if name == 'page_max_size':
-                PAGE_MAX_SIZE = nlist.n_value
-                break
-        else:
-            raise Exception("didn't find symbol named 'page_max_size'")
+        raise Exception("didn't find symbol named 'page_max_size'")
 
     for lc, cmd, data in header.commands:
         if lc.cmd == mach_o.LC_SEGMENT_64:
-            if cmd.segname.rstrip('\x00') == "__TEXT":
+            if cmd.segname.rstrip(b'\x00') == b"__TEXT":
                 if cmd.vmsize != 2 * PAGE_MAX_SIZE:
                     raise Exception("__TEXT segment size is wrong")
                 if len(data) != 1:

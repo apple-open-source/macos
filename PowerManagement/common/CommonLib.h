@@ -192,6 +192,7 @@ __private_extern__ const char *smcShutdownCauseString(int shutdownCause);
 
 __private_extern__ io_registry_entry_t getRootDomain(void);
 __private_extern__ io_registry_entry_t getIOPMPowerSource(void);
+__private_extern__ io_registry_entry_t getAppleSmartBattery(void);
 
 __private_extern__ const char           *stringForLWCode(uint8_t code);
 __private_extern__ const char           *stringForPMCode(uint8_t code);

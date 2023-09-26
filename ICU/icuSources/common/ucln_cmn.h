@@ -35,7 +35,10 @@ typedef enum ECleanupCommonType {
     UCLN_COMMON_USPREP,
     UCLN_COMMON_BREAKITERATOR,
     UCLN_COMMON_RBBI,
+#if APPLE_ICU_CHANGES
+// rdar://37249396 Add ICU 57 version of RBBI classes, urbtok57 interfaces for access via RBT, and better tests
     UCLN_COMMON_RBBI57,
+#endif // APPLE_ICU_CHANGES
     UCLN_COMMON_SERVICE,
     UCLN_COMMON_LOCALE_KEY_TYPE,
     UCLN_COMMON_LOCALE,

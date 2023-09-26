@@ -52,6 +52,16 @@ const SecDbClass* identity_class(void);
 const SecDbClass* tversion_class(void);
 
 
+// DbUserVersion, from sqlite `PRAGMA user_version`
+int32_t getDbUserVersion(SecDbConnectionRef dbconn);
+bool setDbUserVersion(int32_t version, SecDbConnectionRef dbconn, CFErrorRef* error);
+
+// For keychain, the user_version is a bit field
+typedef enum {
+    KeychainDbUserVersion_Transcrypted = 1 << 0, // whether the DB has been transcrypted to be protected by the system keychain keybag. See rdar://94751061
+} KeychainDbUserVersion;
+
+
 // Direct attribute accessors
 // If you change one of these, update it here
 extern const SecDbAttr v6v_Data;

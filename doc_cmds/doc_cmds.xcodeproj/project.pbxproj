@@ -14,8 +14,6 @@
 				32F19DB9281AF4AD004437FE /* ShellScript */,
 			);
 			dependencies = (
-				FD91BA6B0FC231C500643D04 /* PBXTargetDependency */,
-				FD91BA690FC231C500643D04 /* PBXTargetDependency */,
 				FD91BA650FC231C500643D04 /* PBXTargetDependency */,
 				FD91BA930FC2330000643D04 /* PBXTargetDependency */,
 			);
@@ -38,14 +36,10 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		FD91BA6C0FC231D500643D04 /* checknr.c in Sources */ = {isa = PBXBuildFile; fileRef = FD91BA270FC2311E00643D04 /* checknr.c */; };
-		FD91BA6D0FC231DA00643D04 /* colcrt.c in Sources */ = {isa = PBXBuildFile; fileRef = FD91BA2C0FC2311E00643D04 /* colcrt.c */; };
 		FD91BA6F0FC231EA00643D04 /* makewhatis.c in Sources */ = {isa = PBXBuildFile; fileRef = FD91BA3E0FC2311E00643D04 /* makewhatis.c */; };
 		FD91BA830FC2328800643D04 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD91BA820FC2328800643D04 /* libz.dylib */; };
 		FD91BAA10FC2332800643D04 /* intro.1 in man1 */ = {isa = PBXBuildFile; fileRef = FD91BA440FC2316200643D04 /* intro.1 */; };
 		FD91BAA50FC2336F00643D04 /* doc_cmds.txt in OpenSourceLicenses */ = {isa = PBXBuildFile; fileRef = FD91BA300FC2311E00643D04 /* doc_cmds.txt */; };
-		FD91BAAD0FC233BB00643D04 /* checknr.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD91BA260FC2311E00643D04 /* checknr.1 */; };
-		FD91BAB00FC233DD00643D04 /* colcrt.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD91BA2B0FC2311E00643D04 /* colcrt.1 */; };
 		FD91BAB60FC2346F00643D04 /* makewhatis.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD91BA3D0FC2311E00643D04 /* makewhatis.8 */; };
 		FD91BAB70FC2346F00643D04 /* makewhatis.local.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD91BA3F0FC2311E00643D04 /* makewhatis.local.8 */; };
 		FDB4EC3B0FC32F8D00F23EE6 /* makewhatis.local.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD91BA400FC2311E00643D04 /* makewhatis.local.sh */; };
@@ -58,20 +52,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = FD91BA600FC231BE00643D04;
 			remoteInfo = makewhatis;
-		};
-		FD91BA680FC231C500643D04 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = FD91BA090FC2310A00643D04 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FD91BA540FC231B200643D04;
-			remoteInfo = colcrt;
-		};
-		FD91BA6A0FC231C500643D04 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = FD91BA090FC2310A00643D04 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FD91BA4B0FC231AB00643D04;
-			remoteInfo = checknr;
 		};
 		FD91BA920FC2330000643D04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -115,26 +95,6 @@
 			name = OpenSourceLicenses;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		FD91BAAC0FC233B600643D04 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
-			dstSubfolderSpec = 0;
-			files = (
-				FD91BAAD0FC233BB00643D04 /* checknr.1 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		FD91BAAF0FC233D600643D04 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
-			dstSubfolderSpec = 0;
-			files = (
-				FD91BAB00FC233DD00643D04 /* colcrt.1 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		FD91BAB50FC2346000643D04 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -159,37 +119,17 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		FD91BA260FC2311E00643D04 /* checknr.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = checknr.1; sourceTree = "<group>"; };
-		FD91BA270FC2311E00643D04 /* checknr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = checknr.c; sourceTree = "<group>"; };
-		FD91BA2B0FC2311E00643D04 /* colcrt.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = colcrt.1; sourceTree = "<group>"; };
-		FD91BA2C0FC2311E00643D04 /* colcrt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = colcrt.c; sourceTree = "<group>"; };
 		FD91BA300FC2311E00643D04 /* doc_cmds.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = doc_cmds.txt; sourceTree = "<group>"; };
 		FD91BA3D0FC2311E00643D04 /* makewhatis.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = makewhatis.8; sourceTree = "<group>"; };
 		FD91BA3E0FC2311E00643D04 /* makewhatis.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = makewhatis.c; sourceTree = "<group>"; };
 		FD91BA3F0FC2311E00643D04 /* makewhatis.local.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = makewhatis.local.8; sourceTree = "<group>"; };
 		FD91BA400FC2311E00643D04 /* makewhatis.local.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = makewhatis.local.sh; sourceTree = "<group>"; };
 		FD91BA440FC2316200643D04 /* intro.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = intro.1; sourceTree = "<group>"; };
-		FD91BA4C0FC231AB00643D04 /* checknr */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = checknr; sourceTree = BUILT_PRODUCTS_DIR; };
-		FD91BA550FC231B200643D04 /* colcrt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = colcrt; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD91BA610FC231BE00643D04 /* makewhatis */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = makewhatis; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD91BA820FC2328800643D04 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		FD91BA4A0FC231AB00643D04 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FD91BA530FC231B200643D04 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		FD91BA5F0FC231BE00643D04 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -213,31 +153,11 @@
 		FD91BA150FC2311E00643D04 /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				FD91BA250FC2311E00643D04 /* checknr */,
-				FD91BA2A0FC2311E00643D04 /* colcrt */,
 				FD91BA3A0FC2311E00643D04 /* makewhatis */,
 				FD91BA300FC2311E00643D04 /* doc_cmds.txt */,
 				FD91BA440FC2316200643D04 /* intro.1 */,
 			);
 			name = Source;
-			sourceTree = "<group>";
-		};
-		FD91BA250FC2311E00643D04 /* checknr */ = {
-			isa = PBXGroup;
-			children = (
-				FD91BA260FC2311E00643D04 /* checknr.1 */,
-				FD91BA270FC2311E00643D04 /* checknr.c */,
-			);
-			path = checknr;
-			sourceTree = "<group>";
-		};
-		FD91BA2A0FC2311E00643D04 /* colcrt */ = {
-			isa = PBXGroup;
-			children = (
-				FD91BA2B0FC2311E00643D04 /* colcrt.1 */,
-				FD91BA2C0FC2311E00643D04 /* colcrt.c */,
-			);
-			path = colcrt;
 			sourceTree = "<group>";
 		};
 		FD91BA3A0FC2311E00643D04 /* makewhatis */ = {
@@ -254,8 +174,6 @@
 		FD91BA4D0FC231AB00643D04 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				FD91BA4C0FC231AB00643D04 /* checknr */,
-				FD91BA550FC231B200643D04 /* colcrt */,
 				FD91BA610FC231BE00643D04 /* makewhatis */,
 			);
 			name = Products;
@@ -264,40 +182,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		FD91BA4B0FC231AB00643D04 /* checknr */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = FD91BA510FC231AB00643D04 /* Build configuration list for PBXNativeTarget "checknr" */;
-			buildPhases = (
-				FD91BA490FC231AB00643D04 /* Sources */,
-				FD91BA4A0FC231AB00643D04 /* Frameworks */,
-				FD91BAAC0FC233B600643D04 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = checknr;
-			productName = checknr;
-			productReference = FD91BA4C0FC231AB00643D04 /* checknr */;
-			productType = "com.apple.product-type.tool";
-		};
-		FD91BA540FC231B200643D04 /* colcrt */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = FD91BA720FC2320800643D04 /* Build configuration list for PBXNativeTarget "colcrt" */;
-			buildPhases = (
-				FD91BA520FC231B200643D04 /* Sources */,
-				FD91BA530FC231B200643D04 /* Frameworks */,
-				FD91BAAF0FC233D600643D04 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = colcrt;
-			productName = colcrt;
-			productReference = FD91BA550FC231B200643D04 /* colcrt */;
-			productType = "com.apple.product-type.tool";
-		};
 		FD91BA600FC231BE00643D04 /* makewhatis */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FD91BA740FC2320800643D04 /* Build configuration list for PBXNativeTarget "makewhatis" */;
@@ -338,8 +222,6 @@
 			projectRoot = "";
 			targets = (
 				FD91BA470FC2319F00643D04 /* Build All */,
-				FD91BA4B0FC231AB00643D04 /* checknr */,
-				FD91BA540FC231B200643D04 /* colcrt */,
 				FD91BA600FC231BE00643D04 /* makewhatis */,
 				FD91BA900FC232FB00643D04 /* Other Files */,
 			);
@@ -383,22 +265,6 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		FD91BA490FC231AB00643D04 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FD91BA6C0FC231D500643D04 /* checknr.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FD91BA520FC231B200643D04 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FD91BA6D0FC231DA00643D04 /* colcrt.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		FD91BA5E0FC231BE00643D04 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -414,16 +280,6 @@
 			isa = PBXTargetDependency;
 			target = FD91BA600FC231BE00643D04 /* makewhatis */;
 			targetProxy = FD91BA640FC231C500643D04 /* PBXContainerItemProxy */;
-		};
-		FD91BA690FC231C500643D04 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FD91BA540FC231B200643D04 /* colcrt */;
-			targetProxy = FD91BA680FC231C500643D04 /* PBXContainerItemProxy */;
-		};
-		FD91BA6B0FC231C500643D04 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FD91BA4B0FC231AB00643D04 /* checknr */;
-			targetProxy = FD91BA6A0FC231C500643D04 /* PBXContainerItemProxy */;
 		};
 		FD91BA930FC2330000643D04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -464,24 +320,6 @@
 			};
 			name = Release;
 		};
-		FD91BA4F0FC231AB00643D04 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = checknr;
-			};
-			name = Release;
-		};
-		FD91BA570FC231B200643D04 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = colcrt;
-			};
-			name = Release;
-		};
 		FD91BA630FC231BF00643D04 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -517,22 +355,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FD91BA480FC2319F00643D04 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		FD91BA510FC231AB00643D04 /* Build configuration list for PBXNativeTarget "checknr" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FD91BA4F0FC231AB00643D04 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		FD91BA720FC2320800643D04 /* Build configuration list for PBXNativeTarget "colcrt" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FD91BA570FC231B200643D04 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

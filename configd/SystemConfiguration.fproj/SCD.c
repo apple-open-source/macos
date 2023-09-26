@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -624,18 +624,25 @@ __SC_log_enabled(int level, os_log_t log, os_log_type_t type)
 
 
 void
-__SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
+__SC_log_send2(int level, os_log_t log, os_log_type_t type, Boolean is_pack, void *pack_or_composed)
 {
 	Boolean		addTime		= (_sc_log == kSCLogDestinationBoth);
-	char		buffer[256];
+	char		buffer[SCLOG_BUFFER_MAXSIZE];
 	const char	*buffer_ptr	= buffer;
-	char		*composed	= NULL;
+	os_log_pack_t 	pack 		= NULL;
+	char 		*composed 	= NULL;
 	Boolean		do_log		= FALSE;
 	Boolean		do_print	= FALSE;
 	Boolean		do_syslog	= FALSE;
 
+	if (is_pack) {
+		pack = (os_log_pack_t)pack_or_composed;
+	} else {
+		composed = (char *)pack_or_composed;
+	}
+
 	if (_sc_log > kSCLogDestinationFile) {
-		do_log = TRUE;
+		if (pack != NULL) do_log = TRUE;
 
 #ifdef	USE_SYSLOG_FOR_INSTALL
 		if (_SC_isInstallEnvironment()) {
@@ -655,18 +662,20 @@ __SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
 		do_print = TRUE;		// print requested
 	}
 
-	if (do_log) {
-		if (!do_print && !do_syslog) {
-			// if only os_log requested
-			os_log_pack_send(pack, log, type);
+	if (pack != NULL) {
+		if (do_log) {
+			if (!do_print && !do_syslog) {
+				// if only os_log requested
+				os_log_pack_send(pack, log, type);
+			} else {
+				// if os_log and print (or syslog) requested
+				composed = os_log_pack_send_and_compose(pack, log, type, buffer, sizeof(buffer));
+			}
 		} else {
-			// if os_log and print (or syslog) requested
-			composed = os_log_pack_send_and_compose(pack, log, type, buffer, sizeof(buffer));
+			// if print-only requested
+			mach_get_times(NULL, &pack->olp_continuous_time, &pack->olp_wall_time);
+			composed = os_log_pack_compose(pack, log, type, buffer, sizeof(buffer));
 		}
-	} else {
-		// if print-only requested
-		mach_get_times(NULL, &pack->olp_continuous_time, &pack->olp_wall_time);
-		composed = os_log_pack_compose(pack, log, type, buffer, sizeof(buffer));
 	}
 
 	if (do_print &&
@@ -674,16 +683,20 @@ __SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
 	     (level < LOG_INFO)				||	// print most messages
 	     ((level == LOG_INFO) && _sc_verbose)	||	// with _sc_verbose, include LOG_INFO
 	     _sc_debug						// with _sc_debug, include LOG_DEBUG
-	    )
-	   ) {
+	     )
+	    ) {
 		// if printing
 		pthread_mutex_lock(&lock);
 		if (addTime) {
 			struct tm	tm_now;
 			struct timeval	tv_now;
 
-			tv_now.tv_sec = (time_t)&pack->olp_wall_time.tv_sec;
-			tv_now.tv_usec = (suseconds_t)((uint64_t)&pack->olp_wall_time.tv_nsec / NSEC_PER_USEC);
+			if (pack != NULL) {
+				tv_now.tv_sec = (time_t)&pack->olp_wall_time.tv_sec;
+				tv_now.tv_usec = (suseconds_t)((uint64_t)&pack->olp_wall_time.tv_nsec / NSEC_PER_USEC);
+			} else {
+				(void)gettimeofday(&tv_now, NULL);
+			}
 			(void)localtime_r(&tv_now.tv_sec, &tm_now);
 			(void)fprintf(stdout, "%2d:%02d:%02d.%03d ",
 				      tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec, tv_now.tv_usec / 1000);
@@ -698,17 +711,24 @@ __SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
 	     (level < LOG_INFO) ||
 	     ((level == LOG_INFO) && _SC_isAppleInternal()) ||
 	     _sc_debug
-	    )
-	   ) {
+	     )
+	    ) {
 		// if [install/upgrade] syslog'ing
 		syslog(level | LOG_INSTALL, "%s", composed);
 	}
 
-	if (composed != buffer_ptr) {
+	if (pack != NULL && composed != buffer_ptr) {
 		free(composed);
 	}
 
 	return;
+}
+
+
+void
+__SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
+{
+	__SC_log_send2(level, log, type, true, pack);
 }
 
 

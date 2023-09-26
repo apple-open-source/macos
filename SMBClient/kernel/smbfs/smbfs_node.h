@@ -66,7 +66,8 @@
 #define N_POLLNOTIFY	0x08000 /* Change notify is not support, poll */
 #define NO_EXTENDEDOPEN 0x10000 /* The server doesn't support the extended open reply */
 #define NHAS_POSIXMODES 0x20000 /* This node has a Windows NFS ACE that contains posix modes */
-//#define NNEEDS_UBC_INVALIDATE 0x40000 /* Need to do a UBC_INVALIDATE on this file */
+#define NNEEDS_UBC_INVALIDATE 0x40000 /* Need to do a UBC_INVALIDATE on this file */
+#define NNEEDS_UBC_PUSHDIRTY  0x80000 /* Need to do a UBC_PUSH_DIRTY | UBC_INVALIDATE on this file */
 
 #define UNKNOWNUID ((uid_t)99)
 #define UNKNOWNGID ((gid_t)99)
@@ -294,7 +295,7 @@ struct smbnode {
     struct timespec     n_last_close_mtime;     /* modify time on last close */
     u_quad_t            n_last_close_size;      /* data size on last close */
 
-    struct smb_vnode_attr n_hifi_attrs;         /* Cached hifi attributes from server */
+    struct smb_vnode_attr *n_hifi_attrs;        /* Cached hifi attributes from server */
     struct smb2_lease   n_lease;                /* lease for both dirs/files */
 };
 

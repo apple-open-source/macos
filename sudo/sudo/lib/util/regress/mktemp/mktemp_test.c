@@ -15,6 +15,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -31,6 +32,10 @@
 # endif
 #endif
 
+#ifndef MAP_FAILED
+# define MAP_FAILED ((void *) -1)
+#endif
+
 #define MAX_TEMPLATE_LEN	10
 #define MAX_TRIES		100
 #define MIN_Xs			6
@@ -45,7 +50,7 @@ sudo_dso_public int main(int argc, char *argv[]);
  * reasonable expansion of the template and matches the fd.  Returns true
  * if all the X's were replaced with non-X's
  */
-int
+static int
 check(int fd, char const *kind, char const *path, char const *prefix,
     size_t plen, char const *suffix, size_t slen, int tlen)
 {
@@ -81,7 +86,7 @@ check(int fd, char const *kind, char const *path, char const *prefix,
 	return 1;
 }
 
-void
+static void
 try_mkdtemp(char *p, char const *prefix, int len)
 {
 	size_t plen = strlen(prefix);
@@ -100,7 +105,7 @@ try_mkdtemp(char *p, char const *prefix, int len)
 	sudo_fatalx("mkdtemp: exceeded MAX_TRIES");
 }
 
-void
+static void
 try_mkstemps(char *p, char const *prefix, int len, char const *suffix)
 {
 	size_t plen = strlen(prefix);
@@ -128,9 +133,22 @@ main(int argc, char *argv[])
 	char *p;
 	size_t clen;
 	long pg;
-	int i;
+	int ch, i;
 
 	initprogname(argc > 0 ? argv[0] : "mktemp_test");
+
+	while ((ch = getopt(argc, argv, "v")) != -1) {
+	    switch (ch) {
+	    case 'v':
+		/* ignore */
+		break;
+	    default:
+		fprintf(stderr, "usage: %s [-v]\n", getprogname());
+		return EXIT_FAILURE;
+	    }
+	}
+	argc -= optind;
+	argv += optind;
 
 	pg = sysconf(_SC_PAGESIZE);
 	if (getcwd(cwd, sizeof cwd - 1) == NULL)

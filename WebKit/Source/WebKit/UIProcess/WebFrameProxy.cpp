@@ -28,14 +28,18 @@
 
 #include "APINavigation.h"
 #include "Connection.h"
+#include "DrawingAreaMessages.h"
+#include "DrawingAreaProxy.h"
+#include "FrameTreeCreationParameters.h"
 #include "FrameTreeNodeData.h"
+#include "MessageSenderInlines.h"
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
-#include "SubframePageProxy.h"
-#include "WebFrameMessages.h"
+#include "RemotePageProxy.h"
 #include "WebFramePolicyListenerProxy.h"
-#include "WebFrameProxyMessages.h"
+#include "WebNavigationState.h"
 #include "WebPageMessages.h"
+#include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebPasteboardProxy.h"
 #include "WebProcessPool.h"
@@ -82,7 +86,6 @@ WebFrameProxy::WebFrameProxy(WebPageProxy& page, WebProcessProxy& process, Frame
 {
     ASSERT(!allFrames().contains(frameID));
     allFrames().set(frameID, this);
-    m_process->addMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object(), *this);
     WebProcessPool::statistics().wkFrameCount++;
 }
 
@@ -96,13 +99,13 @@ WebFrameProxy::~WebFrameProxy()
     if (m_navigateCallback)
         m_navigateCallback({ }, { });
 
-    m_process->removeMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object());
-
     ASSERT(allFrames().get(m_frameID) == this);
     allFrames().remove(m_frameID);
+}
 
-    if (m_subframePage)
-        m_process->removeFrameWithRemoteFrameProcess(*this);
+WebPageProxy* WebFrameProxy::page() const
+{
+    return m_page.get();
 }
 
 void WebFrameProxy::webProcessWillShutDown()
@@ -129,9 +132,9 @@ bool WebFrameProxy::isMainFrame() const
     return this == m_page->mainFrame() || (m_page->provisionalPageProxy() && this == m_page->provisionalPageProxy()->mainFrame());
 }
 
-ProcessID WebFrameProxy::processIdentifier() const
+ProcessID WebFrameProxy::processID() const
 {
-    return m_process->processIdentifier();
+    return m_process->processID();
 }
 
 std::optional<PageIdentifier> WebFrameProxy::pageIdentifier() const
@@ -250,9 +253,6 @@ void WebFrameProxy::didFinishLoad()
 
     if (m_navigateCallback)
         m_navigateCallback(pageIdentifier(), frameID());
-
-    if (m_subframePage && m_parentFrame)
-        m_parentFrame->m_process->send(Messages::WebFrame::DidFinishLoadInAnotherProcess(), m_frameID.object());
 }
 
 void WebFrameProxy::didFailLoad()
@@ -275,7 +275,7 @@ void WebFrameProxy::didChangeTitle(const String& title)
     m_title = title;
 }
 
-WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(CompletionHandler<void(PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, RefPtr<SafeBrowsingWarning>&&, std::optional<NavigatingToAppBoundDomain>)>&& completionHandler, ShouldExpectSafeBrowsingResult expectSafeBrowsingResult, ShouldExpectAppBoundDomainResult expectAppBoundDomainResult, ShouldWaitForInitialLookalikeCharacterStrings shouldWaitForInitialLookalikeCharacterStrings)
+WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(CompletionHandler<void(PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, RefPtr<SafeBrowsingWarning>&&, std::optional<NavigatingToAppBoundDomain>)>&& completionHandler, ShouldExpectSafeBrowsingResult expectSafeBrowsingResult, ShouldExpectAppBoundDomainResult expectAppBoundDomainResult, ShouldWaitForInitialLinkDecorationFilteringData shouldWaitForInitialLinkDecorationFilteringData)
 {
     if (m_activeListener)
         m_activeListener->ignore();
@@ -285,7 +285,7 @@ WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(CompletionH
 
         completionHandler(action, policies, processSwapRequestedByClient, WTFMove(safeBrowsingWarning), isNavigatingToAppBoundDomain);
         m_activeListener = nullptr;
-    }, expectSafeBrowsingResult, expectAppBoundDomainResult, shouldWaitForInitialLookalikeCharacterStrings);
+    }, expectSafeBrowsingResult, expectAppBoundDomainResult, shouldWaitForInitialLinkDecorationFilteringData);
     return *m_activeListener;
 }
 
@@ -374,6 +374,8 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID)
 
     auto child = WebFrameProxy::create(*m_page, m_process, frameID);
     child->m_parentFrame = *this;
+    if (m_page)
+        m_page->createRemoteSubframesInOtherProcesses(child);
     m_childFrames.add(WTFMove(child));
 }
 
@@ -383,30 +385,24 @@ void WebFrameProxy::swapToProcess(Ref<WebProcessProxy>&& process, const WebCore:
     m_provisionalFrame = makeUnique<ProvisionalFrameProxy>(*this, WTFMove(process), request);
 }
 
-IPC::Connection* WebFrameProxy::messageSenderConnection() const
-{
-    return m_process->connection();
-}
-
-uint64_t WebFrameProxy::messageSenderDestinationID() const
-{
-    return m_frameID.object().toUInt64();
-}
-
 void WebFrameProxy::commitProvisionalFrame(FrameIdentifier frameID, FrameInfoData&& frameInfo, ResourceRequest&& request, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType frameLoadType, const WebCore::CertificateInfo& certificateInfo, bool usedLegacyTLS, bool privateRelayed, bool containsPluginDocument, WebCore::HasInsecureContent hasInsecureContent, WebCore::MouseEventPolicy mouseEventPolicy, const UserData& userData)
 {
-    // FIXME: Not only is this a race condition, but we still want to receive messages,
-    // such as if the parent frame navigates the remote frame.
-    m_provisionalFrame->process().provisionalFrameCommitted(*this);
-    send(Messages::WebFrame::DidCommitLoadInAnotherProcess());
-    m_process->removeMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object());
-    m_process = std::exchange(m_provisionalFrame, nullptr)->process();
-    m_process->addMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object(), *this);
+    ASSERT(m_page);
+    if (m_provisionalFrame) {
+        m_provisionalFrame->process().provisionalFrameCommitted(*this);
+        m_process->send(Messages::WebPage::DidCommitLoadInAnotherProcess(frameID, m_provisionalFrame->layerHostingContextIdentifier(), m_provisionalFrame->process().coreProcessIdentifier()), m_page->webPageID());
+        m_process = std::exchange(m_provisionalFrame, nullptr)->process();
+        m_provisionalFrame = nullptr;
 
-    if (m_page) {
-        m_subframePage = makeUnique<SubframePageProxy>(*this, *m_page, m_process);
-        m_page->didCommitLoadForFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData);
+        RegistrableDomain oldDomain(url());
+        m_remotePageProxy = m_page->remotePageProxyForRegistrableDomain(RegistrableDomain(request.url()));
     }
+    m_page->didCommitLoadForFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData);
+}
+
+void WebFrameProxy::setRemotePageProxy(RemotePageProxy& remotePageProxy)
+{
+    m_remotePageProxy = &remotePageProxy;
 }
 
 void WebFrameProxy::getFrameInfo(CompletionHandler<void(FrameTreeNodeData&&)>&& completionHandler)
@@ -438,9 +434,9 @@ void WebFrameProxy::getFrameInfo(CompletionHandler<void(FrameTreeNodeData&&)>&& 
     };
 
     auto aggregator = FrameInfoCallbackAggregator::create(WTFMove(completionHandler), m_childFrames.size());
-    sendWithAsyncReply(Messages::WebFrame::GetFrameInfo(), [aggregator] (FrameInfoData&& info) {
+    m_process->sendWithAsyncReply(Messages::WebPage::GetFrameInfo(m_frameID), [aggregator] (FrameInfoData&& info) {
         aggregator->setCurrentFrameData(WTFMove(info));
-    });
+    }, m_page->webPageID());
 
     bool isSiteIsolationEnabled = page() && page()->preferences().siteIsolationEnabled();
     size_t index = 0;
@@ -455,6 +451,17 @@ void WebFrameProxy::getFrameInfo(CompletionHandler<void(FrameTreeNodeData&&)>&& 
             aggregator->addChildFrameData(index, WTFMove(data));
         });
     }
+}
+
+FrameTreeCreationParameters WebFrameProxy::frameTreeCreationParameters() const
+{
+    return {
+        m_frameID,
+        m_process->coreProcessIdentifier(),
+        WTF::map(m_childFrames, [] (auto& frame) {
+            return frame->frameTreeCreationParameters();
+        })
+    };
 }
 
 } // namespace WebKit

@@ -34,13 +34,17 @@ __RCSID("$NetBSD: t_getcwd.c,v 1.3 2011/07/27 05:04:11 jruoho Exp $");
 #include <sys/param.h>
 #include <sys/stat.h>
 
+#include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <fts.h>
 #include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <darwintest.h>
+#include <darwintest_utils.h>
 
 T_DECL(getcwd_err, "Test error conditions in getcwd(3)")
 {
@@ -104,3 +108,61 @@ T_DECL(getcwd_fts, "A basic test of getcwd(3)")
 
 	(void)fts_close(fts);
 }
+
+#ifdef __APPLE__
+/* Not a converted NetBSD test. */
+T_DECL(getcwd_nested, "Test getcwd(3) with large directory nestings")
+{
+	/*
+	 * 768 is more than sufficient to guarantee we would have ended up
+	 * breaking getcwd(3).  We generally just needed to trigger the
+	 * reallocation ("bup + 3  + MAXNAMLEN + 1 >= eup"), and we generate
+	 * three bytes ("../") per nested level.  768 deep from where we're
+	 * executed seems like a reasonable expectation; previous failures were
+	 * observed at 506 levels deep from the root of the filesystem.
+	 */
+	int nesting = 768;
+	int dirfd;
+	int ret;
+	char *tmp_path;
+
+	T_ASSERT_POSIX_SUCCESS(asprintf(&tmp_path, "%s/%s-XXXXXX", dt_tmpdir(),
+	    T_NAME), NULL);
+	T_ASSERT_NOTNULL(mktemp(tmp_path), NULL);
+	T_ASSERT_POSIX_SUCCESS(mkdir(tmp_path, 0777), NULL);
+	dirfd = open(tmp_path, O_RDONLY | O_DIRECTORY);
+	free(tmp_path);
+
+	for (int i = 0; i < nesting; ++i) {
+		char buf[MAXNAMLEN];
+		int fd;
+
+		snprintf(buf, sizeof(buf), "lvl_%d", i);
+		ret = mkdirat(dirfd, buf, S_IRWXU);
+		if (ret != 0) {
+			T_FAIL("mkdirat(%s) failed, errno %d", buf, errno);
+			return;
+		}
+
+		fd = openat(dirfd, buf, O_RDONLY | O_DIRECTORY);
+		if (fd < 0) {
+			T_FAIL("openat(%s) failed, errno %d", buf, errno);
+			return;
+		}
+
+		if (dirfd >= 0)
+			close(dirfd);
+
+		dirfd = fd;
+		ret = fchdir(dirfd);
+		if (ret != 0) {
+			T_FAIL("fchdir() failed, errno %d", errno);
+			return;
+		}
+
+		char *cwd = getcwd(NULL, 0);
+		T_ASSERT_NOTNULL(cwd, NULL);
+		free(cwd);
+	}
+}
+#endif

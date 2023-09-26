@@ -44,7 +44,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "AssertMacros.h"
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 
 unsigned char rsaPubKey[] = {

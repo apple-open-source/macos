@@ -34,10 +34,11 @@
 #include <WebCore/CookieRequestHeaderFieldProxy.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/Document.h>
-#include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/FrameLoaderClient.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameLoaderClient.h>
+#include <WebCore/Page.h>
 #include <WebCore/Settings.h>
 #include <WebCore/StorageSessionProvider.h>
 
@@ -222,7 +223,7 @@ std::pair<String, WebCore::SecureCookiesAccessed> WebCookieJar::cookieRequestHea
 #endif
 
     auto sendResult = WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies, applyTrackingPreventionInNetworkProcess, shouldRelaxThirdPartyCookieBlocking(webFrame)), 0);
-    if (!sendResult)
+    if (!sendResult.succeeded())
         return { };
 
     auto [cookieString, secureCookiesAccessed] = sendResult.takeReply();
@@ -241,7 +242,7 @@ bool WebCookieJar::getRawCookies(const WebCore::Document& document, const URL& u
     std::optional<FrameIdentifier> frameID = webFrame ? std::make_optional(webFrame->frameID()) : std::nullopt;
     std::optional<PageIdentifier> pageID = webFrame && webFrame->page() ? std::make_optional(webFrame->page()->identifier()) : std::nullopt;
     auto sendResult = WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::GetRawCookies(document.firstPartyForCookies(), sameSiteInfo(document), url, frameID, pageID, applyTrackingPreventionInNetworkProcess, shouldRelaxThirdPartyCookieBlocking(webFrame)), 0);
-    if (!sendResult)
+    if (!sendResult.succeeded())
         return false;
 
     std::tie(rawCookies) = sendResult.takeReply();

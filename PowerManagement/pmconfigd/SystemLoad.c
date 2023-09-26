@@ -72,6 +72,7 @@ static bool   thermalWarningLevel       = FALSE;
 
 static bool   displayIsOff                = FALSE;
 static bool   displaySleepEnabled       = FALSE;
+static bool   gDominoIsOn               = FALSE;
 
 static int    gNotifyToken              = 0;
 
@@ -88,6 +89,7 @@ static uint32_t updateUserActivityLevels(void);
 
 #ifdef XCTEST
 uint32_t xctUserInactiveDuration = 0;
+clientInfo_t *xctUserActivityClient = NULL;
 
 void xctSetUserInactiveDuration(uint32_t value) {
     xctUserInactiveDuration = value;
@@ -97,19 +99,30 @@ void xctSetUserActiveRootDomain(bool active) {
     gUserActive.rootDomain = active;
 }
 
-bool xctGetUserActiveRootDomain() {
+bool xctGetUserActiveRootDomain(void) {
     return gUserActive.rootDomain;
 }
 
-uint64_t xctGetUserActivityPostedLevels() {
+uint64_t xctGetUserActivityPostedLevels(void) {
     return gUserActive.postedLevels;
 }
 
+uint64_t xctGetUserActivityClientLevels(void) {
+    return xctUserActivityClient->postedLevels;
+}
+
+void xctSetUserActive(bool value) {
+    gUserActive.userActive = value;
+}
 void xctUserActive_prime(void) {
     bzero(&gUserActive, sizeof(UserActiveStruct));
 
     gUserActive.postedLevels = kIOPMUserPresentActive;
     xctSetUserActiveRootDomain(true);
+}
+
+void xctSetDisplaySleepEnabled(bool value) {
+    displaySleepEnabled = value;
 }
 #endif
 
@@ -246,16 +259,42 @@ uint32_t updateUserActivityLevels(void)
     clientInfo_t        *client;
     static int          token = 0;
 
+    bool displayAssertionsExist, audioAssertionsExist, cameraAssertionExist;
+    displayAssertionsExist = checkForActivesByType(kPreventDisplaySleepType);
+    audioAssertionsExist = checkForAudioType();
+    cameraAssertionExist = checkForCameraType();
+
+    // check for all passive levels
+    uint64_t passive_levels = 0;
+    if (!displayIsOff) {
+        /*
+         PresentPassiveWithDisplay scenarios
+         */
+        if (audioAssertionsExist || displayAssertionsExist || cameraAssertionExist) {
+            passive_levels |= (kIOPMUserPresentPassive | kIOPMUserPresentPassiveWithDisplay);
+        }
+        else if (!displaySleepEnabled) {
+            passive_levels |= kIOPMUserAbsentWithDisplay;
+        }
+    } else {
+        /*
+         PresentPassiveWithoutDisplay scenarios
+         */
+        // display is off. Check for audio assertions and camera type
+        if (cameraAssertionExist) {
+            passive_levels |= (kIOPMUserPresentPassive | kIOPMUserPresentPassiveWithDisplay);
+        }
+        else if (audioAssertionsExist && !isA_DarkWakeState()) {
+            passive_levels |= (kIOPMUserPresentPassive | kIOPMUserPresentPassiveWithoutDisplay);
+        }
+    }
 
     if (!displayIsOff && gUserActive.userActive) {
         levels |= kIOPMUserPresentActive;
+    } else {
+        levels |= passive_levels;
     }
-    else {
-        if (checkForActivesByType(kPreventDisplaySleepType) && !isA_NotificationDisplayWake()) {
-            levels |= kIOPMUserPresentPassive;
-        }
 
-    }
     if (checkForActivesByType(kNetworkAccessType)) {
         levels |= kIOPMUserRemoteClientActive;
     }
@@ -330,29 +369,9 @@ uint32_t updateUserActivityLevels(void)
             levels |= kIOPMUserPresentActive;
         }
         else {
-            if (!displayIsOff) {
-                bool displayAssertionsExist, audioAssertionsExist;
-                // kIOPMUserPresentPassiveWithDisplay is set if display is on due to
-                // some app requesting display to be on. Display on just due to user settings
-                // that prevent display sleep should not set kIOPMUserPresentPassiveWithDisplay.
-                displayAssertionsExist = checkForActivesByType(kPreventDisplaySleepType);
-                audioAssertionsExist = checkForAudioType();
-                if (displayAssertionsExist) {
-                    levels |= (kIOPMUserPresentPassive|kIOPMUserPresentPassiveWithDisplay);
-                }
-                else if (audioAssertionsExist) {
-                    levels |= (kIOPMUserPresentPassive|kIOPMUserPresentPassiveWithoutDisplay);
-                }
-            }
-            else if (checkForCameraType() && !isA_DarkWakeState()) {
-                // Use `kIOPMUserPresentWithDisplay` as a proxy to indicate `Camera` in use.
-                // `PresentPassiveWithDisplay` should really be `PresentPassiveWithIntensiveResource`
-                // but that's beyond the scope at this moment. See rdar://99056620 and the wombat use-case.
-                levels |= (kIOPMUserPresentPassive|kIOPMUserPresentPassiveWithDisplay);
-            }
-            else if (checkForAudioType() && !isA_DarkWakeState()) {
-                levels |= (kIOPMUserPresentPassive|kIOPMUserPresentPassiveWithoutDisplay);
-            }
+            // should be the same as passive global levels
+            levels = passive_levels;
+            DEBUG_LOG("Setting level 0x%llx for pid %d", passive_levels, xpc_connection_get_pid(client->connection))
         }
 
         if (inactiveDuration && (inactiveDuration < client->idleTimeout)) {
@@ -371,8 +390,10 @@ uint32_t updateUserActivityLevels(void)
                     levels, client->connection, xpc_connection_get_pid(client->connection));
 
             xpc_dictionary_set_uint64(msg, kUserActivityLevels, levels);
+#if !XCTEST
             xpc_connection_send_message(client->connection, msg);
             xpc_release(msg);
+#endif
 
             client->postedLevels = levels;
         }
@@ -749,7 +770,6 @@ static void registerForHidActivity(void)
         hidPropertyCallback(NULL, NULL, NULL, NULL);
     });
 }
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 __private_extern__ void SystemLoad_prime(void)
@@ -854,6 +874,35 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
     logAssertionCount(displayIsOff);
 }
 
+__private_extern__ void SystemLoadDominoStateHasChanged(bool _dominoState)
+{
+    if (_dominoState) {
+        INFO_LOG("Entered Domino");
+        gDominoIsOn = true;
+    } else {
+        INFO_LOG("Exited Domino");
+        gDominoIsOn = false;
+    }
+    evaluateHidIdleNotification();
+    InternalEvaluateProcTimerOnDisplayStateChange(!gDominoIsOn);
+}
+
+__private_extern__ void updateDominoState(xpc_object_t connection, xpc_object_t msg)
+{
+    if (!connection || !msg) {
+        ERROR_LOG("Invalid args for updating domino state(%p, %p)", connection, msg);
+        return;
+    }
+    if (!xpcConnectionHasEntitlement(connection, kIOPMDominoServiceEntitlement)) {
+        ERROR_LOG("Not entitled to update domino mode");
+        return;
+    }
+
+    bool domino_state = xpc_dictionary_get_bool(msg, kDominoState);
+    bool main_display = xpc_dictionary_get_bool(msg, kDominoMainDisplay);
+    INFO_LOG("Domino set to %d on main display %d", domino_state, main_display);
+    SystemLoadDominoStateHasChanged(domino_state);
+}
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /* @function SystemLoadPrefsHaveChanged
@@ -1216,8 +1265,13 @@ __private_extern__ void registerUserActivityClient(xpc_object_t connection, xpc_
         ERROR_LOG("Failed allocate memory\n");
         return;
     }
+#if XCTEST
+    xctUserActivityClient =client;
+#endif
 
+#if !XCTEST
     client->connection = xpc_retain(connection);
+#endif
     client->idleTimeout = (uint32_t)xpc_dictionary_get_uint64(msg, kUserActivityTimeoutKey);
     insertClient(client);
 

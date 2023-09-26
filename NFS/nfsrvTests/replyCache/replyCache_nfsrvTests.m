@@ -67,6 +67,7 @@
 #include "nfs_prot.h"
 #include "pathnames.h"
 #include "nfs_prot_rpc.h"
+#include "test_utils.h"
 
 #import <XCTest/XCTest.h>
 
@@ -120,7 +121,7 @@ struct serverCacheResults {
 void
 verifyReplyCacheStatistics(struct serverCacheResults results)
 {
-	long value;
+	long value = 0;
 	NSNumber *number;
 	NSData* returnedData;
 	NSError* error = nil;
@@ -179,6 +180,8 @@ verifyReplyCacheStatistics(struct serverCacheResults results)
 {
 	int err;
 	fhandle_t *fh;
+
+	memset(&rootfh, 0, sizeof(rootfh));
 	doMountSetUp();
 
 	err = createClientForMountProtocol(AF_INET, SOCK_DGRAM, RPCAUTH_UNIX, 0);
@@ -191,13 +194,12 @@ verifyReplyCacheStatistics(struct serverCacheResults results)
 		XCTFail("Cannot create client for NFS");
 	}
 
-	memset(&rootfh, 0, sizeof(rootfh));
-	if ((fh = doMountAndVerify(getLocalMountedPath())) == NULL) {
+	if ((fh = doMountAndVerify(getLocalMountedPath(), "sys:krb5")) == NULL) {
 		XCTFail("doMountAndVerify failed");
+	} else {
+		rootfh.data.data_len = fh->fh_len;
+		rootfh.data.data_val = (char *)fh->fh_data;
 	}
-
-	rootfh.data.data_len = fh->fh_len;
-	rootfh.data.data_val = (char *)fh->fh_data;
 
 	runNFSStat(MODE_ZERO);
 }

@@ -63,7 +63,6 @@ static os_log_t coresmartpowernap_log = NULL;
 
 NSString *const kPMCoreSmartPowerNapServiceName = @"com.apple.powerd.coresmartpowernap";
 
-
 @implementation _PMCoreSmartPowerNap
 
 - (instancetype)init {
@@ -88,6 +87,15 @@ NSString *const kPMCoreSmartPowerNapServiceName = @"com.apple.powerd.coresmartpo
             INFO_LOG("Connection to powerd interrupted");
             client.connection_interrupted = YES;
         }];
+
+        [_connection setInvalidationHandler:^{
+            typeof(self) client = welf;
+            if (!client) {
+                return;
+            }
+            INFO_LOG("Connection to powerd invalidated");
+        }];
+
         [_connection resume];
         _connection_interrupted = NO;
         INFO_LOG("Initialized connection");
@@ -113,12 +121,10 @@ NSString *const kPMCoreSmartPowerNapServiceName = @"com.apple.powerd.coresmartpo
 }
 
 - (void)registerWithCallback:(dispatch_queue_t)queue callback:(_PMCoreSmartPowerNapCallback)callback {
-
     pid_t my_pid = getpid();
     char name[128];
     proc_name(my_pid, name, sizeof(name));
-    NSString *client_name = [NSString stringWithFormat:@"%s", name];
-    _identifier = client_name;
+    _identifier = [NSString stringWithFormat:@"%@:%s", [[NSUUID UUID] UUIDString], name];
     [self registerWithIdentifier:_identifier];
     _callback_queue = queue;
     _callback = callback;
@@ -173,24 +179,17 @@ NSString *const kPMCoreSmartPowerNapServiceName = @"com.apple.powerd.coresmartpo
 }
 
 - (void)setState:(_PMCoreSmartPowerNapState)state {
-    INFO_LOG("Updating state to %d", (int)state);
+    INFO_LOG("Updating CSPN state to %d", (int)state);
     [[_connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-                ERROR_LOG("Failed to update state %@", error);
+                ERROR_LOG("Failed to update CSPN state %@", error);
     }]setState:state];
 }
 
-- (void)setCSPNReentryCoolOffPeriod:(uint32_t)seconds {
-    INFO_LOG("Updating CSPN Re-entry cool off period");
+- (void)setCSPNQueryDelta:(uint32_t)seconds {
+    INFO_LOG("Updating CSPN Query delay");
     [[_connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-                ERROR_LOG("Failed to update CSPN re-entry cooloff period %@", error);
-    }]setCSPNReentryCoolOffPeriod:seconds];
-}
-
-- (void)setCSPNReentryDelaySeconds:(uint32_t)seconds {
-    INFO_LOG("Updating CSPN Re-entry delay");
-    [[_connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-            ERROR_LOG("Failed to CSPN Re-entry delay %@", error);
-    }]setCSPNReentryDelaySeconds:seconds];
+            ERROR_LOG("Failed to CSPN Re-query delay %@", error);
+    }]setCSPNQueryDelta:seconds];
 }
 
 - (void)setCSPNRequeryDelta:(uint32_t)seconds {
@@ -198,6 +197,13 @@ NSString *const kPMCoreSmartPowerNapServiceName = @"com.apple.powerd.coresmartpo
     [[_connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
             ERROR_LOG("Failed to CSPN Re-query delay %@", error);
     }]setCSPNRequeryDelta:seconds];
+}
+
+- (void)setCSPNIgnoreRemoteClient:(uint32_t)state {
+    INFO_LOG("Updating setCSPNIgnoreRemoteClient state to %d", (int)state);
+    [[_connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+                ERROR_LOG("Failed to update setCSPNIgnoreRemoteClient %@", error);
+    }]setCSPNIgnoreRemoteClient:state];
 }
 
 - (void)setCSPNMotionAlarmThreshold:(uint32_t)seconds {

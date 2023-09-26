@@ -56,50 +56,51 @@ enum URLCharacterClass {
     UserInfo = 0x1,
     Default = 0x2,
     ForbiddenHost = 0x4,
-    QueryPercent = 0x8,
-    SlashQuestionOrHash = 0x10,
-    ValidScheme = 0x20,
+    ForbiddenDomain = 0x8,
+    QueryPercent = 0x10,
+    SlashQuestionOrHash = 0x20,
+    ValidScheme = 0x40,
 };
 
 static const uint8_t characterClassTable[256] = {
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x0
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x1
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x2
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x3
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x4
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x5
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x6
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x7
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x8
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x9
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0xA
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0xB
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0xC
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0xD
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0xE
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0xF
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x10
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x11
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x12
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x13
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x14
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x15
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x16
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x17
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x18
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x19
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x1A
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x1B
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x1C
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x1D
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x1E
-    UserInfo | Default | QueryPercent | ForbiddenHost, // 0x1F
-    UserInfo | Default | QueryPercent | ForbiddenHost, // ' '
+    UserInfo | Default | QueryPercent | ForbiddenHost | ForbiddenDomain, // 0x0
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x1
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x2
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x3
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x4
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x5
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x6
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x7
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x8
+    UserInfo | Default | QueryPercent | ForbiddenHost | ForbiddenDomain, // 0x9
+    UserInfo | Default | QueryPercent | ForbiddenHost | ForbiddenDomain, // 0xA
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0xB
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0xC
+    UserInfo | Default | QueryPercent | ForbiddenHost | ForbiddenDomain, // 0xD
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0xE
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0xF
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x10
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x11
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x12
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x13
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x14
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x15
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x16
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x17
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x18
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x19
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x1A
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x1B
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x1C
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x1D
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x1E
+    UserInfo | Default | QueryPercent | ForbiddenDomain, // 0x1F
+    UserInfo | Default | QueryPercent | ForbiddenHost | ForbiddenDomain, // ' '
     0, // '!'
     UserInfo | Default | QueryPercent, // '"'
-    UserInfo | Default | QueryPercent | SlashQuestionOrHash | ForbiddenHost, // '#'
+    UserInfo | Default | QueryPercent | SlashQuestionOrHash | ForbiddenHost | ForbiddenDomain, // '#'
     0, // '$'
-    ForbiddenHost, // '%'
+    ForbiddenDomain, // '%'
     0, // '&'
     0, // '\''
     0, // '('
@@ -109,7 +110,7 @@ static const uint8_t characterClassTable[256] = {
     0, // ','
     ValidScheme, // '-'
     ValidScheme, // '.'
-    UserInfo | SlashQuestionOrHash | ForbiddenHost, // '/'
+    UserInfo | SlashQuestionOrHash | ForbiddenHost | ForbiddenDomain, // '/'
     ValidScheme, // '0'
     ValidScheme, // '1'
     ValidScheme, // '2'
@@ -120,13 +121,13 @@ static const uint8_t characterClassTable[256] = {
     ValidScheme, // '7'
     ValidScheme, // '8'
     ValidScheme, // '9'
-    UserInfo | ForbiddenHost, // ':'
+    UserInfo | ForbiddenHost | ForbiddenDomain, // ':'
     UserInfo, // ';'
-    UserInfo | Default | QueryPercent | ForbiddenHost, // '<'
+    UserInfo | Default | QueryPercent | ForbiddenHost | ForbiddenDomain, // '<'
     UserInfo, // '='
-    UserInfo | Default | QueryPercent | ForbiddenHost, // '>'
-    UserInfo | Default | SlashQuestionOrHash | ForbiddenHost, // '?'
-    UserInfo | ForbiddenHost, // '@'
+    UserInfo | Default | QueryPercent | ForbiddenHost | ForbiddenDomain, // '>'
+    UserInfo | Default | SlashQuestionOrHash | ForbiddenHost | ForbiddenDomain, // '?'
+    UserInfo | ForbiddenHost | ForbiddenDomain, // '@'
     ValidScheme, // 'A'
     ValidScheme, // 'B'
     ValidScheme, // 'C'
@@ -153,10 +154,10 @@ static const uint8_t characterClassTable[256] = {
     ValidScheme, // 'X'
     ValidScheme, // 'Y'
     ValidScheme, // 'Z'
-    UserInfo | ForbiddenHost, // '['
-    UserInfo | SlashQuestionOrHash | ForbiddenHost, // '\\'
-    UserInfo | ForbiddenHost, // ']'
-    UserInfo | ForbiddenHost, // '^'
+    UserInfo | ForbiddenHost | ForbiddenDomain, // '['
+    UserInfo | SlashQuestionOrHash | ForbiddenHost | ForbiddenDomain, // '\\'
+    UserInfo | ForbiddenHost | ForbiddenDomain, // ']'
+    UserInfo | ForbiddenHost | ForbiddenDomain, // '^'
     0, // '_'
     UserInfo | Default, // '`'
     ValidScheme, // 'a'
@@ -186,10 +187,10 @@ static const uint8_t characterClassTable[256] = {
     ValidScheme, // 'y'
     ValidScheme, // 'z'
     UserInfo | Default, // '{'
-    UserInfo | ForbiddenHost, // '|'
+    UserInfo | ForbiddenHost | ForbiddenDomain, // '|'
     UserInfo | Default, // '}'
     0, // '~'
-    QueryPercent | ForbiddenHost, // 0x7F
+    QueryPercent | ForbiddenDomain, // 0x7F
     QueryPercent, // 0x80
     QueryPercent, // 0x81
     QueryPercent, // 0x82
@@ -330,7 +331,21 @@ template<typename CharacterType> ALWAYS_INLINE static bool isInUserInfoEncodeSet
 template<typename CharacterType> ALWAYS_INLINE static bool isPercentOrNonASCII(CharacterType character) { return !isASCII(character) || character == '%'; }
 template<typename CharacterType> ALWAYS_INLINE static bool isSlashQuestionOrHash(CharacterType character) { return character <= '\\' && characterClassTable[character] & SlashQuestionOrHash; }
 template<typename CharacterType> ALWAYS_INLINE static bool isValidSchemeCharacter(CharacterType character) { return character <= 'z' && characterClassTable[character] & ValidScheme; }
-template<typename CharacterType> ALWAYS_INLINE static bool isForbiddenHostCodePoint(CharacterType character) { return character <= 0x7F && characterClassTable[character] & ForbiddenHost; }
+
+template<typename CharacterType>
+ALWAYS_INLINE bool URLParser::isForbiddenHostCodePoint(CharacterType character)
+{
+    ASSERT(!m_urlIsSpecial);
+    return character <= 0x7F && characterClassTable[character] & ForbiddenHost;
+}
+
+template<typename CharacterType>
+ALWAYS_INLINE bool URLParser::isForbiddenDomainCodePoint(CharacterType character)
+{
+    ASSERT(m_urlIsSpecial);
+    return character <= 0x7F && characterClassTable[character] & ForbiddenDomain;
+}
+
 ALWAYS_INLINE static bool shouldPercentEncodeQueryByte(uint8_t byte, const bool& urlIsSpecial)
 {
     if (characterClassTable[byte] & QueryPercent)
@@ -418,7 +433,7 @@ void URLParser::appendWindowsDriveLetter(CodePointIterator<CharacterType>& itera
 
 bool URLParser::copyBaseWindowsDriveLetter(const URL& base)
 {
-    if (base.protocolIs("file"_s)) {
+    if (base.protocolIsFile()) {
         RELEASE_ASSERT(base.m_hostEnd + base.m_portLength < base.m_string.length());
         if (base.m_string.is8Bit()) {
             const LChar* begin = base.m_string.characters8();
@@ -598,7 +613,7 @@ std::optional<uint16_t> URLParser::defaultPortForProtocol(StringView scheme)
                 return wssPort;
             return std::nullopt;
         default:
-            return false;
+            return std::nullopt;
         }
     case 'h':
         switch (length) {
@@ -703,11 +718,15 @@ std::optional<String> URLParser::maybeCanonicalizeScheme(StringView scheme)
     if (scheme.isEmpty())
         return std::nullopt;
 
-    if (!isASCIIAlpha(scheme[0]))
+    size_t i = 0;
+    while (i < scheme.length() && isTabOrNewline(scheme[i]))
+        ++i;
+
+    if (i >= scheme.length() || !isASCIIAlpha(scheme[i++]))
         return std::nullopt;
 
-    for (size_t i = 1; i < scheme.length(); ++i) {
-        if (isASCIIAlphanumeric(scheme[i]) || scheme[i] == '+' || scheme[i] == '-' || scheme[i] == '.')
+    for (; i < scheme.length(); ++i) {
+        if (isASCIIAlphanumeric(scheme[i]) || scheme[i] == '+' || scheme[i] == '-' || scheme[i] == '.' || isTabOrNewline(scheme[i]))
             continue;
         return std::nullopt;
     }
@@ -1080,8 +1099,8 @@ URLParser::URLParser(String&& input, const URL& base, const URLTextEncoding* non
 
     ASSERT(!m_url.m_isValid
         || m_didSeeSyntaxViolation == (m_url.string() != m_inputString)
-        || (m_inputString.isAllSpecialCharacters<isC0ControlOrSpace>() && m_url.m_string == base.m_string.left(base.m_queryEnd))
-        || (base.isValid() && base.protocolIs("file"_s)));
+        || (m_inputString.containsOnly<isC0ControlOrSpace>() && m_url.m_string == base.m_string.left(base.m_queryEnd))
+        || (base.isValid() && base.protocolIsFile()));
     ASSERT(internalValuesConsistent(m_url));
 #if ASSERT_ENABLED
     if (!m_didSeeSyntaxViolation) {
@@ -1271,7 +1290,7 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
                 ++c;
                 break;
             }
-            if (!base.protocolIs("file"_s)) {
+            if (!base.protocolIsFile()) {
                 state = State::Relative;
                 break;
             }
@@ -1493,7 +1512,7 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
                 break;
             case '?':
                 syntaxViolation(c);
-                if (base.isValid() && base.protocolIs("file"_s)) {
+                if (base.isValid() && base.protocolIsFile()) {
                     copyURLPartsUntil(base, URLPart::PathEnd, c, nonUTF8QueryEncoding);
                     appendToASCIIBuffer('?');
                     ++c;
@@ -1516,7 +1535,7 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
                 break;
             case '#':
                 syntaxViolation(c);
-                if (base.isValid() && base.protocolIs("file"_s)) {
+                if (base.isValid() && base.protocolIsFile()) {
                     copyURLPartsUntil(base, URLPart::QueryEnd, c, nonUTF8QueryEncoding);
                     appendToASCIIBuffer('#');
                 } else {
@@ -1535,11 +1554,11 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
                 break;
             default:
                 syntaxViolation(c);
-                if (base.isValid() && base.protocolIs("file"_s) && shouldCopyFileURL(c))
+                if (base.isValid() && base.protocolIsFile() && shouldCopyFileURL(c))
                     copyURLPartsUntil(base, URLPart::PathAfterLastSlash, c, nonUTF8QueryEncoding);
                 else {
                     bool copiedHost = false;
-                    if (base.isValid() && base.protocolIs("file"_s)) {
+                    if (base.isValid() && base.protocolIsFile()) {
                         if (base.host().isEmpty()) {
                             copyURLPartsUntil(base, URLPart::SchemeEnd, c, nonUTF8QueryEncoding);
                             appendToASCIIBuffer(":///", 4);
@@ -1570,7 +1589,7 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
             if (LIKELY(*c == '/' || *c == '\\')) {
                 if (UNLIKELY(*c == '\\'))
                     syntaxViolation(c);
-                if (base.isValid() && base.protocolIs("file"_s)) {
+                if (base.isValid() && base.protocolIsFile()) {
                     copyURLPartsUntil(base, URLPart::SchemeEnd, c, nonUTF8QueryEncoding);
                     appendToASCIIBuffer(":/", 2);
                 }
@@ -1587,7 +1606,7 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
             }
             {
                 bool copiedHost = false;
-                if (base.isValid() && base.protocolIs("file"_s)) {
+                if (base.isValid() && base.protocolIsFile()) {
                     if (base.host().isEmpty()) {
                         copyURLPartsUntil(base, URLPart::SchemeEnd, c, nonUTF8QueryEncoding);
                         appendToASCIIBuffer(":///", 4);
@@ -1881,7 +1900,7 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
         break;
     case State::File:
         LOG_FINAL_STATE("File");
-        if (base.isValid() && base.protocolIs("file"_s)) {
+        if (base.isValid() && base.protocolIsFile()) {
             copyURLPartsUntil(base, URLPart::QueryEnd, c, nonUTF8QueryEncoding);
             break;
         }
@@ -1901,7 +1920,7 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
         syntaxViolation(c);
         {
             bool copiedHost = false;
-            if (base.isValid() && base.protocolIs("file"_s)) {
+            if (base.isValid() && base.protocolIsFile()) {
                 if (base.host().isEmpty()) {
                     copyURLPartsUntil(base, URLPart::SchemeEnd, c, nonUTF8QueryEncoding);
                     appendToASCIIBuffer(":/", 2);
@@ -2227,7 +2246,7 @@ Expected<uint32_t, URLParser::IPv4PieceParsingError> URLParser::parseIPv4Piece(C
 ALWAYS_INLINE static uint64_t pow256(size_t exponent)
 {
     RELEASE_ASSERT(exponent <= 4);
-    uint64_t values[5] = {1, 256, 256 * 256, 256 * 256 * 256, 256ull * 256 * 256 * 256 };
+    static constexpr uint64_t values[5] = { 1, 256, 256 * 256, 256 * 256 * 256, 256ull * 256 * 256 * 256 };
     return values[exponent];
 }
 
@@ -2310,8 +2329,6 @@ std::optional<uint32_t> URLParser::parseIPv4PieceInsideIPv6(CodePointIterator<Ch
                 return std::nullopt;
             leadingZeros = true;
         }
-        if (!piece && *iterator == '0')
-            leadingZeros = true;
         piece = piece * 10 + *iterator - '0';
         if (piece > 255)
             return std::nullopt;
@@ -2510,7 +2527,7 @@ void URLParser::addNonSpecialDotSlash()
 {
     auto oldPathStart = m_url.m_hostEnd + m_url.m_portLength;
     auto& oldString = m_url.m_string;
-    m_url.m_string = makeString(StringView(oldString).left(oldPathStart + 1), "./", StringView(oldString).substring(oldPathStart + 1));
+    m_url.m_string = makeString(StringView(oldString).left(oldPathStart + 1), "./"_s, StringView(oldString).substring(oldPathStart + 1));
     m_url.m_pathAfterLastSlash += 2;
     m_url.m_pathEnd += 2;
     m_url.m_queryEnd += 2;
@@ -2519,7 +2536,7 @@ void URLParser::addNonSpecialDotSlash()
 template<typename CharacterType> std::optional<URLParser::LCharBuffer> URLParser::domainToASCII(StringImpl& domain, const CodePointIterator<CharacterType>& iteratorForSyntaxViolationPosition)
 {
     LCharBuffer ascii;
-    if (domain.isAllASCII() && !subdomainStartsWithXNDashDash(domain)) {
+    if (domain.containsOnlyASCII() && !subdomainStartsWithXNDashDash(domain)) {
         size_t length = domain.length();
         if (domain.is8Bit()) {
             const LChar* characters = domain.characters8();
@@ -2566,7 +2583,7 @@ template<typename CharacterType> std::optional<URLParser::LCharBuffer> URLParser
 bool URLParser::hasForbiddenHostCodePoint(const URLParser::LCharBuffer& asciiDomain)
 {
     for (size_t i = 0; i < asciiDomain.size(); ++i) {
-        if (isForbiddenHostCodePoint(asciiDomain[i]))
+        if (isForbiddenDomainCodePoint(asciiDomain[i]))
             return true;
     }
     return false;
@@ -2777,7 +2794,7 @@ auto URLParser::parseHostAndPort(CodePointIterator<CharacterType> iterator) -> H
                 continue;
             if (*iterator == ':')
                 break;
-            if (isForbiddenHostCodePoint(*iterator))
+            if (isForbiddenDomainCodePoint(*iterator))
                 return HostParsingResult::InvalidHost;
         }
         auto address = parseIPv4Host(hostIterator, CodePointIterator<CharacterType>(hostIterator, iterator));

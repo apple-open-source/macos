@@ -247,7 +247,8 @@ restore:
     /* Restore old tty settings. */
     if (!ISSET(flags, TGP_ECHO)) {
 	/* Restore old tty settings if possible. */
-	(void) sudo_term_restore(input, true);
+	if (!sudo_term_restore(input, true))
+	    sudo_warn("%s", U_("unable to restore terminal settings"));
     }
     if (ttyfd != -1)
 	(void) close(ttyfd);
@@ -289,18 +290,17 @@ static char *
 sudo_askpass(const char *askpass, const char *prompt)
 {
     static char buf[SUDO_CONV_REPL_MAX + 1], *pass;
-    struct sigaction sa, savechld;
+    struct sudo_cred *cred = &user_details.cred;
+    sigset_t chldmask;
     enum tgetpass_errval errval;
     int pfd[2], status;
     pid_t child;
     debug_decl(sudo_askpass, SUDO_DEBUG_CONV);
 
-    /* Set SIGCHLD handler to default since we call waitpid() below. */
-    memset(&sa, 0, sizeof(sa));
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART;
-    sa.sa_handler = SIG_DFL;
-    (void) sigaction(SIGCHLD, &sa, &savechld);
+    /* Block SIGCHLD for the duration since we call waitpid() below. */
+    sigemptyset(&chldmask);
+    sigaddset(&chldmask, SIGCHLD);
+    (void)sigprocmask(SIG_BLOCK, &chldmask, NULL);
 
     if (pipe2(pfd, O_CLOEXEC) == -1)
 	sudo_fatal("%s", U_("unable to create pipe"));
@@ -323,12 +323,18 @@ sudo_askpass(const char *askpass, const char *prompt)
 	restore_limits();
 	/* But avoid a setuid() failure on Linux due to RLIMIT_NPROC. */
 	unlimit_nproc();
-	if (setgid(user_details.cred.gid)) {
-	    sudo_warn(U_("unable to set gid to %u"), (unsigned int)user_details.cred.gid);
+	if (setgid(cred->gid)) {
+	    sudo_warn(U_("unable to set gid to %u"), (unsigned int)cred->gid);
 	    _exit(255);
 	}
-	if (setuid(user_details.cred.uid)) {
-	    sudo_warn(U_("unable to set uid to %u"), (unsigned int)user_details.cred.uid);
+	if (cred->ngroups != -1) {
+	    if (sudo_setgroups(cred->ngroups, cred->groups) == -1) {
+		sudo_warn("%s", U_("unable to set supplementary group IDs"));
+		_exit(255);
+	    }
+	}
+	if (setuid(cred->uid)) {
+	    sudo_warn(U_("unable to set uid to %u"), (unsigned int)cred->uid);
 	    _exit(255);
 	}
 	restore_nproc();
@@ -356,8 +362,8 @@ sudo_askpass(const char *askpass, const char *prompt)
     if (pass == NULL)
 	errno = EINTR;	/* make cancel button simulate ^C */
 
-    /* Restore saved SIGCHLD handler. */
-    (void) sigaction(SIGCHLD, &savechld, NULL);
+    /* Unblock SIGCHLD. */
+    (void)sigprocmask(SIG_UNBLOCK, &chldmask, NULL);
 
     debug_return_str_masked(pass);
 }

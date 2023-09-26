@@ -59,6 +59,8 @@ extern int Exp_StringCaseMatch _ANSI_ARGS_((Tcl_UniChar *string, int strlen,
 					    Tcl_UniChar *pattern,int plen,
 					    int nocase,int *offset));
 
+void exp_background_channelhandler(ClientData clientData, int mask);
+
 typedef struct ThreadSpecificData {
     int timeout;
 } ThreadSpecificData;

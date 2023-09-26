@@ -149,7 +149,7 @@ typedef enum {
 
                 pairingMessage.prepare = prepareMessage;
 
-                pairingMessage.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
+                pairingMessage.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
                 pairingMessage.supportsOctagon.supported = OTSupportType_supported;
 
                 next = pairingMessage.data;
@@ -166,7 +166,7 @@ typedef enum {
         }
 
         NSData* encryptedPi = nil;
-        if (OctagonIsSOSFeatureEnabled()) {
+        if (SOSCCIsSOSTrustAndSyncingEnabled()) {
             secnotice("joining", "doing SOS encryptedPeerInfo");
             encryptedPi = [self encryptedPeerInfo:error];
             if (encryptedPi == nil) return nil;
@@ -211,7 +211,7 @@ typedef enum {
 
     BOOL shouldJoin = YES;
 
-    if (OctagonIsSOSFeatureEnabled() == false) {
+    if (SOSCCIsSOSTrustAndSyncingEnabled() == false) {
         secnotice("joining", "platform does not support SOS");
         shouldJoin = NO;
     } else if (message.secondData == nil) {

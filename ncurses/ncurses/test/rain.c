@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2006,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2012,2014 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: rain.c,v 1.34 2008/05/24 23:34:34 tom Exp $
+ * $Id: rain.c,v 1.41 2014/08/02 17:24:07 tom Exp $
  */
 #include <test.priv.h>
 
@@ -74,23 +74,23 @@ onsig(int n GCC_UNUSED)
     ExitProgram(EXIT_FAILURE);
 }
 
-static float
+static double
 ranf(void)
 {
     long r = (rand() & 077777);
-    return ((float) r / 32768.);
+    return ((double) r / 32768.);
 }
 
 static int
 random_x(void)
 {
-    return (((float) (COLS - 4) * ranf()) + 2);
+    return (int) (((double) (COLS - 4) * ranf()) + 2);
 }
 
 static int
 random_y(void)
 {
-    return (((float) (LINES - 4) * ranf()) + 2);
+    return (int) (((double) (LINES - 4) * ranf()) + 2);
 }
 
 static int
@@ -102,10 +102,7 @@ next_j(int j)
 	--j;
     if (has_colors()) {
 	int z = (int) (3 * ranf());
-	chtype color = COLOR_PAIR(z);
-	if (z)
-	    color |= A_BOLD;
-	attrset(color);
+	(void) attrset(AttrArg(COLOR_PAIR(z), (z ? A_BOLD : A_NORMAL)));
     }
     return j;
 }
@@ -113,47 +110,47 @@ next_j(int j)
 static void
 part1(DATA * drop)
 {
-    mvaddch(drop->y, drop->x, '.');
+    MvAddCh(drop->y, drop->x, '.');
 }
 
 static void
 part2(DATA * drop)
 {
-    mvaddch(drop->y, drop->x, 'o');
+    MvAddCh(drop->y, drop->x, 'o');
 }
 
 static void
 part3(DATA * drop)
 {
-    mvaddch(drop->y, drop->x, 'O');
+    MvAddCh(drop->y, drop->x, 'O');
 }
 
 static void
 part4(DATA * drop)
 {
-    mvaddch(drop->y - 1, drop->x, '-');
-    mvaddstr(drop->y, drop->x - 1, "|.|");
-    mvaddch(drop->y + 1, drop->x, '-');
+    MvAddCh(drop->y - 1, drop->x, '-');
+    MvAddStr(drop->y, drop->x - 1, "|.|");
+    MvAddCh(drop->y + 1, drop->x, '-');
 }
 
 static void
 part5(DATA * drop)
 {
-    mvaddch(drop->y - 2, drop->x, '-');
-    mvaddstr(drop->y - 1, drop->x - 1, "/ \\");
-    mvaddstr(drop->y, drop->x - 2, "| O |");
-    mvaddstr(drop->y + 1, drop->x - 1, "\\ /");
-    mvaddch(drop->y + 2, drop->x, '-');
+    MvAddCh(drop->y - 2, drop->x, '-');
+    MvAddStr(drop->y - 1, drop->x - 1, "/ \\");
+    MvAddStr(drop->y, drop->x - 2, "| O |");
+    MvAddStr(drop->y + 1, drop->x - 1, "\\ /");
+    MvAddCh(drop->y + 2, drop->x, '-');
 }
 
 static void
 part6(DATA * drop)
 {
-    mvaddch(drop->y - 2, drop->x, ' ');
-    mvaddstr(drop->y - 1, drop->x - 1, "   ");
-    mvaddstr(drop->y, drop->x - 2, "     ");
-    mvaddstr(drop->y + 1, drop->x - 1, "   ");
-    mvaddch(drop->y + 2, drop->x, ' ');
+    MvAddCh(drop->y - 2, drop->x, ' ');
+    MvAddStr(drop->y - 1, drop->x - 1, "   ");
+    MvAddStr(drop->y, drop->x - 2, "     ");
+    MvAddStr(drop->y + 1, drop->x - 1, "   ");
+    MvAddCh(drop->y + 2, drop->x, ' ');
 }
 
 #ifdef USE_PTHREADS
@@ -222,7 +219,11 @@ draw_drop(void *arg)
      * Find myself in the list of threads so we can count the number of loops.
      */
     for (mystats = 0; mystats < MAX_THREADS; ++mystats) {
+#if defined(__MINGW32__) && !defined(__WINPTHREADS_VERSION)
+	if (drop_threads[mystats].myself.p == pthread_self().p)
+#else
 	if (drop_threads[mystats].myself == pthread_self())
+#endif
 	    break;
     }
 
@@ -252,7 +253,7 @@ draw_drop(void *arg)
 /*
  * The description of pthread_create() is misleading, since it implies that
  * threads will exit cleanly after their function returns.
- * 
+ *
  * Since they do not (and the number of threads is limited by system
  * resources), make a limited number of threads, and signal any that are
  * waiting when we want a thread past that limit.
@@ -310,8 +311,8 @@ main(int argc GCC_UNUSED,
 	if (use_default_colors() == OK)
 	    bg = -1;
 #endif
-	init_pair(1, COLOR_BLUE, bg);
-	init_pair(2, COLOR_CYAN, bg);
+	init_pair(1, COLOR_BLUE, (short) bg);
+	init_pair(2, COLOR_CYAN, (short) bg);
     }
     nl();
     noecho();

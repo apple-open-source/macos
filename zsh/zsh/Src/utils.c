@@ -7694,3 +7694,14 @@ mailstat(char *path, struct stat *st)
        return 0;
 }
 #endif
+
+#if defined(__APPLE__) && TARGET_OS_OSX
+const char *check_managed_config(const char *managed_config, const char *default_config)
+{
+    if (!access(managed_config, F_OK)) {
+	return managed_config;
+    } else {
+	return default_config;
+    }
+}
+#endif // __APPLE__ && TARGET_OS_OSX

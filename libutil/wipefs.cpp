@@ -34,6 +34,7 @@
 #include <string.h>
 #include <spawn.h>
 #include <os/log.h>
+#include <IOKit/storage/IOStorage.h>
 
 #include "ExtentManager.h"
 #include "wipefs.h"
@@ -386,6 +387,11 @@ wipefs_wipe(wipefs_ctx handle)
 	memset(&unmap, 0, sizeof(dk_unmap_t));
 	unmap.extents = &extent;
 	unmap.extentsCount = 1;
+    //
+    // Since we always issue a a single extent, set the kIOStorageUnmapOptionWhole
+    // option flag for drive pre-conditioning.
+    //
+    unmap.options = kIOStorageUnmapOptionWhole;
 
 	//
 	// Don't bother to check the return value since this is mostly

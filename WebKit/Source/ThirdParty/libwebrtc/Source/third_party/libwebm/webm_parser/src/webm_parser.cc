@@ -75,7 +75,11 @@ class WebmParser::DocumentParser {
             return status;
           }
           child_metadata_.id = id_parser_.id();
+#if defined(WEBRTC_WEBKIT_BUILD)
+          child_metadata_.size = child_metadata_.id == Id::kSegment ? kUnknownElementSize : size_parser_.size();
+#else
           child_metadata_.size = size_parser_.size();
+#endif
           state_ = State::kValidatingChildSize;
           continue;
         }
@@ -172,7 +176,9 @@ class WebmParser::DocumentParser {
           PrepareForNextChild();
           callback = original_callback;
           child_metadata_.position = reader->Position();
+#if defined(WEBRTC_WEBKIT_BUILD)
           callback->OnElementEnd(child_metadata_);
+#endif
           continue;
         }
 

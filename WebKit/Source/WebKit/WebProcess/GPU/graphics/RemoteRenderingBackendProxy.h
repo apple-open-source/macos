@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,9 +44,9 @@
 #include "StreamClientConnection.h"
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <WebCore/Timer.h>
+#include <span>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
-#include <wtf/Span.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -70,36 +70,43 @@ class RemoteSerializedImageBufferProxy;
 class RemoteImageBufferProxyFlushState;
 
 class RemoteRenderingBackendProxy
-    : public IPC::Connection::Client {
+    : public IPC::Connection::Client, SerialFunctionDispatcher {
 public:
     static std::unique_ptr<RemoteRenderingBackendProxy> create(WebPage&);
     static std::unique_ptr<RemoteRenderingBackendProxy> create(const RemoteRenderingBackendCreationParameters&, SerialFunctionDispatcher&);
 
     ~RemoteRenderingBackendProxy();
 
+    const RemoteRenderingBackendCreationParameters& parameters() const { return m_parameters; }
+
     RemoteResourceCacheProxy& remoteResourceCacheProxy() { return m_remoteResourceCacheProxy; }
 
     void transferImageBuffer(std::unique_ptr<RemoteSerializedImageBufferProxy>, WebCore::ImageBuffer&);
-    void moveToSerializedBuffer(WebCore::RenderingResourceIdentifier, RemoteSerializedImageBufferWriteReference&&);
-    void moveToImageBuffer(RemoteSerializedImageBufferWriteReference&&, WebCore::RenderingResourceIdentifier);
+    void moveToSerializedBuffer(WebCore::RenderingResourceIdentifier);
+    void moveToImageBuffer(WebCore::RenderingResourceIdentifier);
 
     void createRemoteImageBuffer(WebCore::ImageBuffer&);
     bool isCached(const WebCore::ImageBuffer&) const;
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
+    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
 
     // Messages to be sent.
     RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, bool avoidBackendSizeCheck = false);
-    bool getPixelBufferForImageBuffer(WebCore::RenderingResourceIdentifier, const WebCore::PixelBufferFormat& destinationFormat, const WebCore::IntRect& srcRect, Span<uint8_t> result);
+    bool getPixelBufferForImageBuffer(WebCore::RenderingResourceIdentifier, const WebCore::PixelBufferFormat& destinationFormat, const WebCore::IntRect& srcRect, std::span<uint8_t> result);
     void putPixelBufferForImageBuffer(WebCore::RenderingResourceIdentifier, const WebCore::PixelBuffer&, const WebCore::IntRect& srcRect, const WebCore::IntPoint& destPoint, WebCore::AlphaPremultiplication destFormat);
     RefPtr<ShareableBitmap> getShareableBitmap(WebCore::RenderingResourceIdentifier, WebCore::PreserveResolution);
     RefPtr<WebCore::Image> getFilteredImage(WebCore::RenderingResourceIdentifier, WebCore::Filter&);
-    void cacheNativeImage(const ShareableBitmapHandle&, WebCore::RenderingResourceIdentifier);
-    void cacheFont(Ref<WebCore::Font>&&);
+    void cacheNativeImage(ShareableBitmap::Handle&&, WebCore::RenderingResourceIdentifier);
+    void cacheFont(const WebCore::Font::Attributes&, const WebCore::FontPlatformData::Attributes&, std::optional<WebCore::RenderingResourceIdentifier>);
+    void cacheFontCustomPlatformData(Ref<const WebCore::FontCustomPlatformData>&&);
     void cacheDecomposedGlyphs(Ref<WebCore::DecomposedGlyphs>&&);
+    void cacheGradient(Ref<WebCore::Gradient>&&);
+    void cacheFilter(Ref<WebCore::Filter>&&);
     void releaseAllRemoteResources();
-    void releaseRemoteResource(WebCore::RenderingResourceIdentifier);
+    void releaseAllImageResources();
+    void releaseRenderingResource(WebCore::RenderingResourceIdentifier);
     void markSurfacesVolatile(Vector<WebCore::RenderingResourceIdentifier>&&, CompletionHandler<void(bool madeAllVolatile)>&&);
 
     struct BufferSet {
@@ -119,20 +126,15 @@ public:
         SwapBuffersDisplayRequirement displayRequirement;
     };
 
+#if PLATFORM(COCOA)
     Vector<SwapBuffersResult> prepareBuffersForDisplay(const Vector<LayerPrepareBuffersData>&);
+#endif
 
     void finalizeRenderingUpdate();
     void didPaintLayers();
 
     RenderingUpdateID renderingUpdateID() const { return m_renderingUpdateID; }
     unsigned delayedRenderingUpdateCount() const { return m_renderingUpdateID - m_didRenderingUpdateID; }
-
-    enum class DidReceiveBackendCreationResult : bool {
-        ReceivedAnyResponse,
-        TimeoutOrIPCFailure
-    };
-    DidReceiveBackendCreationResult waitForDidCreateImageBufferBackend();
-    bool waitForDidFlush();
 
     RenderingBackendIdentifier renderingBackendIdentifier() const;
 
@@ -153,29 +155,21 @@ public:
 
     SerialFunctionDispatcher& dispatcher() { return m_dispatcher; }
 
-    void addPendingFlush(RemoteImageBufferProxyFlushState&, DisplayListRecorderFlushIdentifier);
-
+    static constexpr Seconds defaultTimeout = 15_s;
 private:
     explicit RemoteRenderingBackendProxy(const RemoteRenderingBackendCreationParameters&, SerialFunctionDispatcher&);
 
-    template<typename T>
-    void send(T&& message)
-    {
-        streamConnection().send(WTFMove(message), renderingBackendIdentifier(), Seconds::infinity());
-
-    }
-
-    template<typename T>
-    auto sendSync(T&& message, IPC::Timeout timeout = Seconds::infinity())
-    {
-        return streamConnection().sendSync(WTFMove(message), renderingBackendIdentifier(), timeout);
-    }
+    template<typename T> auto send(T&& message);
+    template<typename T> auto sendSync(T&& message);
 
     // Connection::Client
     void didClose(IPC::Connection&) final;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName) final { }
     void disconnectGPUProcess();
     void ensureGPUProcessConnection();
+
+    bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
+    bool dispatchSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
     // Returns std::nullopt if no update is needed or allocation failed.
     // Returns handle if that should be sent to the receiver process.
@@ -184,10 +178,14 @@ private:
 
     // Messages to be received.
     void didCreateImageBufferBackend(ImageBufferBackendHandle&&, WebCore::RenderingResourceIdentifier);
-    void didFlush(DisplayListRecorderFlushIdentifier);
     void didFinalizeRenderingUpdate(RenderingUpdateID didRenderingUpdateID);
     void didMarkLayersAsVolatile(MarkSurfacesAsVolatileRequestIdentifier, const Vector<WebCore::RenderingResourceIdentifier>& markedVolatileBufferIdentifiers, bool didMarkAllLayerAsVolatile);
 
+    // SerialFunctionDispatcher
+    void dispatch(Function<void()>&& function) final { m_dispatcher.dispatch(WTFMove(function)); }
+#if ASSERT_ENABLED
+    void assertIsCurrent() const final { m_dispatcher.assertIsCurrent(); }
+#endif
     RefPtr<IPC::Connection> m_connection;
     RefPtr<IPC::StreamClientConnection> m_streamConnection;
     RemoteRenderingBackendCreationParameters m_parameters;
@@ -199,7 +197,6 @@ private:
 
     RenderingUpdateID m_renderingUpdateID;
     RenderingUpdateID m_didRenderingUpdateID;
-    HashMap<DisplayListRecorderFlushIdentifier, Ref<RemoteImageBufferProxyFlushState>> m_pendingFlushes;
 };
 
 } // namespace WebKit

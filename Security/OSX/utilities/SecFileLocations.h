@@ -31,11 +31,19 @@
 #define _SECFILELOCATIONS_H_
 
 #include <CoreFoundation/CFURL.h>
+#include <TargetConditionals.h>
 
 __BEGIN_DECLS
 
+#if TARGET_OS_IOS
+bool SecSupportsEnhancedApfs(void);
+#endif
+bool SecIsEduMode(void);
+bool SecSeparateUserKeychain(void);
+
 CFURLRef SecCopyURLForFileInBaseDirectory(bool system, CFStringRef directoryPath, CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInKeychainDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
+CFURLRef SecCopyURLForFileInUserScopedKeychainDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInSystemKeychainDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInUserCacheDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInPreferencesDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;

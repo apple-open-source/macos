@@ -37,6 +37,12 @@
 
 #include "pmtool.h"
 
+
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+#import <LowPowerMode/_PMCoreSmartPowerNap.h>
+#import <LowPowerMode/_PMCoreSmartPowerNapProtocol.h>
+
+#endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 /*************************************************************************/
 
 #if TARGET_OS_OSX
@@ -68,6 +74,12 @@ struct args_struct {
     long    spnReentryDelaySeconds;
     long    spnMotionAlarmThreshold;
     long    spnMotionAlarmStartThreshold;
+    long    dominoState;
+    int     coreSmartPowerNap;
+    long    cspnQueryDelta;
+    long    cspnRequeryDelta;
+    long    cspnIgnoreRemoteClient;
+
     int64_t pfStatus;
     
     /* If takeAssertionNamed != NULL; that implies our action is to take an assertion */
@@ -283,6 +295,43 @@ static DTOption pmtool_options[] =
         "Sets the permanent fault status of the battery to the specified value.\n",
         { NULL }, {NULL}},
 #endif // TARGET_OS_OSX
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+    {
+        {kActionSetCoreSmartPowerNap, required_argument, &args.doAction[kSetCoreSmartPowerNapIndex], 1},
+        kActionType,
+        "Set Core Smart Power Nap State to 0 (OFF) or 1 (ON)\n",
+        {NULL},
+        {NULL}
+    },
+    {
+        {kActionGetCoreSmartPowerNap, no_argument, &args.doAction[kGetCoreSmartPowerNapIndex], 1},
+        kActionType,
+        "Get Core Smart Power Nap State 0 (OFF) or 1 (ON)\n",
+        {NULL},
+        {NULL}
+    },
+    {
+        {kActionSetCSPNQueryDelta, required_argument, &args.doAction[kSetCSPNQueryDeltaIndex], 1},
+        kActionType,
+        "Set Core Smart Power Nap Query time delta in seconds\n",
+        {NULL},
+        {NULL}
+    },
+    {
+        {kActionSetCSPNRequeryDelta, required_argument, &args.doAction[kSetCSPNRequeryDeltaIndex], 1},
+        kActionType,
+        "Set Core Smart Power Nap re-query time delta in seconds\n",
+        {NULL},
+        {NULL}
+    },
+    {
+        {kActionSetCSPNIgnoreRemoteClient, required_argument, &args.doAction[kSetCSPNIgnoreRemoteClientIndex], 1},
+        kActionType,
+        "Set Core Smart Power Nap to ignore ssh/remote-client sessions 0 (OFF) ot 1 (ON)\n",
+        {NULL},
+        {NULL}
+    },
+#endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
     { {"help", no_argument, NULL, 'h'}, kNilType, NULL, { NULL }, { NULL } },
     { {NULL, 0, NULL, 0}, kNilType, NULL, { NULL }, { NULL } }
 };
@@ -311,48 +360,70 @@ int main(int argc, char *argv[])
     
     if (args.doAction[kActionSetBattIndex]) {
         sendSmartBatteryCommand(kSBSetOverrideCapacity, args.batteryLevel);
-        exit(1);
+        exit(0);
     }
     
     if (args.doAction[kActionResetBattIndex]) {
         sendSmartBatteryCommand(kSBSwitchToTrueCapacity, 0);
-        exit(1);
+        exit(0);
     }
 
     if (args.doAction[kSetCustomBatteryPropertiesIndex]) {
         sendCustomBatteryProperties(args.batteryPropsPath);
-        exit(1);
+        exit(0);
     }
     if (args.doAction[kResetCustomBatteryPropertiesIndex]) {
         sendCustomBatteryProperties(NULL);
-        exit(1);
+        exit(0);
     }
     if (args.doAction[kSetBHUpdateDeltaIndex]) {
         sendBHUpdateTimeDelta(args.nccpUpdateDelta);
-        exit(1);
+        exit(0);
     }
     if (args.doAction[kGetBHDataFromPrefsIndex]) {
         sendBHDataFromCFPrefs();
-        exit(1);
+        exit(0);
     }
     if (args.doAction[kGetAgingDataFromPrefsIndex]) {
         sendAgingDataFromCFPrefs();
+        exit(0);
+    }
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+    if (args.doAction[kSetCoreSmartPowerNapIndex]) {
+        setCoreSmartPowerNap(args.coreSmartPowerNap);
         exit(1);
     }
+    if (args.doAction[kGetCoreSmartPowerNapIndex]) {
+        getCoreSmartPowerNap();
+        exit(1);
+    }
+    if (args.doAction[kSetCSPNQueryDeltaIndex]) {
+        setCSPNQueryDelta(args.cspnQueryDelta);
+        exit(1);
+    }
+    if (args.doAction[kSetCSPNRequeryDeltaIndex]) {
+        setCSPNRequeryDelta((uint32_t)args.cspnRequeryDelta);
+        exit(1);
+    }
+    if (args.doAction[kSetCSPNIgnoreRemoteClientIndex]) {
+        setCSPNIgnoreRemoteClient((uint32_t)args.cspnIgnoreRemoteClient);
+        exit(1);
+    }
+#endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 #if TARGET_OS_OSX
 
     if (args.doAction[kGetVactSupportedIndex]) {
         isVactSupported();
-        exit(1);
+        exit(0);
     }
     if (args.doAction[kSetPermFaultStatusIndex]) {
         setPermFaultStatus(args.pfStatus);
-        exit(1);
+        exit(0);
     }
     if (args.doAction[kActionInactivityWindowIndex]) {
         sendInactivityWindowCommand(args.inactivityWindowStart,
                                     args.inactivityWindowDuration, args.standbyAccelerationDelay);
-        exit(1);
+        exit(0);
     }
     if (args.doAction[kActionHibernateNowIndex] ||
         args.doAction[kActionStandbyNowIndex] ||
@@ -697,6 +768,20 @@ static bool parse_it_all(int argc, char *argv[]) {
         else if (arg && !strcmp(arg, kActionSetBHUpdateDelta)) {
             args.nccpUpdateDelta = (int)strtol(optarg, NULL, 0);
         }
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+        else if (arg && !strcmp(arg, kActionSetCoreSmartPowerNap)) {
+            args.coreSmartPowerNap = (int)strtol(optarg, NULL, 0);
+        }
+        else if (arg && !strcmp(arg, kActionSetCSPNQueryDelta)) {
+            args.cspnQueryDelta = strtol(optarg, NULL, 0);
+        }
+        else if (arg && !strcmp(arg, kActionSetCSPNRequeryDelta)) {
+            args.cspnRequeryDelta = strtol(optarg, NULL, 0);
+        }
+        else if (arg && !strcmp(arg, kActionSetCSPNIgnoreRemoteClient)) {
+            args.cspnIgnoreRemoteClient = strtol(optarg, NULL, 0);
+        }
+#endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
         else if (arg && !strcmp(arg, kActionSetPermFaultStatus)) {
             args.pfStatus = (int64_t) strtol(optarg, NULL, 0);
         }
@@ -1789,3 +1874,47 @@ static void sendAgingDataFromCFPrefs(void){}
 static void isVactSupported(){}
 
 
+
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+static void setCoreSmartPowerNap(int state)
+{
+    if(state != _PMCoreSmartPowerNapStateOff && state != _PMCoreSmartPowerNapStateOn)
+    {
+        printf("Requested invalid Core Smart Power Nap State!\n");
+        return;
+    }
+    printf("Setting Core Smart Power Nap State to %i\n", state);
+    _PMCoreSmartPowerNap *new_obj = [[_PMCoreSmartPowerNap alloc]init];
+    [new_obj setState:state];
+}
+
+static void getCoreSmartPowerNap(void)
+{
+    _PMCoreSmartPowerNap *new_obj = [[_PMCoreSmartPowerNap alloc]init];
+    _PMCoreSmartPowerNapState state = [new_obj syncState];
+    printf("Core Smart Power Nap State: %i\n", (int)state);
+
+}
+
+static void setCSPNQueryDelta(long queryDelta)
+{
+    printf("Setting setCSPNQueryDelta to %ld\n", queryDelta);
+    _PMCoreSmartPowerNap *new_obj = [[_PMCoreSmartPowerNap alloc]init];
+    [new_obj setCSPNQueryDelta:(uint32_t)queryDelta];
+}
+
+static void setCSPNRequeryDelta(long requeryDelta)
+{
+    printf("Setting setCSPNRequeryDelta to %ld\n", requeryDelta);
+    _PMCoreSmartPowerNap *new_obj = [[_PMCoreSmartPowerNap alloc]init];
+    [new_obj setCSPNRequeryDelta:(uint32_t)requeryDelta];
+}
+
+static void setCSPNIgnoreRemoteClient(int enable)
+{
+    printf("Setting setCSPNIgnoreRemoteClient to %i\n", enable);
+    _PMCoreSmartPowerNap *new_obj = [[_PMCoreSmartPowerNap alloc]init];
+    [new_obj setCSPNIgnoreRemoteClient:(int)enable];
+}
+
+#endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX

@@ -87,8 +87,10 @@ static const char * const jattrs[] =	/* Job attributes we want */
 };
 static int		job_canceled = 0,
 					/* Job cancelled? */
-			uri_credentials = 0;
+			uri_credentials = 0,
 					/* Credentials supplied in URI? */
+			job_should_retry_raster = 0;
+                                        /* Retry job as raster */
 static char		username[256] = "",
 					/* Username for device URI */
 			*password = NULL;
@@ -169,7 +171,8 @@ static ipp_t		*new_request(ipp_op_t op, int version, const char *uri,
                                      ipp_attribute_t *presets_sup);
 static void          applyPreset(ipp_t *request,
                                  ipp_attribute_t *supported,
-                                 const char *jobPresetName);
+                                 const char *jobPresetName,
+                                 int finishingIsSet);
 static const char	*password_cb(const char *prompt, http_t *http,
 			             const char *method, const char *resource,
 			             int *user_data);
@@ -1933,6 +1936,8 @@ main(int  argc,				/* I - Number of command-line args */
       */
 
       fputs("JOBSTATE: cups-retry-as-raster\n", stderr);
+      job_should_retry_raster = true;
+
       if (job_id > 0)
 	cancel_job(http, uri, job_id, resource, argv[2], version);
 
@@ -2258,9 +2263,16 @@ main(int  argc,				/* I - Number of command-line args */
   else if (ipp_status == IPP_STATUS_ERROR_CUPS_ACCOUNT_AUTHORIZATION_FAILED)
     fputs("JOBSTATE: account-authorization-failed\n", stderr);
 
-  if (job_canceled)
+  if (job_should_retry_raster)
+    return (CUPS_BACKEND_RETRY_CURRENT);
+  if (job_canceled > 0)
     return (CUPS_BACKEND_OK);
-  else if (ipp_status == IPP_STATUS_ERROR_NOT_AUTHORIZED || ipp_status == IPP_STATUS_ERROR_FORBIDDEN || ipp_status == IPP_STATUS_ERROR_CUPS_AUTHENTICATION_CANCELED)
+  else if (job_canceled < 0) {
+    _cupsLangPrintFilter(stderr, "ERROR", _("Print job canceled at printer."));
+    return (CUPS_BACKEND_CANCEL);
+  }
+
+  if (ipp_status == IPP_STATUS_ERROR_NOT_AUTHORIZED || ipp_status == IPP_STATUS_ERROR_FORBIDDEN || ipp_status == IPP_STATUS_ERROR_CUPS_AUTHENTICATION_CANCELED)
     return (CUPS_BACKEND_AUTH_REQUIRED);
   else if (ipp_status == IPP_STATUS_ERROR_CUPS_ACCOUNT_LIMIT_REACHED ||
 	   ipp_status == IPP_STATUS_ERROR_CUPS_ACCOUNT_INFO_NEEDED ||
@@ -2273,7 +2285,7 @@ main(int  argc,				/* I - Number of command-line args */
     return (CUPS_BACKEND_FAILED);
   else if (ipp_status == IPP_STATUS_ERROR_REQUEST_VALUE ||
 	   ipp_status == IPP_STATUS_ERROR_ATTRIBUTES_OR_VALUES ||
-           ipp_status == IPP_STATUS_ERROR_DOCUMENT_FORMAT_NOT_SUPPORTED || job_canceled < 0)
+           ipp_status == IPP_STATUS_ERROR_DOCUMENT_FORMAT_NOT_SUPPORTED)
   {
     if (ipp_status == IPP_STATUS_ERROR_REQUEST_VALUE)
       _cupsLangPrintFilter(stderr, "ERROR", _("Print job too large."));
@@ -2283,8 +2295,6 @@ main(int  argc,				/* I - Number of command-line args */
     else if (ipp_status == IPP_STATUS_ERROR_ATTRIBUTES_OR_VALUES)
       _cupsLangPrintFilter(stderr, "ERROR",
                            _("Printer cannot print with supplied options."));
-    else
-      _cupsLangPrintFilter(stderr, "ERROR", _("Print job canceled at printer."));
 
     return (CUPS_BACKEND_CANCEL);
   }
@@ -2496,6 +2506,7 @@ update_monitor_job_state_from_get_job_attributes(
 
 	  job_canceled = 1;
 	  fputs("JOBSTATE: cups-retry-as-raster\n", stderr);
+	  job_should_retry_raster = true;
 	}
 	else if (new_reasons & _CUPS_JSR_DOCUMENT_FORMAT_ERROR)
 	{
@@ -2685,7 +2696,7 @@ monitor_printer(
 
       if (!job_canceled &&
           (monitor->job_state == IPP_JSTATE_CANCELED ||
-	   monitor->job_state == IPP_JSTATE_ABORTED))
+           monitor->job_state == IPP_JSTATE_ABORTED))
       {
 	job_canceled = -1;
 	fprintf(stderr, "DEBUG: (monitor) job_canceled = -1\n");
@@ -2693,12 +2704,6 @@ monitor_printer(
 
       ippDelete(response);
 
-      fprintf(stderr, "DEBUG: (monitor) job-state = %s\n", ippEnumString("job-state", (int)monitor->job_state));
-
-      if (!job_canceled &&
-          (monitor->job_state == IPP_JSTATE_CANCELED ||
-	   monitor->job_state == IPP_JSTATE_ABORTED))
-	job_canceled = -1;
     }
 
    /*
@@ -2744,6 +2749,17 @@ monitor_printer(
   return (NULL);
 }
 
+/*
+ * 'optionsContainFinishingRequest()' - Return true if the options contain an explitic finishings request
+ */
+
+static int
+optionsContainFinishingRequest( int num_options, cups_option_t *options )
+{
+  return cupsGetOption( "StapleLocation", num_options, options ) ||
+         cupsGetOption( "FoldType", num_options, options ) ||
+         cupsGetOption( "PunchMedia", num_options, options );
+}
 
 /*
  * 'new_request()' - Create a new print creation or validation request.
@@ -2772,7 +2788,8 @@ new_request(
   ipp_t		*request;		/* Request data */
   const char	*keyword;		/* PWG keyword */
   const char *jobPresetName;
-
+  int isFinishingSet = 1;
+  
  /*
   * Create the IPP request...
   */
@@ -2824,8 +2841,16 @@ new_request(
 
   if (num_options > 0)
   {
+    
     if (pc)
     {
+      
+      /*
+       * _cupsConvertOptions() will set a finishings value (none) even if there isn't one requested. Here,
+       * prior to _cupsConvertOptions() we rememeber whether there is an explicit finishings request.
+       */
+      isFinishingSet = optionsContainFinishingRequest( num_options, options );
+          
      /*
       * Send standard IPP attributes...
       */
@@ -2833,12 +2858,6 @@ new_request(
       fputs("DEBUG: Adding standard IPP operation/job attributes.\n", stderr);
 
       copies = _cupsConvertOptions(request, ppd, pc, media_col_sup, doc_handling_sup, print_color_mode_sup, user, format, copies, num_options, options);
-
-      if ((jobPresetName = cupsGetOption("preset-name", num_options, options)) != NULL)
-      {
-        fprintf(stderr, "DEBUG: Applying preset: %s\n", jobPresetName);
-        applyPreset(request, presets_sup, jobPresetName);
-      }
       
      /*
       * Map FaxOut options...
@@ -2900,6 +2919,13 @@ new_request(
 
     if (copies > 1 && (!pc || copies <= pc->max_copies))
       ippAddInteger(request, IPP_TAG_JOB, IPP_TAG_INTEGER, "copies", copies);
+    
+    if ((jobPresetName = cupsGetOption("preset-name", num_options, options)) != NULL)
+    {
+      fprintf(stderr, "DEBUG: Applying preset: %s\n", jobPresetName);
+      applyPreset(request, presets_sup, jobPresetName, isFinishingSet );
+    }
+    
   }
 
   fprintf(stderr, "DEBUG: IPP/%d.%d %s #%d\n", version / 10, version % 10, ippOpString(ippGetOperation(request)), ippGetRequestId(request));
@@ -2929,25 +2955,36 @@ static ipp_t *findPresetByName(ipp_attribute_t *presets, const char *jobPresetNa
 /*
  * 'applyPreset()' - If the printer supports the named preset then apply the preset's attributes to the request.
  */
-static void applyPreset(ipp_t *request, ipp_attribute_t *presets_supported, const char *jobPresetName)
+static void applyPreset(ipp_t *request, ipp_attribute_t *presets_supported, const char *jobPresetName, int optionsRequestedAFinishing )
 {
   ipp_t *presets_col = findPresetByName(presets_supported, jobPresetName);
   
   for (ipp_attribute_t *presets_attr = ippFirstAttribute(presets_col); presets_attr; presets_attr = ippNextAttribute(presets_col))
   {
-    // Don't copy over the preset-name. For the other attributes, copy the attribute into the request
-    // replacing any attribute already there with the same name.
+    // Don't copy over the preset-name.
+    // For the other attributes, if the attribute is not already in the request,
+    // then add the preset attribute to the request.
     const char *attrName = ippGetName(presets_attr);
     if (attrName && strcmp(attrName, "preset-name"))
     {
-      fprintf(stderr, "DEBUG: Applying preset attribute: %s\n", attrName);
-      ipp_attribute_t *old_attr = ippFindAttribute(request, attrName, IPP_TAG_ZERO);
-      if (old_attr)
+      ipp_attribute_t *existing_attr = ippFindAttribute(request, attrName, IPP_TAG_ZERO);
+      
+      // If there wasn't an explicit finishings request then take the setting from the preset.
+      int forceFinishingFromPreset = !strcmp( attrName, "finishings") && !optionsRequestedAFinishing;
+      
+      if (!existing_attr || forceFinishingFromPreset)
       {
-        ippDeleteAttribute(request, old_attr);
+        fprintf(stderr, "DEBUG: adding preset attribute: %s\n", attrName);
+        if (existing_attr) {
+          ippDeleteAttribute(request, existing_attr);
+        }
+        ippSetGroupTag(presets_col, &presets_attr, IPP_TAG_JOB);
+        ippCopyAttribute(request, presets_attr, 0);
       }
-      ippSetGroupTag(presets_col, &presets_attr, IPP_TAG_JOB);
-      ippCopyAttribute(request, presets_attr, 0);
+      else
+      {
+        fprintf(stderr, "DEBUG: skipping %s preset attribute because it is already set.\n", attrName);
+      }
     }
   }
 }

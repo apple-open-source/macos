@@ -51,6 +51,7 @@
 #endif
 
 #include "sudo_compat.h"
+#include "sudo_fatal.h"
 #include "sudo_rand.h"
 
 #define KEYSTREAM_ONLY
@@ -96,7 +97,7 @@ _rs_stir(void)
 	unsigned char rnd[KEYSZ + IVSZ];
 
 	if (getentropy(rnd, sizeof rnd) == -1)
-		raise(SIGKILL);
+		sudo_fatal_nodebug("getentropy");
 
 	if (!rs_initialized) {
 		rs_initialized = 1;
@@ -142,14 +143,14 @@ _rs_rekey(unsigned char *dat, size_t datlen)
 	}
 	/* immediately reinit for backtracking resistance */
 	_rs_init(rs_buf, KEYSZ + IVSZ);
-	memset(rs_buf, 0, KEYSZ + IVSZ); // -V512
+	memset(rs_buf, 0, KEYSZ + IVSZ); // -V::512, 1086
 	rs_have = sizeof(rs_buf) - KEYSZ - IVSZ;
 }
 
 static inline void
 _rs_random_buf(void *_buf, size_t n)
 {
-	unsigned char *buf = (unsigned char *)_buf;
+	unsigned char *buf = _buf;
 	unsigned char *keystream;
 	size_t m;
 

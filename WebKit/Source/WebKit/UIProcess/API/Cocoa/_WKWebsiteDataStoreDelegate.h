@@ -26,10 +26,24 @@
 #import <Foundation/Foundation.h>
 #import <WebKit/WKFoundation.h>
 
+@class UNNotification;
 @class WKSecurityOrigin;
 @class WKWebsiteDataStore;
 @class WKWebView;
 @class _WKNotificationData;
+
+/*! @enum WKNavigationActionPolicy
+ @abstract The policy to pass back to the decision handler from the
+ webView:decidePolicyForNavigationAction:decisionHandler: method.
+ @constant WKNavigationActionPolicyCancel   Cancel the navigation.
+ @constant WKNavigationActionPolicyAllow    Allow the navigation to continue.
+ @constant WKNavigationActionPolicyDownload    Turn the navigation into a download.
+ */
+typedef NS_ENUM(NSInteger, WKBackgroundFetchChange) {
+    WKBackgroundFetchChangeAddition,
+    WKBackgroundFetchChangeRemoval,
+    WKBackgroundFetchChangeUpdate,
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 WK_API_AVAILABLE(macos(10.15), ios(13.0))
 @protocol _WKWebsiteDataStoreDelegate <NSObject>
@@ -38,7 +52,11 @@ WK_API_AVAILABLE(macos(10.15), ios(13.0))
 - (void)requestStorageSpace:(NSURL *)mainFrameURL frameOrigin:(NSURL *)frameURL quota:(NSUInteger)quota currentSize:(NSUInteger)currentSize spaceRequired:(NSUInteger)spaceRequired decisionHandler:(void (^)(unsigned long long quota))decisionHandler;
 - (void)didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler;
 - (void)websiteDataStore:(WKWebsiteDataStore *)dataStore openWindow:(NSURL *)url fromServiceWorkerOrigin:(WKSecurityOrigin *)serviceWorkerOrigin completionHandler:(void (^)(WKWebView *newWebView))completionHandler;
+- (void)websiteDataStore:(WKWebsiteDataStore *)dataStore reportServiceWorkerConsoleMessage:(NSString *)message;
 - (NSDictionary<NSString *, NSNumber *> *)notificationPermissionsForWebsiteDataStore:(WKWebsiteDataStore *)dataStore;
 - (void)websiteDataStore:(WKWebsiteDataStore *)dataStore showNotification:(_WKNotificationData *)notificationData;
 - (void)websiteDataStore:(WKWebsiteDataStore *)dataStore workerOrigin:(WKSecurityOrigin *)workerOrigin updatedAppBadge:(NSNumber *)badge;
+- (void)websiteDataStore:(WKWebsiteDataStore *)dataStore getDisplayedNotificationsForWorkerOrigin:(WKSecurityOrigin *)workerOrigin completionHandler:(void (^)(NSArray<NSDictionary *> *))completionHandler;
+- (void)requestBackgroundFetchPermission:(NSURL *)mainFrameURL frameOrigin:(NSURL *)frameURL  decisionHandler:(void (^)(bool isGranted))decisionHandler;
+- (void)notifyBackgroundFetchChange:(NSString *)backgroundFetchIdentifier change:(WKBackgroundFetchChange)change;
 @end

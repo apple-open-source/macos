@@ -23,6 +23,7 @@ stress(size_t sz, size_t cnt)
 	for (int t=0; t<100; t++) {
 		for (int i=0; i<cnt; i++) {
 			struct entry *p = calloc(1, sz);
+			T_QUIET; T_ASSERT_NOTNULL(p, "Failed to make allocation with size %d", sz);
 			TAILQ_INSERT_TAIL(&head, p, next);
 		}
 		int i=0;

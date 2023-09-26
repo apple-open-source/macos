@@ -1,4 +1,4 @@
-framework module OpenAL [extern_c] {
+framework module OpenAL [system] {
   umbrella header "OpenAL.h"
 
   export *

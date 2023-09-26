@@ -22,7 +22,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include "config.h"
+#include <config.h>
 #include "sudo_compat.h"
 #include "sudo_plugin.h"
 
@@ -52,7 +52,6 @@ struct PythonContext
 extern struct PythonContext py_ctx;
 
 #define Py_TYPENAME(object) (object ? Py_TYPE(object)->tp_name : "NULL")
-#define Py_SSIZE2SIZE(value) ((value) < 0 ? 0 : (size_t)(value))
 
 #define py_sudo_log(...) py_ctx.sudo_log(__VA_ARGS__)
 

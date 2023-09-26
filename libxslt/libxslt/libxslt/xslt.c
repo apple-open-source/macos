@@ -35,6 +35,7 @@
 #include "namespaces.h"
 #include "attributes.h"
 #include "xsltutils.h"
+#include "xsltutilsInternal.h"
 #include "imports.h"
 #include "keys.h"
 #include "documents.h"
@@ -113,20 +114,6 @@ double xmlXPathStringEvalNumber(const xmlChar *str);
 #endif
 #define IS_BLANK_NODE(n)						\
     (((n)->type == XML_TEXT_NODE) && (xsltIsBlank((n)->content)))
-
-#ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-#ifdef __APPLE__
-#include <stdbool.h>
-
-extern bool linkedOnOrAfterFall2022OSVersions(void);  // See xsltutils.c.
-
-#define LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16 \
-        linkedOnOrAfterFall2022OSVersions()
-
-#else
-#define LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16 1 /* true */
-#endif /* __APPLE__ */
-#endif /* LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16 */
 
 /**
  * xsltParseContentError:
@@ -300,7 +287,7 @@ xsltNewDecimalFormat(const xmlChar *nsUri, xmlChar *name)
     if (self != NULL) {
 	self->next = NULL;
 #ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-        if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+        if (linkedOnOrAfterFall2022OSVersions()) {
             self->nsUri = nsUri;
         }
 #endif /* LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16 */
@@ -390,7 +377,7 @@ xsltDecimalFormatGetByName(xsltStylesheetPtr style, xmlChar *name)
 	     result != NULL;
 	     result = result->next) {
 #ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-            if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+            if (linkedOnOrAfterFall2022OSVersions()) {
                 if ((result->nsUri == NULL) && xmlStrEqual(name, result->name))
                     return result;
             } else
@@ -429,7 +416,7 @@ xsltDecimalFormatGetByQName(xsltStylesheetPtr style, const xmlChar *nsUri,
 	     result != NULL;
 	     result = result->next) {
 #ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-            if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+            if (linkedOnOrAfterFall2022OSVersions()) {
                 if (xmlStrEqual(nsUri, result->nsUri) &&
                     xmlStrEqual(name, result->name))
                     return result;
@@ -826,7 +813,7 @@ xsltNewStylesheetInternal(xsltStylesheetPtr parent) {
         ret->principal = ret;
 
 #ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-        if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+        if (linkedOnOrAfterFall2022OSVersions()) {
             ret->xpathCtxt = xmlXPathNewContext(NULL);
             if (ret->xpathCtxt == NULL) {
                 xsltTransformError(NULL, NULL, NULL,
@@ -1120,7 +1107,7 @@ xsltFreeStylesheet(xsltStylesheetPtr style)
     xmlDictFree(style->dict);
 
 #ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-    if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+    if (linkedOnOrAfterFall2022OSVersions()) {
         if (style->xpathCtxt != NULL)
             xmlXPathFreeContext(style->xpathCtxt);
     }

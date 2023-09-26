@@ -1,12 +1,11 @@
 #ifndef __SECTRANSFORM_INTERNAL__
 #define __SECTRANSFORM_INTERNAL__
 
+#include <Security/SecTransform.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Security/SecTransform.h>
 
 CFErrorRef SecTransformConnectTransformsInternal(SecGroupTransformRef groupRef, SecTransformRef sourceTransformRef, CFStringRef sourceAttributeName,
 														 SecTransformRef destinationTransformRef, CFStringRef destinationAttributeName)

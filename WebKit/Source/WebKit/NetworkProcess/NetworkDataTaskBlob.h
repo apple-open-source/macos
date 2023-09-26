@@ -40,7 +40,6 @@ class AsyncFileStream;
 class BlobDataFileReference;
 class BlobData;
 class BlobDataItem;
-class BlobRegistryImpl;
 }
 
 namespace WebKit {
@@ -49,15 +48,15 @@ class NetworkProcess;
 
 class NetworkDataTaskBlob final : public NetworkDataTask, public WebCore::FileStreamClient {
 public:
-    static Ref<NetworkDataTask> create(NetworkSession& session, WebCore::BlobRegistryImpl& blobRegistry, NetworkDataTaskClient& client, const WebCore::ResourceRequest& request, WebCore::ContentSniffingPolicy shouldContentSniff, const Vector<RefPtr<WebCore::BlobDataFileReference>>& fileReferences)
+    static Ref<NetworkDataTask> create(NetworkSession& session, NetworkDataTaskClient& client, const WebCore::ResourceRequest& request, const Vector<RefPtr<WebCore::BlobDataFileReference>>& fileReferences)
     {
-        return adoptRef(*new NetworkDataTaskBlob(session, blobRegistry, client, request, shouldContentSniff, fileReferences));
+        return adoptRef(*new NetworkDataTaskBlob(session, client, request, fileReferences));
     }
 
     ~NetworkDataTaskBlob();
 
 private:
-    NetworkDataTaskBlob(NetworkSession&, WebCore::BlobRegistryImpl&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::ContentSniffingPolicy, const Vector<RefPtr<WebCore::BlobDataFileReference>>&);
+    NetworkDataTaskBlob(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, const Vector<RefPtr<WebCore::BlobDataFileReference>>&);
 
     void cancel() override;
     void resume() override;
@@ -83,8 +82,8 @@ private:
 
     void clearStream();
     void getSizeForNext();
-    void dispatchDidReceiveResponse(Error = Error::NoError);
-    void seek();
+    void dispatchDidReceiveResponse();
+    std::optional<Error> seek();
     void consumeData(const uint8_t* data, int bytesRead);
     void read();
     void readData(const WebCore::BlobDataItem&);
@@ -104,9 +103,9 @@ private:
     Vector<uint8_t> m_buffer;
     Vector<long long> m_itemLengthList;
     State m_state { State::Suspended };
-    long long m_rangeOffset { kPositionNotSpecified };
+    bool m_isRangeRequest { false };
+    long long m_rangeStart { kPositionNotSpecified };
     long long m_rangeEnd { kPositionNotSpecified };
-    long long m_rangeSuffixLength { kPositionNotSpecified };
     long long m_totalSize { 0 };
     long long m_downloadBytesWritten { 0 };
     long long m_totalRemainingSize { 0 };

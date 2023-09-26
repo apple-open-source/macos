@@ -27,6 +27,11 @@
 #include <Security/SecTask.h>
 #include "ipc/securityd_client.h"
 
+typedef enum SecSecurityClientKeychainSharingState {
+    SecSecurityClientKeychainSharingStateDisabled = 0,
+    SecSecurityClientKeychainSharingStateEnabled = 1,
+} SecSecurityClientKeychainSharingState;
+
 CFTypeRef SecCreateLocalCFSecuritydXPCServer(void);
 void SecAddLocalSecuritydXPCFakeEntitlement(CFStringRef entitlement, CFTypeRef value);
 void SecResetLocalSecuritydXPCFakeEntitlements(void);
@@ -51,6 +56,7 @@ void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
 void SecSecurityClientRegularToAppClip(void);
 void SecSecurityClientAppClipToRegular(void);
 void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier);
+void SecSecurityClientSetKeychainSharingState(SecSecurityClientKeychainSharingState state);
 
 #if TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT
 bool device_is_multiuser(void);

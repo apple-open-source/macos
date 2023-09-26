@@ -42,9 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/string/strcasestr.c,v 1.5 2009/02/03 17:58:20 d
  * Find the first occurrence of find in s, ignore case.
  */
 char *
-strcasestr_l(s, find, loc)
-	const char *s, *find;
-	locale_t loc;
+strcasestr_l(const char *s, const char *find, locale_t loc)
 {
 	char c, sc;
 	size_t len;

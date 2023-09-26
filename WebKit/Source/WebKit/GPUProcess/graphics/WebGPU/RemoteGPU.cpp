@@ -30,31 +30,32 @@
 
 #include "GPUConnectionToWebProcess.h"
 #include "RemoteAdapter.h"
+#include "RemoteCompositorIntegration.h"
 #include "RemoteGPUMessages.h"
 #include "RemoteGPUProxyMessages.h"
 #include "RemotePresentationContext.h"
 #include "RemoteRenderingBackend.h"
 #include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
-#include <pal/graphics/WebGPU/WebGPU.h>
-#include <pal/graphics/WebGPU/WebGPUAdapter.h>
-#include <pal/graphics/WebGPU/WebGPUPresentationContext.h>
-#include <pal/graphics/WebGPU/WebGPUPresentationContextDescriptor.h>
+#include <WebCore/WebGPU.h>
+#include <WebCore/WebGPUAdapter.h>
+#include <WebCore/WebGPUPresentationContext.h>
+#include <WebCore/WebGPUPresentationContextDescriptor.h>
 
 #if HAVE(WEBGPU_IMPLEMENTATION)
-#import <pal/graphics/WebGPU/Impl/WebGPUCreateImpl.h>
+#import <WebCore/WebGPUCreateImpl.h>
 #endif
 
 namespace WebKit {
 
-RemoteGPU::RemoteGPU(WebGPUIdentifier identifier, GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackend& renderingBackend, IPC::StreamServerConnection::Handle&& connectionHandle)
+RemoteGPU::RemoteGPU(PerformWithMediaPlayerOnMainThread&& performWithMediaPlayerOnMainThread, WebGPUIdentifier identifier, GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackend& renderingBackend, Ref<IPC::StreamServerConnection>&& streamConnection)
     : m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_workQueue(IPC::StreamConnectionWorkQueue::create("WebGPU work queue"))
-    , m_streamConnection(IPC::StreamServerConnection::create(WTFMove(connectionHandle), workQueue()))
+    , m_streamConnection(WTFMove(streamConnection))
     , m_objectHeap(WebGPU::ObjectHeap::create())
+    , m_performWithMediaPlayerOnMainThread(WTFMove(performWithMediaPlayerOnMainThread))
     , m_identifier(identifier)
     , m_renderingBackend(renderingBackend)
-    , m_webProcessIdentifier(gpuConnectionToWebProcess.webProcessIdentifier())
 {
 }
 
@@ -63,37 +64,37 @@ RemoteGPU::~RemoteGPU() = default;
 void RemoteGPU::initialize()
 {
     assertIsMainRunLoop();
-    m_streamConnection->open();
     workQueue().dispatch([protectedThis = Ref { *this }]() mutable {
         protectedThis->workQueueInitialize();
     });
-    m_streamConnection->startReceivingMessages(*this, Messages::RemoteGPU::messageReceiverName(), m_identifier.toUInt64());
 }
 
-void RemoteGPU::stopListeningForIPC(Ref<RemoteGPU>&& refFromConnection)
+void RemoteGPU::stopListeningForIPC()
 {
     assertIsMainRunLoop();
-    m_streamConnection->invalidate();
-    m_streamConnection->stopReceivingMessages(Messages::RemoteGPU::messageReceiverName(), m_identifier.toUInt64());
-    workQueue().dispatch([protectedThis = WTFMove(refFromConnection)]() {
-        protectedThis->workQueueUninitialize();
+    workQueue().dispatch([this]() {
+        workQueueUninitialize();
     });
+    workQueue().stopAndWaitForCompletion();
 }
 
 void RemoteGPU::workQueueInitialize()
 {
     assertIsCurrent(workQueue());
+    m_streamConnection->open(workQueue());
+    m_streamConnection->startReceivingMessages(*this, Messages::RemoteGPU::messageReceiverName(), m_identifier.toUInt64());
+
 #if HAVE(WEBGPU_IMPLEMENTATION)
     // BEWARE: This is a retain cycle.
     // this owns m_backing, but m_backing contains a callback which has a stong reference to this.
     // The retain cycle is required because callbacks need to execute even if this is disowned
     // (because the callbacks handle resource cleanup, etc.).
     // The retain cycle is broken in workQueueUninitialize().
-    auto backing = PAL::WebGPU::create([protectedThis = Ref { *this }](PAL::WebGPU::WorkItem&& workItem) {
+    auto backing = WebCore::WebGPU::create([protectedThis = Ref { *this }](WebCore::WebGPU::WorkItem&& workItem) {
         protectedThis->workQueue().dispatch(WTFMove(workItem));
     });
 #else
-    RefPtr<PAL::WebGPU::GPU> backing;
+    RefPtr<WebCore::WebGPU::GPU> backing;
 #endif
     if (backing) {
         m_backing = backing.releaseNonNull();
@@ -105,12 +106,14 @@ void RemoteGPU::workQueueInitialize()
 void RemoteGPU::workQueueUninitialize()
 {
     assertIsCurrent(workQueue());
+    m_streamConnection->stopReceivingMessages(Messages::RemoteGPU::messageReceiverName(), m_identifier.toUInt64());
+    m_streamConnection->invalidate();
     m_streamConnection = nullptr;
     m_objectHeap->clear();
     m_backing = nullptr;
 }
 
-void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, WebGPUIdentifier identifier, CompletionHandler<void(std::optional<RequestAdapterResponse>&&)>&& callback)
+void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, WebGPUIdentifier identifier, CompletionHandler<void(std::optional<RemoteGPURequestAdapterResponse>&&)>&& callback)
 {
     assertIsCurrent(workQueue());
     ASSERT(m_backing);
@@ -122,13 +125,13 @@ void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, Web
         return;
     }
 
-    m_backing->requestAdapter(*convertedOptions, [callback = WTFMove(callback), objectHeap = m_objectHeap.copyRef(), streamConnection = Ref { *m_streamConnection }, identifier] (RefPtr<PAL::WebGPU::Adapter>&& adapter) mutable {
+    m_backing->requestAdapter(*convertedOptions, [callback = WTFMove(callback), objectHeap = m_objectHeap.copyRef(), streamConnection = Ref { *m_streamConnection }, identifier, &performWithMediaPlayerOnMainThread = m_performWithMediaPlayerOnMainThread] (RefPtr<WebCore::WebGPU::Adapter>&& adapter) mutable {
         if (!adapter) {
             callback(std::nullopt);
             return;
         }
 
-        auto remoteAdapter = RemoteAdapter::create(*adapter, objectHeap, WTFMove(streamConnection), identifier);
+        auto remoteAdapter = RemoteAdapter::create(performWithMediaPlayerOnMainThread, *adapter, objectHeap, WTFMove(streamConnection), identifier);
         objectHeap->addObject(identifier, remoteAdapter);
 
         auto name = adapter->name();
@@ -140,6 +143,7 @@ void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, Web
             limits.maxTextureDimension3D(),
             limits.maxTextureArrayLayers(),
             limits.maxBindGroups(),
+            limits.maxBindingsPerBindGroup(),
             limits.maxDynamicUniformBuffersPerPipelineLayout(),
             limits.maxDynamicStorageBuffersPerPipelineLayout(),
             limits.maxSampledTexturesPerShaderStage(),
@@ -152,9 +156,13 @@ void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, Web
             limits.minUniformBufferOffsetAlignment(),
             limits.minStorageBufferOffsetAlignment(),
             limits.maxVertexBuffers(),
+            limits.maxBufferSize(),
             limits.maxVertexAttributes(),
             limits.maxVertexBufferArrayStride(),
             limits.maxInterStageShaderComponents(),
+            limits.maxInterStageShaderVariables(),
+            limits.maxColorAttachments(),
+            limits.maxColorAttachmentBytesPerSample(),
             limits.maxComputeWorkgroupStorageSize(),
             limits.maxComputeInvocationsPerWorkgroup(),
             limits.maxComputeWorkgroupSizeX(),
@@ -178,6 +186,16 @@ void RemoteGPU::createPresentationContext(const WebGPU::PresentationContextDescr
     auto presentationContext = m_backing->createPresentationContext(*convertedDescriptor);
     auto remotePresentationContext = RemotePresentationContext::create(presentationContext, m_objectHeap, *m_streamConnection, identifier);
     m_objectHeap->addObject(identifier, remotePresentationContext);
+}
+
+void RemoteGPU::createCompositorIntegration(WebGPUIdentifier identifier)
+{
+    assertIsCurrent(workQueue());
+    ASSERT(m_backing);
+
+    auto compositorIntegration = m_backing->createCompositorIntegration();
+    auto remoteCompositorIntegration = RemoteCompositorIntegration::create(compositorIntegration, m_objectHeap, *m_streamConnection, identifier);
+    m_objectHeap->addObject(identifier, remoteCompositorIntegration);
 }
 
 } // namespace WebKit

@@ -33,6 +33,7 @@ your version of this file under either the MPL or the GPL.
 #include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #ifndef S_ISREG
 #ifndef S_IFREG

@@ -240,6 +240,8 @@ TclX_StructOffset _ANSI_ARGS_((void *nsPtr, size_t offset,
 #define Tcl_WriteChars	Tcl_Write
 #endif
 
+#define panic Tcl_Panic
+
 #define TclX_WriteNL(channel) (Tcl_Write (channel, "\n", 1))
 
 extern int

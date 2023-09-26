@@ -32,6 +32,7 @@
 @property int counter;
 @end
 
+#if !TARGET_OS_BRIDGE
 @implementation SCTestPreferences
 
 + (NSString *)command
@@ -627,3 +628,4 @@ myNotificationsCallback(SCPreferencesRef prefs, SCPreferencesNotification notifi
 }
 
 @end
+#endif // !TARGET_OS_BRIDGE

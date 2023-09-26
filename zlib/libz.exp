@@ -77,3 +77,5 @@ _gzfwrite
 _uncompress2
 _inflateValidate
 _inflateCodesUsed
+_crc32_combine_gen
+_crc32_combine_op

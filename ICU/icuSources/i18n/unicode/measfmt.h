@@ -21,8 +21,11 @@
 
 #include "unicode/format.h"
 #include "unicode/udat.h"
+#if APPLE_ICU_CHANGES
+// rdar://
 // Apple specific:
 #include "unicode/uameasureformat.h"
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * \file 
@@ -72,6 +75,8 @@ enum UMeasureFormatWidth {
      */
     UMEASFMT_WIDTH_COUNT = 4
 #endif  // U_HIDE_DEPRECATED_API
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
     ,
     /**
@@ -81,6 +86,7 @@ enum UMeasureFormatWidth {
      */
     UMEASFMT_WIDTH_SHORTER = 8
 #endif /* U_HIDE_INTERNAL_API */
+#endif  // APPLE_ICU_CHANGES
 };
 /** @stable ICU 53 */
 typedef enum UMeasureFormatWidth UMeasureFormatWidth; 
@@ -98,7 +104,10 @@ class QuantityFormatter;
 class SimpleFormatter;
 class ListFormatter;
 class DateFormat;
+#if APPLE_ICU_CHANGES
+// rdar://
 class FieldPositionHandler;
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * <p><strong>IMPORTANT:</strong> New users are strongly encouraged to see if
@@ -214,6 +223,8 @@ class U_I18N_API MeasureFormat : public Format {
             FieldPosition &pos,
             UErrorCode &status) const;
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
     /**
      * Apple-specific for now.
@@ -245,7 +256,7 @@ class U_I18N_API MeasureFormat : public Format {
     UMeasureFormatWidth getWidth(void) const;
 
 #endif  /* U_HIDE_INTERNAL_API */
-
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Formats a single measure per unit. An example of such a
@@ -361,15 +372,20 @@ class U_I18N_API MeasureFormat : public Format {
      */
     UBool setMeasureFormatLocale(const Locale &locale, UErrorCode &status);
 
+#if APPLE_ICU_CHANGES
+// rdar://
  public:
     // Apple-only, temporarily public for Apple use
+#endif  // APPLE_ICU_CHANGES
     /**
      * ICU use only.
      * Let subclass change NumberFormat.
-     * @internal Apple
+     * @internal.
      */
     void adoptNumberFormat(NumberFormat *nfToAdopt, UErrorCode &status);
 
+#if APPLE_ICU_CHANGES
+// rdar://
     /**
      * Gets the display name for a unit.
      * @param unit The unit whose display name to get.
@@ -401,6 +417,7 @@ class U_I18N_API MeasureFormat : public Format {
             UnicodeString &result ) const;
 
  protected:
+#endif  // APPLE_ICU_CHANGES
     /**
      * ICU use only.
      * @internal.
@@ -439,13 +456,19 @@ class U_I18N_API MeasureFormat : public Format {
     const SharedNumberFormat *numberFormat;
     const SharedPluralRules *pluralRules;
     UMeasureFormatWidth fWidth;    
+#if APPLE_ICU_CHANGES
+// rdar://
     UBool stripPatternSpaces;
+#endif  // APPLE_ICU_CHANGES
 
     // Declared outside of MeasureFormatSharedData because ListFormatter
     // objects are relatively cheap to copy; therefore, they don't need to be
     // shared across instances.
     ListFormatter *listFormatter;
+#if APPLE_ICU_CHANGES
+// rdar://
     ListFormatter *listFormatterStd; // standard list style, option for display names; Apple specific
+#endif  // APPLE_ICU_CHANGES
 
     UnicodeString &formatMeasure(
         const Measure &measure,

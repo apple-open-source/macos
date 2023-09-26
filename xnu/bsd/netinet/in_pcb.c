@@ -100,6 +100,7 @@
 
 #include <netinet/in.h>
 #include <netinet/in_pcb.h>
+#include <netinet/inp_log.h>
 #include <netinet/in_var.h>
 #include <netinet/ip_var.h>
 
@@ -112,6 +113,7 @@
 #include <dev/random/randomdev.h>
 #include <mach/boolean.h>
 
+#include <atm/atm_internal.h>
 #include <pexpert/pexpert.h>
 
 #if NECP
@@ -329,9 +331,15 @@ void
 in_pcbinit(void)
 {
 	static int inpcb_initialized = 0;
+	uint32_t logging_config;
 
 	VERIFY(!inpcb_initialized);
 	inpcb_initialized = 1;
+
+	logging_config = atm_get_diagnostic_config();
+	if (logging_config & 0x80000000) {
+		inp_log_privacy = 1;
+	}
 
 	inpcb_thread_call = thread_call_allocate_with_priority(inpcb_timeout,
 	    NULL, THREAD_CALL_PRIORITY_KERNEL);
@@ -508,15 +516,15 @@ inpcb_gc_sched(struct inpcbinfo *ipi, u_int32_t type)
 
 	switch (type) {
 	case INPCB_TIMER_NODELAY:
-		atomic_add_32(&ipi->ipi_gc_req.intimer_nodelay, 1);
+		os_atomic_inc(&ipi->ipi_gc_req.intimer_nodelay, relaxed);
 		inpcb_sched_timeout();
 		break;
 	case INPCB_TIMER_FAST:
-		atomic_add_32(&ipi->ipi_gc_req.intimer_fast, 1);
+		os_atomic_inc(&ipi->ipi_gc_req.intimer_fast, relaxed);
 		inpcb_sched_timeout();
 		break;
 	default:
-		atomic_add_32(&ipi->ipi_gc_req.intimer_lazy, 1);
+		os_atomic_inc(&ipi->ipi_gc_req.intimer_lazy, relaxed);
 		inpcb_sched_lazy_timeout();
 		break;
 	}
@@ -530,15 +538,15 @@ inpcb_timer_sched(struct inpcbinfo *ipi, u_int32_t type)
 	inpcb_ticking = TRUE;
 	switch (type) {
 	case INPCB_TIMER_NODELAY:
-		atomic_add_32(&ipi->ipi_timer_req.intimer_nodelay, 1);
+		os_atomic_inc(&ipi->ipi_timer_req.intimer_nodelay, relaxed);
 		inpcb_sched_timeout();
 		break;
 	case INPCB_TIMER_FAST:
-		atomic_add_32(&ipi->ipi_timer_req.intimer_fast, 1);
+		os_atomic_inc(&ipi->ipi_timer_req.intimer_fast, relaxed);
 		inpcb_sched_timeout();
 		break;
 	default:
-		atomic_add_32(&ipi->ipi_timer_req.intimer_lazy, 1);
+		os_atomic_inc(&ipi->ipi_timer_req.intimer_lazy, relaxed);
 		inpcb_sched_lazy_timeout();
 		break;
 	}
@@ -826,15 +834,24 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 	unsigned short *lastport;
 	struct inpcbinfo *pcbinfo = inp->inp_pcbinfo;
 	u_short lport = 0, rand_port = 0;
-	int wild = 0, reuseport = (so->so_options & SO_REUSEPORT);
-	int error, randomport, conflict = 0;
+	int wild = 0;
+	int reuseport = (so->so_options & SO_REUSEPORT);
+	int error = 0;
+	int randomport;
+	int conflict = 0;
 	boolean_t anonport = FALSE;
 	kauth_cred_t cred;
 	struct in_addr laddr;
 	struct ifnet *outif = NULL;
 
+	if (inp->inp_flags2 & INP2_BIND_IN_PROGRESS) {
+		return EINVAL;
+	}
+	inp->inp_flags2 |= INP2_BIND_IN_PROGRESS;
+
 	if (TAILQ_EMPTY(&in_ifaddrhead)) { /* XXX broken! */
-		return EADDRNOTAVAIL;
+		error = EADDRNOTAVAIL;
+		goto done;
 	}
 	if (!(so->so_options & (SO_REUSEADDR | SO_REUSEPORT))) {
 		wild = 1;
@@ -848,14 +865,16 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 		/* another thread completed the bind */
 		lck_rw_done(&pcbinfo->ipi_lock);
 		socket_lock(so, 0);
-		return EINVAL;
+		error = EINVAL;
+		goto done;
 	}
 
 	if (nam != NULL) {
 		if (nam->sa_len != sizeof(struct sockaddr_in)) {
 			lck_rw_done(&pcbinfo->ipi_lock);
 			socket_lock(so, 0);
-			return EINVAL;
+			error = EINVAL;
+			goto done;
 		}
 #if 0
 		/*
@@ -865,7 +884,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 		if (nam->sa_family != AF_INET) {
 			lck_rw_done(&pcbinfo->ipi_lock);
 			socket_lock(so, 0);
-			return EAFNOSUPPORT;
+			error = EAFNOSUPPORT;
+			goto done;
 		}
 #endif /* 0 */
 		lport = SIN(nam)->sin_port;
@@ -895,7 +915,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 			if (ifa == NULL) {
 				lck_rw_done(&pcbinfo->ipi_lock);
 				socket_lock(so, 0);
-				return EADDRNOTAVAIL;
+				error = EADDRNOTAVAIL;
+				goto done;
 			} else {
 				/*
 				 * Opportunistically determine the outbound
@@ -921,7 +942,7 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 			if (error != 0) {
 				lck_rw_done(&pcbinfo->ipi_lock);
 				socket_lock(so, 0);
-				return error;
+				goto done;
 			}
 
 			// Extract the reserved port
@@ -933,7 +954,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 			} else {
 				lck_rw_done(&pcbinfo->ipi_lock);
 				socket_lock(so, 0);
-				return EINVAL;
+				error = EINVAL;
+				goto done;
 			}
 
 			// Validate or use the reserved port
@@ -942,7 +964,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 			} else if (lport != reserved_lport) {
 				lck_rw_done(&pcbinfo->ipi_lock);
 				socket_lock(so, 0);
-				return EINVAL;
+				error = EINVAL;
+				goto done;
 			}
 		}
 
@@ -958,7 +981,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 				log(LOG_ERR, "UDP port not available, less than 4096 UDP ports left");
 				lck_rw_done(&pcbinfo->ipi_lock);
 				socket_lock(so, 0);
-				return EADDRNOTAVAIL;
+				error = EADDRNOTAVAIL;
+				goto done;
 			}
 		}
 
@@ -979,7 +1003,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 				if (error != 0) {
 					lck_rw_done(&pcbinfo->ipi_lock);
 					socket_lock(so, 0);
-					return EACCES;
+					error = EACCES;
+					goto done;
 				}
 			}
 #endif /* XNU_TARGET_OS_OSX */
@@ -990,7 +1015,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 			    (uint8_t)so->so_proto->pr_protocol, PORT_FLAGS_BSD)) {
 				lck_rw_done(&pcbinfo->ipi_lock);
 				socket_lock(so, 0);
-				return EADDRINUSE;
+				error = EADDRINUSE;
+				goto done;
 			}
 
 			if (!IN_MULTICAST(ntohl(SIN(nam)->sin_addr.s_addr)) &&
@@ -1021,7 +1047,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 				}
 
 				socket_lock(so, 0);
-				return EADDRINUSE;
+				error = EADDRINUSE;
+				goto done;
 			}
 			t = in_pcblookup_local_and_cleanup(pcbinfo,
 			    SIN(nam)->sin_addr, lport, wild);
@@ -1046,7 +1073,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 						in_pcb_conflict_post_msg(lport);
 					}
 					socket_lock(so, 0);
-					return EADDRINUSE;
+					error = EADDRINUSE;
+					goto done;
 				}
 			}
 #if SKYWALK
@@ -1069,7 +1097,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 				if (res_err != 0) {
 					lck_rw_done(&pcbinfo->ipi_lock);
 					socket_lock(so, 0);
-					return EADDRINUSE;
+					error = EADDRINUSE;
+					goto done;
 				}
 			}
 #endif /* SKYWALK */
@@ -1109,7 +1138,7 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 			if (error != 0) {
 				lck_rw_done(&pcbinfo->ipi_lock);
 				socket_lock(so, 0);
-				return error;
+				goto done;
 			}
 			first = (u_short)ipport_lowfirstauto;    /* 1023 */
 			last  = (u_short)ipport_lowlastauto;     /* 600 */
@@ -1152,7 +1181,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 				if (count-- < 0) {      /* completely used? */
 					lck_rw_done(&pcbinfo->ipi_lock);
 					socket_lock(so, 0);
-					return EADDRNOTAVAIL;
+					error = EADDRNOTAVAIL;
+					goto done;
 				}
 				--*lastport;
 				if (*lastport > first || *lastport < last) {
@@ -1213,7 +1243,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 				if (count-- < 0) {      /* completely used? */
 					lck_rw_done(&pcbinfo->ipi_lock);
 					socket_lock(so, 0);
-					return EADDRNOTAVAIL;
+					error = EADDRNOTAVAIL;
+					goto done;
 				}
 				++*lastport;
 				if (*lastport < first || *lastport > last) {
@@ -1267,7 +1298,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 		netns_release(&inp->inp_netns_token);
 #endif /* SKYWALK */
 		lck_rw_done(&pcbinfo->ipi_lock);
-		return ECONNABORTED;
+		error = ECONNABORTED;
+		goto done;
 	}
 
 	if (inp->inp_lport != 0 || inp->inp_laddr.s_addr != INADDR_ANY) {
@@ -1275,7 +1307,8 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 		netns_release(&inp->inp_netns_token);
 #endif /* SKYWALK */
 		lck_rw_done(&pcbinfo->ipi_lock);
-		return EINVAL;
+		error = EINVAL;
+		goto done;
 	}
 
 	if (laddr.s_addr != INADDR_ANY) {
@@ -1304,14 +1337,16 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 			inp->inp_flags &= ~INP_ANONPORT;
 		}
 		lck_rw_done(&pcbinfo->ipi_lock);
-		return EAGAIN;
+		error = EAGAIN;
+		goto done;
 	}
 	lck_rw_done(&pcbinfo->ipi_lock);
 	sflt_notify(so, sock_evt_bound, NULL);
 
 	in_pcb_check_management_entitled(inp);
-
-	return 0;
+done:
+	inp->inp_flags2 &= ~INP2_BIND_IN_PROGRESS;
+	return error;
 }
 
 #define APN_FALLBACK_IP_FILTER(a)       \
@@ -1975,6 +2010,14 @@ in_pcbdetach(struct inpcb *inp)
 		    __func__, so, SOCK_PROTO(so));
 		/* NOTREACHED */
 	}
+
+#if SKYWALK
+	/* Free up the port in the namespace registrar if not in TIME_WAIT */
+	if (!(inp->inp_flags2 & INP2_TIMEWAIT)) {
+		netns_release(&inp->inp_netns_token);
+		netns_release(&inp->inp_wildcard_netns_token);
+	}
+#endif /* SKYWALK */
 
 	if (!(so->so_flags & SOF_PCBCLEARING)) {
 		struct ip_moptions *imo;

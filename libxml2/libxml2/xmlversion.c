@@ -12,16 +12,6 @@
 #ifdef __APPLE__
 #include <dispatch/dispatch.h>
 #include <mach-o/dyld_priv.h>
-
-#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 160000 \
-    || defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 130000 \
-    || defined(__TV_OS_VERSION_MIN_REQUIRED) && __TV_OS_VERSION_MIN_REQUIRED >= 160000 \
-    || defined(__WATCH_OS_VERSION_MIN_REQUIRED) && __WATCH_OS_VERSION_MIN_REQUIRED >= 90000
-#define LIBXML_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16
-#else
-#undef LIBXML_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16
-#endif
-
 #endif
 
 bool linkedOnOrAfterFall2022OSVersions(void)
@@ -36,6 +26,6 @@ bool linkedOnOrAfterFall2022OSVersions(void)
     });
     return result;
 #else
-    return false;
+    return true;
 #endif
 }

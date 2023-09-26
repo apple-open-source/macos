@@ -208,6 +208,8 @@ void Dumper::expr(SyntaxLevel level)
 			print("timestamp.%s", CssmOid((unsigned char *)data, length).toOid().c_str());
 		}
 #endif
+		print("]"); match();
+		break;
 	case opCertGeneric:
 		print("certificate"); certSlot(); print("[");
 #if TARGET_OS_OSX

@@ -1,8 +1,8 @@
-/* A Bison parser, made by GNU Bison 3.7.4.  */
+/* A Bison parser, made by GNU Bison 3.8.2.  */
 
 /* Bison interface for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2020 Free Software Foundation,
+   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2021 Free Software Foundation,
    Inc.
 
    This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* As a special exception, you may create a larger work that contains
    part or all of the Bison parser skeleton and distribute that work
@@ -83,27 +83,30 @@ extern int sudoersdebug;
     NOMAIL = 284,                  /* NOMAIL  */
     FOLLOWLNK = 285,               /* FOLLOWLNK  */
     NOFOLLOWLNK = 286,             /* NOFOLLOWLNK  */
-    ALL = 287,                     /* ALL  */
-    HOSTALIAS = 288,               /* HOSTALIAS  */
-    CMNDALIAS = 289,               /* CMNDALIAS  */
-    USERALIAS = 290,               /* USERALIAS  */
-    RUNASALIAS = 291,              /* RUNASALIAS  */
-    ERROR = 292,                   /* ERROR  */
-    NOMATCH = 293,                 /* NOMATCH  */
-    CHROOT = 294,                  /* CHROOT  */
-    CWD = 295,                     /* CWD  */
-    TYPE = 296,                    /* TYPE  */
-    ROLE = 297,                    /* ROLE  */
-    PRIVS = 298,                   /* PRIVS  */
-    LIMITPRIVS = 299,              /* LIMITPRIVS  */
-    CMND_TIMEOUT = 300,            /* CMND_TIMEOUT  */
-    NOTBEFORE = 301,               /* NOTBEFORE  */
-    NOTAFTER = 302,                /* NOTAFTER  */
-    MYSELF = 303,                  /* MYSELF  */
-    SHA224_TOK = 304,              /* SHA224_TOK  */
-    SHA256_TOK = 305,              /* SHA256_TOK  */
-    SHA384_TOK = 306,              /* SHA384_TOK  */
-    SHA512_TOK = 307               /* SHA512_TOK  */
+    INTERCEPT = 287,               /* INTERCEPT  */
+    NOINTERCEPT = 288,             /* NOINTERCEPT  */
+    ALL = 289,                     /* ALL  */
+    HOSTALIAS = 290,               /* HOSTALIAS  */
+    CMNDALIAS = 291,               /* CMNDALIAS  */
+    USERALIAS = 292,               /* USERALIAS  */
+    RUNASALIAS = 293,              /* RUNASALIAS  */
+    ERROR = 294,                   /* ERROR  */
+    NOMATCH = 295,                 /* NOMATCH  */
+    CHROOT = 296,                  /* CHROOT  */
+    CWD = 297,                     /* CWD  */
+    TYPE = 298,                    /* TYPE  */
+    ROLE = 299,                    /* ROLE  */
+    APPARMOR_PROFILE = 300,        /* APPARMOR_PROFILE  */
+    PRIVS = 301,                   /* PRIVS  */
+    LIMITPRIVS = 302,              /* LIMITPRIVS  */
+    CMND_TIMEOUT = 303,            /* CMND_TIMEOUT  */
+    NOTBEFORE = 304,               /* NOTBEFORE  */
+    NOTAFTER = 305,                /* NOTAFTER  */
+    MYSELF = 306,                  /* MYSELF  */
+    SHA224_TOK = 307,              /* SHA224_TOK  */
+    SHA256_TOK = 308,              /* SHA256_TOK  */
+    SHA384_TOK = 309,              /* SHA384_TOK  */
+    SHA512_TOK = 310               /* SHA512_TOK  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -141,33 +144,36 @@ extern int sudoersdebug;
 #define NOMAIL 284
 #define FOLLOWLNK 285
 #define NOFOLLOWLNK 286
-#define ALL 287
-#define HOSTALIAS 288
-#define CMNDALIAS 289
-#define USERALIAS 290
-#define RUNASALIAS 291
-#define ERROR 292
-#define NOMATCH 293
-#define CHROOT 294
-#define CWD 295
-#define TYPE 296
-#define ROLE 297
-#define PRIVS 298
-#define LIMITPRIVS 299
-#define CMND_TIMEOUT 300
-#define NOTBEFORE 301
-#define NOTAFTER 302
-#define MYSELF 303
-#define SHA224_TOK 304
-#define SHA256_TOK 305
-#define SHA384_TOK 306
-#define SHA512_TOK 307
+#define INTERCEPT 287
+#define NOINTERCEPT 288
+#define ALL 289
+#define HOSTALIAS 290
+#define CMNDALIAS 291
+#define USERALIAS 292
+#define RUNASALIAS 293
+#define ERROR 294
+#define NOMATCH 295
+#define CHROOT 296
+#define CWD 297
+#define TYPE 298
+#define ROLE 299
+#define APPARMOR_PROFILE 300
+#define PRIVS 301
+#define LIMITPRIVS 302
+#define CMND_TIMEOUT 303
+#define NOTBEFORE 304
+#define NOTAFTER 305
+#define MYSELF 306
+#define SHA224_TOK 307
+#define SHA256_TOK 308
+#define SHA384_TOK 309
+#define SHA512_TOK 310
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 83 "gram.y"
+#line 88 "gram.y"
 
     struct cmndspec *cmndspec;
     struct defaults *defaults;
@@ -179,9 +185,10 @@ union YYSTYPE
     struct command_options options;
     struct cmndtag tag;
     char *string;
+    const char *cstring;
     int tok;
 
-#line 185 "y.tab.h"
+#line 192 "gram.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -192,6 +199,8 @@ typedef union YYSTYPE YYSTYPE;
 
 extern YYSTYPE sudoerslval;
 
+
 int sudoersparse (void);
+
 
 #endif /* !YY_SUDOERS_Y_TAB_H_INCLUDED  */

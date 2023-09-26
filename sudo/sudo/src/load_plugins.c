@@ -34,120 +34,57 @@
 #include "sudo_plugin_int.h"
 #include "sudo_dso.h"
 
-/* We always use the same name for the sudoers plugin, regardless of the OS */
-#define SUDOERS_PLUGIN	"sudoers.so"
-
 #ifdef ENABLE_SUDO_PLUGIN_API
-static int
-sudo_stat_plugin(struct plugin_info *info, char *fullpath,
-    size_t pathsize, struct stat *sb)
+static bool
+sudo_qualify_plugin(struct plugin_info *info, char *fullpath, size_t pathsize)
 {
-    int status = -1;
+    const char *plugin_dir = sudo_conf_plugin_dir_path();
+    int len;
     debug_decl(sudo_stat_plugin, SUDO_DEBUG_PLUGIN);
 
     if (info->path[0] == '/') {
 	if (strlcpy(fullpath, info->path, pathsize) >= pathsize) {
-	    sudo_warnx(U_("error in %s, line %d while loading plugin \"%s\""),
-		_PATH_SUDO_CONF, info->lineno, info->symbol_name);
-	    sudo_warnx(U_("%s: %s"), info->path, strerror(ENAMETOOLONG));
-	    goto done;
+	    errno = ENAMETOOLONG;
+	    goto bad;
 	}
-	status = stat(fullpath, sb);
     } else {
-	int len;
-
 #ifdef STATIC_SUDOERS_PLUGIN
 	/* Check static symbols. */
-	if (strcmp(info->path, SUDOERS_PLUGIN) == 0) {
+	if (strcmp(info->path, _PATH_SUDOERS_PLUGIN) == 0) {
 	    if (strlcpy(fullpath, info->path, pathsize) >= pathsize) {
-		sudo_warnx(U_("error in %s, line %d while loading plugin \"%s\""),
-		    _PATH_SUDO_CONF, info->lineno, info->symbol_name);
-		sudo_warnx(U_("%s: %s"), info->path, strerror(ENAMETOOLONG));
-		goto done;
+		errno = ENAMETOOLONG;
+		goto bad;
 	    }
-	    /* Plugin is static, fake up struct stat. */
-	    memset(sb, 0, sizeof(*sb));
-	    sb->st_uid = ROOT_UID;
-	    sb->st_mode = S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH;
-	    status = 0;
-	    goto done;
+	    /* Plugin is static, do not fully-qualify. */
+	    debug_return_bool(true);
 	}
 #endif /* STATIC_SUDOERS_PLUGIN */
 
-	if (sudo_conf_plugin_dir_path() == NULL) {
+	if (plugin_dir == NULL) {
 	    errno = ENOENT;
-	    goto done;
+	    goto bad;
 	}
-
-	len = snprintf(fullpath, pathsize, "%s%s", sudo_conf_plugin_dir_path(),
-	    info->path);
+	len = snprintf(fullpath, pathsize, "%s%s", plugin_dir, info->path);
 	if (len < 0 || (size_t)len >= pathsize) {
-	    sudo_warnx(U_("error in %s, line %d while loading plugin \"%s\""),
-		_PATH_SUDO_CONF, info->lineno, info->symbol_name);
-	    sudo_warnx(U_("%s%s: %s"), sudo_conf_plugin_dir_path(), info->path,
-		strerror(ENAMETOOLONG));
-	    goto done;
-	}
-	/* Try parent dir for compatibility with old plugindir default. */
-	if ((status = stat(fullpath, sb)) != 0) {
-	    char *cp = strrchr(fullpath, '/');
-	    if (cp > fullpath + 4 && cp[-5] == '/' && cp[-4] == 's' &&
-		cp[-3] == 'u' && cp[-2] == 'd' && cp[-1] == 'o') {
-		int serrno = errno;
-		strlcpy(cp - 4, info->path, pathsize - (cp - 4 - fullpath));
-		if ((status = stat(fullpath, sb)) != 0)
-		    errno = serrno;
-	    }
+	    errno = ENAMETOOLONG;
+	    goto bad;
 	}
     }
-done:
-    debug_return_int(status);
-}
-
-static bool
-sudo_check_plugin(struct plugin_info *info, char *fullpath, size_t pathsize)
-{
-    struct stat sb;
-    bool ret = false;
-    debug_decl(sudo_check_plugin, SUDO_DEBUG_PLUGIN);
-
-    if (sudo_stat_plugin(info, fullpath, pathsize, &sb) != 0) {
-	sudo_warnx(U_("error in %s, line %d while loading plugin \"%s\""),
-	    _PATH_SUDO_CONF, info->lineno, info->symbol_name);
-	if (info->path[0] == '/') {
-	    sudo_warn("%s", info->path);
-	} else {
-	    sudo_warn("%s%s",
-		sudo_conf_plugin_dir_path() ? sudo_conf_plugin_dir_path() : "",
-		info->path);
-	}
-	goto done;
-    }
-
-    if (!sudo_conf_developer_mode()) {
-        if (sb.st_uid != ROOT_UID) {
-            sudo_warnx(U_("error in %s, line %d while loading plugin \"%s\""),
-                _PATH_SUDO_CONF, info->lineno, info->symbol_name);
-            sudo_warnx(U_("%s must be owned by uid %d"), fullpath, ROOT_UID);
-            goto done;
-        }
-        if ((sb.st_mode & (S_IWGRP|S_IWOTH)) != 0) {
-            sudo_warnx(U_("error in %s, line %d while loading plugin \"%s\""),
-                _PATH_SUDO_CONF, info->lineno, info->symbol_name);
-            sudo_warnx(U_("%s must be only be writable by owner"), fullpath);
-            goto done;
-        }
-    }
-    ret = true;
-
-done:
-    debug_return_bool(ret);
+    debug_return_bool(true);
+bad:
+    sudo_warnx(U_("error in %s, line %d while loading plugin \"%s\""),
+	_PATH_SUDO_CONF, info->lineno, info->symbol_name);
+    if (info->path[0] != '/' && plugin_dir != NULL)
+	sudo_warn("%s%s", plugin_dir, info->path);
+    else
+	sudo_warn("%s", info->path);
+    debug_return_bool(false);
 }
 #else
 static bool
-sudo_check_plugin(struct plugin_info *info, char *fullpath, size_t pathsize)
+sudo_qualify_plugin(struct plugin_info *info, char *fullpath, size_t pathsize)
 {
-    debug_decl(sudo_check_plugin, SUDO_DEBUG_PLUGIN);
+    debug_decl(sudo_qualify_plugin, SUDO_DEBUG_PLUGIN);
     (void)strlcpy(fullpath, info->path, pathsize);
     debug_return_bool(true);
 }
@@ -181,7 +118,7 @@ static struct plugin_container *
 new_container(void *handle, const char *path, struct generic_plugin *plugin,
     struct plugin_info *info)
 {
-    struct plugin_container *container = NULL;
+    struct plugin_container *container;
     debug_decl(new_container, SUDO_DEBUG_PLUGIN);
 
     if ((container = calloc(1, sizeof(*container))) == NULL) {
@@ -201,7 +138,7 @@ static bool
 plugin_exists(struct plugin_container_list *plugins, const char *symbol_name)
 {
     struct plugin_container *container;
-    debug_decl(find_plugin, SUDO_DEBUG_PLUGIN);
+    debug_decl(plugin_exists, SUDO_DEBUG_PLUGIN);
 
     TAILQ_FOREACH(container, plugins, entries) {
 	if (strcmp(container->name, symbol_name) == 0)
@@ -212,11 +149,12 @@ plugin_exists(struct plugin_container_list *plugins, const char *symbol_name)
 
 typedef struct generic_plugin * (plugin_clone_func)(void);
 
-struct generic_plugin *
+static struct generic_plugin *
 sudo_plugin_try_to_clone(void *so_handle, const char *symbol_name)
 {
-    debug_decl(sudo_plugin_clone, SUDO_DEBUG_PLUGIN);
-    struct generic_plugin * plugin = NULL;
+    debug_decl(sudo_plugin_try_to_clone, SUDO_DEBUG_PLUGIN);
+    struct generic_plugin *plugin = NULL;
+    plugin_clone_func *clone_func;
     char *clone_func_name = NULL;
 
     if (asprintf(&clone_func_name, "%s_clone", symbol_name) < 0) {
@@ -224,7 +162,8 @@ sudo_plugin_try_to_clone(void *so_handle, const char *symbol_name)
         goto cleanup;
     }
 
-    plugin_clone_func *clone_func = (plugin_clone_func *)sudo_dso_findsym(so_handle, clone_func_name);
+    clone_func = (plugin_clone_func *)sudo_dso_findsym(so_handle,
+	clone_func_name);
     if (clone_func) {
         plugin = (*clone_func)();
     }
@@ -271,8 +210,8 @@ sudo_load_plugin(struct plugin_info *info, bool quiet)
     bool ret = false;
     debug_decl(sudo_load_plugin, SUDO_DEBUG_PLUGIN);
 
-    /* Check plugin owner/mode and fill in path */
-    if (!sudo_check_plugin(info, path, sizeof(path)))
+    /* Fill in path from info and plugin dir. */
+    if (!sudo_qualify_plugin(info, path, sizeof(path)))
 	goto done;
 
     /* Open plugin and map in symbol */
@@ -442,7 +381,7 @@ sudo_init_event_alloc(void)
  * Load the specified symbol from the sudoers plugin.
  * Used to provide a default plugin when none are specified in sudo.conf.
  */
-bool
+static bool
 sudo_load_sudoers_plugin(const char *symbol_name, bool optional)
 {
     struct plugin_info *info;
@@ -456,7 +395,7 @@ sudo_load_sudoers_plugin(const char *symbol_name, bool optional)
 	goto done;
     }
     info->symbol_name = strdup(symbol_name);
-    info->path = strdup(SUDOERS_PLUGIN);
+    info->path = strdup(_PATH_SUDOERS_PLUGIN);
     if (info->symbol_name == NULL || info->path == NULL) {
 	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	free_plugin_info(info);

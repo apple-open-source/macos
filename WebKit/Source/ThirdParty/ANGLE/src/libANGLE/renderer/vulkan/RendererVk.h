@@ -77,13 +77,23 @@ class ImageMemorySuballocator : angle::NonCopyable
     void destroy(RendererVk *renderer);
 
     // Allocates memory for the image and binds it.
-    VkResult allocateAndBindMemory(RendererVk *renderer,
+    VkResult allocateAndBindMemory(Context *context,
                                    Image *image,
+                                   const VkImageCreateInfo *imageCreateInfo,
                                    VkMemoryPropertyFlags requiredFlags,
                                    VkMemoryPropertyFlags preferredFlags,
+                                   MemoryAllocationType memoryAllocationType,
                                    Allocation *allocationOut,
+                                   VkMemoryPropertyFlags *memoryFlagsOut,
                                    uint32_t *memoryTypeIndexOut,
                                    VkDeviceSize *sizeOut);
+
+    // Maps the memory to initialize with non-zero value.
+    VkResult mapMemoryAndInitWithNonZeroValue(RendererVk *renderer,
+                                              Allocation *allocation,
+                                              VkDeviceSize size,
+                                              int value,
+                                              VkMemoryPropertyFlags flags);
 };
 }  // namespace vk
 
@@ -290,9 +300,8 @@ class RendererVk : angle::NonCopyable
                                     vk::PrimaryCommandBuffer &&primary,
                                     vk::ProtectionType protectionType,
                                     egl::ContextPriority priority,
-                                    const vk::Semaphore *waitSemaphore,
+                                    VkSemaphore waitSemaphore,
                                     VkPipelineStageFlags waitSemaphoreStageMasks,
-                                    const vk::Fence *fence,
                                     vk::SubmitPolicy submitPolicy,
                                     QueueSerial *queueSerialOut);
 
@@ -482,6 +491,7 @@ class RendererVk : angle::NonCopyable
                                  vk::ProtectionType protectionType,
                                  egl::ContextPriority contextPriority,
                                  const vk::Semaphore *signalSemaphore,
+                                 const vk::SharedExternalFence *externalFence,
                                  const QueueSerial &submitQueueSerial);
 
     angle::Result submitPriorityDependency(vk::Context *context,
@@ -497,7 +507,6 @@ class RendererVk : angle::NonCopyable
                                                             const vk::ResourceUse &use,
                                                             uint64_t timeout,
                                                             VkResult *result);
-    angle::Result finish(vk::Context *context);
     angle::Result checkCompletedCommands(vk::Context *context);
     angle::Result retireFinishedCommands(vk::Context *context);
 
@@ -630,14 +639,83 @@ class RendererVk : angle::NonCopyable
     {
         return mSuballocationGarbageSizeInBytesCachedAtomic.load(std::memory_order_consume);
     }
+    size_t getPendingSubmissionGarbageSize() const
+    {
+        std::unique_lock<std::mutex> lock(mGarbageMutex);
+        return mPendingSubmissionGarbage.size();
+    }
 
     ANGLE_INLINE VkFilter getPreferredFilterForYUV(VkFilter defaultFilter)
     {
         return getFeatures().preferLinearFilterForYUV.enabled ? VK_FILTER_LINEAR : defaultFilter;
     }
 
+    // Convenience helpers to check for dynamic state ANGLE features which depend on the more
+    // encompassing feature for support of the relevant extension.  When the extension-support
+    // feature is disabled, the derived dynamic state is automatically disabled.
+    ANGLE_INLINE bool useVertexInputBindingStrideDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState.enabled &&
+               getFeatures().useVertexInputBindingStrideDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useCullModeDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState.enabled &&
+               getFeatures().useCullModeDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useDepthCompareOpDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState.enabled &&
+               getFeatures().useDepthCompareOpDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useDepthTestEnableDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState.enabled &&
+               getFeatures().useDepthTestEnableDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useDepthWriteEnableDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState.enabled &&
+               getFeatures().useDepthWriteEnableDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useFrontFaceDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState.enabled &&
+               getFeatures().useFrontFaceDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useStencilOpDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState.enabled &&
+               getFeatures().useStencilOpDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useStencilTestEnableDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState.enabled &&
+               getFeatures().useStencilTestEnableDynamicState.enabled;
+    }
+    ANGLE_INLINE bool usePrimitiveRestartEnableDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState2.enabled &&
+               getFeatures().usePrimitiveRestartEnableDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useRasterizerDiscardEnableDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState2.enabled &&
+               getFeatures().useRasterizerDiscardEnableDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useDepthBiasEnableDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState2.enabled &&
+               getFeatures().useDepthBiasEnableDynamicState.enabled;
+    }
+    ANGLE_INLINE bool useLogicOpDynamicState()
+    {
+        return getFeatures().supportsExtendedDynamicState2.enabled &&
+               getFeatures().supportsLogicOpDynamicState.enabled;
+    }
+
     angle::Result allocateScopedQueueSerialIndex(vk::ScopedQueueSerialIndex *indexOut);
-    angle::Result allocateQueueSerialIndex(QueueSerial *queueSerialOut);
+    angle::Result allocateQueueSerialIndex(SerialIndex *serialIndexOut);
     size_t getLargestQueueSerialIndexEverAllocated() const
     {
         return mQueueSerialIndexAllocator.getLargestIndexEverAllocated();
@@ -651,6 +729,7 @@ class RendererVk : angle::NonCopyable
     // Return true if all serials in ResourceUse have been submitted.
     bool hasResourceUseSubmitted(const vk::ResourceUse &use) const;
     bool hasQueueSerialSubmitted(const QueueSerial &queueSerial) const;
+    Serial getLastSubmittedSerial(SerialIndex index) const;
     // Return true if all serials in ResourceUse have been finished.
     bool hasResourceUseFinished(const vk::ResourceUse &use) const;
     bool hasQueueSerialFinished(const QueueSerial &queueSerial) const;
@@ -679,6 +758,10 @@ class RendererVk : angle::NonCopyable
     MemoryAllocationTracker *getMemoryAllocationTracker() { return &mMemoryAllocationTracker; }
 
     void requestAsyncCommandsAndGarbageCleanup(vk::Context *context);
+
+    // Try to finish a command batch from the queue and free garbage memory in the event of an OOM
+    // error.
+    angle::Result finishOneCommandBatchAndCleanup(vk::Context *context, bool *anyBatchCleaned);
 
     // Static function to get Vulkan object type name.
     static const char *GetVulkanObjectTypeName(VkObjectType type);
@@ -752,8 +835,6 @@ class RendererVk : angle::NonCopyable
                                        RecyclerT *recycler,
                                        CommandBufferHelperT **commandBufferHelperOut);
 
-    angle::Result allocateQueueSerialIndexImpl(SerialIndex *indexOut);
-
     egl::Display *mDisplay;
 
     void *mLibVulkanLibrary;
@@ -821,6 +902,7 @@ class RendererVk : angle::NonCopyable
     VkPhysicalDeviceCustomBorderColorFeaturesEXT mCustomBorderColorFeatures;
     VkPhysicalDeviceProtectedMemoryFeatures mProtectedMemoryFeatures;
     VkPhysicalDeviceHostQueryResetFeaturesEXT mHostQueryResetFeatures;
+    VkPhysicalDeviceDepthClampZeroOneFeaturesEXT mDepthClampZeroOneFeatures;
     VkPhysicalDeviceDepthClipEnableFeaturesEXT mDepthClipEnableFeatures;
     VkPhysicalDeviceDepthClipControlFeaturesEXT mDepthClipControlFeatures;
     VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT mPrimitivesGeneratedQueryFeatures;
@@ -839,6 +921,7 @@ class RendererVk : angle::NonCopyable
     VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesEXT
         mRasterizationOrderAttachmentAccessFeatures;
     VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT mSwapchainMaintenance1Features;
+    VkPhysicalDeviceLegacyDitheringFeaturesEXT mDitheringFeatures;
     VkPhysicalDeviceDrmPropertiesEXT mDrmProperties;
 
     angle::PackedEnumBitSet<gl::ShadingRate, uint8_t> mSupportedFragmentShadingRates;
@@ -858,7 +941,7 @@ class RendererVk : angle::NonCopyable
     // is the garbage that is still referenced in the recorded commands. suballocations have its
     // own dedicated garbage list for performance optimization since they tend to be the most
     // common garbage objects. All these four groups of garbage share the same mutex lock.
-    std::mutex mGarbageMutex;
+    mutable std::mutex mGarbageMutex;
     vk::SharedGarbageList mSharedGarbage;
     vk::SharedGarbageList mPendingSubmissionGarbage;
     vk::SharedBufferSuballocationGarbageList mSuballocationGarbage;
@@ -1023,6 +1106,18 @@ ANGLE_INLINE bool RendererVk::hasQueueSerialSubmitted(const QueueSerial &queueSe
     else
     {
         return mCommandQueue.hasQueueSerialSubmitted(queueSerial);
+    }
+}
+
+ANGLE_INLINE Serial RendererVk::getLastSubmittedSerial(SerialIndex index) const
+{
+    if (isAsyncCommandQueueEnabled())
+    {
+        return mCommandProcessor.getLastEnqueuedSerial(index);
+    }
+    else
+    {
+        return mCommandQueue.getLastSubmittedSerial(index);
     }
 }
 

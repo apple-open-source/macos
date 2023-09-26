@@ -123,6 +123,11 @@
 #include "nat64-configuration.h"
 #include "agent-monitor.h"
 #define NEED_EFFECTIVE_INTERFACE	1
+
+#if TARGET_OS_EMBEDDED
+#define CHECK_MULTIUSER			1
+#endif /* TARGET_OS_EMBEDDED */
+
 #endif	/* !TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) */
 
 #include "dns-configuration.h"
@@ -1038,6 +1043,103 @@ S_is_network_boot(void)
     sysctl(mib, 2, &netboot, &len, NULL, 0);
     return (netboot);
 }
+
+#if defined(CHECK_MULTIUSER)
+#include <mach/mach_host.h>
+#include <mach/mach_error.h>
+#include <System/machine/cpu_capabilities.h>
+#include <semaphore.h>
+
+#define CONFIGD_FIRST_BOOT_SEM	"com.apple.configd.first-boot"
+
+static boolean_t
+my_sem_exists(const char * name)
+{
+    boolean_t	exists = FALSE;
+    sem_t *	sem;
+	
+    sem = sem_open(name, 0);
+    if (sem != SEM_FAILED) {
+	sem_close(sem);
+	exists = TRUE;
+    }
+    return (exists);
+}
+
+static boolean_t
+my_sem_establish(const char * name)
+{
+    boolean_t	created = FALSE;
+    sem_t *	sem;
+
+    sem = sem_open(name, O_CREAT, S_IRUSR, 0);
+    if (sem == SEM_FAILED) {
+	my_log(LOG_ERR, "%s: failed to create %s, %s",
+	       __func__, name, strerror(errno));
+    }
+    else {
+	my_log(LOG_NOTICE, "%s: created %s",
+	       __func__, name);
+	sem_close(sem);
+	created = TRUE;
+    }
+    return (created);
+}
+
+static boolean_t
+is_first_boot(void)
+{
+    static boolean_t		first_boot;
+    static dispatch_once_t	once;
+
+    dispatch_once(&once, ^{
+	    if (!my_sem_exists(CONFIGD_FIRST_BOOT_SEM)) {
+		first_boot = TRUE;
+		(void)my_sem_establish(CONFIGD_FIRST_BOOT_SEM);
+	    }
+    });
+    return (first_boot);
+}
+
+static boolean_t
+host_is_multiuser(void)
+{
+    boolean_t		is_multiuser = FALSE;
+    kern_return_t	kr;
+    uint32_t 		value = 0;
+
+    kr = host_get_multiuser_config_flags(mach_host_self(), &value);
+    if (kr != KERN_SUCCESS) {
+	my_log(LOG_ERR, "host_get_multiuser_config_flags() failed, %s (0x%x)",
+	       mach_error_string(kr), kr);
+    }
+    else if ((value & kIsMultiUserDevice) != 0) {
+	is_multiuser = TRUE;
+    }
+    my_log(LOG_NOTICE, "%s: %s", __func__, is_multiuser ? "true" : "false");
+    return (is_multiuser);
+}
+
+static boolean_t
+need_to_flush_inet_routes(void)
+{
+    boolean_t	need_flush = TRUE;
+
+    if (host_is_multiuser()) {
+	need_flush = !is_first_boot();
+    }
+    return (need_flush);
+}
+
+#else /* defined(CHECK_MULTIUSER) */
+
+static boolean_t
+need_to_flush_inet_routes(void)
+{
+    return (TRUE);
+}
+
+#endif /* defined(CHECK_MULTIUSER) */
 
 static int	rtm_seq = 0;
 
@@ -9180,8 +9282,15 @@ ip_plugin_init(void)
 	S_netboot = TRUE;
     }
     else {
-	/* flush routes */
-	flush_inet_routes();
+	boolean_t	need_flush;
+
+	need_flush = need_to_flush_inet_routes();
+	my_log(LOG_NOTICE, "%sflushing IPv4 routes",
+	       need_flush ? "" : "not ");
+	    /* flush routes */
+	if (need_flush) {
+	    flush_inet_routes();
+	}
     }
 
     /*

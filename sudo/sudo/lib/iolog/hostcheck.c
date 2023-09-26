@@ -19,11 +19,15 @@
  * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
-#include "config.h"
+#include <config.h>
 
 #if defined(HAVE_OPENSSL)
+# if defined(HAVE_WOLFSSL)
+#  include <wolfssl/options.h>
+# endif
 # include <sys/types.h>
 # include <sys/socket.h>
+# include <netinet/in.h>
 # include <arpa/inet.h>
 # include <stdlib.h>
 # include <string.h>
@@ -35,6 +39,13 @@
 # include  "sudo_debug.h"
 # include  "sudo_util.h"
 # include  "hostcheck.h"
+
+#ifndef INET_ADDRSTRLEN
+# define INET_ADDRSTRLEN 16
+#endif
+#ifndef INET6_ADDRSTRLEN
+# define INET6_ADDRSTRLEN 46
+#endif
 
 /**
  * @brief Checks if given hostname resolves to the given IP address.
@@ -177,7 +188,7 @@ matches_common_name(const char *hostname, const char *ipaddr, const X509 *cert, 
 {
 	X509_NAME_ENTRY *common_name_entry = NULL;
 	ASN1_STRING *common_name_asn1 = NULL;
- 	int common_name_loc = -1;
+ 	int common_name_loc;
 	debug_decl(matches_common_name, SUDO_DEBUG_UTIL);
 
 	/* Find the position of the CN field in the Subject field of the certificate */
@@ -257,7 +268,7 @@ matches_subject_alternative_name(const char *hostname, const char *ipaddr, const
 {
     HostnameValidationResult result = MatchNotFound;
     int i;
-    int san_names_nb = -1;
+    int san_names_nb;
     STACK_OF(GENERAL_NAME) *san_names = NULL;
     debug_decl(matches_subject_alternative_name, SUDO_DEBUG_UTIL);
 

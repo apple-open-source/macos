@@ -104,13 +104,12 @@ public:
 				MacOSError::throwMe((int)error);
 		} else if (type == XPC_TYPE_ERROR) {
 			const char *s = xpc_copy_description(reply);
-			printf("Error returned: %s\n", s);
-            Syslog::notice("code signing internal problem: unexpected error from xpc: %s", s);
+			secerror("code signing internal problem: unexpected error from xpc: %s", s);
 			free((char*)s);
             MacOSError::throwMe(errSecCSInternalError);
 		} else {
 			const char *s = xpc_copy_description(reply);
-			printf("Unexpected type of return object: %s\n", s);
+			secerror("code signing internal problem: unexpected type of return object: %s", s);
 			free((char*)s);
 		}
 	}

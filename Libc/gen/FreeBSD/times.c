@@ -49,8 +49,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/times.c,v 1.2 2002/02/01 01:08:48 obrien Ex
 #define	CONVTCK(r)	(r.tv_sec * CLK_TCK + r.tv_usec / (1000000 / CLK_TCK))
 
 clock_t
-times(tp)
-	struct tms *tp;
+times(struct tms *tp)
 {
 	struct rusage ru;
 	struct timeval t;

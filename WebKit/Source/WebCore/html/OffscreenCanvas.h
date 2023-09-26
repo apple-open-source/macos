@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,8 +65,6 @@ class WebGLRenderingContextBase;
 using OffscreenRenderingContext = std::variant<
 #if ENABLE(WEBGL)
     RefPtr<WebGLRenderingContext>,
-#endif
-#if ENABLE(WEBGL2)
     RefPtr<WebGL2RenderingContext>,
 #endif
     RefPtr<ImageBitmapRenderingContext>,
@@ -136,7 +134,7 @@ public:
     ExceptionOr<RefPtr<ImageBitmap>> transferToImageBitmap();
     void convertToBlob(ImageEncodeOptions&&, Ref<DeferredPromise>&&);
 
-    void didDraw(const std::optional<FloatRect>&) final;
+    void didDraw(const std::optional<FloatRect>&, ShouldApplyPostProcessingToDirtyRect) final;
 
     Image* copiedImage() const final;
     void clearCopiedImage() const final;

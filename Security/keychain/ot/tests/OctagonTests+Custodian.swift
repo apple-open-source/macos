@@ -423,7 +423,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -552,7 +551,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -577,7 +575,6 @@ class OctagonCustodianTests: OctagonTestsBase {
         // Now, join from a new device
         let newCliqueContext = OTConfigurationContext()
         newCliqueContext.context = OTDefaultContext
-        newCliqueContext.dsid = self.otcliqueContext.dsid
         newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         newCliqueContext.otControl = self.otControl
 
@@ -687,7 +684,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -764,7 +760,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -841,7 +836,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         let clique = try self.createClique(contextData: bottlerotcliqueContext)
@@ -1082,7 +1076,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -1144,7 +1137,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -1213,7 +1205,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -1278,7 +1269,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -1432,7 +1422,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let removeCustodianRecoveryKeyExpectation2 = self.expectation(description: "removeCustodianRecoveryKey2 returns")
         self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
-            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertNil(error, "error should be nil")
             removeCustodianRecoveryKeyExpectation2.fulfill()
         }
         self.wait(for: [removeCustodianRecoveryKeyExpectation2], timeout: 20)
@@ -1483,7 +1473,6 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         _ = try self.createClique(contextData: bottlerotcliqueContext)
@@ -1650,6 +1639,27 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.wait(for: [joinWithCustodianRecoveryKeyExpectation], timeout: 20)
     }
 
+    func testCustodianRecoveryKeyCheckNoKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // This flag gates whether or not we'll error while setting the recovery key
+        OctagonSetSOSFeatureEnabled(true)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        let checkCustodianRecoveryKeyExpectation = self.expectation(description: "checkCustodianRecoveryKey returns")
+        self.manager.checkCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: UUID()) { exists, error in
+            XCTAssertFalse(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkCustodianRecoveryKeyExpectation], timeout: 20)
+        self.verifyDatabaseMocks()
+    }
+
     func testCustodianRecoveryKeyExists() throws {
         try self.skipOnRecoveryKeyNotSupported()
         OctagonSetSOSFeatureEnabled(false)
@@ -1709,8 +1719,11 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let checkCustodianRecoveryKeyExpectation = self.expectation(description: "checkCustodianRecoveryKey returns")
         self.manager.checkCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { exists, error in
-            XCTAssertFalse(exists, "exists mismatch")
-            XCTAssertNil(error, "error should be nil")
+            // Removed CRKs should be exist=false, and error==untrustedRecoveryKeys
+            XCTAssertFalse(exists, "exists should be false")
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
             checkCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [checkCustodianRecoveryKeyExpectation], timeout: 20)

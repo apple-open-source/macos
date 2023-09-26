@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2018, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -122,7 +122,7 @@ int recv_fd(int servfd)
     [[text window] makeFirstResponder:text];
 
     // bring the app to the front, window centered
-    [NSApp activateIgnoringOtherApps:YES];
+    [NSApp activate];
     [[text window] center];
     [[text window] makeKeyAndOrderFront:self];
     [[text window] setLevel:NSFloatingWindowLevel];

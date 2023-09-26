@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,6 +68,9 @@ WiFiInfoGetSSID(WiFiInfoRef w);
 
 const struct ether_addr *
 WiFiInfoGetBSSID(WiFiInfoRef w);
+
+const struct ether_addr *
+WiFiInfoGetPrivateBSSID(WiFiInfoRef w);
 
 WiFiAuthType
 WiFiInfoGetAuthType(WiFiInfoRef w);

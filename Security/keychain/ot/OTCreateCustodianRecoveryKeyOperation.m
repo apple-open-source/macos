@@ -109,7 +109,7 @@
                                                                                  TrustedPeersHelperCustodianRecoveryKey *_Nullable crk,
                                                                                  NSError * _Nullable error) {
             STRONGIFY(self);
-            [[CKKSAnalytics logger] logResultForEvent:OctagonEventCustodianRecoveryKey hardFailure:true result:error];
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventCreateCustodianRecoveryKeyTPH hardFailure:true result:error];
             if(error){
                 secerror("octagon: Error create custodian recovery key: %@", error);
                 self.error = error;

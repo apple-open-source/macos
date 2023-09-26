@@ -64,7 +64,7 @@ UniqueRef<RTCDtlsTransportBackend> GStreamerSctpTransportBackend::dtlsTransportB
 {
     GRefPtr<GstWebRTCDTLSTransport> transport;
     g_object_get(m_backend.get(), "transport", &transport.outPtr(), nullptr);
-    return makeUniqueRef<GStreamerDtlsTransportBackend>(transport);
+    return makeUniqueRef<GStreamerDtlsTransportBackend>(WTFMove(transport));
 }
 
 void GStreamerSctpTransportBackend::registerClient(Client& client)
@@ -99,6 +99,8 @@ void GStreamerSctpTransportBackend::stateChanged()
         client->onStateChanged(toRTCSctpTransportState(transportState), maxMessageSize, maxChannels);
     });
 }
+
+#undef GST_CAT_DEFAULT
 
 } // namespace WebCore
 

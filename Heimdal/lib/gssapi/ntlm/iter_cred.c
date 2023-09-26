@@ -34,6 +34,7 @@
  */
 
 #include "ntlm.h"
+#include "heimcred.h"
 #include <gssapi_spi.h>
 
 void
@@ -107,6 +108,79 @@ _gss_ntlm_iter_creds_f(OM_uint32 flags,
 	krb5_free_context(context);
     (*cred_iter)(userctx, NULL, NULL);
 #else /* !HAVE_KCM */
-    _gss_mg_log(1, "_gss_ntlm_iter_creds_f -  GSS_S_UNAVAILABLE");
+
+    CFDictionaryRef query = NULL;
+    CFArrayRef query_result = NULL;
+
+    const void *add_keys[] = {
+    (void *)kHEIMObjectType,
+	    kHEIMAttrType,
+    };
+    const void *add_values[] = {
+    (void *)kHEIMObjectNTLM,
+	    kHEIMTypeNTLM,
+    };
+
+    query = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (query == NULL)
+	errx(1, "out of memory");
+
+    query_result = HeimCredCopyQuery(query);
+
+    CFIndex n, count = CFArrayGetCount(query_result);
+    for (n = 0; n < count; n++) {
+	char *user = NULL, *domain = NULL;
+
+	HeimCredRef cred = (HeimCredRef)CFArrayGetValueAtIndex(query_result, n);
+	CFStringRef userName = HeimCredCopyAttribute(cred, kHEIMAttrNTLMUsername);
+	if (userName) {
+	    user = rk_cfstring2cstring(userName);
+	}
+	CFStringRef domainName = HeimCredCopyAttribute(cred, kHEIMAttrNTLMDomain);
+	if (domainName) {
+	    domain = rk_cfstring2cstring(domainName);
+	}
+
+	CFUUIDBytes uuid_bytes;
+	CFUUIDRef uuid_cfuuid = HeimCredGetUUID(cred);
+	if (uuid_cfuuid) {
+	    uuid_bytes = CFUUIDGetUUIDBytes(uuid_cfuuid);
+	}
+
+	ntlm_cred dn;
+
+	dn = calloc(1, sizeof(*dn));
+	if (dn == NULL) {
+	    free(user);
+	    free(domain);
+	    CFRELEASE_NULL(userName);
+	    CFRELEASE_NULL(domainName);
+	    continue;
+	}
+
+	if (user == NULL || domain == NULL || uuid_cfuuid == NULL) {
+	    free(dn);
+	    free(user);
+	    free(domain);
+	    CFRELEASE_NULL(userName);
+	    CFRELEASE_NULL(domainName);
+	    continue;
+	}
+
+	dn->user = strdup(user);
+	dn->domain = strdup(domain);
+	dn->flags = NTLM_UUID;
+	memcpy(dn->uuid, &uuid_bytes, sizeof(dn->uuid));
+
+	cred_iter(userctx, GSS_NTLM_MECHANISM, (gss_cred_id_t)dn);
+
+	free(user);
+	free(domain);
+	CFRELEASE_NULL(userName);
+	CFRELEASE_NULL(domainName);
+    }
+    CFRelease(query_result);
+
+    (*cred_iter)(userctx, NULL, NULL);
 #endif /* HAVE_KCM */
 }		 

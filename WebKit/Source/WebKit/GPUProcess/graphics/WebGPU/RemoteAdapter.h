@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,13 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteGPU.h"
 #include "StreamMessageReceiver.h"
 #include "WebGPUIdentifier.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
 
-namespace PAL::WebGPU {
+namespace WebCore::WebGPU {
 class Adapter;
 }
 
@@ -52,9 +53,9 @@ struct SupportedLimits;
 class RemoteAdapter final : public IPC::StreamMessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteAdapter> create(PAL::WebGPU::Adapter& adapter, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
+    static Ref<RemoteAdapter> create(PerformWithMediaPlayerOnMainThread& performWithMediaPlayerOnMainThread, WebCore::WebGPU::Adapter& adapter, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteAdapter(adapter, objectHeap, WTFMove(streamConnection), identifier));
+        return adoptRef(*new RemoteAdapter(performWithMediaPlayerOnMainThread, adapter, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemoteAdapter();
@@ -64,22 +65,24 @@ public:
 private:
     friend class WebGPU::ObjectHeap;
 
-    RemoteAdapter(PAL::WebGPU::Adapter&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
+    RemoteAdapter(PerformWithMediaPlayerOnMainThread&, WebCore::WebGPU::Adapter&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteAdapter(const RemoteAdapter&) = delete;
     RemoteAdapter(RemoteAdapter&&) = delete;
     RemoteAdapter& operator=(const RemoteAdapter&) = delete;
     RemoteAdapter& operator=(RemoteAdapter&&) = delete;
 
-    PAL::WebGPU::Adapter& backing() { return m_backing; }
+    WebCore::WebGPU::Adapter& backing() { return m_backing; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
     void requestDevice(const WebGPU::DeviceDescriptor&, WebGPUIdentifier, WebGPUIdentifier queueIdentifier, CompletionHandler<void(WebGPU::SupportedFeatures&&, WebGPU::SupportedLimits&&)>&&);
+    void destruct();
 
-    Ref<PAL::WebGPU::Adapter> m_backing;
+    Ref<WebCore::WebGPU::Adapter> m_backing;
     WebGPU::ObjectHeap& m_objectHeap;
     Ref<IPC::StreamServerConnection> m_streamConnection;
+    PerformWithMediaPlayerOnMainThread& m_performWithMediaPlayerOnMainThread;
     WebGPUIdentifier m_identifier;
 };
 

@@ -35,12 +35,14 @@
 
 #include "gssdigest.h"
 #include <gssapi_spi.h>
+#include "heimcred.h"
 
 void
 _gss_scram_iter_creds_f(OM_uint32 flags,
 		       void *userctx ,
 		       void (*cred_iter)(void *, gss_OID, gss_cred_id_t))
 {
+#ifdef HAVE_KCM
     krb5_error_code ret;
     krb5_context context = NULL;
     krb5_storage *request, *response;
@@ -85,5 +87,68 @@ _gss_scram_iter_creds_f(OM_uint32 flags,
  done:
     if (context)
 	krb5_free_context(context);
+
     (*cred_iter)(userctx, NULL, NULL);
-}		 
+#else
+    CFDictionaryRef query = NULL;
+    CFArrayRef query_result = NULL;
+
+    const void *add_keys[] = {
+    (void *)kHEIMObjectType,
+	    kHEIMAttrType,
+    };
+    const void *add_values[] = {
+    (void *)kHEIMObjectSCRAM,
+	    kHEIMTypeSCRAM,
+    };
+
+    query = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (query == NULL)
+	errx(1, "out of memory");
+
+    query_result = HeimCredCopyQuery(query);
+
+    CFIndex n, count = CFArrayGetCount(query_result);
+    for (n = 0; n < count; n++) {
+	char *user = NULL;
+
+	HeimCredRef cred = (HeimCredRef)CFArrayGetValueAtIndex(query_result, n);
+	CFStringRef userName = HeimCredCopyAttribute(cred, kHEIMAttrSCRAMUsername);
+	if (userName) {
+	    user = rk_cfstring2cstring(userName);
+	}
+
+	CFUUIDBytes uuid_bytes;
+	CFUUIDRef uuid_cfuuid = HeimCredGetUUID(cred);
+	if (uuid_cfuuid) {
+	    uuid_bytes = CFUUIDGetUUIDBytes(uuid_cfuuid);
+	}
+
+	scram_cred dn;
+
+	dn = calloc(1, sizeof(*dn));
+	if (dn == NULL) {
+	    free(user);
+	    CFRELEASE_NULL(userName);
+	    continue;
+	}
+
+	if (user == NULL || uuid_cfuuid == NULL) {
+	    free(dn);
+	    free(user);
+	    CFRELEASE_NULL(userName);
+	    continue;
+	}
+
+	dn->name = strdup(user);
+	memcpy(dn->uuid, &uuid_bytes, sizeof(dn->uuid));
+
+	cred_iter(userctx, GSS_SCRAM_MECHANISM, (gss_cred_id_t)dn);
+
+	free(user);
+	CFRELEASE_NULL(userName);
+    }
+    CFRelease(query_result);
+    (*cred_iter)(userctx, NULL, NULL);
+#endif
+}

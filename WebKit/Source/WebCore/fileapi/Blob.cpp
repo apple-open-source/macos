@@ -41,6 +41,7 @@
 #include "ReadableStream.h"
 #include "ReadableStreamSource.h"
 #include "ScriptExecutionContext.h"
+#include "SecurityOrigin.h"
 #include "SharedBuffer.h"
 #include "ThreadableBlobRegistry.h"
 #include "WebCoreOpaqueRoot.h"
@@ -126,7 +127,7 @@ Blob::Blob(ScriptExecutionContext* context)
     , m_size(0)
     , m_internalURL(BlobURL::createInternalURL())
 {
-    ThreadableBlobRegistry::registerBlobURL(m_internalURL, { }, { });
+    ThreadableBlobRegistry::registerInternalBlobURL(m_internalURL, { }, { });
 }
 
 static size_t computeMemoryCost(const Vector<BlobPartVariant>& blobPartVariants)
@@ -165,7 +166,7 @@ Blob::Blob(ScriptExecutionContext& context, Vector<BlobPartVariant>&& blobPartVa
     , m_memoryCost(computeMemoryCost(blobPartVariants))
     , m_internalURL(BlobURL::createInternalURL())
 {
-    ThreadableBlobRegistry::registerBlobURL(m_internalURL, buildBlobData(WTFMove(blobPartVariants), propertyBag), m_type);
+    ThreadableBlobRegistry::registerInternalBlobURL(m_internalURL, buildBlobData(WTFMove(blobPartVariants), propertyBag), m_type);
 }
 
 Blob::Blob(ScriptExecutionContext* context, Vector<uint8_t>&& data, const String& contentType)
@@ -175,7 +176,7 @@ Blob::Blob(ScriptExecutionContext* context, Vector<uint8_t>&& data, const String
     , m_memoryCost(data.size())
     , m_internalURL(BlobURL::createInternalURL())
 {
-    ThreadableBlobRegistry::registerBlobURL(m_internalURL, { BlobPart(WTFMove(data)) }, contentType);
+    ThreadableBlobRegistry::registerInternalBlobURL(m_internalURL, { BlobPart(WTFMove(data)) }, contentType);
 }
 
 Blob::Blob(ReferencingExistingBlobConstructor, ScriptExecutionContext* context, const Blob& blob)
@@ -185,7 +186,7 @@ Blob::Blob(ReferencingExistingBlobConstructor, ScriptExecutionContext* context, 
     , m_memoryCost(blob.memoryCost())
     , m_internalURL(BlobURL::createInternalURL())
 {
-    ThreadableBlobRegistry::registerBlobURL(m_internalURL, { BlobPart(blob.url()) } , m_type);
+    ThreadableBlobRegistry::registerInternalBlobURL(m_internalURL, { BlobPart(blob.url()) } , m_type);
 }
 
 Blob::Blob(DeserializationContructor, ScriptExecutionContext* context, const URL& srcURL, const String& type, std::optional<unsigned long long> size, unsigned long long memoryCost, const String& fileBackedPath)
@@ -198,7 +199,7 @@ Blob::Blob(DeserializationContructor, ScriptExecutionContext* context, const URL
     if (fileBackedPath.isEmpty())
         ThreadableBlobRegistry::registerBlobURL(nullptr, { }, m_internalURL, srcURL);
     else
-        ThreadableBlobRegistry::registerBlobURLOptionallyFileBacked(m_internalURL, srcURL, fileBackedPath, m_type);
+        ThreadableBlobRegistry::registerInternalBlobURLOptionallyFileBacked(m_internalURL, srcURL, fileBackedPath, m_type);
 }
 
 Blob::Blob(ScriptExecutionContext* context, const URL& srcURL, long long start, long long end, unsigned long long memoryCost, const String& type)
@@ -208,7 +209,7 @@ Blob::Blob(ScriptExecutionContext* context, const URL& srcURL, long long start, 
     , m_internalURL(BlobURL::createInternalURL())
     // m_size is not necessarily equal to end - start so we do not initialize it here.
 {
-    ThreadableBlobRegistry::registerBlobURLForSlice(m_internalURL, srcURL, start, end, m_type);
+    ThreadableBlobRegistry::registerInternalBlobURLForSlice(m_internalURL, srcURL, start, end, m_type);
 }
 
 Blob::~Blob()
@@ -361,7 +362,7 @@ ExceptionOr<Ref<ReadableStream>> Blob::stream()
     auto* globalObject = context ? context->globalObject() : nullptr;
     if (!globalObject)
         return Exception { InvalidStateError };
-    return ReadableStream::create(*globalObject, adoptRef(*new BlobStreamSource(*context, *this)));
+    return ReadableStream::create(*JSC::jsCast<JSDOMGlobalObject*>(globalObject), adoptRef(*new BlobStreamSource(*context, *this)));
 }
 
 #if ASSERT_ENABLED

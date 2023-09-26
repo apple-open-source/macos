@@ -29,6 +29,7 @@
 #include "APIViewClient.h"
 #include "DrawingAreaProxyCoordinatedGraphics.h"
 #include "NativeWebMouseEvent.h"
+#include "NativeWebTouchEvent.h"
 #include "NativeWebWheelEvent.h"
 #include "TouchGestureController.h"
 #include "WPEView.h"
@@ -62,7 +63,7 @@ UnixFileDescriptor PageClientImpl::hostFileDescriptor()
     return UnixFileDescriptor { wpe_view_backend_get_renderer_host_fd(m_view.backend()), UnixFileDescriptor::Adopt };
 }
 
-std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& process)
+std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy()
 {
     return makeUnique<DrawingAreaProxyCoordinatedGraphics>(m_view.page());
 }
@@ -218,7 +219,7 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, b
 
             // Mouse motion towards the point of the click.
             event->type = wpe_input_pointer_event_type_motion;
-            page.handleMouseEvent(NativeWebMouseEvent(event, page.deviceScaleFactor()));
+            page.handleMouseEvent(NativeWebMouseEvent(event, page.deviceScaleFactor(), WebMouseEventSyntheticClickType::OneFingerTap));
 
             event->type = wpe_input_pointer_event_type_button;
             event->button = 1;
@@ -226,25 +227,17 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, b
             // Mouse down on the point of the click.
             event->state = 1;
             event->modifiers |= wpe_input_pointer_modifier_button1;
-            page.handleMouseEvent(NativeWebMouseEvent(event, page.deviceScaleFactor()));
+            page.handleMouseEvent(NativeWebMouseEvent(event, page.deviceScaleFactor(), WebMouseEventSyntheticClickType::OneFingerTap));
 
             // Mouse up on the same location.
             event->state = 0;
             event->modifiers &= ~wpe_input_pointer_modifier_button1;
-            page.handleMouseEvent(NativeWebMouseEvent(event, page.deviceScaleFactor()));
+            page.handleMouseEvent(NativeWebMouseEvent(event, page.deviceScaleFactor(), WebMouseEventSyntheticClickType::OneFingerTap));
         },
-        [&](TouchGestureController::AxisEvent& axisEvent)
-        {
-#if WPE_CHECK_VERSION(1, 5, 0)
-            auto* event = &axisEvent.event.base;
-#else
-            auto* event = &axisEvent.event;
-#endif
-            if (event->type != wpe_input_axis_event_type_null) {
-                page.handleWheelEvent(WebKit::NativeWebWheelEvent(event, page.deviceScaleFactor(),
-                    axisEvent.phase, WebWheelEvent::Phase::PhaseNone));
-            }
-        });
+        [&](TouchGestureController::ContextMenuEvent&) {
+            // FIXME: Generate contextmenuevent without accidentally generating mouseup/mousedown events
+        },
+        [](TouchGestureController::AxisEvent&) { });
 }
 #endif
 
@@ -256,7 +249,7 @@ RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& pag
 {
     if (!m_view.client().isGLibBasedAPI())
         return nullptr;
-    return WebKitPopupMenu::create(m_view, page);
+    return WebKitPopupMenu::create(m_view, page.popupMenuClient());
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -387,7 +380,6 @@ void PageClientImpl::exitFullScreen()
         fullScreenManagerProxy->willExitFullScreen();
         if (!m_view.setFullScreen(false))
             fullScreenManagerProxy->didEnterFullScreen();
-
     }
 }
 

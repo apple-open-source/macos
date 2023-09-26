@@ -1151,7 +1151,7 @@ TEST_P(EGLContextSharingTestNoFixture, EglTerminateMultipleTimes)
 
     // Must be after the eglMakeCurrent() so renderer string is initialized.
     // TODO(http://www.anglebug.com/6304): Fails with Mac + OpenGL backend.
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsOpenGL());
+    ANGLE_SKIP_TEST_IF(IsMac() && IsOpenGL());
 
     EXPECT_TRUE(eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
 
@@ -1236,6 +1236,8 @@ TEST_P(EGLContextSharingTestNoFixture, SwapBuffersShared)
         }
         eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         eglReleaseThread();
+
+        ASSERT_TRUE(threadSynchronization.waitForStep(Step::Finish));
     });
 
     // Render to the texture in the render thread.
@@ -1271,6 +1273,8 @@ TEST_P(EGLContextSharingTestNoFixture, SwapBuffersShared)
         }
         eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         eglReleaseThread();
+
+        threadSynchronization.nextStep(Step::Finish);
     });
 
     swapThread.join();

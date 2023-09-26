@@ -158,6 +158,12 @@ static struct afswtch *af_getbyname(const char *name);
 static struct afswtch *af_getbyfamily(int af);
 static void af_other_status(int);
 
+/* Formatter Strings */
+char	*f_inet, *f_inet6, *f_ether, *f_addr;
+
+static void freeformat(void);
+static void setformat(char *input);
+
 static struct option *opts = NULL;
 
 void
@@ -166,7 +172,6 @@ opt_register(struct option *p)
 	p->next = opts;
 	opts = p;
 }
-
 static void
 usage(void)
 {
@@ -211,11 +216,7 @@ main(int argc, char *argv[])
 	all = downonly = uponly = namesonly = noload = 0;
 
 	/* Parse leading line options */
-#ifndef __APPLE__
-	strlcpy(options, "adklmnuv", sizeof(options));
-#else
-	strlcpy(options, "X:abdlmruv", sizeof(options));
-#endif
+	strlcpy(options, "X:abdf:lmruv", sizeof(options));
 	for (p = opts; p != NULL; p = p->next)
 		strlcat(options, p->opt, sizeof(options));
 	while ((c = getopt(argc, argv, options)) != -1) {
@@ -234,6 +235,11 @@ main(int argc, char *argv[])
 			break;				
 		case 'd':	/* restrict scan to "down" interfaces */
 			downonly++;
+			break;
+		case 'f':
+			if (optarg == NULL)
+				usage();
+			setformat(optarg);
 			break;
 #ifndef __APPLE__
 		case 'k':
@@ -401,6 +407,7 @@ main(int argc, char *argv[])
 	if (is_regex) {
 		regfree(&if_reg);
 	}
+	freeformat();
 
 	exit(0);
 }
@@ -1769,6 +1776,53 @@ show_routermode6(void)
 	}
 }
 
+#define	IFHWASSISTBITS \
+"\020\1CSUM_IP\2CSUM_TCP\3CSUM_UDP\4CSUM_IP_FRAGS\5CSUM_FRAGMENT\6CSUM_TCPIPV6\7CSUM_UDPIPV6" \
+"\10CSUM_FRAGMENT_IPV6\15CSUM_PARTIAL\16CSUM_ZERO_INVERT" \
+"\21VLAN_TAGGING\22VLAN_MTU\25MULTIPAGES\26TSO_V4\27TSO_V6" \
+"\30TXSTATUS\31HW_TIMESTAMP\32SW_TIMESTAMP\35LRO\36RX_CSUM "
+
+static void
+show_hwassist(void)
+{
+	int mib[6];
+	char *buf = NULL;
+	size_t buf_len = 0;
+	struct if_msghdr *ifm;
+
+	mib[0] = CTL_NET;
+	mib[1] = PF_ROUTE;
+	mib[2] = 0;
+	mib[3] = AF_LINK;
+	mib[4] = NET_RT_IFLIST;
+	mib[5] = if_nametoindex(name);
+
+	if (sysctl(mib, 6, NULL, &buf_len, NULL, 0) == -1) {
+		perror("sysctl");
+		goto done;
+	}
+	buf = calloc(buf_len, 1);
+	if (buf == NULL) {
+		perror("calloc");
+		goto done;
+	}
+	if (sysctl(mib, 6, buf, &buf_len, NULL, 0) == -1) {
+		perror("sysctl");
+		goto done;
+	}
+	ifm = (struct if_msghdr *)(void *)buf;
+	if (ifm->ifm_data.ifi_hwassist != 0) {
+		printb("\thwassist", ifm->ifm_data.ifi_hwassist, IFHWASSISTBITS);
+		printf("\n");
+	}
+
+done:
+	if (buf != NULL) {
+		free(buf);
+	}
+}
+
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
@@ -1776,7 +1830,7 @@ show_routermode6(void)
 
 #define	IFEFBITS \
 "\020\1AUTOCONFIGURING\4PROBE_CONNECTIVITY\5ADV_REPORT\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
-"\12VLAN\13BOND\14ARPLL\15CLAT46\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
+"\12VLAN\13BOND\14ARPLL\15CLAT46\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4\21CLONE" \
 "\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
 "\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\33CHANNEL_DRV\34CA" \
 "\35SENDLIST\36DIRECTLINK\37FASTLN_ON\40UPDOWNCHANGE"
@@ -1874,6 +1928,10 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		}
 	}
 
+	if (verbose) {
+		show_hwassist();
+	}
+
 	tunnel_status(s);
 
 	for (ift = ifa; ift != NULL; ift = ift->ifa_next) {
@@ -1926,6 +1984,12 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	/* The rest is for when verbose is set; if not set, we're done */
 	if (!verbose)
 		goto done;
+
+#ifdef SIOCGIFGENERATIONID
+	if (ioctl(s, SIOCGIFGENERATIONID, &ifr) != -1) {
+		printf("\tgeneration id: %llu\n", ifr.ifr_creation_generation_id);
+	}
+#endif /* SIOCGIFGENERATIONID */
 
 	if (ioctl(s, SIOCGIFTYPE, &ifr) != -1) {
 		char *c = ift2str(ifr.ifr_type.ift_type,
@@ -2248,7 +2312,6 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	}
 	show_routermode(s);
 	show_routermode6();
-
 done:
 	close(s);
 	return;
@@ -2752,4 +2815,46 @@ iffunct2str(u_int32_t functional_type)
 			break;
 	}
 	return str;
+}
+
+static void freeformat(void)
+{
+
+	if (f_inet != NULL)
+		free(f_inet);
+	if (f_inet6 != NULL)
+		free(f_inet6);
+	if (f_ether != NULL)
+		free(f_ether);
+	if (f_addr != NULL)
+		free(f_addr);
+}
+
+static void setformat(char *input)
+{
+	char	*formatstr, *category, *modifier;
+
+	formatstr = strdup(input);
+	while ((category = strsep(&formatstr, ",")) != NULL) {
+		modifier = strchr(category, ':');
+		if (modifier == NULL || modifier[1] == '\0') {
+			warnx("Skipping invalid format specification: %s\n",
+				category);
+			continue;
+		}
+
+		/* Split the string on the separator, then seek past it */
+		modifier[0] = '\0';
+		modifier++;
+
+		if (strcmp(category, "addr") == 0)
+			f_addr = strdup(modifier);
+		else if (strcmp(category, "ether") == 0)
+			f_ether = strdup(modifier);
+		else if (strcmp(category, "inet") == 0)
+			f_inet = strdup(modifier);
+		else if (strcmp(category, "inet6") == 0)
+			f_inet6 = strdup(modifier);
+	}
+	free(formatstr);
 }

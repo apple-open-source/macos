@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,9 +85,7 @@ bool Adapter::hasFeature(WGPUFeatureName feature)
 void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHandler<void(WGPURequestDeviceStatus, Ref<Device>&&, String&&)>&& callback)
 {
     if (descriptor.nextInChain) {
-        instance().scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
-            callback(WGPURequestDeviceStatus_Error, Device::createInvalid(strongThis), "Unknown descriptor type"_s);
-        });
+        callback(WGPURequestDeviceStatus_Error, Device::createInvalid(*this), "Unknown descriptor type"_s);
         return;
     }
 
@@ -95,23 +93,17 @@ void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHa
 
     if (descriptor.requiredLimits) {
         if (descriptor.requiredLimits->nextInChain) {
-            instance().scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
-                callback(WGPURequestDeviceStatus_Error, Device::createInvalid(strongThis), "Unknown descriptor type"_s);
-            });
+            callback(WGPURequestDeviceStatus_Error, Device::createInvalid(*this), "Unknown descriptor type"_s);
             return;
         }
 
         if (!WebGPU::isValid(descriptor.requiredLimits->limits)) {
-            instance().scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
-                callback(WGPURequestDeviceStatus_Error, Device::createInvalid(strongThis), "Device does not support requested limits"_s);
-            });
+            callback(WGPURequestDeviceStatus_Error, Device::createInvalid(*this), "Device does not support requested limits"_s);
             return;
         }
 
         if (anyLimitIsBetterThan(descriptor.requiredLimits->limits, m_capabilities.limits)) {
-            instance().scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
-                callback(WGPURequestDeviceStatus_Error, Device::createInvalid(strongThis), "Device does not support requested limits"_s);
-            });
+            callback(WGPURequestDeviceStatus_Error, Device::createInvalid(*this), "Device does not support requested limits"_s);
             return;
         }
 
@@ -121,9 +113,7 @@ void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHa
 
     auto features = Vector { descriptor.requiredFeatures, descriptor.requiredFeaturesCount };
     if (includesUnsupportedFeatures(features, m_capabilities.features)) {
-        instance().scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
-            callback(WGPURequestDeviceStatus_Error, Device::createInvalid(strongThis), "Device does not support requested features"_s);
-        });
+        callback(WGPURequestDeviceStatus_Error, Device::createInvalid(*this), "Device does not support requested features"_s);
         return;
     }
 
@@ -134,20 +124,18 @@ void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHa
     };
 
     auto label = fromAPI(descriptor.label);
-    // FIXME: this should be asynchronous
+    // FIXME: this should be asynchronous - https://bugs.webkit.org/show_bug.cgi?id=233621
     callback(WGPURequestDeviceStatus_Success, Device::create(this->m_device, WTFMove(label), WTFMove(capabilities), *this), { });
-}
-
-void Adapter::requestInvalidDevice(CompletionHandler<void(Ref<Device>&&)>&& callback)
-{
-    instance().scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
-        callback(Device::createInvalid(strongThis));
-    });
 }
 
 } // namespace WebGPU
 
 #pragma mark WGPU Stubs
+
+void wgpuAdapterReference(WGPUAdapter adapter)
+{
+    WebGPU::fromAPI(adapter).ref();
+}
 
 void wgpuAdapterRelease(WGPUAdapter adapter)
 {
@@ -188,9 +176,3 @@ void wgpuAdapterRequestDeviceWithBlock(WGPUAdapter adapter, WGPUDeviceDescriptor
     });
 }
 
-void wgpuAdapterRequestInvalidDeviceWithBlock(WGPUAdapter adapter, WGPURequestInvalidDeviceBlockCallback callback)
-{
-    WebGPU::fromAPI(adapter).requestInvalidDevice([callback = WebGPU::fromAPI(WTFMove(callback))](Ref<WebGPU::Device>&& device) {
-        callback(WebGPU::releaseToAPI(WTFMove(device)));
-    });
-}

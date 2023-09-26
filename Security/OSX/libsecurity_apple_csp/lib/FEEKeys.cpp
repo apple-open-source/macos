@@ -101,7 +101,7 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 				switch(format) {
 					case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
 						format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
-						/* and drop thru */
+						[[fallthrough]];
 					case CSSM_KEYBLOB_RAW_FORMAT_NONE:
 						frtn = feePubKeyCreateDERPrivBlob(keyToEncode, &keyBlob, &len);
 						break;
@@ -118,7 +118,7 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 				switch(format) {
 					case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
 						format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
-						/* and drop thru */
+						[[fallthrough]];
 					case CSSM_KEYBLOB_RAW_FORMAT_NONE:
 						frtn = feePubKeyCreateDERPubBlob(keyToEncode, &keyBlob, &len);
 						break;
@@ -144,13 +144,14 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 					case CSSM_KEYBLOB_RAW_FORMAT_NONE:
 						/* set to default format, drop thru */
 						format = CSSM_KEYBLOB_RAW_FORMAT_OPENSSL;
+						[[fallthrough]];
 					case CSSM_KEYBLOB_RAW_FORMAT_OPENSSL:
 						/* ECDSA private key, SEC1/OpenSSL format */
 						frtn = feePubKeyCreateOpenSSLBlob(keyToEncode, &keyBlob, &len);
 						break;
 					case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
 						format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
-						/* and drop thru */
+						[[fallthrough]];
 					case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:
 						/* raw private key bytes */
 						frtn = feeCreateECDSAPrivBlob(keyToEncode, &keyBlob, &len);
@@ -170,13 +171,14 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 					case CSSM_KEYBLOB_RAW_FORMAT_NONE:
 						/* set to default format, drop thru */
 						format = CSSM_KEYBLOB_RAW_FORMAT_X509;
+						[[fallthrough]];
 					case CSSM_KEYBLOB_RAW_FORMAT_X509:
 						/* ECDSA, public key, default: X509 */
 						frtn = feePubKeyCreateX509Blob(keyToEncode, &keyBlob, &len);
 						break;
 					case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
 						format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
-						/* and drop thru */
+						[[fallthrough]];
 					case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:
 						/* raw x|y string */
 						frtn = feeCreateECDSAPubBlob(keyToEncode, &keyBlob, &len);

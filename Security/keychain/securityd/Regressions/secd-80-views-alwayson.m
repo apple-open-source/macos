@@ -101,6 +101,7 @@ int secd_80_views_alwayson(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(35);
+    enableSOSCompatibilityForTests();
     secd_test_clear_testviews();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     alwaysOnTest();

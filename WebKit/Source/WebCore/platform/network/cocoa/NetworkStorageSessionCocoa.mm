@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Apple Inc.  All rights reserved.
+ * Copyright (C) 2015-2023 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -191,13 +191,8 @@ RetainPtr<CFURLStorageSessionRef> createPrivateStorageSession(CFStringRef identi
     if (!storageSession)
         return nullptr;
 
-    if (shouldDisableCFURLCache == NetworkStorageSession::ShouldDisableCFURLCache::Yes) {
-#if HAVE(CFNETWORK_DISABLE_CACHE_SPI)
+    if (shouldDisableCFURLCache == NetworkStorageSession::ShouldDisableCFURLCache::Yes)
         _CFURLStorageSessionDisableCache(storageSession.get());
-#else
-        shouldDisableCFURLCache = NetworkStorageSession::ShouldDisableCFURLCache::No;
-#endif
-    }
 
     // The private storage session should have the same properties as the default storage session,
     // with the exception that it should be in-memory only storage.
@@ -605,8 +600,8 @@ void NetworkStorageSession::deleteCookiesMatching(const Function<bool(NSHTTPCook
 
 void NetworkStorageSession::deleteCookies(const ClientOrigin& origin, CompletionHandler<void()>&& completionHandler)
 {
-    auto cachePartition = origin.topOrigin == origin.clientOrigin ? emptyString() : ResourceRequest::partitionName(origin.topOrigin.host);
-    deleteCookiesMatching([domain = origin.clientOrigin.host, &cachePartition](NSHTTPCookie* cookie) {
+    auto cachePartition = origin.topOrigin == origin.clientOrigin ? emptyString() : ResourceRequest::partitionName(origin.topOrigin.host());
+    deleteCookiesMatching([domain = origin.clientOrigin.host(), &cachePartition](NSHTTPCookie* cookie) {
         return String(cookie.domain) == domain && equalIgnoringNullity(String(cookie._storagePartition), cachePartition);
     }, WTFMove(completionHandler));
 }
@@ -757,13 +752,6 @@ void NetworkStorageSession::stopListeningForCookieChangeNotifications(CookieChan
     }
     if (subscribedURLsChanged)
         [nsCookieStorage() _setSubscribedDomainsForCookieChanges:m_subscribedDomainsForCookieChanges.get()];
-}
-
-// FIXME: This can eventually go away, this is merely to ensure a smooth transition to the new API.
-bool NetworkStorageSession::supportsCookieChangeListenerAPI() const
-{
-    static const bool supportsAPI = [nsCookieStorage() respondsToSelector:@selector(_setCookiesChangedHandler:onQueue:)];
-    return supportsAPI;
 }
 
 #endif // HAVE(COOKIE_CHANGE_LISTENER_API)

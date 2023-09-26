@@ -24,12 +24,16 @@ SUPPLEMENTAL_DATA = etcetera factory backward
 #DEPRECATED_DATA = pacificnew systemv solar87 solar88 solar89
 #TDATA =	$(PRIMARY_DATA) $(SUPPLEMENTAL_DATA) $(DEPRECATED_DATA)
 TDATA =	$(PRIMARY_DATA) $(SUPPLEMENTAL_DATA)
+# rdar://
 # Note for Apple ICU: In order to handle tzdata before 2020b we add commands below
 # to process the systemv file if it is in fact present, to get the Rule entries
 # for SystemV which are not present in the pre-2020b versions of icuzones.
 
 TZDIR=zoneinfo
 
+# CFLAGS+=-D_POSIX_C_SOURCE
+# CPPFLAGS+= -DTZDIR=\"$(TZDIR)\" 
+# rdar://
 # need to override because CXXFLAGS is passed on the command line to this sub-make
 override CFLAGS += -D_POSIX_C_SOURCE=200112L $(TOOLSEXTRAFLAGS)
 override CXXFLAGS += $(TOOLSEXTRAFLAGS)
@@ -46,6 +50,8 @@ TZORIG=./tzorig
 TZORIG_TZDIR=./tzorig/tzdir
 TZORIG_ABS := $(shell pwd)/tzorig
 TZORIG_TZDIR_ABS := $(TZORIG_ABS)/tzdir
+# TZORIG_OPTS := CFLAGS="-D_POSIX_C_SOURCE $(TZORIG_EXTRA_CFLAGS)" TZDIR=$(TZORIG_TZDIR_ABS)
+# rdar://
 TZORIG_OPTS := CFLAGS="-D_POSIX_C_SOURCE $(TZORIG_EXTRA_CFLAGS) $(TOOLSEXTRAFLAGS)" TZDIR=$(TZORIG_TZDIR_ABS)
 
 
@@ -57,14 +63,18 @@ ZDUMP_OPTS= -v -a -d $(ZDUMPOUT) -c 1902,2038 -i
 ICUZDUMP_OPTS= -a -d $(ICUZDUMPOUT)
 
 # Executables & objects
+# OBJECTS= zic.o localtime.o asctime.o scheck.o ialloc.o
+# rdar:// change OBJECTS to ZICOBJECTS
 ZICOBJECTS= zic.o localtime.o asctime.o scheck.o ialloc.o
 ZICTARG=$(BINDIR)/zic$(EXEEXT)
 ZICEXEC=$(TOOLBINDIR)/zic$(TOOLEXEEXT)
+# rdar:/ add TZ2ICUOBJ
 TZ2ICUOBJ= tz2icu.o
 TZ2ICUTARG=$(BINDIR)/tz2icu$(EXEEXT)
 TZ2ICUEXEC=$(TOOLBINDIR)/tz2icu$(TOOLEXEEXT)
 ICUZDUMPTARG=$(BINDIR)/icuzdump$(EXEEXT)
 ICUZDUMPEXEC=$(TOOLBINDIR)/icuzdump$(TOOLEXEEXT)
+# rdar:/ add ICUZDUMPOBJ
 ICUZDUMPOBJ= icuzdump.o
 
 ifeq ($(TZDATA),)
@@ -91,6 +101,7 @@ $(TZCODE_TARGETS):
 	@false
 else
 tzorig:	$(TZCODE) $(TZDATA)
+# rdar:// add "test -e $(TZORIG)/ziguard.awk" and block "if test -e $(TZORIG)/systemv"
 	-$(RMV) ./tzorig/
 	mkdir $@
 	mkdir $(TZORIG_TZDIR)
@@ -139,33 +150,43 @@ $(ICUZDUMPOUT): $(ICUZDUMPEXEC)
 #
 
 
+# rdar:: 
 # create modified CXXFLAGS without -fXXX, -Wxxxx (the settings for these don't work for tz2icu)
 TZCODE_CXXFLAGS=$(patsubst -W%,,$(patsubst -f%,,$(CXXFLAGS)))
-
+# and add logging
 $(info # tzcode TOOLSEXTRAFLAGS=$(TOOLSEXTRAFLAGS))
 $(info # tzcode CFLAGS=$(CFLAGS))
 $(info # tzcode CXXFLAGS=$(CXXFLAGS))
 $(info # tzcode TZCODE_CXXFLAGS=$(TZCODE_CXXFLAGS))
 $(info # tzcode TZORIG_OPTS=$(TZORIG_OPTS))
 
+#$(ZICTARG):		$(OBJECTS) $(TDATA) $(srcdir)/tz2icu.h
+#		$(CC) $(CFLAGS) $(TZORIG_EXTRA_CFLAGS) $(LFLAGS) -I$(srcdir) $(OBJECTS) $(LDLIBS) -o $@
+# rdar:// use ZICOBJECTS instead of OBJECTS
 $(ZICTARG):		$(ZICOBJECTS) $(TDATA) $(srcdir)/tz2icu.h
 		$(CC) $(CFLAGS) $(TZORIG_EXTRA_CFLAGS) $(LFLAGS) -I$(srcdir) $(ZICOBJECTS) $(LDLIBS) -o $@
 
+# rdar:// add TZ2ICUOBJ rule
 $(TZ2ICUOBJ):	$(srcdir)/tz2icu.cpp $(srcdir)/tz2icu.h
 		$(CXX) -W -Wall $(TZCODE_CXXFLAGS) -I$(srcdir) -I$(top_srcdir)/common -pedantic $(srcdir)/tz2icu.cpp -c -o $@
 
+#$(TZ2ICUTARG):	$(srcdir)/tz2icu.cpp $(srcdir)/tz2icu.h
+#		$(CXX) $(CXXFLAGS) -I$(srcdir) -I$(top_srcdir)/common $(srcdir)/tz2icu.cpp -o $@
+# rdar://
 $(TZ2ICUTARG):	$(TZ2ICUOBJ)
 		$(CXX) -W -Wall $(TZCODE_CXXFLAGS) -I$(srcdir) -I$(top_srcdir)/common -pedantic $(TZ2ICUOBJ) -o $@
 
 $(ICUZDUMPTARG):	$(srcdir)/icuzdump.cpp
 		$(LINK.cc)  -I$(srcdir) -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(top_srcdir)/tools/toolutil -I$(top_srcdir)/io  -pedantic $(srcdir)/icuzdump.cpp $(LIBICUUC) $(LIBICUDT) $(LIBICUI18N) $(LIBICUIO) $(LIBICUTOOLUTIL) -o $@
 
+# rdar:// add ICUZDUMPOBJ rule
 $(ICUZDUMPOBJ):	$(srcdir)/icuzdump.cpp
 		$(CXX) -W -Wall $(TZCODE_CXXFLAGS) --std=c++0x -I$(srcdir) -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(top_srcdir)/tools/toolutil -I$(top_srcdir)/io $(srcdir)/icuzdump.cpp -c -o $@
 
 $(TDATA): tdatamarker
 
 tdatamarker: $(TZDATA)
+# rdar:// add "if test -e ziguard.awk" and block "if test -e systemv"
 	mkdir $(VANGUARD_DIR)
 	gunzip -d < $(TZDATA) | tar xf - --exclude=Makefile
 	if test -e ziguard.awk; then \
@@ -181,6 +202,7 @@ tdatamarker: $(TZDATA)
 	touch $@
 
 posix_only:	$(ZICEXEC) $(TDATA) $(srcdir)/icuzones
+# rdar:// add "if test -e systemv" and else case
 	if test -e systemv; then \
 		$(ZICEXEC) -d $(TZDIR) -L /dev/null $(TDATA) systemv $(srcdir)/icuzones; \
 	else \
@@ -192,6 +214,7 @@ icu_data:	$(TZ2ICUEXEC) posix_only
 		$(TZ2ICUEXEC) $(TZDIR) zone.tab `echo $(TZDATA) | sed -e "s/.*\/tzdata//;s/\.tar\.gz$$//"`
 		$(TZ2ICUEXEC) $(TZDIR) zone.tab `echo $(TZDATA) | sed -e "s/.*\/tzdata//;s/\.tar\.gz$$//"` --old
 
+# rdar://
 tztoolobjs: $(ZICOBJECTS) $(TZ2ICUOBJ) $(ICUZDUMPOBJ)
 
 clean:
@@ -209,6 +232,7 @@ endif
 checkclean:
 
 dataclean: clean
+# rdar:// add systemv
 	-rm -f $(TDATA) systemv $(XDATA)
 
 distclean:	dataclean clean

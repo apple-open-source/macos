@@ -85,11 +85,13 @@ static int qtn_file_set_flags(__unused void *x, __unused uint32_t flags) { retur
 enum cfInternalFlags {
 	cfDelayAce                = 1 << 0, /* set if ACE shouldn't be set until post-order traversal */
 	cfMakeFileInvisible       = 1 << 1, /* set if kFinderInvisibleMask is on src */
-	cfSawDecmpEA              = 1 << 2, /* set if we've seen a com.apple.decmpfs xattr */
+	cfPreserveCompression     = 1 << 2, /* set if we should preserve compression onto dst */
 	cfSrcProtSupportValid     = 1 << 3, /* set if cfSrcSupportsCProtect is valid */
 	cfSrcSupportsCProtect     = 1 << 4, /* set if src supports MNT_CPROTECT */
 	cfDstProtSupportValid     = 1 << 5, /* set if cfDstSupportsCProtect is valid */
 	cfDstSupportsCProtect     = 1 << 6, /* set if dst supports MNT_CPROTECT */
+	cfSrcFdOpenedByUs         = 1 << 7, /* set if src_fd opened by copyfile_open() */
+	cfDstFdOpenedByUs         = 1 << 8, /* set if dst_fd opened by copyfile_open() */
 };
 
 #define COPYFILE_MNT_CPROTECT_MASK (cfSrcProtSupportValid | cfSrcSupportsCProtect | cfDstProtSupportValid | cfDstSupportsCProtect)
@@ -126,6 +128,7 @@ struct _copyfile_state
 	xattr_operation_intent_t copyIntent;
 	bool was_cloned;
 	bool set_dst_perms;
+	bool forbid_cross_mount;
 	uint32_t src_bsize;
 	uint32_t dst_bsize;
 };
@@ -732,6 +735,10 @@ copytree(copyfile_state_t s)
 		// Follow 'src', even if it's a symlink, unless instructed not to
 		// or we're cloning, where we never follow symlinks.
 		fts_flags |= FTS_COMFOLLOW;
+	}
+
+	if (s->forbid_cross_mount) {
+		fts_flags |= FTS_XDEV;
 	}
 
 	fts = fts_open((char * const *)paths, fts_flags, NULL);
@@ -1806,6 +1813,7 @@ static int copyfile_open(copyfile_state_t s)
 			return -1;
 		}
 		copyfile_debug(2, "open successful on source (%s)", s->src);
+		s->internal_flags |= cfSrcFdOpenedByUs;
 
 		(void)copyfile_quarantine(s);
 	}
@@ -1981,6 +1989,7 @@ static int copyfile_open(copyfile_state_t s)
 			return -1;
 		}
 		copyfile_debug(2, "open successful on destination (%s)", s->dst);
+		s->internal_flags |= cfDstFdOpenedByUs;
 
 		if (s->internal_flags & cfSrcSupportsCProtect)
 		{
@@ -2113,12 +2122,20 @@ static copyfile_flags_t copyfile_check(copyfile_state_t s)
 	return ret;
 }
 
-static bool copyfile_set_bsdflags(copyfile_state_t s, uint32_t new_flags)
+static errno_t copyfile_set_bsdflags(copyfile_state_t s, const uint32_t new_flags, const uint32_t preserve_flags)
 {
 	struct fsioc_cas_bsdflags cas;
 	struct stat dst_sb;
-	bool used_fsctl = false;
+	uint32_t added_flags = 0;
 	int ret, i;
+
+	// Grab the set of flags currently set on the destination.
+	if (fstat(s->dst_fd, &dst_sb) == 0) {
+		added_flags = (dst_sb.st_flags & preserve_flags);
+	} else if (preserve_flags != 0) {
+		copyfile_debug(1, "couldn't stat destination file for st_flags (%d)", errno);
+		return errno; // fail since we need the current st_flags
+	}
 
 	/*
 	 * Before falling back to fchflags(), try to atomically set BSD flags using
@@ -2126,33 +2143,39 @@ static bool copyfile_set_bsdflags(copyfile_state_t s, uint32_t new_flags)
 	 */
 #define MAX_CAS_BSDFLAGS_LOOPS	4
 	for (i = 0; i < MAX_CAS_BSDFLAGS_LOOPS; i++) {
-		// Grab the set of flags currently set on the destination.
-		if (fstat(s->dst_fd, &dst_sb) != 0) {
-			break;
-		}
-
 		cas.expected_flags = dst_sb.st_flags;
-		cas.new_flags = new_flags;
+		cas.new_flags = new_flags | added_flags;
 		cas.actual_flags = ~0;
 		errno = 0;
 
 		ret = ffsctl(s->dst_fd, FSIOC_CAS_BSDFLAGS, &cas, 0);
 		if (ret == 0 && dst_sb.st_flags == cas.actual_flags) {
-			used_fsctl = true;
-			break;
-		} else if (ret < 0 &&
-			(errno != EAGAIN || i == (MAX_CAS_BSDFLAGS_LOOPS - 1))) {
-			// FSIOC_CAS_BSDFLAGS isn't supported, another error occured,
-			// or we've lost our race a few times, so just use fchflags() and exit.
+			// Successfully updated via FSIOC_CAS_BSDFLAGS.
+			return 0;
+		} else if (ret == 0) {
+			// FSIOC_CAS_BSDFLAGS is supported, but our changes were not applied
+			// because actual_flags changed beneath us. Latch the updated st_flags,
+			// re-compute added_flags, and retry.
+			dst_sb.st_flags = cas.actual_flags;
+			added_flags = (cas.actual_flags & preserve_flags);
+			continue;
+		} else if (ret != 0 && errno != EAGAIN) {
+			// FSIOC_CAS_BSDFLAGS isn't supported or another error occured,
+			// so just use fchflags() and exit.
 			break;
 		}
 	}
 
-	if (!used_fsctl)
-		(void)fchflags(s->dst_fd, new_flags);
-
-	errno = 0;
-	return used_fsctl;
+	ret = fchflags(s->dst_fd, new_flags | added_flags);
+	if (ret == 0) {
+		// Successfully updated via fchflags().
+		return 0;
+	} else {
+		// We are unable to set BSD flags, so return the underlying error.
+		// Callers must decide whether it is fatal--historically it was not.
+		copyfile_debug(1, "fchflags failed on %s (%d)", s->dst ? s->dst : "(null dst)", errno);
+		return errno;
+	}
 }
 
 /*
@@ -2529,14 +2552,28 @@ static int copyfile_data(copyfile_state_t s)
 	if ((s->sb.st_mode & S_IFMT) != S_IFREG)
 		return 0;
 
-#ifdef VOL_CAP_FMT_DECMPFS_COMPRESSION
-	if (s->internal_flags & cfSawDecmpEA) {
-		if (s->sb.st_flags & UF_COMPRESSED) {
-			if ((s->flags & COPYFILE_STAT) == 0) {
-				(void)copyfile_set_bsdflags(s, UF_COMPRESSED);
-				goto exit;
+#ifdef DECMPFS_XATTR_NAME
+	if (s->internal_flags & cfPreserveCompression) {
+		// Set UF_COMPRESSED immediately and preserve existing st_flags.
+		//
+		// Since compression transfers the entirety of src to dst, we skip
+		// this if we detect non-zero file offsets during fcopyfile(). We
+		// only return early if UF_COMPRESSED was actually set on the file.
+		const bool src_at_start = (s->internal_flags & cfSrcFdOpenedByUs) || lseek(s->src_fd, 0, SEEK_CUR) == 0;
+		const bool dst_at_start = (s->internal_flags & cfDstFdOpenedByUs) || lseek(s->dst_fd, 0, SEEK_CUR) == 0;
+		if (src_at_start && dst_at_start) {
+			if (copyfile_set_bsdflags(s, UF_COMPRESSED, UINT32_MAX) == 0) {
+				struct stat dst_sb;
+				if ((fstat(s->dst_fd, &dst_sb) == 0) && (dst_sb.st_flags & UF_COMPRESSED)) {
+					goto exit;
+				}
 			}
 		}
+
+		// Since we are unable to preserve compression, delete the relevant
+		// xattrs that were set by COPYFILE_XATTR to reclaim disk space.
+		(void)fremovexattr(s->dst_fd, DECMPFS_XATTR_NAME, XATTR_SHOWCOMPRESSION);
+		(void)fremovexattr(s->dst_fd, XATTR_RESOURCEFORK_NAME, XATTR_SHOWCOMPRESSION);
 	}
 #endif
 
@@ -2666,6 +2703,8 @@ static int copyfile_data(copyfile_state_t s)
 		goto exit;
 	}
 
+	// This is wrong if fcopyfile() is given a dst_fd with a non-zero starting
+	// offset, but we need to preserve the existing behavior for compatibility.
 	if (ftruncate(s->dst_fd, s->totalCopied) < 0)
 	{
 		ret = -1;
@@ -2868,9 +2907,8 @@ error_exit:
  */
 static int copyfile_stat(copyfile_state_t s)
 {
-	unsigned int added_flags = 0, dst_flags = 0;
+	uint32_t preserve_flags = 0, dst_flags = 0;
 	struct attrlist attrlist;
-	struct stat dst_sb;
 	struct {
 		/* Order of these structs matters for setattrlist. */
 		struct timespec mod_time;
@@ -2891,20 +2929,21 @@ static int copyfile_stat(copyfile_state_t s)
 	/* This may have already been done in copyfile_security() */
 	(void)fchmod(s->dst_fd, s->sb.st_mode & ~S_IFMT);
 
+	/* Copy file flags, masking out any we don't want to preserve */
+	dst_flags = (s->sb.st_flags & ~COPYFILE_OMIT_FLAGS);
+
 	/*
 	 * NFS doesn't support chflags; ignore errors as a result, since
 	 * we don't return failure for this.
 	 */
 	if (s->internal_flags & cfMakeFileInvisible)
-		added_flags |= UF_HIDDEN;
+		dst_flags |= UF_HIDDEN;
 
 	/*
 	 * We need to check if certain flags were set on the destination
 	 * by the kernel.  If they were, don't drop them.
 	 */
-	if (fstat(s->dst_fd, &dst_sb))
-		return -1;
-	added_flags |= (dst_sb.st_flags & COPYFILE_PRESERVE_FLAGS);
+	preserve_flags |= COPYFILE_PRESERVE_FLAGS;
 
 	/*
 	 * The caller requested that copyfile attempts to preserve UF_TRACKED
@@ -2913,20 +2952,18 @@ static int copyfile_stat(copyfile_state_t s)
 	 * documents for instance.
 	 */
 	if (s->flags & COPYFILE_PRESERVE_DST_TRACKED) {
-		added_flags |= (dst_sb.st_flags & UF_TRACKED);
+		preserve_flags |= UF_TRACKED;
 	}
-
-	/* Copy file flags, masking out any we don't want to preserve */
-	dst_flags = (s->sb.st_flags & ~COPYFILE_OMIT_FLAGS) | added_flags;
 
 	/*
 	 * We need to first attempt changing flags using FSIOC_CAS_BSDFLAGS,
 	 * as some bits like UF_COMPRESSED are only manipulable via that interface.
+	 *
+	 * Not all filesystems support BSD flags (example: NFS), so ignore errors.
 	 */
-	bool used_cas_bsdflags = copyfile_set_bsdflags(s, dst_flags);
-	copyfile_debug(6, "set bsdflags using FSIOC_CAS_BSDFLAGS: %d\n", used_cas_bsdflags);
+	(void)copyfile_set_bsdflags(s, dst_flags, preserve_flags);
 
-	if ((dst_flags & UF_COMPRESSED) && !(dst_flags & UF_IMMUTABLE)) {
+	if ((dst_flags & UF_COMPRESSED) && !(dst_flags & (UF_IMMUTABLE|SF_IMMUTABLE|UF_APPEND|SF_APPEND))) {
 		/*
 		 * FSIOC_CAS_BSDFLAGS(UF_COMPRESSED) resets file times,
 		 * so let's set them again if we didn't already set UF_IMMUTABLE.
@@ -3215,7 +3252,11 @@ get_restart:
 				      OSSwapLittleToHostInt32(hdr->compression_type), name, s->src ? s->src : "(null string)");
 					continue;
 			}
-			s->internal_flags |= cfSawDecmpEA;
+
+			/* Tell copyfile_data() to preserve compression only when supported. */
+			if (look_for_decmpea) {
+				s->internal_flags |= cfPreserveCompression;
+			}
 		}
 #endif
 
@@ -3345,6 +3386,8 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 		case COPYFILE_STATE_DST_BSIZE:
 			*(uint32_t*)ret = s->dst_bsize;
 			break;
+		case COPYFILE_STATE_FORBID_CROSS_MOUNT:
+			*(bool *)ret = s->forbid_cross_mount;
 		default:
 			errno = EINVAL;
 			ret = NULL;
@@ -3420,6 +3463,9 @@ int copyfile_state_set(copyfile_state_t s, uint32_t flag, const void * thing)
 		case COPYFILE_STATE_BSIZE:
 			s->src_bsize = *(uint32_t*)thing;
 			s->dst_bsize = s->src_bsize;
+			break;
+		case COPYFILE_STATE_FORBID_CROSS_MOUNT:
+			s->forbid_cross_mount = *(bool*)thing;
 			break;
 		default:
 			errno = EINVAL;

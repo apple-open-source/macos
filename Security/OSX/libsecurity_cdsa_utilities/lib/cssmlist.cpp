@@ -253,6 +253,7 @@ void ListElement::clear(Allocator &alloc)
 		break;
 	default:
 		assert(false);
+		break;
 	}
 }
 

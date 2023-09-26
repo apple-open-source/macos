@@ -8,7 +8,7 @@ chmod/chmod.1	freebsd	bin/chmod/chmod.1	244e58a2dfa22df1dadfe5e61e4905633b0c54cb
 chmod/chmod.c	freebsd	bin/chmod/chmod.c	2dfa4b66b3d0caaaae6ce2df476b5615f8415a19
 
 chown/chgrp.1	freebsd	usr.sbin/chown/chgrp.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
-chown/chown.8	freebsd	usr.sbin/chown/chown.8	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+chown/chown.8	freebsd	usr.sbin/chown/chown.8	0a9b374ecc85d483a52c2bfad548b1bbda496be3
 chown/chown.c	freebsd	usr.sbin/chown/chown.c	2dfa4b66b3d0caaaae6ce2df476b5615f8415a19
 
 cksum/cksum.1	freebsd	usr.bin/cksum/cksum.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
@@ -28,20 +28,26 @@ compress/zopen.c	freebsd	usr.bin/compress/zopen.c	8a16b7a18f5d0b031f09832fd7752f
 compress/zopen.h	freebsd	usr.bin/compress/zopen.h	1de7b4b805ddbf2429da511c053686ac4591ed89
 
 cp/cp.1	freebsd	bin/cp/cp.1	97e13037915c22162f199461f56951793d669f57
-cp/cp.c	freebsd	bin/cp/cp.c	f00f8b4fbd268a212687984e44daa3e0d0a16b87
+cp/cp.c	freebsd	bin/cp/cp.c	cb96a0ef0040fa7968245ab203ab70a7ed2d275d
 cp/extern.h	freebsd	bin/cp/extern.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-cp/utils.c	freebsd	bin/cp/utils.c	45b252fc9182b96342b8a598f271e49c20cbfe40
-cp/tests/cp_test.sh	freebsd	bin/cp/tests/cp_test.sh	f00f8b4fbd268a212687984e44daa3e0d0a16b87
+cp/utils.c	freebsd	bin/cp/utils.c	cb96a0ef0040fa7968245ab203ab70a7ed2d275d
+cp/tests/cp_test.sh	freebsd	bin/cp/tests/cp_test.sh	8b418c83d175fde3b1f65210509ddcf2ac248d9f
+cp/tests/sparse.c	freebsd	bin/cp/tests/sparse.c	8b418c83d175fde3b1f65210509ddcf2ac248d9f
 
 dd/args.c	freebsd	bin/dd/args.c	f4b4526f233c5a84388390279fc40ef8ecaa359f
 dd/conv.c	freebsd	bin/dd/conv.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 dd/conv_tab.c	freebsd	bin/dd/conv_tab.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-dd/dd.c	freebsd	bin/dd/dd.c	f4b4526f233c5a84388390279fc40ef8ecaa359f
+dd/dd.1	freebsd	bin/dd/dd.1	f4b4526f233c5a84388390279fc40ef8ecaa359f
+dd/dd.c	freebsd	bin/dd/dd.c	5807f35c541c26bbd91a3ae12506cd8dd8f20688
 dd/dd.h	freebsd	bin/dd/dd.h	f4b4526f233c5a84388390279fc40ef8ecaa359f
-dd/extern.h	freebsd	bin/dd/extern.h	3b96efbda0395b5bacfb6930dfaf664f5c718512
+dd/extern.h	freebsd	bin/dd/extern.h	5807f35c541c26bbd91a3ae12506cd8dd8f20688
 dd/gen.c	freebsd	bin/dd/gen.c	cd1832fe92812ca2b8b8c4b26840806a31023baf
-dd/misc.c	freebsd	bin/dd/misc.c	ac5d5b054f0b1b92ae322a4be8122bd9edca84fa
-dd/position.c	freebsd	bin/dd/position.c	8acbb227d9cc40b62c035d0d9d9b54b7872b93d8
+dd/misc.c	freebsd	bin/dd/misc.c	5807f35c541c26bbd91a3ae12506cd8dd8f20688
+dd/position.c	freebsd	bin/dd/position.c	5807f35c541c26bbd91a3ae12506cd8dd8f20688
+dd/tests/dd2_test.sh	freebsd	bin/dd/tests/dd2_test.sh	5807f35c541c26bbd91a3ae12506cd8dd8f20688
+
+df/df.1	freebsd	bin/df/df.1	2eee44bd5ebcb88bf304215be1b0c68b6802a924
+df/df.c	freebsd	bin/df/df.c	c968598479917f52022b86d0089a9835ddcf2799
 
 du/du.1	freebsd	usr.bin/du/du.1	6d6d6c360322227ba838c53ed72d31937a425800
 du/du.c	freebsd	usr.bin/du/du.c	2dfa4b66b3d0caaaae6ce2df476b5615f8415a19
@@ -98,6 +104,34 @@ mv/mv.c	freebsd	bin/mv/mv.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
 pathchk/pathchk.1	freebsd	usr.bin/pathchk/pathchk.1	8f3bd46654badc4318169b43e04d367ba23b1e5c
 pathchk/pathchk.c	freebsd	usr.bin/pathchk/pathchk.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+
+pax/ar_io.c	freebsd	bin/pax/ar_io.c	0266a5d610be4fb546475934125a037ca5748184
+pax/ar_subs.c	freebsd	bin/pax/ar_subs.c	0266a5d610be4fb546475934125a037ca5748184
+pax/buf_subs.c	freebsd	bin/pax/buf_subs.c	0266a5d610be4fb546475934125a037ca5748184
+pax/cache.c	freebsd	bin/pax/cache.c	30c30e220af30fbe8896a2bc4769b9ffd7fb43fb
+pax/cache.h	freebsd	bin/pax/cache.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+pax/cpio.c	freebsd	bin/pax/cpio.c	0266a5d610be4fb546475934125a037ca5748184
+pax/cpio.h	freebsd	bin/pax/cpio.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+pax/extern.h	freebsd	bin/pax/extern.h	30c30e220af30fbe8896a2bc4769b9ffd7fb43fb
+pax/file_subs.c	freebsd	bin/pax/file_subs.c	0266a5d610be4fb546475934125a037ca5748184
+pax/ftree.c	freebsd	bin/pax/ftree.c	30c30e220af30fbe8896a2bc4769b9ffd7fb43fb
+pax/ftree.h	freebsd	bin/pax/ftree.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+pax/gen_subs.c	freebsd	bin/pax/gen_subs.c	30c30e220af30fbe8896a2bc4769b9ffd7fb43fb
+pax/getoldopt.c	freebsd	bin/pax/getoldopt.c	94bdf5cfcc209d852bcb06e8f63524b9303e0c4f
+pax/options.c	freebsd	bin/pax/options.c	a8e8a914456878a67dfc5ef6f917a04be2e6a0c7
+pax/options.h	freebsd	bin/pax/options.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+pax/pat_rep.c	freebsd	bin/pax/pat_rep.c	30c30e220af30fbe8896a2bc4769b9ffd7fb43fb
+pax/pat_rep.h	freebsd	bin/pax/pat_rep.h	30c30e220af30fbe8896a2bc4769b9ffd7fb43fb
+pax/pax.1	freebsd	bin/pax/pax.1	d05e43bc0d5705919d057793aaa3e6d3df65f815
+pax/pax.c	freebsd	bin/pax/pax.c	0266a5d610be4fb546475934125a037ca5748184
+pax/pax.h	freebsd	bin/pax/pax.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+pax/sel_subs.c	freebsd	bin/pax/sel_subs.c	d05e43bc0d5705919d057793aaa3e6d3df65f815
+pax/sel_subs.h	freebsd	bin/pax/sel_subs.h      d05e43bc0d5705919d057793aaa3e6d3df65f815
+pax/tables.c	freebsd	bin/pax/tables.c	0266a5d610be4fb546475934125a037ca5748184
+pax/tables.h	freebsd	bin/pax/tables.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+pax/tar.c	freebsd	bin/pax/tar.c	0266a5d610be4fb546475934125a037ca5748184
+pax/tar.h	freebsd	bin/pax/tar.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+pax/tty_subs.c	freebsd	bin/pax/tty_subs.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
 rm/rm.1	freebsd	bin/rm/rm.1	900c4ed3ca131f4985bfc0b7e073c5a7430cc2b0
 rm/rm.c	freebsd	bin/rm/rm.c	2dfa4b66b3d0caaaae6ce2df476b5615f8415a19

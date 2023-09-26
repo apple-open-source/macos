@@ -41,10 +41,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/wait3.c,v 1.4 2007/01/09 00:27:56 imp Exp $
 #include "un-namespace.h"
 
 pid_t
-wait3(istat, options, rup)
-	int *istat;
-	int options;
-	struct rusage *rup;
+wait3(int *istat, int options, struct rusage *rup)
 {
 	return (_wait4(WAIT_ANY, istat, options, rup));
 }

@@ -4,10 +4,9 @@
 en_GB{
     %%Parent{"en_001"}
     Languages{
-        fa_AF{"Dari"}
-        nds_NL{"West Low German"}
-        nl_BE{"Flemish"}
-        ro_MD{"Moldavian"}
-        sw_CD{"Congo Swahili"}
+        ii{"Sichuan Yi"}
+        mus{"Creek"}
+        sah{"Yakut"}
+        zgh{"Standard Moroccan Tamazight"}
     }
 }

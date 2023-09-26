@@ -1,7 +1,6 @@
-/*	$OpenBSD: cache.c,v 1.17 2004/03/16 03:28:34 tedu Exp $	*/
-/*	$NetBSD: cache.c,v 1.4 1995/03/21 09:07:10 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,24 +33,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)cache.c	8.1 (Berkeley) 5/31/93";
-#else
-__used static const char rcsid[] = "$OpenBSD: cache.c,v 1.17 2004/03/16 03:28:34 tedu Exp $";
+static char sccsid[] = "@(#)cache.c	8.1 (Berkeley) 5/31/93";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
-#include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/param.h>
 #include <string.h>
 #include <stdio.h>
 #include <pwd.h>
 #include <grp.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include "pax.h"
 #include "cache.h"
@@ -172,10 +167,10 @@ grptb_start(void)
  *	caches the name (if any) for the uid. If frc set, we always return the
  *	the stored name (if valid or invalid match). We use a simple hash table.
  * Return
- *	Pointer to stored name (or a empty string)
+ *	Pointer to stored name (or an empty string).
  */
 
-char *
+const char *
 name_uid(uid_t uid, int frc)
 {
 	struct passwd *pw;
@@ -205,7 +200,7 @@ name_uid(uid_t uid, int frc)
 		++pwopn;
 	}
 	if (ptr == NULL)
-		ptr = uidtb[uid % UID_SZ] = malloc(sizeof(UIDC));
+		ptr = uidtb[uid % UID_SZ] = (UIDC *)malloc(sizeof(UIDC));
 
 	if ((pw = getpwuid(uid)) == NULL) {
 		/*
@@ -238,10 +233,10 @@ name_uid(uid_t uid, int frc)
  *	caches the name (if any) for the gid. If frc set, we always return the
  *	the stored name (if valid or invalid match). We use a simple hash table.
  * Return
- *	Pointer to stored name (or a empty string)
+ *	Pointer to stored name (or an empty string).
  */
 
-char *
+const char *
 name_gid(gid_t gid, int frc)
 {
 	struct group *gr;
@@ -271,12 +266,12 @@ name_gid(gid_t gid, int frc)
 		++gropn;
 	}
 	if (ptr == NULL)
-		ptr = gidtb[gid % GID_SZ] = malloc(sizeof(GIDC));
+		ptr = gidtb[gid % GID_SZ] = (GIDC *)malloc(sizeof(GIDC));
 
 	if ((gr = getgrgid(gid)) == NULL) {
 		/*
 		 * no match for this gid in the local group file, put in
-		 * a string that is the gid in numberic format
+		 * a string that is the gid in numeric format
 		 */
 		if (ptr == NULL)
 			return("");

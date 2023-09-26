@@ -3,7 +3,7 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 
 {
-    "cldrVersion": "40",
+    "cldrVersion": "42",
     "aliases": {
         "ars": "ar_SA",
         "az_AZ": "az_Latn_AZ",
@@ -28,6 +28,7 @@
         "pa_IN": "pa_Guru_IN",
         "pa_PK": "pa_Aran_PK",
         "sat_IN": "sat_Olck_IN",
+        "sd_IN": "sd_Deva_IN",
         "sd_PK": "sd_Arab_PK",
         "sh": "sr_Latn",
         "sh_BA": "sr_Latn_BA",
@@ -48,7 +49,6 @@
         "tl": "fil",
         "tl_PH": "fil_PH",
         "ur_Aran": "ur_Arab",
-        "ur_Aran_IN": "ur_Arab_IN",
         "ur_IN": "ur_Aran_IN",
         "ur_PK": "ur_Aran_PK",
         "uz_AF": "uz_Arab_AF",
@@ -88,6 +88,7 @@
         "en_CH": "en_150",
         "en_CK": "en_001",
         "en_CM": "en_001",
+        "en_CV": "en_001",
         "en_CX": "en_001",
         "en_CY": "en_001",
         "en_CZ": "en_150",

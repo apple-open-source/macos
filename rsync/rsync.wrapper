@@ -1,0 +1,56 @@
+# Regenerate rsync.wrapper.c with the generate_wrapper target.  The target will
+# write directly to ${SRCROOT}/rsync.wrapper.c, the result should be committed
+# for now until genwrap(8) makes it to all build hosts.
+
+analytics "com.apple.rsync" noargs
+application "rsync_samba"
+	# Legacy rsync
+	path "/usr/libexec/rsync/rsync.samba"
+
+	# Not necessary at the moment because we only have the one application.
+	argmode logonly
+
+	# Compare to options.c long_options, long_daemon_options; sorting here
+	# matches the seemingly arbitrary positioning in options.c.
+	#
+	# Note that we only need long options that take arguments here, so that
+	# we can strip them for analytics purposes.  rsync uses its own option
+	# parser, but it looks like it should be getopt(3) compatible.
+	flag "modify-window" arg
+	flag "chmod" arg
+	flag "max-size" arg
+	flag "min-size" arg
+	flag "max-delete" arg
+	flag "filter" "f" arg
+	flag "exclude" arg
+	flag "include" arg
+	flag "exclude-from" arg
+	flag "include-from" arg
+	flag "block-size" "B" arg
+	flag "compare-dest" arg
+	flag "copy-dest" arg
+	flag "link-dest" arg
+	flag "compress-level" arg
+	flag "partial-dir" arg
+	flag "log-file" arg
+	flag "log-file-format" arg
+	flag "out-format" arg
+	flag "log-format" arg
+	flag "bwlimit" arg
+	flag "backup-dir" arg
+	flag "suffix" arg
+	flag "read-batch" arg
+	flag "write-batch" arg
+	flag "only-write-batch" arg
+	flag "files-from" arg
+	flag "timeout" arg
+	flag "rsh" "e" arg
+	flag "rsync-path" arg
+	flag "temp-dir" "T" arg
+	flag "address" arg
+	flag "port" arg
+	flag "sockopts" arg
+	flag "password-file" arg
+	flag "protocol" arg
+	flag "checksum-seed" arg
+	flag "config" arg

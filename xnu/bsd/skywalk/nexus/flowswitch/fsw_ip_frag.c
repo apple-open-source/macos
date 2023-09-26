@@ -169,7 +169,7 @@ static uint32_t ipfq_freef(struct fsw_ip_frag_mgr *mgr, struct ipfq *,
 static void ipfq_timeout(thread_call_param_t, thread_call_param_t);
 static void ipfq_sched_timeout(struct fsw_ip_frag_mgr *, boolean_t);
 
-static struct ipfq *ipfq_alloc(struct fsw_ip_frag_mgr *mgr, int how);
+static struct ipfq *ipfq_alloc(struct fsw_ip_frag_mgr *mgr);
 static void ipfq_free(struct fsw_ip_frag_mgr *mgr, struct ipfq *q);
 static uint32_t ipfq_freefq(struct fsw_ip_frag_mgr *mgr, struct ipfq *q,
     void (*ipf_cb)(struct fsw_ip_frag_mgr *, struct ipf *));
@@ -189,10 +189,6 @@ fsw_ip_frag_mgr_create(struct nx_flowswitch *fsw, struct ifnet *ifp,
     size_t f_limit)
 {
 	struct fsw_ip_frag_mgr *mgr;
-
-	/* ipf/ipfq uses mbufs for IP fragment queue structures */
-	_CASSERT(sizeof(struct ipfq) <= _MLEN);
-	_CASSERT(sizeof(struct ipf) <= _MLEN);
 
 	ASSERT(ifp != NULL);
 
@@ -553,7 +549,7 @@ ipf_process(struct fsw_ip_frag_mgr *mgr, struct __kern_packet **pkt_ptr,
 	if (q == mq) {
 		first_frag = 1;
 
-		q = ipfq_alloc(mgr, M_DONTWAIT);
+		q = ipfq_alloc(mgr);
 		if (q == NULL) {
 			STATS_INC(mgr->ipfm_stats,
 			    FSW_STATS_RX_FRAG_DROP_NOMEM);
@@ -929,9 +925,8 @@ ipfq_drain_sysctl SYSCTL_HANDLER_ARGS
 }
 
 static struct ipfq *
-ipfq_alloc(struct fsw_ip_frag_mgr *mgr, int how)
+ipfq_alloc(struct fsw_ip_frag_mgr *mgr)
 {
-	struct mbuf *t;
 	struct ipfq *q;
 
 	if (mgr->ipfm_q_count > mgr->ipfm_q_limit) {
@@ -939,14 +934,10 @@ ipfq_alloc(struct fsw_ip_frag_mgr *mgr, int how)
 	}
 	ASSERT(mgr->ipfm_q_count <= mgr->ipfm_q_limit);
 
-	t = m_get(how, MT_FTABLE);
-	if (t != NULL) {
+	q = kalloc_type(struct ipfq, Z_WAITOK | Z_ZERO);
+	if (q != NULL) {
 		mgr->ipfm_q_count++;
-		q = mtod(t, struct ipfq *);
-		bzero(q, sizeof(*q));
 		q->ipfq_is_dirty = false;
-	} else {
-		q = NULL;
 	}
 	return q;
 }
@@ -955,7 +946,7 @@ ipfq_alloc(struct fsw_ip_frag_mgr *mgr, int how)
 static void
 ipfq_free(struct fsw_ip_frag_mgr *mgr, struct ipfq *q)
 {
-	(void) m_free(dtom(q));
+	kfree_type(struct ipfq, q);
 	mgr->ipfm_q_count--;
 }
 
@@ -1001,7 +992,6 @@ ipfq_freefq(struct fsw_ip_frag_mgr *mgr, struct ipfq *q,
 static struct ipf *
 ipf_alloc(struct fsw_ip_frag_mgr *mgr)
 {
-	struct mbuf *t;
 	struct ipf *f;
 
 	if (mgr->ipfm_f_count > mgr->ipfm_f_limit) {
@@ -1009,13 +999,9 @@ ipf_alloc(struct fsw_ip_frag_mgr *mgr)
 		return NULL;
 	}
 
-	t = m_get(M_DONTWAIT, MT_FTABLE);
-	if (t != NULL) {
+	f = kalloc_type(struct ipf, Z_WAITOK | Z_ZERO);
+	if (f != NULL) {
 		mgr->ipfm_f_count++;
-		f = mtod(t, struct ipf *);
-		bzero(f, sizeof(*f));
-	} else {
-		f = NULL;
 	}
 	return f;
 }
@@ -1032,6 +1018,6 @@ ipf_free_pkt(struct ipf *f)
 static void
 ipf_free(struct fsw_ip_frag_mgr *mgr, struct ipf *f)
 {
-	(void) m_free(dtom(f));
+	kfree_type(struct ipf, f);
 	mgr->ipfm_f_count--;
 }

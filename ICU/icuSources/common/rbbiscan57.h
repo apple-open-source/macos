@@ -8,7 +8,9 @@
 /*
 **********************************************************************
 *   Legacy version of RBBIRuleScanner from ICU 57,
-*   only for use by Apple RuleBasedTokenizer
+*   only for use by Apple RuleBasedTokenizer.
+*   originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+*   urbtok57 interfaces for access via RBT, and better tests
 **********************************************************************
 */
 
@@ -57,7 +59,7 @@ public:
     struct RBBIRuleChar {
         UChar32             fChar;
         UBool               fEscaped;
-        RBBIRuleChar() : fChar(0), fEscaped(FALSE) {};
+        RBBIRuleChar() : fChar(0), fEscaped(false) {};
     };
 
     RBBIRuleScanner57(RBBIRuleBuilder57  *rb);

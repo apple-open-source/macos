@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009,2012-2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2009,2012-2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -56,21 +56,11 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDispatchRelease.h>
 #include <utilities/SecDb.h> // TODO Fixme this gets us SecError().
-#include <utilities/SecAKSWrappers.h>
+#include <utilities/SecFileLocations.h>
 #include <ipc/securityd_client.h>
 #include "featureflags/featureflags.h"
 
 #include "server_security_helpers.h"
-
-#import <SoftLinking/SoftLinking.h>
-
-#if TARGET_OS_IOS && TARGET_HAS_KEYSTORE
-#define HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT 1
-SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, MobileKeyBag)
-SOFT_LINK_FUNCTION(MobileKeyBag, MKBUserTypeDeviceMode, soft_MKBUserTypeDeviceMode, CFDictionaryRef, (CFDictionaryRef options, CFErrorRef * error), (options, error))
-SOFT_LINK_CONSTANT(MobileKeyBag, kMKBDeviceModeKey, CFStringRef)
-SOFT_LINK_CONSTANT(MobileKeyBag, kMKBDeviceModeSharedIPad, CFStringRef)
-#endif
 
 struct securityd *gSecurityd;
 struct trustd *gTrustd;
@@ -187,7 +177,7 @@ SecSecurityClientGet(void)
         gClient.applicationIdentifier = NULL;
         gClient.isAppClip = false;
     });
-    
+
     static __thread dispatch_once_t onceTokenThreadLocalClient;
     dispatch_once(&onceTokenThreadLocalClient, ^{
         memcpy(&threadLocalClient, &gClient, sizeof(struct SecurityClient));
@@ -250,6 +240,7 @@ void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier) {
     gClient.applicationIdentifier = CFRetainSafe(identifier);
     threadLocalClient.applicationIdentifier = CFRetainSafe(identifier);
 }
+
 
 #if !TARGET_OS_IPHONE
 static bool securityd_in_system_context(void) {
@@ -336,6 +327,24 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case sec_trust_settings_copy_data_id:
         case sec_truststore_remove_all_id:
         case sec_trust_reset_settings_id:
+        case sec_trust_store_migrate_plist_id:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+// trust operations which need to be managed by the system trustd instance
+static bool is_system_trust_operation(enum SecXPCOperation op) {
+    switch (op) {
+        case sec_trust_store_contains_id:
+        case sec_trust_store_set_trust_settings_id:
+        case sec_trust_store_remove_certificate_id:
+        case sec_trust_store_copy_all_id:
+        case sec_trust_store_copy_usage_constraints_id:
+        case sec_truststore_remove_all_id:
+        case sec_trust_store_migrate_plist_id:
             return true;
         default:
             break;
@@ -498,6 +507,19 @@ static xpc_connection_t trustd_connection(void) {
 #endif
 }
 
+static xpc_connection_t sTrustdSystemInstanceConnection;
+static xpc_connection_t trustd_system_connection(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        uint64_t flags = 0;
+#if TARGET_OS_OSX
+        flags = XPC_CONNECTION_MACH_SERVICE_PRIVILEGED;
+#endif
+        sTrustdSystemInstanceConnection = securityd_create_connection(kTrustdXPCServiceName, SECURITY_TARGET_UID_UNSET, flags);
+    });
+    return sTrustdSystemInstanceConnection;
+}
+
 static xpc_connection_t trustd_connection_to_foreground_user_session(void) {
 	// This is normally kTrustdXPCServiceName but can be changed with SecServerSetTrustdMachServiceName()
 	const char *serviceName = xpc_connection_get_name(trustd_connection());
@@ -521,17 +543,20 @@ static xpc_connection_t trustd_connection_to_foreground_user_session(void) {
 }
 
 static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op, bool useSystemKeychain) {
-	bool isTrustOp = is_trust_operation(op);
-	#if SECTRUST_VERBOSE_DEBUG
+    bool isTrustOp = is_trust_operation(op);
+    bool isSysTrustOp = is_system_trust_operation(op);
+    #if SECTRUST_VERBOSE_DEBUG
     {
         bool sysCtx = securityd_in_system_context();
         const char *serviceName = (sysCtx) ? kTrustdXPCServiceName : kTrustdAgentXPCServiceName;
         syslog(LOG_ERR, "Will connect to: %s (op=%d)",
-               (isTrustOp) ? serviceName : kSecuritydXPCServiceName, (int)op);
+               (isTrustOp && !isSysTrustOp) ? serviceName : kSecuritydXPCServiceName, (int)op);
     }
-	#endif
+    #endif
     if (isTrustOp) {
-        if (is_foreground_user_operation(op)) {
+        if (isSysTrustOp) {
+            return trustd_system_connection();
+        } else if (is_foreground_user_operation(op)) {
             return trustd_connection_to_foreground_user_session();
         } else {
             return trustd_connection();
@@ -598,33 +623,23 @@ _securityd_process_message_reply(xpc_object_t *reply,
 	return false;
 }
 
-#if KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
-// only called when deciding whether to use the system keychain XPC name
-static bool device_is_in_edu_mode(void)
+static bool getBoolValue(CFDictionaryRef dict, CFStringRef key)
 {
-    static bool result = false;
-#if HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        CFDictionaryRef deviceMode = soft_MKBUserTypeDeviceMode(NULL, NULL);
-        if (deviceMode) {
-            CFTypeRef value = NULL;
-            bool valuePresent = CFDictionaryGetValueIfPresent(deviceMode, getkMKBDeviceModeKey(), &value);
-
-            if (valuePresent && CFEqual(value, getkMKBDeviceModeSharedIPad())) {
-                result = true;
-            }
-#ifndef __clang_analyzer__ // because SOFT_LINK_FUNCTION doesn't like CF_RETURNS_RETAINED decoration
-            CFReleaseNull(deviceMode);
-#endif
-        } else {
-            secnotice("xpc", "deviceMode:NULL");
-        }
-    });
-#endif // HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
-    return result;
+    CFTypeRef val = CFDictionaryGetValue(dict, key);
+    if (val == NULL) {
+        return false;
+    }
+    if(CFGetTypeID(val) == CFBooleanGetTypeID()) {
+        return CFBooleanGetValue((CFBooleanRef)val) ? true : false;
+    }
+    if(CFGetTypeID(val) == CFNumberGetTypeID()) {
+        char cval = 0;
+        CFNumberGetValue((CFNumberRef)val, kCFNumberCharType, &cval);
+        return (cval == 0) ? false : true;
+    }
+    secnotice("xpc", "unexpected CF type (%lu) for key %s", CFGetTypeID(val), CFStringGetCStringPtr(key, kCFStringEncodingUTF8) ?: "<null>");
+    return false;
 }
-#endif // KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
 
 static bool securityd_message_is_for_system_keychain(xpc_object_t message) {
 #if !KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
@@ -649,7 +664,7 @@ static bool securityd_message_is_for_system_keychain(xpc_object_t message) {
     CFErrorRef error = NULL;
     CFDictionaryRef query = SecXPCDictionaryCopyDictionaryWithoutZeroingDataInMessage(message, kSecXPCKeyQuery, &error);
     if (!query) {
-        secnotice("xpc", "no query dict to determine whether for system keychain: %@", error);
+        secinfo("xpc", "no query dict to determine whether for system keychain: %@", error);
         CFReleaseNull(error);
         return false;
     }
@@ -657,14 +672,9 @@ static bool securityd_message_is_for_system_keychain(xpc_object_t message) {
     CFReleaseNull(error);
 
     bool result = false;
-#if TARGET_OS_OSX
-    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS;
-#elif TARGET_OS_IOS
-    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlways;
-#endif
-    bool flagAlways = CFDictionaryGetValueIfPresent(query, localSecUseSystemKeychainAlways, NULL);
-    bool inEduMode = device_is_in_edu_mode();
-    bool flagOld = CFDictionaryGetValueIfPresent(query, kSecUseSystemKeychain, NULL);
+    bool flagAlways = getBoolValue(query, kSecUseSystemKeychainAlways);
+    bool inEduMode = SecIsEduMode();
+    bool flagOld = getBoolValue(query, kSecUseSystemKeychain);
 
     secinfo("xpc", "flagAlways:%{bool}d inEduMode:%{bool}d flagOld:%{bool}d", flagAlways, inEduMode, flagOld);
 
@@ -901,6 +911,29 @@ _SecSystemKeychainTransfer(CFErrorRef *error)
     bool reply = false;
 
     message = securityd_create_message(kSecXPCOpTransmogrifyToSystemKeychain, error);
+    if (message) {
+        xpc_object_t response = securityd_message_with_reply_sync(message, error);
+        if (response) {
+            reply = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+            if (!reply)
+                securityd_message_no_error(response, error);
+            xpc_release(response);
+        }
+        xpc_release(message);
+    }
+    return reply;
+}
+
+// This function is to be used when:
+// - provisioning edu mode (Shared iPad) from a clean install, after transfering (transmogrifying) items to the system keychain
+// - upgrade installing a device in edu mode (Shared iPad), because the system keychain items were previously protected by a different keybag
+bool
+_SecSystemKeychainTranscrypt(CFErrorRef *error)
+{
+    xpc_object_t message;
+    bool reply = false;
+
+    message = securityd_create_message(kSecXPCOpTranscryptToSystemKeychainKeybag, error);
     if (message) {
         xpc_object_t response = securityd_message_with_reply_sync(message, error);
         if (response) {

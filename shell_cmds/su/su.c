@@ -106,6 +106,40 @@ __FBSDID("$FreeBSD$");
 #ifdef __APPLE__
 #include <bsm/audit_session.h>
 #include <rootless.h>
+#import <SoftLinking/SoftLinking.h>
+SOFT_LINK_DYLIB(libEndpointSecuritySystem)
+SOFT_LINK_FUNCTION(
+	libEndpointSecuritySystem,
+	ess_notify_su,
+	soft_ess_notify_su,
+	void,
+	(
+		bool success,
+		char const * _Nullable failure_message,
+		const uid_t from_uid,
+		char const * _Nonnull from_username,
+		const uid_t * _Nullable to_uid,
+		char const * _Nullable to_username,
+		char const * _Nullable shell,
+		size_t argc,
+		char const * _Nullable const * _Nonnull argv,
+		size_t env_count,
+		char const * _Nullable const * _Nonnull env
+	),
+	(
+		success,
+		failure_message,
+		from_uid,
+		from_username,
+		to_uid,
+		to_username,
+		shell,
+		argc,
+		argv,
+		env_count,
+		env
+	)
+);
 #endif /* __APPLE__ */
 
 #define PAM_END() do {							\
@@ -185,6 +219,7 @@ main(int argc, char *argv[])
 	au_id_t		 auid;
 #endif
 #ifdef __APPLE__
+	au_id_t		 auid;
 	/* 4043304 */
 	const char	*avshell;
 	char		avshellbuf[MAXPATHLEN];
@@ -242,13 +277,30 @@ main(int argc, char *argv[])
 	if (geteuid() != 0)
 		errx(1, "not running setuid");
 
-#ifdef USE_BSM_AUDIT
+#if defined(USE_BSM_AUDIT) || defined(__APPLE__)
 	if (getauid(&auid) < 0 && errno != ENOSYS) {
 		syslog(LOG_AUTH | LOG_ERR, "getauid: %s", strerror(errno));
 		errx(1, "Permission denied");
 	}
 #endif
 	if (strlen(user) > MAXLOGNAME - 1) {
+#ifdef __APPLE__
+		if (islibEndpointSecuritySystemess_notify_suAvailable()) {
+			soft_ess_notify_su(
+				false,               // bool success
+				"username too long", // char const * _Nullable failure_message
+				getuid(),            // const uid_t from_uid
+				getlogin(),          // char const * _Nonnull from_username
+				NULL,                // const uid_t * _Nullable to_uid
+				NULL,                // char const * _Nullable to_username
+				NULL,                // char const * _Nullable shell
+				0,                   // size_t argc
+				NULL,                // char const * _Nullable const * _Nonnull argv
+				0,                   // size_t env_count
+				NULL                 // char const * _Nullable const * _Nonnull env
+			);
+		}
+#endif
 #ifdef USE_BSM_AUDIT
 		if (audit_submit(AUE_su, auid,
 		    EPERM, 1, "username too long: '%s'", user))
@@ -284,6 +336,25 @@ main(int argc, char *argv[])
 	if (pwd == NULL || pwd->pw_uid != ruid)
 		pwd = getpwuid(ruid);
 	if (pwd == NULL) {
+#ifdef __APPLE__
+	if (islibEndpointSecuritySystemess_notify_suAvailable()) {
+		int new_argc = -1;
+		while(np.a[++new_argc]){}
+		soft_ess_notify_su(
+			false,                                  // bool success
+			"unable to determine invoking subject", // char const * _Nullable failure_message
+			ruid,                                   // const uid_t from_uid
+			username,                               // char const * _Nonnull from_username
+			NULL,                                   // const uid_t * _Nullable to_uid
+			user,                                   // char const * _Nullable to_username
+			NULL,                                   // char const * _Nullable shell
+			new_argc,                               // size_t argc
+			np.a,                                   // char const * _Nullable const * _Nonnull argv
+			0,                                      // size_t env_count
+			NULL                                    // char const * _Nullable const * _Nonnull env
+		);
+	}
+#endif
 #ifdef USE_BSM_AUDIT
 		if (audit_submit(AUE_su, auid, EPERM, 1,
 		    "unable to determine invoking subject: '%s'", username))
@@ -325,6 +396,25 @@ main(int argc, char *argv[])
 
 	retcode = pam_authenticate(pamh, 0);
 	if (retcode != PAM_SUCCESS) {
+#ifdef __APPLE__
+		if (islibEndpointSecuritySystemess_notify_suAvailable()) {
+			int new_argc = -1;
+			while(np.a[++new_argc]){}
+			soft_ess_notify_su(
+				false,                                      // bool success
+				"Permission denied: bad su to target user", // char const * _Nullable failure_message
+				ruid,                                       // const uid_t from_uid
+				username,                                   // char const * _Nonnull from_username
+				NULL,                                       // const uid_t * _Nullable to_uid
+				user,                                       // char const * _Nullable to_username
+				NULL,                                       // char const * _Nullable shell
+				new_argc,                                   // size_t argc
+				np.a,                                       // char const * _Nullable const * _Nonnull argv
+				0,                                          // size_t env_count
+				NULL                                        // char const * _Nullable const * _Nonnull env
+			);
+		}
+#endif
 #ifdef USE_BSM_AUDIT
 		if (audit_submit(AUE_su, auid, EPERM, 1, "bad su %s to %s on %s",
 		    username, user, mytty))
@@ -346,6 +436,25 @@ main(int argc, char *argv[])
 		    pam_strerror(pamh, retcode));
 	pwd = getpwnam(user);
 	if (pwd == NULL) {
+#ifdef __APPLE__
+		if (islibEndpointSecuritySystemess_notify_suAvailable()) {
+			int new_argc = -1;
+			while(np.a[++new_argc]){}
+			soft_ess_notify_su(
+				false,              // bool success
+				"unknown subject",  // char const * _Nullable failure_message
+				ruid,               // const uid_t from_uid
+				username,           // char const * _Nonnull from_username
+				NULL,               // const uid_t * _Nullable to_uid
+				user,               // char const * _Nullable to_username
+				NULL,               // char const * _Nullable shell
+				new_argc,           // size_t argc
+				np.a,               // char const * _Nullable const * _Nonnull argv
+				0,                  // size_t env_count
+				NULL                // char const * _Nullable const * _Nonnull env
+			);
+		}
+#endif
 #ifdef USE_BSM_AUDIT
 		if (audit_submit(AUE_su, auid, EPERM, 1,
 		    "unknown subject: %s", user))
@@ -359,6 +468,30 @@ main(int argc, char *argv[])
 		retcode = pam_chauthtok(pamh,
 			PAM_CHANGE_EXPIRED_AUTHTOK);
 		if (retcode != PAM_SUCCESS) {
+#ifdef __APPLE__
+			if (islibEndpointSecuritySystemess_notify_suAvailable()) {
+				const char	*pam_aerr = pam_strerror(pamh, retcode);
+				if (pam_aerr == NULL)
+					pam_aerr = "Unknown PAM error";
+				char pam_chauthtok_err[256];
+				snprintf(pam_chauthtok_err, 256, "pam_chauthtok: %s",  pam_aerr);
+				int new_argc = -1;
+				while(np.a[++new_argc]){}
+				soft_ess_notify_su(
+					false,              // bool success
+					pam_chauthtok_err,  // char const * _Nullable failure_message
+					ruid,               // const uid_t from_uid
+					username,           // char const * _Nonnull from_username
+					&pwd->pw_uid,       // const uid_t * _Nullable to_uid
+					user,               // char const * _Nullable to_username
+					NULL,               // char const * _Nullable shell
+					new_argc,           // size_t argc
+					np.a,               // char const * _Nullable const * _Nonnull argv
+					0,                  // size_t env_count
+					NULL                // char const * _Nullable const * _Nonnull env
+				);
+			}
+#endif
 #ifdef USE_BSM_AUDIT
 			aerr = pam_strerror(pamh, retcode);
 			if (aerr == NULL)
@@ -373,6 +506,30 @@ main(int argc, char *argv[])
 		}
 	}
 	if (retcode != PAM_SUCCESS) {
+#ifdef __APPLE__
+		if (islibEndpointSecuritySystemess_notify_suAvailable()) {
+			const char	*pam_aerr = pam_strerror(pamh, retcode);
+			if (pam_aerr == NULL)
+				pam_aerr = "Unknown PAM error";
+			char pam_acct_mgmt_err[256];
+			snprintf(pam_acct_mgmt_err, 256, "pam_acct_mgmt: %s", pam_aerr);
+			int new_argc = -1;
+			while(np.a[++new_argc]){}
+			soft_ess_notify_su(
+				false,              // bool success
+				pam_acct_mgmt_err,  // char const * _Nullable failure_message
+				ruid,               // const uid_t from_uid
+				username,           // char const * _Nonnull from_username
+				&pwd->pw_uid,       // const uid_t * _Nullable to_uid
+				user,               // char const * _Nullable to_username
+				NULL,               // char const * _Nullable shell
+				new_argc,           // size_t argc
+				np.a,               // char const * _Nullable const * _Nonnull argv
+				0,                  // size_t env_count
+				NULL                // char const * _Nullable const * _Nonnull env
+			);
+		}
+#endif
 #ifdef USE_BSM_AUDIT
 		if (audit_submit(AUE_su, auid, EPERM, 1, "pam_acct_mgmt: %s",
 		    pam_strerror(pamh, retcode)))
@@ -450,19 +607,20 @@ main(int argc, char *argv[])
 #ifdef __APPLE__
 	/* 8530846 */
 	if (asthem) {
-        auditinfo_addr_t auinfo = {
-            .ai_termid = { .at_type = AU_IPv4 },
-            .ai_asid = AU_ASSIGN_ASID,
-            .ai_auid = getuid(),
-            .ai_flags = 0,
-        };
-        if (setaudit_addr(&auinfo, sizeof(auinfo)) == 0) {
-            char session[16];
-            snprintf(session, sizeof(session), "%x", auinfo.ai_asid);
-            setenv("SECURITYSESSIONID", session, 1);
-        } else {
+		auditinfo_addr_t auinfo = {
+		    .ai_termid = { .at_type = AU_IPv4 },
+		    .ai_asid = AU_ASSIGN_ASID,
+		    .ai_auid = pwd->pw_uid,
+		    .ai_flags = 0,
+		};
+
+		if (setaudit_addr(&auinfo, sizeof(auinfo)) == 0) {
+		    char session[16];
+		    snprintf(session, sizeof(session), "%x", auinfo.ai_asid);
+		    setenv("SECURITYSESSIONID", session, 1);
+		} else {
 			errx(1, "failed to create session.");
-        }
+		}
 	}
 #endif /* __APPLE__ */
 	retcode = pam_setcred(pamh, PAM_ESTABLISH_CRED);
@@ -645,6 +803,25 @@ main(int argc, char *argv[])
 			syslog(LOG_NOTICE, "%s to %s%s", username, user,
 			    ontty());
 #ifdef __APPLE__
+		if (islibEndpointSecuritySystemess_notify_suAvailable()) {
+			int new_argc = -1;
+			while(np.a[++new_argc]){}
+			int env_count = -1;
+			while(environ[++env_count]){}
+			soft_ess_notify_su(
+				true,                                               // bool success
+				NULL,                                               // char const * _Nullable failure_message
+				ruid,                                               // const uid_t from_uid
+				username,                                           // char const * _Nonnull from_username
+				&pwd->pw_uid,                                       // const uid_t * _Nullable to_uid
+				user,                                               // char const * _Nullable to_username
+				shell,                                              // char const * _Nullable shell
+				new_argc,                                           // size_t argc
+				np.a,                                               // char const * _Nullable const * _Nonnull argv
+				env_count,                                          // size_t env_count
+				(const char *const  _Nullable * _Nonnull) environ   // char const * _Nullable const * _Nonnull env
+			);
+		}
 		if (!strncmp("root", user, strnlen(user, MAXLOGNAME))) {
 			switch (rootless_restricted_environment()) {
 				case 1:

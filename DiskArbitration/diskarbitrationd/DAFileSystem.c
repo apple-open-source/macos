@@ -50,6 +50,8 @@
                                                                      0x97, 0xA4,                        \
                                                                      0x00, 0x30, 0x65, 0x43, 0xEC, 0xAC )
 
+#define kFSisModuleKey  "FSIsFSModule"
+
 struct __DAFileSystem
 {
     CFRuntimeBase   _base;
@@ -124,6 +126,10 @@ const CFStringRef kDAFileSystemUnmountArgumentForce     = CFSTR( "force" );
 static void __DAFileSystemProbeCallbackStage1( int status, CFDataRef output, void * context );
 static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, void * context );
 static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, void * context );
+
+#ifdef DA_FSKIT
+static CFStringRef __DAGetFSKitBundleID( CFStringRef filesystemName );
+#endif
 
 static void __DAFileSystemCallback( int status, CFDataRef output, void * parameter )
 {
@@ -527,6 +533,35 @@ DAFileSystemRef DAFileSystemCreate( CFAllocatorRef allocator, CFURLRef path )
     return filesystem;
 }
 
+DAFileSystemRef DAFileSystemCreateFromProperties( CFAllocatorRef allocator, CFDictionaryRef properties )
+{
+    DAFileSystemRef filesystem = NULL;
+    CFURLRef id = NULL;
+    CFStringRef bundleName;
+    
+    /*
+     * Create the file system object's unique identifier.
+     */
+    bundleName = CFDictionaryGetValue( properties , kCFBundleNameKey );
+
+    if (bundleName) {
+        id = CFURLCreateWithFileSystemPath( allocator , bundleName , kCFURLPOSIXPathStyle, FALSE);
+    }
+        
+    if ( id )
+    {
+        /*
+         * Create the file system object.
+         */
+
+        filesystem = __DAFileSystemCreate( allocator , id , properties );
+
+        CFRelease( id );
+    }
+
+    return filesystem;
+}
+
 dispatch_mach_t DAFileSystemCreateMachChannel( void )
 {
     return DACommandCreateMachChannel();
@@ -540,6 +575,11 @@ CFStringRef DAFileSystemGetKind( DAFileSystemRef filesystem )
 CFDictionaryRef DAFileSystemGetProbeList( DAFileSystemRef filesystem )
 {
     return CFDictionaryGetValue( filesystem->_properties, CFSTR( kFSMediaTypesKey ) );
+}
+
+CFBooleanRef DAFileSystemIsFSModule( DAFileSystemRef filesystem )
+{
+    return CFDictionaryGetValue( filesystem->_properties , CFSTR( kFSisModuleKey ) );
 }
 
 CFTypeID DAFileSystemGetTypeID( void )
@@ -804,6 +844,35 @@ DAFileSystemMountErr:
     }
 }
 
+#ifdef DA_FSKIT
+/*
+ * Given a bundle name in the form 'fsname_fskit', convert it to a bundle ID in the form 'com.apple.fskit.fsname'.
+ */
+static CFStringRef __DAGetFSKitBundleID( CFStringRef filesystemName )
+{
+    CFStringRef                  fsname            = NULL;
+    CFStringRef                  bundleID          = NULL;
+    CFCharacterSetRef            cset;
+    CFRange                      range;
+    
+    /* Remove the '_fskit' from the fs name */
+    cset = CFCharacterSetCreateWithCharactersInString( kCFAllocatorDefault , CFSTR("_") );
+    
+    CFStringFindCharacterFromSet( filesystemName , cset , CFRangeMake( 0 , CFStringGetLength( filesystemName ) ),
+                                  0 , &range );
+    
+    fsname = CFStringCreateWithSubstring( kCFAllocatorDefault , filesystemName ,
+                                          CFRangeMake( 0 , range.location ) );
+    
+    bundleID = CFStringCreateWithFormat( kCFAllocatorDefault ,
+                                         NULL , CFSTR("com.apple.fskit.%@") , fsname );
+    CFRelease( fsname );
+    CFRelease( cset );
+    
+    return bundleID;
+}
+#endif
+
 void DAFileSystemProbe( DAFileSystemRef           filesystem,
                         CFURLRef                  device,
                         char *                    deviceBSDPath,
@@ -827,12 +896,28 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
     CFStringRef                  probeCommandName  = NULL;
     CFURLRef                     repairCommand     = NULL;
     CFStringRef                  repairCommandName = NULL;
+#ifdef DA_FSKIT
+    CFStringRef                  bundleID          = NULL;
+#endif
     int                          status            = 0;
     int                          fd;
     CFStringRef                  fdPathStr     = NULL;
+
+    deviceName = CFURLCopyLastPathComponent( device );
+    if ( deviceName == NULL )  { status = EINVAL; goto DAFileSystemProbeErr; }
+    
+#ifdef DA_FSKIT
     /*
-     * Prepare to probe.
+     * Prepare to probe. Use FSKit path if available.
      */
+    if ( DAFileSystemIsFSModule( filesystem ) )
+    {
+        /* Given a bundle name in the form 'fsname_fskit', convert it to a bundle ID in the form 'com.apple.fskit.fsname' */
+        bundleID = __DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
+        DAProbeWithFSKit( deviceName , bundleID , doFsck , callback , callbackContext );
+        return;
+    }
+#endif
 
     personalities = CFDictionaryGetValue( filesystem->_properties, CFSTR( kFSPersonalitiesKey ) );
     if ( personalities == NULL )  { status = ENOTSUP; goto DAFileSystemProbeErr; }
@@ -859,9 +944,6 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
         repairCommand = ___CFBundleCopyResourceURLInDirectory( filesystem->_id, repairCommandName );
         if ( repairCommand == NULL )  { status = ENOTSUP; goto DAFileSystemProbeErr; }
     }
-
-    deviceName = CFURLCopyLastPathComponent( device );
-    if ( deviceName == NULL )  { status = EINVAL; goto DAFileSystemProbeErr; }
 
     devicePath = ___CFURLCopyRawDeviceFileSystemPath( device, kCFURLPOSIXPathStyle );
     if ( devicePath == NULL )  { status = EINVAL; goto DAFileSystemProbeErr; }
@@ -908,7 +990,7 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
         fdPathStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR( "/dev/fd/%d" ), context->devicefd);
         if ( fdPathStr == NULL )  { status = ENOMEM; goto DAFileSystemProbeErr; }
     }
-    
+
     DACommandExecute( probeCommand,
                       kDACommandExecuteOptionCaptureOutput,
                       ___UID_ROOT,
@@ -1015,11 +1097,27 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
     CFDictionaryRef         personalities = NULL;
     int                     status        = 0;
     CFStringRef             fdPathStr     = NULL;
-
+#ifdef DA_FSKIT
+    CFStringRef             deviceName    = NULL;
+    CFStringRef             bundleID      = NULL;
+#endif
+    
+#ifdef DA_FSKIT
     /*
-     * Prepare to repair.
+     * Prepare to repair. Use FSKit path if available.
      */
+    if ( DAFileSystemIsFSModule( filesystem ) )
+    {
+        deviceName = CFURLCopyLastPathComponent(device);
+        bundleID = __DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
+        DARepairWithFSKit( deviceName , bundleID , callback , callbackContext );
+        return;
+    }
+#endif
 
+    devicePath = ___CFURLCopyRawDeviceFileSystemPath( device, kCFURLPOSIXPathStyle );
+    if ( devicePath == NULL )  { status = EINVAL; goto DAFileSystemRepairErr; }
+    
     personalities = CFDictionaryGetValue( filesystem->_properties, CFSTR( kFSPersonalitiesKey ) );
     if ( personalities == NULL )  { status = ENOTSUP; goto DAFileSystemRepairErr; }
 
@@ -1031,9 +1129,6 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
 
     command = ___CFBundleCopyResourceURLInDirectory( filesystem->_id, commandName );
     if ( command == NULL )  { status = ENOTSUP; goto DAFileSystemRepairErr; }
-
-    devicePath = ___CFURLCopyRawDeviceFileSystemPath( device, kCFURLPOSIXPathStyle );
-    if ( devicePath == NULL )  { status = EINVAL; goto DAFileSystemRepairErr; }
 
     context = malloc( sizeof( __DAFileSystemContext ) );
     if ( context == NULL )  { status = ENOMEM; goto DAFileSystemRepairErr; }
@@ -1049,7 +1144,7 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
         fdPathStr = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/dev/fd/%d" ), fd );
         if ( fdPathStr == NULL )  { status = ENOMEM; goto DAFileSystemRepairErr; }
     }
-    
+
     DACommandExecute( command,
                       kDACommandExecuteOptionDefault,
                       ___UID_ROOT,

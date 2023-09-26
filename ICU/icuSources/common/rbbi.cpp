@@ -25,9 +25,10 @@
 #include "unicode/uchriter.h"
 #include "unicode/uclean.h"
 #include "unicode/udata.h"
-// for <rdar://problem/51193810>
+#if APPLE_ICU_CHANGES
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 #include "unicode/ulocdata.h"
-
+#endif // APPLE_ICU_CHANGES
 
 #include "brkeng.h"
 #include "ucln_cmn.h"
@@ -42,7 +43,7 @@
 #include "uvectr32.h"
 
 #ifdef RBBI_DEBUG
-static UBool gTrace = FALSE;
+static UBool gTrace = false;
 #endif
 
 U_NAMESPACE_BEGIN
@@ -83,6 +84,19 @@ RuleBasedBreakIterator::RuleBasedBreakIterator(RBBIDataHeader* data, UErrorCode 
             return;
         }
     }
+}
+
+//-------------------------------------------------------------------------------
+//
+//   Constructor   from a UDataMemory handle to precompiled break rules
+//                 stored in an ICU data file. This construcotr is private API,
+//                 only for internal use.
+//
+//-------------------------------------------------------------------------------
+RuleBasedBreakIterator::RuleBasedBreakIterator(UDataMemory* udm, UBool isPhraseBreaking,
+        UErrorCode &status) : RuleBasedBreakIterator(udm, status)
+{
+    fIsPhraseBreaking = isPhraseBreaking;
 }
 
 //
@@ -238,13 +252,17 @@ RuleBasedBreakIterator::~RuleBasedBreakIterator() {
     uprv_free(fLookAheadMatches);
     fLookAheadMatches = nullptr;
 
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+// (Fold populateFollowing() into tokenize(); add faster category lookup for Latin1 as in rbtok)
     delete [] fLatin1Cat;
     fLatin1Cat = nullptr;
 
-    // <rdar://problem/51193810>
+    // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
     delete [] fCatOverrides;
     fCatOverrides = nullptr;
     fCatOverrideCount = 0;
+#endif // APPLE_ICU_CHANGES
 }
 
 /**
@@ -258,7 +276,10 @@ RuleBasedBreakIterator::operator=(const RuleBasedBreakIterator& that) {
         return *this;
     }
     BreakIterator::operator=(that);
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
     fLineWordOpts = that.fLineWordOpts;
+#endif // APPLE_ICU_CHANGES
 
     if (fLanguageBreakEngines != NULL) {
         delete fLanguageBreakEngines;
@@ -266,7 +287,7 @@ RuleBasedBreakIterator::operator=(const RuleBasedBreakIterator& that) {
     }
     // TODO: clone fLanguageBreakEngines from "that"
     UErrorCode status = U_ZERO_ERROR;
-    utext_clone(&fText, &that.fText, FALSE, TRUE, &status);
+    utext_clone(&fText, &that.fText, false, true, &status);
 
     if (fCharIter != &fSCharIter) {
         delete fCharIter;
@@ -299,10 +320,13 @@ RuleBasedBreakIterator::operator=(const RuleBasedBreakIterator& that) {
             uprv_malloc(fData->fForwardTable->fLookAheadResultsSize * sizeof(int32_t)));
     }
 
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+// (Fold populateFollowing() into tokenize(); add faster category lookup for Latin1 as in rbtok)
     delete [] fLatin1Cat;
     fLatin1Cat = NULL;
 
-    // <rdar://problem/51193810>
+    // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
     delete [] fCatOverrides;
     fCatOverrides = NULL;
     fCatOverrideCount = that.fCatOverrideCount;
@@ -312,6 +336,7 @@ RuleBasedBreakIterator::operator=(const RuleBasedBreakIterator& that) {
             fCatOverrides[orItem] = that.fCatOverrides[orItem];
         }
     }
+#endif // APPLE_ICU_CHANGES
 
     fPosition = that.fPosition;
     fRuleStatusIndex = that.fRuleStatusIndex;
@@ -347,9 +372,15 @@ void RuleBasedBreakIterator::init(UErrorCode &status) {
     fBreakCache           = nullptr;
     fDictionaryCache      = nullptr;
     fLookAheadMatches     = nullptr;
+    fIsPhraseBreaking     = false;
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+// (Fold populateFollowing() into tokenize(); add faster category lookup for Latin1 as in rbtok)
     fLatin1Cat            = nullptr;
+    // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
     fCatOverrides         = nullptr;
     fCatOverrideCount     = 0;
+#endif // APPLE_ICU_CHANGES
 
     // Note: IBM xlC is unable to assign or initialize member fText from UTEXT_INITIALIZER.
     // fText                 = UTEXT_INITIALIZER;
@@ -368,18 +399,21 @@ void RuleBasedBreakIterator::init(UErrorCode &status) {
     }
 
 #ifdef RBBI_DEBUG
-    static UBool debugInitDone = FALSE;
-    if (debugInitDone == FALSE) {
+    static UBool debugInitDone = false;
+    if (debugInitDone == false) {
         char *debugEnv = getenv("U_RBBIDEBUG");
         if (debugEnv && uprv_strstr(debugEnv, "trace")) {
-            gTrace = TRUE;
+            gTrace = true;
         }
-        debugInitDone = TRUE;
+        debugInitDone = true;
     }
 #endif
 }
 
-
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+// (Fold populateFollowing() into tokenize(); add faster category lookup for Latin1 as in rbtok)
+// rdar://70367682 #163,dab0491810.. Integrate open-source ICU 68.2 into Apple ICU sources
 void RuleBasedBreakIterator::initLatin1Cat(void) {
     fLatin1Cat = new uint16_t[256];
     for (UChar32 c = 0; c < 256; ++c) {
@@ -387,12 +421,13 @@ void RuleBasedBreakIterator::initLatin1Cat(void) {
     }
 }
 
-// <rdar://problem/51193810>
+// rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
 enum {
     kUDelimBuf = 3,   // maximum UTF16 length of delimiter to get (1 for all delimiters in ICU 66)
     kUDelimCount = 4, // maximum number of category overrides for delimiters
     kPrototypeForOP = 0x007B, // prototype character for linebreak class OP (in Unicode 13)
     kPrototypeForCL = 0x007D, // prototype character for linebreak class CL (in Unicode 13)
+    // rdar://63475386 U+2019 apostrophe should remain linebreak class QU
     kTrueApostrophe = 0x2019, // U+2019 true apostrophe, glottal stop
 };
 void RuleBasedBreakIterator::setCategoryOverrides(Locale locale) {
@@ -400,6 +435,7 @@ void RuleBasedBreakIterator::setCategoryOverrides(Locale locale) {
     fCatOverrides = NULL;
     fCatOverrideCount = 0;
 
+    // rdar://66836891 da, skip remapping line break class for delimiters
     if (uprv_strcmp(locale.getLanguage(),"da") == 0) { // rdar://66836891
         return; // skip all remapping; U+201C/U+201D and U+2018/U+2019 can be open or close
     }
@@ -431,25 +467,26 @@ void RuleBasedBreakIterator::setCategoryOverrides(Locale locale) {
             if (U_SUCCESS(status) && uDelimLen==1) {
                 quotClose = uDelim[0];
                 if (quotClose == 0x201C) {
+                    // rdar://67787054&67804156&73179567 Simplify/generalize linebreak check for not remapping quotes.
                     // 0x201C can be ambiguous with mix of English usage (where it is open double quote),
                     // so do not remap it from QU (affects e.g. de,hr,ru,...). However in these cases,
                     // if 0x201D != quotOpen then it is unambiguously close if used (per English usage) and
                     // can be remapped (fr_CA and ur use 0x201D as quotOpen). We do not need to separately
                     // check for 0x201D != quotOpen here since quotOpen != quotClose is checked below before
                     // any remapping.
-                    // rdar://67787054, rdar://67804156, rdar://73179567
                     quotClose = 0x201D;
                 }
                 if (quotClose == 0x2018) {
+                    // rdar://67787054&67804156&73179567 Simplify/generalize linebreak check for not remapping quotes.
                     // Similarly 0x2018 can be ambiguous with mix of English usage (where it is open),
                     // so do not remap it from QU (affects e.g. de,...). But here we cannot say that
                     // 0x2019 (TrueApostrophe) is unambiguously close if used since it could be apostrophe,
                     // so we do not want to remap that from QU either.
-                    // rdar://67787054
                     quotClose = 0; // no remapping, since linebreak class of 0 is not U_LB_QUOTATION
                 }
             }
             if (quotOpen != quotClose) { // if they are the same we cannot distinguish OP and CL !
+                // rdar://63475386 U+2019 apostrophe should remain linebreak class QU
                 // only remap the classes for characters that currently have linebreak class QU
                 // and are not U+2019 (true apostrophe / glottal stop); need to wait to check here
                 // so that the test quotOpen != quotClose is valid.
@@ -474,6 +511,7 @@ void RuleBasedBreakIterator::setCategoryOverrides(Locale locale) {
         }
     }
 }
+#endif // APPLE_ICU_CHANGES
 
 //-----------------------------------------------------------------------------
 //
@@ -505,9 +543,12 @@ RuleBasedBreakIterator::operator==(const BreakIterator& that) const {
     // checked at this point.
 
     const RuleBasedBreakIterator& that2 = (const RuleBasedBreakIterator&) that;
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
     if (that2.fLineWordOpts != fLineWordOpts) {
-        return FALSE;
+        return false;
     }
+#endif // APPLE_ICU_CHANGES
 
     if (!utext_equals(&fText, &that2.fText)) {
         // The two break iterators are operating on different text,
@@ -550,7 +591,7 @@ void RuleBasedBreakIterator::setText(UText *ut, UErrorCode &status) {
     }
     fBreakCache->reset();
     fDictionaryCache->reset();
-    utext_clone(&fText, ut, FALSE, TRUE, &status);
+    utext_clone(&fText, ut, false, true, &status);
 
     // Set up a dummy CharacterIterator to be returned if anyone
     //   calls getText().  With input from UText, there is no reasonable
@@ -571,7 +612,7 @@ void RuleBasedBreakIterator::setText(UText *ut, UErrorCode &status) {
 
 
 UText *RuleBasedBreakIterator::getUText(UText *fillIn, UErrorCode &status) const {
-    UText *result = utext_clone(fillIn, &fText, FALSE, TRUE, &status);
+    UText *result = utext_clone(fillIn, &fText, false, true, &status);
     return result;
 }
 
@@ -659,7 +700,7 @@ RuleBasedBreakIterator &RuleBasedBreakIterator::refreshInputText(UText *input, U
     }
     int64_t pos = utext_getNativeIndex(&fText);
     //  Shallow read-only clone of the new UText into the existing input UText
-    utext_clone(&fText, input, FALSE, TRUE, &status);
+    utext_clone(&fText, input, false, true, &status);
     if (U_FAILURE(status)) {
         return *this;
     }
@@ -807,7 +848,7 @@ UBool RuleBasedBreakIterator::isBoundary(int32_t offset) {
     // out-of-range indexes are never boundary positions
     if (offset < 0) {
         first();       // For side effects on current position, tag values.
-        return FALSE;
+        return false;
     }
 
     // Adjust offset to be on a code point boundary and not beyond the end of the text.
@@ -824,9 +865,9 @@ UBool RuleBasedBreakIterator::isBoundary(int32_t offset) {
     }
 
     if (result && adjustedOffset < offset && utext_char32At(&fText, offset) == U_SENTINEL) {
-        // Original offset is beyond the end of the text. Return FALSE, it's not a boundary,
+        // Original offset is beyond the end of the text. Return false, it's not a boundary,
         // but the iteration position remains set to the end of the text, which is a boundary.
-        return FALSE;
+        return false;
     }
     if (!result) {
         // Not on a boundary. isBoundary() must leave iterator on the following boundary.
@@ -892,6 +933,8 @@ int32_t RuleBasedBreakIterator::handleNext() {
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://70367682 #163,dab0491810.. Integrate open-source ICU 68.2 into Apple ICU sources
 int32_t RuleBasedBreakIterator::handleNextInternal() {
     const RBBIStateTable *statetable = fData->fForwardTable;
     bool use8BitsTrie = ucptrie_getValueWidth(fData->fTrie) == UCPTRIE_VALUE_BITS_8;
@@ -909,6 +952,7 @@ int32_t RuleBasedBreakIterator::handleNextInternal() {
         }
     }
 }
+#endif // APPLE_ICU_CHANGES
 
 int32_t RuleBasedBreakIterator::handleSafePrevious(int32_t fromPosition) {
     const RBBIStateTable *statetable = fData->fReverseTable;
@@ -937,6 +981,9 @@ int32_t RuleBasedBreakIterator::handleSafePrevious(int32_t fromPosition) {
 //-----------------------------------------------------------------------------------
 template <typename RowType, RuleBasedBreakIterator::PTrieFunc trieFunc>
 int32_t RuleBasedBreakIterator::handleNext() {
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
+// rdar://70367682 #163,dab0491810.. Integrate open-source ICU 68.2 into Apple ICU sources
     int32_t result = handleNextInternal<RowType, trieFunc>();
     while (fLineWordOpts != UBRK_LINEWORD_NORMAL) {
         UChar32 prevChr = utext_char32At(&fText, result-1);
@@ -965,6 +1012,7 @@ int32_t RuleBasedBreakIterator::handleNext() {
 
 template <typename RowType, RuleBasedBreakIterator::PTrieFunc trieFunc>
 int32_t RuleBasedBreakIterator::handleNextInternal() {
+#endif // APPLE_ICU_CHANGES
     int32_t             state;
     uint16_t            category        = 0;
     RBBIRunMode         mode;
@@ -995,7 +1043,7 @@ int32_t RuleBasedBreakIterator::handleNextInternal() {
     result          = initialPosition;
     c               = UTEXT_NEXT32(&fText);
     if (c==U_SENTINEL) {
-        fDone = TRUE;
+        fDone = true;
         return UBRK_DONE;
     }
 
@@ -1037,15 +1085,18 @@ int32_t RuleBasedBreakIterator::handleNextInternal() {
         if (mode == RBBI_RUN) {
             // look up the current character's character category, which tells us
             // which column in the state table to look at.
+#if APPLE_ICU_CHANGES
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+// (Fold populateFollowing() into tokenize(); add faster category lookup for Latin1 as in rbtok)
+// rdar://51193810 delimiter category overrides, max of 4
             if (fLatin1Cat!=NULL && c<0x100) {
                 category = fLatin1Cat[c]; // fast Latin1 class lookup used for urbtok
             } else {
-                UBool didOverride = FALSE;
+                UBool didOverride = false;
                 for (int32_t orItem = 0; orItem < fCatOverrideCount; ++orItem) {
-                    // <rdar://problem/51193810> delimiter category overrides, max of 4
                     if (c == fCatOverrides[orItem].c) {
                         category = fCatOverrides[orItem].category;
-                        didOverride = TRUE;
+                        didOverride = true;
                         break;
                     }
                 }
@@ -1054,9 +1105,13 @@ int32_t RuleBasedBreakIterator::handleNextInternal() {
                     fDictionaryCharCount += (category >= dictStart);
                 }
             }
+#else
+            category = trieFunc(fData->fTrie, c);
+            fDictionaryCharCount += (category >= dictStart);
+#endif // APPLE_ICU_CHANGES
         }
 
-       #ifdef RBBI_DEBUG
+        #ifdef RBBI_DEBUG
             if (gTrace) {
                 RBBIDebugPrintf("             %4" PRId64 "   ", utext_getNativeIndex(&fText));
                 if (0x20<=c && c<0x7f) {
@@ -1279,7 +1334,8 @@ int32_t RuleBasedBreakIterator::getRuleStatusVec(
     return numVals;
 }
 
-// Apple custom addition
+#if APPLE_ICU_CHANGES
+// rdar://35946337 (Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough)
 int32_t RuleBasedBreakIterator::tokenize(int32_t maxTokens, RuleBasedTokenRange *outTokenRanges, unsigned long *outTokenFlags)
 {
     if (fDone) {
@@ -1289,6 +1345,8 @@ int32_t RuleBasedBreakIterator::tokenize(int32_t maxTokens, RuleBasedTokenRange 
     RuleBasedTokenRange *outTokenP = outTokenRanges;
     int32_t lastOffset = fPosition;
     while (outTokenP < outTokenLimit) {
+        // rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+        // (Fold populateFollowing() into tokenize(); add faster category lookup for Latin1 as in rbtok)
         // start portion from inlining populateFollowing()
         int32_t pos = 0;
         int32_t ruleStatusIdx = 0;
@@ -1300,7 +1358,7 @@ int32_t RuleBasedBreakIterator::tokenize(int32_t maxTokens, RuleBasedTokenRange 
         } else {
             pos = handleNextInternal(); // sets fRuleStatusIndex for the pos it returns, updates fPosition
             if (pos == UBRK_DONE) {
-                // fDone = TRUE; already set by handleNextInternal
+                // fDone = true; already set by handleNextInternal
                 break;
             }
             // Use current result from handleNextInternal(), including fRuleStatusIndex,
@@ -1317,6 +1375,8 @@ int32_t RuleBasedBreakIterator::tokenize(int32_t maxTokens, RuleBasedTokenRange 
             }
         }
         // end portion from inlining populateFollowing()
+        // rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough:
+        //   Fix urbtok_tokenize to skip tokens whose flag value is -1; set flags entries to union of all getRuleStatusVec values
         int32_t flagCount = fData->fRuleStatusTable[fRuleStatusIndex];
         const int32_t* flagPtr = fData->fRuleStatusTable + fRuleStatusIndex + flagCount;
         int32_t flagSet = *flagPtr; // if -1 then skip token
@@ -1336,6 +1396,7 @@ int32_t RuleBasedBreakIterator::tokenize(int32_t maxTokens, RuleBasedTokenRange 
     }
     return (outTokenP - outTokenRanges);
 }
+#endif // APPLE_ICU_CHANGES
 
 //-------------------------------------------------------------------------------
 //
@@ -1381,8 +1442,8 @@ U_NAMESPACE_END
 
 static icu::UStack *gLanguageBreakFactories = nullptr;
 static const icu::UnicodeString *gEmptyString = nullptr;
-static icu::UInitOnce gLanguageBreakFactoriesInitOnce = U_INITONCE_INITIALIZER;
-static icu::UInitOnce gRBBIInitOnce = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gLanguageBreakFactoriesInitOnce {};
+static icu::UInitOnce gRBBIInitOnce {};
 
 /**
  * Release all static memory held by breakiterator.
@@ -1395,7 +1456,7 @@ UBool U_CALLCONV rbbi_cleanup(void) {
     gEmptyString = nullptr;
     gLanguageBreakFactoriesInitOnce.reset();
     gRBBIInitOnce.reset();
-    return TRUE;
+    return true;
 }
 U_CDECL_END
 

@@ -650,6 +650,8 @@ bool IONetworkInterface::handleOpen( IOService *  client,
 
 void IONetworkInterface::handleClose( IOService * client, IOOptionBits options )
 {
+    DLOG("IONetworkInterface::%s(%p)\n", __FUNCTION__, client);
+
     if ( _clientSet->containsObject(client) )
     {
         // Call handleClientClose() for subclass to handle the client close.
@@ -664,7 +666,7 @@ void IONetworkInterface::handleClose( IOService * client, IOOptionBits options )
             controllerWillClose( _driver );
             _driver->close( this );
             setInterfaceState( 0, kIONetworkInterfaceOpenedState );
-
+#if 0
             // Closed by IONetworkStack after detaching interface,
             // drop the driver retain from init().
 
@@ -673,6 +675,7 @@ void IONetworkInterface::handleClose( IOService * client, IOOptionBits options )
                 _driver->release();
                 _driver = 0;
             }
+#endif
         }
         _clientSet->removeObject(client);
     }
@@ -683,10 +686,14 @@ void IONetworkInterface::handleClose( IOService * client, IOOptionBits options )
 
 bool IONetworkInterface::handleIsOpen( const IOService * client ) const
 {
+    bool ret;
+
     if (client)
-        return _clientSet->containsObject(client);
+        ret = _clientSet->containsObject(client);
     else
-        return (_clientSet->getCount() > 0);
+        ret = (_clientSet->getCount() > 0);
+
+    return ret;
 }
 
 //------------------------------------------------------------------------------

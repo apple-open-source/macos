@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1999-2007,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 1999-2012,2013 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,7 +29,7 @@
 /*
  * Author: Thomas E. Dickey
  *
- * $Id: cardfile.c,v 1.35 2008/08/05 00:42:24 tom Exp $
+ * $Id: cardfile.c,v 1.42 2013/09/28 22:02:17 tom Exp $
  *
  * File format: text beginning in column 1 is a title; other text is content.
  */
@@ -68,17 +68,13 @@ static CARD *all_cards;
 static bool try_color = FALSE;
 static char default_name[] = "cardfile.dat";
 
-#if !HAVE_STRDUP
-#define strdup my_strdup
-static char *
-strdup(const char *s)
+static void
+failed(const char *s)
 {
-    char *p = typeMalloc(char, strlen(s) + 1);
-    if (p)
-	strcpy(p, s);
-    return (p);
+    perror(s);
+    endwin();
+    ExitProgram(EXIT_FAILURE);
 }
-#endif /* not HAVE_STRDUP */
 
 static const char *
 skip(const char *buffer)
@@ -91,7 +87,7 @@ skip(const char *buffer)
 static void
 trim(char *buffer)
 {
-    unsigned n = strlen(buffer);
+    size_t n = strlen(buffer);
     while (n-- && isspace(UChar(buffer[n])))
 	buffer[n] = 0;
 }
@@ -111,7 +107,7 @@ add_title(const char *title)
 	    break;
     }
 
-    card = typeCalloc(CARD, 1);
+    card = typeCalloc(CARD, (size_t) 1);
     card->title = strdup(title);
     card->content = strdup("");
 
@@ -129,7 +125,7 @@ add_title(const char *title)
 static void
 add_content(CARD * card, const char *content)
 {
-    unsigned total, offset;
+    size_t total, offset;
 
     content = skip(content);
     if ((total = strlen(content)) != 0) {
@@ -146,6 +142,8 @@ add_content(CARD * card, const char *content)
 	}
 	if (card->content)
 	    strcpy(card->content + offset, content);
+	else
+	    failed("add_content");
     }
 }
 
@@ -262,7 +260,7 @@ next_card(CARD * now)
 	if (isVisible(tst))
 	    now = tst;
 	else
-	    tst = next_card(tst);
+	    (void) next_card(tst);
     }
     return now;
 }
@@ -337,7 +335,7 @@ form_virtualize(WINDOW *w)
 static FIELD **
 make_fields(CARD * p, int form_high, int form_wide)
 {
-    FIELD **f = typeCalloc(FIELD *, 3);
+    FIELD **f = typeCalloc(FIELD *, (size_t) 3);
 
     f[0] = new_field(1, form_wide, 0, 0, 0, 0);
     set_field_back(f[0], A_REVERSE);
@@ -414,7 +412,7 @@ cardfile(char *fname)
 	if ((win = newwin(panel_high, panel_wide, y, x)) == 0)
 	    break;
 
-	wbkgd(win, COLOR_PAIR(pair_2));
+	wbkgd(win, (chtype) COLOR_PAIR(pair_2));
 	keypad(win, TRUE);
 	p->panel = new_panel(win);
 	box(win, 0, 0);
@@ -523,14 +521,12 @@ cardfile(char *fname)
 #if NO_LEAKS
     while (all_cards != 0) {
 	FIELD **f;
-	int count;
 
 	p = all_cards;
 	all_cards = all_cards->link;
 
 	if (isVisible(p)) {
 	    f = form_fields(p->form);
-	    count = field_count(p->form);
 
 	    unpost_form(p->form);	/* ...so we can free it */
 	    free_form(p->form);	/* this also disconnects the fields */
@@ -590,7 +586,7 @@ main(int argc, char *argv[])
 	    start_color();
 	    init_pair(pair_1, COLOR_WHITE, COLOR_BLUE);
 	    init_pair(pair_2, COLOR_WHITE, COLOR_CYAN);
-	    bkgd(COLOR_PAIR(pair_1));
+	    bkgd((chtype) COLOR_PAIR(pair_1));
 	} else {
 	    try_color = FALSE;
 	}

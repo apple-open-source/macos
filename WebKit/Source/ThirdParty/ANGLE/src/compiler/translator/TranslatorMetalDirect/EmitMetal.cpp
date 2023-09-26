@@ -517,6 +517,8 @@ static const char *GetOperatorString(TOperator op,
             return "metal::rint";
         case TOperator::EOpClamp:
             return "metal::clamp";  // TODO fast vs precise namespace
+        case TOperator::EOpSaturate:
+            return "metal::saturate";  // TODO fast vs precise namespace
         case TOperator::EOpMix:
             if (argType2 && argType2->getBasicType() == EbtBool)
                 return "ANGLE_mix_bool";
@@ -552,6 +554,15 @@ static const char *GetOperatorString(TOperator op,
 
         case TOperator::EOpInverse:
             return "ANGLE_inverse";
+
+        case TOperator::EOpInterpolateAtCentroid:
+            return "ANGLE_interpolateAtCentroid";
+        case TOperator::EOpInterpolateAtSample:
+            return "ANGLE_interpolateAtSample";
+        case TOperator::EOpInterpolateAtOffset:
+            return "ANGLE_interpolateAtOffset";
+        case TOperator::EOpInterpolateAtCenter:
+            return "ANGLE_interpolateAtCenter";
 
         case TOperator::EOpFloatBitsToInt:
         case TOperator::EOpFloatBitsToUint:
@@ -643,6 +654,11 @@ static const char *GetOperatorString(TOperator op,
             return "ANGLE_pack_half_2x16";
         case TOperator::EOpUnpackHalf2x16:
             return "ANGLE_unpack_half_2x16";
+
+        case TOperator::EOpNumSamples:
+            return "metal::get_num_samples";
+        case TOperator::EOpSamplePosition:
+            return "metal::get_sample_position";
 
         case TOperator::EOpBitfieldExtract:
         case TOperator::EOpBitfieldInsert:
@@ -832,6 +848,20 @@ void GenMetalTraverser::emitPostQualifier(const EmitVariableDeclarationConfig &e
             }
             break;
 
+        case TQualifier::EvqSampleID:
+            if (evdConfig.isMainParameter)
+            {
+                mOut << " [[sample_id]]";
+            }
+            break;
+
+        case TQualifier::EvqSampleMaskIn:
+            if (evdConfig.isMainParameter)
+            {
+                mOut << " [[sample_mask]]";
+            }
+            break;
+
         default:
             break;
     }
@@ -1005,6 +1035,11 @@ void GenMetalTraverser::emitType(const TType &type, const EmitTypeConfig &etConf
         }
     }
 
+    if (type.isInterpolant())
+    {
+        mOut << "metal::interpolant<";
+    }
+
     if (type.isVector() || type.isMatrix())
     {
         mOut << "metal::";
@@ -1025,6 +1060,22 @@ void GenMetalTraverser::emitType(const TType &type, const EmitTypeConfig &etConf
     {
         mOut << static_cast<uint32_t>(type.getCols()) << "x"
              << static_cast<uint32_t>(type.getRows());
+    }
+
+    if (type.isInterpolant())
+    {
+        mOut << ", metal::interpolation::";
+        switch (type.getQualifier())
+        {
+            case EvqNoPerspectiveIn:
+            case EvqNoPerspectiveCentroidIn:
+            case EvqNoPerspectiveSampleIn:
+                mOut << "no_";
+                break;
+            default:
+                break;
+        }
+        mOut << "perspective>";
     }
 
     if (!isUBO)
@@ -1094,23 +1145,37 @@ void GenMetalTraverser::emitFieldDeclaration(const TField &field,
             break;
 
         case TQualifier::EvqNoPerspectiveIn:
-            if (mPipelineStructs.fragmentIn.external == &parent)
+            if (mPipelineStructs.fragmentIn.external == &parent && !type.isInterpolant())
             {
                 mOut << " [[center_no_perspective]]";
             }
             break;
 
         case TQualifier::EvqCentroidIn:
-            if (mPipelineStructs.fragmentIn.external == &parent)
+            if (mPipelineStructs.fragmentIn.external == &parent && !type.isInterpolant())
             {
                 mOut << " [[centroid_perspective]]";
             }
             break;
 
+        case TQualifier::EvqSampleIn:
+            if (mPipelineStructs.fragmentIn.external == &parent && !type.isInterpolant())
+            {
+                mOut << " [[sample_perspective]]";
+            }
+            break;
+
         case TQualifier::EvqNoPerspectiveCentroidIn:
-            if (mPipelineStructs.fragmentIn.external == &parent)
+            if (mPipelineStructs.fragmentIn.external == &parent && !type.isInterpolant())
             {
                 mOut << " [[centroid_no_perspective]]";
+            }
+            break;
+
+        case TQualifier::EvqNoPerspectiveSampleIn:
+            if (mPipelineStructs.fragmentIn.external == &parent && !type.isInterpolant())
+            {
+                mOut << " [[sample_no_perspective]]";
             }
             break;
 
@@ -1190,8 +1255,11 @@ void GenMetalTraverser::emitFieldDeclaration(const TField &field,
             break;
 
         case TQualifier::EvqSampleMask:
-            mOut << " [[sample_mask, function_constant(" << sh::mtl::kCoverageMaskEnabledConstName
-                 << ")]]";
+            if (field.symbolType() == SymbolType::AngleInternal)
+            {
+                mOut << " [[sample_mask, function_constant("
+                     << sh::mtl::kMultisampledRenderingConstName << ")]]";
+            }
             break;
 
         default:
@@ -1398,6 +1466,12 @@ void GenMetalTraverser::emitOrdinaryVariableDeclaration(
         // The element count is emitted after the post qualifier.
         ASSERT(type.getBasicType() == TBasicType::EbtFloat);
         mOut << "float";
+    }
+    else if (type.getQualifier() == TQualifier::EvqSampleID && evdConfig.isMainParameter)
+    {
+        // Metal's [[sample_id]] must be unsigned
+        ASSERT(type.getBasicType() == TBasicType::EbtInt);
+        mOut << "uint32_t";
     }
     else
     {

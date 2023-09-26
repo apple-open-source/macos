@@ -2,15 +2,17 @@
 		<key>OpenSourceProject</key>
 		<string>calendar</string>
 		<key>OpenSourceVersion</key>
-		<string>2002-08-14</string>
+		<string>2022-07-31</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/calendar?id=67cb90ecd74ae825d4f5a0fcb3efa85c875b31d7</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/calendar?id=dc9e68ad0187bdfe4781256a6c4751e074e1e2a2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2003-03-14</string>
+		<string>2022-12-23</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>caldendar.c: match default as per man page</string>
-			<string>io.c: add -w flag to CPP</string>
+			<string>calendar.c: match default as per man page</string>
+			<string>day.c: -A0 shouldn't include weekends (5900695)</string>
+			<string>day.c: -A should take into account all weekends (5900695)</string>
+			<string>io.c: remove warning about nonexistent calendar-data reference (88206146)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

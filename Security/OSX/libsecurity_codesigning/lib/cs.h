@@ -126,8 +126,8 @@ OSStatus dbError(const SQLite3::Error &err);
 	catch (const CSError &err) { err.cfError(errors); } \
 	catch (const UnixError &err) { \
 		switch (err.error) { \
-		case ENOEXEC: CSError::cfError(errors, errSecCSBadObjectFormat); \
-		default: CSError::cfError(errors, err.osStatus()); \
+		case ENOEXEC: CSError::cfError(errors, errSecCSBadObjectFormat); break; \
+		default: CSError::cfError(errors, err.osStatus()); break; \
 		}} \
     catch (const MacOSError &err) { CSError::cfError(errors, err.osStatus()); } \
     catch (const SQLite3::Error &err) { CSError::cfError(errors, dbError(err)); } \

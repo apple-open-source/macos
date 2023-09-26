@@ -59,7 +59,10 @@
 #include <sysexits.h>
 #include <unistd.h>
 
+#include <pcap.h>
+
 #include "pktmetadatafilter.h"
+
 
 #define TOKEN_ID_LIST	\
 	X(TOK_NONE)		\
@@ -69,6 +72,7 @@
 	X(TOK_LP)		\
 	X(TOK_RP)		\
 	X(TOK_IF)		\
+	X(TOK_DLT)		\
 	X(TOK_PROC)		\
 	X(TOK_EPROC)	\
 	X(TOK_PID)		\
@@ -100,7 +104,9 @@ struct token tokens[] = {
 	{ TOK_NOT, "not", 0 } ,
 	{ TOK_LP, "(", 0 },
 	{ TOK_RP, ")", 0 },
+
 	{ TOK_IF, "if", 0  },
+	{ TOK_DLT, "dlt", 0  },
 	{ TOK_PROC, "proc", 0 },
 	{ TOK_EPROC, "eproc", 0 },
 	{ TOK_PID, "pid", 0 },
@@ -108,6 +114,7 @@ struct token tokens[] = {
 	{ TOK_SVC, "svc", 0 },
 	{ TOK_DIR, "dir", 0 },
 	{ TOK_FLOWID, "flowid", 0 },
+
 	{ TOK_EQ, "=", 0 },
     { TOK_NEQ, "!=", 0 },
 
@@ -119,9 +126,29 @@ struct token tokens[] = {
 	{ TOK_NONE, NULL, 0 }
 };
 
+#define DLT_LIST	\
+	X(NULL)		\
+	X(EN10MB)	\
+	X(PPP)		\
+	X(RAW)		\
+
+struct dlt_type_str {
+	int num;
+	const char *str;
+};
+
+struct dlt_type_str dlt_type_strs[] = {
+#define X(name, ...) { .num = DLT_##name, .str = #name },
+	DLT_LIST
+#undef X
+	{ .num = DLT_EN10MB, .str = "ether" },
+	{ .num = 0, .str = NULL }
+};
+
 struct node {
 	int	id;
 	char *str;
+	size_t prfx_len; // used match begining of label
 	uint32_t num;
 	int op;
 	struct node *left_node;
@@ -228,7 +255,7 @@ get_token(const char **ptr)
    
 #ifdef DEBUG
 	if (parse_verbose)
-		printf("%s\n", __func__);
+		printf("%s %s\n", __func__, *ptr);
 #endif /* DEBUG */
 	
 	/* Skip white spaces */
@@ -249,9 +276,9 @@ get_token(const char **ptr)
 		if (strncmp(*ptr, tok->tok_label, tok->tok_len) == 0) {
 #ifdef DEBUG
 			if (parse_verbose)
-				printf("tok id: %s label: %s\n", get_token_id_str(tok->tok_id), tok->tok_label);
+				printf("tok id: %d label: %s len: %lu\n", tok->tok_id, tok->tok_label, tok->tok_len);
 #endif /* DEBUG */
-
+			
 			lex_token.tok_id = tok->tok_id;
 			lex_token.tok_label = strdup(tok->tok_label);
 			lex_token.tok_len = tok->tok_len;
@@ -260,7 +287,7 @@ get_token(const char **ptr)
 			return;
 		}
 	}
-	
+
 	lex_token.tok_id = TOK_STR;
 
 	if (strncmp(*ptr, "''", 2) == 0 || strncmp(*ptr, "\"\"", 2) == 0) {
@@ -302,14 +329,10 @@ get_token(const char **ptr)
 				}
 		}
 	}
-	
 #ifdef DEBUG
 	if (parse_verbose) {
-		char fmt[50];
-
-		bzero(fmt, sizeof(fmt));
-		snprintf(fmt, sizeof(fmt), "tok id: %%s len: %%lu str: %%.%lus *ptr: %%s\n", len);
-		printf(fmt, get_token_id_str(lex_token.tok_id) , lex_token.tok_len, lex_token.tok_label, *ptr);
+		printf("tok id: %d len: %lu label: %s *ptr: %s\n",
+			   lex_token.tok_id , lex_token.tok_len, lex_token.tok_label, *ptr);
 	}
 #endif /* DEBUG */
 	return;
@@ -322,11 +345,12 @@ parse_term_expression(const char **ptr)
 
 #ifdef DEBUG
 	if (parse_verbose)
-		printf("%s\n", __func__);
+		printf("%s lex_token.tok_id %d *ptr %s\n", __func__, lex_token.tok_id, *ptr);
 #endif /* DEBUG */
 
 	switch (lex_token.tok_id) {
 		case TOK_IF:
+		case TOK_DLT:
 		case TOK_PROC:
 		case TOK_EPROC:
 		case TOK_PID:
@@ -336,7 +360,7 @@ parse_term_expression(const char **ptr)
 		case TOK_FLOWID:
 			term_node = alloc_node(lex_token.tok_id);
 			get_token(ptr);
-			
+
 			if (lex_token.tok_id == TOK_EQ || lex_token.tok_id == TOK_NEQ)
 				term_node->op = lex_token.tok_id;
 			else {
@@ -352,14 +376,30 @@ parse_term_expression(const char **ptr)
 			 * TBD
 			 * For TOK_SVC and TOK_DIR restrict to meaningful values
 			 */
-			
 			term_node->str = strdup(lex_token.tok_label);
-			
+			if (term_node->id == TOK_IF) {
+				size_t len = strlen(term_node->str);
+
+				if (len > 0 && (term_node->str[len - 1] < '0' || term_node->str[len - 1] > '9')) {
+					term_node->prfx_len = len;
+				}
+			}
+			if (term_node->id == TOK_DLT) {
+				struct dlt_type_str *dts;
+
+				term_node->num = (uint32_t)strtoul(term_node->str, NULL, 0);
+
+				for (dts = dlt_type_strs; dts->str != NULL; dts++) {
+					if (strcasecmp(term_node->str, dts->str) == 0) {
+						term_node->num = dts->num;
+					}
+				}
+				fprintf(stderr, "num %d str %s\n", term_node->num, term_node->str);
+			}
 			if (term_node->id == TOK_PID || term_node->id == TOK_EPID || term_node->id == TOK_FLOWID) {
 				term_node->num = (uint32_t)strtoul(term_node->str, NULL, 0);
 			}
 			break;
-			
 		default:
 			warnx("cannot parse term at: %s", *ptr);
 			break;
@@ -551,7 +591,16 @@ evaluate_expression(node_t *expression, struct pkt_meta_data *p)
 			break;
             
 		case TOK_IF:
-			match = !strcmp(p->itf, expression->str);
+			if (expression->prfx_len == 0) {
+				match = !strcmp(p->itf, expression->str);
+			} else {
+				match = !strncmp(p->itf, expression->str, expression->prfx_len);
+			}
+			if (expression->op == TOK_NEQ)
+				match = !match;
+			break;
+		case TOK_DLT:
+			match = (p->dlt == expression->num);
 			if (expression->op == TOK_NEQ)
 				match = !match;
 			break;
@@ -625,6 +674,7 @@ print_expression(node_t *expression)
 			break;
             
 		case TOK_IF:
+		case TOK_DLT:
 		case TOK_PROC:
 		case TOK_EPROC:
 		case TOK_PID:
@@ -635,6 +685,9 @@ print_expression(node_t *expression)
 			switch (expression->id) {
 				case TOK_IF:
 					printf("if");
+					break;
+				case TOK_DLT:
+					printf("dlt");
 					break;
 				case TOK_PID:
 					printf("pid");

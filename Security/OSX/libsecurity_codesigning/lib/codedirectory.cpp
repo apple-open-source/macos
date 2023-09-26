@@ -89,6 +89,8 @@ const char *CodeDirectory::canonicalSlotName(SpecialSlot slot)
 			return kSecCS_LAUNCHCONSTRAINTPARENTFILE;
 	case cdLaunchConstraintResponsible:
 			return kSecCS_LAUNCHCONSTRAINTRESPONSIBLEFILE;
+	case cdLibraryConstraint:
+			return kSecCS_LIBRARYCONSTRAINTFILE;
 	default:
 			return NULL;
 	}
@@ -116,6 +118,7 @@ unsigned CodeDirectory::slotAttributes(SpecialSlot slot)
 	case cdLaunchConstraintSelf:
 	case cdLaunchConstraintParent:
 	case cdLaunchConstraintResponsible:
+	case cdLibraryConstraint:
 	case cdEntitlementSlot:
 	case cdEntitlementDERSlot:
 		return cdComponentIsBlob; // global

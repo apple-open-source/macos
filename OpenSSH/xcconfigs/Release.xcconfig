@@ -1,4 +1,4 @@
 //  Copyright © 2022 Apple Inc. All rights reserved.
 #include "xcconfigs/defaults.xcconfig"
 GCC_PREPROCESSOR_DEFINITIONS = $(AppleSshFeatures)
-GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*] = $(AppleSshFeatures) __APPLE_ENDPOINTSECURITY__
+GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*] = $(AppleSshFeatures) __APPLE_ENDPOINTSECURITY__ __APPLE_AUDIT_SESSION_ALWAYS__ __APPLE_MANAGED_CONFIGURATION__

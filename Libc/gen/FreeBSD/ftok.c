@@ -33,9 +33,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ftok.c,v 1.7 2004/06/01 06:53:07 tjr Exp $"
 #include <sys/ipc.h>
 
 key_t
-ftok(path, id)
-	const char *path;
-	int id;
+ftok(const char *path, int id)
 {
 	struct stat st;
 

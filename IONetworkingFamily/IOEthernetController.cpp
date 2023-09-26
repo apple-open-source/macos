@@ -45,6 +45,8 @@ extern "C" {
 
 #include <AssertMacros.h>
 
+#define MIN_REALTIME_POOL_SIZE  100
+#define AVB_MAX_PACKET_SIZE     2000
 
 class IOECStateNotifier : public OSObject
 {
@@ -223,6 +225,13 @@ bool IOEthernetController::init(OSDictionary * properties)
 		return false;
 	}
 	
+    _reserved->fRealtimePoolLock = IOLockAlloc();
+    if(_reserved->fRealtimePoolLock == nullptr)
+    {
+        DLOG("IOEthernetController: failed to allocate realtime packet pool lock\n");
+        return false;
+    }
+    
     return true;
 }
 
@@ -328,7 +337,29 @@ void IOEthernetController::free()
 				IOFreeType(thisEntry, IOECTSCallbackEntry);
 			}
 		}
-		
+        
+        if(_reserved->fRealtimePoolList != nullptr)
+        {
+            for(size_t index = 0; index < _reserved->fRealtimePoolSize; index++)
+            {
+                if(_reserved->fRealtimePoolList[index].packet != nullptr)
+                {
+                    allocatedAVBPacketCompletion(this, _reserved->fRealtimePoolList[index].packet);
+                }
+            }
+            
+            IODelete(_reserved->fRealtimePoolList, IOEthernetAVBPacketPoolEntry, _reserved->fRealtimePoolSize);
+            _reserved->fRealtimePoolList = nullptr;
+        }
+        
+        _reserved->fRealtimePoolSize = 0;
+        
+        if(_reserved->fRealtimePoolLock != nullptr)
+        {
+            IOLockFree(_reserved->fRealtimePoolLock);
+            _reserved->fRealtimePoolLock = nullptr;
+        }
+
 		if(_reserved->fAVBPacketMapper)
 		{
 			_reserved->fAVBPacketMapper->release();
@@ -1735,7 +1766,25 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 	{
 		if(fromRealtimePool)
 		{
-			//TBD: This still needs to be written
+            IOLockLock(_reserved->fRealtimePoolLock);
+            
+            if(_reserved->fRealtimePoolHead != nullptr)
+            {
+                result = _reserved->fRealtimePoolHead->packet;
+                _reserved->fRealtimePoolHead->inUse = true;
+                _reserved->fRealtimePoolHead = _reserved->fRealtimePoolHead->next;
+                if(_reserved->fRealtimePoolHead == nullptr)
+                {
+                    _reserved->fRealtimePoolTail = nullptr;
+                }
+            }
+            
+            IOLockUnlock(_reserved->fRealtimePoolLock);
+            
+            if(result != nullptr)
+            {
+                ((IOEthernetAVBPacketPoolEntry *)result->reservedFamily)->next = nullptr;
+            }
 		}
 		else
 		{
@@ -1746,7 +1795,7 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 			IOBufferMemoryDescriptor *buffer;
 			IODMACommand *dma;
 			
-			vm_size_t maxPacketSize = 2000;
+			vm_size_t maxPacketSize = AVB_MAX_PACKET_SIZE;
 			vm_size_t allocationSize = maxPacketSize;
 			vm_offset_t alignment = 1;
 			IOOptionBits options = kIODirectionOutIn | kIOMemoryPhysicallyContiguous |
@@ -1802,7 +1851,7 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 			result->virtualRanges[0].address = (IOVirtualAddress)buffer->getBytesNoCopy();
 			result->virtualRanges[0].length = maxPacketSize;
 			result->physicalRanges[0].address = dmaSegment.fIOVMAddr;
-			result->physicalRanges[0].length = dmaSegment.fLength;
+			result->physicalRanges[0].length = maxPacketSize;
 			
 			dma->synchronize(kIODirectionInOut);
 			
@@ -1863,9 +1912,107 @@ void IOEthernetController::allocatedAVBPacketCompletion(void *context, IOEtherne
 	}
 }
 
-void IOEthernetController::realtimePoolAVBPacketCompletion(IOEthernetAVBPacket *packet)
+IOReturn IOEthernetController::createRealtimeAVBPacketPool(size_t poolSize)
 {
-	//TBD: this still needs to be written
+    IOReturn result = kIOReturnNoMemory;
+    
+    require_action(_reserved != nullptr, Exit, result = kIOReturnInternalError);
+    require_action(poolSize >= MIN_REALTIME_POOL_SIZE, Exit, result = kIOReturnBadArgument);
+    
+    require_action(_reserved->fRealtimePoolList == nullptr, Exit, result = kIOReturnAborted);
+    
+    _reserved->fRealtimePoolSize = poolSize;
+    
+    _reserved->fRealtimePoolList = IONewZero(IOEthernetAVBPacketPoolEntry, poolSize);
+    require(_reserved->fRealtimePoolList != nullptr, Exit);
+    
+    for(size_t index = 0; index < poolSize; index++)
+    {
+        _reserved->fRealtimePoolList[index].packet = allocateAVBPacket(false);
+        require(_reserved->fRealtimePoolList[index].packet != nullptr, Exit);
+        
+        //The allocated packet will be using the allocated packet callback which will free the packet
+        // we need to use the realtime callback which will put it back into the pool
+        _reserved->fRealtimePoolList[index].packet->completion_callback = &realtimePoolAVBPacketCompletion;
+        _reserved->fRealtimePoolList[index].packet->reservedFamily = _reserved->fRealtimePoolList + index;
+        
+        _reserved->fRealtimePoolList[index].next = _reserved->fRealtimePoolList + (index + 1);
+    }
+    
+    _reserved->fRealtimePoolHead = _reserved->fRealtimePoolList;
+    _reserved->fRealtimePoolTail = _reserved->fRealtimePoolList + (poolSize - 1);
+    _reserved->fRealtimePoolTail->next = nullptr;
+    
+    result = kIOReturnSuccess;
+    
+Exit:
+    if(_reserved && result != kIOReturnSuccess)
+    {
+        if(_reserved->fRealtimePoolList != nullptr)
+        {
+            for(size_t index = 0; index < poolSize; index++)
+            {
+                if(_reserved->fRealtimePoolList[index].packet != nullptr)
+                {
+                    allocatedAVBPacketCompletion(this, _reserved->fRealtimePoolList[index].packet);
+                }
+            }
+            
+            IODelete(_reserved->fRealtimePoolList, IOEthernetAVBPacketPoolEntry, poolSize);
+            _reserved->fRealtimePoolList = nullptr;
+        }
+        
+        _reserved->fRealtimePoolSize = 0;
+    }
+    
+    return result;
+}
+
+void IOEthernetController::realtimePoolAVBPacketCompletion(void *context, IOEthernetAVBPacket *packet)
+{
+    IOEthernetController *controller;
+    IOEthernetAVBPacketPoolEntry *poolEntry;
+    ExpansionData *reserved;
+    
+    require(context != nullptr, Exit);
+    require(packet != nullptr, Exit);
+    
+    controller = (IOEthernetController *)context;
+    poolEntry = (IOEthernetAVBPacketPoolEntry *)packet->reservedFamily;
+    reserved = controller->_reserved;
+    
+    require(reserved != nullptr, Exit);
+    
+    //Reset the packet
+    packet->numberOfEntries = 1;
+    packet->virtualRanges[0].length = AVB_MAX_PACKET_SIZE;
+    packet->physicalRanges[0].length = AVB_MAX_PACKET_SIZE;
+    
+    IOLockLock(reserved->fRealtimePoolLock);
+    
+    if(poolEntry->inUse != true)
+    {
+        IOLog("IOEthernetController ERROR: Double complete of realtime AVB packet");
+        require_action(poolEntry->inUse == true, Exit, IOLockUnlock(reserved->fRealtimePoolLock));
+    }
+    
+    poolEntry->inUse = false;
+    
+    if(reserved->fRealtimePoolTail == nullptr)
+    {
+        reserved->fRealtimePoolHead = poolEntry;
+        reserved->fRealtimePoolTail = poolEntry;
+    }
+    else
+    {
+        reserved->fRealtimePoolTail->next = poolEntry;
+        reserved->fRealtimePoolTail = poolEntry;
+    }
+    
+    IOLockUnlock(reserved->fRealtimePoolLock);
+    
+Exit:
+    ;
 }
 
 #pragma mark TimeSync Callback Queue

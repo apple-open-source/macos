@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,6 +63,20 @@
  * - indicates how verbose the eapolclient logging will be
  */
 #define kLogFlags			CFSTR("LogFlags")
+
+/*
+ * kUseBoringSSL
+ * - indicates to use boringssl library instead of SecureTransport
+ */
+#define kUseBoringSSL			CFSTR("UseBoringSSL")
+
+/*
+ * kEnableRevocationCheck
+ * - indicates whether revocation status check is enabled or disabled
+ *   for EAP-TLS 1.3
+ */
+#define kEnableRevocationCheck		CFSTR("EnableRevocationCheck")
+
 
 STATIC SCPreferencesRef			S_prefs;
 STATIC EAPOLControlPrefsCallBack	S_callback;
@@ -224,6 +238,42 @@ prefs_set_number(CFStringRef key, CFNumberRef num)
     return;
 }
 
+STATIC void
+prefs_set_boolean(CFStringRef key, CFBooleanRef val)
+{
+    SCPreferencesRef	prefs = EAPOLControlPrefsGet();
+
+    if (prefs != NULL) {
+	if (isA_CFBoolean(val) == NULL) {
+	    SCPreferencesRemoveValue(prefs, key);
+	}
+	else {
+	    SCPreferencesSetValue(prefs, key, val);
+	}
+    }
+    return;
+}
+
+STATIC Boolean
+prefs_get_boolean(CFStringRef key, Boolean default_val)
+{
+    CFBooleanRef 	val = NULL;
+    Boolean		ret = default_val;
+
+#if TARGET_OS_IPHONE
+    val = SCPreferencesGetValue(EAPOLControlManagedPrefsGet(), key);
+    val = isA_CFBoolean(val);
+#endif /* TARGET_OS_IPHONE */
+    if (val == NULL) {
+	val = SCPreferencesGetValue(EAPOLControlPrefsGet(), key);
+	val = isA_CFBoolean(val);
+    }
+    if (val != NULL) {
+	ret = CFBooleanGetValue(val);
+    }
+    return (ret);
+}
+
 /**
  ** Get
  **/
@@ -238,6 +288,15 @@ EAPOLControlPrefsGetLogFlags(void)
 	CFNumberGetValue(num, kCFNumberSInt32Type, &ret_value);
     }
     return (ret_value);
+}
+
+/**
+ ** Get UseBoringSSL Flags
+ **/
+EXTERN Boolean
+EAPOLControlPrefsGetUseBoringSSL(void)
+{
+    return (prefs_get_boolean(kUseBoringSSL, TRUE));
 }
 
 /**
@@ -257,4 +316,35 @@ EAPOLControlPrefsSetLogFlags(uint32_t flags)
 	my_CFRelease(&num);
     }
     return (EAPOLControlPrefsSave());
+}
+
+/**
+ ** Set UseBoringSSL
+ **/
+EXTERN Boolean
+EAPOLControlPrefsSetUseBoringSSL(bool use_boringssl)
+{
+    CFBooleanRef val = use_boringssl ? kCFBooleanTrue : kCFBooleanFalse;
+    prefs_set_boolean(kUseBoringSSL, val);
+    return (EAPOLControlPrefsSave());
+}
+
+/**
+ ** enable/disable revocation check for EAP-TLS 1.3 (default = enabled)
+ **/
+Boolean
+EAPOLControlPrefsSetRevocationCheck(bool enable)
+{
+    CFBooleanRef val = enable ? kCFBooleanTrue : kCFBooleanFalse;
+    prefs_set_boolean(kEnableRevocationCheck, val);
+    return (EAPOLControlPrefsSave());
+}
+
+/**
+ ** return TRUE if revocation check is enabled
+ **/
+Boolean
+EAPOLControlPrefsGetRevocationCheck(void)
+{
+    return (prefs_get_boolean(kEnableRevocationCheck, TRUE));
 }

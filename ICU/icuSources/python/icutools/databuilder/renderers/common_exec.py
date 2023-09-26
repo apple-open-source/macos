@@ -10,7 +10,7 @@ from .. import *
 from .. import utils
 from ..request_types import *
 
-import pathlib
+import pathlib # rdar://60935153 #60 Create an Xcode project for ICU
 import os
 import shutil
 import subprocess
@@ -42,6 +42,7 @@ def makedirs(dirs):
                 raise e
 
 def run_helper(request, common_vars, platform, tool_dir, verbose, tool_cfg=None, **kwargs):
+    # rdar://60935153 #60 Create an Xcode project for ICU
     # [The block below was added for APPLE_XCODE_BUILD]
     # The block of code below checks the mod dates of the files involved in the request--
     # if all of the output files exist and all of them are newer than the newest input file,
@@ -108,9 +109,10 @@ def run_helper(request, common_vars, platform, tool_dir, verbose, tool_cfg=None,
         raise ValueError("Unknown platform: %s" % platform)
 
     if isinstance(request, RepeatedExecutionRequest):
-        can_skip_files = not("EXTRA_OPTION" in request.format_with and "--usePoolBundle" in request.format_with["EXTRA_OPTION"])
-        can_skip_files = can_skip_files and request.category != "translit"
+        can_skip_files = not("EXTRA_OPTION" in request.format_with and "--usePoolBundle" in request.format_with["EXTRA_OPTION"]) # rdar://60935153 #60 Create an Xcode project for ICU
+        can_skip_files = can_skip_files and request.category != "translit" # rdar://61817095 #82 Hans → Hant: 肮脏 should be 骯髒...
         for loop_vars in utils.repeated_execution_request_looper(request):
+            # rdar://60935153 #60 Create an Xcode project for ICU; rdar://61817095 #82 Hans → Hant: 肮脏 should be 骯髒...
         	# [The block below was added for APPLE_XCODE_BUILD]
             # The mod-date checks at the top of this function determine whether to execute an entire request--
             # if the request is a repeated execution request, it'll still allow all iterations of the request

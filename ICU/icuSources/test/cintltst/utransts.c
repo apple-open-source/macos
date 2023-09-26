@@ -14,6 +14,7 @@
 
 #if !UCONFIG_NO_TRANSLITERATION
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include "unicode/utrans.h"
@@ -595,29 +596,29 @@ static void TestGetRulesAndSourceSet() {
         int32_t ulen;
 
         status = U_ZERO_ERROR;
-        ulen = utrans_toRules(utrans, FALSE, ubuf, kUBufMax, &status);
+        ulen = utrans_toRules(utrans, false, ubuf, kUBufMax, &status);
         if ( U_FAILURE(status) || ulen <= 50 || ulen >= 100) {
             log_err("FAIL: utrans_toRules unescaped, expected noErr and len 50-100, got error=%s and len=%d\n",
                     u_errorName(status), ulen);
         }
 
         status = U_ZERO_ERROR;
-        ulen = utrans_toRules(utrans, FALSE, NULL, 0, &status);
+        ulen = utrans_toRules(utrans, false, NULL, 0, &status);
         if ( status != U_BUFFER_OVERFLOW_ERROR || ulen <= 50 || ulen >= 100) {
             log_err("FAIL: utrans_toRules unescaped, expected U_BUFFER_OVERFLOW_ERROR and len 50-100, got error=%s and len=%d\n",
                     u_errorName(status), ulen);
         }
 
         status = U_ZERO_ERROR;
-        ulen = utrans_toRules(utrans, TRUE, ubuf, kUBufMax, &status);
+        ulen = utrans_toRules(utrans, true, ubuf, kUBufMax, &status);
         if ( U_FAILURE(status) || ulen <= 100 || ulen >= 200) {
             log_err("FAIL: utrans_toRules escaped, expected noErr and len 100-200, got error=%s and len=%d\n",
                     u_errorName(status), ulen);
         }
 
         status = U_ZERO_ERROR;
-        uset = utrans_getSourceSet(utrans, FALSE, NULL, &status);
-        ulen = uset_toPattern(uset, ubuf, kUBufMax, FALSE, &status);
+        uset = utrans_getSourceSet(utrans, false, NULL, &status);
+        ulen = uset_toPattern(uset, ubuf, kUBufMax, false, &status);
         uset_close(uset);
         if ( U_FAILURE(status) || ulen <= 4 || ulen >= 20) {
             log_err("FAIL: utrans_getSourceSet useFilter, expected noErr and len 4-20, got error=%s and len=%d\n",
@@ -625,8 +626,8 @@ static void TestGetRulesAndSourceSet() {
         }
 
         status = U_ZERO_ERROR;
-        uset = utrans_getSourceSet(utrans, TRUE, NULL, &status);
-        ulen = uset_toPattern(uset, ubuf, kUBufMax, FALSE, &status);
+        uset = utrans_getSourceSet(utrans, true, NULL, &status);
+        ulen = uset_toPattern(uset, ubuf, kUBufMax, false, &status);
         uset_close(uset);
         if ( U_FAILURE(status) || ulen <= 4 || ulen >= 20) {
             log_err("FAIL: utrans_getSourceSet ignoreFilter, expected noErr and len 4-20, got error=%s and len=%d\n",
@@ -641,12 +642,19 @@ static void TestGetRulesAndSourceSet() {
 }
 
 typedef struct {
+#if APPLE_ICU_CHANGES
+// rdar://
     const UChar * transID;
+#else
+    const char * transID;
+#endif  // APPLE_ICU_CHANGES
     const char * sourceText;
     const char * targetText;
 } TransIDSourceTarg;
 
 static const TransIDSourceTarg dataVarCompItems[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
     { u"Simplified-Traditional",
        "\\u4E0B\\u9762\\u662F\\u4E00\\u4E9B\\u4ECE\\u7B80\\u4F53\\u8F6C\\u6362\\u4E3A\\u7E41\\u4F53\\u5B57\\u793A\\u4F8B\\u6587\\u672C\\u3002",
        "\\u4E0B\\u9762\\u662F\\u4E00\\u4E9B\\u5F9E\\u7C21\\u9AD4\\u8F49\\u63DB\\u70BA\\u7E41\\u9AD4\\u5B57\\u793A\\u4F8B\\u6587\\u672C\\u3002" },
@@ -663,9 +671,9 @@ static const TransIDSourceTarg dataVarCompItems[] = {
       "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
       "A \\u0100I H\\u0100I RH" },
 /* The following transform is provisional and not present in ICU 60
-    { "Greek-Latin/BGN",
-      "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
-      "A\\u0313 A\\u0345 A\\u0314\\u0345 \\u1FEC" },
+    { u"Greek-Latin/BGN",
+      u"\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
+      u"A\\u0313 A\\u0345 A\\u0314\\u0345 \\u1FEC" },
 */
     { u"Greek-Latin/UNGEGN",
       "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
@@ -682,6 +690,28 @@ static const TransIDSourceTarg dataVarCompItems[] = {
        "\\u309B\\u309C \\u308F\\u3099 \\u309F",
        "\\u309B\\u309C \\u30F7 \\u30E8\\u30EA" },
 
+#else
+    { "Simplified-Traditional",
+       "\\u4E0B\\u9762\\u662F\\u4E00\\u4E9B\\u4ECE\\u7B80\\u4F53\\u8F6C\\u6362\\u4E3A\\u7E41\\u4F53\\u5B57\\u793A\\u4F8B\\u6587\\u672C\\u3002",
+       "\\u4E0B\\u9762\\u662F\\u4E00\\u4E9B\\u5F9E\\u7C21\\u9AD4\\u8F49\\u63DB\\u70BA\\u7E41\\u9AD4\\u5B57\\u793A\\u4F8B\\u6587\\u672C\\u3002" },
+    { "Halfwidth-Fullwidth",
+      "Sample text, \\uFF7B\\uFF9D\\uFF8C\\uFF9F\\uFF99\\uFF83\\uFF77\\uFF7D\\uFF84.",
+      "\\uFF33\\uFF41\\uFF4D\\uFF50\\uFF4C\\uFF45\\u3000\\uFF54\\uFF45\\uFF58\\uFF54\\uFF0C\\u3000\\u30B5\\u30F3\\u30D7\\u30EB\\u30C6\\u30AD\\u30B9\\u30C8\\uFF0E" },
+    { "Han-Latin/Names; Latin-Bopomofo",
+       "\\u4E07\\u4FDF\\u919C\\u5974\\u3001\\u533A\\u695A\\u826F\\u3001\\u4EFB\\u70E8\\u3001\\u5CB3\\u98DB",
+       "\\u3107\\u311B\\u02CB \\u3111\\u3127\\u02CA \\u3114\\u3121\\u02C7 \\u310B\\u3128\\u02CA\\u3001 \\u3121 \\u3114\\u3128\\u02C7 \\u310C\\u3127\\u3124\\u02CA\\u3001 \\u3116\\u3123\\u02CA \\u3127\\u311D\\u02CB\\u3001 \\u3129\\u311D\\u02CB \\u3108\\u311F" },
+    { "Greek-Latin",
+      "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
+      "A \\u0100I H\\u0100I RH" },
+/* The following transform is provisional and not present in ICU 60
+    { "Greek-Latin/BGN",
+      "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
+      "A\\u0313 A\\u0345 A\\u0314\\u0345 \\u1FEC" },
+*/
+    { "Greek-Latin/UNGEGN",
+      "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
+      "A A A R" },
+#endif  // APPLE_ICU_CHANGES
     { NULL, NULL, NULL }
 };
 
@@ -690,6 +720,8 @@ static void TestDataVariantsCompounds() {
     const TransIDSourceTarg* itemsPtr;
     for (itemsPtr = dataVarCompItems; itemsPtr->transID != NULL; itemsPtr++) {
         UErrorCode status = U_ZERO_ERROR;
+#if APPLE_ICU_CHANGES
+// rdar://
         char btrid[kUBufMax];
         u_austrcpy(btrid, itemsPtr->transID);
         UTransliterator* utrans = utrans_openU(itemsPtr->transID, -1, UTRANS_FORWARD, NULL, 0, NULL, &status);
@@ -697,6 +729,15 @@ static void TestDataVariantsCompounds() {
             log_data_err("FAIL: utrans_openRules(%s) failed, error=%s (Are you missing data?)\n", btrid, u_errorName(status));
             continue;
         }
+#else
+        UChar utrid[kUBufMax];
+        int32_t utridlen = u_unescape(itemsPtr->transID, utrid, kUBufMax);
+        UTransliterator* utrans = utrans_openU(utrid, utridlen, UTRANS_FORWARD, NULL, 0, NULL, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("FAIL: utrans_openRules(%s) failed, error=%s (Are you missing data?)\n", itemsPtr->transID, u_errorName(status));
+            continue;
+        }
+#endif  // APPLE_ICU_CHANGES
         UChar text[kUBufMax];
         int32_t textLen =  u_unescape(itemsPtr->sourceText, text, kUBufMax);
         int32_t textLim = textLen;
@@ -710,7 +751,12 @@ static void TestDataVariantsCompounds() {
                 char btext[kBBufMax], bexpect[kBBufMax];
                 u_austrncpy(btext, text, textLen);
                 u_austrncpy(bexpect, expect, expectLen);
+#if APPLE_ICU_CHANGES
+// rdar://
                 log_err("FAIL: utrans_transUChars(%s),\n       expect %s\n       get    %s\n", btrid, bexpect, btext);
+#else
+                log_err("FAIL: utrans_transUChars(%s),\n       expect %s\n       get    %s\n", itemsPtr->transID, bexpect, btext);
+#endif  // APPLE_ICU_CHANGES
             }
         }
         utrans_close(utrans);

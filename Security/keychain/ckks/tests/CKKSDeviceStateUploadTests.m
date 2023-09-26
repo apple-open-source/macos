@@ -273,7 +273,7 @@
     // The account downgrades, I guess?
 
     self.fakeHSA2AccountStatus = CKKSAccountStatusNoAccount;
-    [self.accountStateTracker setHSA2iCloudAccountStatus:self.fakeHSA2AccountStatus];
+    [self.accountStateTracker setCDPCapableiCloudAccountStatus:self.fakeHSA2AccountStatus];
 
     // It shouldn't try to upload a new CDSE; the account is SA
     op = [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];

@@ -35,6 +35,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(dumpWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(departByDistrustingSelfWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(distrustPeerIDsWithSpecificUser:peerIDs:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(dropPeerIDsWithSpecificUser:peerIDs:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(trustStatusWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(resetWithSpecificUser:resetReason:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(localResetWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
@@ -67,7 +68,6 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(fetchPolicyDocumentsWithSpecificUser:versions:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchRecoverableTLKSharesWithSpecificUser:peerID:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchCurrentPolicyWithSpecificUser:modelIDOverride:isInheritedAccount:reply:) argumentIndex:2 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(validatePeersWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchTrustStateWithSpecificUser:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(setRecoveryKeyWithSpecificUser:recoveryKey:salt:ckksKeys:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(createCustodianRecoveryKeyWithSpecificUser:recoveryKey:salt:ckksKeys:uuid:kind:reply:) argumentIndex:2 ofReply:YES];
@@ -75,7 +75,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(reportHealthWithSpecificUser:stateMachineState:trustState:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(pushHealthInquiryWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:knownFederations:reply:) argumentIndex:5 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:knownFederations:reply:) argumentIndex:5 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(getSupportAppInfoWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(resetAccountCDPContentsWithSpecificUser:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeEscrowCacheWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];

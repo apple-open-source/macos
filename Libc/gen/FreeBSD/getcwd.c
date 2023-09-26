@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1991, 1993, 1995
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -27,14 +29,9 @@
  * SUCH DAMAGE.
  */
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wstrict-prototypes"
-
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)getcwd.c	8.5 (Berkeley) 2/7/95";
-#endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/getcwd.c,v 1.29 2007/01/09 00:27:53 imp Exp $");
+__SCCSID("@(#)getcwd.c	8.5 (Berkeley) 2/7/95");
+__FBSDID("$FreeBSD$");
 
 #include "namespace.h"
 #include <sys/param.h>
@@ -49,48 +46,21 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/getcwd.c,v 1.29 2007/01/09 00:27:53 imp Exp
 #include <unistd.h>
 #include "un-namespace.h"
 
-#if TARGET_OS_OSX && !TARGET_OS_SIMULATOR
-#include <sys/attr.h>	/* for FSOPT_NOFOLLOW */
-#include <apfs/apfs_fsctl.h>
+#ifdef __APPLE__
+/*
+ * We haven't ported the private-DIR work yet, so just define this one macro
+ * as a pass-through to dirfd() to minimize later diff.
+ */
+#define	_dirfd(dirp)	dirfd(dirp)
+#else
+#include "gen-private.h"
 #endif
 
 #define	ISDOT(dp) \
 	(dp->d_name[0] == '.' && (dp->d_name[1] == '\0' || \
 	    (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
 
-/*
- * Check if the given directory is a firmlink.
- * Return 1 if it is firmlink otherwise return 0.
- */
-static inline int
-__check_for_firmlink(char *dir_path)
-{
-#if TARGET_OS_OSX && !TARGET_OS_SIMULATOR
-	apfs_firmlink_control_t afc;
-	int is_firmlink;
-	int err;
-
-	afc.cmd = FIRMLINK_GET;
-	afc.val = 0;
-
-	err = fsctl(dir_path, APFSIOC_FIRMLINK_CTL, (void *)&afc, FSOPT_NOFOLLOW);
-	if (err == 0) {
-		is_firmlink = afc.val ? 1 : 0;
-	} else  {
-		/*
-		 * On error, we assume it is a firmlink. This could be a false positive
-		 * and we will end up incurring a lstat() cost but it will give us some
-		 * chance to build the path successfully.
-		 */
-		is_firmlink = 1;
-	}
-
-	return is_firmlink;
-#else
-	return 0;
-#endif
-}
-
+#ifdef __APPLE__
 /*
  * If __getcwd() ever becomes a syscall, we can remove this workaround.
  * The problem here is that fcntl() assumes a buffer of size MAXPATHLEN,
@@ -105,7 +75,7 @@ __getcwd(char *buf, size_t size)
 	struct stat dot, pt;
 	char *b;
 
-	if ((fd = open(".", O_RDONLY)) < 0)
+	if ((fd = open(".", O_RDONLY | O_CLOEXEC)) < 0)
 		return -1;
 	if (fstat(fd, &dot) < 0) {
 		save = errno;
@@ -166,25 +136,35 @@ __getcwd(char *buf, size_t size)
 	}
 	return 0;
 }
+#else
+extern int __getcwd(char *, size_t);
+#endif
 
+#ifdef __APPLE__
 __private_extern__ char *
-__private_getcwd(pt, size, usegetpath)
-	char *pt;
-	size_t size;
-	int usegetpath;
+__private_getcwd(char *pt, size_t size, int usegetpath)
+#else
+char *
+getcwd(char *pt, size_t size)
+#endif
 {
 	struct dirent *dp;
 	DIR *dir = NULL;
 	dev_t dev;
 	ino_t ino;
 	int first;
-	char *bpt, *bup;
+	char *bpt;
 	struct stat s;
 	dev_t root_dev;
 	ino_t root_ino;
-	size_t ptsize, upsize;
+	size_t ptsize;
 	int save_errno;
-	char *ept, *eup, *up;
+#ifdef __APPLE__
+	char *ept;
+#else
+	char *ept, c;
+#endif
+	int fd;
 
 	/*
 	 * If no buffer specified by the user, allocate one as necessary.
@@ -203,30 +183,33 @@ __private_getcwd(pt, size, usegetpath)
 		}
 		ept = pt + size;
 	} else {
-		if ((pt = malloc(ptsize = MAXPATHLEN)) == NULL)
+		if ((pt = malloc(ptsize = PATH_MAX)) == NULL)
 			return (NULL);
 		ept = pt + ptsize;
 	}
+#ifdef __APPLE__
 	if (usegetpath) {
 		if (__getcwd(pt, ept - pt) == 0) {
 			return (pt);
 		} else if (errno == ERANGE) /* failed because buffer too small */
 			return NULL;
 	}
+#else
+	if (__getcwd(pt, ept - pt) == 0) {
+		if (*pt != '/') {
+			bpt = pt;
+			ept = pt + strlen(pt) - 1;
+			while (bpt < ept) {
+				c = *bpt;
+				*bpt++ = *ept;
+				*ept-- = c;
+			}
+		}
+		return (pt);
+	}
+#endif
 	bpt = ept - 1;
 	*bpt = '\0';
-
-	/*
-	 * Allocate MAXPATHLEN bytes for the string of "../"'s.
-	 * Should always be enough.  If it's not, allocate
-	 * as necessary.  Special case the first stat, it's ".", not "..".
-	 */
-	if ((up = malloc(upsize = MAXPATHLEN)) == NULL)
-		goto err;
-	eup = up + MAXPATHLEN;
-	bup = up;
-	up[0] = '.';
-	up[1] = '\0';
 
 	/* Save root values, so know when to stop. */
 	if (stat("/", &s))
@@ -238,7 +221,7 @@ __private_getcwd(pt, size, usegetpath)
 
 	for (first = 1;; first = 0) {
 		/* Stat the current level. */
-		if (lstat(up, &s))
+		if (dir != NULL ? _fstat(_dirfd(dir), &s) : lstat(".", &s))
 			goto err;
 
 		/* Save current node values. */
@@ -254,32 +237,22 @@ __private_getcwd(pt, size, usegetpath)
 			 * been that way and stuff would probably break.
 			 */
 			bcopy(bpt, pt, ept - bpt);
-			free(up);
+			if (dir)
+				(void) closedir(dir);
 			return (pt);
 		}
 
-		/*
-		 * Build pointer to the parent directory, allocating memory
-		 * as necessary.  Max length is 3 for "../", the largest
-		 * possible component name, plus a trailing NUL.
-		 */
-		while (bup + 3  + MAXNAMLEN + 1 >= eup) {
-			if ((up = reallocf(up, upsize *= 2)) == NULL)
-				goto err;
-			bup = up;
-			eup = up + upsize;
-		}
-		*bup++ = '.';
-		*bup++ = '.';
-		*bup = '\0';
-
 		/* Open and stat parent directory. */
-		if (!(dir = opendir(up)) || _fstat(dirfd(dir), &s))
+		fd = _openat(dir != NULL ? _dirfd(dir) : AT_FDCWD,
+				"..", O_RDONLY | O_CLOEXEC);
+		if (fd == -1)
 			goto err;
-
-		/* Add trailing slash for next directory. */
-		*bup++ = '/';
-		*bup = '\0';
+		if (dir)
+			(void) closedir(dir);
+		if (!(dir = fdopendir(fd)) || _fstat(_dirfd(dir), &s)) {
+			_close(fd);
+			goto err;
+		}
 
 		/*
 		 * If it's a mount point, have to stat each element because
@@ -291,29 +264,35 @@ __private_getcwd(pt, size, usegetpath)
 			for (;;) {
 				if (!(dp = readdir(dir)))
 					goto notfound;
-				if (dp->d_fileno == ino) {
+				if (dp->d_fileno == ino)
 					break;
-				} else if (!ISDOT(dp) && dp->d_type == DT_DIR) {
+#ifdef __APPLE__
+				else if (!ISDOT(dp) && dp->d_type == DT_DIR) {
 					/*
 					 * The 'd_fileno' for firmlink directory would be different
 					 * than the 'st_ino' returned by stat(). We have to do an
 					 * extra lstat() on firmlink directory to determine if the
 					 * 'st_ino' matches with what we are looking for.
+					 *
+					 * The previous version used APFSIOC_FIRMLINK_CTL to
+					 * determine if we were looking at a firmlink before
+					 * resorting to stat(), but there's not currently an
+					 * fsctlat() that we can use to do the same without having
+					 * to build a long relative path for every directory we
+					 * encounter.
 					 */
-                    bcopy(dp->d_name, bup, dp->d_namlen + 1);
-
-					if (__check_for_firmlink(up) == 0)
+					if (fstatat(dirfd(dir), dp->d_name, &s,
+					     AT_SYMLINK_NOFOLLOW)) {
+						if (!save_errno)
+							save_errno = errno;
+						errno = 0;
 						continue;
+					}
 
-                    if (lstat(up, &s)) {
-                        if (!save_errno)
-                            save_errno = errno;
-                        errno = 0;
-                        continue;
-                    }
-                    if (s.st_dev == dev && s.st_ino == ino)
-                        break;
-                }
+					if (s.st_dev == dev && s.st_ino == ino)
+						break;
+				}
+#endif
 			}
 		} else
 			for (;;) {
@@ -321,10 +300,10 @@ __private_getcwd(pt, size, usegetpath)
 					goto notfound;
 				if (ISDOT(dp))
 					continue;
-				bcopy(dp->d_name, bup, dp->d_namlen + 1);
 
 				/* Save the first error for later. */
-				if (lstat(up, &s)) {
+				if (fstatat(_dirfd(dir), dp->d_name, &s,
+				    AT_SYMLINK_NOFOLLOW)) {
 					if (!save_errno)
 						save_errno = errno;
 					errno = 0;
@@ -358,11 +337,6 @@ __private_getcwd(pt, size, usegetpath)
 			*--bpt = '/';
 		bpt -= dp->d_namlen;
 		bcopy(dp->d_name, bpt, dp->d_namlen);
-		(void) closedir(dir);
-		dir = NULL;
-
-		/* Truncate any file name. */
-		*bup = '\0';
 	}
 
 notfound:
@@ -381,17 +355,15 @@ err:
 		free(pt);
 	if (dir)
 		(void) closedir(dir);
-	free(up);
 
 	errno = save_errno;
 	return (NULL);
 }
 
+#ifdef __APPLE__
 char *
-getcwd(pt, size)
-	char *pt;
-	size_t size;
+getcwd(char *pt, size_t size)
 {
 	return __private_getcwd(pt, size, 1);
 }
-#pragma clang diagnostic pop
+#endif

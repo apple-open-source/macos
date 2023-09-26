@@ -36,17 +36,31 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFUtilities.h>
+#include <IOKit/IOKitLib.h>
+#include <os/feature_private.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFRelease.h>
 #include <sys/stat.h>
 #include <sys/param.h>
 #include <sys/errno.h>
+#include <sys/sysctl.h>
 #include <uuid/uuid.h>
 #include <copyfile.h>
 #include <syslog.h>
 
 #include "SecFileLocations.h"
 #include "OSX/sec/Security/SecKnownFilePaths.h"
+
+#include "SecAKSWrappers.h" // for TARGET_HAS_KEYSTORE, needed to determine edu mode
+#include <SoftLinking/SoftLinking.h>
+
+#if TARGET_OS_IOS && TARGET_HAS_KEYSTORE
+#define HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT 1
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, MobileKeyBag)
+SOFT_LINK_FUNCTION(MobileKeyBag, MKBUserTypeDeviceMode, soft_MKBUserTypeDeviceMode, CFDictionaryRef, (CFDictionaryRef options, CFErrorRef * error), (options, error))
+SOFT_LINK_CONSTANT(MobileKeyBag, kMKBDeviceModeKey, CFStringRef)
+SOFT_LINK_CONSTANT(MobileKeyBag, kMKBDeviceModeSharedIPad, CFStringRef)
+#endif
 
 
 #if TARGET_OS_OSX
@@ -116,6 +130,114 @@ done:
 }
 #endif /* TARGET_OS_OSX */
 
+#if TARGET_OS_IOS
+static bool SecSharedDataVolumeBootArgSet(void) {
+    static bool boot_arg_set = false;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        char bootargs[PATH_MAX];
+        size_t bsize=sizeof(bootargs)-1;
+        bzero(bootargs,sizeof(bootargs));
+        if (sysctlbyname("kern.bootargs", bootargs, &bsize, NULL, 0) == 0) {
+            if (strnstr(bootargs, "-apfs_shared_datavolume", bsize)) {
+                boot_arg_set = true;
+            }
+        }
+        secnotice("eapfs", "eapfs boot-arg set to %{bool}d", boot_arg_set);
+    });
+
+    return boot_arg_set;
+}
+
+static bool DeviceTree_SupportsEnhancedApfs(void) {
+    static bool supported = false;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        io_registry_entry_t fs_props = IORegistryEntryFromPath(kIOMainPortDefault, kIODeviceTreePlane ":/filesystems"); // todo: use kEDTFilesystems when available
+        if (fs_props != IO_OBJECT_NULL) {
+            CFDataRef eapfs = IORegistryEntryCreateCFProperty(fs_props, CFSTR("e-apfs"), kCFAllocatorDefault, 0); // todo: use kEDTFilesystemsEnhancedAPFS when available
+            if (eapfs != NULL) {
+                CFRelease(eapfs);
+                supported = true;
+            }
+            IOObjectRelease(fs_props);
+        }
+        secnotice("eapfs", "eapfs IODT set to %{bool}d", supported);
+    });
+
+    return supported;
+}
+
+bool SecSupportsEnhancedApfs(void) {
+    return DeviceTree_SupportsEnhancedApfs() || SecSharedDataVolumeBootArgSet();
+}
+
+#if HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
+static bool SecForceEduMode(void) {
+#if DEBUG
+    struct stat st;
+    int result = stat("/Library/Keychains/force_edu_mode", &st);
+    return result == 0;
+#else
+    return false;
+#endif /* DEBUG */
+}
+#endif /* HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT */
+
+// Called when deciding whether to use the system keychain XPC name & whether to use the system keybag
+bool SecIsEduMode(void)
+{
+    static bool result = false;
+#if HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        CFDictionaryRef deviceMode = soft_MKBUserTypeDeviceMode(NULL, NULL);
+        if (deviceMode) {
+            CFTypeRef value = NULL;
+            bool valuePresent = CFDictionaryGetValueIfPresent(deviceMode, getkMKBDeviceModeKey(), &value);
+
+            if (valuePresent && CFEqual(value, getkMKBDeviceModeSharedIPad())) {
+                result = true;
+            }
+#ifndef __clang_analyzer__ // because SOFT_LINK_FUNCTION doesn't like CF_RETURNS_RETAINED decoration
+            CFReleaseNull(deviceMode);
+#endif
+        } else {
+            secnotice("edumode", "Cannot determine because deviceMode is NULL");
+        }
+        if (!result && SecForceEduMode()) {
+            secnotice("edumode", "Forcing edu mode");
+            result = true;
+        }
+    });
+#endif // HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
+    return result;
+}
+#else
+bool SecIsEduMode(void)
+{
+    return false;
+}
+#endif // TARGET_OS_IOS
+
+bool SecSeparateUserKeychain(void) {
+#if TARGET_OS_OSX
+    return true;
+#else
+    static bool ffSeparateUserKeychain = false;
+#if TARGET_OS_IOS
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        ffSeparateUserKeychain = os_feature_enabled(Security, SeparateUserKeychain);
+        secnotice("keychain", "SeparateUserKeychain set via feature flag to %s", ffSeparateUserKeychain ? "enabled" : "disabled");
+    });
+#endif // TARGET_OS_IOS
+    return ffSeparateUserKeychain;
+#endif // TARGET_OS_OSX
+}
+
 CFURLRef SecCopyURLForFileInBaseDirectory(bool system, CFStringRef directoryPath, CFStringRef fileName)
 {
     CFURLRef fileURL = NULL;
@@ -137,7 +259,7 @@ CFURLRef SecCopyURLForFileInBaseDirectory(bool system, CFStringRef directoryPath
     return fileURL;
 }
 
-CFURLRef SecCopyURLForFileInKeychainDirectory(CFStringRef fileName)
+static CFURLRef SecCopyURLForFileInParameterizedKeychainDirectory(CFStringRef fileName, bool forceUserScope)
 {
 #if TARGET_OS_OSX
     // need to tack on uuid here
@@ -167,8 +289,19 @@ done:
     }
     return resultURL;
 #else /* !TARGET_OS_OSX */
-    return SecCopyURLForFileInBaseDirectory(true, CFSTR("Library/Keychains"), fileName);
+    syslog(LOG_NOTICE, "SecCopyURLForFileInParameterizedKeychainDirectory: forceUserScope:%d", forceUserScope);
+    return SecCopyURLForFileInBaseDirectory(!forceUserScope, CFSTR("Library/Keychains"), fileName);
 #endif
+}
+
+CFURLRef SecCopyURLForFileInUserScopedKeychainDirectory(CFStringRef fileName)
+{
+    return SecCopyURLForFileInParameterizedKeychainDirectory(fileName, SecSeparateUserKeychain());
+}
+
+CFURLRef SecCopyURLForFileInKeychainDirectory(CFStringRef fileName)
+{
+    return SecCopyURLForFileInParameterizedKeychainDirectory(fileName, false);
 }
 
 CFURLRef SecCopyURLForFileInSystemKeychainDirectory(CFStringRef fileName) {

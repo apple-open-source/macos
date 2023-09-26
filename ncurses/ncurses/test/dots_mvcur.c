@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1999-2007,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 2007-2009,2013 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,7 +29,7 @@
 /*
  * Author: Thomas E. Dickey - 2007
  *
- * $Id: dots_mvcur.c,v 1.2 2008/02/09 18:08:57 tom Exp $
+ * $Id: dots_mvcur.c,v 1.10 2013/09/28 22:44:18 tom Exp $
  *
  * A simple demo of the terminfo interface, and mvcur.
  */
@@ -46,20 +46,24 @@ static bool interrupted = FALSE;
 static long total_chars = 0;
 static time_t started;
 
-static int
-outc(TPUTS_ARG c)
+static
+TPUTS_PROTO(outc, c)
 {
+    int rc = c;
+
     if (interrupted) {
-	char tmp = c;
-	write(STDOUT_FILENO, &tmp, 1);
+	char tmp = (char) c;
+	if (write(STDOUT_FILENO, &tmp, (size_t) 1) == -1)
+	    rc = EOF;
     } else {
-	putc(c, stdout);
+	if (putc(c, stdout) == EOF)
+	    rc = EOF;
     }
-    return 0;
+    TPUTS_RETURN(rc);
 }
 
 static bool
-outs(char *s)
+outs(const char *s)
 {
     if (valid(s)) {
 	tputs(s, 1, outc);
@@ -79,7 +83,7 @@ cleanup(void)
 
     printf("\n\n%ld total chars, rate %.2f/sec\n",
 	   total_chars,
-	   ((double) (total_chars) / (time((time_t *) 0) - started)));
+	   ((double) (total_chars) / (double) (time((time_t *) 0) - started)));
 }
 
 static void
@@ -88,23 +92,23 @@ onsig(int n GCC_UNUSED)
     interrupted = TRUE;
 }
 
-static float
+static double
 ranf(void)
 {
     long r = (rand() & 077777);
-    return ((float) r / 32768.);
+    return ((double) r / 32768.);
 }
 
 int
-main(
-	int argc GCC_UNUSED,
-	char *argv[]GCC_UNUSED)
+main(int argc GCC_UNUSED,
+     char *argv[]GCC_UNUSED)
 {
     int x0 = 1, y0 = 1;
     int x, y, z, p;
-    float r;
-    float c;
+    double r;
+    double c;
     SCREEN *sp;
+    int my_colors;
 
     CATCHALL(onsig);
 
@@ -113,15 +117,16 @@ main(
     outs(clear_screen);
     outs(cursor_home);
     outs(cursor_invisible);
-    if (max_colors > 1) {
+    my_colors = max_colors;
+    if (my_colors > 1) {
 	if (!valid(set_a_foreground)
 	    || !valid(set_a_background)
 	    || (!valid(orig_colors) && !valid(orig_pair)))
-	    max_colors = -1;
+	    my_colors = -1;
     }
 
-    r = (float) (lines - 4);
-    c = (float) (columns - 4);
+    r = (double) (lines - 4);
+    c = (double) (columns - 4);
     started = time((time_t *) 0);
 
     while (!interrupted) {
@@ -134,8 +139,8 @@ main(
 	    y0 = y;
 	}
 
-	if (max_colors > 0) {
-	    z = (int) (ranf() * max_colors);
+	if (my_colors > 0) {
+	    z = (int) (ranf() * my_colors);
 	    if (ranf() > 0.01) {
 		tputs(tparm2(set_a_foreground, z), 1, outc);
 	    } else {
@@ -152,6 +157,7 @@ main(
 	    }
 	}
 	outc(p);
+	++x0;
 	fflush(stdout);
 	++total_chars;
     }

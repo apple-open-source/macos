@@ -375,15 +375,19 @@ fifo_write(struct vnop_write_args *ap)
 {
 	struct socket *wso = ap->a_vp->v_fifoinfo->fi_writesock;
 	int error;
+	user_ssize_t len;
 
 #if DIAGNOSTIC
 	if (ap->a_uio->uio_rw != UIO_WRITE) {
 		panic("fifo_write mode");
 	}
 #endif
+
+	len = uio_resid(ap->a_uio);
 	error = sosend(wso, (struct sockaddr *)0, ap->a_uio, NULL,
 	    (struct mbuf *)0, (ap->a_ioflag & IO_NDELAY) ? MSG_NBIO : 0);
-	if (error == 0) {
+	/* Also post kevent in the case of partial write due to full fifo buffer. */
+	if (error == 0 || (uio_resid(ap->a_uio) != len && error == EWOULDBLOCK)) {
 		lock_vnode_and_post(ap->a_vp, 0);
 	}
 

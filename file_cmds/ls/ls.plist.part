@@ -16,6 +16,7 @@
 			<string>ls.c: improve UNIX conformance (3666135, 6591295)</string>
 			<string>ls.c: remove -Z support</string>
 			<string>ls.c: don't ignore errors on stdout (89147045)</string>
+			<string>print.c: don't crash when localtime returns NULL (9977017)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

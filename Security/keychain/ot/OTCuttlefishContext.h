@@ -161,6 +161,9 @@ NS_ASSUME_NONNULL_BEGIN
        vouchSig:(NSData*)vouchSig
           reply:(void (^)(NSError * _Nullable error))reply;
 
+- (void)rpcReset:(CuttlefishResetReason)resetReason
+           reply:(nonnull void (^)(NSError * _Nullable))reply;
+
 - (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason
            idmsTargetContext:(NSString *_Nullable)idmsTargetContext
       idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
@@ -292,13 +295,17 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcIsRecoveryKeySet:(void (^)(BOOL isSet, NSError * _Nullable error))reply;
 - (void)rpcRemoveRecoveryKey:(void (^)(BOOL removed, NSError * _Nullable error))reply;
 
+- (void)rpcFetchTotalCountOfTrustedPeers:(void (^)(NSNumber* count, NSError* replyError))reply;
+
 // For testing.
 - (OTAccountMetadataClassC_AccountState)currentMemoizedAccountState;
 - (OTAccountMetadataClassC_TrustState)currentMemoizedTrustState;
 - (NSDate* _Nullable) currentMemoizedLastHealthCheck;
 - (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable error))reply;
-- (void)rpcResetAccountCDPContentsWithIdmsTargetContext:(NSString *_Nullable)idmsTargetContext idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword 	       notifyIdMS:(bool)notifyIdMS
-reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcResetAccountCDPContentsWithIdmsTargetContext:(NSString *_Nullable)idmsTargetContext
+                                 idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+                                             notifyIdMS:(bool)notifyIdMS
+                                                  reply:(void (^)(NSError* _Nullable error))reply;
 - (BOOL)checkAllStateCleared;
 - (void)clearCKKS;
 - (void)setMachineIDOverride:(NSString*)machineID;
@@ -306,7 +313,7 @@ reply:(void (^)(NSError* _Nullable error))reply;
 @property (nullable) TPPolicyVersion* policyOverride;
 
 // Octagon Health Check Helpers
-- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck reply:(void (^)(NSError * _Nullable error))reply;
+- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck repair:(BOOL)repair reply:(void (^)(NSError * _Nullable error))reply;
 
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;

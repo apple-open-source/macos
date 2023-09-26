@@ -88,7 +88,7 @@
     return supported;
 }
 
-- (void)setObject:(nullable id)object forKeyedSubscript:(NSString *)key {
+- (void)setObject:(nullable __kindof id<SecMetricValue>)object forKeyedSubscript:(NSString *)key {
     bool found = false;
     if (key == NULL) {
         return;
@@ -109,7 +109,7 @@
         self.attributes[key] = object;
     }
 }
-- (void)setMetricValue:(nullable id)metric forKey:(NSString *)key {
+- (void)setMetricValue:(nullable __kindof id<SecMetricValue>)metric forKey:(NSString *)key {
     self[key] = metric;
 }
 

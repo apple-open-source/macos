@@ -92,9 +92,7 @@ usage()
 
 char *mbr_binary = NULL;
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
 	int ch, fd;
 	int i_flag = 0, m_flag = 0, u_flag = 0, r_flag = 0, d_flag = 0, y_flag = 0, t_flag = 0;

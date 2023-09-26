@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,10 @@
 
 #include "QualifiedRenderingResourceIdentifier.h"
 #include <WebCore/DecomposedGlyphs.h>
+#include <WebCore/Filter.h>
 #include <WebCore/Font.h>
+#include <WebCore/FontCustomPlatformData.h>
+#include <WebCore/Gradient.h>
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/NativeImage.h>
 #include <WebCore/ProcessIdentifier.h>
@@ -52,7 +55,22 @@ public:
 
     void add(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, Ref<WebCore::NativeImage>&& image)
     {
-        add(renderingResourceIdentifier, WTFMove(image), m_nativeImageCount);
+        add<WebCore::RenderingResource>(renderingResourceIdentifier, WTFMove(image), m_renderingResourceCount);
+    }
+
+    void add(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, Ref<WebCore::DecomposedGlyphs>&& decomposedGlyphs)
+    {
+        add<WebCore::RenderingResource>(renderingResourceIdentifier, WTFMove(decomposedGlyphs), m_renderingResourceCount);
+    }
+
+    void add(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, Ref<WebCore::Gradient>&& gradient)
+    {
+        add<WebCore::RenderingResource>(renderingResourceIdentifier, WTFMove(gradient), m_renderingResourceCount);
+    }
+
+    void add(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, Ref<WebCore::Filter>&& filter)
+    {
+        add<WebCore::RenderingResource>(renderingResourceIdentifier, WTFMove(filter), m_renderingResourceCount);
     }
 
     void add(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, Ref<WebCore::Font>&& font)
@@ -60,9 +78,9 @@ public:
         add(renderingResourceIdentifier, WTFMove(font), m_fontCount);
     }
 
-    void add(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, Ref<WebCore::DecomposedGlyphs>&& decomposedGlyphs)
+    void add(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, Ref<WebCore::FontCustomPlatformData>&& customPlatformData)
     {
-        add(renderingResourceIdentifier, WTFMove(decomposedGlyphs), m_decomposedGlyphsCount);
+        add(renderingResourceIdentifier, WTFMove(customPlatformData), m_customPlatformDataCount);
     }
 
     WebCore::ImageBuffer* getImageBuffer(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
@@ -72,7 +90,8 @@ public:
 
     WebCore::NativeImage* getNativeImage(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
     {
-        return get<WebCore::NativeImage>(renderingResourceIdentifier);
+        auto* renderingResource = get<WebCore::RenderingResource>(renderingResourceIdentifier);
+        return dynamicDowncast<WebCore::NativeImage>(renderingResource);
     }
     
     std::optional<WebCore::SourceImage> getSourceImage(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
@@ -96,7 +115,25 @@ public:
 
     WebCore::DecomposedGlyphs* getDecomposedGlyphs(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
     {
-        return get<WebCore::DecomposedGlyphs>(renderingResourceIdentifier);
+        auto* renderingResource = get<WebCore::RenderingResource>(renderingResourceIdentifier);
+        return dynamicDowncast<WebCore::DecomposedGlyphs>(renderingResource);
+    }
+
+    WebCore::Gradient* getGradient(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
+    {
+        auto* renderingResource = get<WebCore::RenderingResource>(renderingResourceIdentifier);
+        return dynamicDowncast<WebCore::Gradient>(renderingResource);
+    }
+
+    WebCore::Filter* getFilter(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
+    {
+        auto* renderingResource = get<WebCore::RenderingResource>(renderingResourceIdentifier);
+        return dynamicDowncast<WebCore::Filter>(renderingResource);
+    }
+
+    WebCore::FontCustomPlatformData* getFontCustomPlatformData(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
+    {
+        return get<WebCore::FontCustomPlatformData>(renderingResourceIdentifier);
     }
 
     bool removeImageBuffer(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
@@ -104,9 +141,9 @@ public:
         return remove<WebCore::ImageBuffer>(renderingResourceIdentifier, m_imageBufferCount);
     }
 
-    bool removeNativeImage(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
+    bool removeRenderingResource(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
     {
-        return remove<WebCore::NativeImage>(renderingResourceIdentifier, m_nativeImageCount);
+        return remove<WebCore::RenderingResource>(renderingResourceIdentifier, m_renderingResourceCount);
     }
 
     bool removeFont(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
@@ -114,27 +151,42 @@ public:
         return remove<WebCore::Font>(renderingResourceIdentifier, m_fontCount);
     }
 
-    bool removeDecomposedGlyphs(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
+    bool removeFontCustomPlatformData(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
     {
-        return remove<WebCore::DecomposedGlyphs>(renderingResourceIdentifier, m_decomposedGlyphsCount);
+        return remove<WebCore::FontCustomPlatformData>(renderingResourceIdentifier, m_customPlatformDataCount);
     }
 
     void releaseAllResources()
     {
         checkInvariants();
 
-        if (!m_nativeImageCount && !m_fontCount && !m_decomposedGlyphsCount)
+        if (!m_renderingResourceCount && !m_fontCount)
             return;
 
         m_resources.removeIf([] (const auto& resource) {
-            return std::holds_alternative<Ref<WebCore::NativeImage>>(resource.value)
+            return std::holds_alternative<Ref<WebCore::RenderingResource>>(resource.value)
                 || std::holds_alternative<Ref<WebCore::Font>>(resource.value)
-                || std::holds_alternative<Ref<WebCore::DecomposedGlyphs>>(resource.value);
+                || std::holds_alternative<Ref<WebCore::FontCustomPlatformData>>(resource.value);
         });
 
-        m_nativeImageCount = 0;
+        m_renderingResourceCount = 0;
         m_fontCount = 0;
-        m_decomposedGlyphsCount = 0;
+        m_customPlatformDataCount = 0;
+
+        checkInvariants();
+    }
+
+    void releaseAllImageResources()
+    {
+        checkInvariants();
+
+        m_resources.removeIf([&] (auto& keyValuePair) {
+            auto value = std::get_if<Ref<WebCore::RenderingResource>>(&keyValuePair.value);
+            if (!value || !is<WebCore::NativeImage>(value->get()))
+                return false;
+            --m_renderingResourceCount;
+            return true;
+        });
 
         checkInvariants();
     }
@@ -191,39 +243,45 @@ private:
     {
 #if ASSERT_ENABLED
         unsigned imageBufferCount = 0;
-        unsigned nativeImageCount = 0;
+        unsigned renderingResourceCount = 0;
         unsigned fontCount = 0;
-        unsigned decomposedGlyphsCount = 0;
+        unsigned customPlatformDataCount = 0;
         for (const auto& pair : m_resources) {
             WTF::switchOn(pair.value, [&] (std::monostate) {
                 ASSERT_NOT_REACHED();
             }, [&] (const Ref<WebCore::ImageBuffer>&) {
                 ++imageBufferCount;
-            }, [&] (const Ref<WebCore::NativeImage>&) {
-                ++nativeImageCount;
+            }, [&] (const Ref<WebCore::RenderingResource>&) {
+                ++renderingResourceCount;
             }, [&] (const Ref<WebCore::Font>&) {
                 ++fontCount;
-            }, [&] (const Ref<WebCore::DecomposedGlyphs>&) {
-                ++decomposedGlyphsCount;
+            }, [&] (const Ref<WebCore::FontCustomPlatformData>&) {
+                ++customPlatformDataCount;
             });
         }
         ASSERT(imageBufferCount == m_imageBufferCount);
-        ASSERT(nativeImageCount == m_nativeImageCount);
+        ASSERT(renderingResourceCount == m_renderingResourceCount);
         ASSERT(fontCount == m_fontCount);
-        ASSERT(decomposedGlyphsCount == m_decomposedGlyphsCount);
-        ASSERT(m_resources.size() == m_imageBufferCount + m_nativeImageCount + m_fontCount + m_decomposedGlyphsCount);
+        ASSERT(customPlatformDataCount == m_customPlatformDataCount);
+        ASSERT(m_resources.size() == m_imageBufferCount + m_renderingResourceCount + m_fontCount + m_customPlatformDataCount);
 #endif
     }
 
-    using Resource = std::variant<std::monostate, Ref<WebCore::ImageBuffer>, Ref<WebCore::NativeImage>, Ref<WebCore::Font>, Ref<WebCore::DecomposedGlyphs>>;
+    using Resource = std::variant<
+        std::monostate,
+        Ref<WebCore::ImageBuffer>,
+        Ref<WebCore::RenderingResource>,
+        Ref<WebCore::Font>,
+        Ref<WebCore::FontCustomPlatformData>
+    >;
     HashMap<QualifiedRenderingResourceIdentifier, Resource> m_resources;
     WebCore::ProcessIdentifier m_webProcessIdentifier;
     unsigned m_imageBufferCount { 0 };
-    unsigned m_nativeImageCount { 0 };
+    unsigned m_renderingResourceCount { 0 };
     unsigned m_fontCount { 0 };
-    unsigned m_decomposedGlyphsCount { 0 };
+    unsigned m_customPlatformDataCount { 0 };
 };
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(GPU_PROCESS)

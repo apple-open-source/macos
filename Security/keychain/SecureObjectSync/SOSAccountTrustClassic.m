@@ -722,11 +722,12 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
     return SOSDataSourceFactoryGetEngineForDataSourceName(factory, SOSCircleGetName(self.trustedCircle), NULL);
 }
 
--(bool) postDebugScope:(SOSKVSCircleStorageTransport*) circle_transport scope:(CFTypeRef) scope err:(CFErrorRef*)error
+-(bool) postDebugScope:(SOSCircleStorageTransport*) circle_transport scope:(CFTypeRef) scope err:(CFErrorRef*)error
 {
     bool result = false;
+    SOSKVSCircleStorageTransport *kvs_transport = (SOSKVSCircleStorageTransport*)circle_transport;
     if (circle_transport) {
-        result = [circle_transport kvssendDebugInfo:kSOSAccountDebugScope debug:scope err:error];
+        result = [kvs_transport kvssendDebugInfo:kSOSAccountDebugScope debug:scope err:error];
     }
     return result;
 }

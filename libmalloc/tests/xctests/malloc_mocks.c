@@ -6,6 +6,9 @@ malloc_tracing_enabled = false;
 
 malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 unsigned malloc_zero_on_free_sample_period = 0;
+#if CONFIG_MAGAZINE_PER_CLUSTER
+unsigned int ncpuclusters = 1;
+#endif
 
 void
 malloc_zone_check_fail(const char *msg, const char *fmt, ...)

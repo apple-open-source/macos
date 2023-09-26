@@ -5,6 +5,9 @@
 ##   CoreNLP.framework/Resources/tokruleLE.data       [for ICU before 60, including ICU 57]
 ##   CoreNLP.framework/Resources/tokruleLE_icu60.data
 ##############################################################################
+## Apple addition, originally as word_urbTokCFST.txt per rdar://35946337
+## moved to tokCFSTrules.txt per rdar://37249396
+##############################################################################
 #    0:       Don't ignore
 #    1 = 2^0: Fail NFKC_QC
 #    2 = 2^1: Initial Caps

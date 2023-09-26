@@ -42,6 +42,10 @@
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
 #include <security/openpam.h>
+#include "Logging.h"
+
+PAM_DEFINE_LOG(uwtmp)
+#define PAM_LOG PAM_LOG_uwtmp()
 
 #define DATA_NAME "pam_uwtmp.utmpx"
 
@@ -63,7 +67,7 @@ populate_struct(pam_handle_t *pamh, struct utmpx *u, int populate)
 		return PAM_SYSTEM_ERR;
 
 	if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_USER, (const void **)&user))) {
-		openpam_log(PAM_LOG_DEBUG, "Unable to obtain the username.");
+		os_log_debug(PAM_LOG, "Unable to obtain the username.");
 		return status;
 	}
 	if (NULL != user)
@@ -71,17 +75,17 @@ populate_struct(pam_handle_t *pamh, struct utmpx *u, int populate)
 
 	if (populate) {
 		if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_TTY, (const void **)&tty))) {
-			openpam_log(PAM_LOG_DEBUG, "Unable to obtain the tty.");
+			os_log_debug(PAM_LOG, "Unable to obtain the tty.");
 			return status;
 		}
 		if (NULL == tty) {
-			openpam_log(PAM_LOG_DEBUG, "The tty is NULL.");
+			os_log_debug(PAM_LOG, "The tty is NULL.");
 			return PAM_IGNORE;
 		} else
 			strlcpy(u->ut_line, tty, sizeof(u->ut_line));
 
 		if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_RHOST, (const void **)&remhost))) {
-			openpam_log(PAM_LOG_DEBUG, "Unable to obtain the rhost.");
+			os_log_debug(PAM_LOG, "Unable to obtain the rhost.");
 			return status;
 		}
 		if (NULL != remhost)
@@ -104,7 +108,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	char *tty;
 
 	if( (pam_data = calloc(1, sizeof(*pam_data))) == NULL ) {
-		openpam_log(PAM_LOG_ERROR, "Memory allocation error.");
+		os_log_error(PAM_LOG, "Memory allocation error.");
 		return PAM_BUF_ERR;
 	}
 
@@ -119,7 +123,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	if (t) {
 		// YES: backup existing utmpx entry + update
-		openpam_log(PAM_LOG_DEBUG, "Updating existing entry for %s", u->ut_line);
+		os_log_debug(PAM_LOG, "Updating existing entry for %s", u->ut_line);
 		memcpy(&pam_data->utmpx,  t, sizeof(*t));
 		memcpy(&pam_data->backup, t, sizeof(*t));
 		pam_data->restore = 1;
@@ -128,7 +132,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			goto err;
 	} else {
 		// NO: create new utmpx entry
-		openpam_log(PAM_LOG_DEBUG, "New entry for %s", tty ?: "-");
+		os_log_debug(PAM_LOG, "New entry for %s", tty ?: "-");
 		if (PAM_SUCCESS != (status = populate_struct(pamh, u, 1)))
 			goto err;
 
@@ -136,13 +140,13 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	if (PAM_SUCCESS != (status = pam_set_data(pamh, DATA_NAME, pam_data, openpam_free_data))) {
-		openpam_log(PAM_LOG_ERROR, "There was an error setting data in the context.");
+		os_log_error(PAM_LOG, "There was an error setting data in the context.");
 		goto err;
 	}
 	pam_data = NULL;
 
 	if( pututxline(u) == NULL ) {
-		openpam_log(PAM_LOG_ERROR, "Unable to write the utmp record.");
+		os_log_error(PAM_LOG, "Unable to write the utmp record.");
 		status = PAM_SYSTEM_ERR;
 		goto err;
 	}
@@ -165,12 +169,12 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	status = pam_get_data(pamh, DATA_NAME, (const void **)&pam_data);
 	if( status != PAM_SUCCESS ) {
-		openpam_log(PAM_LOG_DEBUG, "Unable to obtain the tmp record from the context.");
+		os_log_debug(PAM_LOG, "Unable to obtain the tmp record from the context.");
 	}
 
 	if (NULL == pam_data) {
 		if( (u = calloc(1, sizeof(*u))) == NULL ) {
-			openpam_log(PAM_LOG_ERROR, "Memory allocation error.");
+			os_log_error(PAM_LOG, "Memory allocation error.");
 			return PAM_BUF_ERR;
 		}
 		free_u = 1;
@@ -183,14 +187,14 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	if (pam_data != NULL && pam_data->restore) {
 		u = &pam_data->backup;
-		openpam_log(PAM_LOG_DEBUG, "Restoring previous entry for %s", u->ut_line);
+		os_log_debug(PAM_LOG, "Restoring previous entry for %s", u->ut_line);
 	} else {
-		openpam_log(PAM_LOG_DEBUG, "Dead process");
+		os_log_debug(PAM_LOG, "Dead process");
 		u->ut_type = UTMPX_AUTOFILL_MASK | DEAD_PROCESS;
 	}
 
 	if( pututxline(u) == NULL ) {
-		openpam_log(PAM_LOG_ERROR, "Unable to write the utmp record.");
+		os_log_error(PAM_LOG, "Unable to write the utmp record.");
 		status = PAM_SYSTEM_ERR;
 		goto fin;
 	}

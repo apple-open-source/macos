@@ -85,9 +85,9 @@ extern CFStringRef kSecAssessmentOperationTypeOpenDocument; // .. LaunchServices
 		Any content already there is left undisturbed. Independent of kSecAssessmentFlagIgnoreCache.
 	@constant kSecAssessmentFlagEnforce Perform normal operations even if assessments have been
 		globally bypassed (which would usually approve anything).
-	@constant kSecAssessmentAllowWeak Allow signatures that contain known weaknesses, such as an
+	@constant kSecAssessmentFlagAllowWeak Allow signatures that contain known weaknesses, such as an
 		insecure resource envelope.
-	@constant kSecAssessmentIgnoreWhitelist Do not search the weak signature whitelist.
+	@constant kSecAssessmentFlagIgnoreAllowlist Do not search the weak signature allowlist.
 	@constant kSecAssessmentFlagIgnoreActiveAssessments Permit parallel re-assessment of the same target.
 	@constant kSecAssessmentFlagLowPriority Run the assessment in low priority.
 
@@ -104,7 +104,7 @@ enum {
 	kSecAssessmentFlagNoCache = 1 << 27,			// do not populate cache
 	kSecAssessmentFlagEnforce = 1 << 26,			// force on (disable bypass switches)
 	kSecAssessmentFlagAllowWeak = 1 << 25,			// allow weak signatures
-	kSecAssessmentFlagIgnoreWhitelist = 1 << 24,	// do not search weak signature whitelist
+	kSecAssessmentFlagIgnoreAllowlist = 1 << 24,	// do not search weak signature allowlist
     // 1 << 23 removed (was kSecAssessmentFlagDequarantine)
     kSecAssessmentFlagIgnoreActiveAssessments = 1 << 22, // permit parallel re-assessment of the same target
     kSecAssessmentFlagLowPriority = 1 << 21,        // run the assessment in low priority

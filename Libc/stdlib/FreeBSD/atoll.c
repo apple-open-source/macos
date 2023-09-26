@@ -35,16 +35,13 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/atoll.c,v 1.5 2007/01/09 00:28:09 imp Ex
 #include <stdlib.h>
 
 long long
-atoll(str)
-	const char *str;
+atoll(const char *str)
 {
 	return strtoll_l(str, (char **)NULL, 10, __current_locale());
 }
 
 long long
-atoll_l(str, loc)
-	const char *str;
-	locale_t loc;
+atoll_l(const char *str, locale_t loc)
 {
 	/* no need to call NORMALIZE_LOCALE(loc) because strtoll_l will */
 	return strtoll_l(str, (char **)NULL, 10, loc);

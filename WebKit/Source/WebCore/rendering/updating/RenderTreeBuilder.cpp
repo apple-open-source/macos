@@ -28,10 +28,12 @@
 
 #include "AXObjectCache.h"
 #include "DocumentInlines.h"
-#include "Frame.h"
 #include "FrameSelection.h"
 #include "LegacyRenderSVGContainer.h"
 #include "LegacyRenderSVGRoot.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
+#include "LocalFrameViewLayoutContext.h"
 #include "RenderButton.h"
 #include "RenderCounter.h"
 #include "RenderDescendantIterator.h"
@@ -53,6 +55,7 @@
 #include "RenderSVGInline.h"
 #include "RenderSVGRoot.h"
 #include "RenderSVGText.h"
+#include "RenderStyleInlines.h"
 #include "RenderTable.h"
 #include "RenderTableCell.h"
 #include "RenderTableRow.h"
@@ -74,9 +77,6 @@
 #include "RenderTreeMutationDisallowedScope.h"
 #include "RenderView.h"
 #include <wtf/SetForScope.h>
-
-#include "FrameView.h"
-#include "FrameViewLayoutContext.h"
 
 namespace WebCore {
 
@@ -458,7 +458,8 @@ void RenderTreeBuilder::attachToRenderElementInternal(RenderElement& parent, Ren
         cache->childrenChanged(&parent, newChild);
 
     if (parent.hasOutlineAutoAncestor() || parent.outlineStyleForRepaint().outlineStyleIsAuto() == OutlineIsAuto::On)
-        newChild->setHasOutlineAutoAncestor();
+        if (!is<RenderMultiColumnSet>(newChild->previousSibling())) 
+            newChild->setHasOutlineAutoAncestor();
 }
 
 void RenderTreeBuilder::move(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject& child, RenderObject* beforeChild, NormalizeAfterInsertion normalizeAfterInsertion)

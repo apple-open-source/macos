@@ -114,11 +114,6 @@ public:
         return true;
     }
 
-    friend bool operator!=(const ObjectPropertyConditionSet& lhs, const ObjectPropertyConditionSet& rhs)
-    {
-        return !(lhs == rhs);
-    }
-    
     ObjectPropertyCondition forObject(JSObject*) const;
     ObjectPropertyCondition forConditionKind(PropertyCondition::Kind) const;
 
@@ -173,7 +168,7 @@ ObjectPropertyConditionSet generateConditionsForPropertySetterMiss(
 ObjectPropertyConditionSet generateConditionsForIndexedMiss(VM&, JSCell* owner, JSGlobalObject*, Structure* headStructure);
 ObjectPropertyConditionSet generateConditionsForPrototypePropertyHit(
     VM&, JSCell* owner, JSGlobalObject*, Structure* headStructure, JSObject* prototype,
-    UniquedStringImpl* uid);
+    UniquedStringImpl* uid, PropertyCondition::Kind prototypeConditionKind = PropertyCondition::Presence);
 ObjectPropertyConditionSet generateConditionsForPrototypePropertyHitCustom(
     VM&, JSCell* owner, JSGlobalObject*, Structure* headStructure, JSObject* prototype,
     UniquedStringImpl* uid, unsigned attributes);

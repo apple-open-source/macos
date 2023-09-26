@@ -43,9 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fputc.c,v 1.14 2007/01/09 00:28:06 imp Ex
 #include "libc_private.h"
 
 int
-fputc(c, fp)
-	int c;
-	FILE *fp;
+fputc(int c, FILE *fp)
 {
 	int retval;
 	FLOCKFILE(fp);

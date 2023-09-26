@@ -1,4 +1,5 @@
 # sudo: auth account password session
+auth       include        sudo_local
 auth       sufficient     pam_smartcard.so
 auth       required       pam_opendirectory.so
 account    required       pam_permit.so

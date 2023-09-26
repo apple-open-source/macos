@@ -175,12 +175,12 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
         return [self sortListPrioritizingiOSRecords:partial];
     }
 
-    if (OctagonIsSOSFeatureEnabled()) {
+    if (SOSCCIsSOSTrustAndSyncingEnabled()) {
         NSArray<OTEscrowRecord*>* viableSOSRecords = [self filterViableSOSRecords:nonViable];
         secnotice("octagontrust-fetchescrowrecords", "Returning %d sos viable records", (int)[viableSOSRecords count]);
         return [self sortListPrioritizingiOSRecords:viableSOSRecords];
     }
-
+    
     secnotice("octagontrust-fetchescrowrecords", "no viable records!");
 
     return nil;
@@ -232,6 +232,11 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
             }
             CFReleaseNull(cfError);
             CFReleaseNull(peer);
+        } else {
+            if ((translated.serialNumber == nil || [translated.serialNumber isEqualToString:@""]) &&
+                (translated.escrowInformationMetadata.serial != nil && [translated.escrowInformationMetadata.serial isEqualToString:@""] == NO)) {
+                translated.serialNumber = translated.escrowInformationMetadata.serial;
+            }
         }
 
         [escrowRecords addObject:translated];
@@ -282,31 +287,13 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
     }
 
     OTClique* clique = [[OTClique alloc] initWithContextData:data];
-    BOOL resetToOfferingOccured = NO;
-
-    if(recoverError) {
-        secnotice("octagontrust-handleRecoveryResults", "sbd escrow recovery failed: %@", recoverError);
-        if(recoverError.code == 40 /* kSecureBackupRestoringLegacyBackupKeychainError */ && [recoverError.domain isEqualToString:getkSecureBackupErrorDomain()]) {
-            if([OTClique platformSupportsSOS]) {
-                secnotice("octagontrust-handleRecoveryResults", "Can't restore legacy backup with no keybag. Resetting SOS to offering");
-                CFErrorRef resetToOfferingError = NULL;
-                bool successfulReset = SOSCCResetToOffering(&resetToOfferingError);
-                resetToOfferingOccured = YES;
-                if(!successfulReset || resetToOfferingError) {
-                    secerror("octagontrust-handleRecoveryResults: failed to reset to offering:%@", resetToOfferingError);
-                } else {
-                    secnotice("octagontrust-handleRecoveryResults", "resetting SOS circle successful");
-                }
-                CFReleaseNull(resetToOfferingError);
-            } else {
-                secnotice("octagontrust-handleRecoveryResults", "Legacy restore failed on a non-SOS platform");
-            }
-        } else {
-            if(error) {
-                *error = recoverError;
-            }
-            return nil;
+    
+    if (recoverError) {
+        secerror("octagontrust-handleRecoveryResults: sbd escrow recovery failed: %@", recoverError);
+        if (error) {
+            *error = recoverError;
         }
+        return nil;
     }
 
     NSError* localError = nil;
@@ -383,37 +370,6 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
             secnotice("octagontrust-handleRecoveryResults", "reset octagon succeeded");
         }
     }
-
-    OTEscrowRecord_SOSViability viableForSOS = record ? record.viabilityStatus : OTEscrowRecord_SOSViability_SOS_VIABLE_UNKNOWN;
-    OTEscrowRecord_RecordViability viability = record ? record.recordViability : OTEscrowRecord_RecordViability_RECORD_VIABILITY_LEGACY;
-
-    // Join SOS circle if platform is supported and we didn't previously reset SOS
-    if (OctagonIsSOSFeatureEnabled() && resetToOfferingOccured == NO) {
-        // Check if the account setup script flag has been set and if so, only evaluate record viability instead of sos viability
-        // because the script executes so quickly the iCloud Identity bskb won't have a chance to be created for each escrow recovery
-        if ((data.overrideForSetupAccountScript && viability == OTEscrowRecord_RecordViability_RECORD_VIABILITY_LEGACY) ||
-            viableForSOS == OTEscrowRecord_SOSViability_SOS_NOT_VIABLE) {
-            secnotice("octagontrust-handleRecoveryResults", "Record will not allow device to join SOS.  Invoking reset to offering");
-            CFErrorRef resetToOfferingError = NULL;
-            bool successfulReset = SOSCCResetToOffering(&resetToOfferingError);
-            if(!successfulReset || resetToOfferingError) {
-                secerror("octagontrust-handleRecoveryResults: failed to reset to offering:%@", resetToOfferingError);
-            } else {
-                secnotice("octagontrust-handleRecoveryResults", "resetting SOS circle successful");
-            }
-            CFReleaseNull(resetToOfferingError);
-        } else {
-            NSError* joinAfterRestoreError = nil;
-            secnotice("octagontrust-handleRecoveryResults", "attempting joinAfterRestore");
-            BOOL joinAfterRestoreResult = [clique joinAfterRestore:&joinAfterRestoreError];
-            if(joinAfterRestoreError || joinAfterRestoreResult == NO) {
-                secnotice("octagontrust-handleRecoveryResults", "failed to join after restore: %@", joinAfterRestoreError);
-            } else {
-                secnotice("octagontrust-handleRecoveryResults", "joinAfterRestore succeeded");
-            }
-        }
-    }
-
 
     // call SBD to kick off keychain data restore
     id<OctagonEscrowRecovererPrococol> sb = data.sbd ?: [[getSecureBackupClass() alloc] init];
@@ -835,9 +791,10 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
 #endif /* OCTAGON */
 }
 
-+ (OTAccountSettings* _Nullable)fetchAccountWideSettingsWithForceFetch:(bool)forceFetch
-                                                         configuration:(OTConfigurationContext*)configurationContext
-                                                                 error:(NSError**)error
++ (OTAccountSettings* _Nullable)_fetchAccountWideSettingsDefaultWithForceFetch:(bool)forceFetch
+                                                                    useDefault:(bool)useDefault
+                                                                 configuration:(OTConfigurationContext*)configurationContext
+                                                                         error:(NSError**)error
 {
 #if OCTAGON
     secnotice("octagontrust-fetch-account-wide-settings", "fetchAccountWideSettings invoked for context:%@ forceFetch:%{bool}d", configurationContext, forceFetch);
@@ -859,7 +816,18 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
                                           arguments:[[OTControlArguments alloc] initWithConfiguration:configurationContext]
                                               reply:^(OTAccountSettings* setting, NSError *replyError) {
         if(replyError) {
-            secnotice("octagontrust-fetch-account-wide-settings", "fetchAccountWideSettings errored: %@", replyError);
+            if (useDefault && replyError.code == OctagonErrorNoAccountSettingsSet && [replyError.domain isEqualToString:OctagonErrorDomain]) {
+                OTAccountSettings* accountSettings = [[OTAccountSettings alloc] init];
+                accountSettings.walrus = [[OTWalrus alloc] init];
+                accountSettings.walrus.enabled = false;
+                accountSettings.webAccess = [[OTWebAccess alloc] init];
+                accountSettings.webAccess.enabled = true;
+                retSetting = accountSettings;
+                replyError = nil;
+                secnotice("octagontrust-fetch-account-wide-settings", "fetchAccountWideSettings succeeded (returning default)");
+            } else {
+                secnotice("octagontrust-fetch-account-wide-settings", "fetchAccountWideSettings errored: %@", replyError);
+            }
         } else {
             secnotice("octagontrust-fetch-account-wide-settings", "fetchAccountWideSettings succeeded");
             retSetting = setting;
@@ -882,9 +850,23 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
 #endif /* OCTAGON */
 }
 
++ (OTAccountSettings* _Nullable)fetchAccountWideSettingsWithForceFetch:(bool)forceFetch
+                                                         configuration:(OTConfigurationContext*)configurationContext
+                                                                 error:(NSError**)error
+{
+    return [OTClique _fetchAccountWideSettingsDefaultWithForceFetch:forceFetch useDefault:false configuration:configurationContext error:error];
+}
+
++ (OTAccountSettings* _Nullable)fetchAccountWideSettingsDefaultWithForceFetch:(bool)forceFetch
+                                                                configuration:(OTConfigurationContext*)configurationContext
+                                                                        error:(NSError**)error
+{
+    return [OTClique _fetchAccountWideSettingsDefaultWithForceFetch:forceFetch useDefault:true configuration:configurationContext error:error];
+}
+
 + (OTAccountSettings* _Nullable)fetchAccountWideSettings:(OTConfigurationContext*)configurationContext error:(NSError**)error
 {
-    return [OTClique fetchAccountWideSettingsWithForceFetch:false configuration:configurationContext error:error];
+    return [OTClique _fetchAccountWideSettingsDefaultWithForceFetch:false useDefault:false configuration:configurationContext error:error];
 }
 
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error
@@ -1018,27 +1000,6 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
 {
 #if OCTAGON
     secnotice("octagon-register-recovery-key", "registerRecoveryKeyWithContext invoked for context: %@", ctx.context);
-    
-    NSError* createRecoveryKeyError = nil;
-    SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(recoveryKey, &createRecoveryKeyError);
-    if (!rk || createRecoveryKeyError) {
-        secerror("octagon-register-recovery-key, SecRKCreateRecoveryKeyWithError() failed: %@", createRecoveryKeyError);
-
-        NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
-        userInfo[NSLocalizedDescriptionKey] = @"SecRKCreateRecoveryKeyWithError() failed";
-        userInfo[NSUnderlyingErrorKey] = createRecoveryKeyError;
-        
-        NSError* retError = nil;
-        if ([OTClique isCloudServicesAvailable] == NO) {
-            retError = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:userInfo];
-        } else {
-            retError = [NSError errorWithDomain:getkSecureBackupErrorDomain() code:kSecureBackupInternalError userInfo:userInfo];
-        }
-        if (error) {
-            *error = retError;
-        }
-        return NO;
-    }
 
     // set the recovery key for Octagon
     NSError* controlError = nil;
@@ -1068,8 +1029,80 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
         return NO;
     }
     
-    // set the recovery key in SOS
-    if([OTClique platformSupportsSOS]) {
+    // set the recovery key in SOS if the device has SOS enabled /and/ is in circle.
+    CFErrorRef sosError = NULL;
+    SOSCCStatus circleStatus = SOSCCThisDeviceIsInCircle(&sosError);
+    if (sosError) {
+        // we don't care about the sos error here. this function needs to succeed for Octagon.
+        secerror("octagon-register-recovery-key, error checking SOS circle status: %@", sosError);
+    }
+    CFReleaseNull(sosError);
+    
+    if(SOSCCIsSOSTrustAndSyncingEnabled() && circleStatus == kSOSCCInCircle) {
+        NSError* createRecoveryKeyError = nil;
+        SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(recoveryKey, &createRecoveryKeyError);
+        if (!rk || createRecoveryKeyError) {
+            secerror("octagon-register-recovery-key, SecRKCreateRecoveryKeyWithError() failed: %@", createRecoveryKeyError);
+            __block NSError* localError = nil;
+            [control removeRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] reply:^(NSError * _Nullable removeError) {
+                if (removeError) {
+                    secerror("octagon-register-recovery-key, failed to remove recovery key from octagon error: %@", removeError);
+                } else {
+                    secnotice("octagon-register-recovery-key", "successfully removed octagon recovery key");
+                }
+                localError = removeError;
+            }];
+            
+            NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
+            userInfo[NSLocalizedDescriptionKey] = @"SecRKCreateRecoveryKeyWithError() failed";
+            userInfo[NSUnderlyingErrorKey] = createRecoveryKeyError ?: localError;
+            
+            NSError* retError = nil;
+            if ([OTClique isCloudServicesAvailable] == NO) {
+                retError = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:userInfo];
+            } else {
+                retError = [NSError errorWithDomain:getkSecureBackupErrorDomain() code:kSecureBackupInternalError userInfo:userInfo];
+            }
+            if (error) {
+                *error = retError;
+            }
+            return NO;
+        }
+        
+        CFErrorRef copyError = NULL;
+        SOSPeerInfoRef peer = SOSCCCopyMyPeerInfo(&copyError);
+        if (peer) {
+            CFDataRef backupKey = SOSPeerInfoCopyBackupKey(peer);
+            if (backupKey == NULL) {
+                CFErrorRef cferr = NULL;
+                NSString *str = CFBridgingRelease(SecPasswordGenerate(kSecPasswordTypeiCloudRecovery, &cferr, NULL));
+                if (str) {
+                    NSData* secret = [str dataUsingEncoding:NSUTF8StringEncoding];
+                    
+                    CFErrorRef registerError = NULL;
+                    SOSPeerInfoRef peerInfo = SOSCCCopyMyPeerWithNewDeviceRecoverySecret((__bridge CFDataRef)secret, &registerError);
+                    if (peerInfo) {
+                        secnotice("octagon-register-recovery-key", "registered backup key");
+                    } else {
+                        secerror("octagon-register-recovery-key, SOSCCCopyMyPeerWithNewDeviceRecoverySecret() failed: %@", registerError);
+                    }
+                    CFReleaseNull(registerError);
+                    CFReleaseNull(peerInfo);
+                } else {
+                    secerror("octagon-register-recovery-key, SecPasswordGenerate() failed: %@", cferr);
+                }
+                CFReleaseNull(cferr);
+            } else {
+                secnotice("octagon-register-recovery-key", "backup key already registered");
+            }
+            CFReleaseNull(backupKey);
+            CFReleaseNull(peer);
+        } else {
+            secerror("octagon-register-recovery-key, SOSCCCopyMyPeerInfo() failed: %@", copyError);
+        }
+        
+        CFReleaseNull(copyError);
+        
         CFErrorRef registerError = nil;
         if (!SecRKRegisterBackupPublicKey(rk, &registerError)) {
             secerror("octagon-register-recovery-key, SecRKRegisterBackupPublicKey() failed: %@", registerError);
@@ -1095,6 +1128,18 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
             return NO;
         } else {
             secnotice("octagon-register-recovery-key", "successfully registered recovery key for SOS");
+            
+            id<OctagonEscrowRecovererPrococol> sb = [[getSecureBackupClass() alloc] init];
+            NSError* enableError = [sb backupForRecoveryKeyWithInfo:nil];
+            if (enableError) {
+                secerror("octagon-register-recovery-key: failed to perform backup: %@", enableError);
+                if (error) {
+                    *error = enableError;
+                }
+                return nil;
+            } else {
+                secnotice("octagon-register-recovery-key", "created iCloud Identity backup");
+            }
         }
     }
     
@@ -1131,13 +1176,56 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
         }
         return nil;
     }
-    
+
     return recoveryKey;
 #else // !OCTAGON
     if (error) {
         *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
     }
     return nil;
+#endif
+}
+
++ (BOOL)setRecoveryKeyWithContext:(OTConfigurationContext*)ctx
+                      recoveryKey:(NSString*)recoveryKey
+                            error:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagon-set-recovery-key", "setRecoveryKeyWithContext invoked for context: %@", ctx.context);
+
+    NSError* controlError = nil;
+    OTControl* control = [ctx makeOTControl:&controlError];
+    if(!control) {
+        secnotice("octagon-set-recovery-key", "failed to make OTControl object: %@", controlError);
+        if (error) {
+            *error = controlError;
+        }
+        return NO;
+    }
+    
+    __block NSError* createError = nil;
+    [control createRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] recoveryKey:recoveryKey reply:^(NSError * replyError) {
+        if (replyError){
+            secerror("octagon-set-recovery-key, failed to set octagon recovery key error: %@", replyError);
+            createError = replyError;
+        } else {
+            secnotice("octagon-set-recovery-key", "successfully set octagon recovery key");
+        }
+    }];
+    
+    if (createError) {
+        if (error) {
+            *error = createError;
+        }
+        return NO;
+    }
+    
+    return YES;
+#else // !OCTAGON
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return NO;
 #endif
 }
 
@@ -1278,7 +1366,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
         if (error) {
             if (octagonError) {
                 *error = octagonError;
-            } else if (OctagonPlatformSupportsSOS() && sosError) {
+            } else if (SOSCCIsSOSTrustAndSyncingEnabled() && sosError) {
                 *error = sosError;
             } else {
                 *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNoRecoveryKeyRegistered description:@"Recovery key is not registered"];
@@ -1327,7 +1415,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
     
     // if there is no RK set in Octagon, but there is in SOS and the device can't do SOS things and there exists Octagon viable escrow records,
     // we should return an error and force the escrow restore path
-    if (!isRKSetInOctagon && isRKSetInSOS && !OctagonPlatformSupportsSOS() && ctx.octagonCapableRecordsExist) {
+    if (!isRKSetInOctagon && isRKSetInSOS && !SOSCCIsSOSTrustAndSyncingEnabled() && ctx.octagonCapableRecordsExist) {
         secnotice("octagon-recover-with-rk", "Recovery key exists in SOS but not in Octagon and this platform does not support SOS.  Octagon records exist, forcing iCSC restore");
         if (error) {
             *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecoverWithRecoveryKeyNotSupported description:@"recover with recovery key configuration not supported, forcing iCSC restore"];
@@ -1356,7 +1444,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
                     } else {
                         secnotice("octagon-recover-with-rk", "successfully enrolled recovery key");
                         
-                        if (OctagonPlatformSupportsSOS()) {
+                        if (SOSCCIsSOSTrustAndSyncingEnabled()) {
                             bool joinResult = true;
                             if (!ctx.overrideForJoinAfterRestore) {
                                 CFErrorRef restoreError = NULL;
@@ -1407,14 +1495,48 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
     secnotice("octagon-remove-recovery-key", "Removing recovery key for context:%@", ctx);
 
     NSError* setInSOSError = nil;
-    if (OctagonPlatformSupportsSOS()) {
+    if (SOSCCIsSOSTrustAndSyncingEnabled()) {
         if ([OTClique isRecoveryKeySetInSOS:ctx error:&setInSOSError]) {
+            CFErrorRef copyError = NULL;
+            SOSPeerInfoRef peer = SOSCCCopyMyPeerInfo(&copyError);
+            if (peer) {
+                CFDataRef backupKey = SOSPeerInfoCopyBackupKey(peer);
+                if (backupKey == NULL) {
+                    CFErrorRef cferr = NULL;
+                    NSString *str = CFBridgingRelease(SecPasswordGenerate(kSecPasswordTypeiCloudRecovery, &cferr, NULL));
+                    if (str) {
+                        NSData* secret = [str dataUsingEncoding:NSUTF8StringEncoding];
+                        
+                        CFErrorRef registerError = NULL;
+                        SOSPeerInfoRef peerInfo = SOSCCCopyMyPeerWithNewDeviceRecoverySecret((__bridge CFDataRef)secret, &registerError);
+                        if (peerInfo) {
+                            secnotice("octagon-register-recovery-key", "registered backup key");
+                        } else {
+                            secerror("octagon-register-recovery-key, SOSCCCopyMyPeerWithNewDeviceRecoverySecret() failed: %@", registerError);
+                        }
+                        CFReleaseNull(registerError);
+                        CFReleaseNull(peerInfo);
+                    } else {
+                        secerror("octagon-register-recovery-key, SecPasswordGenerate() failed: %@", cferr);
+                    }
+                    CFReleaseNull(cferr);
+                } else {
+                    secnotice("octagon-register-recovery-key", "backup key already registered");
+                }
+                CFReleaseNull(backupKey);
+                CFReleaseNull(peer);
+            } else {
+                secerror("octagon-register-recovery-key, SOSCCCopyMyPeerInfo() failed: %@", copyError);
+            }
+            
+            CFReleaseNull(copyError);
+            
             CFErrorRef sosError = NULL;
             if (!SOSCCRegisterRecoveryPublicKey(NULL, &sosError)) {
                 secerror("octagon-remove-recovery-key: failed to remove recovery key from SOS: %@", sosError);
             } else {
                 id<OctagonEscrowRecovererPrococol> sb = [[getSecureBackupClass() alloc] init];
-                NSError* enableError = [sb backupWithInfo:nil];
+                NSError* enableError = [sb backupForRecoveryKeyWithInfo:nil];
                 if (enableError) {
                     secerror("octagon-remove-recovery-key: failed to perform backup: %@", enableError);
                     if (error) {
@@ -1534,6 +1656,45 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
 #endif
 }
 
++ (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error
+{
+#if OCTAGON
+    secnotice("octagon-count-trusted-peers", "totalTrustedPeers invoked for context: %@", ctx.context);
+
+    NSError* controlError = nil;
+    OTControl* control = [ctx makeOTControl:&controlError];
+    if(!control) {
+        secnotice("octagon-count-trusted-peers", "failed to fetch OTControl object: %@", controlError);
+        return nil;
+    }
+
+    __block NSError* localError = nil;
+    __block NSNumber* totalTrustedPeers = nil;
+
+    [control totalTrustedPeers:[[OTControlArguments alloc] initWithConfiguration:ctx] reply:^(NSNumber * _Nullable count, NSError * _Nullable countError) {
+        if(countError) {
+            secnotice("octagon-count-trusted-peers", "totalTrustedPeers errored: %@", countError);
+            localError = countError;
+        } else {
+            secnotice("octagon-count-trusted-peers", "totalTrustedPeers succeeded, total count: %@", count);
+            totalTrustedPeers = count;
+        }
+    }];
+
+    if (localError) {
+        if (error) {
+            *error = localError;
+        }
+        return nil;
+    }
+
+    secnotice("octagon-count-trusted-peers", "Number of trusted Octagon peers: %@", totalTrustedPeers);
+
+    return totalTrustedPeers;
+#else // !OCTAGON
+    return NULL;
+#endif
+}
 
 @end
 

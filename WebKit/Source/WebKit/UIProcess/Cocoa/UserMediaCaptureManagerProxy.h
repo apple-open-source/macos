@@ -32,6 +32,7 @@
 #include "RemoteVideoFrameObjectHeap.h"
 #include "UserMediaCaptureManager.h"
 #include <WebCore/CaptureDevice.h>
+#include <WebCore/IntDegrees.h>
 #include <WebCore/OrientationNotifier.h>
 #include <WebCore/ProcessIdentity.h>
 #include <WebCore/RealtimeMediaSource.h>
@@ -65,15 +66,16 @@ public:
 #if ENABLE(APP_PRIVACY_REPORT)
         virtual void setTCCIdentity() { }
 #endif
-        virtual void startProducingData(WebCore::RealtimeMediaSource::Type) { }
+        virtual void startProducingData(WebCore::CaptureDevice::DeviceType) { }
         virtual RemoteVideoFrameObjectHeap* remoteVideoFrameObjectHeap() { return nullptr; }
     };
     explicit UserMediaCaptureManagerProxy(UniqueRef<ConnectionProxy>&&);
     ~UserMediaCaptureManagerProxy();
 
+    void close();
     void clear();
 
-    void setOrientation(uint64_t);
+    void setOrientation(WebCore::IntDegrees);
 
     void didReceiveMessageFromGPUProcess(IPC::Connection& connection, IPC::Decoder& decoder) { didReceiveMessage(connection, decoder); }
 
@@ -83,7 +85,7 @@ private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
-    using CreateSourceCallback = CompletionHandler<void(bool succeeded, String invalidConstraints, WebCore::RealtimeMediaSourceSettings&&, WebCore::RealtimeMediaSourceCapabilities&&, Vector<WebCore::VideoPresetData>&&, WebCore::IntSize, double)>;
+    using CreateSourceCallback = CompletionHandler<void(String errorMessage, WebCore::RealtimeMediaSourceSettings&&, WebCore::RealtimeMediaSourceCapabilities&&)>;
     void createMediaSourceForCaptureDeviceWithConstraints(WebCore::RealtimeMediaSourceIdentifier, const WebCore::CaptureDevice& deviceID, WebCore::MediaDeviceHashSalts&&, const WebCore::MediaConstraints&, bool shouldUseGPUProcessRemoteFrames, WebCore::PageIdentifier, CreateSourceCallback&&);
     void startProducingData(WebCore::RealtimeMediaSourceIdentifier);
     void stopProducingData(WebCore::RealtimeMediaSourceIdentifier);
@@ -96,7 +98,7 @@ private:
     void setIsInBackground(WebCore::RealtimeMediaSourceIdentifier, bool);
 
     WebCore::CaptureSourceOrError createMicrophoneSource(const WebCore::CaptureDevice&, WebCore::MediaDeviceHashSalts&&, const WebCore::MediaConstraints*, WebCore::PageIdentifier);
-    WebCore::CaptureSourceOrError createCameraSource(const WebCore::CaptureDevice&, WebCore::MediaDeviceHashSalts&&, const WebCore::MediaConstraints*, WebCore::PageIdentifier);
+    WebCore::CaptureSourceOrError createCameraSource(const WebCore::CaptureDevice&, WebCore::MediaDeviceHashSalts&&, WebCore::PageIdentifier);
 
     class SourceProxy;
     friend class SourceProxy;
@@ -105,8 +107,8 @@ private:
     WebCore::OrientationNotifier m_orientationNotifier { 0 };
 
     struct PageSources {
-        WeakPtr<WebCore::RealtimeMediaSource> microphoneSource;
-        WeakHashSet<WebCore::RealtimeMediaSource> cameraSources;
+        ThreadSafeWeakPtr<WebCore::RealtimeMediaSource> microphoneSource;
+        ThreadSafeWeakHashSet<WebCore::RealtimeMediaSource> cameraSources;
     };
     HashMap<WebCore::PageIdentifier, PageSources> m_pageSources;
 };

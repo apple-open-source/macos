@@ -34,6 +34,7 @@
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define RAMDISK_FS_SPEC         "ramdisk"
 
@@ -45,6 +46,8 @@ const char          *get_boot_container(uint32_t *os_env);
 const char          *get_data_volume(void);
 
 int                 get_boot_manifest_hash(char *boot_manifest_hash, size_t boot_manifest_hash_len);
+
+bool                enhanced_apfs_supported(void);
 #endif
 
 #endif /* edt_fstab_h */

@@ -370,7 +370,7 @@
     <ClCompile Include="uloc_tag.cpp">
       <Filter>locales &amp; resources</Filter>
     </ClCompile>
-    <ClCompile Include="ulocdata.cpp">
+    <ClCompile Include="ulocdata.cpp"> <!-- added per rdar://51193810 -->
       <Filter>locales &amp; resources</Filter>
     </ClCompile>
     <ClCompile Include="ures_cnv.cpp">

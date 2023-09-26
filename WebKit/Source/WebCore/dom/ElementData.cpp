@@ -29,7 +29,10 @@
 #include "Attr.h"
 #include "Element.h"
 #include "HTMLNames.h"
+#include "ImmutableStyleProperties.h"
+#include "MutableStyleProperties.h"
 #include "StyleProperties.h"
+#include "StylePropertiesInlines.h"
 #include "XMLNames.h"
 
 namespace WebCore {
@@ -67,7 +70,7 @@ static size_t sizeForShareableElementDataWithAttributeCount(unsigned count)
     return sizeof(ShareableElementData) + sizeof(Attribute) * count;
 }
 
-Ref<ShareableElementData> ShareableElementData::createWithAttributes(const Vector<Attribute>& attributes)
+Ref<ShareableElementData> ShareableElementData::createWithAttributes(std::span<const Attribute> attributes)
 {
     void* slot = ShareableElementDataMalloc::malloc(sizeForShareableElementDataWithAttributeCount(attributes.size()));
     return adoptRef(*new (NotNull, slot) ShareableElementData(attributes));
@@ -78,7 +81,7 @@ Ref<UniqueElementData> UniqueElementData::create()
     return adoptRef(*new UniqueElementData);
 }
 
-ShareableElementData::ShareableElementData(const Vector<Attribute>& attributes)
+ShareableElementData::ShareableElementData(std::span<const Attribute> attributes)
     : ElementData(attributes.size())
 {
     unsigned attributeArraySize = arraySize();

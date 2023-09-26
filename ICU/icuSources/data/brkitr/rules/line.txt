@@ -69,6 +69,7 @@ $XX = [:LineBreak =  Unknown:];
 $ZW = [:LineBreak =  ZWSpace:];
 $ZWJ = [:LineBreak = ZWJ:];
 
+# rdar:// 
 # The following classes are no longer needed for ICU rules but may
 # still be needed for WebKit rules in lineClasses.txt
 #  $EmojiNRK = [[\p{Emoji}] - [$RI \u002a\u00230-9©®™〰〽]];

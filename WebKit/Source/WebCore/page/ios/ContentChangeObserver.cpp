@@ -26,6 +26,8 @@
 #include "ContentChangeObserver.h"
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
+
+#include "Animation.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DOMTimer.h"
@@ -38,6 +40,7 @@
 #include "Page.h"
 #include "Quirks.h"
 #include "RenderDescendantIterator.h"
+#include "RenderStyleInlines.h"
 #include "Settings.h"
 
 namespace WebCore {
@@ -178,9 +181,9 @@ ContentChangeObserver::ContentChangeObserver(Document& document)
 {
 }
 
-static void willNotProceedWithClick(Frame& mainFrame)
+static void willNotProceedWithClick(LocalFrame& mainFrame)
 {
-    for (AbstractFrame* frame = &mainFrame; frame; frame = frame->tree().traverseNext()) {
+    for (Frame* frame = &mainFrame; frame; frame = frame->tree().traverseNext()) {
         auto* localFrame = dynamicDowncast<LocalFrame>(frame);
         if (!localFrame)
             continue;
@@ -189,19 +192,19 @@ static void willNotProceedWithClick(Frame& mainFrame)
     }
 }
 
-void ContentChangeObserver::didCancelPotentialTap(Frame& mainFrame)
+void ContentChangeObserver::didCancelPotentialTap(LocalFrame& mainFrame)
 {
     LOG(ContentObservation, "didCancelPotentialTap: cancel ongoing content change observing.");
     WebCore::willNotProceedWithClick(mainFrame);
 }
 
-void ContentChangeObserver::didRecognizeLongPress(Frame& mainFrame)
+void ContentChangeObserver::didRecognizeLongPress(LocalFrame& mainFrame)
 {
     LOG(ContentObservation, "didRecognizeLongPress: cancel ongoing content change observing.");
     WebCore::willNotProceedWithClick(mainFrame);
 }
 
-void ContentChangeObserver::didPreventDefaultForEvent(Frame& mainFrame)
+void ContentChangeObserver::didPreventDefaultForEvent(LocalFrame& mainFrame)
 {
     LOG(ContentObservation, "didPreventDefaultForEvent: cancel ongoing content change observing.");
     WebCore::willNotProceedWithClick(mainFrame);

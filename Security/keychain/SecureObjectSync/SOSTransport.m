@@ -280,8 +280,8 @@ CF_RETURNS_RETAINED
 CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDictionaryRef updates, CFErrorRef *error){
     __block SOSAccount* account = txn.account;
     
-    IF_SOS_DISABLED {
-        secnotice("nosos", "got message for sos and the system is off");
+    IF_SOS_DISABLED_SERVER {
+        secnotice("nosos", "transport received a message for sos but the system is off");
         return NULL;
     }
 
@@ -321,7 +321,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
     
     __block CFDataRef newParameters = NULL;
     __block bool initial_sync = false;
-    bool sosIsEnabled = [account sosIsEnabled];
+    bool sosIsActiveForMonitorMode = [account SOSMonitorModeSOSIsActive];
     
     CFDictionaryForEach(updates, ^(const void *key, const void *value) {
         CFStringRef circle_name = NULL;
@@ -339,7 +339,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
                 CFDictionarySetValue(circle_circle_messages_table, circle_name, value);
                 break;
             case kInitialSyncKey:
-                if(sosIsEnabled) {
+                if(sosIsActiveForMonitorMode) {
                     initial_sync = true;
                 }
                 break;
@@ -349,14 +349,14 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
                 }
                 break;
             case kMessageKey: {
-                if(sosIsEnabled) {
+                if(sosIsActiveForMonitorMode) {
                     CFMutableDictionaryRef circle_messages = CFDictionaryEnsureCFDictionaryAndGetCurrentValue(circle_peer_messages_table, circle_name);
                     CFDictionarySetValue(circle_messages, from_name, value);
                 }
                 break;
             }
             case kRetirementKey: {
-                if(sosIsEnabled) {
+                if(sosIsActiveForMonitorMode) {
                     CFMutableDictionaryRef circle_retirements = CFDictionaryEnsureCFDictionaryAndGetCurrentValue(circle_retirement_messages_table, circle_name);
                     CFDictionarySetValue(circle_retirements, from_name, value);
                 }
@@ -364,13 +364,13 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
             }
             case kRingKey:
                 if(isString(ring_name)) {
-                    if(sosIsEnabled || sosDisabledRingException(ring_name)) { // listen for recovery ring and icloud identity ring
+                    if(sosIsActiveForMonitorMode || sosDisabledRingException(ring_name)) { // listen for recovery ring and icloud identity ring
                         CFDictionarySetValue(ring_update_message_table, ring_name, value);
                     }
                 }
                 break;
             case kDebugInfoKey:
-                if(sosIsEnabled) {
+                if(sosIsActiveForMonitorMode) {
                     CFDictionarySetValue(debug_info_message_table, peer_info_name, value);
                 }
                 break;

@@ -1,0 +1,5 @@
+This is the output directory for mkesdb and mkcsmapper.  Anything within this
+structure should be considered generated, and should not be touched manually.
+
+To regenerate this directory, return to $SRCROOT/libiconv and execute the
+generate-i18n.sh script.  This script requires bmake.

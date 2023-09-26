@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2007-2018
+ * Copyright (c) 1996, 1998-2005, 2007-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -61,26 +61,18 @@ enum sudoers_formats {
  * Function Prototypes
  */
 static void dump_sudoers(struct sudo_lbuf *lbuf);
-static void usage(void) __attribute__((__noreturn__));
 static void set_runaspw(const char *);
 static void set_runasgr(const char *);
-static bool cb_runas_default(const union sudo_defs_val *);
+static bool cb_runas_default(const char *file, int line, int column, const union sudo_defs_val *, int);
 static int testsudoers_error(const char *msg);
 static int testsudoers_output(const char *buf);
+sudo_noreturn static void usage(void);
 
-/* tsgetgrpw.c */
-extern void setgrfile(const char *);
-extern void setgrent(void);
-extern void endgrent(void);
-extern struct group *getgrent(void);
-extern struct group *getgrnam(const char *);
-extern struct group *getgrgid(gid_t);
-extern void setpwfile(const char *);
-extern void setpwent(void);
-extern void endpwent(void);
-extern struct passwd *getpwent(void);
-extern struct passwd *getpwnam(const char *);
-extern struct passwd *getpwuid(uid_t);
+/* testsudoers_pwutil.c */
+extern struct cache_item *testsudoers_make_gritem(gid_t gid, const char *group);
+extern struct cache_item *testsudoers_make_grlist_item(const struct passwd *pw, char * const *groups);
+extern struct cache_item *testsudoers_make_gidlist_item(const struct passwd *pw, char * const *gids, unsigned int type);
+extern struct cache_item *testsudoers_make_pwitem(uid_t uid, const char *user);
 
 /* gram.y */
 extern int (*trace_print)(const char *msg);
@@ -90,6 +82,7 @@ extern int (*trace_print)(const char *msg);
  */
 struct sudo_user sudo_user;
 struct passwd *list_pw;
+static const char *orig_cmnd;
 static char *runas_group, *runas_user;
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
@@ -141,7 +134,7 @@ main(int argc, char *argv[])
 
     dflag = 0;
     grfile = pwfile = NULL;
-    while ((ch = getopt(argc, argv, "dg:G:h:i:P:p:tu:U:")) != -1) {
+    while ((ch = getopt(argc, argv, "+dg:G:h:i:P:p:tu:U:")) != -1) {
 	switch (ch) {
 	    case 'd':
 		dflag = 1;
@@ -194,29 +187,37 @@ main(int argc, char *argv[])
     argc -= optind;
     argv += optind;
 
-    /* Set group/passwd file and init the cache. */
-    if (grfile)
-	setgrfile(grfile);
-    if (pwfile)
-	setpwfile(pwfile);
+    if (grfile != NULL || pwfile != NULL) {
+	/* Set group/passwd file and init the cache. */
+	if (grfile)
+	    testsudoers_setgrfile(grfile);
+	if (pwfile)
+	    testsudoers_setpwfile(pwfile);
+
+	/* Use custom passwd/group backend. */
+	sudo_pwutil_set_backend(testsudoers_make_pwitem,
+	    testsudoers_make_gritem, testsudoers_make_gidlist_item,
+	    testsudoers_make_grlist_item);
+    }
 
     if (argc < 2) {
 	if (!dflag)
 	    usage();
-	user_name = argc ? *argv++ : "root";
-	user_cmnd = user_base = "true";
+	user_name = argc ? *argv++ : (char *)"root";
+	orig_cmnd = "true";
 	argc = 0;
     } else {
 	user_name = *argv++;
-	user_cmnd = *argv++;
-	if ((p = strrchr(user_cmnd, '/')) != NULL)
-	    user_base = p + 1;
-	else
-	    user_base = user_cmnd;
+	orig_cmnd = *argv++;
 	argc -= 2;
     }
+    user_cmnd = strdup(orig_cmnd);
+    if (user_cmnd == NULL)
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+    user_base = sudo_basename(user_cmnd);
+
     if ((sudo_user.pw = sudo_getpwnam(user_name)) == NULL)
-	sudo_fatalx(U_("unknown user: %s"), user_name);
+	sudo_fatalx(U_("unknown user %s"), user_name);
 
     if (user_host == NULL) {
 	if ((user_host = sudo_gethostname()) == NULL)
@@ -296,17 +297,17 @@ main(int argc, char *argv[])
 	}
         break;
     case format_sudoers:
-	if (sudoersparse() != 0 || parse_error)
+	if (sudoersparse() != 0)
 	    parse_error = true;
         break;
     default:
         sudo_fatalx("error: unhandled input %d", input_format);
     }
+    if (!update_defaults(&parsed_policy, NULL, SETDEF_ALL, false))
+	parse_error = true;
+
     if (!parse_error)
 	(void) puts("Parses OK");
-
-    if (!update_defaults(&parsed_policy, NULL, SETDEF_ALL, false))
-	(void) puts("Problem with defaults entries");
 
     if (dflag) {
 	(void) putchar('\n');
@@ -383,7 +384,7 @@ set_runaspw(const char *user)
     }
     if (pw == NULL) {
 	if ((pw = sudo_getpwnam(user)) == NULL)
-	    sudo_fatalx(U_("unknown user: %s"), user);
+	    sudo_fatalx(U_("unknown user %s"), user);
     }
     if (runas_pw != NULL)
 	sudo_pw_delref(runas_pw);
@@ -407,7 +408,7 @@ set_runasgr(const char *group)
     }
     if (gr == NULL) {
 	if ((gr = sudo_getgrnam(group)) == NULL)
-	    sudo_fatalx(U_("unknown group: %s"), group);
+	    sudo_fatalx(U_("unknown group %s"), group);
     }
     if (runas_gr != NULL)
 	sudo_gr_delref(runas_gr);
@@ -419,7 +420,8 @@ set_runasgr(const char *group)
  * Callback for runas_default sudoers setting.
  */
 static bool
-cb_runas_default(const union sudo_defs_val *sd_un)
+cb_runas_default(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     /* Only reset runaspw if user didn't specify one. */
     if (!runas_user && !runas_group)
@@ -445,20 +447,21 @@ open_sudoers(const char *file, bool doedit, bool *keepopen)
     struct stat sb;
     FILE *fp = NULL;
     const char *base;
+    int error, fd;
     debug_decl(open_sudoers, SUDOERS_DEBUG_UTIL);
 
-    base = strrchr(file, '/');
-    if (base != NULL)
-	base++;
-    else
-	base = file;
-
-    switch (sudo_secure_file(file, sudoers_uid, sudoers_gid, &sb)) {
-	case SUDO_PATH_SECURE:
-	    fp = fopen(file, "r");
-	    break;
+    /* Report errors using the basename for consistent test output. */
+    base = sudo_basename(file);
+    fd = sudo_secure_open_file(file, sudoers_uid, sudoers_gid, &sb, &error);
+    if (fd != -1) {
+	if ((fp = fdopen(fd, "r")) == NULL) {
+	    sudo_warn("unable to open %s", base);
+	    close(fd);
+	}
+    } else {
+	switch (error) {
 	case SUDO_PATH_MISSING:
-	    sudo_warn("unable to stat %s", base);
+	    sudo_warn("unable to open %s", base);
 	    break;
 	case SUDO_PATH_BAD_TYPE:
 	    sudo_warnx("%s is not a regular file", base);
@@ -475,8 +478,10 @@ open_sudoers(const char *file, bool doedit, bool *keepopen)
 		base, (unsigned int) sudoers_gid);
 	    break;
 	default:
-	    /* NOTREACHED */
+	    sudo_warnx("%s: internal error, unexpected error %d",
+		__func__, error);
 	    break;
+	}
     }
 
     debug_return_ptr(fp);
@@ -509,6 +514,12 @@ init_eventlog_config(void)
 int
 set_cmnd_path(const char *runchroot)
 {
+    /* Reallocate user_cmnd to catch bugs in command_matches(). */
+    char *new_cmnd = strdup(orig_cmnd);
+    if (new_cmnd == NULL)
+	return NOT_FOUND_ERROR;
+    free(user_cmnd);
+    user_cmnd = new_cmnd;
     return FOUND;
 }
 

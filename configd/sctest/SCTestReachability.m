@@ -34,6 +34,7 @@
 @property dispatch_queue_t callbackQ;
 @end
 
+#if !TARGET_OS_BRIDGE
 @implementation SCTestReachability
 
 + (NSString *)command
@@ -376,3 +377,4 @@ myReachabilityCallback(SCNetworkReachabilityRef target, SCNetworkReachabilityFla
 }
 
 @end
+#endif // !TARGET_OS_BRIDGE

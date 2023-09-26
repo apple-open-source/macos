@@ -1,4 +1,4 @@
-framework module SystemConfiguration [extern_c] [system] {
+framework module SystemConfiguration [system] {
   umbrella header "SystemConfiguration.h"
 
   export *

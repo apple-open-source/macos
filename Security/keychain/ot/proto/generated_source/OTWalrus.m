@@ -16,12 +16,12 @@
 @synthesize enabled = _enabled;
 - (void)setEnabled:(BOOL)v
 {
-    _has.enabled = YES;
+    _has.enabled = (uint)YES;
     _enabled = v;
 }
 - (void)setHasEnabled:(BOOL)f
 {
-    _has.enabled = f;
+    _has.enabled = (uint)f;
 }
 - (BOOL)hasEnabled
 {
@@ -61,7 +61,7 @@ BOOL OTWalrusReadFrom(__unsafe_unretained OTWalrus *self, __unsafe_unretained PB
 
             case 1 /* enabled */:
             {
-                self->_has.enabled = YES;
+                self->_has.enabled = (uint)YES;
                 self->_enabled = PBReaderReadBOOL(reader);
             }
             break;

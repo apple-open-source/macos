@@ -94,6 +94,7 @@ nfs4_init_clientid(struct nfsmount *nmp)
 	struct sockaddr *saddr;
 	int error, cmp;
 	long len, len2;
+	static uint32_t uniqueid = 0;
 	struct vfsstatfs *vsfs;
 
 	static uint8_t en0addr[6];
@@ -136,7 +137,7 @@ nfs4_init_clientid(struct nfsmount *nmp)
 		return ENOMEM;
 	}
 
-	*(uint32_t*)ncip->nci_id = 0;
+	*(uint32_t*)ncip->nci_id = uniqueid;
 	len = sizeof(uint32_t);
 	len2 = lmin(sizeof(en0addr), ncip->nci_idlen - len);
 	bcopy(en0addr, &ncip->nci_id[len], len2);
@@ -187,7 +188,7 @@ nfs4_init_clientid(struct nfsmount *nmp)
 		}
 		*(uint32_t*)ncip->nci_id += 1;
 	}
-	if (*(uint32_t*)ncip->nci_id) {
+	if (*(uint32_t*)ncip->nci_id != uniqueid) {
 		printf("nfs client ID collision (%d) for %s on %s\n", *(uint32_t*)ncip->nci_id,
 		    vsfs->f_mntfromname, vsfs->f_mntonname);
 	}
@@ -199,6 +200,9 @@ nfs4_init_clientid(struct nfsmount *nmp)
 	nmp->nm_longid = ncip;
 	lck_mtx_unlock(get_lck_mtx(NLM_GLOBAL));
 
+	/* update uniqueid for the next execution */
+	uniqueid = *(uint32_t*)ncip->nci_id + 1;
+
 	return 0;
 }
 
@@ -206,7 +210,7 @@ nfs4_init_clientid(struct nfsmount *nmp)
  * NFSv4 SETCLIENTID
  */
 int
-nfs4_setclientid(struct nfsmount *nmp)
+nfs4_setclientid(struct nfsmount *nmp, int recover)
 {
 	uint64_t verifier, xid;
 	int error = 0, status, numops;
@@ -293,7 +297,7 @@ nfs4_setclientid(struct nfsmount *nmp)
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
 	nfsmout_if(error);
-	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, R_SETUP, &nmrep, &xid, &status);
+	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, recover ? R_RECOVER : R_SETUP, &nmrep, &xid, &status);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	if (!error && (numops != 1) && status) {
@@ -320,7 +324,7 @@ nfs4_setclientid(struct nfsmount *nmp)
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
 	nfsmout_if(error);
-	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, R_SETUP, &nmrep, &xid, &status);
+	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, recover ? R_RECOVER : R_SETUP, &nmrep, &xid, &status);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_SETCLIENTID_CONFIRM);
@@ -372,6 +376,21 @@ nfsmout:
 		printf("nfs4_setclientid failed, %d\n", error);
 	}
 	return error;
+}
+
+void
+nfs4_remove_clientid(struct nfsmount *nmp)
+{
+	if ((nmp->nm_vers >= NFS_VER4) && nmp->nm_longid) {
+		/* remove/deallocate the client ID data */
+		lck_mtx_lock(get_lck_mtx(NLM_GLOBAL));
+		TAILQ_REMOVE(&nfsclientids, nmp->nm_longid, nci_link);
+		if (nmp->nm_longid->nci_id) {
+			kfree_data_addr(nmp->nm_longid->nci_id);
+		}
+		kfree_type(struct nfs_client_id, nmp->nm_longid);
+		lck_mtx_unlock(get_lck_mtx(NLM_GLOBAL));
+	}
 }
 
 /*
@@ -2720,12 +2739,12 @@ nfs4_expired_check_delegation(nfsnode_t np, vfs_context_t ctx)
 		}
 		if (np->n_openflags & N_DELEG_MASK) {
 			np->n_openflags &= ~N_DELEG_MASK;
-			lck_mtx_lock(&nmp->nm_lock);
+			lck_mtx_lock(&nmp->nm_deleg_lock);
 			if (np->n_dlink.tqe_next != NFSNOLIST) {
 				TAILQ_REMOVE(&nmp->nm_delegations, np, n_dlink);
 				np->n_dlink.tqe_next = NFSNOLIST;
 			}
-			lck_mtx_unlock(&nmp->nm_lock);
+			lck_mtx_unlock(&nmp->nm_deleg_lock);
 			nfs4_delegreturn_rpc(nmp, np->n_fhp, np->n_fhsize, &np->n_dstateid,
 			    0, vfs_context_thread(ctx), vfs_context_ucred(ctx));
 		}
@@ -2804,7 +2823,26 @@ restart:
 		++nmp->nm_stategenid;
 	}
 	printf("nfs recovery started for %s, 0x%x\n", vfs_statfs(nmp->nm_mountp)->f_mntfromname, nmp->nm_stategenid);
-	lck_mtx_unlock(&nmp->nm_lock);
+
+#if CONFIG_NFS4
+	if ((nmp->nm_vers >= NFS_VER4) && (nmp->nm_state & NFSSTA_RECOVER_EXPIRED)) {
+		lck_mtx_unlock(&nmp->nm_lock);
+		error = nfs4_renew(nmp, R_RECOVER);
+		printf("nfs recovery sent renew to verify clientid status, got %d\n", error);
+
+		if ((error == NFSERR_ADMIN_REVOKED) || (error == NFSERR_EXPIRED) || (error == NFSERR_STALE_CLIENTID)) {
+			nfs4_remove_clientid(nmp);
+			error = nfs4_setclientid(nmp, 1);
+			printf("nfs recovery sent setclientid to establish new identity, got %d\n", error);
+			if (error) {
+				return;
+			}
+		}
+	} else
+#endif
+	{
+		lck_mtx_unlock(&nmp->nm_lock);
+	}
 
 	/* for each open owner... */
 	TAILQ_FOREACH(noop, &nmp->nm_open_owners, noo_link) {
@@ -3009,15 +3047,19 @@ reclaim_locks:
 		lck_mtx_lock(&nmp->nm_lock);
 #if CONFIG_NFS4
 		if ((nmp->nm_vers >= NFS_VER4) && (nmp->nm_state & NFSSTA_RECOVER_EXPIRED)) {
+			lck_mtx_unlock(&nmp->nm_lock);
+			lck_mtx_lock(&nmp->nm_deleg_lock);
 recheckdeleg:
 			TAILQ_FOREACH_SAFE(np, &nmp->nm_delegations, n_dlink, nextnp) {
-				lck_mtx_unlock(&nmp->nm_lock);
+				lck_mtx_unlock(&nmp->nm_deleg_lock);
 				nfs4_expired_check_delegation(np, vfs_context_kernel());
-				lck_mtx_lock(&nmp->nm_lock);
+				lck_mtx_lock(&nmp->nm_deleg_lock);
 				if (nextnp == NFSNOLIST) {
 					goto recheckdeleg;
 				}
 			}
+			lck_mtx_unlock(&nmp->nm_deleg_lock);
+			lck_mtx_lock(&nmp->nm_lock);
 		}
 #endif
 		nmp->nm_state &= ~(NFSSTA_RECOVER | NFSSTA_RECOVER_EXPIRED);

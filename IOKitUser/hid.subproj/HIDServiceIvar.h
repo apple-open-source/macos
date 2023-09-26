@@ -20,6 +20,7 @@ IOHIDServiceInterface       **serviceInterface; \
 IOHIDServiceInterface2      **serviceInterface2; \
 IOCFPlugInInterface         **plugInInterface; \
 CFNumberRef                 registryID; \
+CFTypeRef                   locationID; \
 __IOHIDServiceQueueContext  *queueContext; \
 dispatch_queue_t            dispatchQueue; \
 IONotificationPortRef       notificationPort; \

@@ -168,7 +168,7 @@ ubrk_safeClone(
     BreakIterator *newBI = ((BreakIterator *)bi)->clone();
     if (newBI == NULL) {
         *status = U_MEMORY_ALLOCATION_ERROR;
-    } else {
+    } else if (pBufferSize != NULL) {
         *status = U_SAFECLONE_ALLOCATED_WARNING;
     }
     return (UBreakIterator *)newBI;
@@ -176,15 +176,7 @@ ubrk_safeClone(
 
 U_CAPI UBreakIterator * U_EXPORT2
 ubrk_clone(const UBreakIterator *bi, UErrorCode *status) {
-    if (U_FAILURE(*status)) {
-        return nullptr;
-    }
-    BreakIterator *newBI = ((BreakIterator *)bi)->clone();
-    if (newBI == nullptr) {
-        *status = U_MEMORY_ALLOCATION_ERROR;
-        return nullptr;
-    }
-    return (UBreakIterator *)newBI;
+    return ubrk_safeClone(bi, nullptr, nullptr, status);
 }
 
 
@@ -195,13 +187,15 @@ ubrk_close(UBreakIterator *bi)
 }
 
 
-// Apple only
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
 U_CAPI void U_EXPORT2
 ubrk_setLineWordOpts(UBreakIterator* bi,
                      ULineWordOptions lineWordOpts)
 {
     ((BreakIterator*)bi)->setLineWordOpts(lineWordOpts);
 }
+#endif // APPLE_ICU_CHANGES
 
 
 U_CAPI void U_EXPORT2

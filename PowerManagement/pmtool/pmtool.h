@@ -125,6 +125,13 @@ static void sendAgingDataFromCFPrefs(void);
 static void isVactSupported(void);
 static void setPermFaultStatus(int64_t pfStatus);
 #endif
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+static void setCoreSmartPowerNap(int enable);
+static void getCoreSmartPowerNap(void);
+static void setCSPNQueryDelta(long queryDelta);
+static void setCSPNRequeryDelta(long requeryDelta);
+static void setCSPNIgnoreRemoteClient(int enable);
+#endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 
 /*************************************************************************/
 /*
@@ -177,6 +184,13 @@ typedef enum {
     kGetBHDataFromPrefsIndex,
     kGetAgingDataFromPrefsIndex,
     kGetVactSupportedIndex,
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+    kSetCoreSmartPowerNapIndex,
+    kGetCoreSmartPowerNapIndex,
+    kSetCSPNQueryDeltaIndex,
+    kSetCSPNRequeryDeltaIndex,
+    kSetCSPNIgnoreRemoteClientIndex,
+#endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
     kSetPermFaultStatusIndex,
     kActionsCount   // kActionsCount must always be the last item in this list
 } pmtoolActions;
@@ -261,6 +275,14 @@ enum {
 #define kActionGetAgingDataFromPrefs                    "getagingdatafromprefs"
 #define kActionGetVactSupported                         "isvactsupported"
 
+
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+#define kActionSetCoreSmartPowerNap                     "coresmartpowernap"
+#define kActionGetCoreSmartPowerNap                     "getcoresmartpowernap"
+#define kActionSetCSPNQueryDelta                        "setcspnquerydelta"
+#define kActionSetCSPNRequeryDelta                      "setcspnrequerydelta"
+#define kActionSetCSPNIgnoreRemoteClient                "setcspnremoteclientignore"
+#endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 
 #define kActionSetPermFaultStatus                       "setpermfaultstatus"
 

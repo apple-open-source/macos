@@ -777,8 +777,10 @@ ioc_convert_path_error:
                         p->iod_flags      = iod->iod_flags;
                         p->iod_prop_state = iod->iod_state;
 
-                        p->iod_prop_rx = iod->iod_total_rx_bytes;
-                        p->iod_prop_tx = iod->iod_total_tx_bytes;
+                        p->iod_prop_rx_bytes = iod->iod_total_rx_bytes;
+                        p->iod_prop_rx_packets = iod->iod_total_rx_packets;
+                        p->iod_prop_tx_bytes = iod->iod_total_tx_bytes;
+                        p->iod_prop_tx_packets = iod->iod_total_tx_packets;
                         p->iod_prop_setup_time.tv_sec = iod->iod_session_setup_time.tv_sec;
 
                         p->iod_prop_c_if  = iod->iod_conn_entry.client_if_idx;
@@ -1070,6 +1072,8 @@ ioc_convert_path_error:
                     } /* else */
                 } /* if (sdp->sd_share) */
                 
+                properties->signing_algorithm = sessionp->session_smb3_signing_algorithm;
+
                 memset(properties->model_info, 0, (SMB_MAXFNAMELEN * 2));
                 /* only when we are mac to mac */
                 if (sessionp->session_misc_flags & SMBV_OSX_SERVER) {
@@ -1108,6 +1112,8 @@ ioc_convert_path_error:
                  */
                 properties->ioc_total_rx_bytes = sessionp->session_gone_iod_total_rx_bytes;
                 properties->ioc_total_tx_bytes = sessionp->session_gone_iod_total_tx_bytes;
+                properties->ioc_total_rx_packets = sessionp->session_gone_iod_total_rx_packets;
+                properties->ioc_total_tx_packets = sessionp->session_gone_iod_total_tx_packets;
 
                 lck_mtx_lock(&sessionp->iod_tailq_lock);
 
@@ -1120,6 +1126,8 @@ ioc_convert_path_error:
                         (!(iod->iod_flags & SMBIOD_SHUTDOWN))) {
                         properties->ioc_total_rx_bytes += iod->iod_total_rx_bytes;
                         properties->ioc_total_tx_bytes += iod->iod_total_tx_bytes;
+                        properties->ioc_total_rx_packets += iod->iod_total_rx_packets;
+                        properties->ioc_total_tx_packets += iod->iod_total_tx_packets;
                     }
 
                     SMB_IOD_FLAGSUNLOCK(iod);

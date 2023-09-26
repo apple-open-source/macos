@@ -39,8 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/getw.c,v 1.8 2007/01/09 00:28:06 imp Exp 
 #include <stdio.h>
 
 int
-getw(fp)
-	FILE *fp;
+getw(FILE *fp)
 {
 	int x;
 

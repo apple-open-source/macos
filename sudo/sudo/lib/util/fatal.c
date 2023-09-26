@@ -183,6 +183,7 @@ static void
 warning(const char *errstr, const char *fmt, va_list ap)
 {
     int cookie;
+    const int saved_errno = errno;
 
     /* Set user locale if setter was specified. */
     if (sudo_warn_setlocale != NULL)
@@ -238,14 +239,19 @@ warning(const char *errstr, const char *fmt, va_list ap)
             fputs(": ", stderr);
             fputs(errstr, stderr);
         }
-        if (isatty(fileno(stderr)))
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+        if (sudo_term_is_raw(fileno(stderr)))
             putc('\r', stderr);
+#endif
         putc('\n', stderr);
     }
 
     /* Restore old locale as needed. */
     if (sudo_warn_setlocale != NULL)
 	sudo_warn_setlocale(true, &cookie);
+
+    /* Do not clobber errno. */
+    errno = saved_errno;
 }
 
 /*

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2008, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,9 +32,9 @@
 #import "Cursor.h"
 #import "Document.h"
 #import "FontCascade.h"
-#import "Frame.h"
-#import "FrameView.h"
 #import "GraphicsContext.h"
+#import "LocalFrame.h"
+#import "LocalFrameView.h"
 #import "Page.h"
 #import "PlatformMouseEvent.h"
 #import "RuntimeApplicationChecks.h"
@@ -91,7 +91,7 @@ void Widget::setFocus(bool focused)
     if (!focused)
         return;
 
-    Frame* frame = Frame::frameForWidget(*this);
+    auto* frame = LocalFrame::frameForWidget(*this);
     if (!frame)
         return;
 
@@ -107,7 +107,7 @@ void Widget::setFocus(bool focused)
 
 void Widget::setCursor(const Cursor& cursor)
 {
-    FrameView* view = root();
+    auto* view = root();
     if (!view)
         return;
     view->hostWindow()->setCursor(cursor);
@@ -186,7 +186,7 @@ NSView *Widget::getOuterView() const
     return view;
 }
 
-void Widget::paint(GraphicsContext& p, const IntRect& r, SecurityOriginPaintPolicy, EventRegionContext*)
+void Widget::paint(GraphicsContext& p, const IntRect& r, SecurityOriginPaintPolicy, RegionContext*)
 {
     if (p.paintingDisabled())
         return;
@@ -208,9 +208,9 @@ void Widget::paint(GraphicsContext& p, const IntRect& r, SecurityOriginPaintPoli
     Ref<Widget> protectedThis(*this);
 
     NSGraphicsContext *currentContext = [NSGraphicsContext currentContext];
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (currentContext == [[view window] graphicsContext] || ![currentContext isDrawingToScreen]) {
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
         // This is the common case of drawing into a window or an inclusive layer, or printing.
         BEGIN_BLOCK_OBJC_EXCEPTIONS
         [view displayRectIgnoringOpacity:[view convertRect:r fromView:[view superview]]];
@@ -230,12 +230,12 @@ void Widget::paint(GraphicsContext& p, const IntRect& r, SecurityOriginPaintPoli
         ASSERT([innerView isKindOfClass:[NSScrollView class]]);
         NSScrollView *scrollView = static_cast<NSScrollView *>(innerView);
         // -copiesOnScroll will return NO whenever the content view is not fully opaque.
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if ([scrollView drawsBackground] && ![[scrollView contentView] copiesOnScroll])
             [scrollView setDrawsBackground:NO];
         else
             scrollView = 0;
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     CGContextRef cgContext = p.platformContext();

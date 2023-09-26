@@ -401,6 +401,7 @@
 				SUPPORTED_PLATFORMS = "iphonesimulator macosx iphoneos";
 				WARNING_LDFLAGS = "-Wl,-no_arch_warnings";
 				ZERO_LINK = YES;
+				IS_ZIPPERED = YES;
 			};
 			name = Debug;
 		};
@@ -424,6 +425,7 @@
 				SUPPORTED_PLATFORMS = "iphonesimulator macosx iphoneos";
 				WARNING_LDFLAGS = "-Wl,-no_arch_warnings";
 				ZERO_LINK = NO;
+				IS_ZIPPERED = YES;
 			};
 			name = Release;
 		};

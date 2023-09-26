@@ -19,6 +19,7 @@
 #import <OCMock/OCMock.h>
 #import <sqlite3.h>
 #import "mockaks.h"
+#import "keychain/Sharing/KCSharingSupport.h"
 
 #import "mockaksxcbase.h"
 
@@ -37,6 +38,7 @@ NSString* homeDirUUID;
 + (void)setUp
 {
     [super setUp];
+
 
     securityd_init_local_spi();
     securityd_init(NULL);
@@ -123,6 +125,7 @@ NSString* homeDirUUID;
 
 + (void)tearDown
 {
+
     SecSetCustomHomeURLString(NULL);
     SecKeychainDbReset(NULL);
 }

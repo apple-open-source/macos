@@ -41,5 +41,9 @@
 	</array>
 	<key>com.apple.private.system-keychain</key>
 	<true/>
+	<key>com.apple.SystemConfiguration.SCPreferences-write-access</key>
+	<array>
+		<string>com.apple.network.eapolclient.configuration.plist</string>
+	</array>
 </dict>
 </plist>

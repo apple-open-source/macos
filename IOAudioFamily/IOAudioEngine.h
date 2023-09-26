@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2023 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -250,6 +250,18 @@ protected:
 		UInt32								commandGateStatus;			// <rdar://8518215>
 		SInt32								commandGateUsage;			// <rdar://8518215>
         bool                                useHiResSampleInterval;
+		/*! Workloop dedicated to the erase head - runs with RT priority. */
+		IOWorkLoop*							eraseHeadWorkloop;
+		/*! The expected amount of computation time for the erase head. */
+		uint64_t							eraseHeadComputationNs;
+		/*! The maximium amount of time for the erase head. */
+		uint64_t							eraseHeadConstraintNs;
+		/*! The timer event which will trigger the erase head. */
+		IOTimerEventSource*					eraseHeadTimerEvent;
+		/*! The timer event next wakeup. */
+		AbsoluteTime						eraseHeadTimerWakeupTime;
+		/*! The timer event period. */
+		AbsoluteTime						eraseHeadTimerPeriod;
     };
     
     ExpansionData   *reserved;
@@ -713,9 +725,9 @@ public:
      * @abstract A static method used as a callback for the IOAudioDevice timer services.
      * @discussion This method implements the IOAudioDevice::TimerEvent type.
      * @param arg1 The IOAudioEngine that is the target of the event.
-     * @param device The IOAudioDevice that sent the timer event.
+     * @param device The IOAudioDevice that sent the timer event (unused).
      */
-    static void timerCallback(OSObject *arg1, IOAudioDevice *device ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    static void timerCallback(OSObject *target, IOAudioDevice *device ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function timerFired

@@ -87,7 +87,6 @@ enum {
 #define GAME_CONTROLLER_EXTENDED_MASK (0x000270C0 | GAME_CONTROLLER_STANDARD_MASK)
 #define GAME_CONTROLLER_FORM_FITTING_MASK (0x1000000)
 
-
 //===========================================================================
 // EventElementCollection class
 class EventElementCollection: public OSObject
@@ -403,7 +402,7 @@ bool IOHIDEventDriver::handleStart(IOService *provider)
     require_action(_interface->open(this, 0, OSMemberFunctionCast(IOHIDInterface::InterruptReportAction,
                                                            this,
                                                            &IOHIDEventDriver::handleInterruptReport), NULL), exit,
-                   HIDLogError("0x%llx: IOHIDEventDriver failed to open IOHIDInterface", getRegistryEntryID()));
+                   HIDServiceLogError("failed to open %s:0x%llx", _interface->getName(), _interface->getRegistryEntryID()));
     
     obj = _interface->copyProperty("BootProtocol");
     
@@ -421,7 +420,7 @@ bool IOHIDEventDriver::handleStart(IOService *provider)
     OSSafeReleaseNULL(obj);
     
     // Get array of blessed vendor keyboard usages.
-    require_action(getBlessedUsagePairs(), exit, HIDLogError("Error parsing the blessed usage pair array!"));
+    require_action(getBlessedUsagePairs(), exit, HIDServiceLogError("Error parsing the blessed usage pair array!"));
     
     _keyboard.appleVendorSupported = getProperty(kIOHIDAppleVendorSupported, gIOServicePlane);
     
@@ -429,7 +428,7 @@ bool IOHIDEventDriver::handleStart(IOService *provider)
     require(elements, exit);
     
     require_action(parseElements(elements, bootProtocol), exit,
-                   HIDLogError("0x%llx: IOHIDEventDriver failed to parse elements.", getRegistryEntryID()));
+                   HIDServiceLogError("failed to parse elements."));
 
     debugSerializer = OSSerializer::forTarget(this, OSMemberFunctionCast(OSSerializerCallback,
                                                                          this,
@@ -442,7 +441,7 @@ bool IOHIDEventDriver::handleStart(IOService *provider)
     
 exit:
     if (!result) {
-        HIDLogError("0x%llx: IOHIDEventDriver start failed.", getRegistryEntryID());
+        HIDServiceLogError("start failed.");
         provider->close(this);
     }
     
@@ -781,13 +780,13 @@ void IOHIDEventDriver::setSurfaceDimensions()
     OSDictionary * dimensions = OSDictionary::withCapacity(2);
     
     require(dimensions,exit);
-    require_action(_digitizer.transducers, exit, HIDLogError("Invalid digitizer transducer"));
+    require_action(_digitizer.transducers, exit, HIDServiceLogError("Invalid digitizer transducer"));
     
     // Assuming first transducer will have valid physical dimensions
-    require_action(_digitizer.transducers->getCount() > 0, exit, HIDLogError("Invalid digitizer transducer count"));
+    require_action(_digitizer.transducers->getCount() > 0, exit, HIDServiceLogError("Invalid digitizer transducer count"));
     
     transducer =  OSDynamicCast(DigitizerTransducer, _digitizer.transducers->getObject(0));
-    require_action(transducer->elements, exit, HIDLogError("Invalid digitizer  transducer elements"));
+    require_action(transducer->elements, exit, HIDServiceLogError("Invalid digitizer  transducer elements"));
     
     for (elementIndex=0, elementCount=transducer->elements->getCount(); elementIndex<elementCount; elementIndex++) {
         IOHIDElement * element = OSDynamicCast(IOHIDElement, transducer->elements->getObject(elementIndex));
@@ -1632,7 +1631,7 @@ IOReturn IOHIDEventDriver::setProperties( OSObject * properties )
     
     if (_digitizer.surfaceSwitch && (boolVal = OSDynamicCast(OSBoolean, propertyDict->getObject(kIOHIDDigitizerSurfaceSwitchKey)))) {
         dispatch_workloop_sync ({
-            HIDLog("Set %s value %d", kIOHIDDigitizerSurfaceSwitchKey, (boolVal == kOSBooleanTrue) ? 1 : 0);
+            HIDServiceLog("Set %s value %d", kIOHIDDigitizerSurfaceSwitchKey, (boolVal == kOSBooleanTrue) ? 1 : 0);
             _digitizer.surfaceSwitch->setValue(boolVal == kOSBooleanTrue ? 1 : 0, kIOHIDValueOptionsUpdateElementValues);
         });
     }
@@ -1646,7 +1645,7 @@ IOReturn IOHIDEventDriver::setProperties( OSObject * properties )
         }
         if ((boolVal = OSDynamicCast(OSBoolean, propertyDict->getObject(kIOHIDKeyboardEnabledKey)))) {
             dispatch_workloop_sync ({
-                HIDLog("Set %s value %d", kIOHIDKeyboardEnabledKey, (boolVal == kOSBooleanTrue) ? 1 : 0);
+                HIDServiceLog("Set %s value %d", kIOHIDKeyboardEnabledKey, (boolVal == kOSBooleanTrue) ? 1 : 0);
                 _keyboard.keyboardPower->setValue((boolVal == kOSBooleanTrue) ? 1 : 0, kIOHIDValueOptionsUpdateElementValues);
 
                 setProperty(kIOHIDKeyboardEnabledKey, boolVal);
@@ -2368,11 +2367,11 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
                 OSNumber *      blessedUsagePage;
                 OSNumber *      blessedUsage;
 
-                require_action(blessedUsageDict, exit, HIDLogError("Error parsing a blessed usage pair dict!"));
+                require_action(blessedUsageDict, exit, HIDServiceLogError("Error parsing a blessed usage pair dict!"));
 
                 blessedUsagePage = OSDynamicCast(OSNumber, blessedUsageDict->getObject(kIOHIDEventDriverBlessedUsagePageKey));
                 blessedUsage     = OSDynamicCast(OSNumber, blessedUsageDict->getObject(kIOHIDEventDriverBlessedUsageKey));
-                require_action(blessedUsagePage && blessedUsage, exit, HIDLogError("Error parsing blessed usage pairs!"));
+                require_action(blessedUsagePage && blessedUsage, exit, HIDServiceLogError("Error parsing blessed usage pairs!"));
 
                 if (usagePage == blessedUsagePage->unsigned32BitValue() && usage == blessedUsage->unsigned32BitValue()) {
                     store = true;
@@ -3233,9 +3232,43 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
     require_quiet(reportID == _gameController.sendingReportID, exit);
     
     if ( _gameController.extended ) {
-        dispatchExtendedGameControllerEventWithOptionalButtons(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1, _gameController.shoulder.l2, _gameController.shoulder.r2, _gameController.joystick.x, _gameController.joystick.y, _gameController.joystick.z, _gameController.joystick.rz, _gameController.thumbstick.left, _gameController.extra.l4, _gameController.extra.r4, _gameController.extra.l5, _gameController.extra.r5, 0);
+        dispatchExtendedGameControllerEventWithOptionalButtons(
+                timeStamp,
+                _gameController.dpad.up,
+                _gameController.dpad.down,
+                _gameController.dpad.left,
+                _gameController.dpad.right,
+                _gameController.face.x,
+                _gameController.face.y,
+                _gameController.face.a,
+                _gameController.face.b,
+                _gameController.shoulder.l1,
+                _gameController.shoulder.r1,
+                _gameController.shoulder.l2,
+                _gameController.shoulder.r2,
+                _gameController.joystick.x,
+                _gameController.joystick.y,
+                _gameController.joystick.z,
+                _gameController.joystick.rz,
+                _gameController.thumbstick.left,
+                _gameController.thumbstick.right,
+                _gameController.extra.l4,
+                _gameController.extra.r4,
+                _gameController.extra.l5,
+                _gameController.extra.r5);
     } else {
-        dispatchStandardGameControllerEvent(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1);
+        dispatchStandardGameControllerEvent(
+                timeStamp,
+                _gameController.dpad.up,
+                _gameController.dpad.down,
+                _gameController.dpad.left,
+                _gameController.dpad.right,
+                _gameController.face.x,
+                _gameController.face.y,
+                _gameController.face.a,
+                _gameController.face.b,
+                _gameController.shoulder.l1,
+                _gameController.shoulder.r1);
     }
     
 exit:

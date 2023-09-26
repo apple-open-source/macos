@@ -12,6 +12,8 @@
 
 #include <../src/internal.h> // for platform.h
 
+T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_XZONE);
+
 // number of times malloc & free are called per dt_stat batch
 #define ITERATIONS_PER_DT_STAT_BATCH 10000ull
 // number of times large malloc is called per dt_stat  batch
@@ -263,7 +265,7 @@ malloc_bench(bool singlethreaded, size_t from, size_t to, size_t incr)
 T_DECL(perf_uncontended_nano_bench, "Uncontended nano malloc",
 		T_META_ALL_VALID_ARCHS(NO),
 		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-		T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_PERF)
+		T_META_ENVVAR("MallocNanoZone=1"))
 {
 	malloc_bench(true, 16, 256, 16); // NANO_MAX_SIZE
 }
@@ -271,7 +273,7 @@ T_DECL(perf_uncontended_nano_bench, "Uncontended nano malloc",
 T_DECL(perf_contended_nano_bench, "Contended nano malloc",
 		T_META_ALL_VALID_ARCHS(NO),
 		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-		T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_PERF)
+		T_META_ENVVAR("MallocNanoZone=1"))
 {
 	malloc_bench(false, 16, 256, 16); // NANO_MAX_SIZE
 }
@@ -279,7 +281,7 @@ T_DECL(perf_contended_nano_bench, "Contended nano malloc",
 T_DECL(perf_uncontended_tiny_bench, "Uncontended tiny malloc",
 		T_META_ALL_VALID_ARCHS(NO),
 		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-		T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_PERF)
+		T_META_ENVVAR("MallocNanoZone=0"))
 {
 	malloc_bench(true, 16, 1008, 16); // SMALL_THRESHOLD
 }
@@ -287,31 +289,28 @@ T_DECL(perf_uncontended_tiny_bench, "Uncontended tiny malloc",
 T_DECL(perf_contended_tiny_bench, "Contended tiny malloc",
 		T_META_ALL_VALID_ARCHS(NO),
 		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-		T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_PERF)
+		T_META_ENVVAR("MallocNanoZone=0"))
 {
 	malloc_bench(false, 16, 1008, 16); // SMALL_THRESHOLD
 }
 
 T_DECL(perf_uncontended_small_bench, "Uncontended small malloc",
 		T_META_ALL_VALID_ARCHS(NO),
-		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-		T_META_TAG_PERF)
+		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false))
 {
 	malloc_bench(true, 1024, 15 * 1024, 512); // LARGE_THRESHOLD
 }
 
 T_DECL(perf_contended_small_bench, "Contended small malloc",
 		T_META_ALL_VALID_ARCHS(NO),
-		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-		T_META_TAG_PERF)
+		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false))
 {
 	malloc_bench(false, 1024, 15 * 1024, 512); // LARGE_THRESHOLD
 }
 
 T_DECL(perf_uncontended_large_bench, "Uncontended large malloc",
 		T_META_ALL_VALID_ARCHS(NO),
-		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-		T_META_TAG_PERF)
+		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false))
 {
 	iterations_per_dt_stat_batch = ITERATIONS_PER_DT_STAT_BATCH_LARGE_MALLOC;
 	malloc_bench(true, 16 * 1024, 256 * 1024, 16 * 1024);
@@ -319,8 +318,7 @@ T_DECL(perf_uncontended_large_bench, "Uncontended large malloc",
 
 T_DECL(perf_contended_large_bench, "Contended large malloc",
 		T_META_ALL_VALID_ARCHS(NO),
-		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-		T_META_TAG_PERF)
+		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false))
 {
 	iterations_per_dt_stat_batch = ITERATIONS_PER_DT_STAT_BATCH_LARGE_MALLOC;
 	malloc_bench(false, 16 * 1024, 256 * 1024, 16 * 1024);
@@ -335,8 +333,7 @@ T_DECL(perf_contended_large_deferred_reclaim_bench,
 		T_META_ALL_VALID_ARCHS(NO),
 		T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
 		T_META_ENABLED(!DEFAULT_LARGE_CACHE_ENABLED),
-		T_META_ENVVAR("MallocLargeCache=1"),
-		T_META_TAG_PERF)
+		T_META_ENVVAR("MallocLargeCache=1"))
 {
 	// Add more iterations to also serve as a stress test for deferred reclaim
 	iterations_per_dt_stat_batch =

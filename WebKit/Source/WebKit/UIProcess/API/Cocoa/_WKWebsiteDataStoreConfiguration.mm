@@ -67,9 +67,13 @@ static void checkURLArgument(NSURL *url)
         return nil;
 
     if (!identifier)
-        [NSException raise:NSInvalidArgumentException format:@"Identifier cannot be nil"];
+        [NSException raise:NSInvalidArgumentException format:@"Identifier is nil"];
 
-    API::Object::constructInWrapper<WebKit::WebsiteDataStoreConfiguration>(self, UUID(identifier));
+    auto uuid = WTF::UUID::fromNSUUID(identifier);
+    if (!uuid || !uuid->isValid())
+        [NSException raise:NSInvalidArgumentException format:@"Identifier (%s) is invalid for data store", String([identifier UUIDString]).utf8().data()];
+
+    API::Object::constructInWrapper<WebKit::WebsiteDataStoreConfiguration>(self, *uuid);
 
     return self;
 }
@@ -498,6 +502,84 @@ static WebKit::UnifiedOriginStorageLevel toUnifiedOriginStorageLevel(_WKUnifiedO
     _configuration->setPerOriginStorageQuota(quota);
 }
 
+- (NSNumber *)originQuotaRatio
+{
+    auto ratio = _configuration->originQuotaRatio();
+    if (!ratio)
+        return nil;
+
+    return [NSNumber numberWithDouble:*ratio];
+}
+
+- (void)setOriginQuotaRatio:(NSNumber *)originQuotaRatio
+{
+    std::optional<double> ratio = std::nullopt;
+    if (originQuotaRatio) {
+        ratio = [originQuotaRatio doubleValue];
+        if (*ratio < 0.0 || *ratio > 1.0)
+            [NSException raise:NSInvalidArgumentException format:@"OriginQuotaRatio must be in the range [0.0, 1]"];
+    }
+
+    _configuration->setOriginQuotaRatio(ratio);
+}
+
+- (NSNumber *)totalQuotaRatio
+{
+    auto ratio = _configuration->totalQuotaRatio();
+    if (!ratio)
+        return nil;
+
+    return [NSNumber numberWithDouble:*ratio];
+}
+
+- (void)setTotalQuotaRatio:(NSNumber *)totalQuotaRatio
+{
+    std::optional<double> ratio = std::nullopt;
+    if (totalQuotaRatio) {
+        ratio = [totalQuotaRatio doubleValue];
+        if (*ratio < 0.0 || *ratio > 1.0)
+            [NSException raise:NSInvalidArgumentException format:@"TotalQuotaRatio must be in the range [0.0, 1]"];
+    }
+
+    _configuration->setTotalQuotaRatio(ratio);
+}
+
+- (NSNumber *)standardVolumeCapacity
+{
+    auto capacity = _configuration->standardVolumeCapacity();
+    if (!capacity)
+        return nil;
+
+    return [NSNumber numberWithUnsignedLongLong:*capacity];
+}
+
+- (void)setStandardVolumeCapacity:(NSNumber *)standardVolumeCapacity
+{
+    std::optional<uint64_t> capacity;
+    if (standardVolumeCapacity)
+        capacity = [standardVolumeCapacity unsignedLongLongValue];
+
+    _configuration->setStandardVolumeCapacity(capacity);
+}
+
+- (NSNumber *)volumeCapacityOverride
+{
+    auto capacity = _configuration->volumeCapacityOverride();
+    if (!capacity)
+        return nil;
+
+    return [NSNumber numberWithUnsignedLongLong:*capacity];
+}
+
+- (void)setVolumeCapacityOverride:(NSNumber *)mockVolumeCapactiy
+{
+    std::optional<uint64_t> capacity = std::nullopt;
+    if (mockVolumeCapactiy)
+        capacity = [mockVolumeCapactiy unsignedLongLongValue];
+
+    _configuration->setVolumeCapacityOverride(capacity);
+}
+
 - (NSUInteger)testSpeedMultiplier
 {
     return _configuration->testSpeedMultiplier();
@@ -714,6 +796,15 @@ static WebKit::UnifiedOriginStorageLevel toUnifiedOriginStorageLevel(_WKUnifiedO
 - (void)setResourceLoadStatisticsDebugModeEnabled:(BOOL)enabled
 {
     _configuration->setResourceLoadStatisticsDebugModeEnabled(enabled);
+}
+
+- (NSUUID *)identifier
+{
+    auto currentIdentifier = _configuration->identifier();
+    if (!currentIdentifier)
+        return nullptr;
+
+    return *currentIdentifier;
 }
 
 - (API::Object&)_apiObject

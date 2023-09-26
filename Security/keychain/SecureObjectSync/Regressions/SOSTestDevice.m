@@ -41,7 +41,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecFileLocations.h>
 #include <utilities/SecIOFormat.h>
-
+#include "keychain/securityd/SOSCloudCircleServer.h"
 #include <stdint.h>
 #include <AssertMacros.h>
 
@@ -168,7 +168,9 @@ SOSTestDeviceRef SOSTestDeviceCreateWithDbNamed(CFAllocatorRef allocator, CFStri
 SOSTestDeviceRef SOSTestDeviceCreateWithTestDataSource(CFAllocatorRef allocator, CFStringRef engineID,
                                                        void(^prepop)(SOSDataSourceRef ds)) {
     setup("create device");
+    
     SOSTestDeviceRef td = SOSTestDeviceCreateInternal(allocator, engineID);
+    enableSOSCompatibilityForTests();
 
     td->ds = SOSTestDataSourceCreate();
     if (prepop)

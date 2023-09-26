@@ -38,15 +38,15 @@
 #import <WebCore/PushPermissionState.h>
 #import <WebCore/SecurityOriginData.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
+#import <span>
 #import <wtf/CompletionHandler.h>
 #import <wtf/HexNumber.h>
 #import <wtf/NeverDestroyed.h>
-#import <wtf/Span.h>
 #import <wtf/URL.h>
 #import <wtf/WorkQueue.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
 #import <UIKit/UIApplication.h>
 #endif
 
@@ -265,7 +265,7 @@ WebPushD::EncodedMessage removePushSubscriptionsForOrigin::encodeReply(unsigned 
 } // namespace MessageInfo
 
 template<typename Info>
-void handleWebPushDMessageWithReply(ClientConnection* connection, Span<const uint8_t> encodedMessage, CompletionHandler<void(WebPushD::EncodedMessage&&)>&& replySender)
+void handleWebPushDMessageWithReply(ClientConnection* connection, std::span<const uint8_t> encodedMessage, CompletionHandler<void(WebPushD::EncodedMessage&&)>&& replySender)
 {
     WebKit::Daemon::Decoder decoder(encodedMessage);
 
@@ -282,7 +282,7 @@ void handleWebPushDMessageWithReply(ClientConnection* connection, Span<const uin
 }
 
 template<typename Info>
-void handleWebPushDMessage(ClientConnection* connection, Span<const uint8_t> encodedMessage)
+void handleWebPushDMessage(ClientConnection* connection, std::span<const uint8_t> encodedMessage)
 {
     WebKit::Daemon::Decoder decoder(encodedMessage);
 
@@ -413,7 +413,7 @@ void Daemon::connectionEventHandler(xpc_object_t request)
     auto messageType { static_cast<MessageType>(messageTypeValue) };
     size_t dataSize { 0 };
     const void* data = xpc_dictionary_get_data(request, protocolEncodedMessageKey, &dataSize);
-    Span<const uint8_t> encodedMessage { static_cast<const uint8_t*>(data), dataSize };
+    std::span<const uint8_t> encodedMessage { static_cast<const uint8_t*>(data), dataSize };
     
     decodeAndHandleMessage(xpc_dictionary_get_remote_connection(request), messageType, encodedMessage, createReplySender(messageType, request));
 }
@@ -456,7 +456,7 @@ void Daemon::decodeAndHandleRawXPCMessage(RawXPCMessageType messageType, OSObjec
     }
 }
 
-void Daemon::decodeAndHandleMessage(xpc_connection_t connection, MessageType messageType, Span<const uint8_t> encodedMessage, CompletionHandler<void(EncodedMessage&&)>&& replySender)
+void Daemon::decodeAndHandleMessage(xpc_connection_t connection, MessageType messageType, std::span<const uint8_t> encodedMessage, CompletionHandler<void(EncodedMessage&&)>&& replySender)
 {
     ASSERT(messageTypeSendsReply(messageType) == !!replySender);
 
@@ -713,7 +713,7 @@ void Daemon::notifyClientPushMessageIsAvailable(const WebCore::PushSubscriptionS
     _LSOpenURLsUsingBundleIdentifierWithCompletionHandler(urls, identifier, options, ^(LSASNRef, Boolean, CFErrorRef cfError) {
         RELEASE_LOG_ERROR_IF(cfError, Push, "Failed to launch process in response to push: %{public}@", (__bridge NSError *)cfError);
     });
-#elif PLATFORM(IOS)
+#elif PLATFORM(IOS) || PLATFORM(VISION)
     const NSString *URLPrefix = @"webapp://web-push/";
     NSURL *launchURL = [NSURL URLWithString:[URLPrefix stringByAppendingFormat:@"%@", (NSString *)subscriptionSetIdentifier.pushPartition]];
 

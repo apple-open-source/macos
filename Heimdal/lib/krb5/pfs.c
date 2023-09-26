@@ -161,7 +161,12 @@ _krb5_auth_con_setup_pfs(krb5_context context,
 	return krb5_enomem(context);
     }
     
-    cccurve25519_make_key_pair(rng, pfs->x25519pub, pfs->x25519priv);
+    if (cccurve25519_make_key_pair(rng, pfs->x25519pub, pfs->x25519priv)) {
+	krb5_free_keyblock_contents(context, &pfs->keyblock);
+	free(pfs->p256);
+	free(pfs);
+	return krb5_enomem(context);
+    }
 
     if (ccec_generate_key_fips(cp, rng, pfs->p256)) {
 	krb5_free_keyblock_contents(context, &pfs->keyblock);
@@ -204,6 +209,7 @@ pfs_make_share_secret(krb5_context context,
 		      KRB5_PFS_SELECTION *peer)
 {
     struct _krb5_pfs_data *pfs = auth_context->pfs;
+    struct ccrng_state *rng = ccDRBGGetRngState();
     krb5_data shared_secret;
     krb5_error_code ret;
 
@@ -222,9 +228,15 @@ pfs_make_share_secret(krb5_context context,
 	if (ret)
 	    goto out;
 
-	cccurve25519(shared_secret.data,
+	int rc = cccurve25519_with_rng(rng,
+		     shared_secret.data,
 		     pfs->x25519priv,
 		     peer->public_key.data);
+	if (rc) {
+	    krb5_set_error_message(context, HEIM_PFS_GROUP_INVALID,
+				   "Failed to complete share key");
+	    return HEIM_PFS_GROUP_INVALID;
+	}
 
     } else if (peer->group == KRB5_PFS_NIST_P256 && (pfs->config & PFS_P256)) {
 	ccec_const_cp_t cp = ccec_cp_256();

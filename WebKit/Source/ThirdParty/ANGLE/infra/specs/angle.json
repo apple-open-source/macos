@@ -247,7 +247,6 @@
           "--render-test-output-dir=${ISOLATED_OUTDIR}"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -264,7 +263,7 @@
           ],
           "expiration": 21600,
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 4
+          "shards": 8
         },
         "test": "angle_end2end_tests",
         "test_id_prefix": "ninja://src/tests:angle_end2end_tests/",
@@ -275,7 +274,6 @@
           "-v"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -308,7 +306,6 @@
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -662,7 +659,6 @@
           "--render-test-output-dir=${ISOLATED_OUTDIR}"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -693,7 +689,6 @@
           "-v"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -719,7 +714,6 @@
           "-v"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -777,12 +771,48 @@
         "args": [
           "--test-machine-name",
           "${buildername}",
+          "--trace-interpreter=gz",
+          "--filter=fishdom:geometry_dash:merge_dragons:minecraft_bedrock:new_legend_of_the_condor_heroes:street_fighter_duel:teslagrad:vainglory",
+          "-v",
+          "--git-revision=${got_angle_revision}"
+        ],
+        "isolate_name": "angle_restricted_trace_gold_interpreted_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_restricted_trace_gold_interpreted_tests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}",
+          "--use-permissive-pixel-comparison=${use_permissive_angle_pixel_comparison}"
+        ],
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "device_os": "R",
+              "device_os_type": "userdebug",
+              "device_type": "flame",
+              "os": "Android",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "angle_restricted_trace_gold_tests",
+        "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
+      },
+      {
+        "args": [
+          "--test-machine-name",
+          "${buildername}",
           "-v",
           "--git-revision=${got_angle_revision}"
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -886,7 +916,6 @@
           "--log=debug",
           "--samples-per-test=6",
           "--show-test-stdout",
-          "--split-shard-samples",
           "--trial-time=10"
         ],
         "isolate_name": "angle_perftests",
@@ -917,7 +946,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-gl=native",
           "--trace-tests",
           "--trial-time=10"
@@ -951,7 +980,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-angle=vulkan",
           "--trace-tests",
           "--trial-time=10"
@@ -1221,7 +1250,6 @@
           "--render-test-output-dir=${ISOLATED_OUTDIR}"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -1237,7 +1265,7 @@
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 4
+          "shards": 8
         },
         "test": "angle_end2end_tests",
         "test_id_prefix": "ninja://src/tests:angle_end2end_tests/",
@@ -1248,7 +1276,6 @@
           "-v"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -1280,7 +1307,6 @@
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -1316,7 +1342,6 @@
           "--log=debug",
           "--samples-per-test=6",
           "--show-test-stdout",
-          "--split-shard-samples",
           "--trial-time=10"
         ],
         "isolate_name": "angle_perftests",
@@ -1347,7 +1372,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-gl=native",
           "--trace-tests",
           "--trial-time=10"
@@ -1381,7 +1406,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-angle=vulkan",
           "--trace-tests",
           "--trial-time=10"
@@ -1415,6 +1440,9 @@
   },
   "linux-amd": {},
   "linux-exp-intel": {},
+  "linux-exp-swiftshader": {},
+  "linux-exp-swiftshader-asan": {},
+  "linux-exp-swiftshader-tsan": {},
   "linux-intel": {
     "gtest_tests": [
       {
@@ -1449,7 +1477,6 @@
           "--no-xvfb"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -1476,7 +1503,6 @@
           "--no-xvfb"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -1497,7 +1523,6 @@
       },
       {
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -1521,7 +1546,6 @@
           "--no-xvfb"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -1542,6 +1566,29 @@
       }
     ],
     "isolated_scripts": [
+      {
+        "args": [
+          "--log=debug"
+        ],
+        "isolate_name": "angle_capture_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_capture_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "gpu": "8086:9bc5-20.0.8",
+              "os": "Ubuntu-18.04.6",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://src/tests:angle_capture_tests/"
+      },
       {
         "args": [
           "--log=debug",
@@ -1575,11 +1622,44 @@
         "args": [
           "--test-machine-name",
           "${buildername}",
+          "--trace-interpreter=gz",
+          "--filter=fishdom:geometry_dash:merge_dragons:minecraft_bedrock:new_legend_of_the_condor_heroes:street_fighter_duel:teslagrad:vainglory",
+          "--git-revision=${got_angle_revision}"
+        ],
+        "isolate_name": "angle_restricted_trace_gold_interpreted_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_restricted_trace_gold_interpreted_tests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}",
+          "--use-permissive-pixel-comparison=${use_permissive_angle_pixel_comparison}"
+        ],
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "gpu": "8086:9bc5-20.0.8",
+              "os": "Ubuntu-18.04.6",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "angle_restricted_trace_gold_tests",
+        "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
+      },
+      {
+        "args": [
+          "--test-machine-name",
+          "${buildername}",
           "--git-revision=${got_angle_revision}"
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -1602,34 +1682,6 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
-      },
-      {
-        "args": [
-          "--log=debug",
-          "interpret",
-          "among_us:dota_underlords:genshin_impact:manhattan_10:trex_200",
-          "-L=2",
-          "--show-test-stdout"
-        ],
-        "isolate_name": "angle_trace_interpreter_tests",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "angle_trace_interpreter_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "8086:9bc5-20.0.8",
-              "os": "Ubuntu-18.04.6",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test_id_prefix": "ninja://src/tests:angle_trace_interpreter_tests/"
       },
       {
         "args": [
@@ -1703,8 +1755,7 @@
         "args": [
           "--log=debug",
           "--samples-per-test=6",
-          "--show-test-stdout",
-          "--split-shard-samples"
+          "--show-test-stdout"
         ],
         "isolate_name": "angle_perftests",
         "merge": {
@@ -1732,7 +1783,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-gl=native",
           "--trace-tests"
         ],
@@ -1763,7 +1814,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-angle=vulkan",
           "--trace-tests"
         ],
@@ -2260,7 +2311,6 @@
           "--no-xvfb"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2287,7 +2337,6 @@
           "--no-xvfb"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2308,7 +2357,6 @@
       },
       {
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2332,7 +2380,6 @@
           "--no-xvfb"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2353,6 +2400,29 @@
       }
     ],
     "isolated_scripts": [
+      {
+        "args": [
+          "--log=debug"
+        ],
+        "isolate_name": "angle_capture_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_capture_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "gpu": "10de:2184-440.100",
+              "os": "Ubuntu-18.04.5|Ubuntu-18.04.6",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://src/tests:angle_capture_tests/"
+      },
       {
         "args": [
           "--log=debug",
@@ -2386,11 +2456,44 @@
         "args": [
           "--test-machine-name",
           "${buildername}",
+          "--trace-interpreter=gz",
+          "--filter=fishdom:geometry_dash:merge_dragons:minecraft_bedrock:new_legend_of_the_condor_heroes:street_fighter_duel:teslagrad:vainglory",
+          "--git-revision=${got_angle_revision}"
+        ],
+        "isolate_name": "angle_restricted_trace_gold_interpreted_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_restricted_trace_gold_interpreted_tests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}",
+          "--use-permissive-pixel-comparison=${use_permissive_angle_pixel_comparison}"
+        ],
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "gpu": "10de:2184-440.100",
+              "os": "Ubuntu-18.04.5|Ubuntu-18.04.6",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "angle_restricted_trace_gold_tests",
+        "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
+      },
+      {
+        "args": [
+          "--test-machine-name",
+          "${buildername}",
           "--git-revision=${got_angle_revision}"
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -2413,34 +2516,6 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
-      },
-      {
-        "args": [
-          "--log=debug",
-          "interpret",
-          "among_us:dota_underlords:genshin_impact:manhattan_10:trex_200",
-          "-L=2",
-          "--show-test-stdout"
-        ],
-        "isolate_name": "angle_trace_interpreter_tests",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "angle_trace_interpreter_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "10de:2184-440.100",
-              "os": "Ubuntu-18.04.5|Ubuntu-18.04.6",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test_id_prefix": "ninja://src/tests:angle_trace_interpreter_tests/"
       },
       {
         "args": [
@@ -2514,8 +2589,7 @@
         "args": [
           "--log=debug",
           "--samples-per-test=6",
-          "--show-test-stdout",
-          "--split-shard-samples"
+          "--show-test-stdout"
         ],
         "isolate_name": "angle_perftests",
         "merge": {
@@ -2543,7 +2617,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-gl=native",
           "--trace-tests"
         ],
@@ -2574,7 +2648,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-angle=vulkan",
           "--trace-tests"
         ],
@@ -2610,7 +2684,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2620,7 +2693,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2637,7 +2710,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2647,7 +2719,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2664,7 +2736,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2674,7 +2745,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2691,7 +2762,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2701,7 +2771,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2718,7 +2788,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2728,7 +2797,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2745,7 +2814,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2755,7 +2823,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2772,7 +2840,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2782,7 +2849,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2800,7 +2867,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2810,7 +2876,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2827,7 +2893,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2837,7 +2902,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2854,7 +2919,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2864,7 +2928,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2881,7 +2945,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2891,7 +2954,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2909,7 +2972,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2919,7 +2981,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2936,7 +2998,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2946,7 +3007,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2963,7 +3024,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -2973,7 +3033,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -2990,7 +3050,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3000,7 +3059,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3017,7 +3076,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3027,7 +3085,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3052,7 +3110,6 @@
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -3069,7 +3126,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3089,7 +3146,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3099,7 +3155,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3116,7 +3172,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3126,7 +3181,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3143,7 +3198,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3153,7 +3207,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3171,7 +3225,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3181,7 +3234,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3198,7 +3251,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3208,7 +3260,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3225,7 +3277,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3235,7 +3286,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3252,7 +3303,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3262,7 +3312,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3280,7 +3330,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3290,7 +3339,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3307,7 +3356,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3317,7 +3365,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3334,7 +3382,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3344,7 +3391,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3361,7 +3408,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3371,7 +3417,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3389,7 +3435,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3399,7 +3444,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3416,7 +3461,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3426,7 +3470,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3443,7 +3487,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3453,7 +3496,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3470,7 +3513,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3480,7 +3522,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3498,7 +3540,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3508,7 +3549,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3527,11 +3568,9 @@
       {
         "args": [
           "--use-angle=swiftshader",
-          "--batch-timeout=600",
-          "--flaky-retries=2"
+          "--batch-timeout=600"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3541,7 +3580,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3558,7 +3597,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3568,7 +3606,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3586,7 +3624,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3596,7 +3633,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3614,7 +3651,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3624,7 +3660,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3641,7 +3677,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3651,7 +3686,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3668,7 +3703,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3678,7 +3712,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3695,7 +3729,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3705,7 +3738,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3722,7 +3755,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -3732,7 +3764,7 @@
             {
               "cpu": "x86-64",
               "gpu": "none",
-              "os": "Ubuntu-18.04",
+              "os": "Ubuntu-22.04",
               "pool": "chromium.tests.gpu"
             }
           ],
@@ -3764,231 +3796,6 @@
             {
               "cpu": "x86-64",
               "display_attached": "1",
-              "gpu": "1002:6821",
-              "hidpi": "1",
-              "os": "Mac-12.1",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "angle_deqp_egl_tests",
-        "test_id_prefix": "ninja://src/tests:angle_deqp_egl_tests/",
-        "use_isolated_scripts_api": true
-      },
-      {
-        "args": [
-          "--use-angle=metal"
-        ],
-        "merge": {
-          "script": "//scripts/angle_deqp_test_merge.py"
-        },
-        "name": "angle_deqp_egl_metal_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "1002:6821",
-              "hidpi": "1",
-              "os": "Mac-12.1",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "angle_deqp_egl_tests",
-        "test_id_prefix": "ninja://src/tests:angle_deqp_egl_tests/",
-        "use_isolated_scripts_api": true
-      },
-      {
-        "args": [
-          "--use-angle=gl",
-          "--flaky-retries=2"
-        ],
-        "merge": {
-          "script": "//scripts/angle_deqp_test_merge.py"
-        },
-        "name": "angle_deqp_gles2_gl_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "1002:6821",
-              "hidpi": "1",
-              "os": "Mac-12.1",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "angle_deqp_gles2_tests",
-        "test_id_prefix": "ninja://src/tests:angle_deqp_gles2_tests/",
-        "use_isolated_scripts_api": true
-      },
-      {
-        "args": [
-          "--use-angle=metal"
-        ],
-        "merge": {
-          "script": "//scripts/angle_deqp_test_merge.py"
-        },
-        "name": "angle_deqp_gles2_metal_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "1002:6821",
-              "hidpi": "1",
-              "os": "Mac-12.1",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "angle_deqp_gles2_tests",
-        "test_id_prefix": "ninja://src/tests:angle_deqp_gles2_tests/",
-        "use_isolated_scripts_api": true
-      },
-      {
-        "args": [
-          "--use-angle=gl",
-          "--flaky-retries=2"
-        ],
-        "merge": {
-          "script": "//scripts/angle_deqp_test_merge.py"
-        },
-        "name": "angle_deqp_gles3_gl_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "1002:6821",
-              "hidpi": "1",
-              "os": "Mac-12.1",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 2
-        },
-        "test": "angle_deqp_gles3_tests",
-        "test_id_prefix": "ninja://src/tests:angle_deqp_gles3_tests/",
-        "use_isolated_scripts_api": true
-      },
-      {
-        "args": [
-          "--use-angle=metal",
-          "--flaky-retries=2"
-        ],
-        "merge": {
-          "script": "//scripts/angle_deqp_test_merge.py"
-        },
-        "name": "angle_deqp_gles3_metal_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "1002:6821",
-              "hidpi": "1",
-              "os": "Mac-12.1",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 2
-        },
-        "test": "angle_deqp_gles3_tests",
-        "test_id_prefix": "ninja://src/tests:angle_deqp_gles3_tests/",
-        "use_isolated_scripts_api": true
-      },
-      {
-        "args": [
-          "--gtest_filter=-*Vulkan_SwiftShader*",
-          "--flaky-retries=2"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "1002:6821",
-              "hidpi": "1",
-              "os": "Mac-12.1",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 2
-        },
-        "test": "angle_end2end_tests",
-        "test_id_prefix": "ninja://src/tests:angle_end2end_tests/",
-        "use_isolated_scripts_api": true
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "1002:6821",
-              "hidpi": "1",
-              "os": "Mac-12.1",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "angle_unittests",
-        "test_id_prefix": "ninja://src/tests:angle_unittests/",
-        "use_isolated_scripts_api": true
-      }
-    ]
-  },
-  "mac-exp-amd": {
-    "gtest_tests": [
-      {
-        "args": [
-          "--use-angle=gl",
-          "--max-processes=1"
-        ],
-        "merge": {
-          "script": "//scripts/angle_deqp_test_merge.py"
-        },
-        "name": "angle_deqp_egl_gl_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
               "gpu": "1002:67ef",
               "hidpi": "1",
               "os": "Mac-13.2.1",
@@ -4147,7 +3954,6 @@
           "--flaky-retries=2"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -4172,7 +3978,6 @@
       },
       {
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -4196,6 +4001,7 @@
       }
     ]
   },
+  "mac-exp-amd": {},
   "mac-exp-intel": {},
   "mac-intel": {
     "gtest_tests": [
@@ -4216,7 +4022,7 @@
               "cpu": "x86-64",
               "display_attached": "1",
               "gpu": "8086:3e9b",
-              "os": "Mac-12.5"
+              "os": "Mac-13.3.1"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -4241,7 +4047,7 @@
               "cpu": "x86-64",
               "display_attached": "1",
               "gpu": "8086:3e9b",
-              "os": "Mac-12.5"
+              "os": "Mac-13.3.1"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -4267,7 +4073,7 @@
               "cpu": "x86-64",
               "display_attached": "1",
               "gpu": "8086:3e9b",
-              "os": "Mac-12.5"
+              "os": "Mac-13.3.1"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -4292,7 +4098,7 @@
               "cpu": "x86-64",
               "display_attached": "1",
               "gpu": "8086:3e9b",
-              "os": "Mac-12.5"
+              "os": "Mac-13.3.1"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -4318,7 +4124,7 @@
               "cpu": "x86-64",
               "display_attached": "1",
               "gpu": "8086:3e9b",
-              "os": "Mac-12.5"
+              "os": "Mac-13.3.1"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -4345,7 +4151,7 @@
               "cpu": "x86-64",
               "display_attached": "1",
               "gpu": "8086:3e9b",
-              "os": "Mac-12.5"
+              "os": "Mac-13.3.1"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -4361,7 +4167,6 @@
           "--flaky-retries=2"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -4372,7 +4177,7 @@
               "cpu": "x86-64",
               "display_attached": "1",
               "gpu": "8086:3e9b",
-              "os": "Mac-12.5"
+              "os": "Mac-13.3.1"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -4384,7 +4189,6 @@
       },
       {
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -4395,7 +4199,7 @@
               "cpu": "x86-64",
               "display_attached": "1",
               "gpu": "8086:3e9b",
-              "os": "Mac-12.5"
+              "os": "Mac-13.3.1"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -4406,63 +4210,7 @@
       }
     ]
   },
-  "mac-nvidia": {
-    "gtest_tests": [
-      {
-        "args": [
-          "--gtest_filter=-*Vulkan_SwiftShader*",
-          "--flaky-retries=2"
-        ],
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "10de:0fe9",
-              "hidpi": "1",
-              "os": "Mac-10.14.6",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 2
-        },
-        "test": "angle_end2end_tests",
-        "test_id_prefix": "ninja://src/tests:angle_end2end_tests/",
-        "use_isolated_scripts_api": true
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "display_attached": "1",
-              "gpu": "10de:0fe9",
-              "hidpi": "1",
-              "os": "Mac-10.14.6",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "angle_unittests",
-        "test_id_prefix": "ninja://src/tests:angle_unittests/",
-        "use_isolated_scripts_api": true
-      }
-    ]
-  },
+  "mac-nvidia": {},
   "win10-x64-exp-intel": {},
   "win10-x64-intel": {
     "gtest_tests": [
@@ -4479,6 +4227,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4496,7 +4245,6 @@
           "--max-processes=1"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -4504,6 +4252,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4522,7 +4271,6 @@
           "--batch-size=10"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -4530,6 +4278,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4543,7 +4292,6 @@
       },
       {
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -4551,6 +4299,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4567,7 +4316,6 @@
           "--max-processes=1"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -4575,6 +4323,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4588,6 +4337,30 @@
       }
     ],
     "isolated_scripts": [
+      {
+        "args": [
+          "--log=debug"
+        ],
+        "isolate_name": "angle_capture_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_capture_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "display_attached": "1",
+              "gpu": "8086:9bc5-31.0.101.2111",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://src/tests:angle_capture_tests/"
+      },
       {
         "args": [
           "--log=debug",
@@ -4607,6 +4380,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4621,12 +4395,46 @@
         "args": [
           "--test-machine-name",
           "${buildername}",
+          "--trace-interpreter=gz",
+          "--filter=fishdom:geometry_dash:merge_dragons:minecraft_bedrock:new_legend_of_the_condor_heroes:street_fighter_duel:teslagrad:vainglory",
+          "--git-revision=${got_angle_revision}"
+        ],
+        "isolate_name": "angle_restricted_trace_gold_interpreted_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_restricted_trace_gold_interpreted_tests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}",
+          "--use-permissive-pixel-comparison=${use_permissive_angle_pixel_comparison}"
+        ],
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "display_attached": "1",
+              "gpu": "8086:9bc5-31.0.101.2111",
+              "os": "Windows-10",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "angle_restricted_trace_gold_tests",
+        "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
+      },
+      {
+        "args": [
+          "--test-machine-name",
+          "${buildername}",
           "--git-revision=${got_angle_revision}",
           "--flaky-retries=1"
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -4641,6 +4449,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4649,34 +4458,6 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
-      },
-      {
-        "args": [
-          "--log=debug",
-          "interpret",
-          "among_us:dota_underlords:genshin_impact:manhattan_10:trex_200",
-          "-L=2",
-          "--show-test-stdout"
-        ],
-        "isolate_name": "angle_trace_interpreter_tests",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "angle_trace_interpreter_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "8086:9bc5-31.0.101.2111",
-              "os": "Windows-10",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test_id_prefix": "ninja://src/tests:angle_trace_interpreter_tests/"
       },
       {
         "args": [
@@ -4699,6 +4480,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4731,6 +4513,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4750,8 +4533,7 @@
         "args": [
           "--log=debug",
           "--samples-per-test=6",
-          "--show-test-stdout",
-          "--split-shard-samples"
+          "--show-test-stdout"
         ],
         "isolate_name": "angle_perftests",
         "merge": {
@@ -4763,6 +4545,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4779,7 +4562,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-gl=native",
           "--trace-tests"
         ],
@@ -4793,6 +4576,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4810,7 +4594,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-angle=vulkan",
           "--trace-tests"
         ],
@@ -4824,6 +4608,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "8086:9bc5-31.0.101.2111",
               "os": "Windows-10",
               "pool": "chromium.tests.gpu"
@@ -4854,6 +4639,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -4879,6 +4665,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -4903,6 +4690,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -4928,6 +4716,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -4952,6 +4741,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -4976,6 +4766,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5000,6 +4791,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5024,6 +4816,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5048,6 +4841,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5072,6 +4866,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5097,6 +4892,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5122,6 +4918,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5147,6 +4944,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5172,6 +4970,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5197,6 +4996,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5222,6 +5022,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5247,6 +5048,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5272,6 +5074,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5297,6 +5100,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5321,6 +5125,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5345,6 +5150,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5369,6 +5175,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5385,7 +5192,6 @@
           "--gtest_filter=-*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5393,6 +5199,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5411,7 +5218,6 @@
           "--batch-size=10"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5419,6 +5225,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5432,7 +5239,6 @@
       },
       {
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5440,6 +5246,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5453,7 +5260,6 @@
       },
       {
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5461,6 +5267,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5474,6 +5281,30 @@
       }
     ],
     "isolated_scripts": [
+      {
+        "args": [
+          "--log=debug"
+        ],
+        "isolate_name": "angle_capture_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_capture_tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "display_attached": "1",
+              "gpu": "10de:2184-27.21.14.5638",
+              "os": "Windows-10-18363",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://src/tests:angle_capture_tests/"
+      },
       {
         "args": [
           "--log=debug",
@@ -5493,6 +5324,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5507,11 +5339,45 @@
         "args": [
           "--test-machine-name",
           "${buildername}",
+          "--trace-interpreter=gz",
+          "--filter=fishdom:geometry_dash:merge_dragons:minecraft_bedrock:new_legend_of_the_condor_heroes:street_fighter_duel:teslagrad:vainglory",
+          "--git-revision=${got_angle_revision}"
+        ],
+        "isolate_name": "angle_restricted_trace_gold_interpreted_tests",
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "name": "angle_restricted_trace_gold_interpreted_tests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}",
+          "--use-permissive-pixel-comparison=${use_permissive_angle_pixel_comparison}"
+        ],
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "containment_type": "AUTO",
+          "dimension_sets": [
+            {
+              "display_attached": "1",
+              "gpu": "10de:2184-27.21.14.5638",
+              "os": "Windows-10-18363",
+              "pool": "chromium.tests.gpu"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "angle_restricted_trace_gold_tests",
+        "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
+      },
+      {
+        "args": [
+          "--test-machine-name",
+          "${buildername}",
           "--git-revision=${got_angle_revision}"
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -5526,6 +5392,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5534,34 +5401,6 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test_id_prefix": "ninja://src/tests/restricted_traces:angle_restricted_trace_gold_tests/"
-      },
-      {
-        "args": [
-          "--log=debug",
-          "interpret",
-          "among_us:dota_underlords:genshin_impact:manhattan_10:trex_200",
-          "-L=2",
-          "--show-test-stdout"
-        ],
-        "isolate_name": "angle_trace_interpreter_tests",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "angle_trace_interpreter_tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "containment_type": "AUTO",
-          "dimension_sets": [
-            {
-              "gpu": "10de:2184-27.21.14.5638",
-              "os": "Windows-10-18363",
-              "pool": "chromium.tests.gpu"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test_id_prefix": "ninja://src/tests:angle_trace_interpreter_tests/"
       },
       {
         "args": [
@@ -5584,6 +5423,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5616,6 +5456,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5635,8 +5476,7 @@
         "args": [
           "--log=debug",
           "--samples-per-test=6",
-          "--show-test-stdout",
-          "--split-shard-samples"
+          "--show-test-stdout"
         ],
         "isolate_name": "angle_perftests",
         "merge": {
@@ -5648,6 +5488,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5664,7 +5505,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-gl=native",
           "--trace-tests"
         ],
@@ -5678,6 +5519,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5695,7 +5537,7 @@
         "args": [
           "--log=debug",
           "--show-test-stdout",
-          "--split-shard-samples",
+          "--samples-per-test=6",
           "--use-angle=vulkan",
           "--trace-tests"
         ],
@@ -5709,6 +5551,7 @@
           "containment_type": "AUTO",
           "dimension_sets": [
             {
+              "display_attached": "1",
               "gpu": "10de:2184-27.21.14.5638",
               "os": "Windows-10-18363",
               "pool": "chromium.tests.gpu"
@@ -5731,7 +5574,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5758,7 +5600,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5785,7 +5626,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5812,7 +5652,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5839,7 +5678,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5866,7 +5704,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5893,7 +5730,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5921,7 +5757,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5948,7 +5783,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -5975,7 +5809,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6002,7 +5835,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6030,7 +5862,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6057,7 +5888,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6084,7 +5914,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6111,7 +5940,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6138,7 +5966,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6171,7 +5998,6 @@
         ],
         "isolate_name": "angle_restricted_trace_gold_tests",
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "name": "angle_restricted_trace_gold_tests",
@@ -6209,7 +6035,6 @@
           "--flaky-retries=2"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6237,7 +6062,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6268,7 +6092,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6295,7 +6118,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6322,7 +6144,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6349,7 +6170,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6376,7 +6196,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6403,7 +6222,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6430,7 +6248,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6458,7 +6275,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6485,7 +6301,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6512,7 +6327,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6539,7 +6353,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6567,7 +6380,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6594,7 +6406,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6621,7 +6432,6 @@
           "--use-angle=swiftshader"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6648,7 +6458,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {
@@ -6675,7 +6484,6 @@
           "--gtest_filter=*Vulkan_SwiftShader*"
         ],
         "merge": {
-          "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
         "swarming": {

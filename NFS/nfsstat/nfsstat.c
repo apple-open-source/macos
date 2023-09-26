@@ -190,6 +190,7 @@ main(int argc, char *argv[])
 {
 	extern int optind;
 	extern char *optarg;
+	int val;
 	u_int interval;
 	u_int display = SHOW_ALL;
 	u_int version = VERSION_ALL;
@@ -204,7 +205,12 @@ main(int argc, char *argv[])
 			verbose++;
 			break;
 		case 'w':
-			interval = atoi(optarg);
+			val = atoi(optarg);
+			if (val < 0) {
+				printf("unsupported 'w' argument -- %d\n", val);
+			} else {
+				interval = val;
+			}
 			break;
 		case 's':
 			mode = CLIENT_SERVER_MODE;
@@ -730,9 +736,11 @@ intpr(u_int display, u_int version)
 		    "BioRL Misses", clntstats.readlink_bios,
 		    "BioD Hits", clntstats.biocache_readdirs - clntstats.readdir_bios,
 		    "BioD Misses", clntstats.readdir_bios);
-		printer->intpr(2,
+		printer->intpr(4,
 		    "DirE Hits", clntstats.direofcache_hits,
-		    "DirE Misses", clntstats.direofcache_misses);
+		    "DirE Misses", clntstats.direofcache_misses,
+		    "Accs Hits", clntstats.accesscache_hits,
+		    "Accs Misses", clntstats.accesscache_misses);
 		printer->close();
 		printer->open(PRINTER_NO_PREFIX, "Paging Info");
 		printer->intpr(2,

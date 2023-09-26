@@ -501,6 +501,7 @@ extern const CFStringRef kSecCodeInfoTrust;			/* Signing */
 extern const CFStringRef kSecCodeInfoUnique;		/* generic */
 extern const CFStringRef kSecCodeInfoCdHashes;		/* generic */
 extern const CFStringRef kSecCodeInfoRuntimeVersion; /*generic */
+extern const CFStringRef kSecCodeInfoStapledNotarizationTicket; /* content */
 
 OSStatus SecCodeCopySigningInformation(SecStaticCodeRef code, SecCSFlags flags,
 	CFDictionaryRef * __nonnull CF_RETURNS_RETAINED information);

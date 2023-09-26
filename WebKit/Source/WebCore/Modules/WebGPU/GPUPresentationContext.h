@@ -25,7 +25,8 @@
 
 #pragma once
 
-#include <pal/graphics/WebGPU/WebGPUPresentationContext.h>
+#include "GPUTexture.h"
+#include "WebGPUPresentationContext.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
@@ -36,34 +37,33 @@
 
 namespace WebCore {
 
-struct GPUPresentationConfiguration;
+struct GPUCanvasConfiguration;
+class GPUTexture;
 
 class GPUPresentationContext : public RefCounted<GPUPresentationContext> {
 public:
-    static Ref<GPUPresentationContext> create(Ref<PAL::WebGPU::PresentationContext>&& backing)
+    static Ref<GPUPresentationContext> create(Ref<WebGPU::PresentationContext>&& backing)
     {
         return adoptRef(*new GPUPresentationContext(WTFMove(backing)));
     }
 
-    void configure(const GPUPresentationConfiguration&);
+    void configure(const GPUCanvasConfiguration&);
     void unconfigure();
 
-    GPUTexture* getCurrentTexture();
+    RefPtr<GPUTexture> getCurrentTexture();
+    void present();
 
-#if PLATFORM(COCOA)
-    void prepareForDisplay(CompletionHandler<void(WTF::MachSendRight&&)>&&);
-#endif
-
-    PAL::WebGPU::PresentationContext& backing() { return m_backing; }
-    const PAL::WebGPU::PresentationContext& backing() const { return m_backing; }
+    WebGPU::PresentationContext& backing() { return m_backing; }
+    const WebGPU::PresentationContext& backing() const { return m_backing; }
 
 private:
-    GPUPresentationContext(Ref<PAL::WebGPU::PresentationContext>&& backing)
+    GPUPresentationContext(Ref<WebGPU::PresentationContext>&& backing)
         : m_backing(WTFMove(backing))
     {
     }
 
-    Ref<PAL::WebGPU::PresentationContext> m_backing;
+    Ref<WebGPU::PresentationContext> m_backing;
+    RefPtr<GPUTexture> m_currentTexture;
 };
 
 }

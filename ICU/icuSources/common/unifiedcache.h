@@ -21,7 +21,6 @@
 #include "unicode/unistr.h"
 #include "cstring.h"
 #include "ustr_imp.h"
-#include "uhash.h"
 
 struct UHashtable;
 struct UHashElement;

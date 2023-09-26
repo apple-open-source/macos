@@ -77,9 +77,7 @@ struct mntopt mopts[] = {
 void	usage __P((void));
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch, mntflags;
 	char dir[MAXPATHLEN];

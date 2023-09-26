@@ -37,7 +37,7 @@
 
 BEGIN
 {
-	x = (int *)alloca(sizeof (int));
+	x = (int *)alloca(sizeof (int) * 3);
 	printf("Address x: %x\n", (int) x);
 	y = (int *) (x + 2);
 	*y = 3;

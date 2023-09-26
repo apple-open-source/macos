@@ -67,7 +67,7 @@
     auto page = [_webViewToTrack _page];
     bool lastObservedStateWasBackground = page ? page->lastObservedStateWasBackground() : false;
 
-    _applicationStateTracker = makeUnique<WebKit::ApplicationStateTracker>(self, @selector(_applicationDidEnterBackground), @selector(_applicationDidFinishSnapshottingAfterEnteringBackground), @selector(_applicationWillEnterForeground), @selector(_willBeginSnapshotSequence), @selector(_didCompleteSnapshotSequence));
+    _applicationStateTracker = makeUnique<WebKit::ApplicationStateTracker>(self, @selector(_applicationDidEnterBackground), @selector(_applicationWillEnterForeground), @selector(_willBeginSnapshotSequence), @selector(_didCompleteSnapshotSequence));
     RELEASE_LOG(ViewState, "%p - WKApplicationStateTrackingView: View with page [%p, pageProxyID=%" PRIu64 "] was added to a window, _lastObservedStateWasBackground=%d, isNowBackground=%d", self, page.get(), page ? page->identifier().toUInt64() : 0, lastObservedStateWasBackground, [self isBackground]);
 
     if (lastObservedStateWasBackground && ![self isBackground])
@@ -83,13 +83,17 @@
         return;
 
     page->applicationDidEnterBackground();
-    page->activityStateDidChange(WebCore::ActivityState::allFlags() - WebCore::ActivityState::IsInWindow);
+    page->activityStateDidChange(WebCore::allActivityStates() - WebCore::ActivityState::IsInWindow);
 }
 
 - (void)_applicationDidFinishSnapshottingAfterEnteringBackground
 {
-    if (auto page = [_webViewToTrack _page])
-        page->applicationDidFinishSnapshottingAfterEnteringBackground();
+    auto page = [_webViewToTrack _page];
+    if (!page)
+        return;
+
+    RELEASE_LOG(ViewState, "%p - WKApplicationStateTrackingView: View with page [%p, pageProxyID=%" PRIu64 "] did finish snapshotting after entering background", self, page.get(), page ? page->identifier().toUInt64() : 0);
+    page->applicationDidFinishSnapshottingAfterEnteringBackground();
 }
 
 - (void)_applicationWillEnterForeground
@@ -99,7 +103,7 @@
         return;
 
     page->applicationWillEnterForeground();
-    page->activityStateDidChange(WebCore::ActivityState::allFlags() - WebCore::ActivityState::IsInWindow, WebKit::WebPageProxy::ActivityStateChangeDispatchMode::Immediate, WebKit::WebPageProxy::ActivityStateChangeReplyMode::Synchronous);
+    page->activityStateDidChange(WebCore::allActivityStates() - WebCore::ActivityState::IsInWindow, WebKit::WebPageProxy::ActivityStateChangeDispatchMode::Immediate, WebKit::WebPageProxy::ActivityStateChangeReplyMode::Synchronous);
 }
 
 - (void)_willBeginSnapshotSequence
@@ -108,6 +112,7 @@
     if (!page)
         return;
 
+    RELEASE_LOG(ViewState, "%p - WKApplicationStateTrackingView: View with page [%p, pageProxyID=%" PRIu64 "] will begin snapshot sequence", self, page.get(), page ? page->identifier().toUInt64() : 0);
     page->setIsTakingSnapshotsForApplicationSuspension(true);
 }
 
@@ -117,7 +122,11 @@
     if (!page)
         return;
 
+    RELEASE_LOG(ViewState, "%p - WKApplicationStateTrackingView: View with page [%p, pageProxyID=%" PRIu64 "] did complete snapshot sequence", self, page.get(), page ? page->identifier().toUInt64() : 0);
+
     page->setIsTakingSnapshotsForApplicationSuspension(false);
+    if ([self isBackground])
+        page->applicationDidFinishSnapshottingAfterEnteringBackground();
 }
 
 - (BOOL)isBackground

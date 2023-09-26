@@ -21,7 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AppleFeatures/AppleFeatures.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFXPCBridge.h>
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
+#include <IOKit/IOReturn.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/IOCFSerialize.h>
 #include <mach/mach_port.h>
@@ -30,6 +34,7 @@
 #include <bootstrap_priv.h>
 #include <notify.h>
 #include <asl.h>
+#include <os/log.h>
 
 #include "IOSystemConfiguration.h"
 #include "IOPowerSources.h"
@@ -37,6 +42,10 @@
 #include "IOPSKeys.h"
 #include "powermanagement.h"
 
+#define ARRAY_COUNT(array) (sizeof((array)) / sizeof((array[0])))
+
+dispatch_queue_t  getPMQueue();
+#define POWERD_XPC_ID   "com.apple.iokit.powerdxpc"
 
 #define kSmartBattRequestUpdateIndex        4
 IOReturn IOPSRequestBatteryUpdate(int type)
@@ -520,3 +529,4 @@ IOReturn IOPSReleasePowerSource(
     
     return ret;
 }
+

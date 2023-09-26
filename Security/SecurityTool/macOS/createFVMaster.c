@@ -378,9 +378,9 @@ OSStatus createRootCert(
 	encCert = (CSSM_ENCODED_CERT *)resultSet->Results;
     certData->Length = encCert->CertBlob.Length;
     certData->Data = malloc(encCert->CertBlob.Length);
-    if (certData->Data)
+    if (certData->Data) {
         memcpy(certData->Data, encCert->CertBlob.Data, encCert->CertBlob.Length);
-	crtn = noErr;
+    }
 
 xit:
 	/* free resources allocated by TP */

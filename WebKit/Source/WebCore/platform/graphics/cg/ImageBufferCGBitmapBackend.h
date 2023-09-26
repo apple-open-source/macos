@@ -44,22 +44,21 @@ public:
 
     static std::unique_ptr<ImageBufferCGBitmapBackend> create(const Parameters&, const ImageBufferCreationContext&);
 
-    GraphicsContext& context() const final;
+    GraphicsContext& context() final;
 
 private:
-    ImageBufferCGBitmapBackend(const Parameters&, void* data, RetainPtr<CGDataProviderRef>&&, std::unique_ptr<GraphicsContext>&&);
+    ImageBufferCGBitmapBackend(const Parameters&, void* data, RetainPtr<CGDataProviderRef>&&, std::unique_ptr<GraphicsContextCG>&&);
 
     IntSize backendSize() const final;
     unsigned bytesPerRow() const final;
 
-    RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) const final;
+    RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) final;
 
-    RefPtr<PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&, const ImageBufferAllocator&) const final;
+    void getPixelBuffer(const IntRect&, PixelBuffer&) final;
     void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) final;
 
     void* m_data;
     RetainPtr<CGDataProviderRef> m_dataProvider;
-    std::unique_ptr<GraphicsContext> m_context;
 };
 
 } // namespace WebCore

@@ -295,17 +295,11 @@ class CaptureReplayTests
 #endif
 
         // Load trace
-        mTraceLibrary.reset(new angle::TraceLibrary(traceInfo.name));
+        mTraceLibrary.reset(new angle::TraceLibrary(traceInfo.name, traceInfo));
         if (!mTraceLibrary->valid())
         {
             std::cout << "Failed to load trace library: " << traceInfo.name << "\n";
             return false;
-        }
-
-        if (traceInfo.isBinaryDataCompressed)
-        {
-            mTraceLibrary->setBinaryDataDecompressCallback(angle::DecompressBinaryData,
-                                                           angle::DeleteBinaryData);
         }
 
         std::stringstream binaryPathStream;

@@ -1,6 +1,6 @@
 // * This makes emacs happy -*-Mode: C++;-*-
 /****************************************************************************
- * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2011,2012 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -35,7 +35,7 @@
  *   Demo code for NCursesMenu and NCursesForm written by
  *   Juergen Pfeifer
  *
- * $Id: demo.cc,v 1.38 2008/08/04 17:16:57 tom Exp $
+ * $Id: demo.cc,v 1.41 2012/02/23 10:41:56 tom Exp $
  */
 
 #include "internal.h"
@@ -43,7 +43,13 @@
 #include "cursesm.h"
 #include "cursesf.h"
 
+#ifdef __MINGW32__
+#undef KEY_EVENT
+#endif
+
+#ifndef __MINGW32__
 extern "C" unsigned int sleep(unsigned int);
+#endif
 
 #undef index // needed for NeXT
 
@@ -214,6 +220,7 @@ private:
   int chk;
 protected:
   bool field_check(NCursesFormField& f) {
+    (void) f;
     return TRUE;
   }
   bool char_check(int c) {
@@ -313,7 +320,7 @@ public:
     for(int i=1; i <= S->labels(); i++) {
       char buf[8];
       assert(i < 100);
-      ::sprintf(buf, "Frm%02d", i);
+      ::_nc_SPRINTF(buf, _nc_SLIMIT(sizeof(buf)) "Frm%02d", i);
       (*S)[i] = buf;                                      // Text
       (*S)[i] = Soft_Label_Key_Set::Soft_Label_Key::Left; // Justification
     }
@@ -533,7 +540,7 @@ void TestApplication::init_labels(Soft_Label_Key_Set& S) const
   for(int i=1; i <= S.labels(); i++) {
     char buf[8];
     assert(i < 100);
-    ::sprintf(buf, "Key%02d", i);
+    ::_nc_SPRINTF(buf, _nc_SLIMIT(sizeof(buf)) "Key%02d", i);
     S[i] = buf;                                      // Text
     S[i] = Soft_Label_Key_Set::Soft_Label_Key::Left; // Justification
   }

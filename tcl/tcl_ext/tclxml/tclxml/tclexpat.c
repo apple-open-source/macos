@@ -370,6 +370,7 @@ TclExpatParse(clientData, data, len, final)
      ClientData clientData;
      char *data;
      int len;
+     int final;
 {
   TclExpatInfo *expat = (TclExpatInfo *) clientData;
   int result;

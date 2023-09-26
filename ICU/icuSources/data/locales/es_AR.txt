@@ -1,4 +1,4 @@
-// © 2016 and later: Unicode, Inc. and others.
+﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_AR{
@@ -18,14 +18,7 @@ es_AR{
     calendar{
         generic{
             availableFormats{
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
                 MEd{"E d-M"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                ms{"mm:ss"}
                 yyyyM{"M-y G"}
             }
         }
@@ -35,15 +28,14 @@ es_AR{
                 "p. m.",
             }
             AmPmMarkersAbbr{
-                "a. m.",
-                "p. m.",
+                "a. m.",
+                "p. m.",
             }
             availableFormats{
                 GyMMMEd{"E, d 'de' MMM 'de' y G"}
                 GyMMMd{"d MMM y G"}
                 Hmsvvvv{"HH:mm:ss (vvvv)"}
                 MEd{"E d-M"}
-                hms{"hh:mm:ss a"}
                 yM{"M-y"}
                 yMEd{"E, d/M/y"}
                 yMMMd{"d 'de' MMM 'de' y"}
@@ -79,12 +71,10 @@ es_AR{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        am{"a. m."}
-                        pm{"p. m."}
-                    }
                     narrow{
+                        am{"a. m."}
                         noon{"m."}
+                        pm{"p. m."}
                     }
                     wide{
                         am{"a. m."}
@@ -125,17 +115,13 @@ es_AR{
                 }
                 fallback{"{0} a el {1}"}
                 h{
-                    a{"h a – h a"}
-                }
-                hm{
-                    h{"h:mm – h:mm a"}
-                    m{"h:mm – h:mm a"}
+                    a{"h a – h a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
                 }
                 hv{
-                    a{"h a – h a v"}
+                    a{"h a – h a v"}
                 }
                 yM{
                     M{"MM/y – MM/y"}

@@ -72,6 +72,8 @@ const char16_t* utils::getPatternForStyle(const Locale& locale, const char* nsNa
             patternKey = "decimalFormat"; // silence compiler error
             UPRV_UNREACHABLE_EXIT;
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     LocalUResourceBundlePointer res;
     if (style == CLDR_PATTERN_STYLE_PERCENT || style == CLDR_PATTERN_STYLE_CURRENCY || style == CLDR_PATTERN_STYLE_ACCOUNTING) {
         // for percent or currency, always use language fallback (see rdar://63758323 and rdar://68800014)
@@ -80,8 +82,11 @@ const char16_t* utils::getPatternForStyle(const Locale& locale, const char* nsNa
         // for the other patterns, use country fallback when appropriate
         res.adoptInstead(ures_openWithCountryFallback(nullptr, locale.getName(), NULL, &status));
     }
+#else
+    LocalUResourceBundlePointer res(ures_open(nullptr, locale.getName(), &status));
+#endif  // APPLE_ICU_CHANGES
     if (U_FAILURE(status)) { return u""; }
-    
+
     // Attempt to get the pattern with the native numbering system.
     UErrorCode localStatus = U_ZERO_ERROR;
     const char16_t* pattern;

@@ -284,7 +284,7 @@ _cups_debug_set(const char *logfile,	/* I - Log file or NULL */
     {
       char	buffer[1024];		/* Filename buffer */
 
-      snprintf(buffer, sizeof(buffer), logfile, getpid());
+      snprintf(buffer, sizeof(buffer), fmtcheck(logfile, "%d"), getpid());
 
       if (buffer[0] == '+')
 	_cups_debug_fd = open(buffer + 1, O_WRONLY | O_APPEND | O_CREAT, 0644);
@@ -488,7 +488,7 @@ _cups_safe_vsnprintf(
 	    if ((size_t)(width + 2) > sizeof(temp))
 	      break;
 
-	    snprintf(temp, sizeof(temp), tformat, va_arg(ap, double));
+	    snprintf(temp, sizeof(temp), fmtcheck(tformat, "%g"), va_arg(ap, double));
 
             bytes += (int)strlen(temp);
 
@@ -512,13 +512,13 @@ _cups_safe_vsnprintf(
 
 #  ifdef HAVE_LONG_LONG
             if (size == 'L')
-	      snprintf(temp, sizeof(temp), tformat, va_arg(ap, long long));
+	      snprintf(temp, sizeof(temp), fmtcheck(tformat, "%lld"), va_arg(ap, long long));
 	    else
 #  endif /* HAVE_LONG_LONG */
             if (size == 'l')
-	      snprintf(temp, sizeof(temp), tformat, va_arg(ap, long));
+	      snprintf(temp, sizeof(temp), fmtcheck(tformat, "%ld"), va_arg(ap, long));
 	    else
-	      snprintf(temp, sizeof(temp), tformat, va_arg(ap, int));
+	      snprintf(temp, sizeof(temp), fmtcheck(tformat, "%d"), va_arg(ap, int));
 
             bytes += (int)strlen(temp);
 
@@ -533,7 +533,7 @@ _cups_safe_vsnprintf(
 	    if ((size_t)(width + 2) > sizeof(temp))
 	      break;
 
-	    snprintf(temp, sizeof(temp), tformat, va_arg(ap, void *));
+	    snprintf(temp, sizeof(temp), fmtcheck(tformat, "%p"), va_arg(ap, void *));
 
             bytes += (int)strlen(temp);
 

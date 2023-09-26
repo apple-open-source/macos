@@ -13,6 +13,9 @@
 #include <iostream>
 #include <type_traits>
 #include <vector>
+#include <functional>
+#include <string>
+#include <initializer_list>
 
 class CFStringRefWrap;
 

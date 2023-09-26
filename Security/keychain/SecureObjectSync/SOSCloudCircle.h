@@ -97,7 +97,7 @@ extern const char * kSOSCCHoldLockForInitialSync;
 extern const char * kSOSCCPeerAvailable;
 extern const char * kSOSCCRecoveryKeyChanged;
 extern const char * kSOSCCCircleOctagonKeysChangedNotification;
-
+extern const char * kSOSCCSOSIsNowOFF;
 
 /*!
  @function SOSCCSetUserCredentials
@@ -542,6 +542,8 @@ extern const CFStringRef kCKKSViewLimitedPeersAllowed;
 extern const CFStringRef kCKKSViewMFi;
 extern const CFStringRef kCKKSViewMail;
 extern const CFStringRef kCKKSViewContacts;
+extern const CFStringRef kCKKSViewPhotos;
+extern const CFStringRef kCKKSViewGroups;
 
 
 /*!
@@ -682,6 +684,25 @@ bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error);
  @result true if we have an attempt to sync pending that we haven't processed, false if we don't have one queued right now or an error occurred.
  */
 bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error);
+
+/*!
+ @function: bool SOSCCSetCompatibilityMode(bool compatibilityMode, CFErrorRef *error)
+ @param compatibilityMode bool set to true if SOS is to be enabled, false if SOS is to be disabled
+ @param error failure if we fail
+ @result returns true if the invocation was successful, returns false if an error occurred (with an error parameter filled in)
+ */
+bool SOSCCSetCompatibilityMode(bool compatibilityMode, CFErrorRef *error);
+
+/*!
+ @function: bool SOSCCFetchCompatibilityMode(CFErrorRef *error)
+ @param error failure if we fail
+ @result returns true if Compatibility Mode has been enabled, false if it has not been enabled
+ */
+bool SOSCCFetchCompatibilityMode(CFErrorRef *error);
+bool SOSCCFetchCompatibilityModeCachedValue(CFErrorRef *error);
+
+bool SOSCCIsSOSTrustAndSyncingEnabled(void);
+bool SOSCCIsSOSTrustAndSyncingEnabledCachedValue(void);
 
 #if __OBJC__
 /*

@@ -197,6 +197,8 @@ int secd_210_keyinterest(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(12);
+    enableSOSCompatibilityForTests();
+    OctagonSetSOSFeatureEnabled(true);
     tests();
 #else
     plan_tests(0);

@@ -45,8 +45,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/clrerr.c,v 1.12 2008/05/05 16:03:52 jhb E
 #undef clearerr_unlocked
 
 void
-clearerr(fp)
-	FILE *fp;
+clearerr(FILE *fp)
 {
 	FLOCKFILE(fp);
 	__sclearerr(fp);

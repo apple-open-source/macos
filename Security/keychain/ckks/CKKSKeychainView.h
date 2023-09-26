@@ -198,6 +198,11 @@ NS_ASSUME_NONNULL_BEGIN
                                 hash:(NSData* _Nullable)oldItemSHA1
                             complete:(void (^)(NSError* operror))complete;
 
+- (void)unsetCurrentItemsForAccessGroup:(NSString*)accessGroup
+                            identifiers:(NSArray<NSString*>*)identifiers
+                               viewHint:(NSString*)viewHint
+                               complete:(void (^)(NSError* operror))complete;
+
 - (void)getCurrentItemForAccessGroup:(NSString*)accessGroup
                           identifier:(NSString*)identifier
                             viewHint:(NSString*)viewHint

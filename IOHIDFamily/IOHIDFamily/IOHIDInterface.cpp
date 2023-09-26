@@ -326,6 +326,8 @@ bool IOHIDInterface::start( IOService * provider )
         OSSafeReleaseNULL(debugSerializer);
     }
     
+    HIDServiceLog("start for %s:0x%llx", provider->getName(), provider->getRegistryEntryID());
+    
     registerService(kIOServiceAsynchronous);
     
     return true;

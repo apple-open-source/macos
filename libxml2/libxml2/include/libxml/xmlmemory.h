@@ -137,6 +137,8 @@ XMLPUBFUN void XMLCALL
 /*
  * These are specific to the XML debug memory wrapper.
  */
+XMLPUBFUN size_t XMLCALL
+	xmlMemSize	(void *ptr) LIBXML_API_AVAILABLE_MACOS14_IOS17_WATCHOS10_TVOS17;
 XMLPUBFUN int XMLCALL
 	xmlMemUsed	(void);
 XMLPUBFUN int XMLCALL

@@ -37,12 +37,12 @@ class Encoder;
 
 namespace WebCore {
 
-class Frame;
+class LocalFrame;
 class ResourceResponse;
 class ScriptExecutionContext;
 
 struct ReportingClient;
-struct SecurityOriginData;
+class SecurityOriginData;
 
 // https://html.spec.whatwg.org/multipage/origin.html#embedder-policy-value
 enum class CrossOriginEmbedderPolicyValue : bool {
@@ -67,7 +67,7 @@ struct CrossOriginEmbedderPolicy {
 
 inline bool operator==(const CrossOriginEmbedderPolicy& a, const CrossOriginEmbedderPolicy& b)
 {
-    return a.value == b.value && a.reportingEndpoint == b.reportingEndpoint && a.reportOnlyValue == b.reportOnlyValue && a.reportOnlyReportingEndpoint == b.reportOnlyReportingEndpoint;
+    return a.value == b.value && a.reportOnlyValue == b.reportOnlyValue && a.reportingEndpoint == b.reportingEndpoint && a.reportOnlyReportingEndpoint == b.reportOnlyReportingEndpoint;
 }
 
 enum class COEPDisposition : bool { Reporting , Enforce };

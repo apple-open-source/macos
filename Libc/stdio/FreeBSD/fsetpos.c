@@ -43,9 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fsetpos.c,v 1.9 2007/01/09 00:28:06 imp E
  * fsetpos: like fseek.
  */
 int
-fsetpos(iop, pos)
-	FILE *iop;
-	const fpos_t *pos;
+fsetpos(FILE *iop, const fpos_t *pos)
 {
 	return (fseeko(iop, (off_t)*pos, SEEK_SET));
 }

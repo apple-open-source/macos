@@ -113,10 +113,7 @@ char *__dirhelper(dirhelper_which_t which, char *path, size_t pathlen);
 #endif /* __DARWIN_UNIX03 */
 
 size_t
-confstr(name, buf, len)
-	int name;
-	char *buf;
-	size_t len;
+confstr(int name, char *buf, size_t len)
 {
 	size_t tlen;
 	int mib[2], sverrno;

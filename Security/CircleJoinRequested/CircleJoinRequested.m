@@ -76,9 +76,6 @@ bool currentAlertIsForKickOut = false;
 NSMutableDictionary *applicants = nil;
 volatile NSString *debugState = @"main?";
 dispatch_block_t doOnceInMainBlockChain = NULL;
-bool _isLocked = true;
-bool processApplicantsAfterUnlock = false;
-bool _unlockedSinceBoot = false;
 bool _hasPostedFollowupAndStillInError = false;
 bool _isAccountICDP = false;
 bool _executeProcessEventsOnce = false;
@@ -100,6 +97,10 @@ static BOOL isErrorFromXPC(CFErrorRef error)
 
 static void PSKeychainSyncIsUsingICDP(void)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     ACAccountStore *accountStore = [ACAccountStore defaultStore];
     ACAccount *account = [accountStore aa_primaryAppleAccount];
     NSString *dsid = account.accountProperties[@"personID"];
@@ -113,83 +114,6 @@ static void PSKeychainSyncIsUsingICDP(void)
     
     _isAccountICDP = isICDPEnabled;
     secnotice("cjr", "account is icdp: %{bool}d", _isAccountICDP);
-}
-
-static void keybagDidLock(void)
-{
-    secnotice("cjr", "keybagDidLock");
-}
-
-static void keybagDidUnlock(void)
-{
-    secnotice("cjr", "keybagDidUnlock");
-    
-    CFErrorRef error = NULL;
-
-    if(processApplicantsAfterUnlock){
-        processRequests(&error);
-        processApplicantsAfterUnlock = false;
-    }
-
-    SOSCCStatus circleStatus = SOSCCThisDeviceIsInCircle(&error);
-    BOOL xpcError = isErrorFromXPC(error);
-    if(xpcError && circleStatus == kSOSCCError) {
-        secnotice("cjr", "returning early due to error returned from securityd: %@", error);
-        return;
-    }
-    else if (_isAccountICDP && (circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false) {
-        NSError *localError = nil;
-        CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
-        CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-
-        secnotice("followup", "Posting a follow up (for SOS) of type repair");
-        [cdpd postFollowUpWithContext:context error:&localError ];
-        secnotice("cjr", "account is icdp");
-        if(localError){
-            secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
-        }
-        else{
-            secnotice("cjr", "CoreCDP handling follow up");
-            _hasPostedFollowupAndStillInError = true;
-        }
-    }
-    else if(_isAccountICDP && circleStatus == kSOSCCInCircle){
-        _hasPostedFollowupAndStillInError = false;
-    }
-    else{
-        secnotice("cjr", "account not icdp");
-    }
-}
-
-static bool updateIsLocked (void)
-{
-    CFErrorRef aksError = NULL;
-    // user_only_keybag_handle ok to use here, since we don't call CJR from the system session
-    if (!SecAKSGetIsLocked(user_only_keybag_handle, &_isLocked, &aksError)) {
-        _isLocked = YES;
-        secerror("Got error querying lock state: %@", aksError);
-        CFReleaseSafe(aksError);
-        return NO;
-    }
-    if (!_isLocked)
-        _unlockedSinceBoot = YES;
-    return YES;
-}
-
-static void keybagStateChange (void)
-{
-    secerror("osactivity initiated");
-    os_activity_initiate("keybagStateChanged", OS_ACTIVITY_FLAG_DEFAULT, ^{
-        BOOL wasLocked = _isLocked;
-        if ( updateIsLocked()) {
-            if (wasLocked == _isLocked)
-                secerror("still %s ignoring", _isLocked ? "locked" : "unlocked");
-            else if (_isLocked)
-                keybagDidLock();
-            else
-                keybagDidUnlock();
-        }
-    });
 }
 
 static void doOnceInMain(dispatch_block_t block)
@@ -207,6 +131,10 @@ static void doOnceInMain(dispatch_block_t block)
 
 static NSString *appleIDAccountName(void)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return nil;
+    }
+    
     ACAccountStore *accountStore   = [ACAccountStore defaultStore];
     ACAccount *primaryAppleAccount = [accountStore aa_primaryAppleAccount];
     return primaryAppleAccount.username;
@@ -222,6 +150,10 @@ static CFOptionFlags flagsForAsk(Applicant *applicant)
 // NOTE: gives precedence to OnScreen
 static Applicant *firstApplicantWaitingOrOnScreen(void)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return nil;
+    }
+    
     Applicant *waiting = nil;
     for (Applicant *applicant in [applicants objectEnumerator]) {
         if (applicant.applicantUIState == ApplicantOnScreen) {
@@ -237,6 +169,10 @@ static Applicant *firstApplicantWaitingOrOnScreen(void)
 
 static NSMutableArray *applicantsInState(ApplicantUIState state)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return [[NSMutableArray alloc] init];
+    }
+    
     NSMutableArray *results = [NSMutableArray new];
     for (Applicant *applicant in [applicants objectEnumerator]) {
         if (applicant.applicantUIState == state) {
@@ -249,6 +185,10 @@ static NSMutableArray *applicantsInState(ApplicantUIState state)
 
 
 BOOL processRequests(CFErrorRef *error) {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return NO;
+    }
+    
 	NSMutableArray *toAccept = [[applicantsInState(ApplicantAccepted) mapWithBlock:^id(id obj) {return (id)[obj rawPeerInfo];}] mutableCopy];
 	NSMutableArray *toReject = [[applicantsInState(ApplicantRejected) mapWithBlock:^id(id obj) {return (id)[obj rawPeerInfo];}] mutableCopy];
 	bool			ok = true;
@@ -272,6 +212,10 @@ BOOL processRequests(CFErrorRef *error) {
 
 
 static void cancelCurrentAlert(bool stopRunLoop) {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	if (currentAlertSource) {
 		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), currentAlertSource, kCFRunLoopDefaultMode);
 		CFReleaseNull(currentAlertSource);
@@ -292,6 +236,10 @@ static void askAboutAll(bool passwordFailure);
 
 static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	ApplicantUIState choice;
 
 	if (kCFUserNotificationAlternateResponse == responseFlags) {
@@ -326,7 +274,6 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 
             if(CFErrorIsMalfunctioningKeybagError(error)){
                 secnotice("cjr", "system is locked, dismiss the notification");
-                processApplicantsAfterUnlock = true;
                 return;
             }
 		}
@@ -380,6 +327,10 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 
 static void passwordFailurePrompt(void)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
 	NSString	 *pwIncorrect = [NSString stringWithFormat:(NSString *)CFBridgingRelease(SecCopyCKString(SEC_CK_PASSWORD_INCORRECT)), appleIDAccountName()];
@@ -423,6 +374,10 @@ static NSString *getLocalizedApprovalBody(NSString *deviceType) {
 
 static NSDictionary *createNote(Applicant *applicantToAskAbout)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return nil;
+    }
+    
 	if(!applicantToAskAbout || !applicantToAskAbout.name || !applicantToAskAbout.deviceType)
 		return NULL;
 
@@ -447,6 +402,10 @@ static NSDictionary *createNote(Applicant *applicantToAskAbout)
 
 static void askAboutAll(bool passwordFailure)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	if ([[MCProfileConnection sharedConnection] effectiveBoolValueForSetting: MCFeatureAccountModificationAllowed] == MCRestrictedBoolExplicitNo) {
 		secnotice("cjr", "Account modifications not allowed.");
 		return;
@@ -517,6 +476,10 @@ static void scheduleActivity(int alertInterval)
 
 
 static void reminderChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags) {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     if (responseFlags == kCFUserNotificationAlternateResponse || responseFlags == kCFUserNotificationDefaultResponse) {
         PersistentState *state = [PersistentState loadFromStorage];
         NSDate *nowish = [NSDate new];
@@ -535,11 +498,11 @@ static void reminderChoice(CFUserNotificationRef userNotification, CFOptionFlags
 
 
 static bool iCloudResetAvailable(void) {
-	SecureBackup *backupd = [SecureBackup new];
-	NSDictionary *backupdResults;
-	NSError		 *error = [backupd getAccountInfoWithInfo:nil results:&backupdResults];
-	secnotice("cjr", "SecureBackup e=%@ r=%@", error, backupdResults);
-	return (error == nil && [backupdResults[kSecureBackupIsEnabledKey] isEqualToNumber:@YES]);
+    SecureBackup *backupd = [[SecureBackup alloc] initWithUserActivityLabel:@"iCloudResetAvailable"];
+    NSDictionary *backupdResults;
+    NSError		 *error = [backupd getAccountInfoWithInfo:nil results:&backupdResults];
+    secnotice("cjr", "SecureBackup e=%@ r=%@", error, backupdResults);
+    return (error == nil && [backupdResults[kSecureBackupIsEnabledKey] isEqualToNumber:@YES]);
 }
 
 
@@ -573,7 +536,11 @@ static bool isSOSInternalDevice(void) {
 
 static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state, unsigned int alertInterval)
 {
-	NSString *body		= getLocalizedApplicationReminder();
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
+    NSString *body		= getLocalizedApplicationReminder();
 	bool      has_iCSC	= iCloudResetAvailable();
 
 	if (isSOSInternalDevice() &&
@@ -608,6 +575,10 @@ static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state,
 
 
 static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags) {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	secnotice("cjr", "kOC %@ %lu", userNotification, responseFlags);
     
     //default response: continue -> settings pref pane advanced keychain sync page
@@ -624,12 +595,22 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
     else if (responseFlags == kCFUserNotificationAlternateResponse) {
         // We need to let things unwind to main for the new state to get saved
         doOnceInMain(^{
-          if(_isAccountICDP){
-              CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+            if(_isAccountICDP){
+                CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
                 NSError *localError = nil;
-                CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
-
-                secnotice("followup", "Posting a follow up (for SOS) of type repair");
+                
+                CDPFollowUpContext *context = nil;
+                if (SOSCompatibilityModeEnabled()) {
+                    context = [CDPFollowUpContext contextForSOSCompatibilityMode];
+                } else {
+                    context = [CDPFollowUpContext contextForStateRepair];
+                }
+                
+                if (SOSCompatibilityModeEnabled()) {
+                    secnotice("followup", "Posting a follow up (for SOS) of type SOS Compatibility Mode");
+                } else {
+                    secnotice("followup", "Posting a follow up (for SOS) of type repair");
+                }
                 [cdpd postFollowUpWithContext:context error:&localError ];
                 if(localError){
                     secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
@@ -640,13 +621,16 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
                 }
             }
         });
-
     }
-	cancelCurrentAlert(true);
+    cancelCurrentAlert(true);
 }
 
 static void postKickedOutAlert(enum DepartureReason reason)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	NSString	*header  = nil;
 	NSString	*message = nil;
 
@@ -749,12 +733,27 @@ static void postKickedOutAlert(enum DepartureReason reason)
 }
 
 static void askForCDPFollowup(void) {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     doOnceInMain(^{
         NSError *localError = nil;
         CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-        CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+       
+        CDPFollowUpContext *context = nil;
+        if (SOSCompatibilityModeEnabled()) {
+            context = [CDPFollowUpContext contextForSOSCompatibilityMode];
+        } else {
+            context = [CDPFollowUpContext contextForStateRepair];
+        }
 
-        secnotice("followup", "Posting a follow up (for SOS) of type repair");
+        if (SOSCompatibilityModeEnabled()) {
+            secnotice("followup", "Posting a follow up (for SOS) of type SOS Compatibility Mode");
+        } else {
+            secnotice("followup", "Posting a follow up (for SOS) of type repair");
+        }
+        
         [cdpd postFollowUpWithContext:context error:&localError ];
         if(localError){
             secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
@@ -768,6 +767,9 @@ static void askForCDPFollowup(void) {
 
 static bool processEvents(void)
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return false;
+    }
 	debugState = @"processEvents A";
 
     CFErrorRef			error			 = NULL;
@@ -892,9 +894,20 @@ static bool processEvents(void)
             else if(_isAccountICDP && _hasPostedFollowupAndStillInError == false){
                 NSError *localError = nil;
                 CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-                CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+                
+                CDPFollowUpContext *context = nil;
+                if (SOSCompatibilityModeEnabled()) {
+                    context = [CDPFollowUpContext contextForSOSCompatibilityMode];
+                } else {
+                    context = [CDPFollowUpContext contextForStateRepair];
+                }
 
-                secnotice("followup", "Posting a follow up (for SOS) of type repair");
+                if (SOSCompatibilityModeEnabled()) {
+                    secnotice("followup", "Posting a follow up (for SOS) of type SOS Compatibility Mode");
+                } else {
+                    secnotice("followup", "Posting a follow up (for SOS) of type repair");
+                }
+
                 [cdpd postFollowUpWithContext:context error:&localError ];
                 if(localError){
                     secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
@@ -1085,7 +1098,7 @@ static bool processEvents(void)
 
 int main (int argc, const char * argv[]) {
 
-    IF_SOS_DISABLED {
+    if (!OctagonPlatformSupportsSOS()) {
         secnotice("nosos", "CJR triggered even though SOS is turned off for this platform");
         return 0;
     }
@@ -1096,18 +1109,15 @@ int main (int argc, const char * argv[]) {
 
         // NOTE: DISPATCH_QUEUE_PRIORITY_LOW will not actually manage to drain events in a lot of cases (like circleStatus != kSOSCCInCircle)
         xpc_set_event_stream_handler("com.apple.notifyd.matching", dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(xpc_object_t object) {
-            char *event_description = xpc_copy_description(object);
-            const char *notificationName = xpc_dictionary_get_string(object, "Notification");
-
-            if (notificationName && strcmp(notificationName, kUserKeybagStateChangeNotification)==0) {
-                secnotice("cjr", "keybag changed!");
-                keybagStateChange();
+            if (SOSCCIsSOSTrustAndSyncingEnabled()) {
+                char *event_description = xpc_copy_description(object);
+                const char *notificationName = xpc_dictionary_get_string(object, "Notification");
+                secnotice("cjr", "notification arrived: %s", notificationName);
+                secnotice("cjr", "notifyd event: %s\nAlert (%p) %s %s\ndebugState: %@", event_description, currentAlert,
+                          currentAlertIsForApplicants ? "for applicants" : "!applicants",
+                          currentAlertIsForKickOut ? "KO" : "!KO", debugState);
+                free(event_description);
             }
-
-            secnotice("cjr", "notifyd event: %s\nAlert (%p) %s %s\ndebugState: %@", event_description, currentAlert,
-                      currentAlertIsForApplicants ? "for applicants" : "!applicants",
-                      currentAlertIsForKickOut ? "KO" : "!KO", debugState);
-            free(event_description);
         });
         
 		xpc_activity_register(kLaunchLaterXPCName, XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {

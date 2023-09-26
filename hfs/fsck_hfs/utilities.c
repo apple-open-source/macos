@@ -71,196 +71,6 @@
 #include "fsck_hfs.h"
 
 char *rawname __P((char *name));
-char *unrawname __P((char *name));
-
-
-int
-reply(char *question)
-{
-	int persevere;
-	char c;
-
-	if (preen)
-		pfatal("INTERNAL ERROR: GOT TO reply()");
-	persevere = !strcmp(question, "CONTINUE");
-	plog("\n");
-	if (!persevere && (nflag || fswritefd < 0)) {
-		plog("%s? no\n\n", question);
-		return (0);
-	}
-	if (yflag || (persevere && nflag)) {
-		plog("%s? yes\n\n", question);
-		return (1);
-	}
-	do	{
-		plog("%s? [yn] ", question);
-		(void) fflush(stdout);
-		c = getc(stdin);
-		while (c != '\n' && getc(stdin) != '\n')
-			if (feof(stdin))
-				return (0);
-	} while (c != 'y' && c != 'Y' && c != 'n' && c != 'N');
-	plog("\n");
-	if (c == 'y' || c == 'Y')
-		return (1);
-	return (0);
-}
-
-
-void
-ckfini(markclean)
-	int markclean;
-{
-//	register struct bufarea *bp, *nbp;
-//	int ofsmodified, cnt = 0;
-
-	(void) CacheDestroy(&fscache);
-
-	if (fswritefd < 0) {
-		(void)close(fsreadfd);
-		return;
-	}
-#if 0
-	flush(fswritefd, &sblk);
-	if (havesb && sblk.b_bno != SBOFF / dev_bsize &&
-	    !preen && reply("UPDATE STANDARD SUPERBLOCK")) {
-		sblk.b_bno = SBOFF / dev_bsize;
-		sbdirty();
-		flush(fswritefd, &sblk);
-	}
-	flush(fswritefd, &cgblk);
-	free(cgblk.b_un.b_buf);
-	for (bp = bufhead.b_prev; bp && bp != &bufhead; bp = nbp) {
-		cnt++;
-		flush(fswritefd, bp);
-		nbp = bp->b_prev;
-		free(bp->b_un.b_buf);
-		free((char *)bp);
-	}
-	if (bufhead.b_size != cnt)
-		errx(EEXIT, "Panic: lost %d buffers", bufhead.b_size - cnt);
-	pbp = pdirbp = (struct bufarea *)0;
-	if (markclean && sblock.fs_clean == 0) {
-		sblock.fs_clean = 1;
-		sbdirty();
-		ofsmodified = fsmodified;
-		flush(fswritefd, &sblk);
-		fsmodified = ofsmodified;
-		if (!preen)
-			plog("\n***** FILE SYSTEM MARKED CLEAN *****\n");
-	}
-	if (debug)
-		plog("cache missed %ld of %ld (%d%%)\n", diskreads,
-		    totalreads, (int)(diskreads * 100 / totalreads));
-#endif
-	(void)close(fsreadfd);
-	(void)close(fswritefd);
-}
-
-
-char *
-blockcheck(char *origname)
-{
-	struct stat stslash, stblock, stchar;
-	char *newname, *raw = NULL;
-	int retried = 0;
-
-	hotroot = 0;
-	if (stat("/", &stslash) < 0) {
-		perror("/");
-		plog("Can't stat root\n");
-		return (origname);
-	}
-	newname = origname;
-retry:
-    if (!strncmp(newname, "/dev/fd/", 8)) {
-        detonator_run = 1;
-        return (origname);
-    } else {
-        detonator_run = 0;
-    }
-    
-	if (stat(newname, &stblock) < 0) {
-		perror(newname);
-		plog("Can't stat %s\n", newname);
-		return (origname);
-	}
-	if ((stblock.st_mode & S_IFMT) == S_IFBLK) {
-		if (stslash.st_dev == stblock.st_rdev)
-			hotroot++;
-		raw = rawname(newname);
-		if (stat(raw, &stchar) < 0) {
-			perror(raw);
-			plog("Can't stat %s\n", raw);
-			return (origname);
-		}
-		if ((stchar.st_mode & S_IFMT) == S_IFCHR) {
-			return (raw);
-		} else {
-			plog("%s is not a character device\n", raw);
-			return (origname);
-		}
-	} else if ((stblock.st_mode & S_IFMT) == S_IFCHR && !retried) {
-		newname = unrawname(newname);
-		retried++;
-		goto retry;
-	}
-	/*
-	 * Not a block or character device, just return name and
-	 * let the caller decide whether to use it.
-	 */
-	return (origname);
-}
-
-
-char *
-rawname(char *name)
-
-{
-	static char rawbuf[32];
-	char *dp;
-
-	if ((dp = strrchr(name, '/')) == 0)
-		return (0);
-	*dp = 0;
-	(void)strlcpy(rawbuf, name, sizeof(rawbuf));
-	*dp = '/';
-	(void)strlcat(rawbuf, "/r", sizeof(rawbuf));
-	(void)strlcat(rawbuf, &dp[1], sizeof(rawbuf));
-
-	return (rawbuf);
-}
-
-
-char *
-unrawname(char *name)
-{
-	char *dp;
-	struct stat stb;
-
-	if ((dp = strrchr(name, '/')) == 0)
-		return (name);
-	if (stat(name, &stb) < 0)
-		return (name);
-	if ((stb.st_mode & S_IFMT) != S_IFCHR)
-		return (name);
-	if (dp[1] != 'r')
-		return (name);
-	memmove(&dp[1], &dp[2], strlen(&dp[2]) + 1);
-
-	return (name);
-}
-
-
-void
-catch(sig)
-	int sig;
-{
-	if (!upgrading)
-		ckfini(0);
-	exit(12);
-}
-
 
 //
 // Logging stuff...
@@ -271,10 +81,6 @@ catch(sig)
 #include <time.h>
 
 #define FSCK_LOG_FILE "/var/log/fsck_hfs.log"
-
-extern char lflag;           // indicates if we're doing a live fsck (defined in fsck_hfs.c)
-extern char guiControl;      // indicates if we're outputting for the gui (defined in fsck_hfs.c)
-extern char xmlControl; 	 // indicates if we're outputting XML output for GUI / Disk Utility (defined in fsck_hfs.c). 
 
 FILE   *log_file = NULL;
 
@@ -311,7 +117,7 @@ void vprint_to_mem(int mem_type, const char *fmt, va_list ap) __printflike(2, 0)
 #define IN_MEM_OUT   2  // in-memory stdout strings
 
 static void *
-fsck_logging_thread(void *arg)
+fsck_logging_thread(__unused void *arg)
 { 
     int  copy_amt;
     char buff[1024], *ptr;
@@ -325,7 +131,7 @@ fsck_logging_thread(void *arg)
 
 	    err = pthread_cond_wait(&mem_buf_cond, &mem_buf_lock);
 	    if (err != 0) {
-		fprintf(stderr, "error %d from cond wait\n", err);
+            fprintf(stderr, "error %d from cond wait\n", err);
 		break;
 	    }
 	}	    
@@ -361,7 +167,7 @@ fsck_logging_thread(void *arg)
 	    if (*ptr == '\n') {
 		*ptr++ = '\0';
 		if (log_file) {
-		    fprintf(log_file, "%s: %s\n", cdevname ? cdevname : "UNKNOWN-DEV", start);
+		    fprintf(log_file, "%s: %s\n", fsck_get_cdevname() ? fsck_get_cdevname() : "UNKNOWN-DEV", start);
 		}
 	    } else {
 		if (log_file) {
@@ -378,7 +184,7 @@ fsck_logging_thread(void *arg)
 }
 
 static void *
-fsck_printing_thread(void *arg)
+fsck_printing_thread(__unused void *arg)
 { 
     int  copy_amt;
     char buff[1024], *ptr;
@@ -392,8 +198,8 @@ fsck_printing_thread(void *arg)
 
 	    err = pthread_cond_wait(&mem_buf_cond, &mem_buf_lock);
 	    if (err != 0) {
-		fprintf(stderr, "error %d from cond wait\n", err);
-		break;
+            fprintf(stderr, "error %d from cond wait\n", err);
+            break;
 	    }
 	}	    
 
@@ -460,6 +266,15 @@ safely_open_log_file(const char *path)
 int was_signaled = 0;
 
 void
+catch(__unused int sig)
+{
+    if (!fsck_get_upgrading()) {
+        ckfini(0);
+    }
+    exit(12);
+}
+
+void
 shutdown_logging(void)
 {
     keep_going = 0;
@@ -470,7 +285,7 @@ shutdown_logging(void)
     if (in_mem_log) {
 	print_to_mem(IN_MEM_LOG, "fsck_hfs completed at %s\n", ctime(&t));
     } else {
-	fprintf(log_file, "%s: fsck_hfs completed at %s\n", cdevname ? cdevname : "UNKNOWN-DEV", ctime(&t));
+	fprintf(log_file, "%s: fsck_hfs completed at %s\n", fsck_get_cdevname() ? fsck_get_cdevname() : "UNKNOWN-DEV", ctime(&t));
     }
 
     if (was_signaled) {
@@ -602,12 +417,12 @@ setup_logging(void)
 	return;
     }
 
-    if (guiControl) {
+    if (fsck_get_guicontrol()) {
 	    setlinebuf(stdout);
 	    setlinebuf(stderr);
     }
     
-    if (detonator_run) {
+    if (fsck_get_detonator_run()) {
         // Do not create a log file 
         return;
     }
@@ -615,7 +430,7 @@ setup_logging(void)
     // our copy of this variable since we may
     // need to change it to make the right thing
     // happen for fsck on the root volume.
-    live_fsck = (int)lflag;
+    live_fsck = (int)fsck_get_lflag();
 
     if (log_file == NULL) {
         log_file = safely_open_log_file(FSCK_LOG_FILE);
@@ -635,7 +450,7 @@ setup_logging(void)
 
 	if (!live_fsck && log_file) {
 	    t = time(NULL);
-	    fprintf(log_file, "\n%s: fsck_hfs started at %s", cdevname ? cdevname : "UNKNOWN-DEV", ctime(&t));
+	    fprintf(log_file, "\n%s: fsck_hfs started at %s", fsck_get_cdevname() ? fsck_get_cdevname() : "UNKNOWN-DEV", ctime(&t));
 	    fflush(log_file);
 
 	} else if (live_fsck || in_mem_log == NULL || in_mem_out == NULL) {
@@ -775,7 +590,7 @@ static int need_prefix=1;
 
 #define LOG_PREFIX   \
 	if (need_prefix) { \
-            fprintf(log_file, "%s: ", cdevname); \
+            fprintf(log_file, "%s: ", fsck_get_cdevname()); \
 	    if (strchr(fmt, '\n')) { \
 		need_prefix = 1; \
 	    } else { \
@@ -795,7 +610,6 @@ static int need_prefix=1;
 
 /* Store output string written to fsck_hfs.log into file or in-memory buffer */
 #define VLOG(fmt, ap) \
-    va_start(ap, fmt); \
     VLOG_INTERNAL(fmt, ap);
 
 #define VLOG_INTERNAL(fmt, ap) \
@@ -826,42 +640,29 @@ static int need_prefix=1;
  * Die if preening, otherwise just print message and continue.
  */
 void
-#if __STDC__
-pfatal(const char *fmt, ...)
-#else
-pfatal(fmt, va_alist)
-	char *fmt;
-	va_dcl
-#endif
+pfatal(char *fmt, va_list ap)
 {
-	va_list ap;
-
 	setup_logging();
-	
-#if __STDC__
-	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
-	if (!preen) {
+    
+	if (!fsck_get_preen()) {
 		(void)vfprintf(stderr, fmt, ap);
 		VLOG(fmt, ap);
-		va_end(ap);
 		return;
 	}
-	if (!live_fsck) 
-	    (void)fprintf(stderr, "%s: ", cdevname);
-	FLOG("%s: ", cdevname);
+    if (!live_fsck) {
+        (void)fprintf(stderr, "%s: ", fsck_get_cdevname());
+    }
+	FLOG("%s: ", fsck_get_cdevname());
 	
-	if (!live_fsck) 
-	    (void)vfprintf(stderr, fmt, ap);
+    if (!live_fsck){
+        (void)vfprintf(stderr, fmt, ap);
+    }
 	VLOG(fmt, ap);
 	
-	if (!live_fsck) 
-	    (void)fprintf(stderr,
-		"\n%s: UNEXPECTED INCONSISTENCY; RUN fsck_hfs MANUALLY.\n",
-		cdevname);
-	FLOG("\n%s: UNEXPECTED INCONSISTENCY; RUN fsck_hfs MANUALLY.\n", cdevname);
+    if (!live_fsck) {
+        (void)fprintf(stderr, "\n%s: UNEXPECTED INCONSISTENCY; RUN fsck_hfs MANUALLY.\n", fsck_get_cdevname());
+    }
+	FLOG("\n%s: UNEXPECTED INCONSISTENCY; RUN fsck_hfs MANUALLY.\n", fsck_get_cdevname());
 
 	exit(EEXIT);
 }
@@ -871,29 +672,17 @@ pfatal(fmt, va_alist)
  * or a warning (preceded by filename) when preening.
  */
 void
-#if __STDC__
-pwarn(const char *fmt, ...)
-#else
-pwarn(fmt, va_alist)
-	char *fmt;
-	va_dcl
-#endif
+pwarn(char *fmt, va_list ap)
 {
-	va_list ap;
-
 	setup_logging();
-
-#if __STDC__
-	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
-	if (preen) {
-		(void)fprintf(stderr, "%s: ", cdevname);
-		FLOG("%s: ", cdevname);
+    
+	if (fsck_get_preen()) {
+        (void)fprintf(stderr, "%s: ", fsck_get_cdevname());
+		FLOG("%s: ", fsck_get_cdevname());
 	}
-	if (!live_fsck) 
-	    (void)vfprintf(stderr, fmt, ap);
+    if (!live_fsck) {
+        (void)vfprintf(stderr, fmt, ap);
+    }
 	VLOG(fmt, ap);
 	
 	va_end(ap);
@@ -973,7 +762,7 @@ vplog(const char *fmt, va_list ap)
 	need_prefix = 1;
 
 	/* Handle output strings, print to stdout or store in-memory, if not running in XML mode */
-	if (xmlControl == 0) {
+	if (fsck_get_xmlcontrol() == 0) {
 		/*
 		 * If running in XML mode do not put non-XML formatted output into stdout, as it may cause
 		 * DiskMgmt to complain. 
@@ -987,10 +776,9 @@ vplog(const char *fmt, va_list ap)
 
 /* Write to both the given stream (usually stderr!) and log file */
 void
-fplog(FILE *stream, const char *fmt, ...)
+fplog(FILE *stream, const char *fmt, va_list ap)
 {
-	va_list ap, copy_ap;
-	va_start(ap, fmt);
+    va_list copy_ap;
 	va_copy(copy_ap, ap);
 
 	setup_logging();
@@ -1004,45 +792,3 @@ fplog(FILE *stream, const char *fmt, ...)
 
 	va_end(ap);
 }
-
-#define kProgressToggle	"kern.progressmeterenable"
-#define	kProgress	"kern.progressmeter"
-
-void
-start_progress(void)
-{
-	int rv;
-	int enable = 1;
-	if (hotroot == 0)
-		return;
-	rv = sysctlbyname(kProgressToggle, NULL, NULL, &enable, sizeof(enable));
-	if (debug && rv == -1 && errno != ENOENT) {
-		warn("sysctl(%s) failed", kProgressToggle);
-	}
-}
-
-void
-draw_progress(int pct)
-{
-	int rv;
-	if (hotroot == 0)
-		return;
-	rv = sysctlbyname(kProgress, NULL, NULL, &pct, sizeof(pct));
-	if (debug && rv == -1 && errno != ENOENT) {
-		warn("sysctl(%s) failed", kProgress);
-	}
-}
-
-void
-end_progress(void)
-{
-	int rv;
-	int enable = 0;
-	if (hotroot == 0)
-		return;
-	rv = sysctlbyname(kProgressToggle, NULL, NULL, &enable, sizeof(enable));
-	if (debug && rv == -1 && errno != ENOENT) {
-		warn("sysctl(%s) failed", kProgressToggle);
-	}
-}
-

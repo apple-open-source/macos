@@ -233,7 +233,7 @@ private:
                 return false;
             }
             for (int i = 0; i < length; ++i) {
-                stringArray.getValue(i, value);  // returns TRUE because i < length
+                stringArray.getValue(i, value);  // returns true because i < length
                 rawIndexes[i] = strings.add(value.getUnicodeString(errorCode), errorCode);
                 if (U_FAILURE(errorCode)) { return false; }
             }
@@ -245,13 +245,13 @@ private:
 namespace {
 
 XLikelySubtags *gLikelySubtags = nullptr;
-UInitOnce gInitOnce = U_INITONCE_INITIALIZER;
+UInitOnce gInitOnce {};
 
 UBool U_CALLCONV cleanup() {
     delete gLikelySubtags;
     gLikelySubtags = nullptr;
     gInitOnce.reset();
-    return TRUE;
+    return true;
 }
 
 }  // namespace
@@ -382,7 +382,12 @@ LSR XLikelySubtags::makeMaximizedLsr(const char *language, const char *script, c
 }
 
 LSR XLikelySubtags::maximize(const char *language, const char *script, const char *region) const {
+#if APPLE_ICU_CHANGES
+// rdar://57899428 commit a429a8a3da.. Integrate open-source ICU 66 preview...; ...fix or handle all remaining test failures
     if (uprv_strcmp(language, "und") == 0 || uprv_strcmp(language, "root") == 0) { // Apple adds root
+#else
+    if (uprv_strcmp(language, "und") == 0) {
+#endif // APPLE_ICU_CHANGES
         language = "";
     }
     if (uprv_strcmp(script, "Zzzz") == 0) {

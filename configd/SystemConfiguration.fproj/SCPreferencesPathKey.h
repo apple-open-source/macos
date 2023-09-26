@@ -127,6 +127,40 @@ SCPreferencesPathKeyCreateSetNetworkServiceEntity(
 						 CFStringRef	entity
 						 )				API_AVAILABLE(macos(10.4), ios(2.0));
 
+
+/*!
+	@function SCPreferencesPathKeyCreateCategories
+ */
+CFStringRef
+SCPreferencesPathKeyCreateCategories(CFAllocatorRef allocator)
+	API_AVAILABLE(macos(14.0), ios(17.0));
+
+/*!
+	@function SCPreferencesPathKeyCreateCategory
+ */
+CFStringRef
+SCPreferencesPathKeyCreateCategory(CFAllocatorRef allocator,
+				   CFStringRef category)
+	API_AVAILABLE(macos(14.0), ios(17.0));
+
+CFStringRef
+SCPreferencesPathKeyCreateCategoryService(CFAllocatorRef allocator,
+					  CFStringRef category,
+					  CFStringRef value,
+					  CFStringRef serviceID)
+	API_AVAILABLE(macos(14.0), ios(17.0));
+
+/*!
+	@function SCPreferencesPathKeyCreateCategoryServiceEntity
+ */
+CFStringRef
+SCPreferencesPathKeyCreateCategoryServiceEntity(CFAllocatorRef allocator,
+						CFStringRef category,
+						CFStringRef value,
+						CFStringRef serviceID,
+						CFStringRef entity)
+	API_AVAILABLE(macos(14.0), ios(17.0));
+
 __END_DECLS
 
 #endif	/* _SCPREFERENCESPATHKEY_H */

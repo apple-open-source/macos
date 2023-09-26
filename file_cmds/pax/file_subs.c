@@ -1,7 +1,6 @@
-/*	$OpenBSD: file_subs.c,v 1.30 2005/11/09 19:59:06 otto Exp $	*/
-/*	$NetBSD: file_subs.c,v 1.4 1995/03/21 09:07:18 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,33 +33,34 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)file_subs.c	8.1 (Berkeley) 5/31/93";
-#else
-__used static const char rcsid[] = "$OpenBSD: file_subs.c,v 1.30 2005/11/09 19:59:06 otto Exp $";
+static char sccsid[] = "@(#)file_subs.c	8.1 (Berkeley) 5/31/93";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/attr.h>
-#include <sys/uio.h>
+#ifdef __APPLE__
 #include <err.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
+#include <sys/attr.h>
 #include <stdlib.h>
-#include <string.h>
+#endif
 #include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/uio.h>
 #include "pax.h"
 #include "options.h"
 #include "extern.h"
 
 static int
-mk_link(char *, struct stat *, char *, int);
+mk_link(char *,struct stat *,char *, int);
 
 /*
  * routines that deal with file operations such as: creating, removing;
@@ -84,20 +84,22 @@ file_creat(ARCHD *arcn)
 	int fd = -1;
 	mode_t file_mode;
 	int oerrno;
+#ifdef __APPLE__
 	int rc = 0;
 	char *path_to_open;
 	char *new_path;
 	char *cwd;
 	char cwd_buff[MAXPATHLEN];
+#endif /* __APPLE__ */
 
 	/*
-	 * Assume file doesn't exist, so just try to create it, most times this
+	 * assume file doesn't exist, so just try to create it, most times this
 	 * works. We have to take special handling when the file does exist. To
 	 * detect this, we use O_EXCL. For example when trying to create a
 	 * file and a character device or fifo exists with the same name, we
-	 * can accidently open the device by mistake (or block waiting to open).
-	 * If we find that the open has failed, then spend the effort to
-	 * figure out why. This strategy was found to have better average
+	 * can accidentally open the device by mistake (or block waiting to
+	 * open). If we find that the open has failed, then spend the effort
+	 * to figure out why. This strategy was found to have better average
 	 * performance in common use than checking the file (and the path)
 	 * first with lstat.
 	 */
@@ -114,16 +116,19 @@ file_creat(ARCHD *arcn)
 	if (unlnk_exist(arcn->name, arcn->type) != 0)
 		return(-1);
 
+#ifdef __APPLE__
 	path_to_open = arcn->name;
 	new_path = arcn->name;
 	cwd = getcwd(cwd_buff,sizeof(cwd_buff));
 	if (cwd==NULL) return -1;
+#endif /* __APPLE__ */
 	for (;;) {
 		/*
 		 * try to open it again, if this fails, check all the nodes in
 		 * the path and give it a final try. if chk_path() finds that
 		 * it cannot fix anything, we will skip the last attempt
 		 */
+#ifdef __APPLE__
 		if ((fd = open(path_to_open, O_WRONLY | O_CREAT | O_TRUNC,
 			       file_mode)) >= 0) {
 			/* clean up the invalid_action */
@@ -132,7 +137,13 @@ file_creat(ARCHD *arcn)
 			}
 			break;
 		}
+#else
+		if ((fd = open(arcn->name, O_WRONLY | O_CREAT | O_TRUNC,
+		    file_mode)) >= 0)
+			break;
+#endif /* __APPLE__ */
 		oerrno = errno;
+#ifdef __APPLE__
 		if (pax_invalid_action>0) {
 			rc = perform_pax_invalid_action(arcn, oerrno);
 			if (rc == 0) continue;
@@ -148,11 +159,19 @@ file_creat(ARCHD *arcn)
 			fd = -1;
 			break;
 		}
+#else
+		if (nodirs || chk_path(arcn->name,arcn->sb.st_uid,arcn->sb.st_gid) < 0) {
+			syswarn(1, oerrno, "Unable to create %s", arcn->name);
+			return(-1);
+		}
+#endif /* __APPLE__ */
+#ifdef __APPLE__
 		if (new_path) path_to_open = new_path; /* try again */
 	}
 	if (new_path && strcmp(new_path, arcn->name)!=0) {
 		dochdir(cwd);	/* go back to original directory */
 	}
+#endif /* __APPLE__ */
 	return(fd);
 }
 
@@ -171,7 +190,6 @@ file_close(ARCHD *arcn, int fd)
 
 	if (fd < 0)
 		return;
-
 	if (close(fd) < 0)
 		syswarn(0, errno, "Unable to close file descriptor on %s",
 		    arcn->name);
@@ -182,10 +200,11 @@ file_close(ARCHD *arcn, int fd)
 	 * modification times.
 	 */
 	if (pids)
-		res = set_ids(arcn->name, arcn->sb.st_uid,
-		    arcn->sb.st_gid);
+		res = set_ids(arcn->name, arcn->sb.st_uid, arcn->sb.st_gid);
+#ifdef __APPLE__
 	else
 		res = 1; /* without pids, pax should NOT set s bits */
+#endif /* __APPLE__ */
 
 	/*
 	 * IMPORTANT SECURITY NOTE:
@@ -197,8 +216,12 @@ file_close(ARCHD *arcn, int fd)
 	if (pmode)
 		set_pmode(arcn->name, arcn->sb.st_mode);
 	if (patime || pmtime)
-		set_ftime(arcn->name, arcn->sb.st_mtime_sec, arcn->sb.st_mtime_nsec,
-			  arcn->sb.st_atime_sec, arcn->sb.st_atime_nsec, 0);
+#ifdef __APPLE__
+		set_ftime(arcn->name, arcn->sb.st_mtime, arcn->sb.st_mtime_nsec,
+			  arcn->sb.st_atime, arcn->sb.st_atime_nsec, 0);
+#else
+		set_ftime(arcn->name, arcn->sb.st_mtime, arcn->sb.st_atime, 0);
+#endif /* __APPLE__ */
 }
 
 /*
@@ -230,6 +253,7 @@ lnk_creat(ARCHD *arcn)
 		return(-1);
 	}
 
+#ifdef __APPLE__
 	if (S_ISLNK(sb.st_mode)) {
 		int res;
 		char buff[PATH_MAX+1];
@@ -246,6 +270,7 @@ lnk_creat(ARCHD *arcn)
 		res = symlink(buff, arcn->name);
 		return res;
 	}
+#endif /* __APPLE__ */
 
 	return(mk_link(arcn->ln_name, &sb, arcn->name, 0));
 }
@@ -264,16 +289,18 @@ int
 cross_lnk(ARCHD *arcn)
 {
 	/*
-	 * try to make a link to original file (-l flag in copy mode). make
-	 * sure we do not try to link to directories in case we are running as
-	 * root (and it might succeed).
+	 * try to make a link to original file (-l flag in copy mode). make sure
+	 * we do not try to link to directories in case we are running as root
+	 * (and it might succeed).
 	 */
 	if (arcn->type == PAX_DIR)
 		return(1);
+#ifdef __APPLE__
 	if (arcn->type == PAX_SLK) {	/* for Unix 03 conformance tests 202,203 */
 		if (!Lflag)
 			return(1);
 	}
+#endif /* __APPLE__ */
 	return(mk_link(arcn->org_name, &(arcn->sb), arcn->name, 1));
 }
 
@@ -326,7 +353,8 @@ chk_same(ARCHD *arcn)
  */
 
 static int
-mk_link(char *to, struct stat *to_sb, char *from, int ign)
+mk_link(char *to, struct stat *to_sb, char *from,
+	int ign)
 {
 	struct stat sb;
 	int oerrno;
@@ -373,7 +401,11 @@ mk_link(char *to, struct stat *to_sb, char *from, int ign)
 		if (link(to, from) == 0)
 			break;
 		oerrno = errno;
+#ifdef __APPLE__
 		if (!nodirs && chk_path(from, to_sb->st_uid, to_sb->st_gid, NULL) == 0)
+#else
+		if (!nodirs && chk_path(from, to_sb->st_uid, to_sb->st_gid) == 0)
+#endif /* __APPLE__ */
 			continue;
 		if (!ign) {
 			syswarn(1, oerrno, "Could not link to %s from %s", to,
@@ -406,10 +438,6 @@ node_creat(ARCHD *arcn)
 	int pass = 0;
 	mode_t file_mode;
 	struct stat sb;
-	char target[MAXPATHLEN];
-	char *nm = arcn->name;
-	int nmlen = arcn->nlen;
-	int len;
 
 	/*
 	 * create node based on type, if that fails try to unlink the node and
@@ -420,46 +448,22 @@ node_creat(ARCHD *arcn)
 	file_mode = arcn->sb.st_mode & FILEBITS;
 
 	for (;;) {
-		switch (arcn->type) {
+		switch(arcn->type) {
 		case PAX_DIR:
-			/*
-			 * If -h (or -L) was given in tar-mode, follow the
-			 * potential symlink chain before trying to create the
-			 * directory.
-			 */
-			if (strcmp(NM_TAR, argv0) == 0 && Lflag) {
-				while (lstat(nm, &sb) == 0 &&
-				    S_ISLNK(sb.st_mode)) {
-					len = readlink(nm, target,
-					    sizeof target - 1);
-					if (len == -1) {
-						syswarn(0, errno,
-						   "cannot follow symlink %s in chain for %s",
-						    nm, arcn->name);
-						res = -1;
-						goto badlink;
-					}
-					target[len] = '\0';
-					nm = target;
-					nmlen = len;
-				}
-			}
-			res = mkdir(nm, file_mode);
-
-badlink:
+			res = mkdir(arcn->name, file_mode);
 			if (ign)
 				res = 0;
 			break;
 		case PAX_CHR:
 			file_mode |= S_IFCHR;
-			res = mknod(nm, file_mode, arcn->sb.st_rdev);
+			res = mknod(arcn->name, file_mode, arcn->sb.st_rdev);
 			break;
 		case PAX_BLK:
 			file_mode |= S_IFBLK;
-			res = mknod(nm, file_mode, arcn->sb.st_rdev);
+			res = mknod(arcn->name, file_mode, arcn->sb.st_rdev);
 			break;
 		case PAX_FIF:
-			res = mkfifo(nm, file_mode);
+			res = mkfifo(arcn->name, file_mode);
 			break;
 		case PAX_SCK:
 			/*
@@ -467,10 +471,10 @@ badlink:
 			 */
 			paxwarn(0,
 			    "%s skipped. Sockets cannot be copied or extracted",
-			    nm);
+			    arcn->name);
 			return(-1);
 		case PAX_SLK:
-			res = symlink(arcn->ln_name, nm);
+			res = symlink(arcn->ln_name, arcn->name);
 			break;
 		case PAX_CTG:
 		case PAX_HLK:
@@ -481,7 +485,7 @@ badlink:
 			 * we should never get here
 			 */
 			paxwarn(0, "%s has an unknown file type, skipping",
-				nm);
+				arcn->name);
 			return(-1);
 		}
 
@@ -497,14 +501,18 @@ badlink:
 		 * we failed to make the node
 		 */
 		oerrno = errno;
-		if ((ign = unlnk_exist(nm, arcn->type)) < 0)
+		if ((ign = unlnk_exist(arcn->name, arcn->type)) < 0)
 			return(-1);
 
 		if (++pass <= 1)
 			continue;
 
-		if (nodirs || chk_path(nm,arcn->sb.st_uid,arcn->sb.st_gid, NULL) < 0) {
-			syswarn(1, oerrno, "Could not create: %s", nm);
+#ifdef __APPLE__
+		if (nodirs || chk_path(arcn->name,arcn->sb.st_uid,arcn->sb.st_gid, NULL) < 0) {
+#else
+		if (nodirs || chk_path(arcn->name,arcn->sb.st_uid,arcn->sb.st_gid) < 0) {
+#endif /* __APPLE__ */
+			syswarn(1, oerrno, "Could not create: %s", arcn->name);
 			return(-1);
 		}
 	}
@@ -513,22 +521,21 @@ badlink:
 	 * we were able to create the node. set uid/gid, modes and times
 	 */
 	if (pids)
-		res = ((arcn->type == PAX_SLK) ?
-#if defined(__APPLE__)
-		    /* Mac OS X doesn't have lchown, so don't bother */
-		    0 :
-#else
-		    set_lids(nm, arcn->sb.st_uid, arcn->sb.st_gid) :
-#endif
-		    set_ids(nm, arcn->sb.st_uid, arcn->sb.st_gid));
+		res = set_ids(arcn->name, arcn->sb.st_uid, arcn->sb.st_gid);
 	else
+#ifdef __APPLE__
 		res = 1;	/* without pids, pax should NOT set s bits */
+#else
+		res = 0;
+#endif /* __APPLE__ */
 
+#ifdef __APPLE__
 	/*
 	 * symlinks are done now.
 	 */
 	if (arcn->type == PAX_SLK)
 		return(0);
+#endif /* __APPLE__ */
 
 	/*
 	 * IMPORTANT SECURITY NOTE:
@@ -538,7 +545,7 @@ badlink:
 	if (!pmode || res)
 		arcn->sb.st_mode &= ~(SETBITS);
 	if (pmode)
-		set_pmode(nm, arcn->sb.st_mode);
+		set_pmode(arcn->name, arcn->sb.st_mode);
 
 	if (arcn->type == PAX_DIR && strcmp(NM_CPIO, argv0) != 0) {
 		/*
@@ -550,11 +557,11 @@ badlink:
 		 * and modes will be fixed after the entire archive is read and
 		 * before pax exits.
 		 */
-		if (access(nm, R_OK | W_OK | X_OK) < 0) {
-			if (lstat(nm, &sb) < 0) {
+		if (access(arcn->name, R_OK | W_OK | X_OK) < 0) {
+			if (lstat(arcn->name, &sb) < 0) {
 				syswarn(0, errno,"Could not access %s (stat)",
 				    arcn->name);
-				set_pmode(nm,file_mode | S_IRWXU);
+				set_pmode(arcn->name,file_mode | S_IRWXU);
 			} else {
 				/*
 				 * We have to add rights to the dir, so we make
@@ -562,7 +569,7 @@ badlink:
 				 * restored AS CREATED and not as stored if
 				 * pmode is not set.
 				 */
-				set_pmode(nm,
+				set_pmode(arcn->name,
 				    ((sb.st_mode & FILEBITS) | S_IRWXU));
 				if (!pmode)
 					arcn->sb.st_mode = sb.st_mode;
@@ -572,14 +579,18 @@ badlink:
 			 * we have to force the mode to what was set here,
 			 * since we changed it from the default as created.
 			 */
-			add_dir(nm, nmlen, &(arcn->sb), 1);
+			add_dir(arcn->name, arcn->nlen, &(arcn->sb), 1);
 		} else if (pmode || patime || pmtime)
-			add_dir(nm, nmlen, &(arcn->sb), 0);
+			add_dir(arcn->name, arcn->nlen, &(arcn->sb), 0);
 	}
 
 	if (patime || pmtime)
-		set_ftime(nm, arcn->sb.st_mtime_sec, arcn->sb.st_mtime_nsec,
-			  arcn->sb.st_atime_sec, arcn->sb.st_atime_nsec, 0);
+#ifdef __APPLE__
+		set_ftime(arcn->name, arcn->sb.st_mtime, arcn->sb.st_mtime_nsec,
+			  arcn->sb.st_atime, arcn->sb.st_atime_nsec, 0);
+#else
+		set_ftime(arcn->name, arcn->sb.st_mtime, arcn->sb.st_atime, 0);
+#endif /* __APPLE__ */
 	return(0);
 }
 
@@ -607,9 +618,6 @@ unlnk_exist(char *name, int type)
 		return(0);
 	if (kflag)
 		return(-1);
-
-	if(strstr(name, "._") != NULL) /* remove when stat works properly */
-	    return(0);
 
 	if (S_ISDIR(sb.st_mode)) {
 		/*
@@ -650,10 +658,16 @@ unlnk_exist(char *name, int type)
  */
 
 int
+#ifdef __APPLE__
 chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
+#else
+chk_path( char *name, uid_t st_uid, gid_t st_gid)
+#endif /* __APPLE__ */
 {
 	char *spt = name;
+#ifdef __APPLE__
 	int namelen = strlen(name);
+#endif /* __APPLE__ */
 	struct stat sb;
 	int retval = -1;
 
@@ -663,7 +677,7 @@ chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
 	if (*spt == '/')
 		++spt;
 
-	for (;;) {
+	for(;;) {
 		/*
 		 * work forward from the first / and check each part of the path
 		 */
@@ -683,9 +697,13 @@ chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
 		 */
 		if (lstat(name, &sb) == 0) {
 			*(spt++) = '/';
+#ifdef __APPLE__
 			if (new_name==NULL) continue;
 			retval = 0; /* accept it one directory at a time */
 			break;
+#else
+			continue;
+#endif /* __APPLE__ */
 		}
 
 		/*
@@ -716,9 +734,14 @@ chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
 		if ((access(name, R_OK | W_OK | X_OK) < 0) &&
 		    (lstat(name, &sb) == 0)) {
 			set_pmode(name, ((sb.st_mode & FILEBITS) | S_IRWXU));
+#ifdef __APPLE__
 			add_dir(name, namelen, &sb, 1);
+#else
+			add_dir(name, spt - name, &sb, 1);
+#endif
 		}
 		*(spt++) = '/';
+#ifdef __APPLE__
 		if (new_name==NULL) continue;
 		break;
 	}
@@ -736,25 +759,33 @@ chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
 			*new_name = spt;
 		} else
 			*spt = '/';
+#else
+		continue;
+#endif /* __APPLE__ */
 	}
 	return(retval);
 }
 
 /*
  * set_ftime()
- *	Set the access time and modification time for a named file. If frc
- *	is non-zero we force these times to be set even if the user did not
+ *	Set the access time and modification time for a named file. If frc is
+ *	non-zero we force these times to be set even if the user did not
  *	request access and/or modification time preservation (this is also
  *	used by -t to reset access times).
  *	When frc is zero, only those times the user has asked for are set, the
  *	other ones are left alone. We do not assume the un-documented feature
- *	of many utimes() implementations that consider a 0 time value as a do
+ *	of many lutimes() implementations that consider a 0 time value as a do
  *	not set request.
  */
 
 void
-set_ftime(char *fnm, time_t mtime_sec, time_t mtime_nsec, time_t atime_sec, time_t atime_nsec, int frc)
+#ifdef __APPLE__
+set_ftime(char *fnm, time_t mtime, time_t mtime_nsec, time_t atime, time_t atime_nsec, int frc)
+#else
+set_ftime(char *fnm, time_t mtime, time_t atime, int frc)
+#endif /* __APPLE__ */
 {
+#ifdef __APPLE__
 	struct attrlist ts_req = {
 		.bitmapcount = ATTR_BIT_MAP_COUNT,
 		.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME,
@@ -763,26 +794,44 @@ set_ftime(char *fnm, time_t mtime_sec, time_t mtime_nsec, time_t atime_sec, time
 		struct timespec mtime;
 		struct timespec atime;
 	} set_ts;
+#else
+	static struct timeval tv[2] = {{0L, 0L}, {0L, 0L}};
+#endif /* __APPLE__ */
 	struct stat sb;
 
-	set_ts.atime.tv_sec = atime_sec;
+#ifdef __APPLE__
+	set_ts.atime.tv_sec = atime;
 	set_ts.atime.tv_nsec = atime_nsec;
-	set_ts.mtime.tv_sec = mtime_sec;
+	set_ts.mtime.tv_sec = mtime;
 	set_ts.mtime.tv_nsec = mtime_nsec;
+#else
+	tv[0].tv_sec = atime;
+	tv[1].tv_sec = mtime;
+#endif /* __APPLE__ */
 	if (!frc && (!patime || !pmtime)) {
 		/*
 		 * if we are not forcing, only set those times the user wants
 		 * set. We get the current values of the times if we need them.
 		 */
 		if (lstat(fnm, &sb) == 0) {
-			if (!patime) {
+			if (!patime)
+#ifdef __APPLE__
+			{
 				set_ts.atime.tv_sec = sb.st_atime_sec;
 				set_ts.atime.tv_nsec = sb.st_atime_nsec;
 			}
-			if (!pmtime) {
+#else
+				tv[0].tv_sec = sb.st_atime;
+#endif /* __APPLE__ */
+			if (!pmtime)
+#ifdef __APPLE__
+			{
 				set_ts.mtime.tv_sec = sb.st_mtime_sec;
 				set_ts.mtime.tv_nsec = sb.st_mtime_nsec;
 			}
+#else
+				tv[1].tv_sec = sb.st_mtime;
+#endif /* __APPLE__ */
 		} else
 			syswarn(0,errno,"Unable to obtain file stats %s", fnm);
 	}
@@ -790,6 +839,7 @@ set_ftime(char *fnm, time_t mtime_sec, time_t mtime_nsec, time_t atime_sec, time
 	/*
 	 * set the times
 	 */
+#ifdef __APPLE__
 	if (pax_invalid_action_write_cwd) {
 		char cwd_buff[MAXPATHLEN];
 		char * cwd;
@@ -806,49 +856,11 @@ set_ftime(char *fnm, time_t mtime_sec, time_t mtime_nsec, time_t atime_sec, time
 			syswarn(1, errno, "Access/modification time set failed on: %s",
 			    fnm);
 	}
-	return;
-}
-
-void
-fset_ftime(char *fnm, int fd, time_t mtime_sec, time_t mtime_nsec, time_t atime_sec, time_t atime_nsec, int frc)
-{
-	struct attrlist ts_req = {
-		.bitmapcount = ATTR_BIT_MAP_COUNT,
-		.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME,
-	};
-	struct {
-		struct timespec mtime;
-		struct timespec atime;
-	} set_ts;
-	struct stat sb;
-
-	set_ts.atime.tv_sec = atime_sec;
-	set_ts.atime.tv_nsec = atime_nsec;
-	set_ts.mtime.tv_sec = mtime_sec;
-	set_ts.mtime.tv_nsec = mtime_nsec;
-	if (!frc && (!patime || !pmtime)) {
-		/*
-		 * if we are not forcing, only set those times the user wants
-		 * set. We get the current values of the times if we need them.
-		 */
-		if (fstat(fd, &sb) == 0) {
-			if (!patime) {
-				set_ts.atime.tv_sec = sb.st_atime_sec;
-				set_ts.atime.tv_nsec = sb.st_atime_nsec;
-			}
-			if (!pmtime) {
-				set_ts.mtime.tv_sec = sb.st_mtime_sec;
-				set_ts.mtime.tv_nsec = sb.st_mtime_nsec;
-			}
-		} else
-			syswarn(0,errno,"Unable to obtain file stats %s", fnm);
-	}
-	/*
-	 * set the times
-	 */
-	if (fsetattrlist(fd, &ts_req, &set_ts, sizeof(set_ts), FSOPT_NOFOLLOW) < 0)
+#else
+	if (lutimes(fnm, tv) < 0)
 		syswarn(1, errno, "Access/modification time set failed on: %s",
 		    fnm);
+#endif /* __APPLE__ */
 	return;
 }
 
@@ -861,48 +873,6 @@ fset_ftime(char *fnm, int fd, time_t mtime_sec, time_t mtime_nsec, time_t atime_
 
 int
 set_ids(char *fnm, uid_t uid, gid_t gid)
-{
-	if (chown(fnm, uid, gid) < 0) {
-		/*
-		 * ignore EPERM unless in verbose mode or being run by root.
-		 * if running as pax, POSIX requires a warning.
-		 */
-		if (strcmp(NM_PAX, argv0) == 0 || errno != EPERM || vflag ||
-		    geteuid() == 0)
-			syswarn(1, errno, "Unable to set file uid/gid of %s",
-			    fnm);
-		return(-1);
-	}
-	return(0);
-}
-
-int
-fset_ids(char *fnm, int fd, uid_t uid, gid_t gid)
-{
-	if (fchown(fd, uid, gid) < 0) {
-		/*
-		 * ignore EPERM unless in verbose mode or being run by root.
-		 * if running as pax, POSIX requires a warning.
-		 */
-		if (strcmp(NM_PAX, argv0) == 0 || errno != EPERM || vflag ||
-		    geteuid() == 0)
-			syswarn(1, errno, "Unable to set file uid/gid of %s",
-			    fnm);
-		return(-1);
-	}
-	return(0);
-}
-
-#if !defined(__APPLE__)
-/*
- * set_lids()
- *	set the uid and gid of a file system node
- * Return:
- *	0 when set, -1 on failure
- */
-
-int
-set_lids(char *fnm, uid_t uid, gid_t gid)
 {
 	if (lchown(fnm, uid, gid) < 0) {
 		/*
@@ -917,7 +887,6 @@ set_lids(char *fnm, uid_t uid, gid_t gid)
 	}
 	return(0);
 }
-#endif	/* !__APPLE__ */
 
 /*
  * set_pmode()
@@ -928,16 +897,7 @@ void
 set_pmode(char *fnm, mode_t mode)
 {
 	mode &= ABITS;
-	if (chmod(fnm, mode) < 0)
-		syswarn(1, errno, "Could not set permissions on %s", fnm);
-	return;
-}
-
-void
-fset_pmode(char *fnm, int fd, mode_t mode)
-{
-	mode &= ABITS;
-	if (fchmod(fd, mode) < 0)
+	if (lchmod(fnm, mode) < 0)
 		syswarn(1, errno, "Could not set permissions on %s", fnm);
 	return;
 }
@@ -998,7 +958,9 @@ file_write(int fd, char *str, int cnt, int *rem, int *isempt, int sz,
 	char *end;
 	int wcnt;
 	char *st = str;
+#ifdef __APPLE__
 	char **strp;
+#endif /* __APPLE__ */
 
 	/*
 	 * while we have data to process
@@ -1039,8 +1001,7 @@ file_write(int fd, char *str, int cnt, int *rem, int *isempt, int sz,
 				/*
 				 * skip, buf is empty so far
 				 */
-				if (fd > -1 &&
-				    lseek(fd, (off_t)wcnt, SEEK_CUR) < 0) {
+				if (lseek(fd, (off_t)wcnt, SEEK_CUR) < 0) {
 					syswarn(1,errno,"File seek on %s",
 					    name);
 					return(-1);
@@ -1057,6 +1018,7 @@ file_write(int fd, char *str, int cnt, int *rem, int *isempt, int sz,
 		/*
 		 * have non-zero data in this file system block, have to write
 		 */
+#ifdef __APPLE__
 		switch (fd) {
 		case -1:
 			strp = &gnu_name_string;
@@ -1079,7 +1041,9 @@ file_write(int fd, char *str, int cnt, int *rem, int *isempt, int sz,
 			memcpy(*strp, st, wcnt);
 			(*strp)[wcnt] = '\0';
 			break;
-		} else if (write(fd, st, wcnt) != wcnt) {
+		} else
+#endif /* __APPLE__ */
+		if (write(fd, st, wcnt) != wcnt) {
 			syswarn(1, errno, "Failed write to file %s", name);
 			return(-1);
 		}
@@ -1143,8 +1107,12 @@ rdfile_close(ARCHD *arcn, int *fd)
 	/*
 	 * user wants last access time reset
 	 */
+#ifdef __APPLE__
 	set_ftime(arcn->org_name, arcn->sb.st_mtime_sec, arcn->sb.st_mtime_nsec,
 		  arcn->sb.st_atime_sec, arcn->sb.st_atime_nsec, 1);
+#else
+	set_ftime(arcn->org_name, arcn->sb.st_mtime, arcn->sb.st_atime, 1);
+#endif /* __APPLE__ */
 	return;
 }
 
@@ -1164,7 +1132,7 @@ set_crc(ARCHD *arcn, int fd)
 	int res;
 	off_t cpcnt = 0L;
 	u_long size;
-	u_int32_t crc = 0;
+	unsigned long crc = 0L;
 	char tbuf[FILEBLK];
 	struct stat sb;
 
@@ -1183,7 +1151,7 @@ set_crc(ARCHD *arcn, int fd)
 	 * read all the bytes we think that there are in the file. If the user
 	 * is trying to archive an active file, forget this file.
 	 */
-	for (;;) {
+	for(;;) {
 		if ((res = read(fd, tbuf, size)) <= 0)
 			break;
 		cpcnt += res;

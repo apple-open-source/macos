@@ -39,22 +39,18 @@ EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_NO =
 EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_YES = no_asan
 EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT = $(EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_$(ASAN_IN_NORMAL_VARIANT))
 
-SDK_INSTALL_VARIANT = default
-SDK_INSTALL_VARIANT[sdk=driverkit*] = driverkit
-SDK_INSTALL_VARIANT[sdk=exclavekit*] = exclavekit
-SDK_INSTALL_ROOT = $(SDK_INSTALL_ROOT_$(SDK_INSTALL_VARIANT))
-SDK_INSTALL_ROOT_driverkit = $(DRIVERKITROOT) // TODO: switch to SYSTEM_PREFIX?
-SDK_INSTALL_ROOT_exclavekit = $(SYSTEM_PREFIX)
-SDK_INSTALL_HEADERS_ROOT = $(SDK_INSTALL_HEADERS_ROOT_$(SDK_INSTALL_VARIANT))
-SDK_INSTALL_HEADERS_ROOT_driverkit = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_PREFIX)
+SDK_INSTALL_ROOT[sdk=driverkit*] = $(DRIVERKITROOT) // TODO: switch to SYSTEM_PREFIX?
+SDK_INSTALL_ROOT[sdk=exclavekit*] = $(SYSTEM_PREFIX)
+SDK_INSTALL_HEADERS_ROOT[sdk=driverkit*] = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_PREFIX)
 SDK_RUNTIME_HEADERS_PREFIX = Runtime
-SDK_INSTALL_HEADERS_ROOT_exclavekit = $(SDK_INSTALL_ROOT)
+SDK_INSTALL_HEADERS_ROOT[sdk=exclavekit*] = $(SDK_INSTALL_ROOT)
 
-BUILD_VARIANTS = $(BUILD_VARIANTS_$(SDK_INSTALL_VARIANT))
-BUILD_VARIANTS_default = normal debug asan $(EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT)
-BUILD_VARIANTS_driverkit = normal debug
-BUILD_VARIANTS_exclavekit = normal
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
+BUILD_VARIANTS = normal debug asan $(EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT)
+BUILD_VARIANTS[sdk=driverkit*] = normal debug
+BUILD_VARIANTS[sdk=exclavekit*] = normal
+ARCHS = $(ARCHS_STANDARD_32_64_BIT)
+ARCHS[sdk=exclavekit*] = arm64e
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator driverkit exclavekit.macosx exclavekit.iphoneos
 INSTALL_PATH = $(SDK_INSTALL_ROOT)/usr/lib
 INSTALL_PATH_PREFIX = $(SDK_INSTALL_ROOT)
 INSTALL_PATH_FRAMEWORK_PREFIX = $(SDK_INSTALL_HEADERS_ROOT)
@@ -63,8 +59,12 @@ DYLIB_CURRENT_VERSION = $(CURRENT_VERSION_STRING_$(RC_XBS))
 DYLIB_NAME_VERSION_SUFFIX = .B
 DYLIB_NAME_VERSION_SUFFIX[sdk=driverkit*] =
 DYLIB_NAME_VERSION_SUFFIX[sdk=exclavekit*] =
-SYSTEM_HEADER_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include $(SDKROOT)/$(SDK_INSTALL_ROOT)/usr/local/include
-SYSTEM_FRAMEWORK_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/PrivateFrameworks $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks $(MSL_FRAMEWORK_SEARCH_PATHS)
+SYSTEM_HEADER_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(inherited)
+SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*] = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include $(SDKROOT)/$(SDK_INSTALL_ROOT)/usr/local/include
+SYSTEM_HEADER_SEARCH_PATHS[sdk=exclavekit*] = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include
+SYSTEM_FRAMEWORK_SEARCH_PATHS = $(MSL_FRAMEWORK_SEARCH_PATHS) $(inherited)
+SYSTEM_FRAMEWORK_SEARCH_PATHS[sdk=driverkit*] = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/PrivateFrameworks $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks $(MSL_FRAMEWORK_SEARCH_PATHS)
+SYSTEM_FRAMEWORK_SEARCH_PATHS[sdk=exclavekit*] = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/PrivateFrameworks $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks $(MSL_FRAMEWORK_SEARCH_PATHS)
 
 MSL_FRAMEWORK_SEARCH_PATHS =
 MSL_FRAMEWORK_SEARCH_PATHS[sdk=driverkit*] = $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks
@@ -76,7 +76,7 @@ OTHER_CFLAGS_debug = $(ASAN_CFLAGS_$(ASAN_IN_NORMAL_VARIANT:default=NO))
 OTHER_CFLAGS_asan = $(ASAN_CFLAGS_YES)
 OTHER_CFLAGS_no_asan = $(NOASAN_CFLAGS_YES)
 
-OTHER_LDFLAGS = -Wl,-search_paths_first -nodefaultlibs @$(BUILT_PRODUCTS_DIR)/linker_arguments.$(CURRENT_ARCH).$(CURRENT_VARIANT).txt $(DRIVERKIT_LDFLAGS)
+OTHER_LDFLAGS = -Wl,-search_paths_first -nodefaultlibs @$(BUILT_PRODUCTS_DIR)/linker_arguments.$(CURRENT_ARCH).$(CURRENT_VARIANT).txt $(PLATFORM_LDFLAGS)
 OTHER_LDFLAGS_normal = $(ASAN_LDFLAGS_$(ASAN_IN_NORMAL_VARIANT:default=NO))
 // Preserve existing behaviour of modifying debug variant.
 OTHER_LDFLAGS_debug = $(ASAN_LDFLAGS_$(ASAN_IN_NORMAL_VARIANT:default=NO))
@@ -87,7 +87,9 @@ OTHER_LDFLAGS_no_asan = $(NOASAN_LDFLAGS_YES)
 // whitelist of libraries in DriverKit SDK allowed to link directly against libSystem.dylib (outside of the umbrella)
 // "clang" is the allowable client string for the sanitizer runtimes, like
 // "libclang_rt.asan_osx_dynamic.dylib"
-DRIVERKIT_LDFLAGS[sdk=driverkit*] = -Wl,-allowable_client,c++ -Wl,-allowable_client,c++abi -Wl,-allowable_client,DriverKit -Wl,-allowable_client,clang
+PLATFORM_LDFLAGS[sdk=driverkit*] = -Wl,-allowable_client,c++ -Wl,-allowable_client,c++abi -Wl,-allowable_client,DriverKit -Wl,-allowable_client,clang
+PLATFORM_LDFLAGS[sdk=exclavekit*] = -Wl,-upward-lobjc
+
 LD_GENERATE_MAP_FILE = YES
 EXECUTABLE_PREFIX = lib
 PRIVATE_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/local/include/os

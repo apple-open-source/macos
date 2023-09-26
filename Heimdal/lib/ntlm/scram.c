@@ -37,7 +37,7 @@
 
 #ifdef ENABLE_SCRAM
 
-static void
+void
 scram_data_zero(heim_scram_data *data)
 {
     if (data) {

@@ -25,6 +25,7 @@
 #include "XSDHParam.h"
 
 #include <Security/Security.h>
+#include <Security/SecKeyPriv.h>
 #include <syslog.h>
 #include <sys/stat.h>
 
@@ -447,131 +448,99 @@ tlsst_identity_validate(SecIdentityRef identity, const char *setting_name)
 {
 	Debug(LDAP_DEBUG_TRACE, "tlsst_identity_validate(%s)\n", setting_name, 0, 0);
 
+	Boolean result = FALSE;
+
+	char errbuf[512];
+	CFErrorRef error = 0;
+	SecKeyRef privKey = NULL;
+	SecKeyRef pubKey = NULL;
+	CFDataRef data = NULL;
+	CFDataRef signature = NULL;
+	SecCertificateRef cert = NULL;
+	SecKeyAlgorithm algorithm = NULL;
+
 	/* use the private key to sign some test data */
 
-	SecKeyRef key = NULL;
-	OSStatus ret = SecIdentityCopyPrivateKey(identity, &key);
-	if (ret || key == NULL) {
-		char errbuf[512];
+	OSStatus ret = SecIdentityCopyPrivateKey(identity, &privKey);
+	if (ret != 0 || privKey == NULL) {
 		Debug(LDAP_DEBUG_ANY, "TLS: SecIdentityCopyPrivateKey() failed: %s (check %s setting)\n", tlsst_oss2buf(ret, errbuf, sizeof errbuf), setting_name, 0);
-		if (key)
-			CFRelease_and_null(key);
-		return FALSE;
+		goto out;
 	}
 
-	CFErrorRef error = NULL;
-	SecTransformRef xform = SecSignTransformCreate(key, &error);
-	CFRelease_and_null(key);
-	if (error || xform == NULL) {
-		char errbuf[512];
-		Debug(LDAP_DEBUG_ANY, "TLS: SecSignTransformCreate() failed: %s (check %s setting)\n", tlsst_err2buf(error, errbuf, sizeof errbuf), setting_name, 0);
-		if (error)
-			CFRelease_and_null(error);
-		if (xform)
-			CFRelease_and_null(xform);
-		return FALSE;
-	}
-
-	CFDataRef data = CFDataCreate(NULL, (const UInt8 *) "John Hancock", 12);
+	data = CFDataCreate(NULL, (const UInt8 *) "John Hancock", 12);
 	if (data == NULL) {
 		Debug(LDAP_DEBUG_ANY, "TLS: CFDataCreate() failed\n", 0, 0, 0);
-		CFRelease_and_null(xform);
-		return FALSE;
+		goto out;
 	}
 
-	Boolean ok = SecTransformSetAttribute(xform, kSecTransformInputAttributeName, data, &error);
-	if (error || !ok) {
-		char errbuf[512];
-		Debug(LDAP_DEBUG_ANY, "TLS: SecTransformSetAttribute(sign) failed: %s (check %s setting)\n", tlsst_err2buf(error, errbuf, sizeof errbuf), setting_name, 0);
-		if (error)
-			CFRelease_and_null(error);
-		CFRelease_and_null(data);
-		CFRelease_and_null(xform);
-		return FALSE;
+	/* Pick an algorithm compatible with the private key.  Any RSA signing
+	 * algorithm is fine for an RSA key pair and any ECDSA algorithm is fine for
+	 * an EC key pair.  For TLS those are the only two key pair types that should
+	 * be used.
+	 */
+	if (SecKeyGetAlgorithmId(privKey) == kSecRSAAlgorithmID) {
+		algorithm = kSecKeyAlgorithmRSASignatureMessagePSSSHA512;
+	} else if (SecKeyGetAlgorithmId(privKey) == kSecECDSAAlgorithmID) {
+		algorithm = kSecKeyAlgorithmECDSASignatureMessageX962SHA512;
+	} else {
+		Debug(LDAP_DEBUG_ANY, "TLS: SecKeyGetAlgorithmId() unhandled algorithm id %d\n", SecKeyGetAlgorithmId(privKey), 0, 0);
+		goto out;
 	}
 
-	CFTypeRef result = SecTransformExecute(xform, &error);
-	CFRelease_and_null(xform);
-	if (error || result == NULL || CFGetTypeID(result) != CFDataGetTypeID()) {
-		char errbuf[512];
-		Debug(LDAP_DEBUG_ANY, "TLS: SecTransformExecute(sign) failed (%lu, %lu): %s\n", result ? CFGetTypeID(result) : 0, CFDataGetTypeID(), tlsst_err2buf(error, errbuf, sizeof errbuf));
-		if (error)
-			CFRelease_and_null(error);
-		if (result)
-			CFRelease_and_null(result);
-		CFRelease_and_null(data);
-		return FALSE;
+	signature = SecKeyCreateSignature(privKey, algorithm, data, &error);
+	if (signature == NULL) {
+		Debug(LDAP_DEBUG_ANY, "TLS: SecKeyCreateSignature(sign) failed: %s (check %s setting)\n", tlsst_err2buf(error, errbuf, sizeof errbuf), setting_name, 0);
+		goto out;
 	}
 
 	/* verify the signature using the public key */
 
-	CFDataRef signature = (CFDataRef) result;
-	result = NULL;
-
-	SecCertificateRef cert = NULL;
 	ret = SecIdentityCopyCertificate(identity, &cert);
-	if (ret || cert == NULL) {
-		char errbuf[512];
+	if (ret != 0 || cert == NULL) {
 		Debug(LDAP_DEBUG_ANY, "TLS: SecIdentityCopyCertificate() failed: %s (check %s setting)\n", tlsst_oss2buf(ret, errbuf, sizeof errbuf), setting_name, 0);
-		if (cert)
-			CFRelease_and_null(cert);
-		CFRelease_and_null(signature);
-		CFRelease_and_null(data);
-		return FALSE;
+		goto out;
 	}
 
-	ret = SecCertificateCopyPublicKey(cert, &key);
-	CFRelease_and_null(cert);
-	if (ret || key == NULL) {
-		char errbuf[512];
+	ret = SecCertificateCopyPublicKey(cert, &pubKey);
+	if (ret != 0 || pubKey == NULL) {
 		Debug(LDAP_DEBUG_ANY, "TLS: SecCertificateCopyPublicKey() failed: %s (check %s setting)\n", tlsst_oss2buf(ret, errbuf, sizeof errbuf), setting_name, 0);
-		if (key)
-			CFRelease_and_null(key);
+		goto out;
+	}
+
+	if (!SecKeyVerifySignature(pubKey, algorithm, data, signature, &error)) {
+		Debug(LDAP_DEBUG_ANY, "TLS: SecKeyVerifySignature() failed: %s (check %s setting)\n", tlsst_err2buf(error, errbuf, sizeof errbuf), setting_name, 0);
+		goto out;
+	}
+
+	result = TRUE;
+
+out:
+
+	if (privKey != NULL) {
+		CFRelease_and_null(privKey);
+	}
+
+	if (pubKey != NULL) {
+		CFRelease_and_null(pubKey);
+	}
+
+	if (data != NULL) {
+		CFRelease_and_null(data);
+	}
+
+	if (signature != NULL) {
 		CFRelease_and_null(signature);
-		CFRelease_and_null(data);
-		return FALSE;
 	}
 
-	xform = SecVerifyTransformCreate(key, signature, &error);
-	CFRelease_and_null(key);
-	CFRelease_and_null(signature);
-	if (error || xform == NULL) {
-		char errbuf[512];
-		Debug(LDAP_DEBUG_ANY, "TLS: SecVerifyTransformCreate() failed: %s (check %s setting)\n", tlsst_err2buf(error, errbuf, sizeof errbuf), setting_name, 0);
-		if (error)
-			CFRelease_and_null(error);
-		if (xform)
-			CFRelease_and_null(xform);
-		CFRelease_and_null(data);
-		return FALSE;
+	if (cert != NULL) {
+		CFRelease_and_null(cert);
 	}
 
-	ok = SecTransformSetAttribute(xform, kSecTransformInputAttributeName, data, &error);
-	CFRelease_and_null(data);
-	if (error || !ok) {
-		char errbuf[512];
-		Debug(LDAP_DEBUG_ANY, "TLS: SecTransformSetAttribute(verify) failed: %s (check %s setting)\n", tlsst_err2buf(error, errbuf, sizeof errbuf), setting_name, 0);
-		if (error)
-			CFRelease_and_null(error);
-		CFRelease_and_null(xform);
-		return FALSE;
+	if (error != NULL) {
+		CFRelease_and_null(error);
 	}
 
-	result = SecTransformExecute(xform, &error);
-	CFRelease_and_null(xform);
-	if (error || result == NULL || CFGetTypeID(result) != CFBooleanGetTypeID()) {
-		char errbuf[512];
-		Debug(LDAP_DEBUG_ANY, "TLS: SecTransformExecute(verify) failed (%lu, %lu): %s\n", result ? CFGetTypeID(result) : 0, CFBooleanGetTypeID(), tlsst_err2buf(error, errbuf, sizeof errbuf));
-		if (error)
-			CFRelease_and_null(error);
-		if (result)
-			CFRelease_and_null(result);
-		return FALSE;
-	}
-
-	ok = CFBooleanGetValue((CFBooleanRef) result);
-	CFRelease_and_null(result);
-	return ok;
+	return result;
 }
 
 static void 

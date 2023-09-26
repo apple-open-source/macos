@@ -24,6 +24,13 @@
 	<dict>
 		<key>ServiceType</key>
 		<string>$(SERVICETYPE_USER_OR_SYSTEM)</string>
+		<key>_RoleAccount</key>
+		<dict>
+			<key>#IfFeatureFlagEnabled</key>
+			<string>Security/SeparateUserKeychain</string>
+			<key>#Then</key>
+			<string>mobile</string>
+		</dict>
 	</dict>
 </dict>
 </plist>

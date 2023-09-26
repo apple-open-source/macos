@@ -3,6 +3,27 @@
 banner/banner.6	freebsd	usr.bin/banner/banner.6	b77e235dd52a682c11ddd93256b3848cdc6f1d72
 banner/banner.c	freebsd	usr.bin/banner/banner.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
+bintrans/apple_base64.c	freebsd	lib/libc/net/base64.c	d4ecf62f120183d07437d40e2cc64ef6a15787f5
+bintrans/bintrans.1	freebsd	usr.bin/bintrans/bintrans.1	aad4fd5495895bf1aa501037bb1e5df4e116a018
+bintrans/bintrans.c	freebsd	usr.bin/bintrans/bintrans.c	ed016aa4354156a6e778902035fc0186d3b93a4f
+bintrans/qp.c	freebsd	usr.bin/bintrans/qp.c	83e8c2317846dd0c889fb784a11f94f98b982062
+bintrans/tests/legacy_test.sh	freebsd	usr.bin/bintrans/tests/legacy_test.sh	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/tests/bintrans_test.sh	freebsd	usr.bin/bintrans/tests/bintrans_test.sh	83e8c2317846dd0c889fb784a11f94f98b982062
+bintrans/tests/regress.153276.in	freebsd	usr.bin/bintrans/tests/regress.153276.in	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/tests/regress.sh	freebsd	usr.bin/bintrans/tests/regress.sh	f331cf9b043a7e5ad4fd22ed9908c5f59da744d4
+bintrans/tests/regress.traditional.in	freebsd	usr.bin/bintrans/tests/regress.traditional.in	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/tests/regress.out	freebsd	usr.bin/bintrans/tests/regress.out	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/tests/regress.153276.out	freebsd	usr.bin/bintrans/tests/regress.153276.out	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/tests/regress.base64.out	freebsd	usr.bin/bintrans/tests/regress.base64.out	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/tests/regress.in	freebsd	usr.bin/bintrans/tests/regress.in	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/tests/textqpdec	freebsd	usr.bin/bintrans/tests/textqpdec	83e8c2317846dd0c889fb784a11f94f98b982062
+bintrans/tests/textqpenc	freebsd	usr.bin/bintrans/tests/textqpenc	83e8c2317846dd0c889fb784a11f94f98b982062
+bintrans/tests/regress.traditional.out	freebsd	usr.bin/bintrans/tests/regress.traditional.out	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/tests/regress.base64.in	freebsd	usr.bin/bintrans/tests/regress.base64.in	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+bintrans/uudecode.c	freebsd	usr.bin/bintrans/uudecode.c	540a99289bb142cba89891d715f6ac3e1f7c7cb1
+bintrans/uuencode.c	freebsd	usr.bin/bintrans/uuencode.c	540a99289bb142cba89891d715f6ac3e1f7c7cb1
+bintrans/uuencode.format.5	freebsd	usr.bin/bintrans/uuencode.format.5	47bcbde91dea630d4996b1a7b2c33925fe8d5b5b
+
 cat/cat.1	freebsd	bin/cat/cat.1	f3aff7c91bd451d300ffd37ddce5a1fdbe802123
 cat/cat.c	freebsd	bin/cat/cat.c	0614d7396798a268bd9efb103dffdeb0ad4a066c
 cat/tests/d_align.in	freebsd	contrib/netbsd-tests/bin/cat/d_align.in	640235e2c2ba32947f7c59d168437ffa1280f1e6
@@ -253,7 +274,7 @@ fold/fold.c	freebsd	usr.bin/fold/fold.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 fold/tests/fold_test.sh	freebsd	usr.bin/fold/tests/fold_test.sh	013953eb5f868c0a7b9821ad1d196d2795203ac7
 
 grep/file.c	freebsd	usr.bin/grep/file.c	81c3f64110bb76e24d6062eafd7206c10f676d6f
-grep/grep.1	freebsd	usr.bin/grep/grep.1	2373acbbb77d694b997d90f3251810c6edf5d6d8
+grep/grep.1	freebsd	usr.bin/grep/grep.1	085a42d0cff1a446e8a0eab1471970093e5235de
 grep/grep.c	freebsd	usr.bin/grep/grep.c	2373acbbb77d694b997d90f3251810c6edf5d6d8
 grep/grep.h	freebsd	usr.bin/grep/grep.h	df546c3b730d4abcace1da24226bd5f01280588e
 grep/queue.c	freebsd	usr.bin/grep/queue.c	81c3f64110bb76e24d6062eafd7206c10f676d6f
@@ -613,17 +634,18 @@ sort/tests/t_sort.sh	freebsd	contrib/netbsd-tests/usr.bin/sort/t_sort.sh	57718be
 sort/vsort.c	freebsd	usr.bin/sort/vsort.c	1de7b4b805ddbf2429da511c053686ac4591ed89
 sort/vsort.h	freebsd	usr.bin/sort/vsort.h	1de7b4b805ddbf2429da511c053686ac4591ed89
 
-split/split.1	freebsd	usr.bin/split/split.1	e48cafb55ddaa7ac3ed73ddf25b8019531c83d71
-split/split.c	freebsd	usr.bin/split/split.c	bcd34af4731db389706eda26b068ce5a880e3d9b
+split/split.1	freebsd	usr.bin/split/split.1	5c053aa3c5e907bdd1ac466ce9b58611781c2c20
+split/split.c	freebsd	usr.bin/split/split.c	5c053aa3c5e907bdd1ac466ce9b58611781c2c20
+split/tests/split_test.sh	freebsd	usr.bin/split/tests/split_test.sh	75c3ca1ebf81224919f2b7a9edf2921ce76ea290
 
-tail/forward.c	freebsd	usr.bin/tail/forward.c	7787e7eed9d2a43fb6eb66666040f1b495995a2f
+tail/extern.h	freebsd	usr.bin/tail/extern.h	643ac419fafba89f5adda0e0ea75b538727453fb
+tail/forward.c	freebsd	usr.bin/tail/forward.c	ef6f20ce47613db7cc615b45f4b6fa1eb99ae0ba
 tail/misc.c	freebsd	usr.bin/tail/misc.c	c851fce6d779e8340609d7e2364829c61cbcb1ef
 tail/read.c	freebsd	usr.bin/tail/read.c	c851fce6d779e8340609d7e2364829c61cbcb1ef
 tail/reverse.c	freebsd	usr.bin/tail/reverse.c	c851fce6d779e8340609d7e2364829c61cbcb1ef
-tail/tail.c	freebsd	usr.bin/tail/tail.c	eee07d30a0b3ff6448ce3441b8808c5529a9505d
-tail/extern.h	freebsd	usr.bin/tail/extern.h	c851fce6d779e8340609d7e2364829c61cbcb1ef
-tail/tail.1	freebsd	usr.bin/tail/tail.1	c0f2b64a8945fe4a217e8969c5c278a59f728a01
-tail/tests/tail_test.sh	freebsd	usr.bin/tail/tests/tail_test.sh	809a8352dd5bb83dca991ff6c82e509208afad26
+tail/tail.1	freebsd	usr.bin/tail/tail.1	643ac419fafba89f5adda0e0ea75b538727453fb
+tail/tail.c	freebsd	usr.bin/tail/tail.c	c2e561a38f739a4801d652f4b662cdc1903244f0
+tail/tests/tail_test.sh	freebsd	usr.bin/tail/tests/tail_test.sh	fa3af3ce5010740f28faed22e0a1e819491f26b4
 
 tr/cmap.c	freebsd	usr.bin/tr/cmap.c	1de7b4b805ddbf2429da511c053686ac4591ed89
 tr/cmap.h	freebsd	usr.bin/tr/cmap.h	1de7b4b805ddbf2429da511c053686ac4591ed89
@@ -675,3 +697,7 @@ vis/extern.h	freebsd	contrib/vis/extern.h	0fcefb433d1265c4e6d4275eae7478cda1bf6a
 vis/foldit.c	freebsd	contrib/vis/foldit.c	f1f890804985a1043da42a5def13c79dc005f5e9
 vis/vis.1	freebsd	contrib/vis/vis.1	15fccd86b9dd17ca2cc1a70b060a2b1a1bf8470b
 vis/vis.c	freebsd	contrib/vis/vis.c	15fccd86b9dd17ca2cc1a70b060a2b1a1bf8470b
+
+wc/wc.1	freebsd	usr.bin/wc/wc.1	75acbb222694769c1089363d56af6fee95e2550d
+wc/wc.c	freebsd	usr.bin/wc/wc.c	5016d112ad8b259047920f3a2f749c369982de37
+wc/tests/wc_test.sh	freebsd	usr.bin/wc/tests/wc_test.sh	5c870e1b48948a283c963ecb88780e4e0406ac1e

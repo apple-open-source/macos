@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>chpass</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-01-23</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/chpass?id=17054abf5bef1ff4f21b7ce358ca93065827ee8c</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-01-25</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>chpass.1: references to yp/nis items deleted</string>
+			<string>chpass.c + more: add support for Open Directory</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

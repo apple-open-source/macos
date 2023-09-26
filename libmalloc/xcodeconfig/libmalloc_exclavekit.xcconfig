@@ -1,0 +1,49 @@
+SDKROOT = exclavecore.iphoneos.internal
+SUPPORTED_PLATFORMS = exclavekit.iphoneos
+BUILD_VARIANTS = normal asan
+
+PRODUCT_NAME = libsystem_malloc
+INSTALL_PATH = $(SYSTEM_PREFIX)/usr/lib/system
+
+// Use matching directory structure as liblibc
+PUBLIC_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/include/knrheap
+PRIVATE_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/include/_knrheap
+USE_HEADERMAP = NO
+
+// The main heap header files are still installed by liblibc
+TAPI_EXTRA_PUBLIC_HEADERS = $(inherited) $(SDKROOT)/$(SYSTEM_PREFIX)/usr/include/_liblibc/_malloc.h
+TAPI_EXTRA_PUBLIC_HEADERS = $(inherited) $(SDKROOT)/$(SYSTEM_PREFIX)/usr/include/malloc/malloc.h
+
+// Add the local include directory only to the user header search path to ensure
+// that malloc/malloc.h comes from the SDK whereas knrheap/heap.h is local
+ALWAYS_SEARCH_USER_PATHS = NO
+USER_HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/include
+HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/include/knrheap
+
+SUPPORTS_TEXT_BASED_API = YES
+TAPI_VERIFY_MODE = Pedantic
+
+// Don't link against libSystem, link against liblibc directly
+LINK_WITH_STANDARD_LIBRARIES = NO
+LIBRARY_SEARCH_PATHS = $(inherited) $(SDKROOT)/$(SYSTEM_PREFIX)/usr/lib/system
+OTHER_LDFLAGS = $(inherited) -umbrella System -Wl,-upward-llibc
+
+// ASan builds need to produce a different file with different build settings
+OTHER_LDFLAGS_asan = $(inherited) -fsanitize=address
+OTHER_LDFLAGS_asan = $(inherited) -fno-sanitize-link-runtime
+OTHER_LDFLAGS_asan = $(inherited) -Wl,-image_suffix,_asan
+
+OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_INSTRUMENTATION=1
+OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_RUNTIME=1
+OTHER_CFLAGS_asan = $(inherited) -fsanitize=address
+OTHER_CFLAGS_asan = $(inherited) -fsanitize-address-use-after-return=never
+OTHER_CFLAGS_asan = $(inherited) -mllvm -asan-constructor-kind=none
+OTHER_CFLAGS_asan = $(inherited) -mllvm -asan-guard-against-version-mismatch=0
+
+OTHER_TAPI_FLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_INSTRUMENTATION=1
+OTHER_TAPI_FLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_RUNTIME=1
+
+OTHER_TAPI_FLAGS = $(inherited) -umbrella System $(OTHER_TAPI_FLAGS_$(CURRENT_VARIANT))
+
+// Enable firebloom to match liblibc build settings
+CLANG_ENABLE_BOUNDS_ATTRIBUTES = YES

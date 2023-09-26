@@ -100,9 +100,9 @@ void RemoteVideoFrameObjectHeapProxyProcessor::setSharedVideoFrameSemaphore(IPC:
     m_sharedVideoFrameReader.setSemaphore(WTFMove(semaphore));
 }
 
-void RemoteVideoFrameObjectHeapProxyProcessor::setSharedVideoFrameMemory(const SharedMemory::Handle& handle)
+void RemoteVideoFrameObjectHeapProxyProcessor::setSharedVideoFrameMemory(SharedMemory::Handle&& handle)
 {
-    m_sharedVideoFrameReader.setSharedMemory(handle);
+    m_sharedVideoFrameReader.setSharedMemory(WTFMove(handle));
 }
 
 RemoteVideoFrameObjectHeapProxyProcessor::Callback RemoteVideoFrameObjectHeapProxyProcessor::takeCallback(RemoteVideoFrameIdentifier identifier)
@@ -156,12 +156,12 @@ RefPtr<NativeImage> RemoteVideoFrameObjectHeapProxyProcessor::getNativeImage(con
 
     auto frame = m_sharedVideoFrameWriter.write(videoFrame,
         [&](auto& semaphore) { connection.send(Messages::RemoteVideoFrameObjectHeap::SetSharedVideoFrameSemaphore { semaphore }, 0); },
-        [&](auto& handle) { connection.send(Messages::RemoteVideoFrameObjectHeap::SetSharedVideoFrameMemory { handle }, 0); });
+        [&](auto&& handle) { connection.send(Messages::RemoteVideoFrameObjectHeap::SetSharedVideoFrameMemory { WTFMove(handle) }, 0); });
     if (!frame)
         return nullptr;
 
     auto sendResult = connection.sendSync(Messages::RemoteVideoFrameObjectHeap::ConvertFrameBuffer { *frame }, 0, GPUProcessConnection::defaultTimeout);
-    if (!sendResult) {
+    if (!sendResult.succeeded()) {
         m_sharedVideoFrameWriter.disable();
         return nullptr;
     }

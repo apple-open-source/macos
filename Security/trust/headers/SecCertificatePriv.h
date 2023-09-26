@@ -49,6 +49,11 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecCertificate.h>
 
+#if SEC_OS_OSX
+#include <Security/cssmtype.h>
+#include <Security/x509defs.h>
+#endif
+
 __BEGIN_DECLS
 
 #if SEC_OS_IPHONE
@@ -332,7 +337,8 @@ typedef CF_ENUM(uint32_t, SecSignatureHashAlgorithm){
     kSecSignatureHashAlgorithmSHA224 = 5,
     kSecSignatureHashAlgorithmSHA256 = 6,
     kSecSignatureHashAlgorithmSHA384 = 7,
-    kSecSignatureHashAlgorithmSHA512 = 8
+    kSecSignatureHashAlgorithmSHA512 = 8,
+    kSecSignatureHashAlgorithmSHAKE256 = 9,
 };
 
 /*!
@@ -499,8 +505,6 @@ CFDictionaryRef SecCertificateCopyComponentAttributes(SecCertificateRef certific
  * Legacy functions (OS X only)
  */
 #if SEC_OS_OSX
-#include <Security/cssmtype.h>
-#include <Security/x509defs.h>
 
 /* Given a unified SecCertificateRef, return a copy with a legacy
  C++ ItemImpl-based Certificate instance. Only for internal use;

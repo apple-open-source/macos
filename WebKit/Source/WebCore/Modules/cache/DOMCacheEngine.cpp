@@ -97,7 +97,7 @@ bool queryCacheMatch(const ResourceRequest& request, const ResourceRequest& cach
     varyValue.split(',', [&](StringView view) {
         if (isVarying)
             return;
-        auto nameView = stripLeadingAndTrailingHTTPSpaces(view);
+        auto nameView = view.trim(isHTTPSpace);
         if (nameView == "*"_s) {
             isVarying = true;
             return;
@@ -182,6 +182,22 @@ Record fromCrossThreadRecord(CrossThreadRecord&& record)
         ResourceResponse::fromCrossThreadData(WTFMove(record.response)),
         WTFMove(record.responseBody),
         record.responseBodySize
+    };
+}
+
+CrossThreadRecord CrossThreadRecord::isolatedCopy() &&
+{
+    return CrossThreadRecord {
+        identifier,
+        updateResponseCounter,
+        requestHeadersGuard,
+        WTFMove(request).isolatedCopy(),
+        WTFMove(options).isolatedCopy(),
+        WTFMove(referrer).isolatedCopy(),
+        responseHeadersGuard,
+        WTFMove(response).isolatedCopy(),
+        isolatedResponseBody(responseBody),
+        responseBodySize
     };
 }
 

@@ -46,23 +46,26 @@ public:
 
     static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const Parameters&, const ImageBufferCreationContext&);
 
-    ImageBufferIOSurfaceBackend(const Parameters&, std::unique_ptr<IOSurface>&&, IOSurfacePool*);
+    ImageBufferIOSurfaceBackend(const Parameters&, std::unique_ptr<IOSurface>, RetainPtr<CGContextRef> platformContext, PlatformDisplayID, IOSurfacePool*);
     ~ImageBufferIOSurfaceBackend();
     
     static constexpr RenderingMode renderingMode = RenderingMode::Accelerated;
 
     IOSurface* surface();
-    GraphicsContext& context() const override;
+    GraphicsContext& context() override;
     void flushContext() override;
 
 protected:
+    CGContextRef ensurePlatformContext();
+    // Returns true if flush happened.
+    bool flushContextDraws();
     IntSize backendSize() const override;
     
-    RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) const override;
-    RefPtr<NativeImage> copyNativeImageForDrawing(BackingStoreCopy = CopyBackingStore) const override;
+    RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) override;
+    RefPtr<NativeImage> copyNativeImageForDrawing(GraphicsContext&) override;
     RefPtr<NativeImage> sinkIntoNativeImage() override;
 
-    RefPtr<PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&, const ImageBufferAllocator&) const override;
+    void getPixelBuffer(const IntRect&, PixelBuffer&) override;
     void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) override;
 
     bool isInUse() const override;
@@ -79,15 +82,18 @@ protected:
 
     unsigned bytesPerRow() const override;
 
-    void finalizeDrawIntoContext(GraphicsContext& destinationContext) override;
-    void invalidateCachedNativeImage() const;
-    void invalidateCachedNativeImageIfNeeded() const;
+    void invalidateCachedNativeImage();
+    void prepareForExternalRead();
+    void prepareForExternalWrite();
+
+    RetainPtr<CGImageRef> createImage();
+    RetainPtr<CGImageRef> createImageReference();
 
     std::unique_ptr<IOSurface> m_surface;
-    mutable bool m_mayHaveOutstandingBackingStoreReferences { false };
-    mutable bool m_needsSetupContext { false };
+    RetainPtr<CGContextRef> m_platformContext;
+    const PlatformDisplayID m_displayID;
+    bool m_mayHaveOutstandingBackingStoreReferences { false };
     VolatilityState m_volatilityState { VolatilityState::NonVolatile };
-
     RefPtr<IOSurfacePool> m_ioSurfacePool;
 };
 

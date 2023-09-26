@@ -198,14 +198,14 @@ rts_attach(struct socket *so, int proto, struct proc *p)
 
 	switch (rp->rcb_proto.sp_protocol) {
 	case AF_INET:
-		atomic_add_32(&route_cb.ip_count, 1);
+		os_atomic_inc(&route_cb.ip_count, relaxed);
 		break;
 	case AF_INET6:
-		atomic_add_32(&route_cb.ip6_count, 1);
+		os_atomic_inc(&route_cb.ip6_count, relaxed);
 		break;
 	}
 	rp->rcb_faddr = &route_src;
-	atomic_add_32(&route_cb.any_count, 1);
+	os_atomic_inc(&route_cb.any_count, relaxed);
 	/* the socket is already locked when we enter rts_attach */
 	soisconnected(so);
 	so->so_options |= SO_USELOOPBACK;
@@ -236,13 +236,13 @@ rts_detach(struct socket *so)
 
 	switch (rp->rcb_proto.sp_protocol) {
 	case AF_INET:
-		atomic_add_32(&route_cb.ip_count, -1);
+		os_atomic_dec(&route_cb.ip_count, relaxed);
 		break;
 	case AF_INET6:
-		atomic_add_32(&route_cb.ip6_count, -1);
+		os_atomic_dec(&route_cb.ip6_count, relaxed);
 		break;
 	}
-	atomic_add_32(&route_cb.any_count, -1);
+	os_atomic_dec(&route_cb.any_count, relaxed);
 	return raw_usrreqs.pru_detach(so);
 }
 

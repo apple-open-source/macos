@@ -58,7 +58,6 @@
  * SUCH DAMAGE.
  */
 
-
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/mbuf.h>
@@ -132,6 +131,7 @@ name          count    count    count    count    count    count\n\
 static const char *mbpr_state(int);
 static const char *mbpr_mem(u_int32_t);
 static int mbpr_getdata(void);
+static void mbpr_tag_stats(void);
 
 /*
  * Print mbuf statistics.
@@ -271,11 +271,19 @@ mbpr(void)
 	}
 	printf("%lu KB allocated to network (%.1f%% in use)\n",
 		totmem / 1024, totpct);
-	printf("%lu KB returned to the system\n", totreturned / 1024);
+	if (totreturned > 0) {
+		printf("%lu KB returned to the system\n", totreturned / 1024);
+	}
 
-	printf("%u requests for memory denied\n", (unsigned int)mbstat.m_drops);
-	printf("%u requests for memory delayed\n", (unsigned int)mbstat.m_wait);
-	printf("%u calls to drain routines\n", (unsigned int)mbstat.m_drain);
+	if (mbstat.m_drops > 0) {
+		printf("%u requests for memory denied\n", (unsigned int)mbstat.m_drops);
+	}
+	if (mbstat.m_wait > 0) {
+		printf("%u requests for memory delayed\n", (unsigned int)mbstat.m_wait);
+	}
+	if (mbstat.m_drain > 0) {
+		printf("%u calls to drain routines\n", (unsigned int)mbstat.m_drain);
+	}
 
 	free(mb_stat);
 	mb_stat = NULL;
@@ -331,6 +339,10 @@ mbpr(void)
 		free(mleak_stat);
 		mleak_stat = NULL;
 	}
+
+    if (mflag > 2) {
+        mbpr_tag_stats();
+    }
 }
 
 static const char *
@@ -474,3 +486,83 @@ done:
 
 	return (error);
 }
+
+#if HAS_M_TAG_STATS
+
+static char *
+str_for_token(char *str, size_t len, u_int16_t token, const char *token_list)
+{
+    char *tofree;
+    char *match = NULL;
+
+    tofree = token_list != NULL ? strdup(token_list) : NULL;
+    if (tofree != NULL) {
+        char *tmp = tofree;
+
+        for (u_int16_t i = 0; i <= token; i++) {
+            if (tmp == NULL) {
+                match = NULL;
+                break;
+            }
+            match = strsep(&tmp, ",");
+        }
+    }
+
+    if (match != NULL) {
+        snprintf(str, len, "%s (%u)", match, token);
+    } else {
+        snprintf(str, len, "%u (%u)", token, token);
+    }
+    free(tofree);
+
+    return str;
+}
+
+void
+mbpr_tag_stats(void)
+{
+    struct m_tag_stats *m_tag_stats;
+    size_t len;
+    size_t count;
+
+    if (sysctlbyname("kern.ipc.mb_tag_stats", NULL, &len, NULL, 0) != 0) {
+        return;
+    }
+
+    count = len / sizeof(struct m_tag_stats);
+
+    m_tag_stats = calloc(count, sizeof(struct m_tag_stats));
+    if (m_tag_stats == NULL) {
+        return;
+    }
+
+    if (sysctlbyname("kern.ipc.mb_tag_stats", m_tag_stats, &len, NULL, 0) != 0) {
+        return;
+    }
+
+    printf("\nmbuf tags:\n");
+
+    printf("%12s %12s %12s %12s %12s\n",
+           "type", "len", "alloc", "failed", "free");
+
+    const char *sep = "--------------------";
+    printf("%16.16s %12.12s %12.12s %12.12s %12.12s\n",
+           sep, sep, sep, sep, sep);
+
+    for (size_t i = 0; i < count; i++) {
+        char str[20];
+
+        printf("%16.16s %12u %12llu %12llu %12llu\n",
+               str_for_token(str, sizeof(str), i, M_TAG_TYPE_NAMES),
+               m_tag_stats[i].mts_len,
+               m_tag_stats[i].mts_alloc_count,
+               m_tag_stats[i].mts_alloc_failed,
+               m_tag_stats[i].mts_free_count);
+    }
+}
+#else
+void
+mbpr_tag_stats(void)
+{
+}
+#endif /* HAS_M_TAG_STATS */

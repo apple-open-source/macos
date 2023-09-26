@@ -78,6 +78,7 @@
 #include <vm/vm_kern.h>
 #include <vm/vm_object.h>
 #include <vm/vm_map.h>
+#include <vm/vm_memtag.h>
 #include <sys/kdebug.h>
 
 #include <os/hash.h>
@@ -385,7 +386,7 @@ kalloc_zone_init(
 		strlcpy(z_name, buf, len + 1);
 
 		(void)zone_create_ext(z_name, size, zc_flags, ZONE_ID_ANY, ^(zone_t z){
-#if __arm64e__ || KASAN_TBI
+#if __arm64e__ || CONFIG_KERNEL_TAGGING
 			uint32_t scale = kalloc_log2down(size / 32);
 
 			if (size == 32 << scale) {
@@ -2040,7 +2041,7 @@ kalloc_guard(vm_tag_t tag, uint16_t type_hash, const void *owner)
 	return guard;
 }
 
-#if __arm64e__ || KASAN_TBI
+#if __arm64e__ || CONFIG_KERNEL_TAGGING
 
 #if __arm64e__
 #define KALLOC_ARRAY_TYPE_SHIFT (64 - T1SZ_BOOT - 1)
@@ -2276,6 +2277,7 @@ kalloc_large(
 		kma_flags |= KMA_SPRAYQTN;
 	}
 
+
 	tag = zalloc_flags_get_tag(flags);
 	if (flags & Z_VM_TAG_BT_BIT) {
 		tag = vm_tag_bt() ?: tag;
@@ -2307,6 +2309,26 @@ kalloc_large(
 	return (struct kalloc_result){ .addr = (void *)addr, .size = req_size };
 }
 
+#if KASAN
+
+static inline void
+kalloc_mark_unused_space(void *addr, vm_size_t size, vm_size_t used)
+{
+#if KASAN_CLASSIC
+	/*
+	 * On KASAN_CLASSIC, Z_SKIP_KASAN is defined and the entire sanitizer
+	 * tagging of the memory region is performed here.
+	 */
+	kasan_alloc((vm_offset_t)addr, size, used, KASAN_GUARD_SIZE, false,
+	    __builtin_frame_address(0));
+#endif /* KASAN_CLASSIC */
+
+#if KASAN_TBI
+	kasan_tbi_retag_unused_space((vm_offset_t)addr, size, used ? :1);
+#endif /* KASAN_TBI */
+}
+#endif /* KASAN */
+
 static inline struct kalloc_result
 kalloc_zone(
 	zone_t                  z,
@@ -2329,19 +2351,10 @@ kalloc_zone(
 #if ZSECURITY_CONFIG(PGZ_OOB_ADJUST)
 		kr.addr = zone_element_pgz_oob_adjust(kr.addr, req_size, esize);
 #endif /* !ZSECURITY_CONFIG(PGZ_OOB_ADJUST) */
-#if KASAN_CLASSIC
-		kasan_alloc((vm_offset_t)kr.addr, esize, kr.size,
-		    KASAN_GUARD_SIZE, false, __builtin_frame_address(0));
-#endif /* KASAN_CLASSIC */
-#if KASAN_TBI
-		/*
-		 * Kasan-TBI at least needs to tag one byte so that
-		 * we can prove the allocation was live at kfree_ext()
-		 * time by doing a manual __asan_loadN check.
-		 */
-		kr.addr = (void *)kasan_tbi_tag_zalloc((vm_offset_t)kr.addr,
-		    esize, kr.size ?: 1, false);
-#endif /* KASAN_TBI */
+
+#if KASAN
+		kalloc_mark_unused_space(kr.addr, esize, kr.size);
+#endif /* KASAN */
 
 		if (flags & Z_KALLOC_ARRAY) {
 			kr.addr = __kalloc_array_encode_zone(z, kr.addr, kr.size);
@@ -2937,6 +2950,7 @@ krealloc_large(
 		kmr_flags |= KMR_REALLOCF;
 	}
 
+
 	tag = zalloc_flags_get_tag(flags);
 	if (flags & Z_VM_TAG_BT_BIT) {
 		tag = vm_tag_bt() ?: tag;
@@ -3080,6 +3094,14 @@ krealloc_ext(
 			    kr.size - min_size);
 		}
 #endif /* !ZSECURITY_CONFIG(PGZ_OOB_ADJUST) */
+#if KASAN
+		/*
+		 * On KASAN kernels, treat a reallocation effectively as a new
+		 * allocation and add a sanity check around the existing one
+		 * w.r.t. the old requested size. On KASAN_CLASSIC this doesn't account
+		 * to much extra work, on KASAN_TBI, assign a new tag both to the
+		 * buffer and to the potential free space.
+		 */
 #if KASAN_CLASSIC
 		kasan_check_alloc((vm_offset_t)addr, old_bucket_size, old_size);
 		kasan_alloc((vm_offset_t)addr, new_bucket_size, kr.size,
@@ -3091,9 +3113,11 @@ krealloc_ext(
 		 * even if the address is stable, it's a "new" allocation.
 		 */
 		__asan_loadN((vm_offset_t)addr, old_size);
-		kr.addr = (void *)kasan_tbi_tag_zalloc((vm_offset_t)kr.addr,
-		    new_bucket_size, kr.size, false);
+		kr.addr = (void *)vm_memtag_assign_tag((vm_offset_t)kr.addr, kr.size);
+		vm_memtag_set_tag((vm_offset_t)kr.addr, kr.size);
+		kasan_tbi_retag_unused_space((vm_offset_t)kr.addr, new_bucket_size, kr.size);
 #endif /* KASAN_TBI */
+#endif /* KASAN */
 		goto out_success;
 	}
 
@@ -3558,13 +3582,8 @@ run_kalloc_test(int64_t in __unused, int64_t *out)
 	kr = krealloc_ext(KHEAP_DATA_BUFFERS, data_ptr, old_alloc_size, alloc_size,
 	    Z_WAITOK | Z_NOFAIL, NULL);
 
-#if CONFIG_KERNEL_TBI
-	strippedp_old = VM_KERNEL_TBI_FILL(data_ptr);
-	strippedp_new = VM_KERNEL_TBI_FILL(kr.addr);
-#else /* CONFIG_KERNEL_TBI */
-	strippedp_old = data_ptr;
-	strippedp_new = kr.addr;
-#endif /* !CONFIG_KERNEL_TBI */
+	strippedp_old = (void *)vm_memtag_canonicalize_address((vm_offset_t)data_ptr);
+	strippedp_new = (void *)vm_memtag_canonicalize_address((vm_offset_t)kr.addr);
 
 	if (!kr.addr || (strippedp_old != strippedp_new) ||
 	    (test_bucket_size(KHEAP_DATA_BUFFERS, kr.size) !=
@@ -3580,13 +3599,8 @@ run_kalloc_test(int64_t in __unused, int64_t *out)
 	kr = krealloc_ext(KHEAP_DATA_BUFFERS, data_ptr, old_alloc_size, alloc_size,
 	    Z_WAITOK | Z_NOFAIL, NULL);
 
-#if CONFIG_KERNEL_TBI
-	strippedp_old = VM_KERNEL_TBI_FILL(data_ptr);
-	strippedp_new = VM_KERNEL_TBI_FILL(kr.addr);
-#else /* CONFIG_KERNEL_TBI */
-	strippedp_old = data_ptr;
-	strippedp_new = kr.addr;
-#endif /* !CONFIG_KERNEL_TBI */
+	strippedp_old = (void *)vm_memtag_canonicalize_address((vm_offset_t)data_ptr);
+	strippedp_new = (void *)vm_memtag_canonicalize_address((vm_offset_t)kr.addr);
 
 	if (!kr.addr || (strippedp_old == strippedp_new) ||
 	    (test_bucket_size(KHEAP_DATA_BUFFERS, kr.size) ==

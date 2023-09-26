@@ -65,8 +65,18 @@
 #include "crypto-headers.h"
 
 typedef struct {
-    char *client;
+    char *name;
+    unsigned char uuid[16];
+} scram_c_desc, *scram_c;
 
+typedef scram_c scram_cred;
+
+typedef struct {
+#ifdef HAVE_KCM
+    char *client;
+#else
+    scram_cred client;
+#endif
     heim_scram *scram;
 
     OM_uint32 flags;

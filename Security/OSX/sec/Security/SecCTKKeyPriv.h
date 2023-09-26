@@ -32,6 +32,7 @@ __BEGIN_DECLS
 extern const CFStringRef kSecUseToken;
 extern const CFStringRef kSecUseTokenSession;
 
+bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query);
 OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters,
                                SecKeyRef *rsaPublicKey, SecKeyRef *rsaPrivateKey);
 SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttributes, CFErrorRef *error);

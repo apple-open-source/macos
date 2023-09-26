@@ -1624,7 +1624,7 @@ nanov2_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 							bitarray_zap(slots, log_size, next_slot);
 							void *ptr = nanov2_slot_in_block_ptr(blockp, size_class, next_slot);
 							nanov2_free_slot_t *slotp = NANOV2_ZONE_PTR_TO_MAPPED_PTR(nanov2_free_slot_t *, ptr, ptr_offset);
-							next_slot = slotp->next_slot;
+							next_slot = (uint16_t)slotp->next_slot;
 							free_list_count++;
 						}
 						// Add a range for each slot that is not on the freelist,
@@ -2292,6 +2292,7 @@ nanov2_madvise_block(nanozonev2_t *nanozone, nanov2_block_meta_t *block_metap,
 
 #if OS_VARIANT_NOTRESOLVED
 
+#if CONFIG_NANO_RESERVE_REGIONS
 // Update protection for region to DEFAULT
 static bool
 nanov2_unprotect_region(nanov2_region_t *region)
@@ -2319,7 +2320,7 @@ nanov2_reserve_regions(nanov2_region_t *base, unsigned int num_regions)
 
 	return result;
 }
-
+#else
 // Attempts to allocate VM space for a region at a given address and returns
 // whether the allocation succeeded.
 static bool
@@ -2333,6 +2334,7 @@ nanov2_allocate_region(nanov2_region_t *region)
 			(uint64_t)region, result, 0, 0);
 	return result;
 }
+#endif // CONFIG_NANO_RESERVE_REGIONS
 
 // Allocates a new region adjacent to the current one. If the allocation fails,
 // keep sliding up by the size of a region until we either succeed or run out of
@@ -2424,7 +2426,8 @@ nanov2_guard_corruption_detected(void *corrupt_slot)
 	uint64_t guard = *(uint64_t *)corrupt_slot;
 	malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, true,
 			"Heap corruption detected, free list is damaged at %p\n"
-			"*** Incorrect guard value: %lu\n", corrupt_slot, guard);
+			"*** Incorrect guard value: %llu\n", corrupt_slot,
+			(unsigned long long)guard);
 	__builtin_unreachable();
 }
 
@@ -2489,7 +2492,7 @@ again:
 		slot = old_meta_view.meta.next_slot - 1; // meta.next_slot is 1-based.
 		ptr = nanov2_slot_in_block_ptr(blockp, size_class, slot);
 		nanov2_free_slot_t *slotp = (nanov2_free_slot_t *)ptr;
-		new_meta.next_slot = slot_full ? SLOT_FULL : slotp->next_slot;
+		new_meta.next_slot = slot_full ? SLOT_FULL : (uint16_t)slotp->next_slot;
 	}
 
 	// Write the updated meta data; try again if we raced with another thread.

@@ -37,7 +37,6 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     # Determine which port will be built
     # -----------------------------------------------------------------------------
     set(ALL_PORTS
-        AppleWin
         Efl
         FTW
         GTK
@@ -68,8 +67,8 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     endif ()
 
     if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "9.3.0")
-            message(FATAL_ERROR "GCC 9.3 or newer is required to build WebKit. Use a newer GCC version or Clang.")
+        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "10.2.0")
+            message(FATAL_ERROR "GCC 10.2 or newer is required to build WebKit. Use a newer GCC version or Clang.")
         endif ()
     endif ()
 
@@ -192,9 +191,9 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     # We cannot check for RUBY_FOUND because it is set only when the full package is installed and
     # the only thing we need is the interpreter. Unlike Python, cmake does not provide a macro
     # for finding only the Ruby interpreter.
-    find_package(Ruby 1.9)
-    if (NOT RUBY_EXECUTABLE OR RUBY_VERSION VERSION_LESS 1.9)
-        message(FATAL_ERROR "Ruby 1.9 or higher is required.")
+    find_package(Ruby 2.5)
+    if (NOT RUBY_EXECUTABLE OR RUBY_VERSION VERSION_LESS 2.5)
+        message(FATAL_ERROR "Ruby 2.5 or higher is required.")
     endif ()
 
     # -----------------------------------------------------------------------------
@@ -203,6 +202,7 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
 
     # To prevent multiple inclusion, most modules should be included once here.
     include(CheckCCompilerFlag)
+    include(CheckCSourceCompiles)
     include(CheckCXXCompilerFlag)
     include(CheckCXXSourceCompiles)
     include(CheckFunctionExists)

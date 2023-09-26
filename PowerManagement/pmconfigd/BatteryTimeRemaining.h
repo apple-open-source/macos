@@ -37,6 +37,8 @@
 // kMinTimeDeltaForBattRead - Minimum time(in seconds) between reading battery data for battery health evaluation
 #define kMinTimeDeltaForBattRead           (24*60*60)  // 24hrs
 
+#define MK_KEY(k)   #k    // Helper 'printer'
+
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
 
 // kTrueNCCCycleCountThreshold - If previously calculated NCCP is not available, NCCP is set to h/w specified value only if
@@ -179,26 +181,6 @@ typedef enum {
     kPSTypeUPS              = 2,
     kPSTypeAccessory        = 3
 } psTypes_t;
-
-
-/* PSStruct
- * Contains all the details about each power source that the system describes.
- * This struct is the backbone of the IOPowerSources() IOKit API for
- * power source reporting.
- */
-typedef struct {
-    // powerd will assign a unique psid to all sources.
-    int                 psid;
-    psTypes_t           psType;
-
-    // Ensure that only the process that created
-    // a ps may modify it or destroy it, by recording caller's pid.
-    int                 pid;
-    XCT_UNSAFE_UNRETAINED dispatch_source_t   procdeathsrc;
-
-    // This is the most current recorded state of this power source.
-    CFDictionaryRef     description;
-} PSStruct;
 
 // Returns the current version of IOPMPowerSource dictionary in memory. Can return NULL.
 __private_extern__ CFDictionaryRef batteryTimeRemaining_copyIOPMPowerSourceDictionary(void);

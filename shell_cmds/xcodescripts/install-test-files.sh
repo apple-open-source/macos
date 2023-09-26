@@ -1,18 +1,19 @@
 #!/bin/sh
 set -e -x
 
-install -d -o root -g wheel -m 0755 "$DSTROOT"/AppleInternal/Tests/shell_cmds
-install -o root -g wheel -m 0644 "$SRCROOT"/tests/regress.m4 \
+install -m 0755 -d \
+	"$DSTROOT"/AppleInternal/Tests/shell_cmds
+install -m 0644 "$SRCROOT"/tests/regress.m4 \
 	"$DSTROOT"/AppleInternal/Tests/shell_cmds
 
-install -d -o root -g wheel -m 0755 \
+install -m 0755 -d \
 	"$DSTROOT"/AppleInternal/Tests/shell_cmds/time
-install -o root -g wheel -m 0644 "$SRCROOT"/time/tests/test_time.sh \
+install -m 0644 "$SRCROOT"/time/tests/test_time.sh \
 	"$DSTROOT"/AppleInternal/Tests/shell_cmds/time
 
-install -d -o root -g wheel -m 0755 \
+install -m 0755 -d \
 	"$DSTROOT"/AppleInternal/CoreOS/BATS/unit_tests
-tmplist=$(mktemp -t shell_cmds_plist)
+tmplist=$(mktemp -t shell_cmds_test_plist)
 trap 'rm "$tmplist"' EXIT
 
 cat <<EOF > "$tmplist"
@@ -41,5 +42,7 @@ cat <<EOF >> "$tmplist"
 </plist>
 EOF
 
-install -o root -g wheel -m 0644 "$tmplist" \
+plutil -lint "$tmplist"
+
+install -m 0644 "$tmplist" \
 	"$DSTROOT"/AppleInternal/CoreOS/BATS/unit_tests/shell_cmds.plist

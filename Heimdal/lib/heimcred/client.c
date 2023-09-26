@@ -364,7 +364,7 @@ HeimCredGetAttributes(HeimCredRef cred)
  */
 
 HeimCredRef
-HeimCredCopyFromUUID(CFUUIDRef uuid)
+HeimCredCopyFromUUID(CFUUIDRef uuid) CF_RETURNS_RETAINED
 {
     __block HeimCredRef cred;
 
@@ -802,8 +802,6 @@ HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error)
 
 	dispatch_sync(HeimCredCTX.queue, ^{
 		result_cfdict = HeimCredMessageCopyAttributes(reply, "attributes", CFDictionaryGetTypeID());
-		if (result_cfdict)
-			CFRetain(result_cfdict);
 	});
 	xpc_release(reply);
 	
@@ -832,6 +830,112 @@ HeimCredDeleteAll(CFStringRef altDSID, CFErrorRef *error)
     xpc_release(reply);
     
     return result;
+}
+
+bool
+HeimCredAddNTLMChallenge(uint8_t challenge[8])
+{
+    HC_INIT();
+
+    CFDataRef data = CFDataCreate(NULL, challenge, 8); //challenges are always 8 bytes
+
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "add-challenge");
+    xpc_dictionary_set_data(request, "challenge", CFDataGetBytePtr(data), CFDataGetLength(data));
+
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+    xpc_release(request);
+    if (reply == NULL) {
+	return false;
+    }
+
+    bool result = false;
+    if (xpc_dictionary_get_value(reply, "error") == NULL) {
+	result = true;
+    }
+
+    xpc_release(reply);
+
+    return result;
+}
+
+
+// returns true if there is a NTLM reflection attack
+bool
+HeimCredCheckNTLMChallenge(uint8_t challenge[8])
+{
+    HC_INIT();
+    
+    CFDataRef data = CFDataCreate(NULL, challenge, 8); //challenges are always 8 bytes
+
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "check-challenge");
+    xpc_dictionary_set_data(request, "challenge", CFDataGetBytePtr(data), CFDataGetLength(data));
+
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+    xpc_release(request);
+    if (reply == NULL) {
+	return true;
+    }
+
+    bool result = true;
+    if (xpc_dictionary_get_value(reply, "error") == NULL) {
+	result = true;
+    }
+
+    xpc_object_t bool_result = xpc_dictionary_get_value(reply, "challenge-result");
+    if (bool_result && !xpc_bool_get_value(bool_result)) {
+	result = false;
+    }
+
+    xpc_release(reply);
+
+    return result;
+}
+
+CFDictionaryRef
+HeimCredDoSCRAM(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error) CF_RETURNS_RETAINED
+{
+    __block CFDictionaryRef result_cfdict = NULL;
+    
+    HC_INIT();
+    
+    if (error) {
+	*error = NULL;
+    }
+    
+    xpc_object_t xpcquery = _CFXPCCreateXPCObjectFromCFObject(attributes);
+    if (xpcquery == NULL)
+	return NULL;
+    
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "doscram");
+    HeimCredSetUUID(request, "uuid", cred->uuid);
+    xpc_dictionary_set_value(request, "attributes", xpcquery);
+    xpc_release(xpcquery);
+    
+    UpdateImpersonateBundle(request);
+    
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+    xpc_release(request);
+    if (reply == NULL) {
+	CreateCFError(error, kHeimCredErrorServerDisconnected, CFSTR("Server didn't return any data"));
+	return NULL;
+    }
+    if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
+	CreateCFError(error, kHeimCredErrorServerReturnedError, CFSTR("Server returned an error: %@"), reply);
+	return NULL;
+    }
+    
+    dispatch_sync(HeimCredCTX.queue, ^{
+	result_cfdict = HeimCredMessageCopyAttributes(reply, "attributes", CFDictionaryGetTypeID());
+	if (result_cfdict) {
+	    CFRetain(result_cfdict);
+	}
+    });
+    xpc_release(reply);
+    
+    return result_cfdict;
 }
 
 void

@@ -72,7 +72,7 @@ struct nfs_conf_lockd {
 	int verbose;
 };
 
-extern struct nfs_conf_lockd config;
+extern struct nfs_conf_lockd l_config;
 extern int grace_expired;
 extern int nsm_state;
 extern time_t currsec;

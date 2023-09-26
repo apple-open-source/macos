@@ -32,8 +32,11 @@
 #include "unicode/dtptngen.h"
 #include "unicode/formattedvalue.h"
 #include "unicode/udisplaycontext.h"
+#if APPLE_ICU_CHANGES
+// rdar://
 // Apple-specific
 #include "unicode/udateintervalformat.h"
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_BEGIN
 
@@ -680,6 +683,8 @@ public:
      */
     virtual UDisplayContext getContext(UDisplayContextType type, UErrorCode& status) const;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     /**
      * Change attributes for the DateIntervalFormat object.
      * @param attr
@@ -693,6 +698,7 @@ public:
     virtual void setAttribute(UDateIntervalFormatAttribute attr,
                               UDateIntervalFormatAttributeValue value,
                               UErrorCode &status);
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Return the class ID for this class. This is useful only for comparing to
@@ -1207,10 +1213,13 @@ private:
     UnicodeString* fTimePattern;
     UnicodeString* fDateTimeFormat;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     /**
      * Atttributes
      */
     int32_t fMinimizeType;
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Other formatting information

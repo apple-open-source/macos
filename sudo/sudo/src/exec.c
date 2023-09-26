@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2009-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2009-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -48,8 +48,16 @@
 #include "sudo_plugin.h"
 #include "sudo_plugin_int.h"
 
+#ifdef HAVE_PTRACE_INTERCEPT
 static void
-close_fds(struct command_details *details, int errfd)
+handler(int signo)
+{
+    /* just return */
+}
+#endif /* HAVE_PTRACE_INTERCEPT */
+
+static void
+close_fds(struct command_details *details, int errfd, int intercept_fd)
 {
     int fd, maxfd;
     unsigned char *debug_fds;
@@ -66,6 +74,8 @@ close_fds(struct command_details *details, int errfd)
     }
     if (errfd != -1)
 	add_preserved_fd(&details->preserved_fds, errfd);
+    if (intercept_fd != -1)
+	add_preserved_fd(&details->preserved_fds, intercept_fd);
 
     /* Close all fds except those explicitly preserved. */
     closefrom_except(details->closefrom, &details->preserved_fds);
@@ -79,10 +89,17 @@ close_fds(struct command_details *details, int errfd)
  * Returns true on success and false on failure.
  */
 static bool
-exec_setup(struct command_details *details, int errfd)
+exec_setup(struct command_details *details, int intercept_fd, int errfd)
 {
     bool ret = false;
     debug_decl(exec_setup, SUDO_DEBUG_EXEC);
+
+#ifdef HAVE_PTRACE_INTERCEPT
+    if (ISSET(details->flags, CD_USE_PTRACE)) {
+	if (!set_exec_filter())
+	    goto done;
+    }
+#endif /* HAVE_PTRACE_INTERCEPT */
 
     if (details->pw != NULL) {
 #ifdef HAVE_PROJECT_H
@@ -91,18 +108,18 @@ exec_setup(struct command_details *details, int errfd)
 #ifdef HAVE_PRIV_SET
 	if (details->privs != NULL) {
 	    if (setppriv(PRIV_SET, PRIV_INHERITABLE, details->privs) != 0) {
-		sudo_warn("unable to set privileges");
+		sudo_warn("%s", U_("unable to set privileges"));
 		goto done;
 	    }
 	}
 	if (details->limitprivs != NULL) {
 	    if (setppriv(PRIV_SET, PRIV_LIMIT, details->limitprivs) != 0) {
-		sudo_warn("unable to set limit privileges");
+		sudo_warn("%s", U_("unable to set limit privileges"));
 		goto done;
 	    }
 	} else if (details->privs != NULL) {
 	    if (setppriv(PRIV_SET, PRIV_LIMIT, details->privs) != 0) {
-		sudo_warn("unable to set limit privileges");
+		sudo_warn("%s", U_("unable to set limit privileges"));
 		goto done;
 	    }
 	}
@@ -162,8 +179,11 @@ exec_setup(struct command_details *details, int errfd)
     if (ISSET(details->flags, CD_OVERRIDE_UMASK))
 	(void) umask(details->umask);
 
+    /* Apply resource limits specified by the policy, if any. */
+    set_policy_rlimits();
+
     /* Close fds before chroot (need /dev) or uid change (prlimit on Linux). */
-    close_fds(details, errfd);
+    close_fds(details, errfd, intercept_fd);
 
     if (details->chroot) {
 	if (chroot(details->chroot) != 0 || chdir("/") != 0) {
@@ -209,13 +229,19 @@ exec_setup(struct command_details *details, int errfd)
     if (details->cwd != NULL) {
 	if (details->chroot != NULL || user_details.cwd == NULL ||
 	    strcmp(details->cwd, user_details.cwd) != 0) {
-	    /* Note: cwd is relative to the new root, if any. */
-	    if (chdir(details->cwd) == -1) {
-		sudo_warn(U_("unable to change directory to %s"), details->cwd);
-		if (!details->cwd_optional)
-		    goto done;
-		if (details->chroot != NULL)
-		    sudo_warnx(U_("starting from %s"), "/");
+	    if (ISSET(details->flags, CD_RBAC_ENABLED)) {
+		 /* For SELinux, chdir(2) in sesh after the context change. */
+		SET(details->flags, CD_RBAC_SET_CWD);
+	    } else {
+		/* Note: cwd is relative to the new root, if any. */
+		if (chdir(details->cwd) == -1) {
+		    sudo_warn(U_("unable to change directory to %s"),
+			details->cwd);
+		    if (!ISSET(details->flags, CD_CWD_OPTIONAL))
+			goto done;
+		    if (details->chroot != NULL)
+			sudo_warnx(U_("starting from %s"), "/");
+		}
 	    }
 	}
     }
@@ -233,22 +259,47 @@ done:
  * If the exec fails, cstat is filled in with the value of errno.
  */
 void
-exec_cmnd(struct command_details *details, int errfd)
+exec_cmnd(struct command_details *details, sigset_t *mask,
+    int intercept_fd, int errfd)
 {
     debug_decl(exec_cmnd, SUDO_DEBUG_EXEC);
 
+#ifdef HAVE_PTRACE_INTERCEPT
+    if (ISSET(details->flags, CD_USE_PTRACE)) {
+	struct sigaction sa;
+	sigset_t set;
+
+	/* Tracer will send us SIGUSR1 when it is time to proceed. */
+	memset(&sa, 0, sizeof(sa));
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	sa.sa_handler = handler;
+	if (sudo_sigaction(SIGUSR1, &sa, NULL) != 0) {
+	    sudo_warn(U_("unable to set handler for signal %d"),
+		SIGUSR1);
+	}
+
+	/* Suspend child until tracer seizes control and sends SIGUSR1. */
+	sigfillset(&set);
+	sigdelset(&set, SIGUSR1);
+	sigsuspend(&set);
+    }
+#endif /* HAVE_PTRACE_INTERCEPT */
+
+    if (mask != NULL)
+	sigprocmask(SIG_SETMASK, mask, NULL);
     restore_signals();
-    if (exec_setup(details, errfd) == true) {
+    if (exec_setup(details, intercept_fd, errfd) == true) {
 	/* headed for execve() */
 #ifdef HAVE_SELINUX
 	if (ISSET(details->flags, CD_RBAC_ENABLED)) {
 	    selinux_execve(details->execfd, details->command, details->argv,
-		details->envp, ISSET(details->flags, CD_NOEXEC));
+		details->envp, details->cwd, details->flags);
 	} else
 #endif
 	{
 	    sudo_execve(details->execfd, details->command, details->argv,
-		details->envp, ISSET(details->flags, CD_NOEXEC));
+		details->envp, intercept_fd, details->flags);
 	}
     }
     sudo_debug_printf(SUDO_DEBUG_ERROR, "unable to exec %s: %s",
@@ -309,9 +360,6 @@ sudo_terminated(struct command_status *cstat)
     debug_return_bool(false);
 }
 
-#if SUDO_API_VERSION != SUDO_API_MKVERSION(1, 17)
-# error "Update sudo_needs_pty() after changing the plugin API"
-#endif
 static bool
 sudo_needs_pty(struct command_details *details)
 {
@@ -322,12 +370,7 @@ sudo_needs_pty(struct command_details *details)
 
     TAILQ_FOREACH(plugin, &io_plugins, entries) {
 	if (plugin->u.io->log_ttyin != NULL ||
-	    plugin->u.io->log_ttyout != NULL ||
-	    plugin->u.io->log_stdin != NULL ||
-	    plugin->u.io->log_stdout != NULL ||
-	    plugin->u.io->log_stderr != NULL ||
-	    plugin->u.io->change_winsize != NULL ||
-	    plugin->u.io->log_suspend != NULL)
+	    plugin->u.io->log_ttyout != NULL)
 	    return true;
     }
     return false;
@@ -367,6 +410,25 @@ int
 sudo_execute(struct command_details *details, struct command_status *cstat)
 {
     debug_decl(sudo_execute, SUDO_DEBUG_EXEC);
+
+#if defined(HAVE_SELINUX) && !defined(HAVE_PTRACE_INTERCEPT)
+    /*
+     * SELinux prevents LD_PRELOAD from functioning so we must use
+     * ptrace-based intercept mode.
+     */
+    if (details->selinux_role != NULL || details->selinux_type != NULL) {
+	if (ISSET(details->flags, CD_INTERCEPT)) {
+	    sudo_warnx("%s",
+		U_("intercept mode is not supported with SELinux RBAC on this system"));
+	    CLR(details->flags, CD_INTERCEPT);
+	}
+	if (ISSET(details->flags, CD_LOG_SUBCMDS)) {
+	    sudo_warnx("%s",
+		U_("unable to log sub-commands with SELinux RBAC on this system"));
+	    CLR(details->flags, CD_LOG_SUBCMDS);
+	}
+    }
+#endif /* HAVE_SELINUX && !HAVE_PTRACE_INTERCEPT */
 
     /* If running in background mode, fork and exit. */
     if (ISSET(details->flags, CD_BACKGROUND)) {
@@ -409,7 +471,7 @@ sudo_execute(struct command_details *details, struct command_status *cstat)
      */
     if (direct_exec_allowed(details)) {
 	if (!sudo_terminated(cstat)) {
-	    exec_cmnd(details, -1);
+	    exec_cmnd(details, NULL, -1, -1);
 	    cstat->type = CMD_ERRNO;
 	    cstat->val = errno;
 	}
@@ -458,6 +520,37 @@ terminate_command(pid_t pid, bool use_pgrp)
 	sudo_debug_printf(SUDO_DEBUG_INFO, "kill %d SIGKILL", (int)pid);
 	kill(pid, SIGKILL);
     }
+
+    debug_return;
+}
+
+/*
+ * Free the dynamically-allocated contents of the exec closure.
+ */
+void
+free_exec_closure(struct exec_closure *ec)
+{
+    debug_decl(free_exec_closure, SUDO_DEBUG_EXEC);
+
+    /* Free any remaining intercept resources. */
+    intercept_cleanup();
+
+    sudo_ev_base_free(ec->evbase);
+    sudo_ev_free(ec->backchannel_event);
+    sudo_ev_free(ec->fwdchannel_event);
+    sudo_ev_free(ec->sigint_event);
+    sudo_ev_free(ec->sigquit_event);
+    sudo_ev_free(ec->sigtstp_event);
+    sudo_ev_free(ec->sigterm_event);
+    sudo_ev_free(ec->sighup_event);
+    sudo_ev_free(ec->sigalrm_event);
+    sudo_ev_free(ec->sigpipe_event);
+    sudo_ev_free(ec->sigusr1_event);
+    sudo_ev_free(ec->sigusr2_event);
+    sudo_ev_free(ec->sigchld_event);
+    sudo_ev_free(ec->sigcont_event);
+    sudo_ev_free(ec->siginfo_event);
+    sudo_ev_free(ec->sigwinch_event);
 
     debug_return;
 }

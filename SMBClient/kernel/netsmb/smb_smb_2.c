@@ -728,7 +728,6 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
                                 uint16_t *neg_context_countp,
                                 int inReconnect)
 {
-#pragma unused(inReconnect)
     int error = 0;
     uint32_t context_len;
     int pad_bytes = 0;
@@ -736,6 +735,7 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
     size_t name_len = 0;
     uint16_t neg_context_cnt = 0;
     uint32_t encrypt_algorithm_cnt = 0;
+    uint32_t sign_algorithm_cnt = 0;
 
     /*
      * All Negotiate Contexts start with 8 bytes which is the
@@ -872,6 +872,63 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
     }
 
     /*
+     * Add SMB2_SIGNING_CAPABILITIES context next
+     */
+    if (inReconnect) {
+        /*
+         * Doing reconnect or alternate channel
+         * Only put in algorithm we are using
+         */
+        context_len = 8;        /* Neg Context Header Len */
+        context_len += 4;       /* This context data len is currently 4 */
+
+        mb_put_uint16le(mbp, SMB2_SIGNING_CAPABILITIES);    /* ContextType */
+        mb_put_uint16le(mbp, 4);                            /* DataLength */
+        mb_put_uint32le(mbp, 0);                            /* Reserved */
+        mb_put_uint16le(mbp, 1);                            /* SigningAlgorithmCount */
+        mb_put_uint16le(mbp, sessionp->session_smb3_signing_algorithm);  /* SigningAlgorithm */
+    }
+    else {
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_128_CMAC) {
+            sign_algorithm_cnt++;
+        }
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_128_GMAC) {
+            sign_algorithm_cnt++;
+        }
+        if (sign_algorithm_cnt == 0) {
+            /* Paranoid check */
+            SMBERROR("No signing algorithm set? Assuming AES-128-CMAC \n");
+            sessionp->session_misc_flags |= SMBV_ENABLE_AES_128_CMAC;
+            sign_algorithm_cnt = 1;
+        }
+    
+        context_len = 8;
+        context_len += 2 + (2 * sign_algorithm_cnt);
+        
+        mb_put_uint16le(mbp, SMB2_SIGNING_CAPABILITIES);    /* ContextType */
+        mb_put_uint16le(mbp, 2 + (2 * sign_algorithm_cnt));    /* DataLength */
+        mb_put_uint32le(mbp, 0);                            /* Reserved */
+        mb_put_uint16le(mbp, sign_algorithm_cnt);           /* SigningAlgorithmCount */
+
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_128_GMAC) {
+            mb_put_uint16le(mbp, SMB2_SIGNING_AES_GMAC);    /* SigningAlgorithm */
+        }
+
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_128_CMAC) {
+            mb_put_uint16le(mbp, SMB2_SIGNING_AES_CMAC);    /* SigningAlgorithm */
+        }
+
+    }
+    neg_context_cnt += 1;
+    
+    /* Add pad bytes if needed */
+    if ((context_len % 8) != 0) {
+        /* Contexts MUST start on next 8 byte boundary! */
+        pad_bytes = 8 - (context_len % 8);
+        mb_put_mem(mbp, NULL, pad_bytes, MB_MZERO);
+    }
+    
+    /*
      * Add SMB2_NETNAME_NEGOTIATE_CONTEXT_ID context next
      */
     //context_len = 8;        /* Neg Context Header Len */
@@ -912,8 +969,9 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
     uint32_t estimated_credits;
     int32_t check_credits = 0;
     int32_t throttle = 0;
-    uint64_t *bytes_secp;
-    uint32_t *quantum_sizep;
+    uint64_t *bytes_secp = NULL;
+    uint32_t *quantum_sizep = NULL;
+    uint32_t *quantum_countp = NULL;
 
     if (share == NULL) {
         SMBERROR("share is null? \n");
@@ -966,11 +1024,13 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
     if (doingRead) {
         bytes_secp = sessionp->iod_readBytePerSec;
         quantum_sizep = sessionp->iod_readSizes;
+        quantum_countp = sessionp->iod_readCounts;
         currQuantumSize = sessionp->iod_readQuantumSize;
     }
     else {
         bytes_secp = sessionp->iod_writeBytePerSec;
         quantum_sizep = sessionp->iod_writeSizes;
+        quantum_countp = sessionp->iod_writeCounts;
         currQuantumSize = sessionp->iod_writeQuantumSize;
     }
 
@@ -1007,19 +1067,19 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
             (bytes_secp[2] > bytes_secp[1])) {
             /* Largest is the fastest */
             newQuantumSize = quantum_sizep[2];
-            newQuantumNumber = kQuantumMinNumber;
+            newQuantumNumber = quantum_countp[2];
         }
         else {
             if ((bytes_secp[0] > bytes_secp[2]) &&
                 (bytes_secp[0] > bytes_secp[1])) {
                 /* Smallest is the fastest */
                 newQuantumSize = quantum_sizep[0];
-                newQuantumNumber = kQuantumMaxNumber;
+                newQuantumNumber = quantum_countp[0];
             }
             else {
                 /* Assume medium is the fastest */
                 newQuantumSize = quantum_sizep[1];
-                newQuantumNumber = kQuantumMedNumber;
+                newQuantumNumber = quantum_countp[1];
             }
         }
 
@@ -1101,9 +1161,10 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
                                        int *recheck)
 {
 #pragma unused(len)
-    struct timeval current_time, elapsed_time;
-    uint64_t *bytes_secp;
-    uint32_t *quantum_sizep;
+    struct timeval current_time = {0}, elapsed_time = {0};
+    uint64_t *bytes_secp = NULL;
+    uint32_t *quantum_sizep = NULL;
+    uint32_t *quantum_countp = NULL;
 
     /* Paranoid checks */
     if ((sessionp == NULL) ||
@@ -1136,16 +1197,18 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
     if (doingRead) {
         bytes_secp = sessionp->iod_readBytePerSec;
         quantum_sizep = sessionp->iod_readSizes;
+        quantum_countp = sessionp->iod_readCounts;
         /* assume we stay with current settings */
         *retQuantumSize = sessionp->iod_readQuantumSize;
-        *retQuantumNbr = sessionp->iod_readQuantumNumber;;
+        *retQuantumNbr = sessionp->iod_readQuantumNumber;
     }
     else {
         bytes_secp = sessionp->iod_writeBytePerSec;
         quantum_sizep = sessionp->iod_writeSizes;
+        quantum_countp = sessionp->iod_writeCounts;
         /* assume we stay with current settings */
         *retQuantumSize = sessionp->iod_writeQuantumSize;
-        *retQuantumNbr = sessionp->iod_writeQuantumNumber;;
+        *retQuantumNbr = sessionp->iod_writeQuantumNumber;
     }
 
     if (bytes_secp[2] == 0) {
@@ -1156,21 +1219,21 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
          * of the slow read start to the bytes/sec calculations.
          */
         *retQuantumSize = quantum_sizep[2];
-        *retQuantumNbr = kQuantumMinNumber;
+        *retQuantumNbr = quantum_countp[2];
         *recheck = 1;
     }
 
     if ((*recheck == 0) && (bytes_secp[1] == 0)) {
         /* Check med quantum size */
         *retQuantumSize = quantum_sizep[1];
-        *retQuantumNbr = kQuantumMedNumber;
+        *retQuantumNbr = quantum_countp[1];
         *recheck = 1;
     }
 
     if ((*recheck == 0) && (bytes_secp[0] == 0)) {
         /* Check min quantum size */
         *retQuantumSize = quantum_sizep[0];
-        *retQuantumNbr = kQuantumMaxNumber;
+        *retQuantumNbr = quantum_countp[0];
         *recheck = 1;
     }
 
@@ -2198,7 +2261,7 @@ smb2_smb_gss_session_setup(struct smbiod *iod, uint16_t *reply_flags,
         
         /* Send the request and check for reply */
         error = smb_rq_simple_timed(rqp, SMBSSNSETUPTIMO);
-        
+
         if ((error) && (rqp->sr_flags & SMBR_RECONNECTED)) {
             if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
                 SMBERROR("id %d An alternate channel got disconnected during session setup. error out",
@@ -5147,13 +5210,18 @@ smb2_smb_parse_file_all_info(struct mdchain *mdp, void *args)
     filename = smbfs_ntwrkname_tolocal((const char *)filename, 
                                        &nmlen, &filename_allocsize,
                                        TRUE);
-    
     if (filename == NULL) {
-        error = EINVAL;
-        SMBERROR("smbfs_ntwrkname_tolocal return NULL\n");
+        /*
+         * <105229518> Some third party servers return a badly formatted
+         * network path (like ending with a "\"). Just ignore it and pretend
+         * like we did not get a path. This is similar to how Windows servers
+         * do not return a path at all for this request.
+         */
+        error = 0;
+        SMBERROR("smbfs_ntwrkname_tolocal returned NULL. Bad path from server? \n");
         goto bad;
     }
-    
+
     if (nmlen > SMB_MAXFNAMELEN) {
         error = EINVAL;
         SMBERROR("Filename %s nmlen = %ld\n", filename, nmlen);
@@ -6684,6 +6752,7 @@ smb2_smb_parse_negotiate_contexts(struct smbiod *iod,
     uint16_t cipher_cnt, cipher_algoritm;
     uint16_t compression_algorithm_cnt, compression_algoritms;
     uint32_t compression_flags;
+    uint16_t signing_cnt, signing_algorithm;
     int i;
     int pad_bytes = 0;
     struct mdchain md_context_shadow;
@@ -6840,6 +6909,35 @@ smb2_smb_parse_negotiate_contexts(struct smbiod *iod,
                     }
                 }
 
+                break;
+                
+            case SMB2_SIGNING_CAPABILITIES:
+                /* Get SigningAlgorithmCount */
+                error = md_get_uint16le(&md_context_shadow, &signing_cnt);
+                if (error) {
+                    goto bad;
+                }
+                if (signing_cnt != 1) {
+                    SMBERROR("Server must set SigningCnt to 1 (%d) \n",
+                             signing_cnt);
+                    error = EBADRPC;
+                    goto bad;
+                }
+
+                /* Get SigningAlgorithm */
+                error = md_get_uint16le(&md_context_shadow, &signing_algorithm);
+                if (error) {
+                    goto bad;
+                }
+                
+                if ((signing_algorithm != SMB2_SIGNING_AES_CMAC) &&
+                    (signing_algorithm != SMB2_SIGNING_AES_GMAC)) {
+                    SMBERROR("Server provided an invalid signing algorithm (%u)",
+                             signing_algorithm);
+                    error = EINVAL;
+                    goto bad;
+                }
+                sessionp->session_smb3_signing_algorithm = signing_algorithm;
                 break;
 
             case SMB2_TRANSPORT_CAPABILITIES:
@@ -8623,6 +8721,22 @@ smb2_smb_read_write_async(struct smb_share *share,
         }
     }
 
+    /* Is there a custom override of the thread handling? */
+    switch (sessionp->rw_thread_control) {
+        case 1:
+            /* Force single thread mode */
+            single_thread = 1;
+            break;
+            
+        case 2:
+            /* Force multi thread mode */
+            single_thread = 0;
+            break;
+
+        default:
+            break;
+    }
+    
     if (sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LARGE_MTU) {
         /* Get the quantum size and number to use */
         smb2_smb_get_quantum_sizes(sessionp, *len, do_read, &quantumSize, &quantumNbr, &recheck);

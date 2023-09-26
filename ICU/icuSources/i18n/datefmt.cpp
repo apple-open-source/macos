@@ -58,14 +58,14 @@ public:
 DateFmtBestPattern::~DateFmtBestPattern() {
 }
 
-template<>
+template<> 
 const DateFmtBestPattern *LocaleCacheKey<DateFmtBestPattern>::createObject(
         const void * /*creationContext*/, UErrorCode &status) const {
     status = U_UNSUPPORTED_ERROR;
     return NULL;
 }
 
-class DateFmtBestPatternKey : public LocaleCacheKey<DateFmtBestPattern> {
+class DateFmtBestPatternKey : public LocaleCacheKey<DateFmtBestPattern> { 
 private:
     UnicodeString fSkeleton;
 protected:
@@ -567,8 +567,12 @@ DateFormat::adoptCalendar(Calendar* newCalendar)
 void
 DateFormat::setCalendar(const Calendar& newCalendar)
 {
-    if (fCalendar && fCalendar->isEquivalentTo( newCalendar ))
+#if APPLE_ICU_CHANGES
+// rdar://39670607 Avoid redundant work when setting the calendar on SimpleDateFormat
+    if (fCalendar && fCalendar->isEquivalentTo( newCalendar )) {
         return;
+    }
+#endif  // APPLE_ICU_CHANGES
     Calendar* newCalClone = newCalendar.clone();
     if (newCalClone != NULL) {
         adoptCalendar(newCalClone);
@@ -590,8 +594,8 @@ DateFormat::adoptNumberFormat(NumberFormat* newNumberFormat)
 {
     delete fNumberFormat;
     fNumberFormat = newNumberFormat;
-    newNumberFormat->setParseIntegerOnly(TRUE);
-    newNumberFormat->setGroupingUsed(FALSE);
+    newNumberFormat->setParseIntegerOnly(true);
+    newNumberFormat->setGroupingUsed(false);
 }
 //----------------------------------------------------------------------
 
@@ -662,7 +666,7 @@ DateFormat::setLenient(UBool lenient)
 UBool
 DateFormat::isLenient() const
 {
-    UBool lenient = TRUE;
+    UBool lenient = true;
     if (fCalendar != NULL) {
         lenient = fCalendar->isLenient();
     }
@@ -689,7 +693,7 @@ DateFormat::isCalendarLenient() const
         return fCalendar->isLenient();
     }
     // fCalendar is rarely null
-    return FALSE;
+    return false;
 }
 
 

@@ -53,9 +53,11 @@ public:
     RemoteAudioSessionConfiguration configuration();
 
     WebCore::AudioSession::CategoryType category() const { return m_category; };
+    WebCore::AudioSession::Mode mode() const { return m_mode; };
     WebCore::RouteSharingPolicy routeSharingPolicy() const { return m_routeSharingPolicy; }
     size_t preferredBufferSize() const { return m_preferredBufferSize; }
     bool isActive() const { return m_active; }
+    bool isInterrupted() const { return m_isInterrupted; }
 
     void configurationChanged();
     void beginInterruption();
@@ -72,7 +74,7 @@ private:
     explicit RemoteAudioSessionProxy(GPUConnectionToWebProcess&);
 
     // Messages
-    void setCategory(WebCore::AudioSession::CategoryType, WebCore::RouteSharingPolicy);
+    void setCategory(WebCore::AudioSession::CategoryType, WebCore::AudioSession::Mode, WebCore::RouteSharingPolicy);
     void setPreferredBufferSize(uint64_t);
     using SetActiveCompletion = CompletionHandler<void(bool)>;
     void tryToSetActive(bool, SetActiveCompletion&&);
@@ -80,14 +82,19 @@ private:
     void triggerBeginInterruptionForTesting();
     void triggerEndInterruptionForTesting();
 
+    void beginInterruptionRemote();
+    void endInterruptionRemote(WebCore::AudioSession::MayResume);
+
     RemoteAudioSessionProxyManager& audioSessionManager();
     IPC::Connection& connection();
 
     GPUConnectionToWebProcess& m_gpuConnection;
     WebCore::AudioSession::CategoryType m_category { WebCore::AudioSession::CategoryType::None };
+    WebCore::AudioSession::Mode m_mode { WebCore::AudioSession::Mode::Default };
     WebCore::RouteSharingPolicy m_routeSharingPolicy { WebCore::RouteSharingPolicy::Default };
     size_t m_preferredBufferSize { 0 };
     bool m_active { false };
+    bool m_isInterrupted { false };
     bool m_isPlayingToBluetoothOverrideChanged { false };
 };
 

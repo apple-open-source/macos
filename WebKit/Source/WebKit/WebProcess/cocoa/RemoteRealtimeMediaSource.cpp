@@ -52,8 +52,8 @@ RemoteRealtimeMediaSource::RemoteRealtimeMediaSource(RemoteRealtimeMediaSourcePr
 
 void RemoteRealtimeMediaSource::createRemoteMediaSource()
 {
-    m_proxy.createRemoteMediaSource(deviceIDHashSalts(), pageIdentifier(), [this, protectedThis = Ref { *this }](bool succeeded, auto&& errorMessage, auto&& settings, auto&& capabilities, auto&&, auto, auto) {
-        if (!succeeded) {
+    m_proxy.createRemoteMediaSource(deviceIDHashSalts(), pageIdentifier(), [this, protectedThis = Ref { *this }](auto&& errorMessage, auto&& settings, auto&& capabilities) {
+        if (!errorMessage.isNull()) {
             m_proxy.didFail(WTFMove(errorMessage));
             return;
         }
@@ -66,14 +66,6 @@ void RemoteRealtimeMediaSource::createRemoteMediaSource()
         if (m_proxy.shouldCaptureInGPUProcess())
             WebProcess::singleton().ensureGPUProcessConnection().addClient(*this);
     }, m_proxy.shouldCaptureInGPUProcess() && m_manager.shouldUseGPUProcessRemoteFrames());
-}
-
-void RemoteRealtimeMediaSource::removeAsClient()
-{
-    if (m_proxy.shouldCaptureInGPUProcess()) {
-        if (auto* connection = WebProcess::singleton().existingGPUProcessConnection())
-            connection->removeClient(*this);
-    }
 }
 
 void RemoteRealtimeMediaSource::setCapabilities(RealtimeMediaSourceCapabilities&& capabilities)

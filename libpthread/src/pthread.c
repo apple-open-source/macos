@@ -202,6 +202,17 @@ static mach_vm_address_t __pthread_stack_hint = 0x30000000;
 #error no __pthread_stack_hint for this architecture
 #endif
 
+void
+_pthread_globals_init(void *ctx)
+{
+	pthread_globals_t globals = ctx;
+	for (thread_qos_t qos = 0; qos < THREAD_QOS_LAST; qos++) {
+		globals->qmp_logical[qos] = QOS_PARALLELISM_NOT_QUERIED;
+		globals->qmp_physical[qos] = QOS_PARALLELISM_NOT_QUERIED;
+		globals->cluster_physical[qos] = QOS_PARALLELISM_NOT_QUERIED;
+	}
+}
+
 //
 // Function prototypes
 //

@@ -115,6 +115,9 @@ heim_scram_get_session_key(heim_scram *scram,
 
 
 
+void
+scram_data_zero(heim_scram_data *data);
+
 #ifdef __cplusplus
 }
 #endif

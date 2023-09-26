@@ -698,6 +698,7 @@ static CFStringRef convertSignatureHashAlgorithm(SecSignatureHashAlgorithm algor
         kSecSignatureDigestAlgorithmSHA256,
         kSecSignatureDigestAlgorithmSHA384,
         kSecSignatureDigestAlgorithmSHA512,
+        kSecSignatureDigestAlgorithmSHAKE256,
     };
     return digests[algorithmEnum];
 }

@@ -48,7 +48,7 @@ do
 	esac
 done
 
-if [[ -z "$stdout" ]]; then
+if [ -z "$stdout" ]; then
     dirs=`echo $dirs | awk -F: '{ for (i = 1; i <= NF; i++) { if ($i !~ "\\.app/" && $i !~ "/CommandLineTools/") { printf $i " " } } printf "\n" }'`
 else
 	dirs=`echo $dirs | sed 's/:/ /g'`

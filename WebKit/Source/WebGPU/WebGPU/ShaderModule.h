@@ -58,14 +58,12 @@ public:
     void getCompilationInfo(CompletionHandler<void(WGPUCompilationInfoRequestStatus, const WGPUCompilationInfo&)>&& callback);
     void setLabel(String&&);
 
-    id<MTLFunction> getNamedFunction(const String& name, const HashMap<String, double>& keyValueReplacements) const;
-
     bool isValid() const { return !std::holds_alternative<std::monostate>(m_checkResult); }
 
     static WGSL::PipelineLayout convertPipelineLayout(const PipelineLayout&);
     static id<MTLLibrary> createLibrary(id<MTLDevice>, const String& msl, String&& label);
 
-    WGSL::AST::ShaderModule* ast() const;
+    WGSL::ShaderModule* ast() const;
 
     const PipelineLayout* pipelineLayoutHint(const String&) const;
     const WGSL::Reflection::EntryPointInformation* entryPointInformation(const String&) const;

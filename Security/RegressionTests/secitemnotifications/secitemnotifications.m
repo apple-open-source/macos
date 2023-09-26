@@ -27,19 +27,22 @@
 #include <notify.h>
 #include <err.h>
 #import <TargetConditionals.h>
+#include "keychain/securityd/SOSCloudCircleServer.h"
+#include "utilities/SecCFRelease.h"
 
 int
 main(int argc, const char ** argv)
 {
     dispatch_queue_t queue = dispatch_queue_create("notifications-queue", NULL);
     __block int got_notification = false;
+
     OSStatus status;
     int token;
 
     NSDictionary *query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"keychain-test1",
-        (id)kSecAttrSyncViewHint : @"PCS-Master",
+        (id)kSecAttrSyncViewHint : @"PCS-MasterKey",
         (id)kSecAttrAccount : @"account-delete-me",
         (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
@@ -97,6 +100,6 @@ main(int argc, const char ** argv)
         errx(1, "received unexpected notification on delete");
     }
 #endif
-
+    
     return 0;
 }

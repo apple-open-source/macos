@@ -2,8 +2,24 @@
 
 PROJECT := Libnotify
 TEST_DIR := tests/
+MIG:=SDKROOT=$(SDKROOT) $(shell xcrun -sdk "$(TARGETSDK)" -find mig)
+OTHER_LDFLAGS := -ldarwintest
 
 DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer/
+
+rnserver:
+	$(MIG) $(CFLAGS) \
+		-user /dev/null \
+		-header $(OBJROOT)/rn.h \
+		-sheader $(OBJROOT)/rnserver.h \
+		-server $(OBJROOT)/rnserver.c \
+		rnserver.defs
+install-rnserver: ;
+
+notify_register_mach_port: rnserver
+notify_register_mach_port: CODE_SIGN_ENTITLEMENTS = notify_register_mach_port.entitlements
+notify_register_mach_port: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
+notify_register_mach_port: OTHER_CFLAGS += $(OBJROOT)/rnserver.c -I $(OBJROOT)
 
 ifneq ($(wildcard $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common),)
 
@@ -13,8 +29,6 @@ EXCLUDED_SOURCES := \
 	random_test.c \
 	notify_control.c \
 	notify_test_helper.c \
-
-OTHER_LDFLAGS := -ldarwintest
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
 

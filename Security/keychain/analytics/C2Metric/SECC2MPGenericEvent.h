@@ -52,9 +52,9 @@ __attribute__((visibility("hidden")))
     NSString *_name;
     SECC2MPGenericEvent_Type _type;
     struct {
-        int timestampEnd:1;
-        int timestampStart:1;
-        int type:1;
+        uint timestampEnd:1;
+        uint timestampStart:1;
+        uint type:1;
     } _has;
 }
 

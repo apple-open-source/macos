@@ -1,4 +1,675 @@
-commit f79106c365ed0747109e7e465adb54bf176b1036 (HEAD -> master, tag: 1.5.0, zotac/master, origin/master, origin/HEAD, github/master)
+commit 64a1780ac6b9947223a7d65c363556f2aed8d4c9 (HEAD -> master, zotac/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 14 11:41:23 2022 +0100
+
+    Release 1.5.1
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README.md    | 28 ++++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 29 insertions(+), 1 deletion(-)
+
+commit 67b825199a6d3510168b49d90e16265cdaead00d (origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 18:13:48 2022 +0100
+
+    bootstrap: use /bin/sh instead of bash
+    
+    Some systems (like FreeBSD) do not provide bash in /bin/bash but in
+    /usr/local/bin/bash
+    We use /bin/sh instead.
+
+ bootstrap | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 7baef9d32ae22f6218a68d9e8570dc02fac60c80
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 17:26:02 2022 +0100
+
+    Update PCSC submodule
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6de1839a98fa53b99328d449381718483d13d6ed
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 17:25:38 2022 +0100
+
+    Update PCSC-contrib submodule
+
+ PCSC-contrib | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit b1abafd6206e84ef06df68fea9139f56f3a54e67
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 15:39:08 2022 +0100
+
+    Fix compiler warning
+    
+    ../../../examples/scardcontrol.c: In function ‘main’:
+    ../../../examples/scardcontrol.c:219:16: warning: ‘__builtin___sprintf_chk’ may write a terminating nul past the end of the destination [-Wformat-overflow=]
+      219 | #define FORMAT "Error on data byte %2d"
+          |                ^~~~~~~~~~~~~~~~~~~~~~~~
+    ../../../examples/scardcontrol.c:221:17: note: in expansion of macro ‘FORMAT’
+      221 |   sprintf(ret2, FORMAT, (char)bRecvBuffer[1]);
+          |                 ^~~~~~
+    ../../../examples/scardcontrol.c:219:39: note: format string is defined here
+      219 | #define FORMAT "Error on data byte %2d"
+          |                                       ^
+    In file included from /usr/include/stdio.h:867,
+                     from ../../../examples/scardcontrol.c:20:
+    /usr/include/x86_64-linux-gnu/bits/stdio2.h:36:10: note: ‘__builtin___sprintf_chk’ output between 22 and 24 bytes into a destination of size 23
+       36 |   return __builtin___sprintf_chk (__s, __USE_FORTIFY_LEVEL - 1,
+          |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       37 |       __bos (__s), __fmt, __va_arg_pack ());
+          |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ examples/scardcontrol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 209f459de46952e3387e47b9758c4d77cddd1caf
+Author: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+Date:   Mon Nov 7 15:03:43 2022 -0500
+
+    Adjust USB drivers path at run-time via environment variable
+    
+    Add in the ability to dynamically adjust module path at run-time via
+    system environmental exports
+    
+    Background: While trying to integrate PKCS11+HSM into a build system
+    (Yocto Project), we wanted the build system to be able to use the HSM
+    directly. However, The Yocto Project creates a sandboxed environment for
+    each package which uses CCID during compilation. This means that the
+    CCID modules cannot be found from within these sandboxed directories, as
+    their paths are non-determinable at compile time. OpenSSL appears to use
+    OPENSSL_CONF for this sort of dynamic configuration, so I've followed
+    their lead and incorporated a similar SYS_GetEnv() method.
+    
+    https://github.com/LudovicRousseau/CCID/pull/103
+
+ src/Makefile.am  | 4 +++-
+ src/ccid_usb.c   | 9 ++++++++-
+ src/ifdhandler.c | 9 ++++++++-
+ 3 files changed, 19 insertions(+), 3 deletions(-)
+
+commit 2e618874e3799d6fa911db9a3009f9bcda5a2be7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 15:30:41 2022 +0100
+
+    Add SYS_GetEnv() implementation
+    
+    It is included in sys_unix.c from PCSC submodule.
+
+ src/sys_generic.h | 1 +
+ src/sys_unix.c    | 1 +
+ 2 files changed, 2 insertions(+)
+
+commit 07c47bfe6c31fa6ce746a06737cccec00195e49e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 15:29:48 2022 +0100
+
+    Update PCSC submodule
+    
+    We need the version with SYS_GetEnv() function included.
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 89bddc85d819df57ff1e0cf7e28c92ae08708fb5 (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 7 17:28:57 2022 +0100
+
+    Update to PCSC 1.9.9
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 474c611fb323f86bcbb3cad48ed767c5e47f8207
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 7 17:15:36 2022 +0100
+
+    github actions: also test --enable-zlp
+
+ .github/workflows/build.yml | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 22257785f931804988f6c82fbf8db9150168f805
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 7 16:19:36 2022 +0100
+
+    Use bool, true & false from C99 stdbool.h
+    
+    Modernize the source code to use "recent" version of the C language.
+    See https://en.wikipedia.org/wiki/C_data_types#stdbool.h
+
+ examples/scardcontrol.c | 16 ++++++----------
+ src/ccid.c              |  4 ++--
+ src/ccid.h              |  4 +++-
+ src/ccid_serial.c       | 20 ++++++++++----------
+ src/ccid_usb.c          | 40 ++++++++++++++++++++--------------------
+ src/commands.c          |  5 +++--
+ src/commands.h          |  2 +-
+ src/debug.h             |  6 +++---
+ src/ifdhandler.c        | 24 ++++++++++++------------
+ src/openct/proto-t1.c   | 16 ++++++----------
+ src/openct/proto-t1.h   |  3 ++-
+ src/parse.c             | 30 +++++++++++++-----------------
+ src/towitoko/atr.c      | 19 ++++++++++---------
+ src/towitoko/atr.h      |  2 +-
+ src/towitoko/defines.h  | 12 ------------
+ src/towitoko/pps.c      | 13 +++++++------
+ src/utils.h             |  5 -----
+ 17 files changed, 99 insertions(+), 122 deletions(-)
+
+commit c6a21e6743e38fa4c0eef193fcafd96a45a7214d
+Author: Ingo Fankner <ingo.fankner@rohde-schwarz.com>
+Date:   Fri Oct 21 08:25:32 2022 +0200
+
+    Remove dead code
+
+ src/commands.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit 0a7c0f187b3ac4ff358ffc7d0ac4ce2751566af1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 2 18:53:47 2022 +0100
+
+    Use "Fix" instead of "Correct" in log messages
+    
+    The message is now:
+    "Fix bEntryValidationCondition (was 0x%02X)"
+    instead of:
+    "Correct bEntryValidationCondition (was 0x%02X)"
+    
+    The verb "to fix" is more correct :-)
+
+ src/commands.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+commit 3c65e22b0221f4040dcac4da48f284aad3b0012b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 27 18:34:26 2022 +0200
+
+    Add Dexon Tecnologias Digitais LTDA DXToken
+
+ readers/Dexon_Tecnologias_Digitais_DXToken.txt | 53 ++++++++++++++++++++++++++
+ readers/supported_readers.txt                  |  5 ++-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+commit a784823b6f4c275231d4f29de75cfe6dce29d29b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 14 12:31:16 2022 +0200
+
+    Add ESMART Reader ER433x ICC
+
+ readers/ESMART_Reader_ER433x_ICC.txt | 54 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  3 +-
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit b5b33a41a42c863bc6ea6330d786c3ba38c04fb9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 30 10:04:21 2022 +0200
+
+    examples/scardcontrol.c: parse wLcdLayout & bEntryValidationCondition
+    
+    Display the values wLcdLayout & bEntryValidationCondition in a human
+    readable format.
+
+ examples/scardcontrol.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+commit 990834118835c0283b496f201f2070fd648cdd39
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 28 22:04:29 2022 +0200
+
+    Fix compiler warning when --enable-embedded is used
+    
+    ccid.c: In function ‘ccid_error’:
+    ccid.c:601:21: error: unused parameter ‘log_level’ [-Werror=unused-parameter]
+      601 | void ccid_error(int log_level, int error, const char *file, int line,
+          |                 ~~~~^~~~~~~~~
+    ccid.c:601:36: error: unused parameter ‘error’ [-Werror=unused-parameter]
+      601 | void ccid_error(int log_level, int error, const char *file, int line,
+          |                                ~~~~^~~~~
+    ccid.c:601:55: error: unused parameter ‘file’ [-Werror=unused-parameter]
+      601 | void ccid_error(int log_level, int error, const char *file, int line,
+          |                                           ~~~~~~~~~~~~^~~~
+    ccid.c:601:65: error: unused parameter ‘line’ [-Werror=unused-parameter]
+      601 | void ccid_error(int log_level, int error, const char *file, int line,
+          |                                                             ~~~~^~~~
+    ccid.c:602:21: error: unused parameter ‘function’ [-Werror=unused-parameter]
+      602 |         const char *function)
+          |         ~~~~~~~~~~~~^~~~~~~~
+
+ src/ccid.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+commit 0b243997252de5833c92dd8491223c2a7f18704c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 28 22:00:38 2022 +0200
+
+    Fix compiler warning when --enable-embedded is used
+    
+    commands.c: In function ‘T0ProcSW1’:
+    commands.c:2025:28: error: variable ‘sw2’ set but not used [-Werror=unused-but-set-variable]
+     2025 |         unsigned char sw1, sw2;
+          |                            ^~~
+    commands.c:2025:23: error: variable ‘sw1’ set but not used [-Werror=unused-but-set-variable]
+     2025 |         unsigned char sw1, sw2;
+          |                       ^~~
+
+ src/commands.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+commit ef7c47b7263cce4bfa23fa4654ad735085f3e3bf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 16 13:16:38 2022 +0200
+
+    Add Access IS ATR220 with idProduct: 0x0184
+    
+    This reader have 4 SAM interfaces compared to idProduct: 0x0180
+
+ readers/Access_IS_ATR220_0x0184.txt | 277 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |   3 +-
+ 2 files changed, 279 insertions(+), 1 deletion(-)
+
+commit 040b7bf7415330102128e9e1fb86674e6ad07667
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 25 23:23:46 2022 +0200
+
+    Use LOG_SENSIBLE_STRING for buffers
+    
+    CCID frames may contain secrets so should not be visible by default.
+    
+    It is still possible to update the source code, rebuild a custom CCID
+    driver and use it to log CCID frames.
+
+ src/debug.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 825dcb9d46ea838267b9dcf0c281c2ad12438864
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 25 23:22:10 2022 +0200
+
+    Use LOG_STRING to format non-sensitive log strings
+    
+    Non-sensitive strings (reader names, actions, etc.) are now logged using
+    "%{public}s" and are then available in "com.apple.ifdbundle" logs.
+
+ src/ccid_usb.c   |  8 ++++----
+ src/debug.c      |  2 +-
+ src/ifdhandler.c | 26 +++++++++++++-------------
+ 3 files changed, 18 insertions(+), 18 deletions(-)
+
+commit dbaae30d581e81d6f545158df66447d3252988e1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 25 23:06:43 2022 +0200
+
+    Define LOG_STRING as "%{public}s"
+    
+    By default, on macOS, strings are logged as "<private>" unless you use
+    an explicit "%{public}s" format.
+    
+    Non-sensitive strings (reader names, actions, etc.) are now logged using
+    "%{public}s".
+    
+    Only buffers (CCID frames) are still logged using "%s" and will then be
+    replaced by "<sensitive>" in "com.apple.ifdbundle" logs.
+    
+    You can use log_macOS_ifdbundle.sh from PCSC-contrib to see logs.
+
+ src/debug.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+commit bbca3c088728d44760db13227e30af258660701d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 25 22:57:18 2022 +0200
+
+    Fix Alcor Link AK9567 & AK9572 on macOS (part 2)
+    
+    These 2 readers have 2 interfaces se we need to set max_interface_number to the correct value.
+
+ src/ccid_usb.c | 80 ++++++++++++++++++++++++++++++----------------------------
+ 1 file changed, 41 insertions(+), 39 deletions(-)
+
+commit e2a6a1b638ef82803a178993556d9e1fe1297e34
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 25 22:36:45 2022 +0200
+
+    .gitignore: ignore some other files
+
+ .gitignore | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit bee6e69a57aa0b51e97c3992698bb39b40ec9449
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 24 14:06:40 2022 +0200
+
+    Add SafeNet eToken Fusion
+
+ readers/SafeNet_eToken_Fusion.txt | 51 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  3 ++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 7b4e251e2ff46b8044637b3011de327ed1f42b3c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 24 12:01:30 2022 +0200
+
+    Fix Alcor Link AK9567 & AK9572 on macOS
+    
+    On macOS multi-interfaces readers must be simulated as composite
+    readers.
+
+ src/ccid.h       | 2 ++
+ src/ccid_usb.c   | 4 ++++
+ src/ifdhandler.c | 2 ++
+ 3 files changed, 8 insertions(+)
+
+commit 6f20d6d7bd44d3e71f1e4db8544b0e0bda688d05
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 23 22:38:00 2022 +0200
+
+    Add CREATOR CRT-603(CZ1) CCR
+
+ readers/CREATOR_CRT-603_CZ1_CCR.txt | 111 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |   5 +-
+ 2 files changed, 115 insertions(+), 1 deletion(-)
+
+commit 3e83b49068ac7ecffecef34b5d840334e5ae889c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 11 11:06:07 2022 +0200
+
+    Add ESMART Reader ER773x Dual & 1S
+
+ readers/ESMART_Reader_ER773x_Dual_1S.txt | 54 ++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt            |  3 +-
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit c7d4572320219bbe3669cc09810e8da144f76438
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 5 13:16:20 2022 +0200
+
+    Change name "Flight" into "Flight system consulting"
+    
+    On customer request
+
+ readers/supported_readers.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 60544c00d9a41399d96b5176382b29d4a3653f63
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 5 11:43:49 2022 +0200
+
+    Add Flight Incredist
+
+ readers/Flight_Incredist.txt  | 115 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   5 +-
+ 2 files changed, 119 insertions(+), 1 deletion(-)
+
+commit ca75b93ba81edcc638b74a5fd07574d90f836e07
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 29 17:39:55 2022 +0200
+
+    Add Ledger Nano S Plus
+    
+    With CCID interface
+    https://salsa.debian.org/rousseau/CCID/-/merge_requests/8
+
+ readers/Ledger_Nano_S_Plus_CCID.txt | 53 +++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |  1 +
+ 2 files changed, 54 insertions(+)
+
+commit 3f61c464fe4b1c883ce2f8a9afea0954ce3ce1b9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 29 17:38:10 2022 +0200
+
+    Add Ledger Nano X
+    
+    With CCID interface
+    https://salsa.debian.org/rousseau/CCID/-/merge_requests/8
+
+ readers/Ledger_Nano_X_CCID.txt | 53 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  1 +
+ 2 files changed, 54 insertions(+)
+
+commit 530ccf74a59e5f71c576028175123cb8908b8a0d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 29 17:34:08 2022 +0200
+
+    Add Ledger Nano S
+    
+    With CCID interface
+    https://salsa.debian.org/rousseau/CCID/-/merge_requests/8
+
+ readers/Ledger_Nano_S_CCID.txt | 53 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 ++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 16b970eb723e0b3ed91f4f483f6b0c1769e8eea7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jul 20 17:54:04 2022 +0200
+
+    Add Sensyl SSC-NFC Reader
+
+ readers/Sensyl_SSC-NFC_Reader.txt | 54 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  5 +++-
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+
+commit 1577b4dcd7bfce0e101a5f016839d6e0497d6bed
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jun 21 17:56:26 2022 +0200
+
+    Add CHERRY SmartTerminal ST-1144
+    
+    It has the same VID:PID as the Cherry SmartTerminal XX44
+
+ readers/Cherry_SmartTerminal_1144.txt | 160 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |   7 +-
+ 2 files changed, 166 insertions(+), 1 deletion(-)
+
+commit 4b870d825346bf59085fca0c8b1306bae72e94d1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 20 17:31:58 2022 +0200
+
+    Add Alcor Link AK9572
+
+ readers/Alcor_Link_AK9572.txt | 312 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   1 +
+ 2 files changed, 313 insertions(+)
+
+commit 8d5242653fb5100ee783cdfc6660f640348ab878
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 20 17:29:43 2022 +0200
+
+    Add Alcor Link AK9567
+
+ readers/Alcor_Link_AK9567.txt | 312 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   3 +-
+ 2 files changed, 314 insertions(+), 1 deletion(-)
+
+commit c51fc7b43aea251e71e3168b5ca678e54fc77c8e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 20 17:55:11 2022 +0200
+
+    Add BLUTRONICS TAURUS NFC
+
+ readers/BLUTRONICS_TAURUS_NFC.txt | 57 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  3 ++-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit 4c75460a6a1831ca43bd968205755aa700a51fcf (debug/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 13 13:46:12 2022 +0200
+
+    github actions: test build configurations
+
+ .github/workflows/build.yml | 59 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 59 insertions(+)
+
+commit 8512f6a57352e77ee29a46b98fa72bd71065c8ae
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 13 13:49:40 2022 +0200
+
+    configure.ac: add --enable-strict option
+    
+    Warnings will not stop the compilation, by default.
+
+ configure.ac | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+commit 8dab2f5f14c1e6bb5b4f390b4a117bfdd656b070
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 13 13:34:55 2022 +0200
+
+    Use pcsc-lite 1.9.7
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 38bc1d42d977185986e684c7a631514bc10f0d3a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Apr 30 14:04:14 2022 +0200
+
+    Add Ledger Nano SP
+
+ readers/Ledger_Nano_SP.txt    | 55 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+commit 0b3347371bed66e0ccd767f76aafa0f55f4e0f94
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 3 14:21:29 2022 +0200
+
+    IFDHSetProtocolParameters: get convention before using it
+    
+    In case the reader defines CCID_CLASS_AUTO_PPS_PROP i.e. 25% or readers
+    according to https://ccid.apdu.fr/select_readers/?dwFeatures=6 AND the
+    card ATR declares ATR_CONVENTION_INVERSE i.e. 6% of cards according to
+    https://ludovicrousseau.blogspot.com/2016/02/atr-statistics-ts-initial-character.html
+    then the parameters settings were wrong.
+    
+    Thanks to Coverity for the bug report:
+    CID 1503362 (#2 of 2): Uninitialized scalar variable (UNINIT)15.
+    uninit_use: Using uninitialized value convention.
+
+ src/ifdhandler.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 7bca22e6bb84fe475708957149b7b5075cd2329d
+Author: Ray Veldkamp <ray.veldkamp@canonical.com>
+Date:   Tue Feb 22 14:36:34 2022 +1100
+
+    Fix debug logging of lang in ccid.c
+    
+    Minor fix to ensure that logging of the system LANG variable is done
+    after it is checked for NULL.
+
+ src/ccid.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 42e108595ee5cc0e0e422c5fccb788c41b2f0985
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 2 11:54:27 2022 +0100
+
+    Regenerate supported_readers.txt
+    
+    New list to reflect the change in the previous commit: "Feitian" is
+    preferred to "Avtor" for rebranded readers
+
+ readers/supported_readers.txt | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+commit 07aefeb8fd2f40eb5e8c7d9fd737c0a917a22721
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 2 11:48:14 2022 +0100
+
+    "Feitian" is preferred to "Avtor" for rebranded readers
+    
+    2 Avtor readers are in fact Feitian readers rebranded. They are:
+    0x096E:0x0608:Avtor SC Reader KP382
+    0x096E:0x0624:Avtor KP-375BLE
+    They are also known as:
+    0x096E:0x0608:Feitian 502-CL
+    0x096E:0x0624:Feitian bR301
+    
+    I change the iManufacturer from "Avtor" to "~Avtor" so that they appear
+    after "Feitian" in the lexicographic order.
+    
+    Thanks to Martin Paljak for the bug report.
+    
+    Closes: https://github.com/LudovicRousseau/CCID/issues/94
+    "Mixup of readers / add some "sanity check" for readers.txt?"
+
+ readers/Avtor_KP-375BLE.txt       | 2 +-
+ readers/Avtor_SC_Reader_KP382.txt | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+commit b2927edae089987a37c6fbdd6291c316c02c4500
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 28 16:19:55 2022 +0100
+
+    scardcontrol: update Copyright date
+
+ examples/scardcontrol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 866956de70174319d0deb88c039458e8e4253863
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 28 16:15:06 2022 +0100
+
+    scardcontrol: reformat output
+
+ examples/scardcontrol.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+commit 3b924f76b34c788c1d3efd9702e8f9fa433d50f5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 28 16:02:16 2022 +0100
+
+    scardcontrol: check WinSCard error early
+    
+    Check the SCardTransmit() or SCardControl() functions are successful
+    _before_ printing the card response.
+    
+    This avoids a bad printing if the card answer size is not set to 0.
+    For example on macOS you can get:
+    verify PIN dump: 00 40 00 00 FF
+     card response: 64 00 AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA AA
+    SCardTransmit: Card was removed. (0x80100069)
+    
+    The bRecvBuffer buffer contain "random bytes" since the card was removed.
+
+ examples/scardcontrol.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+commit d33bf8f0b54e8b9df33533c97fe31ea72356ef08
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 28 15:49:55 2022 +0100
+
+    scardcontrol: add support of 6A xx error codes
+    
+    6A xx error codes are specific to my test JavaCard applet.
+    The SW2 contains the index of the first byte in error compared to a PIN
+    of value "12345678".
+    
+    We now have an output like:
+     Secure verify PIN
+     command: 00 00 82 08 00 0C 04 02 01 09 04 00 00 00 00 0D 00 00 00 00 20 00 00 08 30 30 30 30 00 00 00 00
+    Enter your PIN:
+     card response [2 bytes]: 6A 03: Error on data byte  3
+    SCardControl: OK
+    
+    verify PIN dump: 00 40 00 00 FF
+     card response: 00 20 00 00 08 31 32 33 30 30 30 30 30 90 00
+    SCardTransmit: OK
+    
+     error at ------------------------------^^
+
+ examples/scardcontrol.c | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+commit f79106c365ed0747109e7e465adb54bf176b1036 (tag: 1.5.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu Jan 27 11:24:13 2022 +0100
 
@@ -788,7 +1459,7 @@ Date:   Wed Sep 29 11:38:09 2021 +0200
     
     Allow vendor control commands for Omnikey 5427 CK
 
-commit 92a5302eb17146574b0d941739264598144f7fcf
+commit 92a5302eb17146574b0d941739264598144f7fcf (github/pr/90)
 Author: Maksim Ivanov <emaxx@google.com>
 Date:   Wed Sep 29 07:52:52 2021 +0200
 

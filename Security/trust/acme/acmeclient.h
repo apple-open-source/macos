@@ -45,7 +45,7 @@ void sendAcmeRequest(NSData *acmeReq, const char *acmeURL,
 @property (retain) id urlRequest;
 
 - (id)initWithURLString:(NSString *)urlStr;
-- (void)post:(NSData *)data withMethod:(NSString *)method contentType:contentType;
+- (void)post:(NSData *)data withMethod:(NSString *)method contentType:(NSString *)contentType;
 - (void)start3:(AcmeRequestCompletionBlock)completionBlock;
 
 @end

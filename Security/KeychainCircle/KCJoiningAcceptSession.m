@@ -254,7 +254,7 @@ typedef enum {
                 responseMessage.epoch = [[OTSponsorToApplicantRound1M2 alloc] init];
                 responseMessage.epoch.epoch = epoch;
                 
-                responseMessage.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
+                responseMessage.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
                 responseMessage.supportsOctagon.supported = OTSupportType_supported;
                 next = responseMessage.data;
             }
@@ -447,7 +447,7 @@ typedef enum {
 {
     BOOL shouldProcess = YES;
 
-    if (OctagonIsSOSFeatureEnabled() == false) {
+    if (SOSCCIsSOSTrustAndSyncingEnabled() == false) {
         secnotice("joining", "platform does not support SOS");
         shouldProcess = NO;
     } else if (message.secondData == nil) {
@@ -513,7 +513,7 @@ typedef enum {
                 pairingResponse.voucher.voucher = voucher;
                 pairingResponse.voucher.voucherSignature = voucherSig;
 
-                pairingMessage.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
+                pairingMessage.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
                 pairingMessage.supportsOctagon.supported = OTSupportType_supported;
                 next = pairingResponse.data;
             }
@@ -551,7 +551,7 @@ typedef enum {
                                             error:error] der];
     }
 #endif
-    if (!OctagonIsSOSFeatureEnabled()) {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
         NSString *description = [NSString stringWithFormat:@"cannot join piggyback version %d with SOS disabled", (int)self.piggy_version];
         secerror("joining: %s", [description UTF8String]);
         if (error != nil) {

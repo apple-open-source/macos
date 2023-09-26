@@ -303,7 +303,7 @@ dofileread(vfs_context_t ctx, struct fileproc *fp,
     user_addr_t bufp, user_size_t nbyte, off_t offset, int flags,
     user_ssize_t *retval)
 {
-	uio_stackbuf_t uio_buf[UIO_SIZEOF(1)];
+	UIO_STACKBUF(uio_buf, 1);
 	uio_t uio;
 	int spacetype;
 
@@ -350,7 +350,7 @@ static int
 read_internal(struct proc *p, int fd, user_addr_t buf, user_size_t nbyte,
     off_t offset, int flags, user_ssize_t *retval)
 {
-	uio_stackbuf_t uio_buf[UIO_SIZEOF(1)];
+	UIO_STACKBUF(uio_buf, 1);
 	uio_t uio;
 	int spacetype = IS_64BIT_PROCESS(p) ? UIO_USERSPACE64 : UIO_USERSPACE32;
 
@@ -631,7 +631,7 @@ dofilewrite(vfs_context_t ctx, struct fileproc *fp,
     user_addr_t bufp, user_size_t nbyte, off_t offset, int flags,
     user_ssize_t *retval)
 {
-	uio_stackbuf_t uio_buf[UIO_SIZEOF(1)];
+	UIO_STACKBUF(uio_buf, 1);
 	uio_t uio;
 	int spacetype;
 
@@ -678,7 +678,7 @@ int
 write_internal(struct proc *p, int fd, user_addr_t buf, user_size_t nbyte,
     off_t offset, int flags, guardid_t *puguard, user_ssize_t *retval)
 {
-	uio_stackbuf_t uio_buf[UIO_SIZEOF(1)];
+	UIO_STACKBUF(uio_buf, 1);
 	uio_t uio;
 	int spacetype = IS_64BIT_PROCESS(p) ? UIO_USERSPACE64 : UIO_USERSPACE32;
 
@@ -1072,12 +1072,12 @@ static LCK_SPIN_DECLARE(selspec_lock, &selspec_grp);
 void
 selspec_attach(struct knote *kn, struct selinfo *si)
 {
-	struct selinfo *cur = os_atomic_load(&kn->kn_hook, relaxed);
+	struct selinfo *cur = knote_kn_hook_get_raw(kn);
 
 	if (cur == NULL) {
 		si->si_flags |= SI_SELSPEC;
 		lck_spin_lock(&selspec_lock);
-		kn->kn_hook = si;
+		knote_kn_hook_set_raw(kn, (void *) si);
 		KNOTE_ATTACH(&si->si_note, kn);
 		lck_spin_unlock(&selspec_lock);
 	} else {
@@ -1107,14 +1107,13 @@ selspec_detach(struct knote *kn)
 	lck_spin_lock(&selspec_lock);
 
 	if (!KNOTE_IS_AUTODETACHED(kn)) {
-		if (kn->kn_hook) {
-			struct selinfo *sip = kn->kn_hook;
-
+		struct selinfo *sip = knote_kn_hook_get_raw(kn);
+		if (sip) {
 			KNOTE_DETACH(&sip->si_note, kn);
 		}
 	}
 
-	kn->kn_hook = NULL;
+	knote_kn_hook_set_raw(kn, NULL);
 
 	lck_spin_unlock(&selspec_lock);
 }

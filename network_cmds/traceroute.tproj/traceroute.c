@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -385,9 +385,10 @@ int doipcksum = 0;		/* don't calculate ip checksums by default */
 #else
 int doipcksum = 1;		/* calculate ip checksums by default */
 #endif
-int optlen;			/* length of ip options */
+int optlen;			    /* length of ip options */
 int fixedPort = 0;		/* Use fixed destination port for TCP and UDP */
 int printdiff = 0;		/* Print the difference between sent and quoted */
+int ecn = 0;			/* set ECN bits */
 
 extern int optind;
 extern int opterr;
@@ -525,7 +526,7 @@ main(int argc, char **argv)
 		prog = cp + 1;
 	else
 		prog = argv[0];
-	
+
 	/* Insure the socket fds won't be 0, 1 or 2 */
 	if (open(devnull, O_RDONLY) < 0 ||
 	    open(devnull, O_RDONLY) < 0 ||
@@ -535,7 +536,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 	/*
-	 * Do the setuid-required stuff first, then lose priveleges ASAP.
+	 * Do the setuid-required stuff first, then lose privileges ASAP.
 	 * Do error checking for these two calls where they appeared in
 	 * the original code.
 	 */
@@ -565,17 +566,17 @@ main(int argc, char **argv)
 #endif
 
 	opterr = 0;
-	while ((op = getopt(argc, argv, "aA:edDFInrSvxf:g:i:M:m:P:p:q:s:t:w:z:")) != EOF)
+	while ((op = getopt(argc, argv, "aA:eEdDFInrSvxf:g:i:M:m:P:p:q:s:t:w:z:")) != EOF)
 		switch (op) {
 		case 'a':
 			as_path = 1;
 			break;
-			
+
 		case 'A':
 			as_path = 1;
 			as_server = optarg;
 			break;
-			    
+
 		case 'd':
 			options |= SO_DEBUG;
 			break;
@@ -586,6 +587,10 @@ main(int argc, char **argv)
 
 		case 'e':
 			fixedPort = 1;
+			break;
+
+		case 'E':
+			ecn = 1;
 			break;
 
 		case 'f':
@@ -742,8 +747,14 @@ main(int argc, char **argv)
 	memset((char *)outip, 0, packlen);
 
 	outip->ip_v = IPVERSION;
-	if (settos)
+	if (settos) {
 		outip->ip_tos = tos;
+    }
+
+	if (ecn) {
+        outip->ip_tos |= IPTOS_ECN_ECT1;
+    }
+
 #ifdef BYTESWAP_IP_HDR
 	outip->ip_len = htons(packlen);
 	outip->ip_off = htons(off);
@@ -962,7 +973,7 @@ main(int argc, char **argv)
 			as_path = 0;
 		}
 	}
-	
+
 #if	defined(IPSEC) && defined(IPSEC_POLICY_IPSEC)
 	if (setpolicy(sndsock, "in bypass") < 0)
 		errx(1, "%s", ipsec_strerror());
@@ -1038,6 +1049,19 @@ main(int argc, char **argv)
 #endif
 					precis = 3;
 				Printf("  %.*f ms", precis, T);
+				if (ecn) {
+                    u_char input_ecn = hip->ip_tos & IPTOS_ECN_MASK;
+                    u_char output_ecn = outip->ip_tos & IPTOS_ECN_MASK;
+
+                    if (input_ecn == output_ecn) {
+                        Printf(" (ecn=passed)");
+                    } else if (input_ecn == IPTOS_ECN_CE) {
+                        Printf(" (ecn=mangled)");
+                    } else if (input_ecn == IPTOS_ECN_NOTECT) {
+                        Printf(" (ecn=bleached)");
+                    }
+                }
+
 				if (printdiff) {
 					Printf("\n");
 					Printf("%*.*s%s\n",
@@ -1526,7 +1550,7 @@ print(register u_char *buf, register int cc, register struct sockaddr_in *from)
 /*
  * Checksum routine for UDP and TCP headers.
  */
-u_short 
+u_short
 p_cksum(struct ip *ip, u_short *data, int len)
 {
 	static struct ipovly ipo;

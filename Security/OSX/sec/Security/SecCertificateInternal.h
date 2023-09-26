@@ -246,6 +246,7 @@ extern const CFStringRef kSecSignatureDigestAlgorithmSHA224;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA256;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA384;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA512;
+extern const CFStringRef kSecSignatureDigestAlgorithmSHAKE256;
 #endif
 
 bool SecCertificateIsWeakHash(SecCertificateRef certificate);

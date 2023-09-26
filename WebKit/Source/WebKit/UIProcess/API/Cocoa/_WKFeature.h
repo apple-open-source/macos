@@ -33,6 +33,7 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
 @property (nonatomic, readonly, copy) NSString *key;
 @property (nonatomic, readonly, copy) NSString *name;
 @property (nonatomic, readonly) WebFeatureStatus status;
+@property (nonatomic, readonly) WebFeatureCategory category;
 @property (nonatomic, readonly, copy) NSString *details;
 @property (nonatomic, readonly) BOOL defaultValue;
 @property (nonatomic, readonly, getter=isHidden) BOOL hidden;

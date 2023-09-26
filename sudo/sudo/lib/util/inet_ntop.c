@@ -52,9 +52,6 @@
 #  define NS_INT16SZ 2
 # endif
 #endif
-#ifndef INET6_ADDRSTRLEN
-# define INET6_ADDRSTRLEN 46
-#endif
 
 /*
  * WARNING: Don't even consider trying to compile this on a system where
@@ -79,7 +76,7 @@ inet_ntop4(const unsigned char *src, char *dst, socklen_t size)
 	int len;
 
 	len = snprintf(dst, size, fmt, src[0], src[1], src[2], src[3]);
-	if (len < 0 || len >= size) {
+	if (len < 0 || (size_t)len >= size) {
 		errno = ENOSPC;
 		return (NULL);
 	}

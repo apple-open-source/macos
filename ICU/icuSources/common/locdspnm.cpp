@@ -290,7 +290,10 @@ class LocaleDisplayNamesImpl : public LocaleDisplayNames {
     UnicodeString formatReplaceOpenParen;
     UnicodeString formatCloseParen;
     UnicodeString formatReplaceCloseParen;
+#if APPLE_ICU_CHANGES
+// rdar://50687287 add names for ks/pa/ur_Arab that use script Naskh, force their use, remove redundant parens
     UnicodeString formatParenCloseOpen;
+#endif // APPLE_ICU_CHANGES
     UDisplayContext nameLength;
     UDisplayContext substitute;
 
@@ -340,8 +343,11 @@ public:
 private:
     UnicodeString& localeIdName(const char* localeId,
                                 UnicodeString& result, bool substitute) const;
+#if APPLE_ICU_CHANGES
+// rdar://16830596 7172297452.. For names combining language and region, always use short region name if available
     UnicodeString& regionShortDisplayName(const char* region,                   // Apple-specific
                                                 UnicodeString& result) const;
+#endif // APPLE_ICU_CHANGES
     UnicodeString& appendWithSep(UnicodeString& buffer, const UnicodeString& src) const;
     UnicodeString& adjustForUsageAndContext(CapContextUsage usage, UnicodeString& result) const;
     UnicodeString& scriptDisplayName(const char* script, UnicodeString& result, UBool skipAdjust) const;
@@ -394,9 +400,13 @@ LocaleDisplayNamesImpl::LocaleDisplayNamesImpl(const Locale& locale,
             case UDISPCTX_TYPE_SUBSTITUTE_HANDLING:
                 substitute = value;
                 break;
+#if APPLE_ICU_CHANGES
+// rdar://11432373 Add UADISPCTX_LENGTH_SHORT and related constants for uldn_ funcs
+// superseded by OSICU functionality with different constant
             case UADISPCTX_TYPE_LENGTH: // Apple-specific
                 nameLength = (value == UADISPCTX_LENGTH_SHORT)? UDISPCTX_LENGTH_SHORT: UDISPCTX_LENGTH_FULL;
                 break;
+#endif // APPLE_ICU_CHANGES
             default:
                 break;
         }
@@ -409,7 +419,7 @@ struct LocaleDisplayNamesImpl::CapitalizationContextSink : public ResourceSink {
     LocaleDisplayNamesImpl& parent;
 
     CapitalizationContextSink(LocaleDisplayNamesImpl& _parent)
-      : hasCapitalizationUsage(FALSE), parent(_parent) {}
+      : hasCapitalizationUsage(false), parent(_parent) {}
     virtual ~CapitalizationContextSink();
 
     virtual void put(const char *key, ResourceValue &value, UBool /*noFallback*/,
@@ -443,8 +453,8 @@ struct LocaleDisplayNamesImpl::CapitalizationContextSink : public ResourceSink {
             int32_t titlecaseInt = (parent.capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU) ? intVector[0] : intVector[1];
             if (titlecaseInt == 0) { continue; }
 
-            parent.fCapitalization[usageEnum] = TRUE;
-            hasCapitalizationUsage = TRUE;
+            parent.fCapitalization[usageEnum] = true;
+            hasCapitalizationUsage = true;
         }
     }
 };
@@ -478,14 +488,19 @@ LocaleDisplayNamesImpl::initialize(void) {
         formatReplaceOpenParen.setTo((UChar)0xFF3B);  // fullwidth [
         formatCloseParen.setTo((UChar)0xFF09);        // fullwidth )
         formatReplaceCloseParen.setTo((UChar)0xFF3D); // fullwidth ]
+#if APPLE_ICU_CHANGES
+// rdar://50687287 add names for ks/pa/ur_Arab that use script Naskh, force their use, remove redundant parens
         formatParenCloseOpen.setTo(u"）（", 2);        // fullwidth FF09 FF08 redundant parens
-
+#endif // APPLE_ICU_CHANGES
     } else {
         formatOpenParen.setTo((UChar)0x0028);         // (
         formatReplaceOpenParen.setTo((UChar)0x005B);  // [
         formatCloseParen.setTo((UChar)0x0029);        // )
         formatReplaceCloseParen.setTo((UChar)0x005D); // ]
+#if APPLE_ICU_CHANGES
+// rdar://50687287 add names for ks/pa/ur_Arab that use script Naskh, force their use, remove redundant parens
         formatParenCloseOpen.setTo(u") (", 3);        // halfwidth redundant parens
+#endif // APPLE_ICU_CHANGES
     }
 
     UnicodeString ktPattern;
@@ -499,7 +514,7 @@ LocaleDisplayNamesImpl::initialize(void) {
 #if !UCONFIG_NO_BREAK_ITERATION
     // Only get the context data if we need it! This is a const object so we know now...
     // Also check whether we will need a break iterator (depends on the data)
-    UBool needBrkIter = FALSE;
+    UBool needBrkIter = false;
     if (capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU || capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_STANDALONE) {
         LocalUResourceBundlePointer resource(ures_open(NULL, locale.getName(), &status));
         if (U_FAILURE(status)) { return; }
@@ -552,8 +567,12 @@ LocaleDisplayNamesImpl::getContext(UDisplayContextType type) const {
             return nameLength;
         case UDISPCTX_TYPE_SUBSTITUTE_HANDLING:
             return substitute;
+#if APPLE_ICU_CHANGES
+// rdar://11432373 Add UADISPCTX_LENGTH_SHORT and related constants for uldn_ funcs
+// superseded by OSICU functionality with different constant
         case UADISPCTX_TYPE_LENGTH: // Apple-specific
             return (nameLength == UDISPCTX_LENGTH_SHORT)? UADISPCTX_LENGTH_SHORT: UADISPCTX_LENGTH_STANDARD;
+#endif // APPLE_ICU_CHANGES
         default:
             break;
     }
@@ -564,19 +583,25 @@ UnicodeString&
 LocaleDisplayNamesImpl::adjustForUsageAndContext(CapContextUsage usage,
                                                 UnicodeString& result) const {
 #if !UCONFIG_NO_BREAK_ITERATION
+#if APPLE_ICU_CHANGES
+// rdar://65139631 (LOC: CA-ES: mac OS: Language & Region - Linguistic: Typo, extra capital letter)
     // check to see whether we need to titlecase result-- we check the first word (up to the first space),
     // and only titlecase the result if that first word contains no capital letters
-    UBool needToTitlecase = TRUE;
+    UBool needToTitlecase = true;
     for (int32_t i = 0; needToTitlecase && i < result.length(); i++) {
         UChar32 c = result.char32At(i);
         if (u_isupper(c) || u_istitle(c)) {
-            needToTitlecase = FALSE;
+            needToTitlecase = false;
         } else if (u_isspace(c)) {
             break;
         }
     }
     
     if (needToTitlecase && capitalizationBrkIter!= NULL &&
+#else
+    // check to see whether we need to titlecase result
+    if ( result.length() > 0 && u_islower(result.char32At(0)) && capitalizationBrkIter!= NULL &&
+#endif // APPLE_ICU_CHANGES
           ( capitalizationContext==UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE || fCapitalization[usage] ) ) {
         // note fCapitalization[usage] won't be set unless capitalizationContext is UI_LIST_OR_MENU or STANDALONE
         static UMutex capitalizationBrkIterLock;
@@ -608,6 +633,9 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
   UBool hasCountry = uprv_strlen(country) > 0;
   UBool hasVariant = uprv_strlen(variant) > 0;
 
+#if APPLE_ICU_CHANGES
+// rdar://50750364 Add and always use dialect names for zh and yue to match overriding in InternationalSupport
+// rdar://50687287 add names for ks/pa/ur_Arab that use script Naskh, force their use, remove redundant parens
   // For stylistic reasons, always load dialect names for `zh` and `yue`. <rdar://50750364>
   // `ks`, 'pa`, `ur`: <rdar://50687287>;
   // `cic`, `cho`, `apw` <rdar://100483742>.
@@ -616,14 +644,17 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
       uprv_strcmp(lang, "cic") == 0 || uprv_strcmp(lang, "cho") == 0 || uprv_strcmp(lang, "apw") == 0 );
 
   if (forceDialect || dialectHandling == ULDN_DIALECT_NAMES) {
+#else
+  if (dialectHandling == ULDN_DIALECT_NAMES) {
+#endif // APPLE_ICU_CHANGES
     char buffer[ULOC_FULLNAME_CAPACITY];
     do { // loop construct is so we can break early out of search
       if (hasScript && hasCountry) {
         ncat(buffer, ULOC_FULLNAME_CAPACITY, lang, "_", script, "_", country, (char *)0);
         localeIdName(buffer, resultName, false);
         if (!resultName.isBogus()) {
-          hasScript = FALSE;
-          hasCountry = FALSE;
+          hasScript = false;
+          hasCountry = false;
           break;
         }
       }
@@ -631,7 +662,7 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
         ncat(buffer, ULOC_FULLNAME_CAPACITY, lang, "_", script, (char *)0);
         localeIdName(buffer, resultName, false);
         if (!resultName.isBogus()) {
-          hasScript = FALSE;
+          hasScript = false;
           break;
         }
       }
@@ -639,11 +670,11 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
         ncat(buffer, ULOC_FULLNAME_CAPACITY, lang, "_", country, (char*)0);
         localeIdName(buffer, resultName, false);
         if (!resultName.isBogus()) {
-          hasCountry = FALSE;
+          hasCountry = false;
           break;
         }
       }
-    } while (FALSE);
+    } while (false);
   }
   if (resultName.isBogus() || resultName.isEmpty()) {
     localeIdName(lang, resultName, substitute == UDISPCTX_SUBSTITUTE);
@@ -658,7 +689,7 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
   UErrorCode status = U_ZERO_ERROR;
 
   if (hasScript) {
-    UnicodeString script_str = scriptDisplayName(script, temp, TRUE);
+    UnicodeString script_str = scriptDisplayName(script, temp, true);
     if (script_str.isBogus()) {
       result.setToBogus();
       return result;
@@ -666,7 +697,12 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
     resultRemainder.append(script_str);
   }
   if (hasCountry) {
+#if APPLE_ICU_CHANGES
+// rdar://16830596 7172297452.. For names combining language and region, always use short region name if available
     UnicodeString region_str = regionShortDisplayName(country, temp); // Apple modification
+#else
+    UnicodeString region_str = regionDisplayName(country, temp, true);
+#endif // APPLE_ICU_CHANGES
     if (region_str.isBogus()) {
       result.setToBogus();
       return result;
@@ -674,7 +710,7 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
     appendWithSep(resultRemainder, region_str);
   }
   if (hasVariant) {
-    UnicodeString variant_str = variantDisplayName(variant, temp, TRUE);
+    UnicodeString variant_str = variantDisplayName(variant, temp, true);
     if (variant_str.isBogus()) {
       result.setToBogus();
       return result;
@@ -695,10 +731,10 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
       if (U_FAILURE(status) || status == U_STRING_NOT_TERMINATED_WARNING) {
         return result;
       }
-      keyDisplayName(key, temp, TRUE);
+      keyDisplayName(key, temp, true);
       temp.findAndReplace(formatOpenParen, formatReplaceOpenParen);
       temp.findAndReplace(formatCloseParen, formatReplaceCloseParen);
-      keyValueDisplayName(key, value, temp2, TRUE);
+      keyValueDisplayName(key, value, temp2, true);
       temp2.findAndReplace(formatOpenParen, formatReplaceOpenParen);
       temp2.findAndReplace(formatCloseParen, formatReplaceCloseParen);
       if (temp2 != UnicodeString(value, -1, US_INV)) {
@@ -717,12 +753,15 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
 
   if (!resultRemainder.isEmpty()) {
     format.format(resultName, resultRemainder, result.remove(), status);
+#if APPLE_ICU_CHANGES
+// rdar://50687287 add names for ks/pa/ur_Arab that use script Naskh, force their use, remove redundant parens
     int32_t indexCloseOpen = result.indexOf(formatParenCloseOpen);
-    if (indexCloseOpen >= 0) { // replace redundant close-open parens with separator <rdar://problem/50687287>
+    if (indexCloseOpen >= 0) { // replace redundant close-open parens with separator <dar://50687287
         UnicodeString tail(result, indexCloseOpen + formatParenCloseOpen.length()); // section after close-open
         result.retainBetween(0, indexCloseOpen); // section before close-open
         appendWithSep(result, tail); // combine using separator
     }
+#endif // APPLE_ICU_CHANGES
     return adjustForUsageAndContext(kCapContextUsageLanguage, result);
   }
 
@@ -757,11 +796,14 @@ LocaleDisplayNamesImpl::localeIdName(const char* localeId,
         if (!result.isBogus()) {
             return result;
         }
+#if APPLE_ICU_CHANGES
+// rdar://76655165 #214, Need core ability to produce a displayable locale with sizing options
     } else if (nameLength == UDISPCTX_LENGTH_VARIANT) {
         langData.getNoFallback("Languages%variant", localeId, result);
         if (!result.isBogus()) {
             return result;
         }
+#endif // APPLE_ICU_CHANGES
     }
     langData.getNoFallback("Languages", localeId, result);
     if (result.isBogus() && uprv_strchr(localeId, '_') == NULL) {
@@ -795,11 +837,14 @@ LocaleDisplayNamesImpl::languageDisplayName(const char* lang,
         if (!result.isBogus()) {
             return adjustForUsageAndContext(kCapContextUsageLanguage, result);
         }
+#if APPLE_ICU_CHANGES
+// rdar://76655165 #214, Need core ability to produce a displayable locale with sizing options
     } else if (nameLength == UDISPCTX_LENGTH_VARIANT) {
         langData.getNoFallback("Languages%variant", lang, result);
         if (!result.isBogus()) {
             return adjustForUsageAndContext(kCapContextUsageLanguage, result);
         }
+#endif // APPLE_ICU_CHANGES
     }
     langData.getNoFallback("Languages", lang, result);
     if (result.isBogus()) {
@@ -825,22 +870,28 @@ UnicodeString&
 LocaleDisplayNamesImpl::scriptDisplayName(const char* script,
                                           UnicodeString& result,
                                           UBool skipAdjust) const {
+#if APPLE_ICU_CHANGES
+// rdar://25991768 51660c2486.. uldn handle fallback from short lang/script/reg; standalone script should use correct name
     if (!skipAdjust) { // => prefer standalone
         langData.getNoFallback("Scripts%stand-alone", script, result);
         if (!result.isBogus()) {
             return adjustForUsageAndContext(kCapContextUsageScript, result);
         }
     }
+#endif // APPLE_ICU_CHANGES
     if (nameLength == UDISPCTX_LENGTH_SHORT) {
         langData.getNoFallback("Scripts%short", script, result);
         if (!result.isBogus()) {
             return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageScript, result);
         }
+#if APPLE_ICU_CHANGES
+// rdar://76655165 #214, Need core ability to produce a displayable locale with sizing options
     } else if (nameLength == UDISPCTX_LENGTH_VARIANT) {
         langData.getNoFallback("Scripts%variant", script, result);
         if (!result.isBogus()) {
             return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageScript, result);
         }
+#endif // APPLE_ICU_CHANGES
     }
     if (substitute == UDISPCTX_SUBSTITUTE) {
         langData.get("Scripts", script, result);
@@ -853,13 +904,13 @@ LocaleDisplayNamesImpl::scriptDisplayName(const char* script,
 UnicodeString&
 LocaleDisplayNamesImpl::scriptDisplayName(const char* script,
                                           UnicodeString& result) const {
-    return scriptDisplayName(script, result, FALSE);
+    return scriptDisplayName(script, result, false);
 }
 
 UnicodeString&
 LocaleDisplayNamesImpl::scriptDisplayName(UScriptCode scriptCode,
                                           UnicodeString& result) const {
-    return scriptDisplayName(uscript_getName(scriptCode), result, FALSE);
+    return scriptDisplayName(uscript_getName(scriptCode), result, false);
 }
 
 UnicodeString&
@@ -867,15 +918,18 @@ LocaleDisplayNamesImpl::regionDisplayName(const char* region,
                                           UnicodeString& result,
                                           UBool skipAdjust) const {
     if (nameLength == UDISPCTX_LENGTH_SHORT) {
-        regionData.getNoFallback("Countries%short", region, result);
+         regionData.getNoFallback("Countries%short", region, result);
         if (!result.isBogus()) {
             return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageTerritory, result);
         }
+#if APPLE_ICU_CHANGES
+// rdar://76655165 #214, Need core ability to produce a displayable locale with sizing options
     } else if (nameLength == UDISPCTX_LENGTH_VARIANT) {
         regionData.getNoFallback("Countries%variant", region, result);
         if (!result.isBogus()) {
             return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageTerritory, result);
         }
+#endif // APPLE_ICU_CHANGES
     }
     if (substitute == UDISPCTX_SUBSTITUTE) {
         regionData.get("Countries", region, result);
@@ -885,11 +939,14 @@ LocaleDisplayNamesImpl::regionDisplayName(const char* region,
     return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageTerritory, result);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://16830596 7172297452.. For names combining language and region, always use short region name if available
 // private Apple, only for building localeDisplayName
 // (use short region, don't adjust for context)
 UnicodeString&
 LocaleDisplayNamesImpl::regionShortDisplayName(const char* region,
                                           UnicodeString& result) const {
+    // rdar://76655165 #214, Need core ability to produce a displayable locale with sizing options
     if (nameLength == UDISPCTX_LENGTH_VARIANT) {
         regionData.getNoFallback("Countries%variant", region, result);
         if (!result.isBogus()) {
@@ -902,6 +959,7 @@ LocaleDisplayNamesImpl::regionShortDisplayName(const char* region,
             return result;
         }
     }
+    // rdar://57899428 commit a429a8a3da.. Integrate open-source ICU 66 preview...; ...fix or handle all remaining test failures
     if (substitute == UDISPCTX_SUBSTITUTE) {
         regionData.get("Countries", region, result);
     } else {
@@ -909,11 +967,12 @@ LocaleDisplayNamesImpl::regionShortDisplayName(const char* region,
     }
     return result;
 }
+#endif // APPLE_ICU_CHANGES
 
 UnicodeString&
 LocaleDisplayNamesImpl::regionDisplayName(const char* region,
                                           UnicodeString& result) const {
-    return regionDisplayName(region, result, FALSE);
+    return regionDisplayName(region, result, false);
 }
 
 
@@ -933,7 +992,7 @@ LocaleDisplayNamesImpl::variantDisplayName(const char* variant,
 UnicodeString&
 LocaleDisplayNamesImpl::variantDisplayName(const char* variant,
                                            UnicodeString& result) const {
-    return variantDisplayName(variant, result, FALSE);
+    return variantDisplayName(variant, result, false);
 }
 
 UnicodeString&
@@ -952,7 +1011,7 @@ LocaleDisplayNamesImpl::keyDisplayName(const char* key,
 UnicodeString&
 LocaleDisplayNamesImpl::keyDisplayName(const char* key,
                                        UnicodeString& result) const {
-    return keyDisplayName(key, result, FALSE);
+    return keyDisplayName(key, result, false);
 }
 
 UnicodeString&
@@ -994,7 +1053,7 @@ UnicodeString&
 LocaleDisplayNamesImpl::keyValueDisplayName(const char* key,
                                             const char* value,
                                             UnicodeString& result) const {
-    return keyValueDisplayName(key, value, result, FALSE);
+    return keyValueDisplayName(key, value, result, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

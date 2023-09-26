@@ -362,8 +362,13 @@ extern void     zone_require_ro(
  * then @c Z_WAITOK is ignored.
  *
  * @const Z_WAITOK
- * Means that it's OK for zalloc() to block to wait for memory,
- * when Z_WAITOK is passed, zalloc will never return NULL.
+ * Passing this flag means that zalloc() will be allowed to sleep
+ * for memory to become available for this allocation. If the zone
+ * isn't exhaustible, zalloc(Z_WAITOK) never fails.
+ *
+ * If the zone is exhaustible, zalloc() might still fail if the zone
+ * is at its maximum allowed memory usage, unless Z_NOFAIL is passed,
+ * in which case zalloc() will block until an element is freed.
  *
  * @const Z_NOWAIT
  * Passing this flag means that zalloc is not allowed to ever block.
@@ -380,8 +385,9 @@ extern void     zone_require_ro(
  * Passing this flag means that the caller expects the allocation to always
  * succeed. This will result in a panic if this assumption isn't correct.
  *
- * This flag is incompatible with @c Z_NOWAIT or @c Z_NOPAGEWAIT. It also can't
- * be used on exhaustible zones.
+ * This flag is incompatible with @c Z_NOWAIT or @c Z_NOPAGEWAIT.
+ * For exhaustible zones, it forces the caller to wait until a zfree() happend
+ * if the zone has reached its maximum of allowed elements.
  *
  * @const Z_REALLOCF
  * For the realloc family of functions,
@@ -450,7 +456,7 @@ __options_decl(zalloc_flags_t, uint32_t, {
 #else
 	Z_FULLSIZE      = 0x0200,
 #endif
-#if KASAN
+#if KASAN_CLASSIC
 	Z_SKIP_KASAN    = 0x0400,
 #else
 	Z_SKIP_KASAN    = 0x0000,
@@ -1111,7 +1117,9 @@ __attribute__((malloc))
 extern void *__sized_by(size) zalloc_permanent_tag(
 	vm_size_t       size,
 	vm_offset_t     align_mask,
-	vm_tag_t        tag);
+	vm_tag_t        tag)
+__attribute__((__diagnose_if__((align_mask & (align_mask + 1)),
+    "align mask looks invalid", "error")));
 
 /*!
  * @function zalloc_permanent()
@@ -1603,6 +1611,17 @@ __enum_decl(zone_reserved_id_t, zone_id_t, {
 	ZONE_ID_SELECT_SET,
 	ZONE_ID_FILEPROC,
 
+#if !CONFIG_MBUF_MCACHE
+	ZONE_ID_MBUF_REF,
+	ZONE_ID_MBUF,
+	ZONE_ID_CLUSTER_2K,
+	ZONE_ID_CLUSTER_4K,
+	ZONE_ID_CLUSTER_16K,
+	ZONE_ID_MBUF_CLUSTER_2K,
+	ZONE_ID_MBUF_CLUSTER_4K,
+	ZONE_ID_MBUF_CLUSTER_16K,
+#endif /* !CONFIG_MBUF_MCACHE */
+
 	ZONE_ID__FIRST_DYNAMIC,
 });
 
@@ -1977,7 +1996,7 @@ __enum_decl(zone_kheap_id_t, uint8_t, {
 	} }; \
 	static __startup_data struct zone_view_startup_spec \
 	__startup_zone_view_spec_ ## var = { var, { heap_or_zone }, size }; \
-	STARTUP_ARG(ZALLOC, STARTUP_RANK_LAST, zone_view_startup_init, \
+	STARTUP_ARG(ZALLOC, STARTUP_RANK_MIDDLE, zone_view_startup_init, \
 	    &__startup_zone_view_spec_ ## var)
 
 
@@ -2007,7 +2026,7 @@ typedef struct zstack {
  */
 extern void zstack_push(
 	zstack_t               *stack,
-	void                   *elem __unsafe_indexable);
+	void                   *elem);
 
 /*!
  * @function zstack_pop
@@ -2015,7 +2034,7 @@ extern void zstack_push(
  * @brief
  * Pops an element from a zstack, the caller must check it's not empty.
  */
-void *__unsafe_indexable zstack_pop(
+void *zstack_pop(
 	zstack_t               *stack);
 
 /*!
@@ -2158,6 +2177,27 @@ typedef const struct zone_cache_ops {
 	void          (*zc_op_free)(zone_id_t, void *);
 } *zone_cache_ops_t;
 
+#if __has_ptrcheck
+static inline char *__bidi_indexable
+zcache_transpose_bounds(
+	char *__bidi_indexable pointer_with_bounds,
+	char *__unsafe_indexable unsafe_pointer)
+{
+	vm_offset_t offset_from_start = pointer_with_bounds - __ptr_lower_bound(pointer_with_bounds);
+	vm_offset_t offset_to_end = __ptr_upper_bound(pointer_with_bounds) - pointer_with_bounds;
+	vm_offset_t size = offset_from_start + offset_to_end;
+	return __unsafe_forge_bidi_indexable(char *, unsafe_pointer - offset_from_start, size)
+	       + offset_from_start;
+}
+#else
+static inline char *__header_indexable
+zcache_transpose_bounds(
+	char *__header_indexable pointer_with_bounds __unused,
+	char *__unsafe_indexable unsafe_pointer)
+{
+	return unsafe_pointer;
+}
+#endif // __has_ptrcheck
 
 /*!
  * @function zcache_mark_valid()
@@ -2177,11 +2217,25 @@ typedef const struct zone_cache_ops {
  * @param elem          the address of the element
  * @returns             the new address to correctly access @c elem.
  */
-extern vm_offset_t zcache_mark_valid(
+extern void *__unsafe_indexable zcache_mark_valid(
 	zone_t                  zone,
-	vm_offset_t             elem);
-#define zcache_mark_valid(zone, e) \
-	((typeof(e))((zcache_mark_valid)(zone, (vm_offset_t)(e))))
+	void                    *elem __unsafe_indexable);
+
+static inline void *
+zcache_mark_valid_single(
+	zone_t                  zone,
+	void                    *elem)
+{
+	return __unsafe_forge_single(void *, zcache_mark_valid(zone, elem));
+}
+
+static inline void *__header_bidi_indexable
+zcache_mark_valid_indexable(
+	zone_t                  zone,
+	void                    *elem __header_bidi_indexable)
+{
+	return zcache_transpose_bounds((char *)elem, (char *)zcache_mark_valid(zone, elem));
+}
 
 /*!
  * @function zcache_mark_invalid()
@@ -2202,12 +2256,25 @@ extern vm_offset_t zcache_mark_valid(
  * @param elem          the address of the element
  * @returns             the new address to correctly access @c elem.
  */
-extern vm_offset_t zcache_mark_invalid(
+extern void *__unsafe_indexable zcache_mark_invalid(
 	zone_t                  zone,
-	vm_offset_t             elem);
-#define zcache_mark_invalid(zone, e) \
-	((typeof(e))(zcache_mark_invalid)(zone, (vm_offset_t)(e)))
+	void                    *elem __unsafe_indexable);
 
+static inline void *
+zcache_mark_invalid_single(
+	zone_t                  zone,
+	void                    *elem)
+{
+	return __unsafe_forge_single(void *, zcache_mark_invalid(zone, elem));
+}
+
+static inline void *__header_bidi_indexable
+zcache_mark_invalid_indexable(
+	zone_t                  zone,
+	void                    *elem __header_bidi_indexable)
+{
+	return zcache_transpose_bounds((char *)elem, (char *)zcache_mark_invalid(zone, elem));
+}
 
 /*!
  * @macro zcache_alloc()
@@ -2451,7 +2518,7 @@ extern void __zone_site_register(
 #define VM_ALLOC_SITE_TAG() ({ \
 	__PLACE_IN_SECTION("__DATA, __data")                                   \
 	static vm_allocation_site_t site = { .refcount = 2, };                 \
-	STARTUP_ARG(ZALLOC, STARTUP_RANK_LAST, __zone_site_register, &site);   \
+	STARTUP_ARG(ZALLOC, STARTUP_RANK_MIDDLE, __zone_site_register, &site);   \
 	site.tag;                                                              \
 })
 #else /* VM_TAG_SIZECLASSES */
@@ -2516,7 +2583,6 @@ extern size_t zone_guard_pages;
 #if CONFIG_ZLEAKS
 extern uint32_t                 zleak_active;
 extern vm_size_t                zleak_max_zonemap_size;
-extern vm_size_t                zleak_global_tracking_threshold;
 extern vm_size_t                zleak_per_zone_tracking_threshold;
 
 extern kern_return_t zleak_update_threshold(

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,20 +25,33 @@
 
 #import "config.h"
 #import "AccessibilityObject.h"
+
 #import "AccessibilityLabel.h"
 #import "AccessibilityList.h"
-#import "ElementAncestorIterator.h"
-#import "FrameView.h"
+#import "ColorCocoa.h"
+#import "CompositionHighlight.h"
+#import "CompositionUnderline.h"
+#import "Editor.h"
+#import "ElementAncestorIteratorInlines.h"
+#import "FrameSelection.h"
 #import "HTMLFieldSetElement.h"
 #import "HTMLInputElement.h"
+#import "LocalFrame.h"
+#import "LocalFrameView.h"
 #import "LocalizedStrings.h"
 #import "RenderObject.h"
 #import "Settings.h"
+#import "TextCheckerClient.h"
+#import "TextCheckingHelper.h"
+#import "TextDecorationPainter.h"
 
 #if ENABLE(ACCESSIBILITY) && PLATFORM(MAC)
 
+#import "PlatformScreen.h"
 #import "WebAccessibilityObjectWrapperMac.h"
 #import "Widget.h"
+
+#import <pal/spi/mac/NSSpellCheckerSPI.h>
 
 namespace WebCore {
 
@@ -65,9 +78,14 @@ void AccessibilityObject::overrideAttachmentParent(AXCoreObject* parent)
         parentWrapper = parent->wrapper();
     }
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[wrapper() attachmentView] accessibilitySetOverrideValue:parentWrapper forAttribute:NSAccessibilityParentAttribute];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
+}
+
+FloatRect AccessibilityObject::primaryScreenRect() const
+{
+    return screenRectForPrimaryScreen();
 }
 
 FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect, AccessibilityConversionSpace space) const
@@ -81,9 +99,9 @@ FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect,
 
         NSRect nsRect = NSRectFromCGRect(cgRect);
         NSView *view = frameView->documentView();
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         nsRect = [[view window] convertRectToScreen:[view convertRect:nsRect toView:nil]];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
         return NSRectToCGRect(nsRect);
     }
 
@@ -98,52 +116,20 @@ bool AccessibilityObject::fileUploadButtonReturnsValueInTitle() const
 
 bool AccessibilityObject::accessibilityIgnoreAttachment() const
 {
-    // FrameView attachments are now handled by AccessibilityScrollView, 
+    // LocalFrameView attachments are now handled by AccessibilityScrollView,
     // so if this is the attachment, it should be ignored.
     Widget* widget = nullptr;
-    if (isAttachment() && (widget = widgetForAttachmentView()) && widget->isFrameView())
+    if (isAttachment() && (widget = widgetForAttachmentView()) && widget->isLocalFrameView())
         return true;
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     id attachmentView = widget ? NSAccessibilityUnignoredDescendant(widget->platformWidget()) : nil;
     if (attachmentView)
         return [attachmentView accessibilityIsIgnored];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     // Attachments are ignored by default (unless we determine that we should expose them).
     return true;
-}
-
-static bool shouldIgnoreGroup(const AccessibilityObject& axObject)
-{
-    if (!axObject.isGroup() && axObject.roleValue() != AccessibilityRole::Div)
-        return false;
-
-    // Never ignore a group with event listeners attached to it (e.g. onclick).
-    if (axObject.node() && axObject.node()->hasEventListeners())
-        return false;
-
-    if (!is<AccessibilityNodeObject>(axObject))
-        return false;
-    auto& axNodeObject = downcast<AccessibilityNodeObject>(axObject);
-
-    // Ignore groups whose accessibility text is the same as their child's static-text content.
-    auto* first = axObject.firstChild();
-    if (!first || first->roleValue() != AccessibilityRole::StaticText || first != axObject.lastChild())
-        return false;
-
-    Vector<AccessibilityText> axText;
-    axNodeObject.alternativeText(axText);
-    if (!axText.size())
-        axNodeObject.helpText(axText);
-    if (!axText.size())
-        return false;
-
-    auto childString = first->stringValue();
-    // stringValue() can be null if the underlying document needs style recalculation.
-    if (childString.isNull())
-        return false;
-    return childString == axText[0].text;
 }
 
 AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesObject() const
@@ -174,21 +160,18 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
         }
     }
     
-    if (shouldIgnoreGroup(*this))
-        return AccessibilityObjectInclusion::IgnoreObject;
-
     return AccessibilityObjectInclusion::DefaultBehavior;
 }
     
 bool AccessibilityObject::caretBrowsingEnabled() const
 {
-    Frame* frame = this->frame();
+    auto* frame = this->frame();
     return frame && frame->settings().caretBrowsingEnabled();
 }
 
 void AccessibilityObject::setCaretBrowsingEnabled(bool on)
 {
-    Frame* frame = this->frame();
+    auto* frame = this->frame();
     if (!frame)
         return;
     frame->settings().setCaretBrowsingEnabled(on);
@@ -213,17 +196,17 @@ String AccessibilityObject::rolePlatformString() const
 
 String AccessibilityObject::subrolePlatformString() const
 {
-    if (isPasswordField())
+    if (isSecureField())
         return NSAccessibilitySecureTextFieldSubrole;
     if (isSearchField())
         return NSAccessibilitySearchFieldSubrole;
 
     if (isAttachment()) {
         NSView* attachView = [wrapper() attachmentView];
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if ([[attachView accessibilityAttributeNames] containsObject:NSAccessibilitySubroleAttribute])
             return [attachView accessibilityAttributeValue:NSAccessibilitySubroleAttribute];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     if (isMeter())
@@ -406,24 +389,22 @@ String AccessibilityObject::subrolePlatformString() const
         break;
     }
 
-    if (isStyleFormatGroup()) {
-        using namespace HTMLNames;
-        auto tag = tagName();
-        if (tag == kbdTag)
-            return "AXKeyboardInputStyleGroup"_s;
-        if (tag == codeTag)
-            return "AXCodeStyleGroup"_s;
-        if (tag == preTag)
-            return "AXPreformattedStyleGroup"_s;
-        if (tag == sampTag)
-            return "AXSampleStyleGroup"_s;
-        if (tag == varTag)
-            return "AXVariableStyleGroup"_s;
-        if (tag == citeTag)
-            return "AXCiteStyleGroup"_s;
-        ASSERT_NOT_REACHED();
-        return String();
-    }
+    if (isCode())
+        return "AXCodeStyleGroup"_s;
+
+    using namespace HTMLNames;
+    auto tag = tagName();
+    if (tag == kbdTag)
+        return "AXKeyboardInputStyleGroup"_s;
+    if (tag == preTag)
+        return "AXPreformattedStyleGroup"_s;
+    if (tag == sampTag)
+        return "AXSampleStyleGroup"_s;
+    if (tag == varTag)
+        return "AXVariableStyleGroup"_s;
+    if (tag == citeTag)
+        return "AXCiteStyleGroup"_s;
+    ASSERT_WITH_MESSAGE(!isStyleFormatGroup(), "Should've been able to compute a subrole for style format group object");
 
     return String();
 }
@@ -532,11 +513,243 @@ String AccessibilityObject::rolePlatformDescription() const
     return String();
 }
 
-AXTextMarkerRangeRef AccessibilityObject::textMarkerRangeForNSRange(const NSRange& range) const
+// NSAttributedString support.
+
+static void attributedStringSetColor(NSMutableAttributedString *attrString, NSString *attribute, NSColor *color, const NSRange& range)
 {
-    return textMarkerRangeFromVisiblePositions(axObjectCache(),
-        visiblePositionForIndex(range.location),
-        visiblePositionForIndex(range.location + range.length));
+    if (color) {
+        // Use the CGColor instead of the passed NSColor because that's what the AX system framework expects. Using the NSColor causes that the AX client gets nil instead of a valid NSAttributedString.
+        [attrString addAttribute:attribute value:(__bridge id)color.CGColor range:range];
+    }
+}
+
+static void attributedStringSetStyle(NSMutableAttributedString *attrString, RenderObject* renderer, const NSRange& range)
+{
+    if (!renderer || !attributedStringContainsRange(attrString, range))
+        return;
+
+    const auto& style = renderer->style();
+
+    // set basic font info
+    attributedStringSetFont(attrString, style.fontCascade().primaryFont().getCTFont(), range);
+
+    // Set basic colors.
+    attributedStringSetColor(attrString, NSAccessibilityForegroundColorTextAttribute, cocoaColor(style.visitedDependentColor(CSSPropertyColor)).get(), range);
+    attributedStringSetColor(attrString, NSAccessibilityBackgroundColorTextAttribute, cocoaColor(style.visitedDependentColor(CSSPropertyBackgroundColor)).get(), range);
+
+    // Set super/sub scripting.
+    auto alignment = style.verticalAlign();
+    if (alignment == VerticalAlign::Sub)
+        attributedStringSetNumber(attrString, NSAccessibilitySuperscriptTextAttribute, @(-1), range);
+    else if (alignment == VerticalAlign::Super)
+        attributedStringSetNumber(attrString, NSAccessibilitySuperscriptTextAttribute, @(1), range);
+
+    // Set shadow.
+    if (style.textShadow())
+        attributedStringSetNumber(attrString, NSAccessibilityShadowTextAttribute, @YES, range);
+
+    // Set underline and strikethrough.
+    auto decor = style.textDecorationsInEffect();
+    if (decor & TextDecorationLine::Underline || decor & TextDecorationLine::LineThrough) {
+        // FIXME: Should the underline style be reported here?
+        auto decorationStyles = TextDecorationPainter::stylesForRenderer(*renderer, decor);
+
+        if (decor & TextDecorationLine::Underline) {
+            attributedStringSetNumber(attrString, NSAccessibilityUnderlineTextAttribute, @YES, range);
+            attributedStringSetColor(attrString, NSAccessibilityUnderlineColorTextAttribute, cocoaColor(decorationStyles.underline.color).get(), range);
+        }
+
+        if (decor & TextDecorationLine::LineThrough) {
+            attributedStringSetNumber(attrString, NSAccessibilityStrikethroughTextAttribute, @YES, range);
+            attributedStringSetColor(attrString, NSAccessibilityStrikethroughColorTextAttribute, cocoaColor(decorationStyles.linethrough.color).get(), range);
+        }
+    }
+
+    // FIXME: This traversal should be replaced by a flag in AccessibilityObject::m_ancestorFlags (e.g., AXAncestorFlag::HasHTMLMarkAncestor)
+    // Indicate background highlighting.
+    for (Node* node = renderer->node(); node; node = node->parentNode()) {
+        if (node->hasTagName(HTMLNames::markTag))
+            attributedStringSetNumber(attrString, @"AXHighlight", @YES, range);
+        if (auto* element = dynamicDowncast<Element>(*node)) {
+            auto& roleValue = element->attributeWithoutSynchronization(HTMLNames::roleAttr);
+            if (equalLettersIgnoringASCIICase(roleValue, "insertion"_s))
+                attributedStringSetNumber(attrString, @"AXIsSuggestedInsertion", @YES, range);
+            else if (equalLettersIgnoringASCIICase(roleValue, "deletion"_s))
+                attributedStringSetNumber(attrString, @"AXIsSuggestedDeletion", @YES, range);
+            else if (equalLettersIgnoringASCIICase(roleValue, "suggestion"_s))
+                attributedStringSetNumber(attrString, @"AXIsSuggestion", @YES, range);
+            else if (equalLettersIgnoringASCIICase(roleValue, "mark"_s))
+                attributedStringSetNumber(attrString, @"AXHighlight", @YES, range);
+        }
+    }
+}
+
+static void attributedStringSetHeadingLevel(NSMutableAttributedString *attrString, RenderObject* renderer, const NSRange& range)
+{
+    if (!renderer || !attributedStringContainsRange(attrString, range))
+        return;
+
+    // Sometimes there are objects between the text and the heading.
+    // In those cases the parent hierarchy should be queried to see if there is a heading ancestor.
+    RefPtr parent = renderer->document().axObjectCache()->getOrCreate(renderer->parent());
+    for (; parent; parent = parent->parentObject()) {
+        if (unsigned level = parent->headingLevel()) {
+            [attrString addAttribute:@"AXHeadingLevel" value:@(level) range:range];
+            return;
+        }
+    }
+}
+
+static void attributedStringSetBlockquoteLevel(NSMutableAttributedString *attrString, RenderObject* renderer, const NSRange& range)
+{
+    if (!renderer || !attributedStringContainsRange(attrString, range))
+        return;
+
+    RefPtr object = renderer->document().axObjectCache()->getOrCreate(renderer);
+    if (!object)
+        return;
+
+    unsigned level = object->blockquoteLevel();
+    if (level)
+        [attrString addAttribute:NSAccessibilityBlockQuoteLevelAttribute value:@(level) range:range];
+}
+
+static void attributedStringSetExpandedText(NSMutableAttributedString *attrString, RenderObject* renderer, const NSRange& range)
+{
+    if (!renderer || !attributedStringContainsRange(attrString, range))
+        return;
+
+    RefPtr object = renderer->document().axObjectCache()->getOrCreate(renderer);
+    if (object->supportsExpandedTextValue())
+        [attrString addAttribute:NSAccessibilityExpandedTextValueAttribute value:object->expandedTextValue() range:range];
+}
+
+static void attributedStringSetElement(NSMutableAttributedString *attrString, NSString *attribute, AccessibilityObject* object, const NSRange& range)
+{
+    if (!attributedStringContainsRange(attrString, range) || !is<AccessibilityRenderObject>(object))
+        return;
+
+    // Make a serializable AX object.
+    auto* renderer = downcast<AccessibilityRenderObject>(*object).renderer();
+    if (!renderer)
+        return;
+
+    id wrapper = object->wrapper();
+    if ([attribute isEqualToString:NSAccessibilityAttachmentTextAttribute] && object->isAttachment()) {
+        if (id attachmentView = [wrapper attachmentView])
+            wrapper = [wrapper attachmentView];
+    }
+
+    if (auto axElement = adoptCF(NSAccessibilityCreateAXUIElementRef(wrapper)))
+        [attrString addAttribute:attribute value:(__bridge id)axElement.get() range:range];
+}
+
+static void attributedStringSetCompositionAttributes(NSMutableAttributedString *attrString, Node& node, const SimpleRange& textSimpleRange)
+{
+#if HAVE(INLINE_PREDICTIONS)
+    auto& editor = node.document().editor();
+    if (&node != editor.compositionNode())
+        return;
+
+    auto scope = makeRangeSelectingNodeContents(node);
+    auto textRange = characterRange(scope, textSimpleRange);
+
+    auto& annotations = editor.customCompositionAnnotations();
+    if (auto it = annotations.find(NSTextCompletionAttributeName); it != annotations.end()) {
+        for (auto& annotationRange : it->value) {
+            auto intersectionRange = NSIntersectionRange(textRange, annotationRange);
+            if (intersectionRange.length) {
+                auto completionRange = NSMakeRange(intersectionRange.location - textRange.location, intersectionRange.length);
+                attributedStringSetNumber(attrString, NSAccessibilityTextCompletionAttribute, @YES, completionRange);
+            }
+        }
+    }
+#else
+    UNUSED_PARAM(attrString);
+    UNUSED_PARAM(node);
+    UNUSED_PARAM(textSimpleRange);
+#endif
+}
+
+static bool shouldHaveAnySpellCheckAttribute(Node& node)
+{
+    // If this node is not inside editable content, do not run the spell checker on the text.
+    return node.document().axObjectCache()->rootAXEditableElement(&node);
+}
+
+void attributedStringSetNeedsSpellCheck(NSMutableAttributedString *attributedString, Node& node)
+{
+    if (!shouldHaveAnySpellCheckAttribute(node))
+        return;
+
+    // Inform the AT that we want it to spell-check for us by setting AXDidSpellCheck to @NO.
+    attributedStringSetNumber(attributedString, AXDidSpellCheckAttribute, @NO, NSMakeRange(0, attributedString.length));
+}
+
+void attributedStringSetSpelling(NSMutableAttributedString *attrString, Node& node, StringView text, const NSRange& range)
+{
+    if (!shouldHaveAnySpellCheckAttribute(node))
+        return;
+
+    if (unifiedTextCheckerEnabled(node.document().frame())) {
+        // Check the spelling directly since document->markersForNode() does not store the misspelled marking when the cursor is in a word.
+        auto* checker = node.document().editor().textChecker();
+
+        // checkTextOfParagraph is the only spelling/grammar checker implemented in WK1 and WK2
+        Vector<TextCheckingResult> results;
+        checkTextOfParagraph(*checker, text, TextCheckingType::Spelling, results, node.document().frame()->selection().selection());
+        for (const auto& result : results) {
+            attributedStringSetNumber(attrString, NSAccessibilityMisspelledTextAttribute, @YES, NSMakeRange(result.range.location + range.location, result.range.length));
+            attributedStringSetNumber(attrString, NSAccessibilityMarkedMisspelledTextAttribute, @YES, NSMakeRange(result.range.location + range.location, result.range.length));
+        }
+
+        return;
+    }
+
+    for (unsigned current = 0; current < text.length(); ) {
+        int misspellingLocation = -1;
+        int misspellingLength = 0;
+        node.document().editor().textChecker()->checkSpellingOfString(text.substring(current), &misspellingLocation, &misspellingLength);
+        if (misspellingLocation < 0 || !misspellingLength)
+            break;
+
+        NSRange spellRange = NSMakeRange(range.location + current + misspellingLocation, misspellingLength);
+        attributedStringSetNumber(attrString, NSAccessibilityMisspelledTextAttribute, @YES, spellRange);
+        attributedStringSetNumber(attrString, NSAccessibilityMarkedMisspelledTextAttribute, @YES, spellRange);
+
+        current += misspellingLocation + misspellingLength;
+    }
+}
+
+RetainPtr<NSAttributedString> attributedStringCreate(Node* node, StringView text, const SimpleRange& textRange, AXCoreObject::SpellCheck spellCheck)
+{
+    if (!node || !text.length())
+        return nil;
+
+    // Skip invisible text.
+    WeakPtr renderer = node->renderer();
+    if (!renderer)
+        return nil;
+
+    auto result = adoptNS([[NSMutableAttributedString alloc] initWithString:text.createNSStringWithoutCopying().get()]);
+    NSRange range = NSMakeRange(0, [result length]);
+
+    // Set attributes.
+    attributedStringSetStyle(result.get(), renderer.get(), range);
+    attributedStringSetHeadingLevel(result.get(), renderer.get(), range);
+    attributedStringSetBlockquoteLevel(result.get(), renderer.get(), range);
+    attributedStringSetExpandedText(result.get(), renderer.get(), range);
+    attributedStringSetElement(result.get(), NSAccessibilityLinkTextAttribute, AccessibilityObject::anchorElementForNode(node), range);
+    attributedStringSetCompositionAttributes(result.get(), *node, textRange);
+    // Do spelling last because it tends to break up the range.
+    if (spellCheck == AXCoreObject::SpellCheck::Yes) {
+        if (AXObjectCache::shouldSpellCheck())
+            attributedStringSetSpelling(result.get(), *node, text, range);
+        else
+            attributedStringSetNeedsSpellCheck(result.get(), *node);
+    }
+
+    return result;
 }
 
 namespace Accessibility {
@@ -590,6 +803,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::ComboBox, NSAccessibilityComboBoxRole },
         { AccessibilityRole::SplitGroup, NSAccessibilitySplitGroupRole },
         { AccessibilityRole::Splitter, NSAccessibilitySplitterRole },
+        { AccessibilityRole::Code, NSAccessibilityGroupRole },
         { AccessibilityRole::ColorWell, NSAccessibilityColorWellRole },
         { AccessibilityRole::GrowArea, NSAccessibilityGrowAreaRole },
         { AccessibilityRole::Sheet, NSAccessibilitySheetRole },
@@ -651,8 +865,8 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::ListItem, NSAccessibilityGroupRole },
         { AccessibilityRole::Paragraph, NSAccessibilityGroupRole },
         { AccessibilityRole::Label, NSAccessibilityGroupRole },
-        { AccessibilityRole::Div, NSAccessibilityGroupRole },
         { AccessibilityRole::Form, NSAccessibilityGroupRole },
+        { AccessibilityRole::Generic, NSAccessibilityGroupRole },
         { AccessibilityRole::SpinButton, NSAccessibilityIncrementorRole },
         { AccessibilityRole::SpinButtonPart, @"AXIncrementorArrow" },
         { AccessibilityRole::Footer, NSAccessibilityGroupRole },

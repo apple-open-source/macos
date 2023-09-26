@@ -5,6 +5,12 @@
 *   Copyright (C) 1999-2014 International Business Machines Corporation   *
 *   and others. All rights reserved.                                      *
 ***************************************************************************
+*
+**********************************************************************
+*   Legacy version from ICU 57, only for use by Apple RuleBasedTokenizer
+*   originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+*   urbtok57 interfaces for access via RBT, and better tests
+**********************************************************************
 */
 
 #include "unicode/utypes.h"
@@ -55,7 +61,7 @@ RBBIDataWrapper57::RBBIDataWrapper57(const RBBIDataHeader57 *data, UErrorCode &s
 RBBIDataWrapper57::RBBIDataWrapper57(const RBBIDataHeader57 *data, enum EDontAdopt, UErrorCode &status) {
     init0();
     init(data, status);
-    fDontFreeData = TRUE;
+    fDontFreeData = true;
 }
 
 RBBIDataWrapper57::RBBIDataWrapper57(UDataMemory* udm, UErrorCode &status) {
@@ -100,11 +106,11 @@ void RBBIDataWrapper57::init0() {
     fRuleStatusTable = NULL;
     fUDataMem = NULL;
     fRefCount = 0;
-    fDontFreeData = TRUE;
+    fDontFreeData = true;
 }
 
 void RBBIDataWrapper57::init(const RBBIDataHeader57 *data, UErrorCode &status) {
-    fDontFreeData = FALSE;
+    fDontFreeData = false;
     if (U_FAILURE(status)) {
         return;
     }
@@ -143,7 +149,7 @@ void RBBIDataWrapper57::init(const RBBIDataHeader57 *data, UErrorCode &status) {
 
 
     fRuleSource   = (UChar *)((char *)data + fHeader->fRuleSource);
-    fRuleString.setTo(TRUE, fRuleSource, -1);
+    fRuleString.setTo(true, fRuleSource, -1);
     U_ASSERT(data->fRuleSourceLen > 0);
 
     fRuleStatusTable = (int32_t *)((char *)data + fHeader->fStatusTable);
@@ -186,15 +192,15 @@ RBBIDataWrapper57::~RBBIDataWrapper57() {
 //-----------------------------------------------------------------------------
 UBool RBBIDataWrapper57::operator ==(const RBBIDataWrapper57 &other) const {
     if (fHeader == other.fHeader) {
-        return TRUE;
+        return true;
     }
     if (fHeader->fLength != other.fHeader->fLength) {
-        return FALSE;
+        return false;
     }
     if (uprv_memcmp(fHeader, other.fHeader, fHeader->fLength) == 0) {
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 int32_t  RBBIDataWrapper57::hashCode() {

@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>pax</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-10-19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/pax?id=d05e43bc0d5705919d057793aaa3e6d3df65f815</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-10-19</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Implement POSIX pax format</string>
+			<string>Implement -0 option</string>
+			<string>Numerous conformance fixes</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

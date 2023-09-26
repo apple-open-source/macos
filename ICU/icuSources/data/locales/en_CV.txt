@@ -27,10 +27,20 @@ en_CV{
                 "d MMM y",
                 "dd/MM/y",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
                 "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yMMdd",
             }
         }
     }

@@ -37,6 +37,8 @@
                      requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
                      requireiCloudAnalytics:(BOOL)requireiCloudAnalytics;
 
++ (void)clearSFAnalyticsClientGlobalCache; // only for clearing cache by testing
+
 + (instancetype)new NS_UNAVAILABLE;
 - (instancetype)init NS_UNAVAILABLE;
 

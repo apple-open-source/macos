@@ -1,4 +1,4 @@
-module CommonCrypto [system] [extern_c] {
+module CommonCrypto [system] {
   umbrella header "CommonCrypto.h"
   export *
   module * { export * }

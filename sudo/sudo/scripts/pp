@@ -1,6 +1,6 @@
 #!/bin/sh
-# Copyright 2020 One Identity LLC. ALL RIGHTS RESERVED
-pp_revision="20200814"
+# Copyright 2023 One Identity LLC. ALL RIGHTS RESERVED
+pp_revision="20230127"
  # Copyright 2018 One Identity LLC.  ALL RIGHTS RESERVED.
  #
  # Redistribution and use in source and binary forms, with or without
@@ -1618,13 +1618,11 @@ pp_aix_version_fix () {
 
 pp_aix_select () {
 	case "$1" in
-	    -user) op="";;
-	    -root) op="!";;
+	    -user) op="!";;
+	    -root) op="";;
 	    *) pp_die "pp_aix_select: bad argument";;
 	esac
-	#pp_debug awk '$5 '$op' /^\/(usr|opt)(\/|$)/ { print; }'
-	#awk '$5 '$op' /^\/(usr|opt)(\/|$)/ { print; }'
-	awk $op'($6 ~ /^\/usr\// || $6 ~ /^\/opt\//) { print; }'
+	awk $op'($6 ~ /^\/(dev|etc|sbin|var)\//) { print }'
 }
 
 pp_aix_copy_root () {
@@ -2857,7 +2855,11 @@ pp_solaris_detect_os () {
 }
 
 pp_solaris_detect_arch () {
-	pp_solaris_arch=`/usr/bin/optisa amd64 sparcv9 i386 sparc`
+	if [ -x /usr/bin/isainfo ]; then
+	    pp_solaris_arch=`/usr/bin/isainfo -n`
+	else
+	    pp_solaris_arch=`/usr/bin/optisa amd64 sparcv9 i386 sparc`
+	fi
 	[ -z "$pp_solaris_arch" ] &&
 	    pp_error "can't determine processor architecture"
 	case "$pp_solaris_arch" in
@@ -3935,7 +3937,7 @@ pp_deb_check_required_programs () {
     needed= notfound=
     for prog in dpkg dpkg-deb install md5sum fakeroot
     do
-        if which $prog 2>/dev/null >/dev/null; then
+        if command -v $prog 2>/dev/null >/dev/null; then
 	    pp_debug "$prog: found"
 	else
 	    pp_debug "$prog: not found"
@@ -4201,13 +4203,15 @@ pp_deb_make_data() {
         case "$t" in
         f) # Files
            pp_deb_fakeroot install -D -o $o -g $g -m ${m} $pp_destdir/$p $data/$p;
-           if [ x"$f" = x"v" ]
-           then
+           case "$f" in
+           *v*)
                # File marked as "volatile". Assume this means it's a conffile
-	       # TODO: check this as admins like modified conffiles to be left
-	       #       behind
+               # TODO: check this as admins like modified conffiles to be left
+               #       behind
                echo "$p" >> $pp_wrkdir/%conffiles.$cmp
-           fi;;
+               ;;
+           esac
+           ;;
 
         d) # Directories
            pp_deb_fakeroot install -m ${m} -o $o -g $g -d $data/$p;;
@@ -4220,7 +4224,7 @@ pp_deb_make_data() {
 	   # the debian policy of relative links when in the same top-level
 	   # directory
            (cd $data; ln -sf $st $rel_p);;
-	    *) pp_error "Unsupported data file type: $t";;
+        *) pp_error "Unsupported data file type: $t";;
 	esac
     done
 
@@ -5565,6 +5569,8 @@ pp_rpm_detect_distro () {
        pp_rpm_distro=`sed -n \
          -e 's/^Red Hat Linux.*release \([0-9][0-9\.]*\).*/rh\1/p' \
          -e 's/^Red Hat Enterprise Linux.*release \([0-9][0-9\.]*\).*/rhel\1/p' \
+         -e 's/^Rocky Linux.*release \([0-9][0-9\.]*\).*/rhel\1/p' \
+         -e 's/^AlmaLinux.*release \([0-9][0-9\.]*\).*/rhel\1/p' \
          -e 's/^CentOS.*release \([0-9][0-9\.]*\).*/centos\1/p' \
        /etc/redhat-release`
     elif test -f /etc/SuSE-release; then
@@ -5596,7 +5602,7 @@ pp_rpm_detect_distro () {
 pp_rpm_detect_rpmbuild () {
     local cmd
     for cmd in rpmbuild rpm; do
-        if `which $cmd > /dev/null 2>&1`; then
+        if command -v $cmd > /dev/null 2>&1; then
             echo $cmd
             return 0
         fi
@@ -6685,7 +6691,7 @@ pp_backend_rpm_function () {
 	/etc	root:admin 0755
 	/var    root:admin 0755
 
-    <http://developer.apple.com/documentation/DeveloperTools/Conceptual/SoftwareDistribution4/Concepts/sd_pkg_flags.html>
+    <http://mirror.informatimago.com/next/developer.apple.com/documentation/DeveloperTools/Conceptual/SoftwareDistribution/Concepts/sd_pkg_flags.html>
     Info.plist = {
      CFBundleGetInfoString: "1.2.3, One Identity LLC.",
      CFBundleIdentifier: "com.quest.rc.openssh",
@@ -6720,7 +6726,7 @@ pp_backend_rpm_function () {
 
  # Startup scripts
     'launchd' is a kind of combined inetd and rc/init.d system.
-    <http://developer.apple.com/documentation/MacOSX/Conceptual/BPSystemStartup/Articles/DesigningDaemons.html>
+    <https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/DesigningDaemons.html>
     Create a /Library/LaunchDaemons/$daemonname.plist file
     Examples found in /System/Library/LaunchDaemons/
     See manual page launchd.plist(5) for details:
@@ -6772,6 +6778,8 @@ pp_backend_macos_init () {
     pp_macos_bundle_version=
     pp_macos_bundle_info_string=
     pp_macos_pkg_type=bundle
+    pp_macos_pkg_background=
+    pp_macos_pkg_background_dark=
     pp_macos_pkg_license=
     pp_macos_pkg_readme=
     pp_macos_pkg_welcome=
@@ -7353,7 +7361,7 @@ pp_backend_macos_flat () {
     # Write Distribution file
     cat <<-. >$pkgdir/Distribution
 	<?xml version="1.0" encoding="UTF-8"?>
-	<installer-script minSpecVersion="1.000000" authoringTool="com.quest.rc.PolyPkg" authoringToolVersion="$pp_version" authoringToolBuild="$pp_revision">
+	<installer-gui-script minSpecVersion="1">
 	    <title>$name $version</title>
 	    <options customize="never" allow-external-scripts="no"/>
 	    <domains enable_localSystem="true"/>
@@ -7370,6 +7378,14 @@ pp_backend_macos_flat () {
 	cp -R "${pp_macos_pkg_license}" $Resources
 	echo "    <license file=\"${pp_macos_pkg_license##*/}\"/>" >>$pkgdir/Distribution
     fi
+    if test -n "$pp_macos_pkg_background"; then
+	cp -R "${pp_macos_pkg_background}" $Resources
+	echo "    <background file=\"${pp_macos_pkg_background##*/}\" scaling=\"proportional\" alignment=\"left\"/>" >>$pkgdir/Distribution
+    fi
+    if test -n "$pp_macos_pkg_background_dark"; then
+	cp -R "${pp_macos_pkg_background_dark}" $Resources
+	echo "    <background-darkAqua file=\"${pp_macos_pkg_background_dark##*/}\" scaling=\"proportional\" alignment=\"left\"/>" >>$pkgdir/Distribution
+    fi
     cat <<-. >>$pkgdir/Distribution
 	    <choices-outline>
 	        <line choice="choice0"/>
@@ -7378,7 +7394,7 @@ pp_backend_macos_flat () {
 	        <pkg-ref id="${pp_macos_bundle_id}"/>
 	    </choice>
 	    <pkg-ref id="${pp_macos_bundle_id}" installKBytes="$size" version="$version" auth="Root">#$pkgfile</pkg-ref>
-	</installer-script>
+	</installer-gui-script>
 .
 
     # write scripts archive
@@ -7915,7 +7931,7 @@ pp_bsd_munge_text () {
 }
 
 pp_backend_bsd_detect () {
-	test x"$1" = x"FreeBSD"
+    test x"$1" = x"FreeBSD" -o x"$1" = x"DragonFly"
 }
 
 pp_backend_bsd_init () {
@@ -7923,7 +7939,7 @@ pp_backend_bsd_init () {
     # Get the OS revision
     pp_bsd_detect_os
 
-    # Get the arch (i386/amd64)
+    # Get the arch (i386/x86_64)
     pp_bsd_detect_arch
 
     pp_bsd_name=
@@ -7937,6 +7953,13 @@ pp_backend_bsd_init () {
     pp_bsd_prefix="/usr/local/"
     pp_bsd_desc=
     pp_bsd_message=
+
+    # FreeBSD uses package.txz, DragonFly uses package.pkg.
+    if [ "$pp_bsd_os" = "DragonFly" ]; then
+        pp_bsd_pkg_sfx=pkg
+    else
+        pp_bsd_pkg_sfx=txz
+    fi
 
     # pp_bsd_category must be in array format comma separated
     # pp_bsd_category=[security,network]
@@ -7985,7 +8008,7 @@ pp_bsd_check_required_programs () {
     # list of programs FreeBSD needs in order to create a binary package
     for prog in ${pp_bsd_required_programs:-"pkg"}
     do
-        if which $prog 2>&1 > /dev/null; then
+        if command -v $prog 2>&1 > /dev/null; then
             pp_debug "$prog: found"
         else
             pp_debug "$prog: not found"
@@ -8014,7 +8037,7 @@ pp_bsd_detect_os () {
 pp_bsd_detect_arch() {
     pp_bsd_platform="`uname -m`" 
     case $pp_bsd_platform in
-        amd64) pp_bsd_platform_std=x86_64;;
+        amd64|x86_64) pp_bsd_platform_std=x86_64;;
         i386)  pp_bsd_platform_std=i386;;
         *)     pp_bsd_platform_std=unknown;;
     esac
@@ -8167,23 +8190,33 @@ pp_bsd_make_data() {
     cat $pp_wrkdir/%files.${cmp} | while read t m o g f p st; do
         test x"$o" = x"-" && o="${pp_bsd_defattr_uid:-root}"
         test x"$g" = x"-" && g="${pp_bsd_defattr_gid:-wheel}"
+        if test x"$m" = x"-"; then
+            case "$t" in
+                d) m=755;;
+                f) m=644;;
+            esac
+        fi
         path=$p
         case "$t" in
             f) # Files
-                # For now just skip the file if it is volatile, we will need to remove it in the pre uninstall script
-                if [ x"$f" != x"v" ]; then
-                    # If the directory doesn't exist where we are going to copy this file, then create it first
-                    if [ ! -d `dirname "$datadir$path"` ]; then
-                        pp_debug "creating directory `dirname "$datadir$path"`"
-                        mkdir -p `dirname "$datadir$path"`
-                    fi
+                case "$f" in
+                    *v*)
+                        # For now just skip the file if it is volatile, we
+                        # will need to remove it in the pre uninstall script
+                        pp_warn "file $path was marked as volatile, skipping"
+                        ;; 
+                    *)
+                        # If the directory doesn't exist where we are going to copy this file, then create it first
+                        if [ ! -d `dirname "$datadir$path"` ]; then
+                            pp_debug "creating directory `dirname "$datadir$path"`"
+                            mkdir -p `dirname "$datadir$path"`
+                        fi
 
-                    pp_debug "install -D $datadir -o $o -g $g -h sha256 -m ${m} -v $pp_destdir$p $datadir$path";
-                    pp_bsd_fakeroot install -D $datadir -o $o -g $g -h sha256 -m ${m} -v $pp_destdir$p $datadir$path;
-                    echo "  \"$path\": \"-\", \"$path\": {uname: $o, gname: $g, perm: ${m}}" >> $outfilelist;
-                else
-                    pp_warn "file $f was marked as volatile, skipping"
-                fi;
+                        pp_debug "install -D $datadir -o $o -g $g -m ${m} -v $pp_destdir$p $datadir$path"
+                        pp_bsd_fakeroot install -D $datadir -o $o -g $g -m ${m} -v $pp_destdir$p $datadir$path
+                        echo "  \"$path\": \"-\", \"$path\": {uname: $o, gname: $g, perm: ${m}}" >> $outfilelist
+                        ;; 
+                esac
                 ;; 
             d) # Directories
                 pp_debug "install -D $datadir -o $o -g $g -m ${m} -d -v $datadir$path";
@@ -8334,12 +8367,12 @@ pp_backend_bsd() {
 
 pp_bsd_name () {
     typeset cmp="${1:-run}"
-    echo `pp_bsd_cmp_full_name $cmp`"-${pp_bsd_version:-$version}.txz"
+    echo `pp_bsd_cmp_full_name $cmp`"-${pp_bsd_version:-$version}.${pp_bsd_pkg_sfx}"
 }
 
 pp_backend_bsd_names () {
     for cmp in $pp_components; do
-    	echo `pp_bsd_cmp_full_name $cmp`"-${pp_bsd_version:-$version}.txz"
+    	echo `pp_bsd_cmp_full_name $cmp`"-${pp_bsd_version:-$version}.${pp_bsd_pkg_sfx}"
     done
 }
 
@@ -8355,8 +8388,8 @@ pp_backend_bsd_probe () {
 
 pp_backend_bsd_vas_platforms() {
     case "${pp_bsd_platform_std}" in
-        x86_64) echo "FreeBSD-x86_64.txz FreeBSD-i386.txz";;
-        i386)   echo "FreeBSD-i386.txz";;
+        x86_64) echo "FreeBSD-x86_64.${pp_bsd_pkg_sfx} FreeBSD-i386.${pp_bsd_pkg_sfx}";;
+        i386)   echo "FreeBSD-i386.${pp_bsd_pkg_sfx}";;
         *) pp_die "unknown architecture $pp_bsd_platform_std";;
     esac
 }
@@ -8936,10 +8969,18 @@ pp_systemd_service_install_common () {
                 # we do this so we do not "orphan" the process. Because init started it and if we enable systemd
                 # it will not know about this process and will not be able to stop it.
                 if [ -x "/etc/init.d/$svc" ]; then
-                    /etc/init.d/$svc status > /dev/null 2>&1
+                    output="$(/etc/init.d/$svc status 2>&1)"
                     RUNNING=$?
                     if [ $RUNNING -eq 0 ]; then
-                        /etc/init.d/$svc stop > /dev/null 2>&1
+                        case "$output" in
+                            *"not running"*)
+                                # systemd is reporting the status (compatibility package is installed)
+                                RUNNING=1
+                                ;;
+                            *)  # it is really running
+                                /etc/init.d/$svc stop > /dev/null 2>&1
+                                ;;
+                        esac
                     fi
                 else
                     RUNNING=1

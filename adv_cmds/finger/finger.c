@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -44,11 +42,13 @@
  *	login time is < 6 days.
  */
 
+#ifndef __APPLE__
 #ifndef lint
 static const char copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
+#endif	/* ! __APPLE__ */
 
 #if 0
 #ifndef lint
@@ -57,7 +57,7 @@ static char sccsid[] = "@(#)finger.c	8.5 (Berkeley) 5/4/95";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/finger/finger.c,v 1.36 2005/09/19 10:11:46 dds Exp $");
+__FBSDID("$FreeBSD$");
 
 /*
  * Finger prints out information about users.  It is not portable since
@@ -81,7 +81,11 @@ __FBSDID("$FreeBSD: src/usr.bin/finger/finger.c,v 1.36 2005/09/19 10:11:46 dds E
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __APPLE__
+#include <sys/time.h>
+#else
 #include <time.h>
+#endif	/* __APPLE__ */
 #include <unistd.h>
 #include <utmpx.h>
 #include <locale.h>
@@ -91,7 +95,8 @@ __FBSDID("$FreeBSD: src/usr.bin/finger/finger.c,v 1.36 2005/09/19 10:11:46 dds E
 
 DB *db;
 time_t now;
-int entries, gflag, kflag, lflag, mflag, pplan, sflag, oflag, Tflag;
+static int kflag, mflag, sflag;
+int entries, gflag, lflag, pplan, oflag;
 sa_family_t family = PF_UNSPEC;
 int d_first = -1;
 char tbuf[1024];
@@ -109,11 +114,7 @@ option(int argc, char **argv)
 
 	optind = 1;		/* reset getopt */
 
-#ifdef __APPLE__
 	while ((ch = getopt(argc, argv, "46gklmpsho")) != -1)
-#else
-	while ((ch = getopt(argc, argv, "46gklmpshoT")) != -1)
-#endif
 		switch(ch) {
 		case '4':
 			family = AF_INET;
@@ -125,7 +126,7 @@ option(int argc, char **argv)
 			gflag = 1;
 			break;
 		case 'k':
-			kflag = 1;		/* keep going without utmpx */
+			kflag = 1;		/* keep going without utmp */
 			break;
 		case 'l':
 			lflag = 1;		/* long format */
@@ -145,11 +146,6 @@ option(int argc, char **argv)
 		case 'o':
 			oflag = 1;		/* office info */
 			break;
-#ifndef __APPLE__
-		case 'T':
-			Tflag = 1;		/* disable T/TCP */
-			break;
-#endif
 		case '?':
 		default:
 			usage();
@@ -162,7 +158,7 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
-	    "usage: finger [-46gklmpshoT] [user ...] [user@host ...]\n");
+	    "usage: finger [-46gklmpsho] [user ...] [user@host ...]\n");
 	exit(1);
 }
 
@@ -177,11 +173,15 @@ main(int argc, char **argv)
 	if (getuid() == 0 || geteuid() == 0) {
 		invoker_root = 1;
 		if ((pw = getpwnam(UNPRIV_NAME)) && pw->pw_uid > 0) {
-			 setgid(pw->pw_gid);
-			 setuid(pw->pw_uid);
+			if (setgid(pw->pw_gid) != 0)
+				err(1, "setgid()");
+			if (setuid(pw->pw_uid) != 0)
+				err(1, "setuid()");
 		} else {
-			 setgid(UNPRIV_UGID);
-			 setuid(UNPRIV_UGID);
+			if (setgid(UNPRIV_UGID) != 0)
+				err(1, "setgid()");
+			if (setuid(UNPRIV_UGID) != 0)
+				err(1, "setuid()");
 		}
 	}
 
@@ -244,19 +244,16 @@ loginlist(void)
 	struct passwd *pw;
 	struct utmpx *user;
 	int r, sflag1;
-	char name[_UTX_USERSIZE + 1];
 
 	if (kflag)
-		errx(1, "can't list logins without reading utmpx");
+		errx(1, "can't list logins without reading utmp");
 
 	setutxent();
-	name[_UTX_USERSIZE] = '\0';
 	while ((user = getutxent()) != NULL) {
-		if (!user->ut_user[0] || user->ut_type != USER_PROCESS)
+		if (user->ut_type != USER_PROCESS)
 			continue;
 		if ((pn = find_person(user->ut_user)) == NULL) {
-			bcopy(user->ut_user, name, _UTX_USERSIZE);
-			if ((pw = getpwnam(name)) == NULL)
+			if ((pw = getpwnam(user->ut_user)) == NULL)
 				continue;
 			if (hide(pw))
 				continue;
@@ -291,7 +288,11 @@ userlist(int argc, char **argv)
 	FILE *conf_fp;
 	char conf_alias[LINE_MAX];
 	char *conf_realname;
+#ifdef __APPLE__
+	size_t conf_length;
+#else
 	int conf_length;
+#endif	/* __APPLE__ */
 
 	if ((nargv = malloc((argc+1) * sizeof(char *))) == NULL ||
 	    (used = calloc(argc, sizeof(int))) == NULL)
@@ -299,7 +300,7 @@ userlist(int argc, char **argv)
 
 	/* Pull out all network requests. */
 	for (ap = p = argv, np = nargv; *p; ++p)
-		if (index(*p, '@'))
+		if (strchr(*p, '@'))
 			*np++ = *p;
 		else
 			*ap++ = *p;
@@ -311,8 +312,8 @@ userlist(int argc, char **argv)
 		goto net;
 
 	/*
-	 * Mark any arguments beginning with '/' as invalid so that we 
-	 * don't accidently confuse them with expansions from finger.conf
+	 * Mark any arguments beginning with '/' as invalid so that we
+	 * don't accidentally confuse them with expansions from finger.conf
 	 */
 	for (p = argv, ip = used; *p; ++p, ++ip)
 	    if (**p == '/') {
@@ -382,6 +383,8 @@ net:	for (p = nargv; *p;) {
 		    printf("\n");
 	}
 
+	free(nargv);
+	free(used);
 	if (entries == 0)
 		return;
 
@@ -394,7 +397,7 @@ net:	for (p = nargv; *p;) {
 	 */
 	setutxent();
 	while ((user = getutxent()) != NULL) {
-		if (!user->ut_user && user->ut_type != USER_PROCESS)
+		if (user->ut_type != USER_PROCESS)
 			continue;
 		if ((pn = find_person(user->ut_user)) == NULL)
 			continue;

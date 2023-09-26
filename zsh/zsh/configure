@@ -13,6 +13,8 @@
 ## M4sh Initialization. ##
 ## -------------------- ##
 
+managed_path="/private/var/db/ManagedConfigurationFiles/com.apple.zsh/etc/"
+
 # Be more Bourne compatible
 DUALCASE=1; export DUALCASE # for MKS sh
 as_nop=:
@@ -3095,6 +3097,7 @@ fi
 
 if test "x$zshenv" != xno; then
   printf "%s\n" "#define GLOBAL_ZSHENV \"$zshenv\"" >>confdefs.h
+  printf "%s\n" "#define MANAGED_GLOBAL_ZSHENV \"${managed_path}zshenv\"" >>confdefs.h
 
 fi
 
@@ -3113,6 +3116,7 @@ fi
 
 if test "x$zshrc" != xno; then
   printf "%s\n" "#define GLOBAL_ZSHRC \"$zshrc\"" >>confdefs.h
+  printf "%s\n" "#define MANAGED_GLOBAL_ZSHRC \"${managed_path}zshrc\"" >>confdefs.h
 
 fi
 
@@ -3131,6 +3135,7 @@ fi
 
 if test "x$zprofile" != xno; then
   printf "%s\n" "#define GLOBAL_ZPROFILE \"$zprofile\"" >>confdefs.h
+  printf "%s\n" "#define MANAGED_GLOBAL_ZPROFILE \"${managed_path}zprofile\"" >>confdefs.h
 
 fi
 
@@ -3149,6 +3154,7 @@ fi
 
 if test "x$zlogin" != xno; then
   printf "%s\n" "#define GLOBAL_ZLOGIN \"$zlogin\"" >>confdefs.h
+  printf "%s\n" "#define MANAGED_GLOBAL_ZLOGIN \"${managed_path}zlogin\"" >>confdefs.h
 
 fi
 
@@ -3167,9 +3173,13 @@ fi
 
 if test "x$zlogout" != xno; then
   printf "%s\n" "#define GLOBAL_ZLOGOUT \"$zlogout\"" >>confdefs.h
+  printf "%s\n" "#define MANAGED_GLOBAL_ZLOGOUT \"${managed_path}zlogout\"" >>confdefs.h
 
 fi
 
+# unconditionally add managed profile and suid_profile for managed configfigurations
+printf "%s\n" "#define MANAGED_EMULATE_PROFILE \"${managed_path}profile\"" >>confdefs.h
+printf "%s\n" "#define MANAGED_EMULATE_SUID_PROFILE \"${managed_path}suid_profile\"" >>confdefs.h
 
 # Check whether --enable-dynamic was given.
 if test ${enable_dynamic+y}
@@ -5220,7 +5230,7 @@ then :
 else $as_nop
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-main(){return((int)(unsigned char)((char) -1) == 255);}
+int main(){return((int)(unsigned char)((char) -1) == 255);}
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
 then :
@@ -8293,7 +8303,7 @@ else $as_nop
 
 #include <sys/types.h>
 
-main() { return sizeof(off_t) < 8; }
+int main() { return sizeof(off_t) < 8; }
 
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
@@ -8329,7 +8339,7 @@ else $as_nop
 
 #include <sys/types.h>
 
-main() { return sizeof(ino_t) < 8; }
+int main() { return sizeof(ino_t) < 8; }
 
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
@@ -8373,7 +8383,7 @@ else $as_nop
 #include <sys/types.h>
 #endif
 
-main()
+int main()
 {
   long long foo = 0;
   int bar = (int) foo;
@@ -8408,7 +8418,7 @@ else $as_nop
 #include <sys/types.h>
 #endif
 
-main()
+int main()
 {
   quad_t foo = 0;
   int bar = (int) foo;
@@ -8444,7 +8454,7 @@ else $as_nop
 #include <sys/types.h>
 #endif
 
-main()
+int main()
 {
   __int64_t foo = 0;
   int bar = (int) foo;
@@ -8481,7 +8491,7 @@ else $as_nop
 #include <sys/types.h>
 #endif
 
-main()
+int main()
 {
   off_t foo = 0;
   int bar = (int) foo;
@@ -8529,7 +8539,7 @@ else $as_nop
 #include <sys/types.h>
 #endif
 
-main()
+int main()
 {
   unsigned $zsh_cv_64_bit_type foo = 0;
   int bar = (int) foo;
@@ -8564,7 +8574,7 @@ else $as_nop
 #include <sys/types.h>
 #endif
 
-main()
+int main()
 {
   __uint64_t foo = 0;
   int bar = (int) foo;
@@ -10275,7 +10285,7 @@ else $as_nop
 #include <stdlib.h>
 int tgetent(char *, char *);
 char *tgetstr(char *, char **);
-main()
+int main()
 {
     char buf[4096];
     int r1 = tgetent(buf, "vt100");
@@ -10328,7 +10338,7 @@ else $as_nop
 #include <stdlib.h>
 int tgetent(char *, char*);
 char *tgetstr(char *, char **);
-main()
+int main()
 {
     char buf[4096];
     int r1 = tgetent(buf, "!@#$%^&*");
@@ -11294,7 +11304,7 @@ else $as_nop
 #endif
 #include <sys/resource.h>
 #include <stdlib.h>
-main(){struct rlimit r;exit(sizeof(r.rlim_cur) <= sizeof(long));}
+int main(){struct rlimit r;exit(sizeof(r.rlim_cur) <= sizeof(long));}
 _ACEOF
 if ac_fn_c_try_run "$LINENO"
 then :
@@ -11329,7 +11339,7 @@ else $as_nop
 #include <stdio.h>
 #include <sys/resource.h>
 #include <stdlib.h>
-main() {
+int main() {
   struct rlimit r;
   char buf[20];
   r.rlim_cur = 0;
@@ -13197,7 +13207,7 @@ else $as_nop
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-main()
+int main()
 {
     char c;
     int fd;
@@ -13339,7 +13349,7 @@ else $as_nop
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
-main()
+int main()
 {
     int ret;
     char *tmpfile, *newfile;
@@ -13392,7 +13402,7 @@ else $as_nop
 #include <signal.h>
 #include <errno.h>
 #include <stdlib.h>
-main()
+int main()
 {
     int pid = (getpid() + 10000) & 0xffffff;
     while (pid && (kill(pid, 0) == 0 || errno != ESRCH)) pid >>= 1;
@@ -13441,7 +13451,7 @@ int child=0;
 void handler(sig)
     int sig;
 {if(sig==SIGCHLD) child=1;}
-main() {
+int main() {
     struct sigaction act;
     sigset_t set;
     int pid, ret;
@@ -13516,7 +13526,7 @@ else $as_nop
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
-main() {
+int main() {
     int fd;
     int ret;
     fd=open("/dev/tty", O_RDWR);
@@ -13583,7 +13593,7 @@ else $as_nop
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-main() {
+int main() {
     struct passwd *pw1, *pw2;
     char buf[1024], name[1024];
     sprintf(buf, "%d:%d", getpid(), rand());
@@ -14007,7 +14017,7 @@ else $as_nop
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-main(argc, argv)
+int main(argc, argv)
 int argc;
 char *argv[];
 {
@@ -14171,7 +14181,7 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
 int
-main (void)
+int main (void)
 {
 
   ;
@@ -14247,7 +14257,7 @@ char *zsh_gl_sym_addr ;
 
 extern int fred() ;
 
-main()
+int main()
 {
     void * handle ;
     void * symbol ;
@@ -14378,7 +14388,7 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
-main()
+int main()
 {
     void *handle1, *handle2;
     void *(*zsh_getaddr1)(), *(*zsh_getaddr2)();
@@ -14506,7 +14516,7 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
-main()
+int main()
 {
     void *handle1, *handle2;
     void *(*zsh_getaddr1)(), *(*zsh_getaddr2)();
@@ -14634,7 +14644,7 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
-main()
+int main()
 {
     void *handle1, *handle2;
     void *(*zsh_getaddr1)(), *(*zsh_getaddr2)();
@@ -14756,7 +14766,7 @@ char *zsh_gl_sym_addr ;
 #endif
 
 
-main()
+int main()
 {
     void *handle1, *handle2;
     int (*fred1)(), (*fred2)();
@@ -14866,7 +14876,7 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
-main()
+int main()
 {
     void *handle;
     int (*barneysym)();
@@ -14961,7 +14971,7 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
-main()
+int main()
 {
     void *handle;
     int (*barneysym)();
@@ -15063,7 +15073,7 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
-main()
+int main()
 {
     void *handle;
     int (*barneysym)();
@@ -15156,7 +15166,7 @@ char *zsh_gl_sym_addr ;
 #define RTLD_GLOBAL 0
 #endif
 
-main()
+int main()
 {
     void *handle;
     int (*fredsym)();

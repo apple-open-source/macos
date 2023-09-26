@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2021 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012-2023 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,6 +75,8 @@ class CachedCodeBlock;
 
 typedef unsigned UnlinkedArrayAllocationProfile;
 typedef unsigned UnlinkedObjectAllocationProfile;
+
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(UnlinkedCodeBlock_RareData);
 
 struct UnlinkedStringJumpTable {
     struct OffsetLocation {
@@ -372,10 +374,7 @@ protected:
 
     ~UnlinkedCodeBlock();
 
-    void finishCreation(VM& vm)
-    {
-        Base::finishCreation(vm);
-    }
+    DECLARE_DEFAULT_FINISH_CREATION;
 
 private:
     friend class BytecodeRewriter;
@@ -455,7 +454,7 @@ private:
 
 public:
     struct RareData {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_MAKE_STRUCT_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(UnlinkedCodeBlock_RareData);
 
         size_t sizeInBytes(const AbstractLocker&) const;
 

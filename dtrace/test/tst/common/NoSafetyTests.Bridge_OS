@@ -979,6 +979,7 @@ sugar/tst.if_trailing_semicolon.d
 sugar/tst.if_trailing_semicolon2.d
 syscall/tst.openret.ksh
 syscall/tst.machtrap.d
+syscall/tst.enabledisable.ksh
 tick-n/err.D_PDESC_ZERO.tick.d
 tick-n/err.D_PDESC_ZEROonens.d
 tick-n/err.D_PDESC_ZEROonensec.d

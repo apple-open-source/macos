@@ -66,7 +66,7 @@ private:
 
     void readyStateChanged();
     void bufferedAmountChanged();
-    void checkState();
+    bool checkState();
     void postTask(Function<void()>&&);
 
     struct StateChange {
@@ -84,6 +84,8 @@ private:
 
     std::optional<size_t> m_cachedBufferedAmount;
     bool m_closing { false };
+
+    String m_channelId;
 };
 
 } // namespace WebCore

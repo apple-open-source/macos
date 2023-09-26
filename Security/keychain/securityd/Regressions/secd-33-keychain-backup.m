@@ -25,6 +25,7 @@
 #include <TargetConditionals.h>
 
 #include "keychain/securityd/SecKeybagSupport.h"
+#include "keychain/securityd/SOSCloudCircleServer.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecBase.h>
@@ -621,6 +622,7 @@ int secd_33_keychain_backup(int argc, char *const *argv)
     OctagonSetSOSFeatureEnabled(true);
 #endif
     plan_tests(86);
+    enableSOSCompatibilityForTests();
 
     CFArrayRef currentACL = CFRetainSafe(SecAccessGroupsGetCurrent());
 

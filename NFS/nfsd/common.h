@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <sys/param.h>
+
 /*
  * structure holding NFS server config values
  */
@@ -56,6 +58,7 @@ struct nfs_conf_server {
  * 4+ more LOG_DEBUG
  */
 #define LOG_LEVEL       (LOG_WARNING + MIN(config.verbose, 3))
+#undef DEBUG
 #define DEBUG(L, ...) \
 	do { \
 	        if ((L) <= (config.verbose - 2)) \
@@ -81,10 +84,35 @@ pid_t get_nfsd_pid(void);
 int nfsd_is_enabled(void);
 int nfsd_is_loaded(void);
 
+pid_t get_lockd_pid(void);
+pid_t get_rquotad_pid(void);
+
 int nfsd_imp(int argc, char *argv[], const char *conf_path);
 
 #define MAX_NFSD_THREADS_SOFT   192
 #define MAX_NFSD_THREADS_HARD   512
+
+/* export options */
+#define OP_MAPROOT      0x00000001      /* map root credentials */
+#define OP_MAPALL       0x00000002      /* map all credentials */
+#define OP_SECFLAV      0x00000004      /* security flavor(s) specified */
+#define OP_MASK         0x00000008      /* network mask specified */
+#define OP_NET          0x00000010      /* network address specified */
+#define OP_MANGLEDNAMES 0x00000020      /* tell the vfs to mangle names that are > 255 bytes */
+#define OP_ALLDIRS      0x00000040      /* allow mounting subdirs */
+#define OP_READONLY     0x00000080      /* export read-only */
+#define OP_32BITCLIENTS 0x00000100      /* use 32-bit directory cookies */
+#define OP_FSPATH       0x00000200      /* file system path specified */
+#define OP_FSUUID       0x00000400      /* file system UUID specified */
+#define OP_OFFLINE      0x00000800      /* export is offline */
+#define OP_ONLINE       0x04000000      /* export is online */
+#define OP_SHOW         0x08000000      /* show this entry in export list */
+#define OP_MISSING      0x10000000      /* export is missing */
+#define OP_DEFEXP       0x20000000      /* default export for everyone (else) */
+#define OP_ADD          0x40000000      /* tag export for potential addition */
+#define OP_DEL          0x80000000      /* tag export for potential deletion */
+#define OP_EXOPTMASK    0x100009E3      /* export options mask */
+#define OP_EXOPTS(X)    ((X) & OP_EXOPTMASK)
 
 /* globals */
 extern pthread_attr_t pattr;

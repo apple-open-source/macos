@@ -145,8 +145,10 @@ def handleServices(services, desiredService, ioreg, events, properties, prop, in
         if 'EventLog' in service and events:
             print("        Event Log")
             for entry in service['EventLog']:
-                print("        %-26.26s type: %s %s %s" % (entry['EventTime'], 
+                print("        %-26.26s type: %s %s %s %s %s" % (entry['EventTime'],
                             eventType[entry['EventType']],
+                            "usagePage: %-7s" % hex(entry['UsagePage']) if 'UsagePage' in entry else "",
+                            "usage: %-7s" % hex(entry['Usage'])  if 'Usage' in entry else "",
                             "down: %s" % entry['Down'] if 'Down' in entry else "",
                             "press: %s" % entry['PressCount'] if 'PressCount' in entry else ""))
 

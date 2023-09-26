@@ -23,6 +23,7 @@
 
 #import <XCTest/XCTest.h>
 #import <Security/SecKeyPriv.h>
+#import <Security/SecItemPriv.h>
 
 @interface SecKeyTests : XCTestCase
 @end
@@ -64,21 +65,38 @@ static CFIndex SecTestKeyGetAlgorithmID(SecKeyRef key) {
     return kSecECDSAAlgorithmID;
 }
 
+static SecKeyAlgorithm secTestKeySupportedAlgorithm = NULL;
 static CFTypeRef SecTestKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm, CFArrayRef allAlgorithms, SecKeyOperationMode mode, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
-    if (!CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
+    if (!CFEqual(algorithm, secTestKeySupportedAlgorithm)) {
         return kCFNull;
     }
 
     NSArray *algs = (__bridge NSArray *)allAlgorithms;
-    XCTAssertEqualObjects(algs[0], (__bridge id)kSecKeyAlgorithmECDSASignatureDigestX962SHA256);
-    return CFRetain(in1);
+    XCTAssertEqualObjects(algs.lastObject, (__bridge id)secTestKeySupportedAlgorithm);
+    if (mode == kSecKeyOperationModeCheckIfSupported) {
+        return kCFBooleanTrue;
+    }
+
+    id tempKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{
+        (id)kSecAttrIsPermanent: @NO,
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+        (id)kSecAttrKeySizeInBits: @256,
+    }, error));
+    if (tempKey == nil) {
+        return nil;
+    }
+    return SecKeyCreateSignature((SecKeyRef)tempKey, algorithm, in1, error);
 }
 
+static size_t SecTestKeyGetBlockSize(SecKeyRef key) {
+    return 256 / 8;
+}
 
 static SecKeyDescriptor SecTestKeyDescriptor = {
     .version = kSecKeyDescriptorVersion,
     .name = "SecTestKey",
     .getAlgorithmID = SecTestKeyGetAlgorithmID,
+    .blockSize = SecTestKeyGetBlockSize,
     .copyOperationResult = SecTestKeyCopyOperationResult,
 };
 
@@ -92,9 +110,167 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
     size_t sigLength = signature.length;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    secTestKeySupportedAlgorithm = kSecKeyAlgorithmECDSASignatureDigestX962SHA256;
     OSStatus status = SecKeyRawSign((__bridge SecKeyRef)privKey, kSecPaddingPKCS1, message.bytes, message.length, signature.mutableBytes, &sigLength);
 #pragma clang diagnostic pop
     XCTAssertEqual(status, errSecSuccess, @"Encryption failed");
+}
+
+#if TARGET_OS_OSX
+- (BOOL)isCDSAKey:(id)key {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    const CSSM_KEY *cssmKey;
+    return SecKeyGetCSSMKey((SecKeyRef)key, &cssmKey) == errSecSuccess;
+#pragma clang diagnostic pop
+}
+
+- (void)testSecKeyGenerateWithKeychainSelection {
+    NSDictionary *params;
+    NSError *error;
+    id ac = CFBridgingRelease(SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlocked, 0, NULL));
+
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256 };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create CDSA key: %@", error);
+        XCTAssert([self isCDSAKey:key], @"expected to create CDSA key, but got %@", key);
+    }
+    
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecUseDataProtectionKeychain: @YES,
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create modern key: %@", error);
+        XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
+    }
+    
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecUseSystemKeychainAlways: @YES,
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create modern key in syskeychain: %@", error);
+        XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
+    }
+    
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecAttrAccessControl: ac,
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create modern key: %@", error);
+        XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
+    }
+    
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecUseDataProtectionKeychain: @NO,
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create CDSA key: %@", error);
+        XCTAssert([self isCDSAKey:key], @"expected to create CDSA key, but got %@", key);
+    }
+    
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecPrivateKeyAttrs: @{
+                        (id)kSecUseDataProtectionKeychain: @YES,
+                    },
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create modern key: %@", error);
+        XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
+    }
+    
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecPublicKeyAttrs: @{
+                        (id)kSecUseDataProtectionKeychain: @YES,
+                    },
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create modern key: %@", error);
+        XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
+    }
+
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecPrivateKeyAttrs: @{
+                        (id)kSecUseDataProtectionKeychain: @YES,
+                    },
+                    (id)kSecPublicKeyAttrs: @{
+                        (id)kSecUseDataProtectionKeychain: @NO,
+                    },
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNil(key, @"did not fail when trying to create mixed modern/CDSA keypair, got privkey %@", key);
+    }
+
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecPrivateKeyAttrs: @{
+                        (id)kSecUseSystemKeychainAlways: @YES,
+                    },
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create modern key: %@", error);
+        XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
+    }
+
+    @autoreleasepool {
+        params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                    (id)kSecPrivateKeyAttrs: @{
+                        (id)kSecAttrAccessControl: ac,
+                    },
+        };
+        id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(key, @"failed to create modern key: %@", error);
+        XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
+    }
+}
+#endif
+
+- (void)testSecKeyECDSAAlgorithmAdaptors {
+    id privKey = CFBridgingRelease(SecKeyCreate(kCFAllocatorDefault, &SecTestKeyDescriptor, 0, 0, 0));
+    XCTAssertNotNil(privKey);
+    SecKeyRef key = (__bridge SecKeyRef)privKey;
+    
+    secTestKeySupportedAlgorithm = kSecKeyAlgorithmECDSASignatureDigestX962SHA256;
+    
+    XCTAssert(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureDigestX962SHA256));
+    XCTAssert(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureMessageX962SHA256));
+    XCTAssertFalse(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureDigestX962));
+    XCTAssertFalse(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureMessageX962SHA224));
+    XCTAssertFalse(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureMessageX962SHA384));
+
+    XCTAssert(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA256));
+    XCTAssert(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA256));
+    XCTAssertFalse(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureDigestRFC4754));
+    XCTAssertFalse(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA224));
+    XCTAssertFalse(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA384));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    XCTAssertFalse(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureRFC4754));
+#pragma clang diagnostic pop
+
+    NSData *digestSHA224 = [NSMutableData dataWithLength:224 / 8];
+    NSData *digestSHA256 = [NSMutableData dataWithLength:256 / 8];
+    NSData *message = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
+    NSError *error;
+    XCTAssertNotNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureDigestX962SHA256, (CFDataRef)digestSHA256, (void *)&error)), @"error: %@", error);
+    XCTAssertNotNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureMessageX962SHA256, (CFDataRef)message, (void *)&error)), @"error: %@", error);
+    XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureDigestX962, (CFDataRef)digestSHA256, (void *)&error)));
+    XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureDigestX962SHA224, (CFDataRef)digestSHA224, (void *)&error)));
+    XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureMessageX962SHA384, (CFDataRef)message, (void *)&error)));
+
+    XCTAssertNotNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA256, (CFDataRef)digestSHA256, (void *)&error)), @"error: %@", error);
+    XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA256, (CFDataRef)digestSHA224, (void *)&error)));
+    XCTAssertNotNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA256, (CFDataRef)message, (void *)&error)), @"error: %@", error);
+    XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureDigestRFC4754, (CFDataRef)digestSHA256, (void *)&error)));
+    XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA224, (CFDataRef)digestSHA224, (void *)&error)));
+    XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA384, (CFDataRef)message, (void *)&error)));
 }
 
 @end

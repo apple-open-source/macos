@@ -951,20 +951,6 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
     IOObjectRelease( device );
 
-    {
-        CFBooleanRef encrypted = NULL;
-        CFNumberRef  encryptionDetail = NULL;
-
-        if ( 0 == _DADiskGetEncryptionStatus( allocator, disk, &encrypted, &encryptionDetail) )
-        {
-            CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaEncryptedKey, encrypted );
-#if TARGET_OS_OSX
-            CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail );
-#endif
-            CFRelease( encryptionDetail );
-        }
-    }
-
     return disk;
 
 DADiskCreateFromIOMediaErr:

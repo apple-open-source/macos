@@ -6,13 +6,13 @@
 		<key>OpenSourceProject</key>
 		<string>ccid</string>
 		<key>OpenSourceVersion</key>
-		<string>1.5.0</string>
+		<string>1.5.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://ccid.apdu.fr</string>
 		<key>OpenSourceURL</key>
-		<string>https://ccid.apdu.fr/files/ccid-1.5.0.tar.bz2</string>
+		<string>https://ccid.apdu.fr/files/ccid-1.5.1.tar.bz2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2022-02-14</string>
+		<string>2023-05-31</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>destDirFix.patch - makefile.in, customized destination directory</string>

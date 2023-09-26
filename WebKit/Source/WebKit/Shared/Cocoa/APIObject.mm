@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -167,9 +167,9 @@ void* Object::newObject(size_t size, Type type)
 #endif
 
     case Type::AuthenticationChallenge:
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         wrapper = allocateWKObject([WKNSURLAuthenticationChallenge class], size);
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
     case Type::AutomationSession:
@@ -203,9 +203,9 @@ void* Object::newObject(size_t size, Type type)
     case Type::Connection:
         // While not actually a WKObject instance, WKConnection uses allocateWKObject to allocate extra space
         // instead of using ObjectStorage because the wrapped C++ object is a subclass of WebConnection.
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         wrapper = allocateWKObject([WKConnection class], size);
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
     case Type::DebuggableInfo:
@@ -312,9 +312,9 @@ void* Object::newObject(size_t size, Type type)
 #endif
 
     case Type::PageGroup:
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         wrapper = [WKBrowsingContextGroup alloc];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
     case Type::SecurityOrigin:
@@ -501,6 +501,76 @@ API::Object* Object::unwrap(void* object)
         return nullptr;
 
     return &((__bridge id <WKObject>)object)._apiObject;
+}
+
+RetainPtr<NSObject<NSSecureCoding>> Object::toNSObject()
+{
+    switch (type()) {
+    case Object::Type::Dictionary: {
+        auto& dictionary = static_cast<API::Dictionary&>(*this);
+        auto result = adoptNS([[NSMutableDictionary alloc] initWithCapacity:dictionary.size()]);
+        for (auto& pair : dictionary.map()) {
+            if (auto nsObject = pair.value ? pair.value->toNSObject() : RetainPtr<NSObject<NSSecureCoding>>())
+                [result setObject:nsObject.get() forKey:(NSString *)pair.key];
+        }
+        return result;
+    }
+    case Object::Type::Array: {
+        auto& array = static_cast<API::Array&>(*this);
+        auto result = adoptNS([[NSMutableArray alloc] initWithCapacity:array.size()]);
+        for (auto& element : array.elements()) {
+            if (auto nsObject = element ? element->toNSObject() : RetainPtr<NSObject<NSSecureCoding>>())
+                [result addObject:nsObject.get()];
+        }
+        return result;
+    }
+    case Object::Type::Double:
+        return adoptNS([[NSNumber alloc] initWithDouble:static_cast<API::Double&>(*this).value()]);
+    case Object::Type::Boolean:
+        return adoptNS([[NSNumber alloc] initWithBool:static_cast<API::Boolean&>(*this).value()]);
+    case Object::Type::UInt64:
+        return adoptNS([[NSNumber alloc] initWithUnsignedLongLong:static_cast<API::UInt64&>(*this).value()]);
+    case Object::Type::Int64:
+        return adoptNS([[NSNumber alloc] initWithLongLong:static_cast<API::Int64&>(*this).value()]);
+    case Object::Type::Data:
+        return API::wrapper(static_cast<API::Data&>(*this));
+    case Object::Type::String:
+        return (NSString *)static_cast<API::String&>(*this).string();
+    default:
+        // Other API::Object::Types are intentionally not supported.
+        break;
+    }
+    return nullptr;
+}
+
+RefPtr<API::Object> Object::fromNSObject(NSObject<NSSecureCoding> *object)
+{
+    if ([object isKindOfClass:NSString.class])
+        return API::String::create((NSString *)object);
+    if ([object isKindOfClass:NSData.class])
+        return API::Data::createWithoutCopying((NSData *)object);
+    if ([object isKindOfClass:NSNumber.class])
+        return API::Double::create([(NSNumber *)object doubleValue]);
+    if ([object isKindOfClass:NSArray.class]) {
+        NSArray *array = (NSArray *)object;
+        Vector<RefPtr<API::Object>> result;
+        result.reserveInitialCapacity(array.count);
+        for (id member in array) {
+            if (auto memberObject = fromNSObject(member))
+                result.uncheckedAppend(WTFMove(memberObject));
+        }
+        return API::Array::create(WTFMove(result));
+    }
+    if ([object isKindOfClass:NSDictionary.class]) {
+        __block HashMap<WTF::String, RefPtr<API::Object>> result;
+        [(NSDictionary *)object enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
+            if (auto valueObject = fromNSObject(value); valueObject && [key isKindOfClass:NSString.class])
+                result.add(key, WTFMove(valueObject));
+        }];
+        return API::Dictionary::create(WTFMove(result));
+    }
+    // Other NSObject types are intentionally not supported.
+    return nullptr;
 }
 
 } // namespace API

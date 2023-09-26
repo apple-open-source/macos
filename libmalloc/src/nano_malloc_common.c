@@ -54,18 +54,12 @@ static const char nano_max_magazines_boot_arg[] = "malloc_nano_max_magazines";
 #pragma mark -
 #pragma mark Initialization
 
-// Shared initialization code. Determines which version of Nano should be used,
-// if any, and sets _malloc_engaged_nano. The Nano version is determined as
-// follows:
-// 1. If the nanov2_mode boot arg has value "forced", Nano V2 is used
-//		unconditionally in every process
-// 2. If the nanov2_mode boot arg has value "enabled", Nano V2 is used if
-//		the process wants to use Nano
-void
-nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
+nano_version_t
+_nano_common_init_pick_mode(const char *envp[], const char *apple[], const char *bootargs, bool space_efficient_enabled)
 {
-	const char *flag = NULL;
 	const char *p = NULL;
+	const char *flag = NULL;
+	nano_version_t ret = NANO_NONE;
 
 	// Use the nanov2_mode boot argument and MallocNanoZone to determine
 	// whether to use nano
@@ -83,35 +77,51 @@ nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
 	}
 
 	if (nanov2_mode == NANO_FORCED) {
-		_malloc_engaged_nano = NANO_V2;
+		ret = NANO_V2;
 	} else {
 		if (nanov2_mode == NANO_CONDITIONAL) {
 			// If conditional mode is selected, ignore the apple[] array and
 			// make the decision based of space efficient mode.
-			_malloc_engaged_nano = malloc_space_efficient_enabled ? NANO_NONE : NANO_V2;
+			ret = space_efficient_enabled ? NANO_NONE : NANO_V2;
 		} else {
 			flag = _simple_getenv(apple, "MallocNanoZone");
 			if (flag && flag[0] == '1') {
-				_malloc_engaged_nano = NANO_V2;
+				ret = NANO_V2;
 			}
 		}
 		/* Explicit overrides from the environment */
 		flag = _simple_getenv(envp, "MallocNanoZone");
 		if (flag) {
 			if (flag[0] == '1') {
-				_malloc_engaged_nano = NANO_V2;
+				ret = NANO_V2;
 			} else if (flag[0] == '0') {
-				_malloc_engaged_nano = NANO_NONE;
+				ret = NANO_NONE;
 			} else if (flag[0] == 'V' || flag[0] == 'v') {
 				if (flag[1] == '1' || flag[1] == '2') {
-					_malloc_engaged_nano = NANO_V2;
+					ret = NANO_V2;
 				}
 			}
 		}
 	}
+
+	return ret;
+}
+
+// Shared initialization code. Determines which version of Nano should be used,
+// if any, and sets _malloc_engaged_nano. The Nano version is determined as
+// follows:
+// 1. If the nanov2_mode boot arg has value "forced", Nano V2 is used
+//		unconditionally in every process
+// 2. If the nanov2_mode boot arg has value "enabled", Nano V2 is used if
+//		the process wants to use Nano
+void
+nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
+{
+	_malloc_engaged_nano = _nano_common_init_pick_mode(envp, apple, bootargs, malloc_space_efficient_enabled);
+
 #if NANOV2_MULTIPLE_REGIONS
 	// Override max region number from environment
-	p = malloc_common_value_for_key(bootargs, "malloc_nano_max_region");
+	const char *p = malloc_common_value_for_key(bootargs, "malloc_nano_max_region");
 	if (p) {
 		long value = strtol(p, NULL, 10);
 		if (value) {
@@ -125,7 +135,7 @@ nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
 			}
 		}
 	}
-	flag = _simple_getenv(envp, "MallocNanoMaxRegion");
+	const char *flag = _simple_getenv(envp, "MallocNanoMaxRegion");
 	if (flag) {
 		long value = strtol(flag, NULL, 10);
 		if (value) {

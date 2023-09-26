@@ -35,6 +35,7 @@
 #include <WebCore/CacheQueryOptions.h>
 #include <WebCore/CrossOriginAccessControl.h>
 #include <WebCore/HTTPParsers.h>
+#include <WebCore/OriginAccessPatterns.h>
 #include <WebCore/RetrieveRecordsOptions.h>
 #include <pal/SessionID.h>
 #include <wtf/CrossThreadCopier.h>
@@ -88,7 +89,7 @@ static inline void updateVaryInformation(RecordInformation& recordInformation, c
     }
 
     varyValue.split(',', [&](StringView view) {
-        if (!recordInformation.hasVaryStar && stripLeadingAndTrailingHTTPSpaces(view) == "*"_s)
+        if (!recordInformation.hasVaryStar && view.trim(isHTTPSpace) == "*"_s)
             recordInformation.hasVaryStar = true;
         recordInformation.varyHeaders.add(view.toString(), request.httpHeaderField(view));
     });
@@ -285,7 +286,7 @@ void Cache::retrieveRecords(const RetrieveRecordsOptions& options, RecordsCallba
             if (record.response.type() != ResourceResponse::Type::Opaque)
                 continue;
 
-            if (validateCrossOriginResourcePolicy(options.crossOriginEmbedderPolicy.value, options.sourceOrigin, record.request.url(), record.response, ForNavigation::No)) {
+            if (validateCrossOriginResourcePolicy(options.crossOriginEmbedderPolicy.value, options.sourceOrigin, record.request.url(), record.response, ForNavigation::No, WebCore::EmptyOriginAccessPatterns::singleton())) {
                 callback(makeUnexpected(DOMCacheEngine::Error::CORP));
                 return;
             }

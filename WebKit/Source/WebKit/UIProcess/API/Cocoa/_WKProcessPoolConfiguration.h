@@ -33,10 +33,10 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
 @interface _WKProcessPoolConfiguration : NSObject <NSCopying>
 
 @property (nonatomic, copy) NSURL *injectedBundleURL;
-@property (nonatomic, copy) NSSet<Class> *customClassesForParameterCoder WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
+@property (nonatomic, copy) NSSet<Class> *customClassesForParameterCoder WK_API_DEPRECATED("No longer supported", macos(10.15.4, WK_MAC_TBA), ios(13.4, WK_IOS_TBA));
 @property (nonatomic) NSUInteger maximumProcessCount WK_API_DEPRECATED("It is no longer possible to limit the number of processes", macos(10.0, 10.15), ios(1.0, 13.0));
 @property (nonatomic) BOOL usesSingleWebProcess WK_API_AVAILABLE(macos(10.15), ios(13.0));
-@property (nonatomic, nullable, copy) NSString *customWebContentServiceBundleIdentifier WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
+@property (nonatomic, nullable, copy) NSString *customWebContentServiceBundleIdentifier WK_API_DEPRECATED("No longer supported", macos(10.14.4, WK_MAC_TBA), ios(12.2, WK_IOS_TBA));
 
 @property (nonatomic) BOOL ignoreSynchronousMessagingTimeoutsForTesting WK_API_AVAILABLE(macos(10.12), ios(10.0));
 @property (nonatomic) BOOL attrStyleEnabled WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
@@ -68,7 +68,6 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
 @property (nonatomic) audit_token_t presentingApplicationProcessToken WK_API_AVAILABLE(macos(10.13), ios(11.3));
 @property (nonatomic) BOOL processSwapsOnNavigation WK_API_AVAILABLE(macos(10.14), ios(12.0));
 @property (nonatomic) BOOL alwaysKeepAndReuseSwappedProcesses WK_API_AVAILABLE(macos(10.14), ios(12.0));
-@property (nonatomic) BOOL processSwapsOnWindowOpenWithOpener WK_API_AVAILABLE(macos(10.14), ios(12.0));
 @property (nonatomic) BOOL processSwapsOnNavigationWithinSameNonHTTPFamilyProtocol WK_API_AVAILABLE(macos(12.0), ios(15.0));
 @property (nonatomic) BOOL prewarmsProcessesAutomatically WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 @property (nonatomic) BOOL usesWebProcessCache WK_API_AVAILABLE(macos(10.14.4), ios(12.2));

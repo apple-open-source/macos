@@ -102,6 +102,7 @@ USAGE_LICENSE
 #include <cmd.h>
 #include <ctype.h>
 #include <ls.h>
+#include <time.h>
 #include <tv.h>
 #include <rev.h>
 

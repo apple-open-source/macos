@@ -194,6 +194,20 @@
     [self.ckksViews addObject:self.contactsView];
     [self.ckksZones addObject:self.contactsZoneID];
 
+    self.groupsZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Groups" ownerName:CKCurrentUserDefaultName];
+    self.groupsZone = [[FakeCKZone alloc] initZone: self.groupsZoneID];
+    self.groupsView = [self.defaultCKKS.operationDependencies viewStateForName:@"Groups"];
+    XCTAssertNotNil(self.groupsView, "CKKS created the Groups view");
+    [self.ckksViews addObject:self.groupsView];
+    [self.ckksZones addObject:self.groupsZoneID];
+
+    self.photosZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Photos" ownerName:CKCurrentUserDefaultName];
+    self.photosZone = [[FakeCKZone alloc] initZone: self.photosZoneID];
+    self.photosView = [self.defaultCKKS.operationDependencies viewStateForName:@"Photos"];
+    XCTAssertNotNil(self.photosView, "CKKS created the Photos view");
+    [self.ckksViews addObject:self.photosView];
+    [self.ckksZones addObject:self.photosZoneID];
+
     self.ptaZoneID = [[CKRecordZoneID alloc] initWithZoneName:CKKSSEViewPTA ownerName:CKCurrentUserDefaultName];
     self.ptaZone = [[FakeCKZone alloc] initZone:self.ptaZoneID];
     self.ptaView = [self.defaultCKKS.operationDependencies viewStateForName:CKKSSEViewPTA];
@@ -234,6 +248,8 @@
     self.limitedView = nil;
     self.passwordsView = nil;
     self.contactsView = nil;
+    self.groupsView = nil;
+    self.photosView = nil;
     self.ptaView = nil;
 
     [super tearDown];
@@ -371,6 +387,30 @@
     self.zones[self.contactsZoneID] = zone;
 }
 
+- (ZoneKeys*)groupsZoneKeys {
+    return self.keys[self.groupsZoneID];
+}
+
+- (FakeCKZone*)groupsZone {
+    return self.zones[self.groupsZoneID];
+}
+
+- (void)setGroupsZone:(FakeCKZone*)zone {
+    self.zones[self.groupsZoneID] = zone;
+}
+
+- (ZoneKeys*)photosZoneKeys {
+    return self.keys[self.photosZoneID];
+}
+
+- (FakeCKZone*)photosZone {
+    return self.zones[self.photosZoneID];
+}
+
+- (void)setPhotosZone:(FakeCKZone*)zone {
+    self.zones[self.photosZoneID] = zone;
+}
+
 - (FakeCKZone*)ptaZone {
     return self.zones[self.ptaZoneID];
 }
@@ -400,6 +440,8 @@
     [self putFakeDeviceStatusInCloudKit: self.limitedZoneID];
     [self putFakeDeviceStatusInCloudKit: self.passwordsZoneID];
     [self putFakeDeviceStatusInCloudKit: self.contactsZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.groupsZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.photosZoneID];
 }
 
 - (void)putFakeKeyHierachiesInCloudKit{
@@ -414,6 +456,8 @@
     [self putFakeKeyHierarchyInCloudKit: self.limitedZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.passwordsZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.contactsZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.groupsZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.photosZoneID];
 }
 
 - (void)saveTLKsToKeychain{
@@ -428,6 +472,8 @@
     [self saveTLKMaterialToKeychain:self.limitedZoneID];
     [self saveTLKMaterialToKeychain:self.passwordsZoneID];
     [self saveTLKMaterialToKeychain:self.contactsZoneID];
+    [self saveTLKMaterialToKeychain:self.groupsZoneID];
+    [self saveTLKMaterialToKeychain:self.photosZoneID];
 }
 
 - (void)deleteTLKMaterialsFromKeychain{
@@ -442,6 +488,8 @@
     [self deleteTLKMaterialFromKeychain:self.limitedZoneID];
     [self deleteTLKMaterialFromKeychain:self.passwordsZoneID];
     [self deleteTLKMaterialFromKeychain:self.contactsZoneID];
+    [self deleteTLKMaterialFromKeychain:self.groupsZoneID];
+    [self deleteTLKMaterialFromKeychain:self.photosZoneID];
 }
 
 - (void)putAllFakeDeviceStatusesInCloudKit
@@ -457,6 +505,8 @@
     [self putFakeDeviceStatusInCloudKit:self.limitedZoneID];
     [self putFakeDeviceStatusInCloudKit:self.passwordsZoneID];
     [self putFakeDeviceStatusInCloudKit:self.contactsZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.groupsZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.photosZoneID];
 }
 
 - (void)putAllSelfTLKSharesInCloudKit:(id<CKKSSelfPeer>)sharingPeer
@@ -477,6 +527,8 @@
     [self putTLKShareInCloudKit:self.limitedZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.limitedZoneID];
     [self putTLKShareInCloudKit:self.passwordsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.passwordsZoneID];
     [self putTLKShareInCloudKit:self.contactsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.contactsZoneID];
+    [self putTLKShareInCloudKit:self.groupsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.groupsZoneID];
+    [self putTLKShareInCloudKit:self.photosZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.photosZoneID];
 }
 
 - (void)waitForKeyHierarchyReadinesses {
@@ -491,6 +543,8 @@
     XCTAssertEqual([self.mailView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Mail should enter key state ready");
     XCTAssertEqual([self.passwordsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Passwords should enter key state ready");
     XCTAssertEqual([self.contactsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Contacts should enter key state ready");
+    XCTAssertEqual([self.groupsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Groups should enter key state ready");
+    XCTAssertEqual([self.photosView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Photos should enter key state ready");
 }
 
 - (void)expectCKKSTLKSelfShareUploads {

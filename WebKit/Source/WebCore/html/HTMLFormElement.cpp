@@ -28,18 +28,15 @@
 #include "CommonAtomStrings.h"
 #include "DOMFormData.h"
 #include "DOMTokenList.h"
-#include "DOMWindow.h"
 #include "DiagnosticLoggingClient.h"
 #include "Document.h"
-#include "ElementIterator.h"
+#include "ElementAncestorIteratorInlines.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "FormController.h"
 #include "FormData.h"
 #include "FormDataEvent.h"
-#include "Frame.h"
 #include "FrameLoader.h"
-#include "FrameLoaderClient.h"
 #include "HTMLDialogElement.h"
 #include "HTMLFieldSetElement.h"
 #include "HTMLFormControlsCollection.h"
@@ -47,10 +44,13 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLTableElement.h"
 #include "InputTypeNames.h"
+#include "LocalDOMWindow.h"
+#include "LocalFrame.h"
+#include "LocalFrameLoaderClient.h"
 #include "MixedContentChecker.h"
+#include "NodeName.h"
 #include "NodeRareData.h"
 #include "Page.h"
 #include "PseudoClassChangeInvalidation.h"
@@ -59,6 +59,7 @@
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
 #include "SubmitEvent.h"
+#include "TypedElementDescendantIteratorInlines.h"
 #include "UserGestureIndicator.h"
 #include <limits>
 #include <wtf/IsoMallocInlines.h>
@@ -128,36 +129,6 @@ HTMLFormElement::~HTMLFormElement()
 bool HTMLFormElement::formWouldHaveSecureSubmission(const String& url)
 {
     return document().completeURL(url).protocolIs("https"_s);
-}
-
-bool HTMLFormElement::rendererIsNeeded(const RenderStyle& style)
-{
-    if (!m_wasDemoted)
-        return HTMLElement::rendererIsNeeded(style);
-
-    auto parent = parentNode();
-    auto parentRenderer = parent->renderer();
-
-    if (!parentRenderer)
-        return false;
-
-    // FIXME: Shouldn't we also check for table caption (see |formIsTablePart| below).
-    bool parentIsTableElementPart = (parentRenderer->isTable() && is<HTMLTableElement>(*parent))
-        || (parentRenderer->isTableRow() && parent->hasTagName(trTag))
-        || (parentRenderer->isTableSection() && parent->hasTagName(tbodyTag))
-        || (parentRenderer->isRenderTableCol() && parent->hasTagName(colTag))
-        || (parentRenderer->isTableCell() && parent->hasTagName(trTag));
-
-    if (!parentIsTableElementPart)
-        return true;
-
-    DisplayType display = style.display();
-    bool formIsTablePart = display == DisplayType::Table || display == DisplayType::InlineTable || display == DisplayType::TableRowGroup
-        || display == DisplayType::TableHeaderGroup || display == DisplayType::TableFooterGroup || display == DisplayType::TableRow
-        || display == DisplayType::TableColumnGroup || display == DisplayType::TableColumn || display == DisplayType::TableCell
-        || display == DisplayType::TableCaption;
-
-    return formIsTablePart;
 }
 
 Node::InsertedIntoAncestorResult HTMLFormElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
@@ -282,7 +253,7 @@ void HTMLFormElement::submitIfPossible(Event* event, HTMLFormControlElement* sub
     if (!isConnected())
         return;
 
-    RefPtr<Frame> frame = document().frame();
+    RefPtr frame { document().frame() };
     if (m_isSubmittingOrPreparingForSubmission || !frame)
         return;
 
@@ -410,8 +381,8 @@ void HTMLFormElement::submit(Event* event, bool processingUserGesture, FormSubmi
     if (m_isConstructingEntryList)
         return;
 
-    RefPtr<FrameView> view = document().view();
-    RefPtr<Frame> frame = document().frame();
+    RefPtr view { document().view() };
+    RefPtr frame { document().frame() };
     if (!view || !frame)
         return;
 
@@ -478,7 +449,7 @@ void HTMLFormElement::reset()
     if (m_isInResetFunction)
         return;
 
-    RefPtr<Frame> protectedFrame = document().frame();
+    RefPtr protectedFrame { document().frame() };
     if (!protectedFrame)
         return;
 
@@ -501,35 +472,44 @@ void HTMLFormElement::resetListedFormControlElements()
         control->reset();
 }
 
-void HTMLFormElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void HTMLFormElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    if (name == actionAttr) {
-        m_attributes.parseAction(value);
-        
+    switch (name.nodeName()) {
+    case AttributeNames::actionAttr:
+        m_attributes.parseAction(newValue);
         if (!m_attributes.action().isEmpty()) {
-            if (RefPtr<Frame> f = document().frame()) {
+            if (RefPtr f = document().frame()) {
                 if (auto* topFrame = dynamicDowncast<LocalFrame>(f->tree().top()))
                     MixedContentChecker::checkFormForMixedContent(*topFrame, document().completeURL(m_attributes.action()));
             }
         }
-    } else if (name == targetAttr)
-        m_attributes.setTarget(value);
-    else if (name == methodAttr)
-        m_attributes.updateMethodType(value, document().settings().dialogElementEnabled());
-    else if (name == enctypeAttr)
-        m_attributes.updateEncodingType(value);
-    else if (name == accept_charsetAttr)
-        m_attributes.setAcceptCharset(value);
-    else if (name == autocompleteAttr) {
+        break;
+    case AttributeNames::targetAttr:
+        m_attributes.setTarget(newValue);
+        break;
+    case AttributeNames::methodAttr:
+        m_attributes.updateMethodType(newValue, document().settings().dialogElementEnabled());
+        break;
+    case AttributeNames::enctypeAttr:
+        m_attributes.updateEncodingType(newValue);
+        break;
+    case AttributeNames::accept_charsetAttr:
+        m_attributes.setAcceptCharset(newValue);
+        break;
+    case AttributeNames::autocompleteAttr:
         if (!shouldAutocomplete())
             document().registerForDocumentSuspensionCallbacks(*this);
         else
             document().unregisterForDocumentSuspensionCallbacks(*this);
-    } else if (name == relAttr) {
+        break;
+    case AttributeNames::relAttr:
         if (m_relList)
-            m_relList->associatedAttributeValueChanged(value);
-    } else
-        HTMLElement::parseAttribute(name, value);
+            m_relList->associatedAttributeValueChanged(newValue);
+        break;
+    default:
+        HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+        break;
+    }
 }
 
 unsigned HTMLFormElement::formElementIndexWithFormAttribute(Element* element, unsigned rangeStart, unsigned rangeEnd)
@@ -652,7 +632,7 @@ void HTMLFormElement::addInvalidFormControl(const HTMLElement& formControlElemen
 
     std::optional<Style::PseudoClassChangeInvalidation> styleInvalidation;
     if (m_invalidFormControls.isEmptyIgnoringNullReferences())
-        emplace(styleInvalidation, *this, { { CSSSelector::PseudoClassValid, false }, { CSSSelector::PseudoClassInvalid, true } });
+        emplace(styleInvalidation, *this, { { CSSSelector::PseudoClassType::Valid, false }, { CSSSelector::PseudoClassType::Invalid, true } });
 
     m_invalidFormControls.add(formControlElement);
 }
@@ -664,7 +644,7 @@ void HTMLFormElement::removeInvalidFormControlIfNeeded(const HTMLElement& formCo
 
     std::optional<Style::PseudoClassChangeInvalidation> styleInvalidation;
     if (m_invalidFormControls.computeSize() == 1)
-        emplace(styleInvalidation, *this, { { CSSSelector::PseudoClassValid, true }, { CSSSelector::PseudoClassInvalid, false } });
+        emplace(styleInvalidation, *this, { { CSSSelector::PseudoClassType::Valid, true }, { CSSSelector::PseudoClassType::Invalid, false } });
 
     m_invalidFormControls.remove(formControlElement);
 }
@@ -689,7 +669,7 @@ void HTMLFormElement::unregisterImgElement(HTMLImageElement& element)
 
 Ref<HTMLFormControlsCollection> HTMLFormElement::elements()
 {
-    return ensureRareData().ensureNodeLists().addCachedCollection<HTMLFormControlsCollection>(*this, FormControls);
+    return ensureRareData().ensureNodeLists().addCachedCollection<HTMLFormControlsCollection>(*this, CollectionType::FormControls);
 }
 
 Ref<HTMLCollection> HTMLFormElement::elementsForNativeBindings()
@@ -712,7 +692,7 @@ String HTMLFormElement::action() const
     auto& value = attributeWithoutSynchronization(actionAttr);
     if (value.isEmpty())
         return document().url().string();
-    return document().completeURL(stripLeadingAndTrailingHTMLSpaces(value)).string();
+    return document().completeURL(value).string();
 }
 
 void HTMLFormElement::setAction(const AtomString& value)
@@ -923,6 +903,11 @@ Vector<Ref<Element>> HTMLFormElement::namedElements(const AtomString& name)
     return namedItems;
 }
 
+bool HTMLFormElement::isSupportedPropertyName(const AtomString& name)
+{
+    return !name.isEmpty() && elements()->isSupportedPropertyName(name);
+}
+
 void HTMLFormElement::resumeFromDocumentSuspension()
 {
     ASSERT(!shouldAutocomplete());
@@ -975,12 +960,6 @@ Vector<Ref<ValidatedFormListedElement>> HTMLFormElement::copyValidatedListedElem
     return WTF::compactMap(m_listedElements, [](auto& weakElement) {
         return RefPtr { weakElement->asValidatedFormListedElement() };
     });
-}
-
-void HTMLFormElement::copyNonAttributePropertiesFromElement(const Element& source)
-{
-    m_wasDemoted = static_cast<const HTMLFormElement&>(source).m_wasDemoted;
-    HTMLElement::copyNonAttributePropertiesFromElement(source);
 }
 
 HTMLFormElement* HTMLFormElement::findClosestFormAncestor(const Element& startElement)

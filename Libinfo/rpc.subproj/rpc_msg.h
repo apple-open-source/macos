@@ -64,6 +64,8 @@
 #ifndef _RPC_RPCMSG_H
 #define _RPC_RPCMSG_H
 
+#include <rpc/auth.h>
+
 #ifdef __LP64__
 #define RPC_MSG_VERSION		((unsigned int) 2)
 #else

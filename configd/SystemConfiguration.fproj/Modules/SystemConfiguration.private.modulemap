@@ -1,7 +1,7 @@
-framework module SystemConfiguration_Private [extern_c] [system] {
+framework module SystemConfiguration_Private [system] {
   umbrella header "SCPrivate.h"
-
   export *
+
   module * { export * }
 
   explicit module SCDPlugin {
@@ -56,6 +56,31 @@ framework module SystemConfiguration_Private [extern_c] [system] {
 
   explicit module scprefs_observer {
 	  header "scprefs_observer.h"
+	  export *
+  }
+
+  explicit module SCControlPrefs {
+	  header "SCControlPrefs.h"
+	  export *
+  }
+
+  explicit module SCNetworkCategoryTypes {
+	  header "SCNetworkCategoryTypes.h"
+	  export *
+  }
+
+  explicit module SCNetworkCategory {
+	  header "SCNetworkCategory.h"
+	  export *
+  }
+
+  explicit module SCNetworkCategoryManager {
+	  header "SCNetworkCategoryManager.h"
+	  export *
+  }
+
+  explicit module SCNetworkSettingsManager {
+	  header "SCNetworkSettingsManager.h"
 	  export *
   }
 }

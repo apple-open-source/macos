@@ -26,7 +26,10 @@
 #include "unicode/uloc.h"
 #include "unicode/ures.h"
 #include "unicode/ustring.h"
+#if APPLE_ICU_CHANGES
+// rdar://51418203 finish support for pa_Aran; have uloc_getDisplayName call uldn function for special names
 #include "unicode/uldnames.h"
+#endif // APPLE_ICU_CHANGES
 #include "bytesinkutil.h"
 #include "charstr.h"
 #include "cmemory.h"
@@ -389,7 +392,17 @@ _getDisplayNameForComponent(const char *locale,
         return 0;
     }
     if(length==0) {
+#if APPLE_ICU_CHANGES
+// rdar://50305100 Revert ICU 64 locale disp name changes that treat empty lang code as "und"
         return u_terminateUChars(dest, destCapacity, 0, pErrorCode);
+#else
+        // For the display name, we treat this as unknown language (ICU-20273).
+        if (getter == uloc_getLanguage) {
+            uprv_strcpy(localeBuffer, "und");
+        } else {
+            return u_terminateUChars(dest, destCapacity, 0, pErrorCode);
+        }
+#endif // APPLE_ICU_CHANGES
     }
 
     root = tag == _kCountries ? U_ICUDATA_REGION : U_ICUDATA_LANG;
@@ -510,11 +523,11 @@ uloc_getDisplayName(const char *locale,
     UChar formatCloseParen        = 0x0029; // )
     UChar formatReplaceCloseParen = 0x005D; // ]
 
-    UBool haveLang = TRUE; /* assume true, set false if we find we don't have
+    UBool haveLang = true; /* assume true, set false if we find we don't have
                               a lang component in the locale */
-    UBool haveRest = TRUE; /* assume true, set false if we find we don't have
+    UBool haveRest = true; /* assume true, set false if we find we don't have
                               any other component in the locale */
-    UBool retry = FALSE; /* set true if we need to retry, see below */
+    UBool retry = false; /* set true if we need to retry, see below */
 
     int32_t langi = 0; /* index of the language substitution (0 or 1), virtually always 0 */
 
@@ -527,7 +540,12 @@ uloc_getDisplayName(const char *locale,
         return 0;
     }
 
-    { // For select languages + script, route to uldn_localeDisplayName <rdar://problem/51418203>
+#if APPLE_ICU_CHANGES
+// original change here was per
+// rdar://45116092 commit 044f2039da.., Merge ICU 64rc3: Undo parts of ICU-20273,20447 (PR-455,472) that cause compatibility probs (mapping root/und to "")
+// replaced by change per the following
+// rdar://51418203 finish support for pa_Aran; have uloc_getDisplayName call uldn function for special names
+    { // For select languages + script, route to uldn_localeDisplayName rdar://51418203
         char lang[ULOC_LANG_CAPACITY];
         char script[ULOC_SCRIPT_CAPACITY ];
         UErrorCode status = U_ZERO_ERROR;
@@ -543,6 +561,7 @@ uloc_getDisplayName(const char *locale,
             }
         }
     }
+#endif // APPLE_ICU_CHANGES
 
     {
         UErrorCode status = U_ZERO_ERROR;
@@ -638,7 +657,7 @@ uloc_getDisplayName(const char *locale,
         }
 
         for(int32_t subi=0,resti=0;subi<2;) { /* iterate through patterns 0 and 1*/
-            UBool subdone = FALSE; /* set true when ready to move to next substitution */
+            UBool subdone = false; /* set true when ready to move to next substitution */
 
             /* prep p and cap for calls to get display components, pin cap to 0 since
                they complain if cap is negative */
@@ -656,10 +675,10 @@ uloc_getDisplayName(const char *locale,
                     length+=langLen;
                     haveLang=langLen>0;
                 }
-                subdone=TRUE;
+                subdone=true;
             } else { /* {1} */
                 if(!haveRest) {
-                    subdone=TRUE;
+                    subdone=true;
                 } else {
                     int32_t len; /* length of component (plus other stuff) we just fetched */
                     switch(resti++) {
@@ -680,7 +699,7 @@ uloc_getDisplayName(const char *locale,
                             const char* kw=uenum_next(kenum.getAlias(), &len, pErrorCode);
                             if (kw == NULL) {
                                 len=0; /* mark that we didn't add a component */
-                                subdone=TRUE;
+                                subdone=true;
                             } else {
                                 /* incorporating this behavior into the loop made it even more complex,
                                    so just special case it here */
@@ -785,7 +804,7 @@ uloc_getDisplayName(const char *locale,
                             /* would have fit, but didn't because of pattern prefix. */
                             sub0Pos=0; /* stops initial padding (and a second retry,
                                           so we won't end up here again) */
-                            retry=TRUE;
+                            retry=true;
                         }
                     }
                 }

@@ -1178,7 +1178,10 @@
 				COPY_PHASE_STRIP = YES;
 				EXECUTABLE_PREFIX = lib;
 				INSTALL_PATH = /usr/lib;
-				OTHER_LDFLAGS = "-allowable_client,'!'";
+				OTHER_LDFLAGS = (
+					"-allowable_client",
+					"!",
+				);
 				PRODUCT_NAME = pam.1;
 			};
 			name = Release;
@@ -1211,6 +1214,7 @@
 					"LIB_MAJ=2",
 					"OPENPAM_MODULES_DIR='\"/usr/lib/pam/;/usr/local/lib/pam/\"'",
 					_GNU_SOURCE,
+					__APPLE_MDM_SUPPORT__,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;

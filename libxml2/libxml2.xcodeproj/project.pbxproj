@@ -123,6 +123,7 @@
 		448F55C42846D04100D0E6E9 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		448F55C72846D0C400D0E6E9 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		4491DFC71CE67BD500002B02 /* libxml.h in Headers */ = {isa = PBXBuildFile; fileRef = 4491DFC61CE67BB100002B02 /* libxml.h */; };
+		44A4F47929EF3D66009518B2 /* module.modulemap in Install /usr/include/libxml2/module.modulemap */ = {isa = PBXBuildFile; fileRef = 44A4F47829EF3D54009518B2 /* module.modulemap */; };
 		44BF6AAF283BEB230006B266 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
 		44BF6AB9283BEB3B0006B266 /* reader.c in Sources */ = {isa = PBXBuildFile; fileRef = 44BF6AAA283BEAFE0006B266 /* reader.c */; };
 		44BF6ABA283BEBDE0006B266 /* fuzz-reader in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44BF6AB8283BEB230006B266 /* fuzz-reader */; };
@@ -782,6 +783,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		44F23F8829EF300B000C9982 /* Install /usr/include/libxml2/module.modulemap */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/include/libxml2;
+			dstSubfolderSpec = 0;
+			files = (
+				44A4F47929EF3D66009518B2 /* module.modulemap in Install /usr/include/libxml2/module.modulemap */,
+			);
+			name = "Install /usr/include/libxml2/module.modulemap";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		44F286B91EADB30E00BA8B08 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
@@ -934,6 +946,7 @@
 		448D7E351EA5C3B700ECC756 /* libxml2.a.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libxml2.a.xcconfig; sourceTree = "<group>"; };
 		448D7E421EA5CC4100ECC756 /* empty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = empty.c; sourceTree = "<group>"; };
 		4491DFC61CE67BB100002B02 /* libxml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libxml.h; path = libxml2/libxml.h; sourceTree = SOURCE_ROOT; };
+		44A4F47829EF3D54009518B2 /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		44A55317268CD64300B8E5CC /* enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = enc.h; sourceTree = "<group>"; };
 		44B1E3281C4EDAA40064124E /* xzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xzlib.c; sourceTree = "<group>"; };
 		44B1E3291C4EDAD10064124E /* xzlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xzlib.h; sourceTree = "<group>"; };
@@ -1346,6 +1359,15 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		44A4F47729EF3D54009518B2 /* libxml2 */ = {
+			isa = PBXGroup;
+			children = (
+				44A4F47829EF3D54009518B2 /* module.modulemap */,
+			);
+			name = libxml2;
+			path = include/libxml2;
+			sourceTree = "<group>";
+		};
 		44DD582028122B8400FD3E4F /* Internal Headers */ = {
 			isa = PBXGroup;
 			children = (
@@ -1556,6 +1578,7 @@
 		5D58B06014F81D1100BE69D8 /* Pregenerated Files */ = {
 			isa = PBXGroup;
 			children = (
+				44A4F47729EF3D54009518B2 /* libxml2 */,
 				44C0436323DA54010076CBB2 /* README.txt */,
 				5D58B05E14F81AF200BE69D8 /* config.h */,
 				448D7E421EA5CC4100ECC756 /* empty.c */,
@@ -2245,13 +2268,14 @@
 				5D58AF5814F815F500BE69D8 /* Sources */,
 				5D58AF5914F815F500BE69D8 /* Frameworks */,
 				5DB38AF914F87C9F0060A507 /* Create libxml2.dylib Symlink */,
-				4455F861237E07EA001469A1 /* Create /usr/lib/libxml2 Symlink */,
+				4455F861237E07EA001469A1 /* Create /usr/include/libxml2/libxml Symlink */,
 				5DB38B2314F883700060A507 /* Rename License File */,
 				5DB38B1C14F8828C0060A507 /* Install License File */,
 				5DB38B1F14F882CA0060A507 /* Install Open Source Property List */,
 				5DB38B2614F884D60060A507 /* Install libxml Man Page */,
 				5DB38B2A14F886B60060A507 /* Install xml2-config */,
 				5DB38B2D14F8872A0060A507 /* Install xml2-config Man Page */,
+				44F23F8829EF300B000C9982 /* Install /usr/include/libxml2/module.modulemap */,
 			);
 			buildRules = (
 			);
@@ -2422,7 +2446,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		4455F861237E07EA001469A1 /* Create /usr/lib/libxml2 Symlink */ = {
+		4455F861237E07EA001469A1 /* Create /usr/include/libxml2/libxml Symlink */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -2431,10 +2455,11 @@
 			);
 			inputPaths = (
 			);
-			name = "Create /usr/lib/libxml2 Symlink";
+			name = "Create /usr/include/libxml2/libxml Symlink";
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(LIBXML2_HEADER_PATH)/libxml2/libxml",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -2464,8 +2489,8 @@
 			);
 			name = "Create libxml2.dylib Symlink";
 			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/libxml2.dylib",
-				"$(BUILT_PRODUCTS_DIR)/libxml2.tbd",
+				"$(DSTROOT)$(INSTALL_PATH)/libxml2.dylib",
+				"$(DSTROOT)$(INSTALL_PATH)/libxml2.tbd",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

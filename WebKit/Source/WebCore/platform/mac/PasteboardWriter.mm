@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,9 +63,9 @@ RetainPtr<id <NSPasteboardWriting>> createPasteboardWriter(const PasteboardWrite
     if (auto& plainText = data.plainText()) {
         [pasteboardItem setString:plainText->text forType:NSPasteboardTypeString];
         if (plainText->canSmartCopyOrDelete) {
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             auto smartPasteType = bridge_cast(adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassNSPboardType, bridge_cast(_NXSmartPaste), nullptr)));
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             [pasteboardItem setData:[NSData data] forType:smartPasteType.get()];
         }
     }
@@ -81,7 +81,8 @@ RetainPtr<id <NSPasteboardWriting>> createPasteboardWriter(const PasteboardWrite
         }
 
         // WebURLsWithTitlesPboardType.
-        auto paths = adoptNS([[NSArray alloc] initWithObjects:@[ @[ cocoaURL.absoluteString ] ], @[ urlData->title.stripWhiteSpace() ], nil]);
+        // FIXME: This could use StringView (the one that creates NSString) to save an allocation
+        auto paths = adoptNS([[NSArray alloc] initWithObjects:@[ @[ cocoaURL.absoluteString ] ], @[ urlData->title.trim(deprecatedIsSpaceOrNewline) ], nil]);
         [pasteboardItem setPropertyList:paths.get() forType:toUTI(@"WebURLsWithTitlesPboardType").get()];
 
         // NSURLPboardType.
@@ -107,15 +108,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (auto& webContent = data.webContent()) {
         if (webContent->canSmartCopyOrDelete) {
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             auto smartPasteType = bridge_cast(adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassNSPboardType, bridge_cast(_NXSmartPaste), nullptr)));
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             [pasteboardItem setData:[NSData data] forType:smartPasteType.get()];
         }
         if (webContent->dataInWebArchiveFormat) {
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             auto webArchiveType = bridge_cast(adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassNSPboardType, CFSTR("Apple Web Archive pasteboard type"), nullptr)));
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             [pasteboardItem setData:webContent->dataInWebArchiveFormat->createNSData().get() forType:webArchiveType.get()];
         }
         if (webContent->dataInRTFDFormat)

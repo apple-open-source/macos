@@ -377,7 +377,7 @@ void PolicyDatabase::upgradeDatabase()
 				update.execute();
 			};
 
-			// App handling has moved to the sunfish path.  The legacy keyword won't work well for apps because we don't collect nested code hashes to whitelist them.
+			// App handling has moved to the sunfish path.  The legacy keyword won't work well for apps because we don't collect nested code hashes to allowlist them.
 			migrateReq(this, 2,
 					   "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13]) and (certificate leaf[timestamp.1.2.840.113635.100.6.1.33] absent or certificate leaf[timestamp.1.2.840.113635.100.6.1.33] < timestamp \"20190408000000Z\")",
 					   "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13]) and legacy");
@@ -504,7 +504,7 @@ void PolicyDatabase::installExplicitSet(const char *authfile, const char *sigfil
 			
 			// purge prior authority data
 			SQLite::Statement purge(*this, "DELETE FROM authority WHERE flags & :flag");
-			purge.bind(":flag") = kAuthorityFlagWhitelist;
+			purge.bind(":flag") = kAuthorityFlagAllowlist;
 			purge();
 			
 			// load new data
@@ -517,13 +517,13 @@ void PolicyDatabase::installExplicitSet(const char *authfile, const char *sigfil
 				" VALUES (:type, 1, :requirement, 'GKE', :filter, :flags, :path)");
 			for (CFIndex n = 0; n < count; n++) {
 				CFDictionary info(values_vector[n], errSecCSDbCorrupt);
-				uint32_t flags = kAuthorityFlagWhitelist;
+				uint32_t flags = kAuthorityFlagAllowlist;
 				if (CFNumberRef versionRef = info.get<CFNumberRef>("version")) {
 					int version = cfNumber<int>(versionRef);
 					if (version >= 2) {
-						flags |= kAuthorityFlagWhitelistV2;
+						flags |= kAuthorityFlagAllowlistV2;
 						if (version >= 3) {
-							flags |= kAuthorityFlagWhitelistSHA256;
+							flags |= kAuthorityFlagAllowlistSHA256;
 						}
 					}
 				}

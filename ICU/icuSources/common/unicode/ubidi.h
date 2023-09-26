@@ -3,7 +3,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2015, International Business Machines
+*   Copyright (C) 1999-2013, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -1237,6 +1237,9 @@ ubidi_setPara(UBiDi *pBiDi, const UChar *text, int32_t length,
               UBiDiLevel paraLevel, UBiDiLevel *embeddingLevels,
               UErrorCode *pErrorCode);
 
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
+// rdar://22875147 cb03b4026c.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: finish
 #ifndef U_HIDE_INTERNAL_API
 /**
  * Perform the Unicode Bidi algorithm. It is defined in the
@@ -1389,6 +1392,7 @@ ubidi_setParaWithControls(UBiDi *pBiDi,
                           UErrorCode *pErrorCode);
                       
 #endif  /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 
 /**
  * <code>ubidi_setLine()</code> sets a <code>UBiDi</code> to

@@ -15,7 +15,6 @@
 #include "tests/perf_tests/ANGLEPerfTestArgs.h"
 #include "tests/perf_tests/DrawCallPerfParams.h"
 #include "util/capture/frame_capture_test_utils.h"
-#include "util/capture/trace_interpreter.h"
 #include "util/capture/traces_export.h"
 #include "util/egl_loader_autogen.h"
 #include "util/png_utils.h"
@@ -147,6 +146,7 @@ class TracePerfTest : public ANGLERenderTest
     EGLint onEglClientWaitSync(EGLDisplay dpy, EGLSync sync, EGLint flags, EGLTimeKHR timeout);
     EGLint onEglClientWaitSyncKHR(EGLDisplay dpy, EGLSync sync, EGLint flags, EGLTimeKHR timeout);
     EGLint onEglGetError();
+    EGLDisplay onEglGetCurrentDisplay();
 
     void onReplayFramebufferChange(GLenum target, GLuint framebuffer);
     void onReplayInvalidateFramebuffer(GLenum target,
@@ -233,7 +233,7 @@ class TracePerfTest : public ANGLERenderTest
     uint32_t mTotalFrameCount                                           = 0;
     bool mScreenshotSaved                                               = false;
     uint32_t mScreenshotFrame                                           = gScreenshotFrame;
-    std::unique_ptr<TraceReplayInterface> mTraceReplay;
+    std::unique_ptr<TraceLibrary> mTraceReplay;
 };
 
 TracePerfTest *gCurrentTracePerfTest = nullptr;
@@ -327,6 +327,11 @@ EGLint KHRONOS_APIENTRY EglClientWaitSyncKHR(EGLDisplay dpy,
 EGLint KHRONOS_APIENTRY EglGetError()
 {
     return gCurrentTracePerfTest->onEglGetError();
+}
+
+EGLDisplay KHRONOS_APIENTRY EglGetCurrentDisplay()
+{
+    return gCurrentTracePerfTest->onEglGetCurrentDisplay();
 }
 
 void KHRONOS_APIENTRY BindFramebufferProc(GLenum target, GLuint framebuffer)
@@ -668,6 +673,10 @@ angle::GenericProc KHRONOS_APIENTRY TraceLoadProc(const char *procName)
     if (strcmp(procName, "eglGetError") == 0)
     {
         return reinterpret_cast<angle::GenericProc>(EglGetError);
+    }
+    if (strcmp(procName, "eglGetCurrentDisplay") == 0)
+    {
+        return reinterpret_cast<angle::GenericProc>(EglGetCurrentDisplay);
     }
 
     // GLES
@@ -1594,6 +1603,31 @@ TracePerfTest::TracePerfTest(std::unique_ptr<const TracePerfParams> params)
         }
     }
 
+    if (traceNameIs("honkai_star_rail"))
+    {
+        addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
+        if (isIntelWin)
+        {
+            skipTest("https://anglebug.com/8175 Consistently stuck on Intel/windows");
+        }
+    }
+
+    if (traceNameIs("gangstar_vegas"))
+    {
+        if (mParams->isSwiftshader())
+        {
+            skipTest("TODO: http://anglebug.com/8173 Missing shadows on Swiftshader");
+        }
+    }
+
+    if (traceNameIs("respawnables"))
+    {
+        if (!mParams->isANGLE() && (IsWindows() || IsLinux()))
+        {
+            skipTest("TODO: https://anglebug.com/8191 Undefined behavior on native");
+        }
+    }
+
     // glDebugMessageControlKHR and glDebugMessageCallbackKHR crash on ARM GLES1.
     if (IsARM() && mParams->traceInfo.contextClientMajorVersion == 1)
     {
@@ -1638,6 +1672,20 @@ void TracePerfTest::startTest()
     ASSERT(mCurrentFrame == mStartFrame);
 }
 
+std::string FindTraceGzPath(const std::string &traceName)
+{
+    std::stringstream pathStream;
+
+    char genDir[kMaxPath] = {};
+    if (!angle::FindTestDataPath("gen", genDir, kMaxPath))
+    {
+        return "";
+    }
+    pathStream << genDir << angle::GetPathSeparator() << "tracegz_" << traceName << ".gz";
+
+    return pathStream.str();
+}
+
 void TracePerfTest::initializeBenchmark()
 {
     const TraceInfo &traceInfo = mParams->traceInfo;
@@ -1651,14 +1699,24 @@ void TracePerfTest::initializeBenchmark()
 
     if (gTraceInterpreter)
     {
-        mTraceReplay.reset(new TraceInterpreter(traceInfo, testDataDir, gVerboseLogging));
+        mTraceReplay.reset(new TraceLibrary("angle_trace_interpreter", traceInfo));
+        if (strcmp(gTraceInterpreter, "gz") == 0)
+        {
+            std::string traceGzPath = FindTraceGzPath(traceInfo.name);
+            if (traceGzPath.empty())
+            {
+                failTest("Could not find trace gz.");
+                return;
+            }
+            mTraceReplay->setTraceGzPath(traceGzPath);
+        }
     }
     else
     {
         std::stringstream traceNameStr;
         traceNameStr << "angle_restricted_traces_" << traceInfo.name;
         std::string traceName = traceNameStr.str();
-        mTraceReplay.reset(new TraceLibrary(traceName.c_str()));
+        mTraceReplay.reset(new TraceLibrary(traceNameStr.str(), traceInfo));
     }
 
     LoadTraceEGL(TraceLoadProc);
@@ -1672,7 +1730,6 @@ void TracePerfTest::initializeBenchmark()
 
     mStartFrame = traceInfo.frameStart;
     mEndFrame   = traceInfo.frameEnd;
-    mTraceReplay->setBinaryDataDecompressCallback(DecompressBinaryData, DeleteBinaryData);
     mTraceReplay->setValidateSerializedStateCallback(ValidateSerializedState);
     mTraceReplay->setBinaryDataDir(testDataDir);
 
@@ -2083,6 +2140,11 @@ EGLint TracePerfTest::onEglClientWaitSyncKHR(EGLDisplay dpy,
 EGLint TracePerfTest::onEglGetError()
 {
     return getGLWindow()->getEGLError();
+}
+
+EGLDisplay TracePerfTest::onEglGetCurrentDisplay()
+{
+    return getGLWindow()->getCurrentDisplay();
 }
 
 // Triggered when the replay calls glBindFramebuffer.

@@ -48,6 +48,8 @@ class HistoryItem;
 class MouseEvent;
 class UIEventWithKeyState;
 
+enum class SyntheticClickType : uint8_t;
+
 // NavigationAction should never hold a strong reference to the originating document either directly
 // or indirectly as doing so prevents its destruction even after navigating away from it because
 // DocumentLoader keeps around the NavigationAction for the last navigation.
@@ -82,7 +84,7 @@ public:
         LayoutPoint absoluteLocation;
         FloatPoint locationInRootViewCoordinates;
         short button;
-        unsigned short syntheticClickType;
+        SyntheticClickType syntheticClickType;
         bool buttonDown;
     };
     const std::optional<UIEventWithKeyStateData>& keyStateEventData() const { return m_keyStateEventData; }
@@ -148,24 +150,26 @@ private:
     // originating document. See comment above the class for more details.
     std::optional<NavigationRequester> m_requester;
     ResourceRequest m_resourceRequest;
-    NavigationType m_type;
-    ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy;
-    InitiatedByMainFrame m_initiatedByMainFrame;
     std::optional<UIEventWithKeyStateData> m_keyStateEventData;
     std::optional<MouseEventData> m_mouseEventData;
     RefPtr<UserGestureToken> m_userGestureToken { UserGestureIndicator::currentUserGesture() };
     AtomString m_downloadAttribute;
-    bool m_treatAsSameOriginNavigation;
+    std::optional<BackForwardItemIdentifier> m_targetBackForwardItemIdentifier;
+    std::optional<BackForwardItemIdentifier> m_sourceBackForwardItemIdentifier;
+    std::optional<PrivateClickMeasurement> m_privateClickMeasurement;
+    ShouldReplaceDocumentIfJavaScriptURL m_shouldReplaceDocumentIfJavaScriptURL { ReplaceDocumentIfJavaScriptURL };
+
+    NavigationType m_type;
+    ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy;
+    InitiatedByMainFrame m_initiatedByMainFrame;
+
+    bool m_treatAsSameOriginNavigation { false };
     bool m_hasOpenedFrames { false };
     bool m_openedByDOMWithOpener { false };
     bool m_isRequestFromClientOrUserInput { false };
     bool m_isInitialFrameSrcLoad { false };
-    std::optional<BackForwardItemIdentifier> m_targetBackForwardItemIdentifier;
-    std::optional<BackForwardItemIdentifier> m_sourceBackForwardItemIdentifier;
     LockHistory m_lockHistory { LockHistory::No };
     LockBackForwardList m_lockBackForwardList { LockBackForwardList::No };
-    std::optional<PrivateClickMeasurement> m_privateClickMeasurement;
-    ShouldReplaceDocumentIfJavaScriptURL m_shouldReplaceDocumentIfJavaScriptURL { ReplaceDocumentIfJavaScriptURL };
     NewFrameOpenerPolicy m_newFrameOpenerPolicy { NewFrameOpenerPolicy::Allow };
 };
 

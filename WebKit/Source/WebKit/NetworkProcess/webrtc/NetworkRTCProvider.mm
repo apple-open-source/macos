@@ -73,6 +73,7 @@ rtc::ProxyInfo NetworkRTCProvider::proxyInfoFromSession(const RTCNetwork::Socket
 {
     // FIXME: We should check for kCFNetworkProxiesExceptionsList to decide whether to use proxy or not.
     // FIXME: We should also get username/password for authentication cases.
+    // FIXME: We should also handle the new style nw_proxy_config once enough API exists to support it.
     RetainPtr<CFDictionaryRef> proxyDictionary = static_cast<NetworkSessionCocoa&>(session).proxyConfiguration();
     if (!proxyDictionary)
         proxyDictionary = adoptCF(CFNetworkCopySystemProxySettings());
@@ -83,7 +84,7 @@ rtc::ProxyInfo NetworkRTCProvider::proxyInfoFromSession(const RTCNetwork::Socket
     if (isEnabled(proxyDictionary.get(), kCFNetworkProxiesSOCKSEnable))
         return createRTCProxy(proxyDictionary.get(), rtc::PROXY_SOCKS5, kCFNetworkProxiesSOCKSProxy, kCFNetworkProxiesSOCKSPort);
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     if (isEnabled(proxyDictionary.get(), kCFNetworkProxiesHTTPEnable))
         return createRTCProxy(proxyDictionary.get(), rtc::PROXY_HTTPS, kCFNetworkProxiesHTTPProxy, kCFNetworkProxiesHTTPPort);
 #endif

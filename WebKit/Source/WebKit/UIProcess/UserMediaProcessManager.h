@@ -29,6 +29,7 @@
 
 namespace WebKit {
 
+class UserMediaPermissionRequestProxy;
 class WebProcessProxy;
 
 class UserMediaProcessManager : public WebCore::RealtimeMediaSourceCenter::Observer {
@@ -38,7 +39,7 @@ public:
 
     UserMediaProcessManager();
 
-    bool willCreateMediaStream(UserMediaPermissionRequestManagerProxy&, bool withAudio, bool withVideo);
+    bool willCreateMediaStream(UserMediaPermissionRequestManagerProxy&, const UserMediaPermissionRequestProxy&);
 
     void revokeSandboxExtensionsIfNeeded(WebProcessProxy&);
 
@@ -56,6 +57,7 @@ private:
 
     // RealtimeMediaSourceCenter::Observer
     void devicesChanged() final;
+    void deviceWillBeRemoved(const String& persistentId) final { }
 
     Vector<WebCore::CaptureDevice> m_captureDevices;
     bool m_captureEnabled { true };

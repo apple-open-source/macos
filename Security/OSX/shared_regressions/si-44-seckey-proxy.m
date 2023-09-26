@@ -24,6 +24,7 @@
 
 #import <Foundation/Foundation.h>
 #import <Security/SecKeyPriv.h>
+#import <Security/SecItemPriv.h>
 #import <Security/SecIdentityPriv.h>
 #import <Security/SecKeyProxy.h>
 
@@ -31,7 +32,7 @@
 
 static void test_key_proxy_connect(void) {
     NSError *error;
-    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256)}, (void *)&error));
+    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256), (id)kSecUseDataProtectionKeychain: @YES}, (void *)&error));
     ok(serverKey != NULL, "generated local ec256 keypair");
     SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
     SecKeyRef localKey = [SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error];
@@ -74,7 +75,7 @@ static const int TestKeyProxyConnectCount = 10;
 
 static void test_key_proxy_simple_ops(void) {
     NSError *error;
-    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256)}, (void *)&error));
+    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256), (id)kSecUseDataProtectionKeychain: @YES}, (void *)&error));
     SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
     id localKey = CFBridgingRelease([SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error]);
     NSDictionary *serverAttributes = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)serverKey));
@@ -154,7 +155,7 @@ static const int TestKeyCryptoKeyExchange = 7;
 
 static void test_key_proxy_crypto_ops_RSA(void) {
     NSError *error;
-    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @(2048)}, (void *)&error));
+    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @(2048), (id)kSecUseDataProtectionKeychain: @YES}, (void *)&error));
     ok(serverKey != NULL, "generated local rsa2048 keypair: %@", error);
     SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
     id localKey = CFBridgingRelease([SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error]);
@@ -170,7 +171,7 @@ static const int TestKeyCryptoOpsRSACount = 2 + TestKeyCryptoSignCount * 2 + Tes
 
 static void test_key_proxy_crypto_ops_EC(void) {
     NSError *error;
-    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256)}, (void *)&error));
+    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256), (id)kSecUseDataProtectionKeychain: @YES}, (void *)&error));
     ok(serverKey != NULL, "generated local ec256 keypair: %@", error);
     SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
     id localKey = CFBridgingRelease([SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error]);
@@ -188,7 +189,7 @@ static const int TestKeyCryptoOpsECCount = 2 + TestKeyCryptoSignCount * 2 + Test
 
 static void test_key_proxy_connection_handlers(void) {
     NSError *error;
-    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256)}, (void *)&error));
+    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256), (id)kSecUseDataProtectionKeychain: @YES}, (void *)&error));
     ok(serverKey != NULL, "generated local ec256 keypair: %@", error);
     SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
     __block int connectCalled = 0;
@@ -523,13 +524,30 @@ static void test_key_proxy_identity(void) {
 }
 static const int TestKeyProxyIdentityCount = 10;
 
+static void test_key_proxy_acc(void) {
+    NSError *error;
+    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256), (id)kSecUseDataProtectionKeychain: @YES, (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore}, (void *)&error));
+    ok(serverKey != NULL, "generate local SEP ec256 keypair with AC");
+    SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
+    SecKeyRef localKey = [SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error];
+    isnt(localKey, NULL,  "connected to remote key, error %@", error);
+    ok(CFGetTypeID(localKey) == SecKeyGetTypeID(), "Connected key is really SecKey");
+    NSDictionary *attrs = CFBridgingRelease(SecKeyCopyAttributes(localKey));
+    isnt(attrs, nil, "getting attributes from remote key");
+    SecAccessControlRef acc = (__bridge SecAccessControlRef)attrs[(id)kSecAttrAccessControl];
+    isnt(acc, nil, "SecAccessControl is set and valid");
+    CFRelease(localKey);
+}
+static const int TestKeyProxyAccCount = 5;
+
 static const int TestCount =
 TestKeyProxyConnectCount +
 TestKeyProxySimpleOpsCount +
 TestKeyCryptoOpsRSACount +
 TestKeyCryptoOpsECCount +
 TestKeyProxyConnectionHandlersCount +
-TestKeyProxyIdentityCount;
+TestKeyProxyIdentityCount +
+TestKeyProxyAccCount;
 
 int si_44_seckey_proxy(int argc, char *const *argv) {
     plan_tests(TestCount);
@@ -541,6 +559,7 @@ int si_44_seckey_proxy(int argc, char *const *argv) {
         test_key_proxy_crypto_ops_EC();
         test_key_proxy_connection_handlers();
         test_key_proxy_identity();
+        test_key_proxy_acc();
     }
 
     return 0;

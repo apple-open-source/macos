@@ -24,7 +24,9 @@ Patch_List = patch-config.layout \
              OpenSSLVersion.diff \
              man.diff \
              patch-server__Makefile.in \
+             ManagedConfiguration.diff \
              fix_apr_path.patch
+
 
 Configure_Flags = CPPFLAGS="-iwithsysroot /usr/local/libressl/include" \
                   LDFLAGS="-L${SDKROOT}/usr/local/libressl/lib" \

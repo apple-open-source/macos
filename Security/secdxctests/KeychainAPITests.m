@@ -52,6 +52,8 @@
 #include "keychain/securityd/SecItemServer.h"
 #include "keychain/securityd/SecItemDb.h"
 #include "keychain/securityd/SecItemDataSource.h"
+#include "keychain/securityd/SOSCloudCircleServer.h"
+
 #import "SecItemRateLimit_tests.h"
 #include "der_plist.h"
 #include "ipc/server_security_helpers.h"
@@ -171,6 +173,40 @@
     XCTAssertEqual(errSecParam, SecItemDelete((CFDictionaryRef)attrs));
 }
 
+- (void)testServerUsingDataType
+{
+    NSDictionary *attrs = @{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrLabel: @"testentry",
+    };
+    SecItemDelete((CFDictionaryRef)attrs);
+
+    // Use an NSData in kSecAttrServer, should work as expected, albeit odd to do so
+    NSMutableDictionary* addParams = [attrs mutableCopy];
+    addParams[(id)kSecAttrServer] = [@"string" dataUsingEncoding:NSUTF8StringEncoding];
+    XCTAssertEqual(errSecSuccess, SecItemAdd((CFDictionaryRef)addParams, NULL));
+
+    NSMutableDictionary* query = [attrs mutableCopy];
+    query[(id)kSecReturnAttributes] = @YES;
+
+    CFTypeRef result = NULL;
+    XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef)query, &result));
+    if (result == NULL || CFGetTypeID(result) != CFDictionaryGetTypeID()) {
+        XCTFail(@"Should have received a dictionary back from SecItemAdd");
+        return;
+    }
+    NSDictionary *nsResult = CFBridgingRelease(result);
+    NSData *data = nsResult[(id)kSecAttrServer];
+    if (data == NULL || ![data isKindOfClass:[NSData class]]) {
+        XCTFail(@"Should have received a CFData");
+        return;
+    }
+    XCTAssert([data isEqualToData:addParams[(id)kSecAttrServer]]);
+
+    SecItemDelete((CFDictionaryRef)attrs);
+}
+
 - (BOOL)passInternalAttributeToKeychainAPIsWithKey:(id)key value:(id)value {
      NSDictionary* badquery = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -215,6 +251,116 @@
 // Expand this, rdar://problem/59297616
 - (void)testNotAllowedToPassInternalAttributes {
     XCTAssert([self passInternalAttributeToKeychainAPIsWithKey:(__bridge NSString*)kSecAttrAppClipItem value:@YES], @"Expect errSecParam for 'clip' attribute");
+}
+
+- (void)testGenpReturnRef
+{
+    NSDictionary* addQuery =
+    @{ (id)kSecClass : (id)kSecClassGenericPassword,
+       (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+       (id)kSecAttrAccount : @"TestAccount",
+       (id)kSecAttrService : @"TestService",
+       (id)kSecUseDataProtectionKeychain : @(YES),
+       (id)kSecReturnRef : @(YES)
+    };
+    CFTypeRef result = NULL;
+
+    // Add the item
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecSuccess, @"Should have succeeded in adding item");
+#if TARGET_OS_OSX
+    XCTAssertNotNil((__bridge id)result, @"Should have received non-nil from SecItemAdd when asking for ref");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    XCTAssertEqual(CFGetTypeID(result), SecKeychainItemGetTypeID(), @"Should have received a SecKeychainItemRef");
+#pragma clang diagnostic pop
+    CFReleaseNull(result);
+#else
+    XCTAssertNil((__bridge id)result, @"Should have received nil from SecItemAdd when asking for ref");
+#endif
+
+    NSMutableDictionary* query = [addQuery mutableCopy];
+    [query removeObjectForKey:(id)kSecValueData];
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, &result), errSecSuccess, @"Should have succeeded in finding item");
+#if TARGET_OS_OSX
+    XCTAssertNotNil((__bridge id)result, @"Should have received non-nil from SecItemCopyMatching when asking for ref");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    XCTAssertEqual(CFGetTypeID(result), SecKeychainItemGetTypeID(), @"Should have received a SecKeychainItemRef");
+#pragma clang diagnostic pop
+#else
+    XCTAssertNil((__bridge id)result, @"Should have received nil from SecItemCopyMatching when asking for ref");
+#endif
+
+    XCTAssertEqual(SecItemDelete((__bridge CFDictionaryRef)query), errSecSuccess, @"Should have succeeded in deleting item");
+
+#if TARGET_OS_OSX
+    SecKeychainRef kcRef = (SecKeychainRef)result;
+    addQuery =
+    @{ (id)kSecClass : (id)kSecClassGenericPassword,
+       (id)kSecValueRef : (__bridge id)kcRef,
+       (id)kSecUseDataProtectionKeychain : @(YES),
+    };
+    CFReleaseNull(result);
+
+    // Add the item by reference, which is not supported, since it's not a cert nor key nor identity
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecParam, @"Should have failed to add item by ref");
+#endif
+}
+
+- (void)testInetReturnRef
+{
+    NSDictionary* addQuery =
+    @{ (id)kSecClass : (id)kSecClassInternetPassword,
+       (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+       (id)kSecAttrAccount : @"TestAccount",
+       (id)kSecAttrServer : @"www.example.com",
+       (id)kSecUseDataProtectionKeychain : @(YES),
+       (id)kSecReturnRef : @(YES)
+    };
+    CFTypeRef result = NULL;
+
+    // Add the item
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecSuccess, @"Should have succeeded in adding item");
+#if TARGET_OS_OSX
+    XCTAssertNotNil((__bridge id)result, @"Should have received non-nil from SecItemAdd when asking for ref");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    XCTAssertEqual(CFGetTypeID(result), SecKeychainItemGetTypeID(), @"Should have received a SecKeychainItemRef");
+#pragma clang diagnostic pop
+    CFReleaseNull(result);
+#else
+    XCTAssertNil((__bridge id)result, @"Should have received nil back from SecItemAdd when asking for ref");
+#endif
+
+    NSMutableDictionary* query = [addQuery mutableCopy];
+    [query removeObjectForKey:(id)kSecValueData];
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, &result), errSecSuccess, @"Should have succeeded in finding item");
+#if TARGET_OS_OSX
+    XCTAssertNotNil((__bridge id)result, @"Should have received non-nil from SecItemCopyMatching when asking for ref");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    XCTAssertEqual(CFGetTypeID(result), SecKeychainItemGetTypeID(), @"Should have received a SecKeychainItemRef");
+#pragma clang diagnostic pop
+#else
+    XCTAssertNil((__bridge id)result, @"Should have received nil back from SecItemCopyMatching when asking for ref");
+#endif
+
+    XCTAssertEqual(SecItemDelete((__bridge CFDictionaryRef)query), errSecSuccess, @"Should have succeeded in deleting item");
+
+#if TARGET_OS_OSX
+    SecKeychainRef kcRef = (SecKeychainRef)result;
+    addQuery =
+    @{ (id)kSecClass : (id)kSecClassInternetPassword,
+       (id)kSecValueRef : (__bridge id)kcRef,
+       (id)kSecUseDataProtectionKeychain : @(YES),
+    };
+    CFReleaseNull(result);
+
+    // Add the item
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecParam, @"Should have failed to add item by ref");
+#endif
 }
 
 #pragma mark - Corruption Tests
@@ -359,7 +505,6 @@ static void SecDbTestCorruptionHandler(void)
         XCTAssertLessThan(before.st_birthtimespec.tv_sec, after.st_birthtimespec.tv_sec, "db was not deleted and recreated");
     }
 }
-
 
 - (void)testInetBinaryFields {
     NSData* note = [@"OBVIOUS_NOTES_DATA" dataUsingEncoding:NSUTF8StringEncoding];
@@ -2045,7 +2190,8 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
 
 - (void)testDeleteItemsOnSignOut {
     OctagonSetSOSFeatureEnabled(true);
-    
+    enableSOSCompatibilityForTests();
+
     NSArray *allowedAccessGroups = @[
         @"com.apple.safari.credit-cards",
         @"com.apple.cfnetwork",
@@ -2056,6 +2202,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         @"com.apple.password-manager.personal-recently-deleted",
         @"com.apple.webkit.webauthn",
         @"com.apple.webkit.webauthn-recently-deleted",
+        @"com.apple.password-manager.generated-passwords",
         @"com.apple.other.agrp",
     ];
     SecurityClient client = {
@@ -2250,6 +2397,15 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert second key to remove");
 
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager.generated-passwords",
+        (id)kSecAttrAccount: @"account-whatever",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert generated password to remove");
 
     // Items in this access group aren't removed on sign out.
     XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
@@ -2543,6 +2699,22 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         }, &client, &rawResult, &rawError);
         NSError *error = CFBridgingRelease(rawError);
         XCTAssertFalse(ok, "Should have removed all WebAuthn keys");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassInternetPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager.generated-passwords",
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed all generated passwords");
         XCTAssertEqual(error.code, errSecItemNotFound);
     }
 

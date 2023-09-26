@@ -75,6 +75,10 @@
 #define TEMPLATE    DSTDIR "/nfsclntest.XXXXXXXX"
 char template[] = TEMPLATE;
 
+char *dst = NULL;
+char **argv = NULL;
+int argc = 0;
+
 static int
 unlink_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
@@ -87,22 +91,8 @@ unlink_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftw
 	return rv;
 }
 
-/*
- * Mount tests
- */
-@interface nfsclntTests_mount : XCTestCase
-
-@end
-
-#define DST_MOUNT_PATH   "17.78.122.87:/volume1/data"
-
-char *dst = NULL;
-char **argv = NULL;
-int argc = 0;
-
-@implementation nfsclntTests_mount
-
-- (void)setUp
+static void
+doMountSetup(void)
 {
 	int err;
 
@@ -128,7 +118,8 @@ int argc = 0;
 	}
 }
 
-- (void)tearDown
+static void
+doMountTearDown(void)
 {
 	argc = 0;
 
@@ -148,12 +139,36 @@ int argc = 0;
 	rmdir(DSTDIR);
 }
 
+/*
+ * Mount Tests
+ */
+@interface nfsclntTests_mount : XCTestCase
+
+@end
+
+/*
+ * Tests assume that DST_MOUNT_PATH is exported properly by the server - /etc/exports.
+ */
+#define DST_MOUNT_PATH   "17.78.122.71:/volume1/data"
+
+@implementation nfsclntTests_mount
+
+- (void)setUp
+{
+	doMountSetup();
+}
+
+- (void)tearDown
+{
+	doMountTearDown();
+}
+
 static void
-_testArgs(verifyArgsFunc verifier, char **nfsArgsIn, char **nfsArgsOut)
+_testArgs(char *mountPath, verifyArgsFunc verifier, char **nfsArgsIn, char **nfsArgsOut)
 {
 	struct statfs mntBuff;
 
-	nfstests_init_input_args(DST_MOUNT_PATH, nfsArgsIn);
+	nfstests_init_input_args(mountPath, nfsArgsIn);
 	nfstests_run_command(mount_nfs_imp, argc, argv, RESULT_SUCCESS);
 	nfstests_get_mount(dst, &mntBuff);
 	nfstests_verify_arg(verifier, [NSString stringWithUTF8String:mntBuff.f_mntonname], [NSString stringWithUTF8String:mntBuff.f_mntfromname], nfsArgsOut);
@@ -162,7 +177,7 @@ _testArgs(verifyArgsFunc verifier, char **nfsArgsIn, char **nfsArgsOut)
 static void
 _testNFSArgs(char **nfsArgs)
 {
-	_testArgs(nfsParameterVerifier, nfsArgs, nfsArgs);
+	_testArgs(DST_MOUNT_PATH, nfsParameterVerifier, nfsArgs, nfsArgs);
 }
 
 static void
@@ -176,7 +191,7 @@ static void
 _testMountArg(char *mountArg)
 {
 	char *mountArgs[] = { mountArg, NULL };
-	_testArgs(mountParameterVerifier, mountArgs, mountArgs);
+	_testArgs(DST_MOUNT_PATH, mountParameterVerifier, mountArgs, mountArgs);
 }
 
 /* NFS args */
@@ -255,7 +270,7 @@ _testMountArg(char *mountArg)
 {
 	char *inArgs[] = { "rwsize=4096", NULL };
 	char *outArgs[] = { "rsize=4096", "wsize=4096", NULL };
-	_testArgs(nfsParameterVerifier, inArgs, outArgs);
+	_testArgs(DST_MOUNT_PATH, nfsParameterVerifier, inArgs, outArgs);
 }
 
 - (void)testMountReadAHead0
@@ -298,14 +313,14 @@ _testMountArg(char *mountArg)
 {
 	char *inArgs[] = { "actimeo=5", NULL };
 	char *outArgs[] = { "acregmin=5", "acregmax=5", "acdirmin=5", "acdirmax=5", NULL };
-	_testArgs(nfsParameterVerifier, inArgs, outArgs);
+	_testArgs(DST_MOUNT_PATH, nfsParameterVerifier, inArgs, outArgs);
 }
 
 - (void)testMountNoAC
 {
 	char *inArgs[] = { "noac", NULL };
 	char *outArgs[] = { "acregmin=0", "acregmax=0", "acdirmin=0", "acdirmax=0", NULL };
-	_testArgs(nfsParameterVerifier, inArgs, outArgs);
+	_testArgs(DST_MOUNT_PATH, nfsParameterVerifier, inArgs, outArgs);
 }
 
 - (void)testMountReadlinkNoCache
@@ -372,6 +387,100 @@ _testMountArg(char *mountArg)
 - (void)testMountReadOnly
 {
 	_testMountArg("ro");
+}
+
+@end
+
+/*
+ * KRB5 Mount Tests
+ */
+@interface nfsclntTests_mount_krb : XCTestCase
+
+@end
+
+/*
+ * Tests assume that DST_KRB_MOUNT_PATH is exported properly by the server - /etc/exports and /etc/krb5.keytab.
+ */
+#define DST_KRB_MOUNT_PATH   "liran-MacBook-Pro-2.apple.com:/System/Volumes/Data/Users/liranoz/workspace/nfs-server"
+
+#define SEC_KRB5     "sec=krb5"
+#define SEC_KRB5I    "sec=krb5i"
+#define SEC_KRB5P    "sec=krb5p"
+
+#define ETYPE_DES3   "etype=des3-cbc-sha1-kd"
+#define ETYPE_AES128 "etype=aes128-cts-hmac-sha1-96"
+#define ETYPE_AES256 "etype=aes256-cts-hmac-sha1-96"
+
+static void
+_testNFSKrb5Args(char **nfsArgs)
+{
+	_testArgs(DST_KRB_MOUNT_PATH, nfsParameterVerifier, nfsArgs, nfsArgs);
+}
+
+@implementation nfsclntTests_mount_krb
+
+- (void)setUp
+{
+	doMountSetup();
+}
+
+- (void)tearDown
+{
+	doMountTearDown();
+}
+
+- (void)testMountKrb5Des
+{
+	char *nfsArgs[] = { SEC_KRB5, ETYPE_DES3, NULL };
+	_testNFSKrb5Args(nfsArgs);
+}
+
+- (void)testMountKrb5iDes
+{
+	char *nfsArgs[] = { SEC_KRB5I, ETYPE_DES3, NULL };
+	_testNFSKrb5Args(nfsArgs);
+}
+
+- (void)testMountKrb5pDes
+{
+	char *nfsArgs[] = { SEC_KRB5P, ETYPE_DES3, NULL };
+	_testNFSKrb5Args(nfsArgs);
+}
+
+- (void)testMountKrb5Aes128
+{
+	char *nfsArgs[] = { SEC_KRB5, ETYPE_AES128, NULL };
+	_testNFSKrb5Args(nfsArgs);
+}
+
+- (void)testMountKrb5iAes128
+{
+	char *nfsArgs[] = { SEC_KRB5I, ETYPE_AES128, NULL };
+	_testNFSKrb5Args(nfsArgs);
+}
+
+- (void)testMountKrb5pAes128
+{
+	char *nfsArgs[] = { SEC_KRB5P, ETYPE_AES128, NULL };
+	_testNFSKrb5Args(nfsArgs);
+}
+
+- (void)testMountKrb5Aes256
+{
+	char *nfsArgs[] = { SEC_KRB5, ETYPE_AES256, NULL };
+	_testNFSKrb5Args(nfsArgs);
+}
+
+- (void)testMountKrb5iAes256
+{
+	char *nfsArgs[] = { SEC_KRB5I, ETYPE_AES256, NULL };
+	_testNFSKrb5Args(nfsArgs);
+}
+
+- (void)testMountKrb5pAes256
+{
+	char *nfsArgs[] = { SEC_KRB5P, ETYPE_AES256, NULL };
+	_testNFSKrb5Args(nfsArgs);
 }
 
 @end
@@ -496,9 +605,9 @@ struct nfs_options_client expected_options;
 
 - (void)testRWSize
 {
-	writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, NULL, (void *) 2097152);
-	writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, NULL, (void *) 2097152);
-	writeToBuf("rwsize", "2097152");
+	writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, NULL, (void *) 1048576);
+	writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, NULL, (void *) 1048576);
+	writeToBuf("rwsize", "1048576");
 
 	handle_mntopts(test_options);
 	optionsVerify();

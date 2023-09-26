@@ -593,6 +593,7 @@ static int
 if_clone_create(char *name, int len, void *params)
 {
 	struct if_clone *ifc;
+	struct ifnet *ifp;
 	char *dp;
 	int wildcard;
 	u_int32_t bytoff, bitoff;
@@ -674,7 +675,10 @@ again:
 		}
 	}
 	lck_mtx_unlock(&ifc->ifc_mutex);
-
+	ifp = ifunit(name);
+	if (ifp != NULL) {
+		if_set_eflags(ifp, IFEF_CLONE);
+	}
 	return 0;
 }
 
@@ -707,7 +711,10 @@ if_clone_destroy(const char *name)
 		error = ENXIO;
 		goto done;
 	}
-
+	if ((ifp->if_eflags & IFEF_CLONE) == 0) {
+		error = EOPNOTSUPP;
+		goto done;
+	}
 	if (ifc->ifc_destroy == NULL) {
 		error = EOPNOTSUPP;
 		goto done;
@@ -1075,35 +1082,67 @@ ifa_ifwithaddr(const struct sockaddr *addr)
  * Locate the point to point interface with a given destination address.
  */
 /*ARGSUSED*/
+
+static struct ifaddr *
+ifa_ifwithdstaddr_ifp(const struct sockaddr *addr, struct ifnet * ifp)
+{
+	struct ifaddr *ifa;
+	struct ifaddr *result = NULL;
+
+	if ((ifp->if_flags & IFF_POINTOPOINT) != 0) {
+		ifnet_lock_shared(ifp);
+
+		for (ifa = ifp->if_addrhead.tqh_first; ifa;
+		    ifa = ifa->ifa_link.tqe_next) {
+			IFA_LOCK_SPIN(ifa);
+			if (ifa->ifa_addr->sa_family !=
+			    addr->sa_family) {
+				IFA_UNLOCK(ifa);
+				continue;
+			}
+			if (sa_equal(addr, ifa->ifa_dstaddr)) {
+				result = ifa;
+				IFA_ADDREF_LOCKED(ifa); /* for caller */
+				IFA_UNLOCK(ifa);
+				break;
+			}
+			IFA_UNLOCK(ifa);
+		}
+
+		ifnet_lock_done(ifp);
+	}
+	return result;
+}
+
 struct ifaddr *
 ifa_ifwithdstaddr(const struct sockaddr *addr)
 {
 	struct ifnet *ifp;
-	struct ifaddr *ifa;
 	struct ifaddr *result = NULL;
 
 	ifnet_head_lock_shared();
 	for (ifp = ifnet_head.tqh_first; ifp && !result;
 	    ifp = ifp->if_link.tqe_next) {
-		if ((ifp->if_flags & IFF_POINTOPOINT)) {
-			ifnet_lock_shared(ifp);
-			for (ifa = ifp->if_addrhead.tqh_first; ifa;
-			    ifa = ifa->ifa_link.tqe_next) {
-				IFA_LOCK_SPIN(ifa);
-				if (ifa->ifa_addr->sa_family !=
-				    addr->sa_family) {
-					IFA_UNLOCK(ifa);
-					continue;
-				}
-				if (sa_equal(addr, ifa->ifa_dstaddr)) {
-					result = ifa;
-					IFA_ADDREF_LOCKED(ifa); /* for caller */
-					IFA_UNLOCK(ifa);
-					break;
-				}
-				IFA_UNLOCK(ifa);
-			}
-			ifnet_lock_done(ifp);
+		result = ifa_ifwithdstaddr_ifp(addr, ifp);
+	}
+	ifnet_head_done();
+	return result;
+}
+
+struct ifaddr *
+ifa_ifwithdstaddr_scoped(const struct sockaddr *addr, unsigned int ifscope)
+{
+	struct ifnet *ifp;
+	struct ifaddr *result = NULL;
+
+	if (ifscope == IFSCOPE_NONE) {
+		return ifa_ifwithdstaddr(addr);
+	}
+	ifnet_head_lock_shared();
+	if (ifscope <= (unsigned int)if_index) {
+		ifp = ifindex2ifnet[ifscope];
+		if (ifp != NULL) {
+			result = ifa_ifwithdstaddr_ifp(addr, ifp);
 		}
 	}
 	ifnet_head_done();
@@ -2948,6 +2987,7 @@ ifioctl_restrict_intcoproc(unsigned long cmd, const char *ifname,
 	case SIOCGIFPROTOLIST64:
 	case SIOCGIFXFLAGS:
 	case SIOCGIFNOTRAFFICSHAPING:
+	case SIOCGIFGENERATIONID:
 		return false;
 	default:
 #if (DEBUG || DEVELOPMENT)
@@ -3037,6 +3077,7 @@ ifioctl_restrict_management(unsigned long cmd, const char *ifname,
 	case SIOCGIFPROTOLIST64:
 	case SIOCGIFXFLAGS:
 	case SIOCGIFNOTRAFFICSHAPING:
+	case SIOCGIFGENERATIONID:
 		return false;
 	default:
 		if (!IOCurrentTaskHasEntitlement(MANAGEMENT_CONTROL_ENTITLEMENT)) {
@@ -3312,6 +3353,7 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 	case SIOCSIFMARKWAKEPKT:                /* struct ifreq */
 	case SIOCSIFNOTRAFFICSHAPING:           /* struct ifreq */
 	case SIOCGIFNOTRAFFICSHAPING:           /* struct ifreq */
+	case SIOCGIFGENERATIONID:               /* struct ifreq */
 	{                       /* struct ifreq */
 		struct ifreq ifr;
 		bcopy(data, &ifr, sizeof(ifr));
@@ -4586,6 +4628,10 @@ ifioctl_ifreq(struct socket *so, u_long cmd, struct ifreq *ifr, struct proc *p)
 		}
 		break;
 
+	case SIOCGIFGENERATIONID:
+		ifr->ifr_creation_generation_id = ifp->if_creation_generation_id;
+		break;
+
 	default:
 		VERIFY(0);
 		/* NOTREACHED */
@@ -4932,7 +4978,7 @@ ifma_trace(struct ifmultiaddr *ifma, int refhold)
 		tr = ifma_dbg->ifma_refrele;
 	}
 
-	idx = atomic_add_16_ov(cnt, 1) % IFMA_TRACE_HIST_SIZE;
+	idx = os_atomic_inc_orig(cnt, relaxed) % IFMA_TRACE_HIST_SIZE;
 	ctrace_record(&tr[idx]);
 }
 
@@ -5701,9 +5747,8 @@ if_data_internal_to_if_data(struct ifnet *ifp,
 #define COPYFIELD32(fld)        if_data->fld = (u_int32_t)(if_data_int->fld)
 /* compiler will cast down to 32-bit */
 #define COPYFIELD32_ATOMIC(fld) do {                                    \
-	u_int64_t _val = 0;                                             \
-	atomic_get_64(_val,                                             \
-	        (u_int64_t *)(void *)(uintptr_t)&if_data_int->fld);     \
+	uint64_t _val = 0;                                              \
+	_val = os_atomic_load((uint64_t *)(void *)(uintptr_t)&if_data_int->fld, relaxed); \
 	if_data->fld = (uint32_t) _val;                                 \
 } while (0)
 
@@ -5760,8 +5805,7 @@ if_data_internal_to_if_data64(struct ifnet *ifp,
 #pragma unused(ifp)
 #define COPYFIELD64(fld)        if_data64->fld = if_data_int->fld
 #define COPYFIELD64_ATOMIC(fld) do {                                    \
-	atomic_get_64(if_data64->fld,                                   \
-	    (u_int64_t *)(void *)(uintptr_t)&if_data_int->fld);         \
+	if_data64->fld = os_atomic_load((uint64_t *)(void *)(uintptr_t)&if_data_int->fld, relaxed); \
 } while (0)
 
 	COPYFIELD64(ifi_type);
@@ -5808,8 +5852,7 @@ if_copy_traffic_class(struct ifnet *ifp,
     struct if_traffic_class *if_tc)
 {
 #define COPY_IF_TC_FIELD64_ATOMIC(fld) do {                     \
-	atomic_get_64(if_tc->fld,                               \
-	    (u_int64_t *)(void *)(uintptr_t)&ifp->if_tc.fld);   \
+	if_tc->fld = os_atomic_load((uint64_t *)(void *)(uintptr_t)&ifp->if_tc.fld, relaxed); \
 } while (0)
 
 	bzero(if_tc, sizeof(*if_tc));
@@ -5841,8 +5884,7 @@ void
 if_copy_data_extended(struct ifnet *ifp, struct if_data_extended *if_de)
 {
 #define COPY_IF_DE_FIELD64_ATOMIC(fld) do {                     \
-	atomic_get_64(if_de->fld,                               \
-	    (u_int64_t *)(void *)(uintptr_t)&ifp->if_data.fld); \
+	if_de->fld = os_atomic_load((uint64_t *)(void *)(uintptr_t)&ifp->if_data.fld, relaxed); \
 } while (0)
 
 	bzero(if_de, sizeof(*if_de));
@@ -5858,13 +5900,11 @@ void
 if_copy_packet_stats(struct ifnet *ifp, struct if_packet_stats *if_ps)
 {
 #define COPY_IF_PS_TCP_FIELD64_ATOMIC(fld) do {                         \
-	atomic_get_64(if_ps->ifi_tcp_##fld,                             \
-	    (u_int64_t *)(void *)(uintptr_t)&ifp->if_tcp_stat->fld);    \
+	if_ps->ifi_tcp_##fld = os_atomic_load((uint64_t *)(void *)(uintptr_t)&ifp->if_tcp_stat->fld, relaxed); \
 } while (0)
 
 #define COPY_IF_PS_UDP_FIELD64_ATOMIC(fld) do {                         \
-	atomic_get_64(if_ps->ifi_udp_##fld,                             \
-	    (u_int64_t *)(void *)(uintptr_t)&ifp->if_udp_stat->fld);    \
+	if_ps->ifi_udp_##fld = os_atomic_load((uint64_t *)(void *)(uintptr_t)&ifp->if_udp_stat->fld, relaxed); \
 } while (0)
 
 	COPY_IF_PS_TCP_FIELD64_ATOMIC(badformat);

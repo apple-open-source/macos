@@ -42,6 +42,7 @@
        (global-name "com.apple.system.opendirectoryd.api")
        (global-name "com.apple.ocspd")
        (global-name "com.apple.DiskArbitration.diskarbitrationd")
+       (global-name "com.apple.storagekitd.dm")
        (global-name "com.apple.diskmanagementd")
        (global-name "com.apple.tccd")
        (global-name "com.apple.tccd.system")

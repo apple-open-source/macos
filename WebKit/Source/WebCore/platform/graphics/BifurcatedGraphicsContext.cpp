@@ -244,26 +244,12 @@ void BifurcatedGraphicsContext::strokeEllipse(const FloatRect& ellipse)
 }
 
 #if USE(CG)
-void BifurcatedGraphicsContext::setIsCALayerContext(bool isCALayerContext)
-{
-    m_primaryContext.setIsCALayerContext(isCALayerContext);
-    m_secondaryContext.setIsCALayerContext(isCALayerContext);
-
-    VERIFY_STATE_SYNCHRONIZATION();
-}
 
 bool BifurcatedGraphicsContext::isCALayerContext() const
 {
     return m_primaryContext.isCALayerContext();
 }
 
-void BifurcatedGraphicsContext::setIsAcceleratedContext(bool isAcceleratedContext)
-{
-    m_primaryContext.setIsAcceleratedContext(isAcceleratedContext);
-    m_secondaryContext.setIsAcceleratedContext(isAcceleratedContext);
-
-    VERIFY_STATE_SYNCHRONIZATION();
-}
 #endif
 
 RenderingMode BifurcatedGraphicsContext::renderingMode() const
@@ -279,10 +265,26 @@ void BifurcatedGraphicsContext::clip(const FloatRect& rect)
     VERIFY_STATE_SYNCHRONIZATION();
 }
 
+void BifurcatedGraphicsContext::clipRoundedRect(const FloatRoundedRect& rect)
+{
+    m_primaryContext.clipRoundedRect(rect);
+    m_secondaryContext.clipRoundedRect(rect);
+
+    VERIFY_STATE_SYNCHRONIZATION();
+}
+
 void BifurcatedGraphicsContext::clipOut(const FloatRect& rect)
 {
     m_primaryContext.clipOut(rect);
     m_secondaryContext.clipOut(rect);
+
+    VERIFY_STATE_SYNCHRONIZATION();
+}
+
+void BifurcatedGraphicsContext::clipOutRoundedRect(const FloatRoundedRect& rect)
+{
+    m_primaryContext.clipOutRoundedRect(rect);
+    m_secondaryContext.clipOutRoundedRect(rect);
 
     VERIFY_STATE_SYNCHRONIZATION();
 }
@@ -303,9 +305,25 @@ void BifurcatedGraphicsContext::clipPath(const Path& path, WindRule windRule)
     VERIFY_STATE_SYNCHRONIZATION();
 }
 
+void BifurcatedGraphicsContext::clipToImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect)
+{
+    m_primaryContext.clipToImageBuffer(imageBuffer, destRect);
+    m_secondaryContext.clipToImageBuffer(imageBuffer, destRect);
+
+    VERIFY_STATE_SYNCHRONIZATION();
+}
+
 IntRect BifurcatedGraphicsContext::clipBounds() const
 {
     return m_primaryContext.clipBounds();
+}
+
+void BifurcatedGraphicsContext::resetClip()
+{
+    m_primaryContext.resetClip();
+    m_secondaryContext.resetClip();
+
+    VERIFY_STATE_SYNCHRONIZATION();
 }
 
 void BifurcatedGraphicsContext::setLineCap(LineCap lineCap)
@@ -357,6 +375,14 @@ void BifurcatedGraphicsContext::drawSystemImage(SystemImage& systemImage, const 
 {
     m_primaryContext.drawSystemImage(systemImage, destinationRect);
     m_secondaryContext.drawSystemImage(systemImage, destinationRect);
+
+    VERIFY_STATE_SYNCHRONIZATION();
+}
+
+void BifurcatedGraphicsContext::drawControlPart(ControlPart& part, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle& style)
+{
+    m_primaryContext.drawControlPart(part, borderRect, deviceScaleFactor, style);
+    m_secondaryContext.drawControlPart(part, borderRect, deviceScaleFactor, style);
 
     VERIFY_STATE_SYNCHRONIZATION();
 }
@@ -581,13 +607,6 @@ void BifurcatedGraphicsContext::verifyStateSynchronization()
         m_hasLoggedAboutDesynchronizedState = true;
     }
 }
-
-#if OS(WINDOWS) && !USE(CAIRO)
-GraphicsContextPlatformPrivate* BifurcatedGraphicsContext::deprecatedPrivateContext() const
-{
-    return m_primaryContext.deprecatedPrivateContext();
-}
-#endif
 
 } // namespace WebCore
 

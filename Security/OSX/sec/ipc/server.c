@@ -49,6 +49,7 @@
 #include <Security/SecTask.h>
 #include <Security/SecTrustInternal.h>
 #include <Security/SecuritydXPC.h>
+#include "keychain/KeychainDBMover/KeychainDBMoverHelpers.h"
 #include "trust/trustd/OTATrustUtilities.h"
 #include "keychain/securityd/SOSCloudCircleServer.h"
 #include "keychain/securityd/SecItemBackupServer.h"
@@ -63,6 +64,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCoreAnalytics.h>
 #include <utilities/SecDb.h>
+#include <utilities/SecFileLocations.h>
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecPLWrappers.h>
 #include <utilities/SecXPCError.h>
@@ -79,8 +81,6 @@
 #include <keychain/ckks/CKKS.h>
 #include <keychain/ckks/CKKSControlServer.h>
 #include "keychain/ot/OctagonControlServer.h"
-
-#include "keychain/securityd/SFKeychainServer.h"
 
 #include <AssertMacros.h>
 #include <CoreFoundation/CFXPCBridge.h>
@@ -489,8 +489,8 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         }
                         CFReleaseNull(query);
                     }
-                    break;
                 }
+                break;
             }
             case sec_delete_items_on_sign_out_id:
             {
@@ -516,8 +516,8 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         }
                         CFReleaseNull(query);
                     }
-                    break;
                 }
+                break;
             }
             case sec_item_update_id:
             {
@@ -698,7 +698,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
 #if SECUREOBJECTSYNC
             case sec_keychain_sync_update_message_id:
             {
-                if (!OctagonIsSOSFeatureEnabled()) {
+                if (!SOSCompatibilityModeGetCachedStatus()) {
                     secdebug("nosos", "SOS is currently not supported or enabled");
                     CFArrayRef emptyArray = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
                     SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, emptyArray, &error);
@@ -1344,6 +1344,19 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     }
                 }
                 break;
+            case kSecXPCOpTranscryptToSystemKeychainKeybag:
+                {
+                    if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementPrivateKeychainMigrateSystemKeychain, &error)) {
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+                        bool res = _SecServerTranscryptToSystemKeychainKeybag(&client, &error);
+                        xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, res);
+#else
+                        xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, false);
+#endif
+
+                    }
+                }
+                break;
             case kSecXPCOpDeleteUserView:
                 {
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementPrivateKeychainMigrateSystemKeychain, &error)) {
@@ -1435,9 +1448,28 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     SOSPeerInfoRef peer = SecXPCDictionaryCopyPeerInfo(event, kSecXPCKeyPeerInfo, &error);
                     if (peer) {
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult,
-                                                SOSCCSendToPeerIsPending(peer, &error));
+                                                SOSCCSendToPeerIsPending_Server(peer, &error));
                     }
                     CFReleaseNull(peer);
+                    break;
+                }
+            case kSecXPCOpSetSOSCompatibilityMode:
+                {
+                    bool sosCompatibilityMode = SecXPCDictionaryGetBool(event, kSecXPCKeySOSCompatibilityMode, &error);
+                    xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult,
+                                            SOSCCSetCompatibilityMode_Server(sosCompatibilityMode, &error));
+                    break;
+                }
+            case kSecXPCOpFetchCompatibilityMode:
+                {
+                    xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult,
+                                            SOSCCFetchCompatibilityMode_Server(&error));
+                    break;
+                }
+            case kSecXPCOpFetchCompatibilityModeCachedValue:
+                {
+                    xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult,
+                                            SOSCCFetchCompatibilityModeCachedValue_Server(&error));
                     break;
                 }
 #endif /* !SECUREOBJECTSYNC */
@@ -1695,20 +1727,24 @@ int main(int argc, char *argv[])
     SecPLDisable();
     useSystemKeychainKeybag = true;
 #elif TARGET_OS_IOS
-    // temporary, see rdar://88833163
-    char bootargs[PATH_MAX];
-    size_t bsize=sizeof(bootargs)-1;
-    bzero(bootargs,sizeof(bootargs));
-    if (sysctlbyname("kern.bootargs", bootargs, &bsize, NULL, 0) == 0) {
-        if (strnstr(bootargs, "-apfs_shared_datavolume", bsize)) {
-            useSystemKeychainKeybag = true;
-        }
+    if (SecSupportsEnhancedApfs() && !SecSeparateUserKeychain() && SecIsEduMode()) {
+        useSystemKeychainKeybag = true;
     }
-#endif
+#endif // elif TARGET_OS_IOS
     if (useSystemKeychainKeybag) {
         secnotice("keychain_handle", "using system keychain handle");
         SecItemServerSetKeychainKeybag(system_keychain_handle);
+    } else {
+        secnotice("keychain_handle", "using normal handle");
     }
+
+#if TARGET_OS_IOS || TARGET_OS_TV
+#  if !defined(SECURITYD_SYSTEM) || !SECURITYD_SYSTEM
+    if (SecSeparateUserKeychain()) {
+        SecKeychainMoveUserDb();
+    }
+#  endif // !defined(SECURITYD_SYSTEM) || !SECURITYD_SYSTEM
+#endif // TARGET_OS_IOS || TARGET_OS_TV
 
 /* <rdar://problem/15792007> Users with network home folders are unable to use/save password for Mail/Cal/Contacts/websites
  Secd doesn't realize DB connections get invalidated when network home directory users logout
@@ -1791,8 +1827,8 @@ int main(int argc, char *argv[])
 
 	// <rdar://problem/22425706> 13B104+Roots:Device never moved past spinner after using approval to ENABLE icdp
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE && !SECURITYD_SYSTEM
-    if (OctagonIsSOSFeatureEnabled()) {
-	securityd_soscc_lock_hack();
+    if (SOSCCIsSOSTrustAndSyncingEnabled()) {
+        securityd_soscc_lock_hack();
     }
 #endif
 

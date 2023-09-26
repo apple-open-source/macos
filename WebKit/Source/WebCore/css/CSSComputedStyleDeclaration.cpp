@@ -29,14 +29,13 @@
 #include "CSSPropertyAnimation.h"
 #include "CSSPropertyParser.h"
 #include "CSSSelector.h"
-#include "CSSValueList.h"
 #include "CSSValuePool.h"
 #include "ComposedTreeAncestorIterator.h"
 #include "ComputedStyleExtractor.h"
 #include "DeprecatedCSSOMValue.h"
 #include "RenderBox.h"
 #include "RenderBoxModelObject.h"
-#include "RenderStyle.h"
+#include "RenderStyleInlines.h"
 #include "StylePropertiesInlines.h"
 #include "StylePropertyShorthand.h"
 #include "StyleScope.h"
@@ -96,6 +95,8 @@ ExceptionOr<void> CSSComputedStyleDeclaration::setCssText(const String&)
 // https://developer.mozilla.org/en-US/docs/Web/API/Window/getComputedStyle#Notes
 RefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(CSSPropertyID propertyID, ComputedStyleExtractor::UpdateLayout updateLayout) const
 {
+    if (!isExposed(propertyID, settings()))
+        return nullptr;
     return ComputedStyleExtractor(m_element.ptr(), m_allowVisitedStyle, m_pseudoElementSpecifier).propertyValue(propertyID, updateLayout);
 }
 

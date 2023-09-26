@@ -31,9 +31,6 @@
 #endif
 #define TESTDATA_DIR SRC_DIR "/regress/testdata/"
 
-extern const char *sudo_conf_developer_mode;
-extern const char *sudo_conf_normal_mode;
-
 #define TEMP_PATH_TEMPLATE "/tmp/sudo_check_python_exampleXXXXXX"
 
 extern struct TestData {
@@ -62,7 +59,10 @@ char ** create_str_array(size_t count, ...);
 #define RUN_TEST(testcase) \
     do { \
         int success = 1; \
-        printf("Running test " #testcase " ... \n"); \
+        ntests++; \
+        if (verbose) { \
+            printf("Running test " #testcase " ... \n"); \
+        } \
         if (!init()) { \
             printf("FAILED: initialization of testcase %s at %s:%d\n", #testcase, __FILE__, __LINE__); \
             success = 0; \
@@ -72,7 +72,7 @@ char ** create_str_array(size_t count, ...);
             success = 0; \
         } \
         if (!cleanup(success)) { \
-            printf("FAILED: deitialization of testcase %s at %s:%d\n", #testcase, __FILE__, __LINE__); \
+            printf("FAILED: deinitialization of testcase %s at %s:%d\n", #testcase, __FILE__, __LINE__); \
             success = 0; \
         } \
         if (!success) { \

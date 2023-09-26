@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -119,6 +119,7 @@ struct if_clonereq32 {
 #define IFEF_NOAUTOIPV6LL       0x00002000      /* Need explicit IPv6 LL address */
 #define IFEF_EXPENSIVE          0x00004000      /* Data access has a cost */
 #define IFEF_IPV4_ROUTER        0x00008000      /* interior when in IPv4 router mode */
+#define IFEF_CLONE              0x00010000      /* created using if_clone */
 #define IFEF_LOCALNET_PRIVATE   0x00020000      /* local private network */
 #define IFEF_SERVICE_TRIGGERED  IFEF_LOCALNET_PRIVATE
 #define IFEF_IPV6_ND6ALT        0x00040000      /* alternative. KPI for ND6 */
@@ -320,6 +321,7 @@ struct  ifreq {
 			u_int8_t technology;
 			u_int8_t channel;
 		} ifru_radio_details;
+		uint64_t ifru_creation_generation_id;
 	} ifr_ifru;
 #define ifr_addr        ifr_ifru.ifru_addr      /* address */
 #define ifr_dstaddr     ifr_ifru.ifru_dstaddr   /* other end of p-to-p link */
@@ -373,6 +375,7 @@ struct  ifreq {
 #define ifr_noack_prio          ifr_ifru.ifru_noack_prio
 #define ifr_estimated_throughput  ifr_ifru.ifru_estimated_throughput
 #define ifr_radio_details       ifr_ifru.ifru_radio_details
+#define ifr_creation_generation_id       ifr_ifru.ifru_creation_generation_id
 };
 
 #define _SIZEOF_ADDR_IFREQ(ifr) \

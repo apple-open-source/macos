@@ -21,6 +21,7 @@
 		<string>man.sh: implement whatis MANSECT filtering (8400932)</string>
 		<string>man.1: describe apropos/whatis (8400932)</string>
 		<string>man.sh: fix spaces in paths (100414217)</string>
+		<string>man.sh: allow fewer than 80 columns with MANWIDTH=tty (108754213)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

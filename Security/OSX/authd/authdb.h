@@ -27,7 +27,7 @@ AUTH_WARN_RESULT AUTH_NONNULL_ALL
 char * authdb_copy_sql_string(sqlite3_stmt*,int32_t);
 
 AUTH_WARN_RESULT AUTH_MALLOC AUTH_RETURNS_RETAINED
-authdb_t authdb_create(void);
+authdb_t authdb_create(bool force_memory);
 
 AUTH_WARN_RESULT AUTH_NONNULL_ALL
 authdb_connection_t authdb_connection_acquire(authdb_t);

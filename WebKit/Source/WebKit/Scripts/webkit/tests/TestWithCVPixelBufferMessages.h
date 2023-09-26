@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,9 +56,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -77,9 +77,9 @@ public:
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithCVPixelBuffer_ReceiveCVPixelBufferReply; }
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
     using ReplyArguments = std::tuple<RetainPtr<CVPixelBufferRef>>;
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:

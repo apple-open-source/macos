@@ -43,10 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/net/ascii2addr.c,v 1.4 2002/03/22 21:52:28 obri
 #include <arpa/inet.h>
 
 int
-ascii2addr(af, ascii, result)
-	int af;
-	const char *ascii;
-	void *result;
+ascii2addr(int af, const char *ascii, void *result)
 {
 	struct in_addr *ina;
 	char strbuf[4*sizeof("123")]; /* long enough for V4 only */

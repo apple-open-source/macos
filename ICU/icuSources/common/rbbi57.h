@@ -8,7 +8,9 @@
 
 **********************************************************************
 *   Legacy version of RuleBasedBreakIterator from ICU 57,
-*   only for use by Apple RuleBasedTokenizer
+*   only for use by Apple RuleBasedTokenizer.
+*   originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+*   urbtok57 interfaces for access via RBT, and better tests
 **********************************************************************
 */
 
@@ -293,20 +295,20 @@ public:
     RuleBasedBreakIterator57& operator=(const RuleBasedBreakIterator57& that);
 
     /**
-     * Equality operator.  Returns TRUE if both BreakIterators are of the
+     * Equality operator.  Returns true if both BreakIterators are of the
      * same class, have the same behavior, and iterate over the same text.
      * @param that The BreakIterator to be compared for equality
-     * @return TRUE if both BreakIterators are of the
+     * @return true if both BreakIterators are of the
      * same class, have the same behavior, and iterate over the same text.
      *  @internal
      */
     virtual bool operator==(const BreakIterator& that) const;
 
     /**
-     * Not-equal operator.  If operator== returns TRUE, this returns FALSE,
+     * Not-equal operator.  If operator== returns true, this returns false,
      * and vice versa.
      * @param that The BreakIterator to be compared for inequality
-     * @return TRUE if both BreakIterators are not same.
+     * @return true if both BreakIterators are not same.
      *  @internal
      */
     bool operator!=(const BreakIterator& that) const;

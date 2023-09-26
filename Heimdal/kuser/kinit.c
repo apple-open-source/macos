@@ -675,6 +675,12 @@ get_new_tickets(krb5_context context,
 	krb5_warn(context, ret, "krb5_init_creds_warn_user");
 
 #ifdef __APPLE__
+
+#ifdef ENABLE_KCM_COMPAT
+    if (ccache->ops == &krb5_xcc_kcm_compat_ops) {
+	krb5_warnx(context, "The KCM cache type has been deprecated, use the API type instead.");
+    }
+#endif
     /*
      * Set for this case, default to * so that all processes can use
      * this cache.

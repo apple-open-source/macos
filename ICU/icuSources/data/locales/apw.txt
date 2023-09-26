@@ -4,8 +4,9 @@
 apw{
     AuxExemplarCharacters{"[ṉ]"}
     ExemplarCharacters{
-        "[a á ą {ą́} b {ch} {chʼ} d {dl} {dz} e é ę {ę́} g {gh} h {hw} i í į {į́} j k {kʼ} l ł m n o ó ǫ {ǫ́} p"
-        " s {sh} t {tł} {tłʼ} {ts} {tsʼ} {tʼ} u ú ų w y z {zh} ʼ]"
+        "[a á ą {ą́} b {ch} {chʼ} d {dl} {dz} e é ę {ę́} g {gh} h {hw} i í į {į́} j k"
+        " {kʼ} l ł m n o ó ǫ {ǫ́} p s {sh} t {tł} {tłʼ} {ts} {tsʼ} {tʼ} u ú ų w y z {"
+        "zh} ʼ]"
     }
     ExemplarCharactersPunctuation{"[, .]"}
     NumberElements{
@@ -15,7 +16,6 @@ apw{
                 currencyFormat{"¤#,##0.00"}
                 decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{"."}
@@ -49,7 +49,16 @@ apw{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yyMd",
+            }
         }
     }
 }
-

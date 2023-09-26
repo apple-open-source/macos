@@ -129,7 +129,7 @@ bool IOHIDElementPrivate::init( IOHIDElementContainer * owner, IOHIDElementType 
     _oldArraySelectors = 0;
     _usagePage = 0;
     _usageMin = _usageMax = 0;
-    _isInterruptReportHandler = 0;
+    _usage = 0;
     
     return true;
 }
@@ -161,7 +161,6 @@ IOHIDElementPrivate::buttonElement( IOHIDElementContainer *     owner,
     element->_reportStartBit = button->startBit;
     element->_reportID       = button->reportID;
     element->_usagePage      = button->usagePage;
-    element->_rangeIndex     = 0;    
     element->_logicalMin     = element->_physicalMin = 0;
     element->_logicalMax     = element->_physicalMax = 1;
 
@@ -175,6 +174,8 @@ IOHIDElementPrivate::buttonElement( IOHIDElementContainer *     owner,
         element->_usageMin = button->u.notRange.usage;
         element->_usageMax = button->u.notRange.usage;
     }
+
+    element->_usage = element->_usageMin;
 
     if (IsArrayElement(element))
     {
@@ -263,7 +264,6 @@ IOHIDElementPrivate::valueElement( IOHIDElementContainer *     owner,
     element->_physicalMax    = value->physicalMax;
     element->_units          = value->units;
     element->_unitExponent   = value->unitExponent;
-    element->_rangeIndex     = 0;
     element->_rawReportCount = element->_reportCount;
 
     if ( value->isRange )
@@ -278,6 +278,8 @@ IOHIDElementPrivate::valueElement( IOHIDElementContainer *     owner,
         element->_usageMin = value->u.notRange.usage;
         element->_usageMax = value->u.notRange.usage;
     }
+
+    element->_usage = element->_usageMin;
     
     element->_currentReportSizeBits = element->_reportBits *  element->_reportCount;
     
@@ -293,7 +295,7 @@ IOHIDElementPrivate::valueElement( IOHIDElementContainer *     owner,
        (parent->getUsage() == kHIDUsage_AppleVendor_Message ||
         parent->getUsage() == kHIDUsage_AppleVendor_Payload))
     {
-        element->_variableSize |= kIOHIDElementVariableSizeElement;
+        element->_flags |= kIOHIDElementVariableSizeElement;
     }
     // Register with owner and parent, then spawn sub-elements.
 
@@ -334,11 +336,14 @@ IOHIDElementPrivate::collectionElement( IOHIDElementContainer *owner,
     // Set HID properties.
 
     element->_usagePage     = collection->collectionUsagePage;
+    element->_usage         = collection->collectionUsage;
     element->_usageMin      = collection->collectionUsage;
     element->_usageMax      = collection->collectionUsage;
     element->_collectionType = (IOHIDElementCollectionType)collection->data;
-    
-    element->_shouldTickleActivity = (element->_usagePage == kHIDPage_GenericDesktop);
+
+    if (element->_usagePage == kHIDPage_GenericDesktop) {
+        element->_flags |= kIOHIDElementTickleActivity;
+    }
 
     // Register with owner and parent.
 
@@ -390,8 +395,8 @@ IOHIDElementPrivate * IOHIDElementPrivate::reportHandlerElement(
         return 0;
     }
     
-    element->_isInterruptReportHandler	= true;
     element->_flags 			= kHIDDataVariable | kHIDDataRelative;
+    element->_flags            |= kIOHIDElementInterruptReportHandler;
     element->_reportCount		= 1;
     element->_reportID			= reportID;
     element->_reportBits 		= element->_reportSize	= reportBits;
@@ -427,12 +432,11 @@ IOHIDElementPrivate * IOHIDElementPrivate::newSubElement( UInt16 rangeIndex ) co
 
     // Set HID properties.
 
-    element->_flags          		= _flags;
+    element->_flags          		= _flags & kIOHIDFlagBitMask;
     element->_reportID       		= _reportID;
     element->_usagePage      		= _usagePage;
     element->_usageMin       		= _usageMin;
     element->_usageMax       		= _usageMax;
-    element->_rangeIndex     		= rangeIndex;
     element->_arrayReportHandler	= _arrayReportHandler;
 
     element->_reportBits     		= _reportBits;
@@ -445,6 +449,12 @@ IOHIDElementPrivate * IOHIDElementPrivate::newSubElement( UInt16 rangeIndex ) co
     element->_unitExponent   		= _unitExponent;
     element->_rawReportCount        = _reportCount;
     element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
+
+    if (element->_usageMax == element->_usageMin) {
+        element->_usage = element->_usageMin;
+    } else {
+        element->_usage = element->_usageMin + rangeIndex;
+    }
 	
     // RY: Special handling for array elements.
     // FYI, if this an array and button element, then we
@@ -626,8 +636,9 @@ bool IOHIDElementPrivate::addChildElement( IOHIDElementPrivate * child, bool arr
     child->_parent = this;
     
     // RY: only override the child if you are not the root element
-    if ( _cookie != 0 )
-        child->_shouldTickleActivity = _shouldTickleActivity;
+    if ( _cookie != 0 && (_flags & kIOHIDElementTickleActivity) ) {
+        child->_flags |= kIOHIDElementTickleActivity;
+    }
 
     return true;
 }
@@ -651,12 +662,12 @@ IOHIDElementPrivate * IOHIDElementPrivate::arrayHandlerElement(
     element->_arrayReportHandler = element;
     
     element->_parent         = parent;
-    element->_flags          = child->_flags;
+    element->_flags          = child->_flags & kIOHIDFlagBitMask;
     element->_reportID       = child->_reportID;
     element->_usagePage      = child->_usagePage;
-    element->_usageMin       = 0xffffffff;
-    element->_usageMax       = 0xffffffff;        
-    
+    element->_usageMin       = 0xffff;
+    element->_usageMax       = 0xffff;        
+    element->_usage          = 0xffffffff;
     element->_reportBits     = child->_reportBits;
     element->_reportCount    = child->_reportCount;
     element->_reportStartBit = child->_reportStartBit;
@@ -706,17 +717,13 @@ ARRAY_HANDLER_ELEMENT_RELEASE:
 }
 
 OSDictionary* IOHIDElementPrivate::createProperties() const
-{
-    UInt32          usage;
-    
+{    
     OSDictionary *properties = OSDictionary::withCapacity(9);
 
     if (!properties) {
         goto done;
     }
     properties->setCapacityIncrement(15);
-
-    usage = (_usageMax != _usageMin) ? _usageMin + _rangeIndex  : _usageMin;
     
 #define SET_NUMBER(Y, Z) \
     do { \
@@ -728,10 +735,10 @@ OSDictionary* IOHIDElementPrivate::createProperties() const
     
     SET_NUMBER(kIOHIDElementCookieKey, (UInt32) _cookie);
     SET_NUMBER(kIOHIDElementTypeKey, _type);
-    SET_NUMBER(kIOHIDElementUsageKey, usage);
+    SET_NUMBER(kIOHIDElementUsageKey, _usage);
     SET_NUMBER(kIOHIDElementUsagePageKey, _usagePage);
     SET_NUMBER(kIOHIDElementReportIDKey, _reportID);
-    SET_NUMBER(kIOHIDElementVariableSizeKey, _variableSize);
+    SET_NUMBER(kIOHIDElementVariableSizeKey, getVariableSizeInfo());
     
     if ( _type == kIOHIDElementTypeCollection ) {
         SET_NUMBER(kIOHIDElementCollectionTypeKey, _collectionType);
@@ -742,7 +749,7 @@ OSDictionary* IOHIDElementPrivate::createProperties() const
     SET_NUMBER(kIOHIDElementReportSizeKey, _reportBits);
     SET_NUMBER(kIOHIDElementReportCountKey, _reportCount);
     
-    if ( _isInterruptReportHandler ) {
+    if ( _flags & kIOHIDElementInterruptReportHandler ) {
         goto done;
     }
     
@@ -753,22 +760,6 @@ OSDictionary* IOHIDElementPrivate::createProperties() const
     SET_NUMBER(kIOHIDElementScaledMinKey, _physicalMin);
     SET_NUMBER(kIOHIDElementUnitKey, _units);
     SET_NUMBER(kIOHIDElementUnitExponentKey, _unitExponent);
-
-#if 0
-    
-    SET_NUMBER(kIOHIDElementCalibrationMinKey, _calibration.min);
-    SET_NUMBER(kIOHIDElementCalibrationMaxKey, _calibration.max);
-    SET_NUMBER(kIOHIDElementCalibrationSaturationMinKey, _calibration.satMin);
-    SET_NUMBER(kIOHIDElementCalibrationSaturationMaxKey, _calibration.satMax);
-    SET_NUMBER(kIOHIDElementCalibrationDeadZoneMinKey, _calibration.dzMin);
-    SET_NUMBER(kIOHIDElementCalibrationDeadZoneMaxKey, _calibration.dzMax);
-    SET_NUMBER(kIOHIDElementCalibrationGranularityKey, _calibration.gran);
-    
-#endif
-  
-    if ( IsDuplicateElement(this) && !IsDuplicateReportHandler(this)) {
-        SET_NUMBER(kIOHIDElementDuplicateIndexKey, _rangeIndex);
-    }
 
     properties->setObject( kIOHIDElementHasNullStateKey, OSBoolean::withBoolean( _flags & kHIDDataNullState ));
     properties->setObject( kIOHIDElementHasPreferredStateKey, OSBoolean::withBoolean( !(_flags & kHIDDataNoPreferred) ));
@@ -809,7 +800,7 @@ bool IOHIDElementPrivate::serialize( OSSerialize * s ) const
 
 bool IOHIDElementPrivate::fillElementStruct( IOHIDElementStruct * element )
 {	 
-    if ( (_usageMin != _usageMax) && (_rangeIndex >= 1) )
+    if ( (_usageMin != _usageMax) && (_usage != _usageMin) )
         return false;
         
     if ( IsDuplicateElement(this) )
@@ -831,10 +822,16 @@ bool IOHIDElementPrivate::fillElementStruct( IOHIDElementStruct * element )
     element->parentCookie   = _parent ? (UInt32)_parent->_cookie : 0;
     element->type           = _type;
     element->collectionType = _collectionType;
-    element->flags          = _flags;
+    element->flags          = _flags & kIOHIDFlagBitMask;
     element->usagePage      = _usagePage;
-    element->usageMin       = _usageMin;
-    element->usageMax       = _usageMax;
+    if (_usageMin == _usageMax) {
+        // Want to preserve the oversized array handler of 0xFFFFFFFF, which is only in the usage value
+        element->usageMin = _usage;
+        element->usageMax = _usage;
+    } else {
+        element->usageMin       = _usageMin;
+        element->usageMax       = _usageMax;
+    }
     element->min            = _logicalMin;
     element->max            = _logicalMax;
     element->scaledMin      = _physicalMin;
@@ -1102,7 +1099,7 @@ bool IOHIDElementPrivate::processReport(
 
         // Verify incoming report size.
  
-        if (!_variableSize && _reportSize && (reportBits < _reportSize))
+        if (!getVariableSizeInfo() && _reportSize && (reportBits < _reportSize))
         {
             *next = 0;
             //set error to true for ioreporter
@@ -1113,7 +1110,7 @@ bool IOHIDElementPrivate::processReport(
             return false;
         }
         
-        if (_isInterruptReportHandler && (options & kIOHIDReportOptionNotInterrupt))
+        if ((_flags & kIOHIDElementInterruptReportHandler) && (options & kIOHIDReportOptionNotInterrupt))
         {
             return false;
         }
@@ -1131,7 +1128,7 @@ bool IOHIDElementPrivate::processReport(
         if ( _reportID != reportID )
             break;
 
-        if (_variableSize & kIOHIDElementVariableSizeElement) {
+        if (_flags & kIOHIDElementVariableSizeElement) {
             if (_reportStartBit >= reportBits) {
                 break;
             }
@@ -1166,7 +1163,7 @@ bool IOHIDElementPrivate::processReport(
             HIDLogError("Overflow calculating readsize");
             break;
         }
-        if (_variableSize & kIOHIDElementVariableSizeElement) {
+        if (_flags & kIOHIDElementVariableSizeElement) {
           uint32_t remainingBitSize = reportBits - _reportStartBit;
           readSize = (remainingBitSize < readSize) ? remainingBitSize : readSize;
         }
@@ -1184,7 +1181,7 @@ bool IOHIDElementPrivate::processReport(
         // changed.  This will insure that an initial value of 0 will have the correct
         // timestamp
         do {
-            bool shouldProcess = (changed || _isInterruptReportHandler || (_flags & kHIDDataRelativeBit));
+            bool shouldProcess = (changed || (_flags  & kIOHIDElementInterruptReportHandler) || (_flags & kHIDDataRelativeBit));
             
             if ( shouldProcess ) {
                 // Let's not update the timestamp in the case where the element is relative, and there is no change
@@ -1358,7 +1355,6 @@ bool IOHIDElementPrivate::setMemoryForElementValue(
                                     void *                  location)
 {
     _elementValue = (IOHIDElementValue *) address;
-    _elementValueLocation = location;
 
     // Clear memory block, and set the invariants.
 
@@ -1762,7 +1758,7 @@ UInt32 IOHIDElementPrivate::getUsagePage()
 
 UInt32 IOHIDElementPrivate::getUsage()
 {
-	return (_usageMax != _usageMin) ? _usageMin + _rangeIndex  : _usageMin;
+	return _usage;
 }
 
 UInt32 IOHIDElementPrivate::getReportID()
@@ -1775,7 +1771,7 @@ UInt32 IOHIDElementPrivate::getReportCount()
 {   return _reportCount;   }
 
 UInt32 IOHIDElementPrivate::getFlags()
-{   return _flags;  }
+{   return _flags & kIOHIDFlagBitMask;  }
 
 UInt32 IOHIDElementPrivate::getLogicalMin()
 {   return _logicalMin;   }
@@ -2061,13 +2057,21 @@ bool IOHIDElementPrivate::conformsTo(UInt32 usagePage, UInt32 usage)
 
 void IOHIDElementPrivate::setCalibration(UInt32 min, UInt32 max, UInt32 saturationMin, UInt32 saturationMax, UInt32 deadZoneMin, UInt32 deadZoneMax, IOFixed granularity)
 {
-    _calibration.satMin = saturationMin;
-    _calibration.satMax = saturationMax;
-    _calibration.dzMin  = deadZoneMin;
-    _calibration.dzMax  = deadZoneMax;
-    _calibration.min    = min;
-    _calibration.max    = max;
-    _calibration.gran   = granularity;
+    if (!_calibration) {
+        _calibration = IOMallocType(IOHIDElementPrivateCalibrationData);
+        if (!_calibration) {
+            HIDLogError("Unable to allocate calibration data");
+            return;
+        }
+    }
+
+    _calibration->satMin = saturationMin;
+    _calibration->satMax = saturationMax;
+    _calibration->dzMin  = deadZoneMin;
+    _calibration->dzMax  = deadZoneMax;
+    _calibration->min    = min;
+    _calibration->max    = max;
+    _calibration->gran   = granularity;
 }
 
 UInt32 IOHIDElementPrivate::getScaledValue(IOHIDValueScaleType type)
@@ -2083,33 +2087,33 @@ UInt32 IOHIDElementPrivate::getScaledValue(IOHIDValueScaleType type)
 
     if ( type == kIOHIDValueScaleTypeCalibrated ){
         
-        if ( _calibration.min != _calibration.max ) {
-            scaledMin = _calibration.min;
-            scaledMax = _calibration.max;
+        if ( _calibration && _calibration->min != _calibration->max ) {
+            scaledMin = _calibration->min;
+            scaledMax = _calibration->max;
         } else {
             scaledMin = -1;
             scaledMax = 1;
         }
         
         // check saturation first
-        if ( _calibration.satMin != _calibration.satMax ) {
-            if ( logicalValue <= _calibration.satMin )
+        if ( _calibration &&  _calibration->satMin != _calibration->satMax ) {
+            if ( logicalValue <= _calibration->satMin )
                 return (UInt32)scaledMin;
-            if ( logicalValue >= _calibration.satMax )
+            if ( logicalValue >= _calibration->satMax )
                 return (UInt32)scaledMax;
             
-            logicalMin      = _calibration.satMin;
-            logicalMax      = _calibration.satMax;
+            logicalMin      = _calibration->satMin;
+            logicalMax      = _calibration->satMax;
         }
         
         // now check the dead zone
-        if (_calibration.dzMin != _calibration.dzMax) {
+        if (_calibration && _calibration->dzMin != _calibration->dzMax) {
             SInt64 scaledMid = scaledMin + ((scaledMax - scaledMin) / 2);
-            if (logicalValue < _calibration.dzMin) {
-                logicalMax = _calibration.dzMin;
+            if (logicalValue < _calibration->dzMin) {
+                logicalMax = _calibration->dzMin;
                 scaledMax = scaledMid;
-            } else if ( logicalValue > _calibration.dzMax) {
-                logicalMin = _calibration.dzMax;
+            } else if ( logicalValue > _calibration->dzMax) {
+                logicalMin = _calibration->dzMax;
                 scaledMin = scaledMid;
             } else {
                 return (UInt32)scaledMid;
@@ -2158,33 +2162,33 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
     
     if ( type == kIOHIDValueScaleTypeCalibrated ){
         
-        if ( _calibration.min != _calibration.max ) {
-            physicalMin = _calibration.min;
-            physicalMax = _calibration.max;
+        if ( _calibration && _calibration->min != _calibration->max ) {
+            physicalMin = _calibration->min;
+            physicalMax = _calibration->max;
         } else {
             physicalMin = -1;
             physicalMax =  1;
         }
         
         // check saturation first
-        if ( _calibration.satMin != _calibration.satMax ) {
-            if ( logicalValue <= _calibration.satMin )
+        if ( _calibration && _calibration->satMin != _calibration->satMax ) {
+            if ( logicalValue <= _calibration->satMin )
                 return (IOFixed) (physicalMin << 16);
-            if ( logicalValue >= _calibration.satMax )
+            if ( logicalValue >= _calibration->satMax )
                 return (IOFixed) (physicalMax << 16);
             
-            logicalMin = _calibration.satMin;
-            logicalMax = _calibration.satMax;
+            logicalMin = _calibration->satMin;
+            logicalMax = _calibration->satMax;
         }
         
         // now check the dead zone
-        if (_calibration.dzMin != _calibration.dzMax) {
+        if (_calibration && _calibration->dzMin != _calibration->dzMax) {
             SInt64  physicalMid = physicalMin + ((physicalMax - physicalMin) / 2);
-            if (logicalValue < _calibration.dzMin) {
-                logicalMax = _calibration.dzMin;
+            if (logicalValue < _calibration->dzMin) {
+                logicalMax = _calibration->dzMin;
                 physicalMax = physicalMid;
-            } else if ( logicalValue > _calibration.dzMax) {
-                logicalMin = _calibration.dzMax;
+            } else if ( logicalValue > _calibration->dzMax) {
+                logicalMin = _calibration->dzMax;
                 physicalMin = physicalMid;
             } else {
                 return (IOFixed) (physicalMid << 16);

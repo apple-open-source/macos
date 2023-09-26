@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <malloc/malloc.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
 
 static inline void*
 t_calloc(size_t count, size_t s)

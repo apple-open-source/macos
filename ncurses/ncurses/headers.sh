@@ -11,11 +11,11 @@ done
 DST=$1
 REF=$2
 SRC=$3
-TMPSRC=${TMPDIR-/tmp}/`basename $SRC`$$
-TMPSED=${TMPDIR-/tmp}/headers.sed$$
+TMPSRC=${TMPDIR:-/tmp}/`basename $SRC`$$
+TMPSED=${TMPDIR:-/tmp}/headers.sed$$
 echo installing $SRC in $DST
 case $DST in
-/*/include/*)
+(/*/include/*)
 	END=`basename $DST`
 	for i in `cat $REF/../*/headers |fgrep -v "#"`
 	do
@@ -23,7 +23,7 @@ case $DST in
 		echo "s/<$NAME>/<$END\/$NAME>/" >> $TMPSED
 	done
 	;;
-*)
+(*)
 	echo "" >> $TMPSED
 	;;
 esac

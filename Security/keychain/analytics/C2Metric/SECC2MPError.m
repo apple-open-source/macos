@@ -23,16 +23,16 @@
 @synthesize errorCode = _errorCode;
 - (void)setErrorCode:(int64_t)v
 {
-    _has.errorCode = YES;
+    _has.errorCode = (uint)YES;
     _errorCode = v;
 }
 - (void)setHasErrorCode:(BOOL)f
 {
-    _has.errorCode = f;
+    _has.errorCode = (uint)f;
 }
 - (BOOL)hasErrorCode
 {
-    return _has.errorCode;
+    return _has.errorCode != 0;
 }
 - (BOOL)hasErrorDescription
 {
@@ -96,7 +96,7 @@ BOOL SECC2MPErrorReadFrom(__unsafe_unretained SECC2MPError *self, __unsafe_unret
             break;
             case 2 /* errorCode */:
             {
-                self->_has.errorCode = YES;
+                self->_has.errorCode = (uint)YES;
                 self->_errorCode = PBReaderReadInt64(reader);
             }
             break;

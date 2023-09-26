@@ -50,6 +50,7 @@
 #include "towitoko/pps.h"
 #include "parser.h"
 #include "strlcpycat.h"
+#include "sys_generic.h"
 
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
@@ -66,11 +67,11 @@ static pthread_mutex_t ifdh_context_mutex = PTHREAD_MUTEX_INITIALIZER;
 int LogLevel = DEBUG_LEVEL_CRITICAL | DEBUG_LEVEL_INFO;
 int DriverOptions = 0;
 int PowerOnVoltage = -1;
-static int DebugInitialized = FALSE;
+static bool DebugInitialized = false;
 
 /* local functions */
 static void init_driver(void);
-static char find_baud_rate(unsigned int baudrate, unsigned int *list);
+static bool find_baud_rate(unsigned int baudrate, unsigned int *list);
 static unsigned int T0_card_timeout(double f, double d, int TC1, int TC2,
 	int clock_frequency);
 static unsigned int T1_card_timeout(double f, double d, int TC1, int BWI,
@@ -107,7 +108,7 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 
 	if (lpcDevice)
 	{
-		DEBUG_INFO3("Lun: " DWORD_X ", device: %s", Lun, lpcDevice);
+		DEBUG_INFO3("Lun: " DWORD_X ", device: " LOG_STRING, Lun, lpcDevice);
 	}
 	else
 	{
@@ -288,7 +289,7 @@ EXTERNAL RESPONSECODE IFDHCloseChannel(DWORD Lun)
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_INFO3("%s (lun: " DWORD_X ")", CcidSlots[reader_index].readerName,
+	DEBUG_INFO3(LOG_STRING " (lun: " DWORD_X ")", CcidSlots[reader_index].readerName,
 		Lun);
 
 	/* Restore the default timeout
@@ -314,7 +315,7 @@ static RESPONSECODE IFDHPolling(DWORD Lun, int timeout)
 
 	/* log only if DEBUG_LEVEL_PERIODIC is set */
 	if (LogLevel & DEBUG_LEVEL_PERIODIC)
-		DEBUG_INFO4("%s (lun: " DWORD_X ") %d ms",
+		DEBUG_INFO4(LOG_STRING " (lun: " DWORD_X ") %d ms",
 			CcidSlots[reader_index].readerName, Lun, timeout);
 
 	return InterruptRead(reader_index, timeout);
@@ -329,7 +330,7 @@ static RESPONSECODE IFDHSleep(DWORD Lun, int timeout)
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_INFO4("%s (lun: " DWORD_X ") %d ms",
+	DEBUG_INFO4(LOG_STRING " (lun: " DWORD_X ") %d ms",
 		CcidSlots[reader_index].readerName, Lun, timeout);
 
 	/* just sleep for 5 seconds since the polling thread is NOT killable
@@ -350,7 +351,7 @@ static RESPONSECODE IFDHStopPolling(DWORD Lun)
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_INFO3("%s (lun: " DWORD_X ")",
+	DEBUG_INFO3(LOG_STRING " (lun: " DWORD_X ")",
 		CcidSlots[reader_index].readerName, Lun);
 
 	(void)InterruptStop(reader_index);
@@ -385,7 +386,7 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_INFO4("tag: 0x" DWORD_X ", %s (lun: " DWORD_X ")", Tag,
+	DEBUG_INFO4("tag: 0x" DWORD_X ", " LOG_STRING " (lun: " DWORD_X ")", Tag,
 		CcidSlots[reader_index].readerName, Lun);
 
 	switch (Tag)
@@ -473,6 +474,8 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 					/* 2 CCID interfaces */
 					if ((GEMALTOPROXDU == readerID)
 						|| (GEMALTOPROXSU == readerID)
+						|| (ALCOR_LINK_AK9567 == readerID)
+						|| (ALCOR_LINK_AK9572 == readerID)
 						|| (HID_OMNIKEY_5422 == readerID))
 						*Value = 2;
 
@@ -681,7 +684,7 @@ EXTERNAL RESPONSECODE IFDHSetCapabilities(DWORD Lun, DWORD Tag,
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_INFO4("tag: 0x" DWORD_X ", %s (lun: " DWORD_X ")", Tag,
+	DEBUG_INFO4("tag: 0x" DWORD_X ", " LOG_STRING " (lun: " DWORD_X ")", Tag,
 		CcidSlots[reader_index].readerName, Lun);
 
 	switch (Tag)
@@ -737,7 +740,7 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_INFO4("protocol T=" DWORD_D ", %s (lun: " DWORD_X ")",
+	DEBUG_INFO4("protocol T=" DWORD_D ", " LOG_STRING " (lun: " DWORD_X ")",
 		Protocol-SCARD_PROTOCOL_T0, CcidSlots[reader_index].readerName, Lun);
 
 	/* Set to zero buffer */
@@ -980,16 +983,16 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 		}
 	}
 
-	/* Now we must set the reader parameters */
-	if (ATR_MALFORMED == ATR_GetConvention(&atr, &convention))
-		return IFD_COMMUNICATION_ERROR;
-
 	/* specific mode and implicit parameters? (b5 of TA2) */
 	if (atr.ib[1][ATR_INTERFACE_BYTE_TA].present
 		&& (atr.ib[1][ATR_INTERFACE_BYTE_TA].value & 0x10))
 		return IFD_COMMUNICATION_ERROR;
 
 end:
+	/* Now we must set the reader parameters */
+	if (ATR_MALFORMED == ATR_GetConvention(&atr, &convention))
+		return IFD_COMMUNICATION_ERROR;
+
 	/* T=1 */
 	if (SCARD_PROTOCOL_T1 == Protocol)
 	{
@@ -1213,7 +1216,7 @@ EXTERNAL RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action,
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_INFO4("action: %s, %s (lun: " DWORD_X ")",
+	DEBUG_INFO4("action: " LOG_STRING ", " LOG_STRING " (lun: " DWORD_X ")",
 		actions[Action-IFD_POWER_UP], CcidSlots[reader_index].readerName, Lun);
 
 	switch (Action)
@@ -1355,7 +1358,7 @@ EXTERNAL RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
 	unsigned int rx_length;
 	int reader_index;
 	int old_read_timeout;
-	int restore_timeout = FALSE;
+	bool restore_timeout = false;
 	_ccid_descriptor *ccid_descriptor;
 
 	(void)RecvPci;
@@ -1365,7 +1368,7 @@ EXTERNAL RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
 
 	ccid_descriptor = get_ccid_descriptor(reader_index);
 
-	DEBUG_INFO3("%s (lun: " DWORD_X ")", CcidSlots[reader_index].readerName,
+	DEBUG_INFO3(LOG_STRING " (lun: " DWORD_X ")", CcidSlots[reader_index].readerName,
 		Lun);
 
 	/* special APDU for the Kobil IDToken (CLASS = 0xFF) */
@@ -1424,7 +1427,7 @@ EXTERNAL RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
 	if (0 == memcmp(TxBuffer, "\xFF\xC2\x01", 3))
 	{
 		/* Yes, use the same timeout as for SCardControl() */
-		restore_timeout = TRUE;
+		restore_timeout = true;
 		old_read_timeout = ccid_descriptor -> readTimeout;
 		ccid_descriptor -> readTimeout = 90 * 1000;	/* 90 seconds */
 	}
@@ -1473,7 +1476,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 
 	ccid_descriptor = get_ccid_descriptor(reader_index);
 
-	DEBUG_INFO4("ControlCode: 0x" DWORD_X ", %s (lun: " DWORD_X ")",
+	DEBUG_INFO4("ControlCode: 0x" DWORD_X ", " LOG_STRING " (lun: " DWORD_X ")",
 		dwControlCode, CcidSlots[reader_index].readerName, Lun);
 	DEBUG_INFO_XXD("Control TxBuffer: ", TxBuffer, TxLength);
 
@@ -1482,7 +1485,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 
 	if (IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE == dwControlCode)
 	{
-		int allowed = (DriverOptions & DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED);
+		bool allowed = (DriverOptions & DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED);
 		int readerID = ccid_descriptor -> readerID;
 
 		if (VENDOR_GEMALTO == GET_VENDOR(readerID))
@@ -1491,7 +1494,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 
 			/* get firmware version escape command */
 			if ((1 == TxLength) && (0x02 == TxBuffer[0]))
-				allowed = TRUE;
+				allowed = true;
 
 			/* switch interface escape command on the GemProx DU
 			 * the next byte in the command is the interface:
@@ -1501,12 +1504,12 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			if ((GEMALTOPROXDU == readerID)
 				&& (6 == TxLength)
 				&& (0 == memcmp(TxBuffer, switch_interface, sizeof(switch_interface))))
-				allowed = TRUE;
+				allowed = true;
 		}
 
 		/* allow APDU exchange with this reader without a card in the field */
 		if (HID_OMNIKEY_5427CK == readerID)
-			allowed = TRUE;
+			allowed = true;
 
 		if (!allowed)
 		{
@@ -1922,7 +1925,7 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
-	DEBUG_PERIODIC3("%s (lun: " DWORD_X ")", CcidSlots[reader_index].readerName, Lun);
+	DEBUG_PERIODIC3(LOG_STRING " (lun: " DWORD_X ")", CcidSlots[reader_index].readerName, Lun);
 
 	ccid_descriptor = get_ccid_descriptor(reader_index);
 
@@ -2048,7 +2051,7 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 #endif
 
 end:
-	DEBUG_PERIODIC2("Card %s",
+	DEBUG_PERIODIC2("Card " LOG_STRING,
 		IFD_ICC_PRESENT == return_value ? "present" : "absent");
 
 	return return_value;
@@ -2067,12 +2070,18 @@ void init_driver(void)
 	char *e;
 	int rv;
 	list_t plist, *values;
+	const char * hpDirPath;
 
 	DEBUG_INFO1("Driver version: " VERSION);
 
+	/* Check if path override present in environment */
+	hpDirPath = SYS_GetEnv("PCSCLITE_HP_DROPDIR");
+	if (NULL == hpDirPath)
+		hpDirPath = PCSCLITE_HP_DROPDIR;
+
 	/* Info.plist full patch filename */
 	(void)snprintf(infofile, sizeof(infofile), "%s/%s/Contents/Info.plist",
-		PCSCLITE_HP_DROPDIR, BUNDLE);
+		hpDirPath, BUNDLE);
 
 	rv = bundleParse(infofile, &plist);
 	if (0 == rv)
@@ -2135,11 +2144,11 @@ void init_driver(void)
 	/* initialise the Lun to reader_index mapping */
 	InitReaderIndex();
 
-	DebugInitialized = TRUE;
+	DebugInitialized = true;
 } /* init_driver */
 
 
-static char find_baud_rate(unsigned int baudrate, unsigned int *list)
+static bool find_baud_rate(unsigned int baudrate, unsigned int *list)
 {
 	int i;
 
@@ -2158,10 +2167,10 @@ static char find_baud_rate(unsigned int baudrate, unsigned int *list)
 		 * is an approximative result, computed from the d/f float result.
 		 */
 		if ((baudrate < list[i] + 2) && (baudrate > list[i] - 2))
-			return TRUE;
+			return true;
 	}
 
-	return FALSE;
+	return false;
 } /* find_baud_rate */
 
 

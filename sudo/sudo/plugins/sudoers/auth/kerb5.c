@@ -92,6 +92,11 @@ sudo_krb5_setup(struct passwd *pw, char **promptp, sudo_auth *auth)
     static char	*krb5_prompt;
     debug_decl(sudo_krb5_init, SUDOERS_DEBUG_AUTH);
 
+    /* Don't override the prompt if the user specified their own. */
+    if (strcmp(*promptp, PASSPROMPT) != 0) {
+        debug_return_int(AUTH_SUCCESS);
+    }
+
     if (krb5_prompt == NULL) {
 	krb5_context	sudo_context;
 	krb5_principal	princ;
@@ -112,14 +117,11 @@ sudo_krb5_setup(struct passwd *pw, char **promptp, sudo_auth *auth)
 	    debug_return_int(AUTH_FAILURE);
 	}
 
-	/* Only rewrite prompt if user didn't specify their own. */
-	/*if (!strcmp(prompt, PASSPROMPT)) { */
-	    if (asprintf(&krb5_prompt, "Password for %s: ", pname) == -1) {
-		log_warningx(0, N_("unable to allocate memory"));
-		free(pname);
-		debug_return_int(AUTH_FATAL);
-	    }
-	/*}*/
+	if (asprintf(&krb5_prompt, "Password for %s: ", pname) == -1) {
+	    log_warningx(0, N_("unable to allocate memory"));
+	    free(pname);
+	    debug_return_int(AUTH_FATAL);
+	}
 	free(pname);
     }
     *promptp = krb5_prompt;
@@ -135,7 +137,9 @@ sudo_krb5_init(struct passwd *pw, sudo_auth *auth)
     char		cache_name[64], *pname = pw->pw_name;
     debug_decl(sudo_krb5_init, SUDOERS_DEBUG_AUTH);
 
-    auth->data = (void *) &sudo_krb5_data; /* Stash all our data here */
+    /* Only initialize once. */
+    if (auth->data != NULL)
+	debug_return_int(AUTH_SUCCESS);
 
     if (sudo_krb5_instance != NULL) {
 	int len = asprintf(&pname, "%s%s%s", pw->pw_name,
@@ -171,6 +175,8 @@ sudo_krb5_init(struct passwd *pw, sudo_auth *auth)
 	goto done;
     }
 
+    auth->data = (void *) &sudo_krb5_data; /* Stash all our data here */
+
 done:
     if (sudo_krb5_instance != NULL)
 	free(pname);
@@ -179,7 +185,7 @@ done:
 
 #ifdef HAVE_KRB5_VERIFY_USER
 int
-sudo_krb5_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_krb5_verify(struct passwd *pw, const char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     krb5_context	sudo_context;
     krb5_principal	princ;
@@ -196,7 +202,7 @@ sudo_krb5_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_con
 }
 #else
 int
-sudo_krb5_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_krb5_verify(struct passwd *pw, const char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     krb5_context	sudo_context;
     krb5_principal	princ;

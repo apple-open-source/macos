@@ -2,28 +2,21 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_SA{
-    NumberElements{
-        latn{
-            patterns{
-                currencyFormat{"¤ #,##0.00"}
-            }
-        }
-    }
     calendar{
         chinese{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM r(U)",
                 "d MMMM r(U)",
                 "d MMM r",
                 "dd/MM/r",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             availableFormats{
@@ -88,58 +81,42 @@ en_SA{
                 }
             }
         }
+        default{"islamic-umalqura"}
         generic{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM y G",
                 "d MMMM y G",
                 "d MMM y G",
                 "dd/MM/y GGGGG",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             availableFormats{
-                Bhms{"h:mm:ss B"}
                 EBhm{"E, h:mm B"}
                 EBhms{"E, h:mm:ss B"}
                 EHm{"E, HH:mm"}
                 EHms{"E, HH:mm:ss"}
                 Ed{"E d"}
-                Ehm{"E, h:mm a"}
-                Ehms{"E, h:mm:ss a"}
-                Gy{"y G"}
-                GyMMM{"MMM y G"}
+                Ehm{"E, h:mm a"}
+                Ehms{"E, h:mm:ss a"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-                Hmsv{"HH:mm:ss v"}
-                Hmv{"HH:mm v"}
                 M{"LL"}
                 MEd{"E, dd/MM"}
-                MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 Md{"dd/MM"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                hmsv{"h:mm:ss a v"}
-                hmv{"h:mm a v"}
-                ms{"mm:ss"}
                 yyyyM{"MM/y GGGGG"}
                 yyyyMEd{"E, dd/MM/y GGGGG"}
-                yyyyMMM{"MMM y G"}
                 yyyyMMMEd{"E, d MMM y G"}
-                yyyyMMMM{"MMMM y G"}
                 yyyyMMMd{"d MMM y G"}
                 yyyyMd{"dd/MM/y GGGGG"}
             }
@@ -171,9 +148,6 @@ en_SA{
                     d{"dd/MM/y – dd/MM/y GGGGG"}
                     y{"dd/MM/y – dd/MM/y GGGGG"}
                 }
-                M{
-                    M{"M – M"}
-                }
                 MEd{
                     M{"E dd/MM – E dd/MM"}
                     d{"E dd/MM – E dd/MM"}
@@ -190,10 +164,6 @@ en_SA{
                     M{"dd/MM – dd/MM"}
                     d{"dd/MM – dd/MM"}
                 }
-                d{
-                    d{"d – d"}
-                }
-                fallback{"{0} – {1}"}
                 y{
                     y{"y – y G"}
                 }
@@ -233,30 +203,26 @@ en_SA{
         }
         gregorian{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM y",
                 "d MMMM y",
                 "d MMM y",
                 "dd/MM/y",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             availableFormats{
                 EBhm{"E, h:mm B"}
                 EBhms{"E, h:mm:ss B"}
-                Ed{"E d"}
-                Gy{"y G"}
-                GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
                 MEd{"E, dd/MM"}
-                MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -264,9 +230,7 @@ en_SA{
                 Md{"dd/MM"}
                 yM{"MM/y"}
                 yMEd{"E, dd/MM/y"}
-                yMMM{"MMM y"}
                 yMMMEd{"E, d MMM y"}
-                yMMMM{"MMMM y"}
                 yMMMd{"d MMM y"}
                 yMd{"dd/MM/y"}
             }
@@ -310,23 +274,6 @@ en_SA{
                     d{"dd/MM/y – dd/MM/y GGGGG"}
                     y{"dd/MM/y – dd/MM/y GGGGG"}
                 }
-                H{
-                    H{"HH – HH"}
-                }
-                Hm{
-                    H{"HH:mm – HH:mm"}
-                    m{"HH:mm – HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm – HH:mm v"}
-                    m{"HH:mm – HH:mm v"}
-                }
-                Hv{
-                    H{"HH – HH v"}
-                }
-                M{
-                    M{"M – M"}
-                }
                 MEd{
                     M{"E dd/MM – E dd/MM"}
                     d{"E dd/MM – E dd/MM"}
@@ -343,19 +290,6 @@ en_SA{
                     M{"dd/MM – dd/MM"}
                     d{"dd/MM – dd/MM"}
                 }
-                d{
-                    d{"d – d"}
-                }
-                fallback{"{0} – {1}"}
-                h{
-                    h{"h – h a"}
-                }
-                hv{
-                    h{"h – h a v"}
-                }
-                y{
-                    y{"y – y"}
-                }
                 yM{
                     M{"MM/y – MM/y"}
                     y{"MM/y – MM/y"}
@@ -365,18 +299,10 @@ en_SA{
                     d{"E, dd/MM/y – E, dd/MM/y"}
                     y{"E, dd/MM/y – E, dd/MM/y"}
                 }
-                yMMM{
-                    M{"MMM – MMM y"}
-                    y{"MMM y – MMM y"}
-                }
                 yMMMEd{
                     M{"E, d MMM – E, d MMM y"}
                     d{"E, d – E, d MMM y"}
                     y{"E, d MMM y – E, d MMM y"}
-                }
-                yMMMM{
-                    M{"MMMM – MMMM y"}
-                    y{"MMMM y – MMMM y"}
                 }
                 yMMMd{
                     M{"d MMM – d MMM y"}
@@ -392,45 +318,19 @@ en_SA{
         }
         japanese{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
-                "EEEE, d MMMM G y",
-                "d MMMM G y",
-                "d MMM G y",
-                "dd/MM/GGGGGy",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y G",
+                "d MMMM y G",
+                "d MMM y G",
+                "dd/MM/y GGGGG",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
                 "{1}, {0}",
-            }
-            availableFormats{
-                Ed{"E d"}
-                Gy{"G y"}
-                GyMMM{"MMM G y"}
-                GyMMMEd{"E, d MMM G y"}
-                GyMMMd{"d MMM G y"}
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-                MEd{"E, dd/MM"}
-                MMMEd{"E, d MMM"}
-                MMMMd{"d MMMM"}
-                MMMd{"d MMM"}
-                Md{"dd/MM"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                ms{"mm:ss"}
-                yyyyM{"MM/GGGGGy"}
-                yyyyMEd{"E, dd/MM/GGGGGy"}
-                yyyyMMM{"MMM G y"}
-                yyyyMMMEd{"E, d MMM G y"}
-                yyyyMMMM{"MMMM G y"}
-                yyyyMMMd{"d MMM G y"}
-                yyyyMd{"dd/MM/GGGGGy"}
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
         }
     }

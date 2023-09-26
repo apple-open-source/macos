@@ -15,6 +15,181 @@
 #if TARGET_OS_OSX
 		<dict>
 			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.analytics</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.analytics.results.txt</string>
+				<string>analytics</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.arg_selector_simple</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.arg_selector_simple.results.txt</string>
+				<string>arg_selector_simple</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.arg_selector_complex</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.arg_selector_complex.results.txt</string>
+				<string>arg_selector_complex</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.env_selector</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.env_selector.results.txt</string>
+				<string>env_selector</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.simple_shim</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.simple_shim.results.txt</string>
+				<string>simple_shim</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.ui_infile_stdin</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.ui_infile_stdin.results.txt</string>
+				<string>ui_infile_stdin</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.ui_outfile_stdout</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.ui_outfile_stdout.results.txt</string>
+				<string>ui_outfile_stdout</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>adv_cmds.locale_test.sh.k_flag_posix</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -103,11 +278,11 @@
 			</array>
 		</dict>
 		<dict>
-			<key>TestName</key><string>adv_cmds.pkill.F_test</string>
+			<key>TestName</key><string>adv_cmds.pkill._f_test</string>
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/adv_cmds/pkill/pkill-F_test.sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/pkill/pkill-_f_test.sh</string>
 			</array>
 			<key>WhenToRun</key>
 			<array>
@@ -142,11 +317,11 @@
 			</array>
 		</dict>
 		<dict>
-			<key>TestName</key><string>adv_cmds.pgrep.U_test</string>
+			<key>TestName</key><string>adv_cmds.pgrep._u_test</string>
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/adv_cmds/pgrep/pgrep-U_test.sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/pgrep/pgrep-_u_test.sh</string>
 			</array>
 			<key>WhenToRun</key>
 			<array>
@@ -168,11 +343,11 @@
 			</array>
 		</dict>
 		<dict>
-			<key>TestName</key><string>adv_cmds.pkill.P_test</string>
+			<key>TestName</key><string>adv_cmds.pkill._p_test</string>
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/adv_cmds/pkill/pkill-P_test.sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/pkill/pkill-_p_test.sh</string>
 			</array>
 			<key>WhenToRun</key>
 			<array>
@@ -207,11 +382,11 @@
 			</array>
 		</dict>
 		<dict>
-			<key>TestName</key><string>adv_cmds.pkill.U_test</string>
+			<key>TestName</key><string>adv_cmds.pkill._u_test</string>
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/adv_cmds/pkill/pkill-U_test.sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/pkill/pkill-_u_test.sh</string>
 			</array>
 			<key>WhenToRun</key>
 			<array>
@@ -233,11 +408,11 @@
 			</array>
 		</dict>
 		<dict>
-			<key>TestName</key><string>adv_cmds.pgrep.P_test</string>
+			<key>TestName</key><string>adv_cmds.pgrep._p_test</string>
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/adv_cmds/pgrep/pgrep-P_test.sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/pgrep/pgrep-_p_test.sh</string>
 			</array>
 			<key>WhenToRun</key>
 			<array>
@@ -285,11 +460,11 @@
 			</array>
 		</dict>
 		<dict>
-			<key>TestName</key><string>adv_cmds.pgrep.F_test</string>
+			<key>TestName</key><string>adv_cmds.pgrep._f_test</string>
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/adv_cmds/pgrep/pgrep-F_test.sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/pgrep/pgrep-_f_test.sh</string>
 			</array>
 			<key>WhenToRun</key>
 			<array>
@@ -324,6 +499,19 @@
 			</array>
 		</dict>
 		<dict>
+			<key>TestName</key><string>adv_cmds.pgrep.f_test</string>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/pgrep/pgrep-f_test.sh</string>
+			</array>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+		</dict>
+		<dict>
 			<key>TestName</key><string>adv_cmds.pgrep.g_test</string>
 			<key>Command</key>
 			<array>
@@ -334,6 +522,23 @@
 			<array>
 				<string>PRESUBMISSION</string>
 				<string>NIGHTLY</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key><string>adv_cmds.ps.33386332_test</string>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/ps/33386332_test.sh</string>
+			</array>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>BATS_TMP_DIR/ps-err..+.txt</string>
 			</array>
 		</dict>
 		<dict>

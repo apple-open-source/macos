@@ -502,6 +502,23 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
     }
 
+    func copyStableInfo(model: TPModel, key: TPKeyPair, oldInfo: TPPeerStableInfo, walrus: TPPBPeerStableInfoSetting?, webAccess: TPPBPeerStableInfoSetting?) throws -> TPPeerStableInfo {
+        return try model.createStableInfo(withFrozenPolicyVersion: oldInfo.frozenPolicyVersion,
+                                          flexiblePolicyVersion: oldInfo.flexiblePolicyVersion,
+                                          policySecrets: oldInfo.policySecrets,
+                                          syncUserControllableViews: oldInfo.syncUserControllableViews,
+                                          secureElementIdentity: oldInfo.secureElementIdentity,
+                                          walrusSetting: walrus,
+                                          webAccess: webAccess,
+                                          deviceName: oldInfo.deviceName ?? "",
+                                          serialNumber: oldInfo.serialNumber!,
+                                          osVersion: oldInfo.osVersion,
+                                          signing: key,
+                                          recoverySigningPubKey: oldInfo.recoverySigningPublicKey,
+                                          recoveryEncryptionPubKey: oldInfo.recoveryEncryptionPublicKey,
+                                          isInheritedAccount: oldInfo.isInheritedAccount)
+    }
+
     // this test forces two peers to have the same clock but different values at the same time as a stable changes update
     func testPeerTakesWalrusStableChangesAfterWalrusValueConflictButEqualClocks() throws {
         self.startCKAccountStatusMock()
@@ -535,7 +552,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let setting = OTAccountSettings()!
         let walrus = OTWalrus()!
-        walrus.enabled = true
+        walrus.enabled = false
         setting.walrus = walrus
 
         let peer1SetExpectation = self.expectation(description: "peer 1 expectation")
@@ -554,23 +571,18 @@ class OctagonWalrusTests: OctagonTestsBase {
         let peersFromContainer2 = container2.model.allPeers()
         XCTAssertNotNil(peersFromContainer2, "peersFromContainer2 should not be nil")
 
-        let firstPeer = peersFromContainer2[0]
-        let firstPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
-        if firstPeer.permanentInfo.peerID == firstPeerID {
-            firstPeer.stableInfo!.walrusSetting!.value = false
-            firstPeer.stableInfo!.walrusSetting!.clock = 1
+        let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
+        let oldStableInfo: TPPeerStableInfo! = container2.model.getStableInfoForPeer(withID: egoPeerID)
+        let newWalrus: TPPBPeerStableInfoSetting! = TPPBPeerStableInfoSetting()
+        newWalrus.value = false
+        newWalrus.clock = 1
 
-            let secondPeer = peersFromContainer2[1]
-            secondPeer.stableInfo!.walrusSetting!.value = true
-            secondPeer.stableInfo!.walrusSetting!.clock = 1
-        } else {
-            firstPeer.stableInfo!.walrusSetting!.value = true
-            firstPeer.stableInfo!.walrusSetting!.clock = 1
-
-            let secondPeer = peersFromContainer2[1]
-            secondPeer.stableInfo!.walrusSetting!.value = false
-            secondPeer.stableInfo!.walrusSetting!.clock = 1
-        }
+        let newStableInfo = try copyStableInfo(model: container2.model,
+                                               key: self.loadPeerKeys(context: self.cuttlefishContext).signingKey,
+                                               oldInfo: oldStableInfo,
+                                               walrus: newWalrus,
+                                               webAccess: oldStableInfo.webAccess)
+        try container2.model.update(newStableInfo, forPeerWithID: egoPeerID)
 
         let peer2SetExpectation = self.expectation(description: "peer 2 expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -1421,23 +1433,18 @@ class OctagonWalrusTests: OctagonTestsBase {
         let peersFromContainer2 = container2.model.allPeers()
         XCTAssertNotNil(peersFromContainer2, "peersFromContainer2 should not be nil")
 
-        let firstPeer = peersFromContainer2[0]
-        let firstPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
-        if firstPeer.permanentInfo.peerID == firstPeerID {
-            firstPeer.stableInfo!.webAccess!.value = false
-            firstPeer.stableInfo!.webAccess!.clock = 1
+        let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
+        let oldStableInfo: TPPeerStableInfo! = container2.model.getStableInfoForPeer(withID: egoPeerID)
+        let newWebAccess: TPPBPeerStableInfoSetting = TPPBPeerStableInfoSetting()
+        newWebAccess.value = false
+        newWebAccess.clock = 1
 
-            let secondPeer = peersFromContainer2[1]
-            secondPeer.stableInfo!.webAccess!.value = true
-            secondPeer.stableInfo!.webAccess!.clock = 1
-        } else {
-            firstPeer.stableInfo!.webAccess!.value = true
-            firstPeer.stableInfo!.webAccess!.clock = 1
-
-            let secondPeer = peersFromContainer2[1]
-            secondPeer.stableInfo!.webAccess!.value = false
-            secondPeer.stableInfo!.webAccess!.clock = 1
-        }
+        let newStableInfo = try copyStableInfo(model: container2.model,
+                                               key: self.loadPeerKeys(context: self.cuttlefishContext).signingKey,
+                                               oldInfo: oldStableInfo,
+                                               walrus: oldStableInfo.walrusSetting,
+                                               webAccess: newWebAccess)
+        try container2.model.update(newStableInfo, forPeerWithID: egoPeerID)
 
         webAccess.enabled = false
         setting.webAccess = webAccess
@@ -1717,7 +1724,6 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let secondPeerContext = OTConfigurationContext()
         secondPeerContext.context = "peer2"
-        secondPeerContext.dsid = "1234"
         secondPeerContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         secondPeerContext.otControl = self.otControl
 
@@ -1732,12 +1738,15 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
 
         var fetchedSetting: OTAccountSettings?
-        XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(self.otcliqueContext), "Should throw an error fetching account settings") { error in 
+        XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(self.otcliqueContext), "Should throw an error fetching account settings") { error in
             let nserror = error as NSError
             XCTAssertEqual(nserror.code, OctagonError.noAccountSettingsSet.rawValue, "error code")
             XCTAssertEqual(nserror.domain, OctagonErrorDomain, "error domain")
         }
         XCTAssertNil(fetchedSetting, "fetched setting should be nil")
+        fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: false, configuration: self.otcliqueContext)
+        XCTAssertEqual(false, fetchedSetting?.walrus.enabled)
+        XCTAssertEqual(true, fetchedSetting?.webAccess.enabled)
     }
 
     func testFetchAccountWideSettingsForceFalse() throws {
@@ -1745,12 +1754,15 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
 
         var fetchedSetting: OTAccountSettings?
-        XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(withForceFetch: false, configuration:self.otcliqueContext), "Should throw an error fetching account settings") { error in 
+        XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(withForceFetch: false, configuration: self.otcliqueContext), "Should throw an error fetching account settings") { error in
             let nserror = error as NSError
             XCTAssertEqual(nserror.code, OctagonError.noAccountSettingsSet.rawValue, "error code")
             XCTAssertEqual(nserror.domain, OctagonErrorDomain, "error domain")
         }
         XCTAssertNil(fetchedSetting, "fetched setting should be nil")
+        fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: false, configuration: self.otcliqueContext)
+        XCTAssertEqual(false, fetchedSetting?.walrus.enabled)
+        XCTAssertEqual(true, fetchedSetting?.webAccess.enabled)
     }
 
     func testFetchAccountWideSettingsForceTrue() throws {
@@ -1758,12 +1770,15 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
 
         var fetchedSetting: OTAccountSettings?
-        XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(withForceFetch: true, configuration:self.otcliqueContext), "Should throw an error fetching account settings") { error in 
+        XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(withForceFetch: true, configuration: self.otcliqueContext), "Should throw an error fetching account settings") { error in
             let nserror = error as NSError
             XCTAssertEqual(nserror.code, OctagonError.noAccountSettingsSet.rawValue, "error code")
             XCTAssertEqual(nserror.domain, OctagonErrorDomain, "error domain")
         }
         XCTAssertNil(fetchedSetting, "fetched setting should be nil")
+        fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: true, configuration: self.otcliqueContext)
+        XCTAssertEqual(false, fetchedSetting?.walrus.enabled)
+        XCTAssertEqual(true, fetchedSetting?.webAccess.enabled)
     }
 
     func testFetchAccountWideSettingsForceTrueNetworkFailure() throws {
@@ -1778,7 +1793,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
 
         var fetchedSetting: OTAccountSettings?
-        XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(withForceFetch: true, configuration:self.otcliqueContext), "Should throw an error fetching account settings") { error in 
+        XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(withForceFetch: true, configuration: self.otcliqueContext), "Should throw an error fetching account settings") { error in
             let nserror = error as NSError
             XCTAssertEqual(nserror.code, NSURLErrorNotConnectedToInternet, "error code")
             XCTAssertEqual(nserror.domain, NSURLErrorDomain, "error domain")
@@ -1882,7 +1897,6 @@ class OctagonWalrusTests: OctagonTestsBase {
         otcliqueContext.context = self.cuttlefishContext.contextID
         otcliqueContext.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
         otcliqueContext.otControl = self.otControl
-        otcliqueContext.dsid = "13453464"
         otcliqueContext.authenticationAppleID = "appleID"
         otcliqueContext.passwordEquivalentToken = "petpetpetpetpet"
         otcliqueContext.ckksControl = self.ckksControl
@@ -1948,7 +1962,6 @@ class OctagonWalrusTests: OctagonTestsBase {
         otcliqueContext.context = self.cuttlefishContext.contextID
         otcliqueContext.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
         otcliqueContext.otControl = self.otControl
-        otcliqueContext.dsid = "13453464"
         otcliqueContext.authenticationAppleID = "appleID"
         otcliqueContext.passwordEquivalentToken = "petpetpetpetpet"
         otcliqueContext.ckksControl = self.ckksControl
@@ -2018,7 +2031,6 @@ class OctagonWalrusTests: OctagonTestsBase {
         otcliqueContext.context = self.cuttlefishContext.contextID
         otcliqueContext.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
         otcliqueContext.otControl = self.otControl
-        otcliqueContext.dsid = "13453464"
         otcliqueContext.authenticationAppleID = "appleID"
         otcliqueContext.passwordEquivalentToken = "petpetpetpetpet"
         otcliqueContext.ckksControl = self.ckksControl
@@ -2145,7 +2157,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting), "Should be able to successfully set walrus setting")
         self.wait(for: [set2Expectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
-        
+
         // Now, join from a new device
         let recoveryContext = self.makeInitiatorContext(contextID: "recovery", authKitAdapter: self.mockAuthKit2)
 
@@ -2167,7 +2179,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             XCTAssertNotNil(setting, "setting should not be nil")
             XCTAssertNil(error, "error should be nil")
             retSettings = settings
-            fetchExpectation.fulfill()            
+            fetchExpectation.fulfill()
         }
         self.wait(for: [fetchExpectation], timeout: 10)
 
@@ -2274,7 +2286,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting), "Should be able to successfully set walrus setting")
         self.wait(for: [set2Expectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
-        
+
         // Now, join from original context
 
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKey callback occurs")
@@ -2291,7 +2303,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             XCTAssertNotNil(setting, "setting should not be nil")
             XCTAssertNil(error, "error should be nil")
             retSettings = settings
-            fetchExpectation.fulfill()            
+            fetchExpectation.fulfill()
         }
         self.wait(for: [fetchExpectation], timeout: 10)
 

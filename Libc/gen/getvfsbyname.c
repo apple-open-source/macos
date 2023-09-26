@@ -67,9 +67,7 @@ int getvfsbyname(const char *, struct vfsconf *);
  * and if it is resident, return its vfsconf structure.
  */
 int
-getvfsbyname(fsname, vfcp)
-	const char *fsname;
-	struct vfsconf *vfcp;
+getvfsbyname(const char *fsname, struct vfsconf *vfcp)
 {
 	int name[4], maxtypenum, cnt;
 	size_t buflen;

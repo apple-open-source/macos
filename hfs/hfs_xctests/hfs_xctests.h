@@ -10,33 +10,20 @@
 
 #import <XCTest/XCTest.h>
 #import <UVFSPluginTesting/UVFSPluginTests.h>
-#import <UVFSPluginTesting/UVFSPluginTestingUtilities.h>
-#include "lf_hfs_fsops_handler.h"
-
 
 @interface HFSUnitTests : UVFSPluginUnitTests
+
+-(void) testFileChangeModeUpdateChangeTime;
+
 @end
 
+@interface HFSPluginUnitTests : HFSUnitTests
+@end
+
+@interface HFSModuleUnitTests : HFSUnitTests
+@end
 
 @interface HFSPerformanceTests : UVFSPluginPerformanceTests
-@end
-
-
-@interface HFSFactory : UVFSPluginInterfacesFactory
-@end
-
-
-@interface HFSSetupDelegate : UVFSPluginSetupDelegate
-
-@property (readonly) TestVolumeUtils* volumeUtils;
-
-@end
-
-
-@interface HFSPluginFilesystem : UVFSPluginFilesystem
-
--(void)mountTestVolume;
-
 @end
 
 #endif /* hfs_xctests_h */

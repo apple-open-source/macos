@@ -26,6 +26,7 @@
 //
 #include "resources.h"
 #include "csutilities.h"
+#include "cserror.h"
 #include <security_utilities/unix++.h>
 #include <security_utilities/debugging.h>
 #include <Security/CSCommon.h>
@@ -382,8 +383,13 @@ CFMutableDictionaryRef ResourceBuilder::hashFile(const char *path, CodeDirectory
 	UnixPlusPlus::AutoFileDesc fd(path);
 	fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
 	if (strictCheck) {
-		if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME) || fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME)) {
-			MacOSError::throwMe(errSecCSInvalidAssociatedFileData);
+		if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME)) {
+			CFStringRef message = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Disallowed xattr %s found on %s"), XATTR_RESOURCEFORK_NAME, path);
+			CSError::throwMe(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, message);
+		}
+		if (fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME)) {
+			CFStringRef message = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Disallowed xattr %s found on %s"), XATTR_FINDERINFO_NAME, path);
+			CSError::throwMe(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, message);
 		}
 	}
 	CFRef<CFMutableDictionaryRef> result = makeCFMutableDictionary();

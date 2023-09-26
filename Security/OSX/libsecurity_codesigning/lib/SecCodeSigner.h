@@ -28,11 +28,11 @@
 #ifndef _H_SECCODESIGNER
 #define _H_SECCODESIGNER
 
+#include <Security/CSCommon.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Security/CSCommon.h>
 
 /*!
 	@typedef SecCodeSignerRef
@@ -238,6 +238,9 @@ SPI_AVAILABLE(macos(13.0), ios(16.0), macCatalyst(16.0));
 extern const CFStringRef kSecCodeSignerLaunchConstraintResponsible
 SPI_AVAILABLE(macos(13.0), ios(16.0), macCatalyst(16.0));
 
+extern const CFStringRef kSecCodeSignerLibraryConstraint
+SPI_AVAILABLE(macos(14.0), ios(17.0), macCatalyst(17.0));
+
 enum {
     kSecCodeSignerPreserveIdentifier = 1 << 0,		// preserve signing identifier
     kSecCodeSignerPreserveRequirements = 1 << 1,	// preserve internal requirements (including DR)
@@ -249,6 +252,7 @@ enum {
 	kSecCodeSignerPreservePEH = 1 << 7,				// preserve pre-encryption hashes
 	kSecCodeSignerPreserveRuntime = 1 << 8,         // preserve the runtime version
 	kSecCodeSignerPreserveLaunchConstraints = 1 << 9, // preserve embedded launch constraints
+    kSecCodeSignerPreserveLibraryConstraints = 1 << 10, // preserve embedded library constraints
 };
 
 
@@ -282,6 +286,7 @@ enum {
 	kSecCSSignGeneratePEH = 1 << 8,		// generate pre-encryption hashes
     kSecCSSignGenerateEntitlementDER = 1 << 9, // generate entitlement DER
     kSecCSEditSignature = 1 << 10,      // edit existing signature
+	kSecCSSingleThreadedSigning = 1 << 11, // disable concurrency when building the resource seal
 };
 
 #ifdef BRIDGED_SECCODESIGNER

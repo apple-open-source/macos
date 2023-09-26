@@ -998,6 +998,10 @@ EAPTLSCheckServerCertificateEAPTrustSettings(SecCertificateRef leaf)
     CFIndex 	count;
 
     status = SecTrustSettingsCopyTrustSettings(leaf, kSecTrustSettingsDomainUser, &trust_settings);
+    if (status == errSecItemNotFound) {
+        /* trust settings may be per-device, so check admin domain as a fallback. */
+        status = SecTrustSettingsCopyTrustSettings(leaf, kSecTrustSettingsDomainAdmin, &trust_settings);
+    }
     if (status != errSecSuccess) {
 	EAPLOG_FL(LOG_INFO, "SecTrustSettingsCopyTrustSettings() returned error: %d", status);
 	goto done;
@@ -1070,6 +1074,8 @@ done:
 static SecTrustRef
 _EAPTLSCreateSecTrust(CFDictionaryRef properties, 
 		      CFArrayRef server_certs,
+		      Boolean revocation_check,
+		      SecTrustRef sec_trust,
 		      OSStatus * ret_status,
 		      EAPClientStatus * ret_client_status,
 		      bool * ret_exceptions_applied,
@@ -1084,13 +1090,15 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     CFIndex		count;
     CFStringRef		domain = NULL;
     CFStringRef		identifier = NULL;
-    SecPolicyRef	policy = NULL;
+    SecPolicyRef	eapPolicy = NULL;
     OSStatus		status = noErr;
     CFStringRef		server_hash_str = NULL;
     CFArrayRef		trusted_certs = NULL;
     CFArrayRef		trusted_server_names;
     SecTrustRef		trust = NULL;
     SecCertificateRef	server_cert = NULL;
+    CFMutableArrayRef 	policies = NULL;
+    SecPolicyRef 	revokePolicy = NULL;
 
     client_status = kEAPClientStatusInternalError;
     if (server_certs == NULL) {
@@ -1103,11 +1111,35 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     server_cert = (SecCertificateRef)CFArrayGetValueAtIndex(server_certs, 0);
     client_status = kEAPClientStatusSecurityError;
     trusted_server_names = get_trusted_server_names(properties);
-    policy = SecPolicyCreateEAP(TRUE, trusted_server_names);
-    if (policy == NULL) {
+    eapPolicy = SecPolicyCreateEAP(TRUE, trusted_server_names);
+    if (eapPolicy == NULL) {
 	goto done;
     }
-    status = SecTrustCreateWithCertificates(server_certs, policy, &trust);
+    if (revocation_check && sec_trust != NULL) {
+	/* revocation status check is enabled (TLS 1.3 Only) & boringssl created trust object is valid */
+	policies = CFArrayCreateMutable(kCFAllocatorDefault,
+							  2, &kCFTypeArrayCallBacks);
+	CFOptionFlags flags = kSecRevocationRequirePositiveResponse |
+				kSecRevocationNetworkAccessDisabled;
+	revokePolicy = SecPolicyCreateRevocation(flags);
+	if (revokePolicy == NULL) {
+	    goto done;
+	}
+	CFArrayAppendValue(policies, eapPolicy);
+	CFArrayAppendValue(policies, revokePolicy);
+	/* override the original SSL policy with EAP+Revocation Policy */
+	status = SecTrustSetPolicies(sec_trust, policies);
+	if (status != noErr) {
+	    EAPLOG_FL(LOG_NOTICE,
+		      "SecTrustSetPolicies failed, %s (%d)",
+		      EAPSecurityErrorString(status), (int)status);
+	    goto done;
+	}
+	trust = CFRetain(sec_trust);
+	EAPLOG_FL(LOG_DEBUG, "TLS 1.3 SecTrust object is created sucessfully");
+    } else {
+	status = SecTrustCreateWithCertificates(server_certs, eapPolicy, &trust);
+    }
     if (status != noErr) {
 	EAPLOG_FL(LOG_NOTICE, 
 		  "SecTrustCreateWithCertificates failed, %s (%d)",
@@ -1190,14 +1222,40 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     if (ret_client_status != NULL) {
 	*ret_client_status = client_status;
     }
-    my_CFRelease(&policy);
+    my_CFRelease(&eapPolicy);
+    my_CFRelease(&revokePolicy);
+    my_CFRelease(&policies);
     my_CFRelease(&trusted_certs);
     return (trust);
+}
+
+static Boolean
+_EAPTLSIsRevocationStatusCheckComplete(SecTrustRef trust)
+{
+    CFDictionaryRef 	result = NULL;
+    CFTypeRef 		value = NULL;
+    Boolean 		ret = FALSE;
+
+    result = SecTrustCopyResult(trust);
+    if (result == NULL) {
+	goto failed;
+    }
+    EAPLOG_FL(LOG_NOTICE, "trust result: %@", result);
+    bool present = CFDictionaryGetValueIfPresent(result, kSecTrustRevocationChecked, &value);
+    if (present == false) {
+	goto failed;
+    }
+    ret = CFBooleanGetValue(value);
+failed:
+    my_CFRelease(&result);
+    return ret;
 }
 
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties, 
 				   CFArrayRef server_certs,
+				   Boolean revocation_check,
+				   SecTrustRef sec_trust,
 				   OSStatus * ret_status)
 {
     bool		exceptions_applied = FALSE;
@@ -1211,6 +1269,8 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 
     trust = _EAPTLSCreateSecTrust(properties, 
 				  server_certs,
+				  revocation_check,
+				  sec_trust,
 				  &status,
 				  &client_status,
 				  &exceptions_applied,
@@ -1250,6 +1310,14 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	goto done;
     }
     EAPLOG_FL(LOG_INFO, "trust evaluation result: %d", trust_result);
+    if (revocation_check) {
+	/* if revocation status check was enabled it must be complete */
+	Boolean check_completed = _EAPTLSIsRevocationStatusCheckComplete(trust);
+	if (check_completed == FALSE) {
+	    EAPLOG_FL(LOG_ERR, "revocation status check is incomplete");
+	    trust_result = kSecTrustResultOtherError;
+	}
+    }
     switch (trust_result) {
     case kSecTrustResultProceed:
 	if (exceptions_applied && trust_settings_applied) {
@@ -1609,7 +1677,7 @@ eaptls_create_sectrust(CFDictionaryRef properties, CFArrayRef server_certs,
     dict = CFDictionaryCreateMutableCopy(NULL, 0, properties);
     CFDictionarySetValue(dict, kEAPClientPropTLSTrustExceptionsDomain, domain);
     CFDictionarySetValue(dict, kEAPClientPropTLSTrustExceptionsID, identifier);
-    trust = _EAPTLSCreateSecTrust(dict, server_certs,
+    trust = _EAPTLSCreateSecTrust(dict, server_certs, FALSE, NULL,
 				  NULL, NULL, NULL, NULL, NULL, NULL);
     my_CFRelease(&dict);
     return (trust);
@@ -1852,6 +1920,8 @@ main(int argc, char * argv[])
     
     status = EAPTLSVerifyServerCertificateChain(properties, 
 						array,
+						FALSE,
+						NULL,
 						&sec_status);
     printf("status is %d, sec status is %d\n", 
 	   status, sec_status);

@@ -30,6 +30,7 @@
 #include "unicode/ures.h"
 #include "unicode/ustring.h"
 #include "unicode/filteredbrk.h"
+#include "bytesinkutil.h"
 #include "ucln_cmn.h"
 #include "cstring.h"
 #include "umutex.h"
@@ -115,7 +116,7 @@ BreakIterator::buildInstance(const Locale& loc, const char *type, UErrorCode &st
     }
 
     // Create a RuleBasedBreakIterator
-    result = new RuleBasedBreakIterator(file, status);
+    result = new RuleBasedBreakIterator(file, uprv_strstr(type, "phrase") != NULL, status);
 
     // If there is a result, set the valid locale and actual locale, and the kind
     if (U_SUCCESS(status) && result != NULL) {
@@ -200,7 +201,10 @@ BreakIterator::getAvailableLocales(int32_t& count)
 //-------------------------------------------
 
 BreakIterator::BreakIterator()
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
 : fLineWordOpts(UBRK_LINEWORD_NORMAL)
+#endif // APPLE_ICU_CHANGES
 {
     *validLocale = *actualLocale = 0;
 }
@@ -279,7 +283,7 @@ ICUBreakIteratorService::~ICUBreakIteratorService() {}
 // defined in ucln_cmn.h
 U_NAMESPACE_END
 
-static icu::UInitOnce gInitOnceBrkiter = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gInitOnceBrkiter {};
 static icu::ICULocaleService* gService = NULL;
 
 
@@ -296,7 +300,7 @@ static UBool U_CALLCONV breakiterator_cleanup(void) {
     }
     gInitOnceBrkiter.reset();
 #endif
-    return TRUE;
+    return true;
 }
 U_CDECL_END
 U_NAMESPACE_BEGIN
@@ -347,7 +351,7 @@ BreakIterator::unregister(URegistryKey key, UErrorCode& status)
         }
         status = U_MEMORY_ALLOCATION_ERROR;
     }
-    return FALSE;
+    return false;
 }
 
 // -------------------------------------
@@ -409,7 +413,6 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
     if (U_FAILURE(status)) {
         return NULL;
     }
-    char lbType[kKeyValueLenMax];
 
     BreakIterator *result = NULL;
     switch (kind) {
@@ -429,33 +432,57 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
         break;
     case UBRK_LINE:
         {
+            char lb_lw[kKeyValueLenMax];
             UTRACE_ENTRY(UTRACE_UBRK_CREATE_LINE);
-            uprv_strcpy(lbType, "line");
-            char lbKeyValue[kKeyValueLenMax] = {0};
+            uprv_strcpy(lb_lw, "line");
             UErrorCode kvStatus = U_ZERO_ERROR;
-            int32_t kLen = loc.getKeywordValue("lb", lbKeyValue, kKeyValueLenMax, kvStatus);
-            if (U_SUCCESS(kvStatus) && kLen > 0 && (uprv_strcmp(lbKeyValue,"strict")==0 || uprv_strcmp(lbKeyValue,"normal")==0 || uprv_strcmp(lbKeyValue,"loose")==0)) {
-                uprv_strcat(lbType, "_");
-                uprv_strcat(lbType, lbKeyValue);
+            CharString value;
+            CharStringByteSink valueSink(&value);
+            loc.getKeywordValue("lb", valueSink, kvStatus);
+            if (U_SUCCESS(kvStatus) && (value == "strict" || value == "normal" || value == "loose")) {
+                uprv_strcat(lb_lw, "_");
+                uprv_strcat(lb_lw, value.data());
             }
-            result = BreakIterator::buildInstance(loc, lbType, status);
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
+            value.clear();
+            kvStatus = U_ZERO_ERROR;
+            loc.getKeywordValue("lw", valueSink, kvStatus);
+            // lw=phrase is only supported in Japanese.
+            if (U_SUCCESS(kvStatus) && value == "phrase" && uprv_strcmp(loc.getLanguage(), "ja") == 0) {
+                uprv_strcat(lb_lw, "_");
+                uprv_strcat(lb_lw, value.data());
+            }
+#else
+            // lw=phrase is only supported in Japanese.
+            if (uprv_strcmp(loc.getLanguage(), "ja") == 0) {
+                value.clear();
+                loc.getKeywordValue("lw", valueSink, kvStatus);
+                if (U_SUCCESS(kvStatus) && value == "phrase") {
+                    uprv_strcat(lb_lw, "_");
+                    uprv_strcat(lb_lw, value.data());
+                }
+            }
+#endif // APPLE_ICU_CHANGES
+            result = BreakIterator::buildInstance(loc, lb_lw, status);
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
             if (U_SUCCESS(status) && result != NULL) {
-                char lwKeyValue[kKeyValueLenMax] = {0};
-                UErrorCode kvStatus = U_ZERO_ERROR;
-                int32_t kLen = loc.getKeywordValue("lw", lwKeyValue, kKeyValueLenMax, kvStatus);
                 ULineWordOptions lineWordOpts = UBRK_LINEWORD_NORMAL;
-                if (U_SUCCESS(kvStatus) && kLen > 0) {
-                    if (uprv_strcmp(lwKeyValue,"keepall")==0 || uprv_strcmp(lwKeyValue,"keep-all")==0) {
+                if (U_SUCCESS(kvStatus)) {
+                    if (value == "keepall" || value == "keep-all") {
                         lineWordOpts = UBRK_LINEWORD_KEEP_ALL;
-                    } else if (uprv_strcmp(lwKeyValue,"keep-hangul")==0) {
+                    } else if (value == "keep-hangul") {
                         lineWordOpts = UBRK_LINEWORD_KEEP_HANGUL;
                     }
                 }
                 result->setLineWordOpts(lineWordOpts);
-                ((RuleBasedBreakIterator *)result)->setCategoryOverrides(loc); // <rdar://problem/51193810>
+                // rdar://51193810 for line break, remap locale delimiters that are QU to OP/CL as appropriate
+                ((RuleBasedBreakIterator *)result)->setCategoryOverrides(loc); 
             }
+#endif // APPLE_ICU_CHANGES
 
-            UTRACE_DATA1(UTRACE_INFO, "lb=%s", lbKeyValue);
+            UTRACE_DATA1(UTRACE_INFO, "lb_lw=%s", lb_lw);
             UTRACE_EXIT_STATUS(status);
         }
         break;

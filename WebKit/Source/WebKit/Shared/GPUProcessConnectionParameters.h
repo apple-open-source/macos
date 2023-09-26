@@ -35,12 +35,13 @@ namespace WebKit {
 
 struct GPUProcessConnectionParameters {
     WebCore::ProcessIdentity webProcessIdentity;
-    Vector<String> overrideLanguages;
+    bool isDOMRenderingEnabled { false };
     bool isLockdownModeEnabled { false };
     bool isWebGPUEnabled { false };
 #if ENABLE(IPC_TESTING_API)
     bool ignoreInvalidMessageForTesting { false };
 #endif
+    bool allowTestOnlyIPC { false };
 #if HAVE(AUDIT_TOKEN)
     std::optional<audit_token_t> presentingApplicationAuditToken;
 #endif
@@ -48,63 +49,8 @@ struct GPUProcessConnectionParameters {
     std::optional<bool> hasVP9HardwareDecoder;
     std::optional<bool> hasVP9ExtensionSupport;
 #endif
-
-    void encode(IPC::Encoder& encoder) const
-    {
-        encoder << webProcessIdentity;
-        encoder << overrideLanguages;
-        encoder << isLockdownModeEnabled;
-        encoder << isWebGPUEnabled;
-#if ENABLE(IPC_TESTING_API)
-        encoder << ignoreInvalidMessageForTesting;
-#endif
-#if HAVE(AUDIT_TOKEN)
-        encoder << presentingApplicationAuditToken;
-#endif
-#if ENABLE(VP9)
-        encoder << hasVP9HardwareDecoder;
-        encoder << hasVP9ExtensionSupport;
-#endif
-    }
-
-    static std::optional<GPUProcessConnectionParameters> decode(IPC::Decoder& decoder)
-    {
-        auto webProcessIdentity = decoder.decode<WebCore::ProcessIdentity>();
-        auto overrideLanguages = decoder.decode<Vector<String>>();
-        auto isLockdownModeEnabled = decoder.decode<bool>();
-        auto isWebGPUEnabled = decoder.decode<bool>();
-#if ENABLE(IPC_TESTING_API)
-        auto ignoreInvalidMessageForTesting = decoder.decode<bool>();
-#endif
-#if HAVE(AUDIT_TOKEN)
-        auto presentingApplicationAuditToken = decoder.decode<std::optional<audit_token_t>>();
-#endif
-#if ENABLE(VP9)
-        auto hasVP9HardwareDecoder = decoder.decode<std::optional<bool>>();
-        auto hasVP9ExtensionSupport = decoder.decode<std::optional<bool>>();
-#endif
-        if (!decoder.isValid())
-            return std::nullopt;
-
-        return GPUProcessConnectionParameters {
-            WTFMove(*webProcessIdentity),
-            WTFMove(*overrideLanguages),
-            *isLockdownModeEnabled,
-            *isWebGPUEnabled,
-#if ENABLE(IPC_TESTING_API)
-            *ignoreInvalidMessageForTesting,
-#endif
-#if HAVE(AUDIT_TOKEN)
-            WTFMove(*presentingApplicationAuditToken),
-#endif
-#if ENABLE(VP9)
-            WTFMove(*hasVP9HardwareDecoder),
-            WTFMove(*hasVP9ExtensionSupport),
-#endif
-        };
-    }
 };
 
-} // namespace WebKit
+}; // namespace WebKit
 
 #endif // ENABLE(GPU_PROCESS)

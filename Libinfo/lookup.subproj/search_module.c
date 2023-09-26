@@ -945,15 +945,20 @@ si_module_static_search(void)
 		/*
 		 * Default search order:
 		 * 1) cache
-		 * 2) DirectoryService/OpenDirectory (where available)
-		 * 3) flat file
-		 * 4) mDNSResponder
+		 * 2) Darwin Directory (where available)
+		 * 3) User Management (where available)
+		 * 4) DirectoryService/OpenDirectory (where available)
+		 * 5) flat file
+		 * 6) mDNSResponder
 		 */
 
 		const char * const modules[] =
 		{
 			"default", // CATEGORY_DEFAULT
 			"cache",
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+			"darwin_directory",
+#endif
 #ifdef MUSER_AVAILABLE
 			"muser",
 #endif

@@ -37,7 +37,6 @@
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NotImplemented.h>
-#include <WebCore/ResourceHandle.h>
 #include <WebCore/SoupNetworkSession.h>
 #include <libsoup/soup.h>
 #include <wtf/CallbackAggregator.h>
@@ -135,7 +134,10 @@ void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreati
     }
 
     m_cacheOptions = { NetworkCache::CacheOption::RegisterNotify };
-    supplement<WebCookieManager>()->setHTTPCookieAcceptPolicy(parameters.cookieAcceptPolicy, []() { });
+    // FIXME: NetworkProcess probably does not have session at this point.
+    forEachNetworkSession([&](NetworkSession& session) {
+        supplement<WebCookieManager>()->setHTTPCookieAcceptPolicy(session.sessionID(), parameters.cookieAcceptPolicy, []() { });
+    });
 
     if (!parameters.languages.isEmpty())
         userPreferredLanguagesChanged(parameters.languages);

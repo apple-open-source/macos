@@ -9,15 +9,19 @@
 
 #include "unicode/utypes.h"
 
-#include "unicode/localpointer.h"
 #include "unicode/ucpmap.h"
 #include "unicode/ucptrie.h"
 #include "unicode/utf8.h"
 
+#if U_SHOW_CPLUSPLUS_API
+#include "unicode/localpointer.h"
+#endif   // U_SHOW_CPLUSPLUS_API
+
+U_CDECL_BEGIN
+
 /**
  * \file
- *
- * This file defines a mutable Unicode code point trie.
+ * \brief C API: This file defines a mutable Unicode code point trie.
  *
  * @see UCPTrie
  * @see UMutableCPTrie
@@ -80,25 +84,6 @@ umutablecptrie_clone(const UMutableCPTrie *other, UErrorCode *pErrorCode);
  */
 U_CAPI void U_EXPORT2
 umutablecptrie_close(UMutableCPTrie *trie);
-
-#if U_SHOW_CPLUSPLUS_API
-
-U_NAMESPACE_BEGIN
-
-/**
- * \class LocalUMutableCPTriePointer
- * "Smart pointer" class, closes a UMutableCPTrie via umutablecptrie_close().
- * For most methods see the LocalPointerBase base class.
- *
- * @see LocalPointerBase
- * @see LocalPointer
- * @stable ICU 63
- */
-U_DEFINE_LOCAL_OPEN_POINTER(LocalUMutableCPTriePointer, UMutableCPTrie, umutablecptrie_close);
-
-U_NAMESPACE_END
-
-#endif
 
 /**
  * Creates a mutable trie with the same contents as the UCPMap.
@@ -230,5 +215,26 @@ umutablecptrie_setRange(UMutableCPTrie *trie,
 U_CAPI UCPTrie * U_EXPORT2
 umutablecptrie_buildImmutable(UMutableCPTrie *trie, UCPTrieType type, UCPTrieValueWidth valueWidth,
                               UErrorCode *pErrorCode);
+
+U_CDECL_END
+
+#if U_SHOW_CPLUSPLUS_API
+
+U_NAMESPACE_BEGIN
+
+/**
+ * \class LocalUMutableCPTriePointer
+ * "Smart pointer" class, closes a UMutableCPTrie via umutablecptrie_close().
+ * For most methods see the LocalPointerBase base class.
+ *
+ * @see LocalPointerBase
+ * @see LocalPointer
+ * @stable ICU 63
+ */
+U_DEFINE_LOCAL_OPEN_POINTER(LocalUMutableCPTriePointer, UMutableCPTrie, umutablecptrie_close);
+
+U_NAMESPACE_END
+
+#endif
 
 #endif

@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2022 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd March 30, 2022
+.Dd October 5, 2022
 .Dt COPYFILE 3
 .Os
 .Sh NAME
@@ -374,6 +374,19 @@ are pointers to
 .Vt uint32_t
 (type
 .Vt uint32_t\ * ).
+.It Dv COPYFILE_STATE_FORBID_CROSS_MOUNT
+Get or set the current setting for crossing mount points during a
+.Dv COPYFILE_RECURSIVE
+operation.
+By default, recursive copying descends into directories
+that have a different device number than the directory from which
+the descent began.
+The
+.Va dst
+parameter is a pointer to
+.Vt bool
+(type
+.Vt bool\ * ).
 .El
 .Sh Recursive Copies
 When given the
@@ -409,6 +422,10 @@ something other than a directory).
 The object being copied is a directory, and is being
 entered.  (That is, none of the filesystem objects contained
 within the directory have been copied yet.)
+When
+.Dv COPYFILE_STATE_FORBID_CROSS_MOUNT
+is set, the call-back function will be skipped for any encountered
+mount points.
 .It Dv COPYFILE_RECURSE_DIR_CLEANUP
 The object being copied is a directory, and all of the
 objects contained have been copied.

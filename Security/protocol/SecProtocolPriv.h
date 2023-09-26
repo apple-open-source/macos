@@ -61,6 +61,13 @@ typedef dispatch_data_t _Nullable (*sec_protocol_metadata_exporter)(void * handl
 
 typedef dispatch_data_t _Nullable (*sec_protocol_metadata_session_exporter)(void *handle);
 
+typedef dispatch_data_t _Nullable (*sec_protocol_metadata_copy_authenticator_f)(void *handle, sec_identity_t identity,
+                                                                                const void * _Nullable context, size_t context_size);
+
+typedef sec_trust_t _Nullable (*sec_protocol_metadata_copy_authenticator_trust_f)(void *handle,
+                                                                                  const void *authenticator, size_t authenticator_size,
+                                                                                  const void * _Nullable context, size_t context_size);
+
 typedef bool (^sec_access_block_t)(void *handle);
 
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
@@ -970,6 +977,61 @@ SEC_RETURNS_RETAINED __nullable dispatch_data_t
 sec_protocol_metadata_copy_serialized_session(sec_protocol_metadata_t metadata);
 
 /*!
+ * @function sec_protocol_metadata_copy_authenticator
+ *
+ * @abstract
+ *      Copy an exported authenticator.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param identity
+ *      The identity to sign and include in the authenticator.
+ *
+ * @param context
+ *      An optional authenticator request context.
+ *
+ * @param context_size
+ *      The size of the optional authenticator request context.
+ *
+ * @return A `dispatch_data_t` object containing the authenticator.
+ */
+SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0))
+SEC_RETURNS_RETAINED __nullable dispatch_data_t
+sec_protocol_metadata_copy_authenticator(sec_protocol_metadata_t metadata, sec_identity_t identity,
+                                         const void * _Nullable context, size_t context_size);
+
+/*!
+ * @function sec_protocol_metadata_validate_authenticator
+ *
+ * @abstract
+ *      Validate an authenticator.
+ *
+ * @param metadata
+ *      A`sec_protocol_metadata_t` instance.
+ *
+ * @param authenticator
+ *      The authenticator to be validated.
+ *
+ * @param authenticator_size
+ *      The length of the authenticator.
+ *
+ * @param context
+ *      An optional authenticator request context.
+ *
+ * @param context_size
+ *      The size of the optional authenticator request context.
+ *
+ * @return An array of sec_trust objects, which the caller must validate
+ */
+#define SEC_PROTOCOL_HAS_EXPORTED_AUTHENTICATOR 2
+SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0))
+SEC_RETURNS_RETAINED __nullable sec_trust_t
+sec_protocol_metadata_copy_authenticator_trust(sec_protocol_metadata_t metadata,
+                                               const void *authenticator, size_t authenticator_size,
+                                               const void * _Nullable context, size_t context_size);
+
+/*!
  * @function sec_protocol_metadata_access_handle
  *
  * @abstract
@@ -1492,6 +1554,82 @@ SPI_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0))
 void
 sec_protocol_options_set_resumed_session_ticket_request(sec_protocol_options_t options, uint8_t count);
 
+#pragma mark - EAP protocol support
+
+#define SEC_PROTOCOL_HAS_EAP_SUPPORT 1
+
+/*
+ * EAP Key Material Size
+ * https://www.rfc-editor.org/rfc/rfc5216#section-2.3
+ * https://www.rfc-editor.org/rfc/rfc9190.html#section-2.3
+ */
+#define EAP_KEY_MATERIAL_SIZE 128
+
+typedef CF_ENUM(uint8_t, sec_protocol_options_eap_method_t) {
+    sec_protocol_options_eap_method_none = 0, // None
+    sec_protocol_options_eap_method_tls = 1, // EAP-TLS
+    sec_protocol_options_eap_method_ttls = 2, // EAP-TTLS
+    sec_protocol_options_eap_method_peap = 3, // PEAP
+    sec_protocol_options_eap_method_fast = 4, // EAP-FAST
+    sec_protocol_options_eap_method_max = sec_protocol_options_eap_method_tls, // Only EAP-TLS uses boringssl currently
+};
+
+/*!
+ * @function sec_protocol_options_set_eap_method
+ *
+ * @abstract
+ *      Set the EAP method that's responsible for this TLS handshake.
+ *      This will allow boringssl to compute key material for the specified EAP method after a successful handshake.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param eap_method
+ *      A `sec_protocol_options_eap_method_t` value.
+ */
+SPI_AVAILABLE(macos(14.0), ios(17.0), watchos(10.0), tvos(17.0))
+void
+sec_protocol_options_set_eap_method(sec_protocol_options_t options, sec_protocol_options_eap_method_t eap_method);
+
+/*!
+ * @function sec_protocol_options_get_eap_method
+ *
+ * @abstract
+ *      Get the previously set EAP method using sec_protocol_options_set_eap_method.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @return A `sec_protocol_options_eap_method_t` value.
+ */
+SPI_AVAILABLE(macos(14.0), ios(17.0), watchos(10.0), tvos(17.0))
+sec_protocol_options_eap_method_t
+sec_protocol_options_get_eap_method(sec_protocol_options_t options);
+
+/*!
+ * @function sec_protocol_metadata_get_eap_key_material
+ *
+ * @abstract
+ *      Get EAP key material computed after a successful TLS handshake.
+ *      Maximum length of the key material is 128 octets. Caller must specify
+ *      the length of key material that it wants, based on its requirements.
+ *      The specified length must not be more than 128 octets.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param key
+ *      Caller allocated buffer to copy the EAP key material to
+ *
+ * @param key_length
+ *      Length of EAP key metrial to be copied to the key parameter
+ *
+ * @return true if the key material is copied successfully
+ */
+SPI_AVAILABLE(macos(14.0), ios(17.0), watchos(10.0), tvos(17.0))
+bool
+sec_protocol_metadata_get_eap_key_material(sec_protocol_metadata_t metadata, uint8_t *key, size_t key_length);
+
 struct sec_protocol_options_content {
     tls_protocol_version_t min_version;
     tls_protocol_version_t max_version;
@@ -1550,6 +1688,9 @@ struct sec_protocol_options_content {
     uint8_t * _Nullable quic_early_data_context;
     const void * _Nullable nw_protocol_joining_context;
     size_t quic_early_data_context_len;
+
+    // EAP method settings. 0 means the TLS is not being used by EAP protocol.
+    sec_protocol_options_eap_method_t eap_method;
 
     // Boolean flags
     unsigned ats_required : 1;
@@ -1638,6 +1779,9 @@ struct sec_protocol_metadata_content {
     size_t write_stall_count;
     size_t async_call_count;
 
+    // EAP key material
+    uint8_t * _Nullable eap_key_material;
+
     unsigned failure : 1;
     unsigned sct_enabled : 1;
     unsigned ocsp_enabled : 1;
@@ -1652,6 +1796,10 @@ struct sec_protocol_metadata_content {
     unsigned npn_used : 1;
     unsigned early_data_sent : 1;
     unsigned certificate_compression_used : 1;
+
+    sec_protocol_metadata_copy_authenticator_f copy_authenticator_function;
+    sec_protocol_metadata_copy_authenticator_trust_f copy_authenticator_trust_function;
+    void *authenticator_context; // Opaque context for the authenticator functions
 };
 
 SEC_ASSUME_NONNULL_END

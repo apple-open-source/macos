@@ -63,6 +63,7 @@
     HeimCredGlobalCTX.decryptData = ksDecryptData;
     HeimCredGlobalCTX.managedAppManager = self.mockManagedAppManager;
     HeimCredGlobalCTX.useUidMatching = NO;
+    HeimCredGlobalCTX.disableNTLMReflectionDetection = NO;
     HeimCredGlobalCTX.verifyAppleSigned = verifyAppleSignedMock;
     HeimCredGlobalCTX.sessionExists = sessionExistsMock;
     HeimCredGlobalCTX.saveToDiskIfNeeded = saveToDiskIfNeededMock;
@@ -89,6 +90,7 @@
     _HeimCredRegisterKerberos();
     _HeimCredRegisterKerberosAcquireCred();
     _HeimCredRegisterNTLM();
+    _HeimCredRegisterNTLMReflection();
     
     CFRELEASE_NULL(HeimCredCTX.globalSchema);
     
@@ -100,7 +102,10 @@
     _HeimCredInitCommon();
     CFRELEASE_NULL(HeimCredCTX.sessions);
     HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    
+
+    CFRELEASE_NULL(HeimCredCTX.challenges);
+    HeimCredCTX.challenges = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
     //always start clean
     NSError *error;
     [[NSFileManager defaultManager] removeItemAtPath:archivePath error:&error];
@@ -2044,6 +2049,88 @@
 
     CFRELEASE_NULL(uuid);
 }
+
+- (void)testNTLMCreateFetch
+{
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+    
+    CFDictionaryRef replyAttributes;
+    bool worked = [GSSCredTestUtil createNTLMCredential:self.peer returningDictionary:&replyAttributes];
+    XCTAssertTrue(worked, "Credential should be created successfully");
+
+    XCTAssertNil(CFDictionaryGetValue(replyAttributes, kHEIMAttrData), "the NTLM hash should not be in the response");
+
+    CFRELEASE_NULL(replyAttributes);
+}
+
+- (void)testNTLMChallenge
+{
+
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    uint8_t challenge[8] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+
+    BOOL worked = [GSSCredTestUtil addNTLMChallenge:self.peer challenge:challenge];
+    XCTAssertTrue(worked, "Challenge should be created successfully");
+
+    BOOL match = [GSSCredTestUtil checkNTLMChallenge:self.peer challenge:challenge];
+    XCTAssertTrue(match, "Challenge should exist");
+
+    uint8_t not_challenge[8] = { 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01 };
+
+    match = [GSSCredTestUtil checkNTLMChallenge:self.peer challenge:not_challenge];
+    XCTAssertFalse(match, "Challenge should not exist");
+
+}
+
+- (void)testDisableNTLMChallengeDetection
+{
+
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    uint8_t challenge[8] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+
+    BOOL worked = [GSSCredTestUtil addNTLMChallenge:self.peer challenge:challenge];
+    XCTAssertTrue(worked, "Challenge should be created successfully");
+
+    BOOL match = [GSSCredTestUtil checkNTLMChallenge:self.peer challenge:challenge];
+    XCTAssertTrue(match, "Challenge should exist");
+
+    HeimCredGlobalCTX.disableNTLMReflectionDetection = YES;
+
+    match = [GSSCredTestUtil checkNTLMChallenge:self.peer challenge:challenge];
+    XCTAssertFalse(match, "Challenge should not exist");
+
+}
+
+- (void)testNTLMChallengeLoadSave
+{
+
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    uint8_t challenge[8] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+
+    BOOL worked = [GSSCredTestUtil addNTLMChallenge:self.peer challenge:challenge];
+    XCTAssertTrue(worked, "Challenge should be created successfully");
+
+    BOOL match = [GSSCredTestUtil checkNTLMChallenge:self.peer challenge:challenge];
+    XCTAssertTrue(match, "Challenge should exist");
+
+    [GSSCredTestUtil freePeer:self.peer];
+
+    CFRELEASE_NULL(HeimCredCTX.challenges);
+    HeimCredCTX.challenges = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    readCredCache();
+
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+    
+    match = [GSSCredTestUtil checkNTLMChallenge:self.peer challenge:challenge];
+    XCTAssertTrue(match, "Challenge should exist after load");
+
+}
+
+
 
 // mocks
 

@@ -330,10 +330,7 @@ static size_t SecBase64Decode_(  char const      *src
                                 *badChar    =   begin;
                                 return 0;
                             }
-                            else
-                            {
-                                /* Fall through */
-                            }
+                            [[fallthrough]];
                         case    '\r':
                         case    '\n':
                             continue;
@@ -431,7 +428,7 @@ size_t SecBase64Encode2( void const *src
             {
                 break;
             }
-            /* Fall through to 64 */
+            [[fallthrough]];
         case    kSecB64_F_LINE_LEN_64:
             lineLen = 64;
             break;
@@ -440,6 +437,8 @@ size_t SecBase64Encode2( void const *src
             break;
         default:
             assert(false); // "Bad line length flag specified to SecBase64Encode2()"
+            *rc = kSecB64_R_DATA_ERROR;
+            return 0;
         case    kSecB64_F_LINE_LEN_INFINITE:
             lineLen = 0;
             break;

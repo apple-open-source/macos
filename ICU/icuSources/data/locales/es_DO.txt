@@ -13,10 +13,10 @@ es_DO{
     calendar{
         generic{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d 'de' MMMM 'de' y G",
                 "d 'de' MMMM 'de' y G",
                 "dd/MM/y G",
@@ -44,14 +44,14 @@ es_DO{
                 "p. m.",
             }
             AmPmMarkersAbbr{
-                "a. m.",
-                "p. m.",
+                "a. m.",
+                "p. m.",
             }
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d 'de' MMMM 'de' y",
                 "d 'de' MMMM 'de' y",
                 "d MMM y",
@@ -99,12 +99,10 @@ es_DO{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        am{"a. m."}
-                        pm{"p. m."}
-                    }
                     narrow{
+                        am{"a. m."}
                         noon{"m."}
+                        pm{"p. m."}
                     }
                     wide{
                         am{"a. m."}
@@ -172,16 +170,10 @@ es_DO{
     }
     listPattern{
         unit-narrow{
-            2{"{0} {1}"}
             end{"{0} y {1}"}
-            middle{"{0} {1}"}
-            start{"{0} {1}"}
         }
         unit-short{
-            2{"{0} y {1}"}
             end{"{0} y {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
     }
 }

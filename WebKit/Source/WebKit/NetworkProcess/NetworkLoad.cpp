@@ -28,6 +28,7 @@
 
 #include "AuthenticationChallengeDisposition.h"
 #include "AuthenticationManager.h"
+#include "MessageSenderInlines.h"
 #include "NetworkDataTaskBlob.h"
 #include "NetworkLoadScheduler.h"
 #include "NetworkProcess.h"
@@ -44,14 +45,14 @@ namespace WebKit {
 
 using namespace WebCore;
 
-NetworkLoad::NetworkLoad(NetworkLoadClient& client, BlobRegistryImpl* blobRegistry, NetworkLoadParameters&& parameters, NetworkSession& networkSession)
+NetworkLoad::NetworkLoad(NetworkLoadClient& client, NetworkLoadParameters&& parameters, NetworkSession& networkSession)
     : m_client(client)
     , m_networkProcess(networkSession.networkProcess())
     , m_parameters(WTFMove(parameters))
     , m_currentRequest(m_parameters.request)
 {
-    if (blobRegistry && m_parameters.request.url().protocolIsBlob())
-        m_task = NetworkDataTaskBlob::create(networkSession, *blobRegistry, *this, m_parameters.request, m_parameters.contentSniffingPolicy, m_parameters.blobFileReferences);
+    if (m_parameters.request.url().protocolIsBlob())
+        m_task = NetworkDataTaskBlob::create(networkSession, *this, m_parameters.request, m_parameters.blobFileReferences);
     else
         m_task = NetworkDataTask::create(networkSession, *this, m_parameters);
 }
@@ -100,7 +101,6 @@ static inline void updateRequest(ResourceRequest& currentRequest, const Resource
 #if PLATFORM(COCOA)
     currentRequest.updateFromDelegatePreservingOldProperties(newRequest.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
 #else
-    // FIXME: Implement ResourceRequest::updateFromDelegatePreservingOldProperties. See https://bugs.webkit.org/show_bug.cgi?id=126127.
     currentRequest.updateFromDelegatePreservingOldProperties(newRequest);
 #endif
 }
@@ -229,6 +229,11 @@ void NetworkLoad::didReceiveChallenge(AuthenticationChallenge&& challenge, Negot
         m_networkProcess->authenticationManager().didReceiveAuthenticationChallenge(m_task->sessionID(), m_parameters.webPageProxyID, m_parameters.topOrigin ? &m_parameters.topOrigin->data() : nullptr, challenge, negotiatedLegacyTLS, WTFMove(completionHandler));
 }
 
+void NetworkLoad::didReceiveInformationalResponse(ResourceResponse&& response)
+{
+    m_client.get().didReceiveInformationalResponse(WTFMove(response));
+}
+
 void NetworkLoad::didReceiveResponse(ResourceResponse&& response, NegotiatedLegacyTLS negotiatedLegacyTLS, PrivateRelayed privateRelayed, ResponseCompletionHandler&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
@@ -249,12 +254,12 @@ void NetworkLoad::notifyDidReceiveResponse(ResourceResponse&& response, Negotiat
     ASSERT(RunLoop::isMain());
 
     if (m_parameters.needsCertificateInfo) {
-        Span<const std::byte> auditToken;
+        std::span<const std::byte> auditToken;
 
 #if PLATFORM(COCOA)
         auto token = m_networkProcess->sourceApplicationAuditToken();
         if (token)
-            auditToken = asBytes(Span<unsigned> { token->val });
+            auditToken = std::as_bytes(std::span<unsigned> { token->val });
 #endif
 
         response.includeCertificateInfo(auditToken);

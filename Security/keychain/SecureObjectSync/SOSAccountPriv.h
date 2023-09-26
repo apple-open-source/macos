@@ -131,7 +131,7 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 
 @property   (nonatomic, assign)     BOOL                        accountInScriptBypassMode;
 
-
+@property   (nonatomic, assign)     BOOL                        sosCompatibilityMode;
 
 -(id) init NS_UNAVAILABLE;
 -(id) initWithGestalt:(CFDictionaryRef)gestalt factory:(SOSDataSourceFactoryRef)factory;
@@ -153,11 +153,11 @@ void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
 + (SOSAccountGhostBustingOptions) ghostBustGetRampSettings;
 - (bool) ghostBustCheckDate;
 
-- (void) sosDisable;
-- (void) sosEnable;
-- (void) sosIsEnabledCB: (void(^)(bool result)) complete;
-- (bool) sosIsEnabled;
-- (NSString *) sosIsEnabledString;
+- (void) SOSMonitorModeDisableSOS;
+- (void) SOSMonitorModeEnableSOS;
+- (void) SOSMonitorModeSOSIsActiveWithCallback: (void(^)(bool result)) complete;
+- (bool) SOSMonitorModeSOSIsActive;
+- (NSString *) SOSMonitorModeSOSIsActiveDescription;
 - (bool) sosEvaluateIfNeeded;
 - (void)triggerRingUpdateNow:(void ((^))(NSError *error))reply;
 

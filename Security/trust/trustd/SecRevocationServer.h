@@ -57,6 +57,8 @@ struct OpaqueSecRVC {
 };
 typedef struct OpaqueSecRVC *SecRVCRef;
 
+CF_RETURNS_RETAINED SecORVCRef SecORVCCreate(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX);
+
 /* OCSP Revocation verification context. */
 struct OpaqueSecORVC {
     CFRuntimeBase _base;

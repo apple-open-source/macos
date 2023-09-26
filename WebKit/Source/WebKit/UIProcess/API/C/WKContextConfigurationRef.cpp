@@ -82,12 +82,11 @@ void WKContextConfigurationSetInjectedBundlePath(WKContextConfigurationRef confi
 
 WKArrayRef WKContextConfigurationCopyCustomClassesForParameterCoder(WKContextConfigurationRef configuration)
 {
-    return toAPI(&API::Array::createStringArray(toImpl(configuration)->customClassesForParameterCoder()).leakRef());
+    return toAPI(&API::Array::createStringArray(Vector<String>()).leakRef());
 }
 
 void WKContextConfigurationSetCustomClassesForParameterCoder(WKContextConfigurationRef configuration, WKArrayRef classesForCoder)
 {
-    toImpl(configuration)->setCustomClassesForParameterCoder(toImpl(classesForCoder)->toStringVector());
 }
 
 WKStringRef WKContextConfigurationCopyLocalStorageDirectory(WKContextConfigurationRef)
@@ -198,16 +197,6 @@ bool WKContextConfigurationAlwaysKeepAndReuseSwappedProcesses(WKContextConfigura
 void WKContextConfigurationSetAlwaysKeepAndReuseSwappedProcesses(WKContextConfigurationRef configuration, bool keepAndReuse)
 {
     toImpl(configuration)->setAlwaysKeepAndReuseSwappedProcesses(keepAndReuse);
-}
-
-bool WKContextConfigurationProcessSwapsOnWindowOpenWithOpener(WKContextConfigurationRef configuration)
-{
-    return toImpl(configuration)->processSwapsOnWindowOpenWithOpener();
-}
-
-void WKContextConfigurationSetProcessSwapsOnWindowOpenWithOpener(WKContextConfigurationRef configuration, bool swaps)
-{
-    toImpl(configuration)->setProcessSwapsOnWindowOpenWithOpener(swaps);
 }
 
 int64_t WKContextConfigurationDiskCacheSizeOverride(WKContextConfigurationRef configuration)

@@ -37,13 +37,19 @@ static char sccsid[] = "@(#)utils.c	8.3 (Berkeley) 4/1/94";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <sys/types.h>
-#include <sys/acl.h>
 #include <sys/param.h>
+#include <sys/acl.h>
 #include <sys/stat.h>
-#ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
-#include <sys/mman.h>
-#endif
+
+#ifdef __APPLE__
+#include <sys/attr.h>
+#include <sys/clonefile.h>
+#include <sys/mount.h>
+#include <sys/time.h>
+
+#define	st_atim	st_atimespec
+#define	st_mtim	st_mtimespec
+#endif /* __APPLE__ */
 
 #include <err.h>
 #include <errno.h>
@@ -54,21 +60,15 @@ __FBSDID("$FreeBSD$");
 #include <stdlib.h>
 #include <sysexits.h>
 #include <unistd.h>
-#include <locale.h>
 
 #ifdef __APPLE__
-#include <sys/time.h>
 #include <copyfile.h>
+#include <locale.h>
 #include <string.h>
-#include <sys/mount.h>
-#include <sys/attr.h>
-#include <sys/clonefile.h>
-
-#define	st_atim	st_atimespec
-#define	st_mtim	st_mtimespec
 #endif /* __APPLE__ */
 
 #include "extern.h"
+
 #define	cp_pct(x, y)	((y == 0) ? 0 : (int)(100.0 * (x) / (y)))
 
 /*
@@ -87,11 +87,22 @@ __FBSDID("$FreeBSD$");
 #define BUFSIZE_SMALL (MAXPHYS)
 
 static ssize_t
-copy_fallback(int from_fd, int to_fd, char *buf, size_t bufsize)
+copy_fallback(int from_fd, int to_fd)
 {
+	static char *buf = NULL;
+	static size_t bufsize;
 	ssize_t rcount, wresid, wcount = 0;
 	char *bufp;
 
+	if (buf == NULL) {
+		if (sysconf(_SC_PHYS_PAGES) > PHYSPAGES_THRESHOLD)
+			bufsize = MIN(BUFSIZE_MAX, MAXPHYS * 8);
+		else
+			bufsize = BUFSIZE_SMALL;
+		buf = malloc(bufsize);
+		if (buf == NULL)
+			err(1, "Not enough memory");
+	}
 	rcount = read(from_fd, buf, bufsize);
 	if (rcount <= 0)
 		return (rcount);
@@ -104,27 +115,65 @@ copy_fallback(int from_fd, int to_fd, char *buf, size_t bufsize)
 	}
 	return (wcount < 0 ? wcount : rcount);
 }
+#ifdef __APPLE__
+/*
+ * Context for fcopyfile() callback.
+ */
+struct copyfile_context {
+	const char *src;
+	const char *dst;
+	off_t size;
+	int error;
+};
+
+/*
+ * Status callback for fcopyfile(), called after each write operation or
+ * if an error occurs.  We use it to implement SIGINFO.
+ */
+static int
+copyfile_callback(int what, int stage, copyfile_state_t state,
+    const char *src, const char *dst, void *ctx)
+{
+	struct copyfile_context *cpctx = ctx;
+	off_t wtotal = 0;
+
+	if (stage == COPYFILE_ERR) {
+		cpctx->error = errno;
+		return (COPYFILE_QUIT);
+	}
+	if (stage != COPYFILE_PROGRESS) {
+		errx(1, "unexpected copyfile callback");
+	}
+	if (info) {
+		info = 0;
+		(void)copyfile_state_get(state, COPYFILE_STATE_COPIED,
+		    &wtotal);
+		(void)fprintf(stderr, "%s -> %s %3d%%\n", cpctx->src,
+		    cpctx->dst, cp_pct(wtotal, cpctx->size));
+	}
+	return (COPYFILE_CONTINUE);
+}
+#endif /* !__APPLE__ */
 
 int
 copy_file(const FTSENT *entp, int dne)
 {
-	static char *buf = NULL;
-	static size_t bufsize;
+#ifdef __APPLE__
+	struct stat to_stat;
+	struct copyfile_context cpctx;
+	copyfile_state_t cpfs;
+#endif /* __APPLE__ */
 	struct stat *fs;
-	ssize_t rcount;
+	ssize_t wcount;
 	off_t wtotal;
 	int ch, checkch, from_fd, rval, to_fd;
-	char resp[] = {'\0', '\0'};
-#ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
-	char *p;
-#endif
 #ifdef __APPLE__
-	int use_copy_file_range = 0;
-#else
-	int use_copy_file_range = 1;
-#endif
+	char resp[] = {'\0', '\0'};
 	mode_t mode = 0;
-	struct stat to_stat;
+	int cpflags, ret, use_copy_file_range = 0;
+#else /* !__APPLE__ */
+	int use_copy_file_range = 1;
+#endif /* __APPLE__ */
 
 	from_fd = to_fd = -1;
 	if (!lflag && !sflag &&
@@ -154,17 +203,22 @@ copy_file(const FTSENT *entp, int dne)
 			(void)fprintf(stderr, "overwrite %s? %s", 
 			    to.p_path, YESNO);
 
+#ifdef __APPLE__
 			/* Load user specified locale */
 			setlocale(LC_MESSAGES, "");
+#endif /* __APPLE__ */
 
 			checkch = ch = getchar();
 			while (ch != '\n' && ch != EOF)
 				ch = getchar();
 
+#ifdef __APPLE__
 			/* only care about the first character */
 			resp[0] = checkch;
-
 			if (rpmatch(resp) != 1) {
+#else /* !__APPLE__ */
+			if (checkch != 'y' && checkch != 'Y') {
+#endif /* __APPLE__ */
 				(void)fprintf(stderr, "not overwritten\n");
 				rval = 1;
 				goto done;
@@ -174,15 +228,20 @@ copy_file(const FTSENT *entp, int dne)
 #ifdef __APPLE__
 		if (cflag) {
 			(void)unlink(to.p_path);
-			int error = clonefile(entp->fts_path, to.p_path, 0);
-			if (error)
-				warn("%s: clonefile failed", to.p_path);
-			(void)close(from_fd);
-			return error == 0 ? 0 : 1;
+			ret = clonefile(entp->fts_path, to.p_path, 0);
+			if (ret == 0 || errno != ENOTSUP) {
+				if (ret != 0)
+					warn("%s: clonefile failed", to.p_path);
+				(void)close(from_fd);
+				return (ret == 0 ? 0 : 1);
+			}
 		}
-#endif
 
-		if (unix2003_compat) {
+		/*
+		 * -c will have unlinked the file, we can't possibly do the
+		 * conformant behavior.
+		 */
+		if (!cflag && unix2003_compat) {
 		    /* first try to overwrite existing destination file name */
 		    to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
 		    if (to_fd == -1) {
@@ -193,7 +252,9 @@ copy_file(const FTSENT *entp, int dne)
 					 fs->st_mode & ~(S_ISUID | S_ISGID));
 			}
 		    }
-		} else if (fflag) {
+		} else
+#endif /* __APPLE__ */
+		if (fflag) {
 			/*
 			 * Remove existing destination file name create a new
 			 * file.
@@ -206,18 +267,35 @@ copy_file(const FTSENT *entp, int dne)
 			}
 		} else if (!lflag && !sflag) {
 			/* Overwrite existing destination file name. */
+#ifdef __APPLE__
+			int oflags = O_WRONLY | O_TRUNC;
+
+			/*
+			 * If clonefile(2) failed, we're simply falling back to
+			 * copyfile(2) but we already unlinked the new file.
+			 * Create it again here.
+			 */
+			if (cflag)
+				oflags |= O_CREAT;
+
+			to_fd = open(to.p_path, oflags,
+			    fs->st_mode & ~(S_ISUID | S_ISGID));
+#else
 			to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
+#endif
 		}
 	} else if (!lflag && !sflag) {
 #ifdef __APPLE__
 		if (cflag) {
-			int error = clonefile(entp->fts_path, to.p_path, 0);
-			if (error)
-				warn("%s: clonefile failed", to.p_path);
-			(void)close(from_fd);
-			return error == 0 ? 0 : 1;
+			ret = clonefile(entp->fts_path, to.p_path, 0);
+			if (ret == 0 || errno != ENOTSUP) {
+				if (ret != 0)
+					warn("%s: clonefile failed", to.p_path);
+				(void)close(from_fd);
+				return (ret == 0 ? 0 : 1);
+			}
 		}
-#endif
+#endif /* __APPLE__ */
 
 		to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
 		    fs->st_mode & ~(S_ISUID | S_ISGID));
@@ -251,7 +329,6 @@ copy_file(const FTSENT *entp, int dne)
                        (void) fcntl(to_fd, F_PREALLOCATE, &fst);
                }
        }
-#endif /* __APPLE__ */
 
        if (fstat(to_fd, &to_stat) != -1) {
 	       mode = to_stat.st_mode;
@@ -263,94 +340,86 @@ copy_file(const FTSENT *entp, int dne)
 	       }
        } else {
 	       warn("%s", to.p_path);
+	       rval = 1;
+	       goto done;
        }
+#endif /* __APPLE__ */
 
-	if (!lflag && !sflag) {
+#ifdef __APPLE__
+       /*
+	* If we weren't asked to create a hard or soft link, and both the
+	* source and the destination are regular files, use fcopyfile(3),
+	* which has the ability to preserve holes if the source is sparse.
+	*/
+       if (!lflag && !sflag &&
+	   S_ISREG(fs->st_mode) && S_ISREG(to_stat.st_mode)) {
 		/*
-		 * Mmap and write if less than 8M (the limit is so we don't
-		 * totally trash memory on big files.  This is really a minor
-		 * hack, but it wins some CPU back.
-		 * Some filesystems, such as smbnetfs, don't support mmap,
-		 * so this is a best-effort attempt.
+		 * The documentation doesn't say, but copyfile_state_t is
+		 * a pointer to a struct, and copyfile_state_alloc() can
+		 * fail and return NULL.  The two copyfile_state_set()
+		 * calls below, on the other hand, merely assign values to
+		 * fields within the struct, and cannot fail.
+		 *
+		 * Note that we cannot use COPYFILE_STATE_SRC_FILENAME and
+		 * COPYFILE_STATE_DST_FILENAME to pass the filenames,
+		 * because if those are not NULL, copyfile_state_free()
+		 * will assume that the state was created by copyfile()
+		 * and will close the file descriptors!
 		 */
-#ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
-		if (S_ISREG(fs->st_mode) && fs->st_size > 0 &&
-		    fs->st_size <= 8 * 1024 * 1024 &&
-		    (p = mmap(NULL, (size_t)fs->st_size, PROT_READ,
-		    MAP_SHARED, from_fd, (off_t)0)) != MAP_FAILED) {
-			wtotal = 0;
-			for (bufp = p, wresid = fs->st_size; ;
-			    bufp += wcount, wresid -= (size_t)wcount) {
-				wcount = write(to_fd, bufp, wresid);
-				if (wcount <= 0)
-					break;
-				wtotal += wcount;
-				if (info) {
-					info = 0;
-					(void)fprintf(stderr,
-					    "%s -> %s %3d%%\n",
-					    entp->fts_path, to.p_path,
-					    cp_pct(wtotal, fs->st_size));
-				}
-				if (wcount >= (ssize_t)wresid)
-					break;
-			}
-			if (wcount != (ssize_t)wresid) {
-				warn("%s", to.p_path);
+		if ((cpfs = copyfile_state_alloc()) == NULL) {
+			warn("%s: copyfile_state_alloc failed", to.p_path);
+			rval = 1;
+		} else {
+			cpctx.src = entp->fts_path;
+			cpctx.dst = to.p_path;
+			cpctx.size = fs->st_size;
+			cpctx.error = 0;
+			(void)copyfile_state_set(cpfs, COPYFILE_STATE_STATUS_CTX,
+			    &cpctx);
+			(void)copyfile_state_set(cpfs, COPYFILE_STATE_STATUS_CB,
+			    copyfile_callback);
+			cpflags = COPYFILE_DATA;
+			if (!Sflag)
+				cpflags |= COPYFILE_DATA_SPARSE;
+			ret = fcopyfile(from_fd, to_fd, cpfs, cpflags);
+			copyfile_state_free(cpfs);
+			if (ret != 0) {
+				if (errno == ECANCELED)
+					errno = cpctx.error;
+				warn("%s: fcopyfile failed", to.p_path);
 				rval = 1;
 			}
-			/* Some systems don't unmap on close(2). */
-			if (munmap(p, fs->st_size) < 0) {
-				warn("%s", entp->fts_path);
-				rval = 1;
-			}
-		} else
-#endif
-		{
-			if (buf == NULL) {
-				/*
-				 * Note that buf and bufsize are static. If
-				 * malloc() fails, it will fail at the start
-				 * and not copy only some files. 
-				 */ 
-				if (sysconf(_SC_PHYS_PAGES) > 
-				    PHYSPAGES_THRESHOLD)
-					bufsize = MIN(BUFSIZE_MAX, MAXPHYS * 8);
-				else
-					bufsize = BUFSIZE_SMALL;
-				buf = malloc(bufsize);
-				if (buf == NULL)
-					err(1, "Not enough memory");
-			}
-			wtotal = 0;
-			do {
+		}
+       } else
+#endif /* __APPLE__ */
+	if (!lflag && !sflag) {
+		wtotal = 0;
+		do {
 #ifndef __APPLE__
-				if (use_copy_file_range) {
-					rcount = copy_file_range(from_fd, NULL,
-					    to_fd, NULL, SSIZE_MAX, 0);
-					if (rcount < 0 && errno == EINVAL) {
-						/* Prob a non-seekable FD */
-						use_copy_file_range = 0;
-					}
+			if (use_copy_file_range) {
+				wcount = copy_file_range(from_fd, NULL,
+				    to_fd, NULL, SSIZE_MAX, 0);
+				if (wcount < 0 && errno == EINVAL) {
+					/* Prob a non-seekable FD */
+					use_copy_file_range = 0;
 				}
-#endif
-				if (!use_copy_file_range) {
-					rcount = copy_fallback(from_fd, to_fd,
-					    buf, bufsize);
-				}
-				wtotal += rcount;
-				if (info) {
-					info = 0;
-					(void)fprintf(stderr,
-					    "%s -> %s %3d%%\n",
-					    entp->fts_path, to.p_path,
-					    cp_pct(wtotal, fs->st_size));
-				}
-			} while (rcount > 0);
-			if (rcount < 0) {
-				warn("%s", entp->fts_path);
-				rval = 1;
 			}
+#endif /* !__APPLE__ */
+			if (!use_copy_file_range) {
+				wcount = copy_fallback(from_fd, to_fd);
+			}
+			wtotal += wcount;
+			if (info) {
+				info = 0;
+				(void)fprintf(stderr,
+				    "%s -> %s %3d%%\n",
+				    entp->fts_path, to.p_path,
+				    cp_pct(wtotal, fs->st_size));
+			}
+		} while (wcount > 0);
+		if (wcount < 0) {
+			warn("%s", entp->fts_path);
+			rval = 1;
 		}
 	} else if (lflag) {
 		if (link(entp->fts_path, to.p_path)) {
@@ -384,19 +453,17 @@ copy_file(const FTSENT *entp, int dne)
 				rval = 1;
 			}
 		}
+#endif /* __APPLE__ */
 		if (pflag && setfile(fs, to_fd))
 			rval = 1;
-		if (pflag) {
-			/* If this ACL denies writeattr then setfile will fail... */
-			if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0) {
-				warn("%s: could not copy ACL to %s",
-				    entp->fts_path, to.p_path);
-				rval = 1;
-			}
+#ifdef __APPLE__
+		/* If this ACL denies writeattr then setfile will fail... */
+		if (pflag && fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0) {
+			warn("%s: could not copy ACL to %s",
+			    entp->fts_path, to.p_path);
+			rval = 1;
 		}
 #else  /* !__APPLE__ */
-		if (pflag && setfile(fs, to_fd))
-			rval = 1;
 		if (pflag && preserve_fd_acls(from_fd, to_fd) != 0)
 			rval = 1;
 #endif /* __APPLE__ */
@@ -445,7 +512,7 @@ copy_link(const FTSENT *p, int exists)
 			return (1);
 		}
 	}
-#endif
+#endif /* __APPLE__ */
 	return (pflag ? setfile(p->fts_statp, -1) : 0);
 }
 
@@ -530,9 +597,9 @@ setfile(struct stat *fs, int fd)
 			if (errno != EPERM) {
 #ifdef __APPLE__
 				warn("%schown: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
-#else
+#else /* !__APPLE__ */
 				warn("chown: %s", to.p_path);
-#endif
+#endif /* __APPLE__ */
 				rval = 1;
 			}
 			fs->st_mode &= ~(S_ISUID | S_ISGID);
@@ -544,9 +611,9 @@ setfile(struct stat *fs, int fd)
 		    chmod(to.p_path, fs->st_mode))) {
 #ifdef __APPLE__
 			warn("%schmod: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
-#else
+#else /* !__APPLE__ */
 			warn("chmod: %s", to.p_path);
-#endif
+#endif /* __APPLE__ */
 			rval = 1;
 		}
 
@@ -564,10 +631,10 @@ setfile(struct stat *fs, int fd)
 				warn("%schflags: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
 				rval = 1;
 			}
-#else
+#else /* !__APPLE__ */
 			warn("chflags: %s", to.p_path);
 			rval = 1;
-#endif
+#endif /* __APPLE__ */
 		}
 
 	return (rval);
@@ -718,26 +785,30 @@ void
 usage(void)
 {
 
+#ifdef __APPLE__
 	if (unix2003_compat) {
 	(void)fprintf(stderr, "%s\n%s\n",
-	    "usage: cp [-R [-H | -L | -P]] [-fi | -n] [-aclpsvXx] "
+	    "usage: cp [-R [-H | -L | -P]] [-fi | -n] [-aclpSsvXx] "
 	    "source_file target_file",
-	    "       cp [-R [-H | -L | -P]] [-fi | -n] [-aclpsvXx] "
+	    "       cp [-R [-H | -L | -P]] [-fi | -n] [-aclpSsvXx] "
 	    "source_file ... "
 	    "target_directory");
 	} else {
+#endif /* __APPLE__ */
 	(void)fprintf(stderr, "%s\n%s\n",
 #ifdef __APPLE__
-	    "usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-aclpsvXx] "
+	    "usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-aclpSsvXx] "
 	    "source_file target_file",
-	    "       cp [-R [-H | -L | -P]] [-f | -i | -n] [-aclpsvXx] "
-#else
+	    "       cp [-R [-H | -L | -P]] [-f | -i | -n] [-aclpSsvXx] "
+#else /* !__APPLE__ */
 	    "usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-alpsvx] "
 	    "source_file target_file",
 	    "       cp [-R [-H | -L | -P]] [-f | -i | -n] [-alpsvx] "
-#endif
+#endif /* __APPLE__ */
 	    "source_file ... "
 	    "target_directory");
+#ifdef __APPLE__
 	}
+#endif /* __APPLE__ */
 	exit(EX_USAGE);
 }

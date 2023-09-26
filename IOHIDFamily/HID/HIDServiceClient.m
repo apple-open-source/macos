@@ -1,11 +1,11 @@
-//
-//  HIDServiceClient.m
-//  HID
-//
-//  Created by dekom on 12/22/17.
-//
+/*!
+ * HIDServiceClient.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
-#import "HIDServiceClient.h"
+#import <HID/HIDServiceClient.h>
 #import <IOKit/hid/IOHIDServiceClient.h>
 #import <os/assumes.h>
 

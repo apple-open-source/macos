@@ -42,6 +42,8 @@
 #include <Security/SecKeyPriv.h>
 #include "SecRSAKeyPriv.h"
 #include "SecECKeyPriv.h"
+#include "SecKeyCurve25519Priv.h"
+#include "SecKeyCurve448Priv.h"
 #include "SecCTKKeyPriv.h"
 #include <Security/SecBasePriv.h>
 
@@ -70,6 +72,7 @@
 #include <libDER/asn1Types.h>
 #include <libDER/DER_Keys.h>
 #include <libDER/DER_Encode.h>
+#include <libDER/oids.h>
 
 static os_log_t _SECKEY_LOG(void) {
     static dispatch_once_t once;
@@ -361,6 +364,14 @@ OSStatus SecKeyGeneratePair(CFDictionaryRef parameters,
             result = SecECKeyGeneratePair(parameters, &pubKey, &privKey);
         } else if (CFEqual(ktype, kSecAttrKeyTypeRSA)) {
             result = SecRSAKeyGeneratePair(parameters, &pubKey, &privKey);
+        } else if (CFEqual(ktype, kSecAttrKeyTypeEd25519)) {
+            result = SecEd25519KeyGeneratePair(parameters, &pubKey, &privKey);
+        } else if (CFEqual(ktype, kSecAttrKeyTypeX25519)) {
+            result = SecX25519KeyGeneratePair(parameters, &pubKey, &privKey);
+        } else if (CFEqual(ktype, kSecAttrKeyTypeEd448)) {
+            result = SecEd448KeyGeneratePair(parameters, &pubKey, &privKey);
+        } else if (CFEqual(ktype, kSecAttrKeyTypeX448)) {
+            result = SecX448KeyGeneratePair(parameters, &pubKey, &privKey);
         }
 
         require_noerr_quiet(result, errOut);
@@ -508,6 +519,36 @@ SecKeyRef SecKeyCreatePublicFromDER(CFAllocatorRef allocator,
     return publicKey;
 }
 
+static SecKeyRef SecKeyCreatePublicFromDERItem(CFAllocatorRef allocator,
+                                        DERAlgorithmId *algorithmId,
+                                        DERItem *keyData)
+{
+    SecKeyRef publicKey = NULL;
+    if (DEROidCompare(&algorithmId->oid, &oidRsa)) {
+        publicKey = SecKeyCreateRSAPublicKey_ios(allocator, keyData->data, keyData->length, kSecKeyEncodingPkcs1);
+    } else if (DEROidCompare(&algorithmId->oid, &oidEcPubKey)) {
+        SecDERKey derKey = {
+            .oid = algorithmId->oid.data,
+            .oidLength = algorithmId->oid.length,
+            .key = keyData->data,
+            .keyLength = keyData->length,
+            .parameters = algorithmId->params.data,
+            .parametersLength = algorithmId->params.length,
+        };
+        publicKey = SecKeyCreateECPublicKey(allocator, (const uint8_t *)&derKey, sizeof(derKey), kSecDERKeyEncoding);
+#if LIBDER_HAS_EDDSA
+        // guard for rdar://106052612
+    } else if (DEROidCompare(&algorithmId->oid, &oidEd25519)) {
+        publicKey = SecKeyCreateEd25519PublicKey(allocator, keyData->data, keyData->length, kSecKeyEncodingBytes);
+    } else if (DEROidCompare(&algorithmId->oid, &oidEd448)) {
+        publicKey = SecKeyCreateEd448PublicKey(allocator, keyData->data, keyData->length, kSecKeyEncodingBytes);
+#endif
+    } else {
+        os_log_debug(SECKEY_LOG, "Unsupported algorithm oid");
+    }
+    return publicKey;
+}
+
 
 SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator, CFDataRef subjectPublicKeyInfoData)
 {
@@ -536,31 +577,31 @@ SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator, CFD
     drtn = DERParseBitString(&subjectPublicKeyInfo.pubKey, &pubKeyBytes, &unusedBits);
     require_noerr_quiet(drtn, out);
 
-    /* Convert DERItem to SecAsn1Item : */
-    const SecAsn1Oid oid = { .Data = algorithmId.oid.data, .Length = algorithmId.oid.length };
-    const SecAsn1Item params = { .Data = algorithmId.params.data, .Length = algorithmId.params.length };
-    const SecAsn1Item pubKey = { .Data = pubKeyBytes.data, .Length = pubKeyBytes.length };
-
-    return SecKeyCreatePublicFromDER(allocator, &oid, &params, &pubKey);
+    return SecKeyCreatePublicFromDERItem(allocator, &algorithmId, &pubKeyBytes);
 
 out:
 
     return NULL;
 }
 
-static const DERByte oidRSA[] = {
+static const DERByte encodedAlgIdRSA[] = {
     0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
 };
-static const DERByte oidECsecp256[] = {
+static const DERByte encodedAlgIdECsecp256[] = {
     0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,
 };
-static const DERByte oidECsecp384[] = {
+static const DERByte encodedAlgIdECsecp384[] = {
     0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22,
 };
-static const DERByte oidECsecp521[] = {
+static const DERByte encodedAlgIdECsecp521[] = {
     0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23,
 };
-
+static const DERByte encodedAlgIdEd25519[] = {
+    0x06, 0x03, 0x2b, 0x65, 0x70,
+};
+static const DERByte encodedAlgIdEd448[] = {
+    0x06, 0x03, 0x2b, 0x65, 0x71,
+};
 
 CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
 {
@@ -569,7 +610,7 @@ CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
     CFDataRef dataret = NULL;
     DERSubjPubKeyInfo spki;
     DERReturn drtn;
-    size_t zeroPad = 0;
+    CFIndex algorithm = SecKeyGetAlgorithmId(key);
 
     memset(&spki, 0, sizeof(spki));
 
@@ -579,16 +620,9 @@ CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
 
     require_quiet(CFDataGetLength(publicKey) != 0, errOut);
 
-    // Add prefix 00 is needed to avoid creating negative bit strings
-    if (((uint8_t *)CFDataGetBytePtr(publicKey))[0] & 0x80)
-        zeroPad = 1;
-
-
     CFMutableDataRef paddedKey = CFDataCreateMutable(NULL, 0);
     /* the bit strings bits used field first */
     CFDataAppendBytes(paddedKey, (const UInt8 *)"\x00", 1);
-    if (zeroPad)
-        CFDataAppendBytes(paddedKey, (const UInt8 *)"\x00", 1);
 
     CFDataAppendBytes(paddedKey, CFDataGetBytePtr(publicKey), CFDataGetLength(publicKey));
     CFTransferRetained(publicKey, paddedKey);
@@ -597,28 +631,33 @@ CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
     spki.pubKey.length = CFDataGetLength(publicKey);
 
     // Encode algId according to algorithm used.
-    CFIndex algorithm = SecKeyGetAlgorithmId(key);
     if (algorithm == kSecRSAAlgorithmID) {
-        spki.algId.data = (DERByte *)oidRSA;
-        spki.algId.length = sizeof(oidRSA);
+        spki.algId.data = (DERByte *)encodedAlgIdRSA;
+        spki.algId.length = sizeof(encodedAlgIdRSA);
     } else if (algorithm == kSecECDSAAlgorithmID) {
         SecECNamedCurve curve = SecECKeyGetNamedCurve(key);
         switch(curve) {
             case kSecECCurveSecp256r1:
-                spki.algId.data = (DERByte *)oidECsecp256;
-                spki.algId.length = sizeof(oidECsecp256);
+                spki.algId.data = (DERByte *)encodedAlgIdECsecp256;
+                spki.algId.length = sizeof(encodedAlgIdECsecp256);
                 break;
             case kSecECCurveSecp384r1:
-                spki.algId.data = (DERByte *)oidECsecp384;
-                spki.algId.length = sizeof(oidECsecp384);
+                spki.algId.data = (DERByte *)encodedAlgIdECsecp384;
+                spki.algId.length = sizeof(encodedAlgIdECsecp384);
                 break;
             case kSecECCurveSecp521r1:
-                spki.algId.data = (DERByte *)oidECsecp521;
-                spki.algId.length = sizeof(oidECsecp521);
+                spki.algId.data = (DERByte *)encodedAlgIdECsecp521;
+                spki.algId.length = sizeof(encodedAlgIdECsecp521);
                 break;
             default:
                 goto errOut;
         }
+    } else if (algorithm == kSecEd25519AlgorithmID) {
+        spki.algId.data = (DERByte *)encodedAlgIdEd25519;
+        spki.algId.length = sizeof(encodedAlgIdEd25519);
+    } else if (algorithm == kSecEd448AlgorithmID) {
+        spki.algId.data = (DERByte *)encodedAlgIdEd448;
+        spki.algId.length = sizeof(encodedAlgIdEd448);
     } else {
         goto errOut;
     }
@@ -738,7 +777,7 @@ static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding(SecKeyRef key, SecP
         case kSecECDSAAlgorithmID:
             switch (padding) {
                 case kSecPaddingSigRaw:
-                    return kSecKeyAlgorithmECDSASignatureRFC4754;
+                    return kSecKeyAlgorithmECDSASignatureDigestRFC4754;
                 case kSecPaddingPKCS1: {
                     // If digest has known size of some hash function, explicitly encode that hash type in the algorithm.
                     if (digestSize == ccsha1_di()->output_size) {
@@ -753,7 +792,7 @@ static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding(SecKeyRef key, SecP
                         return kSecKeyAlgorithmECDSASignatureDigestX962SHA512;
                     }
 
-                    // Fall through to common case, no break here.
+                    [[fallthrough]];
                 }
                 default:
                     // Although it is not very logical, previous SecECKey implementation really considered
@@ -794,7 +833,7 @@ static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding_macOS(SecKeyRef key
         case kSecECDSAAlgorithmID:
             switch (padding) {
                 case kSecPaddingSigRaw:
-                    return kSecKeyAlgorithmECDSASignatureRFC4754;
+                    return kSecKeyAlgorithmECDSASignatureDigestRFC4754;
                 case kSecPaddingPKCS1: {
                     // If digest has known size of some hash function, explicitly encode that hash type in the algorithm.
                     if (digestSize == ccsha1_di()->output_size) {
@@ -809,7 +848,7 @@ static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding_macOS(SecKeyRef key
                         return kSecKeyAlgorithmECDSASignatureDigestX962SHA512;
                     }
 
-                    // Fall through to common case, no break here.
+                    [[fallthrough]];
                 }
                 default:
                     // Although it is not very logical, previous SecECKey implementation really considered
@@ -1176,6 +1215,22 @@ SecKeyRef SecKeyCreateFromPublicBytes(CFAllocatorRef allocator, CFIndex algorith
             return SecKeyCreateECPublicKey(allocator,
                                            keyData, keyDataLength,
                                            kSecKeyEncodingBytes);
+        case kSecEd25519AlgorithmID:
+            return SecKeyCreateEd25519PublicKey(allocator,
+                                           keyData, keyDataLength,
+                                           kSecKeyEncodingBytes);
+        case kSecX25519AlgorithmID:
+            return SecKeyCreateX25519PublicKey(allocator,
+                                           keyData, keyDataLength,
+                                           kSecKeyEncodingBytes);
+        case kSecEd448AlgorithmID:
+            return SecKeyCreateEd448PublicKey(allocator,
+                                           keyData, keyDataLength,
+                                           kSecKeyEncodingBytes);
+        case kSecX448AlgorithmID:
+            return SecKeyCreateX448PublicKey(allocator,
+                                           keyData, keyDataLength,
+                                           kSecKeyEncodingBytes);
         default:
             return NULL;
     }
@@ -1327,16 +1382,18 @@ _SecKeyCopyUnwrapKey(SecKeyRef key, SecKeyWrapType type, CFDataRef wrappedKey, C
     return NULL;
 }
 
-static CFIndex SecKeyParamsGetCFIndex(CFTypeRef value, CFStringRef errName, CFErrorRef *error) {
-    CFIndex result = -1;
+// Converts value (NSNumber* or NSString*) to int64_t. Returns -1 if error occurs.
+static int64_t SecKeyParamsAsInt64(CFTypeRef value, CFStringRef errName, CFErrorRef *error) {
+    
+    int64_t result = -1;
     if ([(__bridge id)value isKindOfClass:NSString.class]) {
-        result = [(__bridge NSString *)value integerValue];
-        if (![[NSString stringWithFormat:@"%ld", (long)result] isEqualToString:(__bridge NSString *)value]) {
-            SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
-            result = -1;
+        result = [(__bridge NSString *)value longLongValue];
+        if (![[NSString stringWithFormat:@"%lld", result] isEqualToString:(__bridge NSString *)value]) {
+            SecError(errSecParam, error, CFSTR("Unsupported %@: %@ (converted value: %@"), errName, value, @(result));
+            return -1;
         }
     } else if ([(__bridge id)value isKindOfClass:NSNumber.class]) {
-        result = [(__bridge NSNumber *)value integerValue];
+        result = [(__bridge NSNumber *)value longLongValue];
     } else {
         SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
     }
@@ -1361,16 +1418,16 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
         return NULL;
     }
     /* First figure out the key type (algorithm). */
-    CFIndex algorithm = 0, class = 0;
+    int64_t algorithm = 0, class = 0;
     CFTypeRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
-    require_quiet((algorithm = SecKeyParamsGetCFIndex(ktype, CFSTR("key type"), error)) >= 0, out);
+    require_quiet((algorithm = SecKeyParamsAsInt64(ktype, CFSTR("key type"), error)) >= 0, out);
     CFTypeRef kclass = CFDictionaryGetValue(parameters, kSecAttrKeyClass);
-    require_quiet((class = SecKeyParamsGetCFIndex(kclass, CFSTR("key class"), error)) >= 0, out);
+    require_quiet((class = SecKeyParamsAsInt64(kclass, CFSTR("key class"), error)) >= 0, out);
 
     switch (class) {
         case 0: // kSecAttrKeyClassPublic
             switch (algorithm) {
-                case 42: // kSecAlgorithmRSA
+                case 42: // kSecAttrKeyTypeRSA
                     key = SecKeyCreateRSAPublicKey(allocator,
                                                    CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
                                                    kSecKeyEncodingBytes);
@@ -1378,8 +1435,11 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
                         SecError(errSecParam, error, CFSTR("RSA public key creation from data failed"));
                     }
                     break;
-                case 43: // kSecAlgorithmECDSA
-                case 73: // kSecAlgorithmEC
+                case 2147483678: // kSecAttrKeyTypeECSECPrimeRandomPKA
+                case 2147483679: // kSecAttrKeyTypeSecureEnclaveAttestation
+                case 2147483680: // kSecAttrKeyTypeSecureEnclaveAnonymousAttestation
+                case 43: // kSecAttrKeyTypeDSA
+                case 73: // kSecAttrKeyTypeECDSA
                     key = SecKeyCreateECPublicKey(allocator,
                                                   CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
                                                   kSecKeyEncodingBytes);
@@ -1387,14 +1447,46 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
                         SecError(errSecParam, error, CFSTR("EC public key creation from data failed"));
                     }
                     break;
+                case 105: // kSecAttrKeyTypeEd25519
+                    key = SecKeyCreateEd25519PublicKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("Ed25519 public key creation from data failed"));
+                    }
+                    break;
+                case 106: // kSecAttrKeyTypeX25519
+                    key = SecKeyCreateX25519PublicKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("X25519 public key creation from data failed"));
+                    }
+                    break;
+                case 107: // kSecAttrKeyTypeEd448
+                    key = SecKeyCreateEd448PublicKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("Ed448 public key creation from data failed"));
+                    }
+                    break;
+                case 108: // kSecAttrKeyTypeX448
+                    key = SecKeyCreateX448PublicKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("X448 public key creation from data failed"));
+                    }
+                    break;
                 default:
-                    SecError(errSecParam, error, CFSTR("Unsupported public key type: %@"), ktype);
+                    SecError(errSecParam, error, CFSTR("Unsupported public key type: %@ (algorithm: %@)"), ktype, @(algorithm));
                     break;
             };
             break;
         case 1: // kSecAttrKeyClassPrivate
             switch (algorithm) {
-                case 42: // kSecAlgorithmRSA
+                case 42: // kSecAttrKeyTypeRSA
                     key = SecKeyCreateRSAPrivateKey(allocator,
                                                     CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
                                                     kSecKeyEncodingBytes);
@@ -1402,13 +1494,45 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
                         SecError(errSecParam, error, CFSTR("RSA private key creation from data failed"));
                     }
                     break;
-                case 43: // kSecAlgorithmECDSA
-                case 73: // kSecAlgorithmEC
+                case 43: // kSecAttrKeyTypeDSA
+                case 73: // kSecAttrKeyTypeECDSA
                     key = SecKeyCreateECPrivateKey(allocator,
                                                    CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
                                                    kSecKeyEncodingBytes);
                     if (key == NULL) {
                         SecError(errSecParam, error, CFSTR("EC private key creation from data failed"));
+                    }
+                    break;
+                case 105: // kSecAttrKeyTypeEd25519
+                    key = SecKeyCreateEd25519PrivateKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("Ed25519 private key creation from data failed"));
+                    }
+                    break;
+                case 106: // kSecAttrKeyTypeX25519
+                    key = SecKeyCreateX25519PrivateKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("X25519 private key creation from data failed"));
+                    }
+                    break;
+                case 107: // kSecAttrKeyTypeEd448
+                    key = SecKeyCreateEd448PrivateKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("Ed448 private key creation from data failed"));
+                    }
+                    break;
+                case 108: // kSecAttrKeyTypeX448
+                    key = SecKeyCreateX448PrivateKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("X448 private key creation from data failed"));
                     }
                     break;
                 default:
@@ -1484,6 +1608,18 @@ CFDictionaryRef SecKeyCopyAttributes(SecKeyRef key) {
                 break;
             case kSecECDSAAlgorithmID:
                 CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
+                break;
+            case kSecEd25519AlgorithmID:
+                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeEd25519);
+                break;
+            case kSecX25519AlgorithmID:
+                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeX25519);
+                break;
+            case kSecEd448AlgorithmID:
+                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeEd448);
+                break;
+            case kSecX448AlgorithmID:
+                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeX448);
                 break;
         }
 
@@ -1576,7 +1712,7 @@ static CFTypeRef SecKeyCopyBackendOperationResult(SecKeyOperationContext *contex
     } paddingMap[] = {
         { &kSecKeyAlgorithmRSASignatureRaw, kSecRSAAlgorithmID, kSecPaddingNone },
         { &kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw, kSecRSAAlgorithmID, kSecPaddingPKCS1 },
-        { &kSecKeyAlgorithmECDSASignatureRFC4754, kSecECDSAAlgorithmID, kSecPaddingSigRaw },
+        { &kSecKeyAlgorithmECDSASignatureDigestRFC4754, kSecECDSAAlgorithmID, kSecPaddingSigRaw },
         { &kSecKeyAlgorithmECDSASignatureDigestX962, kSecECDSAAlgorithmID, kSecPaddingPKCS1 },
         { &kSecKeyAlgorithmRSAEncryptionRaw, kSecRSAAlgorithmID, kSecPaddingNone },
         { &kSecKeyAlgorithmRSAEncryptionPKCS1, kSecRSAAlgorithmID, kSecPaddingPKCS1 },
@@ -1717,9 +1853,6 @@ CFDataRef SecKeyCreateSignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFData
     SecKeyOperationContext context = { key, kSecKeyOperationTypeSign, SecKeyCreateAlgorithmArray(algorithm) };
     CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, dataToSign, NULL, &localError);
     SecKeyOperationContextDestroy(&context);
-    if (result == NULL) {
-
-    }
     SecKeyErrorPropagate(result != NULL, localError, error);
     return result;
 }

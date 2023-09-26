@@ -31,6 +31,7 @@
 #include <wtf/Gigacage.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/PrintStream.h>
+#include <wtf/RunLoop.h>
 #include <wtf/ThreadGroup.h>
 #include <wtf/ThreadingPrimitives.h>
 #include <wtf/WTFConfig.h>
@@ -315,10 +316,15 @@ void Thread::didExit()
 
     if (shouldRemoveThreadFromThreadGroup()) {
         {
-            Vector<Ref<ThreadGroup>> threadGroups;
+            Vector<std::shared_ptr<ThreadGroup>> threadGroups;
             {
                 Locker locker { m_mutex };
-                threadGroups = m_threadGroups.values();
+                for (auto& threadGroupPointerPair : m_threadGroupMap) {
+                    // If ThreadGroup is just being destroyed,
+                    // we do not need to perform unregistering.
+                    if (auto retained = threadGroupPointerPair.value.lock())
+                        threadGroups.append(WTFMove(retained));
+                }
                 m_isShuttingDown = true;
             }
             for (auto& threadGroup : threadGroups) {
@@ -342,16 +348,25 @@ ThreadGroupAddResult Thread::addToThreadGroup(const AbstractLocker& threadGroupL
     if (m_isShuttingDown)
         return ThreadGroupAddResult::NotAdded;
     if (threadGroup.m_threads.add(*this).isNewEntry) {
-        m_threadGroups.add(threadGroup);
+        m_threadGroupMap.add(&threadGroup, threadGroup.weakFromThis());
         return ThreadGroupAddResult::NewlyAdded;
     }
     return ThreadGroupAddResult::AlreadyAdded;
 }
 
+void Thread::removeFromThreadGroup(const AbstractLocker& threadGroupLocker, ThreadGroup& threadGroup)
+{
+    UNUSED_PARAM(threadGroupLocker);
+    Locker locker { m_mutex };
+    if (m_isShuttingDown)
+        return;
+    m_threadGroupMap.remove(&threadGroup);
+}
+
 unsigned Thread::numberOfThreadGroups()
 {
     Locker locker { m_mutex };
-    return m_threadGroups.values().size();
+    return m_threadGroupMap.size();
 }
 
 bool Thread::exchangeIsCompilationThread(bool newValue)
@@ -483,16 +498,10 @@ void initialize()
 #if PLATFORM(COCOA)
         initializeLibraryPathDiagnostics();
 #endif
+#if OS(WINDOWS)
+        RunLoop::registerRunLoopMessageWindowClass();
+#endif
     });
-}
-
-// This is a compatibility hack to prevent linkage errors when launching older
-// versions of Safari. initialize() used to be named initializeThreading(), and
-// Safari.framework used to call it directly from NotificationAgentMain.
-WTF_EXPORT_PRIVATE void initializeThreading();
-void initializeThreading()
-{
-    initialize();
 }
 
 } // namespace WTF

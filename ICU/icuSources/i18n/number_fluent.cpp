@@ -288,6 +288,34 @@ Derived NumberFormatterSettings<Derived>::usage(const StringPiece usage)&& {
     return move;
 }
 
+template <typename Derived>
+Derived NumberFormatterSettings<Derived>::displayOptions(const DisplayOptions &displayOptions) const & {
+    Derived copy(*this);
+    // `displayCase` does not recognise the `undefined`
+    if (displayOptions.getGrammaticalCase() == UDISPOPT_GRAMMATICAL_CASE_UNDEFINED) {
+        copy.fMacros.unitDisplayCase.set(nullptr);
+        return copy;
+    }
+
+    copy.fMacros.unitDisplayCase.set(
+        udispopt_getGrammaticalCaseIdentifier(displayOptions.getGrammaticalCase()));
+    return copy;
+}
+
+template <typename Derived>
+Derived NumberFormatterSettings<Derived>::displayOptions(const DisplayOptions &displayOptions) && {
+    Derived move(std::move(*this));
+    // `displayCase` does not recognise the `undefined`
+    if (displayOptions.getGrammaticalCase() == UDISPOPT_GRAMMATICAL_CASE_UNDEFINED) {
+        move.fMacros.unitDisplayCase.set(nullptr);
+        return move;
+    }
+
+    move.fMacros.unitDisplayCase.set(
+        udispopt_getGrammaticalCaseIdentifier(displayOptions.getGrammaticalCase()));
+    return move;
+}
+
 template<typename Derived>
 Derived NumberFormatterSettings<Derived>::unitDisplayCase(const StringPiece unitDisplayCase) const& {
     Derived copy(*this);
@@ -329,6 +357,25 @@ Derived NumberFormatterSettings<Derived>::threshold(int32_t threshold)&& {
     move.fMacros.threshold = threshold;
     return move;
 }
+
+#if APPLE_ICU_CHANGES
+// rdar://107351099 SimpleDateFormat perf
+
+template<typename Derived>
+Derived NumberFormatterSettings<Derived>::forDateFormat(bool forDateFormat) const& {
+    Derived copy(*this);
+    copy.fMacros.forDateFormat = forDateFormat;
+    return copy;
+}
+
+template<typename Derived>
+Derived NumberFormatterSettings<Derived>::forDateFormat(bool forDateFormat)&& {
+    Derived move(std::move(*this));
+    move.fMacros.forDateFormat = forDateFormat;
+    return move;
+}
+
+#endif  // APPLE_ICU_CHANGES
 
 template<typename Derived>
 Derived NumberFormatterSettings<Derived>::macros(const impl::MacroProps& macros) const& {
@@ -613,11 +660,14 @@ LocalizedNumberFormatter::formatDecimalQuantity(const DecimalQuantity& dq, UErro
 }
 
 void LocalizedNumberFormatter::formatImpl(impl::UFormattedNumberData* results, UErrorCode& status) const {
-    if (fMacros.adjustDoublePrecision) { // Apple addition for <rdar://problem/39240173>, made for ICU68
+#if APPLE_ICU_CHANGES
+// rdar:/
+    if (fMacros.adjustDoublePrecision) { // Apple addition for rdar://39240173, made for ICU68
         UErrorCode localStatus = U_ZERO_ERROR;
         int32_t magnitude = results->quantity.getMagnitude();
         results->quantity.roundToMagnitude(magnitude-14, kDefaultMode, localStatus);
     }
+#endif  // APPLE_ICU_CHANGES
     if (computeCompiled(status)) {
         fCompiled->format(results, status);
     } else {
@@ -703,10 +753,12 @@ int32_t LocalizedNumberFormatter::getCallCount() const {
 
 // Note: toFormat defined in number_asformat.cpp
 
-// Apple <rdar://problem/49955427>
+#if APPLE_ICU_CHANGES
+// rdar://49955427
 void LocalizedNumberFormatter::setDFSShallowCopy(UBool shallow) {
     fMacros.symbols.setDFSShallowCopy(shallow);
 }
+#endif  // APPLE_ICU_CHANGES
 
 const DecimalFormatSymbols* LocalizedNumberFormatter::getDecimalFormatSymbols() const {
     return fMacros.symbols.getDecimalFormatSymbols();

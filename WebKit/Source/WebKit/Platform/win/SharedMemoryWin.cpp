@@ -27,52 +27,13 @@
 #include "config.h"
 #include "SharedMemory.h"
 
-#include "ArgumentCoders.h"
 #include <wtf/RefPtr.h>
 
 namespace WebKit {
 
-bool SharedMemory::Handle::isNull() const
-{
-    return !m_handle;
-}
-
-void SharedMemory::Handle::encode(IPC::Encoder& encoder) const
-{
-    encoder << static_cast<uint64_t>(m_size);
-    // Hand off ownership of our HANDLE to the receiving process. It will close it for us.
-    // FIXME: If the receiving process crashes before it receives the memory, the memory will be
-    // leaked. See <http://webkit.org/b/47502>.
-    encoder << WTFMove(m_handle);
-}
-
-bool SharedMemory::Handle::decode(IPC::Decoder& decoder, SharedMemory::Handle& handle)
-{
-    ASSERT_ARG(handle, !handle.m_handle);
-    ASSERT_ARG(handle, !handle.m_size);
-
-    uint64_t dataLength;
-    if (!decoder.decode(dataLength))
-        return false;
-    
-    auto processSpecificHandle = decoder.decode<Win32Handle>();
-    if (!processSpecificHandle)
-        return false;
-
-    handle.m_handle = WTFMove(*processSpecificHandle);
-    handle.m_size = dataLength;
-    return true;
-}
-
-
-void SharedMemory::Handle::clear()
-{
-    m_handle = { };
-}
-
 RefPtr<SharedMemory> SharedMemory::allocate(size_t size)
 {
-    Win32Handle handle { ::CreateFileMappingW(INVALID_HANDLE_VALUE, 0, PAGE_READWRITE, 0, size, 0) };
+    auto handle = Win32Handle::adopt(::CreateFileMappingW(INVALID_HANDLE_VALUE, 0, PAGE_READWRITE, 0, size, 0));
     if (!handle)
         return nullptr;
 
@@ -101,35 +62,18 @@ static DWORD accessRights(SharedMemory::Protection protection)
     return 0;
 }
 
-RefPtr<SharedMemory> SharedMemory::map(const Handle& handle, Protection protection)
+RefPtr<SharedMemory> SharedMemory::map(Handle&& handle, Protection protection)
 {
-    RefPtr<SharedMemory> memory = adopt(handle.m_handle.get(), handle.m_size, protection);
-    if (!memory)
-        return nullptr;
-
-    // The SharedMemory object now owns the HANDLE.
-    (void) handle.m_handle.release();
-
-    return memory;
-}
-
-RefPtr<SharedMemory> SharedMemory::adopt(HANDLE handle, size_t size, Protection protection)
-{
-    if (handle == INVALID_HANDLE_VALUE)
-        return nullptr;
-
-    DWORD desiredAccess = accessRights(protection);
-
-    void* baseAddress = ::MapViewOfFile(handle, desiredAccess, 0, 0, size);
-    ASSERT_WITH_MESSAGE(baseAddress, "::MapViewOfFile failed with error %lu %p", ::GetLastError(), handle);
-    if (!baseAddress)
+    ASSERT(!handle.isNull());
+    void* data = ::MapViewOfFile(handle.m_handle.get(), accessRights(protection), 0, 0, handle.size());
+    ASSERT_WITH_MESSAGE(data, "::MapViewOfFile failed with error %lu %p", ::GetLastError(), handle.m_handle.get());
+    if (!data)
         return nullptr;
 
     RefPtr<SharedMemory> memory = adoptRef(new SharedMemory);
-    memory->m_size = size;
-    memory->m_data = baseAddress;
-    memory->m_handle = handle;
-
+    memory->m_size = handle.size();
+    memory->m_data = data;
+    memory->m_handle = WTFMove(handle.m_handle);
     return memory;
 }
 
@@ -153,7 +97,7 @@ auto SharedMemory::createHandle(Protection protection) -> std::optional<Handle>
     if (!::DuplicateHandle(processHandle, m_handle.get(), processHandle, &duplicatedHandle, accessRights(protection), FALSE, 0))
         return std::nullopt;
 
-    handle.m_handle = Win32Handle { duplicatedHandle };
+    handle.m_handle = Win32Handle::adopt(duplicatedHandle);
     handle.m_size = m_size;
     return WTFMove(handle);
 }

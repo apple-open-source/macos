@@ -3591,7 +3591,6 @@ done:
 int
 check_for_dataless_file(struct vnode *vp, uint64_t op_type)
 {
-	int error;
 
 	if (vp == NULL || (VTOC(vp)->c_bsdflags & UF_COMPRESSED) == 0 || VTOCMP(vp) == NULL || decmpfs_cnode_cmp_type(VTOCMP(vp)) != DATALESS_CMPFS_TYPE) {
 		// there's nothing to do, it's not dataless
@@ -3603,31 +3602,9 @@ check_for_dataless_file(struct vnode *vp, uint64_t op_type)
 		return 0;	
 	}
 
-	// printf("hfs: dataless: encountered a file with the dataless bit set! (vp %p)\n", vp);
-	error = resolve_nspace_item(vp, op_type | NAMESPACE_HANDLER_NSPACE_EVENT);
-	if (error == EDEADLK && op_type == NAMESPACE_HANDLER_WRITE_OP) {
-		error = 0;
-	} else if (error) {
-		if (error == EAGAIN) {
-			printf("hfs: dataless: timed out waiting for namespace handler...\n");
-			// XXXdbg - return the fabled ENOTPRESENT (i.e. EJUKEBOX)?
-			return 0;				
-		} else if (error == EINTR) {
-			// printf("hfs: dataless: got a signal while waiting for namespace handler...\n");
-			return EINTR;
-		}
-	} else if (VTOC(vp)->c_bsdflags & UF_COMPRESSED) {
-		//
-		// if we're here, the dataless bit is still set on the file 
-		// which means it didn't get handled.  we return an error
-		// but it's presently ignored by all callers of this function.
-		//
-		// XXXdbg - EDATANOTPRESENT is what we really need...
-		//
-		return EBADF;
-	}				
-
-	return error;
+	/* Dataless files are not supported on HFS+. */
+	printf("hfs: dataless file encountered\n");
+	return EIO;
 }
 
 

@@ -292,6 +292,9 @@
 /* Lockdown Mode alert message */
 "Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings." = "Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings.";
 
+/* Lockdown Mode alert message (MacCatalyst) */
+"Certain experiences and features may not function as expected. You can manage Lockdown Mode in Settings." = "Certain experiences and features may not function as expected. You can manage Lockdown Mode in Settings.";
+
 /* Undo action name */
 "Change Attributes (Undo action name)" = "Change Attributes";
 
@@ -342,6 +345,9 @@
 
 /* WebKitErrorCannotShowMIMEType description */
 "Content with specified MIME type can’t be shown" = "Content with specified MIME type can’t be shown";
+
+/* WebKitErrorHTTPSUpgradeRedirectLoop description */
+"HTTPS Upgrade redirect loop detected" = "HTTPS Upgrade redirect loop detected";
 
 /* Continue */
 "Continue" = "Continue";
@@ -904,6 +910,9 @@
 /* Pause All Animations context menu item */
 "Pause All Animations" = "Pause All Animations";
 
+/* Pause animation context menu item */
+"Pause Animation" = "Pause Animation";
+
 /* File Upload alert sheet button string for choosing an existing media item from the Photo Library */
 "Photo Library (file upload action sheet)" = "Photo Library";
 
@@ -915,6 +924,9 @@
 
 /* Play All Animations context menu item */
 "Play All Animations" = "Play All Animations";
+
+/* Play animation context menu item */
+"Play Animation" = "Play Animation";
 
 /* accessibility help text for enter full screen button */
 "Play movie in full screen mode" = "Play movie in full screen mode";
@@ -1506,6 +1518,15 @@
 
 /* accessibility role description for a date field. */
 "date field" = "date field";
+
+/* accessibility label for a date field month input. */
+"month" = "month";
+
+/* accessibility label for a date field day input. */
+"day" = "day";
+
+/* accessibility label for a date field year input. */
+"year" = "year";
 
 /* role description of ARIA definition role */
 "definition" = "definition";

@@ -30,7 +30,6 @@
 #include "AffineTransform.h"
 #include "BitmapImage.h"
 #include "DeprecatedGlobalSettings.h"
-#include "GeometryUtilities.h"
 #include "GraphicsContext.h"
 #include "ImageObserver.h"
 #include "Length.h"
@@ -56,6 +55,16 @@ Image::Image(ImageObserver* observer)
 }
 
 Image::~Image() = default;
+
+RefPtr<ImageObserver> Image::imageObserver() const
+{
+    return m_imageObserver.get();
+}
+
+void Image::setImageObserver(RefPtr<ImageObserver>&& observer)
+{
+    m_imageObserver = observer.get();
+}
 
 Image& Image::nullImage()
 {
@@ -147,44 +156,14 @@ void Image::fillWithSolidColor(GraphicsContext& ctxt, const FloatRect& dstRect, 
 
 void Image::drawPattern(GraphicsContext& ctxt, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform,  const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
-    auto tileImage = preTransformedNativeImageForCurrentFrame(options.orientation() == ImageOrientation::FromImage);
+    auto tileImage = preTransformedNativeImageForCurrentFrame(options.orientation() == ImageOrientation::Orientation::FromImage);
     if (!tileImage)
         return;
 
     ctxt.drawPattern(*tileImage, destRect, tileRect, patternTransform, phase, spacing, options);
 
-    if (imageObserver())
-        imageObserver()->didDraw(*this);
-}
-
-ImageDrawResult Image::drawCachedSubimage(GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, const ImagePaintingOptions& options)
-{
-    // This image does not support CachedSubimage drawing.
-    if (!shouldDrawFromCachedSubimage(context))
-        return ImageDrawResult::DidNothing;
-
-    auto clippedDestinationRect = intersection(context.clipBounds(), destinationRect);
-    if (clippedDestinationRect.isEmpty())
-        return ImageDrawResult::DidDraw;
-
-    auto clippedSourceRect = mapRect(clippedDestinationRect, destinationRect, sourceRect);
-
-    // Reset the currect CachedSubimage if it can't be reused for the current drawing.
-    if (m_cachedSubimage && !m_cachedSubimage->canBeUsed(context, clippedDestinationRect, clippedSourceRect))
-        m_cachedSubimage = nullptr;
-
-    if (!m_cachedSubimage) {
-        m_cachedSubimage = CachedSubimage::create(*this, context, clippedDestinationRect, clippedSourceRect, options);
-        if (m_cachedSubimage)
-            ++m_cachedSubimageCreateCountForTesting;
-    }
-
-    if (!m_cachedSubimage)
-        return ImageDrawResult::DidNothing;
-
-    m_cachedSubimage->draw(context, clippedDestinationRect, clippedSourceRect);
-    ++m_cachedSubimageDrawCountForTesting;
-    return ImageDrawResult::DidDraw;
+    if (auto observer = imageObserver())
+        observer->didDraw(*this);
 }
 
 ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRect, const FloatPoint& srcPoint, const FloatSize& scaledTileSize, const FloatSize& spacing, const ImagePaintingOptions& options)
@@ -307,16 +286,17 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& dstRect
     bool centerOnGapVertically = false;
     switch (hRule) {
     case RoundTile: {
-        int numItems = std::max<int>(floorf(dstRect.width() / srcRect.width()), 1);
+        float scaledSourceWidth = srcRect.width() * tileScale.width();
+        int numItems = std::max<int>(floorf(dstRect.width() / scaledSourceWidth), 1);
         tileScale.setWidth(dstRect.width() / (srcRect.width() * numItems));
         break;
     }
     case SpaceTile: {
-        int numItems = floorf(dstRect.width() / srcRect.width());
+        float scaledSourceWidth = srcRect.width() * tileScale.width();
+        int numItems = floorf(dstRect.width() / scaledSourceWidth);
         if (!numItems)
             return ImageDrawResult::DidNothing;
-        spacing.setWidth((dstRect.width() - srcRect.width() * numItems) / (numItems + 1));
-        tileScale.setWidth(1);
+        spacing.setWidth((dstRect.width() - scaledSourceWidth * numItems) / (numItems + 1));
         centerOnGapHorizonally = !(numItems & 1);
         break;
     }
@@ -327,16 +307,17 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& dstRect
 
     switch (vRule) {
     case RoundTile: {
-        int numItems = std::max<int>(floorf(dstRect.height() / srcRect.height()), 1);
+        float scaledSourceHeight = srcRect.height() * tileScale.height();
+        int numItems = std::max<int>(floorf(dstRect.height() / scaledSourceHeight), 1);
         tileScale.setHeight(dstRect.height() / (srcRect.height() * numItems));
         break;
         }
     case SpaceTile: {
-        int numItems = floorf(dstRect.height() / srcRect.height());
+        float scaledSourceHeight = srcRect.height() * tileScale.height();
+        int numItems = floorf(dstRect.height() / scaledSourceHeight);
         if (!numItems)
             return ImageDrawResult::DidNothing;
-        spacing.setHeight((dstRect.height() - srcRect.height() * numItems) / (numItems + 1));
-        tileScale.setHeight(1);
+        spacing.setHeight((dstRect.height() - scaledSourceHeight * numItems) / (numItems + 1));
         centerOnGapVertically = !(numItems & 1);
         break;
     }
@@ -384,11 +365,6 @@ void Image::startAnimationAsynchronously()
     if (m_animationStartTimer->isActive())
         return;
     m_animationStartTimer->startOneShot(0_s);
-}
-
-void Image::destroyDecodedData(bool)
-{
-    m_cachedSubimage = nullptr;
 }
 
 DestinationColorSpace Image::colorSpace()

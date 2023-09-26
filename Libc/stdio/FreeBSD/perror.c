@@ -46,8 +46,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/perror.c,v 1.9 2007/01/09 00:28:07 imp Ex
 #include "local.h"
 
 void
-perror(s)
-	const char *s;
+perror(const char *s)
 {
 	char msgbuf[NL_TEXTMAX];
 	struct iovec *v;

@@ -247,8 +247,22 @@ struct c_segment {
 
 
 struct  c_slot_mapping {
+#if !CONFIG_TRACK_UNMODIFIED_ANON_PAGES
 	uint32_t        s_cseg:22,      /* segment number + 1 */
 	    s_cindx:10;                 /* index in the segment */
+#else /* !CONFIG_TRACK_UNMODIFIED_ANON_PAGES */
+	uint32_t        s_cseg:21,      /* segment number + 1 */
+	    s_cindx:10,                 /* index in the segment */
+	    s_uncompressed:1;           /* This bit indicates that the page resides uncompressed in a swapfile.
+	                                 * This can happen in 2 ways:-
+	                                 * 1) Page used to be in the compressor, got decompressed, was not
+	                                 * modified, and so was pushed uncompressed to a different swapfile on disk.
+	                                 * 2) Page was in its uncompressed form in a swapfile on disk. It got swapped in
+	                                 * but was not modified. As we are about to reclaim it, we notice that this bit
+	                                 * is set in its current slot. And so we can safely toss this clean anonymous page
+	                                 * because its copy exists on disk.
+	                                 */
+#endif /* !CONFIG_TRACK_UNMODIFIED_ANON_PAGES */
 };
 #define C_SLOT_MAX_INDEX        (1 << 10)
 

@@ -207,6 +207,23 @@ public:
      */
     DecimalFormatSymbols(const Locale& locale, const NumberingSystem& ns, UErrorCode& status);
 
+#if APPLE_ICU_CHANGES
+// rdar://107351099 SimpleDateFormat perf
+    /**
+     * Creates a DecimalFormatSymbols instance for the given locale with digits corresponding
+     * to the given NumberingSystem, or if null, the numbering system derived from the locale.
+     * If forDate is true, just uses fallback number symbols for all except digits.
+     *
+     * @param locale    The locale to get symbols for.
+     * @param ns        The numbering system.
+     * @param forDate   True if the symbols are for a number formatter used in date formatting
+     * @param status    Input/output parameter, set to success or
+     *                  failure code upon return.
+     * @internal
+     */
+    DecimalFormatSymbols(const Locale& locale, const NumberingSystem& ns, bool forDate, UErrorCode& status);
+#endif  // APPLE_ICU_CHANGES
+
     /**
      * Create a DecimalFormatSymbols object for the default locale.
      * This constructor will not fail.  If the resource file data is
@@ -384,7 +401,12 @@ private:
      *                             back to the locale.
      */
     void initialize(const Locale& locale, UErrorCode& success,
+#if APPLE_ICU_CHANGES
+// rdar://107351099 SimpleDateFormat perf
+                    UBool useLastResortData = false, const NumberingSystem* ns = nullptr, bool forDate = false);
+#else
                     UBool useLastResortData = false, const NumberingSystem* ns = nullptr);
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Initialize the symbols with default values.
@@ -457,11 +479,14 @@ public:
      */
     inline const char16_t* getCurrencyPattern(void) const;
 
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
     /**
      * Returns the name of the numbering system used for this object.
      * @internal
      */
     inline const char* getNSName() const;
+#endif  // APPLE_ICU_CHANGES
 
 #endif  /* U_HIDE_INTERNAL_API */
 
@@ -513,7 +538,10 @@ private:
     UnicodeString currencySpcAfterSym[UNUM_CURRENCY_SPACING_COUNT];
     UBool fIsCustomCurrencySymbol;
     UBool fIsCustomIntlCurrencySymbol;
-    char fNSName[9]; // Apple rdar://51672521
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
+    char fNSName[9];
+#endif  // APPLE_ICU_CHANGES
 };
 
 // -------------------------------------
@@ -600,10 +628,13 @@ DecimalFormatSymbols::getCurrencyPattern() const {
     return currPattern;
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
 inline const char*
 DecimalFormatSymbols::getNSName() const {
     return fNSName;
 }
+#endif  // APPLE_ICU_CHANGES
 #endif /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END

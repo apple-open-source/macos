@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005,2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005,2011,2014-2022 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -169,8 +169,9 @@ public:
 		
 	/* 
 	 * Flush property list data out to disk if dirty.
+	 * If there is a certRef but trustSetttingsDictOrArray is NULL, settings are being deleted.
 	 */
-	void flushToDisk();
+	void flushToDisk(SecCertificateRef certRef, CFTypeRef trustSettingsDictOrArray);
 
 	/*
 	 * Obtain external representation of TrustSettings data.

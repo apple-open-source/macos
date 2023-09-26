@@ -83,6 +83,10 @@
 
 #include <pcap/dlt.h>
 
+#ifdef __APPLE__
+#include <sys/types.h>		/* u_int */
+#endif /* __APPLE__ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif

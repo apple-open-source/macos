@@ -5,25 +5,28 @@
 	<key>OpenSourceProject</key>
 	<string>sudo</string>
 	<key>OpenSourceVersion</key>
-	<string>1.9.5p2</string>
+	<string>1.9.13p2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.sudo.ws/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.sudo.ws/dist/sudo-1.9.5p2.tar.gz</string>
+	<string>http://www.sudo.ws/dist/sudo-1.9.13p2.tar.gz</string>
 	<key>OpenSourceSHA256</key>
-	<string>539e2ef43c8a55026697fb0474ab6a925a11206b5aa58710cb42a0e1c81f0978</string>
+	<string>92334a12bb93e0c056b09f53e255ccb7d6f67c6350e2813cd9593ceeca78560b</string>
 	<key>OpenSourceImportDate</key>
-	<string>2021-01-26</string>
+	<string>2023-03-22</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Disable sudoedit.</string>
 		<string>Disable sudoreplay.</string>
 		<string>Allow admin group by default.</string>
-		<string>Disable lecture</string>
+		<string>Disable lecture.</string>
+		<string>Add library validation support.</string>
+		<string>Add event auditing.</string>
+		<string>Add MDM support.</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>other|bsd</string>
 	<key>OpenSourceLicenseFile</key>
-	<string>sudo.txt</string>
+	<string>LICENSE.md</string>
 </dict>
 </plist>

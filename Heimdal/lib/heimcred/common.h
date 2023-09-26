@@ -47,8 +47,6 @@ typedef enum {
 
 #include "heimcred.h"
 
-#define CFRELEASE_NULL(x) do { if (x!=NULL) { CFRelease(x); x = NULL; } } while(0)
-
 struct HeimMech;
 
 #if HEIMCRED_SERVER
@@ -94,6 +92,7 @@ typedef struct {
     CFTypeID heid;
     CFSetRef connections;
     CFMutableDictionaryRef sessions;
+    CFMutableDictionaryRef challenges;
     CFMutableDictionaryRef mechanisms;
     CFMutableDictionaryRef schemas;
     CFMutableDictionaryRef globalSchema;

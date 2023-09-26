@@ -115,3 +115,4 @@ POLICYMACRO(CHIPUpdateSigning,                     109, E, CHIPUpdateSigning,   
 POLICYMACRO(OrderBundleSigner,                     110, E, OrderBundleSigner,                    N, Y, OrderBundleSigner)
 POLICYMACRO(QiSigning,                             111, E, QiSigning,                             , Y, QiSigning)
 POLICYMACRO(PPMAggregatorConfigSigning,            112, E, PPMAggregatorConfigSigning,            ,  , PPMAggregatorConfigSigning)
+POLICYMACRO(XROSApplicationSigning,                113, E, AppleXROSApplicationSigning,           , Y, AppleXROSApplicationSigning)

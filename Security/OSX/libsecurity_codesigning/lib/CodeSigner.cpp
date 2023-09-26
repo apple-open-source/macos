@@ -235,7 +235,7 @@ void SecCodeSigner::sign(SecStaticCode *code, SecCSFlags flags)
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
 		}
 		secinfo("signer", "%p will sign %p (flags 0x%x)", this, code, flags);
-		operation.sign(flags);
+		operation.sign(flags | (mOpFlags & kSecCSStripDisallowedXattrs));
 	}
 	code->resetValidity();
 }
@@ -397,6 +397,7 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	state.mLaunchConstraints[0] = get<CFDataRef>(kSecCodeSignerLaunchConstraintSelf);
 	state.mLaunchConstraints[1] = get<CFDataRef>(kSecCodeSignerLaunchConstraintParent);
 	state.mLaunchConstraints[2] = get<CFDataRef>(kSecCodeSignerLaunchConstraintResponsible);
+	state.mLibraryConstraints = get<CFDataRef>(kSecCodeSignerLibraryConstraint);
 	if (CFBooleanRef timestampRequest = get<CFBooleanRef>(kSecCodeSignerRequireTimestamp)) {
 		state.mWantTimeStamp = timestampRequest == kCFBooleanTrue;
 	} else {	// pick default

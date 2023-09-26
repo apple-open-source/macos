@@ -1,0 +1,13 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+osa{
+    Languages{
+        osa{"𐓏𐓘𐓻𐓘𐓻𐓟"}
+    }
+    Types{
+        numbers{
+            latn{"𐓷𐓘𐓵𐓘𐓷𐓘 𐓨𐓣𐓡𐓣𐓵𐓟 𐓣͘𐓤𐓯𐓟"}
+        }
+    }
+}

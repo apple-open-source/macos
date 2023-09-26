@@ -123,7 +123,7 @@
     }
 
     SFIESOperation* sfieso = [[SFIESOperation alloc] initWithCurve:self.curve];
-    SFIESCiphertext* ciphertext =
+    SFIESCiphertext* ciphertext = (SFIESCiphertext*)
     [sfieso encrypt:plaintext withKey:receiverPublicKey error:error];
 
     @autoreleasepool {

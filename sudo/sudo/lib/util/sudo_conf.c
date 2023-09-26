@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2009-2017 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2009-2021 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -38,6 +38,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 
 #ifdef __APPLE_DYNAMIC_LV__
@@ -55,6 +56,13 @@
 #include "sudo_util.h"
 #include "pathnames.h"
 
+#ifndef _PATH_SUDO_INTERCEPT
+# define _PATH_SUDO_INTERCEPT NULL
+#endif
+#ifndef _PATH_SUDO_NOEXEC
+# define _PATH_SUDO_NOEXEC NULL
+#endif
+
 struct sudo_conf_table {
     const char *name;
     unsigned int namelen;
@@ -65,12 +73,11 @@ struct sudo_conf_path_table {
     const char *pname;
     unsigned int pnamelen;
     bool dynamic;
-    char *pval;
+    const char *pval;
 };
 
 struct sudo_conf_settings {
     bool updated;
-    bool developer_mode;
     bool disable_coredump;
     bool probe_interfaces;
     int group_source;
@@ -90,14 +97,12 @@ static struct sudo_conf_table sudo_conf_table[] = {
     { NULL }
 };
 
-static int set_var_developer_mode(const char *entry, const char *conf_file, unsigned int);
 static int set_var_disable_coredump(const char *entry, const char *conf_file, unsigned int);
 static int set_var_group_source(const char *entry, const char *conf_file, unsigned int);
 static int set_var_max_groups(const char *entry, const char *conf_file, unsigned int);
 static int set_var_probe_interfaces(const char *entry, const char *conf_file, unsigned int);
 
 static struct sudo_conf_table sudo_conf_var_table[] = {
-    { "developer_mode", sizeof("developer_mode") - 1, set_var_developer_mode },
     { "disable_coredump", sizeof("disable_coredump") - 1, set_var_disable_coredump },
     { "group_source", sizeof("group_source") - 1, set_var_group_source },
     { "max_groups", sizeof("max_groups") - 1, set_var_max_groups },
@@ -108,25 +113,37 @@ static struct sudo_conf_table sudo_conf_var_table[] = {
 /* Indexes into path_table[] below (order is important). */
 #define SUDO_CONF_PATH_ASKPASS		0
 #define SUDO_CONF_PATH_SESH		1
-#define SUDO_CONF_PATH_NOEXEC		2
-#define SUDO_CONF_PATH_PLUGIN_DIR	3
-#define SUDO_CONF_PATH_DEVSEARCH	4
+#define SUDO_CONF_PATH_INTERCEPT	2
+#define SUDO_CONF_PATH_NOEXEC		3
+#define SUDO_CONF_PATH_PLUGIN_DIR	4
+#define SUDO_CONF_PATH_DEVSEARCH	5
 
 #define SUDO_CONF_PATH_INITIALIZER	{				\
     { "askpass", sizeof("askpass") - 1, false, _PATH_SUDO_ASKPASS },	\
     { "sesh", sizeof("sesh") - 1, false, _PATH_SUDO_SESH },		\
+    { "intercept", sizeof("intercept") - 1, false, _PATH_SUDO_INTERCEPT },	\
     { "noexec", sizeof("noexec") - 1, false, _PATH_SUDO_NOEXEC },	\
     { "plugin_dir", sizeof("plugin_dir") - 1, false, _PATH_SUDO_PLUGIN_DIR }, \
     { "devsearch", sizeof("devsearch") - 1, false, _PATH_SUDO_DEVSEARCH }, \
     { NULL } \
 }
 
+/*
+ * getgroups(2) on macOS is flakey with respect to non-local groups. 
+ * Even with _DARWIN_UNLIMITED_GETGROUPS set we may not get all groups./
+ * See bug #946 for details.
+ */
+#ifdef __APPLE__
+# define GROUP_SOURCE_DEFAULT	GROUP_SOURCE_DYNAMIC
+#else
+# define GROUP_SOURCE_DEFAULT	GROUP_SOURCE_ADAPTIVE
+#endif
+
 #define SUDO_CONF_SETTINGS_INITIALIZER	{				\
     false,			/* updated */				\
-    false,			/* developer_mode */			\
     true,			/* disable_coredump */			\
     true,			/* probe_interfaces */			\
-    GROUP_SOURCE_ADAPTIVE,	/* group_source */			\
+    GROUP_SOURCE_DEFAULT,	/* group_source */			\
     -1				/* max_groups */			\
 }
 
@@ -134,7 +151,7 @@ static struct sudo_conf_data {
     struct sudo_conf_settings settings;
     struct sudo_conf_debug_list debugging;
     struct plugin_info_list plugins;
-    struct sudo_conf_path_table path_table[6];
+    struct sudo_conf_path_table path_table[7];
 } sudo_conf_data = {
     SUDO_CONF_SETTINGS_INITIALIZER,
     TAILQ_HEAD_INITIALIZER(sudo_conf_data.debugging),
@@ -205,7 +222,7 @@ parse_path(const char *entry, const char *conf_file, unsigned int lineno)
 		}
 	    }
 	    if (cur->dynamic)
-		free(cur->pval);
+		free((char *)cur->pval);
 	    cur->pval = pval;
 	    cur->dynamic = true;
 	    sudo_debug_printf(SUDO_DEBUG_INFO, "%s: %s:%u: Path %s %s",
@@ -377,22 +394,6 @@ oom:
 }
 
 static int
-set_var_developer_mode(const char *strval, const char *conf_file,
-    unsigned int lineno)
-{
-    int val = sudo_strtobool(strval);
-    debug_decl(set_var_developer_mode, SUDO_DEBUG_UTIL);
-
-    if (val == -1) {
-        sudo_warnx(U_("invalid value for %s \"%s\" in %s, line %u"),
-            "developer_mode", strval, conf_file, lineno);
-        debug_return_bool(false);
-    }
-    sudo_conf_data.settings.developer_mode = val;
-    debug_return_bool(true);
-}
-
-static int
 set_var_disable_coredump(const char *strval, const char *conf_file,
     unsigned int lineno)
 {
@@ -402,10 +403,10 @@ set_var_disable_coredump(const char *strval, const char *conf_file,
     if (val == -1) {
 	sudo_warnx(U_("invalid value for %s \"%s\" in %s, line %u"),
 	    "disable_coredump", strval, conf_file, lineno);
-	debug_return_bool(false);
+	debug_return_int(false);
     }
     sudo_conf_data.settings.disable_coredump = val;
-    debug_return_bool(true);
+    debug_return_int(true);
 }
 
 static int
@@ -423,9 +424,9 @@ set_var_group_source(const char *strval, const char *conf_file,
     } else {
 	sudo_warnx(U_("unsupported group source \"%s\" in %s, line %u"), strval,
 	    conf_file, lineno);
-	debug_return_bool(false);
+	debug_return_int(false);
     }
-    debug_return_bool(true);
+    debug_return_int(true);
 }
 
 static int
@@ -435,14 +436,14 @@ set_var_max_groups(const char *strval, const char *conf_file,
     int max_groups;
     debug_decl(set_var_max_groups, SUDO_DEBUG_UTIL);
 
-    max_groups = sudo_strtonum(strval, 1, INT_MAX, NULL);
+    max_groups = sudo_strtonum(strval, 1, 1024, NULL);
     if (max_groups <= 0) {
 	sudo_warnx(U_("invalid max groups \"%s\" in %s, line %u"), strval,
 	    conf_file, lineno);
-	debug_return_bool(false);
+	debug_return_int(false);
     }
     sudo_conf_data.settings.max_groups = max_groups;
-    debug_return_bool(true);
+    debug_return_int(true);
 }
 
 static int
@@ -455,10 +456,10 @@ set_var_probe_interfaces(const char *strval, const char *conf_file,
     if (val == -1) {
 	sudo_warnx(U_("invalid value for %s \"%s\" in %s, line %u"),
 	    "probe_interfaces", strval, conf_file, lineno);
-	debug_return_bool(false);
+	debug_return_int(false);
     }
     sudo_conf_data.settings.probe_interfaces = val;
-    debug_return_bool(true);
+    debug_return_int(true);
 }
 
 const char *
@@ -471,6 +472,12 @@ const char *
 sudo_conf_sesh_path_v1(void)
 {
     return sudo_conf_data.path_table[SUDO_CONF_PATH_SESH].pval;
+}
+
+const char *
+sudo_conf_intercept_path_v1(void)
+{
+    return sudo_conf_data.path_table[SUDO_CONF_PATH_INTERCEPT].pval;
 }
 
 const char *
@@ -520,33 +527,25 @@ struct sudo_conf_debug_file_list *
 sudo_conf_debug_files_v1(const char *progname)
 {
     struct sudo_conf_debug *debug_spec;
-    size_t prognamelen, progbaselen;
-    const char *progbase = progname;
+    const char *progbase;
     debug_decl(sudo_conf_debug_files, SUDO_DEBUG_UTIL);
 
     /* Determine basename if program is fully qualified (like for plugins). */
-    prognamelen = progbaselen = strlen(progname);
-    if (*progname == '/') {
-	progbase = strrchr(progname, '/');
-	progbaselen = strlen(++progbase);
-    }
+    progbase = progname[0] == '/' ? sudo_basename(progname) : progname;
+
     /* Convert sudoedit -> sudo. */
-    if (progbaselen > 4 && strcmp(progbase + 4, "edit") == 0) {
-	progbaselen -= 4;
-    }
+    if (strcmp(progbase, "sudoedit") == 0)
+	progbase = "sudo";
+
     TAILQ_FOREACH(debug_spec, &sudo_conf_data.debugging, entries) {
 	const char *prog = progbase;
-	size_t len = progbaselen;
 
 	if (debug_spec->progname[0] == '/') {
 	    /* Match fully-qualified name, if possible. */
 	    prog = progname;
-	    len = prognamelen;
 	}
-	if (strncmp(debug_spec->progname, prog, len) == 0 &&
-	    debug_spec->progname[len] == '\0') {
+	if (strcmp(debug_spec->progname, prog) == 0)
 	    debug_return_ptr(&debug_spec->debug_files);
-	}
     }
     debug_return_ptr(NULL);
 }
@@ -554,7 +553,8 @@ sudo_conf_debug_files_v1(const char *progname)
 bool
 sudo_conf_developer_mode_v1(void)
 {
-    return sudo_conf_data.settings.developer_mode;
+    /* Developer mode was removed in sudo 1.9.13. */
+    return false;
 }
 
 bool
@@ -635,15 +635,13 @@ sudo_conf_init(int conf_types)
 int
 sudo_conf_read_v1(const char *conf_file, int conf_types)
 {
-    struct stat sb;
     FILE *fp = NULL;
-    int ret = false;
+    int fd, ret = false;
     char *prev_locale, *line = NULL;
     unsigned int conf_lineno = 0;
     size_t linesize = 0;
     debug_decl(sudo_conf_read, SUDO_DEBUG_UTIL);
 
-    /* rdar://99495256 (sudo should not load custom plugins when CS_INSTALLER is set) */
 #ifdef __APPLE_DYNAMIC_LV__
     if ((conf_types & SUDO_CONF_PLUGINS) != 0) {
         int csflags = 0;
@@ -671,38 +669,57 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
     if (prev_locale[0] != 'C' || prev_locale[1] != '\0')
         setlocale(LC_ALL, "C");
 
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     if (conf_file == NULL) {
+	struct stat sb;
+	int error;
+
 	conf_file = _PATH_SUDO_CONF;
-	switch (sudo_secure_file(conf_file, ROOT_UID, -1, &sb)) {
-	    case SUDO_PATH_SECURE:
-		break;
+	fd = sudo_secure_open_file(conf_file, ROOT_UID, -1, &sb, &error);
+	if (fd == -1) {
+	    switch (error) {
 	    case SUDO_PATH_MISSING:
 		/* Root should always be able to read sudo.conf. */
 		if (errno != ENOENT && geteuid() == ROOT_UID)
-		    sudo_warn(U_("unable to stat %s"), conf_file);
-		goto done;
+		    sudo_warn(U_("unable to open %s"), conf_file);
+		break;
 	    case SUDO_PATH_BAD_TYPE:
 		sudo_warnx(U_("%s is not a regular file"), conf_file);
-		goto done;
+		break;
 	    case SUDO_PATH_WRONG_OWNER:
 		sudo_warnx(U_("%s is owned by uid %u, should be %u"),
 		    conf_file, (unsigned int) sb.st_uid, ROOT_UID);
-		goto done;
+		break;
 	    case SUDO_PATH_WORLD_WRITABLE:
 		sudo_warnx(U_("%s is world writable"), conf_file);
-		goto done;
+		break;
 	    case SUDO_PATH_GROUP_WRITABLE:
 		sudo_warnx(U_("%s is group writable"), conf_file);
-		goto done;
+		break;
 	    default:
-		/* NOTREACHED */
-		goto done;
+		sudo_warnx("%s: internal error, unexpected error %d",
+		    __func__, error);
+		break;
+	    }
+	    goto done;
+	}
+    } else
+#else
+    if (conf_file == NULL)
+	conf_file = _PATH_SUDO_CONF;
+#endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
+    {
+	fd = open(conf_file, O_RDONLY);
+	if (fd == -1) {
+	    sudo_warn(U_("unable to open %s"), conf_file);
+	    goto done;
 	}
     }
 
-    if ((fp = fopen(conf_file, "r")) == NULL) {
+    if ((fp = fdopen(fd, "r")) == NULL) {
 	if (errno != ENOENT && geteuid() == ROOT_UID)
 	    sudo_warn(U_("unable to open %s"), conf_file);
+	close(fd);
 	goto done;
     }
 
@@ -770,7 +787,7 @@ sudo_conf_clear_paths_v1(void)
 
     for (cur = sudo_conf_data.path_table; cur->pname != NULL; cur++) {
 	if (cur->dynamic)
-	    free(cur->pval);
+	    free((char *)cur->pval);
 	cur->pval = NULL;
 	cur->dynamic = false;
     }

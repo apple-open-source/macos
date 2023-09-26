@@ -30,6 +30,7 @@
 #include	<ast.h>
 #include	<errno.h>
 #include	<ccode.h>
+#include 	<sys/ioctl.h>
 #include	"FEATURE/options"
 #include	"FEATURE/time"
 #include	"FEATURE/cmds"
@@ -1851,7 +1852,7 @@ int	sh_ioctl(int fd, int cmd, void* val, int sz)
 
 #ifdef _lib_tcgetattr
 #   undef tcgetattr
-    sh_tcgetattr(int fd, struct termios *tty)
+int sh_tcgetattr(int fd, struct termios *tty)
     {
 	int r,err = errno;
 	while((r=tcgetattr(fd,tty)) < 0 && errno==EINTR)
@@ -1860,7 +1861,7 @@ int	sh_ioctl(int fd, int cmd, void* val, int sz)
     }
 
 #   undef tcsetattr
-    sh_tcsetattr(int fd, int cmd, struct termios *tty)
+int sh_tcsetattr(int fd, int cmd, struct termios *tty)
     {
 	int r,err = errno;
 	while((r=tcsetattr(fd,cmd,tty)) < 0 && errno==EINTR)

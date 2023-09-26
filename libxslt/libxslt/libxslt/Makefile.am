@@ -28,6 +28,7 @@ xsltinc_HEADERS = 			\
 	xsltexports.h			\
 	xsltlocale.h
 nodist_xsltinc_HEADERS = 		\
+	xsltutilsInternal.h		\
 	xsltconfig.h
 
 libxslt_la_SOURCES = 			\

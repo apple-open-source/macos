@@ -36,13 +36,15 @@ class PrintStream;
 
 namespace WebCore {
 
-class WEBCORE_EXPORT PlatformTimeRanges {
+class WEBCORE_EXPORT PlatformTimeRanges final {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit PlatformTimeRanges() { }
+    PlatformTimeRanges();
     PlatformTimeRanges(const MediaTime& start, const MediaTime& end);
 
     PlatformTimeRanges copyWithEpsilon(const MediaTime&) const;
+
+    static const PlatformTimeRanges& emptyRanges();
 
     MediaTime start(unsigned index) const;
     MediaTime start(unsigned index, bool& valid) const;
@@ -55,6 +57,8 @@ public:
     void invert();
     void intersectWith(const PlatformTimeRanges&);
     void unionWith(const PlatformTimeRanges&);
+    PlatformTimeRanges& operator+=(const PlatformTimeRanges&);
+    PlatformTimeRanges& operator-=(const PlatformTimeRanges&);
 
     unsigned length() const { return m_ranges.size(); }
 
@@ -77,6 +81,11 @@ public:
     struct Range {
         MediaTime start;
         MediaTime end;
+
+        inline bool isEmpty() const
+        {
+            return start == end;
+        }
 
         inline bool isPointInRange(const MediaTime& point) const
         {
@@ -107,12 +116,17 @@ public:
         {
             return range.start >= end;
         }
+
+        inline bool operator==(const Range& other) const { return start == other.start && end == other.end; }
     };
+
+    bool operator==(const PlatformTimeRanges& other) const;
 
 private:
     friend struct IPC::ArgumentCoder<PlatformTimeRanges, void>;
 
     PlatformTimeRanges(Vector<Range>&&);
+    PlatformTimeRanges& operator-=(const Range&);
 
     Vector<Range> m_ranges;
 };

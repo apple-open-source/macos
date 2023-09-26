@@ -23,12 +23,12 @@
 
 #if USE(GSTREAMER)
 
-#include "AppSinkWorkaround.h"
 #include "ApplicationGLib.h"
 #include "DMABufVideoSinkGStreamer.h"
 #include "GLVideoSinkGStreamer.h"
 #include "GStreamerAudioMixer.h"
 #include "GStreamerRegistryScanner.h"
+#include "GStreamerSinksWorkarounds.h"
 #include "GUniquePtrGStreamer.h"
 #include "GstAllocatorFastMalloc.h"
 #include "IntSize.h"
@@ -76,10 +76,19 @@
 #include <gst/webrtc/webrtc-enumtypes.h>
 #endif
 
+#if USE(GSTREAMER_FULL) && GST_CHECK_VERSION(1, 18, 0) && !GST_CHECK_VERSION(1, 20, 0)
+#define IS_GST_FULL_1_18 1
+#include <gst/gstinitstaticplugins.h>
+#else
+#define IS_GST_FULL_1_18 0
+#endif
+
 GST_DEBUG_CATEGORY(webkit_gst_common_debug);
 #define GST_CAT_DEFAULT webkit_gst_common_debug
 
 namespace WebCore {
+
+static GstClockTime s_webkitGstInitTime;
 
 GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate* staticPadTemplate, const gchar* name, GstPad* target)
 {
@@ -95,24 +104,6 @@ GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate* staticPadTempl
 
     return pad;
 }
-
-#if !GST_CHECK_VERSION(1, 18, 0)
-void webkitGstVideoFormatInfoComponent(const GstVideoFormatInfo* info, guint plane, gint components[GST_VIDEO_MAX_COMPONENTS])
-{
-    guint c, i = 0;
-
-    /* Reverse mapping of info->plane. */
-    for (c = 0; c < GST_VIDEO_FORMAT_INFO_N_COMPONENTS(info); c++) {
-        if (GST_VIDEO_FORMAT_INFO_PLANE(info, c) == plane) {
-            components[i] = c;
-            i++;
-        }
-    }
-
-    for (c = i; c < GST_VIDEO_MAX_COMPONENTS; c++)
-        components[c] = -1;
-}
-#endif
 
 #if ENABLE(VIDEO)
 bool getVideoSizeAndFormatFromCaps(const GstCaps* caps, WebCore::IntSize& size, GstVideoFormat& format, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride)
@@ -296,6 +287,7 @@ bool ensureGStreamerInitialized()
 
         GUniqueOutPtr<GError> error;
         isGStreamerInitialized = gst_init_check(&argc, &argv, &error.outPtr());
+        s_webkitGstInitTime = gst_util_get_timestamp();
         ASSERT_WITH_MESSAGE(isGStreamerInitialized, "GStreamer initialization failed: %s", error ? error->message : "unknown error occurred");
         g_strfreev(argv);
         GST_DEBUG_CATEGORY_INIT(webkit_gst_common_debug, "webkitcommon", 0, "WebKit Common utilities");
@@ -311,37 +303,20 @@ bool ensureGStreamerInitialized()
             gst_mpegts_initialize();
 #endif
 
-        // Workaround for https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2413
-        registerAppsinkWorkaroundIfNeeded();
+        registerAppsinkWithWorkaroundsIfNeeded();
 #endif
     });
     return isGStreamerInitialized;
 }
 
-#if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
-// WebM does not specify a protection system ID so it can happen that
-// the ClearKey decryptor is chosen instead of the Thunder one for
-// Widevine (and viceversa) which can can create chaos. This is an
-// environment variable to set in run time if we prefer to rank higher
-// Thunder or ClearKey. If we want to run tests with Thunder, we need
-// to set this environment variable to Thunder and that decryptor will
-// be ranked higher when there is no protection system set (as in
-// WebM).
-// FIXME: In https://bugs.webkit.org/show_bug.cgi?id=214826 we say we
-// should migrate to use GST_PLUGIN_FEATURE_RANK but we can't yet
-// because our lowest dependency is 1.16.
-bool isThunderRanked()
-{
-    const char* value = g_getenv("WEBKIT_GST_EME_RANK_PRIORITY");
-    return value && equalIgnoringASCIICase(value, "Thunder"_s);
-}
-#endif
-
-static void registerInternalVideoEncoder()
+static bool registerInternalVideoEncoder()
 {
 #if ENABLE(VIDEO)
-    gst_element_register(nullptr, "webkitvideoencoder", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_VIDEO_ENCODER);
+    if (auto factory = adoptGRef(gst_element_factory_find("webkitvideoencoder")))
+        return false;
+    return gst_element_register(nullptr, "webkitvideoencoder", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_VIDEO_ENCODER);
 #endif
+    return false;
 }
 
 void registerWebKitGStreamerElements()
@@ -350,18 +325,20 @@ void registerWebKitGStreamerElements()
     bool registryWasUpdated = false;
     std::call_once(onceFlag, [&registryWasUpdated] {
 
-#if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
-        if (!CDMFactoryThunder::singleton().supportedKeySystems().isEmpty()) {
-            unsigned thunderRank = isThunderRanked() ? 300 : 100;
-            gst_element_register(nullptr, "webkitthunder", GST_RANK_PRIMARY + thunderRank, WEBKIT_TYPE_MEDIA_THUNDER_DECRYPT);
-        }
-#ifndef NDEBUG
-        else if (isThunderRanked()) {
-            GST_WARNING("Thunder is up-ranked as preferred decryptor but Thunder is not supporting any encryption system. Is "
-                "Thunder running? Are the plugins built?");
-        }
+#if IS_GST_FULL_1_18
+        gst_init_static_plugins();
 #endif
 
+        // Rank guidelines are as following:
+        // - Use GST_RANK_PRIMARY for elements meant to be auto-plugged and for which we know
+        //   there's no other alternative outside of WebKit.
+        // - Use GST_RANK_PRIMARY+100 for elements meant to be auto-plugged and that we know there
+        //   is an alternative outside of WebKit.
+        // - Use GST_RANK_NONE for elements explicitely created by WebKit (no auto-plugging).
+
+#if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
+        if (!CDMFactoryThunder::singleton().supportedKeySystems().isEmpty())
+            gst_element_register(nullptr, "webkitthunder", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_THUNDER_DECRYPT);
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -370,11 +347,11 @@ void registerWebKitGStreamerElements()
         registerInternalVideoEncoder();
 
 #if ENABLE(MEDIA_SOURCE)
-        gst_element_register(nullptr, "webkitmediasrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_SRC);
+        gst_element_register(nullptr, "webkitmediasrc", GST_RANK_PRIMARY, WEBKIT_TYPE_MEDIA_SRC);
 #endif
 
 #if ENABLE(SPEECH_SYNTHESIS)
-        gst_element_register(nullptr, "webkitflitesrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_FLITE_SRC);
+        gst_element_register(nullptr, "webkitflitesrc", GST_RANK_NONE, WEBKIT_TYPE_FLITE_SRC);
 #endif
 
 #if ENABLE(VIDEO)
@@ -400,6 +377,22 @@ void registerWebKitGStreamerElements()
                 if (avAACDecoderFactory)
                     gst_plugin_feature_set_rank(GST_PLUGIN_FEATURE_CAST(avAACDecoderFactory.get()), GST_RANK_MARGINAL);
             }
+        }
+
+        // Prevent decodebin(3) from auto-plugging hlsdemux if it was disabled. UAs should be able
+        // to fallback to MSE when this happens.
+        const char* hlsSupport = g_getenv("WEBKIT_GST_ENABLE_HLS_SUPPORT");
+        if (!hlsSupport || !g_strcmp0(hlsSupport, "0")) {
+            if (auto factory = adoptGRef(gst_element_factory_find("hlsdemux")))
+                gst_plugin_feature_set_rank(GST_PLUGIN_FEATURE_CAST(factory.get()), GST_RANK_NONE);
+        }
+
+        // Prevent decodebin(3) from auto-plugging dashdemux if it was disabled. UAs should be able
+        // to fallback to MSE when this happens.
+        const char* dashSupport = g_getenv("WEBKIT_GST_ENABLE_DASH_SUPPORT");
+        if (!dashSupport || !g_strcmp0(dashSupport, "0")) {
+            if (auto factory = adoptGRef(gst_element_factory_find("dashdemux")))
+                gst_plugin_feature_set_rank(GST_PLUGIN_FEATURE_CAST(factory.get()), GST_RANK_NONE);
         }
 
         // The new demuxers based on adaptivedemux2 cannot be used in WebKit yet because this new
@@ -436,8 +429,7 @@ void registerWebKitGStreamerVideoEncoder()
     static std::once_flag onceFlag;
     bool registryWasUpdated = false;
     std::call_once(onceFlag, [&registryWasUpdated] {
-        registerInternalVideoEncoder();
-        registryWasUpdated = true;
+        registryWasUpdated = registerInternalVideoEncoder();
     });
 
     // The video encoder might be registered after the scanner was initialized, so in this situation
@@ -535,6 +527,7 @@ void connectSimpleBusMessageCallback(GstElement* pipeline, Function<void(GstMess
     }), pipeline);
 }
 
+template<>
 Vector<uint8_t> GstMappedBuffer::createVector() const
 {
     return { data(), size() };
@@ -643,18 +636,28 @@ GstBuffer* gstBufferNewWrappedFast(void* data, size_t length)
 
 GstElement* makeGStreamerElement(const char* factoryName, const char* name)
 {
+    static Lock lock;
+    static Vector<const char*> cache WTF_GUARDED_BY_LOCK(lock);
     auto* element = gst_element_factory_make(factoryName, name);
-    if (!element)
+    Locker locker { lock };
+    if (!element && !cache.contains(factoryName)) {
+        cache.append(factoryName);
         WTFLogAlways("GStreamer element %s not found. Please install it", factoryName);
+    }
     return element;
 }
 
 GstElement* makeGStreamerBin(const char* description, bool ghostUnlinkedPads)
 {
+    static Lock lock;
+    static Vector<const char*> cache WTF_GUARDED_BY_LOCK(lock);
     GUniqueOutPtr<GError> error;
     auto* bin = gst_parse_bin_from_description(description, ghostUnlinkedPads, &error.outPtr());
-    if (!bin)
+    Locker locker { lock };
+    if (!bin && !cache.contains(description)) {
+        cache.append(description);
         WTFLogAlways("Unable to create bin for description: \"%s\". Error: %s", description, error->message);
+    }
     return bin;
 }
 
@@ -670,6 +673,15 @@ static std::optional<RefPtr<JSON::Value>> gstStructureValueToJSON(const GValue* 
         auto array = JSON::Array::create();
         for (unsigned i = 0; i < size; i++) {
             if (auto innerJson = gstStructureValueToJSON(gst_value_array_get_value(value, i)))
+                array->pushValue(innerJson->releaseNonNull());
+        }
+        return array->asArray()->asValue();
+    }
+    if (GST_VALUE_HOLDS_LIST(value)) {
+        unsigned size = gst_value_list_get_size(value);
+        auto array = JSON::Array::create();
+        for (unsigned i = 0; i < size; i++) {
+            if (auto innerJson = gstStructureValueToJSON(gst_value_list_get_value(value, i)))
                 array->pushValue(innerJson->releaseNonNull());
         }
         return array->asArray()->asValue();
@@ -736,35 +748,10 @@ String gstStructureToJSONString(const GstStructure* structure)
     return value->toJSONString();
 }
 
-#if !GST_CHECK_VERSION(1, 18, 0)
-GstClockTime webkitGstElementGetCurrentRunningTime(GstElement* element)
+GstClockTime webkitGstInitTime()
 {
-    g_return_val_if_fail(GST_IS_ELEMENT(element), GST_CLOCK_TIME_NONE);
-
-    auto baseTime = gst_element_get_base_time(element);
-    if (!GST_CLOCK_TIME_IS_VALID(baseTime)) {
-        GST_DEBUG_OBJECT(element, "Could not determine base time");
-        return GST_CLOCK_TIME_NONE;
-    }
-
-    auto clock = adoptGRef(gst_element_get_clock(element));
-    if (!clock) {
-        GST_DEBUG_OBJECT(element, "Element has no clock");
-        return GST_CLOCK_TIME_NONE;
-    }
-
-    auto clockTime = gst_clock_get_time(clock.get());
-    if (!GST_CLOCK_TIME_IS_VALID(clockTime))
-        return GST_CLOCK_TIME_NONE;
-
-    if (clockTime < baseTime) {
-        GST_DEBUG_OBJECT(element, "Got negative current running time");
-        return GST_CLOCK_TIME_NONE;
-    }
-
-    return clockTime - baseTime;
+    return s_webkitGstInitTime;
 }
-#endif
 
 PlatformVideoColorSpace videoColorSpaceFromCaps(const GstCaps* caps)
 {
@@ -818,7 +805,6 @@ PlatformVideoColorSpace videoColorSpaceFromInfo(const GstVideoInfo& info)
     case GST_VIDEO_TRANSFER_BT709:
         colorSpace.transfer = PlatformVideoTransferCharacteristics::Bt709;
         break;
-#if GST_CHECK_VERSION(1, 18, 0)
     case GST_VIDEO_TRANSFER_BT601:
         colorSpace.transfer = PlatformVideoTransferCharacteristics::Smpte170m;
         break;
@@ -831,7 +817,6 @@ PlatformVideoColorSpace videoColorSpaceFromInfo(const GstVideoInfo& info)
     case GST_VIDEO_TRANSFER_BT2020_10:
         colorSpace.transfer = PlatformVideoTransferCharacteristics::Bt2020_10bit;
         break;
-#endif
     case GST_VIDEO_TRANSFER_BT2020_12:
         colorSpace.transfer = PlatformVideoTransferCharacteristics::Bt2020_12bit;
         break;
@@ -950,7 +935,6 @@ void fillVideoInfoColorimetryFromColorSpace(GstVideoInfo* info, const PlatformVi
         case PlatformVideoTransferCharacteristics::Bt709:
             GST_VIDEO_INFO_COLORIMETRY(info).transfer = GST_VIDEO_TRANSFER_BT709;
             break;
-#if GST_CHECK_VERSION(1, 18, 0)
         case PlatformVideoTransferCharacteristics::Smpte170m:
             GST_VIDEO_INFO_COLORIMETRY(info).transfer = GST_VIDEO_TRANSFER_BT601;
             break;
@@ -963,7 +947,6 @@ void fillVideoInfoColorimetryFromColorSpace(GstVideoInfo* info, const PlatformVi
         case PlatformVideoTransferCharacteristics::Bt2020_10bit:
             GST_VIDEO_INFO_COLORIMETRY(info).transfer = GST_VIDEO_TRANSFER_BT2020_10;
             break;
-#endif
         case PlatformVideoTransferCharacteristics::Bt2020_12bit:
             GST_VIDEO_INFO_COLORIMETRY(info).transfer = GST_VIDEO_TRANSFER_BT2020_12;
             break;
@@ -1065,6 +1048,10 @@ bool gstObjectHasProperty(GstPad* pad, const char* name)
     return gstObjectHasProperty(GST_OBJECT_CAST(pad), name);
 }
 
+#undef GST_CAT_DEFAULT
+
 } // namespace WebCore
+
+#undef IS_GST_FULL_1_18
 
 #endif // USE(GSTREAMER)

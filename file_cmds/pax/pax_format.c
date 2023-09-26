@@ -192,9 +192,7 @@ static size_t expandname(char *, size_t, char **, const char *, size_t);
 static u_long pax_chksm(char *, int);
 static char *name_split(char *, int);
 static int ul_oct(u_long, char *, int, int);
-#ifndef LONG_OFF_T
 static int uqd_oct(u_quad_t, char *, int, int);
-#endif
 
 static uid_t uid_nobody;
 static uid_t uid_warn;
@@ -259,7 +257,6 @@ ul_oct(u_long val, char *str, int len, int term)
 	return(0);
 }
 
-#ifndef LONG_OFF_T
 /*
  * uqd_oct()
  *	convert an u_quad_t to an octal string. one of many oddball field
@@ -313,7 +310,6 @@ uqd_oct(u_quad_t val, char *str, int len, int term)
 		return(-1);
 	return(0);
 }
-#endif
 
 /*
  * pax_chksm()
@@ -940,15 +936,11 @@ pax_rd(ARCHD *arcn, char *buf)
 	 */
 	arcn->sb.st_mode = (mode_t)(asc_ul(hd->mode, sizeof(hd->mode), OCT) &
 	    0xfff);
-#ifdef LONG_OFF_T
-	arcn->sb.st_size = (off_t)asc_ul(hd->size, sizeof(hd->size), OCT);
-#else
 	arcn->sb.st_size = (off_t)asc_uqd(hd->size, sizeof(hd->size), OCT);
 	/* When we have extended header for size, prefer it over hd->size */
 	if (size_x_current) {
 		sscanf(size_x_current, "%lld", &arcn->sb.st_size);
 	}
-#endif
 	arcn->sb.st_mtime = (time_t)asc_ul(hd->mtime, sizeof(hd->mtime), OCT);
 	if (arcn->sb.st_atimespec.tv_sec == 0) { // Can be set from header
 		arcn->sb.st_atime = arcn->sb.st_mtime;
@@ -1444,13 +1436,8 @@ pax_wr(ARCHD *arcn)
 		else
 			hd->typeflag = REGTYPE;
 		arcn->pad = TAR_PAD(arcn->sb.st_size);
-#		ifdef LONG_OFF_T
-		if (ul_oct((u_long)arcn->sb.st_size, hd->size,
-		    sizeof(hd->size), term_char)) {
-#		else
 		if (uqd_oct((u_quad_t)arcn->sb.st_size, hd->size,
 		    sizeof(hd->size), term_char)) {
-#		endif
 			/*
 			 * Insert an extended header for size=<arcn->sb.st_size> since
 			 * octal range of 12 byte string cannot fit > 8GiB files in header.

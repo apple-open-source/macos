@@ -404,7 +404,7 @@ CFDataRef SecDbItemCopyEncryptedDataToBackup(SecDbItemRef item, uint64_t handle,
     if (attributes || auth_attributes) {
         SecAccessControlRef access_control = SecDbItemCopyAccessControl(item, error);
         if (access_control) {
-            if (ks_encrypt_data_legacy(keybag, access_control, item->credHandle, attributes, auth_attributes, &edata, false, error)) {
+            if (ks_encrypt_data_legacy(keybag, access_control, item->credHandle, attributes, auth_attributes, &edata, false, false, error)) {
                 item->_edataState = kSecDbItemEncrypting;
             } else {
                 seccritical("ks_encrypt_data (db): failed: %@", error ? *error : (CFErrorRef)CFSTR(""));
@@ -468,7 +468,7 @@ static CFTypeRef SecDbItemCopyValue(SecDbItemRef item, const SecDbAttr *attr, CF
                     break;
                 }
             }
-            //DROPTHROUGH
+            [[fallthrough]];
         case kSecDbDataAttr:
             if (attr->flags & kSecDbNotNullFlag && attr->flags & kSecDbDefaultEmptyFlag) {
                 value = CFDataCreate(CFGetAllocator(item), NULL, 0);
@@ -779,6 +779,7 @@ static CFStringRef SecDbItemCopyFormatDescription(CFTypeRef cf, CFDictionaryRef 
                     value = SecDbItemGetValue(item, attr, NULL);
                     if (isBoolean(value))
                         utomb = value;
+                    break;
                 case kSecDbAccessControlAttr:
                     /* TODO: Add formatting of ACLs. */
                     break;
@@ -848,11 +849,12 @@ static Boolean SecDbItemCompare(CFTypeRef cf1, CFTypeRef cf2) {
 
 CFGiblisWithHashFor(SecDbItem)
 
-static SecDbItemRef SecDbItemCreate(CFAllocatorRef allocator, const SecDbClass *class, keybag_handle_t keybag) {
+static SecDbItemRef SecDbItemCreate(CFAllocatorRef allocator, const SecDbClass *class, keybag_handle_t keybag, struct backup_keypair* bkp) {
     SecDbItemRef item = CFTypeAllocate(SecDbItem, struct SecDbItem, allocator);
     item->class = class;
     item->attributes = CFDictionaryCreateMutableForCFTypes(allocator);
     item->keybag = keybag;
+    item->bkp = bkp;
     item->_edataState = kSecDbItemDirty;
     item->cryptoOp = kAKSKeyOpDecrypt;
 
@@ -867,11 +869,16 @@ keybag_handle_t SecDbItemGetKeybag(SecDbItemRef item) {
     return item->keybag;
 }
 
+struct backup_keypair* SecDbItemGetBackupKeypair(SecDbItemRef item) {
+    return item->bkp;
+}
+
 bool SecDbItemSetKeybag(SecDbItemRef item, keybag_handle_t keybag, CFErrorRef *error) {
     if (!SecDbItemEnsureDecrypted(item, true, error))
         return false;
     if (item->keybag != keybag) {
         item->keybag = keybag;
+        item->bkp = NULL;
         if (item->_edataState == kSecDbItemClean) {
             SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbEncryptedDataAttr, NULL), kCFNull, NULL);
         }
@@ -1028,7 +1035,7 @@ bool SecDbItemSetAccessControl(SecDbItemRef item, SecAccessControlRef access_con
 }
 
 SecDbItemRef SecDbItemCreateWithAttributes(CFAllocatorRef allocator, const SecDbClass *class, CFDictionaryRef attributes, keybag_handle_t keybag, CFErrorRef *error) {
-    SecDbItemRef item = SecDbItemCreate(kCFAllocatorDefault, class, keybag);
+    SecDbItemRef item = SecDbItemCreate(kCFAllocatorDefault, class, keybag, NULL);
     if (item && !SecDbItemSetValues(item, attributes, error))
         CFReleaseNull(item);
     return item;
@@ -1092,7 +1099,7 @@ SecDbColumnCopyValueWithAttr(CFAllocatorRef allocator, sqlite3_stmt *stmt, const
 }
 
 SecDbItemRef SecDbItemCreateWithColumnMapper(CFAllocatorRef allocator, const SecDbClass *class, sqlite3_stmt *stmt, keybag_handle_t keybag, CFErrorRef *error, const SecDbAttr *_Nullable (^mapper)(int column, bool *stop)) {
-    SecDbItemRef item = SecDbItemCreate(allocator, class, keybag);
+    SecDbItemRef item = SecDbItemCreate(allocator, class, keybag, NULL);
     bool stop = false;
     for (int col = 0; !stop; col++) {
         const SecDbAttr *attr = mapper(col, &stop);
@@ -1117,7 +1124,7 @@ errOut:
 }
 
 SecDbItemRef SecDbItemCreateWithStatement(CFAllocatorRef allocator, const SecDbClass *class, sqlite3_stmt *stmt, keybag_handle_t keybag, CFErrorRef *error, bool (^return_attr)(const SecDbAttr *attr)) {
-    SecDbItemRef item = SecDbItemCreate(allocator, class, keybag);
+    SecDbItemRef item = SecDbItemCreate(allocator, class, keybag, NULL);
     int col = 0;
     SecDbForEachAttr(class, attr) {
         if (return_attr(attr)) {
@@ -1139,8 +1146,8 @@ errOut:
 }
 
 SecDbItemRef SecDbItemCreateWithEncryptedData(CFAllocatorRef allocator, const SecDbClass *class,
-                                              CFDataRef edata, keybag_handle_t keybag, CFErrorRef *error) {
-    SecDbItemRef item = SecDbItemCreate(allocator, class, keybag);
+                                              CFDataRef edata, keybag_handle_t keybag, struct backup_keypair* bkp, CFErrorRef *error) {
+    SecDbItemRef item = SecDbItemCreate(allocator, class, keybag, bkp);
     const SecDbAttr *edata_attr = SecDbClassAttrWithKind(class, kSecDbEncryptedDataAttr, error);
     if (edata_attr) {
         if (!SecDbItemSetValue(item, edata_attr, edata, error))
@@ -1150,7 +1157,7 @@ SecDbItemRef SecDbItemCreateWithEncryptedData(CFAllocatorRef allocator, const Se
 }
 
 SecDbItemRef SecDbItemCopyWithUpdates(SecDbItemRef item, CFDictionaryRef updates, CFErrorRef *error) {
-    SecDbItemRef new_item = SecDbItemCreate(CFGetAllocator(item), item->class, item->keybag);
+    SecDbItemRef new_item = SecDbItemCreate(CFGetAllocator(item), item->class, item->keybag, item->bkp);
     SecDbItemSetCredHandle(new_item, item->credHandle);
     SecDbForEachAttr(item->class, attr) {
         // Copy each attribute, except the mod date attribute (it will be reset to now when needed),
@@ -1198,7 +1205,7 @@ static bool SecDbItemMakeYounger(SecDbItemRef new_item, SecDbItemRef old_item, C
 }
 
 static SecDbItemRef SecDbItemCopyTombstone(SecDbItemRef item, CFBooleanRef makeTombStone, bool tombstone_time_from_item, CFErrorRef *error) {
-    SecDbItemRef new_item = SecDbItemCreate(CFGetAllocator(item), item->class, item->keybag);
+    SecDbItemRef new_item = SecDbItemCreate(CFGetAllocator(item), item->class, item->keybag, item->bkp);
     SecDbForEachAttr(item->class, attr) {
         if (attr->kind == kSecDbTombAttr) {
             // Set the tomb attr to true to indicate a tombstone.
@@ -1919,7 +1926,7 @@ bool SecDbItemDoDeleteSilently(SecDbItemRef item, SecDbConnectionRef dbconn, CFE
     });
 }
 
-static bool SecDbItemDoDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error, bool (^use_attr_in_where)(const SecDbAttr *attr)) {
+bool SecDbItemDoDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error, bool (^use_attr_in_where)(const SecDbAttr *attr)) {
     bool ok = SecDbItemDoDeleteOnly(item, dbconn, error, use_attr_in_where);
     if (ok) {
         secnotice("item", "deleted " SECDBITEM_FMT " from %@", item, dbconn);
@@ -1927,25 +1934,6 @@ static bool SecDbItemDoDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
     }
     return ok;
 }
-
-#if 0
-static bool SecDbItemDeleteTombstone(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error) {
-    bool ok = true;
-    // TODO: Treat non decryptable items like tombstones here too and delete them
-    SecDbItemRef tombstone = SecDbItemCopyTombstone(item, error);
-    ok = tombstone;
-    if (tombstone) {
-        ok = SecDbItemClearRowId(tombstone, error);
-        if (ok) {
-            ok = SecDbItemDoDelete(tombstone, dbconn, error, ^bool (const SecDbAttr *attr) {
-                return SecDbIsTombstoneDbSelectAttr(attr);
-            });
-        }
-        CFRelease(tombstone);
-    }
-    return ok;
-}
-#endif
 
 static bool
 isCKKSEnabled(void)

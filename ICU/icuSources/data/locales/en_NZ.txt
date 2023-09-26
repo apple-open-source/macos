@@ -6,18 +6,18 @@ en_NZ{
     calendar{
         generic{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM y G",
                 "d MMMM y G",
                 "d/MM/y G",
                 "d/MM/y GGGGG",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             DateTimeSkeletons{
@@ -31,14 +31,7 @@ en_NZ{
                 "GGGGGyMMd",
             }
             availableFormats{
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
                 Md{"d/M"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                ms{"mm:ss"}
                 yyyyMd{"d/MM/y G"}
             }
             intervalFormats{
@@ -54,7 +47,6 @@ en_NZ{
                     M{"d/MM – d/MM"}
                     d{"d/MM – d/MM"}
                 }
-                fallback{"{0} – {1}"}
                 yM{
                     M{"MM/y – MM/y G"}
                     y{"MM/y – MM/y G"}
@@ -73,18 +65,18 @@ en_NZ{
         }
         gregorian{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM y",
                 "d MMMM y",
                 "d/MM/y",
                 "d/MM/yy",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             DateTimeSkeletons{

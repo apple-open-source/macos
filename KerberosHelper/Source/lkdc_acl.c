@@ -22,6 +22,7 @@
  */
 
 #include <Security/Security.h>
+#include <Security/cssmapi.h>
 #include <err.h>
 #include <stdio.h>
 #include <unistd.h>

@@ -59,9 +59,9 @@ extern keybag_handle_t g_keychain_keybag;
 
 bool use_hwaes(void);
 
-bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
+bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag, struct backup_keypair* bkp,
               keyclass_t keyclass, uint32_t textLength, const uint8_t *source, keyclass_t *actual_class,
-              CFMutableDataRef dest, CFErrorRef *error);
+              CFMutableDataRef dest, bool useNewBackupBehavior, CFErrorRef *error);
 bool ks_crypt_diversify(CFTypeRef operation, keybag_handle_t keybag,
               keyclass_t keyclass, uint32_t textLength, const uint8_t *source, keyclass_t *actual_class,
               CFMutableDataRef dest, const void *personaId, size_t personaIdLength, CFErrorRef *error);

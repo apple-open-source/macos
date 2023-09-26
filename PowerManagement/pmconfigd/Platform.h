@@ -52,7 +52,7 @@ typedef struct {
  *                  or "unsupported"
  *  @result         Returns a state value from enum tcpKeepAliveStates_et
  */
-__private_extern__ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen);
+__private_extern__ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen, bool quiet);
 __private_extern__ long getTCPKeepAliveOverrideSec(void);
 __private_extern__ void setTCPKeepAliveOverrideSec(long value);
 

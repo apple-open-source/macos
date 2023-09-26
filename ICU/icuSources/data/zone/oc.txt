@@ -2,19 +2,4 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 oc{
-    zoneStrings{
-        "Atlantic:Azores"{
-            ec{"Azores"}
-        }
-        "Europe:Amsterdam"{
-            ec{"Amsterdam"}
-        }
-        "Europe:Andorra"{
-            ec{"Andòrra"}
-        }
-        "Europe:Athens"{
-            ec{"Atenas"}
-        }
-        regionFormat{"Ora : {0}"}
-    }
 }

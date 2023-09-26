@@ -261,6 +261,12 @@ print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr
 			prsep = ", ";
 		}
 #endif /* PKTAP_HAS_TRACE_TAG */
+		if (ndo->ndo_kflag & PRMD_DLT) {
+			ND_PRINT("%s" "dlt 0x%x",
+				  prsep,
+				  pktp_hdr->pth_dlt);
+			prsep = ", ";
+		}
 		ND_PRINT(") ");
 	}
 }

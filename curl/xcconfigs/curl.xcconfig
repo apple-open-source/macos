@@ -3,6 +3,8 @@
 // Code Signing
 CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*] = $(SRCROOT)/entitlements.ios.plist
 CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*] = $(SRCROOT)/entitlements.ios.plist
+CODE_SIGN_ENTITLEMENTS[sdk=watchos*] = $(SRCROOT)/entitlements.watchos.plist
+CODE_SIGN_ENTITLEMENTS[sdk=watchossimulator*] = $(SRCROOT)/entitlements.watchos.plist
 
 USER_HEADER_SEARCH_PATHS = $(PROJECT_DIR)/curl/lib
 USER_HEADER_SEARCH_PATHS[sdk=iphone*] = $(inherited) $(PROJECT_DIR)/config_iphone

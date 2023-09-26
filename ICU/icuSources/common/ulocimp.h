@@ -179,6 +179,18 @@ U_CAPI int32_t U_EXPORT2
 ulocimp_getRegionForSupplementalData(const char *localeID, UBool inferRegion,
                                      char *region, int32_t regionCapacity, UErrorCode* status);
 
+
+#if APPLE_ICU_CHANGES
+//rdar://106566783 (Migrated locale from es_US to es_ES@rg=uszzzz changed formatters systemwide unexpectedly)
+/**
+ * Internal function.  If the locale ID passed in contains an "rg" subtag, returns a copy of it, with the value of the "rg" subtag (minus the subdivision code)
+ * replacing the original region code and any other keyword-value pairs stripped off.  If the original locale ID does not contain an "rg" subtag, returns
+ * the empty string.
+ */
+U_CAPI int32_t U_EXPORT2
+ulocimp_setRegionToSupplementalRegion(const char *localeID, char *newLocaleID, int32_t newLocaleIDCapacity, UErrorCode* status);
+#endif
+
 /**
  * Add the likely subtags for a provided locale ID, per the algorithm described
  * in the following CLDR technical report:

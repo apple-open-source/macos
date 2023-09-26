@@ -1,0 +1,22 @@
+module rpc [system] {
+  umbrella "."
+
+#ifdef BUILDING_FOR_MACOS
+  explicit module pmap_clnt {
+    header "pmap_clnt.h"
+    export *
+  }
+
+  explicit module pmap_prot {
+    header "pmap_prot.h"
+    export *
+  }
+
+  explicit module pmap_rmt {
+    header "pmap_rmt.h"
+    export *
+  }
+
+#endif
+  module * { export * }
+}

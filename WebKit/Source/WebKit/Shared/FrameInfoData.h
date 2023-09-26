@@ -28,16 +28,21 @@
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SecurityOriginData.h>
+#include <wtf/ProcessID.h>
 
 namespace WebKit {
 
+enum class FrameType : bool { Local, Remote };
+
 struct FrameInfoData {
     bool isMainFrame { false };
+    FrameType frameType { FrameType::Local };
     WebCore::ResourceRequest request;
     WebCore::SecurityOriginData securityOrigin;
     String frameName;
     std::optional<WebCore::FrameIdentifier> frameID;
     std::optional<WebCore::FrameIdentifier> parentFrameID;
+    ProcessID processID;
 };
 
 }

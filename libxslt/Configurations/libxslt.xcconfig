@@ -14,3 +14,4 @@ GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 IS_ZIPPERED = YES;
 SUPPORTS_TEXT_BASED_API = YES;
 TAPI_VERIFY_MODE = Pedantic;
+OTHER_TAPI_FLAGS = -extra-private-header $(SRCROOT)/libxslt/libxslt/xsltutilsInternal.h;

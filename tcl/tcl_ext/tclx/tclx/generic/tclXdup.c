@@ -17,6 +17,8 @@
  */
 #include "tclExtdInt.h"
 
+#define panic Tcl_Panic
+
 /*
  * Prototypes of internal functions.
  */

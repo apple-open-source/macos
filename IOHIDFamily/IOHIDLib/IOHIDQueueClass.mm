@@ -27,6 +27,7 @@
 #import "IOHIDQueueClass.h"
 #import "HIDLibElement.h"
 #import <AssertMacros.h>
+#import <os/lock.h>
 #import "IOHIDLibUserClient.h"
 #import <IOKit/hid/IOHIDLibPrivate.h>
 #import <IOKit/hid/IOHIDAnalytics.h>
@@ -66,8 +67,10 @@ static IOReturn _getAsyncEventSource(void *iunknown, CFTypeRef *pSource)
         return kIOReturnBadArgument;
     }
     
+    os_unfair_lock_lock(&_queueLock);
     *pSource = _runLoopSource;
-    
+    os_unfair_lock_unlock(&_queueLock);
+
     return kIOReturnSuccess;
 }
 
@@ -83,7 +86,9 @@ static IOReturn _setDepth(void *iunknown,
 
 - (IOReturn)setDepth:(uint32_t)depth
 {
+    os_unfair_lock_lock(&_queueLock);
     _depth = depth;
+    os_unfair_lock_unlock(&_queueLock);
     return kIOReturnSuccess;
 }
 
@@ -101,7 +106,9 @@ static IOReturn _getDepth(void *iunknown, uint32_t *pDepth)
         return kIOReturnBadArgument;
     }
     
+    os_unfair_lock_lock(&_queueLock);
     *pDepth = _depth;
+    os_unfair_lock_unlock(&_queueLock);
     
     return kIOReturnSuccess;
 }
@@ -126,10 +133,9 @@ static IOReturn _addElement(void *iunknown,
     if (!element) {
         return kIOReturnBadArgument;
     }
-    
     input[0] = _queueToken;
     input[1] = (uint64_t)IOHIDElementGetCookie(element);
-    
+
     ret = IOConnectCallScalarMethod(_device.connect,
                                     kIOHIDLibUserClientAddElementToQueue,
                                     input,
@@ -232,10 +238,12 @@ static IOReturn _start(void *iunknown, IOOptionBits options __unused)
     
     // If the size of our queue changed after adding/remove elements, we will
     // have to remap our kernel memory.
+    os_unfair_lock_lock(&_queueLock);
     if (!_queueMemory || _queueSizeChanged) {
         [self mapMemory];
         _queueSizeChanged = false;
     }
+    os_unfair_lock_unlock(&_queueLock);
     
     return ret;
 }
@@ -271,9 +279,11 @@ static IOReturn _setValueAvailableCallback(void *iunknown,
 - (IOReturn)setValueAvailableCallback:(IOHIDCallback)callback
                               context:(void *)context
 {
+    os_unfair_lock_lock(&_queueLock);
     _valueAvailableCallback = callback;
     _valueAvailableContext = context;
-    
+    os_unfair_lock_unlock(&_queueLock);
+
     return kIOReturnSuccess;
 }
 
@@ -298,10 +308,11 @@ static IOReturn _copyNextValue(void *iunknown,
     
     require_action(pValue, exit, ret = kIOReturnBadArgument);
 
+    os_unfair_lock_lock(&_queueLock);
     [self updateUsageAnalytics];
     
     entry = IODataQueuePeek(_queueMemory);
-    require_action(entry, exit, ret = kIOReturnUnderrun);
+    require_action(entry, exit_locked, ret = kIOReturnUnderrun);
 
     elementValue = (IOHIDElementValue *)&(entry->data);
     cookie = (uint32_t)elementValue->cookie;
@@ -314,9 +325,11 @@ static IOReturn _copyNextValue(void *iunknown,
         [_device releaseReport:*reportAddress];
     }
     IODataQueueDequeue(_queueMemory, NULL, &dataSize);
-    require(*pValue, exit);
+    require(*pValue, exit_locked);
     
     ret = kIOReturnSuccess;
+exit_locked:
+    os_unfair_lock_unlock(&_queueLock);    
 exit:
     return ret;
 }
@@ -336,13 +349,18 @@ static void _queueCallback(CFMachPortRef port,
                  size:(CFIndex __unused)size
                  info:(void * __unused)info
 {
-    if (_valueAvailableCallback) {
-        (_valueAvailableCallback)(_valueAvailableContext,
-                                  kIOReturnSuccess,
-                                  (void *)&_queue);
+    os_unfair_lock_lock(&_queueLock);
+    IOHIDCallback callbackCopy = _valueAvailableCallback;
+    void * contextCopy = _valueAvailableContext;
+    os_unfair_lock_unlock(&_queueLock);
+    if (callbackCopy) {
+        (callbackCopy)(contextCopy,
+                       kIOReturnSuccess,
+                       (void *)&_queue);
     }
 }
 
+// Should only be called with _queueLock held, unless in dealloc, as dealloc should be atomic
 - (void)unmapMemory
 {
 #if !__LP64__
@@ -356,7 +374,7 @@ static void _queueCallback(CFMachPortRef port,
                              (uint32_t)_queueToken,
                              mach_task_self(),
                              mappedMem);
-        
+
         _queueHeader = NULL;
         _queueMemory = NULL;
         _queueMemorySize = 0;
@@ -369,6 +387,7 @@ static void _queueCallback(CFMachPortRef port,
     }
 }
 
+// Must be called with _queueLock held
 - (void)mapMemory
 {
 #if !__LP64__
@@ -387,7 +406,6 @@ static void _queueCallback(CFMachPortRef port,
                        &mappedMem,
                        &memSize,
                        kIOMapAnywhere);
-    
     _queueHeader = (IOHIDQueueHeader *)mappedMem;
     _queueMemory = (IODataQueueMemory *)(mappedMem + sizeof(IOHIDQueueHeader));
     _queueMemorySize = memSize - sizeof(IOHIDQueueHeader) - DATA_QUEUE_MEMORY_HEADER_SIZE - DATA_QUEUE_MEMORY_APPENDIX_SIZE;
@@ -420,6 +438,7 @@ static void _queueCallback(CFMachPortRef port,
     _device = device;
     
     _queue = (IOHIDDeviceQueueInterface *)malloc(sizeof(*_queue));
+    _queueLock = OS_UNFAIR_LOCK_INIT;
     
     *_queue = (IOHIDDeviceQueueInterface) {
         // IUNKNOWN_C_GUTS

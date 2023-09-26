@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2010-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+# Copyright (c) 2010-2023 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 # Build a binary package using polypkg
-# Usage: mkpkg [--debug] [--flavor flavor] [--platform platform] [--osversion ver]
+# Usage: mkpkg [--build-only] [--debug] [--flavor flavor] [--platform platform] [--osversion ver]
 #
 
 # Make sure IFS is set to space, tab, newline in that order.
@@ -28,10 +28,11 @@ nl='
 IFS=" 	$nl"
 
 # Parse arguments
-usage="usage: mkpkg [--debug] [--flavor flavor] [--platform platform] [--osversion ver]"
+usage="usage: mkpkg [--build-only] [--debug] [--flavor flavor] [--platform platform] [--osversion ver]"
 debug=0
 flavor=vanilla
 crossbuild=false
+build_packages=true;
 while test $# -gt 0; do
     case "$1" in
 	--debug)
@@ -80,6 +81,9 @@ while test $# -gt 0; do
 	    crossbuild=true
 	    configure_opts="${configure_opts}${configure_opts+$tab}$1"
 	    ;;
+	--build-only)
+	    build_packages=false
+	    ;;
 	*)
 	    # Pass unknown options to configure
 	    configure_opts="${configure_opts}${configure_opts+$tab}$1"
@@ -91,10 +95,14 @@ done
 scriptdir=`dirname $0`
 configure="${scriptdir}/../configure"
 
-: ${osversion="`$scriptdir/pp --probe`"}
-test -n "$osversion" || exit 1
+: ${osversion="`$scriptdir/pp --probe 2>/dev/null || echo unknown`"}
 osrelease=`echo "$osversion" | sed -e 's/^[^0-9]*//' -e 's/-.*$//'`
 : ${MAKE=make}
+
+if [ $build_packages = true -a $osversion = unknown ]; then
+    echo "unable to determine platform" 1>&2
+    exit 1
+fi
 
 # If using GNU make, set number of jobs
 if ${MAKE} --version 2>&1 | grep GNU >/dev/null; then
@@ -105,10 +113,10 @@ if ${MAKE} --version 2>&1 | grep GNU >/dev/null; then
 	    NJOBS=`sysctl -n hw.ncpu`
 	    ;;
 	Linux)
-	    if [ -r /proc/cpuinfo ]; then
-		for c in `sed -n 's/^cpu cores[	 ]*: *//p' /proc/cpuinfo`; do
-		    NJOBS=`expr $NJOBS + $c`
-		done
+	    if [ -x /usr/bin/nproc ]; then
+		NJOBS=`/usr/bin/nproc`
+	    elif [ -r /proc/cpuinfo ]; then
+		NJOBS=`grep ^processor /proc/cpuinfo | wc -l`
 	    fi
 	    ;;
 	SunOS)
@@ -125,6 +133,9 @@ if ${MAKE} --version 2>&1 | grep GNU >/dev/null; then
 	    ;;
     esac
     if [ $NJOBS -gt 1 ]; then
+	if [ $NJOBS -gt 16 ]; then
+	    NJOBS=16
+	fi
 	make_opts="-j$NJOBS"
     fi
 fi
@@ -132,10 +143,10 @@ fi
 # Choose compiler options by osversion if not cross-compiling.
 if [ "$crossbuild" = "false" ]; then
     case "$osversion" in
-	macos*)
-	    # Use clang on macOS if present
-	    if [ -z "$CC" -a -x /usr/bin/clang ]; then
-		CC=/usr/bin/clang; export CC
+	FreeBSD*|macos*)
+	    # Use clang, not gcc, on FreeBSD and macOS
+	    if [ -z "$CC" ]; then
+		CC=clang; export CC
 	    fi
 	    ;;
     esac
@@ -157,7 +168,7 @@ case "$osversion" in
     centos*|rhel*|f[0-9]*)
 	case "$osversion" in
 	    centos*|rhel*)
-		osmajor=`sed -n -e 's/^.*release \([0-9]*\)[^0-9].*$/\1/p' /etc/redhat-release`
+		osmajor=`sed -n -e 's/^.*release \([0-9][0-9]*\).*$/\1/p' /etc/redhat-release`
 		if [ $osmajor -ge 4 ]; then
 		    # RHEL 4 and up support SELinux
 		    with_selinux=true
@@ -174,7 +185,7 @@ case "$osversion" in
 			    # Encrypted remote I/O log support.
 			    with_openssl=true
 			fi
-			if [ $osmajor -ge 7 ]; then
+			if [ $osmajor -ge 6 ]; then
 			    # Python plugins
 			    with_python=true
 			fi
@@ -188,6 +199,7 @@ case "$osversion" in
 		with_pam_login=true
 		with_sssd=true
 		with_openssl=true
+		with_python=true
 		;;
 	esac
 
@@ -203,7 +215,7 @@ case "$osversion" in
 	fi
 	if [ X"$with_sssd" = X"true" ]; then
 	    configure_opts="${configure_opts}${configure_opts+$tab}--with-sssd"
-	    if test "`getconf LONG_BIT`" = "64"; then
+	    if [ "`getconf LONG_BIT`" = "64" ]; then
 		# SSSD backend needs to know where to find the sssd lib
 		configure_opts="${configure_opts}${configure_opts+$tab}--with-sssd-lib=/usr/lib64"
 	    fi
@@ -220,7 +232,6 @@ case "$osversion" in
 		--with-editor=/bin/vi
 		--with-env-editor
 		--with-ignore-dot
-		--with-tty-tickets
 		--with-ldap
 		--with-passprompt=[sudo] password for %p: 
 		--with-sendmail=/usr/sbin/sendmail
@@ -253,7 +264,6 @@ case "$osversion" in
 		--with-logfac=auth
 		--with-all-insults
 		--with-ignore-dot
-		--with-tty-tickets
 		--enable-shell-sets-home
 		--with-sudoers-mode=0440
 		--with-pam
@@ -267,6 +277,35 @@ case "$osversion" in
 	make_opts="${make_opts}${make_opts+ }"'docdir=$(datarootdir)/doc/packages/$(PACKAGE_TARNAME)'
 	;;
     deb*|ubu*)
+	# Sudo-specific executables moved to /usr/libexec/sudo starting in
+	# Debian: Debian 12 (Bookworm)
+	# Ubuntu: Ubuntu 22.04 (Jammy Jellyfish)
+	# Previously, they were stored in /usr/lib/sudo.
+	libexec=lib
+
+	# AppArmor is enabled by default starting in
+	# Debian: Debian 10 (Buster)
+	# Ubuntu: Ubuntu 12.04 (Precise Pangolin)
+	osmajor=`sed -n -e 's/^VERSION_ID=\"\([0-9]*\).*$/\1/p' /etc/os-release`
+	case "$osversion" in
+	    deb*)
+		if [ -z $osmajor ] || [ $osmajor -ge 10 ]; then
+		    with_apparmor=true
+		fi
+		if [ -z $osmajor ] || [ $osmajor -ge 12 ]; then
+		    libexec=libexec
+		fi
+		;;
+	    ubu*)
+		if [ -z $osmajor ] || [ $osmajor -ge 14 ]; then
+		    with_apparmor=true
+		fi
+		if [ -z $osmajor ] || [ $osmajor -ge 22 ]; then
+		    libexec=libexec
+		fi
+		;;
+	esac
+
 	# Encrypted remote I/O log support.
 	with_openssl=true
 	# Python plugins
@@ -283,15 +322,18 @@ case "$osversion" in
 	# Newer Debian uses arch-specific lib dirs
 	MULTIARCH=`dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null`
 	# Note, must indent with tabs, not spaces due to IFS trickery
-	if test "$flavor" = "ldap"; then
+	if [ "$flavor" = "ldap" ]; then
 	    configure_opts="${configure_opts}${configure_opts+$tab}--with-ldap
 		--with-ldap-conf-file=/etc/sudo-ldap.conf"
 	else
 	    configure_opts="${configure_opts}${configure_opts+$tab}--with-sssd"
-	    if test -n "$MULTIARCH"; then
+	    if [ -n "$MULTIARCH" ]; then
 		# SSSD backend needs to know where to find the sssd lib
 		configure_opts="${configure_opts}${configure_opts+$tab}--with-sssd-lib=/usr/lib/$MULTIARCH"
 	    fi
+	fi
+	if [ X"$with_apparmor" = X"true" ]; then
+		configure_opts="${configure_opts}${configure_opts+$tab}--with-apparmor"
 	fi
 	configure_opts="--prefix=/usr
 		--with-all-insults
@@ -308,15 +350,14 @@ case "$osversion" in
 		--disable-root-mailer
 		--with-sendmail=/usr/sbin/sendmail
 		--mandir=/usr/share/man
-		--libexecdir=/usr/lib
-		--with-selinux
+		--libexecdir=/usr/$libexec
 		--with-linux-audit
 		$configure_opts"
 	# Use correct libaudit dependency
 	for f in /lib/${MULTIARCH}${MULTIARCH:+/}libaudit.so.[0-9]* /lib/libaudit.so.[0-9]*; do
-	    if test -f "$f"; then
+	    if [ -f "$f" ]; then
 		linux_audit=`dpkg-query -S "$f" 2>/dev/null | sed -n 's/:.*//p'`
-		test -n "$linux_audit" && break;
+		test -n "$linux_audit" && break
 	    fi
 	done
 	if [ -z "$linux_audit" ]; then
@@ -325,7 +366,7 @@ case "$osversion" in
 	fi
 	PPVARS="${PPVARS}${PPVARS+$space}linux_audit=$linux_audit"
 	# Use correct libssl dependency
-	libssl_dep=`dpkg-query -S /usr/lib/${MULTIARCH}${MULTIARCH:+/}libssl.so.1.[0-9]* /lib/${MULTIARCH}${MULTIARCH:+/}libssl.so.1.[0-9]* 2>/dev/null | sort -rn | awk -F: '{ print $1; exit }'`
+	libssl_dep=`dpkg-query -S /usr/lib/${MULTIARCH}${MULTIARCH:+/}libssl.so.[1-9]* /lib/${MULTIARCH}${MULTIARCH:+/}libssl.so.[1-9]* 2>/dev/null | sort -rn | awk -F: '{ print $1; exit }'`
 	if [ -z "$libssl_dep" ]; then
 	    echo "unable to determine package for libssl" 1>&2
 	    exit 1
@@ -337,38 +378,52 @@ case "$osversion" in
 	case "$osversion" in
 	    macos10[0-6]-i386|macos10[0-6]-x86_64)
 		# Build intel universal binaries for 10.6 and below
-		ARCH_FLAGS="-arch i386 -arch x86_64"
+		: ${ARCH_FLAGS="-arch i386 -arch x86_64"}
 		;;
-	    macos11*)
+	    macos1[1-9]*)
 		# Build arm64/x86_64 universal binaries for macOS 11
-		ARCH_FLAGS="-arch arm64 -arch x86_64"
+		: ${ARCH_FLAGS="-arch arm64 -arch x86_64"}
 		;;
 	esac
-	if test "${osversion}" != "`$scriptdir/pp --probe`"; then
-	    sdkvers=`echo "${osversion}" | sed 's/^macos\([0-9][0-9]\)\([0-9]*\)-.*$/\1.\2/'`
+	if [ "${osversion}" != "`$scriptdir/pp --probe`" ]; then
+	    sdkvers=`echo "${osversion}" | sed -e 's/^macos\([0-9][0-9]\)\([0-9]*\)-.*$/\1.\2/' -e 's/\.$//'`
 	    # SDKs may be under Xcode.app or CommandLineTools (for non-Xcode)
 	    if [ -d "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs" ]; then
-		SDK_DIR="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+		SDKS="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
 	    elif [ -d "/Library/Developer/CommandLineTools/SDKs" ]; then
-		SDK_DIR="/Library/Developer/CommandLineTools/SDKs"
+		SDKS="/Library/Developer/CommandLineTools/SDKs"
 	    else
 		echo "unable to find macOS SDKs directory" 1>&2
 		exit 1
 	    fi
-	    SDK_DIR="${SDK_DIR}/MacOSX${sdkvers}.sdk"
-	    if test -d "${SDK_DIR}"; then
-		SDK_FLAGS="-isysroot ${SDK_DIR} -mmacosx-version-min=${sdkvers}"
-	    else
-		echo "unable to find SDKs directory for macOS $sdkvers" 1>&2
-		exit 1
-	    fi
+	    while :; do
+		SDK_DIR="${SDKS}/MacOSX${sdkvers}.sdk"
+		if [ -d "${SDK_DIR}" ]; then
+		    SDK_FLAGS="-isysroot ${SDK_DIR} -mmacosx-version-min=${sdkvers}"
+		    break
+		fi
+		case "$sdkvers" in
+		*.00)
+		    # Try MacOSXMM.0.sdk
+		    sdkvers=${sdkvers%0}
+		    ;;
+		*.0)
+		    # Try MacOSXMM.sdk
+		    sdkvers=${sdkvers%.0}
+		    ;;
+		*)
+		    echo "missing $SDK_DIR" 1>&2
+		    exit 1
+		    ;;
+		esac
+	    done
 	fi
 	export CFLAGS="-O2 -g $ARCH_FLAGS $SDK_FLAGS"
 	export LDFLAGS="$ARCH_FLAGS $SDK_FLAGS"
 	# Note, must indent with tabs, not spaces due to IFS trickery
 	configure_opts="--with-pam
 		--with-bsm-audit
-		--without-tty-tickets
+		--with-password-timeout=0
 		--enable-zlib=system
 		--with-ldap
 		--with-insults=disabled
@@ -401,6 +456,25 @@ case "$osversion" in
 		$configure_opts"
 	PPVARS="${PPVARS}${PPVARS+$space}aix_freeware=true"
 	;;
+    FreeBSD*|DragonFly*)
+	# Encrypted remote I/O log support.
+	with_openssl=true
+
+	# Python plugins
+	with_python=true
+
+	configure_opts="
+		--sysconfdir=/usr/local/etc
+		--with-ignore-dot
+		--with-tty-tickets
+		--with-env-editor
+		--with-logincap
+		--with-long-otp-prompt
+		--with-rundir=/var/run/sudo
+		--enable-zlib=system
+		--disable-nls
+		$configure_opts"
+	;;
     *)
 	# For Solaris, add project support and use let configure choose zlib.
 	# For all others, use the builtin zlib and disable NLS support.
@@ -410,10 +484,10 @@ case "$osversion" in
 
 		if [ $osrelease -ge 11 ]; then
 		    # Build 64-bit binaries on Solaris 11 and above.
-		    CFLAGS="-O2 -g -m64"; export CFLAGS
-		    LDFLAGS="-m64"; export LDFLAGS
+		    CFLAGS="${CFLAGS:--O2 -g} -m64"; export CFLAGS
+		    LDFLAGS="-m64${LDFLAGS:+ }${LDFLAGS}"; export LDFLAGS
 		    # Solaris audit is not supported by Illumos
-		    if test X"`uname -o 2>/dev/null`" = X"illumos"; then
+		    if [ X"`uname -o 2>/dev/null`" = X"illumos" ]; then
 			configure_opts="${configure_opts}${configure_opts+$tab}--with-bsm-audit"
 		    else
 			configure_opts="${configure_opts}${configure_opts+$tab}--with-solaris-audit"
@@ -430,7 +504,7 @@ case "$osversion" in
 			    PYTHON="/usr/bin/python3"; export PYTHON
 			else
 			    # Sometimes the /usr/bin/python3 is missing
-			    for f in /usr/bin/python3.9 /usr/bin/python3.8 /usr/bin/python3.7 /usr/bin/python3.6 /usr/bin/python3.5 /usr/bin/python3.4 /usr/bin/python3.3 /usr/bin/python3.2 /usr/bin/python3.1 /usr/bin/python3.0; do
+			    for f in /usr/bin/python3.11 /usr/bin/python3.10 /usr/bin/python3.9 /usr/bin/python3.8 /usr/bin/python3.7 /usr/bin/python3.6 /usr/bin/python3.5 /usr/bin/python3.4; do
 				if [ -x $f ]; then
 				    PYTHON="$f"; export PYTHON
 				    break
@@ -453,7 +527,7 @@ case "$osversion" in
 		configure_opts="${configure_opts}${configure_opts+$tab}--enable-zlib=builtin${tab}--disable-nls"
 		;;
 	esac
-	if test "$flavor" = "ldap"; then
+	if [ "$flavor" = "ldap" ]; then
 	    configure_opts="${configure_opts}${configure_opts+$tab}--with-ldap"
 	fi
 	# Note, must indent with tabs, not spaces due to IFS trickery
@@ -489,6 +563,12 @@ IFS="$OIFS"
 if [ -r Makefile ]; then
     ${MAKE} $make_opts distclean
 fi
-${configure} "$@" || exit 1
-${MAKE} $make_opts && ${MAKE} $make_opts PPFLAGS="$PPFLAGS" PPVARS="$PPVARS" package
+${configure} "$@" || exit $?
+${MAKE} $make_opts || exit $?
+if [ $build_packages = true ]; then
+    ${MAKE} $make_opts PPFLAGS="$PPFLAGS" PPVARS="$PPVARS" package
+fi
+exitval=$?
 test $debug -eq 0 && rm -rf destdir
+
+exit $exitval

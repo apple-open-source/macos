@@ -25,6 +25,7 @@
 
 @interface OTPairingService ()
 @property dispatch_queue_t queue;
+@property (readonly) bool initiator;
 @property IDSService *service;
 @property dispatch_source_t unlockTimer;
 @property int notifyToken;
@@ -40,16 +41,23 @@
     static OTPairingService *service;
 
     dispatch_once(&once, ^{
-        service = [[OTPairingService alloc] init];
+#if TARGET_OS_WATCH
+        service = [[OTPairingService alloc] initAsInitiator:true];
+#elif TARGET_OS_IOS
+        service = [[OTPairingService alloc] initAsInitiator:false];
+#else
+#error unsupported platform
+#endif
     });
 
     return service;
 }
 
-- (instancetype)init
+- (instancetype)initAsInitiator:(bool)initiator
 {
     if ((self = [super init])) {
         self.queue = dispatch_queue_create("com.apple.security.otpaird", DISPATCH_QUEUE_SERIAL);
+        self->_initiator = initiator;
         self.service = [[IDSService alloc] initWithService:OTPairingIDSServiceName];
         [self.service addDelegate:self queue:self.queue];
         self.notifyToken = NOTIFY_TOKEN_INVALID;
@@ -70,16 +78,18 @@
 	return result;
 }
 
-#if TARGET_OS_WATCH
 - (void)initiatePairingWithCompletion:(OTPairingCompletionHandler)completionHandler
 {
     dispatch_assert_queue_not(self.queue);
+    os_assert(self.initiator);
 
+#if TARGET_OS_WATCH
     if ([self _octagonInClique]) {
         os_log(OS_LOG_DEFAULT, "already in octagon, bailing");
         completionHandler(false, [NSError errorWithDomain:OTPairingErrorDomain code:OTPairingErrorTypeAlreadyIn description:@"already in octagon"]);
         return;
     }
+#endif /* TARGET_OS_WATCH */
 
     dispatch_async(self.queue, ^{
         if (self.session != nil) {
@@ -87,21 +97,20 @@
             return;
         }
 
-        self.session = [[OTPairingSession alloc] initWithDeviceInfo:self.deviceInfo];
+        self.session = [[OTPairingSession alloc] initAsInitiator:self.initiator deviceInfo:self.deviceInfo identifier:nil];
         self.session.completionHandler = completionHandler;
         [self sendReplyToPacket];
     });
 }
-#endif /* TARGET_OS_WATCH */
 
 // Should be a delegate method - future refactor
 - (void)session:(__unused OTPairingSession *)session didCompleteWithSuccess:(bool)success error:(NSError *)error
 {
     os_assert(self.session == session);
 
-#if TARGET_OS_WATCH
-    self.session.completionHandler(success, error);
-#endif /* TARGET_OS_WATCH */
+    if (self.session.completionHandler) {
+        self.session.completionHandler(success, error);
+    }
 
     self.session = nil;
     self.unlockTimer = nil;
@@ -304,14 +313,14 @@
         os_log(OS_LOG_DEFAULT, "ignoring message with no session identifier (old build?)");
         return;
     } else if (![packet.sessionIdentifier isEqualToString:self.session.identifier]) {
-#if TARGET_OS_WATCH
-        os_log(OS_LOG_DEFAULT, "unknown session identifier, dropping message");
-        return;
-#elif TARGET_OS_IOS
-        os_log(OS_LOG_DEFAULT, "unknown session identifier %@, creating new session object", packet.sessionIdentifier);
-        self.session = [[OTPairingSession alloc] initWithDeviceInfo:self.deviceInfo identifier:packet.sessionIdentifier];
-        validateIdentifier = false;
-#endif /* TARGET_OS_IOS */
+        if (self.initiator) {
+            os_log(OS_LOG_DEFAULT, "unknown session identifier, dropping message");
+            return;
+        } else {
+            os_log(OS_LOG_DEFAULT, "unknown session identifier %@, creating new session object", packet.sessionIdentifier);
+            self.session = [[OTPairingSession alloc] initAsInitiator:self.initiator deviceInfo:self.deviceInfo identifier:packet.sessionIdentifier];
+            validateIdentifier = false;
+        }
     }
 
     if (validateIdentifier && ![self.session.sentMessageIdentifier isEqualToString:packet.incomingResponseIdentifier]) {

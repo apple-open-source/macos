@@ -222,11 +222,14 @@
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = C27AD47F0987FCE9001272E0 /* Build configuration list for PBXProject "security_ocspd" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
@@ -263,6 +266,7 @@
 			baseConfigurationReference = 18A25C4714753C51004F59F8 /* debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
+				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				HEADER_SEARCH_PATHS = (
@@ -279,6 +283,7 @@
 			baseConfigurationReference = 18A25C4914753C51004F59F8 /* release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
+				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				HEADER_SEARCH_PATHS = (

@@ -160,7 +160,7 @@ int fs_get_uuid_raw(char *device_path, uuid_t uuid);
 int ret = 0;
 
 
-void usage()
+void usage(void)
 {
 	fprintf(stderr, "usage: %s action_arg device_arg [mount_point_arg] [Flags]\n", progname);
 	fprintf(stderr, "action_arg:\n");

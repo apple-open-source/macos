@@ -8,7 +8,9 @@
 
 **********************************************************************
 *   Legacy version of RuleBasedBreakIterator from ICU 57,
-*   only for use by Apple RuleBasedTokenizer
+*   only for use by Apple RuleBasedTokenizer.
+*   originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+*   urbtok57 interfaces for access via RBT, and better tests
 **********************************************************************
 */
 
@@ -42,7 +44,7 @@
 #endif
 
 #ifdef RBBI_DEBUG
-static UBool fTrace = FALSE;
+static UBool fTrace = false;
 #endif
 
 U_NAMESPACE_BEGIN
@@ -252,7 +254,7 @@ RuleBasedBreakIterator57::operator=(const RuleBasedBreakIterator57& that) {
     }
     // TODO: clone fLanguageBreakEngines from "that"
     UErrorCode status = U_ZERO_ERROR;
-    fText = utext_clone(fText, that.fText, FALSE, TRUE, &status);
+    fText = utext_clone(fText, that.fText, false, true, &status);
 
     if (fCharIter!=fSCharIter && fCharIter!=fDCharIter) {
         delete fCharIter;
@@ -293,7 +295,7 @@ void RuleBasedBreakIterator57::init() {
     fDCharIter            = NULL;
     fData                 = NULL;
     fLastRuleStatusIndex  = 0;
-    fLastStatusIndexValid = TRUE;
+    fLastStatusIndexValid = true;
     fDictionaryCharCount  = 0;
     fBreakType            = UBRK_WORD;  // Defaulting BreakType to word gives reasonable
                                         //   dictionary behavior for Break Iterators that are
@@ -307,13 +309,13 @@ void RuleBasedBreakIterator57::init() {
     fPositionInCache         = 0;
 
 #ifdef RBBI_DEBUG
-    static UBool debugInitDone = FALSE;
-    if (debugInitDone == FALSE) {
+    static UBool debugInitDone = false;
+    if (debugInitDone == false) {
         char *debugEnv = getenv("U_RBBIDEBUG");
         if (debugEnv && uprv_strstr(debugEnv, "trace")) {
-            fTrace = TRUE;
+            fTrace = true;
         }
-        debugInitDone = TRUE;
+        debugInitDone = true;
     }
 #endif
 }
@@ -333,7 +335,7 @@ RuleBasedBreakIterator57::clone(void) const {
 }
 
 /**
- * Equality operator.  Returns TRUE if both BreakIterators are of the
+ * Equality operator.  Returns true if both BreakIterators are of the
  * same class, have the same behavior, and iterate over the same text.
  */
 bool
@@ -382,7 +384,7 @@ void RuleBasedBreakIterator57::setText(UText *ut, UErrorCode &status) {
         return;
     }
     reset();
-    fText = utext_clone(fText, ut, FALSE, TRUE, &status);
+    fText = utext_clone(fText, ut, false, true, &status);
 
     // Set up a dummy CharacterIterator to be returned if anyone
     //   calls getText().  With input from UText, there is no reasonable
@@ -410,7 +412,7 @@ void RuleBasedBreakIterator57::setText(UText *ut, UErrorCode &status) {
 
 
 UText *RuleBasedBreakIterator57::getUText(UText *fillIn, UErrorCode &status) const {
-    UText *result = utext_clone(fillIn, fText, FALSE, TRUE, &status);  
+    UText *result = utext_clone(fillIn, fText, false, true, &status);  
     return result;
 }
 
@@ -524,7 +526,7 @@ RuleBasedBreakIterator57 &RuleBasedBreakIterator57::refreshInputText(UText *inpu
     }
     int64_t pos = utext_getNativeIndex(fText);
     //  Shallow read-only clone of the new UText into the existing input UText
-    fText = utext_clone(fText, input, FALSE, TRUE, &status);
+    fText = utext_clone(fText, input, false, true, &status);
     if (U_FAILURE(status)) {
         return *this;
     }
@@ -547,7 +549,7 @@ RuleBasedBreakIterator57 &RuleBasedBreakIterator57::refreshInputText(UText *inpu
 int32_t RuleBasedBreakIterator57::first(void) {
     reset();
     fLastRuleStatusIndex  = 0;
-    fLastStatusIndexValid = TRUE;
+    fLastStatusIndexValid = true;
     //if (fText == NULL)
     //    return BreakIterator::DONE;
 
@@ -563,11 +565,11 @@ int32_t RuleBasedBreakIterator57::last(void) {
     reset();
     if (fText == NULL) {
         fLastRuleStatusIndex  = 0;
-        fLastStatusIndexValid = TRUE;
+        fLastStatusIndexValid = true;
         return BreakIterator::DONE;
     }
 
-    fLastStatusIndexValid = FALSE;
+    fLastStatusIndexValid = false;
     int32_t pos = (int32_t)utext_nativeLength(fText);
     utext_setNativeIndex(fText, pos);
     return pos;
@@ -630,7 +632,7 @@ int32_t RuleBasedBreakIterator57::next(void) {
         result = nextResult;
     }
     if (fDictionaryCharCount > 0) {
-        result = checkDictionary(startPos, result, FALSE);
+        result = checkDictionary(startPos, result, false);
     }
     return result;
 }
@@ -651,7 +653,7 @@ int32_t RuleBasedBreakIterator57::previous(void) {
             // If we're at the beginning of the cache, need to reevaluate the
             // rule status
             if (fPositionInCache <= 0) {
-                fLastStatusIndexValid = FALSE;
+                fLastStatusIndexValid = false;
             }
             int32_t pos = fCachedBreakPositions[fPositionInCache];
             utext_setNativeIndex(fText, pos);
@@ -665,7 +667,7 @@ int32_t RuleBasedBreakIterator57::previous(void) {
     // if we're already sitting at the beginning of the text, return DONE
     if (fText == NULL || (startPos = current()) == 0) {
         fLastRuleStatusIndex  = 0;
-        fLastStatusIndexValid = TRUE;
+        fLastStatusIndexValid = true;
         return BreakIterator::DONE;
     }
 
@@ -684,7 +686,7 @@ int32_t RuleBasedBreakIterator57::previous(void) {
             result = prevResult;
         }
         if (fDictionaryCharCount > 0) {
-            result = checkDictionary(result, startPos, TRUE);
+            result = checkDictionary(result, startPos, true);
         }
         return result;
     }
@@ -706,7 +708,7 @@ int32_t RuleBasedBreakIterator57::previous(void) {
     }
     result = lastResult;
     int32_t lastTag       = 0;
-    UBool   breakTagValid = FALSE;
+    UBool   breakTagValid = false;
 
     // iterate forward from the known break position until we pass our
     // starting point.  The last break position before the starting
@@ -719,7 +721,7 @@ int32_t RuleBasedBreakIterator57::previous(void) {
         }
         lastResult     = result;
         lastTag        = fLastRuleStatusIndex;
-        breakTagValid  = TRUE;
+        breakTagValid  = true;
     }
 
     // fLastBreakTag wants to have the value for section of text preceding
@@ -890,7 +892,7 @@ int32_t RuleBasedBreakIterator57::preceding(int32_t offset) {
             // If we're at the beginning of the cache, need to reevaluate the
             // rule status
             if (fPositionInCache <= 0) {
-                fLastStatusIndexValid = FALSE;
+                fLastStatusIndexValid = false;
             }
             utext_setNativeIndex(fText, fCachedBreakPositions[fPositionInCache]);
             return fCachedBreakPositions[fPositionInCache];
@@ -977,23 +979,23 @@ UBool RuleBasedBreakIterator57::isBoundary(int32_t offset) {
     // the beginning index of the iterator is always a boundary position by definition
     if (offset == 0) {
         first();       // For side effects on current position, tag values.
-        return TRUE;
+        return true;
     }
 
     if (offset == (int32_t)utext_nativeLength(fText)) {
         last();       // For side effects on current position, tag values.
-        return TRUE;
+        return true;
     }
 
     // out-of-range indexes are never boundary positions
     if (offset < 0) {
         first();       // For side effects on current position, tag values.
-        return FALSE;
+        return false;
     }
 
     if (offset > utext_nativeLength(fText)) {
         last();        // For side effects on current position, tag values.
-        return FALSE;
+        return false;
     }
 
     // otherwise, we can use following() on the position before the specified
@@ -1054,7 +1056,7 @@ struct LookAheadResults {
                 return fPositions[i];
             }
         }
-        U_ASSERT(FALSE);
+        U_ASSERT(false);
         return -1;
     }
 
@@ -1067,7 +1069,7 @@ struct LookAheadResults {
             }
         }
         if (i >= kMaxLookaheads) {
-            U_ASSERT(FALSE);
+            U_ASSERT(false);
             i = kMaxLookaheads - 1;
         }
         fKeys[i] = key;
@@ -1108,7 +1110,7 @@ int32_t RuleBasedBreakIterator57::handleNext(const RBBIStateTable57 *statetable)
     #endif
 
     // No matter what, handleNext alway correctly sets the break tag value.
-    fLastStatusIndexValid = TRUE;
+    fLastStatusIndexValid = true;
     fLastRuleStatusIndex = 0;
 
     // if we're already at the end of the text, return DONE.
@@ -1299,7 +1301,7 @@ int32_t RuleBasedBreakIterator57::handlePrevious(const RBBIStateTable57 *stateta
     // Flag the status as invalid; if the user ever asks for status, we will need
     // to back up, then re-find the break position using handleNext(), which does
     // get the status value.
-    fLastStatusIndexValid = FALSE;
+    fLastStatusIndexValid = false;
     fLastRuleStatusIndex = 0;
 
     // if we're already at the start of the text, return DONE.
@@ -1485,12 +1487,12 @@ RuleBasedBreakIterator57::reset()
 //
 //-------------------------------------------------------------------------------
 void RuleBasedBreakIterator57::makeRuleStatusValid() {
-    if (fLastStatusIndexValid == FALSE) {
+    if (fLastStatusIndexValid == false) {
         //  No cached status is available.
         if (fText == NULL || current() == 0) {
             //  At start of text, or there is no text.  Status is always zero.
             fLastRuleStatusIndex = 0;
-            fLastStatusIndexValid = TRUE;
+            fLastStatusIndexValid = true;
         } else {
             //  Not at start of text.  Find status the tedious way.
             int32_t pa = current();
@@ -1702,7 +1704,7 @@ int32_t RuleBasedBreakIterator57::checkDictionary(int32_t startPos,
         // Ask the language object if there are any breaks. It will leave the text
         // pointer on the other side of its range, ready to search for the next one.
         if (lbe != NULL) {
-            foundBreakCount += lbe->findBreaks(fText, rangeStart, rangeEnd, breaks, status);
+            foundBreakCount += lbe->findBreaks(fText, rangeStart, rangeEnd, breaks, false, status);
         }
         
         // Reload the loop variables for the next go-round
@@ -1757,7 +1759,7 @@ U_NAMESPACE_END
 
 
 static icu::UStack *gLanguageBreakFactories = NULL;
-static icu::UInitOnce gLanguageBreakFactoriesInitOnce = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gLanguageBreakFactoriesInitOnce {};
 
 /**
  * Release all static memory held by breakiterator.  
@@ -1769,7 +1771,7 @@ static UBool U_CALLCONV breakiterator_cleanup_dict(void) {
         gLanguageBreakFactories = NULL;
     }
     gLanguageBreakFactoriesInitOnce.reset();
-    return TRUE;
+    return true;
 }
 U_CDECL_END
 

@@ -191,11 +191,17 @@ getTest(const TestNode* root,
  * @param pattern printf-style format string
  * @internal Internal APIs for testing purpose only
  */
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 1, 2)))
+#endif  // APPLE_ICU_CHANGES
 T_CTEST_API void T_CTEST_EXPORT2
 log_err(const char* pattern, ...);
 
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 2, 3)))
+#endif  // APPLE_ICU_CHANGES
 T_CTEST_API void T_CTEST_EXPORT2
 log_err_status(UErrorCode status, const char* pattern, ...);
 /**
@@ -203,7 +209,10 @@ log_err_status(UErrorCode status, const char* pattern, ...);
  * @param pattern printf-style format string
  * @internal Internal APIs for testing purpose only
  */
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 1, 2)))
+#endif  // APPLE_ICU_CHANGES
 T_CTEST_API void T_CTEST_EXPORT2
 log_info(const char* pattern, ...);
 
@@ -214,7 +223,10 @@ log_info(const char* pattern, ...);
  * @param ap variable-arguments list
  * @internal Internal APIs for testing purpose only
  */
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 2, 0)))
+#endif  // APPLE_ICU_CHANGES
 T_CTEST_API void T_CTEST_EXPORT2
 vlog_info(const char *prefix, const char *pattern, va_list ap);
 
@@ -224,7 +236,10 @@ vlog_info(const char *prefix, const char *pattern, va_list ap);
  * @param pattern printf-style format string
  * @internal Internal APIs for testing purpose only
  */
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 1, 2)))
+#endif  // APPLE_ICU_CHANGES
 T_CTEST_API void T_CTEST_EXPORT2
 log_verbose(const char* pattern, ...);
 
@@ -235,7 +250,10 @@ log_verbose(const char* pattern, ...);
  * @param pattern printf-style format string
  * @internal Internal APIs for testing purpose only
  */
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 1, 2)))
+#endif  // APPLE_ICU_CHANGES
 T_CTEST_API void T_CTEST_EXPORT2
 log_data_err(const char *pattern, ...);
 
@@ -243,9 +261,12 @@ log_data_err(const char *pattern, ...);
  * Log a known issue.
  * @param ticket ticket number such as "ICU-12345" for ICU tickets or "CLDR-6636" for CLDR tickets.
  * @param fmt ...  sprintf-style format, optional message. can be NULL.
- * @return TRUE if known issue test should be skipped, FALSE if it should be run
+ * @return true if known issue test should be skipped, false if it should be run
  */
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 2, 3)))
+#endif  // APPLE_ICU_CHANGES
 T_CTEST_API UBool
 T_CTEST_EXPORT2
 log_knownIssue(const char *ticket, const char *fmt, ...);

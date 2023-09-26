@@ -10,6 +10,10 @@
 
 #include "cmemory.h"
 
+#if APPLE_ICU_CHANGES
+// rdar://70810661 (ability to compile ICU with asan and libfuzzer)
+#elif defined(__has_feature) && __has_feature(coverage_sanitizer))
+
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 
 int main(int argc, char* argv[])
@@ -56,3 +60,5 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+#endif  // APPLE_ICU_CHANGES

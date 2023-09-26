@@ -280,6 +280,9 @@ typedef u_int32_t ifnet_offload_t;
 	IFNET_CSUM_FRAGMENT | IFNET_CSUM_TCPIPV6 | IFNET_CSUM_UDPIPV6 | \
 	IFNET_CSUM_PARTIAL | IFNET_CSUM_ZERO_INVERT)
 
+#define IFNET_UDP_TCP_TX_CHECKSUMF \
+	(IFNET_CSUM_TCP | IFNET_CSUM_UDP | IFNET_CSUM_TCPIPV6 | IFNET_CSUM_UDPIPV6)
+
 #define IFNET_TSOF                                                      \
 	(IFNET_TSO_IPV4	| IFNET_TSO_IPV6)
 #endif /* KERNEL_PRIVATE */
@@ -2137,6 +2140,19 @@ __NKE_API_DEPRECATED;
  *       @result 0 on success otherwise the errno error.
  */
 extern errno_t ifnet_set_offload(ifnet_t interface, ifnet_offload_t offload)
+__NKE_API_DEPRECATED;
+
+/*!
+ *       @function ifnet_set_offload_enabled
+ *       @discussion Sets the enabled capabilities of the specified interface.
+ *               The supported capabilities (set by ifnet_set_offload()) are
+ *               left unmodified.
+ *       @param interface The interface.
+ *       @param offload The new set of flags indicating which supported offload
+ *               options should be enabled.
+ *       @result 0 on success otherwise the errno error.
+ */
+extern errno_t ifnet_set_offload_enabled(ifnet_t interface, ifnet_offload_t offload)
 __NKE_API_DEPRECATED;
 
 /*!

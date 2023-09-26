@@ -1262,7 +1262,7 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         /* (o) Recognize and process any other critical extension present in the certificate. Process any other recognized non-critical extension present in the certificate that is relevant to path processing. */
         if (SecCertificateHasUnknownCriticalExtension(cert)) {
 			/* Certificate contains one or more unknown critical extensions. */
-			if (!SecPVCSetResult(pvc, kSecPolicyCheckCriticalExtensions, n - i, kCFBooleanFalse)) {
+            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckCriticalExtensions, n - i, kCFBooleanFalse, true)) {
                 goto errOut;
             }
 		}
@@ -1278,7 +1278,7 @@ working_public_key_algorithm are different, set the working_public_key_parameter
     /* (f) Recognize and process any other critical extension present in the certificate n. Process any other recognized non-critical extension present in certificate n that is relevant to path processing. */
     if (SecCertificateHasUnknownCriticalExtension(cert)) {
         /* Certificate contains one or more unknown critical extensions. */
-        if (!SecPVCSetResult(pvc, kSecPolicyCheckCriticalExtensions, 0, kCFBooleanFalse)) {
+        if (!SecPVCSetResultForced(pvc, kSecPolicyCheckCriticalExtensions, 0, kCFBooleanFalse, true)) {
             goto errOut;
         }
     }
@@ -1549,32 +1549,6 @@ static void SecPolicyCheckSignatureHashAlgorithms(SecPVCRef pvc,
     }
 }
 
-static bool leaf_is_on_weak_hash_whitelist(SecPVCRef pvc) {
-    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
-    require_quiet(leaf, out);
-
-    /* And now a special snowflake from our tests */
-
-    /* subject:/C=AU/ST=NSW/L=St Leonards/O=VODAFONE HUTCHISON AUSTRALIA PTY LIMITED/OU=Technology Shared Services/CN=mybill.vodafone.com.au */
-    /* issuer :/C=UK/O=Vodafone Group/CN=Vodafone (Corporate Services 2009) */
-    /* Not After : May 26 09:37:50 2017 GMT */
-    static const uint8_t vodafone[] = {
-        0xde, 0x77, 0x63, 0x97, 0x79, 0x47, 0xee, 0x6e, 0xc1, 0x3a,
-        0x7b, 0x3b, 0xad, 0x43, 0x88, 0xa9, 0x66, 0x59, 0xa8, 0x18
-    };
-
-    CFDataRef leafFingerprint = SecCertificateGetSHA1Digest(leaf);
-    require_quiet(leafFingerprint, out);
-    const unsigned int len = 20;
-    const uint8_t *dp = CFDataGetBytePtr(leafFingerprint);
-    if (dp && (!memcmp(vodafone, dp, len))) {
-        return true;
-    }
-
-out:
-    return false;
-}
-
 static bool SecPVCKeyIsConstraintPolicyOption(SecPVCRef pvc, CFStringRef key);
 
 static void SecPolicyCheckSystemTrustedWeakHash(SecPVCRef pvc,
@@ -1605,10 +1579,8 @@ static void SecPolicyCheckSystemTrustedWeakHash(SecPVCRef pvc,
     for (ix = 0; ix < count; ++ix) {
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
         if (SecCertificateIsWeakHash(cert)) {
-            if (!leaf_is_on_weak_hash_whitelist(pvc)) {
-                if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse)) {
-                    return;
-                }
+            if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse)) {
+                return;
             }
         }
     }

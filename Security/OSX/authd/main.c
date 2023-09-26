@@ -23,6 +23,64 @@
 
 AUTHD_DEFINE_LOG
 
+static dispatch_queue_t
+_get_server_xpc_queue(void)
+{
+    static dispatch_once_t onceToken;
+    static dispatch_queue_t xpc_queue = NULL;
+    
+    dispatch_once(&onceToken, ^{
+        dispatch_queue_attr_t attribute = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_CONCURRENT, QOS_CLASS_USER_INTERACTIVE, 0);
+        if (attribute == NULL) {
+            os_log_error(AUTHD_LOG, "Failed to create high-priority attribute");
+        }
+        xpc_queue = dispatch_queue_create("com.apple.security.auth.xpc", attribute);
+        check(xpc_queue != NULL);
+    });
+    
+    return xpc_queue;
+}
+#define ADD_CASE(item) case item: return #item;
+
+static const char *_get_pri(qos_class_t pri, char *buffer, size_t buffsize)
+{
+    switch(pri) {
+            ADD_CASE(QOS_CLASS_BACKGROUND)
+            ADD_CASE(QOS_CLASS_UTILITY)
+            ADD_CASE(QOS_CLASS_DEFAULT)
+            ADD_CASE(QOS_CLASS_USER_INITIATED)
+            ADD_CASE(QOS_CLASS_USER_INTERACTIVE)
+            ADD_CASE(QOS_CLASS_UNSPECIFIED)
+    }
+    snprintf(buffer, buffsize, "%d", pri);
+    return buffer;
+}
+
+static const char *_security_xpc_type_desc(uint64_t type)
+{
+    switch (type) {
+            ADD_CASE(AUTHORIZATION_CREATE)
+            ADD_CASE(AUTHORIZATION_CREATE_WITH_AUDIT_TOKEN)
+            ADD_CASE(AUTHORIZATION_FREE)
+            ADD_CASE(AUTHORIZATION_COPY_RIGHTS)
+            ADD_CASE(AUTHORIZATION_COPY_INFO)
+            ADD_CASE(AUTHORIZATION_MAKE_EXTERNAL_FORM)
+            ADD_CASE(AUTHORIZATION_CREATE_FROM_EXTERNAL_FORM)
+            ADD_CASE(AUTHORIZATION_RIGHT_GET)
+            ADD_CASE(AUTHORIZATION_RIGHT_SET)
+            ADD_CASE(AUTHORIZATION_RIGHT_REMOVE)
+            ADD_CASE(SESSION_SET_USER_PREFERENCES)
+            ADD_CASE(AUTHORIZATION_DISMISS)
+            ADD_CASE(AUTHORIZATION_SETUP)
+            ADD_CASE(AUTHORIZATION_COPY_RIGHT_PROPERTIES)
+            ADD_CASE(AUTHORIZATION_COPY_PRELOGIN_USERDB)
+            ADD_CASE(AUTHORIZATION_COPY_PRELOGIN_PREFS)
+            ADD_CASE(AUTHORIZATION_PRELOGIN_SC_OVERRIDE)
+            ADD_CASE(AUTHORIZATION_DEV)
+    }
+    return "Unrecognized request";
+}
+
 static void
 security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
 {
@@ -55,7 +113,9 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
         require(reply != NULL, done);
         
         uint64_t auth_type = xpc_dictionary_get_uint64(event, AUTH_XPC_TYPE);
-        
+        char buffer[16];
+        os_log_debug(AUTHD_LOG, "xpc: handling %s from PID %d pri %s", _security_xpc_type_desc(auth_type), xpc_connection_get_pid(connection), _get_pri(qos_class_self(), buffer, sizeof(*buffer)));
+
         switch (auth_type) {
             case AUTHORIZATION_CREATE:
                 status = authorization_create(conn,event,reply);
@@ -150,16 +210,18 @@ connection_finalizer(void * conn)
 static void
 security_auth_event_handler(xpc_connection_t xpc_conn)
 {
+    char buffer[16];
+    os_log_debug(AUTHD_LOG, "xpc: incoming connection from PID %d pri %s", xpc_connection_get_pid(xpc_conn), _get_pri(qos_class_self(), buffer, sizeof(*buffer)));
+    xpc_connection_set_target_queue(xpc_conn, _get_server_xpc_queue());
     connection_t conn = server_register_connection(xpc_conn);
     
     if (conn) {
         xpc_connection_set_context(xpc_conn, conn);
         xpc_connection_set_finalizer_f(xpc_conn, connection_finalizer);
-        
         xpc_connection_set_event_handler(xpc_conn, ^(xpc_object_t event) {
             xpc_retain(xpc_conn);
             xpc_retain(event);
-            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            dispatch_async(_get_server_xpc_queue(), ^{
                 security_auth_peer_event_handler(xpc_conn, event);
                 xpc_release(event);
                 xpc_release(xpc_conn);

@@ -10,7 +10,7 @@ include(M4MACRO)dnl
 --                                 S P E C                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998,2006 Free Software Foundation, Inc.                   --
+-- Copyright (c) 1998-2009,2014 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -38,18 +38,17 @@ include(M4MACRO)dnl
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.29 $
---  $Date: 2006/06/25 14:30:21 $
+--  $Revision: 1.33 $
+--  $Date: 2014/05/24 21:31:57 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
-include(`Form_Base_Defs')
 with System;
 with Ada.Characters.Latin_1;
 
 package Terminal_Interface.Curses.Forms is
    pragma Preelaborate (Terminal_Interface.Curses.Forms);
-include(`Form_Linker_Options')dnl
-include(`Linker_Options')
+   pragma Linker_Options ("-lform" & Curses_Constants.DFT_ARG_SUFFIX);
+
    Space : Character renames Ada.Characters.Latin_1.Space;
 
    type Field        is private;
@@ -63,18 +62,68 @@ include(`Linker_Options')
                                 Center,
                                 Right);
 
-   pragma Warnings (Off);
-include(`Field_Rep')Dnl
+   type Field_Option_Set is
+      record
+         Visible   : Boolean;
+         Active    : Boolean;
+         Public    : Boolean;
+         Edit      : Boolean;
+         Wrap      : Boolean;
+         Blank     : Boolean;
+         Auto_Skip : Boolean;
+         Null_Ok   : Boolean;
+         Pass_Ok   : Boolean;
+         Static    : Boolean;
+      end record;
+   pragma Convention (C_Pass_By_Copy, Field_Option_Set);
 
+   for Field_Option_Set use
+      record
+         Visible   at 0 range Curses_Constants.O_VISIBLE_First
+           .. Curses_Constants.O_VISIBLE_Last;
+         Active    at 0 range Curses_Constants.O_ACTIVE_First
+           .. Curses_Constants.O_ACTIVE_Last;
+         Public    at 0 range Curses_Constants.O_PUBLIC_First
+           .. Curses_Constants.O_PUBLIC_Last;
+         Edit      at 0 range Curses_Constants.O_EDIT_First
+           .. Curses_Constants.O_EDIT_Last;
+         Wrap      at 0 range Curses_Constants.O_WRAP_First
+           .. Curses_Constants.O_WRAP_Last;
+         Blank     at 0 range Curses_Constants.O_BLANK_First
+           .. Curses_Constants.O_BLANK_Last;
+         Auto_Skip at 0 range Curses_Constants.O_AUTOSKIP_First
+           .. Curses_Constants.O_AUTOSKIP_Last;
+         Null_Ok   at 0 range Curses_Constants.O_NULLOK_First
+           .. Curses_Constants.O_NULLOK_Last;
+         Pass_Ok   at 0 range Curses_Constants.O_PASSOK_First
+           .. Curses_Constants.O_PASSOK_Last;
+         Static    at 0 range Curses_Constants.O_STATIC_First
+           .. Curses_Constants.O_STATIC_Last;
+      end record;
+   pragma Warnings (Off);
+   for Field_Option_Set'Size use Curses_Constants.Field_Options_Size;
    pragma Warnings (On);
 
    function Default_Field_Options return Field_Option_Set;
    --  The initial defaults for the field options.
    pragma Inline (Default_Field_Options);
 
-   pragma Warnings (Off);
-include(`Form_Opt_Rep')Dnl
+   type Form_Option_Set is
+      record
+         NL_Overload : Boolean;
+         BS_Overload : Boolean;
+      end record;
+   pragma Convention (C_Pass_By_Copy, Form_Option_Set);
 
+   for Form_Option_Set use
+      record
+         NL_Overload at 0 range Curses_Constants.O_NL_OVERLOAD_First
+           .. Curses_Constants.O_NL_OVERLOAD_Last;
+         BS_Overload at 0 range Curses_Constants.O_BS_OVERLOAD_First
+           .. Curses_Constants.O_BS_OVERLOAD_Last;
+      end record;
+   pragma Warnings (Off);
+   for Form_Option_Set'Size use Curses_Constants.Field_Options_Size;
    pragma Warnings (On);
 
    function Default_Form_Options return Form_Option_Set;
@@ -89,7 +138,7 @@ include(`Form_Opt_Rep')Dnl
    type Field_Array_Access is access Field_Array;
 
    procedure Free (FA          : in out Field_Array_Access;
-                   Free_Fields : in Boolean := False);
+                   Free_Fields : Boolean := False);
    --  Release the memory for an allocated field array
    --  If Free_Fields is True, call Delete() for all the fields in
    --  the array.
@@ -228,7 +277,7 @@ include(`Form_Opt_Rep')Dnl
    REQ_NEXT_CHOICE  : Form_Request_Code renames F_Next_Choice;
    REQ_PREV_CHOICE  : Form_Request_Code renames F_Previous_Choice;
 
-   procedure Request_Name (Key  : in Form_Request_Code;
+   procedure Request_Name (Key  : Form_Request_Code;
                            Name : out String);
 
    function  Request_Name (Key : Form_Request_Code) return String;
@@ -287,8 +336,8 @@ include(`Form_Opt_Rep')Dnl
    --  MANPAGE(`form_field_just.3x')
 
    --  ANCHOR(`set_field_just()',`Set_Justification')
-   procedure Set_Justification (Fld  : in Field;
-                                Just : in Field_Justification := None);
+   procedure Set_Justification (Fld  : Field;
+                                Just : Field_Justification := None);
    --  AKA
    pragma Inline (Set_Justification);
 
@@ -301,29 +350,29 @@ include(`Form_Opt_Rep')Dnl
 
    --  ANCHOR(`set_field_buffer()',`Set_Buffer')
    procedure Set_Buffer
-     (Fld    : in Field;
-      Buffer : in Buffer_Number := Buffer_Number'First;
-      Str    : in String);
+     (Fld    : Field;
+      Buffer : Buffer_Number := Buffer_Number'First;
+      Str    : String);
    --  AKA
    --  Not inlined
 
    --  ANCHOR(`field_buffer()',`Get_Buffer')
    procedure Get_Buffer
-     (Fld    : in Field;
-      Buffer : in Buffer_Number := Buffer_Number'First;
+     (Fld    : Field;
+      Buffer : Buffer_Number := Buffer_Number'First;
       Str    : out String);
    --  AKA
 
    function Get_Buffer
-     (Fld    : in Field;
-      Buffer : in Buffer_Number := Buffer_Number'First) return String;
+     (Fld    : Field;
+      Buffer : Buffer_Number := Buffer_Number'First) return String;
    --  AKA
    --  Same but as function
    pragma Inline (Get_Buffer);
 
    --  ANCHOR(`set_field_status()',`Set_Status')
-   procedure Set_Status (Fld    : in Field;
-                         Status : in Boolean := True);
+   procedure Set_Status (Fld    : Field;
+                         Status : Boolean := True);
    --  AKA
    pragma Inline (Set_Status);
 
@@ -333,29 +382,29 @@ include(`Form_Opt_Rep')Dnl
    pragma Inline (Changed);
 
    --  ANCHOR(`set_field_max()',`Set_Maximum_Size')
-   procedure Set_Maximum_Size (Fld : in Field;
-                               Max : in Natural := 0);
+   procedure Set_Maximum_Size (Fld : Field;
+                               Max : Natural := 0);
    --  AKA
    pragma Inline (Set_Maximum_Size);
 
    --  MANPAGE(`form_field_opts.3x')
 
    --  ANCHOR(`set_field_opts()',`Set_Options')
-   procedure Set_Options (Fld     : in Field;
-                          Options : in Field_Option_Set);
+   procedure Set_Options (Fld     : Field;
+                          Options : Field_Option_Set);
    --  AKA
    --  An overloaded version is defined later. Pragma Inline appears there
 
    --  ANCHOR(`field_opts_on()',`Switch_Options')
-   procedure Switch_Options (Fld     : in Field;
-                             Options : in Field_Option_Set;
+   procedure Switch_Options (Fld     : Field;
+                             Options : Field_Option_Set;
                              On      : Boolean := True);
    --  AKA
    --  ALIAS(`field_opts_off()')
    --  An overloaded version is defined later. Pragma Inline appears there
 
    --  ANCHOR(`field_opts()',`Get_Options')
-   procedure Get_Options (Fld     : in  Field;
+   procedure Get_Options (Fld     : Field;
                           Options : out Field_Option_Set);
    --  AKA
 
@@ -369,19 +418,19 @@ include(`Form_Opt_Rep')Dnl
 
    --  ANCHOR(`set_field_fore()',`Set_Foreground')
    procedure Set_Foreground
-     (Fld   : in Field;
-      Fore  : in Character_Attribute_Set := Normal_Video;
-      Color : in Color_Pair := Color_Pair'First);
+     (Fld   : Field;
+      Fore  : Character_Attribute_Set := Normal_Video;
+      Color : Color_Pair := Color_Pair'First);
    --  AKA
    pragma Inline (Set_Foreground);
 
    --  ANCHOR(`field_fore()',`Foreground')
-   procedure Foreground (Fld  : in  Field;
+   procedure Foreground (Fld  : Field;
                          Fore : out Character_Attribute_Set);
    --  AKA
 
    --  ANCHOR(`field_fore()',`Foreground')
-   procedure Foreground (Fld   : in  Field;
+   procedure Foreground (Fld   : Field;
                          Fore  : out Character_Attribute_Set;
                          Color : out Color_Pair);
    --  AKA
@@ -389,32 +438,32 @@ include(`Form_Opt_Rep')Dnl
 
    --  ANCHOR(`set_field_back()',`Set_Background')
    procedure Set_Background
-     (Fld   : in Field;
-      Back  : in Character_Attribute_Set := Normal_Video;
-      Color : in Color_Pair := Color_Pair'First);
+     (Fld   : Field;
+      Back  : Character_Attribute_Set := Normal_Video;
+      Color : Color_Pair := Color_Pair'First);
    --  AKA
    pragma Inline (Set_Background);
 
    --  ANCHOR(`field_back()',`Background')
-   procedure Background (Fld  : in  Field;
+   procedure Background (Fld  : Field;
                          Back : out Character_Attribute_Set);
    --  AKA
 
    --  ANCHOR(`field_back()',`Background')
-   procedure Background (Fld   : in  Field;
+   procedure Background (Fld   : Field;
                          Back  : out Character_Attribute_Set;
                          Color : out Color_Pair);
    --  AKA
    pragma Inline (Background);
 
    --  ANCHOR(`set_field_pad()',`Set_Pad_Character')
-   procedure Set_Pad_Character (Fld : in Field;
-                                Pad : in Character := Space);
+   procedure Set_Pad_Character (Fld : Field;
+                                Pad : Character := Space);
    --  AKA
    pragma Inline (Set_Pad_Character);
 
    --  ANCHOR(`field_pad()',`Pad_Character')
-   procedure Pad_Character (Fld : in  Field;
+   procedure Pad_Character (Fld : Field;
                             Pad : out Character);
    --  AKA
    pragma Inline (Pad_Character);
@@ -422,7 +471,7 @@ include(`Form_Opt_Rep')Dnl
    --  MANPAGE(`form_field_info.3x')
 
    --  ANCHOR(`field_info()',`Info')
-   procedure Info (Fld                : in  Field;
+   procedure Info (Fld                : Field;
                    Lines              : out Line_Count;
                    Columns            : out Column_Count;
                    First_Row          : out Line_Position;
@@ -433,7 +482,7 @@ include(`Form_Opt_Rep')Dnl
    pragma Inline (Info);
 
    --  ANCHOR(`dynamic_field_info()',`Dynamic_Info')
-   procedure Dynamic_Info (Fld     : in Field;
+   procedure Dynamic_Info (Fld     : Field;
                            Lines   : out Line_Count;
                            Columns : out Column_Count;
                            Max     : out Natural);
@@ -443,8 +492,8 @@ include(`Form_Opt_Rep')Dnl
    --  MANPAGE(`form_win.3x')
 
    --  ANCHOR(`set_form_win()',`Set_Window')
-   procedure Set_Window (Frm : in Form;
-                         Win : in Window);
+   procedure Set_Window (Frm : Form;
+                         Win : Window);
    --  AKA
    pragma Inline (Set_Window);
 
@@ -454,8 +503,8 @@ include(`Form_Opt_Rep')Dnl
    pragma Inline (Get_Window);
 
    --  ANCHOR(`set_form_sub()',`Set_Sub_Window')
-   procedure Set_Sub_Window (Frm : in Form;
-                             Win : in Window);
+   procedure Set_Sub_Window (Frm : Form;
+                             Win : Window);
    --  AKA
    pragma Inline (Set_Sub_Window);
 
@@ -465,7 +514,7 @@ include(`Form_Opt_Rep')Dnl
    pragma Inline (Get_Sub_Window);
 
    --  ANCHOR(`scale_form()',`Scale')
-   procedure Scale (Frm     : in Form;
+   procedure Scale (Frm     : Form;
                     Lines   : out Line_Count;
                     Columns : out Column_Count);
    --  AKA
@@ -473,30 +522,30 @@ include(`Form_Opt_Rep')Dnl
 
    --  MANPAGE(`form_hook.3x')
 
-   type Form_Hook_Function is access procedure (Frm : in Form);
+   type Form_Hook_Function is access procedure (Frm : Form);
    pragma Convention (C, Form_Hook_Function);
 
    --  ANCHOR(`set_field_init()',`Set_Field_Init_Hook')
-   procedure Set_Field_Init_Hook (Frm  : in Form;
-                                  Proc : in Form_Hook_Function);
+   procedure Set_Field_Init_Hook (Frm  : Form;
+                                  Proc : Form_Hook_Function);
    --  AKA
    pragma Inline (Set_Field_Init_Hook);
 
    --  ANCHOR(`set_field_term()',`Set_Field_Term_Hook')
-   procedure Set_Field_Term_Hook (Frm  : in Form;
-                                  Proc : in Form_Hook_Function);
+   procedure Set_Field_Term_Hook (Frm  : Form;
+                                  Proc : Form_Hook_Function);
    --  AKA
    pragma Inline (Set_Field_Term_Hook);
 
    --  ANCHOR(`set_form_init()',`Set_Form_Init_Hook')
-   procedure Set_Form_Init_Hook (Frm  : in Form;
-                                 Proc : in Form_Hook_Function);
+   procedure Set_Form_Init_Hook (Frm  : Form;
+                                 Proc : Form_Hook_Function);
    --  AKA
    pragma Inline (Set_Form_Init_Hook);
 
    --  ANCHOR(`set_form_term()',`Set_Form_Term_Hook')
-   procedure Set_Form_Term_Hook (Frm  : in Form;
-                                 Proc : in Form_Hook_Function);
+   procedure Set_Form_Term_Hook (Frm  : Form;
+                                 Proc : Form_Hook_Function);
    --  AKA
    pragma Inline (Set_Form_Term_Hook);
 
@@ -523,14 +572,14 @@ include(`Form_Opt_Rep')Dnl
    --  MANPAGE(`form_field.3x')
 
    --  ANCHOR(`set_form_fields()',`Redefine')
-   procedure Redefine (Frm  : in Form;
-                       Flds : in Field_Array_Access);
+   procedure Redefine (Frm  : Form;
+                       Flds : Field_Array_Access);
    --  AKA
    pragma Inline (Redefine);
 
    --  ANCHOR(`set_form_fields()',`Set_Fields')
-   procedure Set_Fields (Frm  : in Form;
-                         Flds : in Field_Array_Access) renames Redefine;
+   procedure Set_Fields (Frm  : Form;
+                         Flds : Field_Array_Access) renames Redefine;
    --  AKA
    --  pragma Inline (Set_Fields);
 
@@ -546,9 +595,9 @@ include(`Form_Opt_Rep')Dnl
    pragma Inline (Field_Count);
 
    --  ANCHOR(`move_field()',`Move')
-   procedure Move (Fld    : in Field;
-                   Line   : in Line_Position;
-                   Column : in Column_Position);
+   procedure Move (Fld    : Field;
+                   Line   : Line_Position;
+                   Column : Column_Position);
    --  AKA
    pragma Inline (Move);
 
@@ -574,21 +623,21 @@ include(`Form_Opt_Rep')Dnl
    --  MANPAGE(`form_opts.3x')
 
    --  ANCHOR(`set_form_opts()',`Set_Options')
-   procedure Set_Options (Frm     : in Form;
-                          Options : in Form_Option_Set);
+   procedure Set_Options (Frm     : Form;
+                          Options : Form_Option_Set);
    --  AKA
    pragma Inline (Set_Options);
 
    --  ANCHOR(`form_opts_on()',`Switch_Options')
-   procedure Switch_Options (Frm     : in Form;
-                             Options : in Form_Option_Set;
+   procedure Switch_Options (Frm     : Form;
+                             Options : Form_Option_Set;
                              On      : Boolean := True);
    --  AKA
    --  ALIAS(`form_opts_off()')
    pragma Inline (Switch_Options);
 
    --  ANCHOR(`form_opts()',`Get_Options')
-   procedure Get_Options (Frm     : in  Form;
+   procedure Get_Options (Frm     : Form;
                           Options : out Form_Option_Set);
    --  AKA
 
@@ -600,8 +649,8 @@ include(`Form_Opt_Rep')Dnl
    --  MANPAGE(`form_post.3x')
 
    --  ANCHOR(`post_form()',`Post')
-   procedure Post (Frm  : in Form;
-                   Post : in Boolean := True);
+   procedure Post (Frm  : Form;
+                   Post : Boolean := True);
    --  AKA
    --  ALIAS(`unpost_form()')
    pragma Inline (Post);
@@ -643,19 +692,19 @@ include(`Form_Opt_Rep')Dnl
    type Page_Number is new Natural;
 
    --  ANCHOR(`set_current_field()',`Set_Current')
-   procedure Set_Current (Frm : in Form;
-                          Fld : in Field);
+   procedure Set_Current (Frm : Form;
+                          Fld : Field);
    --  AKA
    pragma Inline (Set_Current);
 
    --  ANCHOR(`current_field()',`Current')
-   function Current (Frm : in Form) return Field;
+   function Current (Frm : Form) return Field;
    --  AKA
    pragma Inline (Current);
 
    --  ANCHOR(`set_form_page()',`Set_Page')
-   procedure Set_Page (Frm  : in Form;
-                       Page : in Page_Number := Page_Number'First);
+   procedure Set_Page (Frm  : Form;
+                       Page : Page_Number := Page_Number'First);
    --  AKA
    pragma Inline (Set_Page);
 
@@ -675,8 +724,8 @@ include(`Form_Opt_Rep')Dnl
    --  MANPAGE(`form_new_page.3x')
 
    --  ANCHOR(`set_new_page()',`Set_New_Page')
-   procedure Set_New_Page (Fld      : in Field;
-                           New_Page : in Boolean := True);
+   procedure Set_New_Page (Fld      : Field;
+                           New_Page : Boolean := True);
    --  AKA
    pragma Inline (Set_New_Page);
 

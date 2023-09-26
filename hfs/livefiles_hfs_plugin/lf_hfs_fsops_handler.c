@@ -26,6 +26,99 @@
 
 #include "lf_hfs_vnops.h"
 
+/*
+ * Perform a volume rename.  Requires the FS' root vp.
+ */
+static int
+hfs_rename_volume(struct vnode *vp, const char *name)
+{
+    ExtendedVCB *vcb = VTOVCB(vp);
+    struct cnode *cp = VTOC(vp);
+    struct hfsmount *hfsmp = VTOHFS(vp);
+    struct cat_desc to_desc;
+    struct cat_desc todir_desc;
+    struct cat_desc new_desc;
+    cat_cookie_t cookie;
+    int lockflags;
+    int error = 0;
+//    char converted_volname[256];
+//    size_t volname_length = 0;
+//    size_t conv_volname_length = 0;
+
+    /*
+     * Ignore attempts to rename a volume to a zero-length name.
+     */
+    if (name[0] == 0)
+        return(0);
+
+    bzero(&to_desc, sizeof(to_desc));
+    bzero(&todir_desc, sizeof(todir_desc));
+    bzero(&new_desc, sizeof(new_desc));
+    bzero(&cookie, sizeof(cookie));
+
+    todir_desc.cd_parentcnid = kHFSRootParentID;
+    todir_desc.cd_cnid = kHFSRootFolderID;
+    todir_desc.cd_flags = CD_ISDIR;
+
+    to_desc.cd_nameptr = (const u_int8_t *)name;
+    to_desc.cd_namelen = strlen(name);
+    to_desc.cd_parentcnid = kHFSRootParentID;
+    to_desc.cd_cnid = cp->c_cnid;
+    to_desc.cd_flags = CD_ISDIR;
+
+    if ((error = hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT)) == 0) {
+        if ((error = hfs_start_transaction(hfsmp)) == 0) {
+            if ((error = cat_preflight(hfsmp, CAT_RENAME, &cookie)) == 0) {
+                lockflags = hfs_systemfile_lock(hfsmp, SFL_CATALOG, HFS_EXCLUSIVE_LOCK);
+
+                error = cat_rename(hfsmp, &cp->c_desc, &todir_desc, &to_desc, &new_desc);
+
+                /*
+                 * If successful, update the name in the VCB, ensure it's terminated.
+                 */
+                if (error == 0) {
+                    strlcpy((char *)vcb->vcbVN, name, sizeof(vcb->vcbVN));
+
+//                    volname_length = strlen ((const char*)vcb->vcbVN);
+                    /* Send the volume name down to CoreStorage if necessary */
+//                    error = utf8_normalizestr(vcb->vcbVN, volname_length, (u_int8_t*)converted_volname, &conv_volname_length, 256, UTF_PRECOMPOSED);
+//                    if (error == 0) {
+//                        ioctl(devvp->psFSRecord->iFD, DKIOCCSSETLVNAME, converted_volname, 0, vfs_context_current());
+//                  }
+                    error = 0;
+                }
+
+                hfs_systemfile_unlock(hfsmp, lockflags);
+                cat_postflight(hfsmp, &cookie);
+
+                if (error)
+                    MarkVCBDirty(vcb);
+                (void) hfs_flushvolumeheader(hfsmp, 0);
+            }
+            hfs_end_transaction(hfsmp);
+        }
+        if (!error) {
+            /* Release old allocated name buffer */
+            if (cp->c_desc.cd_flags & CD_HASBUF) {
+//                const char *tmp_name = (const char *)cp->c_desc.cd_nameptr;
+
+                cp->c_desc.cd_nameptr = 0;
+                cp->c_desc.cd_namelen = 0;
+                cp->c_desc.cd_flags &= ~CD_HASBUF;
+//                vfs_removename(tmp_name);
+            }
+            /* Update cnode's catalog descriptor */
+            replace_desc(cp, &new_desc);
+            vcb->volumeNameEncodingHint = new_desc.cd_encoding;
+            cp->c_touch_chgtime = TRUE;
+        }
+
+        hfs_unlock(cp);
+    }
+
+    return(error);
+}
+
 static int
 FSOPS_GetRootVnode(struct vnode* psDevVnode, struct vnode** ppsRootVnode)
 {
@@ -298,19 +391,33 @@ LFHFS_SetFSAttr ( UVFSFileNode psNode, const char *pcAttr, const UVFSFSAttribute
 {
 #pragma unused (psNode, pcAttr, psAttrVal, uLen)
     VERIFY_NODE_IS_VALID(psNode);
+    vnode_t psVnode = (vnode_t)psNode;
 
     if (pcAttr == NULL || psAttrVal == NULL || psOutAttrVal == NULL) return EINVAL;
 
     if (strcmp(pcAttr, LI_FSATTR_PREALLOCATE) == 0)
     {
-         if (uLen < sizeof (UVFSFSAttributeValue) || uOutLen < sizeof (UVFSFSAttributeValue))
+         if (uLen < sizeof (LIFilePreallocateArgs_t) || uOutLen < sizeof (LIFilePreallocateArgs_t))
              return EINVAL;
 
          LIFilePreallocateArgs_t* psPreAllocReq = (LIFilePreallocateArgs_t *) ((void *) psAttrVal->fsa_opaque);
          LIFilePreallocateArgs_t* psPreAllocRes = (LIFilePreallocateArgs_t *) ((void *) psOutAttrVal->fsa_opaque);
 
          memcpy (psPreAllocRes, psPreAllocReq, sizeof(LIFilePreallocateArgs_t));
-         return hfs_vnop_preallocate(psNode, psPreAllocReq, psPreAllocRes);
+         return hfs_vnop_preallocate(psVnode, psPreAllocReq, psPreAllocRes);
+    }
+    else if (strcmp(pcAttr, LI_FSATTR_VOLNAME) == 0)
+    {
+        struct vnode* rootVnode;
+        struct hfsmount *hfsmp = VTOHFS(psVnode);
+
+        int error = FSOPS_GetRootVnode(hfsmp->hfs_devvp, &rootVnode);
+
+        if (error)
+            return error;
+
+        return hfs_rename_volume(rootVnode, psAttrVal->fsa_string);
+//        (void) vnode_put(root_vp);
     }
 
     return ENOTSUP;
@@ -599,7 +706,8 @@ LFHFS_GetFSAttr ( UVFSFileNode psNode, const char *pcAttr, UVFSFSAttributeValue 
 #if LF_HFS_NATIVE_SEARCHFS_SUPPORT
             VOL_CAP_INT_SEARCHFS |
 #endif
-            VOL_CAP_INT_EXTENDED_ATTR;
+            VOL_CAP_INT_EXTENDED_ATTR |
+            VOL_CAP_INT_VOL_RENAME;
 
         goto end;
     }

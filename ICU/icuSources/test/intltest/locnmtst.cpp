@@ -12,7 +12,7 @@
 
 /*
  Usage:
-    test_assert(    Test (should be TRUE)  )
+    test_assert(    Test (should be true)  )
 
    Example:
        test_assert(i==3);
@@ -29,7 +29,7 @@
 
 /*
  Usage:
-    test_assert_print(    Test (should be TRUE),  printable  )
+    test_assert_print(    Test (should be true),  printable  )
 
    Example:
        test_assert(i==3, toString(i));
@@ -111,8 +111,13 @@ void LocaleDisplayNamesTest::TestWithKeywordsAndEverything() {
   UnicodeString temp;
   LocaleDisplayNames *ldn = LocaleDisplayNames::createInstance(Locale::getUS());
   const char *locname = "en_Hant_US_VALLEY@calendar=gregorian;collation=phonebook";
+#if APPLE_ICU_CHANGES
+// rdar://
   const char *target = "English (Traditional, US, VALLEY, "
-    "Gregorian Calendar, Phonebook Sort Order)"; // Apple change
+#else
+  const char *target = "English (Traditional, United States, VALLEY, "
+#endif  // APPLE_ICU_CHANGES
+    "Gregorian Calendar, Phonebook Sort Order)";
   ldn->localeDisplayName(locname, temp);
   delete ldn;
   test_assert_equal(target, temp);
@@ -208,8 +213,13 @@ void LocaleDisplayNamesTest::TestUldnWithKeywordsAndEverything() {
   const int32_t kMaxResultSize = 150;  // long enough
   UChar result[150];
   const char *locname = "en_Hant_US_VALLEY@calendar=gregorian;collation=phonebook";
+#if APPLE_ICU_CHANGES
+// rdar://
   const char *target = "English (Traditional, US, VALLEY, "
-    "Gregorian Calendar, Phonebook Sort Order)"; // Apple change
+#else
+  const char *target = "English (Traditional, United States, VALLEY, "
+#endif  // APPLE_ICU_CHANGES
+    "Gregorian Calendar, Phonebook Sort Order)";
   ULocaleDisplayNames *ldn = uldn_open(Locale::getUS().getName(), ULDN_STANDARD_NAMES, &status);
   int32_t len = uldn_localeDisplayName(ldn, locname, result, kMaxResultSize, &status);
   uldn_close(ldn);
@@ -242,14 +252,24 @@ void LocaleDisplayNamesTest::TestUldnComponents() {
   {
     int32_t len = uldn_scriptDisplayName(ldn, "Hant", result, kMaxResultSize, &status);
     UnicodeString str(result, len, kMaxResultSize);
+#if APPLE_ICU_CHANGES
+// rdar://
     test_assert_equal("Traditionelles Chinesisch", str);
+#else
+    test_assert_equal("Traditionell", str);
+#endif  // APPLE_ICU_CHANGES
   }
 
   {
     int32_t len = uldn_scriptCodeDisplayName(ldn, USCRIPT_TRADITIONAL_HAN, result, kMaxResultSize,
                          &status);
     UnicodeString str(result, len, kMaxResultSize);
+#if APPLE_ICU_CHANGES
+// rdar://
     test_assert_equal("Traditionelles Chinesisch", str);
+#else
+    test_assert_equal("Traditionell", str);
+#endif  // APPLE_ICU_CHANGES
   }
 
   {
@@ -298,10 +318,15 @@ static char uz_Latn[] = "uz_Latn";
 static UChar daFor_en[]       = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"engelsk"
 static UChar daFor_en_cabud[] = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x62,0x75,0x64,0x64,0x68,0x69,0x73,0x74,0x69,0x73,0x6B,0x20,
                                  0x6B,0x61,0x6C,0x65,0x6E,0x64,0x65,0x72,0x29,0}; //"engelsk (buddhistisk kalender)"
-static UChar daFor_en_GB[]    = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"engelsk (Storbritannien)" // da removed short UK that Apple used
+static UChar daFor_en_GB[]    = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"engelsk (Storbritannien)"
 static UChar daFor_en_GB_D[]  = {0x62,0x72,0x69,0x74,0x69,0x73,0x6B,0x20,0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"britisk engelsk"
 static UChar esFor_en[]       = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0}; //"ingles" with acute on the e
+#if APPLE_ICU_CHANGES
+// rdar://
 static UChar esFor_en_GB[]    = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"ingles (RU)" ... // Apple change
+#else
+static UChar esFor_en_GB[]    = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x65,0x69,0x6E,0x6F,0x20,0x55,0x6E,0x69,0x64,0x6F,0x29,0}; //"ingles (Reino Unido)" ...
+#endif  // APPLE_ICU_CHANGES
 static UChar esFor_en_GB_S[]  = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"ingles (RU)" ...
 static UChar esFor_en_GB_D[]  = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x62,0x72,0x69,0x74,0xE1,0x6E,0x69,0x63,0x6F,0}; //"ingles britanico" with acute on the e, a
 static UChar ruFor_uz_Latn[]  = {0x0443,0x0437,0x0431,0x0435,0x043A,0x0441,0x043A,0x0438,0x0439,0x20,0x28,0x043B,0x0430,0x0442,0x0438,0x043D,0x0438,0x0446,0x0430,0x29,0}; // all lowercase
@@ -309,10 +334,15 @@ static UChar ruFor_uz_Latn[]  = {0x0443,0x0437,0x0431,0x0435,0x043A,0x0441,0x043
 static UChar daFor_en_T[]     = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"Engelsk"
 static UChar daFor_en_cabudT[]= {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x62,0x75,0x64,0x64,0x68,0x69,0x73,0x74,0x69,0x73,0x6B,0x20,
                                  0x6B,0x61,0x6C,0x65,0x6E,0x64,0x65,0x72,0x29,0}; //"Engelsk (buddhistisk kalender)"
-static UChar daFor_en_GB_T[]  = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"Engelsk (Storbritannien)" // da removed short UK that Apple used
+static UChar daFor_en_GB_T[]  = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"Engelsk (Storbritannien)"
 static UChar daFor_en_GB_DT[] = {0x42,0x72,0x69,0x74,0x69,0x73,0x6B,0x20,0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"Britisk engelsk"
 static UChar esFor_en_T[]     = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0}; //"Ingles" with acute on the e
+#if APPLE_ICU_CHANGES
+// rdar://
 static UChar esFor_en_GB_T[]  = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"Ingles (RU)" ... // Apple change
+#else
+static UChar esFor_en_GB_T[]  = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x65,0x69,0x6E,0x6F,0x20,0x55,0x6E,0x69,0x64,0x6F,0x29,0}; //"Ingles (Reino Unido)" ...
+#endif  // APPLE_ICU_CHANGES
 static UChar esFor_en_GB_ST[] = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"Ingles (RU)" ...
 static UChar esFor_en_GB_DT[] = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x62,0x72,0x69,0x74,0xE1,0x6E,0x69,0x63,0x6F,0}; //"Ingles britanico" with acute on the e, a
 static UChar ruFor_uz_Latn_T[]= {0x0423,0x0437,0x0431,0x0435,0x043A,0x0441,0x043A,0x0438,0x0439,0x20,0x28,0x043B,0x0430,0x0442,0x0438,0x043D,0x0438,0x0446,0x0430,0x29,0}; // first char upper
@@ -363,7 +393,9 @@ static const LocNameDispContextItem ctxtItems[] = {
     { "es", UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   en_GB, esFor_en_GB_DT },
     { "ru", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   uz_Latn, ruFor_uz_Latn_T },
  #endif /* #if !UCONFIG_NO_BREAK_ITERATION */
-    
+
+#if APPLE_ICU_CHANGES
+// rdar://
     // Tests for rdar://76655165 [Apple-specific]
     { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,    "sw_CD", u"Swahili (Congo - Kinshasa)" },
     { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_VARIANT, "sw_CD", u"Swahili (Congo [DRC])" },
@@ -382,7 +414,7 @@ static const LocNameDispContextItem ctxtItems[] = {
     // Test for rdar://79401338 [Apple-specific]
     { "ain", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "ain_Kana", u"アイヌ・イタㇰ (カタカナ)" },
     { "syr", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "syr_Syrc", u"ܣܘܪܝܝܐ (ܣܘܪܝܬ)" },
-
+#endif  // APPLE_ICU_CHANGES
     { NULL, (UDisplayContext)0,      (UDisplayContext)0,                                (UDisplayContext)0,     NULL,  NULL }
 };
 
@@ -428,7 +460,12 @@ void LocaleDisplayNamesTest::TestRootEtc() {
   UnicodeString temp;
   LocaleDisplayNames *ldn = LocaleDisplayNames::createInstance(Locale::getUS());
   const char *locname = "@collation=phonebook";
+#if APPLE_ICU_CHANGES
+// rdar://
   const char *target = "Root (Phonebook Sort Order)";
+#else
+  const char *target = "root (Phonebook Sort Order)";
+#endif  // APPLE_ICU_CHANGES
   ldn->localeDisplayName(locname, temp);
   test_assert_equal(target, temp);
 
@@ -511,7 +548,12 @@ void LocaleDisplayNamesTest::VerifySubstitute(LocaleDisplayNames* ldn) {
   ldn->localeDisplayName(known_lang_unknown_region, temp);
   test_assert_equal("Englisch (WX)", temp);
   ldn->localeDisplayName(unknown_lang_known_region, temp);
+#if APPLE_ICU_CHANGES
+// rdar://
   test_assert_equal("xy (USA)", temp);
+#else
+  test_assert_equal("xy (Vereinigte Staaten)", temp);
+#endif  // APPLE_ICU_CHANGES
   ldn->localeDisplayName(unknown_lang_unknown_script_unknown_region, temp);
   test_assert_equal("xy (Wxyz, WX)", temp);
   ldn->localeDisplayName(known_lang_unknown_script_unknown_region, temp);
@@ -519,16 +561,31 @@ void LocaleDisplayNamesTest::VerifySubstitute(LocaleDisplayNames* ldn) {
   ldn->localeDisplayName(unknown_lang_known_script_unknown_region, temp);
   test_assert_equal("xy (Lateinisch, WX)", temp);
   ldn->localeDisplayName(unknown_lang_known_script_known_region, temp);
+#if APPLE_ICU_CHANGES
+// rdar://
   test_assert_equal("xy (Wxyz, USA)", temp);
+#else
+  test_assert_equal("xy (Wxyz, Vereinigte Staaten)", temp);
+#endif  // APPLE_ICU_CHANGES
 
   ldn->localeDisplayName(known_lang, temp);
   test_assert_equal("Englisch", temp);
   ldn->localeDisplayName(known_lang_known_script, temp);
   test_assert_equal("Englisch (Lateinisch)", temp);
   ldn->localeDisplayName(known_lang_known_region, temp);
+#if APPLE_ICU_CHANGES
+// rdar://
   test_assert_equal("Englisch (USA)", temp);
+#else
+  test_assert_equal("Englisch (Vereinigte Staaten)", temp);
+#endif  // APPLE_ICU_CHANGES
   ldn->localeDisplayName(known_lang_known_script_known_region, temp);
+#if APPLE_ICU_CHANGES
+// rdar://
   test_assert_equal("Englisch (Lateinisch, USA)", temp);
+#else
+  test_assert_equal("Englisch (Lateinisch, Vereinigte Staaten)", temp);
+#endif  // APPLE_ICU_CHANGES
 }
 
 void LocaleDisplayNamesTest::VerifyNoSubstitute(LocaleDisplayNames* ldn) {
@@ -539,49 +596,59 @@ void LocaleDisplayNamesTest::VerifyNoSubstitute(LocaleDisplayNames* ldn) {
   test_assert(UDISPCTX_NO_SUBSTITUTE == context);
 
   ldn->regionDisplayName(unknown_region, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->languageDisplayName(unknown_lang, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->scriptDisplayName(unknown_script, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->variantDisplayName(unknown_variant, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->keyDisplayName(unknown_key, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->keyValueDisplayName("ca", unknown_ca_value, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
 
   ldn->localeDisplayName(unknown_lang, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(known_lang_unknown_script, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(unknown_lang_unknown_script, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(unknown_lang_known_script, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(unknown_lang_unknown_region, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(known_lang_unknown_region, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(unknown_lang_known_region, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(unknown_lang_unknown_script_unknown_region, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(known_lang_unknown_script_unknown_region, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(unknown_lang_known_script_unknown_region, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
   ldn->localeDisplayName(unknown_lang_known_script_known_region, temp);
-  test_assert(TRUE == temp.isBogus());
+  test_assert(true == temp.isBogus());
 
   ldn->localeDisplayName(known_lang, temp);
   test_assert_equal("Englisch", temp);
   ldn->localeDisplayName(known_lang_known_script, temp);
   test_assert_equal("Englisch (Lateinisch)", temp);
   ldn->localeDisplayName(known_lang_known_region, temp);
+#if APPLE_ICU_CHANGES
+// rdar://
   test_assert_equal("Englisch (USA)", temp);
+#else
+  test_assert_equal("Englisch (Vereinigte Staaten)", temp);
+#endif  // APPLE_ICU_CHANGES
   ldn->localeDisplayName(known_lang_known_script_known_region, temp);
+#if APPLE_ICU_CHANGES
+// rdar://
   test_assert_equal("Englisch (Lateinisch, USA)", temp);
+#else
+  test_assert_equal("Englisch (Lateinisch, Vereinigte Staaten)", temp);
+#endif  // APPLE_ICU_CHANGES
 }
 
 void LocaleDisplayNamesTest::TestSubstituteHandling() {

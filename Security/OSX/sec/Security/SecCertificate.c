@@ -1231,6 +1231,7 @@ static bool isAppleExtensionOID(const DERItem *extnID)
 static const uint8_t cccVehicleCA[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x09 };
 static const uint8_t cccIntermediateCA[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x08 };
 static const uint8_t cccVehicle[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x01 };
+static const uint8_t mdlPolicy[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0x37,0x15,0x0A };
 static const uint8_t qiPolicy[] = {0x67,0x81,0x14,0x01,0x01};
 static const uint8_t qiRSID[] = {0x67,0x81,0x14,0x01,0x02};
 
@@ -1243,6 +1244,7 @@ const known_extension_entry_t unparsed_known_extensions[] = {
     { cccVehicleCA, sizeof(cccVehicleCA) },
     { cccIntermediateCA, sizeof(cccIntermediateCA) },
     { cccVehicle, sizeof(cccVehicle) },
+    { mdlPolicy, sizeof(mdlPolicy) },
     { qiPolicy, sizeof(qiPolicy) },
     { qiRSID, sizeof(qiRSID) },
 };
@@ -1800,7 +1802,7 @@ SecCertificateRef SecCertificateCreateWithBytes(CFAllocatorRef allocator,
 			sizeof(*result) - sizeof(result->_base));
 		result->_der.data = ((DERByte *)result + sizeof(*result));
 		result->_der.length = (size_t)der_length;
-		memcpy(result->_der.data, der_bytes, der_length);
+		memcpy(result->_der.data, der_bytes, (size_t)der_length);
 		if (!SecCertificateParse(result)) {
 			CFRelease(result);
 			return NULL;
@@ -1972,7 +1974,9 @@ CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
     extensionsOut.length = DERLengthOfEncodedSequence(ASN1_CONSTR_SEQUENCE, extensionsList, extensionsCount, extensionsListSpecs);
     extensionsOut.data = malloc(extensionsOut.length);
     require_quiet(extensionsOut.data, out);
+#ifndef __clang_analyzer__ // rdar://83126788
     drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, extensionsList, extensionsCount, extensionsListSpecs, extensionsOut.data, &extensionsOut.length);
+#endif
     require_noerr_quiet(drtn, out);
 
     tbsCert.extensions = extensionsOut;
@@ -1981,7 +1985,9 @@ CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
     require_quiet(tbsOut.length < LONG_MAX, out);
     tbsOut.data = malloc(tbsOut.length);
     require_quiet(tbsOut.data, out);
+#ifndef __clang_analyzer__ // rdar://83126788
     drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, &tbsCert, DERNumTBSCertItemSpecs, DERTBSCertItemSpecs, tbsOut.data, &tbsOut.length);
+#endif
     require_noerr_quiet(drtn, out);
 
     outData = CFDataCreate(kCFAllocatorDefault, tbsOut.data, (CFIndex)tbsOut.length);
@@ -2213,7 +2219,7 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContentWithError(DERTag tag,
 			break;
 		case UTC_TIME_LOCALIZED_LEN:        /* YYMMDDhhmmssThhmm (where T=[+,-]) */
 			isUtcLength = true;
-			/*DROPTHROUGH*/
+			[[fallthrough]];
 		case GENERALIZED_TIME_LOCALIZED_LEN:/* YYYYMMDDhhmmssThhmm (where T=[+,-]) */
 			isLocalized = true;
 			break;
@@ -4415,16 +4421,6 @@ CFDataRef SecCertificateGetNormalizedSubjectContent(
 /* Verify that certificate was signed by issuerKey. */
 OSStatus SecCertificateIsSignedBy(SecCertificateRef certificate,
     SecKeyRef issuerKey) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /* Setup algId in SecAsn1AlgId format. */
-    SecAsn1AlgId algId;
-#pragma clang diagnostic pop
-    algId.algorithm.Length = certificate->_tbsSigAlg.oid.length;
-    algId.algorithm.Data = certificate->_tbsSigAlg.oid.data;
-    algId.parameters.Length = certificate->_tbsSigAlg.params.length;
-    algId.parameters.Data = certificate->_tbsSigAlg.params.data;
-
     /* RFC5280 4.1.1.2, 4.1.2.3 requires the actual signature algorithm
        must match the specified algorithm in the TBSCertificate. */
 	bool sigAlgMatch = DEROidCompare(&certificate->_sigAlg.oid,
@@ -4435,7 +4431,7 @@ OSStatus SecCertificateIsSignedBy(SecCertificateRef certificate,
 
     CFErrorRef error = NULL;
     if (!sigAlgMatch ||
-        !SecVerifySignatureWithPublicKey(issuerKey, &algId,
+        !SecVerifySignatureWithPublicKey(issuerKey, &certificate->_tbsSigAlg,
         certificate->_tbs.data, certificate->_tbs.length,
         certificate->_signature.data, certificate->_signature.length, &error))
     {
@@ -5469,36 +5465,19 @@ SecCertificateCopyPublicKey(SecCertificateRef certificate)
 
 #endif
 
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+// Forward declaration;
+static CFDataRef SecCertificateCopySPKIEncoded(SecCertificateRef certificate);
 
 SecKeyRef SecCertificateCopyKey(SecCertificateRef certificate) {
     if (certificate->_pubKey == NULL) {
-        const DERAlgorithmId *algId =
-        SecCertificateGetPublicKeyAlgorithm(certificate);
-        const DERItem *keyData = SecCertificateGetPublicKeyData(certificate);
-        const DERItem *params = NULL;
-        if (algId->params.length != 0) {
-            params = &algId->params;
+        CFDataRef spki = SecCertificateCopySPKIEncoded(certificate);
+        if (spki) {
+            certificate->_pubKey = SecKeyCreateFromSubjectPublicKeyInfoData(NULL, spki);
+            CFReleaseNull(spki);
         }
-        SecAsn1Oid oid1 = { .Data = algId->oid.data, .Length = algId->oid.length };
-        SecAsn1Item params1 = {
-            .Data = params ? params->data : NULL,
-            .Length = params ? params->length : 0
-        };
-        SecAsn1Item keyData1 = {
-            .Data = keyData ? keyData->data : NULL,
-            .Length = keyData ? keyData->length : 0
-        };
-        certificate->_pubKey = SecKeyCreatePublicFromDER(kCFAllocatorDefault, &oid1, &params1,
-                                                         &keyData1);
     }
-
     return CFRetainSafe(certificate->_pubKey);
 }
-
-#pragma clang diagnostic pop
 
 static CFIndex SecCertificateGetPublicKeyAlgorithmIdAndSize(SecCertificateRef certificate, size_t *keySizeInBytes) {
     CFIndex keyAlgID = kSecNullAlgorithmID;
@@ -5535,6 +5514,10 @@ bool SecCertificateIsWeakKey(SecCertificateRef certificate) {
         case kSecECDSAAlgorithmID:
             if (MIN_EC_KEY_SIZE <= size) weak = false;
             break;
+        case kSecEd25519AlgorithmID:
+        case kSecEd448AlgorithmID:
+            weak = false;
+            break;
         default:
             weak = true;
     }
@@ -5552,6 +5535,10 @@ bool SecCertificateIsStrongKey(SecCertificateRef certificate) {
             break;
         case kSecECDSAAlgorithmID:
             if (MIN_STRONG_EC_KEY_SIZE <= size) strong = true;
+            break;
+        case kSecEd25519AlgorithmID:
+        case kSecEd448AlgorithmID:
+            strong = true;
             break;
         default:
             strong = false;
@@ -5581,21 +5568,24 @@ bool SecCertificateIsAtLeastMinKeySize(SecCertificateRef certificate,
     size_t size = 0;
     CFNumberRef minSize;
     size_t minSizeInBits;
+    CFStringRef keyType = NULL;
     switch (SecCertificateGetPublicKeyAlgorithmIdAndSize(certificate, &size)) {
         case kSecRSAAlgorithmID:
-            if(CFDictionaryGetValueIfPresent(keySizes, kSecAttrKeyTypeRSA, (const void**)&minSize)
-               && minSize && CFNumberGetValue(minSize, kCFNumberLongType, &minSizeInBits)) {
-                if (size >= (size_t)(minSizeInBits+7)/8) goodSize = true;
-            }
+            keyType = kSecAttrKeyTypeRSA;
             break;
         case kSecECDSAAlgorithmID:
-            if(CFDictionaryGetValueIfPresent(keySizes, kSecAttrKeyTypeEC, (const void**)&minSize)
-               && minSize && CFNumberGetValue(minSize, kCFNumberLongType, &minSizeInBits)) {
-                if (size >= (size_t)(minSizeInBits+7)/8) goodSize = true;
-            }
+            keyType = kSecAttrKeyTypeEC;
             break;
-        default:
-            goodSize = false;
+        case kSecEd25519AlgorithmID:
+            keyType = kSecAttrKeyTypeEd25519;
+            break;
+        case kSecEd448AlgorithmID:
+            keyType = kSecAttrKeyTypeEd25519;
+            break;
+    }
+    if(keyType && CFDictionaryGetValueIfPresent(keySizes, keyType, (const void**)&minSize)
+       && minSize && CFNumberGetValue(minSize, kCFNumberLongType, &minSizeInBits)) {
+        if (size >= (size_t)(minSizeInBits+7)/8) goodSize = true;
     }
     return goodSize;
 }
@@ -6971,6 +6961,7 @@ SEC_CONST_DECL (kSecSignatureDigestAlgorithmSHA224, "SignatureDigestSHA224");
 SEC_CONST_DECL (kSecSignatureDigestAlgorithmSHA256, "SignatureDigestSHA256");
 SEC_CONST_DECL (kSecSignatureDigestAlgorithmSHA384, "SignatureDigestSHA284");
 SEC_CONST_DECL (kSecSignatureDigestAlgorithmSHA512, "SignatureDigestSHA512");
+SEC_CONST_DECL (kSecSignatureDigestAlgorithmSHAKE256, "SignatureDigestSHAKE256");
 
 SecSignatureHashAlgorithm SecSignatureHashAlgorithmForAlgorithmOid(const DERItem *algOid)
 {
@@ -6980,6 +6971,17 @@ SecSignatureHashAlgorithm SecSignatureHashAlgorithmForAlgorithmOid(const DERItem
             break;
         }
         /* classify the signature algorithm OID into one of our known types */
+#if LIBDER_HAS_EDDSA
+        // guard for rdar://106052612
+        if (DEROidCompare(algOid, &oidEd448) ||
+            DEROidCompare(algOid, &oidSHAKE256)) {
+            result = kSecSignatureHashAlgorithmSHAKE256;
+            break;
+        }
+        if (DEROidCompare(algOid, &oidEd25519)) {
+            result = kSecSignatureHashAlgorithmSHA512;
+        }
+#endif
         if (DEROidCompare(algOid, &oidSha512Ecdsa) ||
             DEROidCompare(algOid, &oidSha512Rsa) ||
             DEROidCompare(algOid, &oidSha512)) {

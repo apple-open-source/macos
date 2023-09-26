@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,14 +27,13 @@
 
 #if ENABLE(GPU_PROCESS)
 
-#include "DisplayListRecorderFlushIdentifier.h"
-#include "SharedVideoFrame.h"
 #include <WebCore/DisplayListRecorder.h>
 #include <WebCore/DrawGlyphsRecorder.h>
 #include <WebCore/GraphicsContext.h>
 #include <wtf/WeakPtr.h>
 
 namespace IPC {
+class Semaphore;
 class StreamClientConnection;
 }
 
@@ -42,6 +41,7 @@ namespace WebKit {
 
 class RemoteRenderingBackendProxy;
 class RemoteImageBufferProxy;
+class SharedVideoFrameWriter;
 
 class RemoteDisplayListRecorderProxy : public WebCore::DisplayList::Recorder {
 public:
@@ -50,11 +50,13 @@ public:
 
     void convertToLuminanceMask() final;
     void transformToColorSpace(const WebCore::DestinationColorSpace&) final;
-    void flushContext(DisplayListRecorderFlushIdentifier);
+    void flushContext(const IPC::Semaphore&);
+    void flushContextSync();
     void disconnect();
 
 private:
     template<typename T> void send(T&& message);
+    template<typename T> void sendSync(T&& message);
 
     friend class WebCore::DrawGlyphsRecorder;
 
@@ -77,10 +79,13 @@ private:
     void recordSetMiterLimit(float) final;
     void recordClearShadow() final;
     void recordClip(const WebCore::FloatRect&) final;
+    void recordClipRoundedRect(const WebCore::FloatRoundedRect&) final;
     void recordClipOut(const WebCore::FloatRect&) final;
+    void recordClipOutRoundedRect(const WebCore::FloatRoundedRect&) final;
     void recordClipToImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destinationRect) final;
     void recordClipOutToPath(const WebCore::Path&) final;
     void recordClipPath(const WebCore::Path&, WebCore::WindRule) final;
+    void recordResetClip() final;
     void recordDrawFilteredImageBuffer(WebCore::ImageBuffer*, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&) final;
     void recordDrawGlyphs(const WebCore::Font&, const WebCore::GlyphBufferGlyph*, const WebCore::GlyphBufferAdvance*, unsigned count, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
     void recordDrawDecomposedGlyphs(const WebCore::Font&, const WebCore::DecomposedGlyphs&) final;
@@ -105,11 +110,12 @@ private:
     void recordFillRoundedRect(const WebCore::FloatRoundedRect&, const WebCore::Color&, WebCore::BlendMode) final;
     void recordFillRectWithRoundedHole(const WebCore::FloatRect&, const WebCore::FloatRoundedRect&, const WebCore::Color&) final;
 #if ENABLE(INLINE_PATH_DATA)
-    void recordFillLine(const WebCore::LineData&) final;
-    void recordFillArc(const WebCore::ArcData&) final;
-    void recordFillQuadCurve(const WebCore::QuadCurveData&) final;
-    void recordFillBezierCurve(const WebCore::BezierCurveData&) final;
+    void recordFillLine(const WebCore::PathDataLine&) final;
+    void recordFillArc(const WebCore::PathArc&) final;
+    void recordFillQuadCurve(const WebCore::PathDataQuadCurve&) final;
+    void recordFillBezierCurve(const WebCore::PathDataBezierCurve&) final;
 #endif
+    void recordFillPathSegment(const WebCore::PathSegment&) final;
     void recordFillPath(const WebCore::Path&) final;
     void recordFillEllipse(const WebCore::FloatRect&) final;
 #if ENABLE(VIDEO)
@@ -118,12 +124,13 @@ private:
 #endif
     void recordStrokeRect(const WebCore::FloatRect&, float) final;
 #if ENABLE(INLINE_PATH_DATA)
-    void recordStrokeLine(const WebCore::LineData&) final;
-    void recordStrokeLineWithColorAndThickness(WebCore::SRGBA<uint8_t>, float, const WebCore::LineData&) final;
-    void recordStrokeArc(const WebCore::ArcData&) final;
-    void recordStrokeQuadCurve(const WebCore::QuadCurveData&) final;
-    void recordStrokeBezierCurve(const WebCore::BezierCurveData&) final;
+    void recordStrokeLine(const WebCore::PathDataLine&) final;
+    void recordStrokeLineWithColorAndThickness(const WebCore::PathDataLine&, WebCore::SRGBA<uint8_t>, float thickness) final;
+    void recordStrokeArc(const WebCore::PathArc&) final;
+    void recordStrokeQuadCurve(const WebCore::PathDataQuadCurve&) final;
+    void recordStrokeBezierCurve(const WebCore::PathDataBezierCurve&) final;
 #endif
+    void recordStrokePathSegment(const WebCore::PathSegment&) final;
     void recordStrokePath(const WebCore::Path&) final;
     void recordStrokeEllipse(const WebCore::FloatRect&) final;
     void recordClearRect(const WebCore::FloatRect&) final;
@@ -139,17 +146,22 @@ private:
     bool recordResourceUse(const WebCore::SourceImage&) final;
     bool recordResourceUse(WebCore::Font&) final;
     bool recordResourceUse(WebCore::DecomposedGlyphs&) final;
+    bool recordResourceUse(WebCore::Gradient&) final;
+    bool recordResourceUse(WebCore::Filter&) final;
 
     RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, float resolutionScale, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMode>, std::optional<WebCore::RenderingMethod>) const final;
     RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
     RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatRect&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
 
-    static inline constexpr Seconds defaultSendTimeout = 3_s;
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+    SharedVideoFrameWriter& ensureSharedVideoFrameWriter();
+#endif
+
     WebCore::RenderingResourceIdentifier m_destinationBufferIdentifier;
     WeakPtr<RemoteImageBufferProxy> m_imageBuffer;
     WeakPtr<RemoteRenderingBackendProxy> m_renderingBackend;
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
-    SharedVideoFrameWriter m_sharedVideoFrameWriter;
+    std::unique_ptr<SharedVideoFrameWriter> m_sharedVideoFrameWriter;
 #endif
 };
 

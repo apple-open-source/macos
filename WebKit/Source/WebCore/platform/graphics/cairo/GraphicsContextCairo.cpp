@@ -50,7 +50,7 @@
 #include <cairo-win32.h>
 #endif
 
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if USE(THEME_ADWAITA)
 #include "ThemeAdwaita.h"
 #endif
 
@@ -151,7 +151,7 @@ void GraphicsContextCairo::drawNativeImageInternal(NativeImage& nativeImage, con
 // This is only used to draw borders, so we should not draw shadows.
 void GraphicsContextCairo::drawLine(const FloatPoint& point1, const FloatPoint& point2)
 {
-    if (strokeStyle() == NoStroke)
+    if (strokeStyle() == StrokeStyle::NoStroke)
         return;
 
     Cairo::drawLine(*this, point1, point2, strokeStyle(), strokeColor(), strokeThickness(), shouldAntialias());
@@ -192,6 +192,11 @@ void GraphicsContextCairo::fillRect(const FloatRect& rect, const Color& color)
     Cairo::fillRect(*this, rect, color, Cairo::ShadowState(state()));
 }
 
+void GraphicsContextCairo::resetClip()
+{
+    ASSERT_NOT_REACHED("resetClip is not supported on Cairo");
+}
+
 void GraphicsContextCairo::clip(const FloatRect& rect)
 {
     Cairo::clip(*this, rect);
@@ -215,7 +220,7 @@ void GraphicsContextCairo::clipToImageBuffer(ImageBuffer& buffer, const FloatRec
 
 void GraphicsContextCairo::drawFocusRing(const Path& path, float outlineWidth, const Color& color)
 {
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if USE(THEME_ADWAITA)
     ThemeAdwaita::paintFocus(*this, path, color);
     UNUSED_PARAM(outlineWidth);
     return;
@@ -226,7 +231,7 @@ void GraphicsContextCairo::drawFocusRing(const Path& path, float outlineWidth, c
 
 void GraphicsContextCairo::drawFocusRing(const Vector<FloatRect>& rects, float outlineOffset, float outlineWidth, const Color& color)
 {
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if USE(THEME_ADWAITA)
     ThemeAdwaita::paintFocus(*this, rects, color);
     UNUSED_PARAM(outlineOffset);
     UNUSED_PARAM(outlineWidth);
@@ -379,41 +384,6 @@ void GraphicsContextCairo::drawPattern(NativeImage& nativeImage, const FloatRect
 RenderingMode GraphicsContextCairo::renderingMode() const
 {
     return Cairo::State::isAcceleratedContext(*platformContext()) ? RenderingMode::Accelerated : RenderingMode::Unaccelerated;
-}
-
-void GraphicsContextCairo::drawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned numGlyphs, const FloatPoint& point, FontSmoothingMode fontSmoothing)
-{
-    if (!font.platformData().size())
-        return;
-
-    auto xOffset = point.x();
-    Vector<cairo_glyph_t> cairoGlyphs(numGlyphs);
-    {
-        auto yOffset = point.y();
-        for (size_t i = 0; i < numGlyphs; ++i) {
-            cairoGlyphs[i] = { glyphs[i], xOffset, yOffset };
-            xOffset += advances[i].width();
-            yOffset += advances[i].height();
-        }
-    }
-
-    cairo_scaled_font_t* scaledFont = font.platformData().scaledFont();
-    double syntheticBoldOffset = font.syntheticBoldOffset();
-
-    if (!font.allowsAntialiasing())
-        fontSmoothing = FontSmoothingMode::NoSmoothing;
-
-    auto& state = this->state();
-    Cairo::drawGlyphs(*this, Cairo::FillSource(state), Cairo::StrokeSource(state),
-        Cairo::ShadowState(state), point, scaledFont, syntheticBoldOffset, cairoGlyphs, xOffset,
-        state.textDrawingMode(), state.strokeThickness(), state.dropShadow().offset, state.dropShadow().color,
-        fontSmoothing);
-}
-
-void GraphicsContextCairo::drawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
-{
-    auto positionedGlyphs = decomposedGlyphs.positionedGlyphs();
-    return drawGlyphs(font, positionedGlyphs.glyphs.data(), positionedGlyphs.advances.data(), positionedGlyphs.glyphs.size(), positionedGlyphs.localAnchor, positionedGlyphs.smoothingMode);
 }
 
 cairo_t* GraphicsContextCairo::cr() const

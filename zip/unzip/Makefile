@@ -16,7 +16,8 @@ PATCHFILES	= cve-2014-8140-test-compr-eb \
                   PR-25537454.diff \
                   PR-4126223.diff \
                   cve-2022-0530 \
-                  0001-Fix-null-pointer-dereference-and-use-of-uninitialized-data.patch
+                  0001-Fix-null-pointer-dereference-and-use-of-uninitialized-data.patch \
+									CVE-2022-0529.patch
 
 SRCROOT		?= $(shell pwd)
 OBJROOT		?= $(SRCROOT)/obj

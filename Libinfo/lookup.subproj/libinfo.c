@@ -44,6 +44,7 @@
 #include <dispatch/dispatch.h>
 #include <mach-o/dyld_priv.h>
 #include <sys/stat.h>
+#include <os/feature_private.h>
 
 #define SOCK_UNSPEC 0
 #define IPPROTO_UNSPEC 0
@@ -58,6 +59,7 @@ extern int __initgroups(u_int gidsetsize, gid_t *gidset, int gmuid);
 /* SPI from long ago */
 int _proto_stayopen;
 
+extern void si_cache_add_item(si_mod_t *si, si_mod_t *src, si_item_t *item);
 extern struct addrinfo *si_list_to_addrinfo(si_list_t *list);
 extern int getnameinfo_link(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *serv, size_t servlen, int flags);
 __private_extern__ void search_set_flags(si_mod_t *si, const char *name, uint32_t flag);
@@ -80,7 +82,17 @@ typedef struct
 	int32_t key_offset;
 } si_context_t;
 
-si_mod_t *
+static si_mod_t *
+si_search_cache_file(void)
+{
+	static si_mod_t *search = NULL;
+
+	if (search == NULL) search = si_module_with_name("cache_file");
+
+	return search;
+}
+
+static si_mod_t *
 si_search_file(void)
 {
 	static si_mod_t *search = NULL;
@@ -88,6 +100,20 @@ si_search_file(void)
 	if (search == NULL) search = si_module_with_name("file");
 
 	return search;
+}
+
+OS_ALWAYS_INLINE
+static inline bool
+si_using_darwin_directory(void)
+{
+	static bool result = false;
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{
+		result = os_feature_enabled_simple(DarwinDirectory, LibinfoLookups, false);
+	});
+#endif // DARWIN_DIRECTORY_AVAILABLE
+	return result;
 }
 
 LIBINFO_EXPORT
@@ -256,11 +282,21 @@ getpwuid(uid_t uid)
 	fprintf(stderr, "-> %s %d\n", __func__, uid);
 #endif
 
-	// Search the file module first for all system uids
-	// (ie, uid value < 500) since they should all be
-	// in the /etc/*passwd file.
-	if (uid < SYSTEM_UID_LIMIT)
-		item = si_user_byuid(si_search_file(), uid);
+	// The darwin directory lookups are all in-memory, no IPC.  Only shortcut
+	// the lookups when darwin directory isn't in use.
+	if (!si_using_darwin_directory()) {
+		// Search the file module first for all system uids
+		// (ie, uid value < 500) since they should all be
+		// in the /etc/*passwd file.
+		if (uid < SYSTEM_UID_LIMIT) {
+			item = si_user_byuid(si_search_cache_file(), uid);
+			if (item == NULL) {
+				item = si_user_byuid(si_search_file(), uid);
+				if (item != NULL)
+					si_cache_add_item(si_search_cache_file(), si_search_file(), item);
+			}
+		}
+	}
 
 	if (item == NULL)
 		item = si_user_byuid(si_search(), uid);
@@ -287,16 +323,28 @@ getpwuid_async_call(uid_t uid, si_user_async_callback callback, void *context)
 	sictx->cat = CATEGORY_USER;
 	sictx->key_offset = 200;
 
-	// Search the file module first for all system uids
-	// (ie, uid value < 500) since they should all be
-	// in the /etc/*passwd file.
-	if (uid < SYSTEM_UID_LIMIT)
-	{
-		si_item_t *item = si_user_byuid(si_search_file(), uid);
-		if (item)
+	// The darwin directory lookups are all in-memory, no IPC.  Only shortcut
+	// the lookups when darwin directory isn't in use.
+	if (!si_using_darwin_directory()) {
+		// Search the file module first for all system uids
+		// (ie, uid value < 500) since they should all be
+		// in the /etc/*passwd file.
+		if (uid < SYSTEM_UID_LIMIT)
 		{
-			si_item_release(item);
-			return si_async_call(si_search_file(), SI_CALL_USER_BYUID, NULL, NULL, NULL, (uint32_t)uid, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+			si_mod_t *src = si_search_cache_file();
+			si_item_t *item = si_user_byuid(src, uid);
+			if (item == NULL) {
+				src = si_search_file();
+				item = si_user_byuid(src, uid);
+				if (item != NULL)
+					si_cache_add_item(si_search_cache_file(), src, item);
+			}
+
+			if (item)
+			{
+				si_item_release(item);
+				return si_async_call(src, SI_CALL_USER_BYUID, NULL, NULL, NULL, (uint32_t)uid, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+			}
 		}
 	}
 
@@ -3303,11 +3351,21 @@ getpwuid_r(uid_t uid, struct passwd *pw, char *buffer, size_t bufsize, struct pa
 
 	if ((pw == NULL) || (buffer == NULL) || (result == NULL) || (bufsize == 0)) return ERANGE;
     
-	// Search the file module first for all system uids
-	// (ie, uid value < 500) since they should all be
-	// in the /etc/*passwd file.
-	if (uid < SYSTEM_UID_LIMIT)
-		item = si_user_byuid(si_search_file(), uid);
+	// The darwin directory lookups are all in-memory, no IPC.  Only shortcut
+	// the lookups when darwin directory isn't in use.
+	if (!si_using_darwin_directory()) {
+		// Search the file module first for all system uids
+		// (ie, uid value < 500) since they should all be
+		// in the /etc/*passwd file.
+		if (uid < SYSTEM_UID_LIMIT) {
+			item = si_user_byuid(si_search_cache_file(), uid);
+			if (item == NULL) {
+				item = si_user_byuid(si_search_file(), uid);
+				if (item != NULL)
+					si_cache_add_item(si_search_cache_file(), si_search_file(), item);
+			}
+		}
+	}
 
 	if (item == NULL)
 		item = si_user_byuid(si_search(), uid);

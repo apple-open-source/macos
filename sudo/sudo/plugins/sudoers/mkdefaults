@@ -46,6 +46,7 @@ BEGIN {
     type_map["T_TUPLE"] = "tuple"
     type_map["T_TIMESPEC"] = "tspec"
     type_map["T_TIMEOUT"] = "ival"
+    type_map["T_RLIMIT"] = "str"
 }
 {
     sub(/#.*/, "", $0)
@@ -145,7 +146,7 @@ function print_record(rec, recnum) {
     type = fields[2]
     sub(/\|.*/, "", type)
     if (!(type in type_map))
-    	die("unknown defaults type: " fields[2])
+    	die("unknown defaults type " fields[2])
 
     # each variable gets a macro to access its value
     defname = "I_" toupper(fields[1])

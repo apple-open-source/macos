@@ -26,9 +26,7 @@
 
 #include <time.h>
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "parse.h"
+#include "sudoers.h"
 
 /*
  * Return a static buffer with the current date + time.
@@ -37,13 +35,15 @@ char *
 get_timestr(time_t tstamp, int log_year)
 {
     static char buf[128];
-    struct tm *timeptr;
+    struct tm tm;
+    int len;
 
-    if ((timeptr = localtime(&tstamp)) != NULL) {
+    if (localtime_r(&tstamp, &tm) != NULL) {
 	/* strftime() does not guarantee to NUL-terminate so we must check. */
 	buf[sizeof(buf) - 1] = '\0';
-	if (strftime(buf, sizeof(buf), log_year ? "%h %e %T %Y" : "%h %e %T",
-	    timeptr) != 0 && buf[sizeof(buf) - 1] == '\0')
+	len = strftime(buf, sizeof(buf), log_year ? "%h %e %T %Y" : "%h %e %T",
+	    &tm);
+	if (len != 0 && buf[sizeof(buf) - 1] == '\0')
 	    return buf;
     }
     return NULL;

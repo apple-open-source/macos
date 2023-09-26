@@ -111,6 +111,10 @@
 #define BDC_LOG                     "BDC"
 #define SMART_POWER_NAP_LOG         "smartPowerNap"
 #define CORE_SMART_POWER_NAP_LOG    "coreSmartPowerNap"
+#define CHARGE_CONTROL_LOG          "charging"
+#define USBDEVICEMODE_LOG           "usbdevicemode"
+#define BATTERY_AUTH_LOG            "batteryAuth"
+#define WAKE_PERF_LOG               "wakePerfLog"
 
 #ifndef LOG_STREAM
 #define LOG_STREAM OS_LOG_DEFAULT

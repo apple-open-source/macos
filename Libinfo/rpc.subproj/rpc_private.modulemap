@@ -1,0 +1,5 @@
+module rpcPrivate [system] {
+  umbrella "rpc"
+
+  explicit module * { export * }
+}

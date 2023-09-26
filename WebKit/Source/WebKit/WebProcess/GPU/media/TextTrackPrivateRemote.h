@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "DataReference.h"
 #include "TextTrackPrivateRemoteConfiguration.h"
@@ -97,7 +97,7 @@ public:
 private:
     TextTrackPrivateRemote(GPUProcessConnection&, WebCore::MediaPlayerIdentifier, TrackPrivateRemoteIdentifier, TextTrackPrivateRemoteConfiguration&&);
 
-    WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
+    ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     AtomString m_id;
     AtomString m_label;
     AtomString m_language;
@@ -118,4 +118,4 @@ private:
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

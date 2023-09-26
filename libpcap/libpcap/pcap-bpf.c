@@ -3650,6 +3650,19 @@ pcap_setdirection_bpf(pcap_t *p, pcap_direction_t d)
 		direction_name = "\"outgoing only\"";
 		break;
 
+#ifdef __APPLE__
+#ifdef BPF_D_NONE
+        case PCAP_D_NONE:
+                /*
+                 * Outgoing, but not incoming, so accept only
+                 * outgoing packets.
+                 */
+                direction = BPF_D_NONE;
+                direction_name = "\"none\"";
+                break;
+#endif /* BPF_D_NONE */
+#endif /* __APPLE__ */
+
 	default:
 		/*
 		 * Incoming and outgoing, so accept both

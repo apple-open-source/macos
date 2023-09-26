@@ -1,0 +1,11 @@
+# $FreeBSD$ 
+# $NetBSD: DEC.alias,v 1.1 2007/04/01 18:52:30 tnozaki Exp $
+
+Hanyu	dec-hanyu
+Hanyu	dec_hanyu
+
+Kanji	dec-kanji
+Kanji	dec_kanji
+
+MCS	dec-mcs
+MCS	dec_mcs

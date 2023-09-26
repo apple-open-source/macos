@@ -114,7 +114,7 @@ typedef struct htab	 {		/* Memory resident data structure */
 	BUFHEAD 	bufhead;	/* Header of buffer lru list */
 	SEGMENT 	*dir;		/* Hash Bucket directory */
 					/* other flags */
-	int		nextkey_eof :1;	/* dbm_nextkey() reached EOF */
+	u_int		nextkey_eof :1;	/* dbm_nextkey() reached EOF */
 } HTAB;
 
 /*

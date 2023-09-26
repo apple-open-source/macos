@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2000-2007,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 2000-2011,2013 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,7 +29,7 @@
 /*
  * Author: Thomas E. Dickey - 2000
  *
- * $Id: railroad.c,v 1.16 2008/02/09 18:08:43 tom Exp $
+ * $Id: railroad.c,v 1.21 2013/09/28 22:02:17 tom Exp $
  *
  * A simple demo of the termcap interface.
  */
@@ -55,16 +55,20 @@ static char *backup;
 
 static bool interrupted = FALSE;
 
-static int
-outc(TPUTS_ARG c)
+static
+TPUTS_PROTO(outc, c)
 {
+    int rc = OK;
+
     if (interrupted) {
-	char tmp = c;
-	write(STDOUT_FILENO, &tmp, 1);
+	char tmp = (char) c;
+	if (write(STDOUT_FILENO, &tmp, (size_t) 1) == -1)
+	    rc = ERR;
     } else {
-	putc(c, stdout);
+	if (putc(c, stdout) == EOF)
+	    rc = ERR;
     }
-    return 0;
+    TPUTS_RETURN(rc);
 }
 
 static void
@@ -82,7 +86,7 @@ Backup(void)
 }
 
 static void
-ShowCursor(int flag)
+MyShowCursor(int flag)
 {
     if (startC != 0 && finisC != 0) {
 	tputs(flag ? startC : finisC, 1, outc);
@@ -166,7 +170,7 @@ cleanup(void)
 {
     Underline(0);
     StandOut(0);
-    ShowCursor(1);
+    MyShowCursor(1);
 }
 
 static void
@@ -214,14 +218,14 @@ railroad(char **args)
 	startC = tgetstr("ve", &ap);
 	finisC = tgetstr("vi", &ap);
 
-	ShowCursor(0);
+	MyShowCursor(0);
 
 	CATCHALL(onsig);
 
 	while (*args) {
 	    ShowSign(*args++);
 	}
-	ShowCursor(1);
+	MyShowCursor(1);
     }
 }
 

@@ -33,7 +33,7 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/uucp.plist $(OSV)/uucp.plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/uucp.txt
-	# there isn't a configuure option to not setuid a bunch of stuff, so we let it do that and then we "fix it"
+	# there isn't a configure option to not setuid a bunch of stuff, so we let it do that and then we "fix it"
 	chmod -R ug-s $(DSTROOT)/usr/*bin
 
 
@@ -50,7 +50,8 @@ AEP_Patches    = PR-3996371-conf.diff \
 		 PR-4905054.manpages.patch \
 		 rdar-25537031-fix-uuconv.c.diff \
 		 PR-59291737.patch \
-		 PR-95279817.patch
+		 PR-95279817.patch \
+		 PR-103584104.patch
 
 AEP_SubDir     = uucp
 AEP_TarDir     := $(shell pwd)

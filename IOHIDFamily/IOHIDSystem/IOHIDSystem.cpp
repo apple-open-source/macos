@@ -3935,6 +3935,7 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
     if ( dict->getObject(kIOHIDResetPointerKey) ) {
         IOFixed fixed = EV_DEFAULTPOINTERACCELLEVEL;
         makeNumberParamProperty( dict, kIOHIDPointerAccelerationKey, fixed, sizeof(fixed) << 3);
+        makeNumberParamProperty( dict, kIOHIDUseLinearScalingMouseAccelerationKey, 0, sizeof(UInt));
 
         fixed = kIOHIDButtonMode_EnableRightClick;
         makeNumberParamProperty( dict, kIOHIDPointerButtonMode, fixed, sizeof(fixed) << 3);

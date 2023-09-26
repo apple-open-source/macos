@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <stdbool.h>
+
 /* Make TAPI happy by declaring things that other projects forward-declare. */
 /* This header is not installed anywhere. */
 
@@ -73,6 +75,16 @@ void zeroify_scalable_zone(malloc_zone_t *zone);
 /* This is extern-declared by some projects, like racoon (ipsec) */
 /* Maybe we can change it to a symbol-alias of free? */
 void vfree(void *ptr);
+
+typedef malloc_zone_t *xzm_malloc_zone_t;
+typedef uint8_t xzm_segment_group_id_t;
+typedef uint8_t xzm_xzone_bucket_t;
+
+#if defined(__LP64__)
+bool
+xzm_ptr_lookup_4test(xzm_malloc_zone_t zone, void *ptr,
+		xzm_segment_group_id_t *sgid_out, xzm_xzone_bucket_t *bucket_out);
+#endif
 
 /* Obsolete entry points. They don't work, don't use them. */
 void set_malloc_singlethreaded(boolean_t);

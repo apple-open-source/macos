@@ -42,7 +42,7 @@
 #if __arm64__
 
 void configure_misc_apple_boot_args(void);
-void configure_misc_apple_regs(void);
+void configure_misc_apple_regs(bool is_boot_cpu);
 void configure_timer_apple_regs(void);
 void configure_late_apple_regs(void);
 
@@ -51,9 +51,12 @@ configure_misc_apple_boot_args(void)
 {
 }
 
+
 void
-configure_misc_apple_regs(void)
+configure_misc_apple_regs(bool is_boot_cpu)
 {
+#pragma unused(is_boot_cpu)
+
 }
 
 // machine_routines_apple.c gets built on non-Apple platforms but it won't

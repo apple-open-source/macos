@@ -4,6 +4,8 @@
 <dict>
 	<key>com.apple.private.iokit.batterydata</key>
 	<true/>
+	<key>com.apple.private.iokit.batterydataprecise</key>
+	<true/>
 	<key>com.apple.private.iokit.rootdomain-set-property</key>
 	<true/>
 	<key>com.apple.security.iokit-user-client-class</key>
@@ -17,6 +19,8 @@
 	<key>com.apple.private.SkyLight.displaycontrol</key>
 	<true/>
 	<key>com.apple.private.iokit.powerlogging</key>
+	<true/>
+	<key>com.apple.private.iokit.soc-limit</key>
 	<true/>
 </dict>
 </plist>

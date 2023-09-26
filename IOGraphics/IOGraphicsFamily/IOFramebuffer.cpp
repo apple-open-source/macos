@@ -3764,6 +3764,9 @@ IOReturn IOFramebuffer::createSharedCursor(
     if (uMaxWidth > kIOFBMaxCursorWidth || uMaxWaitWidth > kIOFBMaxCursorWidth)
         return (kIOReturnNoMemory);
 
+    if (uMaxWidth == 0 || uMaxWaitWidth == 0)
+        return (kIOReturnBadArgument);
+
     if (shmemVersion == kIOFBTenPtTwoShmemVersion)
     {
         numCursorFrames = (kIOFBShmemCursorNumFramesMask & cursorversion) >> kIOFBShmemCursorNumFramesShift;

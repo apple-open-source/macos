@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,9 +57,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -82,9 +82,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -103,9 +103,9 @@ public:
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithNoArgumentsReply; }
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
     using ReplyArguments = std::tuple<>;
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -124,9 +124,9 @@ public:
     static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithMultipleArgumentsReply; }
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
     using ReplyArguments = std::tuple<bool, uint64_t>;
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -150,9 +150,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -174,9 +174,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:
@@ -197,9 +197,9 @@ public:
     {
     }
 
-    const auto& arguments() const
+    auto&& arguments()
     {
-        return m_arguments;
+        return WTFMove(m_arguments);
     }
 
 private:

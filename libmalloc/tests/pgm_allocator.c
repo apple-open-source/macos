@@ -56,8 +56,8 @@ T_DECL(allocate, "allocate")
 	expected_read_write_page = 643072; // mark_read_write
 	T_EXPECT_EQ(allocate(&zone, 5, 16), 644080ul, "block allocated");
 	// Slot metadata
-	T_EXPECT_EQ(slots[1].state, ss_allocated, "slot.state");
-	T_EXPECT_EQ(slots[1].metadata, 2, "slot.metadata");
+	T_EXPECT_EQ((unsigned int)(slots[1].state), ss_allocated, "slot.state");
+	T_EXPECT_EQ((unsigned int)(slots[1].metadata), 2, "slot.metadata");
 	T_EXPECT_EQ(slots[1].size, (uint16_t)8, "slot.size"); // zone->min_alignment
 	T_EXPECT_EQ(slots[1].offset, (uint16_t)1008, "slot.offset");
 	T_EXPECT_EQ(metadata[2].alloc.trace_size, (uint16_t)88, "metadata.alloc.trace_size");
@@ -90,7 +90,7 @@ T_DECL(deallocate, "deallocate")
 	zone.num_slots = 1; // page_addr
 	deallocate(&zone, 641031);
 	// Slot metadata
-	T_EXPECT_EQ(slots[0].state, ss_freed, "slot.state");
+	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_freed, "slot.state");
 	T_EXPECT_EQ(metadata[3].dealloc.trace_size, (uint16_t)88, "metadata.dealloc.trace_size");
 	// Zone state
 	T_EXPECT_EQ(zone.num_allocations, 1, "zone.num_allocations");
@@ -120,8 +120,8 @@ T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled")
 	expected_trace_sizes[1] = 216;
 	expected_inaccessible_page = 641024; // allocate -> mark_inaccessible
 	T_EXPECT_EQ(reallocate(&zone, 641024, 10, TRUE), 643072ul, "block reallocated");
-	T_EXPECT_EQ(slots[0].state, ss_freed, "source slot");
-	T_EXPECT_EQ(slots[1].state, ss_allocated, "destination slot");
+	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_freed, "source slot");
+	T_EXPECT_EQ((unsigned int)(slots[1].state), ss_allocated, "destination slot");
 }
 
 T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled")
@@ -138,7 +138,7 @@ T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled")
 	expected_dest = 641024; expected_src = 1337; expected_size = 5; // memcpy
 	expected_free_ptr = 1337; // wrapped_free
 	T_EXPECT_EQ(reallocate(&zone, 1337, 10, TRUE), 641024ul, "block reallocated");
-	T_EXPECT_EQ(slots[0].state, ss_allocated, "destination slot");
+	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_allocated, "destination slot");
 }
 
 T_DECL(reallocate_guarded_to_unsampled, "reallocate: guarded -> unsampled")
@@ -153,7 +153,7 @@ T_DECL(reallocate_guarded_to_unsampled, "reallocate: guarded -> unsampled")
 	zone.num_slots = 2; // page_addr
 	expected_inaccessible_page = 641024; // allocate -> mark_inaccessible
 	T_EXPECT_EQ(reallocate(&zone, 641024, 10, FALSE), 1337ul, "block reallocated");
-	T_EXPECT_EQ(slots[0].state, ss_freed, "source slot");
+	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_freed, "source slot");
 }
 
 T_DECL(reallocate_guarded_to_unsampled_zone_full, "reallocate: guarded -> unsampled (zone full)")
@@ -168,5 +168,5 @@ T_DECL(reallocate_guarded_to_unsampled_zone_full, "reallocate: guarded -> unsamp
 	zone.num_slots = 2; // page_addr
 	expected_inaccessible_page = 641024; // allocate -> mark_inaccessible
 	T_EXPECT_EQ(reallocate(&zone, 641024, 10, TRUE), 1337ul, "block reallocated");
-	T_EXPECT_EQ(slots[0].state, ss_freed, "source slot");
+	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_freed, "source slot");
 }

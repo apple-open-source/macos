@@ -61,6 +61,7 @@ int secd_202_recoverykey(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(kTestRecoveryKeyCount + kTestRecoveryKeyBasicCount);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     testRecoveryKeyBasic();
     testRecoveryKey();

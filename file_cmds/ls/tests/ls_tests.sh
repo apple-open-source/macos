@@ -955,6 +955,7 @@ atf_test_case 1_flag
 	atf_check_equal "$(cat $WITH_1)" "$(cat $WITHOUT_1)"
 }
 
+#ifdef __APPLE__
 atf_test_case emptydir
 emptydir_head()
 {
@@ -968,6 +969,49 @@ emptydir_body()
 
 	atf_check -o match:"^total 0$" ls -CAFs
 }
+
+BADNAME_VOLNAME_FILE=badfile_volname
+
+atf_test_case badmtime cleanup
+badmtime_head()
+{
+	atf_set "descr" "rdar://9977017 - mtime exceeding capability of localtime(3)"
+}
+
+badmtime_body()
+{
+
+	scriptdir=$(dirname $(realpath "$0"))
+	mkdir -p hfs_part
+	echo "Hello, world!" > hfs_part/foo
+
+	# Random name just to be parallel-safe with itself.
+	badfile_volname=$(mktemp -u badmtime_test_vol_XXXXXXXXXX)
+
+	# Only on HFS can we actually set the mtime high enough to exceed the
+	# capabilities of localtime(3).  So, the strategy is simple: we'll
+	# create an HFS image that we can attach, then we'll attach it and
+	# set the mtime on `foo`.  ls(1) will fill the timestamp field with
+	# question marks if localtime(3) ended up returning NULL.
+	echo "$badfile_volname" > $BADNAME_VOLNAME_FILE
+	atf_check -o not-empty hdiutil create -size 10m \
+	    -volname "$badfile_volname" -nospotlight -fs HFS+ -srcdir hfs_part \
+	    "$badfile_volname.dmg"
+	atf_check -o not-empty hdiutil attach -shadow test_shadow \
+	    "$badfile_volname.dmg"
+
+	atf_check "$scriptdir"/touch_epoch /Volumes/"$badfile_volname"/foo
+	expected=".+\?\? \?\?  \?\?.+foo"
+	atf_check -o match:"$expected" ls -l /Volumes/"$badfile_volname"/foo
+
+}
+badmtime_cleanup()
+{
+
+	badfile_volname=$(cat $BADNAME_VOLNAME_FILE)
+	hdiutil detach /Volumes/"$badfile_volname"
+}
+#endif
 
 atf_init_test_cases()
 {
@@ -1016,5 +1060,6 @@ atf_init_test_cases()
 	atf_add_test_case 1_flag
 #ifdef __APPLE__
 	atf_add_test_case emptydir
+	atf_add_test_case badmtime
 #endif
 }

@@ -5,7 +5,6 @@ from __future__ import print_function
 import sys, getopt, collections, subprocess, argparse, math
 from operator import itemgetter
 import json 
-from six.moves import range
 
 # colors
 
@@ -30,7 +29,7 @@ def to_bold (s):
 
 # Debug code
 DBG_FUNC_END                        = 0x2
-
+DBG_FUNC_START                      = 0x1
 kIOHIDDebugCode_DispatchHIDEvent    = 0x5230048
 kIOHIDDebugCode_HandleReport        = 0x523003C
 kHIDDK_Dev_InputReport              = 0x523C008
@@ -39,7 +38,12 @@ kHID_ES_Service_Callback            = 0x5238100
 kHID_ES_Client_QueueCallback        = 0x5238080
 kHID_ES_ClientsEnqueue              = 0x523804c
 kHID_ES_ClientsEnqueueEnd           = (0x523804c | DBG_FUNC_END)
-
+kHID_ES_Session_Filters_Start       = (0x5238148 | DBG_FUNC_START)
+kHID_ES_Session_Filters_End         = (0x5238148 | DBG_FUNC_END)
+kHID_ES_Service_Filters_Start       = (0x523810c | DBG_FUNC_START)
+kHID_ES_Service_Filters_End         = (0x523810c | DBG_FUNC_END)
+kHID_ES_FiltersClientsDone          = 0x5238044
+     
 traceTimeDelta = 0
 
 HIDEventTypeToStr = [
@@ -90,7 +94,12 @@ HIDTraceCodes = [
      kIOHIDDebugCode_HandleReport,
      kHID_ES_Service_Callback,
      kHID_ES_ClientsEnqueueEnd,
-     kHID_ES_Client_QueueCallback
+     kHID_ES_Client_QueueCallback,
+     kHID_ES_Session_Filters_Start,
+     kHID_ES_Session_Filters_End,
+     kHID_ES_Service_Filters_Start,
+     kHID_ES_Service_Filters_End,
+     kHID_ES_FiltersClientsDone
 ]
 
 verbose    = False
@@ -185,12 +194,19 @@ class Event(object):
         self.reportTime = None
         self.userTime = None
         self.kernelTime = None
+        self.filtersClientDoneTime = None
+        self.serviceFilterStart = None
+        self.serviceFilterEnd = None
+        self.sessionFilterStart = None
+        self.sessionFilterEnd = None
         self.finalTime = None
         self.type = None
         self.service = None
         self.clients = []
         self.startTime = 0
+        self.usagePair = 0 # 32-bit usage page/usage pair (vendor-defined events only)
         for probe in self.probes:
+           
             if probe["debugid"] == kIOHIDDebugCode_HandleReport:
                 self.reportTime = int(probe["timestampns"])
             elif probe["debugid"] == kIOHIDDebugCode_DispatchHIDEvent:
@@ -200,7 +216,18 @@ class Event(object):
                 self.type = int(probe["args"][2])
                 self.service = int(probe["args"][1])
             elif probe["debugid"] == kHID_ES_ClientsEnqueueEnd:
-                self.finalTime = int(probe["timestampns"]) 
+                self.finalTime = int(probe["timestampns"])
+            elif probe["debugid"] == kHID_ES_Session_Filters_Start:
+                self.sessionFilterStart = int(probe["timestampns"])
+            elif probe["debugid"] == kHID_ES_Session_Filters_End:
+                self.sessionFilterEnd = int(probe["timestampns"])
+            elif probe["debugid"] == kHID_ES_Service_Filters_Start:
+                self.serviceFilterStart = int(probe["timestampns"])
+                self.usagePair = int(probe["args"][3]) & 0xffffffff
+            elif probe["debugid"] == kHID_ES_Service_Filters_End:
+                self.serviceFilterEnd = int(probe["timestampns"])
+            elif probe["debugid"] == kHID_ES_FiltersClientsDone:
+                self.filtersClientDoneTime = int(probe["timestampns"])
             elif probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in probe:
                 self.clients.append(probe["execname"])
 
@@ -251,6 +278,12 @@ class Event(object):
             return (self.finalTime - self.userTime)  / 1000
         if 'total' in type:
             return (self.finalTime - self.startTime) / 1000   
+        if 'session-filter' in type:
+            return (self.sessionFilterEnd - self.sessionFilterStart) / 1000
+        if 'service-filter' in type:
+            return (self.serviceFilterEnd - self.serviceFilterStart) / 1000
+        if 'es-host' in type:
+            return (self.filtersClientDoneTime - self.startTime) / 1000
         return None
 
     def description(self):
@@ -305,11 +338,20 @@ def process_client_event_stats (events, filter, client):
             continue 
         if client not in event.clients:
             continue
-        # determine all event type
+
+        # determine count of each event type
+        if event.typeAsString() == 'kIOHIDEventTypeVendorDefined':
+            # count vendor defined events on a per-usage basis
+            countKey  = event.usagePair
+            countDict = eventTypes.setdefault(event.type, {})
+        else:
+            countKey  = event.type
+            countDict = eventTypes
+
         count = 1
-        if event.type in eventTypes:
-            count = eventTypes[event.type] + 1;
-        eventTypes[event.type] = count
+        if countKey in countDict:
+            count = countDict[countKey] + 1
+        countDict[countKey] = count
 
         # determine all event time intervals
         total.append(event.timeDeltaToClient(client)) 
@@ -317,7 +359,16 @@ def process_client_event_stats (events, filter, client):
     print_bold ("\nProcess: %s" % client)
     print ("Events:")
     for key in eventTypes:
-        print("  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key])) 
+        if HIDEventTypeToStr[key] == 'kIOHIDEventTypeVendorDefined':
+            print("  type: %2d (%s)" % (key, HIDEventTypeToStr[key]))
+            counts = eventTypes[key]
+            for usagePair in counts:
+                usagePage = (usagePair & 0xffff0000) >> 16
+                usage     = (usagePair & 0x0000ffff)
+                print("    usagePage: 0x%04x usage: 0x%04x   count: %8d" % (usagePage, usage, counts[usagePair]))
+        else:
+            print("  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key]))
+
     print("Time interval (Kernel to Client):")
     process_interval_stats(total)
 
@@ -326,6 +377,9 @@ def process_event_stats (events, filter):
     eventTypes = {}
     touser = []
     inuser = []
+    sessionFilter = []
+    serviceFilter = []
+    eshost = []
     total  = []
     clients = []
     log ("Process system event stats (len:%d)" % len(events))
@@ -335,28 +389,52 @@ def process_event_stats (events, filter):
         if filerEvent:
             continue 
 
-        # determine all event type
+        # determine count of each event type
+        if event.typeAsString() == 'kIOHIDEventTypeVendorDefined':
+            # count vendor defined events on a per-usage basis
+            countKey  = event.usagePair
+            countDict = eventTypes.setdefault(event.type, {})
+        else:
+            countKey  = event.type
+            countDict = eventTypes
+
         count = 1
-        if event.type in eventTypes:
-            count = eventTypes[event.type] + 1;
-        eventTypes[event.type] = count
+        if countKey in countDict:
+            count = countDict[countKey] + 1
+        countDict[countKey] = count
 
         # determine all event time intervals
         touser.append(event.timeDelta('touser'))
-        inuser.append(event.timeDelta('inuser')) 
-        total.append(event.timeDelta('total')) 
-
+        inuser.append(event.timeDelta('inuser'))
+        total.append(event.timeDelta('total'))
+        sessionFilter.append(event.timeDelta('session-filter'))
+        serviceFilter.append(event.timeDelta('service-filter'))
+        eshost.append(event.timeDelta('es-host'))
         clients.extend(event.clients)
 
     print_bold("Events System Host Process:")
     print("Events:")
     for key in eventTypes:
-        print("  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key])) 
+        if HIDEventTypeToStr[key] == 'kIOHIDEventTypeVendorDefined':
+            print("  type: %2d (%s)" % (key, HIDEventTypeToStr[key]))
+            counts = eventTypes[key]
+            for usagePair in counts:
+                usagePage = (usagePair & 0xffff0000) >> 16
+                usage     = (usagePair & 0x0000ffff)
+                print("    usagePage: 0x%04x usage: 0x%04x   count: %8d" % (usagePage, usage, counts[usagePair]))
+        else:
+            print("  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key]))
     
     print("Time interval (Kernel to User):")
     process_interval_stats(touser)
+    print("Time interval (Session Filters):")
+    process_interval_stats(sessionFilter)
+    print("Time interval (Service Filters):")
+    process_interval_stats(serviceFilter)
     print("Time interval (Event System):")
     process_interval_stats(inuser)
+    print("Time interval (kernel to backboard/WindowServer):")
+    process_interval_stats(eshost)
     print("Time interval (Kernel to Clients):")
     process_interval_stats(total)
 

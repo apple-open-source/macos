@@ -386,10 +386,13 @@ struct smb_mount_args {
 	int32_t		dir_cache_async_cnt;
 	int32_t		dir_cache_max;
 	int32_t		dir_cache_min;
-	int32_t         max_dirs_cached;
-	int32_t         max_dir_entries_cached;
-	uint32_t        max_read_size;
-	uint32_t        max_write_size;
+	int32_t		max_dirs_cached;
+	int32_t		max_dir_entries_cached;
+	int32_t		read_size[3];
+	int32_t		read_count[3];
+	int32_t		write_size[3];
+	int32_t		write_count[3];
+	int32_t		rw_thread_control;
 	/* Snapshot time support */
 	char		snapshot_time[32] __attribute((aligned(8)));
 	time_t 		snapshot_local_time;
@@ -434,10 +437,14 @@ struct smbfs_args {
 	int32_t		dir_cache_async_cnt; /* Max nbr of async calls to fill dir cache */
 	int32_t		dir_cache_max; /* Max time to cache entries */
 	int32_t		dir_cache_min; /* Min time to cache entries */
-	int32_t         max_dirs_cached;
-	int32_t         max_dir_entries_cached;
-	uint32_t	max_read_size; /* user defined max read size if not zero */
-	uint32_t	max_write_size; /* user defined max write size if not zero */
+	int32_t		max_dirs_cached;
+	int32_t		max_dir_entries_cached;
+	int32_t		read_size[3];
+	int32_t		read_count[3];
+	int32_t		write_size[3];
+	int32_t		write_count[3];
+	
+	int32_t		rw_thread_control;
 };
 
 

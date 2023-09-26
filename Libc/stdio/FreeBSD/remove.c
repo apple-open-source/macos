@@ -42,8 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/remove.c,v 1.9 2007/01/09 00:28:07 imp Ex
 #include <stdio.h>
 
 int
-remove(file)
-	const char *file;
+remove(const char *file)
 {
 	struct stat sb;
 

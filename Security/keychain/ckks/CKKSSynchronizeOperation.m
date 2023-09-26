@@ -110,9 +110,10 @@
     [self runBeforeGroupFinished: fetchOp];
 
     // Step 2
-    CKKSResultOperation* incomingOp = [CKKSGroupOperation named:@"run-incoming" withBlockTakingSelf:^(CKKSGroupOperation * _Nonnull strongOp) {
+    CKKSResultOperation* incomingOp = [CKKSGroupOperation named:@"run-incoming" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull strongOp) {
         // When this operation starts, ask CKKS to process the incoming queue. This will allow the CKKS state machine to process anything we refetched, and get the key states ready.
-        [strongOp dependOnBeforeGroupFinished:[ckks rpcProcessIncomingQueue:nil errorOnClassAFailure:false]];
+        CKKSGroupOperation *gop = (CKKSGroupOperation*)strongOp;
+        [gop dependOnBeforeGroupFinished:[ckks rpcProcessIncomingQueue:nil errorOnClassAFailure:false]];
     }];
 
     incomingOp.name = [NSString stringWithFormat: @"resync-step%u-incoming", self.restartCount * steps + 2];

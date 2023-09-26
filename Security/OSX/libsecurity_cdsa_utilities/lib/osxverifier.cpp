@@ -93,12 +93,7 @@ OSXVerifier::~OSXVerifier()
 void OSXVerifier::add(const BlobCore *blob)
 {
 	if (blob->is<Requirement>()) {
-#if defined(NDEBUG)
 		secinfo("codesign", "%p verifier adds requirement", this);
-#else
-		secinfo("codesign", "%p verifier adds requirement %s", this,
-			Dumper::dump(Requirement::specific(blob), true).c_str());
-#endif //NDEBUG
 		MacOSError::check(SecRequirementCreateWithData(CFTempData(*blob),
 			kSecCSDefaultFlags, &mRequirement.aref()));
 	} else {

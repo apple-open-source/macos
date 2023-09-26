@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -92,6 +92,7 @@ static int64_t changeCountForPasteboard(const String& pasteboardName = { }, cons
 // FIXME: Does this need to be declared in the header file?
 WEBCORE_EXPORT NSString *WebArchivePboardType = @"Apple Web Archive pasteboard type";
 NSString *UIColorPboardType = @"com.apple.uikit.color";
+NSString *UIImagePboardType = @"com.apple.uikit.image";
 
 Pasteboard::Pasteboard(std::unique_ptr<PasteboardContext>&& context)
     : m_context(WTFMove(context))
@@ -173,9 +174,9 @@ void Pasteboard::read(PasteboardPlainText& text, PlainTextURLReadingPolicy allow
     PasteboardStrategy& strategy = *platformStrategies()->pasteboardStrategy();
 
     if (allowURL == PlainTextURLReadingPolicy::AllowURL) {
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         text.text = strategy.readStringFromPasteboard(itemIndexToQuery, kUTTypeURL, m_pasteboardName, context());
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
         if (!text.text.isEmpty()) {
             text.isURL = true;
             return;

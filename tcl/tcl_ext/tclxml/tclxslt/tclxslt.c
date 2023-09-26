@@ -20,6 +20,7 @@
  */
 
 #include "tclxslt.h"
+#include <string.h>
 
 #undef TCL_STORAGE_CLASS
 #define TCL_STORAGE_CLASS DLLEXPORT

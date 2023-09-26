@@ -50,6 +50,7 @@ struct smb_prefs {
     int32_t             protocol_version_map;
     uint32_t            lanman_on;
     uint32_t            signing_required;
+    int32_t             signing_algorithm_map;
     int32_t             signing_req_versions;
     int32_t             max_resp_timeout;
     int32_t             ip_QoS;
@@ -63,8 +64,12 @@ struct smb_prefs {
     uint32_t            no_DNS_match;
     uint32_t            try_netBIOS_before_DNS;
 
-    int32_t             max_read_size;
-    int32_t             max_write_size;
+    int32_t             read_size[3];
+    int32_t             read_count[3];
+    int32_t             write_size[3];
+    int32_t             write_count[3];
+    
+    int32_t             rw_thread_control;
 
     int32_t             mc_max_channels;
     int32_t             mc_max_rss_channels;

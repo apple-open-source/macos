@@ -32,6 +32,7 @@
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SharedBuffer.h>
+#include <wtf/persistence/PersistentEncoder.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
@@ -198,7 +199,7 @@ void Entry::initializeBufferFromStorageRecord() const
 {
 #if ENABLE(SHAREABLE_RESOURCE)
     if (!shareableResourceHandle().isNull()) {
-        m_buffer = m_shareableResourceHandle.tryWrapInSharedBuffer();
+        m_buffer = WTFMove(m_shareableResourceHandle).tryWrapInSharedBuffer();
         if (m_buffer)
             return;
     }

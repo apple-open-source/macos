@@ -88,25 +88,33 @@ static void *allocations[ALLOCATION_COUNT];
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 T_DECL(nano_active_test, "Test that Nano is activated",
-	   T_META_ENVVAR("MallocNanoZone=1"))
+	   T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_XZONE)
 {
 #if CONFIG_NANOZONE
-	void *ptr = malloc(16);
-	T_LOG("Nano ptr is %p\n", ptr);
-	T_ASSERT_EQ(NANOZONE_SIGNATURE, (uint64_t)((uintptr_t)ptr) >> SHIFT_NANO_SIGNATURE,
-			"Nanozone is active");
-	T_ASSERT_NE(malloc_engaged_nano(), 0, "Nanozone engaged");
-	free(ptr);
+	if (getenv("MallocSecureAllocator")) {
+		T_ASSERT_EQ(malloc_engaged_nano(), 0, "Secure allocator engaged");
+	} else {
+		void *ptr = malloc(16);
+		T_LOG("Nano ptr is %p\n", ptr);
+		T_ASSERT_EQ(NANOZONE_SIGNATURE, (uint64_t)((uintptr_t)ptr) >> SHIFT_NANO_SIGNATURE,
+				"Nanozone is active");
+		T_ASSERT_NE(malloc_engaged_nano(), 0, "Nanozone engaged");
+		free(ptr);
+	}
 #else // CONFIG_NANOZONE
 	T_SKIP("Nano allocator not configured");
 #endif // CONFIG_NANOZONE
 }
 
 T_DECL(nano_enumerator_test, "Test the Nanov2 enumerator",
-	   T_META_ENVVAR("MallocNanoZone=V2"))
+	   T_META_ENVVAR("MallocNanoZone=V2"), T_META_TAG_XZONE)
 {
 #if CONFIG_NANOZONE
-	T_ASSERT_EQ(malloc_engaged_nano(), 2, "Nanozone V2 engaged");
+	if (getenv("MallocSecureAllocator")) {
+		T_ASSERT_EQ(malloc_engaged_nano(), 0, "Secure allocator engaged");
+	} else {
+		T_ASSERT_EQ(malloc_engaged_nano(), 2, "Nanozone V2 engaged");
+	}
 
 	// This test is problematic because the allocator is used before the test
 	// starts, so we can't start everything from zero.
@@ -138,7 +146,7 @@ T_DECL(nano_enumerator_test, "Test the Nanov2 enumerator",
 			"Incorrect blocks_in_use");
 	T_ASSERT_EQ(stats.size_in_use, initial_size_in_use + total_requested_size,
 			"Incorrect size_in_use");
-	T_ASSERT_TRUE(stats.size_allocated - initial_size_allocated >= total_requested_size,
+	T_ASSERT_GE(stats.size_allocated, total_requested_size,
 			"Size allocated must be >= size requested");
 
 	T_ASSERT_EQ(ptr_count, initial_ptrs + ALLOCATION_COUNT,
@@ -161,7 +169,7 @@ T_DECL(nano_enumerator_test, "Test the Nanov2 enumerator",
 	T_ASSERT_EQ(stats.size_in_use,
 			initial_size_in_use + total_requested_size - size_freed,
 			"Incorrect size_in_use after half free");
-	T_ASSERT_TRUE(stats.size_allocated >= initial_size_allocated ,
+	T_ASSERT_GE(stats.size_allocated, initial_size_allocated,
 			"Size allocated must be >= size requested");
 
 	T_ASSERT_EQ(ptr_count, initial_ptrs + ALLOCATION_COUNT / 2,
@@ -183,7 +191,7 @@ T_DECL(nano_enumerator_test, "Test the Nanov2 enumerator",
 			"Incorrect blocks_in_use after full free");
 	T_ASSERT_EQ(stats.size_in_use, initial_size_in_use,
 			"Incorrect size_in_use after full free");
-	T_ASSERT_TRUE(stats.size_allocated >= initial_size_allocated ,
+	T_ASSERT_GE(stats.size_allocated, initial_size_allocated,
 			"Size allocated must be >= size requested");
 	
 	T_ASSERT_EQ(ptr_count, initial_ptrs, "Incorrect number of pointers after free");

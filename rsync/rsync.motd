@@ -1,0 +1,9 @@
+NOTE  +---------------------------------------------------------+
+NOTE  |      ** PASSWORD AUTHENTICATION IS DISABLED **          |
+NOTE  |                                                         |
+NOTE  |   The rsync daemon, which only supports password        |
+NOTE  |   authentication, is disabled by default. Switch to     |
+NOTE  |   rsync-over-SSH as soon as possible.                   |
+NOTE  |   See https://at.apple.com/norsyncpassword              |
+NOTE  |   for details.                                          |
+NOTE  +---------------------------------------------------------+

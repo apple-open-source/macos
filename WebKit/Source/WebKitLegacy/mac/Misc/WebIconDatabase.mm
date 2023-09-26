@@ -46,7 +46,6 @@ NSString *WebIconNotificationUserInfoURLKey =              @"WebIconNotification
 NSString *WebIconDatabaseDidRemoveAllIconsNotification =   @"WebIconDatabaseDidRemoveAllIconsNotification";
 
 NSString *WebIconDatabaseDirectoryDefaultsKey = @"WebIconDatabaseDirectoryDefaultsKey";
-NSString *WebIconDatabaseEnabledDefaultsKey =   @"WebIconDatabaseEnabled";
 
 NSString *WebIconDatabasePath = @"~/Library/Icons";
 
@@ -121,7 +120,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     WebCoreThreadViolationCheckRoundOne();
 
-    return [super init];
+    self = [super init];
+    return self;
 }
 
 - (NSImage *)iconForURL:(NSString *)URL withSize:(NSSize)size cache:(BOOL)cache

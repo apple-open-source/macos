@@ -541,16 +541,25 @@ bool_t xdr_nlm4_notify();
 #define NLM_SM ((rpc_uint)0)
 
 #ifdef __cplusplus
+#define NLM_SM_NULL ((rpc_uint)0)
+extern "C" void * nlm_sm_null_0(void *, CLIENT *);
+extern "C" void * nlm_sm_null_0_svc(void *, struct svc_req *);
 #define NLM_SM_NOTIFY ((rpc_uint)1)
 extern "C" void * nlm_sm_notify_0(struct nlm_sm_status *, CLIENT *);
 extern "C" void * nlm_sm_notify_0_svc(struct nlm_sm_status *, struct svc_req *);
 
 #elif __STDC__
+#define NLM_SM_NULL ((rpc_uint)0)
+extern  void * nlm_sm_null_0(void *, CLIENT *);
+extern  void * nlm_sm_null_0_svc(void *, struct svc_req *);
 #define NLM_SM_NOTIFY ((rpc_uint)1)
 extern  void * nlm_sm_notify_0(struct nlm_sm_status *, CLIENT *);
 extern  void * nlm_sm_notify_0_svc(struct nlm_sm_status *, struct svc_req *);
 
 #else /* Old Style C */
+#define NLM_SM_NULL ((rpc_uint)0)
+extern  void * nlm_sm_null_0();
+extern  void * nlm_sm_null_0_svc();
 #define NLM_SM_NOTIFY ((rpc_uint)1)
 extern  void * nlm_sm_notify_0();
 extern  void * nlm_sm_notify_0_svc();
@@ -558,6 +567,9 @@ extern  void * nlm_sm_notify_0_svc();
 #define NLM_VERS ((rpc_uint)1)
 
 #ifdef __cplusplus
+#define NLM_NULL ((rpc_uint)0)
+extern "C" void * nlm_null_1(void *, CLIENT *);
+extern "C" void * nlm_null_1_svc(void *, struct svc_req *);
 #define NLM_TEST ((rpc_uint)1)
 extern "C" nlm_testres * nlm_test_1(struct nlm_testargs *, CLIENT *);
 extern "C" nlm_testres * nlm_test_1_svc(struct nlm_testargs *, struct svc_req *);
@@ -605,6 +617,9 @@ extern "C" void * nlm_granted_res_1(nlm_res *, CLIENT *);
 extern "C" void * nlm_granted_res_1_svc(nlm_res *, struct svc_req *);
 
 #elif __STDC__
+#define NLM_NULL ((rpc_uint)0)
+extern  void * nlm_null_1(void *, CLIENT *);
+extern  void * nlm_null_1_svc(void *, struct svc_req *);
 #define NLM_TEST ((rpc_uint)1)
 extern  nlm_testres * nlm_test_1(struct nlm_testargs *, CLIENT *);
 extern  nlm_testres * nlm_test_1_svc(struct nlm_testargs *, struct svc_req *);
@@ -652,6 +667,9 @@ extern  void * nlm_granted_res_1(nlm_res *, CLIENT *);
 extern  void * nlm_granted_res_1_svc(nlm_res *, struct svc_req *);
 
 #else /* Old Style C */
+#define NLM_NULL ((rpc_uint)0)
+extern  void * nlm_null_1();
+extern  void * nlm_null_1_svc();
 #define NLM_TEST ((rpc_uint)1)
 extern  nlm_testres * nlm_test_1();
 extern  nlm_testres * nlm_test_1_svc();
@@ -701,6 +719,8 @@ extern  void * nlm_granted_res_1_svc();
 #define NLM_VERSX ((rpc_uint)3)
 
 #ifdef __cplusplus
+extern "C" void * nlm_null_3(void *, CLIENT *);
+extern "C" void * nlm_null_3_svc(void *, struct svc_req *);
 extern "C" nlm_testres * nlm_test_3(struct nlm_testargs *, CLIENT *);
 extern "C" nlm_testres * nlm_test_3_svc(struct nlm_testargs *, struct svc_req *);
 extern "C" nlm_res * nlm_lock_3(struct nlm_lockargs *, CLIENT *);
@@ -745,6 +765,8 @@ extern "C" void * nlm_free_all_3(nlm_notify *, CLIENT *);
 extern "C" void * nlm_free_all_3_svc(nlm_notify *, struct svc_req *);
 
 #elif __STDC__
+extern  void * nlm_null_3(void *, CLIENT *);
+extern  void * nlm_null_3_svc(void *, struct svc_req *);
 extern  nlm_testres * nlm_test_3(struct nlm_testargs *, CLIENT *);
 extern  nlm_testres * nlm_test_3_svc(struct nlm_testargs *, struct svc_req *);
 extern  nlm_res * nlm_lock_3(struct nlm_lockargs *, CLIENT *);
@@ -789,6 +811,8 @@ extern  void * nlm_free_all_3(nlm_notify *, CLIENT *);
 extern  void * nlm_free_all_3_svc(nlm_notify *, struct svc_req *);
 
 #else /* Old Style C */
+extern  void * nlm_null_3();
+extern  void * nlm_null_3_svc();
 extern  nlm_testres * nlm_test_3();
 extern  nlm_testres * nlm_test_3_svc();
 extern  nlm_res * nlm_lock_3();
@@ -835,6 +859,9 @@ extern  void * nlm_free_all_3_svc();
 #define NLM_VERS4 ((rpc_uint)4)
 
 #ifdef __cplusplus
+#define NLM4_NULL ((rpc_uint)0)
+extern "C" void * nlm4_null_4(void *, CLIENT *);
+extern "C" void * nlm4_null_4_svc(void *, struct svc_req *);
 #define NLM4_TEST ((rpc_uint)1)
 extern "C" nlm4_testres * nlm4_test_4(nlm4_testargs *, CLIENT *);
 extern "C" nlm4_testres * nlm4_test_4_svc(nlm4_testargs *, struct svc_req *);
@@ -894,6 +921,9 @@ extern "C" void * nlm4_free_all_4(nlm4_notify *, CLIENT *);
 extern "C" void * nlm4_free_all_4_svc(nlm4_notify *, struct svc_req *);
 
 #elif __STDC__
+#define NLM4_NULL ((rpc_uint)0)
+extern  void * nlm4_null_4(void *, CLIENT *);
+extern  void * nlm4_null_4_svc(void *, struct svc_req *);
 #define NLM4_TEST ((rpc_uint)1)
 extern  nlm4_testres * nlm4_test_4(nlm4_testargs *, CLIENT *);
 extern  nlm4_testres * nlm4_test_4_svc(nlm4_testargs *, struct svc_req *);
@@ -953,6 +983,9 @@ extern  void * nlm4_free_all_4(nlm4_notify *, CLIENT *);
 extern  void * nlm4_free_all_4_svc(nlm4_notify *, struct svc_req *);
 
 #else /* Old Style C */
+#define NLM4_NULL ((rpc_uint)0)
+extern  void * nlm4_null_4();
+extern  void * nlm4_null_4_svc();
 #define NLM4_TEST ((rpc_uint)1)
 extern  nlm4_testres * nlm4_test_4();
 extern  nlm4_testres * nlm4_test_4_svc();

@@ -1686,6 +1686,8 @@ u_strFromJavaModifiedUTF8WithSub(
         UChar32 subchar, int32_t *pNumSubstitutions,
         UErrorCode *pErrorCode);
 
+#if APPLE_ICU_CHANGES
+// rdar://35928771 6926e4a22e.. Add u_strIsWellFormed SPI (Apple-only for now)
 #ifndef U_HIDE_INTERNAL_API
 /**
  * Check whether the string is well-formed according to various criteria:
@@ -1715,7 +1717,7 @@ u_strFromJavaModifiedUTF8WithSub(
  */
 U_INTERNAL UBool U_EXPORT2
 u_strIsWellFormed(const UChar *s, int32_t length);
-
 #endif  /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 
 #endif

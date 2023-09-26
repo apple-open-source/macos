@@ -78,6 +78,8 @@
 #import "keychain/ot/OTAccountsAdapter.h"
 #import "keychain/ot/OTAuthKitAdapter.h"
 
+#import "keychain/Sharing/KCSharingSupport.h"
+
 @interface BoolHolder : NSObject
 @property bool state;
 @end
@@ -310,7 +312,7 @@
     return [self accountForAltDSID:altDSID].demo ? YES : NO;
 }
 
-- (BOOL)accountIsHSA2ByAltDSID:(nonnull NSString *)altDSID {
+- (BOOL)accountIsCDPCapableByAltDSID:(nonnull NSString *)altDSID {
     return [self accountForAltDSID:altDSID].hsa2 ? YES : NO;
 }
 
@@ -326,13 +328,13 @@
     return set;
 }
 
-- (void)fetchCurrentDeviceListByAltDSID:(nonnull NSString *)altDSID
-                                  reply:(nonnull void (^)(NSSet<NSString *> * _Nullable, NSError * _Nullable))complete
+- (void)fetchCurrentDeviceListByAltDSID:(NSString *)altDSID
+                                  reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs, NSString* _Nullable version, NSError * _Nullable error))complete
 {
     self.fetchInvocations += 1;
     if ([self.machineIDFetchErrors count] > 0) {
         NSError* firstError = [self.machineIDFetchErrors objectAtIndex:0];
-        complete(nil, firstError);
+        complete(nil, nil, firstError);
         [self.machineIDFetchErrors removeObjectAtIndex:0];
         return;
     }
@@ -343,14 +345,17 @@
     if (demo == NO &&
         self.injectAuthErrorsAtFetchTime &&
         [self.excludeDevices containsObject:self.currentMachineID]) {
-        complete(nil, [NSError errorWithDomain:AKAppleIDAuthenticationErrorDomain code:-7026 userInfo:@{NSLocalizedDescriptionKey : @"Injected AKAuthenticationErrorNotPermitted error"}]);
+        complete(nil, nil, [NSError errorWithDomain:AKAppleIDAuthenticationErrorDomain code:-7026 userInfo:@{NSLocalizedDescriptionKey : @"Injected AKAuthenticationErrorNotPermitted error"}]);
         return;
     }
     if (self.fetchCondition) {
         [self.fetchCondition fulfill];
     }
+    NSSet<NSString*>* deviceList = [self currentDeviceList];
+    NSString* version = [NSString stringWithFormat:@"%lu", [deviceList hash]];
+
     // TODO: fail if !accountPresent
-    complete([self currentDeviceList], nil);
+    complete([self currentDeviceList], version, nil);
 }
 
 - (NSString * _Nullable)machineID:(NSError *__autoreleasing  _Nullable * _Nullable)error {
@@ -1124,7 +1129,7 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
 - (void)startCKKSSubsystem {
     if(self.fakeHSA2AccountStatus != CKKSAccountStatusUnknown) {
-        [self.accountStateTracker setHSA2iCloudAccountStatus:self.fakeHSA2AccountStatus];
+        [self.accountStateTracker setCDPCapableiCloudAccountStatus:self.fakeHSA2AccountStatus];
     }
     [self startCKAccountStatusMock];
 }
@@ -1468,7 +1473,7 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
                                 [zone addToZone: reflectedRecord];
 
                                 [savedRecords addObject:reflectedRecord];
-                                op.perRecordCompletionBlock(reflectedRecord, nil);
+                                op.perRecordSaveBlock(reflectedRecord.recordID, reflectedRecord, nil);
                             }
                             for(CKRecordID* recordID in op.recordIDsToDelete) {
                                 // I don't believe CloudKit fails an operation if you delete a record that's not there, so:

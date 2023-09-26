@@ -7,12 +7,15 @@
 
 #include <darwintest.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
+		T_META_TAG_XZONE);
 
 #include <mach/vm_page_size.h>
 #include <malloc/malloc.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <mach/mach.h>
+#include <mach/mach_vm.h>
 
 #include "../src/platform.h"  // CONFIG_PGM_WRAP_CUSTOM_ZONES
 
@@ -106,12 +109,51 @@ T_DECL(oob_detection_within_block, "Intra-block out-of-bounds detection",
 		T_META_ENVVAR("MallocProbGuardAllocations=300"),
 		T_META_ENVVAR("MallocProbGuardStrictAlignment=1"))
 {
-#if __LP64__  // MALLOC_TARGET_64BIT
+#if defined(__LP64__)  // MALLOC_TARGET_64BIT
 	assert_crash(out_of_bounds_within_block);
 #else
 	T_SKIP("ARM (32 bit) crashes on misaligned memory accesses: EXC_ARM_DA_ALIGN");
 #endif
 }
+
+static void
+access_in_bogus_pgm_region(void)
+{
+	mach_vm_address_t vm_addr = 0;
+	kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr, PAGE_SIZE, 0,
+			VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_MALLOC_PROB_GUARD),
+			MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_NONE, VM_PROT_NONE,
+			VM_INHERIT_DEFAULT);
+	T_ASSERT_MACH_SUCCESS(kr, "allocated bogus PGM region");
+	touch_memory((uint8_t *)vm_addr);
+}
+
+T_DECL(bogus_pgm_region, "Handle crashes in bogus PGM regions",
+		T_META_IGNORECRASHES("pgm_integration"))
+{
+	// What we're really testing here is the code that runs in ReportCrash to
+	// generate the PGM report - it needs to gracefully handle unexpected PGM
+	// state in a crashing process
+	assert_crash(access_in_bogus_pgm_region);
+}
+
+#if CONFIG_PGM_WRAP_CUSTOM_ZONES
+static void
+non_default_zone_use_after_free(void)
+{
+	malloc_zone_t *zone = malloc_create_zone(0, 0);
+	void *ptr = malloc_zone_malloc(zone, 1);
+	free(ptr);
+	touch_memory(ptr);
+}
+
+T_DECL(non_default_zone_uaf_detection,
+		"Use-after-free detection in a wrapped non-default zone",
+		T_META_IGNORECRASHES("pgm_integration"))
+{
+	assert_crash(non_default_zone_use_after_free);
+}
+#endif // CONFIG_PGM_WRAP_CUSTOM_ZONES
 
 static boolean_t
 check_bytes(uint8_t *ptr, size_t size)
@@ -314,9 +356,13 @@ T_DECL(wrap_malloc_create_zone, "Wrap malloc_create_zone()")
 {
 	uint32_t num_zones = malloc_num_zones;
 
+	// Make sure we avoid querying the environemnt.
+	setenv("MallocProbGuard", "0", /*overwrite=*/true);
+
 	malloc_zone_t *zone = malloc_create_zone(0, 0);
 #if CONFIG_PGM_WRAP_CUSTOM_ZONES
 	T_EXPECT_EQ_STR(malloc_get_zone_name(zone), "ProbGuardMallocZone", "PGM-wrapped zone");
+	T_EXPECT_EQ(zone->introspect->zone_type, 2, "MALLOC_ZONE_TYPE_PGM");
 	T_EXPECT_EQ(malloc_num_zones, num_zones + 2, "registered both zones");
 
 	malloc_destroy_zone(zone);

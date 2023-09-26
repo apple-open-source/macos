@@ -758,6 +758,7 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
                 // return Safari's password autofill enabled status
                 CFTypeRef result = (SWCAIsAutofillEnabled()) ? kCFBooleanTrue : kCFBooleanFalse;
                 SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
+                break;
             }
             default:
                 secdebug("ipc", "swcagent: got unsupported request id (%ld)", (long)operation);

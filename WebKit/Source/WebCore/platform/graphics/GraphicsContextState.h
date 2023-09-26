@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2022-2023 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -64,6 +64,7 @@ public:
     using ChangeFlags = OptionSet<Change>;
 
     static constexpr ChangeFlags basicChangeFlags { Change::StrokeThickness, Change::StrokeBrush, Change::FillBrush };
+    static constexpr ChangeFlags strokeChangeFlags { Change::StrokeThickness, Change::StrokeBrush };
 
     WEBCORE_EXPORT GraphicsContextState(const ChangeFlags& = { }, InterpolationQuality = InterpolationQuality::Default);
 
@@ -72,6 +73,7 @@ public:
 
     GraphicsContextState cloneForRecording() const;
 
+    SourceBrush& fillBrush() { return m_fillBrush; }
     const SourceBrush& fillBrush() const { return m_fillBrush; }
     void setFillBrush(const SourceBrush& brush) { setProperty(Change::FillBrush, &GraphicsContextState::m_fillBrush, brush); }
     void setFillColor(const Color& color) { setProperty(Change::FillBrush, &GraphicsContextState::m_fillBrush, { color }); }
@@ -81,6 +83,7 @@ public:
     WindRule fillRule() const { return m_fillRule; }
     void setFillRule(WindRule fillRule) { setProperty(Change::FillRule, &GraphicsContextState::m_fillRule, fillRule); }
 
+    SourceBrush& strokeBrush() { return m_strokeBrush; }
     const SourceBrush& strokeBrush() const { return m_strokeBrush; }
     void setStrokeBrush(const SourceBrush& brush) { setProperty(Change::StrokeBrush, &GraphicsContextState::m_strokeBrush, brush); }
     void setStrokeColor(const Color& color) { setProperty(Change::StrokeBrush, &GraphicsContextState::m_strokeBrush, { color }); }
@@ -132,6 +135,7 @@ public:
 #endif
     
     bool containsOnlyInlineChanges() const;
+    bool containsOnlyInlineStrokeChanges() const;
     void mergeLastChanges(const GraphicsContextState&, const std::optional<GraphicsContextState>& lastDrawingState = std::nullopt);
     void mergeAllChanges(const GraphicsContextState&);
 
@@ -172,7 +176,7 @@ private:
 
     SourceBrush m_strokeBrush { Color::black };
     float m_strokeThickness { 0 };
-    StrokeStyle m_strokeStyle { SolidStroke };
+    StrokeStyle m_strokeStyle { StrokeStyle::SolidStroke };
 
     CompositeMode m_compositeMode { CompositeOperator::SourceOver, BlendMode::Normal };
     DropShadow m_dropShadow;

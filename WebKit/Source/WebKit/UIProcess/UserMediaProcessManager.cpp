@@ -24,6 +24,7 @@
 #include "Logging.h"
 #include "MediaDeviceSandboxExtensions.h"
 #include "SpeechRecognitionPermissionManager.h"
+#include "UserMediaPermissionRequestProxy.h"
 #include "WebPageProxy.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxy.h"
@@ -38,6 +39,9 @@ static const ASCIILiteral audioExtensionPath { "com.apple.webkit.microphone"_s }
 static const ASCIILiteral videoExtensionPath { "com.apple.webkit.camera"_s };
 static const ASCIILiteral appleCameraServicePath { "com.apple.applecamerad"_s };
 static const ASCIILiteral additionalAppleCameraServicePath { "com.apple.appleh13camerad"_s };
+static const ASCIILiteral appleCameraUserClientPath { "com.apple.aneuserd"_s };
+static const ASCIILiteral appleCameraUserClientIOKitClientClass { "H11ANEInDirectPathClient"_s };
+static const ASCIILiteral appleCameraUserClientIOKitServiceClass { "H11ANEIn"_s };
 #endif
 
 UserMediaProcessManager& UserMediaProcessManager::singleton()
@@ -63,24 +67,27 @@ static bool needsAppleCameraService()
 }
 #endif
 
-bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestManagerProxy& proxy, bool withAudio, bool withVideo)
+bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestManagerProxy& proxy, const UserMediaPermissionRequestProxy& request)
 {
-    ASSERT(withAudio || withVideo);
-
     if (m_denyNextRequest) {
         m_denyNextRequest = false;
         return false;
     }
-    
+
+    if (request.requiresDisplayCapture() && !request.requiresDisplayCaptureWithAudio())
+        return true;
+
+    ASSERT(request.hasAudioDevice() || request.hasVideoDevice());
+
 #if ENABLE(SANDBOX_EXTENSIONS) && USE(APPLE_INTERNAL_SDK)
     auto& process = proxy.page().process();
     size_t extensionCount = 0;
 
-    bool needsAudioSandboxExtension = withAudio && !process.hasAudioCaptureExtension() && !proxy.page().preferences().captureAudioInUIProcessEnabled() && !proxy.page().preferences().captureAudioInGPUProcessEnabled();
+    bool needsAudioSandboxExtension = request.hasAudioDevice() && !process.hasAudioCaptureExtension() && !proxy.page().preferences().captureAudioInUIProcessEnabled() && !proxy.page().preferences().captureAudioInGPUProcessEnabled();
     if (needsAudioSandboxExtension)
         extensionCount++;
 
-    bool needsVideoSandboxExtension = withVideo && !process.hasVideoCaptureExtension() && !proxy.page().preferences().captureVideoInUIProcessEnabled() && !proxy.page().preferences().captureVideoInGPUProcessEnabled();
+    bool needsVideoSandboxExtension = request.hasVideoDevice() && !process.hasVideoCaptureExtension() && !proxy.page().preferences().captureVideoInUIProcessEnabled() && !proxy.page().preferences().captureVideoInGPUProcessEnabled();
     if (needsVideoSandboxExtension)
         extensionCount++;
 
@@ -89,6 +96,9 @@ bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestMa
         extensionCount++;
 #if HAVE(ADDITIONAL_APPLE_CAMERA_SERVICE)
         extensionCount++;
+#endif
+#if HAVE(APPLE_CAMERA_USER_CLIENT)
+        extensionCount += 3;
 #endif
     }
 
@@ -128,6 +138,22 @@ bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestMa
                     ids.uncheckedAppend(additionalAppleCameraServicePath);
                 }
 #endif
+#if HAVE(APPLE_CAMERA_USER_CLIENT)
+                if (auto handle = SandboxExtension::createHandleForMachLookup(appleCameraUserClientPath, auditToken)) {
+                    handles[--extensionCount] = WTFMove(*handle);
+                    ids.uncheckedAppend(appleCameraUserClientPath);
+                }
+
+                if (auto handle = SandboxExtension::createHandleForIOKitClassExtension(appleCameraUserClientIOKitClientClass, auditToken)) {
+                    handles[--extensionCount] = WTFMove(*handle);
+                    ids.uncheckedAppend(appleCameraUserClientIOKitClientClass);
+                }
+
+                if (auto handle = SandboxExtension::createHandleForIOKitClassExtension(appleCameraUserClientIOKitServiceClass, auditToken)) {
+                    handles[--extensionCount] = WTFMove(*handle);
+                    ids.uncheckedAppend(appleCameraUserClientIOKitServiceClass);
+                }
+#endif
             }
 
             if (ids.size() != handles.size()) {
@@ -149,11 +175,8 @@ bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestMa
     }
 #else
     UNUSED_PARAM(proxy);
-    UNUSED_PARAM(withAudio);
-    UNUSED_PARAM(withVideo);
+    UNUSED_PARAM(request);
 #endif
-
-    proxy.page().activateMediaStreamCaptureInPage();
 
     return true;
 }
@@ -190,6 +213,9 @@ void UserMediaProcessManager::revokeSandboxExtensionsIfNeeded(WebProcessProxy& p
             params.append(appleCameraServicePath);
 #if USE(APPLE_INTERNAL_SDK) && HAVE(ADDITIONAL_APPLE_CAMERA_SERVICE)
             params.append(additionalAppleCameraServicePath);
+#endif
+#if USE(APPLE_INTERNAL_SDK) && HAVE(APPLE_CAMERA_USER_CLIENT)
+            params.append(appleCameraUserClientPath);
 #endif
         }
         process.revokeVideoCaptureExtension();

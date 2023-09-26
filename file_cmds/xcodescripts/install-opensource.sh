@@ -4,7 +4,7 @@
 set -e
 
 OSV="$DSTROOT"/usr/local/OpenSourceVersions
-install -d -o root -g wheel -m 0755 "$OSV"
+install -d -m 0755 "$OSV"
 
 PLIST="$OSV"/file_cmds.plist
 echo '<plist version="1.0">' > "$PLIST"

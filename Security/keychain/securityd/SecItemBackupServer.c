@@ -102,7 +102,7 @@ static bool SOSDataSourceWithBackup(SOSDataSourceRef ds, CFDataRef backup, keyba
                 CFArrayRef items = asArray(value, error);
                 CFDataRef edata;
                 if (items) CFArrayForEachC(items, edata) {
-                    SOSObjectRef item = (SOSObjectRef)SecDbItemCreateWithEncryptedData(kCFAllocatorDefault, cls, edata, bag_handle, error);
+                    SOSObjectRef item = (SOSObjectRef)SecDbItemCreateWithEncryptedData(kCFAllocatorDefault, cls, edata, bag_handle, NULL, error);
                     if (item) {
                         with(item);
                         CFRelease(item);

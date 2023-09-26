@@ -4,6 +4,8 @@
 <dict>
 	<key>com.apple.keystore.console</key>
 	<true/>
+	<key>com.apple.private.endpoint-security.submit.su</key>
+	<true/>
 	<key>com.apple.private.security.clear-library-validation</key>
 	<true/>
 </dict>

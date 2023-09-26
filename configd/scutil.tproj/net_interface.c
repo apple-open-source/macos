@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,6 +33,7 @@
 #include "scutil.h"
 #include "net.h"
 #include "prefs.h"
+#include "SCNetworkConfigurationInternal.h"
 
 
 #if	TARGET_OS_IPHONE
@@ -795,7 +796,8 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 				needComma = TRUE;
 			}
 
-			bundleIDs = CFDictionaryGetValue(qosPolicy, kSCPropNetQoSMarkingWhitelistedAppIdentifiers);
+			qosPolicy = __SCNetworkConfigurationCopyQoSMarkingPolicyWithNewAllowListKey(qosPolicy);
+			bundleIDs = CFDictionaryGetValue(qosPolicy, kSCPropNetQoSMarkingAllowListAppIdentifiers);
 			if ((bundleIDs != NULL) && CFArrayGetCount(bundleIDs)) {
 				CFIndex		n	= CFArrayGetCount(bundleIDs);
 
@@ -816,6 +818,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 			}
 
 			SCPrint(TRUE, stdout, CFSTR("\n"));
+			CFRelease(qosPolicy);
 		}
 	}
 
@@ -1213,7 +1216,7 @@ updateInterfaceConfiguration(CFMutableDictionaryRef newConfiguration)
 static options qosOptions[] = {
 	{ "enabled"   , NULL, isBool       , &kSCPropNetQoSMarkingEnabled                  , NULL, NULL },
 	{ "apple-av"  , NULL, isBool       , &kSCPropNetQoSMarkingAppleAudioVideoCalls     , NULL, NULL },
-	{ "bundle-ids", NULL, isStringArray, &kSCPropNetQoSMarkingWhitelistedAppIdentifiers, NULL, NULL },
+	{ "bundle-ids", NULL, isStringArray, &kSCPropNetQoSMarkingAllowListAppIdentifiers, NULL, NULL },
 
 	{ "?"         , NULL, isHelp       , NULL                                          , NULL,
 	    "\nQoS marking policy commands\n\n"

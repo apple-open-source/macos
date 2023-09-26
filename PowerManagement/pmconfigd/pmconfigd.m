@@ -29,6 +29,11 @@
 #import "PMPowerModeHandler.h"
 #endif
 
+
+#if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
+#import "PMCoreSmartPowerNapService.h"
+#import <LowPowerMode/_PMCoreSmartPowerNap.h>
+#endif
 #include "prefs.h"
 /* load
  *
@@ -169,6 +174,7 @@ powerd_init(void *__unused context)
     initializeCalendarResyncNotification();
     initializeShutdownNotifications();
     initializeRootDomainInterestNotifications();
+    initializeBatteryAuth();
 
     initializeUserNotifications();
     _oneOffHacksSetup();
@@ -196,7 +202,6 @@ powerd_init(void *__unused context)
     standbyTimer_prime();
 
     _unclamp_silent_running(false);
-    notify_post(kIOUserAssertionReSync);
     logASLMessagePMStart();
 
 
@@ -739,8 +744,6 @@ static void incoming_XPC_connection(xpc_connection_t peer)
 
     xpc_connection_set_event_handler(peer,
              ^(xpc_object_t event) {
-
-
                  if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {
 
                      xpc_object_t inEvent;
@@ -821,6 +824,9 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                      }
 #endif
 
+                     else if (xpc_dictionary_get_value(event, kDominoState)) {
+                         updateDominoState(peer, event);
+                     }
                      else {
                         os_log_error(OS_LOG_DEFAULT, "Unexpected xpc dictionary\n");
                      }
@@ -967,7 +973,7 @@ kern_return_t _io_pm_get_value_int(
         break;
 
     case kIOPMTCPKeepAliveIsActive:
-            *outValue = (getTCPKeepAliveState(NULL, 0) == kActive) ? true : false;
+            *outValue = (getTCPKeepAliveState(NULL, 0, false) == kActive) ? true : false;
             break;
     case kIOPMWakeOnLanIsActive:
             *outValue = getWakeOnLanState( );
@@ -1382,13 +1388,18 @@ static void handleDWThermalMsg(CFStringRef wakeType)
 
     INFO_LOG("DarkWake Thermal Emergency message is received. BTWake: %d ssWake:%d ProxWake:%d NotificationWake:%d\n",
             isA_BTMtnceWake(), isA_SleepSrvcWake(), checkForAppWakeReason(CFSTR(kProximityWakeReason)), isA_NotificationDisplayWake());
+    bool should_sleep = true;
 #if !(TARGET_OS_OSX && TARGET_CPU_ARM64)
     gateProximityDarkWakeState(kPMAllowSleep);
+    should_sleep = ( (isA_BTMtnceWake() || isA_SleepSrvcWake() || checkForAppWakeReason(CFSTR(kProximityWakeReason))) &&
+                    (!isA_NotificationDisplayWake()) && (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) ||
+                                CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService))
+                    && !((getTCPKeepAliveState(NULL, 0, false) == kActive) && checkForActivesByType(kInteractivePushServiceType)) );
+#elif (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    should_sleep = ( (isA_BTMtnceWake() || isA_SleepSrvcWake()) &&
+                    (!isA_NotificationDisplayWake()) && !((getTCPKeepAliveState(NULL, 0, false) == kActive) && checkForActivesByType(kInteractivePushServiceType)) );
 #endif
-    if ( (isA_BTMtnceWake() || isA_SleepSrvcWake() || checkForAppWakeReason(CFSTR(kProximityWakeReason))) &&
-            (!isA_NotificationDisplayWake()) && (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) ||
-                        CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService))
-            && !((getTCPKeepAliveState(NULL, 0) == kActive) && checkForActivesByType(kInteractivePushServiceType)) ) {
+    if (should_sleep) {
         // If system woke up for PowerNap and system is in a power nap wake, without any notifications
         // being displayed, then let system go to sleep
         options = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks,

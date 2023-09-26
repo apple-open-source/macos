@@ -200,7 +200,7 @@ FILE **communicationsPipe)
                     default:                // weird result of read: post error
                         os_log_error(AUTH_LOG, "unexpected read return value %ld", long(rc));
                         status = errAuthorizationToolEnvironmentError;
-                        // fall through
+                        [[fallthrough]];
                     case sizeof(status):    // read succeeded: child reported an error
                         os_log_error(AUTH_LOG, "parent received status=%d", (int)status);
                         close(notify[READ]);

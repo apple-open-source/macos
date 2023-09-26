@@ -42,7 +42,7 @@ namespace WebCore {
 GST_DEBUG_CATEGORY(webkit_audio_destination_debug);
 #define GST_CAT_DEFAULT webkit_audio_destination_debug
 
-static void initializeDebugCategory()
+static void initializeAudioDestinationDebugCategory()
 {
     ensureGStreamerInitialized();
     registerWebKitGStreamerElements();
@@ -55,7 +55,7 @@ static void initializeDebugCategory()
 
 static unsigned long maximumNumberOfOutputChannels()
 {
-    initializeDebugCategory();
+    initializeAudioDestinationDebugCategory();
 
     static int count = 0;
     static std::once_flag onceFlag;
@@ -63,7 +63,7 @@ static unsigned long maximumNumberOfOutputChannels()
         auto monitor = adoptGRef(gst_device_monitor_new());
         auto caps = adoptGRef(gst_caps_new_empty_simple("audio/x-raw"));
         gst_device_monitor_add_filter(monitor.get(), "Audio/Sink", caps.get());
-        gst_device_monitor_start(monitor.get());
+        bool started = gst_device_monitor_start(monitor.get());
         auto* devices = gst_device_monitor_get_devices(monitor.get());
         while (devices) {
             auto device = adoptGRef(GST_DEVICE_CAST(devices->data));
@@ -81,7 +81,8 @@ static unsigned long maximumNumberOfOutputChannels()
             devices = g_list_delete_link(devices, devices);
         }
         GST_DEBUG("maximumNumberOfOutputChannels: %d", count);
-        gst_device_monitor_stop(monitor.get());
+        if (started)
+            gst_device_monitor_stop(monitor.get());
     });
 
     return count;
@@ -89,7 +90,7 @@ static unsigned long maximumNumberOfOutputChannels()
 
 Ref<AudioDestination> AudioDestination::create(AudioIOCallback& callback, const String&, unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate)
 {
-    initializeDebugCategory();
+    initializeAudioDestinationDebugCategory();
     // FIXME: make use of inputDeviceId as appropriate.
 
     // FIXME: Add support for local/live audio input.
@@ -122,7 +123,17 @@ AudioDestinationGStreamer::AudioDestinationGStreamer(AudioIOCallback& callback, 
     m_src = GST_ELEMENT_CAST(g_object_new(WEBKIT_TYPE_WEB_AUDIO_SRC, "rate", sampleRate,
         "bus", m_renderBus.get(), "destination", this, "frames", AudioUtilities::renderQuantumSize, nullptr));
 
+#if PLATFORM(AMLOGIC)
+    // autoaudiosink changes child element state to READY internally in auto detection phase
+    // that causes resource acquisition in some cases interrupting any playback already running.
+    // On Amlogic we need to set direct-mode=false prop before changing state to READY
+    // but this is not possible with autoaudiosink.
+    GRefPtr<GstElement> audioSink = makeGStreamerElement("amlhalasink", nullptr);
+    ASSERT_WITH_MESSAGE(audioSink, "amlhalasink should be available in the system but it is not");
+    g_object_set(audioSink.get(), "direct-mode", FALSE, nullptr);
+#else
     GRefPtr<GstElement> audioSink = createPlatformAudioSink("music"_s);
+#endif
     m_audioSinkAvailable = audioSink;
     if (!audioSink) {
         GST_ERROR("Failed to create GStreamer audio sink element");
@@ -135,6 +146,11 @@ AudioDestinationGStreamer::AudioDestinationGStreamer(AudioIOCallback& callback, 
         g_signal_connect(audioSink.get(), "child-added", G_CALLBACK(+[](GstChildProxy*, GObject* object, gchar*, gpointer) {
             if (GST_IS_AUDIO_BASE_SINK(object))
                 g_object_set(GST_AUDIO_BASE_SINK(object), "buffer-time", static_cast<gint64>(100000), nullptr);
+
+#if PLATFORM(REALTEK)
+            if (!g_strcmp0(G_OBJECT_TYPE_NAME(object), "GstRTKAudioSink"))
+                g_object_set(object, "media-tunnel", FALSE, "audio-service", TRUE, nullptr);
+#endif
         }), nullptr);
 
         // Autoaudiosink does the real sink detection in the GST_STATE_NULL->READY transition
@@ -244,6 +260,9 @@ void AudioDestinationGStreamer::stopRendering(CompletionHandler<void(bool)>&& co
 
 void AudioDestinationGStreamer::notifyStartupResult(bool success)
 {
+    if (success)
+        notifyIsPlaying(true);
+
     callOnMainThreadAndWait([this, completionHandler = WTFMove(m_startupCompletionHandler), success]() mutable {
         GST_DEBUG_OBJECT(m_pipeline.get(), "Has start completion handler: %s", boolForPrinting(!!completionHandler));
         if (completionHandler)
@@ -273,6 +292,8 @@ void AudioDestinationGStreamer::notifyIsPlaying(bool isPlaying)
     if (m_callback)
         m_callback->isPlayingDidChange();
 }
+
+#undef GST_CAT_DEFAULT
 
 } // namespace WebCore
 

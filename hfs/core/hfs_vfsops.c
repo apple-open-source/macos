@@ -3024,6 +3024,7 @@ hfs_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp,
 #if TARGET_OS_IPHONE 
 		return EPERM;
 #else //!TARGET_OS_IPHONE
+		extern const struct vfsops hfs_vfsops;
     	struct sysctl_req *req;
     	union union_vfsidctl vc;
     	struct mount *mp;
@@ -3037,7 +3038,7 @@ hfs_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp,
         error = SYSCTL_IN(req, &vc, proc_is64bit(p)? sizeof(vc.vc64):sizeof(vc.vc32));
 		if (error) return (error);
 
-		mp = vfs_getvfs(&vc.vc32.vc_fsid); /* works for 32 and 64 */
+		mp = vfs_getvfs_with_vfsops(&vc.vc32.vc_fsid, &hfs_vfsops); /* works for 32 and 64 */
         if (mp == NULL) return (ENOENT);
         
 		hfsmp = VFSTOHFS(mp);
@@ -4139,6 +4140,9 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
 #if VOL_CAP_INT_RENAME_EXCL
 			VOL_CAP_INT_RENAME_EXCL |
 #endif
+#if VOL_CAP_INT_RENAME_SECLUDE
+			VOL_CAP_INT_RENAME_SECLUDE |
+#endif
 #if NAMEDSTREAMS
 			VOL_CAP_INT_EXTENDED_ATTR |
 			VOL_CAP_INT_NAMEDSTREAMS;
@@ -4187,7 +4191,6 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
 		 * Bits in the "valid" field tell you whether or not the on-disk
 		 * format supports feature X.
 		 */
-
 		cap->valid[VOL_CAPABILITIES_INTERFACES] =
 			VOL_CAP_INT_ATTRLIST |
 			VOL_CAP_INT_NFSEXPORT |
@@ -4201,7 +4204,9 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
 #if VOL_CAP_INT_RENAME_EXCL
 			VOL_CAP_INT_RENAME_EXCL |
 #endif
-
+#if VOL_CAP_INT_RENAME_SECLUDE
+			VOL_CAP_INT_RENAME_SECLUDE |
+#endif
 #if NAMEDSTREAMS
 			VOL_CAP_INT_EXTENDED_ATTR |
 			VOL_CAP_INT_NAMEDSTREAMS;

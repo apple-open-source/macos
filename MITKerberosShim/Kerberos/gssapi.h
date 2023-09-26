@@ -63,6 +63,11 @@
 #endif
 #endif
 
+/*
+ * POSIX says that sys/types.h is where size_t is defined.
+ */
+#include <sys/types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -85,10 +90,7 @@ extern "C" {
  */
 #include <stddef.h>
 
-/*
- * POSIX says that sys/types.h is where size_t is defined.
- */
-#include <sys/types.h>
+
 
 /*
  * $Id: gssapi.hin 20876 2008-10-15 21:58:43Z tlyu $
@@ -803,7 +805,6 @@ gss_canonicalize_name(
 #ifdef __cplusplus
 }
 #endif
-
 /* XXXX these are not part of the GSSAPI C bindings!  (but should be) */
 
 #define GSS_CALLING_ERROR_FIELD(x) \

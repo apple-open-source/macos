@@ -394,19 +394,6 @@ sysctl_zleak_threshold SYSCTL_HANDLER_ARGS
 }
 
 /*
- * kern.zleak.global_threshold
- *
- * Set the global zleak threshold size (in bytes).  If the zone map
- * grows larger than this value, zleaks are automatically activated.
- *
- * The default value is set in zleak_init().
- */
-SYSCTL_PROC(_kern_zleak, OID_AUTO, global_threshold,
-    CTLTYPE_QUAD | CTLFLAG_RW | CTLFLAG_LOCKED,
-    &zleak_global_tracking_threshold, 0, sysctl_zleak_threshold, "Q",
-    "zleak global threshold");
-
-/*
  * kern.zleak.zone_threshold
  *
  * Set the per-zone threshold size (in bytes) above which any

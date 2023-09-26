@@ -435,6 +435,13 @@ static int invocationCount = 0;
     return [OTClique fetchAccountWideSettingsWithForceFetch:forceFetch configuration:context error:error];
 }
 
++ (OTAccountSettings* _Nullable)fetchAccountWideSettingsDefaultWithForceFetch:(bool)forceFetch
+                                                         configuration:(OTConfigurationContext*)context
+                                                                 error:(NSError**)error
+{
+    return [OTClique fetchAccountWideSettingsDefaultWithForceFetch:forceFetch configuration:context error:error];
+}
+
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error
 {
     return [self.clique waitForPriorityViewKeychainDataRecovery:error];
@@ -478,6 +485,18 @@ static int invocationCount = 0;
 - (bool)preflightRecoveryKey:(OTConfigurationContext*)context recoveryKey:(NSString*)recoveryKey error:(NSError**)error
 {
     return [OTClique preflightRecoverOctagonUsingRecoveryKey:context recoveryKey:recoveryKey error:error] ? true : false;
+}
+
++ (bool)setRecoveryKeyWithContext:(OTConfigurationContext*)ctx
+                      recoveryKey:(NSString*)recoveryKey
+                            error:(NSError**)error
+{
+    return [OTClique setRecoveryKeyWithContext:ctx recoveryKey:recoveryKey error:error];
+}
+
++ (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error
+{
+    return [OTClique totalTrustedPeers:ctx error:error];
 }
 
 @end

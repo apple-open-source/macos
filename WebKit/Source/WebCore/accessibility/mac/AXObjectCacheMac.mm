@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -103,10 +103,6 @@
 #define NSAccessibilityTextChangeElement @"AXTextChangeElement"
 #endif
 
-#ifndef NSAccessibilitySelectedTextMarkerRangeAttribute
-#define NSAccessibilitySelectedTextMarkerRangeAttribute @"AXSelectedTextMarkerRange"
-#endif
-
 #ifndef kAXDraggingSourceDragBeganNotification
 #define kAXDraggingSourceDragBeganNotification CFSTR("AXDraggingSourceDragBegan")
 #endif
@@ -129,6 +125,14 @@
 
 #ifndef kAXDraggingDestinationDragNotAcceptedNotification
 #define kAXDraggingDestinationDragNotAcceptedNotification CFSTR("AXDraggingDestinationDragNotAccepted")
+#endif
+
+#ifndef NSAccessibilityTextInputMarkingSessionBeganNotification
+#define NSAccessibilityTextInputMarkingSessionBeganNotification @"AXTextInputMarkingSessionBegan"
+#endif
+
+#ifndef NSAccessibilityTextInputMarkingSessionEndedNotification
+#define NSAccessibilityTextInputMarkingSessionEndedNotification @"AXTextInputMarkingSessionEnded"
 #endif
 
 // Very large strings can negatively impact the performance of notifications, so this length is chosen to try to fit an average paragraph or line of text, but not allow strings to be large enough to hurt performance.
@@ -304,9 +308,9 @@ static void exerciseIsIgnored(AccessibilityObject& object)
 {
     object.updateBackingStore();
     if (object.isAttachment()) {
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [[object.wrapper() attachmentView] accessibilityIsIgnored];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
         return;
     }
@@ -316,9 +320,10 @@ static void exerciseIsIgnored(AccessibilityObject& object)
 
 void AXObjectCache::postPlatformNotification(AXCoreObject* object, AXNotification notification)
 {
-    ASSERT(is<AccessibilityObject>(object));
-    if (!is<AccessibilityObject>(object))
+    if (!is<AccessibilityObject>(object)) {
+        ASSERT_NOT_REACHED();
         return;
+    }
 
     bool skipSystemNotification = false;
     // Some notifications are unique to Safari and do not have NSAccessibility equivalents.
@@ -370,7 +375,7 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* object, AXNotificatio
         else
             macNotification = NSAccessibilitySelectedChildrenChangedNotification;
         break;
-    case AXSelectedCellChanged:
+    case AXSelectedCellsChanged:
         macNotification = NSAccessibilitySelectedCellsChangedNotification;
         break;
     case AXSelectedTextChanged:
@@ -435,9 +440,17 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* object, AXNotificatio
     case AXDraggingExitedDropZone:
         macNotification = (id)kAXDraggingDestinationDragNotAcceptedNotification;
         break;
+    case AXTextCompositionBegan:
+        macNotification = NSAccessibilityTextInputMarkingSessionBeganNotification;
+        break;
+    case AXTextCompositionEnded:
+        macNotification = NSAccessibilityTextInputMarkingSessionEndedNotification;
+        break;
     default:
         return;
     }
+
+    RefPtr protectedObject = object;
 
 #ifndef NDEBUG
     exerciseIsIgnored(downcast<AccessibilityObject>(*object));
@@ -469,13 +482,14 @@ static void createIsolatedObjectIfNeeded(AXCoreObject& object, std::optional<Pag
 }
 #endif
 
-void AXObjectCache::postTextStateChangePlatformNotification(AXCoreObject* object, const AXTextStateChangeIntent& intent, const VisibleSelection& selection)
+void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject* object, const AXTextStateChangeIntent& intent, const VisibleSelection& selection)
 {
     if (!object)
         object = rootWebArea();
 
     if (!object)
         return;
+    RefPtr protectedObject = object;
 
     auto userInfo = adoptNS([[NSMutableDictionary alloc] initWithCapacity:5]);
     if (m_isSynchronizingSelection)
@@ -509,7 +523,7 @@ void AXObjectCache::postTextStateChangePlatformNotification(AXCoreObject* object
     }
     if (!selection.isNone()) {
         if (auto textMarkerRange = textMarkerRangeFromVisiblePositions(this, selection.visibleStart(), selection.visibleEnd()))
-            [userInfo setObject:(id)textMarkerRange forKey:NSAccessibilitySelectedTextMarkerRangeAttribute];
+            [userInfo setObject:(id)textMarkerRange forKey:AXSelectedTextMarkerRangeAttribute];
     }
 
     if (id wrapper = object->wrapper()) {
@@ -519,19 +533,20 @@ void AXObjectCache::postTextStateChangePlatformNotification(AXCoreObject* object
 #endif
     }
 
-    if (auto root = rootWebArea()) {
-        AXPostNotificationWithUserInfo(rootWebArea()->wrapper(), NSAccessibilitySelectedTextChangedNotification, userInfo.get());
+    if (RefPtr root = rootWebArea()) {
+        AXPostNotificationWithUserInfo(root->wrapper(), NSAccessibilitySelectedTextChangedNotification, userInfo.get());
         if (root->wrapper() != object->wrapper())
             AXPostNotificationWithUserInfo(object->wrapper(), NSAccessibilitySelectedTextChangedNotification, userInfo.get());
     }
 }
 
-static void addTextMarkerFor(NSMutableDictionary* change, AXCoreObject& object, const VisiblePosition& position)
+static void addTextMarkerFor(NSMutableDictionary *change, AXCoreObject& object, const VisiblePosition& position)
 {
     if (position.isNull())
         return;
-    if (id textMarker = [object.wrapper() textMarkerForVisiblePosition:position])
-        [change setObject:textMarker forKey:NSAccessibilityTextChangeValueStartMarker];
+
+    if (RetainPtr marker = textMarkerForVisiblePosition(object.axObjectCache(), position))
+        [change setObject:(__bridge id)marker.get() forKey:NSAccessibilityTextChangeValueStartMarker];
 }
 
 static void addTextMarkerFor(NSMutableDictionary* change, AXCoreObject& object, HTMLTextFormControlElement& textControl)
@@ -587,13 +602,14 @@ static void postUserInfoForChanges(AXCoreObject& rootWebArea, AXCoreObject& obje
         AXPostNotificationWithUserInfo(object.wrapper(), NSAccessibilityValueChangedNotification, userInfo.get());
 }
 
-void AXObjectCache::postTextReplacementPlatformNotification(AXCoreObject* object, AXTextEditType deletionType, const String& deletedText, AXTextEditType insertionType, const String& insertedText, const VisiblePosition& position)
+void AXObjectCache::postTextReplacementPlatformNotification(AccessibilityObject* object, AXTextEditType deletionType, const String& deletedText, AXTextEditType insertionType, const String& insertedText, const VisiblePosition& position)
 {
     if (!object)
         object = rootWebArea();
 
     if (!object)
         return;
+    RefPtr protectedObject = object;
 
     auto changes = adoptNS([[NSMutableArray alloc] initWithCapacity:2]);
     if (NSDictionary *change = textReplacementChangeDictionary(*object, deletionType, deletedText, position))
@@ -601,17 +617,18 @@ void AXObjectCache::postTextReplacementPlatformNotification(AXCoreObject* object
     if (NSDictionary *change = textReplacementChangeDictionary(*object, insertionType, insertedText, position))
         [changes addObject:change];
 
-    if (auto* root = rootWebArea())
+    if (RefPtr root = rootWebArea())
         postUserInfoForChanges(*root, *object, changes.get(), m_pageID);
 }
 
-void AXObjectCache::postTextReplacementPlatformNotificationForTextControl(AXCoreObject* object, const String& deletedText, const String& insertedText, HTMLTextFormControlElement& textControl)
+void AXObjectCache::postTextReplacementPlatformNotificationForTextControl(AccessibilityObject* object, const String& deletedText, const String& insertedText, HTMLTextFormControlElement& textControl)
 {
     if (!object)
         object = rootWebArea();
 
     if (!object)
         return;
+    RefPtr protectedObject = object;
 
     auto changes = adoptNS([[NSMutableArray alloc] initWithCapacity:2]);
     if (NSDictionary *change = textReplacementChangeDictionary(*object, AXTextEditTypeDelete, deletedText, textControl))
@@ -619,7 +636,7 @@ void AXObjectCache::postTextReplacementPlatformNotificationForTextControl(AXCore
     if (NSDictionary *change = textReplacementChangeDictionary(*object, AXTextEditTypeInsert, insertedText, textControl))
         [changes addObject:change];
 
-    if (auto* root = rootWebArea())
+    if (RefPtr root = rootWebArea())
         postUserInfoForChanges(*root, *object, changes.get(), m_pageID);
 }
 
@@ -659,11 +676,22 @@ void AXObjectCache::platformPerformDeferredCacheUpdate()
 }
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+static bool isTestAXClientType(AXClientType client)
+{
+    return client == kAXClientTypeWebKitTesting || client == kAXClientTypeXCTest;
+}
+
+bool AXObjectCache::isTestClient()
+{
+    return UNLIKELY(isTestAXClientType(_AXGetClientForCurrentRequestUntrusted()));
+}
+
 bool AXObjectCache::clientSupportsIsolatedTree()
 {
     auto client = _AXGetClientForCurrentRequestUntrusted();
     return client == kAXClientTypeVoiceOver
-        || UNLIKELY(client == kAXClientTypeWebKitTesting);
+        || UNLIKELY(client == kAXClientTypeWebKitTesting
+        || client == kAXClientTypeXCTest);
 }
 
 bool AXObjectCache::isIsolatedTreeEnabled()
@@ -699,26 +727,38 @@ bool AXObjectCache::usedOnAXThread()
     return _AXSIsolatedTreeModeFunctionIsAvailable()
         && _AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeSecondaryThread;
 }
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+
+bool AXObjectCache::shouldSpellCheck()
+{
+    if (UNLIKELY(forceDeferredSpellChecking()))
+        return false;
+
+    auto client = _AXGetClientForCurrentRequestUntrusted();
+    // The only AT that we know can handle deferred spellchecking is VoiceOver.
+    if (client == kAXClientTypeVoiceOver)
+        return false;
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (UNLIKELY(isTestAXClientType(client)))
+        return true;
+    // ITM is currently only ever enabled for VoiceOver, so if it's enabled we can defer spell-checking.
+    return !isIsolatedTreeEnabled();
+#else
+    return true;
 #endif
+}
 
 // TextMarker and TextMarkerRange funcstions.
 // FIXME: TextMarker and TextMarkerRange should become classes wrapping the system objects.
 
-static RetainPtr<AXTextMarkerRangeRef> AXTextMarkerRange(AXTextMarkerRef startMarker, AXTextMarkerRef endMarker)
+RetainPtr<AXTextMarkerRangeRef> textMarkerRangeFromMarkers(AXTextMarkerRef startMarker, AXTextMarkerRef endMarker)
 {
-    ASSERT(startMarker);
-    ASSERT(endMarker);
+    if (!startMarker || !endMarker)
+        return nil;
+
     ASSERT(CFGetTypeID((__bridge CFTypeRef)startMarker) == AXTextMarkerGetTypeID());
     ASSERT(CFGetTypeID((__bridge CFTypeRef)endMarker) == AXTextMarkerGetTypeID());
     return adoptCF(AXTextMarkerRangeCreate(kCFAllocatorDefault, startMarker, endMarker));
-}
-
-RetainPtr<AXTextMarkerRangeRef> textMarkerRangeFromMarkers(AXTextMarkerRef textMarker1, AXTextMarkerRef textMarker2)
-{
-    if (!textMarker1 || !textMarker2)
-        return nil;
-
-    return AXTextMarkerRange(textMarker1, textMarker2);
 }
 
 static RetainPtr<AXTextMarkerRef> AXTextMarkerRangeStart(AXTextMarkerRangeRef textMarkerRange)

@@ -53,7 +53,7 @@ public:
                 if (is<ImageBufferBackendHandleSharing>(sharing))
                     handle = downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle();
             }
-            encoder << handle;
+            encoder << WTFMove(handle);
         }
     }
 
@@ -67,7 +67,7 @@ public:
             ImageBufferBackendHandle handle;
             if (!decoder.decode(handle))
                 return false;
-            result.m_bitmap = ShareableBitmap::create(std::get<ShareableBitmapHandle>(handle));
+            result.m_bitmap = ShareableBitmap::create(WTFMove(std::get<ShareableBitmap::Handle>(handle)));
         }
         return true;
     }

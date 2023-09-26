@@ -1533,7 +1533,7 @@ main(int argc, char **argv)
 #endif
     test_move(context, krb5_cc_type_file);
     test_move(context, krb5_cc_type_memory);
-#ifdef HAVE_KCM
+#if HAVE_KCM || ENABLE_KCM_COMPAT
     test_move(context, krb5_cc_type_kcm);
 #endif
 #ifdef HAVE_SCC
@@ -1580,7 +1580,9 @@ main(int argc, char **argv)
 
     test_threaded(context, "API");
 
+#if HAVE_KCM || ENABLE_KCM_COMPAT
     krb5_log(context, context->debug_dest, 20, "threaded KCM cache tests");
+    test_label(context, "KCM");
 
     test_threaded(context, "KCM");
 
@@ -1599,9 +1601,8 @@ main(int argc, char **argv)
 
     //stress test multiple threads hitting the same cache
     test_threaded_config(context, 20, 0, "KCM", "lha@SU.SE");
-
     krb5_log(context, context->debug_dest, 20, "threaded XCACHE cache tests");
-
+#endif
     //clear the cache, if it exists
     krb5_cc_resolve(context, "XCACHE:68ADE5C1-C1FF-4088-8AA2-8AF815CDCC5A", &id1);
     if (id1) krb5_cc_destroy(context, id1);

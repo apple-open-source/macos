@@ -18,44 +18,44 @@
 @synthesize triggers = _triggers;
 - (void)setTriggers:(uint64_t)v
 {
-    _has.triggers = YES;
+    _has.triggers = (uint)YES;
     _triggers = v;
 }
 - (void)setHasTriggers:(BOOL)f
 {
-    _has.triggers = f;
+    _has.triggers = (uint)f;
 }
 - (BOOL)hasTriggers
 {
-    return _has.triggers;
+    return _has.triggers != 0;
 }
 @synthesize reportFrequency = _reportFrequency;
 - (void)setReportFrequency:(uint64_t)v
 {
-    _has.reportFrequency = YES;
+    _has.reportFrequency = (uint)YES;
     _reportFrequency = v;
 }
 - (void)setHasReportFrequency:(BOOL)f
 {
-    _has.reportFrequency = f;
+    _has.reportFrequency = (uint)f;
 }
 - (BOOL)hasReportFrequency
 {
-    return _has.reportFrequency;
+    return _has.reportFrequency != 0;
 }
 @synthesize reportFrequencyBase = _reportFrequencyBase;
 - (void)setReportFrequencyBase:(uint64_t)v
 {
-    _has.reportFrequencyBase = YES;
+    _has.reportFrequencyBase = (uint)YES;
     _reportFrequencyBase = v;
 }
 - (void)setHasReportFrequencyBase:(BOOL)f
 {
-    _has.reportFrequencyBase = f;
+    _has.reportFrequencyBase = (uint)f;
 }
 - (BOOL)hasReportFrequencyBase
 {
-    return _has.reportFrequencyBase;
+    return _has.reportFrequencyBase != 0;
 }
 - (BOOL)hasNetworkTaskDescription
 {
@@ -80,16 +80,16 @@
 @synthesize networkConnectionReused = _networkConnectionReused;
 - (void)setNetworkConnectionReused:(BOOL)v
 {
-    _has.networkConnectionReused = YES;
+    _has.networkConnectionReused = (uint)YES;
     _networkConnectionReused = v;
 }
 - (void)setHasNetworkConnectionReused:(BOOL)f
 {
-    _has.networkConnectionReused = f;
+    _has.networkConnectionReused = (uint)f;
 }
 - (BOOL)hasNetworkConnectionReused
 {
-    return _has.networkConnectionReused;
+    return _has.networkConnectionReused != 0;
 }
 - (BOOL)hasNetworkInterfaceIdentifier
 {
@@ -104,72 +104,72 @@
 @synthesize networkRequestHeaderSize = _networkRequestHeaderSize;
 - (void)setNetworkRequestHeaderSize:(uint32_t)v
 {
-    _has.networkRequestHeaderSize = YES;
+    _has.networkRequestHeaderSize = (uint)YES;
     _networkRequestHeaderSize = v;
 }
 - (void)setHasNetworkRequestHeaderSize:(BOOL)f
 {
-    _has.networkRequestHeaderSize = f;
+    _has.networkRequestHeaderSize = (uint)f;
 }
 - (BOOL)hasNetworkRequestHeaderSize
 {
-    return _has.networkRequestHeaderSize;
+    return _has.networkRequestHeaderSize != 0;
 }
 @synthesize networkRequestBodyBytesSent = _networkRequestBodyBytesSent;
 - (void)setNetworkRequestBodyBytesSent:(uint64_t)v
 {
-    _has.networkRequestBodyBytesSent = YES;
+    _has.networkRequestBodyBytesSent = (uint)YES;
     _networkRequestBodyBytesSent = v;
 }
 - (void)setHasNetworkRequestBodyBytesSent:(BOOL)f
 {
-    _has.networkRequestBodyBytesSent = f;
+    _has.networkRequestBodyBytesSent = (uint)f;
 }
 - (BOOL)hasNetworkRequestBodyBytesSent
 {
-    return _has.networkRequestBodyBytesSent;
+    return _has.networkRequestBodyBytesSent != 0;
 }
 @synthesize networkResponseHeaderSize = _networkResponseHeaderSize;
 - (void)setNetworkResponseHeaderSize:(uint32_t)v
 {
-    _has.networkResponseHeaderSize = YES;
+    _has.networkResponseHeaderSize = (uint)YES;
     _networkResponseHeaderSize = v;
 }
 - (void)setHasNetworkResponseHeaderSize:(BOOL)f
 {
-    _has.networkResponseHeaderSize = f;
+    _has.networkResponseHeaderSize = (uint)f;
 }
 - (BOOL)hasNetworkResponseHeaderSize
 {
-    return _has.networkResponseHeaderSize;
+    return _has.networkResponseHeaderSize != 0;
 }
 @synthesize networkResponseBodyBytesReceived = _networkResponseBodyBytesReceived;
 - (void)setNetworkResponseBodyBytesReceived:(uint64_t)v
 {
-    _has.networkResponseBodyBytesReceived = YES;
+    _has.networkResponseBodyBytesReceived = (uint)YES;
     _networkResponseBodyBytesReceived = v;
 }
 - (void)setHasNetworkResponseBodyBytesReceived:(BOOL)f
 {
-    _has.networkResponseBodyBytesReceived = f;
+    _has.networkResponseBodyBytesReceived = (uint)f;
 }
 - (BOOL)hasNetworkResponseBodyBytesReceived
 {
-    return _has.networkResponseBodyBytesReceived;
+    return _has.networkResponseBodyBytesReceived != 0;
 }
 @synthesize networkPreviousAttemptCount = _networkPreviousAttemptCount;
 - (void)setNetworkPreviousAttemptCount:(uint32_t)v
 {
-    _has.networkPreviousAttemptCount = YES;
+    _has.networkPreviousAttemptCount = (uint)YES;
     _networkPreviousAttemptCount = v;
 }
 - (void)setHasNetworkPreviousAttemptCount:(BOOL)f
 {
-    _has.networkPreviousAttemptCount = f;
+    _has.networkPreviousAttemptCount = (uint)f;
 }
 - (BOOL)hasNetworkPreviousAttemptCount
 {
-    return _has.networkPreviousAttemptCount;
+    return _has.networkPreviousAttemptCount != 0;
 }
 - (BOOL)hasNetworkFatalError
 {
@@ -179,16 +179,16 @@
 @synthesize networkStatusCode = _networkStatusCode;
 - (void)setNetworkStatusCode:(uint64_t)v
 {
-    _has.networkStatusCode = YES;
+    _has.networkStatusCode = (uint)YES;
     _networkStatusCode = v;
 }
 - (void)setHasNetworkStatusCode:(BOOL)f
 {
-    _has.networkStatusCode = f;
+    _has.networkStatusCode = (uint)f;
 }
 - (BOOL)hasNetworkStatusCode
 {
-    return _has.networkStatusCode;
+    return _has.networkStatusCode != 0;
 }
 - (BOOL)hasNetworkRequestUri
 {
@@ -198,170 +198,170 @@
 @synthesize timestampC2Init = _timestampC2Init;
 - (void)setTimestampC2Init:(uint64_t)v
 {
-    _has.timestampC2Init = YES;
+    _has.timestampC2Init = (uint)YES;
     _timestampC2Init = v;
 }
 - (void)setHasTimestampC2Init:(BOOL)f
 {
-    _has.timestampC2Init = f;
+    _has.timestampC2Init = (uint)f;
 }
 - (BOOL)hasTimestampC2Init
 {
-    return _has.timestampC2Init;
+    return _has.timestampC2Init != 0;
 }
 @synthesize timestampC2Start = _timestampC2Start;
 - (void)setTimestampC2Start:(uint64_t)v
 {
-    _has.timestampC2Start = YES;
+    _has.timestampC2Start = (uint)YES;
     _timestampC2Start = v;
 }
 - (void)setHasTimestampC2Start:(BOOL)f
 {
-    _has.timestampC2Start = f;
+    _has.timestampC2Start = (uint)f;
 }
 - (BOOL)hasTimestampC2Start
 {
-    return _has.timestampC2Start;
+    return _has.timestampC2Start != 0;
 }
 @synthesize timestampC2Now = _timestampC2Now;
 - (void)setTimestampC2Now:(uint64_t)v
 {
-    _has.timestampC2Now = YES;
+    _has.timestampC2Now = (uint)YES;
     _timestampC2Now = v;
 }
 - (void)setHasTimestampC2Now:(BOOL)f
 {
-    _has.timestampC2Now = f;
+    _has.timestampC2Now = (uint)f;
 }
 - (BOOL)hasTimestampC2Now
 {
-    return _has.timestampC2Now;
+    return _has.timestampC2Now != 0;
 }
 @synthesize timestampDnsStart = _timestampDnsStart;
 - (void)setTimestampDnsStart:(uint64_t)v
 {
-    _has.timestampDnsStart = YES;
+    _has.timestampDnsStart = (uint)YES;
     _timestampDnsStart = v;
 }
 - (void)setHasTimestampDnsStart:(BOOL)f
 {
-    _has.timestampDnsStart = f;
+    _has.timestampDnsStart = (uint)f;
 }
 - (BOOL)hasTimestampDnsStart
 {
-    return _has.timestampDnsStart;
+    return _has.timestampDnsStart != 0;
 }
 @synthesize timestampDnsEnd = _timestampDnsEnd;
 - (void)setTimestampDnsEnd:(uint64_t)v
 {
-    _has.timestampDnsEnd = YES;
+    _has.timestampDnsEnd = (uint)YES;
     _timestampDnsEnd = v;
 }
 - (void)setHasTimestampDnsEnd:(BOOL)f
 {
-    _has.timestampDnsEnd = f;
+    _has.timestampDnsEnd = (uint)f;
 }
 - (BOOL)hasTimestampDnsEnd
 {
-    return _has.timestampDnsEnd;
+    return _has.timestampDnsEnd != 0;
 }
 @synthesize timestampTcpStart = _timestampTcpStart;
 - (void)setTimestampTcpStart:(uint64_t)v
 {
-    _has.timestampTcpStart = YES;
+    _has.timestampTcpStart = (uint)YES;
     _timestampTcpStart = v;
 }
 - (void)setHasTimestampTcpStart:(BOOL)f
 {
-    _has.timestampTcpStart = f;
+    _has.timestampTcpStart = (uint)f;
 }
 - (BOOL)hasTimestampTcpStart
 {
-    return _has.timestampTcpStart;
+    return _has.timestampTcpStart != 0;
 }
 @synthesize timestampTcpEnd = _timestampTcpEnd;
 - (void)setTimestampTcpEnd:(uint64_t)v
 {
-    _has.timestampTcpEnd = YES;
+    _has.timestampTcpEnd = (uint)YES;
     _timestampTcpEnd = v;
 }
 - (void)setHasTimestampTcpEnd:(BOOL)f
 {
-    _has.timestampTcpEnd = f;
+    _has.timestampTcpEnd = (uint)f;
 }
 - (BOOL)hasTimestampTcpEnd
 {
-    return _has.timestampTcpEnd;
+    return _has.timestampTcpEnd != 0;
 }
 @synthesize timestampSslStart = _timestampSslStart;
 - (void)setTimestampSslStart:(uint64_t)v
 {
-    _has.timestampSslStart = YES;
+    _has.timestampSslStart = (uint)YES;
     _timestampSslStart = v;
 }
 - (void)setHasTimestampSslStart:(BOOL)f
 {
-    _has.timestampSslStart = f;
+    _has.timestampSslStart = (uint)f;
 }
 - (BOOL)hasTimestampSslStart
 {
-    return _has.timestampSslStart;
+    return _has.timestampSslStart != 0;
 }
 @synthesize timestampRequestStart = _timestampRequestStart;
 - (void)setTimestampRequestStart:(uint64_t)v
 {
-    _has.timestampRequestStart = YES;
+    _has.timestampRequestStart = (uint)YES;
     _timestampRequestStart = v;
 }
 - (void)setHasTimestampRequestStart:(BOOL)f
 {
-    _has.timestampRequestStart = f;
+    _has.timestampRequestStart = (uint)f;
 }
 - (BOOL)hasTimestampRequestStart
 {
-    return _has.timestampRequestStart;
+    return _has.timestampRequestStart != 0;
 }
 @synthesize timestampRequestEnd = _timestampRequestEnd;
 - (void)setTimestampRequestEnd:(uint64_t)v
 {
-    _has.timestampRequestEnd = YES;
+    _has.timestampRequestEnd = (uint)YES;
     _timestampRequestEnd = v;
 }
 - (void)setHasTimestampRequestEnd:(BOOL)f
 {
-    _has.timestampRequestEnd = f;
+    _has.timestampRequestEnd = (uint)f;
 }
 - (BOOL)hasTimestampRequestEnd
 {
-    return _has.timestampRequestEnd;
+    return _has.timestampRequestEnd != 0;
 }
 @synthesize timestampResponseStart = _timestampResponseStart;
 - (void)setTimestampResponseStart:(uint64_t)v
 {
-    _has.timestampResponseStart = YES;
+    _has.timestampResponseStart = (uint)YES;
     _timestampResponseStart = v;
 }
 - (void)setHasTimestampResponseStart:(BOOL)f
 {
-    _has.timestampResponseStart = f;
+    _has.timestampResponseStart = (uint)f;
 }
 - (BOOL)hasTimestampResponseStart
 {
-    return _has.timestampResponseStart;
+    return _has.timestampResponseStart != 0;
 }
 @synthesize timestampResponseEnd = _timestampResponseEnd;
 - (void)setTimestampResponseEnd:(uint64_t)v
 {
-    _has.timestampResponseEnd = YES;
+    _has.timestampResponseEnd = (uint)YES;
     _timestampResponseEnd = v;
 }
 - (void)setHasTimestampResponseEnd:(BOOL)f
 {
-    _has.timestampResponseEnd = f;
+    _has.timestampResponseEnd = (uint)f;
 }
 - (BOOL)hasTimestampResponseEnd
 {
-    return _has.timestampResponseEnd;
+    return _has.timestampResponseEnd != 0;
 }
 - (BOOL)hasOptionsQualityOfService
 {
@@ -371,86 +371,86 @@
 @synthesize optionsOutOfProcess = _optionsOutOfProcess;
 - (void)setOptionsOutOfProcess:(BOOL)v
 {
-    _has.optionsOutOfProcess = YES;
+    _has.optionsOutOfProcess = (uint)YES;
     _optionsOutOfProcess = v;
 }
 - (void)setHasOptionsOutOfProcess:(BOOL)f
 {
-    _has.optionsOutOfProcess = f;
+    _has.optionsOutOfProcess = (uint)f;
 }
 - (BOOL)hasOptionsOutOfProcess
 {
-    return _has.optionsOutOfProcess;
+    return _has.optionsOutOfProcess != 0;
 }
 @synthesize optionsOutOfProcessForceDiscretionary = _optionsOutOfProcessForceDiscretionary;
 - (void)setOptionsOutOfProcessForceDiscretionary:(BOOL)v
 {
-    _has.optionsOutOfProcessForceDiscretionary = YES;
+    _has.optionsOutOfProcessForceDiscretionary = (uint)YES;
     _optionsOutOfProcessForceDiscretionary = v;
 }
 - (void)setHasOptionsOutOfProcessForceDiscretionary:(BOOL)f
 {
-    _has.optionsOutOfProcessForceDiscretionary = f;
+    _has.optionsOutOfProcessForceDiscretionary = (uint)f;
 }
 - (BOOL)hasOptionsOutOfProcessForceDiscretionary
 {
-    return _has.optionsOutOfProcessForceDiscretionary;
+    return _has.optionsOutOfProcessForceDiscretionary != 0;
 }
 @synthesize optionsAllowExpensiveAccess = _optionsAllowExpensiveAccess;
 - (void)setOptionsAllowExpensiveAccess:(BOOL)v
 {
-    _has.optionsAllowExpensiveAccess = YES;
+    _has.optionsAllowExpensiveAccess = (uint)YES;
     _optionsAllowExpensiveAccess = v;
 }
 - (void)setHasOptionsAllowExpensiveAccess:(BOOL)f
 {
-    _has.optionsAllowExpensiveAccess = f;
+    _has.optionsAllowExpensiveAccess = (uint)f;
 }
 - (BOOL)hasOptionsAllowExpensiveAccess
 {
-    return _has.optionsAllowExpensiveAccess;
+    return _has.optionsAllowExpensiveAccess != 0;
 }
 @synthesize optionsAllowPowerNapScheduling = _optionsAllowPowerNapScheduling;
 - (void)setOptionsAllowPowerNapScheduling:(BOOL)v
 {
-    _has.optionsAllowPowerNapScheduling = YES;
+    _has.optionsAllowPowerNapScheduling = (uint)YES;
     _optionsAllowPowerNapScheduling = v;
 }
 - (void)setHasOptionsAllowPowerNapScheduling:(BOOL)f
 {
-    _has.optionsAllowPowerNapScheduling = f;
+    _has.optionsAllowPowerNapScheduling = (uint)f;
 }
 - (BOOL)hasOptionsAllowPowerNapScheduling
 {
-    return _has.optionsAllowPowerNapScheduling;
+    return _has.optionsAllowPowerNapScheduling != 0;
 }
 @synthesize optionsTimeoutIntervalForRequest = _optionsTimeoutIntervalForRequest;
 - (void)setOptionsTimeoutIntervalForRequest:(uint32_t)v
 {
-    _has.optionsTimeoutIntervalForRequest = YES;
+    _has.optionsTimeoutIntervalForRequest = (uint)YES;
     _optionsTimeoutIntervalForRequest = v;
 }
 - (void)setHasOptionsTimeoutIntervalForRequest:(BOOL)f
 {
-    _has.optionsTimeoutIntervalForRequest = f;
+    _has.optionsTimeoutIntervalForRequest = (uint)f;
 }
 - (BOOL)hasOptionsTimeoutIntervalForRequest
 {
-    return _has.optionsTimeoutIntervalForRequest;
+    return _has.optionsTimeoutIntervalForRequest != 0;
 }
 @synthesize optionsTimeoutIntervalForResource = _optionsTimeoutIntervalForResource;
 - (void)setOptionsTimeoutIntervalForResource:(uint32_t)v
 {
-    _has.optionsTimeoutIntervalForResource = YES;
+    _has.optionsTimeoutIntervalForResource = (uint)YES;
     _optionsTimeoutIntervalForResource = v;
 }
 - (void)setHasOptionsTimeoutIntervalForResource:(BOOL)f
 {
-    _has.optionsTimeoutIntervalForResource = f;
+    _has.optionsTimeoutIntervalForResource = (uint)f;
 }
 - (BOOL)hasOptionsTimeoutIntervalForResource
 {
-    return _has.optionsTimeoutIntervalForResource;
+    return _has.optionsTimeoutIntervalForResource != 0;
 }
 - (BOOL)hasOptionsSourceApplicationBundleIdentifier
 {
@@ -465,30 +465,30 @@
 @synthesize optionsAppleIdContext = _optionsAppleIdContext;
 - (void)setOptionsAppleIdContext:(BOOL)v
 {
-    _has.optionsAppleIdContext = YES;
+    _has.optionsAppleIdContext = (uint)YES;
     _optionsAppleIdContext = v;
 }
 - (void)setHasOptionsAppleIdContext:(BOOL)f
 {
-    _has.optionsAppleIdContext = f;
+    _has.optionsAppleIdContext = (uint)f;
 }
 - (BOOL)hasOptionsAppleIdContext
 {
-    return _has.optionsAppleIdContext;
+    return _has.optionsAppleIdContext != 0;
 }
 @synthesize optionsTlsPinningRequired = _optionsTlsPinningRequired;
 - (void)setOptionsTlsPinningRequired:(BOOL)v
 {
-    _has.optionsTlsPinningRequired = YES;
+    _has.optionsTlsPinningRequired = (uint)YES;
     _optionsTlsPinningRequired = v;
 }
 - (void)setHasOptionsTlsPinningRequired:(BOOL)f
 {
-    _has.optionsTlsPinningRequired = f;
+    _has.optionsTlsPinningRequired = (uint)f;
 }
 - (BOOL)hasOptionsTlsPinningRequired
 {
-    return _has.optionsTlsPinningRequired;
+    return _has.optionsTlsPinningRequired != 0;
 }
 
 - (NSString *)description
@@ -684,19 +684,19 @@ BOOL SECC2MPNetworkEventReadFrom(__unsafe_unretained SECC2MPNetworkEvent *self, 
 
             case 1 /* triggers */:
             {
-                self->_has.triggers = YES;
+                self->_has.triggers = (uint)YES;
                 self->_triggers = PBReaderReadUint64(reader);
             }
             break;
             case 2 /* reportFrequency */:
             {
-                self->_has.reportFrequency = YES;
+                self->_has.reportFrequency = (uint)YES;
                 self->_reportFrequency = PBReaderReadUint64(reader);
             }
             break;
             case 3 /* reportFrequencyBase */:
             {
-                self->_has.reportFrequencyBase = YES;
+                self->_has.reportFrequencyBase = (uint)YES;
                 self->_reportFrequencyBase = PBReaderReadUint64(reader);
             }
             break;
@@ -726,7 +726,7 @@ BOOL SECC2MPNetworkEventReadFrom(__unsafe_unretained SECC2MPNetworkEvent *self, 
             break;
             case 105 /* networkConnectionReused */:
             {
-                self->_has.networkConnectionReused = YES;
+                self->_has.networkConnectionReused = (uint)YES;
                 self->_networkConnectionReused = PBReaderReadBOOL(reader);
             }
             break;
@@ -744,31 +744,31 @@ BOOL SECC2MPNetworkEventReadFrom(__unsafe_unretained SECC2MPNetworkEvent *self, 
             break;
             case 108 /* networkRequestHeaderSize */:
             {
-                self->_has.networkRequestHeaderSize = YES;
+                self->_has.networkRequestHeaderSize = (uint)YES;
                 self->_networkRequestHeaderSize = PBReaderReadUint32(reader);
             }
             break;
             case 109 /* networkRequestBodyBytesSent */:
             {
-                self->_has.networkRequestBodyBytesSent = YES;
+                self->_has.networkRequestBodyBytesSent = (uint)YES;
                 self->_networkRequestBodyBytesSent = PBReaderReadUint64(reader);
             }
             break;
             case 110 /* networkResponseHeaderSize */:
             {
-                self->_has.networkResponseHeaderSize = YES;
+                self->_has.networkResponseHeaderSize = (uint)YES;
                 self->_networkResponseHeaderSize = PBReaderReadUint32(reader);
             }
             break;
             case 111 /* networkResponseBodyBytesReceived */:
             {
-                self->_has.networkResponseBodyBytesReceived = YES;
+                self->_has.networkResponseBodyBytesReceived = (uint)YES;
                 self->_networkResponseBodyBytesReceived = PBReaderReadUint64(reader);
             }
             break;
             case 112 /* networkPreviousAttemptCount */:
             {
-                self->_has.networkPreviousAttemptCount = YES;
+                self->_has.networkPreviousAttemptCount = (uint)YES;
                 self->_networkPreviousAttemptCount = PBReaderReadUint32(reader);
             }
             break;
@@ -792,7 +792,7 @@ BOOL SECC2MPNetworkEventReadFrom(__unsafe_unretained SECC2MPNetworkEvent *self, 
             break;
             case 114 /* networkStatusCode */:
             {
-                self->_has.networkStatusCode = YES;
+                self->_has.networkStatusCode = (uint)YES;
                 self->_networkStatusCode = PBReaderReadUint64(reader);
             }
             break;
@@ -804,73 +804,73 @@ BOOL SECC2MPNetworkEventReadFrom(__unsafe_unretained SECC2MPNetworkEvent *self, 
             break;
             case 201 /* timestampC2Init */:
             {
-                self->_has.timestampC2Init = YES;
+                self->_has.timestampC2Init = (uint)YES;
                 self->_timestampC2Init = PBReaderReadUint64(reader);
             }
             break;
             case 202 /* timestampC2Start */:
             {
-                self->_has.timestampC2Start = YES;
+                self->_has.timestampC2Start = (uint)YES;
                 self->_timestampC2Start = PBReaderReadUint64(reader);
             }
             break;
             case 203 /* timestampC2Now */:
             {
-                self->_has.timestampC2Now = YES;
+                self->_has.timestampC2Now = (uint)YES;
                 self->_timestampC2Now = PBReaderReadUint64(reader);
             }
             break;
             case 204 /* timestampDnsStart */:
             {
-                self->_has.timestampDnsStart = YES;
+                self->_has.timestampDnsStart = (uint)YES;
                 self->_timestampDnsStart = PBReaderReadUint64(reader);
             }
             break;
             case 205 /* timestampDnsEnd */:
             {
-                self->_has.timestampDnsEnd = YES;
+                self->_has.timestampDnsEnd = (uint)YES;
                 self->_timestampDnsEnd = PBReaderReadUint64(reader);
             }
             break;
             case 206 /* timestampTcpStart */:
             {
-                self->_has.timestampTcpStart = YES;
+                self->_has.timestampTcpStart = (uint)YES;
                 self->_timestampTcpStart = PBReaderReadUint64(reader);
             }
             break;
             case 207 /* timestampTcpEnd */:
             {
-                self->_has.timestampTcpEnd = YES;
+                self->_has.timestampTcpEnd = (uint)YES;
                 self->_timestampTcpEnd = PBReaderReadUint64(reader);
             }
             break;
             case 208 /* timestampSslStart */:
             {
-                self->_has.timestampSslStart = YES;
+                self->_has.timestampSslStart = (uint)YES;
                 self->_timestampSslStart = PBReaderReadUint64(reader);
             }
             break;
             case 209 /* timestampRequestStart */:
             {
-                self->_has.timestampRequestStart = YES;
+                self->_has.timestampRequestStart = (uint)YES;
                 self->_timestampRequestStart = PBReaderReadUint64(reader);
             }
             break;
             case 210 /* timestampRequestEnd */:
             {
-                self->_has.timestampRequestEnd = YES;
+                self->_has.timestampRequestEnd = (uint)YES;
                 self->_timestampRequestEnd = PBReaderReadUint64(reader);
             }
             break;
             case 211 /* timestampResponseStart */:
             {
-                self->_has.timestampResponseStart = YES;
+                self->_has.timestampResponseStart = (uint)YES;
                 self->_timestampResponseStart = PBReaderReadUint64(reader);
             }
             break;
             case 212 /* timestampResponseEnd */:
             {
-                self->_has.timestampResponseEnd = YES;
+                self->_has.timestampResponseEnd = (uint)YES;
                 self->_timestampResponseEnd = PBReaderReadUint64(reader);
             }
             break;
@@ -882,37 +882,37 @@ BOOL SECC2MPNetworkEventReadFrom(__unsafe_unretained SECC2MPNetworkEvent *self, 
             break;
             case 302 /* optionsOutOfProcess */:
             {
-                self->_has.optionsOutOfProcess = YES;
+                self->_has.optionsOutOfProcess = (uint)YES;
                 self->_optionsOutOfProcess = PBReaderReadBOOL(reader);
             }
             break;
             case 303 /* optionsOutOfProcessForceDiscretionary */:
             {
-                self->_has.optionsOutOfProcessForceDiscretionary = YES;
+                self->_has.optionsOutOfProcessForceDiscretionary = (uint)YES;
                 self->_optionsOutOfProcessForceDiscretionary = PBReaderReadBOOL(reader);
             }
             break;
             case 304 /* optionsAllowExpensiveAccess */:
             {
-                self->_has.optionsAllowExpensiveAccess = YES;
+                self->_has.optionsAllowExpensiveAccess = (uint)YES;
                 self->_optionsAllowExpensiveAccess = PBReaderReadBOOL(reader);
             }
             break;
             case 305 /* optionsAllowPowerNapScheduling */:
             {
-                self->_has.optionsAllowPowerNapScheduling = YES;
+                self->_has.optionsAllowPowerNapScheduling = (uint)YES;
                 self->_optionsAllowPowerNapScheduling = PBReaderReadBOOL(reader);
             }
             break;
             case 306 /* optionsTimeoutIntervalForRequest */:
             {
-                self->_has.optionsTimeoutIntervalForRequest = YES;
+                self->_has.optionsTimeoutIntervalForRequest = (uint)YES;
                 self->_optionsTimeoutIntervalForRequest = PBReaderReadUint32(reader);
             }
             break;
             case 307 /* optionsTimeoutIntervalForResource */:
             {
-                self->_has.optionsTimeoutIntervalForResource = YES;
+                self->_has.optionsTimeoutIntervalForResource = (uint)YES;
                 self->_optionsTimeoutIntervalForResource = PBReaderReadUint32(reader);
             }
             break;
@@ -930,13 +930,13 @@ BOOL SECC2MPNetworkEventReadFrom(__unsafe_unretained SECC2MPNetworkEvent *self, 
             break;
             case 310 /* optionsAppleIdContext */:
             {
-                self->_has.optionsAppleIdContext = YES;
+                self->_has.optionsAppleIdContext = (uint)YES;
                 self->_optionsAppleIdContext = PBReaderReadBOOL(reader);
             }
             break;
             case 311 /* optionsTlsPinningRequired */:
             {
-                self->_has.optionsTlsPinningRequired = YES;
+                self->_has.optionsTlsPinningRequired = (uint)YES;
                 self->_optionsTlsPinningRequired = PBReaderReadBOOL(reader);
             }
             break;

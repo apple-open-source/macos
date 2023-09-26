@@ -57,7 +57,7 @@
                                                                         uuid:self.uuid
                                                                        reply:^(TrustedPeersHelperCustodianRecoveryKey *_Nullable crk, NSError * _Nullable error) {
         STRONGIFY(self);
-        [[CKKSAnalytics logger] logResultForEvent:OctagonEventCustodianRecoveryKey hardFailure:true result:error];
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventCheckCustodianRecoveryKeyTPH hardFailure:true result:error];
         if(error) {
             secerror("octagon: Error finding custodian recovery key: %@", error);
             self.error = error;

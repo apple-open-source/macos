@@ -1096,7 +1096,9 @@ uint8_t CLASS::IOPCIIsHotplugPort(IOPCIConfigEntry * bridge)
         uint32_t slotCaps = configRead32(bridge, bridge->expressCapBlock + 0x14);
 
         // Device/port type == root port, the slot is implemented, and the slot is hot-plug capable
-        if (((expressCaps & 0x1f0) == 0x140) && (slotCaps & kSlotCapHotplug))
+        if (((expressCaps & kPCIECapDevicePortType) == kPCIEPortTypePCIERootPort)
+            && (expressCaps & kPCIECapSlotConnected)
+            && (slotCaps & kSlotCapHotplug))
         {
             type = kPCIHotPlugRoot;
         }
@@ -2250,6 +2252,7 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
         case kPCIHeaderType1:
         case kPCIHeaderType2:
             child->isBridge     = true;
+			// If PCI Device is a PCIe, then this value will get updated based on the Express Capablities Device/Port Type
 			child->subDeviceNum = 0;
 			child->endDeviceNum = 31;
             break;
@@ -2276,7 +2279,17 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
 			expressCaps = configRead16(child, child->expressCapBlock + 0x02);
 			linkControl = configRead16(child, child->expressCapBlock + 0x10);
 
-			if (0x100 & expressCaps)
+			if ((kPCIEPortTypeUpstreamPCIESwitch != (kPCIECapDevicePortType & expressCaps))
+					&& (kPCIEPortTypePCIEtoPCIBridge != (kPCIECapDevicePortType & expressCaps)))
+			{
+				// Only Uptream Port and Root Complex require scanning all 32 device number
+				// Root Complex entry is populated in addHostBridge()
+				// All other Port Types only have device 0
+				// PCI devices do not follow this particular PCIE requirement so exclude PCIE to PCI bridges as well
+				child->subDeviceNum = child->endDeviceNum = 0;
+			}
+
+			if (kPCIECapSlotConnected & expressCaps)
 			{
 				slotCaps = configRead32(child, child->expressCapBlock + 0x14);
 				child->commandCompleted = (kSlotCapNoCommandCompleted & slotCaps) == 0;

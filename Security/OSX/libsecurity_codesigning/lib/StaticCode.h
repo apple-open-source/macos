@@ -59,7 +59,8 @@ class SecCode;
 // cache those values internally and return unretained(!) references ("Get" style)
 // that are valid as long as the SecStaticCode object's lifetime, or until
 // resetValidity() is called, whichever is sooner. If you need to keep them longer,
-// retain or copy them as needed.
+// retain or copy them as needed. None of these data accessors are thread-safe, so
+// be careful using them.
 //
 class SecStaticCode : public SecCFObject {
 	NOCOPY(SecStaticCode)
@@ -194,6 +195,7 @@ public:
 	const Requirement *defaultDesignatedRequirement();		// newly allocated (caller owns)
 
 	unsigned int validationCategory();
+	bool inLoadedTrustCache();
 	CFDictionaryRef defaultDesignatedLightWeightCodeRequirement();
 	
 	void validateRequirements(SecRequirementType type, SecStaticCode *target,
@@ -211,6 +213,7 @@ public:
     bool trustedSigningCertChain() { return mTrustedSigningCertChain; }
 
 	void handleOtherArchitectures(void (^handle)(SecStaticCode* other));
+	void visitOtherArchitectures(void (^visitor)(SecStaticCode* other));
 
 	uint8_t cmsDigestHashType() const { return mCMSDigestHashType; };
 	CFDataRef createCmsDigest();

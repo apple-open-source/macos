@@ -42,7 +42,9 @@
 #include "HTMLStyleElement.h"
 #include "HTMLVideoElement.h"
 #include "NodeRenderStyle.h"
+#include "NodeTraversal.h"
 #include "Position.h"
+#include "RenderStyleInlines.h"
 #include "SimpleRange.h"
 #include "TextBoundaries.h"
 #include "TextIterator.h"
@@ -50,7 +52,7 @@
 namespace WebCore {
 namespace FragmentDirectiveRangeFinder {
 
-enum class BoundaryPointIsAtEnd { No, Yes };
+enum class BoundaryPointIsAtEnd : bool { No, Yes };
 enum class WordBounded : bool { No, Yes };
 
 // https://wicg.github.io/scroll-to-text-fragment/#search-invisible

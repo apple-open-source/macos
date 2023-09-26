@@ -1,2 +1,12 @@
-_realloc
 _malloc_default_zone
+_malloc
+_calloc
+_realloc
+_valloc
+_aligned_alloc
+_posix_memalign
+_malloc_zone_malloc
+_malloc_zone_calloc
+_malloc_zone_realloc
+_malloc_zone_valloc
+_malloc_zone_memalign

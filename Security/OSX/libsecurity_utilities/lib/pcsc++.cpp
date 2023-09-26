@@ -216,6 +216,7 @@ void Session::listReaders(vector<string> &readers, const char *groups)
 				decode(readers, mReaderBuffer, size);
 				return;
 			}
+			[[fallthrough]];
 		case (int32_t) SCARD_E_INSUFFICIENT_BUFFER:
 			mReaderBuffer.resize(size);
 			break;

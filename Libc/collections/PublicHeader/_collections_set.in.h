@@ -86,7 +86,7 @@ IN_SET(,_clear)(os_set_t *s, OS_NOESCAPE IN_SET(,_payload_handler_t) handler);
 
 OS_OVERLOADABLE OS_ALWAYS_INLINE
 static inline void
-os_set_clear(os_set_t *s, OS_NOESCAPE IN_SET(,_payload_handler_t) handler) {
+os_set_clear(os_set_t *s, OS_NOESCAPE IN_SET(,_payload_handler_t) _Nullable handler) {
 	IN_SET(,_clear)(s, handler);
 }
 

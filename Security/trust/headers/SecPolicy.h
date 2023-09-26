@@ -33,6 +33,9 @@
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <Security/SecBase.h>
+#if TARGET_OS_OSX
+#include <Security/cssmtype.h>
+#endif
 
 __BEGIN_DECLS
 
@@ -253,7 +256,6 @@ CF_ASSUME_NONNULL_END
  *  Legacy functions (OS X only)
  */
 #if TARGET_OS_OSX
-#include <Security/cssmtype.h>
 
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED

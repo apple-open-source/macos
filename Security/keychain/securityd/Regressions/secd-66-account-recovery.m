@@ -345,6 +345,7 @@ static void tests(bool recKeyFirst)
 int secd_66_account_recovery(int argc, char *const *argv) {
 #if SOS_ENABLED
     plan_tests(376);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests(true);
     tests(false);

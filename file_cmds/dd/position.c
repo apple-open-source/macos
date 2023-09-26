@@ -200,9 +200,10 @@ pos_out(void)
 
 	/* Read it. */
 	for (cnt = 0; cnt < out.offset; ++cnt) {
+		check_terminate();
 		if ((n = read(out.fd, out.db, out.dbsz)) > 0)
 			continue;
-
+		check_terminate();
 		if (n == -1)
 			err(1, "%s", out.name);
 
@@ -219,7 +220,9 @@ pos_out(void)
 #endif
 
 		while (cnt++ < out.offset) {
+			check_terminate();
 			n = write(out.fd, out.db, out.dbsz);
+			check_terminate();
 			if (n == -1)
 				err(1, "%s", out.name);
 			if (n != out.dbsz)

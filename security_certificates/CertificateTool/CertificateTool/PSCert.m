@@ -287,7 +287,6 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
             NSLog(@"AuthKeyID for %@ is %@", name, str);
             if (name) { CFRelease(name); }
-        }
 #endif //DEBUG
         CFRelease(iosCertRef);
     }

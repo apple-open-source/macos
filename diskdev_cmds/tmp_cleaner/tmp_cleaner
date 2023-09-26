@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Perform temporary directory cleaning so that long-lived systems
+# don't end up with excessively old files there.
+#
+
+# Configurations
+daily_clean_tmps_dirs="/tmp"				# Delete under here
+daily_clean_tmps_days="3"				# If not accessed for
+daily_clean_tmps_ignore=".X*-lock .X11-unix .ICE-unix .font-unix .XIM-unix"
+daily_clean_tmps_ignore="$daily_clean_tmps_ignore quota.user quota.group"
+							# Don't delete these
+
+echo "Removing old temporary files:"
+
+set -f noglob
+args="-atime +$daily_clean_tmps_days -mtime +$daily_clean_tmps_days"
+args="${args} -ctime +$daily_clean_tmps_days"
+dargs="-empty -mtime +$daily_clean_tmps_days"
+dargs="${dargs} ! -name .vfs_rsrc_streams_*"
+args="$args "`echo " ${daily_clean_tmps_ignore% }" |
+    sed 's/[ 	][ 	]*/ ! -name /g'`
+dargs="$dargs "`echo " ${daily_clean_tmps_ignore% }" |
+    sed 's/[ 	][ 	]*/ ! -name /g'`
+
+for dir in $daily_clean_tmps_dirs
+do
+    [ ."${dir#/}" != ."$dir" -a -d $dir ] && cd $dir && {
+    find -dx . -fstype local -type f $args -delete -print
+    find -dx . -fstype local ! -name . -type d $dargs -delete -print
+    } | sed "s,^\\.,  $dir,"
+done
+set -f glob
+
+exit 0

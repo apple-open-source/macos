@@ -27,6 +27,10 @@
  *
  */
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 #ifndef HAVE_STDLIB_H
 char *malloc _((size_t));
 char *realloc _((void *, size_t));
@@ -132,3 +136,7 @@ extern char *strerror _((int errnum));
 #ifndef HAVE_MEMMOVE
 extern void bcopy _((const void *, void *, size_t));
 #endif
+
+#if defined(__APPLE__) && TARGET_OS_OSX
+const char *check_managed_config(const char *managed_config, const char *default_config);
+#endif // __APPLE__

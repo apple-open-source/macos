@@ -1,7 +1,6 @@
-/*	$OpenBSD: options.h,v 1.4 2003/06/13 17:51:14 millert Exp $	*/
-/*	$NetBSD: options.h,v 1.3 1995/03/21 09:07:32 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,11 +33,11 @@
  * SUCH DAMAGE.
  *
  *	@(#)options.h	8.2 (Berkeley) 4/18/94
+ * $FreeBSD$
  */
 
 #ifndef _OPTIONS_H_
 #define _OPTIONS_H_
-
 /*
  * argv[0] names. Used for tar and cpio emulation
  */
@@ -87,13 +86,19 @@
 #define	CXF	0x08000000
 #define	CYF	0x10000000	/* nonstandard extension */
 #define	CZF	0x20000000	/* nonstandard extension */
+#ifdef __APPLE__
 #define	C0F	0x40000000	/* nonstandard extension */
+#endif
 
 /*
  * ascii string indexed by bit position above (alter the above and you must
  * alter this string) used to tell the user what flags caused us to complain
  */
-#define FLGCH	"abcdfiklnoprstuvwxBDEGHLPTUXYZ0"
+#ifndef __APPLE__
+#define FLGCH	"abcdfiklnoprstuvwxBDEGHLPTUXYZ"
+#else
+#define FLGCH	"abcdfijklnoprstuvwxBDEGHLPTUXYZ0"
+#endif /* __APPLE__*/
 
 /*
  * legal pax operation bit patterns
@@ -112,7 +117,12 @@
 
 #define	BDEXTR	(AF|BF|LF|TF|WF|XF|CBF|CHF|CLF|CPF|CXF)
 #define	BDARCH	(CF|KF|LF|NF|PF|RF|CDF|CEF|CYF|CZF)
+#ifndef __APPLE__
+#define	BDCOPY	(AF|BF|FF|OF|XF|CBF|CEF)
+#define	BDLIST (AF|BF|IF|KF|LF|OF|PF|RF|TF|UF|WF|XF|CBF|CDF|CHF|CLF|CPF|CXF|CYF|CZF)
+#else
 #define	BDCOPY	(AF|BF|FF|CBF|CEF)
 #define	BDLIST (AF|BF|IF|KF|LF|PF|RF|TF|UF|WF|XF|CBF|CDF|CHF|CLF|CPF|CXF|CYF|CZF)
+#endif /* __APPLE__*/
 
 #endif /* _OPTIONS_H_ */

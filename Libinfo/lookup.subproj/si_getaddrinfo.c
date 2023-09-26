@@ -201,6 +201,83 @@ gai_strerror(int32_t err)
 	return "Unknown error";
 }
 
+static bool (*nat64_v4_requires_synthesis)(const struct in_addr *ipv4_addr) = NULL;
+static int (*nat64_v4_synthesize)(uint32_t *index, const struct in_addr *ipv4, struct in6_addr **out_ipv6_addrs) = NULL;
+static void (*path_check)(const char *hostname, const char *port) = NULL;
+
+#if !TARGET_OS_SIMULATOR
+static void _gai_load_libnetwork_once(void)
+{
+	// If any of the function pointers are already loaded, we don't need to call dlopen
+	if (nat64_v4_requires_synthesis != NULL || nat64_v4_synthesize != NULL || path_check != NULL) {
+		return;
+	}
+
+	// Using dlopen will trigger libnetwork's init functions which should call
+	// si_set_nat64_v4_synthesize, si_set_nat64_v4_requires_synthesis, and
+	// si_set_path_check
+	static void *handle;
+	os_log_debug(gai_log(), "Opening libnetwork.dylib");
+	handle = dlopen("/usr/lib/libnetwork.dylib", RTLD_LAZY | RTLD_LOCAL);
+	if (handle == NULL) {
+		const char *error_description = dlerror();
+		os_log_error(gai_log(), "dlopen(\"...libnetwork.dylib\") failed: %{public}s",
+					 error_description ? error_description : "?");
+	} else {
+		if (nat64_v4_requires_synthesis == NULL) {
+			os_log_error(gai_log(), "libnetwork.dylib did not set nat64_v4_requires_synthesis");
+		}
+		if (nat64_v4_synthesize == NULL) {
+			os_log_error(gai_log(), "libnetwork.dylib did not set nat64_v4_synthesize");
+		}
+		if (path_check == NULL) {
+			os_log_error(gai_log(), "libnetwork.dylib did not set path_check");
+		}
+	}
+}
+
+static void _gai_load_libnetwork(void)
+{
+	static pthread_once_t	load_once = PTHREAD_ONCE_INIT;
+	pthread_once(&load_once, _gai_load_libnetwork_once);
+}
+#else
+static void _gai_load_libnetwork(void)
+{
+}
+#endif
+
+LIBINFO_EXPORT
+void si_set_nat64_v4_requires_synthesis(bool (*new_requires_synthesis)(const struct in_addr *ipv4_addr))
+{
+	if (new_requires_synthesis == NULL) {
+		os_log_fault(gai_log(), "new_requires_synthesis is NULL");
+		return;
+	}
+	nat64_v4_requires_synthesis = new_requires_synthesis;
+}
+
+LIBINFO_EXPORT
+void si_set_nat64_v4_synthesize(int (*new_synthesize)(uint32_t *index, const struct in_addr *ipv4,
+													  struct in6_addr **out_ipv6_addrs))
+{
+	if (new_synthesize == NULL) {
+		os_log_fault(gai_log(), "new_synthesize is NULL");
+		return;
+	}
+	nat64_v4_synthesize = new_synthesize;
+}
+
+LIBINFO_EXPORT
+void si_set_path_check(void (*new_path_check)(const char *hostname, const char *port))
+{
+	if (new_path_check == NULL) {
+		os_log_fault(gai_log(), "new_path_check is NULL");
+		return;
+	}
+	path_check = new_path_check;
+}
+
 /*
  * getnameinfo
  *
@@ -1069,47 +1146,6 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 
 #pragma mark -- NAT64 --
 
-static bool (*nat64_v4_requires_synthesis)(const struct in_addr *ipv4_addr) = NULL;
-static int (*nat64_v4_synthesize)(uint32_t *index, const struct in_addr *ipv4, struct in6_addr **out_ipv6_addrs) = NULL;
-
-#if !TARGET_OS_SIMULATOR
-static void _gai_load_libnetwork_once(void)
-{
-	// If the function pointers are already loaded, we don't need to call dlopen
-	if (nat64_v4_requires_synthesis != NULL && nat64_v4_synthesize != NULL) {
-		return;
-	}
-
-	// Using dlopen will trigger libnetwork's init functions which should call
-	// si_set_nat64_v4_synthesize and si_set_nat64_v4_requires_synthesis
-	static void *handle;
-	os_log_debug(gai_log(), "Opening libnetwork.dylib");
-	handle = dlopen("/usr/lib/libnetwork.dylib", RTLD_LAZY | RTLD_LOCAL);
-	if (handle == NULL) {
-		const char *error_description = dlerror();
-		os_log_error(gai_log(), "dlopen(\"...libnetwork.dylib\") failed: %{public}s",
-					 error_description ? error_description : "?");
-	} else {
-		if (nat64_v4_requires_synthesis == NULL) {
-			os_log_error(gai_log(), "libnetwork.dylib did not set nat64_v4_requires_synthesis");
-		}
-		if (nat64_v4_synthesize == NULL) {
-			os_log_error(gai_log(), "libnetwork.dylib did not set nat64_v4_synthesize");
-		}
-	}
-}
-
-static void _gai_load_libnetwork(void)
-{
-	static pthread_once_t	load_once = PTHREAD_ONCE_INIT;
-	pthread_once(&load_once, _gai_load_libnetwork_once);
-}
-#else
-static void _gai_load_libnetwork(void)
-{
-}
-#endif
-
 static bool _gai_nat64_v4_address_requires_synthesis(const struct in_addr *ipv4_addr)
 {
 	_gai_load_libnetwork();
@@ -1131,27 +1167,6 @@ static int _gai_nat64_v4_synthesize(uint32_t *index, const struct in_addr *ipv4,
 	os_log_debug(gai_log(), "nat64_v4_synthesize(%d, %{network:in_addr}d, ...) returned %d", index != NULL ? *index : 0,
 				 ipv4->s_addr, result);
 	return result;
-}
-
-LIBINFO_EXPORT
-void si_set_nat64_v4_requires_synthesis(bool (*new_requires_synthesis)(const struct in_addr *ipv4_addr))
-{
-	if (new_requires_synthesis == NULL) {
-		os_log_fault(gai_log(), "new_requires_synthesis is NULL");
-		return;
-	}
-	nat64_v4_requires_synthesis = new_requires_synthesis;
-}
-
-LIBINFO_EXPORT
-void si_set_nat64_v4_synthesize(int (*new_synthesize)(uint32_t *index, const struct in_addr *ipv4,
-													  struct in6_addr **out_ipv6_addrs))
-{
-	if (new_synthesize == NULL) {
-		os_log_fault(gai_log(), "new_synthesize is NULL");
-		return;
-	}
-	nat64_v4_synthesize = new_synthesize;
 }
 
 LIBINFO_EXPORT
@@ -1389,6 +1404,30 @@ _gai_nat64_second_pass(si_list_t *out, si_mod_t *si, const char *serv, uint32_t 
 
 #pragma mark -- /NAT64 --
 
+static bool
+_gai_should_perform_path_check(uint32_t flags, const char *node)
+{
+	if ((flags & AI_NUMERICHOST) ||
+		(flags & AI_PASSIVE)) {
+		return false;
+	}
+
+	if (node == NULL) {
+		return false;
+	}
+
+	// Ignore common names for the local device
+	if (strcmp(node, "localhost") == 0 ||
+		strcmp(node, "0.0.0.0") == 0 ||
+		strcmp(node, "127.0.0.1") == 0 ||
+		strcmp(node, "::") == 0 ||
+		strcmp(node, "::1") == 0) {
+		return false;
+	}
+
+	return true;
+}
+
 LIBINFO_EXPORT
 si_list_t *
 si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
@@ -1466,6 +1505,14 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	{
 		if (err != NULL) *err = SI_STATUS_EAI_BADHINTS;
 		return NULL;
+	}
+
+	/* check in with path evaluation to trigger any behavior needed for this hostname/port */
+	if (_gai_should_perform_path_check(flags, node)) {
+		_gai_load_libnetwork();
+		if (path_check != NULL) {
+			path_check(node, serv);
+		}
 	}
 
 	/* replace AI_V4MAPPED_CFG with AI_V4MAPPED */

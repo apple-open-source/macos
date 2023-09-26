@@ -1026,7 +1026,7 @@ bool IOHIDDevice::handleOpen(IOService * client, IOOptionBits options, void * ar
 {
     bool accept = true;
 
-    IOLog("open by %s 0x%llx (0x%x)\n", client->getName(), client->getRegistryEntryID(), (unsigned int)options);
+    IOLog("%s:0x%llx open by %s:0x%llx (0x%x)\n",  getName(), getRegistryEntryID(), client->getName(), client->getRegistryEntryID(), (unsigned int)options);
 
     // If seized, open returns failure but adds the client to _clientSet
     if (_seizedClient && client != _seizedClient) {
@@ -1064,7 +1064,7 @@ exit:
 
 void IOHIDDevice::handleClose(IOService * client, IOOptionBits options __unused)
 {
-    IOLog("close by %s 0x%llx (0x%x)\n", client->getName(), client->getRegistryEntryID(), (unsigned int)options);
+    IOLog("%s:0x%llx close by %s:0x%llx (0x%x)\n", getName(), getRegistryEntryID(), client->getName(), client->getRegistryEntryID(), (unsigned int)options);
     
     if (_clientSet->containsObject(client)) {
         _clientSet->removeObject(client);

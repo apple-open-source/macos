@@ -21,11 +21,20 @@
 
 #include <netinet/in.h>			/* for INET6?_ADDRSTRLEN */
 #if defined(HAVE_OPENSSL)
+# if defined(HAVE_WOLFSSL)
+#  include <wolfssl/options.h>
+# endif /* HAVE_WOLFSSL */
 # include <openssl/ssl.h>
 #endif /* HAVE_OPENSSL */
 
 #include "log_server.pb-c.h"
-#include "strlist.h"
+
+#ifndef INET_ADDRSTRLEN
+# define INET_ADDRSTRLEN 16
+#endif
+#ifndef INET6_ADDRSTRLEN
+# define INET6_ADDRSTRLEN 46
+#endif
 
 #if PROTOBUF_C_VERSION_NUMBER < 1003000
 # error protobuf-c version 1.30 or higher required
@@ -47,20 +56,6 @@ struct connection_buffer {
     unsigned int off;
 };
 TAILQ_HEAD(connection_buffer_list, connection_buffer);
-
-struct log_details {
-    struct eventlog *evlog;
-    struct sudoers_str_list *log_servers;
-    struct timespec server_timeout;
-#if defined(HAVE_OPENSSL)
-    char *ca_bundle;
-    char *cert_file;
-    char *key_file;
-#endif /* HAVE_OPENSSL */
-    bool keepalive;
-    bool verify_server;
-    bool ignore_log_errors;
-};
 
 enum client_state {
     ERROR,
@@ -94,6 +89,7 @@ struct client_closure {
     SSL *ssl;
     bool ssl_initialized;
 #endif /* HAVE_OPENSSL */
+    bool subcommands;
     enum client_state state;
     enum client_state initial_state; /* XXX - bad name */
     struct connection_buffer_list write_bufs;
@@ -110,9 +106,11 @@ struct client_closure {
 };
 
 /* iolog_client.c */
-struct client_closure *log_server_open(struct log_details *details, struct timespec *now, bool log_io, enum client_state initial_state, const char *reason, struct sudo_plugin_event * (*event_alloc)(void));
+struct client_closure *log_server_open(struct log_details *details, struct timespec *now, bool log_io, enum client_state initial_state, const char *reason);
 bool log_server_close(struct client_closure *closure, int exit_status, int error);
 bool fmt_client_message(struct client_closure *closure, ClientMessage *msg);
+bool fmt_accept_message(struct client_closure *closure, struct eventlog *evlog);
+bool fmt_reject_message(struct client_closure *closure, struct eventlog *evlog);
 bool fmt_exit_message(struct client_closure *closure, int exit_status, int error);
 bool fmt_io_buf(struct client_closure *closure, int type, const char *buf, unsigned int len, struct timespec *delay);
 bool fmt_suspend(struct client_closure *closure, const char *signame, struct timespec *delay);
@@ -120,5 +118,6 @@ bool fmt_winsize(struct client_closure *closure, unsigned int lines, unsigned in
 bool log_server_connect(struct client_closure *closure);
 void client_closure_free(struct client_closure *closure);
 bool read_server_hello(struct client_closure *closure);
+extern struct client_closure *client_closure;
 
 #endif /* SUDOERS_LOG_CLIENT_H */

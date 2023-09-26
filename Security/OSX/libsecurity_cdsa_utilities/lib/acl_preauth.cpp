@@ -127,7 +127,7 @@ AclSubject *SourceMaker::make(const TypedList &list) const
 	case 3:
 		if (list[2].type() == CSSM_LIST_ELEMENT_WORDID)
 			return new SourceAclSubject(subSubject, list[2]);
-		// fall through
+		[[fallthrough]];
 	default:
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
 	}

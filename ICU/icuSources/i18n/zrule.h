@@ -41,7 +41,6 @@ typedef struct IZRule IZRule;
 struct AZRule;
 typedef struct AZRule AZRule;
 
-
 /*********************************************************************
  * ZRule API
  *********************************************************************/

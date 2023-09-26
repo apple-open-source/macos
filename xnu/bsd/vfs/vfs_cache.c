@@ -1199,7 +1199,9 @@ vnode_update_identity(vnode_t vp, vnode_t dvp, const char *name, int name_len, u
 			vfs_removename(vname);
 		}
 
-		kauth_cred_set(&tcred, NOCRED);
+		if (IS_VALID_CRED(tcred)) {
+			kauth_cred_unref(&tcred);
+		}
 	}
 	if (dvp != NULLVP) {
 		/* Back-out the ref we took if we lost a race for vp->v_parent. */
@@ -1366,10 +1368,14 @@ vnode_setasfirmlink(vnode_t vp, vnode_t target_vp)
 
 	NAME_CACHE_UNLOCK();
 
-	kauth_cred_set(&target_vp_cred, NOCRED);
+	if (IS_VALID_CRED(target_vp_cred)) {
+		kauth_cred_unref(&target_vp_cred);
+	}
 
 	if (old_target_vp) {
-		kauth_cred_set(&old_target_vp_cred, NOCRED);
+		if (IS_VALID_CRED(old_target_vp_cred)) {
+			kauth_cred_unref(&old_target_vp_cred);
+		}
 
 		vnode_rele_ext(old_target_vp, O_EVTONLY, 1);
 		if (old_target_vp_v_fmlink) {
@@ -1503,7 +1509,9 @@ vnode_uncache_authorized_action(vnode_t vp, kauth_action_t action)
 	}
 	NAME_CACHE_UNLOCK();
 
-	kauth_cred_set(&tcred, NOCRED);
+	if (IS_VALID_CRED(tcred)) {
+		kauth_cred_unref(&tcred);
+	}
 }
 
 
@@ -1599,13 +1607,15 @@ vnode_cache_authorized_action(vnode_t vp, vfs_context_t ctx, kauth_action_t acti
 	}
 	NAME_CACHE_LOCK();
 
-	if (vnode_cred(vp) != ucred) {
+	tcred = vnode_cred(vp);
+	if (tcred == ucred) {
+		tcred = NOCRED;
+	} else {
 		/*
 		 * Use a temp variable to avoid kauth_cred_drop() while NAME_CACHE_LOCK is held
 		 */
-		tcred = vnode_cred(vp);
-		vp->v_cred = NOCRED;
-		kauth_cred_set(&vp->v_cred, ucred);
+		kauth_cred_ref(ucred);
+		vp->v_cred = ucred;
 		vp->v_authorized_actions = 0;
 	}
 	if (ttl_active == TRUE && vp->v_authorized_actions == 0) {
@@ -1623,7 +1633,9 @@ vnode_cache_authorized_action(vnode_t vp, vfs_context_t ctx, kauth_action_t acti
 
 	NAME_CACHE_UNLOCK();
 
-	kauth_cred_set(&tcred, NOCRED);
+	if (IS_VALID_CRED(tcred)) {
+		kauth_cred_unref(&tcred);
+	}
 }
 
 
@@ -3068,6 +3080,14 @@ resize_namecache(int newsize)
 	}
 
 	NAME_CACHE_LOCK();
+
+	/* No need to switch if the hash table size hasn't changed. */
+	if (new_size == nchash) {
+		NAME_CACHE_UNLOCK();
+		hashdestroy(new_table, M_CACHE, new_size - 1);
+		return 0;
+	}
+
 	// do the switch!
 	old_table = nchashtbl;
 	nchashtbl = new_table;
@@ -3209,7 +3229,9 @@ cache_purge(vnode_t vp)
 
 	NAME_CACHE_UNLOCK();
 
-	kauth_cred_set(&tcred, NOCRED);
+	if (IS_VALID_CRED(tcred)) {
+		kauth_cred_unref(&tcred);
+	}
 }
 
 /*

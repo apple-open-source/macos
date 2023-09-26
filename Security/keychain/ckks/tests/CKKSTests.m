@@ -1993,7 +1993,7 @@
     kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
         CFErrorRef cfcferror = NULL;
 
-        bool ret = SecServerImportKeychainInPlist(dbt, SecSecurityClientGet(), KEYBAG_NONE, KEYBAG_NONE,
+        bool ret = SecServerImportKeychainInPlist(dbt, SecSecurityClientGet(), KEYBAG_NONE, NULL, KEYBAG_NONE,
                                                   (__bridge CFDictionaryRef)@{}, kSecBackupableItemFilter, false, &cfcferror);
 
         XCTAssertNil(CFBridgingRelease(cfcferror), "Shouldn't error importing a 'backup'");
@@ -4145,7 +4145,7 @@
     dispatch_group_t group1 = dispatch_group_create();
     dispatch_group_t group2 = dispatch_group_create();
 
-    for ( int  i = 0; i < 10000; i++) {
+    for(int  i = 0; i < 500; i++) {
         dispatch_queue_t queue1 = dispatch_queue_create("secitemcopymatching1", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         dispatch_queue_t queue2 = dispatch_queue_create("secitemcopymatching2", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         

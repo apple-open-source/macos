@@ -21,3 +21,6 @@ INSTALL_PATH = /usr/libexec
 
 OTHER_LDFLAGS[sdk=macosx*][arch=*] = $(inherited) -framework HIDPreferences
 WARNING_CFLAGS = $(inherited)
+
+OTHER_CFLAGS_asan = $(OTHER_CFLAGS) -fsanitize=address
+OTHER_LDFLAGS_asan = $(OTHER_LDFLAGS) -fsanitize=address

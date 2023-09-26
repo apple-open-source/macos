@@ -98,11 +98,8 @@ static void insertionsort(u_char *, size_t, size_t,
  * Arguments are as for qsort.
  */
 int
-mergesort(base, nmemb, size, cmp)
-	void *base;
-	size_t nmemb;
-	size_t size;
-	int (*cmp)(const void *, const void *);
+mergesort(void *base, size_t nmemb, size_t size,
+    int (*cmp)(const void *, const void *))
 {
 	size_t i;
 	int sense;
@@ -262,10 +259,8 @@ COPY:	    			b = t;
  * is defined.  Otherwise simple pairwise merging is used.)
  */
 void
-setup(list1, list2, n, size, cmp)
-	size_t n, size;
-	int (*cmp)(const void *, const void *);
-	u_char *list1, *list2;
+setup(u_char *list1, u_char *list2, size_t n, size_t size,
+    int (*cmp)(const void *, const void *))
 {
 	size_t i, size2;
 	int length, tmp, sense;
@@ -337,10 +332,8 @@ setup(list1, list2, n, size, cmp)
  * last 4 elements.
  */
 static void
-insertionsort(a, n, size, cmp)
-	u_char *a;
-	size_t n, size;
-	int (*cmp)(const void *, const void *);
+insertionsort(u_char *a, size_t n, size_t size,
+    int (*cmp)(const void *, const void *))
 {
 	u_char *ai, *s, *t, *u, tmp;
 	int i;

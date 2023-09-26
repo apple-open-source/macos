@@ -99,6 +99,24 @@ static bool copyI420BufferToPixelBuffer(CVPixelBufferRef pixelBuffer, const uint
     auto* sourceV = buffer + layout.offsetV;
     int sourceStrideV = layout.strideV;
 
+    RTC_DCHECK(layout.strideY);
+    RTC_DCHECK(layout.strideU);
+    RTC_DCHECK(layout.strideV);
+    if (!layout.strideY || !layout.strideU || !layout.strideV)
+        return false;
+
+    auto* sourceEnd = buffer + length;
+    size_t sourceULength, sourceVLength, sourceYLength = 0;
+    if (__builtin_mul_overflow(sourceHeightUV, layout.strideU, &sourceULength)
+        || __builtin_mul_overflow(sourceHeightUV, layout.strideV, &sourceVLength)
+        || __builtin_mul_overflow(sourceHeightY, layout.strideY, &sourceYLength))
+        return false;
+
+    RTC_DCHECK(sourceEnd >= sourceY + sourceYLength);
+    RTC_DCHECK(sourceEnd >= sourceU + sourceULength);
+    RTC_DCHECK(sourceEnd >= sourceV + sourceVLength);
+    if ((sourceEnd < sourceY + sourceYLength) || (sourceEnd < sourceU + sourceULength) || (sourceEnd < sourceV + sourceVLength))
+        return false;
     return !libyuv::I420ToNV12(
         sourceY, sourceStrideY,
         sourceU, sourceStrideU,
@@ -128,6 +146,49 @@ CVPixelBufferRef pixelBufferFromI420Buffer(const uint8_t* buffer, size_t length,
     }
     return pixelBuffer;
 }
+
+CVPixelBufferRef pixelBufferFromI420ABuffer(const uint8_t* buffer, size_t length, size_t width, size_t height, I420ABufferLayout layout)
+{
+    CVPixelBufferRef pixelBuffer = nullptr;
+
+    auto status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_420YpCbCr8VideoRange_8A_TriPlanar, nullptr, &pixelBuffer);
+    if (status != noErr || !pixelBuffer)
+        return nullptr;
+
+    if (CVPixelBufferLockBaseAddress(pixelBuffer, 0) != kCVReturnSuccess)
+        return nullptr;
+
+    bool result = copyI420BufferToPixelBuffer(pixelBuffer, buffer, length, width, height, layout);
+
+    if (result) {
+        // Copy alpha information.
+        uint8_t* destinationA = reinterpret_cast<uint8_t*>(CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 2));
+        int destinationStrideA = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 2);
+
+        auto* sourceA = buffer + layout.offsetA;
+        int sourceStrideA = layout.strideA;
+
+        auto* bufferEnd = buffer + length;
+        for (size_t cptr = 0; cptr < height; ++cptr) {
+            if (sourceA + width > bufferEnd) {
+                result = false;
+                break;
+            }
+            std::memcpy(destinationA, sourceA, width);
+            sourceA += sourceStrideA;
+            destinationA += destinationStrideA;
+        }
+    }
+
+    CVPixelBufferUnlockBaseAddress(pixelBuffer, 0);
+
+    if (!result) {
+        CFRelease(pixelBuffer);
+        return nullptr;
+    }
+    return pixelBuffer;
+}
+
 
 static bool CopyVideoFrameToPixelBuffer(const webrtc::I420BufferInterface* frame, CVPixelBufferRef pixel_buffer) {
     RTC_DCHECK(pixel_buffer);

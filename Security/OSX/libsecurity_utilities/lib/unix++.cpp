@@ -349,7 +349,7 @@ void FileDesc::removeAttr(const char *name, int options /* = 0 */)
 		case ENOATTR:
 			if (!(options & XATTR_REPLACE))	// somewhat mis-using an API flag here...
 				return;		// attribute not found; we'll call that okay
-			// fall through
+			[[fallthrough]];
 		default:
 			UnixError::throwMe();
 		}

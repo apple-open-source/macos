@@ -136,6 +136,30 @@ int main(int argc, char *argv[]) {
 	assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	stop_timer();
 
+	// This makes a very long path that is (including NUL) PATH_MAX length,
+	// while each component is no longer than NAME_MAX.
+	// (This should be a valid path name, even if it's not present on disk.)
+	char longpathname[PATH_MAX + 2] = {0};
+	char *path_namemax_buf = longpathname;
+	for (int i = 0; i < (PATH_MAX / NAME_MAX); i++) {
+		memset(path_namemax_buf, '9', NAME_MAX);
+		path_namemax_buf += NAME_MAX;
+		*path_namemax_buf = '/';
+		path_namemax_buf++;
+	}
+	longpathname[PATH_MAX - 1] = '\0';
+
+	start_timer("removefile(PATH_MAX)");
+	assert(removefile(longpathname, NULL, REMOVEFILE_RECURSIVE) == -1 && errno == ENOENT);
+	stop_timer();
+
+	// Now, add one character and see that the pathname is invalid.
+	longpathname[PATH_MAX - 1] = '/';
+	longpathname[PATH_MAX] = 'a';
+	longpathname[PATH_MAX + 1] = '\0';
+	start_timer("removefile(PATH_MAX+1)");
+	assert(removefile(longpathname, NULL, REMOVEFILE_RECURSIVE) == -1 && errno == ENAMETOOLONG);
+	stop_timer();
 
 	mkdirs(false);
 	assert((state = removefile_state_alloc()) != NULL);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,9 @@ struct WiFiInfo {
 	CFStringRef		ssid;
 	CFStringRef		networkID;
 	WiFiAuthType		auth_type;
+	Boolean			private_bssid_set;
 	struct ether_addr	bssid;
+	struct ether_addr	private_bssid;
 };
 
 /**
@@ -314,6 +316,47 @@ copy_networkID(Apple80211Ref wref)
 	}
 	return (networkID);
 }
+#include <CommonCrypto/CommonHMAC.h>
+#include <sys/sysctl.h>
+
+STATIC void
+WiFiInfoComputePrivateBSSID(WiFiInfoRef info_p)
+{
+	struct {
+		struct timeval 	boottime;
+		char		hostname[256];
+	} key;
+	size_t		key_size;
+	uint8_t 	hash[CC_SHA256_DIGEST_LENGTH];
+	int 		mib[2] = { CTL_KERN, KERN_BOOTTIME };
+	size_t 		size;
+
+	if (info_p->private_bssid_set) {
+		return;
+	}
+	bzero(&key, sizeof(key));
+	size = sizeof(key.boottime);
+	if (sysctl(mib, 2, &key.boottime, &size, NULL, 0) == -1) {
+		my_log(LOG_NOTICE,
+		       "%s: sysctl(kern.boottime) failed, %s",
+		       __func__, strerror(errno));
+		goto done;
+	}
+	if (gethostname(key.hostname, sizeof(key.hostname)) != 0) {
+		my_log(LOG_NOTICE,
+		       "%s: gethostname() failed, %s",
+		       __func__, strerror(errno));
+		goto done;
+	}
+	key_size = sizeof(key.boottime) + strlen(key.hostname);
+	CCHmac(kCCHmacAlgSHA256, &key, key_size,
+	       &info_p->bssid, sizeof(info_p->bssid), hash);
+	bcopy(hash, &info_p->private_bssid,
+	      sizeof(info_p->private_bssid));
+ done:
+	info_p->private_bssid_set = TRUE;
+	return;
+}
 
 PRIVATE_EXTERN WiFiInfoRef
 WiFiInfoCopy(CFStringRef ifname)
@@ -365,6 +408,13 @@ PRIVATE_EXTERN const struct ether_addr *
 WiFiInfoGetBSSID(WiFiInfoRef w)
 {
 	return (&w->bssid);
+}
+
+PRIVATE_EXTERN const struct ether_addr *
+WiFiInfoGetPrivateBSSID(WiFiInfoRef w)
+{
+	WiFiInfoComputePrivateBSSID(w);
+	return (&w->private_bssid);
 }
 
 PRIVATE_EXTERN WiFiAuthType
@@ -606,10 +656,16 @@ main(int argc, char * argv[])
 		if (info_p != NULL) {
 			WiFiAuthType	auth_type;
 			char		bssid[LINK_ADDR_ETHER_STR_LEN];
+			char		private_bssid[LINK_ADDR_ETHER_STR_LEN];
 
 			link_addr_to_string(bssid, sizeof(bssid),
 					    (const uint8_t *)
 					    WiFiInfoGetBSSID(info_p),
+					    ETHER_ADDR_LEN);
+			link_addr_to_string(private_bssid,
+					    sizeof(private_bssid),
+					    (const uint8_t *)
+					    WiFiInfoGetPrivateBSSID(info_p),
 					    ETHER_ADDR_LEN);
 			auth_type = WiFiInfoGetAuthType(info_p);
 			SCPrint(TRUE, stdout,
@@ -619,6 +675,9 @@ main(int argc, char * argv[])
 				bssid,
 				WiFiAuthTypeGetString(auth_type),
 				WiFiInfoGetNetworkID(info_p));
+			SCPrint(TRUE, stdout,
+				CFSTR("Private BSSID %s\n"),
+				private_bssid);
 			SCPrint(TRUE, stdout,
 				CFSTR("%@: %@\n"), ifname, info_p);
 		}

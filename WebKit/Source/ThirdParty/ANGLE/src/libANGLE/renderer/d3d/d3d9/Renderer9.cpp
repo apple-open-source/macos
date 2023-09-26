@@ -523,7 +523,7 @@ egl::ConfigSet Renderer9::generateConfigs()
                     egl::Config config;
                     config.renderTargetFormat = colorBufferInternalFormat;
                     config.depthStencilFormat = depthStencilBufferInternalFormat;
-                    config.bufferSize         = colorBufferFormatInfo.pixelBytes * 8;
+                    config.bufferSize         = colorBufferFormatInfo.getEGLConfigBufferSize();
                     config.redSize            = colorBufferFormatInfo.redBits;
                     config.greenSize          = colorBufferFormatInfo.greenBits;
                     config.blueSize           = colorBufferFormatInfo.blueBits;
@@ -674,7 +674,7 @@ angle::Result Renderer9::finish(const gl::Context *context)
     while (result == S_FALSE)
     {
         // Keep polling, but allow other threads to do something useful first
-        ScheduleYield();
+        std::this_thread::yield();
 
         result = query->GetData(nullptr, 0, D3DGETDATA_FLUSH);
         attempt++;

@@ -50,6 +50,10 @@
 #include "Common.h"
 #include "scmatch_evaluation.h"
 #include "ds_ops.h"
+#include "Logging.h"
+
+PAM_DEFINE_LOG(SmartCard)
+#define PAM_LOG PAM_LOG_SmartCard()
 
 #if __has_feature(objc_arc)
 #   error "this file must be compiled without ARC"
@@ -57,6 +61,12 @@
 
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
 #define PAM_OPT_PKINIT	"pkinit"
+
+typedef NS_ENUM(NSInteger, enKeychainUnlock) {
+    enNoUnlock                         = 0,
+    enUnlockDirectly                   = 1,
+    enUnlockUsingAhp                   = 2
+};
 
 void cleanup_func(__unused pam_handle_t *pamh, void *data, __unused int error_status)
 {
@@ -68,7 +78,7 @@ CFStringRef copy_pin(pam_handle_t *pamh, const char *prompt, const char **outPin
 	const char *pass;
 	int ret = pam_get_authtok(pamh, PAM_AUTHTOK, &pass, prompt);
 	if (ret != PAM_SUCCESS) {
-		openpam_log(PAM_LOG_ERROR, "Unable to get PIN: %d", ret);
+		os_log_error(PAM_LOG, "Unable to get PIN: %d", ret);
 		return NULL;
 	}
 	if (outPin)
@@ -82,20 +92,26 @@ Boolean copy_smartcard_unlock_context(char *buffer, size_t buffsize, CFStringRef
 	CFDataRef serializedData = NULL;
 	Boolean retval = FALSE;
 
-	if (token_id == NULL || pin == NULL || pub_key_hash == NULL || pub_key_hash_wrap == NULL)
-		return retval;
+    if (token_id == NULL || pin == NULL || pub_key_hash == NULL || pub_key_hash_wrap == NULL) {
+        os_log_error(PAM_LOG, "SC context - wrong params");
+        return retval;
+    }
 
 	dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 4, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	if (dict == NULL)
-		return retval;
+    if (dict == NULL) {
+        os_log_error(PAM_LOG, "SC context - invalid dict");
+        return retval;
+    }
 
 	CFDictionarySetValue(dict, kSecAttrTokenID, token_id);
 	CFDictionarySetValue(dict, kSecAttrService, pin);
 	CFDictionarySetValue(dict, kSecAttrPublicKeyHash, pub_key_hash);
 	CFDictionarySetValue(dict, kSecAttrAccount, pub_key_hash_wrap);
 	serializedData = CFPropertyListCreateData(kCFAllocatorDefault, dict, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
-	if (serializedData == NULL)
-		goto cleanup;
+    if (serializedData == NULL) {
+        os_log_error(PAM_LOG, "SC context - invalid serialized data");
+        goto cleanup;
+    }
 
     @autoreleasepool {
         CFDataRef encodedData = (CFDataRef)[(NSData *)serializedData base64EncodedDataWithOptions:0];
@@ -103,9 +119,13 @@ Boolean copy_smartcard_unlock_context(char *buffer, size_t buffsize, CFStringRef
             CFStringRef stringFromData = CFStringCreateWithBytes (kCFAllocatorDefault, CFDataGetBytePtr(encodedData), CFDataGetLength(encodedData), kCFStringEncodingUTF8, TRUE);
             if (stringFromData) {
                 retval = CFStringGetCString(stringFromData, buffer, buffsize, kCFStringEncodingUTF8);
-                openpam_log(PAM_LOG_DEBUG, "Keychain unlock data %s", buffer);
+                os_log_debug(PAM_LOG, "Keychain unlock data size %zu", buffsize);
                 CFRelease(stringFromData);
+            } else {
+                os_log_error(PAM_LOG, "SC context - not valid string");
             }
+        } else {
+            os_log_error(PAM_LOG, "SC context - invalid encoded data");
         }
     }
 
@@ -155,6 +175,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     Boolean no_ignore = FALSE;
     CFDictionaryRef all_tokens_data = NULL;
     Boolean valid_user = FALSE;
+    CFStringRef authorization_right = NULL;
+    
+    os_log_debug(PAM_LOG, "pam_sm_authenticate");
     
     if (NULL != openpam_get_option(pamh, "no_ignore")) {
         no_ignore = TRUE;
@@ -162,36 +185,35 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     
     retval = pam_get_user(pamh, &user, "Username: ");
     if (retval != PAM_SUCCESS) {
-        openpam_log(PAM_LOG_ERROR, "%s - Unable to get the username: %s", PM_DISPLAY_NAME, pam_strerror(pamh, retval));
+        os_log_error(PAM_LOG, "%s - Unable to get the username: %s", PM_DISPLAY_NAME, pam_strerror(pamh, retval));
         return retval;
     }
     
     if (user == NULL || *user == '\0') {
-        openpam_log(PAM_LOG_ERROR, "%s - Username is invalid.", PM_DISPLAY_NAME);
+        os_log_error(PAM_LOG, "%s - Username is invalid.", PM_DISPLAY_NAME);
         return retval;
     }
     
     struct passwd *pwd = getpwnam(user);
     if (pwd == NULL) {
-        openpam_log(PAM_LOG_ERROR, "%s - Unable to get user details.", PM_DISPLAY_NAME);
+        os_log_error(PAM_LOG, "%s - Unable to get user details.", PM_DISPLAY_NAME);
         return retval;
     }
     
     retval = od_record_create_cstring(pamh, &od_record, (const char*)user);
     if (retval != PAM_SUCCESS) {
-        openpam_log(PAM_LOG_ERROR, "%s - Unable to get user record %d.", PM_DISPLAY_NAME, retval);
+        os_log_error(PAM_LOG, "%s - Unable to get user record %d.", PM_DISPLAY_NAME, retval);
         goto cleanup;
     }
     cf_user = CFStringCreateWithCString(kCFAllocatorDefault, user, kCFStringEncodingUTF8);
-    
     if (openpam_get_option(pamh, PAM_OPT_PKINIT)) {
         pam_get_data(pamh, "kerberos", (void *)&kerberos_principal);
         if (kerberos_principal) {
             CFRetain(kerberos_principal);
-            openpam_log(PAM_LOG_DEBUG, "%s - Kerberos Principal passed in variable", PM_DISPLAY_NAME);
+            os_log_debug(PAM_LOG, "%s - Kerberos Principal passed in variable", PM_DISPLAY_NAME);
         }
     } else {
-        openpam_log(PAM_LOG_DEBUG, "%s - Trying to get kerbPrincipal from OD", PM_DISPLAY_NAME);
+        os_log_debug(PAM_LOG, "%s - Trying to get kerbPrincipal from OD", PM_DISPLAY_NAME);
         CFArrayRef records = find_user_record_by_attr_value(kDSNAttrRecordName, user);
         if (records) {
             for (CFIndex i = 0; i < CFArrayGetCount(records); ++i) {
@@ -204,16 +226,22 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         }
     }
     if (kerberos_principal) {
-        openpam_log(PAM_LOG_DEBUG, "%s - Will ask for kerberos ticket", PM_DISPLAY_NAME);
+        os_log_debug(PAM_LOG, "%s - Will ask for kerberos ticket", PM_DISPLAY_NAME);
+    }
+
+    pam_get_data(pamh, "authorization_right", (void *)&authorization_right);
+    if (authorization_right) {
+        CFRetain(authorization_right);
+        os_log_debug(PAM_LOG, "%s - evaluating authorization right %@", PM_DISPLAY_NAME, authorization_right);
     }
     
     uid_t *tmpUid;
-    if (PAM_SUCCESS == pam_get_data(pamh, "agent_uid", (void *)&tmpUid))
+    if (PAM_SUCCESS == pam_get_data(pamh, "agent_uid", (void *)&tmpUid)) {
         agent_uid = *tmpUid;
-    else
+    } else {
         agent_uid = 0; // 0 means autodetect for TKFunctions
-    
-    openpam_log(PAM_LOG_DEBUG, "%s - using %d as agent id", PM_DISPLAY_NAME, agent_uid);
+    }
+    os_log_debug(PAM_LOG, "%s - using %d as agent uid", PM_DISPLAY_NAME, agent_uid);
     
     // get the token context
     pam_get_data(pamh, "token_ctk", (void *)&token_context); // we do not need to check status as token_id presence reveals success
@@ -233,7 +261,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     }
     
     if (!valid_user) {
-        openpam_log(PAM_LOG_ERROR, "%s - User %s is not paired with any smartcard.", PM_DISPLAY_NAME, user);
+        os_log_error(PAM_LOG, "%s - User %s is not paired with any smartcard.", PM_DISPLAY_NAME, user);
         retval = PAM_AUTH_ERR;
         goto cleanup;
     }
@@ -248,7 +276,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     }
     
     if (context == NULL) {
-        openpam_log(PAM_LOG_NOTICE, "%s - Cannot find context", PM_DISPLAY_NAME);
+        os_log_error(PAM_LOG, "%s - Cannot find context", PM_DISPLAY_NAME);
         goto cleanup;
     }
     
@@ -298,7 +326,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
             pub_key_hash_wrap = get_key_hash_wrap(context, CFSTR(kTkHintUnlockTokenHashes), CFSTR(kTkHintUnlockTokenIds), token_id);
             if (pub_key_hash_wrap) {
                 CFRetain(pub_key_hash_wrap);
-                openpam_log(PAM_LOG_DEBUG, "Wrap key found.");
+                os_log_debug(PAM_LOG, "Wrap key found.");
             }
         }
     }
@@ -311,7 +339,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         cf_pin = copy_pin(pamh, prompt, &pin); // gets pre-stored password for Authorization / asks user during interactive session
         if (cf_pin) {
             status = TKPerformLogin(agent_uid, token_id, pub_key_hash, cf_pin, kerberos_principal, &error);
-            openpam_log(PAM_LOG_DEBUG, "%s - Smartcard verification result %d", PM_DISPLAY_NAME, (int)status);
+            os_log_debug(PAM_LOG, "%s - Smartcard verification result %d", PM_DISPLAY_NAME, (int)status);
             if (status == errSecSuccess) {
                 CFReleaseSafe(error);
                 // after successfull auth, cache pubkeyhash in OD for FVUnlock mode
@@ -328,7 +356,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
                 break; // do not retry on other errors than PIN failed
             }
         } else {
-            openpam_log(PAM_LOG_ERROR, "%s - Unable to get %s PIN", PM_DISPLAY_NAME, interactive ? "interactive":"stored");
+            os_log_error(PAM_LOG, "%s - Unable to get %s PIN", PM_DISPLAY_NAME, interactive ? "interactive":"stored");
         }
     }
 
@@ -336,18 +364,40 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		// for authorization set token ID
 		CFRetain(token_id);
 		pam_set_data(pamh, "token_id", (void *)token_id, cleanup_func);
-
-		// check if we are running in the user session as this means we are called inside screensaver unlock
-		if (geteuid() != 0) {
-			// unlock user keychain
-			char pin_context_buff[PATH_MAX];
-			if (copy_smartcard_unlock_context(pin_context_buff, PATH_MAX, token_id, cf_pin, pub_key_hash, pub_key_hash_wrap)) {
-				status = SecKeychainLogin((UInt32)strlen(user), user, (UInt32)strlen(pin_context_buff), pin_context_buff);
-				openpam_log(PAM_LOG_DEBUG, "%s - Keychain unlock result %d", PM_DISPLAY_NAME, (int)status);
-			} else {
-				openpam_log(PAM_LOG_DEBUG, "%s - Unable to get data for keychain unlock", PM_DISPLAY_NAME);
-			}
-		}
+        NSString *auth_right = (NSString *)authorization_right;
+        NSString *exeName = NSBundle.mainBundle.executablePath;
+        enKeychainUnlock keychainUnlockWay = enNoUnlock;
+        if ([exeName isEqualToString:@"/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"]) {
+            // loginwindow uses this module just to unlock the screen when switched to PAM mode
+            keychainUnlockWay = enUnlockDirectly;
+        } else if ([auth_right isEqualToString:@"system.login.screensaver"]) {
+            // auth_right is set only by authorizationhost so its implied that we are invoked from authorizationhost
+            keychainUnlockWay = enUnlockUsingAhp;
+        }
+        if (keychainUnlockWay != enNoUnlock) {
+            char pin_context_buff[PATH_MAX];
+            if (copy_smartcard_unlock_context(pin_context_buff, PATH_MAX, token_id, cf_pin, pub_key_hash, pub_key_hash_wrap)) {
+                // check if we are running in the user session as this means we are called inside screensaver unlock
+                os_log_debug(PAM_LOG, "%s - Going to unlock keychain", PM_DISPLAY_NAME);
+                if (keychainUnlockWay == enUnlockDirectly) {
+                    // unlock user keychain
+                    status = SecKeychainLogin((UInt32)strlen(user), user, (UInt32)strlen(pin_context_buff), pin_context_buff);
+                    os_log_debug(PAM_LOG, "%s - Keychain unlock result %d", PM_DISPLAY_NAME, (int)status);
+                } else if (keychainUnlockWay == enUnlockUsingAhp){
+                    NSString *pinData = [NSString stringWithUTF8String:pin_context_buff];
+                    if (pinData) {
+                        status = TKUnlockKeybag(pwd->pw_uid, (__bridge CFStringRef)pinData);
+                        os_log_debug(PAM_LOG, "%s - TKUnlockKeybag unlock result %d", PM_DISPLAY_NAME, (int)status);
+                    } else {
+                        os_log_error(PAM_LOG, "%s - Unable to construct pindata for keychain unlock", PM_DISPLAY_NAME);
+                    }
+                }
+            } else {
+                os_log_error(PAM_LOG, "%s - Unable to get data for keychain unlock", PM_DISPLAY_NAME);
+            }
+        } else {
+            os_log_debug(PAM_LOG, "%s - keychain unlock not needed", PM_DISPLAY_NAME);
+        }
 	}
 
 cleanup:
@@ -359,6 +409,7 @@ cleanup:
     CFReleaseSafe(cf_pin);
     CFReleaseSafe(kerberos_principal);
     CFReleaseSafe(all_tokens_data);
+    CFReleaseSafe(authorization_right);
 	return retval;
 }
 

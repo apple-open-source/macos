@@ -65,6 +65,9 @@ FILE_RCSID("")
 #define CPU_SUBTYPE_APPLEGPU_G13D	((cpu_subtype_t) 594)
 #define CPU_SUBTYPE_APPLEGPU_G14P	((cpu_subtype_t) 370)
 #define CPU_SUBTYPE_APPLEGPU_G14G	((cpu_subtype_t) 402)
+#define CPU_SUBTYPE_APPLEGPU_G14S	((cpu_subtype_t) 434)
+#define CPU_SUBTYPE_APPLEGPU_G14D	((cpu_subtype_t) 498)
+#define CPU_SUBTYPE_APPLEGPU_G15P	((cpu_subtype_t) 610)
 
 /* Known values for AMD cpu_subtype_t */
 #define CPU_SUBTYPE_AMD_GFX600		((cpu_subtype_t) 4000)
@@ -105,6 +108,7 @@ FILE_RCSID("")
 #define CPU_SUBTYPE_AIR_V23	((cpu_subtype_t) 7)
 #define CPU_SUBTYPE_AIR_V24	((cpu_subtype_t) 8)
 #define CPU_SUBTYPE_AIR_V25	((cpu_subtype_t) 9)
+#define CPU_SUBTYPE_AIR_V26	((cpu_subtype_t) 10)
 
 /* Magic number for fat GPU files */
 #define FAT_GPU_MAGIC 0xcbfebabe
@@ -150,6 +154,12 @@ static const NXArchInfo GPUArchInfoTable[] =
 	 "APPLEGPU_G14P"},
 	{"applegpu_g14g",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14G,	NX_LittleEndian,
 	 "APPLEGPU_G14G"},
+	{"applegpu_g14s",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14S,	NX_LittleEndian,
+	 "APPLEGPU_G14S"},
+	{"applegpu_g14d",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G14D,	NX_LittleEndian,
+	 "APPLEGPU_G14D"},
+	{"applegpu_g15p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15P,	NX_LittleEndian,
+	 "APPLEGPU_G15P"},
 	/* AMD GPUs */
 	{"amdgpu_gfx600",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX600,	NX_LittleEndian,
 	 "AMDGPU_GFX600"},
@@ -221,6 +231,8 @@ static const NXArchInfo GPUArchInfoTable[] =
 	 "AIR64_V24"},
 	{"air64_v25",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V25,	NX_LittleEndian,
 	 "AIR64_V25"},
+	{"air64_v26",	CPU_TYPE_AIR64,	CPU_SUBTYPE_AIR_V26,	NX_LittleEndian,
+	 "AIR64_V26"},
 	{NULL,	0,	0,	0,
 	 NULL}
 };

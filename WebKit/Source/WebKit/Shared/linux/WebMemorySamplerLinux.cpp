@@ -32,7 +32,7 @@
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/MemoryStatistics.h>
 #include <WebCore/CommonVM.h>
-#include <WebCore/JSDOMWindow.h>
+#include <WebCore/JSLocalDOMWindow.h>
 #include <WebCore/NotImplemented.h>
 #include <string.h>
 #include <sys/sysinfo.h>
@@ -58,9 +58,9 @@ static inline String nextToken(FILE* file)
     unsigned int index = 0;
     while (index < maxBuffer) {
         int ch = fgetc(file);
-        if (ch == EOF || (isASCIISpace(ch) && index)) // Break on non-initial ASCII space.
+        if (ch == EOF || (isUnicodeCompatibleASCIIWhitespace(ch) && index)) // Break on non-initial ASCII space.
             break;
-        if (!isASCIISpace(ch)) {
+        if (!isUnicodeCompatibleASCIIWhitespace(ch)) {
             buffer[index] = ch;
             index++;
         }

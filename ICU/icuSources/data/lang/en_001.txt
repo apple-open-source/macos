@@ -7,9 +7,7 @@ en_001{
         colNormalization{"Normalised Sorting"}
     }
     Languages{
-        mus{"Creek"}
         nds_NL{"West Low German"}
-        sah{"Yakut"}
     }
     Types{
         colNormalization{

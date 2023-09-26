@@ -1,7 +1,6 @@
-/*	$OpenBSD: pax.c,v 1.28 2005/08/04 10:02:44 mpf Exp $	*/
-/*	$NetBSD: pax.c,v 1.5 1996/03/26 23:54:20 mrg Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,36 +33,33 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__used static const char copyright[] =
+static char const copyright[] =
 "@(#) Copyright (c) 1992, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
-static const char sccsid[] = "@(#)pax.c	8.2 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] = "$OpenBSD: pax.c,v 1.28 2005/08/04 10:02:44 mpf Exp $";
-#endif
+static char sccsid[] = "@(#)pax.c	8.2 (Berkeley) 4/18/94";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include <stdio.h>
 #include <sys/types.h>
-#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <err.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <locale.h>
+#include <paths.h>
 #include <signal.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <err.h>
-#include <fcntl.h>
-#include <paths.h>
-#include <locale.h>
 #include "pax.h"
 #include "extern.h"
 static int gen_init(void);
@@ -76,7 +72,7 @@ static int gen_init(void);
  * Variables that can be accessed by any routine within pax
  */
 int	act = DEFOP;		/* read/write/append/copy */
-const FSUB	*frmt = NULL;		/* archive format type */
+FSUB	*frmt = NULL;		/* archive format type */
 int	cflag;			/* match all EXCEPT pattern/file */
 int	cwdfd;			/* starting cwd */
 int	dflag;			/* directory member match only  */
@@ -90,10 +86,13 @@ int	vflag;			/* produce verbose output */
 int	Dflag;			/* same as uflag except inode change time */
 int	Hflag;			/* follow command line symlinks (write only) */
 int	Lflag;			/* follow symlinks when writing */
+int	Oflag;			/* limit to single volume */
 int	Xflag;			/* archive files with same device id only */
-int	Yflag;			/* same as Dflag except after name mode */
-int	Zflag;			/* same as uflag except after name mode */
+int	Yflag;			/* same as Dflg except after name mode */
+int	Zflag;			/* same as uflg except after name mode */
+#ifdef __APPLE__
 int	zeroflag;		/* use \0 as pathname terminator */
+#endif /* __APPLE__ */
 int	vfpart;			/* is partial verbose output in progress */
 int	patime = 1;		/* preserve file access time */
 int	pmtime = 1;		/* preserve file modification times */
@@ -101,12 +100,13 @@ int	nodirs;			/* do not create directories as needed */
 int	pmode;			/* preserve file mode bits */
 int	pids;			/* preserve file uid/gid */
 int	rmleadslash = 0;	/* remove leading '/' from pathnames */
+#ifdef __APPLE__
 int	secure = 1; 		/* don't extract names that contain .. */
+#endif /* __APPLE__ */
 int	exit_val;		/* exit value */
 int	docrc;			/* check/create file crc */
 char	*dirptr;		/* destination dir in a copy */
-char	*ltmfrmt;		/* -v locale time format (if any) */
-char	*argv0;			/* root of argv[0] */
+const	char *argv0;		/* root of argv[0] */
 sigset_t s_mask;		/* signal mask for cleanup critical sect */
 FILE	*listf;			/* file pointer to print file list to */
 char	*tempfile;		/* tempfile to use for mkstemp(3) */
@@ -142,7 +142,7 @@ char	*tempbase;		/* basename of tempfile to use for mkstemp(3) */
  *	of times to correct, or try to correct forever.
  * 1.4	Sparse files (lseek holes) stored on the archive (but stored with blocks
  *	of all zeros will be restored with holes appropriate for the target
- *	filesystem
+ *	file system
  * 1.5	The user is notified whenever something is found during archive
  *	read operations which violates spec (but the read will continue).
  * 1.6	Multiple archive volumes can be read and may span over different
@@ -196,7 +196,7 @@ char	*tempbase;		/* basename of tempfile to use for mkstemp(3) */
  * 3	COPY ENHANCEMENTS
  * 3.1	Sparse files (lseek holes) can be copied without expanding the holes
  *	into zero filled blocks. The file copy is created with holes which are
- *	appropriate for the target filesystem
+ *	appropriate for the target file system
  * 3.2	Access time as well as modification time on copied file trees can be
  *	preserved with the appropriate -p options.
  * 3.3	Access time reset with the -t applies to all file nodes (including
@@ -233,27 +233,30 @@ char	*tempbase;		/* basename of tempfile to use for mkstemp(3) */
  */
 
 int
-main(int argc, char **argv)
+main(int argc, char *argv[])
 {
-	char *tmpdir;
+	const char *tmpdir;
 	size_t tdlen;
-#ifdef _HAVE_REGCOMP_
-	setlocale(LC_CTYPE, "");
-	setlocale(LC_COLLATE, "");
-#endif
 
+	(void) setlocale(LC_ALL, "");
 	listf = stderr;
 	/*
 	 * Keep a reference to cwd, so we can always come back home.
 	 */
-	cwdfd = open(".", O_RDONLY);
+	cwdfd = open(".", O_RDONLY | O_CLOEXEC);
 	if (cwdfd < 0) {
+#ifdef __APPLE__
 		syswarn(1, errno, "Can't open current working directory.");
+#else
+		syswarn(0, errno, "Can't open current working directory.");
+#endif /* __APPLE__ */
 		return(exit_val);
 	}
 
+#ifdef __APPLE__
 	if (updatepath() == -1)
 		return exit_val;
+#endif /* __APPLE__ */
 	/*
 	 * Where should we put temporary files?
 	 */
@@ -291,7 +294,11 @@ main(int argc, char **argv)
 		break;
 	case APPND:
 		if (gzip_program != NULL)
+#ifdef __APPLE__
 			errx(1, "can not gzip while appending");
+#else
+			err(1, "can not gzip while appending");
+#endif /* __APPLE__ */
 		append();
 		break;
 	case COPY:
@@ -321,8 +328,6 @@ main(int argc, char **argv)
 void
 sig_cleanup(int which_sig)
 {
-	/* XXX signal races */
-
 	/*
 	 * restore modes and times for any dirs we may have created
 	 * or any dirs we may have read. Set vflag and vfpart so the user
@@ -342,6 +347,25 @@ sig_cleanup(int which_sig)
 }
 
 /*
+ * setup_sig()
+ *	set a signal to be caught, but only if it isn't being ignored already
+ */
+
+static int
+setup_sig(int sig, const struct sigaction *n_hand)
+{
+	struct sigaction o_hand;
+
+	if (sigaction(sig, NULL, &o_hand) < 0)
+		return (-1);
+
+	if (o_hand.sa_handler == SIG_IGN)
+		return (0);
+
+	return (sigaction(sig, n_hand, NULL));
+}
+
+/*
  * gen_init()
  *	general setup routines. Not all are required, but they really help
  *	when dealing with a medium to large sized archives.
@@ -352,7 +376,6 @@ gen_init(void)
 {
 	struct rlimit reslimit;
 	struct sigaction n_hand;
-	struct sigaction o_hand;
 
 	/*
 	 * Really needed to handle large archives. We can run out of memory for
@@ -389,13 +412,6 @@ gen_init(void)
 	}
 
 	/*
-	 * Handle posix locale
-	 *
-	 * set user defines time printing format for -v option
-	 */
-	ltmfrmt = getenv("LC_TIME");
-
-	/*
 	 * signal handling to reset stored directory times and modes. Since
 	 * we deal with broken pipes via failed writes we ignore it. We also
 	 * deal with any file size limit through failed writes. Cpu time
@@ -416,34 +432,16 @@ gen_init(void)
 	n_hand.sa_flags = 0;
 	n_hand.sa_handler = sig_cleanup;
 
-	if ((sigaction(SIGHUP, &n_hand, &o_hand) < 0) &&
-	    (o_hand.sa_handler == SIG_IGN) &&
-	    (sigaction(SIGHUP, &o_hand, &o_hand) < 0))
-		goto out;
-
-	if ((sigaction(SIGTERM, &n_hand, &o_hand) < 0) &&
-	    (o_hand.sa_handler == SIG_IGN) &&
-	    (sigaction(SIGTERM, &o_hand, &o_hand) < 0))
-		goto out;
-
-	if ((sigaction(SIGINT, &n_hand, &o_hand) < 0) &&
-	    (o_hand.sa_handler == SIG_IGN) &&
-	    (sigaction(SIGINT, &o_hand, &o_hand) < 0))
-		goto out;
-
-	if ((sigaction(SIGQUIT, &n_hand, &o_hand) < 0) &&
-	    (o_hand.sa_handler == SIG_IGN) &&
-	    (sigaction(SIGQUIT, &o_hand, &o_hand) < 0))
-		goto out;
-
-	if ((sigaction(SIGXCPU, &n_hand, &o_hand) < 0) &&
-	    (o_hand.sa_handler == SIG_IGN) &&
-	    (sigaction(SIGXCPU, &o_hand, &o_hand) < 0))
+	if (setup_sig(SIGHUP,  &n_hand) ||
+	   setup_sig(SIGTERM, &n_hand) ||
+	   setup_sig(SIGINT,  &n_hand) ||
+	   setup_sig(SIGQUIT, &n_hand) ||
+	   setup_sig(SIGXCPU, &n_hand))
 		goto out;
 
 	n_hand.sa_handler = SIG_IGN;
-	if ((sigaction(SIGPIPE, &n_hand, &o_hand) < 0) ||
-	    (sigaction(SIGXFSZ, &n_hand, &o_hand) < 0))
+	if ((sigaction(SIGPIPE, &n_hand, NULL) < 0) ||
+	    (sigaction(SIGXFSZ, &n_hand, NULL) < 0))
 		goto out;
 	return(0);
 

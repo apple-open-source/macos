@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2019, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,8 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFNumber.h>
 #include <Security/Security.h>
+#include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include "symbol_scope.h"
 #include "EAPLog.h"
 #include "EAPSecurity.h"
@@ -186,6 +188,263 @@ EAPSecKeychainPasswordItemSet(__unused SecKeychainRef keychain,
  done:
     my_CFRelease(&existing_password);
     return (status);
+}
+
+#pragma mark - keychain utility functions for credentials management on embedded platforms
+
+/*
+ * The Identity Reference is used as a unique primary key to lookup the identity in the Keychain.
+ *
+ * Identity Reference => '<SHA-256 of Client Certificate>+<SHA-256 of Client Public Key>'
+ *
+ * The Keychain entry looks like this -
+ * <unique string derviced from the Item ID> => <Identity Reference>
+ */
+
+STATIC const CFStringRef kEAPSystemKeychainAccessGroup = CFSTR("com.apple.identities");
+
+STATIC OSStatus
+EAPKeychainRemoveIdentityReference(CFStringRef unique_string)
+{
+    OSStatus 		status = errSecSuccess;
+    CFDictionaryRef 	query = NULL;
+
+    const void * keys[] = {
+	kSecUseSystemKeychain,
+	kSecAttrApplicationTag,
+	kSecAttrAccessGroup,
+	kSecClass
+    };
+    const void * values[] = {
+	kCFBooleanTrue,
+	unique_string,
+	kEAPSystemKeychainAccessGroup,
+	kSecClassKey
+    };
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    status = SecItemDelete(query);
+    my_CFRelease(&query);
+    return status;
+}
+
+PRIVATE_EXTERN OSStatus
+EAPKeychainSetIdentityReference(CFStringRef unique_string, CFDataRef reference, Boolean update)
+{
+    OSStatus 			status = errSecSuccess;
+    CFDictionaryRef 		query = NULL;
+
+    if (unique_string == NULL) {
+	return errSecParam;
+    }
+    if (reference == NULL) {
+	return EAPKeychainRemoveIdentityReference(unique_string);
+    }
+    const void * keys[] = {
+	kSecUseSystemKeychain,
+	kSecAttrAccessGroup,
+	kSecAttrApplicationTag,
+	kSecValueData,
+	kSecAttrAccessible,
+	kSecClass
+    };
+    const void * values[] = {
+	kCFBooleanTrue,
+	kEAPSystemKeychainAccessGroup,
+	unique_string,
+	reference,
+	kSecAttrAccessibleAfterFirstUnlock,
+	kSecClassKey
+    };
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    if (update) {
+	status = EAPKeychainRemoveIdentityReference(unique_string);
+    }
+    if (status == errSecSuccess) {
+	status = SecItemAdd(query, NULL);
+    }
+    my_CFRelease(&query);
+    return status;
+}
+
+PRIVATE_EXTERN OSStatus
+EAPKeychainCopyIdentityReference(CFStringRef unique_string, CFDataRef *reference_p)
+{
+    OSStatus 			status = errSecSuccess;
+    CFDictionaryRef 		query = NULL;
+
+    if (unique_string == NULL) {
+	return errSecParam;
+    }
+    *reference_p = NULL;
+    const void * keys[] = {
+	kSecUseSystemKeychain,
+	kSecAttrAccessGroup,
+	kSecAttrApplicationTag,
+	kSecReturnData,
+	kSecClass
+    };
+    const void * values[] = {
+	kCFBooleanTrue,
+	kEAPSystemKeychainAccessGroup,
+	unique_string,
+	kCFBooleanTrue,
+	kSecClassKey
+    };
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    status = SecItemCopyMatching(query, (CFTypeRef *)reference_p);
+    my_CFRelease(&query);
+    return status;
+}
+
+STATIC OSStatus
+EAPKeychainRemovePassword(CFStringRef unique_string)
+{
+    OSStatus 		status = errSecSuccess;
+    CFDictionaryRef 	query = NULL;
+
+    const void * keys[] = {
+	kSecUseSystemKeychain,
+	kSecAttrService,
+	kSecClass
+    };
+    const void * values[] = {
+	kCFBooleanTrue,
+	unique_string,
+	kSecClassGenericPassword
+    };
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    status = SecItemDelete(query);
+    my_CFRelease(&query);
+    return status;
+}
+
+PRIVATE_EXTERN OSStatus
+EAPKeychainRemovePasswordItem(CFStringRef unique_string)
+{
+    if (unique_string == NULL) {
+	return errSecParam;
+    }
+    return EAPKeychainRemovePassword(unique_string);
+}
+
+STATIC OSStatus
+EAPKeychainSetAccountCredentials(CFStringRef unique_string, CFDataRef account, CFDataRef password)
+{
+    OSStatus 		status = errSecSuccess;
+    CFDictionaryRef 	query = NULL;
+
+    const void * keys[] = {
+	kSecUseSystemKeychain,
+	kSecAttrAccount,
+	kSecAttrService,
+	kSecClass,
+	kSecValueData,
+	kSecAttrAccessible
+    };
+    const void * values[] = {
+	kCFBooleanTrue,
+	account,
+	unique_string,
+	kSecClassGenericPassword,
+	password,
+	kSecAttrAccessibleAfterFirstUnlock
+    };
+
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    status = SecItemAdd(query, NULL);
+    my_CFRelease(&query);
+    return status;
+}
+
+PRIVATE_EXTERN OSStatus
+EAPKeychainSetPasswordItem(CFStringRef unique_string, CFDataRef account, CFDataRef password, Boolean update)
+{
+    if (unique_string == NULL) {
+	return errSecParam;
+    }
+    if (update) {
+	/* first remove existing credentials, if any */
+	EAPKeychainRemovePasswordItem(unique_string);
+    }
+    return EAPKeychainSetAccountCredentials(unique_string, account, password);
+}
+
+STATIC OSStatus
+EAPKeychainCopyAccountCredentials(CFStringRef unique_string, CFDataRef *account_p, CFDataRef *password_p)
+{
+    OSStatus 			status = errSecSuccess;
+    CFDictionaryRef 		query = NULL;
+    CFDictionaryRef 		attrs = NULL;
+
+    if (unique_string == NULL) {
+	return errSecParam;
+    }
+    const void * keys[] = {
+	kSecUseSystemKeychain,
+	kSecClass,
+	kSecAttrService,
+	kSecReturnData,
+	kSecReturnAttributes
+    };
+    const void * values[] = {
+	kCFBooleanTrue,
+	kSecClassGenericPassword,
+	unique_string,
+	kCFBooleanTrue,
+	kCFBooleanTrue
+    };
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    status = SecItemCopyMatching(query, (CFTypeRef *)&attrs);
+    if (isA_CFDictionary(attrs) != NULL) {
+	if (CFDictionaryContainsKey(attrs, kSecAttrAccount)) {
+	    *account_p = CFRetain(CFDictionaryGetValue(attrs, kSecAttrAccount));
+	}
+	if (CFDictionaryContainsKey(attrs, kSecValueData)) {
+	    *password_p = CFRetain(CFDictionaryGetValue(attrs, kSecValueData));
+	}
+    }
+    my_CFRelease(&attrs);
+    my_CFRelease(&query);
+    return status;
+}
+
+PRIVATE_EXTERN OSStatus
+EAPKeychainCopyPasswordItem(CFStringRef unique_string, CFDataRef *username_p, CFDataRef *password_p)
+{
+    OSStatus 	status = errSecSuccess;
+    CFDataRef 	account = NULL;
+    CFDataRef 	password = NULL;
+
+    status = EAPKeychainCopyAccountCredentials(unique_string, &account, &password);
+    if (username_p != NULL) {
+	*username_p = account;
+    } else {
+	my_CFRelease(&account);
+    }
+    if (password_p != NULL) {
+	*password_p = password;
+    } else {
+	my_CFRelease(&password);
+    }
+    return status;
 }
 
 #else /* TARGET_OS_IPHONE */

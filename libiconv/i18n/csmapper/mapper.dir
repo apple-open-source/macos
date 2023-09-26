@@ -1,0 +1,740 @@
+# APPLE
+ARABIC/UCS                      mapper_std                      APPLE/ARABIC%UCS.mps
+UCS/ARABIC                      mapper_std                      APPLE/UCS%ARABIC.mps
+CELTIC/UCS                      mapper_std                      APPLE/CELTIC%UCS.mps
+UCS/CELTIC                      mapper_std                      APPLE/UCS%CELTIC.mps
+CENTEURO/UCS                    mapper_std                      APPLE/CENTEURO%UCS.mps
+UCS/CENTEURO                    mapper_std                      APPLE/UCS%CENTEURO.mps
+CROATIAN/UCS                    mapper_std                      APPLE/CROATIAN%UCS.mps
+UCS/CROATIAN                    mapper_std                      APPLE/UCS%CROATIAN.mps
+CYRILLIC/UCS                    mapper_std                      APPLE/CYRILLIC%UCS.mps
+UCS/CYRILLIC                    mapper_std                      APPLE/UCS%CYRILLIC.mps
+DEVANAGA/UCS                    mapper_std                      APPLE/DEVANAGA%UCS.mps
+UCS/DEVANAGA                    mapper_std                      APPLE/UCS%DEVANAGA.mps
+DINGBATS/UCS                    mapper_std                      APPLE/DINGBATS%UCS.mps
+UCS/DINGBATS                    mapper_std                      APPLE/UCS%DINGBATS.mps
+FARSI/UCS                       mapper_std                      APPLE/FARSI%UCS.mps
+UCS/FARSI                       mapper_std                      APPLE/UCS%FARSI.mps
+GAELIC/UCS                      mapper_std                      APPLE/GAELIC%UCS.mps
+UCS/GAELIC                      mapper_std                      APPLE/UCS%GAELIC.mps
+GREEK/UCS                       mapper_std                      APPLE/GREEK%UCS.mps
+UCS/GREEK                       mapper_std                      APPLE/UCS%GREEK.mps
+GUJARATI/UCS                    mapper_std                      APPLE/GUJARATI%UCS.mps
+UCS/GUJARATI                    mapper_std                      APPLE/UCS%GUJARATI.mps
+GURMUKHI/UCS                    mapper_std                      APPLE/GURMUKHI%UCS.mps
+UCS/GURMUKHI                    mapper_std                      APPLE/UCS%GURMUKHI.mps
+HEBREW/UCS                      mapper_std                      APPLE/HEBREW%UCS.mps
+UCS/HEBREW                      mapper_std                      APPLE/UCS%HEBREW.mps
+ICELAND/UCS                     mapper_std                      APPLE/ICELAND%UCS.mps
+UCS/ICELAND                     mapper_std                      APPLE/UCS%ICELAND.mps
+INUIT/UCS                       mapper_std                      APPLE/INUIT%UCS.mps
+UCS/INUIT                       mapper_std                      APPLE/UCS%INUIT.mps
+KEYBOARD/UCS                    mapper_std                      APPLE/KEYBOARD%UCS.mps
+UCS/KEYBOARD                    mapper_std                      APPLE/UCS%KEYBOARD.mps
+ROMAN/UCS                       mapper_std                      APPLE/ROMAN%UCS.mps
+UCS/ROMAN                       mapper_std                      APPLE/UCS%ROMAN.mps
+ROMANIAN/UCS                    mapper_std                      APPLE/ROMANIAN%UCS.mps
+UCS/ROMANIAN                    mapper_std                      APPLE/UCS%ROMANIAN.mps
+SYMBOL/UCS                      mapper_std                      APPLE/SYMBOL%UCS.mps
+UCS/SYMBOL                      mapper_std                      APPLE/UCS%SYMBOL.mps
+THAI/UCS                        mapper_std                      APPLE/THAI%UCS.mps
+UCS/THAI                        mapper_std                      APPLE/UCS%THAI.mps
+TURKISH/UCS                     mapper_std                      APPLE/TURKISH%UCS.mps
+UCS/TURKISH                     mapper_std                      APPLE/UCS%TURKISH.mps
+
+# AST
+ARMSCII-7/UCS                   mapper_std                      AST/ARMSCII-7%UCS.mps
+UCS/ARMSCII-7                   mapper_std                      AST/UCS%ARMSCII-7.mps
+ARMSCII-8/UCS                   mapper_std                      AST/ARMSCII-8%UCS.mps
+UCS/ARMSCII-8                   mapper_std                      AST/UCS%ARMSCII-8.mps
+ARMSCII-8A/UCS                  mapper_std                      AST/ARMSCII-8A%UCS.mps
+UCS/ARMSCII-8A                  mapper_std                      AST/UCS%ARMSCII-8A.mps
+
+# BIG5
+# $FreeBSD$
+# $NetBSD: mapper.dir.BIG5.src,v 1.2 2007/03/05 16:57:12 tnozaki Exp $
+
+Big5:1984/UCS		mapper_std	BIG5/Big5@1984%UCS.mps
+Big5EXT:2003/UCS	mapper_std	BIG5/Big5EXT@2003%UCS.mps
+Big5EXT:E/UCS		mapper_std	BIG5/Big5EXT@E%UCS.mps
+Big5EXT:IBM/UCS		mapper_std	BIG5/Big5EXT@IBM%UCS.mps
+Big5EXT:Plus/UCS	mapper_std	BIG5/Big5EXT@Plus%UCS.mps
+Big5UDA/UCS		mapper_std	BIG5/Big5UDA%UCS.mps
+ETen/UCS:BMP		mapper_std	BIG5/ETen%UCS@BMP.mps
+ETen/UCS:SIP		mapper_std	BIG5/ETen%UCS@SIP.mps
+ETen/UCS		mapper_parallel	ETen/UCS:BMP,ETen/UCS:SIP
+HKSCS:1999/UCS		mapper_std	BIG5/HKSCS@1999%UCS.mps
+HKSCS:2001/UCS:BMP	mapper_std	BIG5/HKSCS@2001%UCS@BMP.mps
+HKSCS:2001/UCS:SIP	mapper_std	BIG5/HKSCS@2001%UCS@SIP.mps
+HKSCS:2001/UCS		mapper_parallel	HKSCS:2001/UCS:BMP,HKSCS:2001/UCS:SIP
+HKSCS/UCS:BMP		mapper_std	BIG5/HKSCS%UCS@BMP.mps
+HKSCS/UCS:SIP		mapper_std	BIG5/HKSCS%UCS@SIP.mps
+HKSCS/UCS		mapper_parallel	HKSCS/UCS:BMP,HKSCS/UCS:SIP
+UCS/Big5:1984		mapper_std	BIG5/UCS%Big5@1984.mps
+UCS/Big5EXT:2003	mapper_std	BIG5/UCS%Big5EXT@2003.mps
+UCS/Big5EXT:E		mapper_std	BIG5/UCS%Big5EXT@E.mps
+UCS/Big5EXT:IBM		mapper_std	BIG5/UCS%Big5EXT@IBM.mps
+UCS/Big5EXT:Plus	mapper_std	BIG5/UCS%Big5EXT@Plus.mps
+UCS/Big5UDA		mapper_std	BIG5/UCS%Big5UDA.mps
+UCS:BMP/ETen		mapper_std	BIG5/UCS@BMP%ETen.mps
+UCS:SIP/ETen		mapper_std	BIG5/UCS@SIP%ETen.mps
+UCS/ETen		mapper_parallel	UCS:BMP/ETen,UCS:SIP/ETen
+UCS:BMP/HKSCS:1999	mapper_std	BIG5/UCS@BMP%HKSCS@1999.mps
+UCS:SIP/HKSCS:1999	mapper_std	BIG5/UCS@SIP%HKSCS@1999.mps
+UCS:BMP/HKSCS:2001	mapper_std	BIG5/UCS@BMP%HKSCS@2001.mps
+UCS:SIP/HKSCS:2001	mapper_std	BIG5/UCS@SIP%HKSCS@2001.mps
+UCS:BMP/HKSCS		mapper_std	BIG5/UCS@BMP%HKSCS.mps
+UCS:SIP/HKSCS		mapper_std	BIG5/UCS@SIP%HKSCS.mps
+UCS/HKSCS:1999		mapper_parallel	UCS:BMP/HKSCS:1999,UCS:SIP/HKSCS:2001
+UCS/HKSCS:2001		mapper_parallel	UCS:BMP/HKSCS:2001,UCS:SIP/HKSCS:2001
+UCS/HKSCS		mapper_parallel	UCS:BMP/HKSCS,UCS:SIP/HKSCS
+Big5-2003/UCS		mapper_parallel	ETen/UCS,Big5EXT:2003/UCS,Big5UDA/UCS,Big5:1984/UCS
+Big5-E/UCS		mapper_parallel	ETen/UCS,Big5EXT:E/UCS,Big5:1984/UCS
+Big5-ETen/UCS		mapper_parallel	ETen/UCS,Big5UDA/UCS,Big5:1984/UCS
+Big5-HKSCS:1999/UCS	mapper_parallel	Big5EXT:2003/UCS,HKSCS:1999/UCS,ETen/UCS,Big5UDA/UCS,Big5:1984/UCS
+Big5-HKSCS:2001/UCS	mapper_parallel	Big5EXT:2003/UCS,HKSCS:2001/UCS,ETen/UCS,Big5UDA/UCS,Big5:1984/UCS
+Big5-HKSCS/UCS		mapper_parallel	Big5EXT:2003/UCS,HKSCS/UCS,ETen/UCS,Big5UDA/UCS,Big5:1984/UCS
+Big5-IBM/UCS		mapper_parallel	Big5EXT:IBM/UCS,Big5:1984/UCS
+Big5-Plus/UCS		mapper_parallel	Big5EXT:Plus/UCS,Big5:1984/UCS
+UCS/Big5-2003		mapper_parallel	UCS/Big5:1984,UCS/ETen,UCS/Big5EXT:2003,UCS/Big5UDA
+UCS/Big5-E		mapper_parallel	UCS/Big5:1984,UCS/ETen,UCS/Big5EXT:E
+UCS/Big5-ETen		mapper_parallel	UCS/Big5:1984,UCS/ETen,UCS/Big5UDA
+UCS/Big5-HKSCS:1999	mapper_parallel UCS/HKSCS:1999,UCS/ETen,UCS/Big5EXT:2003,UCS/Big5UDA,Big5:1984/UCS
+UCS/Big5-HKSCS:2001	mapper_parallel UCS/HKSCS:2001,UCS/ETen,UCS/Big5EXT:2003,UCS/Big5UDA,Big5:1984/UCS
+UCS/Big5-HKSCS		mapper_parallel UCS/HKSCS,UCS/ETen,UCS/Big5EXT:2003,UCS/Big5UDA,Big5:1984/UCS
+UCS/Big5-IBM		mapper_parallel	UCS/Big5:1984,UCS/Big5EXT:IBM
+UCS/Big5-Plus		mapper_parallel	UCS/Big5:1984,UCS/Big5EXT:Plus
+
+# CNS
+# $FreeBSD$
+# $NetBSD: mapper.dir.CNS.src,v 1.3 2007/03/05 16:57:15 tnozaki Exp $
+
+CNS11643-1/UCS		mapper_std	CNS/CNS11643-1%UCS.mps
+CNS11643-2/UCS		mapper_std	CNS/CNS11643-2%UCS.mps
+CNS11643-3/UCS:BMP	mapper_std	CNS/CNS11643-3%UCS@BMP.mps
+CNS11643-4/UCS:BMP	mapper_std	CNS/CNS11643-4%UCS@BMP.mps
+CNS11643-5/UCS:BMP	mapper_std	CNS/CNS11643-5%UCS@BMP.mps
+CNS11643-6/UCS:BMP	mapper_std	CNS/CNS11643-6%UCS@BMP.mps
+CNS11643-7/UCS:BMP	mapper_std	CNS/CNS11643-7%UCS@BMP.mps
+CNS11643-3/UCS:SIP	mapper_std	CNS/CNS11643-3%UCS@SIP.mps
+CNS11643-4/UCS:SIP	mapper_std	CNS/CNS11643-4%UCS@SIP.mps
+CNS11643-5/UCS:SIP	mapper_std	CNS/CNS11643-5%UCS@SIP.mps
+CNS11643-6/UCS:SIP	mapper_std	CNS/CNS11643-6%UCS@SIP.mps
+CNS11643-7/UCS:SIP	mapper_std	CNS/CNS11643-7%UCS@SIP.mps
+CNS11643-3/UCS		mapper_parallel	CNS11643-3/UCS:BMP,CNS11643-3/UCS:SIP
+CNS11643-4/UCS		mapper_parallel	CNS11643-4/UCS:BMP,CNS11643-4/UCS:SIP
+CNS11643-5/UCS		mapper_parallel	CNS11643-5/UCS:BMP,CNS11643-5/UCS:SIP
+CNS11643-6/UCS		mapper_parallel	CNS11643-6/UCS:BMP,CNS11643-6/UCS:SIP
+CNS11643-7/UCS		mapper_parallel	CNS11643-7/UCS:BMP,CNS11643-7/UCS:SIP
+UCS/CNS11643-1		mapper_std	CNS/UCS%CNS11643-1.mps
+UCS/CNS11643-2		mapper_std	CNS/UCS%CNS11643-2.mps
+UCS:BMP/CNS11643-3	mapper_std	CNS/UCS@BMP%CNS11643-3.mps
+UCS:BMP/CNS11643-4	mapper_std	CNS/UCS@BMP%CNS11643-4.mps
+UCS:BMP/CNS11643-5	mapper_std	CNS/UCS@BMP%CNS11643-5.mps
+UCS:BMP/CNS11643-6	mapper_std	CNS/UCS@BMP%CNS11643-6.mps
+UCS:BMP/CNS11643-7	mapper_std	CNS/UCS@BMP%CNS11643-7.mps
+UCS:SIP/CNS11643-3	mapper_std	CNS/UCS@SIP%CNS11643-3.mps
+UCS:SIP/CNS11643-4	mapper_std	CNS/UCS@SIP%CNS11643-4.mps
+UCS:SIP/CNS11643-5	mapper_std	CNS/UCS@SIP%CNS11643-5.mps
+UCS:SIP/CNS11643-6	mapper_std	CNS/UCS@SIP%CNS11643-6.mps
+UCS:SIP/CNS11643-7	mapper_std	CNS/UCS@SIP%CNS11643-7.mps
+UCS/CNS11643-3		mapper_parallel	UCS:BMP/CNS11643-3,UCS:SIP/CNS11643-3
+UCS/CNS11643-4		mapper_parallel	UCS:BMP/CNS11643-4,UCS:SIP/CNS11643-4
+UCS/CNS11643-5		mapper_parallel	UCS:BMP/CNS11643-5,UCS:SIP/CNS11643-5
+UCS/CNS11643-6		mapper_parallel	UCS:BMP/CNS11643-6,UCS:SIP/CNS11643-6
+UCS/CNS11643-7		mapper_parallel	UCS:BMP/CNS11643-7,UCS:SIP/CNS11643-7
+
+# CP
+CP037/UCS                       mapper_std      CP/CP037%UCS.mps
+UCS/CP037                       mapper_std      CP/UCS%CP037.mps
+CP038/UCS                       mapper_std      CP/CP038%UCS.mps
+UCS/CP038                       mapper_std      CP/UCS%CP038.mps
+CP273/UCS                       mapper_std      CP/CP273%UCS.mps
+UCS/CP273                       mapper_std      CP/UCS%CP273.mps
+CP274/UCS                       mapper_std      CP/CP274%UCS.mps
+UCS/CP274                       mapper_std      CP/UCS%CP274.mps
+CP275/UCS                       mapper_std      CP/CP275%UCS.mps
+UCS/CP275                       mapper_std      CP/UCS%CP275.mps
+CP277/UCS                       mapper_std      CP/CP277%UCS.mps
+UCS/CP277                       mapper_std      CP/UCS%CP277.mps
+CP278/UCS                       mapper_std      CP/CP278%UCS.mps
+UCS/CP278                       mapper_std      CP/UCS%CP278.mps
+CP280/UCS                       mapper_std      CP/CP280%UCS.mps
+UCS/CP280                       mapper_std      CP/UCS%CP280.mps
+CP281/UCS                       mapper_std      CP/CP281%UCS.mps
+UCS/CP281                       mapper_std      CP/UCS%CP281.mps
+CP284/UCS                       mapper_std      CP/CP284%UCS.mps
+UCS/CP284                       mapper_std      CP/UCS%CP284.mps
+CP285/UCS                       mapper_std      CP/CP285%UCS.mps
+UCS/CP285                       mapper_std      CP/UCS%CP285.mps
+CP290/UCS                       mapper_std      CP/CP290%UCS.mps
+UCS/CP290                       mapper_std      CP/UCS%CP290.mps
+CP297/UCS                       mapper_std      CP/CP297%UCS.mps
+UCS/CP297                       mapper_std      CP/UCS%CP297.mps
+CP420/UCS                       mapper_std      CP/CP420%UCS.mps
+UCS/CP420                       mapper_std      CP/UCS%CP420.mps
+CP423/UCS                       mapper_std      CP/CP423%UCS.mps
+UCS/CP423                       mapper_std      CP/UCS%CP423.mps
+CP424/UCS                       mapper_std      CP/CP424%UCS.mps
+UCS/CP424                       mapper_std      CP/UCS%CP424.mps
+CP437/UCS                       mapper_std      CP/CP437%UCS.mps
+UCS/CP437                       mapper_std      CP/UCS%CP437.mps
+CP500/UCS                       mapper_std      CP/CP500%UCS.mps
+UCS/CP500                       mapper_std      CP/UCS%CP500.mps
+CP737/UCS                       mapper_std      CP/CP737%UCS.mps
+UCS/CP737                       mapper_std      CP/UCS%CP737.mps
+CP775/UCS                       mapper_std      CP/CP775%UCS.mps
+UCS/CP775                       mapper_std      CP/UCS%CP775.mps
+CP850/UCS                       mapper_std      CP/CP850%UCS.mps
+UCS/CP850                       mapper_std      CP/UCS%CP850.mps
+CP851/UCS                       mapper_std      CP/CP851%UCS.mps
+UCS/CP851                       mapper_std      CP/UCS%CP851.mps
+CP852/UCS                       mapper_std      CP/CP852%UCS.mps
+UCS/CP852                       mapper_std      CP/UCS%CP852.mps
+CP853/UCS                       mapper_std      CP/CP853%UCS.mps
+UCS/CP853                       mapper_std      CP/UCS%CP853.mps
+CP855/UCS                       mapper_std      CP/CP855%UCS.mps
+UCS/CP855                       mapper_std      CP/UCS%CP855.mps
+CP856/UCS                       mapper_std      CP/CP856%UCS.mps
+UCS/CP856                       mapper_std      CP/UCS%CP856.mps
+CP857/UCS                       mapper_std      CP/CP857%UCS.mps
+UCS/CP857                       mapper_std      CP/UCS%CP857.mps
+CP858/UCS                       mapper_std      CP/CP858%UCS.mps
+UCS/CP858                       mapper_std      CP/UCS%CP858.mps
+CP860/UCS                       mapper_std      CP/CP860%UCS.mps
+UCS/CP860                       mapper_std      CP/UCS%CP860.mps
+CP861/UCS                       mapper_std      CP/CP861%UCS.mps
+UCS/CP861                       mapper_std      CP/UCS%CP861.mps
+CP862/UCS                       mapper_std      CP/CP862%UCS.mps
+UCS/CP862                       mapper_std      CP/UCS%CP862.mps
+CP863/UCS                       mapper_std      CP/CP863%UCS.mps
+UCS/CP863                       mapper_std      CP/UCS%CP863.mps
+CP864/UCS                       mapper_std      CP/CP864%UCS.mps
+UCS/CP864                       mapper_std      CP/UCS%CP864.mps
+CP865/UCS                       mapper_std      CP/CP865%UCS.mps
+UCS/CP865                       mapper_std      CP/UCS%CP865.mps
+CP866/UCS                       mapper_std      CP/CP866%UCS.mps
+UCS/CP866                       mapper_std      CP/UCS%CP866.mps
+CP868/UCS                       mapper_std      CP/CP868%UCS.mps
+UCS/CP868                       mapper_std      CP/UCS%CP868.mps
+CP869/UCS                       mapper_std      CP/CP869%UCS.mps
+UCS/CP869                       mapper_std      CP/UCS%CP869.mps
+CP870/UCS                       mapper_std      CP/CP870%UCS.mps
+UCS/CP870                       mapper_std      CP/UCS%CP870.mps
+CP871/UCS                       mapper_std      CP/CP871%UCS.mps
+UCS/CP871                       mapper_std      CP/UCS%CP871.mps
+CP874/UCS                       mapper_std      CP/CP874%UCS.mps
+UCS/CP874                       mapper_std      CP/UCS%CP874.mps
+CP875/UCS                       mapper_std      CP/CP875%UCS.mps
+UCS/CP875                       mapper_std      CP/UCS%CP875.mps
+CP880/UCS                       mapper_std      CP/CP880%UCS.mps
+UCS/CP880                       mapper_std      CP/UCS%CP880.mps
+CP891/UCS                       mapper_std      CP/CP891%UCS.mps
+UCS/CP891                       mapper_std      CP/UCS%CP891.mps
+CP903/UCS                       mapper_std      CP/CP903%UCS.mps
+UCS/CP903                       mapper_std      CP/UCS%CP903.mps
+CP904/UCS                       mapper_std      CP/CP904%UCS.mps
+UCS/CP904                       mapper_std      CP/UCS%CP904.mps
+CP905/UCS                       mapper_std      CP/CP905%UCS.mps
+UCS/CP905                       mapper_std      CP/UCS%CP905.mps
+CP918/UCS                       mapper_std      CP/CP918%UCS.mps
+UCS/CP918                       mapper_std      CP/UCS%CP918.mps
+CP922/UCS                       mapper_std      CP/CP922%UCS.mps
+UCS/CP922                       mapper_std      CP/UCS%CP922.mps
+CP932UDA/UCS                    mapper_std      CP/CP932UDA%UCS.mps
+UCS/CP932UDA                    mapper_std      CP/UCS%CP932UDA.mps
+CP932VDC:IBM/UCS                mapper_std      CP/CP932VDC@IBM%UCS.mps
+UCS/CP932VDC:IBM                mapper_std      CP/UCS%CP932VDC@IBM.mps
+CP932VDC:NEC_IBM/UCS            mapper_std      CP/CP932VDC@NEC_IBM%UCS.mps
+UCS/CP932VDC:NEC_IBM            mapper_std      CP/UCS%CP932VDC@NEC_IBM.mps
+CP936EXT/UCS                    mapper_std      CP/CP936EXT%UCS.mps
+UCS/CP936EXT                    mapper_std      CP/UCS%CP936EXT.mps
+CP942EXT/UCS                    mapper_std      CP/CP942EXT%UCS.mps
+UCS/CP942EXT                    mapper_std      CP/UCS%CP942EXT.mps
+CP949EXT/UCS                    mapper_std      CP/CP949EXT%UCS.mps
+UCS/CP949EXT                    mapper_std      CP/UCS%CP949EXT.mps
+CP950/UCS                       mapper_std      CP/CP950%UCS.mps
+UCS/CP950                       mapper_std      CP/UCS%CP950.mps
+CP1006/UCS                      mapper_std      CP/CP1006%UCS.mps
+UCS/CP1006                      mapper_std      CP/UCS%CP1006.mps
+CP1026/UCS                      mapper_std      CP/CP1026%UCS.mps
+UCS/CP1026                      mapper_std      CP/UCS%CP1026.mps
+CP1046/UCS                      mapper_std      CP/CP1046%UCS.mps
+UCS/CP1046                      mapper_std      CP/UCS%CP1046.mps
+CP1124/UCS                      mapper_std      CP/CP1124%UCS.mps
+UCS/CP1124                      mapper_std      CP/UCS%CP1124.mps
+CP1125/UCS                      mapper_std      CP/CP1125%UCS.mps
+UCS/CP1125                      mapper_std      CP/UCS%CP1125.mps
+CP1129/UCS                      mapper_std      CP/CP1129%UCS.mps
+UCS/CP1129                      mapper_std      CP/UCS%CP1129.mps
+CP1131/UCS                      mapper_std      CP/CP1131%UCS.mps
+UCS/CP1131                      mapper_std      CP/UCS%CP1131.mps
+CP1133/UCS                      mapper_std      CP/CP1133%UCS.mps
+UCS/CP1133                      mapper_std      CP/UCS%CP1133.mps
+CP1161/UCS                      mapper_std      CP/CP1161%UCS.mps
+UCS/CP1161                      mapper_std      CP/UCS%CP1161.mps
+CP1162/UCS                      mapper_std      CP/CP1162%UCS.mps
+UCS/CP1162                      mapper_std      CP/UCS%CP1162.mps
+CP1163/UCS                      mapper_std      CP/CP1163%UCS.mps
+UCS/CP1163                      mapper_std      CP/UCS%CP1163.mps
+CP1250/UCS                      mapper_std      CP/CP1250%UCS.mps
+UCS/CP1250                      mapper_std      CP/UCS%CP1250.mps
+CP1251/UCS                      mapper_std      CP/CP1251%UCS.mps
+UCS/CP1251                      mapper_std      CP/UCS%CP1251.mps
+CP1252/UCS                      mapper_std      CP/CP1252%UCS.mps
+UCS/CP1252                      mapper_std      CP/UCS%CP1252.mps
+CP1253/UCS                      mapper_std      CP/CP1253%UCS.mps
+UCS/CP1253                      mapper_std      CP/UCS%CP1253.mps
+CP1254/UCS                      mapper_std      CP/CP1254%UCS.mps
+UCS/CP1254                      mapper_std      CP/UCS%CP1254.mps
+CP1255/UCS                      mapper_std      CP/CP1255%UCS.mps
+UCS/CP1255                      mapper_std      CP/UCS%CP1255.mps
+CP1256/UCS                      mapper_std      CP/CP1256%UCS.mps
+UCS/CP1256                      mapper_std      CP/UCS%CP1256.mps
+CP1257/UCS                      mapper_std      CP/CP1257%UCS.mps
+UCS/CP1257                      mapper_std      CP/UCS%CP1257.mps
+CP1258/UCS                      mapper_std      CP/CP1258%UCS.mps
+UCS/CP1258                      mapper_std      CP/UCS%CP1258.mps
+CP10000/UCS                     mapper_std      CP/CP10000%UCS.mps
+UCS/CP10000                     mapper_std      CP/UCS%CP10000.mps
+CP10006/UCS                     mapper_std      CP/CP10006%UCS.mps
+UCS/CP10006                     mapper_std      CP/UCS%CP10006.mps
+CP10007/UCS                     mapper_std      CP/CP10007%UCS.mps
+UCS/CP10007                     mapper_std      CP/UCS%CP10007.mps
+CP10029/UCS                     mapper_std      CP/CP10029%UCS.mps
+UCS/CP10029                     mapper_std      CP/UCS%CP10029.mps
+CP10079/UCS                     mapper_std      CP/CP10079%UCS.mps
+UCS/CP10079                     mapper_std      CP/UCS%CP10079.mps
+CP10081/UCS                     mapper_std      CP/CP10081%UCS.mps
+UCS/CP10081                     mapper_std      CP/UCS%CP10081.mps
+# $FreeBSD$
+# $NetBSD: mapper.dir.CP.src,v 1.13 2008/09/13 13:08:36 tnozaki Exp $
+
+CP50220/CP51932		mapper_zone	0x2121 - 0x7C7E
+CP50220/CP932KANJI	mapper_zone	0x2121 - 0x927E
+CP50220/UCS		mapper_parallel	JISX0208VDC:NEC/UCS,CP932VDC:NEC_IBM/UCS,CP932UDA/UCS,JISX0208:MS/UCS
+CP51932/CP50220		mapper_zone	0x2121 - 0x7C7E
+CP51932/CP932KANJI	mapper_zone	0x2121 - 0x7C7E
+CP51932/UCS		mapper_parallel	JISX0208VDC:NEC/UCS,CP932VDC:NEC_IBM/UCS,JISX0208:MS/UCS
+CP932KANJI/CP51932	mapper_zone	0x2121 - 0x7C7E
+CP932KANJI/CP50220	mapper_zone	0x2121 - 0x927E
+CP932KANJI/UCS		mapper_parallel	JISX0208VDC:NEC/UCS,CP932VDC:NEC_IBM/UCS,CP932VDC:IBM/UCS,CP932UDA/UCS,JISX0208:MS/UCS
+CP942/UCS		mapper_parallel	CP932UDA/UCS,CP942EXT/UCS
+CP943/UCS		mapper_parallel	JISX0208VDC:NEC/UCS,CP932VDC:NEC_IBM/UCS,CP932VDC:IBM/UCS,CP932UDA/UCS,JISX0208:1990/UCS
+UCS/CP50220		mapper_parallel	UCS/JISX0208:MS,UCS/JISX0208VDC:NEC,UCS/CP932VDC:NEC_IBM,UCS/CP932UDA
+UCS/CP51932		mapper_parallel	UCS/JISX0208:MS,UCS/JISX0208VDC:NEC,UCS/CP932VDC:NEC_IBM
+UCS/CP932KANJI		mapper_parallel	UCS/JISX0208:MS,UCS/JISX0208VDC:NEC,UCS/CP932VDC:IBM,UCS/CP932VDC:NEC_IBM,UCS/CP932UDA
+UCS/CP942		mapper_parallel	UCS/CP942EXT,UCS/CP932UDA
+UCS/CP943		mapper_parallel	UCS/JISX0208:1990,UCS/JISX0208VDC:NEC,UCS/CP932VDC:IBM,UCS/CP932VDC:NEC_IBM,UCS/CP932UDA
+
+# EBCDIC
+EBCDIC-AT-DE/UCS                mapper_std                      EBCDIC/EBCDIC-AT-DE%UCS.mps
+UCS/EBCDIC-AT-DE                mapper_std                      EBCDIC/UCS%EBCDIC-AT-DE.mps
+EBCDIC-AT-DE-A/UCS              mapper_std                      EBCDIC/EBCDIC-AT-DE-A%UCS.mps
+UCS/EBCDIC-AT-DE-A              mapper_std                      EBCDIC/UCS%EBCDIC-AT-DE-A.mps
+EBCDIC-CA-FR/UCS                mapper_std                      EBCDIC/EBCDIC-CA-FR%UCS.mps
+UCS/EBCDIC-CA-FR                mapper_std                      EBCDIC/UCS%EBCDIC-CA-FR.mps
+EBCDIC-DK-NO/UCS                mapper_std                      EBCDIC/EBCDIC-DK-NO%UCS.mps
+UCS/EBCDIC-DK-NO                mapper_std                      EBCDIC/UCS%EBCDIC-DK-NO.mps
+EBCDIC-DK-NO-A/UCS              mapper_std                      EBCDIC/EBCDIC-DK-NO-A%UCS.mps
+UCS/EBCDIC-DK-NO-A              mapper_std                      EBCDIC/UCS%EBCDIC-DK-NO-A.mps
+EBCDIC-ES/UCS                   mapper_std                      EBCDIC/EBCDIC-ES%UCS.mps
+UCS/EBCDIC-ES                   mapper_std                      EBCDIC/UCS%EBCDIC-ES.mps
+EBCDIC-ES-A/UCS                 mapper_std                      EBCDIC/EBCDIC-ES-A%UCS.mps
+UCS/EBCDIC-ES-A                 mapper_std                      EBCDIC/UCS%EBCDIC-ES-A.mps
+EBCDIC-ES-S/UCS                 mapper_std                      EBCDIC/EBCDIC-ES-S%UCS.mps
+UCS/EBCDIC-ES-S                 mapper_std                      EBCDIC/UCS%EBCDIC-ES-S.mps
+EBCDIC-FI-SE/UCS                mapper_std                      EBCDIC/EBCDIC-FI-SE%UCS.mps
+UCS/EBCDIC-FI-SE                mapper_std                      EBCDIC/UCS%EBCDIC-FI-SE.mps
+EBCDIC-FI-SE-A/UCS              mapper_std                      EBCDIC/EBCDIC-FI-SE-A%UCS.mps
+UCS/EBCDIC-FI-SE-A              mapper_std                      EBCDIC/UCS%EBCDIC-FI-SE-A.mps
+EBCDIC-FR/UCS                   mapper_std                      EBCDIC/EBCDIC-FR%UCS.mps
+UCS/EBCDIC-FR                   mapper_std                      EBCDIC/UCS%EBCDIC-FR.mps
+EBCDIC-IT/UCS                   mapper_std                      EBCDIC/EBCDIC-IT%UCS.mps
+UCS/EBCDIC-IT                   mapper_std                      EBCDIC/UCS%EBCDIC-IT.mps
+EBCDIC-PT/UCS                   mapper_std                      EBCDIC/EBCDIC-PT%UCS.mps
+UCS/EBCDIC-PT                   mapper_std                      EBCDIC/UCS%EBCDIC-PT.mps
+EBCDIC-UK/UCS                   mapper_std                      EBCDIC/EBCDIC-UK%UCS.mps
+UCS/EBCDIC-UK                   mapper_std                      EBCDIC/UCS%EBCDIC-UK.mps
+
+# GB
+# $FreeBSD$
+# $NetBSD: mapper.dir.GB.src,v 1.6 2006/11/23 03:25:24 tnozaki Exp $
+
+GB12345/UCS		mapper_std	GB/GB12345%UCS.mps
+GB2312/UCS		mapper_std	GB/GB2312%UCS.mps
+GB2312GBK/UCS		mapper_std	GB/GB2312GBK%UCS.mps
+GB2312EXT/UCS		mapper_std	GB/GB2312EXT%UCS.mps
+GB2312UDA1/UCS		mapper_std	GB/GB2312UDA1%UCS.mps
+GB2312UDA2/UCS		mapper_std	GB/GB2312UDA2%UCS.mps
+GBKEXT/UCS		mapper_std	GB/GBKEXT%UCS.mps
+GBKUDA/UCS		mapper_std	GB/GBKUDA%UCS.mps
+GB18030/UCS:BMP		mapper_std	GB/GB18030%UCS@BMP.mps
+ISO-IR-165EXT/UCS	mapper_std	GB/ISO-IR-165EXT%UCS.mps
+GB2312:CP936/UCS	mapper_parallel	GB2312EXT/UCS,GB2312GBK/UCS
+GB2312:GBK/UCS		mapper_parallel	GB2312UDA1/UCS,GB2312:CP936/UCS
+GB2312:GB18030/UCS	mapper_parallel	GB2312UDA2/UCS,GB2312:GBK/UCS
+GBK/UCS			mapper_parallel	GBKEXT/UCS,CP936EXT/UCS
+GBK:GB18030/UCS		mapper_parallel	GBKUDA/UCS,GBK/UCS
+GBKUCS/UCS		mapper_parallel	GB18030/UCS:BMP
+ISO-IR-165/UCS		mapper_parallel	ISO-IR-165EXT/UCS,GB2312/UCS
+UCS/GB12345		mapper_std	GB/UCS%GB12345.mps
+UCS/GB2312		mapper_std	GB/UCS%GB2312.mps
+UCS/GB2312EXT		mapper_std	GB/UCS%GB2312EXT.mps
+UCS/GB2312UDA1		mapper_std	GB/UCS%GB2312UDA1.mps
+UCS/GB2312UDA2		mapper_std	GB/UCS%GB2312UDA2.mps
+UCS/GBKEXT		mapper_std	GB/UCS%GBKEXT.mps
+UCS/GBKUDA		mapper_std	GB/UCS%GBKUDA.mps
+UCS:BMP/GB18030		mapper_std	GB/UCS@BMP%GB18030.mps
+UCS/ISO-IR-165EXT	mapper_std	GB/UCS%ISO-IR-165EXT.mps
+UCS/GB2312GBK		mapper_parallel	UCS/GBKEXT,UCS/GB2312
+UCS/GB2312:CP936	mapper_parallel	UCS/GB2312GBK,UCS/GB2312EXT
+UCS/GB2312:GBK		mapper_parallel	UCS/GB2312:CP936,UCS/GB2312UDA1
+UCS/GB2312:GB18030	mapper_parallel	UCS/GB2312:GBK,UCS/GB2312UDA2
+UCS/GBK			mapper_parallel	UCS/GBKEXT,UCS/CP936EXT
+UCS/GBK:GB18030		mapper_parallel	UCS/GBK,UCS/GBKUDA
+UCS/GBKUCS		mapper_parallel	UCS:BMP/GB18030
+UCS/ISO-IR-165		mapper_parallel	UCS/ISO-IR-165EXT,UCS/GB2312
+
+# GEORGIAN
+GEORGIAN-ACADEMY/UCS            mapper_std                      GEORGIAN/GEORGIAN-ACADEMY%UCS.mps
+UCS/GEORGIAN-ACADEMY            mapper_std                      GEORGIAN/UCS%GEORGIAN-ACADEMY.mps
+GEORGIAN-ACADEMY:OldCapital/UCS mapper_std                      GEORGIAN/GEORGIAN-ACADEMY@OldCapital%UCS.mps
+UCS/GEORGIAN-ACADEMY:OldCapital mapper_std                      GEORGIAN/UCS%GEORGIAN-ACADEMY@OldCapital.mps
+GEORGIAN-PS/UCS                 mapper_std                      GEORGIAN/GEORGIAN-PS%UCS.mps
+UCS/GEORGIAN-PS                 mapper_std                      GEORGIAN/UCS%GEORGIAN-PS.mps
+GEORGIAN-PS:OldCapital/UCS      mapper_std                      GEORGIAN/GEORGIAN-PS@OldCapital%UCS.mps
+UCS/GEORGIAN-PS:OldCapital      mapper_std                      GEORGIAN/UCS%GEORGIAN-PS@OldCapital.mps
+
+# ISO646
+UCS/ISO646                      mapper_std                      ISO646/UCS%ISO646.mps
+ISO646-BASIC:1983/UCS           mapper_646                      ISO646/ISO646-BASIC@1983%UCS.646
+UCS:BASE/ISO646-BASIC:1983      mapper_646                      !ISO646/ISO646-BASIC@1983%UCS.646
+UCS/ISO646-BASIC:1983           mapper_parallel                 UCS:BASE/ISO646-BASIC:1983,UCS/ISO646
+ISO646-IRV:1983/UCS             mapper_646                      ISO646/ISO646-IRV@1983%UCS.646
+UCS:BASE/ISO646-IRV:1983        mapper_646                      !ISO646/ISO646-IRV@1983%UCS.646
+UCS/ISO646-IRV:1983             mapper_parallel                 UCS:BASE/ISO646-IRV:1983,UCS/ISO646
+ISO646-GB/UCS                   mapper_646                      ISO646/ISO646-GB%UCS.646
+UCS:BASE/ISO646-GB              mapper_646                      !ISO646/ISO646-GB%UCS.646
+UCS/ISO646-GB                   mapper_parallel                 UCS:BASE/ISO646-GB,UCS/ISO646
+ISO646-US/UCS                   mapper_646                      ISO646/ISO646-US%UCS.646
+UCS:BASE/ISO646-US              mapper_646                      !ISO646/ISO646-US%UCS.646
+UCS/ISO646-US                   mapper_parallel                 UCS:BASE/ISO646-US,UCS/ISO646
+ISO646-SE/UCS                   mapper_646                      ISO646/ISO646-SE%UCS.646
+UCS:BASE/ISO646-SE              mapper_646                      !ISO646/ISO646-SE%UCS.646
+UCS/ISO646-SE                   mapper_parallel                 UCS:BASE/ISO646-SE,UCS/ISO646
+ISO646-SE2/UCS                  mapper_646                      ISO646/ISO646-SE2%UCS.646
+UCS:BASE/ISO646-SE2             mapper_646                      !ISO646/ISO646-SE2%UCS.646
+UCS/ISO646-SE2                  mapper_parallel                 UCS:BASE/ISO646-SE2,UCS/ISO646
+ISO646-JP/UCS                   mapper_646                      ISO646/ISO646-JP%UCS.646
+UCS:BASE/ISO646-JP              mapper_646                      !ISO646/ISO646-JP%UCS.646
+UCS/ISO646-JP                   mapper_parallel                 UCS:BASE/ISO646-JP,UCS/ISO646
+ISO646-IT/UCS                   mapper_646                      ISO646/ISO646-IT%UCS.646
+UCS:BASE/ISO646-IT              mapper_646                      !ISO646/ISO646-IT%UCS.646
+UCS/ISO646-IT                   mapper_parallel                 UCS:BASE/ISO646-IT,UCS/ISO646
+ISO646-PT/UCS                   mapper_646                      ISO646/ISO646-PT%UCS.646
+UCS:BASE/ISO646-PT              mapper_646                      !ISO646/ISO646-PT%UCS.646
+UCS/ISO646-PT                   mapper_parallel                 UCS:BASE/ISO646-PT,UCS/ISO646
+ISO646-ES/UCS                   mapper_646                      ISO646/ISO646-ES%UCS.646
+UCS:BASE/ISO646-ES              mapper_646                      !ISO646/ISO646-ES%UCS.646
+UCS/ISO646-ES                   mapper_parallel                 UCS:BASE/ISO646-ES,UCS/ISO646
+ISO646-DE/UCS                   mapper_646                      ISO646/ISO646-DE%UCS.646
+UCS:BASE/ISO646-DE              mapper_646                      !ISO646/ISO646-DE%UCS.646
+UCS/ISO646-DE                   mapper_parallel                 UCS:BASE/ISO646-DE,UCS/ISO646
+ISO646-FR1/UCS                  mapper_646                      ISO646/ISO646-FR1%UCS.646
+UCS:BASE/ISO646-FR1             mapper_646                      !ISO646/ISO646-FR1%UCS.646
+UCS/ISO646-FR1                  mapper_parallel                 UCS:BASE/ISO646-FR1,UCS/ISO646
+ISO646-CN/UCS                   mapper_646                      ISO646/ISO646-CN%UCS.646
+UCS:BASE/ISO646-CN              mapper_646                      !ISO646/ISO646-CN%UCS.646
+UCS/ISO646-CN                   mapper_parallel                 UCS:BASE/ISO646-CN,UCS/ISO646
+ISO646-NO/UCS                   mapper_646                      ISO646/ISO646-NO%UCS.646
+UCS:BASE/ISO646-NO              mapper_646                      !ISO646/ISO646-NO%UCS.646
+UCS/ISO646-NO                   mapper_parallel                 UCS:BASE/ISO646-NO,UCS/ISO646
+ISO646-NO2/UCS                  mapper_646                      ISO646/ISO646-NO2%UCS.646
+UCS:BASE/ISO646-NO2             mapper_646                      !ISO646/ISO646-NO2%UCS.646
+UCS/ISO646-NO2                  mapper_parallel                 UCS:BASE/ISO646-NO2,UCS/ISO646
+ISO646-FR/UCS                   mapper_646                      ISO646/ISO646-FR%UCS.646
+UCS:BASE/ISO646-FR              mapper_646                      !ISO646/ISO646-FR%UCS.646
+UCS/ISO646-FR                   mapper_parallel                 UCS:BASE/ISO646-FR,UCS/ISO646
+ISO646-PT2/UCS                  mapper_646                      ISO646/ISO646-PT2%UCS.646
+UCS:BASE/ISO646-PT2             mapper_646                      !ISO646/ISO646-PT2%UCS.646
+UCS/ISO646-PT2                  mapper_parallel                 UCS:BASE/ISO646-PT2,UCS/ISO646
+ISO646-ES2/UCS                  mapper_646                      ISO646/ISO646-ES2%UCS.646
+UCS:BASE/ISO646-ES2             mapper_646                      !ISO646/ISO646-ES2%UCS.646
+UCS/ISO646-ES2                  mapper_parallel                 UCS:BASE/ISO646-ES2,UCS/ISO646
+ISO646-HU/UCS                   mapper_646                      ISO646/ISO646-HU%UCS.646
+UCS:BASE/ISO646-HU              mapper_646                      !ISO646/ISO646-HU%UCS.646
+UCS/ISO646-HU                   mapper_parallel                 UCS:BASE/ISO646-HU,UCS/ISO646
+ISO646-JP-OCR-B/UCS             mapper_646                      ISO646/ISO646-JP-OCR-B%UCS.646
+UCS:BASE/ISO646-JP-OCR-B        mapper_646                      !ISO646/ISO646-JP-OCR-B%UCS.646
+UCS/ISO646-JP-OCR-B             mapper_parallel                 UCS:BASE/ISO646-JP-OCR-B,UCS/ISO646
+ISO646-CA/UCS                   mapper_646                      ISO646/ISO646-CA%UCS.646
+UCS:BASE/ISO646-CA              mapper_646                      !ISO646/ISO646-CA%UCS.646
+UCS/ISO646-CA                   mapper_parallel                 UCS:BASE/ISO646-CA,UCS/ISO646
+ISO646-CA2/UCS                  mapper_646                      ISO646/ISO646-CA2%UCS.646
+UCS:BASE/ISO646-CA2             mapper_646                      !ISO646/ISO646-CA2%UCS.646
+UCS/ISO646-CA2                  mapper_parallel                 UCS:BASE/ISO646-CA2,UCS/ISO646
+ISO646-YU/UCS                   mapper_646                      ISO646/ISO646-YU%UCS.646
+UCS:BASE/ISO646-YU              mapper_646                      !ISO646/ISO646-YU%UCS.646
+UCS/ISO646-YU                   mapper_parallel                 UCS:BASE/ISO646-YU,UCS/ISO646
+ISO646-CU/UCS                   mapper_646                      ISO646/ISO646-CU%UCS.646
+UCS:BASE/ISO646-CU              mapper_646                      !ISO646/ISO646-CU%UCS.646
+UCS/ISO646-CU                   mapper_parallel                 UCS:BASE/ISO646-CU,UCS/ISO646
+ISO646-DK/UCS                   mapper_646                      ISO646/ISO646-DK%UCS.646
+UCS:BASE/ISO646-DK              mapper_646                      !ISO646/ISO646-DK%UCS.646
+UCS/ISO646-DK                   mapper_parallel                 UCS:BASE/ISO646-DK,UCS/ISO646
+ISO646-KR/UCS                   mapper_646                      ISO646/ISO646-KR%UCS.646
+UCS:BASE/ISO646-KR              mapper_646                      !ISO646/ISO646-KR%UCS.646
+UCS/ISO646-KR                   mapper_parallel                 UCS:BASE/ISO646-KR,UCS/ISO646
+
+# ISO-8859
+ISO-8859-1/UCS                  mapper_none     
+UCS:ZONE/ISO-8859-1             mapper_zone     0x00-0xFF
+UCS:STD/ISO-8859-1              mapper_std      ISO-8859/UCS%ISO-8859-1.mps
+UCS/ISO-8859-1                  mapper_parallel UCS:ZONE/ISO-8859-1,UCS:STD/ISO-8859-1
+ISO-8859-1/UCS                  mapper_std      ISO-8859/ISO-8859-1%UCS.mps
+UCS/ISO-8859-1                  mapper_std      ISO-8859/UCS%ISO-8859-1.mps
+ISO-8859-1:GR/ISO-8859-1        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-1/ISO-8859-1:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-1:GR/UCS               mapper_serial   ISO-8859-1:GR/ISO-8859-1,ISO-8859-1/UCS
+UCS/ISO-8859-1:GR               mapper_serial   UCS/ISO-8859-1,ISO-8859-1/ISO-8859-1:GR
+ISO-8859-2/UCS                  mapper_std      ISO-8859/ISO-8859-2%UCS.mps
+UCS/ISO-8859-2                  mapper_std      ISO-8859/UCS%ISO-8859-2.mps
+ISO-8859-2:GR/ISO-8859-2        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-2/ISO-8859-2:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-2:GR/UCS               mapper_serial   ISO-8859-2:GR/ISO-8859-2,ISO-8859-2/UCS
+UCS/ISO-8859-2:GR               mapper_serial   UCS/ISO-8859-2,ISO-8859-2/ISO-8859-2:GR
+ISO-8859-3/UCS                  mapper_std      ISO-8859/ISO-8859-3%UCS.mps
+UCS/ISO-8859-3                  mapper_std      ISO-8859/UCS%ISO-8859-3.mps
+ISO-8859-3:GR/ISO-8859-3        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-3/ISO-8859-3:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-3:GR/UCS               mapper_serial   ISO-8859-3:GR/ISO-8859-3,ISO-8859-3/UCS
+UCS/ISO-8859-3:GR               mapper_serial   UCS/ISO-8859-3,ISO-8859-3/ISO-8859-3:GR
+ISO-8859-4/UCS                  mapper_std      ISO-8859/ISO-8859-4%UCS.mps
+UCS/ISO-8859-4                  mapper_std      ISO-8859/UCS%ISO-8859-4.mps
+ISO-8859-4:GR/ISO-8859-4        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-4/ISO-8859-4:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-4:GR/UCS               mapper_serial   ISO-8859-4:GR/ISO-8859-4,ISO-8859-4/UCS
+UCS/ISO-8859-4:GR               mapper_serial   UCS/ISO-8859-4,ISO-8859-4/ISO-8859-4:GR
+ISO-8859-5/UCS                  mapper_std      ISO-8859/ISO-8859-5%UCS.mps
+UCS/ISO-8859-5                  mapper_std      ISO-8859/UCS%ISO-8859-5.mps
+ISO-8859-5:GR/ISO-8859-5        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-5/ISO-8859-5:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-5:GR/UCS               mapper_serial   ISO-8859-5:GR/ISO-8859-5,ISO-8859-5/UCS
+UCS/ISO-8859-5:GR               mapper_serial   UCS/ISO-8859-5,ISO-8859-5/ISO-8859-5:GR
+ISO-8859-6/UCS                  mapper_std      ISO-8859/ISO-8859-6%UCS.mps
+UCS/ISO-8859-6                  mapper_std      ISO-8859/UCS%ISO-8859-6.mps
+ISO-8859-6:GR/ISO-8859-6        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-6/ISO-8859-6:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-6:GR/UCS               mapper_serial   ISO-8859-6:GR/ISO-8859-6,ISO-8859-6/UCS
+UCS/ISO-8859-6:GR               mapper_serial   UCS/ISO-8859-6,ISO-8859-6/ISO-8859-6:GR
+ISO-8859-7/UCS                  mapper_std      ISO-8859/ISO-8859-7%UCS.mps
+UCS/ISO-8859-7                  mapper_std      ISO-8859/UCS%ISO-8859-7.mps
+ISO-8859-7:GR/ISO-8859-7        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-7/ISO-8859-7:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-7:GR/UCS               mapper_serial   ISO-8859-7:GR/ISO-8859-7,ISO-8859-7/UCS
+UCS/ISO-8859-7:GR               mapper_serial   UCS/ISO-8859-7,ISO-8859-7/ISO-8859-7:GR
+ISO-8859-8/UCS                  mapper_std      ISO-8859/ISO-8859-8%UCS.mps
+UCS/ISO-8859-8                  mapper_std      ISO-8859/UCS%ISO-8859-8.mps
+ISO-8859-8:GR/ISO-8859-8        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-8/ISO-8859-8:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-8:GR/UCS               mapper_serial   ISO-8859-8:GR/ISO-8859-8,ISO-8859-8/UCS
+UCS/ISO-8859-8:GR               mapper_serial   UCS/ISO-8859-8,ISO-8859-8/ISO-8859-8:GR
+ISO-8859-9/UCS                  mapper_std      ISO-8859/ISO-8859-9%UCS.mps
+UCS/ISO-8859-9                  mapper_std      ISO-8859/UCS%ISO-8859-9.mps
+ISO-8859-9:GR/ISO-8859-9        mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-9/ISO-8859-9:GR        mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-9:GR/UCS               mapper_serial   ISO-8859-9:GR/ISO-8859-9,ISO-8859-9/UCS
+UCS/ISO-8859-9:GR               mapper_serial   UCS/ISO-8859-9,ISO-8859-9/ISO-8859-9:GR
+ISO-8859-10/UCS                 mapper_std      ISO-8859/ISO-8859-10%UCS.mps
+UCS/ISO-8859-10                 mapper_std      ISO-8859/UCS%ISO-8859-10.mps
+ISO-8859-10:GR/ISO-8859-10      mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-10/ISO-8859-10:GR      mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-10:GR/UCS              mapper_serial   ISO-8859-10:GR/ISO-8859-10,ISO-8859-10/UCS
+UCS/ISO-8859-10:GR              mapper_serial   UCS/ISO-8859-10,ISO-8859-10/ISO-8859-10:GR
+ISO-8859-11/UCS                 mapper_std      ISO-8859/ISO-8859-11%UCS.mps
+UCS/ISO-8859-11                 mapper_std      ISO-8859/UCS%ISO-8859-11.mps
+ISO-8859-11:GR/ISO-8859-11      mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-11/ISO-8859-11:GR      mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-11:GR/UCS              mapper_serial   ISO-8859-11:GR/ISO-8859-11,ISO-8859-11/UCS
+UCS/ISO-8859-11:GR              mapper_serial   UCS/ISO-8859-11,ISO-8859-11/ISO-8859-11:GR
+ISO-8859-13/UCS                 mapper_std      ISO-8859/ISO-8859-13%UCS.mps
+UCS/ISO-8859-13                 mapper_std      ISO-8859/UCS%ISO-8859-13.mps
+ISO-8859-13:GR/ISO-8859-13      mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-13/ISO-8859-13:GR      mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-13:GR/UCS              mapper_serial   ISO-8859-13:GR/ISO-8859-13,ISO-8859-13/UCS
+UCS/ISO-8859-13:GR              mapper_serial   UCS/ISO-8859-13,ISO-8859-13/ISO-8859-13:GR
+ISO-8859-14/UCS                 mapper_std      ISO-8859/ISO-8859-14%UCS.mps
+UCS/ISO-8859-14                 mapper_std      ISO-8859/UCS%ISO-8859-14.mps
+ISO-8859-14:GR/ISO-8859-14      mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-14/ISO-8859-14:GR      mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-14:GR/UCS              mapper_serial   ISO-8859-14:GR/ISO-8859-14,ISO-8859-14/UCS
+UCS/ISO-8859-14:GR              mapper_serial   UCS/ISO-8859-14,ISO-8859-14/ISO-8859-14:GR
+ISO-8859-15/UCS                 mapper_std      ISO-8859/ISO-8859-15%UCS.mps
+UCS/ISO-8859-15                 mapper_std      ISO-8859/UCS%ISO-8859-15.mps
+ISO-8859-15:GR/ISO-8859-15      mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-15/ISO-8859-15:GR      mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-15:GR/UCS              mapper_serial   ISO-8859-15:GR/ISO-8859-15,ISO-8859-15/UCS
+UCS/ISO-8859-15:GR              mapper_serial   UCS/ISO-8859-15,ISO-8859-15/ISO-8859-15:GR
+ISO-8859-16/UCS                 mapper_std      ISO-8859/ISO-8859-16%UCS.mps
+UCS/ISO-8859-16                 mapper_std      ISO-8859/UCS%ISO-8859-16.mps
+ISO-8859-16:GR/ISO-8859-16      mapper_zone     0x00 - 0x7F : +0x80
+ISO-8859-16/ISO-8859-16:GR      mapper_zone     0x80 - 0xFF : -0x80
+ISO-8859-16:GR/UCS              mapper_serial   ISO-8859-16:GR/ISO-8859-16,ISO-8859-16/UCS
+UCS/ISO-8859-16:GR              mapper_serial   UCS/ISO-8859-16,ISO-8859-16/ISO-8859-16:GR
+
+# JIS
+# $FreeBSD$ 
+# $NetBSD: mapper.dir.JIS.src,v 1.5 2007/03/05 16:58:34 tnozaki Exp $
+
+JISX0201-KANA/UCS		mapper_std	JIS/JISX0201-KANA%UCS.mps
+JISX0208:1978/UCS		mapper_std	JIS/JISX0208@1978%UCS.mps
+JISX0208:1990/UCS		mapper_std	JIS/JISX0208@1990%UCS.mps
+JISX0208:MS/UCS			mapper_std	JIS/JISX0208@MS%UCS.mps
+JISX0208VDC:NEC/UCS		mapper_std	JIS/JISX0208VDC@NEC%UCS.mps
+JISX0208UDC/UCS			mapper_std	JIS/JISX0208UDC%UCS.mps
+JISX0208:EUCMSSET/UCS		mapper_parallel	JISX0208VDC:NEC/UCS,JISX0208UDC/UCS,JISX0208:MS/UCS
+JISX0212/UCS			mapper_std	JIS/JISX0212%UCS.mps
+JISX0212:MS/UCS			mapper_std	JIS/JISX0212@MS%UCS.mps
+JISX0212VDC:IBM/UCS		mapper_std	JIS/JISX0212VDC@IBM%UCS.mps
+JISX0212UDC/UCS			mapper_std	JIS/JISX0212UDC%UCS.mps
+JISX0212:EUCMSSET/UCS		mapper_parallel	JISX0212VDC:IBM/UCS,JISX0212UDC/UCS,JISX0212:MS/UCS
+JISX0213-1/UCS:BMP		mapper_std	JIS/JISX0213-1%UCS@BMP.mps
+JISX0213-1/UCS:SIP		mapper_std	JIS/JISX0213-1%UCS@SIP.mps
+JISX0213-1/UCS:SIPx		mapper_serial	JISX0213-1/UCS:SIP,UCS:SIP/UCS
+JISX0213-1/UCS			mapper_parallel	JISX0213-1/UCS:BMP,JISX0213-1/UCS:SIPx,JISX0208:1990/UCS
+JISX0213-2/UCS:BMP		mapper_std	JIS/JISX0213-2%UCS@BMP.mps
+JISX0213-2/UCS:SIP		mapper_std	JIS/JISX0213-2%UCS@SIP.mps
+JISX0213-2/UCS:SIPx		mapper_serial	JISX0213-2/UCS:SIP,UCS:SIP/UCS
+JISX0213-2/UCS			mapper_parallel	JISX0213-2/UCS:BMP,JISX0213-2/UCS:SIPx
+JISX0212+0213-2/UCS		mapper_parallel	JISX0213-2/UCS,JISX0212/UCS
+UCS/JISX0201-KANA		mapper_std	JIS/UCS%JISX0201-KANA.mps
+UCS/JISX0208:1978		mapper_std	JIS/UCS%JISX0208@1978.mps
+UCS/JISX0208:1990		mapper_std	JIS/UCS%JISX0208@1990.mps
+UCS/JISX0208:MS			mapper_std	JIS/UCS%JISX0208@MS.mps
+UCS/JISX0208VDC:NEC		mapper_std	JIS/UCS%JISX0208VDC@NEC.mps
+UCS/JISX0208UDC			mapper_std	JIS/UCS%JISX0208UDC.mps
+UCS/JISX0208:EUCMSSET		mapper_parallel	UCS/JISX0208:MS,UCS/JISX0208VDC:NEC,UCS/JISX0208UDC
+UCS/JISX0212			mapper_std	JIS/UCS%JISX0212.mps
+UCS/JISX0212:MS			mapper_std	JIS/UCS%JISX0212@MS.mps
+UCS/JISX0212VDC:IBM		mapper_std	JIS/UCS%JISX0212VDC@IBM.mps
+UCS/JISX0212UDC			mapper_std	JIS/UCS%JISX0212UDC.mps
+UCS/JISX0212:EUCMSSET		mapper_parallel	UCS/JISX0212VDC:IBM,UCS/JISX0212UDC,UCS/JISX0212:MS
+UCS:BMP/JISX0213-1		mapper_std	JIS/UCS@BMP%JISX0213-1.mps
+UCS:SIP/JISX0213-1		mapper_std	JIS/UCS@SIP%JISX0213-1.mps
+UCS:SIPx/JISX0213-1		mapper_serial	UCS/UCS:SIP,UCS:SIP/JISX0213-1
+UCS/JISX0213-1			mapper_parallel	UCS/JISX0208:1990,UCS:BMP/JISX0213-1,UCS:SIPx/JISX0213-1
+UCS:BMP/JISX0213-2		mapper_std	JIS/UCS@BMP%JISX0213-2.mps
+UCS:SIP/JISX0213-2		mapper_std	JIS/UCS@SIP%JISX0213-2.mps
+UCS:SIPx/JISX0213-2		mapper_serial	UCS/UCS:SIP,UCS:SIP/JISX0213-2
+UCS/JISX0213-2			mapper_parallel	UCS:BMP/JISX0213-2,UCS:SIPx/JISX0213-2
+UCS/JISX0212+0213-2		mapper_parallel	UCS/JISX0213-2,UCS/JISX0212
+
+# KAZAKH
+# $FreeBSD$ 
+# $NetBSD: mapper.dir.KAZAKH.src,v 1.1 2007/03/13 16:34:38 tnozaki Exp $
+
+KZ1048/UCS		mapper_std	KAZAKH/KZ1048%UCS.mps
+PTCP154/UCS		mapper_std	KAZAKH/PTCP154%UCS.mps
+UCS/KZ1048		mapper_std	KAZAKH/UCS%KZ1048.mps
+UCS/PTCP154		mapper_std	KAZAKH/UCS%PTCP154.mps
+
+# $FreeBSD$ 
+# $NetBSD: mapper.dir.KOI.src,v 1.1 2006/09/16 08:38:20 tnozaki Exp $
+
+GOST19768-74/UCS		mapper_std		KOI/GOST19768-74%UCS.mps
+UCS/GOST19768-74		mapper_std		KOI/UCS%GOST19768-74.mps
+GOST19768-74:GR/GOST19768-74	mapper_zone		0x00 - 0x7F : +0x80
+GOST19768-74/GOST19768-74:GR	mapper_zone		0x80 - 0xFF : -0x80
+GOST19768-74:GR/UCS		mapper_serial		GOST19768-74:GR/GOST19768-74,GOST19768-74/UCS
+UCS/GOST19768-74:GR		mapper_serial		UCS/GOST19768-74,GOST19768-74/GOST19768-74:GR
+ISO-5427EXT/UCS			mapper_std		KOI/ISO-5427%UCS.mps
+UCS/ISO-5427EXT			mapper_std		KOI/UCS%ISO-5427.mps
+ISO-5427/UCS			mapper_parallel		GOST19768-74:GR/UCS,ISO-5427EXT/UCS
+UCS/ISO-5427			mapper_parallel		UCS/GOST19768-74:GR,UCS/ISO-5427EXT
+KOI7/UCS			mapper_std		KOI/KOI7%UCS.mps
+UCS/KOI7			mapper_std		KOI/UCS%KOI7.mps
+KOI8EXT/UCS                     mapper_std                      KOI/KOI8%UCS.mps
+UCS/KOI8EXT                     mapper_std                      KOI/UCS%KOI8.mps
+KOI8-CEXT/UCS                   mapper_std                      KOI/KOI8-C%UCS.mps
+UCS/KOI8-CEXT                   mapper_std                      KOI/UCS%KOI8-C.mps
+KOI8-EEXT/UCS                   mapper_std                      KOI/KOI8-E%UCS.mps
+UCS/KOI8-EEXT                   mapper_std                      KOI/UCS%KOI8-E.mps
+KOI8-REXT/UCS                   mapper_std                      KOI/KOI8-R%UCS.mps
+UCS/KOI8-REXT                   mapper_std                      KOI/UCS%KOI8-R.mps
+KOI8-RUEXT/UCS                  mapper_std                      KOI/KOI8-RU%UCS.mps
+UCS/KOI8-RUEXT                  mapper_std                      KOI/UCS%KOI8-RU.mps
+KOI8-TEXT/UCS                   mapper_std                      KOI/KOI8-T%UCS.mps
+UCS/KOI8-TEXT                   mapper_std                      KOI/UCS%KOI8-T.mps
+KOI8-UEXT/UCS                   mapper_std                      KOI/KOI8-U%UCS.mps
+UCS/KOI8-UEXT                   mapper_std                      KOI/UCS%KOI8-U.mps
+KOI8/UCS                        mapper_parallel                 GOST19768-74/UCS,KOI8EXT/UCS
+UCS/KOI8                        mapper_parallel                 UCS/GOST19768-74,UCS/KOI8EXT
+KOI8-C/UCS                      mapper_parallel                 GOST19768-74/UCS,KOI8-CEXT/UCS
+UCS/KOI8-C                      mapper_parallel                 UCS/GOST19768-74,UCS/KOI8-CEXT
+KOI8-E/UCS                      mapper_parallel                 GOST19768-74/UCS,KOI8-EEXT/UCS
+UCS/KOI8-E                      mapper_parallel                 UCS/GOST19768-74,UCS/KOI8-EEXT
+KOI8-R/UCS                      mapper_parallel                 GOST19768-74/UCS,KOI8-REXT/UCS
+UCS/KOI8-R                      mapper_parallel                 UCS/GOST19768-74,UCS/KOI8-REXT
+KOI8-RU/UCS                     mapper_parallel                 GOST19768-74/UCS,KOI8-RUEXT/UCS
+UCS/KOI8-RU                     mapper_parallel                 UCS/GOST19768-74,UCS/KOI8-RUEXT
+KOI8-T/UCS                      mapper_parallel                 GOST19768-74/UCS,KOI8-TEXT/UCS
+UCS/KOI8-T                      mapper_parallel                 UCS/GOST19768-74,UCS/KOI8-TEXT
+KOI8-U/UCS                      mapper_parallel                 GOST19768-74/UCS,KOI8-UEXT/UCS
+UCS/KOI8-U                      mapper_parallel                 UCS/GOST19768-74,UCS/KOI8-UEXT
+
+# KS
+# $FreeBSD$ 
+# $NetBSD: mapper.dir.KS.src,v 1.2 2006/10/18 17:54:55 tnozaki Exp $
+
+JOHAB/UCS			mapper_std	KS/JOHAB%UCS.mps
+KSC5601HANGUL/UCS		mapper_std	KS/KSC5601HANGUL%UCS.mps
+KSC5601HANJA/UCS		mapper_std	KS/KSC5601HANJA%UCS.mps
+KSC5601/UCS			mapper_parallel	KSC5601HANGUL/UCS,KSC5601HANJA/UCS
+UCS/JOHAB			mapper_std	KS/UCS%JOHAB.mps
+UCS/KSC5601HANGUL		mapper_std	KS/UCS%KSC5601HANGUL.mps
+UCS/KSC5601HANJA		mapper_std	KS/UCS%KSC5601HANJA.mps
+UCS/KSC5601			mapper_parallel	UCS/KSC5601HANGUL,UCS/KSC5601HANJA
+
+# MISC
+# $FreeBSD$ 
+# $NetBSD: mapper.dir.MISC.src,v 1.12 2007/07/15 14:44:37 tnozaki Exp $
+
+ATARIST/UCS			mapper_std	MISC/ATARIST%UCS.mps
+DECMCS/UCS			mapper_std	MISC/DECMCS%UCS.mps
+HP-ROMAN8/UCS			mapper_std	MISC/HP-ROMAN8%UCS.mps
+MULELAO-1/UCS			mapper_std	MISC/MULELAO-1%UCS.mps
+NEXTSTEP/UCS			mapper_std	MISC/NEXTSTEP%UCS.mps
+RISCOS-LATIN1/UCS		mapper_std	MISC/RISCOS-LATIN1%UCS.mps
+TDS565/UCS			mapper_std	MISC/TDS565%UCS.mps
+UCS/ATARIST			mapper_std	MISC/UCS%ATARIST.mps
+UCS/DECMCS			mapper_std	MISC/UCS%DECMCS.mps
+UCS/HP-ROMAN8			mapper_std	MISC/UCS%HP-ROMAN8.mps
+UCS/MULELAO-1			mapper_std	MISC/UCS%MULELAO-1.mps
+UCS/NEXTSTEP			mapper_std	MISC/UCS%NEXTSTEP.mps
+UCS/RISCOS-LATIN1		mapper_std	MISC/UCS%RISCOS-LATIN1.mps
+UCS/TDS565			mapper_std	MISC/UCS%TDS565.mps
+
+# TCVN
+# $FreeBSD$ 
+# $NetBSD: mapper.dir.TCVN.src,v 1.1 2006/11/13 15:16:30 tnozaki Exp $
+
+TCVN5712-1/UCS			mapper_std	TCVN/TCVN5712-1%UCS.mps
+VISCII/UCS			mapper_std	TCVN/VISCII%UCS.mps
+UCS/TCVN5712-1			mapper_std	TCVN/UCS%TCVN5712-1.mps
+UCS/VISCII			mapper_std	TCVN/UCS%VISCII.mps
+
+# $FreeBSD$ 
+# $NetBSD: mapper.dir.src,v 1.2 2007/03/05 16:57:06 tnozaki Exp $
+
+# Supplementary Multilingual Plane
+UCS:SMP/UCS	mapper_zone	0x0000-0xFFFF:+0x010000
+UCS/UCS:SMP	mapper_zone	0x010000-0x01FFFF:-0x010000
+
+# Supplementary Ideographic Plane
+UCS:SIP/UCS	mapper_zone	0x0000-0xFFFF:+0x020000
+UCS/UCS:SIP	mapper_zone	0x020000-0x02FFFF:-0x020000
+
+# Supplementary Special-purpose Plane
+UCS:SSP/UCS	mapper_zone	0x0000-0xFFFF:+0x0E0000
+UCS/UCS:SSP	mapper_zone	0x0E0000-0x0EFFFF:-0x0E0000

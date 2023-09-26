@@ -310,6 +310,7 @@ hu{
         CI{"Elefántcsontpart"}
         CZ{"Cseh Köztársaság"}
         FK{"Falkland-szigetek (Malvin-szigetek)"}
+        NZ{"Aotearoa (Új-Zéland)"}
         SZ{"Eswatini"}
         TL{"Timor-Leste"}
     }

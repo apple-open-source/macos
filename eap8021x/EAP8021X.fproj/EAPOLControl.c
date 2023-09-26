@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2020, 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2020, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,16 +42,17 @@
 #include "EAPOLControl.h"
 #include "EAPOLControlTypes.h"
 #include "EAPOLControlTypesPrivate.h"
-#if ! TARGET_OS_IPHONE
+#include "EAPOLControlPrivate.h"
 #include <CoreFoundation/CFPreferences.h>
 #include <notify.h>
 #include <net/ethernet.h>
 #include "EAPOLClientConfigurationPrivate.h"
+#include "EAPClientProperties.h"
+#if ! TARGET_OS_IPHONE
 const CFStringRef	kEAPOLControlAutoDetectInformationNotifyKey = CFSTR("com.apple.network.eapolcontrol.autodetect");
 const CFStringRef	kEAPOLAutoDetectSecondsSinceLastPacket = CFSTR("SecondsSinceLastPacket");
 const CFStringRef	kEAPOLAutoDetectAuthenticatorMACAddress = CFSTR("AuthenticatorMACAddress");
 #endif /* ! TARGET_OS_IPHONE */
-#include "EAPClientProperties.h"
 
 #ifndef kSCEntNetEAPOL
 #define kSCEntNetEAPOL		CFSTR("EAPOL")
@@ -111,7 +112,7 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 	result = ENOMEM;
 	goto done;
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_start(server,
 				   if_name, 
 				   (xmlDataOut_t)CFDataGetBytePtr(data),
@@ -141,6 +142,54 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
     return (result);
 }
 
+static Boolean
+EAPOLControlAuthInfoIsValid(CFDictionaryRef * dict_p)
+{
+    int				count;
+    CFDictionaryRef		dict;
+    const void *		keys[5];
+    int				keys_count = sizeof(keys) / sizeof(keys[0]);
+
+    dict = *dict_p;
+    if (dict == NULL) {
+	return (TRUE);
+    }
+    if (isA_CFDictionary(dict) == NULL) {
+	return (FALSE);
+    }
+    count = CFDictionaryGetCount(dict);
+    if (count == 0) {
+	/* ignore it */
+	*dict_p = NULL;
+    }
+    else if (count > keys_count) {
+	return (FALSE);
+    }
+    else {
+	int		i;
+
+	CFDictionaryGetKeysAndValues(dict, keys, NULL);
+	for (i = 0; i < count; i++) {
+	    if (CFEqual(keys[i],
+			kEAPClientPropSaveCredentialsOnSuccessfulAuthentication)) {
+		if (count == 1) {
+		    /* no credentials specified, ignore it */
+		    EAPLOG_FL(LOG_NOTICE,
+			      "Ignoring %@ since no credentials were specified",
+			      keys[i]);
+		    *dict_p = NULL;
+		}
+	    }
+	    else if (!CFEqual(keys[i], kEAPClientPropUserName)
+		     && !CFEqual(keys[i], kEAPClientPropUserPassword)
+		     && !CFEqual(keys[i], kEAPClientPropTLSIdentityHandle)
+		     && !CFEqual(keys[i], kEAPClientPropDisableUserInteraction)) {
+		return (FALSE);
+	    }
+	}
+    }
+    return (TRUE);
+}
 
 #if ! TARGET_OS_IPHONE
 
@@ -256,55 +305,6 @@ EAPOLControlCredentialsExist(EAPOLClientItemIDRef itemID, EAPOLClientDomain doma
 }
 
 static Boolean
-EAPOLControlAuthInfoIsValid(CFDictionaryRef * dict_p)
-{
-    int				count;
-    CFDictionaryRef		dict;
-    const void *		keys[5];
-    int				keys_count = sizeof(keys) / sizeof(keys[0]);
-
-    dict = *dict_p;
-    if (dict == NULL) {
-	return (TRUE);
-    }
-    if (isA_CFDictionary(dict) == NULL) {
-	return (FALSE);
-    }
-    count = CFDictionaryGetCount(dict);
-    if (count == 0) {
-	/* ignore it */
-	*dict_p = NULL;
-    }
-    else if (count > keys_count) {
-	return (FALSE);
-    }
-    else {
-	int		i;
-
-	CFDictionaryGetKeysAndValues(dict, keys, NULL);
-	for (i = 0; i < count; i++) {
-	    if (CFEqual(keys[i],
-			kEAPClientPropSaveCredentialsOnSuccessfulAuthentication)) {
-		if (count == 1) {
-		    /* no credentials specified, ignore it */
-		    EAPLOG_FL(LOG_NOTICE,
-			      "Ignoring %@ since no credentials were specified",
-			      keys[i]);
-		    *dict_p = NULL;
-		}
-	    }
-	    else if (!CFEqual(keys[i], kEAPClientPropUserName)
-		     && !CFEqual(keys[i], kEAPClientPropUserPassword)
-		     && !CFEqual(keys[i], kEAPClientPropTLSIdentityHandle)
-		     && !CFEqual(keys[i], kEAPClientPropDisableUserInteraction)) {
-		return (FALSE);
-	    }
-	}
-    }
-    return (TRUE);
-}
-
-static Boolean
 AuthInfoIsUserInteractionDisabled(CFDictionaryRef auth_info)
 {
     CFBooleanRef b = NULL;
@@ -333,8 +333,8 @@ EAPOLControlStartWithOptions(const char * if_name,
     int				ret;
     const void *		values[3];
 
-    auth_info 
-	= CFDictionaryGetValue(options, 
+    auth_info
+	= CFDictionaryGetValue(options,
 			       kEAPOLControlStartOptionAuthenticationInfo);
     if (EAPOLControlAuthInfoIsValid(&auth_info) == FALSE) {
 	return (EINVAL);
@@ -368,10 +368,12 @@ EAPOLControlStartWithOptions(const char * if_name,
     CFRelease(item_dict);
     ret = EAPOLControlStart(if_name, config_dict);
     if (config_dict != NULL) {
-        CFRelease(config_dict);
+	CFRelease(config_dict);
     }
     return (ret);
 }
+
+#endif /* ! TARGET_OS_IPHONE */
 
 int
 EAPOLControlStartWithClientItemID(const char * if_name,
@@ -385,8 +387,10 @@ EAPOLControlStartWithClientItemID(const char * if_name,
     int				ret;
     const void *		values[2];
     CFMutableDictionaryRef 	new_auth_info = NULL;
+#if ! TARGET_OS_IPHONE
     Boolean 			user_interaction_disabled= FALSE;
     Boolean 			ignore_disable_user_interaction = FALSE;
+#endif /* ! TARGET_OS_IPHONE */
     Boolean 			ret_failure = FALSE;
 
     if (EAPOLControlAuthInfoIsValid(&auth_info) == FALSE) {
@@ -396,6 +400,7 @@ EAPOLControlStartWithClientItemID(const char * if_name,
     if (item_dict == NULL) {
 	return (EINVAL);
     }
+#if ! TARGET_OS_IPHONE
     user_interaction_disabled = AuthInfoIsUserInteractionDisabled(auth_info);
     if (user_interaction_disabled) {
 	/* credentials availability check matters only when kEAPClientPropDisableUserInteraction is TRUE */
@@ -416,6 +421,7 @@ EAPOLControlStartWithClientItemID(const char * if_name,
 	    CFDictionaryRemoveValue(new_auth_info, kEAPClientPropDisableUserInteraction);
 	}
     }
+#endif /* ! TARGET_OS_IPHONE */
     keys[0] = (const void *)kEAPOLControlClientItemID;
     values[0] = (const void *)item_dict;
     count = 1;
@@ -431,12 +437,10 @@ EAPOLControlStartWithClientItemID(const char * if_name,
     my_CFRelease(&new_auth_info);
     ret = ret_failure ? EINVAL : EAPOLControlStart(if_name, config_dict);
     if (config_dict != NULL) {
-        CFRelease(config_dict);
+	CFRelease(config_dict);
     }
     return (ret);
 }
-
-#endif /* ! TARGET_OS_IPHONE */
 
 int
 EAPOLControlStop(const char * interface_name)
@@ -450,7 +454,7 @@ EAPOLControlStop(const char * interface_name)
 	result = ENXIO;
 	goto done;
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_stop(server,
 				  if_name, &result);
     if (status != KERN_SUCCESS) {
@@ -486,7 +490,7 @@ EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config_dict)
 	result = ENOMEM;
 	goto done;
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_update(server, if_name,
 				    (xmlDataOut_t)CFDataGetBytePtr(data),
 				    (int)CFDataGetLength(data),
@@ -513,7 +517,7 @@ EAPOLControlRetry(const char * interface_name)
 	result = ENXIO;
 	goto done;
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_retry(server, if_name, &result);
     if (status != KERN_SUCCESS) {
 	mach_error("eapolcontroller_retry failed", status);
@@ -555,7 +559,7 @@ EAPOLControlProvideUserInput(const char * interface_name,
 	xml_data = (xmlDataOut_t)CFDataGetBytePtr(data);
 	xml_data_len = CFDataGetLength(data);
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_provide_user_input(server,
 						if_name, xml_data,
 						(int)xml_data_len, &result);
@@ -586,7 +590,7 @@ EAPOLControlCopyStateAndStatus(const char * interface_name,
 	result = ENXIO;
 	goto done;
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_copy_status(server,
 					 if_name,
 					 &status_data, &status_data_len,
@@ -634,8 +638,6 @@ EAPOLControlKeyCreate(const char * interface_name)
     return (str);
 }
 
-#if ! TARGET_OS_IPHONE
-
 int
 EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options)
 {
@@ -667,7 +669,7 @@ EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options)
 	xml_data = (xmlDataOut_t)CFDataGetBytePtr(data);
 	xml_data_len = CFDataGetLength(data);
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_start_system(server, if_name,
 					  xml_data, xml_data_len, 
 					  &result);
@@ -695,10 +697,12 @@ EAPOLControlStartSystemWithClientItemID(const char * interface_name,
     CFStringRef		key;
     int			ret;
 
+#if ! TARGET_OS_IPHONE
     if (EAPOLControlCredentialsExist(itemID, kEAPOLClientDomainSystem) == FALSE) {
 	EAPLOG_FL(LOG_INFO, "%s: credentials not found", __func__);
 	return (EINVAL);
     }
+#endif /* ! TARGET_OS_IPHONE */
     item_dict = EAPOLClientItemIDCopyDictionary(itemID);
     if (item_dict == NULL) {
 	return (EINVAL);
@@ -718,6 +722,8 @@ EAPOLControlStartSystemWithClientItemID(const char * interface_name,
     return (ret);
 }
 
+#if ! TARGET_OS_IPHONE
+
 static int
 S_copy_loginwindow_config(const char * interface_name,
 			  CFDictionaryRef * ret_config_p)
@@ -734,7 +740,7 @@ S_copy_loginwindow_config(const char * interface_name,
 	result = ENXIO;
 	goto done;
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_copy_loginwindow_config(server,
 						     if_name,
 						     &config,
@@ -898,7 +904,7 @@ EAPOLControlDidUserCancel(const char * interface_name)
     if (get_server_port(&server, &status) == FALSE) {
 	goto done;
     }
-    strncpy(if_name, interface_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_did_user_cancel(server,
 					     if_name,
 					     &cancelled);

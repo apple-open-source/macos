@@ -8,6 +8,9 @@
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_FORMATTING
+
+#include <stdbool.h>
+
 #include "unicode/unum.h"
 #include "unicode/ucurr.h"
 #include "unicode/ustring.h"
@@ -15,7 +18,10 @@
 #include "cmemory.h"
 #include "cstring.h"
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #include <stdio.h> // for sprintf()
+#endif  // APPLE_ICU_CHANGES
 
 static void expectInList(const char *isoCurrency, uint32_t currencyType, UBool isExpected) {
     UErrorCode status = U_ZERO_ERROR;
@@ -36,70 +42,82 @@ static void expectInList(const char *isoCurrency, uint32_t currencyType, UBool i
 
     if ((foundCurrency != NULL) != isExpected) {
        log_err("Error: could not find %s as expected. isExpected = %s type=0x%X\n",
-           isoCurrency, isExpected ? "TRUE" : "FALSE", currencyType);
+           isoCurrency, isExpected ? "true" : "false", currencyType);
     }
     uenum_close(en);
 }
 
 static void TestEnumList(void) {
-    expectInList("ADP", UCURR_ALL, TRUE); /* First in list */
-    expectInList("ZWD", UCURR_ALL, TRUE); /* Last in list */
+    expectInList("ADP", UCURR_ALL, true); /* First in list */
+    expectInList("ZWD", UCURR_ALL, true); /* Last in list */
 
-    expectInList("USD", UCURR_ALL, TRUE);
-    expectInList("USD", UCURR_COMMON, TRUE);
-    expectInList("USD", UCURR_UNCOMMON, FALSE);
-    expectInList("USD", UCURR_DEPRECATED, FALSE);
-    expectInList("USD", UCURR_NON_DEPRECATED, TRUE);
-    expectInList("USD", UCURR_COMMON|UCURR_DEPRECATED, FALSE);
-    expectInList("USD", UCURR_COMMON|UCURR_NON_DEPRECATED, TRUE);
-    expectInList("USD", UCURR_UNCOMMON|UCURR_DEPRECATED, FALSE);
-    expectInList("USD", UCURR_UNCOMMON|UCURR_NON_DEPRECATED, FALSE);
+    expectInList("USD", UCURR_ALL, true);
+    expectInList("USD", UCURR_COMMON, true);
+    expectInList("USD", UCURR_UNCOMMON, false);
+    expectInList("USD", UCURR_DEPRECATED, false);
+    expectInList("USD", UCURR_NON_DEPRECATED, true);
+    expectInList("USD", UCURR_COMMON|UCURR_DEPRECATED, false);
+    expectInList("USD", UCURR_COMMON|UCURR_NON_DEPRECATED, true);
+    expectInList("USD", UCURR_UNCOMMON|UCURR_DEPRECATED, false);
+    expectInList("USD", UCURR_UNCOMMON|UCURR_NON_DEPRECATED, false);
 
-    expectInList("USN", UCURR_ALL, TRUE);
-    expectInList("USN", UCURR_COMMON, FALSE);
-    expectInList("USN", UCURR_UNCOMMON, TRUE);
-    expectInList("USN", UCURR_DEPRECATED, FALSE);
-    expectInList("USN", UCURR_NON_DEPRECATED, TRUE);
-    expectInList("USN", UCURR_COMMON|UCURR_DEPRECATED, FALSE);
-    expectInList("USN", UCURR_COMMON|UCURR_NON_DEPRECATED, FALSE);
-    expectInList("USN", UCURR_UNCOMMON|UCURR_DEPRECATED, FALSE);
-    expectInList("USN", UCURR_UNCOMMON|UCURR_NON_DEPRECATED, TRUE);
+    expectInList("USN", UCURR_ALL, true);
+    expectInList("USN", UCURR_COMMON, false);
+    expectInList("USN", UCURR_UNCOMMON, true);
+    expectInList("USN", UCURR_DEPRECATED, false);
+    expectInList("USN", UCURR_NON_DEPRECATED, true);
+    expectInList("USN", UCURR_COMMON|UCURR_DEPRECATED, false);
+    expectInList("USN", UCURR_COMMON|UCURR_NON_DEPRECATED, false);
+    expectInList("USN", UCURR_UNCOMMON|UCURR_DEPRECATED, false);
+    expectInList("USN", UCURR_UNCOMMON|UCURR_NON_DEPRECATED, true);
 
-    expectInList("DEM", UCURR_ALL, TRUE);
-    expectInList("DEM", UCURR_COMMON, TRUE);
-    expectInList("DEM", UCURR_UNCOMMON, FALSE);
-    expectInList("DEM", UCURR_DEPRECATED, TRUE);
-    expectInList("DEM", UCURR_NON_DEPRECATED, FALSE);
-    expectInList("DEM", UCURR_COMMON|UCURR_DEPRECATED, TRUE);
-    expectInList("DEM", UCURR_COMMON|UCURR_NON_DEPRECATED, FALSE);
-    expectInList("DEM", UCURR_UNCOMMON|UCURR_DEPRECATED, FALSE);
-    expectInList("DEM", UCURR_UNCOMMON|UCURR_NON_DEPRECATED, FALSE);
+    expectInList("DEM", UCURR_ALL, true);
+    expectInList("DEM", UCURR_COMMON, true);
+    expectInList("DEM", UCURR_UNCOMMON, false);
+    expectInList("DEM", UCURR_DEPRECATED, true);
+    expectInList("DEM", UCURR_NON_DEPRECATED, false);
+    expectInList("DEM", UCURR_COMMON|UCURR_DEPRECATED, true);
+    expectInList("DEM", UCURR_COMMON|UCURR_NON_DEPRECATED, false);
+    expectInList("DEM", UCURR_UNCOMMON|UCURR_DEPRECATED, false);
+    expectInList("DEM", UCURR_UNCOMMON|UCURR_NON_DEPRECATED, false);
 
-    expectInList("XEU", UCURR_ALL, TRUE);
-    expectInList("XEU", UCURR_COMMON, FALSE);
-    expectInList("XEU", UCURR_UNCOMMON, TRUE);
-    expectInList("XEU", UCURR_DEPRECATED, TRUE);
-    expectInList("XEU", UCURR_NON_DEPRECATED, FALSE);
-    expectInList("XEU", UCURR_COMMON|UCURR_DEPRECATED, FALSE);
-    expectInList("XEU", UCURR_COMMON|UCURR_NON_DEPRECATED, FALSE);
-    expectInList("XEU", UCURR_UNCOMMON|UCURR_DEPRECATED, TRUE);
-    expectInList("XEU", UCURR_UNCOMMON|UCURR_NON_DEPRECATED, FALSE);
+    expectInList("XEU", UCURR_ALL, true);
+    expectInList("XEU", UCURR_COMMON, false);
+    expectInList("XEU", UCURR_UNCOMMON, true);
+    expectInList("XEU", UCURR_DEPRECATED, true);
+    expectInList("XEU", UCURR_NON_DEPRECATED, false);
+    expectInList("XEU", UCURR_COMMON|UCURR_DEPRECATED, false);
+    expectInList("XEU", UCURR_COMMON|UCURR_NON_DEPRECATED, false);
+    expectInList("XEU", UCURR_UNCOMMON|UCURR_DEPRECATED, true);
+    expectInList("XEU", UCURR_UNCOMMON|UCURR_NON_DEPRECATED, false);
 
     // ICU-21622
-    expectInList("UYW", UCURR_ALL, TRUE);
-    expectInList("UYW", UCURR_COMMON, FALSE);
-    expectInList("UYW", UCURR_UNCOMMON, TRUE);
-    expectInList("UYW", UCURR_DEPRECATED, FALSE);
-    expectInList("UYW", UCURR_NON_DEPRECATED, TRUE);
+    expectInList("UYW", UCURR_ALL, true);
+    expectInList("UYW", UCURR_COMMON, false);
+    expectInList("UYW", UCURR_UNCOMMON, true);
+    expectInList("UYW", UCURR_DEPRECATED, false);
+    expectInList("UYW", UCURR_NON_DEPRECATED, true);
 
     // ICU-21685
-    expectInList("VES", UCURR_ALL, TRUE);
-    expectInList("VES", UCURR_COMMON, TRUE);
-    expectInList("VES", UCURR_UNCOMMON, FALSE);
-    expectInList("VES", UCURR_DEPRECATED, FALSE);
-    expectInList("VES", UCURR_NON_DEPRECATED, TRUE);
+    expectInList("VES", UCURR_ALL, true);
+    expectInList("VES", UCURR_COMMON, true);
+    expectInList("VES", UCURR_UNCOMMON, false);
+    expectInList("VES", UCURR_DEPRECATED, false);
+    expectInList("VES", UCURR_NON_DEPRECATED, true);
 
-    expectInList("EQE", UCURR_ALL, FALSE);
+    // CLDR 41/42 and ICU-21989
+    expectInList("SLE", UCURR_ALL, true);
+    expectInList("SLE", UCURR_COMMON, true);
+    expectInList("SLE", UCURR_UNCOMMON, false);
+    expectInList("SLE", UCURR_DEPRECATED, false);
+    expectInList("SLE", UCURR_NON_DEPRECATED, true);
+    expectInList("VED", UCURR_ALL, true);
+    expectInList("VED", UCURR_COMMON, false);
+    expectInList("VED", UCURR_UNCOMMON, true);
+    expectInList("VED", UCURR_DEPRECATED, false);
+    expectInList("VED", UCURR_NON_DEPRECATED, true);
+
+    expectInList("EQE", UCURR_ALL, false);
 }
 
 static void TestEnumListReset(void) {
@@ -279,6 +297,8 @@ static void TestNumericCode(void) {
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 typedef struct {
     const char*    locale;
     const UChar*   currency;
@@ -294,7 +314,7 @@ static const DisplayNameTestEntry DISPLAY_NAME_TESTDATA[]  = {
     { "en",    u"CAD", UCURR_NARROW_SYMBOL_NAME, u"$" },
     { "en_CA", u"CAD", UCURR_SYMBOL_NAME,        u"$" },
     { "en_CA", u"USD", UCURR_SYMBOL_NAME,        u"US$" },
-    { "en_CA", u"USD", UCURR_NARROW_SYMBOL_NAME, u"$" },
+    { "en_CA", u"USD", UCURR_NARROW_SYMBOL_NAME, u"US$" },
     { "en_NZ", u"CAD", UCURR_SYMBOL_NAME,        u"CA$" },
     { "en_NZ", u"USD", UCURR_SYMBOL_NAME,        u"US$" },
     { "en",    u"USX", UCURR_SYMBOL_NAME,        u"USX" },
@@ -310,7 +330,12 @@ static const DisplayNameTestEntry DISPLAY_NAME_TESTDATA[]  = {
     { "kk",    u"AUD", UCURR_LONG_NAME,          u"Аустралия доллары" },
     // Apple test for rdar://100769206
     { "hr",    u"EUR", UCURR_SYMBOL_NAME,        u"€" },
-
+    // Apple test for rdar://97435570
+    { "fr",    u"LAK", UCURR_LONG_NAME,          u"kip laotien" },
+	// Apple tests for rdar://102824421
+    { "es_VE", 	u"VED", UCURR_SYMBOL_NAME,       u"Bs.D" },
+    { "es_419", u"VED", UCURR_SYMBOL_NAME,       u"Bs.D" },
+    
     { NULL,    NULL,   0,                        NULL }
 };
 
@@ -354,6 +379,9 @@ static const PluralNameTestEntry PLURAL_NAME_TESTDATA[]  = {
     // Apple test for rdar://95729967
     { "kk",    u"AUD", "one",    u"Аустралия доллары" },
     { "kk",    u"AUD", "other",  u"Аустралия доллары" },
+    // Apple test for rdar://97435570 -->
+    { "fr",    u"LAK", "one",    u"kip laotien" },
+    { "fr",    u"LAK", "other",  u"kips laotiens" },
 
     { NULL,    NULL,   0,  NULL }
 };
@@ -377,6 +405,7 @@ static void TestPluralDisplayNames(void) {
         }
     }
 }
+#endif  // APPLE_ICU_CHANGES
 
 void addCurrencyTest(TestNode** root);
 
@@ -390,8 +419,11 @@ void addCurrencyTest(TestNode** root)
     TESTCASE(TestFractionDigitOverride);
     TESTCASE(TestPrefixSuffix);
     TESTCASE(TestNumericCode);
+#if APPLE_ICU_CHANGES
+// rdar://
     TESTCASE(TestDisplayNames);
     TESTCASE(TestPluralDisplayNames);
+#endif  // APPLE_ICU_CHANGES
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

@@ -30,6 +30,10 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read_support_format_empty.c 1915
 #include "archive_entry.h"
 #include "archive_private.h"
 #include "archive_read_private.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
+
 
 static int	archive_read_format_empty_bid(struct archive_read *, int);
 static int	archive_read_format_empty_read_data(struct archive_read *,
@@ -41,6 +45,14 @@ archive_read_support_format_empty(struct archive *_a)
 {
 	struct archive_read *a = (struct archive_read *)_a;
 	int r;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_format("empty")) {
+		archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+						  "Format not allow-listed in entitlements");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_format_empty");

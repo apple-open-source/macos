@@ -43,9 +43,14 @@ _gss_scram_delete_sec_context(OM_uint32 * minor_status,
 
 	*context_handle = GSS_C_NO_CONTEXT;
 
-	if (ctx->client)
+	if (ctx->client) {
+#ifdef HAVE_KCM
 	    free(ctx->client);
-
+#else
+	    gss_cred_id_t cred = (gss_cred_id_t)ctx->client;
+	    _gss_scram_release_cred(minor_status, &cred);
+#endif
+	}
 	heim_scram_free(ctx->scram);
 
 	heim_scram_data_free(&ctx->sessionkey);

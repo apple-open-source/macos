@@ -26,7 +26,6 @@ CombinedCurrencyMatcher::CombinedCurrencyMatcher(const CurrencySymbols& currency
         : fCurrency1(currencySymbols.getCurrencySymbol(status)),
           fCurrency2(currencySymbols.getIntlCurrencySymbol(status)),
           fUseFullCurrencyData(0 == (parseFlags & PARSE_FLAG_NO_FOREIGN_CURRENCY)),
-          fCurrencyTrails(0 != (parseFlags & PARSE_FLAG_HAS_TRAIL_CURRENCY)), // Apple <rdar://problem/51938595>
           afterPrefixInsert(dfs.getPatternForCurrencySpacing(UNUM_CURRENCY_INSERT, false, status)),
           beforeSuffixInsert(dfs.getPatternForCurrencySpacing(UNUM_CURRENCY_INSERT, true, status)),
           fLocaleName(dfs.getLocale().getName(), -1, status) {
@@ -64,8 +63,7 @@ CombinedCurrencyMatcher::match(StringSegment& segment, ParsedNumber& result, UEr
     // Try to match a currency spacing separator.
     int32_t initialOffset = segment.getOffset();
     bool maybeMore = false;
-    if (result.seenNumber() && !beforeSuffixInsert.isEmpty()
-            && segment.length() != 0) { // Apple <rdar://problem/51938595>
+    if (result.seenNumber() && !beforeSuffixInsert.isEmpty()) {
         int32_t overlap = segment.getCommonPrefixLength(beforeSuffixInsert);
         if (overlap == beforeSuffixInsert.length()) {
             segment.adjustOffset(overlap);
@@ -82,8 +80,7 @@ CombinedCurrencyMatcher::match(StringSegment& segment, ParsedNumber& result, UEr
     }
 
     // Try to match a currency spacing separator.
-    if (!result.seenNumber() && !afterPrefixInsert.isEmpty()
-            && segment.length() != 0) { // Apple <rdar://problem/51938595>
+    if (!result.seenNumber() && !afterPrefixInsert.isEmpty()) {
         int32_t overlap = segment.getCommonPrefixLength(afterPrefixInsert);
         if (overlap == afterPrefixInsert.length()) {
             segment.adjustOffset(overlap);
@@ -102,8 +99,6 @@ bool CombinedCurrencyMatcher::matchCurrency(StringSegment& segment, ParsedNumber
     int32_t overlap1;
     if (!fCurrency1.isEmpty()) {
         overlap1 = segment.getCaseSensitivePrefixLength(fCurrency1);
-    } else if (!fUseFullCurrencyData && (!fCurrencyTrails || result.seenNumber())) { // Apple <rdar://problem/46915356><rdar://problem/51938595>
-        overlap1 = 0;
     } else {
         overlap1 = -1;
     }

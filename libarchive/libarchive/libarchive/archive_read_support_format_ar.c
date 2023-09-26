@@ -49,6 +49,10 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read_support_format_ar.c 201101 
 #include "archive_private.h"
 #include "archive_read_private.h"
 
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
+
 struct ar {
 	int64_t	 entry_bytes_remaining;
 	/* unconsumed is purely to track data we've gotten from readahead,
@@ -97,9 +101,18 @@ static int	ar_parse_common_header(struct ar *ar, struct archive_entry *,
 int
 archive_read_support_format_ar(struct archive *_a)
 {
+
 	struct archive_read *a = (struct archive_read *)_a;
 	struct ar *ar;
 	int r;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_format("ar")) {
+		archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+						  "Format not allow-listed in entitlements");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_format_ar");

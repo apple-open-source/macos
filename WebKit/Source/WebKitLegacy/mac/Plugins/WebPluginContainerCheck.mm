@@ -38,9 +38,10 @@
 #import <Foundation/NSURL.h>
 #import <Foundation/NSURLRequest.h>
 #import <WebCore/Document.h>
-#import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderTypes.h>
+#import <WebCore/LocalFrame.h>
+#import <WebCore/OriginAccessPatterns.h>
 #import <WebCore/SecurityOrigin.h>
 #import <wtf/Assertions.h>
 #import <wtf/ObjCRuntimeExtras.h>
@@ -97,7 +98,7 @@
 {
     auto* coreFrame = core([_controller webFrame]);
     ASSERT(coreFrame);
-    if (!coreFrame->document()->securityOrigin().canDisplay([_request URL])) {
+    if (!coreFrame->document()->securityOrigin().canDisplay([_request URL], WebCore::OriginAccessPatternsForWebProcess::singleton())) {
         [self _continueWithPolicy:WebCore::PolicyAction::Ignore];
         return YES;
     }

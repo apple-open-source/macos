@@ -151,9 +151,98 @@ static void test_sign_digest(void) {
 }
 static const int TestSignDigest = TestSignDigestRun * 18 + 3;
 
+static void test_sign_rs(void) {
+    NSError *error = nil;
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256, (id)kSecUseDataProtectionKeychain: @YES}, (void *)&error));
+    ok(privateKey, "key properly generated: %@", error);
+    
+    NSData *digest = [NSMutableData dataWithLength:ccsha256_di()->output_size];
+    NSData *signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureRFC4754, (CFDataRef)digest, (void *)&error));
+    ok(signature != nil, "sign digest with RS signature: %@", error);
+    
+    id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    BOOL verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureRFC4754, (CFDataRef)digest, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS signature: %@", error);
+
+    digest = [NSMutableData dataWithLength:ccsha1_di()->output_size];
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754, (CFDataRef)digest, (void *)&error));
+    ok(signature != nil, "sign digest with RS signature (digest variant): %@", error);
+
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    // We intentionally pass kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA1, as it must be binary compatible with kSecKeyAlgorithmECDSASignatureDigestRFC4754 (used for signing)
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA1, (CFDataRef)digest, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS signature (digest SHA1 variant): %@", error);
+
+    digest = [NSMutableData dataWithLength:ccsha224_di()->output_size];
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754, (CFDataRef)digest, (void *)&error));
+    ok(signature != nil, "sign digest with RS signature (digest variant): %@", error);
+
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA224, (CFDataRef)digest, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS signature (digest SHA224 variant): %@", error);
+
+    digest = [NSMutableData dataWithLength:ccsha256_di()->output_size];
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754, (CFDataRef)digest, (void *)&error));
+    ok(signature != nil, "sign digest with RS signature (digest variant): %@", error);
+
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA256, (CFDataRef)digest, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS signature (digest SHA256 variant): %@", error);
+
+    digest = [NSMutableData dataWithLength:ccsha384_di()->output_size];
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754, (CFDataRef)digest, (void *)&error));
+    ok(signature != nil, "sign digest with RS signature (digest variant): %@", error);
+
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA384, (CFDataRef)digest, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS signature (digest SHA384 variant): %@", error);
+
+    digest = [NSMutableData dataWithLength:ccsha512_di()->output_size];
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754, (CFDataRef)digest, (void *)&error));
+    ok(signature != nil, "sign digest with RS signature (digest variant): %@", error);
+
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA512, (CFDataRef)digest, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS signature (digest SHA512 variant): %@", error);
+
+    NSData *message = [@"this is quite a long message to be encoded, dont know what else should i write here..." dataUsingEncoding:NSUTF8StringEncoding];
+
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA1, (CFDataRef)message, (void *)&error));
+    ok(signature != nil, "sign message with RS-SHA1 signature: %@", error);
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA1, (CFDataRef)message, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS-SHA1 signature: %@", error);
+
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA224, (CFDataRef)message, (void *)&error));
+    ok(signature != nil, "sign message with RS-SHA224 signature: %@", error);
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA224, (CFDataRef)message, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS-SHA224 signature: %@", error);
+
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA256, (CFDataRef)message, (void *)&error));
+    ok(signature != nil, "sign message with RS-SHA256 signature: %@", error);
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA256, (CFDataRef)message, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS-SHA256 signature: %@", error);
+
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA384, (CFDataRef)message, (void *)&error));
+    ok(signature != nil, "sign message with RS-SHA384 signature: %@", error);
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA384, (CFDataRef)message, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS-SHA384 signature: %@", error);
+
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA512, (CFDataRef)message, (void *)&error));
+    ok(signature != nil, "sign message with RS-SHA512 signature: %@", error);
+    publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    verified = SecKeyVerifySignature((SecKeyRef)publicKey, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA512, (CFDataRef)message, (CFDataRef)signature, (void *)&error);
+    ok(verified, "verify RS-SHA512 signature: %@", error);
+}
+static const int TestSignRS = 23;
+
 static const int TestCount =
 TestExportImport +
-TestSignDigest;
+TestSignDigest +
+TestSignRS;
 
 int si_44_seckey_ec(int argc, char *const *argv) {
     plan_tests(TestCount);
@@ -161,6 +250,7 @@ int si_44_seckey_ec(int argc, char *const *argv) {
     @autoreleasepool {
         test_export_import();
         test_sign_digest();
+        test_sign_rs();
     }
     
     return 0;

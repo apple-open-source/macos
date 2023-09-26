@@ -240,7 +240,7 @@ void UnicodeTest::TestAdditionalProperties() {
     uint32_t i;
     UChar32 start, end;
 
-    // test all TRUE properties
+    // test all true properties
     for(i=0; i<UPRV_LENGTHOF(derivedPropsNames); ++i) {
         rangeCount=derivedProps[i].getRangeCount();
         for(range=0; range<rangeCount && numErrors[i]<MAX_ERRORS; ++range) {
@@ -248,7 +248,7 @@ void UnicodeTest::TestAdditionalProperties() {
             end=derivedProps[i].getRangeEnd(range);
             for(; start<=end; ++start) {
                 if(!u_hasBinaryProperty(start, derivedPropsIndex[i])) {
-                    dataerrln("UnicodeTest error: u_hasBinaryProperty(U+%04lx, %s)==FALSE is wrong", start, derivedPropsNames[i]);
+                    dataerrln("UnicodeTest error: u_hasBinaryProperty(U+%04lx, %s)==false is wrong", start, derivedPropsNames[i]);
                     if(++numErrors[i]>=MAX_ERRORS) {
                       dataerrln("Too many errors, moving to the next test");
                       break;
@@ -263,7 +263,7 @@ void UnicodeTest::TestAdditionalProperties() {
         derivedProps[i].complement();
     }
 
-    // test all FALSE properties
+    // test all false properties
     for(i=0; i<UPRV_LENGTHOF(derivedPropsNames); ++i) {
         rangeCount=derivedProps[i].getRangeCount();
         for(range=0; range<rangeCount && numErrors[i]<MAX_ERRORS; ++range) {
@@ -271,7 +271,7 @@ void UnicodeTest::TestAdditionalProperties() {
             end=derivedProps[i].getRangeEnd(range);
             for(; start<=end; ++start) {
                 if(u_hasBinaryProperty(start, derivedPropsIndex[i])) {
-                    errln("UnicodeTest error: u_hasBinaryProperty(U+%04lx, %s)==TRUE is wrong\n", start, derivedPropsNames[i]);
+                    errln("UnicodeTest error: u_hasBinaryProperty(U+%04lx, %s)==true is wrong\n", start, derivedPropsNames[i]);
                     if(++numErrors[i]>=MAX_ERRORS) {
                       errln("Too many errors, moving to the next test");
                       break;
@@ -365,9 +365,9 @@ void UnicodeTest::TestConsistency() {
         // because the new internal normalization functions are in C++.
         //compareUSets(set1, set2,
         //             "[canon start set of 0049]", "[all c with canon decomp with 0049]",
-        //             TRUE);
+        //             true);
     } else {
-        errln("NFC.getCanonStartSet() returned FALSE");
+        errln("NFC.getCanonStartSet() returned false");
     }
 #endif
 }
@@ -402,16 +402,16 @@ void UnicodeTest::TestPatternProperties() {
         }
     }
     compareUSets(syn_pp, syn_prop,
-                 "PatternProps.isSyntax()", "[:Pattern_Syntax:]", TRUE);
+                 "PatternProps.isSyntax()", "[:Pattern_Syntax:]", true);
     compareUSets(syn_pp, syn_list,
-                 "PatternProps.isSyntax()", "[Pattern_Syntax ranges]", TRUE);
+                 "PatternProps.isSyntax()", "[Pattern_Syntax ranges]", true);
     compareUSets(ws_pp, ws_prop,
-                 "PatternProps.isWhiteSpace()", "[:Pattern_White_Space:]", TRUE);
+                 "PatternProps.isWhiteSpace()", "[:Pattern_White_Space:]", true);
     compareUSets(ws_pp, ws_list,
-                 "PatternProps.isWhiteSpace()", "[Pattern_White_Space ranges]", TRUE);
+                 "PatternProps.isWhiteSpace()", "[Pattern_White_Space ranges]", true);
     compareUSets(syn_ws_pp, syn_ws_prop,
                  "PatternProps.isSyntaxOrWhiteSpace()",
-                 "[[:Pattern_Syntax:][:Pattern_White_Space:]]", TRUE);
+                 "[[:Pattern_Syntax:][:Pattern_White_Space:]]", true);
 }
 
 // So far only minimal port of Java & cucdtst.c compareUSets().
@@ -544,12 +544,13 @@ void UnicodeTest::TestEmojiProperties() {
                u_hasBinaryProperty(0x2A, UCHAR_EMOJI_COMPONENT));
     assertTrue("copyright is Extended_Pictographic",
                u_hasBinaryProperty(0xA9, UCHAR_EXTENDED_PICTOGRAPHIC));
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+// rdar://
     assertTrue("TAG char is Emoji_Component",
                u_hasBinaryProperty(0xE0061, UCHAR_EMOJI_COMPONENT)); // Apple addition
     assertTrue("ZWJ char is Emoji_Component",
                u_hasBinaryProperty(0x200D, UCHAR_EMOJI_COMPONENT)); // Apple addition
-#endif
+#endif  // APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
 }
 
 namespace {

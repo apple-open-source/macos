@@ -139,7 +139,7 @@ int secd_01_items(int argc, char *const *argv)
     is_status(SecItemCopyMatching(query, &results), errSecInteractionNotAllowed, "find internet password, while locked ");
 
     /* Reset keybag and custom $HOME */
-    SecItemServerResetKeychainKeybag();
+    SecItemServerSetKeychainKeybagToDefault();
     secd_test_teardown_delete_temp_keychain("secd_01_items");
     void* buf = NULL;
     int bufLen = 0;

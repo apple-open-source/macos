@@ -33,6 +33,9 @@ __FBSDID("$FreeBSD$");
 #include "archive.h"
 #include "archive_private.h"
 #include "archive_read_private.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 int
 archive_read_set_format(struct archive *_a, int code)
@@ -112,6 +115,13 @@ archive_read_set_format(struct archive *_a, int code)
         "Internal error: Unable to set format");
     r1 = (ARCHIVE_FATAL);
   }
+
+#ifdef __APPLE__
+   if (!archive_allow_entitlement_format(a->format->name)) {
+     archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC, "Format not allow-listed in entitlements");
+     r1 = (ARCHIVE_FATAL);
+   }
+#endif
 
   return (r1 < r2) ? r1 : r2;
 }

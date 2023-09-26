@@ -146,6 +146,11 @@ extern "C" {
 #define SERVER_CONFIG_FILE "conf/httpd.conf"
 #endif
 
+#ifndef MANAGED_SERVER_CONFIG_FILE
+/* This needs to be kept in sync with our SERVER_CONFIG_FILE setting */
+#define MANAGED_SERVER_CONFIG_FILE "/private/var/db/ManagedConfigurationFiles/com.apple.apache.httpd/etc/apache2/httpd.conf"
+#endif
+
 /** The default path for CGI scripts if none is currently set */
 #ifndef DEFAULT_PATH
 #define DEFAULT_PATH "/bin:/usr/bin:/usr/ucb:/usr/bsd:/usr/local/bin"

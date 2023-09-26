@@ -1,7 +1,6 @@
-/*	$OpenBSD: ftree.h,v 1.5 2008/05/06 06:54:28 henning Exp $	*/
-/*	$NetBSD: ftree.h,v 1.3 1995/03/21 09:07:23 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,6 +33,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)ftree.h	8.1 (Berkeley) 5/31/93
+ * $FreeBSD$
  */
 
 #ifndef _FTREE_H_
@@ -48,7 +48,6 @@
 typedef struct ftree {
 	char		*fname;		/* file tree name */
 	int		refcnt;		/* has tree had a selected file? */
-	int		newercnt;	/* skipped due to -u/-D */
 	int		chflg;		/* change directory flag */
 	struct ftree	*fow;		/* pointer to next entry on list */
 } FTREE;

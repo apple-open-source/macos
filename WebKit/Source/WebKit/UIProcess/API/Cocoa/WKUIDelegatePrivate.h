@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -113,13 +113,6 @@ typedef NS_OPTIONS(NSUInteger, _WKXRSessionFeatureFlags) {
     _WKXRSessionFeatureFlagsHandTracking = 1 << 5,
 } WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
-typedef NS_ENUM(NSInteger, _WKModalContainerDecision) {
-    _WKModalContainerDecisionShow,
-    _WKModalContainerDecisionHideAndIgnore,
-    _WKModalContainerDecisionHideAndAllow,
-    _WKModalContainerDecisionHideAndDisallow,
-} WK_API_AVAILABLE(macos(13.0), ios(16.0));
-
 typedef NS_ENUM(NSInteger, WKDisplayCapturePermissionDecision) {
     WKDisplayCapturePermissionDecisionDeny,
     WKDisplayCapturePermissionDecisionScreenPrompt,
@@ -200,13 +193,12 @@ struct UIEdgeInsets;
 - (void)_webViewDidDisableInspectorBrowserDomain:(WKWebView *)webView WK_API_AVAILABLE(macos(12.0), ios(15.0));
 
 - (void)_webView:(WKWebView *)webView requestPermissionForXRSessionOrigin:(NSString *)originString mode:(_WKXRSessionMode)mode grantedFeatures:(_WKXRSessionFeatureFlags)grantedFeatures consentRequiredFeatures:(_WKXRSessionFeatureFlags)consentRequiredFeatures consentOptionalFeatures:(_WKXRSessionFeatureFlags)consentOptionalFeatures completionHandler:(void (^)(_WKXRSessionFeatureFlags))completionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
+- (void)_webView:(WKWebView *)webView requestPermissionForXRSessionOrigin:(NSString *)originString mode:(_WKXRSessionMode)mode grantedFeatures:(_WKXRSessionFeatureFlags)grantedFeatures consentRequiredFeatures:(_WKXRSessionFeatureFlags)consentRequiredFeatures consentOptionalFeatures:(_WKXRSessionFeatureFlags)consentOptionalFeatures requiredFeaturesRequested:(_WKXRSessionFeatureFlags)requiredFeaturesRequested optionalFeaturesRequested:(_WKXRSessionFeatureFlags)optionalFeaturesRequested completionHandler:(void (^)(_WKXRSessionFeatureFlags))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 - (void)_webView:(WKWebView *)webView startXRSessionWithCompletionHandler:(void (^)(id))completionHandler WK_API_AVAILABLE(macos(12.0), ios(15.0));
 - (void)_webView:(WKWebView *)webView requestNotificationPermissionForSecurityOrigin:(WKSecurityOrigin *)securityOrigin decisionHandler:(void (^)(BOOL))decisionHandler WK_API_AVAILABLE(macos(10.13.4), ios(16.0));
 - (void)_webViewEndXRSession:(WKWebView *)webView WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
 - (void)_webView:(WKWebView *)webView requestCookieConsentWithMoreInfoHandler:(void (^)(void))moreInfoHandler decisionHandler:(void (^)(BOOL))decisionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
-
-- (void)_webView:(WKWebView *)webView decidePolicyForModalContainer:(_WKModalContainerInfo *)containerInfo decisionHandler:(void (^)(_WKModalContainerDecision))decisionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
 - (void)_webView:(WKWebView *)webView updatedAppBadge:(NSNumber *)badge fromSecurityOrigin:(WKSecurityOrigin *)origin WK_API_AVAILABLE(macos(13.3), ios(16.4));
 - (void)_webView:(WKWebView *)webView updatedClientBadge:(NSNumber *)badge fromSecurityOrigin:(WKSecurityOrigin *)origin WK_API_AVAILABLE(macos(13.3), ios(16.4));
@@ -217,6 +209,7 @@ struct UIEdgeInsets;
 - (NSArray *)_webView:(WKWebView *)webView actionsForElement:(_WKActivatedElementInfo *)element defaultActions:(NSArray<_WKElementAction *> *)defaultActions;
 - (void)_webView:(WKWebView *)webView didNotHandleTapAsClickAtPoint:(CGPoint)point;
 - (void)_webViewStatusBarWasTapped:(WKWebView *)webView;
+- (void)_webView:(WKWebView *)webView setShouldKeepScreenAwake:(BOOL)shouldKeepScreenAwake;
 - (void)_webView:(WKWebView *)webView requestGeolocationAuthorizationForURL:(NSURL *)url frame:(WKFrameInfo *)frame decisionHandler:(void (^)(BOOL authorized))decisionHandler WK_API_AVAILABLE(ios(11.0));
 - (BOOL)_webView:(WKWebView *)webView fileUploadPanelContentIsManagedWithInitiatingFrame:(WKFrameInfo *)frame;
 

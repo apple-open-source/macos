@@ -36,8 +36,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/labs.c,v 1.3 2007/01/09 00:28:10 imp Exp
 #include <stdlib.h>
 
 long
-labs(j)
-	long j;
+labs(long j)
 {
 	return(j < 0 ? -j : j);
 }

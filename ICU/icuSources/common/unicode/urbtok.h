@@ -1,6 +1,12 @@
 /*
 ******************************************************************************
 * Copyright (C) 2006-2008, 2017-2018 Apple Inc. All Rights Reserved.
+*
+* originally added per rdar://4768966&4768976 C tokenizer API with binary rule endian swapping
+* updated per
+* rdar://5378823 Add urbtok_openBinaryRulesNoCopy().
+* rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+* rdar://37249396 Add ICU 57 version of RBBI classes, urbtok57 interfaces for access via RBT, and better tests
 ******************************************************************************
 */
 

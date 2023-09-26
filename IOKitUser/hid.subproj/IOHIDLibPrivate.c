@@ -98,6 +98,7 @@ os_log_t _IOHIDLogCategory(IOHIDLogCategory category)
         log[kIOHIDLogCategorySignpost]          = os_log_create(kIOHIDLogSubsytem, "hidsignpost");
         log[kIOHIDLogCategoryUPS]               = os_log_create(kIOHIDLogSubsytem, "ups");
         log[kIOHIDLogCategoryClient]            = os_log_create(kIOHIDLogSubsytem, "client");
+        log[kIOHIDLogCategoryOversized]         = os_log_create(kIOHIDLogSubsytem, "oversized");
 
     });
     return log[category];

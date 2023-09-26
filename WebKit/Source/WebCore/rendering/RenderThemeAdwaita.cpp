@@ -26,6 +26,8 @@
 #include "config.h"
 #include "RenderThemeAdwaita.h"
 
+#if USE(THEME_ADWAITA)
+
 #include "Color.h"
 #include "FloatRoundedRect.h"
 #include "GraphicsContext.h"
@@ -36,7 +38,7 @@
 #include "RenderBox.h"
 #include "RenderObject.h"
 #include "RenderProgress.h"
-#include "RenderStyle.h"
+#include "RenderStyleSetters.h"
 #include "ThemeAdwaita.h"
 #include "TimeRanges.h"
 #include "UserAgentScripts.h"
@@ -113,13 +115,11 @@ static inline Color getAccentColor(const RenderObject& renderObject)
     return getSystemAccentColor();
 }
 
-#if !PLATFORM(GTK)
 RenderTheme& RenderTheme::singleton()
 {
     static MainThreadNeverDestroyed<RenderThemeAdwaita> theme;
     return theme;
 }
-#endif
 
 bool RenderThemeAdwaita::supportsFocusRing(const RenderStyle& style) const
 {
@@ -647,9 +647,9 @@ bool RenderThemeAdwaita::paintSliderThumb(const RenderObject& renderObject, cons
 
     FloatRect fieldRect = rect;
     Path path;
-    path.addEllipse(fieldRect);
+    path.addEllipseInRect(fieldRect);
     fieldRect.inflate(-sliderThumbBorderSize);
-    path.addEllipse(fieldRect);
+    path.addEllipseInRect(fieldRect);
     graphicsContext.setFillRule(WindRule::EvenOdd);
     if (isEnabled(renderObject) && isPressed(renderObject))
         graphicsContext.setFillColor(getAccentColor(renderObject));
@@ -658,7 +658,7 @@ bool RenderThemeAdwaita::paintSliderThumb(const RenderObject& renderObject, cons
     graphicsContext.fillPath(path);
     path.clear();
 
-    path.addEllipse(fieldRect);
+    path.addEllipseInRect(fieldRect);
     graphicsContext.setFillRule(WindRule::NonZero);
     if (!isEnabled(renderObject))
         graphicsContext.setFillColor(sliderThumbBackgroundDisabledColor);
@@ -693,12 +693,14 @@ void RenderThemeAdwaita::adjustListButtonStyle(RenderStyle& style, const Element
 #endif // ENABLE(DATALIST_ELEMENT)
 
 #if PLATFORM(GTK)
-Seconds RenderThemeAdwaita::caretBlinkInterval() const
+std::optional<Seconds> RenderThemeAdwaita::caretBlinkInterval() const
 {
     gboolean shouldBlink;
     gint time;
     g_object_get(gtk_settings_get_default(), "gtk-cursor-blink", &shouldBlink, "gtk-cursor-blink-time", &time, nullptr);
-    return shouldBlink ? 500_us * time : 0_s;
+    if (shouldBlink)
+        return { 500_us * time };
+    return { };
 }
 #endif
 
@@ -709,3 +711,5 @@ void RenderThemeAdwaita::setAccentColor(const Color& color)
 }
 
 } // namespace WebCore
+
+#endif // USE(THEME_ADWAITA)

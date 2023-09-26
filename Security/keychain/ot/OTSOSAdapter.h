@@ -8,7 +8,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @protocol OTSOSAdapter <CKKSPeerProvider>
-@property bool sosEnabled;
+@property (nonatomic, readonly) bool sosEnabled;
 - (SOSCCStatus)circleStatus:(NSError**)error;
 - (id<CKKSSelfPeer> _Nullable)currentSOSSelf:(NSError**)error;
 - (NSSet<id<CKKSRemotePeerProtocol>>* _Nullable)fetchTrustedPeers:(NSError**)error;

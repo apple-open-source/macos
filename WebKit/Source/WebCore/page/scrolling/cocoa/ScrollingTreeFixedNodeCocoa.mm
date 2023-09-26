@@ -54,8 +54,12 @@ bool ScrollingTreeFixedNodeCocoa::commitStateBeforeChildren(const ScrollingState
         return false;
 
     const auto& fixedStateNode = downcast<ScrollingStateFixedNode>(stateNode);
-    if (fixedStateNode.hasChangedProperty(ScrollingStateNode::Property::Layer))
+    if (fixedStateNode.hasChangedProperty(ScrollingStateNode::Property::Layer)) {
         m_layer = static_cast<CALayer*>(fixedStateNode.layer());
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+        m_interactionRegionsLayer = static_cast<CALayer*>(fixedStateNode.interactionRegionsLayer());
+#endif
+    }
 
     return ScrollingTreeFixedNode::commitStateBeforeChildren(stateNode);
 }
@@ -75,6 +79,9 @@ void ScrollingTreeFixedNodeCocoa::applyLayerPositions()
 #endif
 
     [m_layer _web_setLayerTopLeftPosition:layerPosition - m_constraints.alignmentOffset()];
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    [m_interactionRegionsLayer _web_setLayerTopLeftPosition:layerPosition - m_constraints.alignmentOffset()];
+#endif
 }
 
 void ScrollingTreeFixedNodeCocoa::dumpProperties(TextStream& ts, OptionSet<ScrollingStateTreeAsTextBehavior> behavior) const

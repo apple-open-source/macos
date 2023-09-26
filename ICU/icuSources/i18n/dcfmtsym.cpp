@@ -100,7 +100,7 @@ static const char *gNumberElementKeys[DecimalFormatSymbols::kFormatSymbolCount] 
 
 DecimalFormatSymbols::DecimalFormatSymbols(UErrorCode& status)
         : UObject(), locale(), currPattern(NULL) {
-    initialize(locale, status, TRUE);
+    initialize(locale, status, true);
 }
 
 // -------------------------------------
@@ -113,12 +113,26 @@ DecimalFormatSymbols::DecimalFormatSymbols(const Locale& loc, UErrorCode& status
 
 DecimalFormatSymbols::DecimalFormatSymbols(const Locale& loc, const NumberingSystem& ns, UErrorCode& status)
         : UObject(), locale(loc), currPattern(NULL) {
-    initialize(locale, status, FALSE, &ns);
+    initialize(locale, status, false, &ns);
 }
+
+#if APPLE_ICU_CHANGES
+// rdar://107351099 SimpleDateFormat perf
+DecimalFormatSymbols::DecimalFormatSymbols(const Locale& loc, const NumberingSystem& ns, bool forDate, UErrorCode& status)
+        : UObject(), locale(loc), currPattern(NULL) {
+    initialize(locale, status, false, &ns, forDate);
+}
+#endif  // APPLE_ICU_CHANGES
+
 
 DecimalFormatSymbols::DecimalFormatSymbols()
         : UObject(), locale(Locale::getRoot()), currPattern(NULL) {
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
     *validLocale = *actualLocale = *fNSName = 0;
+#else
+    *validLocale = *actualLocale = 0;
+#endif  // APPLE_ICU_CHANGES
     initialize();
 }
 
@@ -168,7 +182,10 @@ DecimalFormatSymbols::operator=(const DecimalFormatSymbols& rhs)
         fIsCustomCurrencySymbol = rhs.fIsCustomCurrencySymbol; 
         fIsCustomIntlCurrencySymbol = rhs.fIsCustomIntlCurrencySymbol; 
         fCodePointZero = rhs.fCodePointZero;
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
         uprv_strcpy(fNSName, rhs.fNSName);
+#endif  // APPLE_ICU_CHANGES
         currPattern = rhs.currPattern;
     }
     return *this;
@@ -204,8 +221,13 @@ DecimalFormatSymbols::operator==(const DecimalFormatSymbols& that) const
     // No need to check fCodePointZero since it is based on fSymbols
     return locale == that.locale &&
         uprv_strcmp(validLocale, that.validLocale) == 0 &&
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
         uprv_strcmp(actualLocale, that.actualLocale) == 0 &&
         uprv_strcmp(fNSName, that.fNSName) == 0;
+#else
+        uprv_strcmp(actualLocale, that.actualLocale) == 0;
+#endif  // APPLE_ICU_CHANGES
 }
 
 // -------------------------------------
@@ -229,7 +251,7 @@ struct DecFmtSymDataSink : public ResourceSink {
 
     // Constructor/Destructor
     DecFmtSymDataSink(DecimalFormatSymbols& _dfs) : dfs(_dfs) {
-        uprv_memset(seenSymbol, FALSE, sizeof(seenSymbol));
+        uprv_memset(seenSymbol, false, sizeof(seenSymbol));
     }
     virtual ~DecFmtSymDataSink();
 
@@ -241,7 +263,7 @@ struct DecFmtSymDataSink : public ResourceSink {
             for (int32_t i=0; i<DecimalFormatSymbols::kFormatSymbolCount; i++) {
                 if (gNumberElementKeys[i] != NULL && uprv_strcmp(key, gNumberElementKeys[i]) == 0) {
                     if (!seenSymbol[i]) {
-                        seenSymbol[i] = TRUE;
+                        seenSymbol[i] = true;
                         dfs.setSymbol(
                             (DecimalFormatSymbols::ENumberFormatSymbol) i,
                             value.getUnicodeString(errorCode));
@@ -257,10 +279,10 @@ struct DecFmtSymDataSink : public ResourceSink {
     UBool seenAll() {
         for (int32_t i=0; i<DecimalFormatSymbols::kFormatSymbolCount; i++) {
             if (!seenSymbol[i]) {
-                return FALSE;
+                return false;
             }
         }
-        return TRUE;
+        return true;
     }
 
     // If monetary decimal or grouping were not explicitly set, then set them to be the
@@ -285,7 +307,7 @@ struct CurrencySpacingSink : public ResourceSink {
     UBool hasAfterCurrency;
 
     CurrencySpacingSink(DecimalFormatSymbols& _dfs)
-        : dfs(_dfs), hasBeforeCurrency(FALSE), hasAfterCurrency(FALSE) {}
+        : dfs(_dfs), hasBeforeCurrency(false), hasAfterCurrency(false) {}
     virtual ~CurrencySpacingSink();
 
     virtual void put(const char *key, ResourceValue &value, UBool /*noFallback*/,
@@ -294,11 +316,11 @@ struct CurrencySpacingSink : public ResourceSink {
         for (int32_t i = 0; spacingTypesTable.getKeyAndValue(i, key, value); ++i) {
             UBool beforeCurrency;
             if (uprv_strcmp(key, gBeforeCurrencyTag) == 0) {
-                beforeCurrency = TRUE;
-                hasBeforeCurrency = TRUE;
+                beforeCurrency = true;
+                hasBeforeCurrency = true;
             } else if (uprv_strcmp(key, gAfterCurrencyTag) == 0) {
-                beforeCurrency = FALSE;
-                hasAfterCurrency = TRUE;
+                beforeCurrency = false;
+                hasAfterCurrency = true;
             } else {
                 continue;
             }
@@ -331,7 +353,7 @@ struct CurrencySpacingSink : public ResourceSink {
         // both beforeCurrency and afterCurrency were found in CLDR.
         static const char* defaults[] = { "[:letter:]", "[:digit:]", " " };
         if (!hasBeforeCurrency || !hasAfterCurrency) {
-            for (UBool beforeCurrency = 0; beforeCurrency <= TRUE; beforeCurrency++) {
+            for (UBool beforeCurrency = 0; beforeCurrency <= true; beforeCurrency++) {
                 for (int32_t pattern = 0; pattern < UNUM_CURRENCY_SPACING_COUNT; pattern++) {
                     dfs.setPatternForCurrencySpacing((UCurrencySpacing)pattern,
                         beforeCurrency, UnicodeString(defaults[pattern], -1, US_INV));
@@ -349,10 +371,20 @@ CurrencySpacingSink::~CurrencySpacingSink() {}
 
 void
 DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
+#if APPLE_ICU_CHANGES
+// rdar://107351099 SimpleDateFormat perf
+    UBool useLastResortData, const NumberingSystem* ns, bool forDate)
+#else
     UBool useLastResortData, const NumberingSystem* ns)
+#endif  // APPLE_ICU_CHANGES
 {
     if (U_FAILURE(status)) { return; }
+#if APPLE_ICU_CHANGES
+rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
     *validLocale = *actualLocale = *fNSName = 0;
+#else
+    *validLocale = *actualLocale = 0;
+#endif  // APPLE_ICU_CHANGES
 
     // First initialize all the symbols to the fallbacks for anything we can't find
     initialize();
@@ -368,14 +400,21 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
         nsLocal.adoptInstead(NumberingSystem::createInstance(loc, status));
         ns = nsLocal.getAlias();
     }
+#if APPLE_ICU_CHANGES
+// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
     const char *nsName = gLatn;
     if (U_SUCCESS(status) && nsName != nullptr) {
         nsName = ns->getName();
     }
-    // Apple rdar://51672521 Save original name
+    // Save original name
     uprv_strncpy(fNSName, nsName, 8);
     fNSName[8] = 0; // guarantee NUL-terminated
     if (U_SUCCESS(status) && ns->getRadix() == 10 && !ns->isAlgorithmic()) {
+#else
+    const char *nsName;
+    if (U_SUCCESS(status) && ns->getRadix() == 10 && !ns->isAlgorithmic()) {
+        nsName = ns->getName();
+#endif  // APPLE_ICU_CHANGES
         UnicodeString digitString(ns->getDescription());
         int32_t digitIndex = 0;
         UChar32 digit = digitString.char32At(0);
@@ -385,6 +424,13 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
             digit = digitString.char32At(digitIndex);
             fSymbols[i].setTo(digit);
         }
+#if APPLE_ICU_CHANGES
+// rdar://107351099 SimpleDateFormat perf
+        if (forDate) {
+            // Don't need any other number symbols, just use the fallback ones from initialize() above
+            return;
+        }
+#endif  // APPLE_ICU_CHANGES
     } else {
         nsName = gLatn;
     }
@@ -394,7 +440,10 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
     LocalUResourceBundlePointer resource(ures_open(NULL, locStr, &status));
     LocalUResourceBundlePointer numberElementsRes(
         ures_getByKeyWithFallback(resource.getAlias(), gNumberElements, NULL, &status));
+#if APPLE_ICU_CHANGES
+// rdar:/
     LocalUResourceBundlePointer countryFallbackResource(ures_openWithCountryFallback(NULL, locStr, NULL, &status));
+#endif  // APPLE_ICU_CHANGES
 
     if (U_FAILURE(status)) {
         if ( useLastResortData ) {
@@ -403,7 +452,7 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
         }
         return;
     }
-    
+
     // Set locale IDs
     // TODO: Is there a way to do this without depending on the resource bundle instance?
     U_LOCALE_BASED(locBased, *this);
@@ -415,10 +464,12 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
             numberElementsRes.getAlias(),
             ULOC_ACTUAL_LOCALE, &status));
 
+#if APPLE_ICU_CHANGES
+// rdar:/
     // Now load the rest of the data from the data sink.  If `countryFallbackResource` is filled in,
     // we have to do this twice: Once for countryFallbackResource and then again with `resource`.
     DecFmtSymDataSink sink(*this);
-    // for Apple rdar://problem/54886964 (the "for" statement -- the loop body is unchanged)
+    // for Apple rdar://54886964 (the "for" statement -- the loop body is unchanged)
     for (UResourceBundle* curRes = countryFallbackResource.getAlias() ? countryFallbackResource.getAlias() : resource.getAlias(); curRes != NULL; curRes = ((curRes != resource.getAlias()) ? resource.getAlias() : NULL)) {
         // Start with loading this nsName if it is not Latin.
         if (uprv_strcmp(nsName, gLatn) != 0) {
@@ -445,22 +496,50 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
             if (U_FAILURE(status)) { return; }
         }
         
-        // for Apple rdar://problem/54886964 (the whole "if" statement)
+        // for Apple rdar://54886964 (the whole "if" statement)
         // There are certain symbols that are language-dependent and shouldn't inherit from
         // the country fallback resource.  Clear the resource sink's "seen" flag for those
         // symbols so that they can inherit from the regular resource on the next trip through
         // this loop.
         if (curRes == countryFallbackResource.getAlias()) {
-            sink.seenSymbol[kPlusSignSymbol] = FALSE;
-            sink.seenSymbol[kMinusSignSymbol] = FALSE;
-            sink.seenSymbol[kPercentSymbol] = FALSE;
-            sink.seenSymbol[kCurrencySymbol] = FALSE;
-            sink.seenSymbol[kIntlCurrencySymbol] = FALSE;
-            sink.seenSymbol[kExponentialSymbol] = FALSE;
-            sink.seenSymbol[kInfinitySymbol] = FALSE;
-            sink.seenSymbol[kNaNSymbol] = FALSE;
+            sink.seenSymbol[kPlusSignSymbol] = false;
+            sink.seenSymbol[kMinusSignSymbol] = false;
+            sink.seenSymbol[kPercentSymbol] = false;
+            sink.seenSymbol[kCurrencySymbol] = false;
+            sink.seenSymbol[kIntlCurrencySymbol] = false;
+            sink.seenSymbol[kExponentialSymbol] = false;
+            sink.seenSymbol[kInfinitySymbol] = false;
+            sink.seenSymbol[kNaNSymbol] = false;
         }
     }
+#else
+    // Now load the rest of the data from the data sink.
+    // Start with loading this nsName if it is not Latin.
+    DecFmtSymDataSink sink(*this);
+    if (uprv_strcmp(nsName, gLatn) != 0) {
+        CharString path;
+        path.append(gNumberElements, status)
+            .append('/', status)
+            .append(nsName, status)
+            .append('/', status)
+            .append(gSymbols, status);
+        ures_getAllItemsWithFallback(resource.getAlias(), path.data(), sink, status);
+
+        // If no symbols exist for the given nsName and resource bundle, silently ignore
+        // and fall back to Latin.
+        if (status == U_MISSING_RESOURCE_ERROR) {
+            status = U_ZERO_ERROR;
+        } else if (U_FAILURE(status)) {
+            return;
+        }
+    }
+
+    // Continue with Latin if necessary.
+    if (!sink.seenAll()) {
+        ures_getAllItemsWithFallback(resource.getAlias(), gNumberElementsLatnSymbols, sink, status);
+        if (U_FAILURE(status)) { return; }
+    }
+#endif  // APPLE_ICU_CHANGES
 
     // Let the monetary number separators equal the default number separators if necessary.
     sink.resolveMissingMonetarySeparators(fSymbols);
@@ -527,7 +606,7 @@ DecimalFormatSymbols::initialize() {
     fSymbols[kPlusSignSymbol] = (UChar)0x002b;          // '+' plus sign
     fSymbols[kMinusSignSymbol] = (UChar)0x2d;           // '-' minus sign
     fSymbols[kCurrencySymbol] = (UChar)0xa4;            // 'OX' currency symbol
-    fSymbols[kIntlCurrencySymbol].setTo(TRUE, INTL_CURRENCY_SYMBOL_STR, 2);
+    fSymbols[kIntlCurrencySymbol].setTo(true, INTL_CURRENCY_SYMBOL_STR, 2);
     fSymbols[kMonetarySeparatorSymbol] = (UChar)0x2e;   // '.' monetary decimal separator
     fSymbols[kExponentialSymbol] = (UChar)0x45;         // 'E' exponential
     fSymbols[kPerMillSymbol] = (UChar)0x2030;           // '%o' per mill
@@ -538,8 +617,8 @@ DecimalFormatSymbols::initialize() {
     fSymbols[kMonetaryGroupingSeparatorSymbol].remove(); // 
     fSymbols[kExponentMultiplicationSymbol] = (UChar)0xd7; // 'x' multiplication symbol for exponents
     fSymbols[kApproximatelySignSymbol] = u'~';          // '~' approximately sign
-    fIsCustomCurrencySymbol = FALSE; 
-    fIsCustomIntlCurrencySymbol = FALSE;
+    fIsCustomCurrencySymbol = false; 
+    fIsCustomIntlCurrencySymbol = false;
     fCodePointZero = 0x30;
     U_ASSERT(fCodePointZero == fSymbols[kZeroDigitSymbol].char32At(0));
     currPattern = nullptr;
@@ -583,7 +662,7 @@ void DecimalFormatSymbols::setCurrency(const UChar* currency, UErrorCode& status
         if(U_SUCCESS(localStatus)){
             fSymbols[kMonetaryGroupingSeparatorSymbol] = groupingSep;
             fSymbols[kMonetarySeparatorSymbol] = decimalSep;
-            //pattern.setTo(TRUE, currPattern, currPatternLen);
+            //pattern.setTo(true, currPattern, currPatternLen);
         }
     }
     /* else An explicit currency was requested and is unknown or locale data is malformed. */

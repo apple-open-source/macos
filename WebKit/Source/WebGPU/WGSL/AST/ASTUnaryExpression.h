@@ -26,31 +26,56 @@
 #pragma once
 
 #include "ASTExpression.h"
+#include <wtf/EnumTraits.h>
+#include <wtf/Forward.h>
+#include <wtf/text/ASCIILiteral.h>
+
+#define WGSL_AST_UNARYOP_IMPL \
+    WGSL_AST_UNARYOP(AddressOf, "&") \
+    WGSL_AST_UNARYOP(Complement, "~") \
+    WGSL_AST_UNARYOP(Dereference, "*") \
+    WGSL_AST_UNARYOP(Negate, "-") \
+    WGSL_AST_UNARYOP(Not, "!")
 
 namespace WGSL::AST {
 
 enum class UnaryOperation : uint8_t {
-    Negate
+#define WGSL_AST_UNARYOP(x, y) x,
+WGSL_AST_UNARYOP_IMPL
+#undef WGSL_AST_UNARYOP
 };
-    
+
+constexpr ASCIILiteral toASCIILiteral(UnaryOperation op)
+{
+    constexpr ASCIILiteral unaryOperationNames[] = {
+#define WGSL_AST_UNARYOP(x, y) y##_s,
+WGSL_AST_UNARYOP_IMPL
+#undef WGSL_AST_UNARYOP
+    };
+
+    return unaryOperationNames[WTF::enumToUnderlyingType(op)];
+}
+
+void printInternal(PrintStream&, UnaryOperation);
+
 class UnaryExpression final : public Expression {
-    WTF_MAKE_FAST_ALLOCATED;
+    WGSL_AST_BUILDER_NODE(UnaryExpression);
 public:
-    UnaryExpression(SourceSpan span, UniqueRef<Expression>&& expression, UnaryOperation operation)
+    NodeKind kind() const final;
+    Expression& expression() { return m_expression.get(); }
+    UnaryOperation operation() const { return m_operation; }
+
+private:
+    UnaryExpression(SourceSpan span, Expression::Ref&& expression, UnaryOperation operation)
         : Expression(span)
         , m_expression(WTFMove(expression))
         , m_operation(operation)
-    {
-    }
+    { }
 
-    Kind kind() const override;
-    UnaryOperation operation() const { return m_operation; }
-    Expression& expression() { return m_expression.get(); }
-
-private:
-    UniqueRef<Expression> m_expression;
+    Expression::Ref m_expression;
     UnaryOperation m_operation;
 };
+
 
 } // namespace WGSL::AST
 

@@ -33,7 +33,7 @@ namespace WebCore {
 GST_DEBUG_CATEGORY(webkit_video_decoder_debug);
 #define GST_CAT_DEFAULT webkit_video_decoder_debug
 
-static WorkQueue& gstWorkQueue()
+static WorkQueue& gstDecoderWorkQueue()
 {
     static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("GStreamer VideoDecoder Queue"));
     return queue.get();
@@ -48,7 +48,7 @@ public:
     ~GStreamerInternalVideoDecoder() = default;
 
     void postTask(Function<void()>&& task) { m_postTaskCallback(WTFMove(task)); }
-    void decode(Span<const uint8_t>, bool isKeyFrame, int64_t timestamp, std::optional<uint64_t> duration,  VideoDecoder::DecodeCallback&&);
+    void decode(std::span<const uint8_t>, bool isKeyFrame, int64_t timestamp, std::optional<uint64_t> duration,  VideoDecoder::DecodeCallback&&);
     void flush(Function<void()>&&);
     void close() { m_isClosed = true; }
 
@@ -79,7 +79,7 @@ bool GStreamerVideoDecoder::create(const String& codecName, const Config& config
 
     GRefPtr<GstElement> element = gst_element_factory_create(lookupResult.factory.get(), nullptr);
     auto decoder = makeUniqueRef<GStreamerVideoDecoder>(codecName, config, WTFMove(outputCallback), WTFMove(postTaskCallback), WTFMove(element));
-    gstWorkQueue().dispatch([callback = WTFMove(callback), decoder = WTFMove(decoder)]() mutable {
+    gstDecoderWorkQueue().dispatch([callback = WTFMove(callback), decoder = WTFMove(decoder)]() mutable {
         auto internalDecoder = decoder->m_internalDecoder;
         internalDecoder->postTask([callback = WTFMove(callback), decoder = WTFMove(decoder)]() mutable {
             GST_DEBUG("Video decoder created");
@@ -102,14 +102,14 @@ GStreamerVideoDecoder::~GStreamerVideoDecoder()
 
 void GStreamerVideoDecoder::decode(EncodedFrame&& frame, DecodeCallback&& callback)
 {
-    gstWorkQueue().dispatch([value = Vector<uint8_t> { frame.data }, isKeyFrame = frame.isKeyFrame, timestamp = frame.timestamp, duration = frame.duration, decoder = m_internalDecoder, callback = WTFMove(callback)]() mutable {
+    gstDecoderWorkQueue().dispatch([value = Vector<uint8_t> { frame.data }, isKeyFrame = frame.isKeyFrame, timestamp = frame.timestamp, duration = frame.duration, decoder = m_internalDecoder, callback = WTFMove(callback)]() mutable {
         decoder->decode({ value.data(), value.size() }, isKeyFrame, timestamp, duration, WTFMove(callback));
     });
 }
 
 void GStreamerVideoDecoder::flush(Function<void()>&& callback)
 {
-    gstWorkQueue().dispatch([decoder = m_internalDecoder, callback = WTFMove(callback)]() mutable {
+    gstDecoderWorkQueue().dispatch([decoder = m_internalDecoder, callback = WTFMove(callback)]() mutable {
         decoder->flush(WTFMove(callback));
     });
 }
@@ -179,7 +179,7 @@ GStreamerInternalVideoDecoder::GStreamerInternalVideoDecoder(const String& codec
     m_harness->start(WTFMove(inputCaps));
 }
 
-void GStreamerInternalVideoDecoder::decode(Span<const uint8_t> frameData, bool isKeyFrame, int64_t timestamp, std::optional<uint64_t> duration, VideoDecoder::DecodeCallback&& callback)
+void GStreamerInternalVideoDecoder::decode(std::span<const uint8_t> frameData, bool isKeyFrame, int64_t timestamp, std::optional<uint64_t> duration, VideoDecoder::DecodeCallback&& callback)
 {
     GST_DEBUG_OBJECT(m_harness->element(), "Decoding%s frame", isKeyFrame ? " key" : "");
 
@@ -227,9 +227,11 @@ void GStreamerInternalVideoDecoder::flush(Function<void()>&& callback)
         return;
     }
 
-    m_harness->flush();
+    m_harness->flushBuffers();
     m_postTaskCallback(WTFMove(callback));
 }
+
+#undef GST_CAT_DEFAULT
 
 } // namespace WebCore
 

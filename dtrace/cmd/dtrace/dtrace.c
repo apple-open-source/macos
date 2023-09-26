@@ -47,6 +47,7 @@
 #include <mach/machine.h>
 #include <sys/sysctl.h>
 #include <pthread.h>
+#include <pthread/qos_private.h>
 
 #include <IOKit/IOKitLib.h>
 

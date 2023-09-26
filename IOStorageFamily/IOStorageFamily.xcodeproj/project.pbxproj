@@ -1001,7 +1001,6 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
@@ -1024,7 +1023,6 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
@@ -1081,7 +1079,6 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
@@ -1104,7 +1101,6 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
@@ -1527,7 +1523,6 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
-				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
@@ -1549,7 +1544,6 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
-				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
@@ -1645,7 +1639,6 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
-				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -1660,7 +1653,6 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
-				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

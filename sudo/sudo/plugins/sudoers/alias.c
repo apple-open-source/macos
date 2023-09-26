@@ -127,22 +127,29 @@ alias_add(struct sudoers_parse_tree *parse_tree, char *name, int type,
     a = calloc(1, sizeof(*a));
     if (a == NULL)
 	debug_return_bool(false);
+
+    /* Only set elements used by alias_compare() in case there is a dupe. */
     a->name = name;
     a->type = type;
-    /* a->used = false; */
-    a->file = rcstr_addref(file);
-    a->line = line;
-    a->column = column;
-    HLTQ_TO_TAILQ(&a->members, members, entries);
     switch (rbinsert(parse_tree->aliases, a, NULL)) {
     case 1:
-	alias_free(a);
+	free(a);
 	errno = EEXIST;
 	debug_return_bool(false);
     case -1:
-	alias_free(a);
+	free(a);
 	debug_return_bool(false);
     }
+
+    /*
+     * It is now safe to fill in the rest of the alias.  We do this last
+     * since it modifies "file" (adds a ref) and "members" (tailq conversion).
+     */
+    /* a->used = false; */
+    a->file = sudo_rcstr_addref(file);
+    a->line = line;
+    a->column = column;
+    HLTQ_TO_TAILQ(&a->members, members, entries);
     debug_return_bool(true);
 }
 
@@ -208,7 +215,7 @@ alias_free(void *v)
 
     if (a != NULL) {
 	free(a->name);
-	rcstr_delref(a->file);
+	sudo_rcstr_delref(a->file);
 	free_members(&a->members);
 	free(a);
     }
@@ -220,14 +227,14 @@ alias_free(void *v)
  * Find the named alias, remove it from the tree and return it.
  */
 struct alias *
-alias_remove(struct sudoers_parse_tree *parse_tree, char *name, int type)
+alias_remove(struct sudoers_parse_tree *parse_tree, const char *name, int type)
 {
     struct rbnode *node;
     struct alias key;
     debug_decl(alias_remove, SUDOERS_DEBUG_ALIAS);
 
     if (parse_tree->aliases != NULL) {
-	key.name = name;
+	key.name = (char *)name;
 	key.type = type;
 	if ((node = rbfind(parse_tree->aliases, &key)) != NULL)
 	    debug_return_ptr(rbdelete(parse_tree->aliases, node));
@@ -346,20 +353,20 @@ alias_find_used(struct sudoers_parse_tree *parse_tree, struct rbtree *used_alias
     TAILQ_FOREACH(d, &parse_tree->defaults, entries) {
 	switch (d->type) {
 	    case DEFAULTS_HOST:
-		errors += alias_find_used_members(parse_tree, d->binding,
-		    HOSTALIAS, used_aliases);
+		errors += alias_find_used_members(parse_tree,
+		    &d->binding->members, HOSTALIAS, used_aliases);
 		break;
 	    case DEFAULTS_USER:
-		errors += alias_find_used_members(parse_tree, d->binding,
-		    USERALIAS, used_aliases);
+		errors += alias_find_used_members(parse_tree,
+		    &d->binding->members, USERALIAS, used_aliases);
 		break;
 	    case DEFAULTS_RUNAS:
-		errors += alias_find_used_members(parse_tree, d->binding,
-		    RUNASALIAS, used_aliases);
+		errors += alias_find_used_members(parse_tree,
+		    &d->binding->members, RUNASALIAS, used_aliases);
 		break;
 	    case DEFAULTS_CMND:
-		errors += alias_find_used_members(parse_tree, d->binding,
-		    CMNDALIAS, used_aliases);
+		errors += alias_find_used_members(parse_tree,
+		    &d->binding->members, CMNDALIAS, used_aliases);
 		break;
 	    default:
 		break;

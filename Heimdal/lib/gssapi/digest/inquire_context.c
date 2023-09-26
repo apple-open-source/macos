@@ -57,7 +57,11 @@ OM_uint32 _gss_scram_inquire_context (
     if (src_name) {
 	if (ctx->client == NULL)
 	    return GSS_S_NO_CONTEXT;
+#ifdef HAVE_KCM
 	*src_name = (gss_name_t)strdup(ctx->client);
+#else
+	*src_name = (gss_name_t)strdup(ctx->client->name);
+#endif
     }
     if (targ_name)
 	*targ_name = GSS_C_NO_NAME;

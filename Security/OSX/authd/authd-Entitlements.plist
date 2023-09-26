@@ -14,5 +14,7 @@
 	<true/>
 	<key>com.apple.rootless.volume.Preboot</key>
 	<true/>
+	<key>com.apple.private.endpoint-security.submit.authorization</key>
+	<true/>
 </dict>
 </plist>

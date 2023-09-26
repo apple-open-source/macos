@@ -7,15 +7,15 @@
 	<key>Tests</key>
 	<array>
 		<dict>
+			<key>TestName</key>
+			<string>bash.regress.radr107297705</string>
 			<key>Command</key>
 			<array>
 				<string>/bin/bash</string>
-				<string>sample_test.sh</string>
+				<string>/AppleInternal/Tests/bash/radr107297705.sh</string>
 			</array>
-			<key>TestName</key>
-			<string>bash.script.run_process</string>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/Tests/bash</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 		</dict>
 	</array>
 	<key>Timeout</key>

@@ -47,12 +47,15 @@ public:
 
     UBool isParseable() const { return fIsParseable; }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
     UBool isDecimalFormatRuleParseable() const { 
         UnicodeString numberingYear = UNICODE_STRING_SIMPLE("spellout-numbering-year");
         UnicodeString ordinal = UNICODE_STRING_SIMPLE("spellout-ordinal");
 
         return ( name.indexOf(numberingYear) == -1 && name.indexOf(ordinal) == -1 );
     }
+#endif  // APPLE_ICU_CHANGES
 
     UBool isFractionRuleSet() const { return fIsFractionRuleSet; }
 
@@ -62,7 +65,12 @@ public:
     void  format(int64_t number, UnicodeString& toAppendTo, int32_t pos, int32_t recursionCount, UErrorCode& status) const;
     void  format(double number, UnicodeString& toAppendTo, int32_t pos, int32_t recursionCount, UErrorCode& status) const;
 
-    UBool parse(const UnicodeString& text, ParsePosition& pos, double upperBound, uint32_t nonNumericalExecutedRuleMask, Formattable& result, UBool lenient=FALSE) const;
+#if APPLE_ICU_CHANGES
+// rdar:/
+    UBool parse(const UnicodeString& text, ParsePosition& pos, double upperBound, uint32_t nonNumericalExecutedRuleMask, Formattable& result, UBool lenient=false) const;
+#else
+    UBool parse(const UnicodeString& text, ParsePosition& pos, double upperBound, uint32_t nonNumericalExecutedRuleMask, Formattable& result) const;
+#endif  // APPLE_ICU_CHANGES
 
     void appendRules(UnicodeString& result) const; // toString
 

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 2019 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 2019-2022 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -32,6 +32,10 @@
  * Number property that contains the pointer acceleration value.
  */
 #define kIOHIDPointerAccelerationKey "HIDPointerAcceleration"
+
+#define kIOHIDTrackpadScrollAccelerationKey "HIDTrackpadScrollAcceleration"
+
+#define kIOHIDTrackpadAccelerationType  "HIDTrackpadAcceleration"
 
 /*!
  * @define kIOHIDPointerAccelerationTypeKey
@@ -140,5 +144,58 @@
  * IOUserHIDEventService will not do this like when this property is not set.
  */
 #define kIOHIDEventDriverHandlesReport "IOHIDEventDriverHandlesReport"
+
+
+/*!
+ * @define kIOHIDServiceAccelerationProperties
+ *
+ * @abstract Key for the properties to set by the IOHIDEventSystem to tune the
+ *           HID Event System PointerScrollFilter parameters. The following keys
+ *           are the supported parameters to tune for Acceleration.
+ */
+#define kIOHIDServiceAccelerationProperties "IOHIDSetAcceleration"
+
+#define kIOHIDPointerAccelerationMultiplierKey        "HIDPointerAccelerationMultiplier"
+
+#define kHIDPointerReportRateKey                "HIDPointerReportRate"
+
+#define kIOHIDScrollReportRateKey       "HIDScrollReportRate"
+
+#define kHIDAccelParametricCurvesKey            "HIDAccelCurves"
+
+#define kHIDScrollAccelParametricCurvesKey      "HIDScrollAccelCurves"
+
+#define kIOHIDScrollResolutionKey       "HIDScrollResolution"
+
+#define kIOHIDDropAccelPropertyEventsKey "DropAccelPropertyEvents"
+
+#define kIOHIDScrollResolutionXKey      "HIDScrollResolutionX"
+#define kIOHIDScrollResolutionYKey      "HIDScrollResolutionY"
+#define kIOHIDScrollResolutionZKey      "HIDScrollResolutionZ"
+
+/*!
+ @defined    kIOHIDUseLinearPointerAccelerationKey
+ @abstract   Property to force use of linear scaling for mouse accleration.
+ @discussion WindowServer sets this to true when the user wants linear tracking. Only has an effect if this device uses HIDMouseAcceleration style acceleration.
+ */
+#define kIOHIDUseLinearScalingMouseAccelerationKey "HIDUseLinearScalingMouseAcceleration"
+
+/*!
+     @defined    kIOHIDPointerAccelerationSupportKey
+     @abstract   Property to turn enable/disable acceleration of relative pointer events
+     @discussion A boolean value to enable devices that report movement precisely but using relative positions,
+                    if false the events from the device will not have acceleration applied to the event value calculation.
+                    If the key is not set then the device will have acceleration applied to it's events by default.
+ */
+#define kIOHIDPointerAccelerationSupportKey    "HIDSupportsPointerAcceleration"
+
+/*!
+     @defined    kIOHIDScrollAccelerationSupportKey
+     @abstract   Property to turn enable/disable acceleration of scroll events
+     @discussion A boolean value to enable devices that report scroll precisely but using relative positions,
+                    if false the events from the device will not have acceleration applied to the event value calculation.
+                    If the key is not set then the device will have acceleration applied to it's events by default.
+ */
+#define kIOHIDScrollAccelerationSupportKey     "HIDSupportsScrollAcceleration"
 
 #endif /* IOHIDDeviceTypes_h */

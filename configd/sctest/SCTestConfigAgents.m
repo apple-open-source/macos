@@ -41,6 +41,7 @@
 @property (atomic) timerInfo *doneOrTimeoutElapsed;
 @end
 
+#if !TARGET_OS_BRIDGE
 @implementation SCTestConfigAgent
 
 - (instancetype)initWithOptions:(NSDictionary *)options
@@ -842,4 +843,4 @@
 }
 
 @end
-
+#endif // !TARGET_OS_BRIDGE

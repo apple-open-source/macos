@@ -14,7 +14,7 @@
 
 #define    BSD_PID_MAX    99999        /* Copy of PID_MAX from sys/proc_internal.h. */
 
-static void print_usage()
+static void print_usage(void)
 {
     printf("usage: mslutil pid [--disable] | [--enable malloc | vm | full | lite | vmlite]\n");
 }

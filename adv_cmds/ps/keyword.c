@@ -54,6 +54,12 @@ static const char rcsid[] =
 VAR *findvar(char *, int, char **header);
 static int  vcmp(const void *, const void *);
 
+#ifdef __APPLE__
+#ifndef nitems
+#define	nitems(x)	(sizeof((x)) / sizeof((x)[0]))
+#endif
+#endif
+
 /* Compute offset in common structures. */
 #define	POFF(x)	offsetof(struct extern_proc, x)
 #define	EOFF(x)	offsetof(struct eproc, x)
@@ -89,7 +95,9 @@ static VAR var[] = {
 	{"acflg", "", "acflag"},
 	{"args", "ARGS", NULL, COMM|LJUST|USER|DSIZ, args, s_args, 64},
 	{"blocked", "", "sigmask"},
+#if FIXME
 	{"caught", "", "sigcatch"},
+#endif
 	{"comm", "COMM", NULL, COMM|LJUST|USER|DSIZ, just_command, s_just_command, 16},
 	{"command", "COMMAND", NULL, COMM|LJUST|USER|DSIZ, command, s_command, 16},
 	{"cpu", "CPU", NULL, 0, pvar, NULL, 3, POFF(p_estcpu), UINT, "d"},
@@ -101,7 +109,9 @@ static VAR var[] = {
 	{"gid", "GID", NULL, 0, evar, NULL, UIDLEN, EOFF(e_ucred.cr_gid),
 		UINT, UIDFMT},
 	{"group", "GROUP", "gid"},
+#if FIXME
 	{"ignored", "", "sigignore"},
+#endif
 	{"inblk", "INBLK",
 		NULL, USER, rvar, NULL, 4, ROFF(ru_inblock), LONG, "ld"},
 	{"inblock", "", "inblk"},
@@ -241,6 +251,24 @@ showkey(void)
 	sep = "";
 	for (v = var; *(p = v->name); ++v) {
 		int len = strlen(p);
+
+#ifdef __APPLE__
+		if (v->alias != NULL) {
+			VAR *aliased, key = { .name = v->alias };
+
+			/*
+			 * Check that the alias exists before outputting it.
+			 * Ideally we wouldn't have such entries that are
+			 * aliased to fields that aren't defined, but this is
+			 * more resilient to oversight.
+			 */
+			aliased = bsearch(&key, var, nitems(var),
+			    sizeof(var[0]), vcmp);
+			if (aliased == NULL)
+				continue;
+		}
+#endif
+
 		if (termwidth && (i += len + 1) > termwidth) {
 			i = len;
 			sep = "\n";
@@ -326,7 +354,11 @@ findvar(char *p, int user, char **header)
 		*hp++ = '\0';
 
 	key.name = p;
+#ifdef __APPLE__
+	v = bsearch(&key, var, nitems(var), sizeof(var[0]), vcmp);
+#else
 	v = bsearch(&key, var, sizeof(var)/sizeof(VAR) - 1, sizeof(VAR), vcmp);
+#endif
 
 	if (v && v->alias) {
 		/*

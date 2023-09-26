@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -155,6 +155,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     BOOL _invisibleAutoplayNotPermitted;
     BOOL _mediaDataLoadsAutomatically;
     BOOL _attachmentElementEnabled;
+    BOOL _attachmentWideLayoutEnabled;
     Class _attachmentFileWrapperClass;
     BOOL _mainContentUserGestureOverrideEnabled;
 
@@ -163,6 +164,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     BOOL _showsURLsInToolTips;
     BOOL _serviceControlsEnabled;
     BOOL _imageControlsEnabled;
+    BOOL _contextMenuQRCodeDetectionEnabled;
 #endif
     BOOL _waitsForPaintAfterViewDidMoveToWindow;
     BOOL _controlledByAutomation;
@@ -183,6 +185,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
 #endif
     double _sampledPageTopColorMaxDifference;
     double _sampledPageTopColorMinHeight;
+    BOOL _allowsInlinePredictions;
 
     RetainPtr<NSString> _mediaContentTypesRequiringHardwareSupport;
     RetainPtr<NSArray<NSString *>> _additionalSupportedImageTypes;
@@ -222,6 +225,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     _mainContentUserGestureOverrideEnabled = NO;
     _invisibleAutoplayNotPermitted = NO;
     _attachmentElementEnabled = NO;
+    _attachmentWideLayoutEnabled = NO;
 
 #if PLATFORM(IOS_FAMILY)
     _respectsImageOrientation = YES;
@@ -232,6 +236,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     _showsURLsInToolTips = NO;
     _serviceControlsEnabled = NO;
     _imageControlsEnabled = NO;
+    _contextMenuQRCodeDetectionEnabled = NO;
 #endif
     _waitsForPaintAfterViewDidMoveToWindow = YES;
 
@@ -282,7 +287,19 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     _sampledPageTopColorMaxDifference = DEFAULT_VALUE_FOR_SampledPageTopColorMaxDifference;
     _sampledPageTopColorMinHeight = DEFAULT_VALUE_FOR_SampledPageTopColorMinHeight;
 
+    _allowsInlinePredictions = NO;
+
     return self;
+}
+
+- (void)setAllowsInlinePredictions:(BOOL)enabled
+{
+    _allowsInlinePredictions = enabled;
+}
+
+- (BOOL)allowsInlinePredictions
+{
+    return _allowsInlinePredictions;
 }
 
 - (NSString *)description
@@ -320,9 +337,9 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     [coder encodeBool:self.allowsPictureInPictureMediaPlayback forKey:@"allowsPictureInPictureMediaPlayback"];
     [coder encodeBool:self.ignoresViewportScaleLimits forKey:@"ignoresViewportScaleLimits"];
     [coder encodeInteger:self._dragLiftDelay forKey:@"dragLiftDelay"];
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [coder encodeBool:self._textInteractionGesturesEnabled forKey:@"textInteractionGesturesEnabled"];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     [coder encodeBool:self._longPressActionsEnabled forKey:@"longPressActionsEnabled"];
     [coder encodeBool:self._systemPreviewEnabled forKey:@"systemPreviewEnabled"];
     [coder encodeBool:self._shouldDecidePolicyBeforeLoadingQuickLookPreview forKey:@"shouldDecidePolicyBeforeLoadingQuickLookPreview"];
@@ -360,9 +377,9 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     self.allowsPictureInPictureMediaPlayback = [coder decodeBoolForKey:@"allowsPictureInPictureMediaPlayback"];
     self.ignoresViewportScaleLimits = [coder decodeBoolForKey:@"ignoresViewportScaleLimits"];
     self._dragLiftDelay = toDragLiftDelay([coder decodeIntegerForKey:@"dragLiftDelay"]);
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     self._textInteractionGesturesEnabled = [coder decodeBoolForKey:@"textInteractionGesturesEnabled"];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     self._longPressActionsEnabled = [coder decodeBoolForKey:@"longPressActionsEnabled"];
     self._systemPreviewEnabled = [coder decodeBoolForKey:@"systemPreviewEnabled"];
     self._shouldDecidePolicyBeforeLoadingQuickLookPreview = [coder decodeBoolForKey:@"shouldDecidePolicyBeforeLoadingQuickLookPreview"];
@@ -416,6 +433,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     configuration->_invisibleAutoplayNotPermitted = self->_invisibleAutoplayNotPermitted;
     configuration->_mediaDataLoadsAutomatically = self->_mediaDataLoadsAutomatically;
     configuration->_attachmentElementEnabled = self->_attachmentElementEnabled;
+    configuration->_attachmentWideLayoutEnabled = self->_attachmentWideLayoutEnabled;
     configuration->_attachmentFileWrapperClass = self->_attachmentFileWrapperClass;
     configuration->_mediaTypesRequiringUserActionForPlayback = self->_mediaTypesRequiringUserActionForPlayback;
     configuration->_mainContentUserGestureOverrideEnabled = self->_mainContentUserGestureOverrideEnabled;
@@ -440,6 +458,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     configuration->_showsURLsInToolTips = self->_showsURLsInToolTips;
     configuration->_serviceControlsEnabled = self->_serviceControlsEnabled;
     configuration->_imageControlsEnabled = self->_imageControlsEnabled;
+    configuration->_contextMenuQRCodeDetectionEnabled = self->_contextMenuQRCodeDetectionEnabled;
     configuration->_pageGroup = self._pageGroup;
 #endif
 #if ENABLE(DATA_DETECTION) && PLATFORM(IOS_FAMILY)
@@ -471,6 +490,8 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
 
     configuration->_sampledPageTopColorMaxDifference = self->_sampledPageTopColorMaxDifference;
     configuration->_sampledPageTopColorMinHeight = self->_sampledPageTopColorMinHeight;
+
+    configuration->_allowsInlinePredictions = self->_allowsInlinePredictions;
 
     return configuration;
 }
@@ -968,6 +989,16 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
     _attachmentElementEnabled = attachmentElementEnabled;
 }
 
+- (BOOL)_attachmentWideLayoutEnabled
+{
+    return _attachmentWideLayoutEnabled;
+}
+
+- (void)_setAttachmentWideLayoutEnabled:(BOOL)attachmentWideLayoutEnabled
+{
+    _attachmentWideLayoutEnabled = attachmentWideLayoutEnabled;
+}
+
 - (Class)_attachmentFileWrapperClass
 {
     return _attachmentFileWrapperClass;
@@ -1221,6 +1252,16 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
     _imageControlsEnabled = imageControlsEnabled;
 }
 
+- (BOOL)_contextMenuQRCodeDetectionEnabled
+{
+    return _contextMenuQRCodeDetectionEnabled;
+}
+
+- (void)_setContextMenuQRCodeDetectionEnabled:(BOOL)contextMenuQRCodeDetectionEnabled
+{
+    _contextMenuQRCodeDetectionEnabled = contextMenuQRCodeDetectionEnabled;
+}
+
 - (BOOL)_requiresUserActionForEditingControlsManager
 {
     return _pageConfiguration->requiresUserActionForEditingControlsManager();
@@ -1365,6 +1406,26 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 #endif
 }
 
+- (BOOL)_allowTestOnlyIPC
+{
+    return _pageConfiguration->allowTestOnlyIPC();
+}
+
+- (void)_setAllowTestOnlyIPC:(BOOL)allowTestOnlyIPC
+{
+    _pageConfiguration->setAllowTestOnlyIPC(allowTestOnlyIPC);
+}
+
+- (BOOL)_delaysWebProcessLaunchUntilFirstLoad
+{
+    return _pageConfiguration->delaysWebProcessLaunchUntilFirstLoad();
+}
+
+- (void)_setDelaysWebProcessLaunchUntilFirstLoad:(BOOL)delaysWebProcessLaunchUntilFirstLoad
+{
+    _pageConfiguration->setDelaysWebProcessLaunchUntilFirstLoad(delaysWebProcessLaunchUntilFirstLoad);
+}
+
 - (BOOL)_shouldRelaxThirdPartyCookieBlocking
 {
     return _pageConfiguration->shouldRelaxThirdPartyCookieBlocking() == WebCore::ShouldRelaxThirdPartyCookieBlocking::Yes;
@@ -1435,6 +1496,17 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 - (_WKContentSecurityPolicyModeForExtension)_contentSecurityPolicyModeForExtension
 {
     return WebKit::toWKContentSecurityPolicyModeForExtension(_pageConfiguration->contentSecurityPolicyModeForExtension());
+}
+
+// FIXME: Remove this SPI once rdar://110277838 is resolved and all clients adopt the API.
+- (void)_setMarkedTextInputEnabled:(BOOL)enabled
+{
+    _allowsInlinePredictions = enabled;
+}
+
+- (BOOL)_markedTextInputEnabled
+{
+    return _allowsInlinePredictions;
 }
 
 @end

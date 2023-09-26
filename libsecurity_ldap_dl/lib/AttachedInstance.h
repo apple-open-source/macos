@@ -29,6 +29,7 @@
 
 
 #include <Security/Security.h>
+#include <Security/cssmspi.h>
 #include <map>
 #include "Mutex.h"
 

@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "TrackPrivateRemoteIdentifier.h"
 #include <WebCore/MediaPlayerIdentifier.h>
@@ -62,7 +62,7 @@ private:
 
     void setSelected(bool) final;
 
-    WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
+    ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     WebCore::MediaPlayerIdentifier m_playerIdentifier;
     VideoTrackKind m_kind { None };
     AtomString m_id;
@@ -75,4 +75,4 @@ private:
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

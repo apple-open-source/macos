@@ -68,7 +68,7 @@ bool secd_test_teardown_delete_temp_keychain(const char* test_prefix)
     NSURL* keychainDir = (NSURL*)CFBridgingRelease(SecCopyHomeURL());
 
     // Drop analytics dbs here
-    [[SOSAnalytics logger] removeState];
+    [[SOSAnalytics logger] removeStateAndUnlinkFile:NO];
 
     secd_test_clear_testviews();
     SecItemDataSourceFactoryReleaseAll();

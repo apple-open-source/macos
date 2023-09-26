@@ -29,11 +29,13 @@
 #include "Widget.h"
 
 #include "Cursor.h"
-#include "FrameView.h"
 #include "HostWindow.h"
 #include "IntRect.h"
+#include "LocalFrameView.h"
 
 namespace WebCore {
+
+class RegionContext;
 
 Widget::~Widget()
 {
@@ -46,10 +48,8 @@ void Widget::setFocus(bool)
 
 void Widget::setCursor(const Cursor& cursor)
 {
-    FrameView* view = root();
-    if (!view)
-        return;
-    view->hostWindow()->setCursor(cursor);
+    if (auto* view = root())
+        view->hostWindow()->setCursor(cursor);
 }
 
 void Widget::show()
@@ -62,7 +62,7 @@ void Widget::hide()
     setSelfVisible(false);
 }
 
-void Widget::paint(GraphicsContext&, const IntRect&, SecurityOriginPaintPolicy, EventRegionContext*)
+void Widget::paint(GraphicsContext&, const IntRect&, SecurityOriginPaintPolicy, RegionContext*)
 {
 }
 

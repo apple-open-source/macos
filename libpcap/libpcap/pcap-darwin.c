@@ -460,7 +460,7 @@ pktap_cleanup(pcap_t *p)
 	p->pktap_cleanup_op(p);
 }
 
-int
+static int
 pktap_activate(pcap_t *p)
 {
 	int status = 0;

@@ -89,7 +89,6 @@ void computeUsesForBytecodeIndexImpl(const JSInstruction* instruction, Checkpoin
     case op_profile_control_flow:
     case op_create_direct_arguments:
     case op_create_cloned_arguments:
-    case op_create_arguments_butterfly:
     case op_get_rest_length:
     case op_check_traps:
     case op_get_argument:
@@ -228,6 +227,7 @@ void computeUsesForBytecodeIndexImpl(const JSInstruction* instruction, Checkpoin
     USES(OpInByVal, base, property)
     USES(OpHasPrivateName, base, property)
     USES(OpHasPrivateBrand, base, brand)
+    USES(OpHasStructureWithFlags, operand)
     USES(OpOverridesHasInstance, constructor, hasInstanceValue)
     USES(OpInstanceof, value, prototype)
     USES(OpAdd, lhs, rhs)
@@ -288,6 +288,7 @@ void computeUsesForBytecodeIndexImpl(const JSInstruction* instruction, Checkpoin
     USES(OpEnumeratorNext, mode, index, base, enumerator)
     USES(OpEnumeratorGetByVal, base, mode, propertyName, index, enumerator)
     USES(OpEnumeratorInByVal, base, mode, propertyName, index, enumerator)
+    USES(OpEnumeratorPutByVal, base, mode, propertyName, index, enumerator, value)
     USES(OpEnumeratorHasOwnProperty, base, mode, propertyName, index, enumerator)
 
     case op_iterator_open: {
@@ -299,8 +300,8 @@ void computeUsesForBytecodeIndexImpl(const JSInstruction* instruction, Checkpoin
 
     case op_iterator_next: {
         auto bytecode = instruction->as<OpIteratorNext>();
-        useAtEachCheckpoint(bytecode.m_iterator);
-        useAtEachCheckpointStartingWith(OpIteratorNext::computeNext, bytecode.m_next, bytecode.m_iterable);
+        useAtEachCheckpoint(bytecode.m_iterator, bytecode.m_next);
+        useAtEachCheckpointStartingWith(OpIteratorNext::computeNext, bytecode.m_iterable);
         return;
     }
 
@@ -400,6 +401,7 @@ void computeDefsForBytecodeIndexImpl(unsigned numVars, const JSInstruction* inst
     case op_put_setter_by_val:
     case op_put_by_val:
     case op_put_by_val_direct:
+    case op_enumerator_put_by_val:
     case op_put_private_name:
     case op_set_private_brand:
     case op_check_private_brand:
@@ -504,6 +506,7 @@ void computeDefsForBytecodeIndexImpl(unsigned numVars, const JSInstruction* inst
     DEFS(OpInByVal, dst)
     DEFS(OpHasPrivateName, dst)
     DEFS(OpHasPrivateBrand, dst)
+    DEFS(OpHasStructureWithFlags, dst)
     DEFS(OpToNumber, dst)
     DEFS(OpToNumeric, dst)
     DEFS(OpToString, dst)
@@ -546,7 +549,6 @@ void computeDefsForBytecodeIndexImpl(unsigned numVars, const JSInstruction* inst
     DEFS(OpCreateDirectArguments, dst)
     DEFS(OpCreateScopedArguments, dst)
     DEFS(OpCreateClonedArguments, dst)
-    DEFS(OpCreateArgumentsButterfly, dst)
     DEFS(OpDelById, dst)
     DEFS(OpDelByVal, dst)
     DEFS(OpUnsigned, dst)

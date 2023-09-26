@@ -16,12 +16,12 @@
 @synthesize w = _w;
 - (void)setW:(BOOL)v
 {
-    _has.w = YES;
+    _has.w = (uint)YES;
     _w = v;
 }
 - (void)setHasW:(BOOL)f
 {
-    _has.w = f;
+    _has.w = (uint)f;
 }
 - (BOOL)hasW
 {
@@ -30,12 +30,12 @@
 @synthesize webAccess = _webAccess;
 - (void)setWebAccess:(BOOL)v
 {
-    _has.webAccess = YES;
+    _has.webAccess = (uint)YES;
     _webAccess = v;
 }
 - (void)setHasWebAccess:(BOOL)f
 {
-    _has.webAccess = f;
+    _has.webAccess = (uint)f;
 }
 - (BOOL)hasWebAccess
 {
@@ -79,13 +79,13 @@ BOOL OTAccountMetadataClassCAccountSettingsReadFrom(__unsafe_unretained OTAccoun
 
             case 1 /* w */:
             {
-                self->_has.w = YES;
+                self->_has.w = (uint)YES;
                 self->_w = PBReaderReadBOOL(reader);
             }
             break;
             case 2 /* webAccess */:
             {
-                self->_has.webAccess = YES;
+                self->_has.webAccess = (uint)YES;
                 self->_webAccess = PBReaderReadBOOL(reader);
             }
             break;

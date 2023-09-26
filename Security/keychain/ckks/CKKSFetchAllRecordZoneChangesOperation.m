@@ -118,6 +118,9 @@
         _fetchCompletedOperation = [CKKSResultOperation named:@"record-zone-changes-completed" withBlock:^{}];
 
         _moreComing = false;
+
+        // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. We need to boost our CPU priority so CK will accept our network priority <rdar://problem/49086080>
+        self.qualityOfService = NSQualityOfServiceUserInitiated;
     }
     return self;
 }
@@ -189,14 +192,6 @@
     //  If there's a nil change tag, go to nondiscretionary. This is likely a zone bringup (which happens during iCloud sign-in) or a resync (which happens due to user input)
     //  If the fetch reasons include an API fetch, an initial start or a key hierarchy fetch, become nondiscretionary as well.
 
-    CKOperationDiscretionaryNetworkBehavior networkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
-    //if(nilChangeTag ||
-    //   [self.fetchReasons containsObject:CKKSFetchBecauseAPIFetchRequest] ||
-    //   [self.fetchReasons containsObject:CKKSFetchBecauseInitialStart] ||
-    //   [self.fetchReasons containsObject:CKKSFetchBecauseKeyHierarchy]) {
-    //    networkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
-    //}
-
     // Re-check in with our clients to be sure they want to be fetched.
     // Some views might decide they no longer need a fetch in order to prioritize other views.
     NSMutableArray<CKRecordZoneID*>* zoneIDsToStopFetching = [NSMutableArray array];
@@ -217,15 +212,13 @@
         }
     }
 
-    ckksnotice_global("ckksfetch", "Beginning fetch with discretionary network (%d): %@ options: %@",
-                      (int)networkBehavior,
+    ckksnotice_global("ckksfetch", "Beginning fetch: %@ options: %@",
                       self.fetchedZoneIDs,
                       self.allClientOptions);
     self.fetchRecordZoneChangesOperation = [[self.fetchRecordZoneChangesOperationClass alloc] initWithRecordZoneIDs:self.fetchedZoneIDs
                                                                                               configurationsByRecordZoneID:self.allClientOptions];
 
     self.fetchRecordZoneChangesOperation.fetchAllChanges = NO;
-    self.fetchRecordZoneChangesOperation.configuration.discretionaryNetworkBehavior = networkBehavior;
     self.fetchRecordZoneChangesOperation.configuration.isCloudKitSupportOperation = YES;
     self.fetchRecordZoneChangesOperation.group = self.ckoperationGroup;
     ckksnotice_global("ckksfetch", "Operation group is %@", self.ckoperationGroup);

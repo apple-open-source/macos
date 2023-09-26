@@ -78,11 +78,14 @@
         WEAKIFY(self);
 
         // This does double-duty: if there's pending zone creation/deletions, it launches them
+        // Note: this must be at QOS_CLASS_USER_INITIATED, or CloudKit will deprioritze our network operations when they're created in the block <rdar://problem/49086080>
         _cloudkitRetryAfter = [[CKKSNearFutureScheduler alloc] initWithName:@"zonemodifier-ckretryafter"
                                                                initialDelay:100*NSEC_PER_MSEC
-                                                            continuingDelay:100*NSEC_PER_MSEC
+                                                         exponentialBackoff:1
+                                                               maximumDelay:100*NSEC_PER_MSEC
                                                            keepProcessAlive:false
                                                   dependencyDescriptionCode:CKKSResultDescriptionPendingCloudKitRetryAfter
+                                                                   qosClass:QOS_CLASS_USER_INITIATED
                                                                       block:^{
                                                                           STRONGIFY(self);
                                                                           [self launchOperations];
@@ -215,8 +218,6 @@
     CKDatabaseOperation<CKKSModifyRecordZonesOperation>* zoneModifyOperation = [[self.cloudKitClassDependencies.modifyRecordZonesOperationClass alloc] initWithRecordZonesToSave:ops.zonesToCreate recordZoneIDsToDelete:ops.zoneIDsToDelete];
     [zoneModifyOperation linearDependencies:self.ckOperations];
 
-    zoneModifyOperation.configuration.automaticallyRetryNetworkFailures = NO;
-    zoneModifyOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     zoneModifyOperation.configuration.isCloudKitSupportOperation = YES;
     zoneModifyOperation.database = self.database;
     zoneModifyOperation.name = @"zone-creation-operation";
@@ -273,8 +274,6 @@
     CKDatabaseOperation<CKKSModifySubscriptionsOperation>* zoneSubscriptionOperation = [[self.cloudKitClassDependencies.modifySubscriptionsOperationClass alloc] initWithSubscriptionsToSave:ops.subscriptionsToSubscribe subscriptionIDsToDelete:nil];
     [zoneSubscriptionOperation linearDependencies:self.ckOperations];
 
-    zoneSubscriptionOperation.configuration.automaticallyRetryNetworkFailures = NO;
-    zoneSubscriptionOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     zoneSubscriptionOperation.configuration.isCloudKitSupportOperation = YES;
     zoneSubscriptionOperation.database = self.database;
     zoneSubscriptionOperation.name = @"zone-subscription-operation";

@@ -273,7 +273,7 @@ static int revertState(struct updatingVol *up);
 
 // XX there is overlap between errno values and sysexits
 static int
-getExitValueFor(errval)
+getExitValueFor(int errval)
 {
     int rval;
 

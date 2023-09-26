@@ -30,9 +30,9 @@
 #import "WebPage.h"
 #import "WebProcess.h"
 #import "WebsiteDataStoreParameters.h"
-#import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
-#import <WebCore/FrameLoaderClient.h>
+#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameLoaderClient.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/Page.h>
 #import <WebCore/ResourceError.h>
@@ -69,12 +69,12 @@ ResourceError WebFrameNetworkingContext::blockedError(const ResourceRequest& req
     return frame()->loader().client().blockedError(request);
 }
 
-WebFrameLoaderClient* WebFrameNetworkingContext::webFrameLoaderClient() const
+WebLocalFrameLoaderClient* WebFrameNetworkingContext::webFrameLoaderClient() const
 {
     if (!frame())
         return nullptr;
 
-    return toWebFrameLoaderClient(frame()->loader().client());
+    return toWebLocalFrameLoaderClient(frame()->loader().client());
 }
 
 }

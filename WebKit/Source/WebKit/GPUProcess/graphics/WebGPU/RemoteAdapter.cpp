@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,21 +36,27 @@
 #include "WebGPUObjectHeap.h"
 #include "WebGPUSupportedFeatures.h"
 #include "WebGPUSupportedLimits.h"
-#include <pal/graphics/WebGPU/WebGPUAdapter.h>
-#include <pal/graphics/WebGPU/WebGPUDevice.h>
+#include <WebCore/WebGPUAdapter.h>
+#include <WebCore/WebGPUDevice.h>
 
 namespace WebKit {
 
-RemoteAdapter::RemoteAdapter(PAL::WebGPU::Adapter& adapter, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
+RemoteAdapter::RemoteAdapter(PerformWithMediaPlayerOnMainThread& performWithMediaPlayerOnMainThread, WebCore::WebGPU::Adapter& adapter, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(adapter)
     , m_objectHeap(objectHeap)
     , m_streamConnection(WTFMove(streamConnection))
+    , m_performWithMediaPlayerOnMainThread(performWithMediaPlayerOnMainThread)
     , m_identifier(identifier)
 {
     m_streamConnection->startReceivingMessages(*this, Messages::RemoteAdapter::messageReceiverName(), m_identifier.toUInt64());
 }
 
 RemoteAdapter::~RemoteAdapter() = default;
+
+void RemoteAdapter::destruct()
+{
+    m_objectHeap.removeObject(m_identifier);
+}
 
 void RemoteAdapter::stopListeningForIPC()
 {
@@ -66,8 +72,14 @@ void RemoteAdapter::requestDevice(const WebGPU::DeviceDescriptor& descriptor, We
         return;
     }
 
-    m_backing->requestDevice(*convertedDescriptor, [callback = WTFMove(callback), objectHeap = Ref { m_objectHeap }, streamConnection = m_streamConnection.copyRef(), identifier, queueIdentifier] (Ref<PAL::WebGPU::Device>&& device) mutable {
-        auto remoteDevice = RemoteDevice::create(device, objectHeap, WTFMove(streamConnection), identifier, queueIdentifier);
+    m_backing->requestDevice(*convertedDescriptor, [callback = WTFMove(callback), objectHeap = Ref { m_objectHeap }, streamConnection = m_streamConnection.copyRef(), identifier, queueIdentifier, &performWithMediaPlayerOnMainThread = m_performWithMediaPlayerOnMainThread] (RefPtr<WebCore::WebGPU::Device>&& devicePtr) mutable {
+        if (!devicePtr.get()) {
+            callback({ }, { });
+            return;
+        }
+
+        auto device = devicePtr.releaseNonNull();
+        auto remoteDevice = RemoteDevice::create(performWithMediaPlayerOnMainThread, device, objectHeap, WTFMove(streamConnection), identifier, queueIdentifier);
         objectHeap->addObject(identifier, remoteDevice);
         objectHeap->addObject(queueIdentifier, remoteDevice->queue());
         const auto& features = device->features();
@@ -78,6 +90,7 @@ void RemoteAdapter::requestDevice(const WebGPU::DeviceDescriptor& descriptor, We
             limits.maxTextureDimension3D(),
             limits.maxTextureArrayLayers(),
             limits.maxBindGroups(),
+            limits.maxBindingsPerBindGroup(),
             limits.maxDynamicUniformBuffersPerPipelineLayout(),
             limits.maxDynamicStorageBuffersPerPipelineLayout(),
             limits.maxSampledTexturesPerShaderStage(),
@@ -90,9 +103,13 @@ void RemoteAdapter::requestDevice(const WebGPU::DeviceDescriptor& descriptor, We
             limits.minUniformBufferOffsetAlignment(),
             limits.minStorageBufferOffsetAlignment(),
             limits.maxVertexBuffers(),
+            limits.maxBufferSize(),
             limits.maxVertexAttributes(),
             limits.maxVertexBufferArrayStride(),
             limits.maxInterStageShaderComponents(),
+            limits.maxInterStageShaderVariables(),
+            limits.maxColorAttachments(),
+            limits.maxColorAttachmentBytesPerSample(),
             limits.maxComputeWorkgroupStorageSize(),
             limits.maxComputeInvocationsPerWorkgroup(),
             limits.maxComputeWorkgroupSizeX(),

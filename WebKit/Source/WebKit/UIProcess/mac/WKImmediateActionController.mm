@@ -29,6 +29,7 @@
 #if PLATFORM(MAC)
 
 #import "APIHitTestResult.h"
+#import "MessageSenderInlines.h"
 #import "WKNSURLExtras.h"
 #import "WebPageMessages.h"
 #import "WebPageProxy.h"
@@ -189,7 +190,7 @@
     // FIXME: Connection can be null if the process is closed; we should clean up better in that case.
     if (_state == WebKit::ImmediateActionState::Pending) {
         if (auto* connection = _page->process().connection()) {
-            bool receivedReply = connection->waitForAndDispatchImmediately<Messages::WebPageProxy::DidPerformImmediateActionHitTest>(_page->webPageID(), Seconds::fromMilliseconds(500));
+            bool receivedReply = connection->waitForAndDispatchImmediately<Messages::WebPageProxy::DidPerformImmediateActionHitTest>(_page->webPageID(), 500_ms) == IPC::Error::NoError;
             if (!receivedReply)
                 _state = WebKit::ImmediateActionState::TimedOut;
         }
@@ -404,7 +405,7 @@
     if (!PAL::isDataDetectorsFrameworkAvailable())
         return nil;
 
-    DDActionContext *actionContext = _hitTestResultData.platformData.detectedDataActionContext.get();
+    WKDDActionContext *actionContext = _hitTestResultData.platformData.detectedDataActionContext.get();
     if (!actionContext)
         return nil;
 
@@ -415,7 +416,7 @@
 
     RefPtr<WebKit::WebPageProxy> page = _page.get();
     WebCore::PageOverlay::PageOverlayID overlayID = _hitTestResultData.platformData.detectedDataOriginatingPageOverlay;
-    _currentActionContext = [actionContext contextForView:_view altMode:YES interactionStartedHandler:^() {
+    _currentActionContext = (WKDDActionContext *)[actionContext contextForView:_view altMode:YES interactionStartedHandler:^() {
         page->send(Messages::WebPage::DataDetectorsDidPresentUI(overlayID));
     } interactionChangedHandler:^() {
         if (_hitTestResultData.platformData.detectedDataTextIndicator)
@@ -441,8 +442,7 @@
     if (!PAL::isDataDetectorsFrameworkAvailable())
         return nil;
 
-    auto actionContext = adoptNS([PAL::allocDDActionContextInstance() init]);
-
+    auto actionContext = adoptNS([PAL::allocWKDDActionContextInstance() init]);
     if (!actionContext)
         return nil;
 
@@ -450,7 +450,7 @@
     [actionContext setImmediate:YES];
 
     RefPtr<WebKit::WebPageProxy> page = _page.get();
-    _currentActionContext = [actionContext contextForView:_view altMode:YES interactionStartedHandler:^() {
+    _currentActionContext = (WKDDActionContext *)[actionContext contextForView:_view altMode:YES interactionStartedHandler:^() {
     } interactionChangedHandler:^() {
         if (_hitTestResultData.linkTextIndicator)
             page->setTextIndicator(_hitTestResultData.linkTextIndicator->data());
@@ -480,7 +480,7 @@
         return nil;
 
     WebCore::DictionaryPopupInfo dictionaryPopupInfo = _hitTestResultData.dictionaryPopupInfo;
-    if (!dictionaryPopupInfo.platformData.attributedString)
+    if (!dictionaryPopupInfo.platformData.attributedString.nsAttributedString())
         return nil;
 
     _viewImpl->prepareForDictionaryLookup();

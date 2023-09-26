@@ -43,6 +43,8 @@ check: all check-recursive
 check-exhaustive: check
 
 ## Recursive targets
+# rdar://
+# Apple ICU adds block "if test "$$target" != "clean";"
 all-recursive install-recursive clean-recursive distclean-recursive dist-recursive check-recursive:
 	@dot_seen=no; \
 	target=`echo $@ | sed s/-recursive//`; \

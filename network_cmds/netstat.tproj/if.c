@@ -74,6 +74,7 @@
 #include <net/ethernet.h>
 #include <net/route.h>
 #include <net/ntstat.h>
+#include <net/pktsched/pktsched_fq_codel.h>
 
 #include <net/pktsched/pktsched.h>
 #include <net/classq/if_classq.h>
@@ -106,6 +107,10 @@
     ((caddr_t)p + (p->sa_len ? ROUNDUP(p->sa_len, sizeof(uint32_t)) : \
     sizeof(uint32_t)))
 
+#ifndef FQ_IF_STATS_MAX_GROUPS
+#define FQ_IF_STATS_MAX_GROUPS 16
+#endif
+
 static void sidewaysintpr ();
 static void catchalarm (int);
 static char *sec2str(time_t);
@@ -114,22 +119,7 @@ static char *nsec_to_str(unsigned long long);
 static char *sched2str(unsigned int);
 static char *pri2str(unsigned int i);
 
-#define AVGN_MAX	8
-
-struct queue_stats {
-	int			 avgn;
-	double			 avg_bytes;
-	double			 avg_packets;
-	u_int64_t		 prev_bytes;
-	u_int64_t		 prev_packets;
-	unsigned int		 handle;
-};
-
-static void update_avg(struct if_ifclassq_stats *, struct queue_stats *);
-static void print_fq_codel_stats(int slot, struct fq_codel_classstats *,
-    struct queue_stats *);
-
-struct queue_stats qstats[IFCQ_SC_MAX];
+static void print_fq_codel_stats(int slot, struct fq_codel_classstats *, uint8_t);
 
 #ifdef INET6
 char *netname6 (struct sockaddr_in6 *, struct sockaddr *);
@@ -1398,6 +1388,10 @@ loop:
 		goto done;
 	}
 	scheduler = ifcqs->ifqs_scheduler;
+    if (scheduler == PKTSCHEDT_NONE) {
+        fprintf(stderr, "Invalid scheduler type\n");
+        goto done;
+    }
 
 	printf("%s:\n"
 	    "     [ sched: %18s  qlength:  %3d/%3d ]\n",
@@ -1408,29 +1402,37 @@ loop:
 	    ifcqs->ifqs_xmitcnt.packets, ifcqs->ifqs_xmitcnt.bytes,
 	    ifcqs->ifqs_dropcnt.packets, ifcqs->ifqs_dropcnt.bytes);
 
-	for (n = 0; n < IFCQ_SC_MAX && scheduler != PKTSCHEDT_NONE; n++) {
-		if (cq >= 0 && cq != n)
-			continue;
+    for (uint8_t grp = 0; grp < FQ_IF_STATS_MAX_GROUPS; grp++) {
+        ifqr.ifqr_grp_idx = grp;
+        for (n = 0; n < IFCQ_SC_MAX; n++) {
+            if (cq >= 0 && cq != n){
+                continue;
+            }
 
-		ifqr.ifqr_slot = n;
-		if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
-			perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
-			goto done;
-		}
+            ifqr.ifqr_slot = n;
+            errno = 0;
+            if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
+                if (errno == ENXIO && grp > 0 && grp < FQ_IF_STATS_MAX_GROUPS) {
+                    // try the next AQM group (qset) if the current is not configured
+                    // grp 0 should always exist as the default one
+                    break;
+                }
+                perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
+                goto done;
+            }
 
-		update_avg(ifcqs, &qstats[n]);
-
-		switch (scheduler) {
-			case PKTSCHEDT_FQ_CODEL:
-				print_fq_codel_stats(n,
-				    &ifcqs->ifqs_fq_codel_stats,
-				    &qstats[n]);
-				break;
-			case PKTSCHEDT_NONE:
-			default:
-				break;
-		}
-	}
+            switch (scheduler) {
+                case PKTSCHEDT_FQ_CODEL:
+                    print_fq_codel_stats(n,
+                                         &ifcqs->ifqs_fq_codel_stats,
+                                         grp);
+                    break;
+                case PKTSCHEDT_NONE:
+                default:
+                    break;
+            }
+        }
+    }
 
 	fflush(stdout);
 
@@ -1454,18 +1456,17 @@ done:
 }
 
 static void
-print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
-    struct queue_stats *qs)
+print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst, uint8_t grp)
 {
 	int i = 0;
 
 	if (fqst->fcls_service_class == 0 && fqst->fcls_pri == 0)
 		return;
 	printf("=====================================================\n");
-	printf("     [ pri: %s (%d)\tsrv_cl: 0x%x\tquantum: %d\tdrr_max: %d ]\n",
+	printf("     [ pri: %s (%d)\tsrv_cl: 0x%x\tquantum: %d\tdrr_max: %d\tqset idx: %hu ]\n",
 	    pri2str(fqst->fcls_pri), fqst->fcls_pri,
 	    fqst->fcls_service_class, fqst->fcls_quantum,
-	    fqst->fcls_drr_max);
+	    fqst->fcls_drr_max, grp);
 	printf("     [ queued pkts: %llu\tbytes: %llu ]\n",
 	    fqst->fcls_pkt_cnt, fqst->fcls_byte_cnt);
 	printf("     [ dequeued pkts: %llu\tbytes: %llu ]\n",
@@ -1480,9 +1481,11 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
 	printf("     [ drop overflow: %llu\tearly: %llu\tmemfail: %u\tduprexmt:%u ]\n",
 	    fqst->fcls_drop_overflow, fqst->fcls_drop_early,
 	    fqst->fcls_drop_memfailure, fqst->fcls_dup_rexmts);
-    printf("     [ l4s target qdelay: %10s ]\n", nsec_to_str(fqst->fcls_l4s_target_qdelay));
-    printf("     [ ce marked:%llu\tce mark failures:%llu\tL4S pkts:%llu   ]\n",
+    printf("     [ L4S target qdelay: %10s ]\n", nsec_to_str(fqst->fcls_l4s_target_qdelay));
+    printf("     [ CE marked:%llu\tCE marking failures:%llu\tL4S pkts:%llu   ]\n",
            fqst->fcls_ce_marked, fqst->fcls_ce_mark_failures, fqst->fcls_l4s_pkts);
+    printf("     [ paced pkts:%llu\tpacemaker needed:%llu ]\n", fqst->fcls_paced_pkts, fqst->fcls_fcl_pacing_needed);
+
 	printf("     [ flows total: %u\tnew: %u\told: %u ]\n",
 	    fqst->fcls_flows_cnt,
 	    fqst->fcls_newflows_cnt, fqst->fcls_oldflows_cnt);
@@ -1520,46 +1523,6 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
 			printf("\n");
 		}
 	}
-}
-
-static void
-update_avg(struct if_ifclassq_stats *ifcqs, struct queue_stats *qs)
-{
-	u_int64_t		 b, p;
-	int			 n;
-
-	n = qs->avgn;
-
-	switch (ifcqs->ifqs_scheduler) {
-	case PKTSCHEDT_FQ_CODEL:
-		b = ifcqs->ifqs_fq_codel_stats.fcls_dequeue_bytes;
-		p = ifcqs->ifqs_fq_codel_stats.fcls_dequeue;
-		break;
-	default:
-		b = 0;
-		p = 0;
-		break;
-	}
-
-	if (n == 0) {
-		qs->prev_bytes = b;
-		qs->prev_packets = p;
-		qs->avgn++;
-		return;
-	}
-
-	if (b >= qs->prev_bytes)
-		qs->avg_bytes = ((qs->avg_bytes * (n - 1)) +
-		    (b - qs->prev_bytes)) / n;
-
-	if (p >= qs->prev_packets)
-		qs->avg_packets = ((qs->avg_packets * (n - 1)) +
-		    (p - qs->prev_packets)) / n;
-
-	qs->prev_bytes = b;
-	qs->prev_packets = p;
-	if (n < AVGN_MAX)
-		qs->avgn++;
 }
 
 #define NSEC_PER_SEC    1000000000      /* nanoseconds per second */

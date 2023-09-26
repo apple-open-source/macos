@@ -360,6 +360,15 @@ static void GSSCred_peer_event_handler(struct peer *peer, xpc_object_t event)
 	} else if (strcmp(cmd, "doauth") == 0) {
 	    reply = xpc_dictionary_create_reply(event);
 	    do_Auth(peer, event, reply);
+	} else if (strcmp(cmd, "doscram") == 0) {
+	    reply = xpc_dictionary_create_reply(event);
+	    do_Scram(peer, event, reply);
+	} else if (strcmp(cmd, "add-challenge") == 0) {
+	    reply = xpc_dictionary_create_reply(event);
+	    do_AddChallenge(peer, event, reply);
+	} else if (strcmp(cmd, "check-challenge") == 0) {
+	    reply = xpc_dictionary_create_reply(event);
+	    do_CheckChallenge(peer, event, reply);
 	} else {
 	    os_log_error(GSSOSLog(), "peer sent invalid command %s", cmd);
 	    xpc_connection_cancel(peer->peer);
@@ -654,6 +663,19 @@ static time_t getCredRenewInterval(void)
 }
 
 static bool
+getDisableNTLMReflectionDetection(void)
+{
+    static bool disableReflection = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+	NSNumber *value = (__bridge NSNumber *)HeimCredGlobalCTX.getValueFromPreferences(CFSTR("disable-ntlm-reflection-detection"));
+	disableReflection = value.boolValue;
+    });
+    return disableReflection;
+
+}
+
+static bool
 sessionExists(pid_t asid)
 {
 #if TARGET_OS_IPHONE
@@ -819,6 +841,7 @@ int main(int argc, const char *argv[])
 	HeimCredGlobalCTX.finalFunction = final_func;
 	HeimCredGlobalCTX.notifyCaches = notifyChangedCaches;
 	HeimCredGlobalCTX.renewInterval = getCredRenewInterval();
+	HeimCredGlobalCTX.disableNTLMReflectionDetection = getDisableNTLMReflectionDetection();
 	HeimCredGlobalCTX.gssCredHelperClientClass = GSSCredXPCHelperClient.class;
 	HeimCredGlobalCTX.executeOnRunQueue = executeOnRunQueue;
 	
@@ -835,7 +858,9 @@ int main(int argc, const char *argv[])
 	_HeimCredRegisterConfiguration();
 	_HeimCredRegisterKerberos();
 	_HeimCredRegisterNTLM();
+	_HeimCredRegisterNTLMReflection();
 	_HeimCredRegisterKerberosAcquireCred();
+	_HeimCredRegisterSCRAM();
 	
 	CFRELEASE_NULL(HeimCredCTX.globalSchema);
 	

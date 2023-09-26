@@ -1,22 +1,22 @@
-// © 2016 and later: Unicode, Inc. and others.
+﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_001{
     calendar{
         chinese{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM r(U)",
                 "d MMMM r(U)",
                 "d MMM r",
                 "dd/MM/r",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             DateTimeSkeletons{
@@ -96,18 +96,18 @@ en_001{
         }
         generic{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM y G",
                 "d MMMM y G",
                 "d MMM y G",
                 "dd/MM/y GGGGG",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             DateTimeSkeletons{
@@ -121,34 +121,16 @@ en_001{
                 "GGGGGyMMdd",
             }
             availableFormats{
-                Bhms{"h:mm:ss B"}
-                EBhm{"E, h:mm B"}
-                EBhms{"E, h:mm:ss B"}
-                EHm{"E, HH:mm"}
-                EHms{"E, HH:mm:ss"}
                 Ed{"E d"}
-                Ehm{"E, h:mm a"}
-                Ehms{"E, h:mm:ss a"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
                 GyMd{"dd/MM/y GGGGG"}
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-                Hmsv{"HH:mm:ss v"}
-                Hmv{"HH:mm v"}
                 M{"LL"}
                 MEd{"E, dd/MM"}
                 MMMEd{"E, d MMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 Md{"dd/MM"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                hmsv{"h:mm:ss a v"}
-                hmv{"h:mm a v"}
-                ms{"mm:ss"}
                 yyyyM{"MM/y GGGGG"}
                 yyyyMEd{"E, dd/MM/y GGGGG"}
                 yyyyMMMEd{"E, d MMM y G"}
@@ -183,9 +165,6 @@ en_001{
                     d{"dd/MM/y – dd/MM/y GGGGG"}
                     y{"dd/MM/y – dd/MM/y GGGGG"}
                 }
-                M{
-                    M{"M – M"}
-                }
                 MEd{
                     M{"E dd/MM – E dd/MM"}
                     d{"E dd/MM – E dd/MM"}
@@ -202,10 +181,6 @@ en_001{
                     M{"dd/MM – dd/MM"}
                     d{"dd/MM – dd/MM"}
                 }
-                d{
-                    d{"d – d"}
-                }
-                fallback{"{0} – {1}"}
                 y{
                     y{"y – y G"}
                 }
@@ -237,18 +212,18 @@ en_001{
         }
         gregorian{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM y",
                 "d MMMM y",
                 "d MMM y",
                 "dd/MM/y",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             DateTimeSkeletons{
@@ -262,9 +237,6 @@ en_001{
                 "yMMdd",
             }
             availableFormats{
-                EBhm{"E, h:mm B"}
-                EBhms{"E, h:mm:ss B"}
-                Ed{"E d"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
                 GyMd{"d/M/y GGGGG"}
@@ -320,23 +292,6 @@ en_001{
                     d{"dd/MM/y – dd/MM/y GGGGG"}
                     y{"dd/MM/y – dd/MM/y GGGGG"}
                 }
-                H{
-                    H{"HH – HH"}
-                }
-                Hm{
-                    H{"HH:mm – HH:mm"}
-                    m{"HH:mm – HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm – HH:mm v"}
-                    m{"HH:mm – HH:mm v"}
-                }
-                Hv{
-                    H{"HH – HH v"}
-                }
-                M{
-                    M{"M – M"}
-                }
                 MEd{
                     M{"E dd/MM – E dd/MM"}
                     d{"E dd/MM – E dd/MM"}
@@ -352,19 +307,6 @@ en_001{
                 Md{
                     M{"dd/MM – dd/MM"}
                     d{"dd/MM – dd/MM"}
-                }
-                d{
-                    d{"d – d"}
-                }
-                fallback{"{0} – {1}"}
-                h{
-                    h{"h – h a"}
-                }
-                hv{
-                    h{"h – h a v"}
-                }
-                y{
-                    y{"y – y"}
                 }
                 yM{
                     M{"MM/y – MM/y"}
@@ -394,43 +336,33 @@ en_001{
         }
         japanese{
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, d MMMM G y",
                 "d MMMM G y",
                 "d MMM G y",
                 "dd/MM/GGGGGy",
                 "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             availableFormats{
                 Ed{"E d"}
                 GyMMMEd{"E, d MMM G y"}
                 GyMMMd{"d MMM G y"}
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
+                M{"LL"}
                 MEd{"E, dd/MM"}
                 MMMEd{"E, d MMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 Md{"dd/MM"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                ms{"mm:ss"}
-                y{"G y"}
-                yyyy{"G y"}
                 yyyyM{"MM/GGGGGy"}
                 yyyyMEd{"E, dd/MM/GGGGGy"}
-                yyyyMMM{"MMM G y"}
                 yyyyMMMEd{"E, d MMM G y"}
-                yyyyMMMM{"MMMM G y"}
                 yyyyMMMd{"d MMM G y"}
                 yyyyMd{"dd/MM/GGGGGy"}
             }
@@ -440,6 +372,18 @@ en_001{
         math_symbols{"maths symbol"}
     }
     fields{
+        day-narrow{
+            relativeTime{
+                future{
+                    one{"in {0} day"}
+                    other{"in {0} days"}
+                }
+                past{
+                    one{"{0} day ago"}
+                    other{"{0} days ago"}
+                }
+            }
+        }
         dayOfYear-narrow{
             dn{"day of yr"}
         }
@@ -498,7 +442,6 @@ en_001{
             }
         }
         minute-narrow{
-            dn{"min"}
             relativeTime{
                 future{
                     one{"in {0} min"}
@@ -541,7 +484,6 @@ en_001{
             }
         }
         month-narrow{
-            dn{"mo"}
             relative{
                 "-1"{"last mo"}
                 "0"{"this mo"}
@@ -577,7 +519,6 @@ en_001{
             }
         }
         quarter-narrow{
-            dn{"qtr"}
             relativeTime{
                 future{
                     one{"in {0} qtr"}
@@ -713,7 +654,6 @@ en_001{
             }
         }
         week-narrow{
-            dn{"wk"}
             relative{
                 "-1"{"last wk"}
                 "0"{"this wk"}
@@ -804,40 +744,11 @@ en_001{
     }
     listPattern{
         or{
-            2{"{0} or {1}"}
             end{"{0} or {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
-        }
-        standard{
-            2{"{0} and {1}"}
-            end{"{0}, and {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         standard-short{
             2{"{0} and {1}"}
             end{"{0} and {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
-        }
-        unit{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
-        }
-        unit-narrow{
-            2{"{0} {1}"}
-            end{"{0} {1}"}
-            middle{"{0} {1}"}
-            start{"{0} {1}"}
-        }
-        unit-short{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
     }
 }

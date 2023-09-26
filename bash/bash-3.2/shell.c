@@ -45,6 +45,7 @@
 
 #if defined(__APPLE__)
 #include <get_compat.h>
+#include <TargetConditionals.h>
 #include <stdint.h>
 #include <System/sys/codesign.h>
 #endif /* __APPLE__ */
@@ -1074,7 +1075,16 @@ run_startup_files ()
 	 initialization files. */
       if (no_profile == 0)
 	{
-	  maybe_execute_file (SYS_PROFILE, 1);
+#if defined(__APPLE__) && TARGET_OS_OSX
+    if (0 == access(MANAGED_SYS_PROFILE, F_OK)) {
+         maybe_execute_file(MANAGED_SYS_PROFILE, 1);
+    } else {
+         maybe_execute_file(SYS_PROFILE, 1);
+    }
+#else
+         maybe_execute_file(SYS_PROFILE, 1);
+#endif // __APPLE__ && TARGET_OS_OSX
+
 
 	  if (act_like_sh)	/* sh */
 	    maybe_execute_file ("~/.profile", 1);
@@ -1114,7 +1124,15 @@ run_startup_files ()
 	     initialization files. */
 	  if (no_profile == 0)
 	    {
+#if defined(__APPLE__) && TARGET_OS_OSX
+    if (0 == access(MANAGED_SYS_PROFILE, F_OK)) {
+	      maybe_execute_file(MANAGED_SYS_PROFILE, 1);
+    } else {
 	      maybe_execute_file (SYS_PROFILE, 1);
+    }
+#else
+	      maybe_execute_file (SYS_PROFILE, 1);
+#endif // __APPLE__ && TARGET_OS_OSX
 
 	      if (act_like_sh)	/* sh */
 		maybe_execute_file ("~/.profile", 1);

@@ -24,6 +24,7 @@
 #ifndef __AppleSmartBattery__
 #define __AppleSmartBattery__
 
+#include <AppleFeatures/AppleFeatures.h>
 #include <IOKit/IOService.h>
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
 #include <IOKit/IOReporter.h>

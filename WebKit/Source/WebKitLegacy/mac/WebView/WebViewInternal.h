@@ -53,13 +53,24 @@
 #import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
 
+#if !TARGET_OS_IPHONE
+extern NSString *_WebCanGoBackKey;
+extern NSString *_WebCanGoForwardKey;
+extern NSString *_WebEstimatedProgressKey;
+extern NSString *_WebIsLoadingKey;
+extern NSString *_WebMainFrameIconKey;
+extern NSString *_WebMainFrameTitleKey;
+extern NSString *_WebMainFrameURLKey;
+extern NSString *_WebMainFrameDocumentKey;
+#endif
+
 namespace WebCore {
 class Element;
 class Event;
-class Frame;
 class HTMLMediaElement;
 class HTMLVideoElement;
 class KeyboardEvent;
+class LocalFrame;
 class Page;
 class RenderBox;
 class TextIndicator;
@@ -134,7 +145,7 @@ WebLayoutMilestones kitLayoutMilestones(OptionSet<WebCore::LayoutMilestone>);
 
 + (BOOL)shouldIncludeInWebKitStatistics;
 
-- (WebCore::Frame*)_mainCoreFrame;
+- (WebCore::LocalFrame*)_mainCoreFrame;
 - (WebFrame *)_selectedOrMainFrame;
 
 - (void)_clearCredentials;

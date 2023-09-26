@@ -1042,7 +1042,7 @@ static void attachTCPKeepAliveKeys(
     {
         asl_set(m, kPMASLTCPKeepAlive, "supported");
         
-        getTCPKeepAliveState(keepAliveString, sizeof(keepAliveString));
+        getTCPKeepAliveState(keepAliveString, sizeof(keepAliveString), false);
 
         asl_set(m, kPMASLTCPKeepAliveExpired, keepAliveString);
         snprintf(tcpString, tcpStringLen, "TCPKeepAlive=%s", keepAliveString);

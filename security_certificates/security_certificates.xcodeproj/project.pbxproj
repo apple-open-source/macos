@@ -51,7 +51,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = D4AE942D1FD64501002FE721 /* Build configuration list for PBXAggregateTarget "PKITrustSupplementalsAsset" */;
 			buildPhases = (
-				D4AE942C1FD64501002FE721 /* ShellScript */,
+				D4AE942C1FD64501002FE721 /* build_and_stage_assets.sh */,
 			);
 			dependencies = (
 			);
@@ -224,6 +224,9 @@
 /* Begin PBXFileReference section */
 		0C406A851C0FA6270053517B /* log_list.json */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = text.json; path = log_list.json; sourceTree = "<group>"; tabWidth = 2; };
 		0C406A8A1C0FA9A20053517B /* TrustedCTLogs.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = TrustedCTLogs.plist; sourceTree = "<group>"; };
+		3D7362872A290F970099A458 /* v1 */ = {isa = PBXFileReference; lastKnownFileType = folder; name = v1; path = TrustSupplementalsAsset/v1; sourceTree = "<group>"; };
+		3D73628A2A290FAC0099A458 /* v2 */ = {isa = PBXFileReference; lastKnownFileType = folder; name = v2; path = TrustSupplementalsAsset/v2; sourceTree = "<group>"; };
+		3DB6C3C42A295549004823CE /* build_and_stage_assets.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_and_stage_assets.sh; sourceTree = "<group>"; };
 		7D6C4B7B19A56E57008147F3 /* security_certificates.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = security_certificates.xcconfig; path = config/security_certificates.xcconfig; sourceTree = "<group>"; };
 		8533E07C1B322F46002A1747 /* Allowed.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Allowed.plist; sourceTree = "<group>"; };
 		BE43DA441A71C54C000A4297 /* Info-Certificates.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-Certificates.plist"; path = "config/Info-Certificates.plist"; sourceTree = "<group>"; };
@@ -254,7 +257,6 @@
 		D418CC771E69F46D00330A44 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = Pinning/README.txt; sourceTree = "<group>"; };
 		D46127412552199000CFA05B /* TrustedCTLogs_nonTLS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = TrustedCTLogs_nonTLS.plist; sourceTree = "<group>"; };
 		D4AE94221FD64257002FE721 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; name = Makefile; path = TrustSupplementalsAsset/Makefile; sourceTree = "<group>"; usesTabs = 1; };
-		D4AE94251FD64257002FE721 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = TrustSupplementalsAsset/Info.plist; sourceTree = "<group>"; };
 		D4AE94261FD64257002FE721 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = TrustSupplementalsAsset/README.txt; sourceTree = "<group>"; };
 		D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist; path = TrustSupplementalsAsset/com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist; sourceTree = "<group>"; };
 		D4CE8BD6201C15FF00E342E6 /* AnalyticsSamplingRates.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = AnalyticsSamplingRates.plist; path = TrustSupplementalsAsset/AnalyticsSamplingRates.plist; sourceTree = "<group>"; };
@@ -285,9 +287,18 @@
 			path = certificate_transparency;
 			sourceTree = "<group>";
 		};
+		3DB6C3C12A2954B6004823CE /* xcscripts */ = {
+			isa = PBXGroup;
+			children = (
+				3DB6C3C42A295549004823CE /* build_and_stage_assets.sh */,
+			);
+			path = xcscripts;
+			sourceTree = "<group>";
+		};
 		4CA1FEC1052A432800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				3DB6C3C12A2954B6004823CE /* xcscripts */,
 				BED43DA51A732AFD00A69644 /* README.txt */,
 				BED4A7F71A72D45000C14393 /* BuiltAssets */,
 				BED4A7F81A72D4A100C14393 /* BuiltKeychains */,
@@ -382,11 +393,12 @@
 		D4AE942A1FD6428D002FE721 /* TrustSupplementalsAsset */ = {
 			isa = PBXGroup;
 			children = (
+				3D73628A2A290FAC0099A458 /* v2 */,
+				3D7362872A290F970099A458 /* v1 */,
 				D4E565A226A76A03003226B9 /* .open_source_exclude */,
 				D4CE8BD6201C15FF00E342E6 /* AnalyticsSamplingRates.plist */,
 				D4CE8BD9201C161F00E342E6 /* AppleCertificateAuthorities.plist */,
 				D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */,
-				D4AE94251FD64257002FE721 /* Info.plist */,
 				D4AE94221FD64257002FE721 /* Makefile */,
 				D4AE94261FD64257002FE721 /* README.txt */,
 			);
@@ -545,7 +557,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		D4AE942C1FD64501002FE721 /* ShellScript */ = {
+		D4AE942C1FD64501002FE721 /* build_and_stage_assets.sh */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -555,7 +567,9 @@
 				"$(SRCROOT)/TrustSupplementalsAsset/Info.plist",
 				"$(SRCROOT)/CertificateTool/BuildiOSAsset/BuildTrustedCTLogsPlist.rb ",
 				"$(SRCROOT)/certificate_transparency/log_list.json",
+				"${SRCROOT}/xcscripts/build_and_stage_assets.sh",
 			);
+			name = build_and_stage_assets.sh;
 			outputPaths = (
 				"$(DSTROOT)/BuiltSupplementalAssets/Info.plist",
 				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/TrustedCTLogs.plist",
@@ -565,9 +579,8 @@
 				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/TrustedCTLogs_nonTLS.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ASSET_DIR=${DSTROOT}/BuiltSupplementalAssets\nASSET_DATA=${ASSET_DIR}/AssetData\nASSET_TOOLS_DIR=${SRCROOT}/CertificateTool/BuildiOSAsset\nCT_DIR=${SRCROOT}/certificate_transparency\nPINNING_DIR=${SRCROOT}/Pinning\nSRC_ASSET_DIR=${SRCROOT}/TrustSupplementalsAsset\n\nmkdir -p ${ASSET_DIR}\nditto ${SRC_ASSET_DIR}/Info.plist ${ASSET_DIR}\nmkdir -p ${ASSET_DATA}\n\necho \"Starting TrustedCTLogs.plist file build\"\npython ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs.plist\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"BuildTrustedCTLogsPlist.rb failed with exit status $STATUS\"\n    exit 1\nfi\n\necho \"Starting TrustedCTLogs_nonTLS.plist file build\"\npython ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"BuildTrustedCTLogsPlist.rb failed with exit status $STATUS\"\n    exit 1\nfi\n\necho \"Converting TrustedCTLogs.plist\"\nplutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs.plist\n\necho \"Converting TrustedCTLogs_nonTLS.plist\"\nplutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist\n\necho \"Moving CertificatePinning.plist\"\nplutil -convert binary1 ${PINNING_DIR}/CertificatePinning.plist -o ${ASSET_DATA}/CertificatePinning.plist\n\necho \"Moving AnalyticsSamplingRates.plist\"\nplutil -convert binary1 ${SRC_ASSET_DIR}/AnalyticsSamplingRates.plist -o ${ASSET_DATA}/AnalyticsSamplingRates.plist\n\necho \"Moving AppleCertificateAuthorities.plist\"\nplutil -convert binary1 ${SRC_ASSET_DIR}/AppleCertificateAuthorities.plist -o ${ASSET_DATA}/AppleCertificateAuthorities.plist\n";
-			showEnvVarsInLog = 0;
+			shellPath = "/bin/sh -e -x";
+			shellScript = "${SRCROOT}/xcscripts/build_and_stage_assets.sh\n";
 		};
 		D4F55FB31E81D707001D7F03 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;

@@ -65,6 +65,7 @@ thread_t get_firstthread(task_t);
 int get_task_userstop(task_t);
 int get_thread_userstop(thread_t);
 boolean_t current_thread_aborted(void);
+void task_act_iterate_wth_args_locked(task_t, void (*)(thread_t, void *), void *);
 void task_act_iterate_wth_args(task_t, void (*)(thread_t, void *), void *);
 kern_return_t get_signalact(task_t, thread_t *, int);
 int fill_task_rusage(task_t task, rusage_info_current *ri);
@@ -223,9 +224,15 @@ thread_task_has_ldt(thread_t th)
  */
 int get_thread_lock_count(thread_t th);         /* forced forward */
 int
-get_thread_lock_count(thread_t th)
+get_thread_lock_count(thread_t th __unused)
 {
-	return th->mutex_count;
+	/*
+	 * TODO: one day: resurect counting locks held to disallow
+	 *       holding locks across upcalls.
+	 *
+	 *       never worked on arm.
+	 */
+	return 0;
 }
 
 /*
@@ -981,22 +988,28 @@ current_thread_aborted(
 	return FALSE;
 }
 
+/* Iterate over a task that is already protected by a held lock. */
+void
+task_act_iterate_wth_args_locked(
+	task_t                  task,
+	void                    (*func_callback)(thread_t, void *),
+	void                    *func_arg)
+{
+	for (thread_t inc = (thread_t)(void *)queue_first(&task->threads);
+	    !queue_end(&task->threads, (queue_entry_t)inc);) {
+		(void) (*func_callback)(inc, func_arg);
+		inc = (thread_t)(void *)queue_next(&inc->task_threads);
+	}
+}
+
 void
 task_act_iterate_wth_args(
 	task_t                  task,
 	void                    (*func_callback)(thread_t, void *),
 	void                    *func_arg)
 {
-	thread_t        inc;
-
 	task_lock(task);
-
-	for (inc  = (thread_t)(void *)queue_first(&task->threads);
-	    !queue_end(&task->threads, (queue_entry_t)inc);) {
-		(void) (*func_callback)(inc, func_arg);
-		inc = (thread_t)(void *)queue_next(&inc->task_threads);
-	}
-
+	task_act_iterate_wth_args_locked(task, func_callback, func_arg);
 	task_unlock(task);
 }
 

@@ -70,7 +70,7 @@ bool Data::isNull() const
     return !m_buffer;
 }
 
-bool Data::apply(const Function<bool(Span<const uint8_t>)>& applier) const
+bool Data::apply(const Function<bool(std::span<const uint8_t>)>& applier) const
 {
     if (isEmpty())
         return false;
@@ -113,12 +113,11 @@ RefPtr<SharedMemory> Data::tryCreateSharedMemory() const
     if (isNull() || !isMap())
         return nullptr;
 
-    HANDLE handle = std::get<FileSystem::MappedFileData>(*m_buffer).fileMapping();
-    HANDLE newHandle;
-    if (!DuplicateHandle(GetCurrentProcess(), handle, GetCurrentProcess(), &newHandle, 0, false, DUPLICATE_SAME_ACCESS))
+    auto newHandle = Win32Handle { std::get<FileSystem::MappedFileData>(*m_buffer).fileMapping() };
+    if (!newHandle)
         return nullptr;
 
-    return SharedMemory::adopt(newHandle, m_size, SharedMemory::Protection::ReadOnly);
+    return SharedMemory::map({ WTFMove(newHandle), m_size }, SharedMemory::Protection::ReadOnly);
 }
 #endif
 

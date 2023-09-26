@@ -1,13 +1,6 @@
 compiler_rt
 corecrypto
-dispatch
-dyld
-macho
-system_blocks
+system_darwin
 system_kernel
-system_m
-system_malloc
 system_platform
 system_pthread
-system_trace
-unwind

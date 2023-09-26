@@ -39,6 +39,13 @@
 #import <IOKit/hidsystem/IOHIDLib.h>
 #import "IOHIDFamilyPrivate.h"
 #import "IOHIDFamilyProbe.h"
+#import <IOKit/hid/IOHIDAnalytics.h>
+#import <sys/types.h>
+#import <sys/sysctl.h>
+#import <sys/proc_info.h>
+#import <libproc.h>
+#import "IOHIDGamePolicySupport.h"
+#import <CoreAnalytics/CoreAnalytics.h>
 #if __has_include(<Rosetta/Rosetta.h>)
 #  include <Rosetta/Rosetta.h>
 #endif
@@ -50,6 +57,8 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
 #ifndef min
 #define min(a, b) ((a < b) ? a : b)
 #endif
+
+const uint64_t GP_SIGNAL_WAIT_TIME_S = 1;
 
 @implementation IOHIDDeviceClass
 
@@ -75,7 +84,7 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
  *  Lifetime: Object, need to sync with _deviceLock for reading/writing.
  *  BOOL                                    _tccGranted;
  * 
- *  Lifetime: Object, need to sync with _deviceLock for reading/writing.
+ *  Lifetime: Object, contains internal synchronization for reading/writing from the data queue, needs to be set under _deviceLock, can be read outside the lock.
  *  IOHIDQueueClass                         *_queue;
  *  Lifetime: Object, created in initElements, released in dealloc. Doesn't change. Mutating or reading/writing elements requires the _deviceLock.
  *  NSMutableArray                          *_elements;
@@ -397,6 +406,77 @@ exit:
     return;
 }
 
+- (void)logProtectedServiceEvent
+{
+    if (_protectedEvent) {
+        return;
+    }
+
+    uint64_t regID = 0;
+    IORegistryEntryGetRegistryEntryID(_service, &regID);
+
+    __block NSMutableDictionary * hidAnalyticsEvent = [NSMutableDictionary new];
+    if (!hidAnalyticsEvent) {
+        os_log_error(_IOHIDLog(), "Failed to create HID analytics dictionary for protected service");
+        return;
+    }
+
+    NSBundle * appBundle = [NSBundle mainBundle];
+    NSString * appName = @"";
+    
+    if (appBundle && appBundle.bundleIdentifier) {
+        appName = appBundle.bundleIdentifier;
+    } else {
+        NSString * processName = [[NSProcessInfo processInfo] processName];
+        if (processName) {
+            appName = processName;
+        }
+    }
+
+    hidAnalyticsEvent[@"AppName"] = appName;
+
+
+    CFTypeRef devicePairs = IORegistryEntryCreateCFProperty(
+                                    _service,
+                                    CFSTR(kIOHIDDeviceUsagePairsKey),
+                                    kCFAllocatorDefault,
+                                    0);
+    NSString * devicePairString = [NSString stringWithFormat:@"%@", devicePairs];
+    hidAnalyticsEvent[@"DeviceUsagePairs"] = devicePairString;
+
+    hidAnalyticsEvent[@"AppTCCAuthorized"] = _tccGranted ? @YES : @NO;
+
+    time_t launchTime = 0;
+    struct proc_bsdinfo pbsd;
+    int retval = proc_pidinfo(getpid(), PROC_PIDTBSDINFO, 0, &pbsd, sizeof(struct proc_bsdinfo));
+    if (retval != -1) {
+        launchTime = time(NULL) - pbsd.pbi_start_tvsec;
+    } else {
+        os_log_error(_IOHIDLog(), "Unable to get proc_pidinfo PROC_PIDTBSDINFO");
+    }
+
+    hidAnalyticsEvent[@"TimeSinceLaunch"] = @(launchTime);
+
+    IOReturn gpStatus = kIOReturnSuccess;
+    gpStatus = IOHIDAnalyticsGetConsoleModeStatus(^(bool consoleMode){
+        hidAnalyticsEvent[@"ConsoleModeEnabled"] = @(consoleMode);
+        AnalyticsSendEventLazy(@"com.apple.iohid.protectedDeviceAccess", ^{
+            return hidAnalyticsEvent;
+        });
+    });
+
+    if (gpStatus != kIOReturnSuccess) {
+        HIDLogError("(%#llx)GamePolicy error(%#x)", regID, gpStatus);
+        hidAnalyticsEvent[@"ConsoleModeEnabled"] = @(kIOReturnError);
+        AnalyticsSendEventLazy(@"com.apple.iohid.protectedDeviceAccess", ^{
+            return hidAnalyticsEvent;
+        });
+    }
+
+    _protectedEvent = hidAnalyticsEvent;
+    
+}
+
 - (IOReturn)initConnect
 {
     IOReturn ret = kIOReturnError;
@@ -422,11 +502,13 @@ exit:
         
         if (tcc && [tcc isEqual:@YES]) {
             _tccGranted = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent);
+            [self logProtectedServiceEvent];
         } else {
             _tccGranted = true;
         }
         
         _tccRequested = true;
+
     }
     
     if (!_tccGranted) {
@@ -620,7 +702,6 @@ static IOReturn _setProperty(void *iunknown,
     NSString* keyCopy = [key mutableCopy];
     id propertyCopy = property ? (__bridge_transfer id)CFPropertyListCreateDeepCopy(kCFAllocatorDefault, (__bridge CFTypeRef)property, kCFPropertyListMutableContainersAndLeaves) : nil;
 
-    os_unfair_recursive_lock_lock(&_deviceLock);
     if ([key isEqualToString:@(kIOHIDDeviceSuspendKey)]) {
         require(_queue, exit);
         
@@ -630,12 +711,11 @@ static IOReturn _setProperty(void *iunknown,
             [_queue start];
         }
     } else if ([key isEqualToString:@kIOHIDMaxReportBufferCountKey] || [key isEqualToString:@kIOHIDReportBufferEntrySizeKey] || [key isEqualToString:@kIOHIDDeviceForceInterfaceRematchKey]) {
-        os_unfair_recursive_lock_unlock(&_deviceLock);
         ret = IOConnectSetCFProperty(_connect, (__bridge CFStringRef)key, (__bridge CFTypeRef)property);
-        os_unfair_recursive_lock_lock(&_deviceLock);
     }
     
 exit:
+    os_unfair_recursive_lock_lock(&_deviceLock);
     _properties[keyCopy] = propertyCopy;
     os_unfair_recursive_lock_unlock(&_deviceLock);
 
@@ -1077,21 +1157,23 @@ static void _valueAvailableCallback(void *context,
     CFIndex size = 0;
     
     os_unfair_recursive_lock_lock(&_deviceLock);
+    CFIndex inputReportLength = _inputReportBufferLength;
+    uint8_t * inputReportBuffer = _inputReportBuffer;
+    os_unfair_recursive_lock_unlock(&_deviceLock);
+
     while ((result = [_queue copyNextValue:&value]) == kIOReturnSuccess) {
-        os_unfair_recursive_lock_unlock(&_deviceLock);
         IOHIDElementRef element;
         uint32_t reportID;
         uint64_t timestamp;
         
         if (IOHIDValueGetBytePtr(value) && IOHIDValueGetLength(value)) {
-            size = min(_inputReportBufferLength, IOHIDValueGetLength(value));
+            size = min(inputReportLength, IOHIDValueGetLength(value));
             if (size < 0) {
                 CFRelease(value);
-                os_unfair_recursive_lock_lock(&_deviceLock);
                 continue;
             }
             
-            bcopy(IOHIDValueGetBytePtr(value), _inputReportBuffer, size);
+            bcopy(IOHIDValueGetBytePtr(value), inputReportBuffer, size);
         }
         
         element = IOHIDValueGetElement(value);
@@ -1102,7 +1184,7 @@ static void _valueAvailableCallback(void *context,
             uint64_t regID;
             IORegistryEntryGetRegistryEntryID(_service, &regID);
             
-            IOHIDFAMILY_HID_TRACE(kHIDTraceHandleReport, (uintptr_t)regID, (uintptr_t)reportID, (uintptr_t)size, (uintptr_t)timestamp, (uintptr_t)_inputReportBuffer);
+            IOHIDFAMILY_HID_TRACE(kHIDTraceHandleReport, (uintptr_t)regID, (uintptr_t)reportID, (uintptr_t)size, (uintptr_t)timestamp, (uintptr_t)inputReportBuffer);
             
         }
 
@@ -1110,7 +1192,6 @@ static void _valueAvailableCallback(void *context,
         IOHIDReportCallback inputReportCallback = _inputReportCallback;
         IOHIDReportWithTimeStampCallback inputReportTimestampCallback = _inputReportTimestampCallback;
         void * inputReportContext = _inputReportContext;
-        uint8_t * inputReportBuffer = _inputReportBuffer;
         os_unfair_recursive_lock_unlock(&_deviceLock);
         
         if (inputReportCallback) {
@@ -1139,13 +1220,10 @@ static void _valueAvailableCallback(void *context,
         }
 
         CFRelease(value);
-        os_unfair_recursive_lock_lock(&_deviceLock);
     }
 
     // If there are any blocked reports signal that they can be dequeued
-    [_queue signalQueueEmpty];
-    os_unfair_recursive_lock_unlock(&_deviceLock);
-    
+    [_queue signalQueueEmpty];    
 }
 
 static IOReturn _setInputReportCallback(void *iunknown,

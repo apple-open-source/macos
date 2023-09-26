@@ -40,7 +40,7 @@ __FBSDID("$FreeBSD$");
 #include <unistd.h>
 
 int
-ttyslot()
+ttyslot(void)
 {
 
 	return (0);

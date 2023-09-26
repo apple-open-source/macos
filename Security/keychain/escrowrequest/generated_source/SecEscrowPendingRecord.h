@@ -25,12 +25,12 @@ __attribute__((visibility("hidden")))
     BOOL _certCached;
     BOOL _uploadCompleted;
     struct {
-        int lastCloudServicesTriggerTime:1;
-        int lastEscrowAttemptTime:1;
-        int triggerRequestTime:1;
-        int uploadRetries:1;
-        int certCached:1;
-        int uploadCompleted:1;
+        uint lastCloudServicesTriggerTime:1;
+        uint lastEscrowAttemptTime:1;
+        uint triggerRequestTime:1;
+        uint uploadRetries:1;
+        uint certCached:1;
+        uint uploadCompleted:1;
     } _has;
 }
 

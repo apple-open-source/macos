@@ -405,4 +405,9 @@
 #define AGENT_CONTEXT_AKS_FAILURES "aks-fail-count"
 #define AGENT_CONTEXT_AKS_BACKOFF "aks-backoff"
 
+#define AGENT_HINT_TOUCHID_PROHIBITED "tid-prohibited"
+#define AGENT_CONTEXT_APPSSO_KCPWD "apsso-kcp"
+#define AGENT_CONTEXT_APPSSO_UPWD "apsso-up"
+#define AGENT_CONTEXT_REQUIRE_UNLOCKED_KC "require-unlocked-kc"
+
 #endif /* !_SECURITY_AUTHORIZATIONTAGSPRIV_H_ */

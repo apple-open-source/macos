@@ -847,12 +847,19 @@ namespace std {
 #   define U_IMPORT 
 #endif
 
-#ifdef APPLE_IMPORT
+/**
+ * \def U_HIDDEN
+ * This is used to mark internal structs declared within external classes,
+ * to prevent the internal structs from having the same visibility as the
+ * class within which they are declared. 
+ * @internal
+ */
+#ifdef U_HIDDEN
     /* Use the predefined value. */
 #elif defined(__GNUC__)
-#   define APPLE_IMPORT __attribute__((visibility("hidden")))
+#   define U_HIDDEN __attribute__((visibility("hidden")))
 #else
-#   define APPLE_IMPORT
+#   define U_HIDDEN 
 #endif
 
 /**

@@ -104,9 +104,9 @@ int bindresvport_sa(int sd, struct sockaddr *sa);
 
 int             _rpcsvcdirty = 0;
 
-struct pidfh *pfh = NULL;
+struct pidfh *lockpfh = NULL;
 
-const struct nfs_conf_lockd config_defaults =
+const struct nfs_conf_lockd l_config_defaults =
 {
 	45,             /* grace_period */
 	60,             /* host_monitor_cache_timeout */
@@ -119,12 +119,12 @@ const struct nfs_conf_lockd config_defaults =
 	1,              /* udp */
 	0,              /* verbose */
 };
-struct nfs_conf_lockd config;
+struct nfs_conf_lockd l_config;
 
 int lockudpsock, locktcpsock;
 int lockudp6sock, locktcp6sock;
-int udpport, tcpport;
-int udp6port, tcp6port;
+int lockudpport, locktcpport;
+int lockudp6port, locktcp6port;
 int grace_expired;
 int nsm_state;
 pid_t server_pid = -1;
@@ -138,7 +138,7 @@ void    nlm_prog_3(struct svc_req *, SVCXPRT *);
 void    nlm_prog_4(struct svc_req *, SVCXPRT *);
 void    usage(void);
 
-static int config_read(struct nfs_conf_lockd *);
+static int config_read(struct nfs_conf_lockd *, const char *);
 static void sigalarm_grace_period_handler(void);
 static void handle_sigchld(int sig);
 void my_svc_run(void);
@@ -181,9 +181,7 @@ static int statd_service_start(void);
  */
 
 int
-main(argc, argv)
-int argc;
-char **argv;
+lockd_imp(int argc, char **argv, const char *conf_path)
 {
 	SVCXPRT *transp = NULL;
 	struct sockaddr_storage saddr;
@@ -197,19 +195,19 @@ char **argv;
 	sigset_t waitset, osigset;
 	int server_sig;
 
-	config = config_defaults;
-	config_read(&config);
+	l_config = l_config_defaults;
+	config_read(&l_config, conf_path);
 
 	while ((ch = getopt(argc, argv, "d:g:x:")) != (-1)) {
 		switch (ch) {
 		case 'd':
-			config.verbose = atoi(optarg);
+			l_config.verbose = atoi(optarg);
 			break;
 		case 'g':
-			config.grace_period = atoi(optarg);
+			l_config.grace_period = atoi(optarg);
 			break;
 		case 'x':
-			config.host_monitor_cache_timeout = atoi(optarg);
+			l_config.host_monitor_cache_timeout = atoi(optarg);
 			break;
 		default:
 		case '?':
@@ -228,11 +226,11 @@ char **argv;
 	signal(SIGHUP, handle_sig_cleanup);
 	signal(SIGQUIT, handle_sig_cleanup);
 
-	openlog("rpc.lockd", LOG_CONS | LOG_PID | ((config.verbose == 99) ? LOG_PERROR : 0), LOG_DAEMON);
+	openlog("rpc.lockd", LOG_CONS | LOG_PID | ((l_config.verbose == 99) ? LOG_PERROR : 0), LOG_DAEMON);
 
 	/* claim PID file */
-	pfh = pidfile_open(_PATH_LOCKD_PID, 0644, &pid);
-	if (pfh == NULL) {
+	lockpfh = pidfile_open(_PATH_LOCKD_PID, 0644, &pid);
+	if (lockpfh == NULL) {
 		syslog(LOG_ERR, "can't open lockd pidfile: %s (%d)", strerror(errno), errno);
 		if (errno == EEXIST) {
 			syslog(LOG_ERR, "lockd already running, pid: %d", pid);
@@ -240,12 +238,12 @@ char **argv;
 		}
 		exit(2);
 	}
-	if (pidfile_write(pfh) == -1) {
+	if (pidfile_write(lockpfh) == -1) {
 		syslog(LOG_WARNING, "can't write to lockd pidfile: %s (%d)", strerror(errno), errno);
 	}
 
-	if (config.verbose) {
-		syslog(LOG_INFO, "lockd starting, debug level %d", config.verbose);
+	if (l_config.verbose) {
+		syslog(LOG_INFO, "lockd starting, debug level %d", l_config.verbose);
 	} else {
 		syslog(LOG_INFO, "lockd starting");
 	}
@@ -315,9 +313,9 @@ char **argv;
 	rpcb_unset(NULL, NLM_PROG, NLM_VERS4);
 
 	/* parent cleans up the pid file */
-	pfh = NULL;
+	lockpfh = NULL;
 
-	if (config.udp) {
+	if (l_config.udp) {
 		/* IPv4 */
 		if ((lockudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 			syslog(LOG_ERR, "can't create UDP IPv4 socket: %s (%d)", strerror(errno), errno);
@@ -325,7 +323,7 @@ char **argv;
 		if (lockudpsock >= 0) {
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
-			sin->sin_port = htons(config.port);
+			sin->sin_port = htons(l_config.port);
 			sin->sin_len = sizeof(*sin);
 			if (bindresvport_sa(lockudpsock, (struct sockaddr *)sin) < 0) {
 				/* socket may still be lingering from previous incarnation */
@@ -345,7 +343,7 @@ char **argv;
 				close(lockudpsock);
 				lockudpsock = -1;
 			} else {
-				udpport = ntohs(sin->sin_port);
+				lockudpport = ntohs(sin->sin_port);
 			}
 		}
 		if ((lockudpsock >= 0) && ((transp = svcudp_create(lockudpsock)) == NULL)) {
@@ -392,7 +390,7 @@ char **argv;
 			}
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
-			sin6->sin6_port = htons(config.port);
+			sin6->sin6_port = htons(l_config.port);
 			sin6->sin6_len = sizeof(*sin6);
 			if (bindresvport_sa(lockudp6sock, (struct sockaddr *)sin6) < 0) {
 				/* socket may still be lingering from previous incarnation */
@@ -412,7 +410,7 @@ char **argv;
 				close(lockudp6sock);
 				lockudp6sock = -1;
 			} else {
-				udp6port = ntohs(sin6->sin6_port);
+				lockudp6port = ntohs(sin6->sin6_port);
 			}
 		}
 		if ((lockudp6sock >= 0) && ((transp = svcudp_create(lockudp6sock)) == NULL)) {
@@ -450,7 +448,7 @@ char **argv;
 		}
 	}
 
-	if (config.tcp) {
+	if (l_config.tcp) {
 		/* IPv4 */
 		if ((locktcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			syslog(LOG_ERR, "can't create TCP IPv4 socket: %s (%d)", strerror(errno), errno);
@@ -461,7 +459,7 @@ char **argv;
 			}
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
-			sin->sin_port = htons(config.port);
+			sin->sin_port = htons(l_config.port);
 			sin->sin_len = sizeof(*sin);
 			if (bindresvport_sa(locktcpsock, (struct sockaddr *)sin) < 0) {
 				syslog(LOG_ERR, "can't bind TCP IPv4 addr: %s (%d)", strerror(errno), errno);
@@ -476,7 +474,7 @@ char **argv;
 				close(locktcpsock);
 				locktcpsock = -1;
 			} else {
-				tcpport = ntohs(sin->sin_port);
+				locktcpport = ntohs(sin->sin_port);
 			}
 		}
 		if ((locktcpsock >= 0) && ((transp = svctcp_create(locktcpsock, 0, 0)) == NULL)) {
@@ -524,7 +522,7 @@ char **argv;
 			setsockopt(locktcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
-			sin6->sin6_port = htons(config.port);
+			sin6->sin6_port = htons(l_config.port);
 			sin6->sin6_len = sizeof(*sin6);
 			if (bindresvport_sa(locktcp6sock, (struct sockaddr *)sin6) < 0) {
 				syslog(LOG_ERR, "can't bind TCP IPv6 addr: %s (%d)", strerror(errno), errno);
@@ -539,7 +537,7 @@ char **argv;
 				close(locktcp6sock);
 				locktcp6sock = -1;
 			} else {
-				tcp6port = ntohs(sin6->sin6_port);
+				locktcp6port = ntohs(sin6->sin6_port);
 			}
 		}
 		if ((locktcp6sock >= 0) && ((transp = svctcp_create(locktcp6sock, 0, 0)) == NULL)) {
@@ -613,9 +611,9 @@ char **argv;
 		    strerror(errno));
 		exit(1);
 	}
-	if (config.grace_period > 0) {
+	if (l_config.grace_period > 0) {
 		grace_expired = 0;
-		alarm(config.grace_period);
+		alarm(l_config.grace_period);
 	} else {
 		grace_expired = 1;
 	}
@@ -634,7 +632,7 @@ sigalarm_grace_period_handler(void)
 }
 
 void
-usage()
+usage(void)
 {
 	errx(1, "usage: rpc.lockd [-d <debuglevel>] [-g <grace period>] "
 	    " [-x <host monitor cache timeout>] [-w]");
@@ -711,8 +709,8 @@ handle_sig_cleanup(int sig)
 		rpcb_unset(NULL, NLM_PROG, NLM_VERSX);
 		rpcb_unset(NULL, NLM_PROG, NLM_VERS4);
 	}
-	if (pfh && !sig) {
-		pidfile_remove(pfh);
+	if (lockpfh && !sig) {
+		pidfile_remove(lockpfh);
 	}
 	exit(!sig ? 0 : 1);
 }
@@ -752,7 +750,7 @@ my_svc_run(void)
 	SVCXPRT *xprt;
 
 	for (;;) {
-		timeout.tv_sec = config.host_monitor_cache_timeout + 1;
+		timeout.tv_sec = l_config.host_monitor_cache_timeout + 1;
 		timeout.tv_nsec = 0;
 
 		/*
@@ -771,7 +769,7 @@ my_svc_run(void)
 		currsec = now.tv_sec;
 		if (xprt) {
 			(void)svc_getsomerequests(xprt, -1);
-		} else if (config.verbose > 3) {
+		} else if (l_config.verbose > 3) {
 			fprintf(stderr, "my_svc_run: svc_pollnext() timeout\n");
 		}
 		hashosts = expire_lock_hosts();
@@ -782,7 +780,7 @@ my_svc_run(void)
  * read the lockd values from nfs.conf
  */
 static int
-config_read(struct nfs_conf_lockd *conf)
+config_read(struct nfs_conf_lockd *conf, const char *conf_path)
 {
 	FILE *f;
 	size_t len, linenum = 0;
@@ -790,9 +788,13 @@ config_read(struct nfs_conf_lockd *conf)
 	int val;
 	long tmp;
 
-	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
+	if (conf_path == NULL) {
+		conf_path = _PATH_NFS_CONF;
+	}
+
+	if (!(f = fopen(conf_path, "r"))) {
 		if (errno != ENOENT) {
-			syslog(LOG_WARNING, "%s", _PATH_NFS_CONF);
+			syslog(LOG_WARNING, "%s", conf_path);
 		}
 		return 1;
 	}
@@ -826,13 +828,13 @@ config_read(struct nfs_conf_lockd *conf)
 
 		/* all lockd keys start with "nfs.lockd." */
 		if (strncmp(key, "nfs.lockd.", 10)) {
-			if (config.verbose) {
+			if (l_config.verbose) {
 				syslog(LOG_DEBUG, "%4ld %s=%s\n", linenum, key, value ? value : "");
 			}
 			continue;
 		}
 		tmp = !value ? 1 : strtol(value, NULL, 0);
-		if (config.verbose) {
+		if (l_config.verbose) {
 			syslog(LOG_DEBUG, "%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", tmp);
 		}
 
@@ -873,7 +875,7 @@ config_read(struct nfs_conf_lockd *conf)
 		} else if (!strcmp(key, "nfs.lockd.verbose")) {
 			conf->verbose = val;
 		} else {
-			if (config.verbose) {
+			if (l_config.verbose) {
 				syslog(LOG_DEBUG, "ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
 			}
 		}
@@ -896,14 +898,14 @@ get_statd_pid(void)
 	struct flock lock;
 
 	if ((fd = open(_PATH_STATD_PID, O_RDONLY)) < 0) {
-		if (config.verbose) {
+		if (l_config.verbose) {
 			syslog(LOG_DEBUG, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
 		}
 		return 0;
 	}
 	len = sizeof(pidbuf) - 1;
 	if ((len = read(fd, pidbuf, len)) < 0) {
-		if (config.verbose) {
+		if (l_config.verbose) {
 			syslog(LOG_DEBUG, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
 		}
 		close(fd);
@@ -914,7 +916,7 @@ get_statd_pid(void)
 	pidbuf[len] = '\0';
 	pid = (pid_t) strtol(pidbuf, &pidend, 10);
 	if (!len || (pid < 1)) {
-		if (config.verbose) {
+		if (l_config.verbose) {
 			syslog(LOG_DEBUG, "%s: bogus pid: %s", _PATH_STATD_PID, pidbuf);
 		}
 		close(fd);
@@ -929,12 +931,12 @@ get_statd_pid(void)
 	rv = fcntl(fd, F_GETLK, &lock);
 	close(fd);
 	if (rv != 0) {
-		if (config.verbose) {
+		if (l_config.verbose) {
 			syslog(LOG_DEBUG, "%s: fcntl: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
 		}
 		return 0;
 	} else if (lock.l_type == F_UNLCK) {
-		if (config.verbose) {
+		if (l_config.verbose) {
 			syslog(LOG_DEBUG, "%s: not locked\n", _PATH_STATD_PID);
 		}
 		return 0;

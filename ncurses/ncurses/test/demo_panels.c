@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2007,2008 Free Software Foundation, Inc.                   *
+ * Copyright (c) 2007-2010,2014 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: demo_panels.c,v 1.33 2008/08/04 13:33:48 tom Exp $
+ * $Id: demo_panels.c,v 1.38 2014/08/02 17:24:07 tom Exp $
  *
  * Demonstrate a variety of functions from the panel library.
  */
@@ -117,10 +117,9 @@ get_position(NCURSES_CONST char *text,
     int result = 0;
     int x1, y1;
     char cmd;
-    WINDOW *win;
 
     getyx(stdscr, y1, x1);
-    win = statusline();
+    (void) statusline();
 
     show_position(text, also, which, y1, x1);
 
@@ -407,7 +406,7 @@ make_fullwidth_digit(cchar_t *target, int digit)
 {
     wchar_t source[2];
 
-    source[0] = digit + 0xff10;
+    source[0] = (wchar_t) (digit + 0xff10);
     source[1] = 0;
     setcchar(target, source, A_NORMAL, 0, 0);
 }
@@ -494,6 +493,7 @@ show_panels(PANEL * px[MAX_PANELS + 1])
     PANEL *pan;
     int j;
 
+    memset(table, 0, sizeof(table));
     for (j = 1; j <= MAX_PANELS; ++j) {
 	table[j].valid = (px[j] != 0);
 	if (table[j].valid) {
@@ -507,7 +507,7 @@ show_panels(PANEL * px[MAX_PANELS + 1])
 	keypad(win, TRUE);
 	if ((pan = new_panel(win)) != 0) {
 	    werase(win);
-	    mvwprintw(win, 0, 0, "Panels:\n");
+	    MvWPrintw(win, 0, 0, "Panels:\n");
 	    for (j = 1; j <= MAX_PANELS; ++j) {
 		if (table[j].valid) {
 		    wprintw(win, " %d:", j);

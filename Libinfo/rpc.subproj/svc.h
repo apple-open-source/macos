@@ -63,6 +63,8 @@
 #ifndef _RPC_SVC_H
 #define _RPC_SVC_H
 #include <sys/cdefs.h>
+#include <netinet/in.h>
+#include <rpc/auth.h>
 
 /*
  * This interface must manage two items concerning remote procedure calling:

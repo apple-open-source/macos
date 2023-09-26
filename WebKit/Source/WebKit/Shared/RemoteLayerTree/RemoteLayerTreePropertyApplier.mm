@@ -31,8 +31,11 @@
 #import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeInteractionRegionLayers.h"
 #import <QuartzCore/QuartzCore.h>
+#import <WebCore/MediaPlayerEnumsCocoa.h>
 #import <WebCore/PlatformCAFilters.h>
 #import <WebCore/ScrollbarThemeMac.h>
+#import <WebCore/WebAVPlayerLayer.h>
+#import <WebCore/WebCoreCALayerExtras.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/cocoa/VectorCocoa.h>
@@ -146,7 +149,7 @@ static void updateCustomAppearance(CALayer *layer, GraphicsLayer::CustomAppearan
 #endif
 }
 
-static void applyGeometryPropertiesToLayer(CALayer *layer, const RemoteLayerTreeTransaction::LayerProperties& properties)
+static void applyCommonPropertiesToLayer(CALayer *layer, const RemoteLayerTreeTransaction::LayerProperties& properties)
 {
     if (properties.changedProperties & LayerChange::PositionChanged) {
         layer.position = CGPointMake(properties.position.x(), properties.position.y());
@@ -177,11 +180,17 @@ static void applyGeometryPropertiesToLayer(CALayer *layer, const RemoteLayerTree
         layer.contentsScale = properties.contentsScale;
         layer.rasterizationScale = properties.contentsScale;
     }
+
+    if (properties.changedProperties & LayerChange::OpacityChanged)
+        layer.opacity = properties.opacity;
+
+    if (properties.changedProperties & LayerChange::MasksToBoundsChanged)
+        layer.masksToBounds = properties.masksToBounds;
 }
 
-void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, RemoteLayerTreeHost* layerTreeHost, const RemoteLayerTreeTransaction::LayerProperties& properties, RemoteLayerBackingStore::LayerContentsType layerContentsType)
+void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, RemoteLayerTreeNode* layerTreeNode, RemoteLayerTreeHost* layerTreeHost, const RemoteLayerTreeTransaction::LayerProperties& properties, RemoteLayerBackingStoreProperties::LayerContentsType layerContentsType)
 {
-    applyGeometryPropertiesToLayer(layer, properties);
+    applyCommonPropertiesToLayer(layer, properties);
 
     if (properties.changedProperties & LayerChange::NameChanged)
         layer.name = properties.name;
@@ -195,14 +204,8 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
     if (properties.changedProperties & LayerChange::BorderWidthChanged)
         layer.borderWidth = properties.borderWidth;
 
-    if (properties.changedProperties & LayerChange::OpacityChanged)
-        layer.opacity = properties.opacity;
-
     if (properties.changedProperties & LayerChange::DoubleSidedChanged)
         layer.doubleSided = properties.doubleSided;
-
-    if (properties.changedProperties & LayerChange::MasksToBoundsChanged)
-        layer.masksToBounds = properties.masksToBounds;
 
     if (properties.changedProperties & LayerChange::OpaqueChanged)
         layer.opaque = properties.opaque;
@@ -254,13 +257,17 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
     if (properties.changedProperties & LayerChange::BackingStoreChanged
         || properties.changedProperties & LayerChange::BackingStoreAttachmentChanged)
     {
-        auto* backingStore = properties.backingStore.get();
-        if (backingStore && properties.backingStoreAttached)
-            backingStore->applyBackingStoreToLayer(layer, layerContentsType, layerTreeHost->replayCGDisplayListsIntoBackingStore());
-        else {
-            layer.contents = nil;
-            layer.contentsOpaque = NO;
-        }
+        auto* backingStore = properties.backingStoreProperties.get();
+        if (backingStore && properties.backingStoreAttached) {
+            std::optional<WebCore::RenderingResourceIdentifier> asyncContentsIdentifier;
+            if (layerTreeNode) {
+                backingStore->updateCachedBuffers(*layerTreeNode, layerContentsType);
+                asyncContentsIdentifier = layerTreeNode->asyncContentsIdentifier();
+            }
+
+            backingStore->applyBackingStoreToLayer(layer, layerContentsType, asyncContentsIdentifier, layerTreeHost->replayCGDisplayListsIntoBackingStore());
+        } else
+            [layer _web_clearContents];
     }
 
     if (properties.changedProperties & LayerChange::FiltersChanged)
@@ -292,22 +299,34 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
     }
 #endif
 #endif
+
+#if HAVE(AVKIT)
+    if (properties.changedProperties & LayerChange::VideoGravityChanged) {
+        if ([layer respondsToSelector:@selector(setVideoGravity:)])
+            [(WebAVPlayerLayer*)layer setVideoGravity:convertMediaPlayerToAVLayerVideoGravity(properties.videoGravity)];
+    }
+#endif
 }
 
-void RemoteLayerTreePropertyApplier::applyProperties(RemoteLayerTreeNode& node, RemoteLayerTreeHost* layerTreeHost, const RemoteLayerTreeTransaction::LayerProperties& properties, const RelatedLayerMap& relatedLayers, RemoteLayerBackingStore::LayerContentsType layerContentsType)
+void RemoteLayerTreePropertyApplier::applyProperties(RemoteLayerTreeNode& node, RemoteLayerTreeHost* layerTreeHost, const RemoteLayerTreeTransaction::LayerProperties& properties, const RelatedLayerMap& relatedLayers, RemoteLayerBackingStoreProperties::LayerContentsType layerContentsType)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
-    applyPropertiesToLayer(node.layer(), layerTreeHost, properties, layerContentsType);
-#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
-    applyGeometryPropertiesToLayer(node.interactionRegionsLayer(), properties);
-    if (properties.changedProperties & LayerChange::EventRegionChanged)
-        updateLayersForInteractionRegions(node.interactionRegionsLayer(), *layerTreeHost, properties);
-#endif
-    updateMask(node, properties, relatedLayers);
-
+    applyPropertiesToLayer(node.layer(), &node, layerTreeHost, properties, layerContentsType);
     if (properties.changedProperties & LayerChange::EventRegionChanged)
         node.setEventRegion(properties.eventRegion);
+    updateMask(node, properties, relatedLayers);
+
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    if (properties.changedProperties & LayerChange::CoverageRectChanged)
+        node.setCoverageRect(properties.coverageRect);
+    applyCommonPropertiesToLayer(node.interactionRegionsLayer(), properties);
+    // Replicate animations on the InteractionRegion layers, the LayerTreeHost only keeps track of the original animations.
+    if (properties.changedProperties & LayerChange::AnimationsChanged)
+        PlatformCAAnimationRemote::updateLayerAnimations(node.interactionRegionsLayer(), nullptr, properties.addedAnimations, properties.keysOfAnimationsToRemove);
+    if (properties.changedProperties & LayerChange::EventRegionChanged || properties.changedProperties & LayerChange::CoverageRectChanged)
+        updateLayersForInteractionRegions(node);
+#endif
 
 #if ENABLE(SCROLLING_THREAD)
     if (properties.changedProperties & LayerChange::ScrollingNodeIDChanged)

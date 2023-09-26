@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,7 +29,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.2 (Berkeley) 4/28/95
- * $FreeBSD: src/usr.bin/finger/extern.h,v 1.10 2005/09/19 10:11:46 dds Exp $
+ * $FreeBSD$
  */
 
 #ifndef	_EXTERN_H_
@@ -47,15 +45,12 @@ extern int lflag;
 extern time_t now;
 extern int oflag;
 extern int pplan;			/* don't show .plan/.project */
-#ifndef __APPLE__
-extern int Tflag;
-#endif
 extern int invoker_root;		/* Invoked by root */
 
 void	 enter_lastlog(PERSON *);
 PERSON	*enter_person(struct passwd *);
 void	 enter_where(struct utmpx *, PERSON *);
-PERSON	*find_person(const char *);
+PERSON	*find_person(char *);
 int	 hide(struct passwd *);
 void	 lflag_print(void);
 int	 match(struct passwd *, const char *);

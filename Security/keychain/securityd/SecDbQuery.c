@@ -645,11 +645,6 @@ static void query_add_return(const void *key, const void *value, Query *q)
  */
 static void query_add_use(const void *key, const void *value, Query *q)
 {
-#if TARGET_OS_OSX
-    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS;
-#elif TARGET_OS_IOS
-    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlways;
-#endif
     // Gotta use a string literal because we just outlawed this symbol on iOS
     if (CFEqual(key, CFSTR("u_ItemList"))) {
         /* TODO: Add integrity checking when we start using this. */
@@ -703,9 +698,9 @@ static void query_add_use(const void *key, const void *value, Query *q)
 #endif
         q->q_system_keychain = SystemKeychainFlag_ALWAYS;
 #else
-    } else if (_SecSystemKeychainAlwaysIsEnabled() && CFEqual(key, localSecUseSystemKeychainAlways)) {
+    } else if (_SecSystemKeychainAlwaysIsEnabled() && CFEqual(key, kSecUseSystemKeychainAlways)) {
         if (q->q_system_keychain == SystemKeychainFlag_EDUMODE) {
-            SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: can't specify both %@ and %@"), kSecUseSystemKeychain, localSecUseSystemKeychainAlways);
+            SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: can't specify both %@ and %@"), kSecUseSystemKeychain, kSecUseSystemKeychainAlways);
             return;
         }
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR

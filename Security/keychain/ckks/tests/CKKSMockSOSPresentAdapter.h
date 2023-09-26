@@ -42,6 +42,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSSet<id<CKKSRemotePeerProtocol>>*)allPeers;
 
+- (void)setSOSEnabled:(bool)isEnabled;
+
 @end
 
 NS_ASSUME_NONNULL_END

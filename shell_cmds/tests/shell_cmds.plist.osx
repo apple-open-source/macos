@@ -18,6 +18,8 @@
 				<string>apple_xargs_test.sh.Icontinuation.results.txt</string>
 				<string>Icontinuation</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -43,6 +45,8 @@
 				<string>format_string_test.sh.A_test.results.txt</string>
 				<string>A_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -68,6 +72,8 @@
 				<string>format_string_test.sh.a_test.results.txt</string>
 				<string>a_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -93,6 +99,8 @@
 				<string>format_string_test.sh.B_test.results.txt</string>
 				<string>B_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -118,6 +126,8 @@
 				<string>format_string_test.sh.b_test.results.txt</string>
 				<string>b_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -143,6 +153,8 @@
 				<string>format_string_test.sh.C_test.results.txt</string>
 				<string>C_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -168,6 +180,8 @@
 				<string>format_string_test.sh.c_test.results.txt</string>
 				<string>c_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -193,6 +207,8 @@
 				<string>format_string_test.sh.D_test.results.txt</string>
 				<string>D_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -218,6 +234,8 @@
 				<string>format_string_test.sh.d_test.results.txt</string>
 				<string>d_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -243,6 +261,8 @@
 				<string>format_string_test.sh.e_test.results.txt</string>
 				<string>e_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -268,6 +288,8 @@
 				<string>format_string_test.sh.F_test.results.txt</string>
 				<string>F_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -293,6 +315,8 @@
 				<string>format_string_test.sh.G_test.results.txt</string>
 				<string>G_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -318,6 +342,8 @@
 				<string>format_string_test.sh.g_test.results.txt</string>
 				<string>g_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -343,6 +369,8 @@
 				<string>format_string_test.sh.H_test.results.txt</string>
 				<string>H_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -368,6 +396,8 @@
 				<string>format_string_test.sh.h_test.results.txt</string>
 				<string>h_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -393,6 +423,8 @@
 				<string>format_string_test.sh.I_test.results.txt</string>
 				<string>I_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -418,6 +450,8 @@
 				<string>format_string_test.sh.j_test.results.txt</string>
 				<string>j_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -443,6 +477,8 @@
 				<string>format_string_test.sh.k_test.results.txt</string>
 				<string>k_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -468,6 +504,8 @@
 				<string>format_string_test.sh.l_test.results.txt</string>
 				<string>l_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -493,6 +531,8 @@
 				<string>format_string_test.sh.M_test.results.txt</string>
 				<string>M_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -518,6 +558,8 @@
 				<string>format_string_test.sh.m_test.results.txt</string>
 				<string>m_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -543,6 +585,8 @@
 				<string>format_string_test.sh.p_test.results.txt</string>
 				<string>p_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -568,6 +612,8 @@
 				<string>format_string_test.sh.R_test.results.txt</string>
 				<string>R_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -593,6 +639,8 @@
 				<string>format_string_test.sh.r_test.results.txt</string>
 				<string>r_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -618,6 +666,8 @@
 				<string>format_string_test.sh.S_test.results.txt</string>
 				<string>S_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -643,6 +693,8 @@
 				<string>format_string_test.sh.s_test.results.txt</string>
 				<string>s_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -668,6 +720,8 @@
 				<string>format_string_test.sh.U_test.results.txt</string>
 				<string>U_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -693,6 +747,8 @@
 				<string>format_string_test.sh.u_test.results.txt</string>
 				<string>u_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -718,6 +774,8 @@
 				<string>format_string_test.sh.V_test.results.txt</string>
 				<string>V_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -743,6 +801,8 @@
 				<string>format_string_test.sh.v_test.results.txt</string>
 				<string>v_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -768,6 +828,8 @@
 				<string>format_string_test.sh.W_test.results.txt</string>
 				<string>W_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -793,6 +855,8 @@
 				<string>format_string_test.sh.w_test.results.txt</string>
 				<string>w_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -818,6 +882,8 @@
 				<string>format_string_test.sh.X_test.results.txt</string>
 				<string>X_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -843,6 +909,8 @@
 				<string>format_string_test.sh.x_test.results.txt</string>
 				<string>x_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -868,6 +936,8 @@
 				<string>format_string_test.sh.Y_test.results.txt</string>
 				<string>Y_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -893,6 +963,8 @@
 				<string>format_string_test.sh.y_test.results.txt</string>
 				<string>y_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -918,6 +990,8 @@
 				<string>format_string_test.sh.Z_test.results.txt</string>
 				<string>Z_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -943,6 +1017,8 @@
 				<string>format_string_test.sh.z_test.results.txt</string>
 				<string>z_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -968,6 +1044,8 @@
 				<string>format_string_test.sh.percent_test.results.txt</string>
 				<string>percent_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -993,6 +1071,8 @@
 				<string>format_string_test.sh.plus_test.results.txt</string>
 				<string>plus_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1018,6 +1098,8 @@
 				<string>format_string_test.sh.iso8601_default_test.results.txt</string>
 				<string>iso8601_default_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1043,6 +1125,8 @@
 				<string>format_string_test.sh.iso8601_default_parity.results.txt</string>
 				<string>iso8601_default_parity</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1068,6 +1152,8 @@
 				<string>format_string_test.sh.iso8601_date_test.results.txt</string>
 				<string>iso8601_date_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1093,6 +1179,8 @@
 				<string>format_string_test.sh.iso8601_date_parity.results.txt</string>
 				<string>iso8601_date_parity</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1118,6 +1206,8 @@
 				<string>format_string_test.sh.iso8601_hours_test.results.txt</string>
 				<string>iso8601_hours_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1143,6 +1233,8 @@
 				<string>format_string_test.sh.iso8601_hours_parity.results.txt</string>
 				<string>iso8601_hours_parity</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1168,6 +1260,8 @@
 				<string>format_string_test.sh.iso8601_minutes_test.results.txt</string>
 				<string>iso8601_minutes_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1193,6 +1287,8 @@
 				<string>format_string_test.sh.iso8601_minutes_parity.results.txt</string>
 				<string>iso8601_minutes_parity</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1218,6 +1314,8 @@
 				<string>format_string_test.sh.iso8601_seconds_test.results.txt</string>
 				<string>iso8601_seconds_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1243,6 +1341,8 @@
 				<string>format_string_test.sh.iso8601_seconds_parity.results.txt</string>
 				<string>iso8601_seconds_parity</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1268,6 +1368,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that echo(1) does not print the trailing newline character with option '-n'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1293,6 +1395,33 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that echo(1) does not print the trailing newline character when '\c' is appended to the end of the string</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.find_test.sh.newerBm_msprec</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/find/find_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/find</string>
+				<string>-r</string>
+				<string>find_test.sh.newerBm_msprec.results.txt</string>
+				<string>newerBm_msprec</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1318,6 +1447,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -b output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1343,6 +1474,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -c output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1368,6 +1501,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -C output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1393,6 +1528,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify hd output matching -C output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1418,6 +1555,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -d output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1443,6 +1582,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check -n functionality</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1468,6 +1609,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -o output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1493,6 +1636,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -s output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1518,6 +1663,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -v functionality</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1543,6 +1690,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -x output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1566,6 +1715,8 @@
 				<string>hexdump_test.sh.no_conv_err.results.txt</string>
 				<string>no_conv_err</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1576,12 +1727,43 @@
 				<string>/bin/sh</string>
 				<string>/AppleInternal/Tests/shell_cmds/jot/legacy_test.sh</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>IgnoreOutput</key><true/>
 			<key>AsRoot</key><true/>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
 				<string>NIGHTLY</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.killall_test.sh.argv0</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/killall/killall_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/killall</string>
+				<string>-r</string>
+				<string>killall_test.sh.argv0.results.txt</string>
+				<string>argv0</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+			<key>TestSpecificLogs</key>
+			<array>
+			    <string>BATS_TMP_DIR/.*.ps</string>
 			</array>
 		</dict>
 		<dict>
@@ -1607,6 +1789,106 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>shell_cmds.mktemp_test.sh.darwin_usertemp</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/mktemp/mktemp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/mktemp</string>
+				<string>-r</string>
+				<string>mktemp_test.sh.darwin_usertemp.results.txt</string>
+				<string>darwin_usertemp</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.mktemp_test.sh.tmpdir_pflag</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/mktemp/mktemp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/mktemp</string>
+				<string>-r</string>
+				<string>mktemp_test.sh.tmpdir_pflag.results.txt</string>
+				<string>tmpdir_pflag</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.mktemp_test.sh.tmpdir_pflag_dir</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/mktemp/mktemp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/mktemp</string>
+				<string>-r</string>
+				<string>mktemp_test.sh.tmpdir_pflag_dir.results.txt</string>
+				<string>tmpdir_pflag_dir</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.mktemp_test.sh.tmpdir_pflag_noarg</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/mktemp/mktemp_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/mktemp</string>
+				<string>-r</string>
+				<string>mktemp_test.sh.tmpdir_pflag_noarg.results.txt</string>
+				<string>tmpdir_pflag_noarg</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>shell_cmds.od_test.sh.c_flag</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -1627,6 +1909,448 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -c output (PR 224552)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.path_helper_test.sh.path_helper_empty</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper/path_helper_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper</string>
+				<string>-r</string>
+				<string>path_helper_test.sh.path_helper_empty.results.txt</string>
+				<string>path_helper_empty</string>
+			</array>
+			<key>Description</key>
+			<string>empty PATH</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.path_helper_test.sh.path_helper_empty2</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper/path_helper_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper</string>
+				<string>-r</string>
+				<string>path_helper_test.sh.path_helper_empty2.results.txt</string>
+				<string>path_helper_empty2</string>
+			</array>
+			<key>Description</key>
+			<string>empty PATH and MANPATH</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.path_helper_test.sh.path_helper_preserve</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper/path_helper_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper</string>
+				<string>-r</string>
+				<string>path_helper_test.sh.path_helper_preserve.results.txt</string>
+				<string>path_helper_preserve</string>
+			</array>
+			<key>Description</key>
+			<string>preserve existing values</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.path_helper_test.sh.path_helper_combine</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper/path_helper_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper</string>
+				<string>-r</string>
+				<string>path_helper_test.sh.path_helper_combine.results.txt</string>
+				<string>path_helper_combine</string>
+			</array>
+			<key>Description</key>
+			<string>combine defaults and add-ons in that order</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.path_helper_test.sh.path_helper_order</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper/path_helper_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/path_helper</string>
+				<string>-r</string>
+				<string>path_helper_test.sh.path_helper_order.results.txt</string>
+				<string>path_helper_order</string>
+			</array>
+			<key>Description</key>
+			<string>read add-ons in correct order</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.renice_test.sh.renice_abs_pid</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice/renice_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice</string>
+				<string>-r</string>
+				<string>renice_test.sh.renice_abs_pid.results.txt</string>
+				<string>renice_abs_pid</string>
+			</array>
+			<key>Description</key>
+			<string>Set a process's nice number to an absolute value</string>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.renice_test.sh.renice_rel_pid</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice/renice_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice</string>
+				<string>-r</string>
+				<string>renice_test.sh.renice_rel_pid.results.txt</string>
+				<string>renice_rel_pid</string>
+			</array>
+			<key>Description</key>
+			<string>Change a process's nice number by a relative value</string>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.renice_test.sh.renice_abs_pgid</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice/renice_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice</string>
+				<string>-r</string>
+				<string>renice_test.sh.renice_abs_pgid.results.txt</string>
+				<string>renice_abs_pgid</string>
+			</array>
+			<key>Description</key>
+			<string>Set a process group's nice number to an absolute value</string>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.renice_test.sh.renice_rel_pgid</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice/renice_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice</string>
+				<string>-r</string>
+				<string>renice_test.sh.renice_rel_pgid.results.txt</string>
+				<string>renice_rel_pgid</string>
+			</array>
+			<key>Description</key>
+			<string>Change a process group's nice number by a relative value</string>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<!-- Requires a test user
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.renice_test.sh.renice_abs_user</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice/renice_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice</string>
+				<string>-r</string>
+				<string>renice_test.sh.renice_abs_user.results.txt</string>
+				<string>renice_abs_user</string>
+			</array>
+			<key>Description</key>
+			<string>Set a user's processes' nice numbers to an absolute value</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		-->
+		<!-- Requires a test user
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.renice_test.sh.renice_rel_user</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice/renice_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice</string>
+				<string>-r</string>
+				<string>renice_test.sh.renice_rel_user.results.txt</string>
+				<string>renice_rel_user</string>
+			</array>
+			<key>Description</key>
+			<string>Change a user's processes' nice numbers by a relative value</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		-->
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.renice_test.sh.renice_delim</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice/renice_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice</string>
+				<string>-r</string>
+				<string>renice_test.sh.renice_delim.results.txt</string>
+				<string>renice_delim</string>
+			</array>
+			<key>Description</key>
+			<string>Test various delimiter positions</string>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.renice_test.sh.renice_incr_noarg</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice/renice_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/renice</string>
+				<string>-r</string>
+				<string>renice_test.sh.renice_incr_noarg.results.txt</string>
+				<string>renice_incr_noarg</string>
+			</array>
+			<key>Description</key>
+			<string>Do not segfault if -n is given without an argument</string>
+			<key>MayRunConcurrently</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.script_test.sh.script_from_file</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/script/script_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/script</string>
+				<string>-r</string>
+				<string>script_test.sh.script_from_file.results.txt</string>
+				<string>script_from_file</string>
+			</array>
+			<key>Description</key>
+			<string>[rdar://86182963] Ignore tcgetattr() failure when input is a regular file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.script_test.sh.script_from_null</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/script/script_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/script</string>
+				<string>-r</string>
+				<string>script_test.sh.script_from_null.results.txt</string>
+				<string>script_from_null</string>
+			</array>
+			<key>Description</key>
+			<string>[rdar://86182963] Ignore tcgetattr() failure when input is a device</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.script_test.sh.script_from_pipe</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/script/script_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/script</string>
+				<string>-r</string>
+				<string>script_test.sh.script_from_pipe.results.txt</string>
+				<string>script_from_pipe</string>
+			</array>
+			<key>Description</key>
+			<string>[rdar://86182963] Ignore tcgetattr() failure when input is a pipe</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1652,6 +2376,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for correct termination in the face of floating point rounding</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1677,8 +2403,62 @@
 			</array>
 			<key>Description</key>
 			<string>Check for correct user-provided format strings</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.su_test.sh.auid</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/shell_cmds/su/su_test_setauid</string>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/su/su_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/shell_cmds/su</string>
+				<string>-r</string>
+				<string>su_test.sh.auid.results.txt</string>
+				<string>auid</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>shell_cmds.su.test_su_es_events</string>
+			<key>ShellEnv</key>
+			<dict></dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/shell_cmds/su/test_su_es_events.py</string>
+				<string>/usr/bin/su</string>
+			</array>
+			<key>Description</key>
+			<string>Tests the ess_notify_su functionality in su</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -1702,6 +2482,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks basic functionality</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1727,6 +2509,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks removing of provided suffix</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1752,6 +2536,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks basic functionality</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1775,6 +2561,8 @@
 				<string>t_expr.sh.lang.results.txt</string>
 				<string>lang</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1800,6 +2588,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test overflow cases</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1825,6 +2615,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test from gtk-- configure that cause problems on old expr</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1850,6 +2642,8 @@
 			</array>
 			<key>Description</key>
 			<string>Basic precendence test with the </string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1875,6 +2669,8 @@
 			</array>
 			<key>Description</key>
 			<string>Dangling arithemtic operator</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1900,6 +2696,8 @@
 			</array>
 			<key>Description</key>
 			<string>Basic math test</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1925,6 +2723,8 @@
 			</array>
 			<key>Description</key>
 			<string>Basic functional tests</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1950,6 +2750,8 @@
 			</array>
 			<key>Description</key>
 			<string>Compare operator precendence test</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1975,6 +2777,8 @@
 			</array>
 			<key>Description</key>
 			<string>Compare operator tests</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2000,6 +2804,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test the multiply operator (PR bin/12838)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2025,6 +2831,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test the additive inverse</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2050,6 +2858,8 @@
 			</array>
 			<key>Description</key>
 			<string>More complex math test for precedence</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2075,6 +2885,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test precedence</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2100,6 +2912,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test proper () returning \1 from a regex</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2125,6 +2939,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that sleep(1) handles fractions of a second (PR bin/3914)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2150,6 +2966,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that sleep(1) handles hexadecimal arguments</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2175,6 +2993,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that sleep(1) errors out with non-numeric argument (PR bin/27140)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>

@@ -119,7 +119,7 @@ enum nfs_supported_kerberos_etypes {
 };
 
 /* Structure to hold an array of kerberos enctypes to allow on a mount */
-#define NFS_MAX_ETYPES 3
+const NFS_MAX_ETYPES = 3;
 struct nfs_etype {
     uint32_t count;
     uint32_t selected;  /* index in etypes that is being used. Set to count if nothing has been selected */

@@ -1,15 +1,15 @@
-//
-//  HIDManager.m
-//  HID
-//
-//  Created by dekom on 10/31/17.
-//
+/*!
+ * HIDManager.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDManager.h>
-#import "HIDManager.h"
-#import "HIDDevicePrivate.h"
-#import "HIDElementPrivate.h"
+#import <HID/HIDManager.h>
+#import <HID/HIDDevice.h>
+#import <HID/HIDElement_Internal.h>
 #import <os/assumes.h>
 #import <os/lock_private.h>
 

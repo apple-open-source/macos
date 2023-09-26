@@ -471,6 +471,77 @@ WriteStructDecl(
   fprintf(file, "#ifdef  __MigPackStructs\n#pragma pack(pop)\n#endif\n");
 }
 
+static void
+WriteKDataStructDecl(
+    FILE *file,
+    argument_t *args,
+    void (*func)(FILE *, argument_t *),
+    u_int mask,
+    char *name,
+    boolean_t simple)
+{ 
+  fprintf(file, 
+    "\n"
+    "#ifdef  __MigPackStructs\n"
+    "#pragma pack(push, %lu)\n"
+    "#endif\n",
+    sizeof(natural_t));
+  fprintf(file, 
+    "\ttypedef struct {\n"
+    "\t\tmach_msg_header_t Head;\n");
+  if (simple == FALSE) {
+    fprintf(file, "\t\tmach_msg_body_t msgh_body;\n");
+    if (mask == akbRequest)
+      WriteList(file, args, func, mask | akbSendKPD, "\n", "\n");
+    else
+      WriteList(file, args, func, mask | akbReturnKPD, "\n", "\n");
+  }
+  fprintf(file, "\t} %s __attribute__((unused));\n", name);
+  fprintf(file,
+    "#ifdef  __MigPackStructs\n"
+    "#pragma pack(pop)\n"
+    "#endif\n");
+}
+
+void
+WriteUDataStructDecl(
+    FILE *file,
+    argument_t *args,
+    void (*func)(FILE *, argument_t *),
+    u_int mask,
+    char *name,
+    boolean_t simple,
+    boolean_t trailer,
+    boolean_t trailer_t,
+    boolean_t template_only)
+{ 
+    fprintf(file, 
+    "\n"
+    "#ifdef  __MigPackStructs\n"
+    "#pragma pack(push, %lu)\n"
+    "#endif\n",
+    sizeof(natural_t));
+  fprintf(file, 
+    "\ttypedef struct {\n");
+  if (!template_only) {
+    if (mask == akbRequest)
+      WriteList(file, args, func, mask | akbSendBody, "\n", "\n");
+
+    else
+      WriteList(file, args, func, mask | akbReturnBody, "\n", "\n");
+    if (trailer)
+      WriteTrailerDecl(file, trailer_t);
+  }
+  fprintf(file,
+    "\t\tchar padding[0]; /* Avoid generating empty UData structs */\n");
+  fprintf(file,
+    "\t} %s __attribute__((unused));\n", name);
+  fprintf(file,
+    "#ifdef  __MigPackStructs\n"
+    "#pragma pack(pop)\n"
+    "#endif\n");
+}
+
 void
 WriteTemplateDeclIn(FILE *file, argument_t *arg)
 {
@@ -569,7 +640,18 @@ WriteReplyTypes(FILE *file, statement_t *stats)
 
       rt = stat->stRoutine;
       sprintf(str, "__Reply__%s_t", rt->rtName);
-      WriteStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbReply, str, rt->rtSimpleReply, FALSE, FALSE, FALSE);
+      WriteStructDecl(file, rt->rtArgs, WriteKPDFieldDecl,akbReply,
+        str, rt->rtSimpleReply, FALSE, FALSE, FALSE);
+      if (UseMachMsg2) {
+        sprintf(str, "__ReplyKData__%s_t", rt->rtName);
+        fprintf(file, "/* Struct for kernel processed data (Header + Descriptors) */");
+        WriteKDataStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbReply,
+          str, rt->rtSimpleReply);
+        sprintf(str, "__ReplyUData__%s_t", rt->rtName);
+        fprintf(file, "/* Struct for pure user data */");
+        WriteUDataStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbReply,
+          str, rt->rtSimpleReply, FALSE, FALSE, FALSE);
+      }
     }
   }
   fprintf(file, "#endif /* !__Reply__%s_subsystem__defined */\n", SubsystemName);
@@ -591,7 +673,18 @@ WriteRequestTypes(FILE *file, statement_t *stats)
 
       rt = stat->stRoutine;
       sprintf(str, "__Request__%s_t", rt->rtName);
-      WriteStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbRequest, str, rt->rtSimpleRequest, FALSE, FALSE, FALSE);
+      WriteStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbRequest,
+        str, rt->rtSimpleRequest, FALSE, FALSE, FALSE);
+      if (UseMachMsg2) {
+        sprintf(str, "__RequestKData__%s_t", rt->rtName);
+        fprintf(file, "/* Struct for kernel processed data (Header + Descriptors) */");
+        WriteKDataStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbRequest,
+          str, rt->rtSimpleRequest);
+        sprintf(str, "__RequestUData__%s_t", rt->rtName);
+        fprintf(file, "/* Struct for pure user data */");
+        WriteUDataStructDecl(file, rt->rtArgs, WriteKPDFieldDecl, akbRequest,
+          str, rt->rtSimpleRequest, FALSE, FALSE, FALSE);
+      }
     }
   }
   fprintf(file, "#endif /* !__Request__%s_subsystem__defined */\n", SubsystemName);
@@ -1014,13 +1107,20 @@ WriteCheckTrailerHead(FILE *file, routine_t *rt, boolean_t isuser)
 {
   string_t who = (isuser) ? "Out0P" : "In0P";
 
-  fprintf(file, "\tTrailerP = (mach_msg_max_trailer_t *)((vm_offset_t)%s +\n", who);
-  fprintf(file, "\t\tround_msg(%s->Head.msgh_size));\n", who);
+  if (!isuser && UseMachMsg2) {
+    fprintf(file, "\tTrailerP = InTrailerP;\n");
+  } else {
+    fprintf(file, "\tTrailerP = (mach_msg_max_trailer_t *)((vm_offset_t)%s +\n", who);
+    fprintf(file, "\t\tround_msg(%s->Head.msgh_size));\n", who);
+  }
   fprintf(file, "\tif (TrailerP->msgh_trailer_type != MACH_MSG_TRAILER_FORMAT_0)\n");
   if (isuser)
     fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
+  else if (UseMachMsg2)
+    fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutKP, MIG_TRAILER_ERROR); }\n");
   else
-    fprintf(file, "\t\t{ MIG_RETURN_ERROR(%s, MIG_TRAILER_ERROR); }\n", who);
+    /* Fixed an acient bug, return code should be written to Reply, not Request */
+    fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
 
   fprintf(file, "#if\t__MigTypeCheck\n");
   fprintf(file, "\ttrailer_size = TrailerP->msgh_trailer_size -\n");
@@ -1032,13 +1132,15 @@ WriteCheckTrailerHead(FILE *file, routine_t *rt, boolean_t isuser)
 void
 WriteCheckTrailerSize(FILE *file, boolean_t isuser, argument_t *arg)
 {
+  char *OutHeadSeg = UseMachMsg2 ? "OutKP" : "OutP";
+
   fprintf(file, "#if\t__MigTypeCheck\n");
   if (akIdent(arg->argKind) == akeMsgSeqno) {
     fprintf(file, "\tif (trailer_size < (mach_msg_size_t)sizeof(mach_port_seqno_t))\n");
     if (isuser)
       fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
     else
-      fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
+      fprintf(file, "\t\t{ MIG_RETURN_ERROR(%s, MIG_TRAILER_ERROR); }\n", OutHeadSeg);
     fprintf(file, "\ttrailer_size -= (mach_msg_size_t)sizeof(mach_port_seqno_t);\n");
   }
   else if (akIdent(arg->argKind) == akeSecToken) {
@@ -1046,7 +1148,7 @@ WriteCheckTrailerSize(FILE *file, boolean_t isuser, argument_t *arg)
     if (isuser)
       fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
     else
-      fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
+      fprintf(file, "\t\t{ MIG_RETURN_ERROR(%s, MIG_TRAILER_ERROR); }\n", OutHeadSeg);
     fprintf(file, "\ttrailer_size -= (mach_msg_size_t)sizeof(security_token_t);\n");
   }
   else if (akIdent(arg->argKind) == akeAuditToken) {
@@ -1054,7 +1156,7 @@ WriteCheckTrailerSize(FILE *file, boolean_t isuser, argument_t *arg)
     if (isuser)
       fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
     else
-      fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
+      fprintf(file, "\t\t{ MIG_RETURN_ERROR(%s, MIG_TRAILER_ERROR); }\n", OutHeadSeg);
     fprintf(file, "\ttrailer_size -= (mach_msg_size_t)sizeof(audit_token_t);\n");
   }
   else if (akIdent(arg->argKind) == akeContextToken) {
@@ -1062,7 +1164,7 @@ WriteCheckTrailerSize(FILE *file, boolean_t isuser, argument_t *arg)
     if (isuser)
       fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
     else
-      fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
+      fprintf(file, "\t\t{ MIG_RETURN_ERROR(%s, MIG_TRAILER_ERROR); }\n", OutHeadSeg);
     fprintf(file, "\ttrailer_size -= (mach_msg_size_t)sizeof(mach_vm_address_t);\n");
   }
   fprintf(file, "#endif\t/* __MigTypeCheck */\n");

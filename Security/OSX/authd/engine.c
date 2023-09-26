@@ -29,8 +29,18 @@ int checkpw_internal( const struct passwd *pw, const char* password );
 #include <sandbox.h>
 #include <coreauthd_spi.h>
 #include <ctkloginhelper.h>
+#include <EndpointSecuritySystem/ESSubmitSPI.h>
+#include <mach/message.h>
+#include <sys/stat.h>
 
 AUTHD_DEFINE_LOG
+
+static os_log_t AUTHD_ANLOG_DEFAULT(void) { \
+static dispatch_once_t once; \
+static os_log_t log; \
+dispatch_once(&once, ^{ log = os_log_create("com.apple.Authorization", "analytics"); }); \
+return log; \
+};
 
 static void _set_process_hints(auth_items_t, process_t);
 static void _set_process_immutable_hints(auth_items_t, process_t);
@@ -129,6 +139,15 @@ static CFTypeID engine_get_type_id(void) {
     });
     
     return type_id;
+}
+
+static bool _in_system_update()
+{
+    struct stat st;
+    if (stat("/var/db/.AppleUpgrade", &st) == -1) {
+        return false;
+    }
+    return true;
 }
 
 engine_t
@@ -1184,7 +1203,7 @@ _preevaluate_rule(engine_t engine, rule_t rule, const char **group, bool *sessio
 }
 
 static rule_t
-_find_rule(engine_t engine, authdb_connection_t dbconn, const char * string)
+_find_rule(engine_t engine, authdb_connection_t dbconn, const char * string, bool exact_match)
 {
     rule_t r = NULL;
     size_t sLen = strlen(string);
@@ -1209,6 +1228,10 @@ _find_rule(engine_t engine, authdb_connection_t dbconn, const char * string)
             r = rule_create_with_string(buf, dbconn);
             goto done;
         }
+        if (exact_match) {
+            os_log_error(AUTHD_LOG, "Rule %s not found", string);
+            goto done;
+        }
         
         // if buf ends with a . and we didn't find a rule remove .
         if (*ptr == '.') {
@@ -1226,8 +1249,8 @@ _find_rule(engine_t engine, authdb_connection_t dbconn, const char * string)
 done:
     free_safe(buf);
     
-    // set default if we didn't find a rule
-    if (r == NULL) {
+    // set default if we didn't find a rule and we do not require exact match
+    if (r == NULL && !exact_match) {
         r = rule_create_with_string("", dbconn);
         if (rule_get_id(r) == 0) {
             CFReleaseNull(r);
@@ -1281,15 +1304,19 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
         CFReleaseSafe(uname);
         require_action(enforced == 0, done, os_log_error(AUTHD_LOG, "User needs to use SmartCard (engine %llu)", engine->engine_index));
         
-        int checkpw_status = checkpw_internal(pw, pass ? pass : "");
-        require_action(checkpw_status == CHECKPW_SUCCESS, done, os_log_error(AUTHD_LOG, "engine %llu: checkpw() returned %d; failed to authenticate user %{public}s (uid %u).", engine->engine_index, checkpw_status, pw->pw_name, pw->pw_uid));
-        
-        credential_t cred = credential_create(pw->pw_uid);
-        if (credential_get_valid(cred)) {
-            os_log_info(AUTHD_LOG, "checkpw() succeeded, creating credential for user %{public}s (engine %llu)", user, engine->engine_index);
-            _engine_set_credential(engine, cred, shared);
+        if (!(engine->flags & kAuthorizationFlagSkipInternalAuth)) {
+            int checkpw_status = checkpw_internal(pw, pass ? pass : "");
+            require_action(checkpw_status == CHECKPW_SUCCESS, done, os_log_error(AUTHD_LOG, "engine %llu: checkpw() returned %d; failed to authenticate user %{public}s (uid %u).", engine->engine_index, checkpw_status, pw->pw_name, pw->pw_uid));
+            
+            credential_t cred = credential_create(pw->pw_uid);
+            if (credential_get_valid(cred)) {
+                os_log_info(AUTHD_LOG, "checkpw() succeeded, creating credential for user %{public}s (engine %llu)", user, engine->engine_index);
+                _engine_set_credential(engine, cred, shared);
+            }
+            CFReleaseSafe(cred);
+        } else {
+            os_log_info(AUTHD_LOG, "internal auth skipped user %{public}s (engine %llu)", user, engine->engine_index);
         }
-        CFReleaseSafe(cred);
     }
     
 done:
@@ -1330,7 +1357,7 @@ OSStatus engine_get_right_properties(engine_t engine, const char *rightName, CFD
     authdb_connection_t dbconn = authdb_connection_acquire(server_get_database()); // get db handle
     
     os_log_debug(AUTHD_LOG, "engine %llu: get right properties %{public}s", engine->engine_index, rightName);
-    rule_t rule = _find_rule(engine, dbconn, rightName);
+    rule_t rule = _find_rule(engine, dbconn, rightName, false);
     
     if (rule) {
         const char *group = NULL;
@@ -1372,11 +1399,86 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     __block OSStatus status = errAuthorizationSuccess;
     __block bool save_password = false;
 	__block bool password_only = false;
-    CFIndex rights_count = 0;
+    __block bool forbiddenElevationRightFound = false;
+    CFIndex rights_count = rights ? auth_rights_get_count(rights) : 0;
+    __block CFIndex evaluated_rights_count = 0;
     ccaudit_t ccaudit = NULL;
+    ess_authorization_result_t ess_results[rights_count ? :1];
+    __block ess_authorization_result_t *ess_current_result = &ess_results[0];
+    char const *right_names[rights_count ? :1];
+    __block char const **current_right = &right_names[0];
+    __block audit_token_t instigator_token = INVALID_AUDIT_TOKEN_VALUE;
+    __block audit_token_t petitioner_token = INVALID_AUDIT_TOKEN_VALUE;
+    __block AuthorizationFlags localFlags = flags;
+    __block authdb_t memory_db = NULL;
+    
     require(rights != NULL, done);
     
-    rights_count = auth_rights_get_count(rights);
+    CFStringRef (^copyAnalyticsText)(bool, void *) = ^CFStringRef(bool extended, void *input) {
+        char *(^classDescription)(ess_authorization_rule_class_t) = ^char *(ess_authorization_rule_class_t ruleClass) {
+            switch (ruleClass) {
+                case ESS_AUTHORIZATION_RULE_CLASS_USER:
+                    return "USER";
+                case ESS_AUTHORIZATION_RULE_CLASS_RULE:
+                    return "RULE";
+                case ESS_AUTHORIZATION_RULE_CLASS_MECHANISM:
+                    return "MECHANISM";
+                case ESS_AUTHORIZATION_RULE_CLASS_ALLOW:
+                    return "ALLOW";
+                case ESS_AUTHORIZATION_RULE_CLASS_DENY:
+                    return "DENY";
+                default:
+                    return "UNKNOWN";
+            }
+        };
+        
+        CFStringRef insText;
+        audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+        if (memcmp(&instigator_token, &invalidToken, sizeof(audit_token_t)) == 0) {
+            insText = CFStringCreateCopy(kCFAllocatorDefault, CFSTR("invalid"));
+        } else {
+            insText = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d (%d)"), instigator_token.val[5], instigator_token.val[6]);
+        }
+        CFStringRef petText;
+        if (memcmp(&petitioner_token, &invalidToken, sizeof(audit_token_t)) == 0) {
+            petText = CFStringCreateCopy(kCFAllocatorDefault, CFSTR("invalid"));
+        } else {
+            petText = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d (%d)"), petitioner_token.val[5], petitioner_token.val[6]);
+        }
+        
+        CFMutableStringRef rightsText = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("("));
+        if (extended) {
+            ess_authorization_result_t *current_item = input;
+            for (CFIndex i = 0; i < evaluated_rights_count; ++i) {
+                CFStringAppendFormat(rightsText, NULL, CFSTR("%s (class %s): %s"), current_item->right_name, classDescription(current_item->rule_class), current_item->granted ? "granted" : "not granted");
+                if (rights_count - i > 1) {
+                    CFStringAppend(rightsText, CFSTR(", "));
+                }
+                ++current_item;
+            }
+        } else {
+            char const **current_item = input;
+            for (CFIndex i = 0; i < rights_count; ++i) {
+                CFStringAppendFormat(rightsText, NULL, CFSTR("%s"), *current_item);
+                if (rights_count - i > 1) {
+                    CFStringAppend(rightsText, CFSTR(", "));
+                }
+                ++current_item;
+            }
+        }
+
+        CFStringAppend(rightsText, CFSTR(")"));
+        CFStringRef retval;
+        if (extended) {
+            retval = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Result: instigator %@, petitioner %@, status %d, %ld %s %@"), insText, petText, status, (long)evaluated_rights_count, evaluated_rights_count == 1 ? "right":"rights", rightsText);
+        } else {
+            retval = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Request: instigator %@, petitioner %@, flags %08x, %ld %s %@"), insText, petText, localFlags, (long)rights_count, rights_count == 1 ? "right":"rights", rightsText);
+        }
+        CFReleaseSafe(insText);
+        CFReleaseSafe(petText);
+        CFReleaseSafe(rightsText);
+        return retval;
+    };
     
     ccaudit = ccaudit_create(engine->proc, engine->auth, AUE_ssauthorize);
     if (auth_rights_get_count(rights) > 0) {
@@ -1390,6 +1492,16 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
             if (!key)
                 return true;
             
+            *current_right = key;
+            current_right++;
+            // AuthorizationExecuteWithPrivileges                           // SMJobBless
+            if ((strcmp(key, "system.privilege.admin") == 0) || (strcmp(key, "com.apple.ServiceManagement.blesshelper") == 0)) {
+                forbiddenElevationRightFound = true;
+            }
+            if (strcmp(key, "system.login.screensaver") == 0) {
+                localFlags |= kAuthorizationFlagSkipInternalAuth;
+            }
+            
             CFStringRef tmp = CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8);
             if (tmp) {
                 CFArrayAppendValue(rights_list, tmp);
@@ -1400,11 +1512,33 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
             return true;
         });
         
-        os_log_info(AUTHD_LOG, "Process %{public}s (PID %d) evaluates %ld rights with flags %08x (engine %llu, token %llu): %{public}@", process_get_code_url(engine->proc), process_get_pid(engine->proc), (long)rights_count, flags, engine->engine_index, auth_token_get_index(engine->auth), rights_list);
+        os_log_info(AUTHD_LOG, "Process %{public}s (PID %d) evaluates %ld rights with flags %08x (engine %llu, token %llu): %{public}@", process_get_code_url(engine->proc), process_get_pid(engine->proc), (long)rights_count, localFlags, engine->engine_index, auth_token_get_index(engine->auth), rights_list);
         CFReleaseNull(rights_list);
+        
+        if (engine->proc) {
+            const audit_info_s *info = process_get_audit_info(engine->proc);
+            if (info) {
+                instigator_token = info->opaqueToken;
+            }
+        }
+        
+        if (engine->auth) {
+            const audit_info_s *info = auth_token_get_audit_info(engine->auth);
+            if (info) {
+                petitioner_token = info->opaqueToken;
+            }
+        }
+        
+        __attribute__((weak_import)) typeof(ess_notify_authorization_petition) ess_notify_authorization_petition;
+        if (ess_notify_authorization_petition != NULL) {
+            ess_notify_authorization_petition(instigator_token, petitioner_token, localFlags, rights_count, right_names);
+        }
+        CFStringRef analyticsText = copyAnalyticsText(false, &right_names[0]);
+        os_log_info(AUTHD_ANLOG_DEFAULT(), "%@", analyticsText);
+        CFReleaseNull(analyticsText);
     }
     
-	if (!auth_token_apple_signed(engine->auth) && (flags & kAuthorizationFlagSheet)) {
+	if (!auth_token_apple_signed(engine->auth) && (localFlags & kAuthorizationFlagSheet)) {
 #ifdef NDEBUG
         os_log_error(AUTHD_LOG, "engine %llu: extra flags are ommited as creator is not signed by Apple", engine->engine_index);
 		flags &= ~kAuthorizationFlagSheet;
@@ -1413,7 +1547,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 #endif
 	}
 
-    engine->flags = flags;
+    engine->flags = localFlags;
 
     // Restore all context values from the AuthorizationRef
     auth_items_t decrypted_items = auth_items_create();
@@ -1437,6 +1571,11 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     if (environment) {
         _parse_environment(engine, environment);
         auth_items_copy(engine->hints, environment);
+    }
+    
+    if (forbiddenElevationRightFound) {
+        os_log(AUTHD_LOG, "Removing all credentials-related hints (engine %lld)", engine->engine_index);
+        auth_items_set_bool(engine->immutable_hints, AGENT_HINT_TOUCHID_PROHIBITED, true);
     }
     
     // move sheet-specific items from hints to context
@@ -1508,7 +1647,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 				return true;
 			os_log_debug(AUTHD_LOG, "engine %llu: checking if rule %{public}s contains password-only item", engine->engine_index, key);
 
-			rule_t rule = _find_rule(engine, dbconn, key);
+            rule_t rule = _find_rule(engine, dbconn, key, false);
 			if (rule && _preevaluate_rule(engine, rule, NULL, NULL, NULL)) {
 				password_only = true;
                 CFReleaseSafe(rule);
@@ -1528,18 +1667,62 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 	}
 
     auth_rights_iterate(rights, ^bool(const char *key) {
+        void (^add_analytics_result)(void) = ^void(void) {
+            ess_current_result->granted = (status == errAuthorizationSuccess);
+            if (engine->currentRule) {
+                switch (rule_get_class(engine->currentRule)) {
+                    case RC_DENY: ess_current_result->rule_class = ESS_AUTHORIZATION_RULE_CLASS_DENY;break;
+                    case RC_ALLOW: ess_current_result->rule_class = ESS_AUTHORIZATION_RULE_CLASS_ALLOW;break;
+                    case RC_USER: ess_current_result->rule_class = ESS_AUTHORIZATION_RULE_CLASS_USER;break;
+                    case RC_MECHANISM: ess_current_result->rule_class = ESS_AUTHORIZATION_RULE_CLASS_MECHANISM;break;
+                    case RC_RULE: ess_current_result->rule_class = ESS_AUTHORIZATION_RULE_CLASS_RULE;break;
+                    default: ess_current_result->rule_class = ESS_AUTHORIZATION_RULE_CLASS_INVALID;break;
+                }
+                ess_current_result->right_name = engine->currentRightName;
+            } else {
+                ess_current_result->right_name = key;
+                ess_current_result->rule_class = ESS_AUTHORIZATION_RULE_CLASS_UNKNOWN;  // right is not fetched yet
+            }
+            ++ess_current_result;
+        };
+        
         if (!key)
             return true;
 
+        ++evaluated_rights_count;
         if (!_verify_sandbox(engine, key)) { // _verify_sandbox is already logging failures
             status = errAuthorizationDenied;
+            add_analytics_result();
             return false;
         }
         
         authdb_connection_t dbconn = authdb_connection_acquire(server_get_database()); // get db handle
         
         os_log_debug(AUTHD_LOG, "engine %llu: evaluate right %{public}s", engine->engine_index, key);
-        rule_t rule = _find_rule(engine, dbconn, key);
+        rule_t rule = NULL;
+        if (memory_db || (_in_system_update() && strcmp(key, "system.login.console") == 0)) {
+            authdb_connection_t dbconn_mem = NULL;
+            if (!memory_db) {
+                memory_db = authdb_create(true);
+            }
+            
+            if (memory_db) {
+                dbconn_mem = authdb_connection_acquire(memory_db);
+                if (dbconn_mem) {
+                    authdb_maintenance(dbconn_mem);
+                    rule = _find_rule(engine, dbconn_mem, key, true);
+                }
+            }
+            if (rule) {
+                os_log(AUTHD_LOG, "Original system.login.console from the plist used");
+            } else {
+                os_log_error(AUTHD_LOG, "Failed to use system.login.console from the plist, fallback to the local database");
+            }
+            CFReleaseNull(dbconn_mem);
+        }
+        if (!rule) {
+            rule = _find_rule(engine, dbconn, key, false);
+        }
         const char * rule_name = rule_get_name(rule);
         if (rule_name && (strcasecmp(rule_name, "") == 0)) {
             rule_name = "default (not defined)";
@@ -1603,6 +1786,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
                 break;
         }
 
+        add_analytics_result();
         ccaudit_log_authorization(ccaudit, engine->currentRightName, status);
         
         CFReleaseSafe(rule);
@@ -1617,6 +1801,17 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         
         return true;
     });
+    
+    // call endpoint security analytics
+    __attribute__((weak_import)) typeof(ess_notify_authorization_judgement) ess_notify_authorization_judgement;
+    if (rights_count) {
+        if (ess_notify_authorization_judgement) {
+            ess_notify_authorization_judgement(instigator_token, petitioner_token, status, evaluated_rights_count, ess_results);
+        }
+        CFStringRef analyticsText = copyAnalyticsText(true, &ess_results[0]);
+        os_log_info(AUTHD_ANLOG_DEFAULT(), "%@", analyticsText);
+        CFReleaseSafe(analyticsText);
+    }
 
 	if (password_only) {
 		os_log_debug(AUTHD_LOG, "engine %llu: removing password-only flag", engine->engine_index);
@@ -1744,6 +1939,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 #endif
     
 done:
+    CFReleaseSafe(memory_db);
     auth_items_clear(engine->context);
     auth_items_clear(engine->sticky_context);
     CFReleaseSafe(ccaudit);
@@ -1763,7 +1959,7 @@ _wildcard_right_exists(engine_t engine, const char * right)
     authdb_connection_t dbconn = authdb_connection_acquire(server_get_database()); // get db handle
     require(dbconn != NULL, done);
     
-    rule = _find_rule(engine, dbconn, right);
+    rule = _find_rule(engine, dbconn, right, false);
     require(rule != NULL, done);
     
     const char * ruleName = rule_get_name(rule);
@@ -1880,7 +2076,6 @@ void engine_destroy_agents(engine_t engine)
             
             return true;
         });
-        CFDictionaryRemoveAllValues(engine->mechanism_agents);
     });
 }
 

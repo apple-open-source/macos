@@ -84,7 +84,7 @@ void _pthread_mutex_enable_legacy_mode(void);
  * It is not safe to call this function concurrently.
  */
 __API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
-#if !_PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT
+#if !_PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT()
 int pthread_create_from_mach_thread(
 		pthread_t _Nullable * _Nonnull __restrict,
 		const pthread_attr_t * _Nullable __restrict,

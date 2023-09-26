@@ -1,12 +1,12 @@
-//
-//  NSError+IOReturn.m
-//  HID
-//
-//  Created by Matty on 7/10/18.
-//
+/*!
+ * NSError_IOReturn.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
 #import <Foundation/Foundation.h>
-#import "NSError+IOReturn.h"
+#import <HID/NSError+IOReturn.h>
 #import <IOKit/IOReturn.h>
 
 @implementation NSError (IOReturn)

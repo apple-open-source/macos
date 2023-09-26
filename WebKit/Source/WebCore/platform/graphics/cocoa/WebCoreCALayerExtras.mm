@@ -30,6 +30,10 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
+#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+#import <WebKitAdditions/CGDisplayListImageBufferAdditions.h>
+#endif
+
 @implementation CALayer (WebCoreCALayerExtras)
 
 - (void)web_disableAllActions
@@ -118,6 +122,29 @@
 
     return CGRectIntersectsRect(self.mask.bounds, rectInMask);
 }
+
+- (void)_web_clearContents
+{
+    self.contents = nil;
+    self.contentsOpaque = NO;
+
+#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+    [self _web_clearCGDisplayListIfNeeded];
+#endif
+
+}
+
+#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+- (void)_web_clearCGDisplayListIfNeeded
+{
+    if (![self valueForKeyPath:WKCGDisplayListContentsKey])
+        return;
+    [self setValue:nil forKeyPath:WKCGDisplayListContentsKey];
+    [self setValue:nil forKeyPath:WKCGDisplayListPortsKey];
+    [self setValue:@NO forKeyPath:WKCGDisplayListEnabledKey];
+    [self setValue:@NO forKeyPath:WKCGDisplayListBifurcationEnabledKey];
+}
+#endif
 
 @end
 

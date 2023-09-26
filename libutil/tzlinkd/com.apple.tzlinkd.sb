@@ -7,8 +7,11 @@
 (allow file-write-create file-write-unlink
     (literal "/private/var/db/timezone/localtime"))
 
-(allow file-write-create file-write-unlink
+(allow file-write-create file-write-unlink file-read-data
     (literal "/private/etc/localtime"))
+
+(allow file-write*
+    (subpath "/System/Volumes/Preboot/${ANY_UUID}/"))
 
 (allow file-read*
     (literal "/private/var/db/timezone/zoneinfo"))

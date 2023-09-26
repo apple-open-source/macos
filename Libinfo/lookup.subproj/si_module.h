@@ -44,6 +44,7 @@
 #define string_not_equal(A,B) (strcmp(A,B)!=0)
 
 #define SI_HAS_NAT64_SYNTHESIS	1
+#define SI_HAS_PATH_CHECK		1
 
 #define SI_CALL_USER_BYNAME        0
 #define SI_CALL_USER_BYUID         1
@@ -386,6 +387,7 @@ int si_inet_config(uint32_t *inet4, uint32_t *inet6);
 bool _gai_nat64_can_v4_address_be_synthesized(const struct in_addr *ipv4_addr);
 void si_set_nat64_v4_requires_synthesis(bool (*nat64_v4_requires_synthesis)(const struct in_addr *ipv4_addr));
 void si_set_nat64_v4_synthesize(int (*nat64_v4_synthesize)(uint32_t *index, const struct in_addr *ipv4, struct in6_addr **out_ipv6_addrs));
+void si_set_path_check(void (*path_check)(const char *hostname, const char *port));
 
 __END_DECLS
 

@@ -106,8 +106,8 @@ extern pthread_once_t	__sdidinit;
 struct __sFILEX {
 	unsigned char	*up;	/* saved _p when _p is doing ungetc data */
 	pthread_mutex_t	fl_mutex;	/* used for MT-safety */
-	int		orientation:2;	/* orientation for fwide() */
-	int		counted:1;	/* stream counted against STREAM_MAX */
+	int		orientation:3;	/* orientation for fwide() */
+	u_int		counted:1;	/* stream counted against STREAM_MAX */
 	mbstate_t	mbstate;	/* multibyte conversion state */
 };
 

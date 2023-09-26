@@ -621,9 +621,9 @@ util_equalSubstitutions(const NFSubstitution* sub1, const NFSubstitution* sub2)
             return *sub1 == *sub2;
         }
     } else if (!sub2) {
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 /**
@@ -856,7 +856,7 @@ NFRule::shouldRollBack(int64_t number) const
         int64_t re = util64_pow(radix, exponent);
         return (number % re) == 0 && (baseValue % re) != 0;
     }
-    return FALSE;
+    return false;
 }
 
 //-----------------------------------------------------------------------
@@ -901,8 +901,13 @@ NFRule::doParse(const UnicodeString& text,
                 UBool isFractionRule,
                 double upperBound,
                 uint32_t nonNumericalExecutedRuleMask,
+#if APPLE_ICU_CHANGES
+// rdar:/
                 Formattable& resVal,
                 UBool isDecimFmtParseable) const
+#else
+                Formattable& resVal) const
+#endif  // APPLE_ICU_CHANGES
 {
     // internally we operate on a copy of the string being parsed
     // (because we're going to change it) and use our own ParsePosition
@@ -944,21 +949,23 @@ NFRule::doParse(const UnicodeString& text,
         // restored for ICU4C port
         parsePosition.setErrorIndex(pp.getErrorIndex());
         resVal.setLong(0);
-        return TRUE;
+        return true;
     }
     if (baseValue == kInfinityRule) {
         // If you match this, don't try to perform any calculations on it.
         parsePosition.setIndex(pp.getIndex());
         resVal.setDouble(uprv_getInfinity());
-        return TRUE;
+        return true;
     }
     if (baseValue == kNaNRule) {
         // If you match this, don't try to perform any calculations on it.
         parsePosition.setIndex(pp.getIndex());
         resVal.setDouble(uprv_getNaN());
-        return TRUE;
+        return true;
     }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
     // Detect when this rule's main job is to parse a decimal format and we're not
     // supposed to.
     if (!isDecimFmtParseable && sub1 != NULL && sub1->isDecimalFormatSubstitutionOnly()) {
@@ -968,8 +975,9 @@ NFRule::doParse(const UnicodeString& text,
         // Need to check into this more.
         parsePosition.setErrorIndex(pp.getErrorIndex());
         resVal.setLong(0);
-        return TRUE;
+        return true;
     }
+#endif  // APPLE_ICU_CHANGES
 
     // this is the fun part.  The basic guts of the rule-matching
     // logic is matchToDelimiter(), which is called twice.  The first
@@ -1096,7 +1104,7 @@ NFRule::doParse(const UnicodeString& text,
     }
 
     resVal.setDouble(result);
-    return TRUE; // ??? do we need to worry if it is a long or a double?
+    return true; // ??? do we need to worry if it is a long or a double?
 }
 
 /**
@@ -1204,7 +1212,7 @@ NFRule::matchToDelimiter(const UnicodeString& text,
             if (subText.length() > 0) {
                 UBool success = sub->doParse(subText, tempPP, _baseValue, upperBound,
 #if UCONFIG_NO_COLLATION
-                    FALSE,
+                    false,
 #else
                     formatter->isLenient(),
 #endif
@@ -1258,7 +1266,7 @@ NFRule::matchToDelimiter(const UnicodeString& text,
         // try to match the whole string against the substitution
         UBool success = sub->doParse(text, tempPP, _baseValue, upperBound,
 #if UCONFIG_NO_COLLATION
-            FALSE,
+            false,
 #else
             formatter->isLenient(),
 #endif
@@ -1592,7 +1600,7 @@ NFRule::allIgnorable(const UnicodeString& str, UErrorCode& status) const
 {
     // if the string is empty, we can just return true
     if (str.length() == 0) {
-        return TRUE;
+        return true;
     }
 
 #if !UCONFIG_NO_COLLATION
@@ -1603,14 +1611,14 @@ NFRule::allIgnorable(const UnicodeString& str, UErrorCode& status) const
         const RuleBasedCollator* collator = formatter->getCollator();
         if (collator == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;
-            return FALSE;
+            return false;
         }
         LocalPointer<CollationElementIterator> iter(collator->createCollationElementIterator(str));
 
         // Memory allocation error check.
         if (iter.isNull()) {
             status = U_MEMORY_ALLOCATION_ERROR;
-            return FALSE;
+            return false;
         }
 
         UErrorCode err = U_ZERO_ERROR;
@@ -1626,7 +1634,7 @@ NFRule::allIgnorable(const UnicodeString& str, UErrorCode& status) const
 
     // if lenient parsing is turned off, there is no such thing as
     // an ignorable character: return true only if the string is empty
-    return FALSE;
+    return false;
 }
 
 void

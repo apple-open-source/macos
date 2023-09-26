@@ -515,13 +515,9 @@ size_t
 CCECCryptorTwinDiversifyEntropySize(CCECCryptorRef key)
 API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
 
-/*======================================================================================*/
-/* Only for FIPS Testing                                                                */
-/*======================================================================================*/
-
 /*!
  @function   CCECCryptorGetKeyComponents
- @abstract   Get EC Public Key Parameters for FIPS tests
+ @abstract   Get EC Public Key Parameters
 
  @param      ecKey              The EC Key to deconstruct
  @param      keySize            The EC Keysize.
@@ -546,8 +542,7 @@ API_AVAILABLE(macos(10.7), ios(5.0));
 
 /*!
  @function   CCECCryptorCreateFromData
- @abstract   For FIPS CAVS testing we need the ability to create an EC
-             key from an X and Y parameter set.
+ @abstract   Create an EC key from an X and Y parameter set.
 
  @param      keySize            The EC Keysize.
  @param      qX and qXLength    The pointer and length for the X Parameter.

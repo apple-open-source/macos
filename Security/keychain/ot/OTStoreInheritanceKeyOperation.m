@@ -88,7 +88,7 @@
                                                                                  TrustedPeersHelperCustodianRecoveryKey *_Nullable crk,
                                                                                  NSError * _Nullable error) {
         STRONGIFY(self);
-        [[CKKSAnalytics logger] logResultForEvent:OctagonEventInheritanceKey hardFailure:true result:error];
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventCreateCustodianRecoveryKeyTPH hardFailure:true result:error];
             if(error){
                 secerror("octagon: Error store inheritance key: %@", error);
                 self.error = error;

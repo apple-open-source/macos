@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998-2006,2008 Free Software Foundation, Inc.              --
+-- Copyright (c) 1998-2011,2014 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -35,17 +35,17 @@
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.15 $
---  $Date: 2008/07/26 18:49:28 $
+--  $Revision: 1.23 $
+--  $Date: 2014/05/24 21:31:05 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
-with Ada.Unchecked_Conversion;
+with System.Address_To_Access_Conversions;
 with Terminal_Interface.Curses.Aux; use Terminal_Interface.Curses.Aux;
 
 package body Terminal_Interface.Curses.Forms.Field_Types.User is
 
-   procedure Set_Field_Type (Fld : in Field;
-                             Typ : in User_Defined_Field_Type)
+   procedure Set_Field_Type (Fld : Field;
+                             Typ : User_Defined_Field_Type)
    is
       function Allocate_Arg (T : User_Defined_Field_Type'Class)
                              return Argument_Access;
@@ -53,10 +53,8 @@ package body Terminal_Interface.Curses.Forms.Field_Types.User is
       function Set_Fld_Type (F    : Field := Fld;
                              Cft  : C_Field_Type := C_Generic_Type;
                              Arg1 : Argument_Access)
-                             return C_Int;
-      pragma Import (C, Set_Fld_Type, "set_field_type");
-
-      Res : Eti_Error;
+                             return Eti_Error;
+      pragma Import (C, Set_Fld_Type, "set_field_type_user");
 
       function Allocate_Arg (T : User_Defined_Field_Type'Class)
                              return Argument_Access
@@ -70,37 +68,34 @@ package body Terminal_Interface.Curses.Forms.Field_Types.User is
       end Allocate_Arg;
 
    begin
-      Res := Set_Fld_Type (Arg1 => Allocate_Arg (Typ));
-      if Res /= E_Ok then
-         Eti_Exception (Res);
-      end if;
+      Eti_Exception (Set_Fld_Type (Arg1 => Allocate_Arg (Typ)));
    end Set_Field_Type;
 
-   pragma Warnings (Off);
-   function To_Argument_Access is new Ada.Unchecked_Conversion
-     (System.Address, Argument_Access);
-   pragma Warnings (On);
+   package Argument_Conversions is
+      new System.Address_To_Access_Conversions (Argument);
 
    function Generic_Field_Check (Fld : Field;
-                                 Usr : System.Address) return C_Int
+                                 Usr : System.Address) return Curses_Bool
    is
       Result : Boolean;
       Udf    : constant User_Defined_Field_Type_Access :=
-        User_Defined_Field_Type_Access (To_Argument_Access (Usr).Typ);
+        User_Defined_Field_Type_Access
+          (Argument_Access (Argument_Conversions.To_Pointer (Usr)).all.Typ);
    begin
       Result := Field_Check (Fld, Udf.all);
-      return C_Int (Boolean'Pos (Result));
+      return Curses_Bool (Boolean'Pos (Result));
    end Generic_Field_Check;
 
    function Generic_Char_Check (Ch  : C_Int;
-                                Usr : System.Address) return C_Int
+                                Usr : System.Address) return Curses_Bool
    is
       Result : Boolean;
       Udf    : constant User_Defined_Field_Type_Access :=
-        User_Defined_Field_Type_Access (To_Argument_Access (Usr).Typ);
+        User_Defined_Field_Type_Access
+          (Argument_Access (Argument_Conversions.To_Pointer (Usr)).all.Typ);
    begin
       Result := Character_Check (Character'Val (Ch), Udf.all);
-      return C_Int (Boolean'Pos (Result));
+      return Curses_Bool (Boolean'Pos (Result));
    end Generic_Char_Check;
 
    --  -----------------------------------------------------------------------
@@ -120,9 +115,7 @@ package body Terminal_Interface.Curses.Forms.Field_Types.User is
                                       Make_Arg'Access,
                                       Copy_Arg'Access,
                                       Free_Arg'Access);
-            if Res /= E_Ok then
-               Eti_Exception (Res);
-            end if;
+            Eti_Exception (Res);
          end if;
          M_Generic_Type := T;
       end if;

@@ -25,25 +25,51 @@
 
 @implementation OTAuthKitActualAdapter
 
-- (BOOL)accountIsHSA2ByAltDSID:(NSString*)altDSID
+- (BOOL)accountIsCDPCapableByAltDSID:(NSString*)altDSID
 {
     if([ACAccount class] == nil || [AKAccountManager class] == nil) {
         secnotice("authkit", "AuthKit not available");
         return NO;
     }
 
-    BOOL hsa2 = NO;
+    BOOL isCdpCapable = NO;
 
     AKAccountManager *manager = [AKAccountManager sharedInstance];
     ACAccount *authKitAccount = [manager authKitAccountWithAltDSID:altDSID];
     AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount:authKitAccount];
-    if(securityLevel == AKAppleIDSecurityLevelHSA2) {
-        hsa2 = YES;
+    if(securityLevel == AKAppleIDSecurityLevelHSA2 || securityLevel == AKAppleIDSecurityLevelManaged) {
+        isCdpCapable = YES;
     }
-    secnotice("authkit", "Security level for altDSID %@ is %lu", altDSID, (unsigned long)securityLevel);
-    return hsa2;
-}
 
+    NSString* accountType = nil;
+    switch (securityLevel)
+    {
+        case AKAppleIDSecurityLevelUnknown:
+            accountType = @"Unknown";
+            break;
+        case AKAppleIDSecurityLevelPasswordOnly:
+            accountType = @"PasswordOnly";
+            break;
+        case AKAppleIDSecurityLevelStandard:
+            accountType = @"Standard";
+            break;
+        case AKAppleIDSecurityLevelHSA1:
+            accountType = @"HSA1";
+            break;
+        case AKAppleIDSecurityLevelHSA2:
+            accountType = @"HSA2";
+            break;
+        case AKAppleIDSecurityLevelManaged:
+            accountType = @"Managed";
+            break;
+        default:
+            accountType = @"oh no please file a radar to Security | iCloud Keychain security level";
+            break;
+    }
+
+    secnotice("authkit", "Security level for altDSID %@ is %lu.  Account type: %@", [manager altDSIDForAccount:authKitAccount], (unsigned long)securityLevel, accountType);
+    return isCdpCapable;
+}
 
 - (BOOL)accountIsDemoAccountByAltDSID:(NSString*)altDSID error:(NSError**)error
 {

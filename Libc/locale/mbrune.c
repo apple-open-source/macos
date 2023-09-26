@@ -47,9 +47,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/mbrune.c,v 1.3 2002/09/18 06:11:21 tjr E
 #include "runedepreciated.h"
 
 char *
-mbrune(string, c)
-	const char *string;
-	rune_t c;
+mbrune(const char *string, rune_t c)
 {
 	char const *result;
 	rune_t r;
@@ -70,9 +68,7 @@ mbrune(string, c)
 }
 
 char *
-mbrrune(string, c)
-	const char *string;
-	rune_t c;
+mbrrune(const char *string, rune_t c)
 {
 	const char *last = 0;
 	char const *result;
@@ -93,9 +89,7 @@ mbrrune(string, c)
 }
 
 char *
-mbmb(string, pattern)
-	const char *string;
-	char *pattern;
+mbmb(const char *string, char *pattern)
 {
 	rune_t first, r;
 	size_t plen, slen;

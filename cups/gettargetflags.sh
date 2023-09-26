@@ -18,7 +18,8 @@ set -euo pipefail
 #
 
 SRCROOT=${SRCROOT:-"."}
-SDKROOT=${SDKROOT:-`xcrun --show-sdk-path`}
+SDKROOT=${SDKROOT:-"`xcrun -sdk macosx.internal --show-sdk-path`"}
+#SDKROOT=${SDKROOT:-"`xcrun --show-sdk-path`"}
 RC_CFLAGS=${RC_CFLAGS:-""}
 RC_ARCHS=${RC_ARCHS:-"`uname -m`"}
 
@@ -104,7 +105,7 @@ fi
 
 case "$@" in
 	cflags | cxxflags)
-		output="$target $cflags"
+		output="$target $cflags $cppflags $variant"
 		;;
 	cppflags)
 		output="$cppflags"

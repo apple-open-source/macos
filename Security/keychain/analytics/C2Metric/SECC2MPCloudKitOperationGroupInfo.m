@@ -26,16 +26,16 @@
 @synthesize operationGroupTriggered = _operationGroupTriggered;
 - (void)setOperationGroupTriggered:(BOOL)v
 {
-    _has.operationGroupTriggered = YES;
+    _has.operationGroupTriggered = (uint)YES;
     _operationGroupTriggered = v;
 }
 - (void)setHasOperationGroupTriggered:(BOOL)f
 {
-    _has.operationGroupTriggered = f;
+    _has.operationGroupTriggered = (uint)f;
 }
 - (BOOL)hasOperationGroupTriggered
 {
-    return _has.operationGroupTriggered;
+    return _has.operationGroupTriggered != 0;
 }
 
 - (NSString *)description
@@ -91,7 +91,7 @@ BOOL SECC2MPCloudKitOperationGroupInfoReadFrom(__unsafe_unretained SECC2MPCloudK
             break;
             case 101 /* operationGroupTriggered */:
             {
-                self->_has.operationGroupTriggered = YES;
+                self->_has.operationGroupTriggered = (uint)YES;
                 self->_operationGroupTriggered = PBReaderReadBOOL(reader);
             }
             break;

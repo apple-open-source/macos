@@ -3777,6 +3777,9 @@ pcap_setdirection(pcap_t *p, pcap_direction_t d)
 		case PCAP_D_IN:
 		case PCAP_D_OUT:
 		case PCAP_D_INOUT:
+#ifdef __APPLE__
+		case PCAP_D_NONE:
+#endif /* __APPLE__ */
 			/*
 			 * Valid direction.
 			 */

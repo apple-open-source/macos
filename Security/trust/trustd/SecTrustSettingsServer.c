@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,9 +38,11 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <Security/SecBase.h>
+#include <Security/SecTask.h>
 #include <Security/SecTrustInternal.h>
 #include <Security/SecTrustSettings.h>
 #include <Security/TrustSettingsSchema.h>
+#include <sys/codesign.h>
 #include <os/variant_private.h>
 #include <utilities/debugging.h>
 #include <utilities/SecCFError.h>
@@ -172,6 +174,8 @@ static int _writeEmptyTrustSettingsFile(const char *fileName, mode_t mode)
  * processed asynchronously) do not block trust settings reads (which are
  * synchronous) until we dispatch the last step of the update: file write.
  */
+dispatch_queue_t tsReadQueue(void);
+dispatch_queue_t tsWriteQueue(void);
 
 typedef enum {
     kSecTSReadQueue,
@@ -193,11 +197,11 @@ static dispatch_queue_t tsQueue(SecTSQueue kind) {
     }
 }
 
-static dispatch_queue_t tsReadQueue(void) {
+dispatch_queue_t tsReadQueue(void) {
     return tsQueue(kSecTSReadQueue);
 }
 
-static dispatch_queue_t tsWriteQueue(void) {
+dispatch_queue_t tsWriteQueue(void) {
     return tsQueue(kSecTSWriteQueue);
 }
 
@@ -264,6 +268,7 @@ static bool trustSettingsPath(
  * queue, but outside of any code that is dispatched on the read queue.
  */
 static bool _SecTrustSettingsVerifyAuthorization(uid_t uid,
+    CFDataRef _Nullable auditToken,
     const char *authRight,
     SecTrustSettingsDomain tsDomain,
     CFDataRef _Nullable authExternalForm,
@@ -273,9 +278,9 @@ static bool _SecTrustSettingsVerifyAuthorization(uid_t uid,
 #if TARGET_OS_OSX
     bool result = true;
     AuthorizationExternalForm extForm;
-    CFIndex authLen = (authExternalForm) ? CFDataGetLength(authExternalForm) : 0;
+    size_t authLen = (authExternalForm) ? (size_t)CFDataGetLength(authExternalForm) : 0;
     const UInt8 *authPtr = (authExternalForm) ? CFDataGetBytePtr(authExternalForm) : NULL;
-    if(!authPtr || authLen <= 0 || authLen > (CFIndex)sizeof(extForm)) {
+    if(!authPtr || authLen == 0 || authLen > sizeof(extForm)) {
         return SecError(errSecParam, error, CFSTR("auth blob empty or invalid size"));
     }
     /*
@@ -319,6 +324,7 @@ static bool _SecTrustSettingsVerifyAuthorization(uid_t uid,
  * form, and will fail if the preauthorized right cannot be obtained.
  */
 static bool _SecTrustSettingsSetData(uid_t uid,
+    CFDataRef _Nullable auditToken,
     CFStringRef _Nonnull domain,
     CFDataRef _Nullable authExternalForm,
     CFDataRef _Nullable trustSettings,
@@ -345,7 +351,7 @@ static bool _SecTrustSettingsSetData(uid_t uid,
             return SecError(errSecInvalidPrefsDomain, error, CFSTR("invalid trust settings domain"));
     }
     /* this re-enters trustd to read trust settings. */
-    result = _SecTrustSettingsVerifyAuthorization(uid, authRight, tsDomain,
+    result = _SecTrustSettingsVerifyAuthorization(uid, auditToken, authRight, tsDomain,
         authExternalForm, trustSettings, error);
     if (!result) {
         return result;
@@ -394,7 +400,7 @@ static void SecTrustSettingsSetDataCompleted(const void *userData, bool result, 
     Block_release(completed);
 }
 
-void SecTrustSettingsSetDataBlock(uid_t uid, CFStringRef _Nonnull domain, CFDataRef _Nullable auth, CFDataRef _Nullable settings, void (^ _Nonnull completed)(bool result, CFErrorRef _Nullable error)) {
+void SecTrustSettingsSetDataBlock(uid_t uid, CFDataRef _Nullable auditToken, CFStringRef _Nonnull domain, CFDataRef _Nullable auth, CFDataRef _Nullable settings, void (^ _Nonnull completed)(bool result, CFErrorRef _Nullable error)) {
     if (!TrustdVariantAllowsFileWrite() || !TrustdVariantAllowsKeychain()) {
         CFErrorRef localError = NULL;
         SecError(errSecUnimplemented, &localError, CFSTR("Trust settings not implemented in this environment"));
@@ -403,6 +409,7 @@ void SecTrustSettingsSetDataBlock(uid_t uid, CFStringRef _Nonnull domain, CFData
     }
 
     SecTrustSettingsSetDataCompletionHandler userData = (SecTrustSettingsSetDataCompletionHandler) Block_copy(completed);
+    CFRetainSafe(auditToken);
     CFRetainSafe(domain);
     CFRetainSafe(auth);
     CFRetainSafe(settings);
@@ -414,9 +421,10 @@ void SecTrustSettingsSetDataBlock(uid_t uid, CFStringRef _Nonnull domain, CFData
     dispatch_async(tsWriteQueue(), ^{
         secdebug("trustsettings", "SecTrustSettingsSetDataBlock: task started, calling _SecTrustSettingsSetData");
         CFErrorRef localError = NULL;
-        bool ok = _SecTrustSettingsSetData(uid, domain, auth, settings, &localError);
+        bool ok = _SecTrustSettingsSetData(uid, auditToken, domain, auth, settings, &localError);
         SecTrustSettingsSetDataCompleted(userData, ok, localError);
         CFReleaseSafe(localError);
+        CFReleaseSafe(auditToken);
         CFReleaseSafe(domain);
         CFReleaseSafe(auth);
         CFReleaseSafe(settings);
@@ -441,7 +449,7 @@ bool SecTrustSettingsSetData(uid_t uid,
      * are waiting, but here, we need to wait for completion before we can return a result. */
     dispatch_async(queue, ^{
         secdebug("trustsettings", "SecTrustSettingsSetData: calling SecTrustSettingsSetDataBlock");
-        SecTrustSettingsSetDataBlock(uid, domain, authExternalForm, trustSettings, ^(bool completionResult, CFErrorRef completionError) {
+        SecTrustSettingsSetDataBlock(uid, NULL, domain, authExternalForm, trustSettings, ^(bool completionResult, CFErrorRef completionError) {
             secdebug("trustsettings", "SecTrustSettingsSetDataBlock: completion block called");
             result = completionResult;
             if (completionResult == false) {

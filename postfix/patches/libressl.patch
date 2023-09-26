@@ -252,15 +252,6 @@ diff -ur a/src/tls/tls_server.c b/src/tls/tls_server.c
  #define GET_SID(s, v, lptr)	((v) = SSL_SESSION_get_id((s), (lptr)))
  
  #else					/* Older OpenSSL releases */
-@@ -174,7 +174,7 @@
- #endif					/* OPENSSL_VERSION_NUMBER */
- 
-  /* OpenSSL 1.1.0 bitrot */
--#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
- typedef const unsigned char *session_id_t;
- 
- #else
 @@ -377,7 +377,7 @@
       */
      tls_check_version();

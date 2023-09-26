@@ -43,6 +43,10 @@ es_419{
             "UZS",
             "som uzbeko",
         }
+        VED{
+            "Bs.D",
+            "bolívar digital",
+        }
         VND{
             "VND",
             "dong",
@@ -87,6 +91,10 @@ es_419{
         UZS{
             one{"som uzbeko"}
             other{"soms uzbekos"}
+        }
+        VED{
+            one{"bolívar digital"}
+            other{"bolívares digitales"}
         }
         XXX{
             one{"(unidad de moneda desconocida)"}

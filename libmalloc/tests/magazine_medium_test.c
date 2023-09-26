@@ -234,7 +234,7 @@ T_DECL(medium_free_deallocate, "check medium regions deallocate when empty",
 // binaries are required to contain at least 1 test
 T_DECL(medium_test_skip, "skip medium tests")
 {
-	T_SKIP("MallocMedium not compiled on this platform");
+	T_SKIP("MallocMedium is not compiled on this platform");
 }
 
 #endif // CONFIG_MEDIUM_ALLOCATOR

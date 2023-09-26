@@ -170,12 +170,13 @@ struct inpcb {
 	u_short inp_lport;              /* local port */
 	u_int32_t inp_flags;            /* generic IP/datagram flags */
 	u_int32_t inp_flags2;           /* generic IP/datagram flags #2 */
+	uint32_t inp_log_flags;
 	u_int32_t inp_flow;             /* IPv6 flow information */
 	uint32_t inp_lifscope;          /* IPv6 scope ID of the local address */
 	uint32_t inp_fifscope;          /* IPv6 scope ID of the foreign address */
 
-	u_char  inp_sndinprog_cnt;      /* outstanding send operations */
 	uint32_t inp_sndingprog_waiters;/* waiters for outstanding send */
+	u_char  inp_sndinprog_cnt;      /* outstanding send operations */
 	u_char  inp_vflag;              /* INP_IPV4 or INP_IPV6 */
 
 	u_char inp_ip_ttl;              /* time to live proto */
@@ -258,6 +259,7 @@ struct inpcb {
 	u_int8_t inp_Wstat_store[sizeof(struct inp_stat) + sizeof(u_int64_t)];
 	activity_bitmap_t inp_nw_activity;
 	u_int64_t inp_start_timestamp;
+	u_int64_t inp_connect_timestamp;
 
 	char inp_last_proc_name[MAXCOMLEN + 1];
 	char inp_e_proc_name[MAXCOMLEN + 1];
@@ -752,6 +754,7 @@ struct inpcbinfo {
 #define INP2_LOGGED_SUMMARY     0x00008000 /* logged: the final summary */
 #define INP2_MANAGEMENT_ALLOWED 0x00010000 /* Allow communication over a management interface */
 #define INP2_MANAGEMENT_CHECKED 0x00020000 /* Checked entitlements for a management interface */
+#define INP2_BIND_IN_PROGRESS   0x00040000 /* A bind call is in proggress */
 
 /*
  * Flags passed to in_pcblookup*() functions.

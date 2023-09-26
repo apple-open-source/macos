@@ -258,6 +258,7 @@ int secd_57_account_leave(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(191);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     secd_test_clear_testviews();
     tests();

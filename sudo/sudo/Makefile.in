@@ -1,7 +1,7 @@
 #
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2010-2015, 2017-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+# Copyright (c) 2010-2015, 2017-2022 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -47,7 +47,6 @@ install_uid = 0
 install_gid = 0
 
 # sudoers owner and mode for package building
-sudoersdir = $(sysconfdir)
 sudoers_uid = @SUDOERS_UID@
 sudoers_gid = @SUDOERS_GID@
 sudoers_mode = @SUDOERS_MODE@
@@ -56,12 +55,12 @@ shlib_mode = @SHLIB_MODE@
 # Version of python detected by configure (major.minor)
 python_version = @PYTHON_VERSION@
 
-SUBDIRS = lib/util @ZLIB_SRC@ lib/eventlog lib/iolog @LOGSRV_SRC@ \
-	  @LOGSRVD_SRC@ plugins/audit_json plugins/group_file \
-	  plugins/sample_approval plugins/sudoers plugins/system_group \
-	  @PYTHON_PLUGIN_SRC@ src include doc examples
+SUBDIRS = lib/util @ZLIB_SRC@ lib/eventlog lib/fuzzstub lib/iolog \
+	  lib/protobuf-c @LOGSRV_SRC@ @LOGSRVD_SRC@ plugins/audit_json \
+	  plugins/group_file plugins/sudoers plugins/system_group \
+	  @PYTHON_PLUGIN_SRC@ src include docs examples
 
-SAMPLES = plugins/sample
+SAMPLES = plugins/sample plugins/sample_approval
 
 VERSION = @PACKAGE_VERSION@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
@@ -70,9 +69,10 @@ LIBTOOL_DEPS = @LIBTOOL_DEPS@
 
 SHELL = @SHELL@
 
+EGREP = @EGREP@
 SED = @SED@
 
-INSTALL = $(SHELL) $(top_srcdir)/install-sh -c
+INSTALL = $(SHELL) $(scriptdir)/install-sh -c
 INSTALL_OWNER = -o $(install_uid) -g $(install_gid)
 
 ECHO_N = @ECHO_N@
@@ -105,19 +105,19 @@ PVS_IGNORE = 'V707,V011,V002,V536,V568'
 PVS_LOG_OPTS = -a 'GA:1,2' -e -t errorfile -d $(PVS_IGNORE)
 
 all: config.status
-	for d in $(SUBDIRS); do \
+	for d in $(SUBDIRS) $(SAMPLES); do \
 	    (cd $$d && exec $(MAKE) $@) && continue; \
 	    exit $$?; \
 	done
 
-check pre-install: config.status
-	for d in $(SUBDIRS); do \
+check check-verbose check-fuzzer fuzz pre-install: config.status
+	for d in $(SUBDIRS) $(SAMPLES); do \
 	    (cd $$d && exec $(MAKE) $@) && continue; \
 	    exit $$?; \
 	done
 
 uncrustify.files: Makefile
-	grep '\.[ch]$$' $(top_srcdir)/MANIFEST | egrep -v '(/zlib/|/(arc4random|arc4random_uniform|chacha_private|charclass|fnmatch|getaddrinfo|getcwd|getdate|getentropy|getopt|getopt_long|glob|gram|inet_ntop|inet_pton|log_server.pb-c|mktemp|pw_dup|reallocarray|mktemp_test|protobuf-c|snprintf|stdbool|strlcat|strlcpy|sudo_queue|toke)\.[ch]$$)'  > uncrustify.files
+	$(EGREP) '\.[ch]$$' $(top_srcdir)/MANIFEST | $(EGREP) -v '(/zlib/|/(arc4random|arc4random_uniform|chacha_private|charclass|fnmatch|getaddrinfo|getcwd|getdate|getentropy|getopt|getopt_long|glob|gram|inet_ntop|inet_pton|log_server.pb-c|mktemp|pw_dup|reallocarray|mktemp_test|protobuf-c|snprintf|stdbool|strlcat|strlcpy|sudo_queue|toke)\.[ch]$$)'  > uncrustify.files
 
 reformat: uncrustify.files
 	( cd $(top_srcdir) && uncrustify -c etc/uncrustify.cfg --replace --no-backup -F $(top_builddir)/uncrustify.files )
@@ -126,11 +126,11 @@ check-format: uncrustify.files
 	( cd $(top_srcdir) && uncrustify -c etc/uncrustify.cfg --check -F $(top_builddir)/uncrustify.files )
 
 spell:
-	( cd $(top_srcdir) && codespell -I etc/codespell.ignore -x etc/codespell.exclude `egrep -v -f etc/codespell.skip MANIFEST` )
+	( cd $(top_srcdir) && codespell -I etc/codespell.ignore -x etc/codespell.exclude `$(EGREP) -v -f etc/codespell.skip MANIFEST` )
 
 cppcheck: config.status
 	rval=0; \
-	for d in $(SUBDIRS); do \
+	for d in $(SUBDIRS) $(SAMPLES); do \
 	    echo checking $$d; \
 	    (cd $$d && exec $(MAKE) CPPCHECK_OPTS="$(CPPCHECK_OPTS)" $@) || rval=`expr $$rval + $$?`; \
 	done; \
@@ -138,7 +138,7 @@ cppcheck: config.status
 
 splint: config.status
 	rval=0; \
-	for d in $(SUBDIRS); do \
+	for d in $(SUBDIRS) $(SAMPLES); do \
 	    echo splinting $$d; \
 	    (cd $$d && exec $(MAKE) SPLINT_OPTS="$(SPLINT_OPTS)" $@) || rval=`expr $$rval + $$?`; \
 	done; \
@@ -146,7 +146,7 @@ splint: config.status
 
 cov-build:
 	make clean
-	cov-build --dir cov-int make ${MFLAGS} all
+	cov-build --dir cov-int make $(MFLAGS) all
 
 cov-upload:
 	tar zcf cov-int.tgz cov-int
@@ -161,7 +161,7 @@ cov-analyze: cov-upload
 pvs-studio: config.status
 	files=; \
 	rval=0; \
-	for d in $(SUBDIRS); do \
+	for d in $(SUBDIRS) $(SAMPLES); do \
 	    (cd $$d && exec $(MAKE) PVS_IGNORE="$(PVS_IGNORE)" pvs-log-files) || rval=`expr $$rval + $$?`; \
 	    for f in $$d/*.plog; do \
 		if test "$$f" != "$$d/*.plog"; then \
@@ -174,7 +174,7 @@ pvs-studio: config.status
 	fi; \
 	plog-converter $(PVS_LOG_OPTS) $$files
 
-install-dirs install-binaries install-includes install-plugin: config.status pre-install
+install-dirs install-binaries install-fuzzer install-includes install-plugin: config.status pre-install
 	for d in $(SUBDIRS); do \
 	    (cd $$d && exec $(MAKE) "INSTALL_OWNER=$(INSTALL_OWNER)" $@) && continue; \
 	    exit $$?; \
@@ -210,17 +210,20 @@ siglist.c signame.c:
 depend: siglist.c signame.c
 	$(scriptdir)/mkdep.pl \
 	    --srcdir=$(abs_top_srcdir) --builddir=$(abs_top_builddir) \
-	    lib/util/Makefile.in lib/zlib/Makefile.in lib/eventlog/Makefile.in \
+	    lib/util/Makefile.in lib/zlib/Makefile.in \
+	    lib/fuzzstub/Makefile.in lib/eventlog/Makefile.in \
 	    lib/iolog/Makefile.in lib/logsrv/Makefile.in logsrvd/Makefile.in \
-	    plugins/group_file/Makefile.in plugins/sample/Makefile.in \
-	    plugins/sudoers/Makefile.in plugins/system_group/Makefile.in \
-	    plugins/python/Makefile.in \
+	    lib/protobuf-c/Makefile.in plugins/group_file/Makefile.in \
+	    plugins/sample/Makefile.in plugins/sudoers/Makefile.in \
+	    plugins/system_group/Makefile.in plugins/python/Makefile.in \
 	    src/Makefile.in && \
 	$(top_builddir)/config.status --file $(top_builddir)/lib/util/Makefile \
 	    --file $(top_builddir)/lib/zlib/Makefile \
 	    --file $(top_builddir)/lib/eventlog/Makefile \
+	    --file $(top_builddir)/lib/fuzzstub/Makefile \
 	    --file $(top_builddir)/lib/iolog/Makefile \
 	    --file $(top_builddir)/lib/logsrv/Makefile \
+	    --file $(top_builddir)/lib/protobuf-c/Makefile \
 	    --file $(top_builddir)/logsrvd/Makefile \
 	    --file $(top_builddir)/plugins/sample/Makefile \
 	    --file $(top_builddir)/plugins/group_file/Makefile \
@@ -229,16 +232,28 @@ depend: siglist.c signame.c
 	    --file $(top_builddir)/plugins/python/Makefile \
 	    --file $(top_builddir)/src/Makefile
 
+# Only try to build ChangeLog from a repo checkout, not a release tarball.
+# The CODEOWNERS file is not present in the release tarball.
 ChangeLog:
-	if test -d $(srcdir)/.hg; then \
-	    if hg log -R $(srcdir) --style=changelog -r "sort(branch(.) or follow(), -date)" > $@.tmp; then \
-		mv -f $@.tmp $(srcdir)/$@; \
-	    else \
-		rm -f $@.tmp; \
+	if test -f $(srcdir)/docs/CODEOWNERS; then \
+	    if test -d $(srcdir)/.hg && hg -R $(srcdir) identify -ibt >stamp-$@.tmp 2>&1; then \
+		cmp stamp-$@.tmp stamp-$@ >/dev/null 2>&1 || { \
+		    mv -f stamp-$@.tmp stamp-$@; \
+		    if hg log -R $(srcdir) --template=changelog -r "sort(branch(.) or follow(), -date)" > $@.tmp; then \
+			mv -f $@.tmp $(srcdir)/$@; \
+		    fi; \
+		}; \
+	    elif test -d $(srcdir)/.git && git --git-dir $(srcdir)/.git describe --tags >stamp-$@.tmp 2>&1; then \
+		cmp stamp-$@.tmp stamp-$@ >/dev/null 2>&1 || { \
+		    mv -f stamp-$@.tmp stamp-$@; \
+		    if $(scriptdir)/log2cl.pl -R $(srcdir)/.git > $@.tmp; then \
+			mv -f $@.tmp $(srcdir)/$@; \
+		    fi; \
+		}; \
 	    fi; \
-	elif test -d $(srcdir)/.git; then \
-	    $(scriptdir)/log2cl.pl -R $(srcdir)/.git > $(srcdir)/$@; \
-	else \
+	    rm -f $@.tmp stamp-$@.tmp; \
+	fi
+	if test ! -f $(srcdir)/$@; then \
 	    echo "ChangeLog data not available" > $(srcdir)/$@; \
 	fi
 
@@ -369,10 +384,9 @@ check-dist: update-pot compile-po mkdefaults
 dist: check-dist force-dist
 
 force-dist: ChangeLog $(srcdir)/MANIFEST
-	cd $(top_srcdir) && \
-	pax -w -x ustar -s '/^/$(PACKAGE_TARNAME)-$(VERSION)\//' \
-	    -f ../$(PACKAGE_TARNAME)-$(VERSION).tar \
-	    `$(SED) 's/[ 	].*//' $(srcdir)/MANIFEST` && \
+	cd $(top_srcdir) && $(SED) 's/[ 	].*//' MANIFEST | \
+	pax -w -x ustar -f ../$(PACKAGE_TARNAME)-$(VERSION).tar \
+	    -s '/^/$(PACKAGE_TARNAME)-$(VERSION)\//' && \
 	gzip -9f ../$(PACKAGE_TARNAME)-$(VERSION).tar && \
 	ls -l ../$(PACKAGE_TARNAME)-$(VERSION).tar.gz
 
@@ -381,6 +395,7 @@ package: @PPFILES@
 	$(MAKE) install INSTALL_OWNER= DESTDIR=$$DESTDIR && \
 	for p in @PPFILES@; do \
 	    $(SHELL) $(scriptdir)/pp $(PPFLAGS) --destdir=$$DESTDIR $$p \
+		srcdir=$(top_srcdir) \
 		prefix=$(prefix) \
 		bindir=$(bindir) \
 		sbindir=$(sbindir) \
@@ -393,7 +408,6 @@ package: @PPFILES@
 		docdir=$(docdir) \
 		exampledir=$(exampledir) \
 		sysconfdir=$(sysconfdir) \
-		sudoersdir=$(sudoersdir) \
 		sudoers_uid=$(sudoers_uid) \
 		sudoers_gid=$(sudoers_gid) \
 		sudoers_mode=$(sudoers_mode) \
@@ -435,4 +449,5 @@ sandwich:
 	    echo "What?  Make it yourself!"; \
 	fi
 
-.PHONY: ChangeLog me a sandwhich check-format reformat
+.PHONY: clean mostlyclean distclean cleandir clobber realclean ChangeLog \
+        me a sandwich check-format reformat

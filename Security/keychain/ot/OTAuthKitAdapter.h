@@ -16,7 +16,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol OTAuthKitAdapter
 
-- (BOOL)accountIsHSA2ByAltDSID:(NSString*)altDSID;
+- (BOOL)accountIsCDPCapableByAltDSID:(NSString*)altDSID;
 - (BOOL)accountIsDemoAccountByAltDSID:(NSString*)altDSID error:(NSError**)error NS_SWIFT_NOTHROW;
 
 - (NSString* _Nullable)machineID:(NSError**)error;

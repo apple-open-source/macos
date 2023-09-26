@@ -130,10 +130,10 @@ bool IOHIDevice::updateProperties( void )
 {
     bool ok;
 
-    ok = setProperty( kIOHIDKindKey, hidKind(), 32 )
-    &    setProperty( kIOHIDInterfaceIDKey, interfaceID(), 32 )
-    &    setProperty( kIOHIDDeviceEventIDKey, IOHIDevice::GenerateKey(this), 32 )
-    &    setProperty( kIOHIDSubinterfaceIDKey, deviceType(), 32 );
+    ok = setProperty( kIOHIDKindKey, hidKind(), 32 ) &&
+         setProperty( kIOHIDInterfaceIDKey, interfaceID(), 32 ) &&
+         setProperty( kIOHIDDeviceEventIDKey, IOHIDevice::GenerateKey(this), 32 ) &&
+         setProperty( kIOHIDSubinterfaceIDKey, deviceType(), 32 );
 
     return( ok );
 }

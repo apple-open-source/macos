@@ -32,7 +32,7 @@
 namespace WTF {
 
 // Value will be deleted lazily upon rehash or amortized over time. For manual cleanup, call removeNullReferences().
-template<typename KeyType, typename ValueType, typename WeakPtrImpl = DefaultWeakPtrImpl>
+template<typename KeyType, typename ValueType, typename WeakPtrImpl>
 class WeakHashMap final {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -131,7 +131,6 @@ public:
         using Base = WeakHashMapIteratorBase<WeakHashMap, typename WeakHashImplMap::iterator, PeekPtrType, PeekType>;
 
         bool operator==(const WeakHashMapIterator& other) const { return Base::m_position == other.Base::m_position; }
-        bool operator!=(const WeakHashMapIterator& other) const { return Base::m_position != other.Base::m_position; }
 
         PeekPtrType get() { return Base::makePeek(); }
         PeekType operator*() { return Base::makePeek(); }
@@ -156,7 +155,6 @@ public:
         using Base = WeakHashMapIteratorBase<const WeakHashMap, typename WeakHashImplMap::const_iterator, const PeekPtrType, const PeekType>;
 
         bool operator==(const WeakHashMapConstIterator& other) const { return Base::m_position == other.Base::m_position; }
-        bool operator!=(const WeakHashMapConstIterator& other) const { return Base::m_position != other.Base::m_position; }
 
         const PeekPtrType get() const { return Base::makePeek(); }
         const PeekType operator*() const { return Base::makePeek(); }
@@ -353,11 +351,14 @@ private:
         return currentCount;
     }
 
+    static constexpr unsigned initialMaxOperationCountWithoutCleanup = 512;
     ALWAYS_INLINE void amortizedCleanupIfNeeded(unsigned operationsPerformed = 1) const
     {
         unsigned currentCount = increaseOperationCountSinceLastCleanup(operationsPerformed);
-        if (currentCount / 2 > m_map.size())
-            const_cast<WeakHashMap&>(*this).removeNullReferences();
+        if (currentCount / 2 > m_map.size() || currentCount > m_maxOperationCountWithoutCleanup) {
+            bool didRemove = const_cast<WeakHashMap&>(*this).removeNullReferences();
+            m_maxOperationCountWithoutCleanup = didRemove ? std::max(initialMaxOperationCountWithoutCleanup, m_maxOperationCountWithoutCleanup / 2) : m_maxOperationCountWithoutCleanup * 2;
+        }
     }
 
     template <typename T>
@@ -377,6 +378,7 @@ private:
 
     WeakHashImplMap m_map;
     mutable unsigned m_operationCountSinceLastCleanup { 0 }; // FIXME: Store this as a HashTable meta data.
+    mutable unsigned m_maxOperationCountWithoutCleanup { initialMaxOperationCountWithoutCleanup };
 
     template <typename, typename, typename, typename> friend class WeakHashMapIteratorBase;
 };

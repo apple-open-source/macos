@@ -114,7 +114,7 @@ signal.signal(signal.SIGINT, sigint)
 
 (authfd, authfile) = tempfile.mkstemp()
 dtrace = subprocess.Popen(["dtrace", "-qs", "/dev/stdin", str(spd_pid)], stdin=subprocess.PIPE, stdout=authfd, stderr=subprocess.PIPE)
-print("Exercise the programs to be whitelisted now. Interrupt this script (^C) when you are done.")
+print("Exercise the programs to be allowlisted now. Interrupt this script (^C) when you are done.")
 (stdout, stderr) = dtrace.communicate(input=DSCRIPT)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 if stderr:
@@ -189,9 +189,9 @@ plistlib.writePlist(gkedict, outputfile)
 # Report on any problems found
 #
 for rec in list(unsigned.values()):
-	print("PROBLEM: unsigned type %d object not whitelisted: %s" % (rec["type"], rec["path"]), file=sys.stderr)
+	print("PROBLEM: unsigned type %d object not allowlisted: %s" % (rec["type"], rec["path"]), file=sys.stderr)
 for rec in list(badsigned.values()):
-	print("PROBLEM: broken code signature; object not whitelisted: %s" % rec["path"], file=sys.stderr)
+	print("PROBLEM: broken code signature; object not allowlisted: %s" % rec["path"], file=sys.stderr)
 
 
 #

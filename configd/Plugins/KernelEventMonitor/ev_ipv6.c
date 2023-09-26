@@ -233,20 +233,20 @@ updateStore(const void *key, const void *value, void *context)
 	dict = CFDictionaryGetValue(oldIFs, key);
 
 	if (!dict || !CFEqual(dict, newDict)) {
-		if (CFDictionaryGetCount(newDict) > 0) {
-			SC_log(LOG_DEBUG, "Update interface configuration: %@: %@", key, newDict);
-			SCDynamicStoreSetValue(store, key, newDict);
-		} else if (dict) {
-			CFDictionaryRef		oldDict;
-
-			oldDict = SCDynamicStoreCopyValue(store, key);
-			if (oldDict != NULL) {
-				SC_log(LOG_DEBUG, "Update interface configuration: %@: <removed>", key);
-				CFRelease(oldDict);
-			}
-			SCDynamicStoreRemoveValue(store, key);
-		}
 		network_changed = TRUE;
+	}
+	if (newDict != NULL && CFDictionaryGetCount(newDict) > 0) {
+		SC_log(LOG_DEBUG, "Update interface configuration: %@: %@", key, newDict);
+		SCDynamicStoreSetValue(store, key, newDict);
+	} else if (dict != NULL) {
+		CFDictionaryRef		oldDict;
+
+		oldDict = SCDynamicStoreCopyValue(store, key);
+		if (oldDict != NULL) {
+			SC_log(LOG_DEBUG, "Update interface configuration: %@: <removed>", key);
+			CFRelease(oldDict);
+		}
+		SCDynamicStoreRemoveValue(store, key);
 	}
 
 	return;

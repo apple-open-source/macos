@@ -506,6 +506,10 @@ CFStringRef IOPMCopyUserActivityLevelDescription(uint64_t userActive)
         if (prev++) CFStringAppend(result,CFSTR(" "));
         CFStringAppend(result, CFSTR("NotificationActive"));
     }
+    if (kIOPMUserAbsentWithDisplay & userActive) {
+        if (prev++) CFStringAppend(result, CFSTR(" "));
+        CFStringAppend(result, CFSTR("AbsentWithDisplay"));
+    }
 exit:
     return result;
 }

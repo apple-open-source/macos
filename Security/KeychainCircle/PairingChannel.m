@@ -165,7 +165,7 @@ typedef void(^OTNextState)(NSData *inData, OTPairingInternalCompletion complete)
         _testFailSOS = false;
 
         /* only apply to acceptor right now */
-        _sessionSupportsSOS = OctagonIsSOSFeatureEnabled();
+        _sessionSupportsSOS = SOSCCIsSOSTrustAndSyncingEnabled();
         _sessionSupportsOctagon = true;
         NSError *localError = nil;
         _otControl = [OTControl controlObject:true error:&localError];
@@ -276,7 +276,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     bool subTaskSuccess = false;
     OctagonSignpost setupPairingChannelSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelInitiatorMessage1);
 
-    if (OctagonIsSOSFeatureEnabled() && ![self ensureControlChannel]) {
+    if (SOSCCIsSOSTrustAndSyncingEnabled() && ![self ensureControlChannel]) {
         [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorNoControlChannel userInfo:NULL] complete:complete];
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage1), (int)subTaskSuccess);
         return;
@@ -333,11 +333,11 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
     NSData *credential = indata[@"c"];
 
-    if (OctagonIsSOSFeatureEnabled() && indata[@"d"]) {
+    if (SOSCCIsSOSTrustAndSyncingEnabled() && indata[@"d"]) {
         secnotice("pairing", "acceptor will send send initial credentials");
         self.acceptorWillSendInitialSyncCredentials = true;
     }
-    if(OctagonIsSOSFeatureEnabled()) {
+    if(SOSCCIsSOSTrustAndSyncingEnabled()) {
         __block bool stashSuccess = false;
         OctagonSignpost stashSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelInitiatorStashAccountCredential);
         
@@ -468,7 +468,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             prepare.stableInfo = stableInfo;
             prepare.stableInfoSig = stableInfoSig;
 
-            octagonMessage.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
+            octagonMessage.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
             octagonMessage.supportsOctagon.supported = OTSupportType_supported;
             octagonMessage.prepare = prepare;
             if(application){
@@ -496,7 +496,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
     NSData *circleBlob = indata[@"b"];
 
-    if(circleBlob != NULL && OctagonIsSOSFeatureEnabled()) {
+    if(circleBlob != NULL && SOSCCIsSOSTrustAndSyncingEnabled()) {
         if(![circleBlob isKindOfClass:[NSData class]]) {
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
             complete(true, NULL, [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorTypeConfusion userInfo:NULL]);
@@ -584,7 +584,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             } else {
                 secnotice(pairingScope, "initiatorThirdPacket successfully joined Octagon");
                 typeof(self) strongSelf = weakSelf;
-                if(OctagonIsSOSFeatureEnabled() && strongSelf->_acceptorWillSendInitialSyncCredentials) {
+                if(SOSCCIsSOSTrustAndSyncingEnabled() && strongSelf->_acceptorWillSendInitialSyncCredentials) {
                     strongSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
                         [weakSelf initiatorFourthPacket:nsdata complete:kscomplete];
                     };
@@ -777,7 +777,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             response.supportsOctagon = [[OTSupportOctagonMessage alloc] init];
             response.epoch = [[OTSponsorToApplicantRound1M2 alloc] init];
             response.epoch.epoch = epoch;
-            response.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
+            response.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
             response.supportsOctagon.supported = OTSupportType_supported;
             reply[@"o"] = response.data;
             secnotice("pairing", "acceptor reply to packet 1");
@@ -896,7 +896,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             bool finished = true;
 
             secnotice(pairingScope, "acceptor handled octagon packet %d", self.counter);
-            if (OctagonIsSOSFeatureEnabled() && self.acceptorWillSendInitialSyncCredentials) {
+            if (SOSCCIsSOSTrustAndSyncingEnabled() && self.acceptorWillSendInitialSyncCredentials) {
                 self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
                     [weakSelf acceptorThirdPacket:nsdata complete:kscomplete];
                 };
@@ -908,7 +908,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             response.voucher = [[OTSponsorToApplicantRound2M2 alloc] init];
             response.voucher.voucher = voucher;
             response.voucher.voucherSignature = voucherSig;
-            response.supportsSOS.supported = OctagonIsSOSFeatureEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
+            response.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
             response.supportsOctagon.supported = OTSupportType_supported;
 
             if (self.acceptorWillSendInitialSyncCredentials) {
@@ -1055,7 +1055,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     self.connection = connection;
 }
 
-- (void)setControlObject:(OTControl *)control
+- (void)setControlObject:(id)control
 {
     self.otControl = control;
 }
@@ -1065,7 +1065,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     self.controlArguments = controlArguments;
 }
 
-- (void)setConfiguration:(OTJoiningConfiguration *)config
+- (void)setConfiguration:(id)config
 {
     self.joiningConfiguration = config;
 }

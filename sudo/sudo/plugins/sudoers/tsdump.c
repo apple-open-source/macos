@@ -50,10 +50,10 @@ union timestamp_entry_storage {
 
 sudo_dso_public int main(int argc, char *argv[]);
 
-static void usage(void) __attribute__((__noreturn__));
 static void dump_entry(struct timestamp_entry *entry, off_t pos);
 static bool valid_entry(union timestamp_entry_storage *u, off_t pos);
 static bool convert_entry(union timestamp_entry_storage *record, struct timespec *off);
+sudo_noreturn static void usage(void);
 
 /*
  * tsdump: a simple utility to dump the contents of a time stamp file.
@@ -116,7 +116,7 @@ main(int argc, char *argv[])
 
 	if (user == NULL) {
 	    if ((pw = getpwuid(geteuid())) == NULL)
-		sudo_fatalx(U_("unknown uid: %u"), (unsigned int)geteuid());
+		sudo_fatalx(U_("unknown uid %u"), (unsigned int)geteuid());
 	    user = pw->pw_name;
 	}
 	if (asprintf(&fname, "%s/%s", _PATH_SUDO_TIMEDIR, user) == -1)

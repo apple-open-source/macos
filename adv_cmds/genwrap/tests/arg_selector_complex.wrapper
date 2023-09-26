@@ -1,0 +1,17 @@
+# Update arg_selector_complex_logonly as well with any changes.
+application "bestfoo"
+	default
+	cwdpath "bin/bestfoo"
+	flag "a"
+	flag "b"
+	flag "c"
+	flag "d"
+application "newfoo"
+	cwdpath "bin/newfoo"
+	flag "b"
+	flag "c"
+	# -e is hardly used, so no need for it in bestfoo but newfoo did
+	# support it.
+	flag "e"
+application "foo"
+	cwdpath "bin/foo"

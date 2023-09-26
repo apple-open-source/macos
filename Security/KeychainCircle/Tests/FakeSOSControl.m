@@ -138,7 +138,7 @@
         NSDictionary *fakeTLK = @{
             @"class": @"inet",
             @"agrp": @"com.apple.security.ckks",
-            @"vwht": @"PCS-master",
+            @"vwht": @"PCS-MasterKey",
             @"pdmn": @"ck",
             @"desc": @"tlk",
             @"srvr": @"fakeZone",
@@ -373,24 +373,24 @@
     reply(true, nil);
 }
 
-- (void)sosDisable {
+- (void)SOSMonitorModeDisableSOS {
 }
 
-- (void)sosEnable {
+- (void)SOSMonitorModeEnableSOS {
 }
 
-- (void) sosIsEnabledCB: (void(^)(bool result)) complete
+- (void)SOSMonitorModeSOSIsActiveWithCallback: (void(^)(bool result)) complete
 {
     complete(true);
 }
 
-- (bool) sosIsEnabled
+- (bool)SOSMonitorModeSOSIsActive
 {
     return true;
 }
 
-- (NSString *)sosIsEnabledString {
-    return [self sosIsEnabled] ? @"[SOS is active]": @"[SOS is monitoring]";
+- (NSString *)SOSMonitorModeSOSIsActiveDescription {
+    return [self SOSMonitorModeSOSIsActive] ? @"[SOS is active]": @"[SOS is monitoring]";
 }
 
 - (void)setBypass:(BOOL)bypass reply:(void (^)(BOOL, NSError *))reply

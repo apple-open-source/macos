@@ -1,0 +1,13 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index e759e80..435ef8e 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -481,7 +481,7 @@ SRC
+         else {
+ 
+             $result = try_link(<<"SRC", $libs);
+-blank() { return 0; }
++int blank() { return 0; }
+ int t() { ${func}(); return 0; }
+ SRC
+         }

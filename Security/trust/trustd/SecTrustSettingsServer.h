@@ -39,7 +39,7 @@
 
 __BEGIN_DECLS
 
-void SecTrustSettingsSetDataBlock(uid_t uid, CFStringRef _Nonnull domain, CFDataRef _Nullable auth, CFDataRef _Nullable settings, void (^ _Nonnull completed)(bool result, CFErrorRef _Nullable error));
+void SecTrustSettingsSetDataBlock(uid_t uid, CFDataRef _Nullable auditToken, CFStringRef _Nonnull domain, CFDataRef _Nullable auth, CFDataRef _Nullable settings, void (^ _Nonnull completed)(bool result, CFErrorRef _Nullable error));
 
 bool SecTrustSettingsSetData(uid_t uid, CFStringRef _Nonnull domain, CFDataRef _Nullable authExternalForm, CFDataRef _Nullable trustSettings, CFErrorRef _Nonnull * _Nullable error);
 bool SecTrustSettingsCopyData(uid_t uid, CFStringRef _Nonnull domain, CFDataRef * _Nonnull CF_RETURNS_RETAINED trustSettings, CFErrorRef _Nonnull * _Nullable error);

@@ -166,8 +166,13 @@ static void logAssertionActivity(assertLogAction  action,
         actionStr = CFSTR(kPMASLAssertionActionSystemTimeout);
         break;
 
-    case kAOffloadedLog:
-        actionStr = CFSTR(kPMASLAssertionActionOffloaded);
+    case kASessionStartLog:
+        actionStr = CFSTR(kPMASLAssertionActionSessionStart);
+        gNumAssertions++;
+        break;
+
+    case kASessionEndLog:
+        actionStr = CFSTR(kPMASLAssertionActionSessionEnd);
         break;
 
     default:
@@ -444,7 +449,7 @@ static void logAssertionToASL(assertLogAction  action,
     if (!(gDebugFlags & kIOPMDebugLogAssertionSynchronous)) {
 
         assertType = &gAssertionTypes[assertion->kassert];
-        if ((action == kACreateLog)  || (action == kATurnOnLog) || (action == kAOffloadedLog))
+        if ((action == kACreateLog)  || (action == kATurnOnLog) || (action == kASessionStartLog))
         {
             /*
              * Log on create
@@ -456,7 +461,7 @@ static void logAssertionToASL(assertLogAction  action,
             assertion->state |= kAssertionStateLogged;
         }
         else if ( (action == kAReleaseLog) || (action == kAClientDeathLog) ||
-                  (action == kATimeoutLog) || (action == kATurnOffLog) )
+                  (action == kATimeoutLog) || (action == kATurnOffLog) || (action == kASessionEndLog))
         {
             uint64_t    delay;
 
@@ -518,8 +523,11 @@ static void logAssertionToASL(assertLogAction  action,
     case kASystemTimeoutLog:
         assertionAction = kPMASLAssertionActionSystemTimeout;
         break;
-    case kAOffloadedLog:
-        assertionAction = kPMASLAssertionActionOffloaded;
+    case kASessionStartLog:
+        assertionAction = kPMASLAssertionActionSessionStart;
+        break;
+    case kASessionEndLog:
+        assertionAction = kPMASLAssertionActionSessionEnd;
         break;
 
 

@@ -51,8 +51,8 @@ public:
     CGPoint nearestActiveContentInsetAdjustedSnapOffset(CGFloat topInset, const CGPoint&) const;
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    void removeFixedScrollingNodeLayerIDs(const Vector<WebCore::GraphicsLayer::PlatformLayerID>&);
-    const HashSet<WebCore::GraphicsLayer::PlatformLayerID>& fixedScrollingNodeLayerIDs() const { return m_fixedScrollingNodeLayerIDs; }
+    void removeFixedScrollingNodeLayerIDs(const Vector<WebCore::PlatformLayerIdentifier>&);
+    const HashSet<WebCore::PlatformLayerIdentifier>& fixedScrollingNodeLayerIDs() const { return m_fixedScrollingNodeLayerIDs; }
 #endif
 
 private:
@@ -73,7 +73,7 @@ private:
     HashMap<unsigned, OptionSet<WebCore::TouchAction>> m_touchActionsByTouchIdentifier;
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    HashSet<WebCore::GraphicsLayer::PlatformLayerID> m_fixedScrollingNodeLayerIDs;
+    HashSet<WebCore::PlatformLayerIdentifier> m_fixedScrollingNodeLayerIDs;
 #endif
 };
 
@@ -81,4 +81,4 @@ private:
 
 SPECIALIZE_TYPE_TRAITS_REMOTE_SCROLLING_COORDINATOR_PROXY(RemoteScrollingCoordinatorProxyIOS, isRemoteScrollingCoordinatorProxyIOS());
 
-#endif // PLATFORM(IOS) && ENABLE(UI_SIDE_COMPOSITING)
+#endif // PLATFORM(IOS_FAMILY) && ENABLE(ASYNC_SCROLLING)

@@ -14,6 +14,7 @@ custompatching:
 	ed - $(DIR)/numpy/distutils/system_info.py < system_info.py.ed
 	sed -e 's,@SDKROOT@,$(SDKROOT),g' -e 's,@INCLUDEPYTHONVERS@,$(INCLUDEPYTHONVERS),g' $(SRCROOT)/Modules/setup.py-config.ed | ed - $(DIR)/setup.py
 	( cd $(DIR) ; patch -p1 ) < arm64.diff
+	( cd $(DIR) ; patch -p1 ) < 103310602-compilier-fixes.diff
 
 postinstall:
 	cp -f $(DIR)/LICENSE.txt $(OSL)/$(NAME)-$(VERSION).txt

@@ -28,6 +28,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 #include <os/availability.h>
+#include <mach/mach.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,8 +36,6 @@ extern "C" {
 
 #ifndef __DISKARBITRATIOND__
 #ifndef __LP64__
-
-#include <mach/mach.h>
 
 enum
 {
@@ -330,7 +329,7 @@ typedef void ( *DADiskListCompleteCallback )( void * context );
 
 extern void DARegisterDiskListCompleteCallback( DASessionRef session, DADiskListCompleteCallback  callback, void * context );
 
-extern DAReturn DASessionKeepAlive( DASessionRef session , dispatch_queue_t queue) API_UNAVAILABLE(macos);
+extern DAReturn DASessionKeepAlive( DASessionRef session , dispatch_queue_t queue);
 
 
 /*!
@@ -449,7 +448,7 @@ extern void DADiskMountWithArgumentsAndBlock( DADiskRef                      dis
  * with CFRelease().
  */
 
-typedef DADissenterRef __nullable ( ^DADiskMountApprovalCallbackBlock )( DADiskRef disk ) API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+typedef DADissenterRef __nullable ( ^DADiskMountApprovalCallbackBlock )( DADiskRef disk );
 /*!
  * @function   DARegisterDiskMountApprovalCallback
  * @abstract   Registers a callback block to be called whenever a volume is to be mounted.
@@ -460,7 +459,7 @@ typedef DADissenterRef __nullable ( ^DADiskMountApprovalCallbackBlock )( DADiskR
 
 extern void DARegisterDiskMountApprovalCallbackBlock( DASessionRef                session,
                                                         CFDictionaryRef __nullable  match,
-                                                        DADiskMountApprovalCallbackBlock callback ) API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+                                                        DADiskMountApprovalCallbackBlock callback );
                                                         
 
 /*!
@@ -517,7 +516,7 @@ extern void DADiskUnmountWithBlock( DADiskRef                        disk,
  * with CFRelease().
  */
 
-typedef DADissenterRef __nullable ( ^DADiskUnmountApprovalCallbackBlock )( DADiskRef disk )  API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+typedef DADissenterRef __nullable ( ^DADiskUnmountApprovalCallbackBlock )( DADiskRef disk );
 
 /*!
  * @function   DARegisterDiskUnmountApprovalCallbackBlock
@@ -529,7 +528,7 @@ typedef DADissenterRef __nullable ( ^DADiskUnmountApprovalCallbackBlock )( DADis
 
 extern void DARegisterDiskUnmountApprovalCallbackBlock( DASessionRef                  session,
                                                             CFDictionaryRef __nullable    match,
-                                                            DADiskUnmountApprovalCallbackBlock callback )  API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+                                                            DADiskUnmountApprovalCallbackBlock callback );
                                                             
 /*!
  * @typedef    DADiskEjectCallbackBlock
@@ -563,7 +562,7 @@ extern void DADiskEjectWithBlock( DADiskRef                      disk,
  * with CFRelease().
  */
 
-typedef DADissenterRef __nullable ( ^DADiskEjectApprovalCallbackBlock )( DADiskRef disk ) API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+typedef DADissenterRef __nullable ( ^DADiskEjectApprovalCallbackBlock )( DADiskRef disk );
 
 /*!
  * @function   DARegisterDiskEjectApprovalCallbackBlock
@@ -575,7 +574,7 @@ typedef DADissenterRef __nullable ( ^DADiskEjectApprovalCallbackBlock )( DADiskR
 
 extern void DARegisterDiskEjectApprovalCallbackBlock( DASessionRef                session,
                                                         CFDictionaryRef __nullable  match,
-                                                        DADiskEjectApprovalCallbackBlock callback )   API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+                                                        DADiskEjectApprovalCallbackBlock callback );
                                                          
 
 /*!

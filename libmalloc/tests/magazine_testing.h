@@ -32,6 +32,9 @@
 bool
 malloc_tracing_enabled = false;
 
+unsigned int
+ncpuclusters = 1;
+
 int
 recirc_retained_regions = DEFAULT_RECIRC_RETAINED_REGIONS;
 

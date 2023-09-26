@@ -530,6 +530,7 @@ DLDbIdentifier DLDbListCFPref::LoginDLDbIdentifier()
 		return DLDbIdentifier(ssuid, ExpandTildesInPath(kUserLoginKeychainPath).c_str(), dbLocation);
 	default:
 		assert(false);
+		break;
 	case kSecPreferencesDomainSystem:
 	case kSecPreferencesDomainCommon:
 		return DLDbIdentifier(ssuid, kSystemLoginKeychainPath, dbLocation);

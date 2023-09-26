@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #import "IOSurfacePool.h"
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreImage/CoreImage.h>
+#import <dlfcn.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
 
@@ -78,6 +79,11 @@ static RetainPtr<CGPDFPageRef> systemPreviewLogo()
         logoPage.get() = loadARKitPDFPage(@"ARKitBadge");
     });
     return logoPage;
+}
+
+RenderingResourceIdentifier ARKitBadgeSystemImage::imageIdentifier() const
+{
+    return m_image ? m_image->nativeImage()->renderingResourceIdentifier() : m_renderingResourceIdentifier;
 }
 
 void ARKitBadgeSystemImage::draw(GraphicsContext& graphicsContext, const FloatRect& rect) const
@@ -195,7 +201,8 @@ void ARKitBadgeSystemImage::draw(GraphicsContext& graphicsContext, const FloatRe
     std::unique_ptr<IOSurface> badgeSurface = IOSurface::create(&IOSurfacePool::sharedPool(), { surfaceDimension, surfaceDimension }, DestinationColorSpace::SRGB());
     IOSurfaceRef surface = badgeSurface->surface();
     [ciContext render:translatedImage toIOSurface:surface bounds:badgeRect colorSpace:sRGBColorSpaceRef()];
-    cgImage = useSmallBadge ? badgeSurface->createImage() : badgeSurface->createImage();
+    auto surfaceContext = badgeSurface->createPlatformContext();
+    cgImage = badgeSurface->createImage(surfaceContext.get());
 #else
     cgImage = adoptCF([ciContext createCGImage:sourceOverFilter.outputImage fromRect:flippedInsetBadgeRect]);
 #endif

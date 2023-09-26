@@ -35,7 +35,7 @@
     IOHIDDeviceQueueInterface   *_queue;
     __weak IOHIDDeviceClass     *_device;
     
-    os_unfair_lock_t            _queueLock;
+    os_unfair_lock              _queueLock;
 
     mach_port_t                 _port;
     CFMachPortRef               _machPort;

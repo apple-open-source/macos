@@ -252,7 +252,8 @@ ldif_store_options(struct sudoers_parse_tree *parse_tree,
 	    sudo_fatalx(U_("%s: %s"), __func__,
 		U_("unable to allocate memory"));
 	}
-	TAILQ_INIT(d->binding);
+	TAILQ_INIT(&d->binding->members);
+	d->binding->refcnt = 1;
 	d->type = DEFAULTS;
 	d->op = sudo_ldap_parse_option(ls->str, &var, &val);
 	if ((d->var = strdup(var)) == NULL) {
@@ -431,11 +432,11 @@ role_to_sudoers(struct sudoers_parse_tree *parse_tree, struct sudo_role *role,
 	struct privilege *prev_priv = TAILQ_LAST(&us->privileges, privilege_list);
 	if (reuse_runas) {
 	    /* Runas users and groups same if as in previous privilege. */
-	    struct member_list *runasuserlist =
-		TAILQ_FIRST(&prev_priv->cmndlist)->runasuserlist;
-	    struct member_list *runasgrouplist =
-		TAILQ_FIRST(&prev_priv->cmndlist)->runasgrouplist;
 	    struct cmndspec *cmndspec = TAILQ_FIRST(&priv->cmndlist);
+	    const struct cmndspec *prev_cmndspec =
+		TAILQ_LAST(&prev_priv->cmndlist, cmndspec_list);
+	    struct member_list *runasuserlist = prev_cmndspec->runasuserlist;
+	    struct member_list *runasgrouplist = prev_cmndspec->runasgrouplist;
 
 	    /* Free duplicate runas lists. */
 	    if (cmndspec->runasuserlist != NULL) {
@@ -479,6 +480,8 @@ ldif_to_sudoers(struct sudoers_parse_tree *parse_tree,
 
     /* Convert from list of roles to array and sort by order. */
     role_array = reallocarray(NULL, numroles + 1, sizeof(*role_array));
+    if (role_array == NULL)
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     for (n = 0; n < numroles; n++) {
 	if ((role = STAILQ_FIRST(roles)) == NULL)
 	    break;	/* cannot happen */
@@ -491,15 +494,16 @@ ldif_to_sudoers(struct sudoers_parse_tree *parse_tree,
     /*
      * Iterate over roles in sorted order, converting to sudoers.
      */
-    for (n = 0; n < numroles; n++) {
+    for (n = 0, role = NULL; n < numroles; n++) {
 	bool reuse_userspec = false;
 	bool reuse_privilege = false;
 	bool reuse_runas = false;
+	struct sudo_role *prev_role = role;
 
 	role = role_array[n];
 
 	/* Check whether we can reuse the previous user and host specs */
-	if (n > 0 && role->users == role_array[n - 1]->users) {
+	if (prev_role != NULL && role->users == prev_role->users) {
 	    reuse_userspec = true;
 
 	    /*
@@ -508,12 +512,12 @@ ldif_to_sudoers(struct sudoers_parse_tree *parse_tree,
 	     * we are storing options.
 	     */
 	    if (!store_options) {
-		if (role->hosts == role_array[n - 1]->hosts) {
+		if (role->hosts == prev_role->hosts) {
 		    reuse_privilege = true;
 
 		    /* Reuse runasusers and runasgroups if possible. */
-		    if (role->runasusers == role_array[n - 1]->runasusers &&
-			role->runasgroups == role_array[n - 1]->runasgroups)
+		    if (role->runasusers == prev_role->runasusers &&
+			role->runasgroups == prev_role->runasgroups)
 			reuse_runas = true;
 		}
 	    }
@@ -684,7 +688,7 @@ sudoers_parse_ldif(struct sudoers_parse_tree *parse_tree,
 		if (strncasecmp(attr, "cn=", 3) == 0) {
 		    for (attr += 3; *attr != '\0'; attr++) {
 			/* Handle escaped ',' chars. */
-			if (*attr == '\\')
+			if (*attr == '\\' && attr[1] != '\0')
 			    attr++;
 			if (*attr == ',') {
 			    attr++;
@@ -762,17 +766,16 @@ sudoers_parse_ldif(struct sudoers_parse_tree *parse_tree,
     }
     sudo_role_free(role);
     free(line);
+    free(savedline);
 
     /* Convert from roles to sudoers data structures. */
-    ldif_to_sudoers(parse_tree, &roles, numroles, store_options);
+    if (numroles > 0)
+	ldif_to_sudoers(parse_tree, &roles, numroles, store_options);
 
     /* Clean up. */
     rbdestroy(usercache, str_list_free);
     rbdestroy(groupcache, str_list_free);
     rbdestroy(hostcache, str_list_free);
-
-    if (fp != stdin)
-	fclose(fp);
 
     debug_return_bool(errors == 0);
 }

@@ -27,20 +27,22 @@
 #include "NetworkCacheKey.h"
 #include <WebCore/DOMCacheEngine.h>
 #include <WebCore/HTTPParsers.h>
+#include <WebCore/ResourceResponse.h>
 
 namespace WebKit {
 
 struct CacheStorageRecordInformation {
-    void updateVaryHeaders(const WebCore::ResourceRequest& request, const String& varyValue)
+    void updateVaryHeaders(const WebCore::ResourceRequest& request, const WebCore::ResourceResponse::CrossThreadData& response)
     {
-        if (varyValue.isNull()) {
+        auto varyValue = response.httpHeaderFields.get(WebCore::HTTPHeaderName::Vary);
+        if (varyValue.isNull() || response.tainting == WebCore::ResourceResponse::Tainting::Opaque || response.tainting == WebCore::ResourceResponse::Tainting::Opaqueredirect) {
             hasVaryStar = false;
             varyHeaders = { };
             return;
         }
 
         varyValue.split(',', [&](StringView view) {
-            if (!hasVaryStar && WebCore::stripLeadingAndTrailingHTTPSpaces(view) == "*"_s)
+            if (!hasVaryStar && view.trim(WebCore::isHTTPSpace) == "*"_s)
                 hasVaryStar = true;
             varyHeaders.add(view.toString(), request.httpHeaderField(view));
         });

@@ -87,9 +87,12 @@ See remaining rules for examples.
 			<array>
 				<string>is-root</string>
 				<string>is-admin</string>
+				<string>entitled</string>
 				<string>on-console</string>
 				<string>default</string>
 			</array>
+			<key>version</key>
+			<integer>1</integer>
 		</dict>
 		<key>com.apple.DiskManagement.internal.</key>
 		<dict>
@@ -701,6 +704,21 @@ See remaining rules for examples.
 			<key>timeout</key>
 			<integer>0</integer>
 		</dict>
+        <key>system.admin</key>
+        <dict>
+            <key>allow-root</key>
+            <true/>
+            <key>class</key>
+            <string>user</string>
+            <key>comment</key>
+            <string>Authenticate as an administrator</string>
+            <key>group</key>
+            <string>admin</string>
+            <key>shared</key>
+            <false/>
+            <key>timeout</key>
+            <integer>300</integer>
+        </dict>
 		<key>system.csfde.requestpassword.weak</key>
 		<dict>
 			<key>class</key>
@@ -955,11 +973,10 @@ See remaining rules for examples.
 				<string>HomeDirMechanism:status</string>
 				<string>MCXMechanism:login</string>
 				<string>CryptoTokenKit:login</string>
-				<string>PSSOAuthPlugin:login-auth</string>
 				<string>loginwindow:done</string>
 			</array>
 			<key>version</key>
-			<integer>10</integer>
+			<integer>11</integer>
 		</dict>
 		<key>system.login.filevault</key>
 		<dict>
@@ -1863,6 +1880,21 @@ See remaining rules for examples.
 		<key>timeout</key>
 		<integer>0</integer>
 	</dict>
+		<key>com.apple.backgroundtaskmanagement.manage-daemons</key>
+		<dict>
+			<key>allow-root</key>
+			<true/>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Checked when making changes to certain System Preferences.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<false/>
+		</dict>
+
+
     </dict>
 	<key>rules</key>
 	<dict>
@@ -2516,16 +2548,14 @@ See remaining rules for examples.
             <string>Do not modify. Performs unlock operations for screensaver.</string>
             <key>mechanisms</key>
             <array>
-                <string>PSSOAuthPlugin:login-idp</string>
-                <string>builtin:authenticate,privileged</string>
+                <string>builtin:authenticate-platformsso,privileged</string>
                 <string>CryptoTokenKit:login</string>
                 <string>builtin:kcunlock</string>
-                <string>PSSOAuthPlugin:login-auth</string>
             </array>
             <key>tries</key>
             <integer>1</integer>
             <key>version</key>
-            <integer>2</integer>
+            <integer>3</integer>
         </dict>
 	</dict>
 </dict>

@@ -84,8 +84,10 @@
 
 - (void) test_ocsp_responder_policy
 {
-    SecCertificateRef leaf = NULL, subCA = NULL, responderCert = NULL;
+    SecCertificateRef leaf = NULL, subCA = NULL, root = NULL, responderCert = NULL;
     CFMutableArrayRef certs = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+                                                   &kCFTypeArrayCallBacks);
+    CFMutableArrayRef anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0,
                                                    &kCFTypeArrayCallBacks);
     SecTrustRef trust = NULL;
     SecPolicyRef ocspSignerPolicy = NULL;
@@ -98,34 +100,42 @@
                                                        sizeof(_valid_ist_certificate)), NULL, "create ist leaf");
     isnt(subCA = SecCertificateCreateWithBytes(NULL, _ist_intermediate_certificate,
                                                        sizeof(_ist_intermediate_certificate)), NULL, "create ist subCA");
+    isnt(root = SecCertificateCreateWithBytes(NULL, _ist_root_certificate,
+                                                       sizeof(_ist_root_certificate)), NULL, "create ist root");
     CFArrayAppendValue(certs, leaf);
     CFArrayAppendValue(certs, subCA);
+    CFArrayAppendValue(anchors, root);
 
     ok(ocspSignerPolicy = SecPolicyCreateOCSPSigner(),
        "create ocspSigner policy");
 
     ok_status(SecTrustCreateWithCertificates(certs, ocspSignerPolicy, &trust),
               "create trust for c0 -> c1");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
-    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set date 1");
+    ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchors 1");
+    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust 1");
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure,
               "trust is kSecTrustResultRecoverableTrustFailure");
+    CFReleaseNull(trust);
 
     isnt(responderCert = SecCertificateCreateWithBytes(NULL, _responderCert,
                                                        sizeof(_responderCert)), NULL, "create responderCert");
     CFArraySetValueAtIndex(certs, 0, responderCert);
     ok_status(SecTrustCreateWithCertificates(certs, ocspSignerPolicy, &trust),
               "create trust for ocspResponder -> c1");
-    ok_status(SecTrustSetVerifyDate(trust, responderDate), "set date");
-    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
+    ok_status(SecTrustSetVerifyDate(trust, responderDate), "set date 2");
+    ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchors 2");
+    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust 2");
     is_status(trustResult, kSecTrustResultUnspecified,
               "trust is kSecTrustResultUnspecified");
+    CFReleaseNull(trust);
 
     CFReleaseNull(leaf);
     CFReleaseNull(subCA);
+    CFReleaseNull(root);
     CFReleaseNull(responderCert);
     CFReleaseNull(certs);
-    CFReleaseNull(trust);
+    CFReleaseNull(anchors);
     CFReleaseSafe(ocspSignerPolicy);
     CFReleaseNull(date);
     CFReleaseNull(responderDate);

@@ -514,15 +514,20 @@ void PatternParser::parseToExistingPropertiesImpl(const UnicodeString& pattern,
     }
 
     ParsedPatternInfo patternInfo;
+#if APPLE_ICU_CHANGES
+// rdar://51601250 08f73497e6.. Numbers-specific fix, if applyPattern “#.##E+00;-#.##E+00”, make it “0.##E+00”
     if (pattern.compare(u"#.##E+00;-#.##E+00",18)==0) {
         // Special hack for Numbers; if applying the Numbers-style scientific pattern,
         // then replace it with the pattern beginning with 0 that would have resulted
-        // in older versions of ICU such as ICU 61. rdar://51601250
-        UnicodeString newPattern(TRUE,u"0.##E+00",8);
+        // in older versions of ICU such as ICU 61.
+        UnicodeString newPattern(true,u"0.##E+00",8);
         parseToPatternInfo(newPattern, patternInfo, status);
     } else {
         parseToPatternInfo(pattern, patternInfo, status);
     }
+#else
+    parseToPatternInfo(pattern, patternInfo, status);
+#endif  // APPLE_ICU_CHANGES
     if (U_FAILURE(status)) { return; }
     patternInfoToProperties(properties, patternInfo, ignoreRounding, status);
 }
@@ -709,13 +714,20 @@ PatternParser::patternInfoToProperties(DecimalFormatProperties& properties, Pars
 // 0.005 is treated like 0.001 for significance). This is the reason for the
 // initial doubling below.
 // roundIncr must be non-zero.
-// Apple enhancement per rdar://51452216: Takes pointer to roundIncr; if function
+#if 0 && APPLE_ICU_CHANGES
+// rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
+// Apple enhancement: Takes pointer to roundIncr; if function
 // returns false, roundIncr will be rounded as necessary given maxFrac value.
 bool PatternStringUtils::ignoreRoundingIncrement(double* roundIncrPtr, int32_t maxFrac) {
+#else
+bool PatternStringUtils::ignoreRoundingIncrement(double roundIncr, int32_t maxFrac) {
+#endif  // APPLE_ICU_CHANGES
     if (maxFrac < 0) {
         return false;
     }
     int32_t frac = 0;
+#if 0 && APPLE_ICU_CHANGES
+// rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
     double denom = 20.0;
     double roundIncr = *roundIncrPtr * 2.0;
     for (frac = 0; frac <= maxFrac && roundIncr <= 1.0; frac++, roundIncr *= 10.0, denom *= 10.0);
@@ -724,6 +736,11 @@ bool PatternStringUtils::ignoreRoundingIncrement(double* roundIncrPtr, int32_t m
         return false;
     }
     return true;
+#else
+    roundIncr *= 2.0;
+    for (frac = 0; frac <= maxFrac && roundIncr <= 1.0; frac++, roundIncr *= 10.0);
+    return (frac > maxFrac);
+#endif  // APPLE_ICU_CHANGES
 }
 
 UnicodeString PatternStringUtils::propertiesToPatternString(const DecimalFormatProperties& properties,
@@ -765,7 +782,7 @@ UnicodeString PatternStringUtils::propertiesToPatternString(const DecimalFormatP
     int32_t groupingLength = grouping1 + grouping2 + 1;
 
     // Figure out the digits we need to put in the pattern.
-    double roundingInterval = properties.roundingIncrement;
+    double increment = properties.roundingIncrement;
     UnicodeString digitsString;
     int32_t digitsStringScale = 0;
     if (maxSig != uprv_min(dosMax, -1)) {
@@ -776,14 +793,19 @@ UnicodeString PatternStringUtils::propertiesToPatternString(const DecimalFormatP
         while (digitsString.length() < maxSig) {
             digitsString.append(u'#');
         }
-    } else if (roundingInterval != 0.0 && !ignoreRoundingIncrement(&roundingInterval,maxFrac)) {
-        // Rounding Interval.
-        digitsStringScale = -roundingutils::doubleFractionLength(roundingInterval, nullptr);
-        // TODO: Check for DoS here?
+#if 0 && APPLE_ICU_CHANGES
+// rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
+    } else if (increment != 0.0 && !ignoreRoundingIncrement(&increment,maxFrac)) {
+#else
+    } else if (increment != 0.0 && !ignoreRoundingIncrement(increment,maxFrac)) {
+#endif  // APPLE_ICU_CHANGES
+        // Rounding Increment.
         DecimalQuantity incrementQuantity;
-        incrementQuantity.setToDouble(roundingInterval);
+        incrementQuantity.setToDouble(increment);
+        incrementQuantity.roundToInfinity();
+        digitsStringScale = incrementQuantity.getLowerDisplayMagnitude();
         incrementQuantity.adjustMagnitude(-digitsStringScale);
-        incrementQuantity.roundToMagnitude(0, kDefaultMode, status);
+        incrementQuantity.setMinInteger(minInt - digitsStringScale);
         UnicodeString str = incrementQuantity.toPlainString();
         if (str.charAt(0) == u'-') {
             // TODO: Unsupported operation exception or fail silently?
@@ -1071,7 +1093,9 @@ void PatternStringUtils::patternInfoToStringBuilder(const AffixPatternProvider& 
                                                     PatternSignType patternSignType,
                                                     bool approximately,
                                                     StandardPlural::Form plural,
-                                                    bool perMilleReplacesPercent, UnicodeString& output) {
+                                                    bool perMilleReplacesPercent,
+                                                    bool dropCurrencySymbols,
+                                                    UnicodeString& output) {
 
     // Should the output render '+' where '-' would normally appear in the pattern?
     bool plusReplacesMinusSign = (patternSignType == PATTERN_SIGN_TYPE_POS_SIGN)
@@ -1144,6 +1168,9 @@ void PatternStringUtils::patternInfoToStringBuilder(const AffixPatternProvider& 
         }
         if (perMilleReplacesPercent && candidate == u'%') {
             candidate = u'‰';
+        }
+        if (dropCurrencySymbols && candidate == u'\u00A4') {
+            continue;
         }
         output.append(candidate);
     }

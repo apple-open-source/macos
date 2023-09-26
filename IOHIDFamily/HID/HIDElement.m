@@ -1,13 +1,13 @@
-//
-//  HIDElement.m
-//  HID
-//
-//  Created by dekom on 10/5/17.
-//
+/*!
+ * HIDElement.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDLibPrivate.h>
-#import "HIDElementPrivate.h"
+#import <HID/HIDElement_Internal.h>
 
 @implementation HIDElement (HIDFramework)
 

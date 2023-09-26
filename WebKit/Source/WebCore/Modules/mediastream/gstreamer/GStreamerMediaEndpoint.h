@@ -44,6 +44,7 @@ class GStreamerRtpTransceiverBackend;
 class MediaStreamTrack;
 class RTCSessionDescription;
 class RealtimeOutgoingMediaSourceGStreamer;
+class UniqueSSRCGenerator;
 
 class GStreamerMediaEndpoint : public ThreadSafeRefCounted<GStreamerMediaEndpoint, WTF::DestructionThread::Main>
 #if !RELEASE_LOG_DISABLED
@@ -52,7 +53,7 @@ class GStreamerMediaEndpoint : public ThreadSafeRefCounted<GStreamerMediaEndpoin
 {
 public:
     static Ref<GStreamerMediaEndpoint> create(GStreamerPeerConnectionBackend& peerConnection) { return adoptRef(*new GStreamerMediaEndpoint(peerConnection)); }
-    ~GStreamerMediaEndpoint() = default;
+    ~GStreamerMediaEndpoint();
 
     bool setConfiguration(MediaEndpointConfiguration&);
     void restartIce();
@@ -76,9 +77,9 @@ public:
     void resume();
 
     void gatherDecoderImplementationName(Function<void(String&&)>&&);
-    bool isNegotiationNeeded() const { return m_isNegotiationNeeded; }
+    bool isNegotiationNeeded(uint32_t eventId) const { return eventId == m_negotiationNeededEventId; }
 
-    void configureAndLinkSource(RealtimeOutgoingMediaSourceGStreamer&);
+    void configureAndLinkSource(RealtimeOutgoingMediaSourceGStreamer&, bool shouldLookForUnusedPads = false);
 
     bool addTrack(GStreamerRtpSenderBackend&, MediaStreamTrack&, const FixedVector<String>&);
     void removeTrack(GStreamerRtpSenderBackend&);
@@ -88,16 +89,16 @@ public:
         std::unique_ptr<GStreamerRtpReceiverBackend> receiverBackend;
         std::unique_ptr<GStreamerRtpTransceiverBackend> transceiverBackend;
     };
-    std::optional<Backends> addTransceiver(const String& trackKind, const RTCRtpTransceiverInit&);
-    std::optional<Backends> addTransceiver(MediaStreamTrack&, const RTCRtpTransceiverInit&);
+    ExceptionOr<Backends> addTransceiver(const String& trackKind, const RTCRtpTransceiverInit&);
+    ExceptionOr<Backends> addTransceiver(MediaStreamTrack&, const RTCRtpTransceiverInit&);
     std::unique_ptr<GStreamerRtpTransceiverBackend> transceiverBackendFromSender(GStreamerRtpSenderBackend&);
 
-    void setSenderSourceFromTrack(GStreamerRtpSenderBackend&, MediaStreamTrack&);
+    GStreamerRtpSenderBackend::Source createLinkedSourceForTrack(MediaStreamTrack&);
 
     void collectTransceivers();
 
     void createSessionDescriptionSucceeded(GUniquePtr<GstWebRTCSessionDescription>&&);
-    void createSessionDescriptionFailed(GUniquePtr<GError>&&);
+    void createSessionDescriptionFailed(RTCSdpType, GUniquePtr<GError>&&);
 
     GstElement* pipeline() const { return m_pipeline.get(); }
     bool handleMessage(GstMessage*);
@@ -141,12 +142,16 @@ private:
     void addRemoteStream(GstPad*);
     void removeRemoteStream(GstPad*);
 
-    std::optional<Backends> createTransceiverBackends(const String& kind, const RTCRtpTransceiverInit&, GStreamerRtpSenderBackend::Source&&);
+    int pickAvailablePayloadType();
+
+    ExceptionOr<Backends> createTransceiverBackends(const String& kind, const RTCRtpTransceiverInit&, GStreamerRtpSenderBackend::Source&&);
     GStreamerRtpSenderBackend::Source createSourceForTrack(MediaStreamTrack&);
 
     void processSDPMessage(const GstSDPMessage*, Function<void(unsigned index, const char* mid, const GstSDPMedia*)>);
 
-    GRefPtr<GstPad> requestPad(unsigned mlineIndex, const GRefPtr<GstCaps>&, const String& mediaStreamID);
+    GRefPtr<GstPad> requestPad(std::optional<unsigned> mlineIndex, const GRefPtr<GstCaps>&, const String& mediaStreamID);
+
+    std::optional<bool> isIceGatheringComplete(const String& currentLocalDescription);
 
 #if !RELEASE_LOG_DISABLED
     void gatherStatsForLogging();
@@ -161,8 +166,9 @@ private:
     Seconds statsLogInterval(Seconds) const;
 #endif
 
+    String trackIdFromSDPMedia(const GstSDPMedia&);
+
     HashMap<String, RealtimeMediaSource::Type> m_mediaForMid;
-    RealtimeMediaSource::Type mediaTypeForMid(const char* mid);
 
     GStreamerPeerConnectionBackend& m_peerConnectionBackend;
     GRefPtr<GstElement> m_webrtcBin;
@@ -173,10 +179,8 @@ private:
     Ref<GStreamerStatsCollector> m_statsCollector;
 
     unsigned m_requestPadCounter { 0 };
-    int m_ptCounter { 96 };
     unsigned m_pendingIncomingStreams { 0 };
-    bool m_isInitiator { false };
-    bool m_isNegotiationNeeded { false };
+    uint32_t m_negotiationNeededEventId { 0 };
 
 #if !RELEASE_LOG_DISABLED
     Timer m_statsLogTimer;
@@ -189,6 +193,8 @@ private:
 
     using DataChannelHandlerIdentifier = ObjectIdentifier<GstWebRTCDataChannel>;
     HashMap<DataChannelHandlerIdentifier, UniqueRef<GStreamerDataChannelHandler>> m_incomingDataChannels;
+
+    RefPtr<UniqueSSRCGenerator> m_ssrcGenerator;
 };
 
 } // namespace WebCore

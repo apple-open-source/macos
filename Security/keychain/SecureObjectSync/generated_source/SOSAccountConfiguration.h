@@ -17,7 +17,7 @@ __attribute__((visibility("hidden")))
     NSMutableArray<NSString *> *_pendingBackupPeers;
     BOOL _ringUpdateFlag;
     struct {
-        int ringUpdateFlag:1;
+        uint ringUpdateFlag:1;
     } _has;
 }
 

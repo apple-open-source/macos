@@ -100,7 +100,34 @@
 
         if(oldSecurityLevel != newSecurityLevel) {
             secnotice("octagon-account", "IDMS security level has now moved to %ld for altDSID %@", (unsigned long)newSecurityLevel, altDSID);
-
+            NSString* accountType = nil;
+            switch (newSecurityLevel)
+            {
+                case AKAppleIDSecurityLevelUnknown:
+                    accountType = @"Unknown";
+                    break;
+                case AKAppleIDSecurityLevelPasswordOnly:
+                    accountType = @"PasswordOnly";
+                    break;
+                case AKAppleIDSecurityLevelStandard:
+                    accountType = @"Standard";
+                    break;
+                case AKAppleIDSecurityLevelHSA1:
+                    accountType = @"HSA1";
+                    break;
+                case AKAppleIDSecurityLevelHSA2:
+                    accountType = @"HSA2";
+                    break;
+                case AKAppleIDSecurityLevelManaged:
+                    accountType = @"Managed";
+                    break;
+                default:
+                    accountType = @"oh no please file a radar to Security | iCloud Keychain security level";
+                    break;
+            }
+            
+            secnotice("octagon-account", "Security level for altDSID %@ is %lu.  Account type: %@", altDSID, (unsigned long)newSecurityLevel, accountType);
+            
             __block NSError* error = nil;
             // Use an asynchronous otcontrol for Speed But Not Necessarily Correctness
             OTControl* otcontrol = [OTControl controlObject:false error:&error];
@@ -144,8 +171,19 @@
 
                 secinfo("accounts", "Performing SOS circle credential removal for account %@: %@", accountIdentifier, username);
 
-                if (!SOSCCLoggedOutOfAccount(&removalError)) {
-                    secerror("Account %@ could not leave the SOS circle: %@", accountIdentifier, removalError);
+                if (SOSCompatibilityModeEnabled()) { // This is the feature flag check for SOS Deferral
+                    if (SOSCCIsSOSTrustAndSyncingEnabled()) {
+                        CFErrorRef sosOffError = NULL;
+                        if (!SOSCCSetCompatibilityMode(false, &sosOffError)) { // This call sets SOS to OFF and performs all of the steps in SOSCCLoggedOutOfAccount()
+                            secerror("Failed to turn SOS off for Account %@, error: %@", accountIdentifier, sosOffError);
+                        }
+                    } else {
+                        secnotice("octagon-account", "SOS is already off, don't need to call SOSCCSetCompatibilityMode");
+                    }
+                } else {
+                    if (!SOSCCLoggedOutOfAccount(&removalError)) {
+                        secerror("Account %@ could not leave the SOS circle: %@", accountIdentifier, removalError);
+                    }
                 }
 
 #if OCTAGON

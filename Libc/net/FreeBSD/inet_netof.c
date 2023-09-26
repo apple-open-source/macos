@@ -46,8 +46,7 @@ __FBSDID("$FreeBSD: src/lib/libc/inet/inet_netof.c,v 1.4 2007/06/03 17:20:26 ume
  * address; handles class a/b/c network #'s.
  */
 in_addr_t
-inet_netof(in)
-	struct in_addr in;
+inet_netof(struct in_addr in)
 {
 	in_addr_t i = ntohl(in.s_addr);
 

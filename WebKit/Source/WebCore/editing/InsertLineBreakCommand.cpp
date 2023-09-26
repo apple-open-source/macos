@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,13 +28,14 @@
 
 #include "Document.h"
 #include "Editing.h"
-#include "Frame.h"
 #include "FrameSelection.h"
 #include "HTMLBRElement.h"
 #include "HTMLHRElement.h"
 #include "HTMLNames.h"
 #include "HTMLTableElement.h"
+#include "LocalFrame.h"
 #include "RenderElement.h"
+#include "RenderStyleInlines.h"
 #include "RenderText.h"
 #include "Text.h"
 #include "VisibleUnits.h"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,6 +62,7 @@
 #include <sys/kern_event.h>
 #include <nw/private.h>
 #include <netinet6/nd6.h>
+#include <net/if_types.h>
 
 static dispatch_queue_t			S_kev_queue;
 static dispatch_source_t		S_kev_source;
@@ -690,16 +691,25 @@ update_interfaces(const char * msg, Boolean first_time)
 	/* update list of interfaces & link status */
 	ifList = interfaceListCopy();
 	for (scan = ifap; scan != NULL; scan = scan->ifa_next) {
+		struct if_data *	ifData = NULL;
+		Boolean 		configIf = TRUE;
 		if (scan->ifa_addr == NULL
 		    || scan->ifa_addr->sa_family != AF_LINK) {
 			continue;
 		}
+
+		/* Do not configure pktap interface */
+		ifData = (struct if_data *)scan->ifa_data;
+		if (ifData != NULL && ifData->ifi_type == IFT_PKTAP) {
+		    configIf = FALSE;
+		}
+
 		/* get the per-interface link/media information */
 		if (interfaceListAddInterface(ifList, scan->ifa_name)) {
 			messages_add_msg_with_arg(msg, scan->ifa_name);
 			added = TRUE;
-			if (!first_time) {
-				config_new_interface(scan->ifa_name);
+			if (!first_time && configIf) {
+			    config_new_interface(scan->ifa_name);
 			}
 		}
 	}

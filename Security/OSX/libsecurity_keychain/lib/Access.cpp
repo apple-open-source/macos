@@ -292,6 +292,7 @@ string Access::promptDescription() const
 				string descr = acl->promptDescription();
 				if (!descr.empty())
 					return descr;
+                break;
 			}
 		default:
 			break;

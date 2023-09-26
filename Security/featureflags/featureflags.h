@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,10 +30,23 @@
 
 #include <stdbool.h>
 
+#ifdef    __cplusplus
+extern "C" {
+#endif
+
 // Helpers for SystemKeychainAlways feature flag
 bool _SecSystemKeychainAlwaysIsEnabled(void);
 void _SecSystemKeychainAlwaysOverride(bool value);
 void _SecSystemKeychainAlwaysClearOverride(void);
 
+
+// Helpers for trust settings feature flags
+bool _SecTrustSettingsUseXPCEnabled(void);
+bool _SecTrustSettingsUseTrustStoreEnabled(void);
+bool _SecTrustStoreUsesUUIDEnabled(void);
+
+#ifdef    __cplusplus
+}
+#endif
 
 #endif // _SECURITYD_FEATUREFLAGS_H_

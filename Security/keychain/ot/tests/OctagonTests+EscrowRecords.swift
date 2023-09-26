@@ -24,7 +24,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -80,7 +79,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -143,7 +141,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -181,7 +179,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchViableBottlesExpectation.fulfill()
             return nil
         }
@@ -217,7 +215,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -279,7 +276,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -314,7 +311,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchViableBottlesExpectation.fulfill()
             return nil
         }
@@ -343,7 +340,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchBottlesFromCuttlefishFetchExpectation.fulfill()
             return nil
         }
@@ -381,7 +378,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -477,7 +473,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         bottlerotcliqueContext.overrideEscrowCache = false
@@ -527,7 +522,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -553,7 +548,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchViableBottlesExpectation.fulfill()
             return nil
         }
@@ -604,7 +599,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
             self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
                 self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-                XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+                XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
                 fetchViableBottlesExpectation.fulfill()
                 return nil
             }
@@ -655,7 +650,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
             self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
                 self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-                XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+                XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
                 fetchViableBottlesExpectation.fulfill()
                 return nil
             }
@@ -680,7 +675,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let initiatorContextID = "joiner"
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
@@ -707,7 +701,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.fakeCuttlefishServer.injectLegacyEscrowRecords = true
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -733,8 +727,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
-
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             container.moc.performAndWait {
                 let legacy = container.containerMO.legacyEscrowRecords as! Set<EscrowRecordMO>
                 let partial = container.containerMO.partiallyViableEscrowRecords as! Set<EscrowRecordMO>
@@ -770,8 +763,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let fetchViableBottlesAfterExpiredTimeoutExpectation = self.expectation(description: "fetch Cached ViableBottles expectaiton after timeout")
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
-
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchViableBottlesAfterExpiredTimeoutExpectation.fulfill()
             return nil
         }
@@ -811,7 +803,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -834,8 +825,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
-
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             container.moc.performAndWait {
                 XCTAssertEqual(container.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO>, [], "legacy escrowRecords should be empty")
                 XCTAssertEqual(container.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO>, [], "partially viable escrowRecords should be empty")
@@ -877,7 +867,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1004,7 +993,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1051,8 +1039,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let fetchViableBottlesAfterCacheRemovalExpectation = self.expectation(description: "fetchViableBottles expectation after cache removal")
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
-
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             container.moc.performAndWait {
                 XCTAssertEqual(container.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO>, [], "legacy escrowRecords should be empty")
                 XCTAssertEqual(container.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO>, [], "partially viable escrowRecords should be empty")
@@ -1097,7 +1084,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1184,7 +1170,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = contextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1251,7 +1236,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
@@ -1260,7 +1244,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -1332,7 +1316,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
@@ -1341,7 +1324,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -1416,7 +1399,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
@@ -1515,7 +1497,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let ctx = OTConfigurationContext()
         ctx.context = "testctx"
         ctx.containerName = "testname"
-        ctx.dsid = "1234"
         ctx.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         ctx.otControl = self.otControl
         ctx.ckksControl = self.ckksControl
@@ -1525,7 +1506,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let clique = OTClique(contextData: ctx)
         XCTAssertEqual(clique.ctx.context, ctx.context)
         XCTAssertEqual(clique.ctx.containerName, ctx.containerName)
-        XCTAssertEqual(clique.ctx.dsid, ctx.dsid)
         XCTAssertEqual(clique.ctx.altDSID, ctx.altDSID)
         XCTAssertEqual(clique.ctx.otControl, ctx.otControl)
         XCTAssertEqual(clique.ctx.ckksControl, ctx.ckksControl)
@@ -1539,7 +1519,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
@@ -1548,7 +1527,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -1624,7 +1603,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
@@ -1633,7 +1611,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -1666,8 +1644,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         }
 
         // Simulate no CK account state.
-        let noAccountInfo = CKAccountInfo()
-        noAccountInfo.accountStatus = .noAccount
+        let fakeNoAccountInfo = FakeCKAccountInfo()
+        fakeNoAccountInfo.accountStatus = .noAccount
+        let noAccountInfo = unsafeBitCast(fakeNoAccountInfo, to: CKAccountInfo.self)
         bottlerContext.cloudkitAccountStateChange(nil, to: noAccountInfo)
 
         // Check for 1st viable TLK.
@@ -1706,7 +1685,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
@@ -1715,7 +1693,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }
@@ -1794,7 +1772,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
             fetchUnCachedViableBottlesExpectation.fulfill()
             return nil
         }

@@ -25,15 +25,13 @@
 
 #pragma once
 
-#include "FrameLoaderClient.h"
+#include "LocalFrameLoaderClient.h"
 
 namespace WebCore {
 
-class WEBCORE_EXPORT EmptyFrameLoaderClient : public FrameLoaderClient {
+class WEBCORE_EXPORT EmptyFrameLoaderClient : public LocalFrameLoaderClient {
 private:
     Ref<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&) override;
-
-    std::optional<PageIdentifier> pageID() const override;
 
     bool hasWebView() const final;
 
@@ -85,14 +83,14 @@ private:
     void dispatchDidStartProvisionalLoad() final;
     void dispatchDidReceiveTitle(const StringWithDirection&) final;
     void dispatchDidCommitLoad(std::optional<HasInsecureContent>, std::optional<UsedLegacyTLS>, std::optional<WasPrivateRelayed>) final;
-    void dispatchDidFailProvisionalLoad(const ResourceError&, WillContinueLoading) final;
+    void dispatchDidFailProvisionalLoad(const ResourceError&, WillContinueLoading, WillInternallyHandleFailure) final;
     void dispatchDidFailLoad(const ResourceError&) final;
     void dispatchDidFinishDocumentLoad() final;
     void dispatchDidFinishLoad() final;
     void dispatchDidReachLayoutMilestone(OptionSet<LayoutMilestone>) final;
     void dispatchDidReachVisuallyNonEmptyState() final;
 
-    Frame* dispatchCreatePage(const NavigationAction&, NewFrameOpenerPolicy) final;
+    LocalFrame* dispatchCreatePage(const NavigationAction&, NewFrameOpenerPolicy) final;
     void dispatchShow() final;
 
     void dispatchDecidePolicyForResponse(const ResourceResponse&, const ResourceRequest&, PolicyCheckIdentifier, const String&, FramePolicyFunction&&) final;
@@ -132,6 +130,7 @@ private:
 
     ResourceError cannotShowMIMETypeError(const ResourceResponse&) const final;
     ResourceError fileDoesNotExistError(const ResourceResponse&) const final;
+    ResourceError httpsUpgradeRedirectLoopError(const ResourceRequest&) const final;
     ResourceError pluginWillHandleLoadError(const ResourceResponse&) const final;
 
     bool shouldFallBack(const ResourceError&) const final;
@@ -169,7 +168,7 @@ private:
     bool canCachePage() const final;
     void didDisplayInsecureContent() final;
     void didRunInsecureContent(SecurityOrigin&, const URL&) final;
-    RefPtr<Frame> createFrame(const AtomString&, HTMLFrameOwnerElement&) final;
+    RefPtr<LocalFrame> createFrame(const AtomString&, HTMLFrameOwnerElement&) final;
     RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&, const Vector<AtomString>&, const String&, bool) final;
 
     ObjectContentType objectContentType(const URL&, const String&) final;
@@ -180,11 +179,10 @@ private:
 
 #if PLATFORM(COCOA)
     RemoteAXObjectRef accessibilityRemoteObject() final;
-    void willCacheResponse(DocumentLoader*, ResourceLoaderIdentifier, NSCachedURLResponse *, CompletionHandler<void(NSCachedURLResponse *)>&&) const final;
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    void setAXIsolatedTreeRoot(WebCore::AXCoreObject*) final;
 #endif
-
-#if USE(CFURLCONNECTION)
-    bool shouldCacheResponse(DocumentLoader*, ResourceLoaderIdentifier, const ResourceResponse&, const unsigned char*, unsigned long long) final;
+    void willCacheResponse(DocumentLoader*, ResourceLoaderIdentifier, NSCachedURLResponse *, CompletionHandler<void(NSCachedURLResponse *)>&&) const final;
 #endif
 
     Ref<FrameNetworkingContext> createNetworkingContext() final;

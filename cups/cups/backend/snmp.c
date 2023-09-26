@@ -442,6 +442,7 @@ compare_cache(snmp_cache_t *a,		/* I - First cache entry */
  * 'debug_printf()' - Display some debugging information.
  */
 
+__attribute__((format(printf, 1, 2)))
 static void
 debug_printf(const char *format,	/* I - Printf-style format string */
              ...)			/* I - Additional arguments as needed */

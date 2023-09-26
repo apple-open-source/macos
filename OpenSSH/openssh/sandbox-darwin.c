@@ -63,13 +63,8 @@ ssh_sandbox_child(struct ssh_sandbox *box)
 	struct rlimit rl_zero;
 
 	debug3("%s: starting Darwin sandbox", __func__);
-#ifdef __APPLE_SANDBOX_NAMED_EXTERNAL__
-	if (sandbox_init("/System/Library/Sandbox/Profiles/com.openssh.sshd.sb",
-		SANDBOX_NAMED_EXTERNAL, &errmsg) == -1)
-#else
-	if (sandbox_init(kSBXProfilePureComputation, SANDBOX_NAMED,
+	if (sandbox_init("com.openssh.sshd", SANDBOX_NAMED,
 	    &errmsg) == -1)
-#endif
 		fatal("%s: sandbox_init: %s", __func__, errmsg);
 
 	/*

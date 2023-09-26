@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD: src/contrib/telnet/telnetd/sys_term.c,v 1.18 2003/05/04 02:5
 #include <sys/tty.h>
 #ifdef __APPLE__
 #include <util.h>
+#include <TargetConditionals.h>
 #else
 #include <libutil.h>
 #endif
@@ -1097,6 +1098,29 @@ void
 start_login(char *host undef1, int autologin undef1, char *name undef1)
 {
 	char **argv;
+#ifdef __APPLE__
+#if !TARGET_OS_OSX
+	/* rdar://102018838 */
+extern int password_enabled(void);
+	fprintf(stderr,
+"NOTE  +---------------------------------------------------------+\n"
+"NOTE  |           ** TELNET LOGIN IS DISABLED **                |\n"
+"NOTE  |                                                         |\n"
+"NOTE  |   telnet login is disabled by default and will be       |\n"
+"NOTE  |   removed entirely after M3. Switch to SSH as soon      |\n"
+"NOTE  |   as possible.                                          |\n"
+"NOTE  |   See https://at.apple.com/notelnet for details.        |\n"
+"NOTE  |                                                         |\n"
+"NOTE  +---------------------------------------------------------+\n");
+	/* If `altlogin` was set, assume this is a special configuration
+	 * like DebugDiskImage and permit login. Otherwise, check
+	 * boot-args.
+	 */
+	if (NULL == altlogin && password_enabled() < 1) {
+		exit(0);
+	}
+#endif
+#endif
 #ifdef UTMPX
 	// rdar://problem/4433603
 	int pid = getpid();

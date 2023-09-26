@@ -40,9 +40,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/tolower.c,v 1.13 2007/01/09 00:28:01 imp
 #include <runetype.h>
 
 __ct_rune_t
-___tolower_l(c, loc)
-	__ct_rune_t c;
-	locale_t loc;
+___tolower_l(__ct_rune_t c, locale_t loc)
 {
 	size_t lim;
 	_RuneRange *rr;
@@ -76,8 +74,7 @@ ___tolower_l(c, loc)
 }
 
 __ct_rune_t
-___tolower(c)
-	__ct_rune_t c;
+___tolower(__ct_rune_t c)
 {
 	return ___tolower_l(c, __current_locale());
 }

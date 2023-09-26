@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2020-2021 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -31,6 +31,7 @@
 enum event_type {
     EVLOG_ACCEPT,
     EVLOG_REJECT,
+    EVLOG_EXIT,
     EVLOG_ALERT
 };
 
@@ -46,9 +47,10 @@ enum eventlog_format {
 };
 
 /* Eventlog flag values. */
-#define EVLOG_RAW	0x01
-#define EVLOG_MAIL	0x02
-#define EVLOG_MAIL_ONLY	0x04
+#define EVLOG_RAW	0x01	/* only include message and errstr */
+#define EVLOG_MAIL	0x02	/* mail the log message too */
+#define EVLOG_MAIL_ONLY	0x04	/* only mail the message, no other logging */
+#define EVLOG_CWD	0x08	/* log cwd if no runcwd and use CWD, not PWD */
 
 /*
  * Maximum number of characters to log per entry.  The syslogger
@@ -66,7 +68,7 @@ enum eventlog_format {
 #define EVENTLOG_INDENT	"    "
 
 /*
- * Event log config, used with eventlog_setconf()
+ * Event log config, used with eventlog_getconf()
  */
 struct eventlog_config {
     int type;
@@ -101,6 +103,8 @@ struct eventlog {
     char *runcwd;
     char *rungroup;
     char *runuser;
+    char *peeraddr;
+    char *signal_name;
     char *submithost;
     char *submituser;
     char *submitgroup;
@@ -109,21 +113,30 @@ struct eventlog {
     char **env_add;
     char **envp;
     struct timespec submit_time;
+    struct timespec iolog_offset;
+    struct timespec run_time;
+    int exit_value;
     int lines;
     int columns;
     uid_t runuid;
     gid_t rungid;
+    bool dumped_core;
     char sessid[7];
+    char uuid_str[37];
 };
 
 /* Callback from eventlog code to write log info */
 struct json_container;
+struct sudo_lbuf;
 typedef bool (*eventlog_json_callback_t)(struct json_container *, void *);
 
 bool eventlog_accept(const struct eventlog *evlog, int flags, eventlog_json_callback_t info_cb, void *info);
+bool eventlog_exit(const struct eventlog *evlog, int flags);
 bool eventlog_alert(const struct eventlog *evlog, int flags, struct timespec *alert_time, const char *reason, const char *errstr);
+bool eventlog_mail(const struct eventlog *evlog, int flags, struct timespec *event_time, const char *reason, const char *errstr, char * const extra[]);
 bool eventlog_reject(const struct eventlog *evlog, int flags, const char *reason, eventlog_json_callback_t info_cb, void *info);
-bool eventlog_store_json(struct json_container *json, const struct eventlog *evlog);
+bool eventlog_store_json(struct json_container *jsonc, const struct eventlog *evlog);
+bool eventlog_store_sudo(int event_type, const struct eventlog *evlog, struct sudo_lbuf *lbuf);
 size_t eventlog_writeln(FILE *fp, char *line, size_t len, size_t maxlen);
 void eventlog_free(struct eventlog *evlog);
 void eventlog_set_type(int type);
@@ -144,5 +157,6 @@ void eventlog_set_mailto(const char *to_addr);
 void eventlog_set_mailsub(const char *subject);
 void eventlog_set_open_log(FILE *(*fn)(int type, const char *));
 void eventlog_set_close_log(void (*fn)(int type, FILE *));
+const struct eventlog_config *eventlog_getconf(void);
 
 #endif /* SUDO_EVENTLOG_H */

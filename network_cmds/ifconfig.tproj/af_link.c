@@ -72,6 +72,8 @@
 
 #include "ifconfig.h"
 
+extern char *f_ether;
+
 static struct ifreq link_ridreq;
 
 static void
@@ -81,28 +83,21 @@ link_status(int s __unused, const struct ifaddrs *ifa)
 	struct sockaddr_dl *sdl = (struct sockaddr_dl *) ifa->ifa_addr;
 
 	if (sdl != NULL && sdl->sdl_alen > 0) {
-#ifdef notyet
-		if (sdl->sdl_type == IFT_ETHER &&
-		    sdl->sdl_alen == ETHER_ADDR_LEN)
-			printf("\tether %s\n",
-			    ether_ntoa((struct ether_addr *)LLADDR(sdl)));
-		else {
-			int n = sdl->sdl_nlen > 0 ? sdl->sdl_nlen + 1 : 0;
-
-			printf("\tlladdr %s\n", link_ntoa(sdl) + n);
-		}
-#else
 		char *cp = (char *)LLADDR(sdl);
 		int n = sdl->sdl_alen;
-		
+		char *format_char = ":";
+
+		if (f_ether != NULL && strcmp(f_ether, "dash") == 0) {
+			format_char = "-";
+		}
+
 		if (sdl->sdl_type == IFT_ETHER)
 			printf ("\tether ");
 		else
 			printf ("\tlladdr ");
 		while (--n >= 0)
-			printf("%02x%c",*cp++ & 0xff, n>0? ':' : ' ');
+			printf("%02x%s",*cp++ & 0xff, n>0? format_char : "");
 		putchar('\n');
-#endif
 	}
 }
 

@@ -54,6 +54,7 @@
                           errorState:(OctagonState*)errorState
                           deviceInfo:(nonnull OTDeviceInformation *)deviceInfo
                 skipRateLimitedCheck:(BOOL)skipRateLimitedCheck
+                              repair:(BOOL)repair
 {
     if((self = [super init])) {
         _deps = dependencies;
@@ -64,6 +65,7 @@
         _resetOctagon = NO;
         _leaveTrust = NO;
         _skipRateLimitingCheck = skipRateLimitedCheck;
+        _repair = repair;
     }
     return self;
 }
@@ -152,6 +154,7 @@
 
     [self.deps.cuttlefishXPCWrapper requestHealthCheckWithSpecificUser:self.deps.activeAccount
                                                    requiresEscrowCheck:[self checkIfPasscodeIsSetForDevice]
+                                                                repair:self.repair
                                                       knownFederations:[SecureBackup knownICDPFederations:NULL]
                                                                  reply:^(BOOL postRepairCFU,
                                                                          BOOL postEscrowCFU,

@@ -207,7 +207,6 @@ class OctagonSOSTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(false)
         let recoverykeyotcliqueContext = OTConfigurationContext()
         recoverykeyotcliqueContext.context = "recoveryContext"
-        recoverykeyotcliqueContext.dsid = "1234"
         recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         recoverykeyotcliqueContext.otControl = self.otControl
 
@@ -219,78 +218,6 @@ class OctagonSOSTests: OctagonTestsBase {
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
             throw error
-        }
-        do {
-            try clique.joinAfterRestore()
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-
-        do {
-            try clique.isLastFriend()
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-
-        /*
-         * I don't see any way in swift to call a deprecated API.
-         * But, since we're not actually testing behavior here, it's
-         * okay to ignore.
-        do {
-            try clique.safariPasswordSyncingEnabled()
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-         */
-
-        do {
-            try clique.waitForInitialSync()
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-
-        /*
-         * I don't see any way in swift to call a deprecated API.
-         * But, since we're not actually testing behavior here, it's
-         * okay to ignore.
-        clique.viewSet(Set(), disabledViews: Set())
-         */
-
-        do {
-            try clique.setUserCredentialsAndDSID("", password: Data())
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-
-        do {
-            try clique.tryUserCredentialsAndDSID("", password: Data())
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-
-        do {
-            try clique.peersHaveViewsEnabled([""])
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-
-        do {
-            try clique.requestToJoinCircle()
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-
-        clique.accountUserKeyAvailable()
-
-        do {
-            _ = try clique.copyViewUnawarePeerInfo()
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
-        }
-        do {
-            _ = try clique.copyPeerPeerInfo()
-        } catch {
-            XCTAssertNotNil(error, "error should not be nil")
         }
     }
 

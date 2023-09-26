@@ -37,7 +37,11 @@ CFURLRef SecCopyBaseFilesURL(bool system)
 #elif TARGET_OS_SIMULATOR
         baseURL = SecCopyHomeURL();
 #else
-        baseURL = CFURLCreateWithFileSystemPath(NULL, CFSTR("/"), kCFURLPOSIXPathStyle, true);
+        if (system) {
+            baseURL = CFURLCreateWithFileSystemPath(NULL, CFSTR("/"), kCFURLPOSIXPathStyle, true);
+        } else {
+            baseURL = SecCopyHomeURL();
+        }
 #endif
     }
     return baseURL;

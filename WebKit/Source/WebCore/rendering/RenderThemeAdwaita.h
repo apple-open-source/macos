@@ -26,6 +26,8 @@
 
 #pragma once
 
+#if USE(THEME_ADWAITA)
+
 #include "RenderTheme.h"
 
 namespace WebCore {
@@ -101,8 +103,10 @@ private:
 #endif
 
 #if PLATFORM(GTK)
-    Seconds caretBlinkInterval() const override;
+    std::optional<Seconds> caretBlinkInterval() const override;
 #endif
 };
 
 } // namespace WebCore
+
+#endif // USE(THEME_ADWAITA)

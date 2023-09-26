@@ -112,9 +112,7 @@ mpool_filter(MPOOL *mp, void (*pgin) (void *, pgno_t, void *),
  *	Get a new page of memory.
  */
 void *
-mpool_new(mp, pgnoaddr)
-	MPOOL *mp;
-	pgno_t *pgnoaddr;
+mpool_new(MPOOL *mp, pgno_t *pgnoaddr)
 {
 	struct _hqh *head;
 	BKT *bp;

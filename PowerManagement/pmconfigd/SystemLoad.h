@@ -154,6 +154,8 @@ __private_extern__ void SystemLoadUserStateHasChanged(void);
 
 __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool displayIsOff);
 
+__private_extern__ void SystemLoadDominoStateHasChanged(bool _dominoState);
+
 __private_extern__ void SystemLoadPrefsHaveChanged(void);
 
 __private_extern__ void SystemLoadSystemPowerStateHasChanged(void);
@@ -178,6 +180,7 @@ __private_extern__ uint32_t getTimeSinceLastTickle(void);
 __private_extern__ void registerUserActivityClient(xpc_object_t peer, xpc_object_t msg);
 __private_extern__ void updateUserActivityTimeout(xpc_object_t connection, xpc_object_t msg);
 __private_extern__ void deRegisterUserActivityClient(xpc_object_t peer);
+__private_extern__ void updateDominoState(xpc_object_t connection, xpc_object_t msg);
 
 bool getUserActiveAssertionValid(void);
 
@@ -187,8 +190,11 @@ uint64_t getUserActivePostedLevels(void);
 void xctSetUserActiveRootDomain(bool active);
 bool xctGetUserActiveRootDomain(void);
 uint64_t xctGetUserActivityPostedLevels(void);
+uint64_t xctGetUserActivityClientLevels(void);
 void xctUserActive_prime(void);
 void xctSetUserInactiveDuration(uint32_t value);
+void xctSetDisplaySleepEnabled(bool value);
+void xctSetUserActive(bool value);
 #endif
 
 #endif

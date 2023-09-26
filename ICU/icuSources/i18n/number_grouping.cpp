@@ -60,8 +60,11 @@ Grouper Grouper::forProperties(const DecimalFormatProperties& properties) {
     auto minGrouping = static_cast<int16_t>(properties.minimumGroupingDigits);
     grouping1 = grouping1 > 0 ? grouping1 : grouping2 > 0 ? grouping2 : grouping1;
     grouping2 = grouping2 > 0 ? grouping2 : grouping1;
-    // next line: use locale data if not set <rdar://problem/49808819>; handle new -3 = UNUM_MINIMUM_GROUPING_DIGITS_MIN2
+#if APPLE_ICU_CHANGES
+// rdar:/
+    // next line: use locale data if not set rdar://49808819; handle new -3 = UNUM_MINIMUM_GROUPING_DIGITS_MIN2
     minGrouping = (minGrouping > 0 || minGrouping == -3) ? minGrouping : -2;
+#endif  // APPLE_ICU_CHANGES
     return {grouping1, grouping2, minGrouping, UNUM_GROUPING_COUNT};
 }
 
@@ -74,9 +77,12 @@ void Grouper::setLocaleData(const impl::ParsedPatternInfo &patternInfo, const Lo
         // leave fMinGrouping alone
     }
     if (fGrouping1 != -2 && fGrouping2 != -4) {
-        if (fMinGrouping == -2) { // add test <rdar://problem/49808819>
+#if APPLE_ICU_CHANGES
+// rdar:/
+        if (fMinGrouping == -2) { // add test rdar://49808819
             fMinGrouping = getMinGroupingForLocale(locale);
         }
+#endif  // APPLE_ICU_CHANGES
         return;
     }
     auto grouping1 = static_cast<int16_t> (patternInfo.positive.groupingSizes & 0xffff);

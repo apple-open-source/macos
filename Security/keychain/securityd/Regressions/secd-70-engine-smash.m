@@ -57,6 +57,7 @@ int secd_70_engine_smash(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(kTestTestCount);
+    enableSOSCompatibilityForTests();
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     smash();

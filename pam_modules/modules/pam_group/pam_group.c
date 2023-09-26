@@ -47,6 +47,7 @@
 #ifdef __APPLE__
 #include <membership.h>
 #include <stdlib.h>
+#include "Logging.h"
 #endif /* __APPLE__ */
 
 #define PAM_SM_AUTH
@@ -54,6 +55,9 @@
 #include <security/pam_appl.h>
 #include <security/pam_modules.h>
 #include <security/openpam.h>
+
+PAM_DEFINE_LOG(group)
+#define PAM_LOG PAM_LOG_group()
 
 PAM_EXTERN int
 pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
@@ -78,11 +82,11 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
 	/* get target account */
 	if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS ||
 	    user == NULL || getpwnam_r(user, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) != 0 || pwd == NULL) {
-		openpam_log(PAM_LOG_ERROR, "Unable to obtain the username.");
+		os_log_error(PAM_LOG, "Unable to obtain the username.");
 		return (PAM_AUTH_ERR);
 	}
 	if (pwd->pw_uid != 0 && openpam_get_option(pamh, "root_only")) {
-		openpam_log(PAM_LOG_DEBUG, "The root_only option means root only.");
+		os_log_debug(PAM_LOG, "The root_only option means root only.");
 		return (PAM_IGNORE);
 	}
 
@@ -90,14 +94,14 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
 	if (openpam_get_option(pamh, "ruser") &&
 		(pam_get_item(pamh, PAM_RUSER, &ruser) != PAM_SUCCESS || ruser == NULL || 
 		 getpwnam_r(ruser, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) != 0 || pwd == NULL)) {
-		openpam_log(PAM_LOG_ERROR, "Unable to obtain the remote username.");
+		os_log_error(PAM_LOG, "Unable to obtain the remote username.");
 		return (PAM_AUTH_ERR);
 	}
 
 	/* get regulating group */
 	if ((group = openpam_get_option(pamh, "group")) == NULL) {
 		group = "wheel";
-		openpam_log(PAM_LOG_DEBUG, "With no group specfified, I am defaulting to wheel.");
+		os_log_debug(PAM_LOG, "With no group specfified, I am defaulting to wheel.");
 	}
 #ifdef __APPLE__
 	str1 = str = strdup(group);
@@ -122,18 +126,18 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
 			goto found;
 	}
 	if (!found_group) {
-		openpam_log(PAM_LOG_DEBUG, "The specified group (%s) could not be found.", group);
+		os_log_error(PAM_LOG, "The specified group (%s) could not be found.", group);
 		goto failed;
 	}
 #else /* !__APPLE__ */
 	if ((grp = getgrnam(group)) == NULL || grp->gr_mem == NULL) {
-		openpam_log(PAM_LOG_DEBUG, "The specified group (%s) is NULL.", group);
+		os_log_error(PAM_LOG, "The specified group (%s) is NULL.", group);
 		goto failed;
 	}
 
 	/* check if the group is empty */
 	if (*grp->gr_mem == NULL) {
-		openpam_log(PAM_LOG_DEBUG, "The specified group (%s) is empty.", group);
+		os_log_error(PAM_LOG, "The specified group (%s) is empty.", group);
 		goto failed;
 	}
 
@@ -146,7 +150,7 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
 #endif /* __APPLE__ */
 
  not_found:
-	openpam_log(PAM_LOG_DEBUG, "The group check failed.");
+	os_log_debug(PAM_LOG, "The group check failed.");
 #ifdef __APPLE__
 	free(str1);
 #endif /* __APPLE__ */
@@ -154,7 +158,7 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
 		return (PAM_SUCCESS);
 	return (PAM_AUTH_ERR);
  found:
-	openpam_log(PAM_LOG_DEBUG, "The group check succeeded.");
+	os_log_debug(PAM_LOG, "The group check succeeded.");
 #ifdef __APPLE__
 	free(str1);
 #endif /* __APPLE__ */

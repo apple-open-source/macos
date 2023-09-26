@@ -1,6 +1,6 @@
 // * This makes emacs happy -*-Mode: C++;-*-
 /****************************************************************************
- * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2008,2012 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -31,7 +31,7 @@
  *   Author: Juergen Pfeifer, 1997                                          *
  ****************************************************************************/
 
-// $Id: internal.h,v 1.16 2008/10/25 21:35:44 tom Exp $
+// $Id: internal.h,v 1.18 2012/02/23 10:41:56 tom Exp $
 
 #ifndef NCURSES_CPLUS_INTERNAL_H
 #define NCURSES_CPLUS_INTERNAL_H 1
@@ -42,6 +42,11 @@
 #define MODULE_ID(id) static const char Ident[] = id;
 #else
 #define MODULE_ID(id) /*nothing*/
+#endif
+
+#ifdef __MINGW32__
+#include <nc_mingw.h>
+#undef KEY_EVENT
 #endif
 
 #ifndef _QNX_SOURCE
@@ -56,5 +61,7 @@
 #ifndef NULL
 #define NULL 0
 #endif
+
+#include <nc_string.h>
 
 #endif /* NCURSES_CPLUS_INTERNAL_H */

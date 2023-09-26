@@ -30,7 +30,6 @@
 #include "MediaPlayerPrivate.h"
 #include "MediaStreamPrivate.h"
 #include "SampleBufferDisplayLayer.h"
-#include "VideoFrame.h"
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/Lock.h>
@@ -48,6 +47,8 @@ class MediaSourcePrivateClient;
 class PixelBufferConformerCV;
 class VideoLayerManagerObjC;
 class VideoTrackPrivateMediaStream;
+
+enum class VideoFrameRotation : uint16_t;
 
 class MediaPlayerPrivateMediaStreamAVFObjC final
     : public MediaPlayerPrivateInterface
@@ -134,8 +135,8 @@ private:
 
     bool seeking() const override { return false; }
 
-    std::unique_ptr<PlatformTimeRanges> seekable() const override;
-    std::unique_ptr<PlatformTimeRanges> buffered() const override;
+    const PlatformTimeRanges& seekable() const override;
+    const PlatformTimeRanges& buffered() const override;
 
     bool didLoadingProgress() const override { return m_playing; }
 
@@ -146,6 +147,7 @@ private:
     void reenqueueCurrentVideoFrameIfNeeded();
     void requestNotificationWhenReadyForVideoData();
 
+    void setPresentationSize(const IntSize&) final;
     void paint(GraphicsContext&, const FloatRect&) override;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override;
     RefPtr<VideoFrame> videoFrameForCurrentTime() override;
@@ -230,7 +232,10 @@ private:
 
     MediaStreamTrackPrivate* activeVideoTrack() const;
 
-    WeakPtr<MediaPlayer> m_player;
+    LayerHostingContextID hostingContextID() const final;
+    void setVideoInlineSizeFenced(const FloatSize&, const WTF::MachSendRight&) final;
+
+    ThreadSafeWeakPtr<MediaPlayer> m_player;
     RefPtr<MediaStreamPrivate> m_mediaStreamPrivate;
     RefPtr<VideoTrackPrivateMediaStream> m_activeVideoTrack;
 
@@ -258,13 +263,12 @@ private:
     PlaybackState m_playbackState { PlaybackState::None };
 
     // Used on both main thread and sample thread.
-    std::unique_ptr<SampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
+    RefPtr<SampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
     Lock m_sampleBufferDisplayLayerLock;
-    bool m_shouldUpdateDisplayLayer { true };
     // Written on main thread, read on sample thread.
     bool m_canEnqueueDisplayLayer { false };
     // Used on sample thread.
-    VideoFrame::Rotation m_videoRotation { VideoFrame::Rotation::None };
+    VideoFrameRotation m_videoRotation { };
     bool m_videoMirrored { false };
 
     Ref<const Logger> m_logger;
@@ -287,6 +291,8 @@ private:
     bool m_isVisibleInViewPort { false };
     bool m_haveSeenMetadata { false };
     bool m_waitingForFirstImage { false };
+    bool m_isActiveVideoTrackEnabled { true };
+    bool m_hasEnqueuedBlackFrame { false };
 
     uint64_t m_sampleCount { 0 };
     uint64_t m_lastVideoFrameMetadataSampleCount { 0 };
@@ -294,6 +300,7 @@ private:
     FloatSize m_videoFrameSize;
     VideoFrameTimeMetadata m_sampleMetadata;
 
+    std::optional<CGRect> m_storedBounds;
     static NativeImageCreator m_nativeImageCreator;
 };
 

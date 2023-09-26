@@ -66,6 +66,8 @@ int exp_getpid;
 
 int exp_strict_write = 0;
 
+int exp_tty_cooked_echo(Tcl_Interp *interp, exp_tty *tty_old, int *was_raw, int *was_echo);
+
 
 static void
 usage(interp)

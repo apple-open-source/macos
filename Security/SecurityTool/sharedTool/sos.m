@@ -517,7 +517,7 @@ command_sos_control(__unused int argc, __unused char * const * argv)
         } else if (sosQueryEnabled == true) {
             [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
                 printControlFailureMessage(error);
-            }] sosIsEnabledCB:^(bool result) {
+            }] SOSMonitorModeSOSIsActiveWithCallback:^(bool result) {
                 printf("SOS Is %s\n", result ? "Active": "Monitoring");
             }];
         } else {

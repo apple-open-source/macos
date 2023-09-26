@@ -27,6 +27,11 @@
 //                      to the index of the matching non-overlapping set of set from
 //                      the previous step.
 //
+//********************************************************************
+//  Legacy version from ICU 57, only for use by Apple RuleBasedTokenizer
+//  originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+//  urbtok57 interfaces for access via RBT, and better tests
+//********************************************************************
 
 #include "unicode/utypes.h"
 
@@ -95,7 +100,7 @@ RBBISetBuilder57::RBBISetBuilder57(RBBIRuleBuilder57 *rb)
     fTrie           = 0;
     fTrieSize       = 0;
     fGroupCount     = 0;
-    fSawBOF         = FALSE;
+    fSawBOF         = false;
 }
 
 
@@ -274,7 +279,7 @@ void RBBISetBuilder57::build() {
         }
         if (inputSet->contains(bofString)) {
             addValToSet(usetNode, 2);
-            fSawBOF = TRUE;
+            fSawBOF = true;
         }
     }
 
@@ -291,11 +296,11 @@ void RBBISetBuilder57::build() {
                       100000,  //  Max Data Length
                       0,       //  Initial value for all code points
                       0,       //  Lead surrogate unit value
-                      TRUE);   //  Keep Latin 1 in separately
+                      true);   //  Keep Latin 1 in separately
 
 
     for (rlRange = fRangeList; rlRange!=0; rlRange=rlRange->fNext) {
-        utrie_setRange32(fTrie, rlRange->fStartChar, rlRange->fEndChar+1, rlRange->fNum, TRUE);
+        utrie_setRange32(fTrie, rlRange->fStartChar, rlRange->fEndChar+1, rlRange->fNum, true);
     }
 }
 
@@ -310,7 +315,7 @@ int32_t RBBISetBuilder57::getTrieSize() /*const*/ {
                                     NULL,                // Buffer
                                     0,                   // Capacity
                                     getFoldedRBBIValue,
-                                    TRUE,                // Reduce to 16 bits
+                                    true,                // Reduce to 16 bits
                                     fStatus);
     // RBBIDebugPrintf("Trie table size is %d\n", trieSize);
     return fTrieSize;
@@ -329,7 +334,7 @@ void RBBISetBuilder57::serializeTrie(uint8_t *where) {
                     where,                   // Buffer
                     fTrieSize,               // Capacity
                     getFoldedRBBIValue,
-                    TRUE,                    // Reduce to 16 bits
+                    true,                    // Reduce to 16 bits
                     fStatus);
 }
 
@@ -546,7 +551,7 @@ void RBBISetBuilder57::printSets() {
         RBBI_DEBUG_printUnicodeString(usetNode->fText);
         RBBIDebugPrintf("\n");
         if (usetNode->fLeftChild != NULL) {
-            RBBINode::printTree(usetNode->fLeftChild, TRUE);
+            RBBINode::printTree(usetNode->fLeftChild, true);
         }
     }
     RBBIDebugPrintf("\n");

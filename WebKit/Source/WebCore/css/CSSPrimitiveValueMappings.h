@@ -29,14 +29,16 @@
 
 #pragma once
 
-#include "ApplePayButtonSystemImage.h"
 #include "CSSCalcValue.h"
+#include "CSSFontFaceSrcValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSToLengthConversionData.h"
 #include "CSSValueKeywords.h"
+#include "FontSizeAdjust.h"
 #include "GraphicsTypes.h"
 #include "Length.h"
 #include "LineClampValue.h"
+#include "ListStyleType.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
 #include "ScrollTypes.h"
@@ -46,9 +48,74 @@
 #include "UnicodeBidi.h"
 #include "WritingMode.h"
 #include <wtf/MathExtras.h>
-#include <wtf/OptionSet.h>
+
+#if ENABLE(APPLE_PAY)
+#include "ApplePayButtonPart.h"
+#endif
 
 namespace WebCore {
+
+template<typename TargetType> TargetType fromCSSValue(const CSSValue& value)
+{
+    return fromCSSValueID<TargetType>(value.valueID());
+}
+
+class TypeDeducingCSSValueMapper {
+public:
+    TypeDeducingCSSValueMapper(const CSSValue& value)
+        : m_value(value)
+    { }
+
+    template<typename TargetType> operator TargetType() const
+    {
+        return fromCSSValue<TargetType>(m_value);
+    }
+
+    operator const CSSPrimitiveValue&() const
+    {
+        return downcast<CSSPrimitiveValue>(m_value);
+    }
+
+    operator unsigned short() const
+    {
+        return numericValue().value<unsigned short>();
+    }
+
+    operator int() const
+    {
+        return numericValue().value<int>();
+    }
+
+    operator unsigned() const
+    {
+        return numericValue().value<unsigned>();
+    }
+
+    operator float() const
+    {
+        return numericValue().value<float>();
+    }
+
+    operator double() const
+    {
+        return numericValue().doubleValue();
+    }
+
+private:
+    const CSSPrimitiveValue& numericValue() const
+    {
+        auto& value = downcast<CSSPrimitiveValue>(m_value);
+        ASSERT(value.primitiveType() == CSSUnitType::CSS_NUMBER || value.primitiveType() == CSSUnitType::CSS_INTEGER);
+        return value;
+    }
+
+    const CSSValue& m_value;
+};
+
+inline TypeDeducingCSSValueMapper fromCSSValueDeducingType(const CSSValue& value)
+{
+    return value;
+}
 
 #define EMIT_TO_CSS_SWITCH_CASE(VALUE) case TYPE::VALUE: return CSSValue##VALUE;
 #define EMIT_FROM_CSS_SWITCH_CASE(VALUE) case CSSValue##VALUE: return TYPE::VALUE;
@@ -72,18 +139,15 @@ template<> constexpr TYPE fromCSSValueID(CSSValueID value) { \
     return { }; \
 }
 
-template<> inline Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(const LineClampValue& value)
+template<> inline LineClampValue fromCSSValue(const CSSValue& value)
 {
-    return create(value.value(), value.isPercentage() ? CSSUnitType::CSS_PERCENTAGE : CSSUnitType::CSS_INTEGER);
-}
+    auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
 
-template<> inline CSSPrimitiveValue::operator LineClampValue() const
-{
-    if (primitiveType() == CSSUnitType::CSS_INTEGER)
-        return LineClampValue(value<int>(), LineClamp::LineCount);
+    if (primitiveValue.primitiveType() == CSSUnitType::CSS_INTEGER)
+        return LineClampValue(primitiveValue.value<int>(), LineClamp::LineCount);
 
-    if (primitiveType() == CSSUnitType::CSS_PERCENTAGE)
-        return LineClampValue(value<int>(), LineClamp::Percentage);
+    if (primitiveValue.primitiveType() == CSSUnitType::CSS_PERCENTAGE)
+        return LineClampValue(primitiveValue.value<int>(), LineClamp::Percentage);
 
     ASSERT_NOT_REACHED();
     return LineClampValue();
@@ -106,14 +170,6 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
-
-template<> inline CSSPrimitiveValue::operator ColumnSpan() const
-{
-    // Map 1 to none for compatibility reasons.
-    if ((primitiveUnitType() == CSSUnitType::CSS_NUMBER || primitiveUnitType() == CSSUnitType::CSS_INTEGER) && m_value.number == 1)
-        return ColumnSpan::None;
-    return fromCSSValueID<ColumnSpan>(valueID());
-}
 
 #define TYPE PrintColorAdjust
 #define FOR_EACH(CASE) CASE(Exact) CASE(Economy)
@@ -161,6 +217,13 @@ template<> constexpr OutlineIsAuto fromCSSValueID(CSSValueID valueID)
     if (valueID == CSSValueAuto)
         return OutlineIsAuto::On;
     return OutlineIsAuto::Off;
+}
+
+template<> constexpr BlockStepInsert fromCSSValueID(CSSValueID valueID)
+{
+    if (valueID == CSSValueMargin)
+        return BlockStepInsert::Margin;
+    return BlockStepInsert::Padding;
 }
 
 constexpr CSSValueID toCSSValueID(CompositeOperator e, CSSPropertyID propertyID)
@@ -497,7 +560,7 @@ template<> constexpr BoxOrient fromCSSValueID(CSSValueID valueID)
 }
 
 #define TYPE CaptionSide
-#define FOR_EACH(CASE) CASE(Left) CASE(Right) CASE(Top) CASE(Bottom)
+#define FOR_EACH(CASE) CASE(Top) CASE(Bottom)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -508,8 +571,8 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-#define TYPE LeadingTrim
-#define FOR_EACH(CASE) CASE(Normal) CASE(Start) CASE(End) CASE(Both)
+#define TYPE TextBoxTrim
+#define FOR_EACH(CASE) CASE(None) CASE(Start) CASE(End) CASE(Both)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -742,25 +805,11 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-template<> constexpr OptionSet<HangingPunctuation> fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueNone:
-        return { };
-    case CSSValueFirst:
-        return HangingPunctuation::First;
-    case CSSValueLast:
-        return HangingPunctuation::Last;
-    case CSSValueAllowEnd:
-        return HangingPunctuation::AllowEnd;
-    case CSSValueForceEnd:
-        return HangingPunctuation::ForceEnd;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return OptionSet<HangingPunctuation> { };
-}
+#define TYPE HangingPunctuation
+#define FOR_EACH(CASE) CASE(First) CASE(Last) CASE(AllowEnd) CASE(ForceEnd)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
 
 #define TYPE ListStylePosition
 #define FOR_EACH(CASE) CASE(Outside) CASE(Inside)
@@ -768,26 +817,25 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-constexpr CSSValueID toCSSValueID(ListStyleType style)
+constexpr CSSValueID toCSSValueID(ListStyleType::Type style)
 {
     switch (style) {
-    case ListStyleType::None:
+    case ListStyleType::Type::None:
         return CSSValueNone;
-    case ListStyleType::String:
+    default:
         ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
         return CSSValueInvalid;
-    default:
-        return static_cast<CSSValueID>(static_cast<int>(CSSValueDisc) + static_cast<uint8_t>(style));
     }
 }
 
-template<> constexpr ListStyleType fromCSSValueID(CSSValueID valueID)
+template<> constexpr ListStyleType::Type fromCSSValueID(CSSValueID valueID)
 {
     switch (valueID) {
     case CSSValueNone:
-        return ListStyleType::None;
+        return ListStyleType::Type::None;
     default:
-        return static_cast<ListStyleType>(valueID - CSSValueDisc);
+        ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
+        return ListStyleType::Type::None;
     }
 }
 
@@ -1111,25 +1159,11 @@ template<> constexpr TextJustify fromCSSValueID(CSSValueID valueID)
     return TextJustify::Auto;
 }
 
-template<> constexpr OptionSet<TextDecorationLine> fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueNone:
-        return { };
-    case CSSValueUnderline:
-        return TextDecorationLine::Underline;
-    case CSSValueOverline:
-        return TextDecorationLine::Overline;
-    case CSSValueLineThrough:
-        return TextDecorationLine::LineThrough;
-    case CSSValueBlink:
-        return TextDecorationLine::Blink;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return { };
-}
+#define TYPE TextDecorationLine
+#define FOR_EACH(CASE) CASE(Underline) CASE(Overline) CASE(LineThrough) CASE(Blink)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
 
 #define TYPE TextDecorationStyle
 #define FOR_EACH(CASE) CASE(Solid) CASE(Double) CASE(Dotted) CASE(Dashed) CASE(Wavy)
@@ -1139,7 +1173,7 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 
 // FIXME: Implement support for 'under left' and 'under right' values.
 #define TYPE TextUnderlinePosition
-#define FOR_EACH(CASE) CASE(Auto) CASE(Under) CASE(FromFont)
+#define FOR_EACH(CASE) CASE(Auto) CASE(Under) CASE(FromFont) CASE(Left) CASE(Right)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -1157,7 +1191,7 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef FOR_EACH
 
 #define TYPE TextTransform
-#define FOR_EACH(CASE) CASE(Capitalize) CASE(Uppercase) CASE(Lowercase) CASE(None)
+#define FOR_EACH(CASE) CASE(Capitalize) CASE(Uppercase) CASE(Lowercase) CASE(FullSizeKana) CASE(FullWidth)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -1313,50 +1347,14 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-constexpr CSSValueID toCSSValueID(WhiteSpace e)
-{
-    switch (e) {
-    case WhiteSpace::Normal:
-        return CSSValueNormal;
-    case WhiteSpace::Pre:
-        return CSSValuePre;
-    case WhiteSpace::PreWrap:
-        return CSSValuePreWrap;
-    case WhiteSpace::PreLine:
-        return CSSValuePreLine;
-    case WhiteSpace::NoWrap:
-        return CSSValueNowrap;
-    case WhiteSpace::BreakSpaces:
-        return CSSValueBreakSpaces;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return CSSValueInvalid;
-}
-
-template<> constexpr WhiteSpace fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueNowrap:
-        return WhiteSpace::NoWrap;
-    case CSSValuePre:
-        return WhiteSpace::Pre;
-    case CSSValuePreWrap:
-        return WhiteSpace::PreWrap;
-    case CSSValuePreLine:
-        return WhiteSpace::PreLine;
-    case CSSValueNormal:
-        return WhiteSpace::Normal;
-    case CSSValueBreakSpaces:
-        return WhiteSpace::BreakSpaces;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return WhiteSpace::Normal;
-}
+#define TYPE WhiteSpaceCollapse
+#define FOR_EACH(CASE) CASE(Collapse) CASE(Preserve) CASE(PreserveBreaks) CASE(BreakSpaces)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
 
 #define TYPE WordBreak
-#define FOR_EACH(CASE) CASE(Normal) CASE(BreakAll) CASE(KeepAll) CASE(BreakWord)
+#define FOR_EACH(CASE) CASE(Normal) CASE(BreakAll) CASE(KeepAll) CASE(BreakWord) CASE(Auto)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -1611,6 +1609,44 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
+constexpr CSSValueID toCSSValueID(FontSizeAdjust::Metric metric)
+{
+    switch (metric) {
+    case FontSizeAdjust::Metric::ExHeight:
+        return CSSValueExHeight;
+    case FontSizeAdjust::Metric::CapHeight:
+        return CSSValueCapHeight;
+    case FontSizeAdjust::Metric::ChWidth:
+        return CSSValueChWidth;
+    case FontSizeAdjust::Metric::IcWidth:
+        return CSSValueIcWidth;
+    case FontSizeAdjust::Metric::IcHeight:
+        return CSSValueIcHeight;
+    }
+    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
+    return CSSValueAuto;
+}
+
+template<> constexpr FontSizeAdjust::Metric fromCSSValueID(CSSValueID valueID)
+{
+    switch (valueID) {
+    case CSSValueExHeight:
+        return FontSizeAdjust::Metric::ExHeight;
+    case CSSValueCapHeight:
+        return FontSizeAdjust::Metric::CapHeight;
+    case CSSValueChWidth:
+        return FontSizeAdjust::Metric::ChWidth;
+    case CSSValueIcWidth:
+        return FontSizeAdjust::Metric::IcWidth;
+    case CSSValueIcHeight:
+        return FontSizeAdjust::Metric::IcHeight;
+    default:
+        break;
+    }
+    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
+    return FontSizeAdjust::Metric::ExHeight;
+}
+
 constexpr CSSValueID toCSSValueID(FontSmoothingMode smoothing)
 {
     switch (smoothing) {
@@ -1723,25 +1759,11 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-template<> constexpr OptionSet<SpeakAs> fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueNormal:
-        return { };
-    case CSSValueSpellOut:
-        return SpeakAs::SpellOut;
-    case CSSValueDigits:
-        return SpeakAs::Digits;
-    case CSSValueLiteralPunctuation:
-        return SpeakAs::LiteralPunctuation;
-    case CSSValueNoPunctuation:
-        return SpeakAs::NoPunctuation;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return { };
-}
+#define TYPE SpeakAs
+#define FOR_EACH(CASE) CASE(SpellOut) CASE(Digits) CASE(LiteralPunctuation) CASE(NoPunctuation)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
 
 #define TYPE Order
 #define FOR_EACH(CASE) CASE(Logical) CASE(Visual)
@@ -2128,11 +2150,6 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-template<> constexpr OptionSet<TouchAction> fromCSSValueID(CSSValueID valueID)
-{
-    return fromCSSValueID<TouchAction>(valueID);
-}
-
 #define TYPE ScrollSnapStrictness
 #define FOR_EACH(CASE) CASE(None) CASE(Proximity) CASE(Mandatory)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
@@ -2189,50 +2206,56 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-constexpr CSSValueID toCSSValueID(TextEdgeType textEdgeType)
+#define TYPE ScrollbarWidth
+#define FOR_EACH(CASE) CASE(Auto) CASE(Thin) CASE(None)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+constexpr CSSValueID toCSSValueID(TextBoxEdgeType textBoxEdgeType)
 {
-    switch (textEdgeType) {
-    case TextEdgeType::Leading:
+    switch (textBoxEdgeType) {
+    case TextBoxEdgeType::Leading:
         return CSSValueLeading;
-    case TextEdgeType::Text:
+    case TextBoxEdgeType::Text:
         return CSSValueText;
-    case TextEdgeType::CapHeight:
+    case TextBoxEdgeType::CapHeight:
         return CSSValueCap;
-    case TextEdgeType::ExHeight:
+    case TextBoxEdgeType::ExHeight:
         return CSSValueEx;
-    case TextEdgeType::Alphabetic:
+    case TextBoxEdgeType::Alphabetic:
         return CSSValueAlphabetic;
-    case TextEdgeType::CJKIdeographic:
+    case TextBoxEdgeType::CJKIdeographic:
         return CSSValueIdeographic;
-    case TextEdgeType::CJKIdeographicInk:
+    case TextBoxEdgeType::CJKIdeographicInk:
         return CSSValueIdeographicInk;
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
     return CSSValueInvalid;
 }
 
-template<> constexpr TextEdgeType fromCSSValueID(CSSValueID valueID)
+template<> constexpr TextBoxEdgeType fromCSSValueID(CSSValueID valueID)
 {
     switch (valueID) {
     case CSSValueLeading:
-        return TextEdgeType::Leading;
+        return TextBoxEdgeType::Leading;
     case CSSValueText:
-        return TextEdgeType::Text;
+        return TextBoxEdgeType::Text;
     case CSSValueCap:
-        return TextEdgeType::CapHeight;
+        return TextBoxEdgeType::CapHeight;
     case CSSValueEx:
-        return TextEdgeType::ExHeight;
+        return TextBoxEdgeType::ExHeight;
     case CSSValueAlphabetic:
-        return TextEdgeType::Alphabetic;
+        return TextBoxEdgeType::Alphabetic;
     case CSSValueIdeographic:
-        return TextEdgeType::CJKIdeographic;
+        return TextBoxEdgeType::CJKIdeographic;
     case CSSValueIdeographicInk:
-        return TextEdgeType::CJKIdeographicInk;
+        return TextBoxEdgeType::CJKIdeographicInk;
     default:
         break;
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return TextEdgeType::Leading;
+    return TextBoxEdgeType::Leading;
 }
 
 #if ENABLE(APPLE_PAY)
@@ -2355,6 +2378,37 @@ template<> constexpr FontOpticalSizing fromCSSValueID(CSSValueID valueID)
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
     return FontOpticalSizing::Enabled;
+}
+
+template<> constexpr FontTechnology fromCSSValueID(CSSValueID valueID)
+{
+    switch (valueID) {
+    case CSSValueColorColrv0:
+        return FontTechnology::ColorColrv0;
+    case CSSValueColorColrv1:
+        return FontTechnology::ColorColrv1;
+    case CSSValueColorCbdt:
+        return FontTechnology::ColorCbdt;
+    case CSSValueColorSbix:
+        return FontTechnology::ColorSbix;
+    case CSSValueColorSvg:
+        return FontTechnology::ColorSvg;
+    case CSSValueFeaturesAat:
+        return FontTechnology::FeaturesAat;
+    case CSSValueFeaturesGraphite:
+        return FontTechnology::FeaturesGraphite;
+    case CSSValueFeaturesOpentype:
+        return FontTechnology::FeaturesOpentype;
+    case CSSValueIncremental:
+        return FontTechnology::Incremental;
+    case CSSValuePalettes:
+        return FontTechnology::Palettes;
+    case CSSValueVariations:
+        return FontTechnology::Variations;
+    default:
+        break;
+    }
+    return FontTechnology::Invalid;
 }
 
 #define TYPE FontSynthesisLonghandValue

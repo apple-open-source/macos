@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -41,7 +39,7 @@ static char sccsid[] = "@(#)lprint.c	8.3 (Berkeley) 4/28/95";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/finger/lprint.c,v 1.25 2004/03/14 06:43:34 jmallett Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -104,7 +102,12 @@ lprint(PERSON *pn)
 {
 	struct tm *delta;
 	WHERE *w;
+#ifdef __APPLE__
+	int cpr;
+	size_t len, maxlen;
+#else
 	int cpr, len, maxlen;
+#endif	/* __APPLE__ */
 	struct tm *tp;
 	int oddfield;
 	char t[80];
@@ -191,7 +194,11 @@ no_gecos:
 			if (w->idletime != -1 && (delta->tm_yday ||
 			    delta->tm_hour || delta->tm_min)) {
 				cpr += printf("%-*s idle ",
+#ifdef __APPLE__
+				    (int)(maxlen - strlen(w->tty) + 1), ",");
+#else
 				    maxlen - (int)strlen(w->tty) + 1, ",");
+#endif	/* __APPLE__ */
 				if (delta->tm_yday > 0) {
 					cpr += printf("%d day%s ",
 					   delta->tm_yday,
@@ -258,8 +265,13 @@ no_gecos:
 static int
 demi_print(char *str, int oddfield)
 {
+#ifdef __APPLE__
+	static size_t lenlast;
+	size_t lenthis, maxlen;
+#else
 	static int lenlast;
 	int lenthis, maxlen;
+#endif	/* __APPLE__ */
 
 	lenthis = strlen(str);
 	if (oddfield) {
@@ -298,9 +310,19 @@ show_text(const char *directory, const char *file_name, const char *header)
 {
 	struct stat sb;
 	FILE *fp;
+#ifdef __APPLE__
+	int ch;
+	size_t cnt;
+#else
 	int ch, cnt;
+#endif	/* __APPLE__ */
 	char *p, lastc;
+#ifdef	__APPLE__
+	int fd;
+	size_t nr;
+#else
 	int fd, nr;
+#endif	/* __APPLE___ */
 
 	lastc = '\0';
 
@@ -310,7 +332,7 @@ show_text(const char *directory, const char *file_name, const char *header)
 		return(0);
 
 	/* If short enough, and no newlines, show it on a single line.*/
-	if (sb.st_size <= LINE_LEN - strlen(header) - 5) {
+	if (sb.st_size <= (off_t)(LINE_LEN - strlen(header) - 5)) {
 		nr = read(fd, tbuf, sizeof(tbuf));
 		if (nr <= 0) {
 			(void)close(fd);

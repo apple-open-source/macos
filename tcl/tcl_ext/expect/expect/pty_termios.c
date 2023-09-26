@@ -9,12 +9,15 @@ would appreciate credit if you use this file or parts of it.
 
 #include <stdio.h>
 #include <signal.h>
+#include <util.h>
+
 
 #if defined(SIGCLD) && !defined(SIGCHLD)
 #define SIGCHLD SIGCLD
 #endif
 
 #include "expect_cf.h"
+#include "exp_int.h"
 
 /*
    The following functions are linked from the Tcl library.  They

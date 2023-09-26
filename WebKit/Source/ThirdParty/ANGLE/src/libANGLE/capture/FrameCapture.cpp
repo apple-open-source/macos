@@ -25,10 +25,12 @@
 #include "common/string_utils.h"
 #include "common/system_utils.h"
 #include "gpu_info_util/SystemInfo.h"
+#include "image_util/storeimage.h"
 #include "libANGLE/Config.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/Context.inl.h"
 #include "libANGLE/Display.h"
+#include "libANGLE/EGLSync.h"
 #include "libANGLE/Fence.h"
 #include "libANGLE/Framebuffer.h"
 #include "libANGLE/GLES1Renderer.h"
@@ -735,7 +737,7 @@ void WriteBinaryParamReplay(ReplayWriter &replayWriter,
 
     // Only inline strings (shaders) to simplify the C code.
     ParamType overrideType = param.type;
-    if (param.type == ParamType::TGLvoidConstPointer || param.type == ParamType::TvoidConstPointer)
+    if (param.type == ParamType::TvoidConstPointer)
     {
         overrideType = ParamType::TGLubyteConstPointer;
     }
@@ -1365,6 +1367,44 @@ void MaybeResetResources(gl::ContextID contextID,
             {
                 // Emit their restore calls
                 for (CallCapture &call : vertexArrayRestoreCalls[id])
+                {
+                    out << "    ";
+                    WriteCppReplayForCall(call, replayWriter, out, header, binaryData,
+                                          maxResourceIDBufferSize);
+                    out << ";\n";
+                }
+            }
+            break;
+        }
+        case ResourceIDType::egl_Sync:
+        {
+            TrackedResource &trackedEGLSyncs =
+                resourceTracker->getTrackedResource(contextID, ResourceIDType::egl_Sync);
+            ResourceSet &newEGLSyncs         = trackedEGLSyncs.getNewResources();
+            ResourceSet &eglSyncsToDelete    = trackedEGLSyncs.getResourcesToDelete();
+            ResourceSet &eglSyncsToRegen     = trackedEGLSyncs.getResourcesToRegen();
+            ResourceCalls &eglSyncRegenCalls = trackedEGLSyncs.getResourceRegenCalls();
+
+            if (!newEGLSyncs.empty() || !eglSyncsToDelete.empty())
+            {
+                for (GLuint oldResource : eglSyncsToDelete)
+                {
+                    out << "    eglDestroySyncKHR(gEGLDisplay, gEGLSyncMap[" << oldResource
+                        << "]);\n";
+                }
+
+                for (GLuint newResource : newEGLSyncs)
+                {
+                    out << "    eglDestroySyncKHR(gEGLDisplay, gEGLSyncMap[" << newResource
+                        << "]);\n";
+                }
+            }
+
+            // If any of our starting EGLsyncs were deleted during the run, recreate them
+            for (GLuint id : eglSyncsToRegen)
+            {
+                // Emit their regen calls
+                for (CallCapture &call : eglSyncRegenCalls[id])
                 {
                     out << "    ";
                     WriteCppReplayForCall(call, replayWriter, out, header, binaryData,
@@ -2247,8 +2287,9 @@ bool IsSharedObjectResource(ResourceIDType type)
         case ResourceIDType::Image:
         case ResourceIDType::Surface:
         case ResourceIDType::egl_Sync:
-            // Return false for all EGL object types.
-            return false;
+            // EGL types are associated with a display and not bound to a context
+            // For the way this function is used, we can treat them as shared.
+            return true;
 
         case ResourceIDType::EnumCount:
         default:
@@ -3128,7 +3169,7 @@ void CaptureTextureContents(std::vector<CallCapture> *setupCalls,
         (index.getType() == gl::TextureType::_3D || index.getType() == gl::TextureType::_2DArray ||
          index.getType() == gl::TextureType::CubeMapArray);
 
-    if (format.compressed)
+    if (format.compressed || format.paletted)
     {
         if (is3D)
         {
@@ -3539,6 +3580,28 @@ void CaptureFenceSyncResetCalls(const gl::Context *context,
     MaybeCaptureUpdateResourceIDs(context, resourceTracker, &fenceSyncRegenCalls[syncID]);
 }
 
+void CaptureEGLSyncResetCalls(const gl::Context *context,
+                              const gl::State &replayState,
+                              ResourceTracker *resourceTracker,
+                              egl::SyncID eglSyncID,
+                              EGLSync eglSyncObject,
+                              const egl::Sync *eglSync)
+{
+    // Track this as a starting resource that may need to be restored.
+    TrackedResource &trackedEGLSyncs =
+        resourceTracker->getTrackedResource(context->id(), ResourceIDType::egl_Sync);
+
+    // Track calls to regenerate a given buffer
+    ResourceCalls &eglSyncRegenCalls = trackedEGLSyncs.getResourceRegenCalls();
+
+    CallCapture createEGLSync =
+        CaptureCreateSyncKHR(nullptr, true, context->getDisplay(), eglSync->getType(),
+                             eglSync->getAttributeMap(), eglSyncObject);
+    CaptureCustomCreateEGLSync("CreateEGLSyncKHR", createEGLSync,
+                               eglSyncRegenCalls[eglSyncID.value]);
+    MaybeCaptureUpdateResourceIDs(context, resourceTracker, &eglSyncRegenCalls[eglSyncID.value]);
+}
+
 void CaptureBufferBindingResetCalls(const gl::State &replayState,
                                     ResourceTracker *resourceTracker,
                                     gl::BufferBinding binding,
@@ -3595,6 +3658,100 @@ void CaptureDefaultVertexAttribs(const gl::State &replayState,
                                                        defaultValue.Values.FloatValues));
         }
     }
+}
+
+void CompressPalettedTexture(angle::MemoryBuffer &data,
+                             angle::MemoryBuffer &tmp,
+                             const gl::InternalFormat &compressedFormat,
+                             const gl::Extents &extents)
+{
+    constexpr int uncompressedChannelCount = 4;
+
+    uint32_t indexBits = 0, redBlueBits = 0, greenBits = 0, alphaBits = 0;
+    switch (compressedFormat.internalFormat)
+    {
+        case GL_PALETTE4_RGB8_OES:
+            indexBits   = 4;
+            redBlueBits = 8;
+            greenBits   = 8;
+            alphaBits   = 0;
+            break;
+        case GL_PALETTE4_RGBA8_OES:
+            indexBits   = 4;
+            redBlueBits = 8;
+            greenBits   = 8;
+            alphaBits   = 8;
+            break;
+        case GL_PALETTE4_R5_G6_B5_OES:
+            indexBits   = 4;
+            redBlueBits = 5;
+            greenBits   = 6;
+            alphaBits   = 0;
+            break;
+        case GL_PALETTE4_RGBA4_OES:
+            indexBits   = 4;
+            redBlueBits = 4;
+            greenBits   = 4;
+            alphaBits   = 4;
+            break;
+        case GL_PALETTE4_RGB5_A1_OES:
+            indexBits   = 4;
+            redBlueBits = 5;
+            greenBits   = 5;
+            alphaBits   = 1;
+            break;
+        case GL_PALETTE8_RGB8_OES:
+            indexBits   = 8;
+            redBlueBits = 8;
+            greenBits   = 8;
+            alphaBits   = 0;
+            break;
+        case GL_PALETTE8_RGBA8_OES:
+            indexBits   = 8;
+            redBlueBits = 8;
+            greenBits   = 8;
+            alphaBits   = 8;
+            break;
+        case GL_PALETTE8_R5_G6_B5_OES:
+            indexBits   = 8;
+            redBlueBits = 5;
+            greenBits   = 6;
+            alphaBits   = 0;
+            break;
+        case GL_PALETTE8_RGBA4_OES:
+            indexBits   = 8;
+            redBlueBits = 4;
+            greenBits   = 4;
+            alphaBits   = 4;
+            break;
+        case GL_PALETTE8_RGB5_A1_OES:
+            indexBits   = 8;
+            redBlueBits = 5;
+            greenBits   = 5;
+            alphaBits   = 1;
+            break;
+
+        default:
+            UNREACHABLE();
+            break;
+    }
+
+    bool result = data.resize(
+        // Palette size
+        (1 << indexBits) * (2 * redBlueBits + greenBits + alphaBits) / 8 +
+        // Texels size
+        indexBits * extents.width * extents.height * extents.depth / 8);
+    ASSERT(result);
+
+    angle::StoreRGBA8ToPalettedImpl(
+        extents.width, extents.height, extents.depth, indexBits, redBlueBits, greenBits, alphaBits,
+        tmp.data(),
+        uncompressedChannelCount * extents.width,                   // inputRowPitch
+        uncompressedChannelCount * extents.width * extents.height,  // inputDepthPitch
+        data.data(),                                                // output
+        indexBits * extents.width / 8,                              // outputRowPitch
+        indexBits * extents.width * extents.height / 8              // outputDepthPitch
+    );
 }
 
 // Capture the setup of the state that's shared by all of the contexts in the share group
@@ -3953,7 +4110,24 @@ void CaptureShareGroupMidExecutionSetup(
                 gl::PixelPackState packState;
                 packState.alignment = 1;
 
-                if (format.compressed)
+                if (format.paletted)
+                {
+                    // Read back the uncompressed texture, then re-compress it
+                    // to store in the trace.
+
+                    angle::MemoryBuffer tmp;
+
+                    // The uncompressed format (R8G8B8A8) is 4 bytes per texel
+                    bool result = tmp.resize(4 * extents.width * extents.height * extents.depth);
+                    ASSERT(result);
+
+                    (void)texture->getTexImage(context, packState, nullptr, index.getTarget(),
+                                               index.getLevelIndex(), GL_RGBA, GL_UNSIGNED_BYTE,
+                                               tmp.data());
+
+                    CompressPalettedTexture(data, tmp, format, extents);
+                }
+                else if (format.compressed)
                 {
                     // Calculate the size needed to store the compressed level
                     GLuint sizeInBytes;
@@ -4335,6 +4509,29 @@ void CaptureShareGroupMidExecutionSetup(
         CaptureCustomFenceSync(fenceSync, *setupCalls);
         CaptureFenceSyncResetCalls(context, replayState, resourceTracker, syncID, syncObject, sync);
         resourceTracker->getStartingFenceSyncs().insert(syncID);
+    }
+
+    // Capture EGL Sync Objects
+    const egl::SyncMap eglSyncMap = context->getDisplay()->getSyncsForCapture();
+    for (const auto &eglSyncIter : eglSyncMap)
+    {
+        egl::SyncID eglSyncID    = {eglSyncIter.first};
+        const egl::Sync *eglSync = eglSyncIter.second;
+        EGLSync eglSyncObject    = gl::unsafe_int_to_pointer_cast<EGLSync>(eglSyncID.value);
+
+        if (!eglSync)
+        {
+            continue;
+        }
+        CallCapture createEGLSync =
+            CaptureCreateSync(nullptr, true, context->getDisplay(), eglSync->getType(),
+                              eglSync->getAttributeMap(), eglSyncObject);
+        CaptureCustomCreateEGLSync("CreateEGLSyncKHR", createEGLSync, *setupCalls);
+        CaptureEGLSyncResetCalls(context, replayState, resourceTracker, eglSyncID, eglSyncObject,
+                                 eglSync);
+        resourceTracker->getTrackedResource(context->id(), ResourceIDType::egl_Sync)
+            .getStartingResources()
+            .insert(eglSyncID.value);
     }
 
     GLint contextUnpackAlignment = context->getState().getUnpackState().alignment;
@@ -4916,6 +5113,26 @@ void CaptureMidExecutionSetup(const gl::Context *context,
         {
             cap(CaptureMatrixMode(replayState, true, currentMatrixMode));
         }
+
+        // Alpha Test state
+        const bool currentAlphaTestState = apiState.getEnableFeature(GL_ALPHA_TEST);
+        const bool defaultAlphaTestState = replayState.getEnableFeature(GL_ALPHA_TEST);
+
+        if (currentAlphaTestState != defaultAlphaTestState)
+        {
+            capCap(GL_ALPHA_TEST, currentAlphaTestState);
+        }
+
+        const gl::AlphaTestParameters currentAlphaTestParameters =
+            apiState.gles1().getAlphaTestParameters();
+        const gl::AlphaTestParameters defaultAlphaTestParameters =
+            replayState.gles1().getAlphaTestParameters();
+
+        if (currentAlphaTestParameters != defaultAlphaTestParameters)
+        {
+            cap(CaptureAlphaFunc(replayState, true, currentAlphaTestParameters.func,
+                                 currentAlphaTestParameters.ref));
+        }
     }
 
     // Rasterizer state. Missing ES 3.x features.
@@ -4934,6 +5151,34 @@ void CaptureMidExecutionSetup(const gl::Context *context,
     if (currentRasterState.frontFace != defaultRasterState.frontFace)
     {
         cap(CaptureFrontFace(replayState, true, currentRasterState.frontFace));
+    }
+
+    if (currentRasterState.polygonMode != defaultRasterState.polygonMode)
+    {
+        if (context->getExtensions().polygonModeNV)
+        {
+            cap(CapturePolygonModeNV(replayState, true, GL_FRONT_AND_BACK,
+                                     currentRasterState.polygonMode));
+        }
+        else if (context->getExtensions().polygonModeANGLE)
+        {
+            cap(CapturePolygonModeANGLE(replayState, true, GL_FRONT_AND_BACK,
+                                        currentRasterState.polygonMode));
+        }
+        else
+        {
+            UNREACHABLE();
+        }
+    }
+
+    if (currentRasterState.polygonOffsetPoint != defaultRasterState.polygonOffsetPoint)
+    {
+        capCap(GL_POLYGON_OFFSET_POINT_NV, currentRasterState.polygonOffsetPoint);
+    }
+
+    if (currentRasterState.polygonOffsetLine != defaultRasterState.polygonOffsetLine)
+    {
+        capCap(GL_POLYGON_OFFSET_LINE_NV, currentRasterState.polygonOffsetLine);
     }
 
     if (currentRasterState.polygonOffsetFill != defaultRasterState.polygonOffsetFill)
@@ -5105,16 +5350,28 @@ void CaptureMidExecutionSetup(const gl::Context *context,
         currentBlendState.sourceBlendAlpha != defaultBlendState.sourceBlendAlpha ||
         currentBlendState.destBlendAlpha != defaultBlendState.destBlendAlpha)
     {
-        // BlendFunc could be used instead of BlendFuncSeparate in some cases but there's no
-        // advantage and it makes Reset more difficult as both functions affect the same state.
-        cap(CaptureBlendFuncSeparate(
-            replayState, true, currentBlendState.sourceBlendRGB, currentBlendState.destBlendRGB,
-            currentBlendState.sourceBlendAlpha, currentBlendState.destBlendAlpha));
-        Capture(&resetCalls[angle::EntryPoint::GLBlendFuncSeparate],
-                CaptureBlendFuncSeparate(replayState, true, currentBlendState.sourceBlendRGB,
-                                         currentBlendState.destBlendRGB,
-                                         currentBlendState.sourceBlendAlpha,
-                                         currentBlendState.destBlendAlpha));
+        if (context->isGLES1())
+        {
+            // Even though their states are tracked independently, in GLES1 blendAlpha
+            // and blendRGB cannot be set separately and are always equal
+            cap(CaptureBlendFunc(replayState, true, currentBlendState.sourceBlendRGB,
+                                 currentBlendState.destBlendRGB));
+            Capture(&resetCalls[angle::EntryPoint::GLBlendFunc],
+                    CaptureBlendFunc(replayState, true, currentBlendState.sourceBlendRGB,
+                                     currentBlendState.destBlendRGB));
+        }
+        else
+        {
+            // Always use BlendFuncSeparate for non-GLES1 as it covers all cases
+            cap(CaptureBlendFuncSeparate(
+                replayState, true, currentBlendState.sourceBlendRGB, currentBlendState.destBlendRGB,
+                currentBlendState.sourceBlendAlpha, currentBlendState.destBlendAlpha));
+            Capture(&resetCalls[angle::EntryPoint::GLBlendFuncSeparate],
+                    CaptureBlendFuncSeparate(replayState, true, currentBlendState.sourceBlendRGB,
+                                             currentBlendState.destBlendRGB,
+                                             currentBlendState.sourceBlendAlpha,
+                                             currentBlendState.destBlendAlpha));
+        }
     }
 
     if (currentBlendState.blendEquationRGB != defaultBlendState.blendEquationRGB ||
@@ -5354,6 +5611,11 @@ bool SkipCall(EntryPoint entryPoint)
         case EntryPoint::EGLQuerySurface:
             // Skip these calls because:
             // - Some EGL types and pointer parameters aren't yet implemented in EGL capture.
+            return true;
+
+        case EntryPoint::EGLPrepareSwapBuffersANGLE:
+            // Skip this call because:
+            // - eglPrepareSwapBuffersANGLE is automatically called by eglSwapBuffers
             return true;
 
         case EntryPoint::EGLSwapBuffers:
@@ -7314,8 +7576,15 @@ void FrameCaptureShared::maybeCapturePreCallUpdates(
             }
             break;
         }
-
         case EntryPoint::GLBlendFunc:
+        {
+            if (isCaptureActive())
+            {
+                context->getFrameCapture()->getStateResetHelper().setEntryPointDirty(
+                    EntryPoint::GLBlendFunc);
+            }
+            break;
+        }
         case EntryPoint::GLBlendFuncSeparate:
         {
             if (isCaptureActive())
@@ -7377,6 +7646,33 @@ void FrameCaptureShared::maybeCapturePreCallUpdates(
         {
             CreateEGLImagePreCallUpdate<EGLint>(call, mResourceTracker, ParamType::TEGLintPointer,
                                                 egl::AttributeMap::CreateFromIntArray);
+            break;
+        }
+        case EntryPoint::EGLCreateSync:
+        case EntryPoint::EGLCreateSyncKHR:
+        {
+            egl::SyncID eglSyncID = call.params.getReturnValue().value.egl_SyncIDVal;
+            FrameCaptureShared *frameCaptureShared =
+                context->getShareGroup()->getFrameCaptureShared();
+            // If we're capturing, track which egl sync has been created
+            if (frameCaptureShared->isCaptureActive())
+            {
+                handleGennedResource(context, eglSyncID);
+            }
+            break;
+        }
+        case EntryPoint::EGLDestroySync:
+        case EntryPoint::EGLDestroySyncKHR:
+        {
+            egl::SyncID eglSyncID =
+                call.params.getParam("syncPacked", ParamType::Tegl_SyncID, 1).value.egl_SyncIDVal;
+            FrameCaptureShared *frameCaptureShared =
+                context->getShareGroup()->getFrameCaptureShared();
+            // If we're capturing, track which EGL sync has been deleted
+            if (frameCaptureShared->isCaptureActive())
+            {
+                handleDeletedResource(context, eglSyncID);
+            }
             break;
         }
         case EntryPoint::GLDispatchCompute:
@@ -7965,7 +8261,7 @@ void FrameCaptureShared::runMidExecutionCapture(gl::Context *mainContext)
 
     const gl::State &contextState = mainContext->getState();
     gl::State mainContextReplayState(
-        nullptr, nullptr, nullptr, nullptr, nullptr, contextState.getClientType(),
+        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, contextState.getClientType(),
         contextState.getClientVersion(), contextState.getProfileMask(), false, true, true, true,
         false, EGL_CONTEXT_PRIORITY_MEDIUM_IMG, contextState.hasRobustAccess(),
         contextState.hasProtectedContent());
@@ -7980,14 +8276,14 @@ void FrameCaptureShared::runMidExecutionCapture(gl::Context *mainContext)
     egl::Surface *draw    = mainContext->getCurrentDrawSurface();
     egl::Surface *read    = mainContext->getCurrentReadSurface();
 
-    for (gl::Context *shareContext : shareGroup->getContexts())
+    for (auto shareContext : shareGroup->getContexts())
     {
-        FrameCapture *frameCapture = shareContext->getFrameCapture();
+        FrameCapture *frameCapture = shareContext.second->getFrameCapture();
         ASSERT(frameCapture->getSetupCalls().empty());
 
-        if (shareContext->id() == mainContext->id())
+        if (shareContext.second->id() == mainContext->id())
         {
-            CaptureMidExecutionSetup(shareContext, &frameCapture->getSetupCalls(),
+            CaptureMidExecutionSetup(shareContext.second, &frameCapture->getSetupCalls(),
                                      frameCapture->getStateResetHelper().getResetCalls(),
                                      &mShareGroupSetupCalls, &mResourceIDToSetupCalls,
                                      &mResourceTracker, mainContextReplayState,
@@ -8010,21 +8306,22 @@ void FrameCaptureShared::runMidExecutionCapture(gl::Context *mainContext)
         }
         else
         {
-            const gl::State &shareContextState = shareContext->getState();
+            const gl::State &shareContextState = shareContext.second->getState();
             gl::State auxContextReplayState(
-                nullptr, nullptr, nullptr, nullptr, nullptr, shareContextState.getClientType(),
-                shareContextState.getClientVersion(), shareContextState.getProfileMask(), false,
-                true, true, true, false, EGL_CONTEXT_PRIORITY_MEDIUM_IMG,
-                shareContextState.hasRobustAccess(), shareContextState.hasProtectedContent());
-            auxContextReplayState.initializeForCapture(shareContext);
+                nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+                shareContextState.getClientType(), shareContextState.getClientVersion(),
+                shareContextState.getProfileMask(), false, true, true, true, false,
+                EGL_CONTEXT_PRIORITY_MEDIUM_IMG, shareContextState.hasRobustAccess(),
+                shareContextState.hasProtectedContent());
+            auxContextReplayState.initializeForCapture(shareContext.second);
 
-            egl::Error error = shareContext->makeCurrent(display, draw, read);
+            egl::Error error = shareContext.second->makeCurrent(display, draw, read);
             if (error.isError())
             {
                 INFO() << "MEC unable to make secondary context current";
             }
 
-            CaptureMidExecutionSetup(shareContext, &frameCapture->getSetupCalls(),
+            CaptureMidExecutionSetup(shareContext.second, &frameCapture->getSetupCalls(),
                                      frameCapture->getStateResetHelper().getResetCalls(),
                                      &mShareGroupSetupCalls, &mResourceIDToSetupCalls,
                                      &mResourceTracker, auxContextReplayState,
@@ -8033,12 +8330,12 @@ void FrameCaptureShared::runMidExecutionCapture(gl::Context *mainContext)
             scanSetupCalls(frameCapture->getSetupCalls());
 
             WriteAuxiliaryContextCppSetupReplay(
-                mReplayWriter, mCompression, mOutDirectory, shareContext, mCaptureLabel, 1,
+                mReplayWriter, mCompression, mOutDirectory, shareContext.second, mCaptureLabel, 1,
                 frameCapture->getSetupCalls(), &mBinaryData, mSerializeStateEnabled, *this,
                 &mResourceIDBufferSize);
         }
         // Track that this context was created before MEC started
-        mActiveContexts.insert(shareContext->id().value);
+        mActiveContexts.insert(shareContext.first);
     }
 
     egl::Error error = mainContext->makeCurrent(display, draw, read);
@@ -8242,7 +8539,9 @@ void StateResetHelper::setDefaultResetCalls(const gl::Context *context,
         }
         case angle::EntryPoint::GLBlendFunc:
         {
-            UNREACHABLE();  // GLBlendFuncSeparate is always used instead
+            Capture(&mResetCalls[angle::EntryPoint::GLBlendFunc],
+                    CaptureBlendFunc(context->getState(), true, kDefaultBlendState.sourceBlendRGB,
+                                     kDefaultBlendState.destBlendRGB));
             break;
         }
         case angle::EntryPoint::GLBlendFuncSeparate:
@@ -8323,7 +8622,7 @@ TrackedResource &ResourceTracker::getTrackedResource(gl::ContextID contextID, Re
 {
     if (IsSharedObjectResource(type))
     {
-        // No need to index with context if not shared
+        // No need to index with context if shared
         return mTrackedResourcesShared[static_cast<uint32_t>(type)];
     }
     else
@@ -8713,10 +9012,10 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
 
             // Setup each of the auxiliary contexts.
             egl::ShareGroup *shareGroup            = context->getShareGroup();
-            const egl::ContextSet &shareContextSet = shareGroup->getContexts();
-            for (gl::Context *shareContext : shareContextSet)
+            const egl::ContextMap &shareContextMap = shareGroup->getContexts();
+            for (auto shareContext : shareContextMap)
             {
-                if (shareContext->id() == context->id())
+                if (shareContext.first == context->id().value)
                 {
                     if (usesMidExecutionCapture())
                     {
@@ -8736,15 +9035,16 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
                 {
                     // Only call SetupReplayContext for secondary contexts that were current before
                     // MEC started
-                    if (mActiveContexts.find(shareContext->id().value) != mActiveContexts.end())
+                    if (mActiveContexts.find(shareContext.first) != mActiveContexts.end())
                     {
                         // TODO(http://anglebug.com/5878): Support capture/replay of
                         // eglCreateContext() so this block can be moved into SetupReplayContextXX()
                         // by injecting them into the beginning of the setup call stream.
-                        out << "    CreateContext(" << shareContext->id() << ");\n";
+                        out << "    CreateContext(" << shareContext.first << ");\n";
 
                         out << "    "
-                            << FmtSetupFunction(kNoPartId, shareContext->id(), FuncUsage::Call)
+                            << FmtSetupFunction(kNoPartId, shareContext.second->id(),
+                                                FuncUsage::Call)
                             << ";\n";
                     }
                 }
@@ -8752,7 +9052,7 @@ void FrameCaptureShared::writeMainContextCppReplay(const gl::Context *context,
 
             // If there are other contexts that were initialized, we need to make the main context
             // current again.
-            if (shareContextSet.size() > 1)
+            if (shareContextMap.size() > 1)
             {
                 out << "\n";
                 out << "    eglMakeCurrent(NULL, NULL, NULL, gContextMap2[" << context->id()

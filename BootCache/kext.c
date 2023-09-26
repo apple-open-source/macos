@@ -4565,7 +4565,10 @@ BC_teardown_mount(struct BC_cache_mount *cm)
  *
  * Called with the cache write lock held
  */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wframe-larger-than" // Don't care about fill_in_bc_cache_mounts since it's not on the I/O path
 static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
+#pragma clang diagnostic pop
 {
 	int mount_idx, error, i;
 	struct vfs_attr attr;
@@ -5699,7 +5702,10 @@ BC_timeout_history(void *junk)
 /*
  * Check for new mounts. Called with no locks held
  */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wframe-larger-than"  // Don't care about check_for_new_mount_itr since it's not on the I/O path
 static int check_for_new_mount_itr(mount_t mount, void* arg) {
+#pragma clang diagnostic pop
 	struct vfs_attr attr;
 	int error, mount_idx;
 	int* go_again = (int*) arg;
@@ -6903,7 +6909,7 @@ BC_sysctl SYSCTL_HANDLER_ARGS
  *
  */
 static int
-BC_alloc_pagebuffer()
+BC_alloc_pagebuffer(void)
 {
 	kern_return_t kret;
 	int ret;

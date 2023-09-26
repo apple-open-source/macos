@@ -140,7 +140,7 @@ _nwi_ifstate_flags_str(nwi_ifstate_flags flags, char *str, size_t len)
 static __inline__ const char *
 _nwi_ifstate_rank_str(Rank rank)
 {
-	const char	*str	= "???";
+	const char	*str;
 
 	switch (RANK_ASSERTION_MASK(rank)) {
 	    case kRankAssertionFirst:

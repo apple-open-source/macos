@@ -81,6 +81,8 @@
 
 #include "ifconfig.h"
 
+extern	char *f_inet6, *f_addr;
+
 #define ND6BITS "\020\001PERFORMNUD\002ACCEPT_RTADV\003PREFER_SOURCE" \
 	"\004IFDISABLED\005DONT_SET_IFROUTE\006PROXY_PREFIXES" \
 	"\007IGNORE_NA\010INSECURE\011REPLICATED\012DAD"
@@ -238,7 +240,7 @@ in6_status(int s __unused, const struct ifaddrs *ifa)
 	u_int32_t flags6;
 	struct in6_addrlifetime lifetime;
 	time_t t = time(NULL);
-	int error;
+	int error, n_flags;
 	u_int32_t scopeid;
 
 	memset(&null_sin, 0, sizeof(null_sin));
@@ -281,12 +283,18 @@ in6_status(int s __unused, const struct ifaddrs *ifa)
 	}
 	scopeid = sin->sin6_scope_id;
 
+	if (f_addr != NULL && strcmp(f_addr, "fqdn") == 0)
+		n_flags = 0;
+	else if (f_addr != NULL && strcmp(f_addr, "host") == 0)
+		n_flags = NI_NOFQDN;
+	else
+		n_flags = NI_NUMERICHOST;
 	error = getnameinfo((struct sockaddr *)sin, sin->sin6_len, addr_buf,
-			    sizeof(addr_buf), NULL, 0, NI_NUMERICHOST);
+			    sizeof(addr_buf), NULL, 0, n_flags);
 	if (error != 0)
 		inet_ntop(AF_INET6, &sin->sin6_addr, addr_buf,
 			  sizeof(addr_buf));
-	printf("\tinet6 %s ", addr_buf);
+	printf("\tinet6 %s", addr_buf);
 
 	if (ifa->ifa_flags & IFF_POINTOPOINT) {
 		sin = (struct sockaddr_in6 *)ifa->ifa_dstaddr;
@@ -315,15 +323,19 @@ in6_status(int s __unused, const struct ifaddrs *ifa)
 			if (error != 0)
 				inet_ntop(AF_INET6, &sin->sin6_addr, addr_buf,
 					  sizeof(addr_buf));
-			printf("--> %s ", addr_buf);
+			printf(" --> %s", addr_buf);
 		}
 	}
 
 	sin = (struct sockaddr_in6 *)ifa->ifa_netmask;
 	if (sin == NULL)
 		sin = &null_sin;
-	printf("prefixlen %d ", prefix(&sin->sin6_addr,
-		sizeof(struct in6_addr)));
+	if (f_inet6 != NULL && strcmp(f_inet6, "cidr") == 0)
+		printf("/%d ", prefix(&sin->sin6_addr,
+			sizeof(struct in6_addr)));
+	else
+		printf(" prefixlen %d ", prefix(&sin->sin6_addr,
+			sizeof(struct in6_addr)));
 
 	if ((flags6 & IN6_IFF_ANYCAST) != 0)
 		printf("anycast ");

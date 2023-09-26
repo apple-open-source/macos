@@ -22,10 +22,12 @@ class OctagonCKKSTests: OctagonTestsBase {
             self.intendedCKKSZones = Set([
                 CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
                 CKRecordZone.ID(zoneName: "Contacts"),
+                CKRecordZone.ID(zoneName: "Groups"),
                 CKRecordZone.ID(zoneName: "Manatee"),
                 CKRecordZone.ID(zoneName: "Mail"),
                 CKRecordZone.ID(zoneName: "MFi"),
                 CKRecordZone.ID(zoneName: "Passwords"),
+                CKRecordZone.ID(zoneName: "Photos"),
                 CKRecordZone.ID(zoneName: "SecureObjectSync"),
                 CKRecordZone.ID(zoneName: "Backstop"),
             ])
@@ -35,7 +37,17 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // Allow ourselves to add safari items
         self.previousKeychainAccessGroups = (SecAccessGroupsGetCurrent()?.takeUnretainedValue()) as? [String]
-        SecAccessGroupsSetCurrent((self.previousKeychainAccessGroups + ["com.apple.cfnetwork", "com.apple.sbd"]) as CFArray)
+        SecAccessGroupsSetCurrent((self.previousKeychainAccessGroups + [
+            "com.apple.cfnetwork",
+            "com.apple.sbd",
+            "com.apple.cfnetwork-recently-deleted",
+            "com.apple.password-manager-recently-deleted",
+            "com.apple.webkit.webauthn-recently-deleted",
+            "com.apple.password-manager.personal",
+            "com.apple.password-manager.personal-recently-deleted",
+            "com.apple.password-manager.generated-passwords",
+            "com.apple.password-manager.generated-passwords-recently-deleted",
+        ]) as CFArray)
     }
 
     override func tearDown() {
@@ -92,6 +104,123 @@ class OctagonCKKSTests: OctagonTestsBase {
 #endif // tvos test skip
     }
 
+    func testHandleSafariGeneratedIems() throws {
+#if os(tvOS)
+        throw XCTSkip("aTV cannot set user-controllable views")
+#else
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // `Passwords` is a user-controllable view, so we must enable syncing
+        // for those views if we want our items to upload.
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        self.assertModifyUserViews(clique: clique, intendedSyncStatus: true)
+
+        // We expect four records to be uploaded to the view, one for each
+        // recently deleted access group.
+        self.expectCKModifyItemRecords(3, currentKeyPointerRecords: 1, zoneID: self.passwordsZoneID)
+
+        // Ensure that all uploads happen in a batch
+        self.defaultCKKS.holdOutgoingQueueOperation = Operation()
+
+        self.addGenericPassword("password",
+                                account: "jane_eyre",
+                                access: kSecAttrAccessibleWhenUnlocked as String,
+                                viewHint: nil,
+                                accessGroup: "com.apple.password-manager.generated-passwords",
+                                expecting: errSecSuccess,
+                                message: "Add item to recently deleted credentials access group")
+
+        self.addRandomPrivateKey(withAccessGroup: "com.apple.password-manager.generated-passwords-recently-deleted",
+                                 message: "Add key to recently deleted WebAuthn keys access group")
+
+        self.addGenericPassword("personal-sidecar",
+                                account: "jane_eyre",
+                                access: kSecAttrAccessibleWhenUnlocked as String,
+                                viewHint: nil,
+                                accessGroup: "com.apple.password-manager.generated-passwords-recently-deleted",
+                                expecting: errSecSuccess,
+                                message: "Add item to recently deleted personal sidecars access group")
+
+        if let op = self.defaultCKKS.holdOutgoingQueueOperation {
+            self.operationQueue.add(op)
+        }
+
+        self.verifyDatabaseMocks()
+#endif
+    }
+
+    func testHandleSafariRecentlyDeletedItems() throws {
+#if os(tvOS)
+        throw XCTSkip("aTV cannot set user-controllable views")
+#else
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // `Passwords` is a user-controllable view, so we must enable syncing
+        // for those views if we want our items to upload.
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        self.assertModifyUserViews(clique: clique, intendedSyncStatus: true)
+
+        // We expect four records to be uploaded to the view, one for each
+        // recently deleted access group.
+        self.expectCKModifyItemRecords(4, currentKeyPointerRecords: 1, zoneID: self.passwordsZoneID)
+
+        self.addGenericPassword("password",
+                                account: "jane_eyre",
+                                access: kSecAttrAccessibleWhenUnlocked as String,
+                                viewHint: nil,
+                                accessGroup: "com.apple.cfnetwork-recently-deleted",
+                                expecting: errSecSuccess,
+                                message: "Add item to recently deleted credentials access group")
+
+        self.addGenericPassword("sidecar",
+                                account: "jane_eyre",
+                                access: kSecAttrAccessibleWhenUnlocked as String,
+                                viewHint: nil,
+                                accessGroup: "com.apple.password-manager-recently-deleted",
+                                expecting: errSecSuccess,
+                                message: "Add item to recently deleted credential sidecars access group")
+
+        self.addRandomPrivateKey(withAccessGroup: "com.apple.webkit.webauthn-recently-deleted",
+                                 message: "Add key to recently deleted WebAuthn keys access group")
+
+        self.addGenericPassword("personal-sidecar",
+                                account: "jane_eyre",
+                                access: kSecAttrAccessibleWhenUnlocked as String,
+                                viewHint: nil,
+                                accessGroup: "com.apple.password-manager.personal-recently-deleted",
+                                expecting: errSecSuccess,
+                                message: "Add item to recently deleted personal sidecars access group")
+
+        self.verifyDatabaseMocks()
+#endif // tvos test skip
+    }
+
+    func testHandleSafariPersonalSidecarItem() throws {
+#if os(tvOS)
+        throw XCTSkip("aTV cannot set user-controllable views")
+#else
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        self.assertModifyUserViews(clique: clique, intendedSyncStatus: true)
+
+        self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: self.passwordsZoneID)
+
+        self.addGenericPassword("personal-sidecar",
+                                account: "jane_eyre",
+                                access: kSecAttrAccessibleWhenUnlocked as String,
+                                viewHint: nil,
+                                accessGroup: "com.apple.password-manager.personal",
+                                expecting: errSecSuccess,
+                                message: "Add item to personal sidecars access group")
+
+        self.verifyDatabaseMocks()
+#endif // tvos test skip
+    }
+
     func testHandleContactsItemAdd() throws {
 #if os(tvOS)
         throw XCTSkip("aTV does not participate in Mail view")
@@ -103,6 +232,38 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.addGenericPassword("asdf",
                                 account: "Contacts-test",
                                 viewHint: kSecAttrViewHintContacts as String)
+
+        self.verifyDatabaseMocks()
+#endif // tvos test skip
+    }
+
+    func testHandlePhotosItemAdd() throws {
+#if os(tvOS)
+        throw XCTSkip("aTV does not participate in Mail view")
+#else
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: CKRecordZone.ID(zoneName: "Photos"))
+        self.addGenericPassword("asdf",
+                                account: "Photos-test",
+                                viewHint: kSecAttrViewHintPhotos as String)
+
+        self.verifyDatabaseMocks()
+#endif // tvos test skip
+    }
+
+    func testHandleGroupsItemAdd() throws {
+#if os(tvOS)
+        throw XCTSkip("aTV does not participate in Groups view")
+#else
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: CKRecordZone.ID(zoneName: "Groups"))
+        self.addGenericPassword("asdf",
+                                account: "Groups-test",
+                                viewHint: kSecAttrViewHintGroups as String)
 
         self.verifyDatabaseMocks()
 #endif // tvos test skip
@@ -471,7 +632,7 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionViaPeersOpinion() throws {
-        self.mockSOSAdapter!.sosEnabled = false
+        self.mockSOSAdapter!.setSOSEnabled(false)
 
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -751,7 +912,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'waitforhsa2'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
 
         let fetchExpectation = self.expectation(description: "fetch user controllable views syncing status returns")
         self.cuttlefishContext.rpcFetchUserControllableViewsSyncingStatus { isSyncing, error in

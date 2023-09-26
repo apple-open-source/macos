@@ -179,6 +179,8 @@ uplrules_getKeywords(const UPluralRules *uplrules,
     return uenum_openFromStringEnumeration(senum, status);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 U_CAPI double U_EXPORT2
 uplrules_getSampleForKeyword(const UPluralRules *uplrules,
                              const UChar* keyword,
@@ -203,5 +205,6 @@ uplrules_getSampleForKeyword(const UPluralRules *uplrules,
         return (samples[0] == 0) ? samples[1] : samples[0];
     }
 }
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

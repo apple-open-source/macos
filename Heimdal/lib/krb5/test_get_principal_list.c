@@ -8,9 +8,12 @@ static int debug_flag	= 0;
 static int version_flag = 0;
 static int help_flag	= 0;
 
+#if HAVE_KCM || ENABLE_KCM_COMPAT
 static void
 test_krb5_kcm_get_principal_list(krb5_context context)
 {
+
+#ifdef HAVE_KCM
     krb5_ccache id1, id2;
     krb5_error_code ret;
     krb5_principal p1, p2;
@@ -92,7 +95,15 @@ test_krb5_kcm_get_principal_list(krb5_context context)
 
     krb5_cc_destroy(context, id1);
     krb5_cc_destroy(context, id2);
+#else
+    CFArrayRef arr = NULL;
+    arr = krb5_kcm_get_principal_list(context);
+    if (arr) {
+	krb5_errx(context, 1, "krb5_kcm_get_principal_list");
+    }
+#endif /* HAVE_KCM */
 }
+#endif /* HAVE_KCM || ENABLE_KCM_COMPAT */
 
 static struct getargs args[] = {
     {"debug",	'd',	arg_flag,	&debug_flag,
@@ -134,7 +145,7 @@ main(int argc, char **argv)
     if (ret)
 	errx (1, "krb5_init_context failed: %d", ret);
 
-#ifdef HAVE_KCM
+#if HAVE_KCM || ENABLE_KCM_COMPAT
     test_krb5_kcm_get_principal_list(context);
 #endif
 }

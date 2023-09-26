@@ -27,7 +27,7 @@ __attribute__((visibility("hidden")))
     NSString *_userDefaultTestName;
     BOOL _isAppleInternal;
     struct {
-        int isAppleInternal:1;
+        uint isAppleInternal:1;
     } _has;
 }
 

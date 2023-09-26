@@ -35,6 +35,10 @@
 
 #include <math.h>
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 /* Builtins in the main executable */
 
 static struct builtin builtins[] =
@@ -5871,8 +5875,13 @@ zexit(int val, enum zexit_t from_where)
 	if (islogin && !subsh) {
 	    sourcehome(".zlogout");
 #ifdef GLOBAL_ZLOGOUT
-	    if (isset(RCS) && isset(GLOBALRCS))
+	    if (isset(RCS) && isset(GLOBALRCS)) {
+#if defined(__APPLE__) && TARGET_OS_OSX
+		source(check_managed_config(MANAGED_GLOBAL_ZLOGOUT, GLOBAL_ZLOGOUT));
+#else
 		source(GLOBAL_ZLOGOUT);
+#endif // __APPLE__ && TARGET_OS_OSX
+	    }
 #endif
 	}
     }

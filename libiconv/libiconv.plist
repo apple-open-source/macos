@@ -1,35 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2007-02-11</string>
-		<key>OpenSourceLicense</key>
-		<string>LGPL</string>
-		<key>OpenSourceLicenseFile</key>
-		<string>libiconv.txt</string>
-		<key>OpenSourceModifications</key>
-		<array>
-			<string>changes to build under XBS</string>
-			<string>4740335 - MacRoman with Euro</string>
-			<string>4468207 - convert apple icon</string>
-			<string>add macutf8</string>
-			<string>UNIX2003 changes</string>
-			<string>do not inline gperf lookup functions (12056452)</string>
-			<string>lib/loop_wchar.h: 2cf3ee65d04ac4e41e29aa7526361ec3f20f5e29</string>
-			<string>lib/loop_unicode.h: bb8f7987b00e303f690b59eb62c8eede974c2dd1, and supporting lib/converters.h changes. (23050414)</string>
-		</array>
 		<key>OpenSourceProject</key>
 		<string>libiconv</string>
-		<key>OpenSourceSHA1</key>
-		<string>df09c3ef43443ac15c0c2d49fd791aa73a64bf30</string>
-		<key>OpenSourceURL</key>
-		<string>http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.11.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>1.11</string>
+		<string>2022-08-11</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.gnu.org/software/libiconv/</string>
+		<string>https://cgit.freebsd.org/src/tree/lib/libc/iconv?id=693f88c9da8dccf173b40fd57d1d15504a54e9b4</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-08-16</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>iconv.c: export _libiconv_version (74104092)</string>
+			<string>various headers: InstallAPI compliance (includes and forward declarations) (74104092)</string>
+			<string>various: fix truncation warnings (74104092)</string>
+			<string>citrus_esdb.c: use realloc() instead of reallocarray() (74104092)</string>
+			<string>citrus_csmapper.c: use OSByteOrder swapping macros (74104092)</string>
+			<string>iconv.h, iconv_set_relocation_prefix.c: fix spelling of libiconv_set_relocation_prefix (74104092)</string>
+			<string>citrus_module.c: search the dyld cache for libiconv modules (74104092)</string>
+			<string>citrus_module.c: ignore versioning for on-lib dylibs and assert correct suffix (.dylib) (74104092)</string>
+			<string>csmapper: fix various mappings for GNU libiconv parity (74104092)</string>
+			<string>esdb: fix order of precedence for various charsets (74104092)</string>
+			<string>citrus_iconv.c: handle GNU-compatible WCHAR_T encoding (104607349)</string>
+			<string>citrus_iconv.c: GNU-compatible CHAR encoding name should be case insensitive (104607349)</string>
+			<string>bsd_iconv.c: don't clobber errno on successful iconv_open (105248919)</string>
+			<string>citrus_esdb.c: exclude @ filenames from listing (105868289)</string>
+			<string>citrus_mmap.c, citrus_module.c: prefix the simulator root as needed (111163759)</string>
+			<string>citrus_iconv_std.c: handle EILSEQ on output (113828035)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
 	</dict>
 </array>
 </plist>

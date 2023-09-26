@@ -3029,7 +3029,7 @@ CSSM_RETURN tp_policyVerify(
 
 		case kTP_iChat:
 			tpDebug("iChat policy");
-			/* fall thru */
+			[[fallthrough]];
 		case kTP_SMIME:
 			policyError = tp_verifySmimeOpts(policy, *certGroup, policyFieldData, certInfo);
 			break;

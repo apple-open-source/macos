@@ -40,9 +40,9 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#define SHA512_Init(c)		CC_SHA512_Init(c)
-#define SHA512_Update(c, d, l)	CC_SHA512_Update(c, d, l)
-#define SHA512_Final(d, c)	CC_SHA512_Final(d, c)
+#define SHA512_Init	CC_SHA512_Init
+#define SHA512_Update	CC_SHA512_Update
+#define SHA512_Final	CC_SHA512_Final
 
 __BEGIN_DECLS
 char   *SHA512_End(SHA512_CTX *, char *);

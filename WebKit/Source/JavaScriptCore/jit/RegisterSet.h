@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,13 +33,13 @@
 #include "MemoryMode.h"
 #include "Reg.h"
 #include "Width.h"
-#include <wtf/Bitmap.h>
+#include <wtf/BitSet.h>
 #include <wtf/CommaPrinter.h>
 
 namespace JSC {
 
 class ScalarRegisterSet;
-typedef Bitmap<MacroAssembler::numGPRs + MacroAssembler::numFPRs> RegisterBitmap;
+using RegisterBitSet = WTF::BitSet<MacroAssembler::numGPRs + MacroAssembler::numFPRs>;
 class RegisterAtOffsetList;
 struct RegisterSetBuilderHash;
 class RegisterSet;
@@ -169,7 +169,6 @@ public:
     }
 
     inline constexpr bool operator==(const RegisterSetBuilder& other) const { return m_bits == other.m_bits && m_upperBits == other.m_upperBits; }
-    inline constexpr bool operator!=(const RegisterSetBuilder& other) const { return m_bits != other.m_bits || m_upperBits != other.m_upperBits; }
 
 protected:
     inline constexpr void setAny(Reg reg) { ASSERT(!reg.isFPR()); add(reg, IgnoreVectors); }
@@ -187,8 +186,8 @@ protected:
     static constexpr unsigned gprOffset = 0;
     static constexpr unsigned fprOffset = gprOffset + MacroAssembler::numGPRs;
 
-    RegisterBitmap m_bits = { };
-    RegisterBitmap m_upperBits = { };
+    RegisterBitSet m_bits = { };
+    RegisterBitSet m_upperBits = { };
 
 public:
     JS_EXPORT_PRIVATE static RegisterSet allGPRs();
@@ -197,7 +196,8 @@ public:
     JS_EXPORT_PRIVATE static RegisterSet allScalarRegisters();
     JS_EXPORT_PRIVATE static RegisterSet stackRegisters();
     JS_EXPORT_PRIVATE static RegisterSet reservedHardwareRegisters();
-    JS_EXPORT_PRIVATE static RegisterSet macroClobberedRegisters();
+    JS_EXPORT_PRIVATE static RegisterSet macroClobberedGPRs();
+    JS_EXPORT_PRIVATE static RegisterSet macroClobberedFPRs();
     JS_EXPORT_PRIVATE static RegisterSet runtimeTagRegisters();
     JS_EXPORT_PRIVATE static RegisterSet specialRegisters(); // The union of stack, reserved hardware, and runtime registers.
     JS_EXPORT_PRIVATE static RegisterSet calleeSaveRegisters();
@@ -209,7 +209,7 @@ public:
     JS_EXPORT_PRIVATE static RegisterSet stubUnavailableRegisters(); // The union of callee saves and special registers.
     JS_EXPORT_PRIVATE static RegisterSet argumentGPRS();
 #if ENABLE(WEBASSEMBLY)
-    JS_EXPORT_PRIVATE static RegisterSet wasmPinnedRegisters(MemoryMode);
+    JS_EXPORT_PRIVATE static RegisterSet wasmPinnedRegisters();
 #endif
     JS_EXPORT_PRIVATE static RegisterSetBuilder registersToSaveForJSCall(RegisterSetBuilder live);
     JS_EXPORT_PRIVATE static RegisterSetBuilder registersToSaveForCCall(RegisterSetBuilder live);
@@ -244,14 +244,14 @@ public:
 
     inline size_t numberOfSetGPRs() const
     {
-        RegisterBitmap temp = m_bits;
+        RegisterBitSet temp = m_bits;
         temp.filter(RegisterSetBuilder::allGPRs().m_bits);
         return temp.count();
     }
 
     inline size_t numberOfSetFPRs() const
     {
-        RegisterBitmap temp = m_bits;
+        RegisterBitSet temp = m_bits;
         temp.filter(RegisterSetBuilder::allFPRs().m_bits);
         return temp.count();
     }
@@ -322,7 +322,7 @@ public:
     public:
         inline constexpr iterator() { }
 
-        inline constexpr iterator(const RegisterBitmap::iterator& iter)
+        inline constexpr iterator(const RegisterBitSet::iterator& iter)
             : m_iter(iter)
         {
         }
@@ -340,13 +340,8 @@ public:
             return m_iter == other.m_iter;
         }
 
-        inline constexpr bool operator!=(const iterator& other) const
-        {
-            return !(*this == other);
-        }
-
     private:
-        RegisterBitmap::iterator m_iter;
+        RegisterBitSet::iterator m_iter;
     };
 
     inline constexpr iterator begin() const { return iterator(m_bits.begin()); }
@@ -421,11 +416,10 @@ public:
     }
 
     inline constexpr bool operator==(const RegisterSet& other) const { return m_bits == other.m_bits && m_upperBits == other.m_upperBits; }
-    inline constexpr bool operator!=(const RegisterSet& other) const { return m_bits != other.m_bits || m_upperBits != other.m_upperBits; }
 
 private:
-    RegisterBitmap m_bits = { };
-    RegisterBitmap m_upperBits = { };
+    RegisterBitSet m_bits = { };
+    RegisterBitSet m_upperBits = { };
 };
 
 constexpr RegisterSetBuilder::RegisterSetBuilder(RegisterSet set)
@@ -468,8 +462,8 @@ public:
     constexpr ScalarRegisterSet() { }
 
     inline constexpr unsigned hash() const { return m_bits.hash(); }
+    inline uint64_t bitsForDebugging() const { return *m_bits.storage(); }
     inline constexpr bool operator==(const ScalarRegisterSet& other) const { return m_bits == other.m_bits; }
-    inline constexpr bool operator!=(const ScalarRegisterSet& other) const { return m_bits != other.m_bits; }
 
     inline constexpr RegisterSet toRegisterSet() const WARN_UNUSED_RETURN
     {
@@ -508,14 +502,14 @@ public:
 
     inline size_t numberOfSetGPRs() const
     {
-        RegisterBitmap temp = m_bits;
+        RegisterBitSet temp = m_bits;
         temp.filter(RegisterSetBuilder::allGPRs().m_bits);
         return temp.count();
     }
 
     inline size_t numberOfSetFPRs() const
     {
-        RegisterBitmap temp = m_bits;
+        RegisterBitSet temp = m_bits;
         temp.filter(RegisterSetBuilder::allFPRs().m_bits);
         return temp.count();
     }
@@ -528,7 +522,7 @@ public:
     void dump(PrintStream& out) const { toRegisterSet().dump(out); }
 
 private:
-    RegisterBitmap m_bits;
+    RegisterBitSet m_bits;
 };
 
 constexpr ScalarRegisterSet RegisterSetBuilder::buildScalarRegisterSet() const

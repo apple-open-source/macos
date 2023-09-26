@@ -26,12 +26,13 @@
 #include "config.h"
 #include "WebEditorClient.h"
 
+#include "WebPage.h"
 #include <WebCore/Document.h>
 #include <WebCore/Editor.h>
 #include <WebCore/EventNames.h>
-#include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/LocalFrame.h>
 #include <WebCore/Node.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/WindowsKeyboardCodes.h>
@@ -167,7 +168,7 @@ static const char* interpretKeyEvent(const KeyboardEvent& event)
     return mapKey ? keyPressCommandsMap.get().get(mapKey) : nullptr;
 }
 
-static void handleKeyPress(Frame& frame, KeyboardEvent& event, const PlatformKeyboardEvent& platformEvent)
+static void handleKeyPress(LocalFrame& frame, KeyboardEvent& event, const PlatformKeyboardEvent& platformEvent)
 {
     auto commandName = String::fromLatin1(interpretKeyEvent(event));
 
@@ -189,7 +190,7 @@ static void handleKeyPress(Frame& frame, KeyboardEvent& event, const PlatformKey
         event.setDefaultHandled();
 }
 
-static void handleKeyDown(Frame& frame, KeyboardEvent& event, const PlatformKeyboardEvent&)
+static void handleKeyDown(LocalFrame& frame, KeyboardEvent& event, const PlatformKeyboardEvent&)
 {
     auto commandName = String::fromLatin1(interpretKeyEvent(event));
     if (commandName.isEmpty())

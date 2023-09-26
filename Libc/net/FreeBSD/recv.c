@@ -47,10 +47,7 @@ ssize_t __recvfrom_nocancel(int, void *, size_t, int, struct sockaddr * __restri
 #endif /* VARIANT_CANCELABLE */
 
 ssize_t
-recv(s, buf, len, flags)
-	int s, flags;
-	size_t len;
-	void *buf;
+recv(int s, void *buf, size_t len, int flags)
 {
 #ifdef VARIANT_CANCELABLE
 	return (__recvfrom(s, buf, len, flags, NULL, 0));

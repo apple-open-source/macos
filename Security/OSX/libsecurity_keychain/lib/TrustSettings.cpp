@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005,2011-2015,2021-2022 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005,2011-2015,2021-2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,10 +30,12 @@
 #include "TrustSettingsSchema.h"
 #include <Security/SecTrustSettings.h>
 #include <Security/SecTrustInternal.h>
+#include <Security/SecTrustStore.h>
 #include "TrustSettingsUtils.h"
 #include "TrustKeychains.h"
 #include "Certificate.h"
 #include "cssmdatetime.h"
+#include "featureflags/featureflags.h"
 #include <Security/SecBase.h>
 #include "SecTrustedApplicationPriv.h"
 #include <security_utilities/errors.h>
@@ -57,6 +59,10 @@
 #include <sys/csr.h>
 #include <sys/stat.h>
 #include <syslog.h>
+
+#if TARGET_OS_OSX
+#include <Security/SecTask.h>
+#endif
 
 #if 0
 #define trustSettingsDbg(args...)       syslog(LOG_ERR, ## args)
@@ -352,18 +358,6 @@ bool tsIsGoodCfNum(CFNumberRef cfn, SInt32 *num = NULL)
 	}
 }
 
-static bool tsUseXPCEnabled(void)
-{
-    static bool useXPCEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        useXPCEnabled = os_feature_enabled(Security, TrustSettingsUseXPC);
-        secnotice("trustsettings", "TrustSettingsUseXPC is %s (via feature flags)",
-                  useXPCEnabled ? "enabled" : "disabled");
-    });
-    return useXPCEnabled;
-}
-
 /*
  * Read trust settings from disk via xpc interface to trustd.
  */
@@ -421,6 +415,16 @@ static OSStatus xpcTrustSettingsWrite(
     return status;
 }
 
+static OSStatus xpcTrustStoreWrite(
+    SecTrustStoreDomain  domain,
+    CFDataRef            authExtData,
+    SecCertificateRef    certRef,
+    CFTypeRef            trustSettingsDictOrArray)
+{
+    SecTrustStoreRef ts = SecTrustStoreForDomain(domain);
+    return SecTrustStoreSetTrustSettings(ts, certRef, trustSettingsDictOrArray);
+}
+
 
 static bool
 canAddTrustSettingsAsRoot(uid_t uid, uint32_t domain, CFDataRef trustSettings)
@@ -430,7 +434,7 @@ canAddTrustSettingsAsRoot(uid_t uid, uint32_t domain, CFDataRef trustSettings)
     const UInt8 *tsData = (trustSettings) ? CFDataGetBytePtr(trustSettings) : NULL;
 
     /* caller must be root and adding non-null settings in admin domain */
-    if (uid != 0 || domain != kSecTrustSettingsDomainAdmin || tsData == NULL) {
+    if (uid != 0 || domain != kSecTrustSettingsDomainAdmin || tsLength <= 0 || tsData == NULL) {
         return result;
     }
     /* only permitted if SIP is disabled */
@@ -484,14 +488,14 @@ OSStatus TrustSettings::CreateTrustSettings(
 			 * admin file is hard coded, but the per-user files aren't.
 			 */
 			path = TRUST_SETTINGS_PATH "/" ADMIN_TRUST_SETTINGS;
-			if(!tsUseXPCEnabled() && stat(path, &sb)) {
+			if(!_SecTrustSettingsUseXPCEnabled() && stat(path, &sb)) {
 				trustSettingsDbg("TrustSettings: no admin record; skipping");
 				ortn = errSecNoTrustSettings;
 				break;
 			}
-			/* else drop thru, get it from privileged process */
+			[[fallthrough]];
 		case kSecTrustSettingsDomainUser:
-			if (!tsUseXPCEnabled()) {
+			if (!_SecTrustSettingsUseXPCEnabled()) {
 				/* get settings from ocspd */
 #if OCSPD_ENABLED
 				ortn = ocspdTrustSettingsRead(alloc, domain, fileData);
@@ -605,8 +609,10 @@ void TrustSettings::initFromData(
 
 /*
  * Flush property list data out to disk if dirty.
+ * certRef is the cert whose settings are being updated, or NULL if this was a bulk operation.
+ * trustSettingsDictOrArray holds the new settings, or NULL if the settings are being removed.
  */
-void TrustSettings::flushToDisk()
+void TrustSettings::flushToDisk(SecCertificateRef certRef, CFTypeRef trustSettingsDictOrArray)
 {
 	if(!mDirty) {
 		trustSettingsDbg("flushToDisk, domain %d, !dirty!", (int)mDomain);
@@ -667,7 +673,7 @@ void TrustSettings::flushToDisk()
 			(int)mDomain, (long)ortn);
 		MacOSError::throwMe(errSecInternalComponent);
 	}
-	if(tsUseXPCEnabled()) {
+	if(_SecTrustSettingsUseXPCEnabled()) {
 		/* request preauthorization here so prompt occurs in caller's UI context */
 		const char *authRight = TRUST_SETTINGS_RIGHT_USER;
 		if(mDomain == kSecTrustSettingsDomainAdmin) {
@@ -698,8 +704,31 @@ void TrustSettings::flushToDisk()
 		goto errOut;
 	}
 
-	if(tsUseXPCEnabled()) {
-		ortn = xpcTrustSettingsWrite(mDomain, authBlob, cssmXmlData);
+	if(_SecTrustSettingsUseXPCEnabled()) {
+		if(_SecTrustSettingsUseTrustStoreEnabled()) {
+			// %%% also write the trust settings entry, until we have fully switched over to trust store
+			ortn = xpcTrustSettingsWrite(mDomain, authBlob, cssmXmlData);
+			if (ortn == errSecSuccess) {
+				SecTrustStoreDomain domain = 0;
+				switch(mDomain) {
+					case kSecTrustSettingsDomainSystem: { domain = kSecTrustStoreDomainSystem; break; }
+					case kSecTrustSettingsDomainAdmin: { domain = kSecTrustStoreDomainAdmin; break; }
+					case kSecTrustSettingsDomainUser:
+					default: { domain = kSecTrustStoreDomainUser; break; }
+				}
+				CFDataRef authData = CFDataCreate(NULL,(const UInt8*)authBlob.Data,(CFIndex)authBlob.Length);
+				ortn = xpcTrustStoreWrite(domain, authData, certRef, trustSettingsDictOrArray);
+				trustSettingsDbg("flushToDisk, trust store domain:%ld, trust store:YES, xpcTrustStoreWrite result %ld",
+						(long)domain, (long)ortn);
+				//%%% rdar://60023449
+				ortn = errSecSuccess; // log and ignore error returned by the ts write so entire op does not fail
+				if(authData) { CFRelease(authData); }
+			}
+		} else {
+			ortn = xpcTrustSettingsWrite(mDomain, authBlob, cssmXmlData);
+			trustSettingsDbg("flushToDisk, trust settings domain:%ld, trust store:NO, xpcTrustSettingsWrite result %ld",
+							(long)mDomain, (long)ortn);
+		}
 	} else {
 #if OCSPD_ENABLED
 		ortn = ocspdTrustSettingsWrite(mDomain, authBlob, cssmXmlData);

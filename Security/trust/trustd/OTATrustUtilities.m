@@ -742,7 +742,7 @@ static bool QueryOTATrustAsset(NSString *assetType, BOOL wait, dispatch_semaphor
                 continue;
             case MADownloading:
                 secnotice("OTATrust", "asset %{public}@ is downloading", assetType);
-                /* fall through */
+                [[fallthrough]];
             case MANotPresent:
                 secnotice("OTATrust", "begin download of OTATrust asset");
                 began_async_job = true;
@@ -1572,11 +1572,37 @@ static CF_RETURNS_RETAINED CFStringRef SecOTAPKICopyFormatDescription(CFTypeRef 
                                     otapkiRef->_trustStoreVersion, otapkiRef->_assetVersion);
 }
 
+static void SecOTAPKIInitialize(CFTypeRef cf) {
+    // Initialize fields of the SecOTAPKI structure to ensure our references
+    // are NULL. While the header doc for _CFRuntimeCreateInstance says that
+    // "the base header is initialized and the extra bytes if requested will
+    // be zeroed," there is no explicit API promise about kCFAllocatorDefault
+    // zeroizing behavior. To be safe and avoid pointer arithmetic with memset,
+    // this function sets all reference fields in the structure to NULL.
+
+    SecOTAPKIRef otapkiref = (SecOTAPKIRef)cf;
+    otapkiref->_revokedListSet = NULL;
+    otapkiref->_distrustedListSet = NULL;
+    otapkiref->_allowList = NULL;
+    otapkiref->_trustedCTLogs = NULL;
+    otapkiref->_nonTlsTrustedCTLogs = NULL;
+    otapkiref->_pinningList = NULL;
+    otapkiref->_evPolicyToAnchorMapping = NULL;
+    otapkiref->_anchorLookupTable = NULL;
+    otapkiref->_anchorTable = NULL;
+    otapkiref->_validDatabaseSnapshot = NULL;
+    otapkiref->_lastAssetCheckIn = NULL;
+    otapkiref->_eventSamplingRates = NULL;
+    otapkiref->_appleCAs = NULL;
+    otapkiref->_secExperimentConfig = NULL;
+}
+
 static void SecOTAPKIDestroy(CFTypeRef cf) {
     SecOTAPKIRef otapkiref = (SecOTAPKIRef)cf;
 
     CFReleaseNull(otapkiref->_revokedListSet);
     CFReleaseNull(otapkiref->_distrustedListSet);
+    CFReleaseNull(otapkiref->_allowList);
 
     CFReleaseNull(otapkiref->_evPolicyToAnchorMapping);
     CFReleaseNull(otapkiref->_anchorLookupTable);
@@ -1677,7 +1703,7 @@ static SecOTAPKIRef SecOTACreate(void) {
 
     // Make sure that if this routine has to bail that the clean up
     // will do the right thing
-    memset(otapkiref, 0, sizeof(*otapkiref));
+    SecOTAPKIInitialize(otapkiref);
 
     if (!TrustdVariantHasCertificatesBundle()) {
         otapkiref->_ctKillSwitch = true;

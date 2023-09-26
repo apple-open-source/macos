@@ -65,6 +65,7 @@
 
 #define DODUMP          0x1
 #define DOEXPORTS       0x2
+#define DONPING         0x4
 
 struct mountlist {
 	struct mountlist *ml_left;

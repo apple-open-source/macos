@@ -24,6 +24,7 @@
 #ifndef _IOPowerSourcesPrivate_h_
 #define _IOPowerSourcesPrivate_h_
 
+#include <AppleFeatures/AppleFeatures.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <sys/cdefs.h>
@@ -174,7 +175,7 @@ IOReturn        IOPSReleasePowerSource(IOPSPowerSourceID whichPS);
 /*!
  * @define      kIOPSNotifyPercentChange
  * @abstract    Notify(3) key. The system delivers notifications on this key when
- *              an attached power source’s percent charge remaining changes;
+ *              an attached power source's percent charge remaining changes;
  *              Also delivers this notification when the active power source
  *              changes (from limited to unlimited and vice versa).
  *
@@ -279,9 +280,11 @@ enum {
     kIOPSSourceForAccessories
 };
 
+
+
 /*! @function   IOPSCopyPowerSourcesByType
  *
- *  @abstract   Returns a blob of information for the speecified power sources in an opaque CFTypeRef. 
+ *  @abstract   Returns a blob of general information for the specified power sources in an opaque CFTypeRef. 
  *
  *  @discussion Clients should not directly access data in the returned CFTypeRef - 
  *              they should use the accessor functions IOPSCopyPowerSourcesList and 
@@ -366,6 +369,7 @@ CFRunLoopSourceRef IOPSAccCreateLimitedPowerNotification(IOPowerSourceCallbackTy
  *              release the CFRunLoopSource.
  */
 CFRunLoopSourceRef IOPSAccCreateAttachNotification(IOPowerSourceCallbackType callback, void *context);
+
 
 __END_DECLS
 

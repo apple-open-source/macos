@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2020, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -150,7 +150,9 @@ EAPSSLCopyPeerCertificates(SSLContextRef context, CFArrayRef * certs);
  */
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
-				   CFArrayRef server_certs, 
+				   CFArrayRef server_certs,
+				   Boolean revocation_check,
+				   SecTrustRef sec_trust,
 				   OSStatus * ret_status);
 
 /*

@@ -932,6 +932,9 @@ retry:
 
 		ipc_importance_unlock();
 
+		/* reevaluate turnstile boost */
+		pend_token.tpt_update_turnstile = 1;
+
 		/* apply the policy adjust to the target task (while it is still locked) */
 		task_update_boost_locked(target_task, boost, &pend_token);
 

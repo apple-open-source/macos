@@ -21,6 +21,7 @@
 #include "WebKitWebResource.h"
 
 #include "APIData.h"
+#include "APIURL.h"
 #include "WebFrameProxy.h"
 #include "WebKitPrivate.h"
 #include "WebKitURIRequestPrivate.h"
@@ -76,7 +77,7 @@ struct _WebKitWebResourcePrivate {
     bool isMainResource;
 };
 
-WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitWebResource, webkit_web_resource, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE(WebKitWebResource, webkit_web_resource, G_TYPE_OBJECT, GObject)
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
@@ -370,7 +371,7 @@ static void resourceDataCallback(API::Data* wkData, GTask* task)
  * @resource: a #WebKitWebResource
  * @cancellable: (allow-none): a #GCancellable or %NULL to ignore
  * @callback: (scope async): a #GAsyncReadyCallback to call when the request is satisfied
- * @user_data: (closure): the data to pass to callback function
+ * @user_data: the data to pass to callback function
  *
  * Asynchronously get the raw data for @resource.
  *

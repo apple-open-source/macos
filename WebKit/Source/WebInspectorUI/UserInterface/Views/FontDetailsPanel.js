@@ -76,7 +76,13 @@ WI.FontDetailsPanel = class FontDetailsPanel extends WI.StyleDetailsPanel
                 row.value = this._formatPropertyValue(propertyName, fontProperty.value);
 
                 if (propertyName === "font-style")
-                    row.warningMessage = this.nodeStyles.computedPrimaryFont?.synthesizedOblique ? WI.UIString("Font was synthesized to be oblique because no oblique font is available.", "A warning that is shown in the Font Details Sidebar when the font had to be synthesized to support the provided style.") : null;
+                    if (this.nodeStyles.computedPrimaryFont?.synthesizedOblique)
+                        if (fontProperty.value === "italic")
+                            row.warningMessage = WI.UIString("Font was synthesized to be oblique because no italic font is available.", "A warning that is shown in the Font Details Sidebar when the font had to be synthesized to support the provided style.");
+                        else
+                            row.warningMessage = WI.UIString("Font was synthesized to be oblique because no oblique font is available.", "A warning that is shown in the Font Details Sidebar when the font had to be synthesized to support the provided style.");
+                    else
+                        row.warningMessage = null;
 
                 if (propertyName === "font-weight")
                     row.warningMessage = this.nodeStyles.computedPrimaryFont?.synthesizedBold ? WI.UIString("Font was synthesized to be bold because no bold font is available.", "A warning that is shown in the Font Details Sidebar when the font had to be synthesized to support the provided weight.") : null;
@@ -85,7 +91,6 @@ WI.FontDetailsPanel = class FontDetailsPanel extends WI.StyleDetailsPanel
             if (row instanceof WI.FontVariationDetailsSectionRow) {
                 let fontVariationAxis = fontProperty.variations.values().next().value;
                 row.value = fontVariationAxis.value ? fontVariationAxis.value : WI.FontStyles.fontPropertyValueToAxisValue(fontVariationAxis.tag, fontProperty.value);
-                row.warningMessage = (fontVariationAxis.value < fontVariationAxis.minimumValue || fontVariationAxis.value > fontVariationAxis.maximumValue) ? WI.UIString("Axis value outside of supported range: %s – %s", "A warning that is shown in the Font Details Sidebar when the value for a variation axis is outside of the supported range of values").format(this._formatAxisValueAsString(fontVariationAxis.minimumValue), this._formatAxisValueAsString(fontVariationAxis.maximumValue)) : null;
             }
         }
 
@@ -109,7 +114,6 @@ WI.FontDetailsPanel = class FontDetailsPanel extends WI.StyleDetailsPanel
         for (let [tag, fontVariationAxis] of this._fontVariationsMap) {
             let variationRow = this._fontVariationRowsMap.get(tag);
             variationRow.value = fontVariationAxis.value ?? fontVariationAxis.defaultValue;
-            variationRow.warningMessage = (fontVariationAxis.value < fontVariationAxis.minimumValue || fontVariationAxis.value > fontVariationAxis.maximumValue) ? WI.UIString("Axis value outside of supported range: %s – %s", "A warning that is shown in the Font Details Sidebar when the value for a variation axis is outside of the supported range of values").format(this._formatAxisValueAsString(fontVariationAxis.minimumValue), this._formatAxisValueAsString(fontVariationAxis.maximumValue)) : null;
         }
 
         if (!this._fontVariationRowsMap.size) {
@@ -153,7 +157,15 @@ WI.FontDetailsPanel = class FontDetailsPanel extends WI.StyleDetailsPanel
             this._basicPropertyRowsMap.set(propertyName, this._createDetailsSectionRowForProperty(propertyName));
         }
 
-        this._basicPropertiesGroup.rows = [...this._basicPropertyRowsMap.values()];
+        this._basicPropertiesGroup.rows = [...this._basicPropertyRowsMap.values()].sort((rowA, rowB) => {
+            if (rowA instanceof WI.DetailsSectionSimpleRow && rowB instanceof WI.FontVariationDetailsSectionRow)
+                return -1;
+
+            if (rowA instanceof WI.FontVariationDetailsSectionRow && rowB instanceof WI.DetailsSectionSimpleRow)
+                return 1;
+
+            return 0;
+        });
 
         for (let [tag, variationRow] of this._fontVariationRowsMap) {
             variationRow.element.remove();
@@ -291,7 +303,7 @@ WI.FontDetailsPanel = class FontDetailsPanel extends WI.StyleDetailsPanel
 
     _formatSimpleFeatureValues(property, features, noMatchesResult)
     {
-        let valueParts = property.value.match(WI.Font.SettingPattern);
+        let valueParts = property.value.match(WI.FontStyles.SettingPattern);
         let results = [];
         // Only one result should be pushed per group.
         let resultGroups = new Set;
@@ -310,7 +322,7 @@ WI.FontDetailsPanel = class FontDetailsPanel extends WI.StyleDetailsPanel
 
     _formatLigatureValue(property)
     {
-        let valueParts = property.value.match(WI.Font.SettingPattern);
+        let valueParts = property.value.match(WI.FontStyles.SettingPattern);
 
         let results = [];
 

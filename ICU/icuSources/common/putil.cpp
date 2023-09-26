@@ -114,13 +114,13 @@
 #elif U_PLATFORM_IS_DARWIN_BASED || U_PLATFORM_IS_LINUX_BASED || U_PLATFORM == U_PF_BSD || U_PLATFORM == U_PF_SOLARIS
 #   include <limits.h>
 #   include <unistd.h>
+#   include <dlfcn.h>
 #   if U_PLATFORM == U_PF_SOLARIS
 #       ifndef _XPG4_2
 #           define _XPG4_2
 #       endif
 #   elif U_PLATFORM == U_PF_ANDROID
 #       include <sys/system_properties.h>
-#       include <dlfcn.h>
 #   endif
 #elif U_PLATFORM == U_PF_QNX
 #   include <sys/neutrino.h>
@@ -244,7 +244,7 @@ u_signBit(double d) {
  */
 UDate fakeClock_t0 = 0; /** Time to start the clock from **/
 UDate fakeClock_dt = 0; /** Offset (fake time - real time) **/
-UBool fakeClock_set = FALSE; /** True if fake clock has spun up **/
+UBool fakeClock_set = false; /** True if fake clock has spun up **/
 
 static UDate getUTCtime_real() {
     struct timeval posixTime;
@@ -269,7 +269,7 @@ static UDate getUTCtime_fake() {
             fprintf(stderr,"U_DEBUG_FAKETIME was set at compile time, but U_FAKETIME_START was not set.\n"
                     "Set U_FAKETIME_START to the number of milliseconds since 1/1/1970 to set the ICU clock.\n");
         }
-        fakeClock_set = TRUE;
+        fakeClock_set = true;
     }
     umtx_unlock(&fakeClockMutex);
 
@@ -905,7 +905,7 @@ static UBool compareBinaryFiles(const char* defaultTZFileName, const char* TZFil
     int32_t sizeFileRead;
     int32_t sizeFileToRead;
     char bufferFile[MAX_READ_SIZE];
-    UBool result = TRUE;
+    UBool result = true;
 
     if (tzInfo->defaultTZFilePtr == NULL) {
         tzInfo->defaultTZFilePtr = fopen(defaultTZFileName, "r");
@@ -925,7 +925,7 @@ static UBool compareBinaryFiles(const char* defaultTZFileName, const char* TZFil
         sizeFileLeft = sizeFile;
 
         if (sizeFile != tzInfo->defaultTZFileSize) {
-            result = FALSE;
+            result = false;
         } else {
             /* Store the data from the files in separate buffers and
              * compare each byte to determine equality.
@@ -942,7 +942,7 @@ static UBool compareBinaryFiles(const char* defaultTZFileName, const char* TZFil
 
                 sizeFileRead = fread(bufferFile, 1, sizeFileToRead, file);
                 if (memcmp(tzInfo->defaultTZBuffer + tzInfo->defaultTZPosition, bufferFile, sizeFileRead) != 0) {
-                    result = FALSE;
+                    result = false;
                     break;
                 }
                 sizeFileLeft -= sizeFileRead;
@@ -950,7 +950,7 @@ static UBool compareBinaryFiles(const char* defaultTZFileName, const char* TZFil
             }
         }
     } else {
-        result = FALSE;
+        result = false;
     }
 
     if (file != NULL) {
@@ -1189,7 +1189,7 @@ uprv_tzname(int n)
                 tzInfo->defaultTZBuffer = NULL;
                 tzInfo->defaultTZFileSize = 0;
                 tzInfo->defaultTZFilePtr = NULL;
-                tzInfo->defaultTZstatus = FALSE;
+                tzInfo->defaultTZstatus = false;
                 tzInfo->defaultTZPosition = 0;
 
                 gTimeZoneBufferPtr = searchForTZFile(TZZONEINFO, tzInfo);
@@ -1260,10 +1260,10 @@ uprv_tzname(int n)
 
 /* Get and set the ICU data directory --------------------------------------- */
 
-static icu::UInitOnce gDataDirInitOnce = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gDataDirInitOnce {};
 static char *gDataDirectory = NULL;
 
-UInitOnce gTimeZoneFilesInitOnce = U_INITONCE_INITIALIZER;
+UInitOnce gTimeZoneFilesInitOnce {};
 static CharString *gTimeZoneFilesDirectory = NULL;
 
 #if U_POSIX_LOCALE || U_PLATFORM_USES_ONLY_WIN32_API
@@ -1295,7 +1295,7 @@ static UBool U_CALLCONV putil_cleanup(void)
         gCorrectedPOSIXLocaleHeapAllocated = false;
     }
 #endif
-    return TRUE;
+    return true;
 }
 
 /*
@@ -1344,16 +1344,16 @@ U_CAPI UBool U_EXPORT2
 uprv_pathIsAbsolute(const char *path)
 {
   if(!path || !*path) {
-    return FALSE;
+    return false;
   }
 
   if(*path == U_FILE_SEP_CHAR) {
-    return TRUE;
+    return true;
   }
 
 #if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
   if(*path == U_FILE_ALT_SEP_CHAR) {
-    return TRUE;
+    return true;
   }
 #endif
 
@@ -1361,11 +1361,11 @@ uprv_pathIsAbsolute(const char *path)
   if( (((path[0] >= 'A') && (path[0] <= 'Z')) ||
        ((path[0] >= 'a') && (path[0] <= 'z'))) &&
       path[1] == ':' ) {
-    return TRUE;
+    return true;
   }
 #endif
 
-  return FALSE;
+  return false;
 }
 
 /* Backup setting of ICU_DATA_DIR_PREFIX_ENV_VAR
@@ -1402,12 +1402,34 @@ static BOOL U_CALLCONV getIcuDataDirectoryUnderWindowsDirectory(char* directoryB
             if ((windowsPathUtf8Len + UPRV_LENGTHOF(ICU_DATA_DIR_WINDOWS)) < bufferLength) {
                 uprv_strcpy(directoryBuffer, windowsPathUtf8);
                 uprv_strcat(directoryBuffer, ICU_DATA_DIR_WINDOWS);
-                return TRUE;
+                return true;
             }
         }
     }
 
-    return FALSE;
+    return false;
+}
+#endif
+
+#if defined(USE_PACKAGE_DATA)
+const char* getPackageICUDataPath() {
+    Dl_info dl_info;
+    dladdr(reinterpret_cast<const void*>(getPackageICUDataPath), &dl_info);
+    const char* libraryFilename = dl_info.dli_fname;
+    if (libraryFilename != NULL && libraryFilename[0] != 0) {
+        // Remove the executable name
+        char path[PATH_MAX + 1];
+        strncpy(path, libraryFilename, PATH_MAX);
+        char *lastSlash = strrchr(path, '/');
+        if (lastSlash) {
+            // Terminate the string at /
+            *lastSlash = 0;
+        }
+        // Append the resource bundle path
+        strcat(path, "/FoundationICU_FoundationICU.resources");
+        return strdup(path);
+    }
+    return "";
 }
 #endif
 
@@ -1418,6 +1440,11 @@ static void U_CALLCONV dataDirectoryInitFn() {
     if (gDataDirectory) {
         return;
     }
+
+#if defined(USE_PACKAGE_DATA)
+    u_setDataDirectory(getPackageICUDataPath());
+    return;
+#endif
 
     const char *path = NULL;
 #if defined(ICU_DATA_DIR_PREFIX_ENV_VAR)
@@ -1506,13 +1533,17 @@ static void setTimeZoneFilesDir(const char *path, UErrorCode &status) {
 #endif
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
 #if U_PLATFORM_IMPLEMENTS_POSIX
 #include <sys/stat.h>
+// rdar://22764088 commit c67882a2b1.. Better stat checks to handle tzfiles directory that is empty or has wrong files
 #if defined(U_TIMEZONE_FILES_DIR)
 const char tzdirbuf[] = U_TIMEZONE_FILES_DIR;
 enum { kTzfilenamebufLen = UPRV_LENGTHOF(tzdirbuf) + 24 }; // extra room for "/icutz44l.dat" or "/zoneinfo64.res"
 #endif
-#endif
+#endif // U_PLATFORM_IMPLEMENTS_POSIX
+#endif // APPLE_ICU_CHANGES
 
 #define TO_STRING(x) TO_STRING_2(x)
 #define TO_STRING_2(x) #x
@@ -1525,7 +1556,10 @@ static void U_CALLCONV TimeZoneDataDirInitFn(UErrorCode &status) {
         status = U_MEMORY_ALLOCATION_ERROR;
         return;
     }
-    UBool usingUTzFilesDir = FALSE;
+#if APPLE_ICU_CHANGES
+// rdar://22764088 commit c67882a2b1.. Better stat checks to handle tzfiles directory that is empty or has wrong files
+    UBool usingUTzFilesDir = false;
+#endif // APPLE_ICU_CHANGES
     const char *dir = "";
 
 #if defined(ICU_TIMEZONE_FILES_DIR_PREFIX_ENV_VAR)
@@ -1548,22 +1582,36 @@ static void U_CALLCONV TimeZoneDataDirInitFn(UErrorCode &status) {
     dir = getenv("ICU_TIMEZONE_FILES_DIR");
 #endif // U_PLATFORM_HAS_WINUWP_API
 
+#if defined(USE_PACKAGE_DATA)
+    dir = getPackageICUDataPath();
+#endif
+
 #if defined(U_TIMEZONE_FILES_DIR)
     if (dir == NULL) {
         // Build time configuration setting.
+#if APPLE_ICU_CHANGES
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
+// rdar://22764088 commit c67882a2b1.. Better stat checks to handle tzfiles directory that is empty or has wrong files
         // dir = TO_STRING(U_TIMEZONE_FILES_DIR);
         // Not sure why the above was done for this path only;
         // it preserves unwanted quotes.
         dir = tzdirbuf;
-        usingUTzFilesDir = TRUE;
+        usingUTzFilesDir = true;
+#else
+        dir = TO_STRING(U_TIMEZONE_FILES_DIR);
+#endif // APPLE_ICU_CHANGES
     }
 #endif
+
+#if APPLE_ICU_CHANGES
+// rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
 #if U_PLATFORM_IMPLEMENTS_POSIX
     if (dir != NULL) {
         struct stat buf;
         if (stat(dir, &buf) != 0) {
             dir = NULL;
         }
+// rdar://22764088 commit c67882a2b1.. Better stat checks to handle tzfiles directory that is empty or has wrong files
 #if defined(U_TIMEZONE_FILES_DIR)
         else if (usingUTzFilesDir) {
             char tzfilenamebuf[kTzfilenamebufLen];
@@ -1582,6 +1630,7 @@ static void U_CALLCONV TimeZoneDataDirInitFn(UErrorCode &status) {
 #endif /* defined(U_TIMEZONE_FILES_DIR) */
     }
 #endif /* U_PLATFORM_IMPLEMENTS_POSIX */
+#endif // APPLE_ICU_CHANGES
     if (dir == NULL) {
         dir = "";
     }

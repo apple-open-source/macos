@@ -45,15 +45,12 @@ public:
 private:
     Ref<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&) final;
 
-    std::optional<WebCore::PageIdentifier> pageID() const final { return m_pageID; }
-
     bool shouldUseCredentialStorage(WebCore::DocumentLoader*, WebCore::ResourceLoaderIdentifier) final { return true; }
     bool isRemoteWorkerFrameLoaderClient() const final { return true; }
 
     String userAgent(const URL&) const final { return m_userAgent; }
 
     WebPageProxyIdentifier m_webPageProxyID;
-    WebCore::PageIdentifier m_pageID;
     String m_userAgent;
     std::optional<WebCore::ScriptExecutionContextIdentifier> m_serviceWorkerPageIdentifier;
 };
@@ -61,5 +58,5 @@ private:
 } // namespace WebKit
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::RemoteWorkerFrameLoaderClient)
-    static bool isType(const WebCore::FrameLoaderClient& frameLoaderClient) { return frameLoaderClient.isRemoteWorkerFrameLoaderClient(); }
+    static bool isType(const WebCore::LocalFrameLoaderClient& frameLoaderClient) { return frameLoaderClient.isRemoteWorkerFrameLoaderClient(); }
 SPECIALIZE_TYPE_TRAITS_END()

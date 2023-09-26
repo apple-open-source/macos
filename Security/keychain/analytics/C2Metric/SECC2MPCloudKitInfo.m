@@ -39,16 +39,16 @@
 @synthesize anonymous = _anonymous;
 - (void)setAnonymous:(BOOL)v
 {
-    _has.anonymous = YES;
+    _has.anonymous = (uint)YES;
     _anonymous = v;
 }
 - (void)setHasAnonymous:(BOOL)f
 {
-    _has.anonymous = f;
+    _has.anonymous = (uint)f;
 }
 - (BOOL)hasAnonymous
 {
-    return _has.anonymous;
+    return _has.anonymous != 0;
 }
 @synthesize operationGroups = _operationGroups;
 - (void)clearOperationGroups
@@ -78,30 +78,30 @@
 @synthesize reportOperationGroupFrequency = _reportOperationGroupFrequency;
 - (void)setReportOperationGroupFrequency:(uint64_t)v
 {
-    _has.reportOperationGroupFrequency = YES;
+    _has.reportOperationGroupFrequency = (uint)YES;
     _reportOperationGroupFrequency = v;
 }
 - (void)setHasReportOperationGroupFrequency:(BOOL)f
 {
-    _has.reportOperationGroupFrequency = f;
+    _has.reportOperationGroupFrequency = (uint)f;
 }
 - (BOOL)hasReportOperationGroupFrequency
 {
-    return _has.reportOperationGroupFrequency;
+    return _has.reportOperationGroupFrequency != 0;
 }
 @synthesize reportOperationGroupFrequencyBase = _reportOperationGroupFrequencyBase;
 - (void)setReportOperationGroupFrequencyBase:(uint64_t)v
 {
-    _has.reportOperationGroupFrequencyBase = YES;
+    _has.reportOperationGroupFrequencyBase = (uint)YES;
     _reportOperationGroupFrequencyBase = v;
 }
 - (void)setHasReportOperationGroupFrequencyBase:(BOOL)f
 {
-    _has.reportOperationGroupFrequencyBase = f;
+    _has.reportOperationGroupFrequencyBase = (uint)f;
 }
 - (BOOL)hasReportOperationGroupFrequencyBase
 {
-    return _has.reportOperationGroupFrequencyBase;
+    return _has.reportOperationGroupFrequencyBase != 0;
 }
 @synthesize clientOperations = _clientOperations;
 - (void)clearClientOperations
@@ -131,30 +131,30 @@
 @synthesize reportClientOperationFrequency = _reportClientOperationFrequency;
 - (void)setReportClientOperationFrequency:(uint64_t)v
 {
-    _has.reportClientOperationFrequency = YES;
+    _has.reportClientOperationFrequency = (uint)YES;
     _reportClientOperationFrequency = v;
 }
 - (void)setHasReportClientOperationFrequency:(BOOL)f
 {
-    _has.reportClientOperationFrequency = f;
+    _has.reportClientOperationFrequency = (uint)f;
 }
 - (BOOL)hasReportClientOperationFrequency
 {
-    return _has.reportClientOperationFrequency;
+    return _has.reportClientOperationFrequency != 0;
 }
 @synthesize reportClientOperationFrequencyBase = _reportClientOperationFrequencyBase;
 - (void)setReportClientOperationFrequencyBase:(uint64_t)v
 {
-    _has.reportClientOperationFrequencyBase = YES;
+    _has.reportClientOperationFrequencyBase = (uint)YES;
     _reportClientOperationFrequencyBase = v;
 }
 - (void)setHasReportClientOperationFrequencyBase:(BOOL)f
 {
-    _has.reportClientOperationFrequencyBase = f;
+    _has.reportClientOperationFrequencyBase = (uint)f;
 }
 - (BOOL)hasReportClientOperationFrequencyBase
 {
-    return _has.reportClientOperationFrequencyBase;
+    return _has.reportClientOperationFrequencyBase != 0;
 }
 
 - (NSString *)description
@@ -264,7 +264,7 @@ BOOL SECC2MPCloudKitInfoReadFrom(__unsafe_unretained SECC2MPCloudKitInfo *self, 
             break;
             case 203 /* anonymous */:
             {
-                self->_has.anonymous = YES;
+                self->_has.anonymous = (uint)YES;
                 self->_anonymous = PBReaderReadBOOL(reader);
             }
             break;
@@ -288,13 +288,13 @@ BOOL SECC2MPCloudKitInfoReadFrom(__unsafe_unretained SECC2MPCloudKitInfo *self, 
             break;
             case 302 /* reportOperationGroupFrequency */:
             {
-                self->_has.reportOperationGroupFrequency = YES;
+                self->_has.reportOperationGroupFrequency = (uint)YES;
                 self->_reportOperationGroupFrequency = PBReaderReadUint64(reader);
             }
             break;
             case 303 /* reportOperationGroupFrequencyBase */:
             {
-                self->_has.reportOperationGroupFrequencyBase = YES;
+                self->_has.reportOperationGroupFrequencyBase = (uint)YES;
                 self->_reportOperationGroupFrequencyBase = PBReaderReadUint64(reader);
             }
             break;
@@ -318,13 +318,13 @@ BOOL SECC2MPCloudKitInfoReadFrom(__unsafe_unretained SECC2MPCloudKitInfo *self, 
             break;
             case 402 /* reportClientOperationFrequency */:
             {
-                self->_has.reportClientOperationFrequency = YES;
+                self->_has.reportClientOperationFrequency = (uint)YES;
                 self->_reportClientOperationFrequency = PBReaderReadUint64(reader);
             }
             break;
             case 403 /* reportClientOperationFrequencyBase */:
             {
-                self->_has.reportClientOperationFrequencyBase = YES;
+                self->_has.reportClientOperationFrequencyBase = (uint)YES;
                 self->_reportClientOperationFrequencyBase = PBReaderReadUint64(reader);
             }
             break;

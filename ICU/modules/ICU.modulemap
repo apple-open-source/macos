@@ -1,4 +1,4 @@
-module ICU [extern_c] [system] {
+module ICU [system] {
     header "uconfig.h"
     header "uvernum.h"
     header "platform.h"

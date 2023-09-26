@@ -60,26 +60,35 @@ void VP9TestingOverrides::setHardwareDecoderDisabled(std::optional<bool>&& disab
 {
     m_hardwareDecoderDisabled = WTFMove(disabled);
     if (m_configurationChangedCallback)
-        m_configurationChangedCallback();
+        m_configurationChangedCallback(false);
 }
 
 void VP9TestingOverrides::setVP9DecoderDisabled(std::optional<bool>&& disabled)
 {
     m_vp9DecoderDisabled = WTFMove(disabled);
     if (m_configurationChangedCallback)
-        m_configurationChangedCallback();
+        m_configurationChangedCallback(false);
 }
 
 void VP9TestingOverrides::setVP9ScreenSizeAndScale(std::optional<ScreenDataOverrides>&& overrides)
 {
     m_screenSizeAndScale = WTFMove(overrides);
     if (m_configurationChangedCallback)
-        m_configurationChangedCallback();
+        m_configurationChangedCallback(false);
 }
 
-void VP9TestingOverrides::setConfigurationChangedCallback(std::function<void()>&& callback)
+void VP9TestingOverrides::setConfigurationChangedCallback(std::function<void(bool)>&& callback)
 {
     m_configurationChangedCallback = WTFMove(callback);
+}
+
+void VP9TestingOverrides::resetOverridesToDefaultValues()
+{
+    setHardwareDecoderDisabled(std::nullopt);
+    setVP9DecoderDisabled(std::nullopt);
+    setVP9ScreenSizeAndScale(std::nullopt);
+    if (m_configurationChangedCallback)
+        m_configurationChangedCallback(true);
 }
 
 enum class ResolutionCategory : uint8_t {
@@ -134,7 +143,7 @@ bool isVP9DecoderAvailable()
     if (auto disabledForTesting = VP9TestingOverrides::singleton().vp9DecoderDisabled())
         return !*disabledForTesting;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     return canLoad_VideoToolbox_VTIsHardwareDecodeSupported() && VTIsHardwareDecodeSupported(kCMVideoCodecType_VP9);
 #else
     if (!VideoToolboxLibrary(true))
@@ -600,6 +609,7 @@ static Ref<VideoInfo> createVideoInfoFromVPCodecConfigurationRecord(const VPCode
     videoInfo->colorSpace.transfer = convertToPlatformVideoTransferCharacteristics(record.transferCharacteristics);
     videoInfo->colorSpace.matrix = convertToPlatformVideoMatrixCoefficients(record.matrixCoefficients);
     videoInfo->codecName = record.codecName == "vp09"_s ? 'vp09' : 'vp08';
+    videoInfo->codecString = createVPCodecParametersString(record);
     return videoInfo;
 }
 
@@ -617,6 +627,70 @@ Ref<VideoInfo> createVideoInfoFromVP9HeaderParser(const vp9_parser::Vp9HeaderPar
     record.colorPrimaries = VPConfigurationColorPrimaries::Unspecified;
     record.transferCharacteristics = VPConfigurationTransferCharacteristics::Unspecified;
     record.matrixCoefficients = VPConfigurationMatrixCoefficients::Unspecified;
+
+    // Derive the color information from the VP9 header color_space value, as per
+    // VP9 Bitstream & Decoding Process Specification 0.6, section 7.2.2. No enum exists
+    // in libwebm so reproduce the values from the specification here:
+    enum class Vp9ColorSpaceValues : uint8_t {
+        CS_UNKNOWN,
+        CS_BT_601,
+        CS_BT_709,
+        CS_SMPTE_170,
+        CS_SMPTE_240,
+        CS_BT_2020,
+        CS_RESERVED,
+        CS_RGB,
+    };
+
+    // Map those "Color Space" values to primaries, transfer function, and matrices, as per
+    // ISO 23091-2 (2019): Coding-independent code points
+    switch (static_cast<Vp9ColorSpaceValues>(parser.color_space())) {
+    case Vp9ColorSpaceValues::CS_BT_601:
+        record.colorPrimaries = VPConfigurationColorPrimaries::BT_601_7;
+        record.transferCharacteristics = VPConfigurationTransferCharacteristics::BT_601_7;
+        record.matrixCoefficients = VPConfigurationMatrixCoefficients::BT_601_7;
+        break;
+    case Vp9ColorSpaceValues::CS_BT_709:
+        record.colorPrimaries = VPConfigurationColorPrimaries::BT_709_6;
+        record.transferCharacteristics = VPConfigurationTransferCharacteristics::BT_709_6;
+        record.matrixCoefficients = VPConfigurationMatrixCoefficients::BT_709_6;
+        break;
+    case Vp9ColorSpaceValues::CS_SMPTE_170:
+        record.colorPrimaries = VPConfigurationColorPrimaries::BT_601_7;
+        record.transferCharacteristics = VPConfigurationTransferCharacteristics::BT_601_7;
+        record.matrixCoefficients = VPConfigurationMatrixCoefficients::BT_601_7;
+        break;
+    case Vp9ColorSpaceValues::CS_SMPTE_240:
+        record.colorPrimaries = VPConfigurationColorPrimaries::SMPTE_ST_240;
+        record.transferCharacteristics = VPConfigurationTransferCharacteristics::SMPTE_ST_240;
+        record.matrixCoefficients = VPConfigurationMatrixCoefficients::SMPTE_ST_240;
+        break;
+    case Vp9ColorSpaceValues::CS_BT_2020:
+        // From the VP9 Bitstream documentation:
+        // Note that VP9 passes the color space information in the bitstream including Rec. ITU-R BT.2020-2,
+        // however, VP9 does not specify if it is in the form of “constant luminance” or “nonconstant luminance”.
+        // As such, application should rely on the signaling outside of the VP9 bitstream. If there is no such
+        // signaling, the application may assume nonconstant luminance for Rec. ITU-R BT.2020-2.
+        record.colorPrimaries = VPConfigurationColorPrimaries::BT_2020_Nonconstant_Luminance;
+        record.matrixCoefficients = VPConfigurationMatrixCoefficients::BT_2020_Nonconstant_Luminance;
+        if (parser.bit_depth() <= 10)
+            record.transferCharacteristics = VPConfigurationTransferCharacteristics::BT_2020_10bit;
+        else
+            record.transferCharacteristics = VPConfigurationTransferCharacteristics::BT_2020_12bit;
+        break;
+    case Vp9ColorSpaceValues::CS_RGB:
+        record.colorPrimaries = VPConfigurationColorPrimaries::BT_709_6;
+        record.transferCharacteristics = VPConfigurationTransferCharacteristics::IEC_61966_2_1;
+        record.matrixCoefficients = VPConfigurationMatrixCoefficients::Identity;
+        break;
+    case Vp9ColorSpaceValues::CS_RESERVED:
+    case Vp9ColorSpaceValues::CS_UNKNOWN:
+    default:
+        record.colorPrimaries = VPConfigurationColorPrimaries::Unspecified;
+        record.transferCharacteristics = VPConfigurationTransferCharacteristics::Unspecified;
+        record.matrixCoefficients = VPConfigurationMatrixCoefficients::Unspecified;
+        break;
+    }
 
     // Container color values can override per-sample ones:
     if (color.is_present()) {

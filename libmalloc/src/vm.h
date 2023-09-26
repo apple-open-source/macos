@@ -28,7 +28,8 @@
 static inline bool
 mvm_aslr_enabled(void)
 {
-	return _dyld_get_image_slide((const struct mach_header *)_NSGetMachExecuteHeader()) != 0;
+	extern struct mach_header __dso_handle;
+	return _dyld_get_image_slide(&__dso_handle);
 }
 
 MALLOC_NOEXPORT

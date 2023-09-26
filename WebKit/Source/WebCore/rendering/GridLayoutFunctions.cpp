@@ -27,7 +27,10 @@
 #include "GridLayoutFunctions.h"
 
 #include "LengthFunctions.h"
+#include "RenderBoxInlines.h"
+#include "RenderBoxModelObjectInlines.h"
 #include "RenderGrid.h"
+#include "RenderStyleInlines.h"
 
 namespace WebCore {
 
@@ -64,11 +67,6 @@ LayoutUnit computeMarginLogicalSizeForChild(const RenderGrid& grid, GridTrackSiz
     else
         child.computeBlockDirectionMargins(grid, marginStart, marginEnd);
     return marginStartIsAuto(child, flowAwareDirection) ? marginEnd : marginEndIsAuto(child, flowAwareDirection) ? marginStart : marginStart + marginEnd;
-}
-
-static inline GridTrackSizingDirection directionFromSide(GridPositionSide side)
-{
-    return side == ColumnStartSide || side == ColumnEndSide ? ForColumns : ForRows;
 }
 
 static bool hasRelativeOrIntrinsicSizeForChild(const RenderBox& child, GridTrackSizingDirection direction)

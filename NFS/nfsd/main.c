@@ -104,6 +104,7 @@
 #include "lockd_mach.h"
 #include "pathnames.h"
 #include "common.h"
+#include "nfsd_analytics.h"
 
 #define GETOPT                  "F:Nn:P:p:Rrtuv?"
 
@@ -329,7 +330,7 @@ nfsd_imp(int argc, char *argv[], const char *conf_path)
 				printf("lockd service is %s\n", enabled ? "enabled" : "disabled");
 				loaded = service_is_loaded(CFSTR(_LOCKD_SERVICE_LABEL));
 				printf("lockd service is %s\n", loaded ? "loaded" : "not loaded");
-				pid = get_pid(_PATH_LOCKD_PID);
+				pid = get_lockd_pid();
 				if (pid <= 0) {
 					printf("lockd is not running\n");
 				} else {
@@ -513,8 +514,17 @@ nfsd_imp(int argc, char *argv[], const char *conf_path)
 	/* tell others about our services */
 	register_services();
 
+	/* Collect config analytics */
+	nfsd_analytics_config_send();
+
+	/* Register statistics analytics */
+	nfsd_analytics_statistics_regsiter();
+
 	/* main thread loops to handle config updates */
 	config_loop(conf_path);
+
+	/* Unregister statistics analytics */
+	nfsd_analytics_statistics_unregsiter();
 
 	/* nfsd is exiting... */
 	sysctl_set("vfs.generic.nfs.server.nfsd_thread_max", 0);
@@ -1538,6 +1548,12 @@ safe_exec(char *const argv[])
 	return WEXITSTATUS(status);
 }
 
+pid_t
+get_lockd_pid(void)
+{
+	return get_pid(_PATH_LOCKD_PID);
+}
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 /*
@@ -1636,10 +1652,16 @@ rquotad_service_start(void)
 	return rv;
 }
 
+pid_t
+get_rquotad_pid(void)
+{
+	return get_pid(_PATH_RQUOTAD_PID);
+}
+
 static int
 rquotad_start(void)
 {
-	if (get_pid(_PATH_RQUOTAD_PID) > 0) {
+	if (get_rquotad_pid() > 0) {
 		return 0;
 	} else if (rquotad_is_loaded()) {
 		return rquotad_service_start();

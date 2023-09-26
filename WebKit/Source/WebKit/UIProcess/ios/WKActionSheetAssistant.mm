@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #import <WebCore/FloatRect.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/PathUtilities.h>
+#import <pal/spi/ios/DataDetectorsUISoftLink.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/Vector.h>
@@ -273,13 +274,13 @@ static const CGFloat presentationElementRectPadding = 15;
 {
     // Calculate the presentation rect just before showing.
     CGRect presentationRect = CGRectZero;
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPhone) {
         presentationRect = [self initialPresentationRectInHostViewForSheet];
         if (CGRectIsEmpty(presentationRect))
             return NO;
     }
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     return [_interactionSheet presentSheetFromRect:presentationRect];
 }
@@ -307,7 +308,7 @@ static const CGFloat presentationElementRectPadding = 15;
     if (!targetURL)
         return;
 
-    auto *controller = [getDDDetectionControllerClass() sharedController];
+    auto *controller = [PAL::getDDDetectionControllerClass() sharedController];
     if ([controller respondsToSelector:@selector(interactionDidStartForURL:)])
         [controller interactionDidStartForURL:targetURL];
 #endif
@@ -394,8 +395,7 @@ static bool isJavaScriptURL(NSURL *url)
         NSURL *imageURL = _positionInformation->imageURL;
         if (!targetURL)
             targetURL = alternateURL;
-        auto elementBounds = _positionInformation->bounds;
-        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL imageURL:imageURL location:_positionInformation->request.point title:_positionInformation->title ID:_positionInformation->idAttribute rect:elementBounds image:_positionInformation->image.get() imageMIMEType:_positionInformation->imageMIMEType userInfo:userInfo]);
+        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL imageURL:imageURL userInfo:userInfo information:*_positionInformation]);
         if ([delegate respondsToSelector:@selector(actionSheetAssistant:showCustomSheetForElement:)] && [delegate actionSheetAssistant:self showCustomSheetForElement:elementInfo.get()])
             return;
         auto defaultActions = [self defaultActionsForImageSheet:elementInfo.get()];
@@ -525,6 +525,30 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeOpen info:elementInfo assistant:self]];
 }
 
+- (void)_appendAnimationAction:(NSMutableArray *)actions elementInfo:(_WKActivatedElementInfo *)elementInfo
+{
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+    BOOL hasAnimation = elementInfo.isAnimatedImage || !elementInfo._animationsUnderElement.isEmpty();
+    if (!hasAnimation || !elementInfo.canShowAnimationControls)
+        return;
+
+    if (![_delegate respondsToSelector:@selector(_allowAnimationControls)] || ![_delegate _allowAnimationControls])
+        return;
+
+    BOOL isAnimating = elementInfo.isAnimating;
+    if (!elementInfo.isAnimatedImage) {
+        // If the activated element is not an animated image, but it has animations underneath it, take the "is animating" state from these animations.
+        for (const auto& elementAnimationContext : elementInfo._animationsUnderElement) {
+            if (elementAnimationContext.isAnimating) {
+                isAnimating = YES;
+                break;
+            }
+        }
+    }
+    [actions addObject:[_WKElementAction _elementActionWithType:isAnimating ? _WKElementActionPauseAnimation : _WKElementActionPlayAnimation info:elementInfo assistant:self]];
+#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+}
+
 - (RetainPtr<NSArray<_WKElementAction *>>)defaultActionsForLinkSheet:(_WKActivatedElementInfo *)elementInfo
 {
     NSURL *targetURL = [elementInfo URL];
@@ -561,6 +585,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeRevealImage info:elementInfo assistant:self]];
 #endif
     }
+    [self _appendAnimationAction:defaultActions.get() elementInfo:elementInfo];
 
     return defaultActions;
 }
@@ -595,6 +620,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if ([_delegate respondsToSelector:@selector(actionSheetAssistant:shouldIncludeLookUpImageActionForElement:)] && [_delegate actionSheetAssistant:self shouldIncludeLookUpImageActionForElement:elementInfo])
         [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeRevealImage info:elementInfo assistant:self]];
 #endif
+    [self _appendAnimationAction:defaultActions.get() elementInfo:elementInfo];
 
     return defaultActions;
 }
@@ -620,7 +646,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return;
     }
 
-    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL imageURL:(NSURL*)_positionInformation->imageURL location:_positionInformation->request.point title:_positionInformation->title ID:_positionInformation->idAttribute rect:_positionInformation->bounds image:_positionInformation->image.get() imageMIMEType:_positionInformation->imageMIMEType]);
+    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL information:*_positionInformation]);
     if ([_delegate respondsToSelector:@selector(actionSheetAssistant:showCustomSheetForElement:)] && [_delegate actionSheetAssistant:self showCustomSheetForElement:elementInfo.get()]) {
         _needsLinkIndicator = NO;
         return;
@@ -730,7 +756,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     auto retainedSelf = retainPtr(self);
     _WKElementAction *elementAction = [_WKElementAction elementActionWithTitle:action.localizedName actionHandler:^(_WKActivatedElementInfo *actionInfo) {
         retainedSelf->_isPresentingDDUserInterface = action.hasUserInterface;
-        [[getDDDetectionControllerClass() sharedController] performAction:action fromAlertController:retainedSelf->_interactionSheet.get() interactionDelegate:retainedSelf.get()];
+        [[PAL::getDDDetectionControllerClass() sharedController] performAction:action fromAlertController:retainedSelf->_interactionSheet.get() interactionDelegate:retainedSelf.get()];
     }];
     elementAction.dismissalHandler = ^BOOL {
         return !action.hasUserInterface;
@@ -755,7 +781,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!targetURL)
         return;
 
-    DDDetectionController *controller = [getDDDetectionControllerClass() sharedController];
+    DDDetectionController *controller = [PAL::getDDDetectionControllerClass() sharedController];
     NSDictionary *context = nil;
     NSString *textAtSelection = nil;
 
@@ -881,7 +907,7 @@ static NSMutableArray<UIMenuElement *> *menuElementsFromDefaultActions(RetainPtr
 {
 #if ENABLE(DATA_DETECTION)
     if (interaction == _dataDetectorContextMenuInteraction) {
-        DDDetectionController *controller = [getDDDetectionControllerClass() sharedController];
+        DDDetectionController *controller = [PAL::getDDDetectionControllerClass() sharedController];
         NSDictionary *context = nil;
         NSString *textAtSelection = nil;
 
@@ -899,7 +925,7 @@ static NSMutableArray<UIMenuElement *> *menuElementsFromDefaultActions(RetainPtr
         else
             sourceRect = _positionInformation->bounds;
 
-        auto ddContextMenuActionClass = getDDContextMenuActionClass();
+        auto ddContextMenuActionClass = PAL::getDDContextMenuActionClass();
         auto finalContext = [ddContextMenuActionClass updateContext:newContext withSourceRect:sourceRect];
 
         if (ddResult)
@@ -1056,6 +1082,22 @@ static NSMutableArray<UIMenuElement *> *menuElementsFromDefaultActions(RetainPtr
         [delegate actionSheetAssistant:self copySubject:element.image sourceMIMEType:element.imageMIMEType];
 #endif
         break;
+    case _WKElementActionPauseAnimation:
+    case _WKElementActionPlayAnimation: {
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+        auto sheetAction = type == _WKElementActionPauseAnimation ? WebKit::SheetAction::PauseAnimation : WebKit::SheetAction::PlayAnimation;
+        [delegate actionSheetAssistant:self performAction:sheetAction];
+
+        if (!element._animationsUnderElement.isEmpty() && [delegate respondsToSelector:@selector(_actionSheetAssistant:performAction:onElements:)]) {
+            auto elementContexts = element._animationsUnderElement.map([] (const auto& elementAnimationContext) {
+                return elementAnimationContext.element;
+            });
+
+            [delegate _actionSheetAssistant:self performAction:sheetAction onElements:WTFMove(elementContexts)];
+        }
+#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+        break;
+    }
     default:
         ASSERT_NOT_REACHED();
         break;

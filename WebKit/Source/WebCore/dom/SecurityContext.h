@@ -61,6 +61,7 @@ enum SandboxFlag {
     SandboxModals               = 1 << 12,
     SandboxStorageAccessByUserActivation = 1 << 13,
     SandboxTopNavigationToCustomProtocols = 1 << 14,
+    SandboxDownloads = 1 << 15,
     SandboxAll                  = -1 // Mask with all bits set to 1.
 };
 
@@ -110,7 +111,7 @@ public:
     static SandboxFlags parseSandboxPolicy(StringView policy, String& invalidTokensErrorMessage);
     static bool isSupportedSandboxPolicy(StringView);
 
-    enum MixedContentType {
+    enum MixedContentType : uint8_t {
         Inactive = 1 << 0,
         Active = 1 << 1,
     };
@@ -152,9 +153,9 @@ private:
     std::unique_ptr<ContentSecurityPolicy> m_contentSecurityPolicy;
     CrossOriginEmbedderPolicy m_crossOriginEmbedderPolicy;
     CrossOriginOpenerPolicy m_crossOriginOpenerPolicy;
-    ReferrerPolicy m_referrerPolicy { ReferrerPolicy::Default };
     SandboxFlags m_creationSandboxFlags { SandboxNone };
     SandboxFlags m_sandboxFlags { SandboxNone };
+    ReferrerPolicy m_referrerPolicy { ReferrerPolicy::Default };
     OptionSet<MixedContentType> m_mixedContentTypes;
     bool m_haveInitializedSecurityOrigin { false };
     bool m_geolocationAccessed { false };

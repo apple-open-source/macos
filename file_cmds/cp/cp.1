@@ -32,7 +32,7 @@
 .\"	@(#)cp.1	8.3 (Berkeley) 4/18/94
 .\" $FreeBSD$
 .\"
-.Dd February 23, 2022
+.Dd April 17, 2022
 .Dt CP 1
 .Os
 .Sh NAME
@@ -45,7 +45,7 @@
 .Op Fl H | Fl L | Fl P
 .Oc
 .Op Fl fi | n
-.Op Fl alpsvXx
+.Op Fl alpSsvXx
 .Ar source_file target_file
 .Nm
 .Oo
@@ -53,15 +53,15 @@
 .Op Fl H | Fl L | Fl P
 .Oc
 .Op Fl fi | n
-.Op Fl alpsvXx
+.Op Fl alpSsvXx
 .Ar source_file ... target_directory
 .Nm
 .Op Fl f | i | n
-.Op Fl alPpsvx
+.Op Fl alPpSsvx
 .Ar source_file target_file
 .Nm
 .Op Fl f | i | n
-.Op Fl alPpsvx
+.Op Fl alPpSsvx
 .Ar source_file ... target_directory
 .Sh DESCRIPTION
 In the first synopsis form, the
@@ -136,6 +136,16 @@ Same as
 .Fl RpP
 options. Preserves structure and attributes of files
 but not directory structure.
+.It Fl c
+copy files using
+.Xr clonefile 2 .
+Note that if
+.Xr clonefile 2
+is not supported for the target filesystem, then
+.Nm
+will fallback to using
+.Xr copyfile 2
+instead to ensure the copy still succeeds.
 .It Fl f
 .\"For each existing destination pathname, remove it and
 If the destination file cannot be opened, remove it and
@@ -197,6 +207,8 @@ If the source file has both its set-user-ID and set-group-ID bits on,
 and either the user ID or group ID cannot be preserved, neither
 the set-user-ID nor set-group-ID bits are preserved in the copy's
 permissions.
+.It Fl S
+Do not attempt to preserve holes in sparse files.
 .It Fl s
 Create symbolic links to regular files in a hierarchy instead of copying.
 .It Fl v
@@ -207,8 +219,6 @@ to be verbose, showing files as they are copied.
 Do not copy Extended Attributes (EAs) or resource forks.
 .It Fl x
 File system mount points are not traversed.
-.It Fl c
-copy files using clonefile(2)
 .El
 .Pp
 For each destination file that already exists, its contents are
@@ -365,6 +375,8 @@ For more information about legacy mode, see
 .Xr install 1 ,
 .Xr mv 1 ,
 .Xr rcp 1 ,
+.Xr clonefile 2 ,
+.Xr copyfile 2 ,
 .Xr umask 2 ,
 .Xr fts 3 ,
 .Xr compat 5 ,

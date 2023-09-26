@@ -30,11 +30,11 @@
 #include "WebGeolocationManagerProxyMessages.h"
 #include "WebPage.h"
 #include "WebProcess.h"
-#include <WebCore/Frame.h>
 #include <WebCore/Geolocation.h>
 #include <WebCore/GeolocationController.h>
 #include <WebCore/GeolocationError.h>
 #include <WebCore/GeolocationPositionData.h>
+#include <WebCore/LocalFrame.h>
 #include <WebCore/Page.h>
 
 namespace WebKit {
@@ -42,7 +42,7 @@ using namespace WebCore;
 
 static RegistrableDomain registrableDomainForPage(WebPage& page)
 {
-    auto* document = page.corePage() ? page.corePage()->mainFrame().document() : nullptr;
+    auto* document = page.corePage() && dynamicDowncast<LocalFrame>(page.corePage()->mainFrame()) ? dynamicDowncast<LocalFrame>(page.corePage()->mainFrame())->document() : nullptr;
     if (!document)
         return { };
     return RegistrableDomain { document->url() };
@@ -54,9 +54,8 @@ const char* WebGeolocationManager::supplementName()
 }
 
 WebGeolocationManager::WebGeolocationManager(WebProcess& process)
-    : m_process(process)
 {
-    m_process.addMessageReceiver(Messages::WebGeolocationManager::messageReceiverName(), *this);
+    process.addMessageReceiver(Messages::WebGeolocationManager::messageReceiverName(), *this);
 }
 
 WebGeolocationManager::~WebGeolocationManager() = default;
@@ -74,21 +73,21 @@ void WebGeolocationManager::registerWebPage(WebPage& page, const String& authori
     pageSets.pageSet.add(page);
     if (needsHighAccuracy)
         pageSets.highAccuracyPageSet.add(page);
-    m_pageToRegistrableDomain.add(&page, registrableDomain);
+    m_pageToRegistrableDomain.add(page, registrableDomain);
 
     if (!wasUpdating) {
-        m_process.parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::StartUpdating(registrableDomain, page.webPageProxyIdentifier(), authorizationToken, needsHighAccuracy), 0);
+        WebProcess::singleton().parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::StartUpdating(registrableDomain, page.webPageProxyIdentifier(), authorizationToken, needsHighAccuracy), 0);
         return;
     }
 
     bool highAccuracyShouldBeEnabled = isHighAccuracyEnabled(pageSets);
     if (highAccuracyWasEnabled != highAccuracyShouldBeEnabled)
-        m_process.parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::SetEnableHighAccuracy(registrableDomain, highAccuracyShouldBeEnabled), 0);
+        WebProcess::singleton().parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::SetEnableHighAccuracy(registrableDomain, highAccuracyShouldBeEnabled), 0);
 }
 
 void WebGeolocationManager::unregisterWebPage(WebPage& page)
 {
-    auto registrableDomain = m_pageToRegistrableDomain.take(&page);
+    auto registrableDomain = m_pageToRegistrableDomain.take(page);
     if (registrableDomain.string().isEmpty())
         return;
 
@@ -103,11 +102,11 @@ void WebGeolocationManager::unregisterWebPage(WebPage& page)
     pageSets.highAccuracyPageSet.remove(page);
 
     if (!isUpdating(pageSets))
-        m_process.parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::StopUpdating(registrableDomain), 0);
+        WebProcess::singleton().parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::StopUpdating(registrableDomain), 0);
     else {
         bool highAccuracyShouldBeEnabled = isHighAccuracyEnabled(pageSets);
         if (highAccuracyWasEnabled != highAccuracyShouldBeEnabled)
-            m_process.parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::SetEnableHighAccuracy(registrableDomain, highAccuracyShouldBeEnabled), 0);
+            WebProcess::singleton().parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::SetEnableHighAccuracy(registrableDomain, highAccuracyShouldBeEnabled), 0);
     }
 
     if (pageSets.pageSet.isEmptyIgnoringNullReferences() && pageSets.highAccuracyPageSet.isEmptyIgnoringNullReferences())
@@ -116,7 +115,7 @@ void WebGeolocationManager::unregisterWebPage(WebPage& page)
 
 void WebGeolocationManager::setEnableHighAccuracyForPage(WebPage& page, bool enabled)
 {
-    auto registrableDomain = m_pageToRegistrableDomain.get(&page);
+    auto registrableDomain = m_pageToRegistrableDomain.get(page);
     if (registrableDomain.string().isEmpty())
         return;
 
@@ -135,7 +134,7 @@ void WebGeolocationManager::setEnableHighAccuracyForPage(WebPage& page, bool ena
 
     bool highAccuracyShouldBeEnabled = isHighAccuracyEnabled(pageSets);
     if (highAccuracyWasEnabled != isHighAccuracyEnabled(pageSets))
-        m_process.parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::SetEnableHighAccuracy(registrableDomain, highAccuracyShouldBeEnabled), 0);
+        WebProcess::singleton().parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::SetEnableHighAccuracy(registrableDomain, highAccuracyShouldBeEnabled), 0);
 }
 
 void WebGeolocationManager::didChangePosition(const WebCore::RegistrableDomain& registrableDomain, const GeolocationPositionData& position)
@@ -189,7 +188,7 @@ void WebGeolocationManager::resetPermissions(const WebCore::RegistrableDomain& r
         return;
 
     for (auto& page : copyToVector(it->value.pageSet)) {
-        if (auto* mainFrame = page->corePage() ? &page->corePage()->mainFrame() : nullptr)
+        if (auto* mainFrame = page->corePage() ? dynamicDowncast<LocalFrame>(page->corePage()->mainFrame()) : nullptr)
             mainFrame->resetAllGeolocationPermission();
     }
 }

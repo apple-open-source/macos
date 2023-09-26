@@ -66,26 +66,50 @@ int
 main(int argc, char *argv[])
 {
     char testdir[] = "mkpath.XXXXXX";
-    char *rmargs[] = { "rm", "-rf", NULL, NULL };
-    int status, tests = 0, errors = 0;
+    const char *rmargs[] = { "rm", "-rf", NULL, NULL };
+    int ch, status, ntests = 0, errors = 0;
 
     initprogname(argc > 0 ? argv[0] : "check_iolog_mkpath");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignore */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     if (mkdtemp(testdir) == NULL)
 	sudo_fatal("unable to create test dir");
     rmargs[2] = testdir;
 
-    test_iolog_mkpath(testdir, &tests, &errors);
+    test_iolog_mkpath(testdir, &ntests, &errors);
 
-    if (tests != 0) {
+    if (ntests != 0) {
 	printf("iolog_mkpath: %d test%s run, %d errors, %d%% success rate\n",
-	    tests, tests == 1 ? "" : "s", errors,
-	    (tests - errors) * 100 / tests);
+	    ntests, ntests == 1 ? "" : "s", errors,
+	    (ntests - errors) * 100 / ntests);
     }
 
     /* Clean up (avoid running via shell) */
-    execvp("rm", rmargs);
-    wait(&status);
+    switch (fork()) {
+    case -1:
+	sudo_warn("fork");
+	_exit(1);
+    case 0:
+	execvp("rm", (char **)rmargs);
+	_exit(1);
+    default:
+	wait(&status);
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+	    errors++;
+	break;
+    }
 
-    exit(errors);
+    return errors;
 }

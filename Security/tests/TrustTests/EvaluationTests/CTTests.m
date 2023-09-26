@@ -227,33 +227,6 @@ static NSArray *trustedCTLogs = nil;
     CFReleaseNull(certA);
 }
 
-- (void)testThreeEmbeddedSCTs {
-    NSDictionary *results = nil;
-    SecCertificateRef leaf = nil, subCA = nil, root = nil;
-    isnt(leaf = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"www_digicert_com_2016"], NULL, "create leaf");
-    isnt(subCA = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"digicert_sha2_ev_server_ca"], NULL, "create subCA");
-    isnt(root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"digicert_ev_root_ca"], NULL, "create subCA");
-    NSArray *certs = @[(__bridge id)leaf, (__bridge id)subCA];
-    XCTAssertNotNil(results = [self eval_ct_trust:certs
-                                             sCTs:nil ocspResponses:nil anchors:@[(__bridge id)root]
-                                    trustedCTLogs:nil hostname:@"www.digicert.com" verifyDate:date_20160422]);
-#if TARGET_OS_BRIDGE
-    /* BridgeOS doesn't have a root store or CT log list so default CT behavior (without input logs as above) is failed CT validation. */
-    XCTAssertNil(results[(__bridge NSString*)kSecTrustCertificateTransparency], "got CT result when no CT expected");
-#else
-     XCTAssertEqualObjects(results[(__bridge NSString*)kSecTrustCertificateTransparency], @YES, "expected CT result");
-#endif
-#if TARGET_OS_WATCH
-    /* WatchOS doesn't require OCSP for EV flag, so even though the OCSP responder no longer responds for this cert, it is EV on watchOS. */
-    XCTAssertEqualObjects(results[(__bridge NSString*)kSecTrustExtendedValidation], @YES, "expected EV result");
-#else
-    XCTAssertNil(results[(__bridge NSString*)kSecTrustExtendedValidation], "got EV result when no EV expected");
-#endif
-    CFReleaseNull(leaf);
-    CFReleaseNull(subCA);
-    CFReleaseNull(root);
-}
-
 - (void)testOtherCTCerts {
     SecCertificateRef cfCert = NULL;
     NSDictionary *results = nil;

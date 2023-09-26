@@ -330,7 +330,11 @@ bsm_audit_session_setup(void)
 		info.ai_auid = the_authctxt->pw->pw_uid;
 	else
 		info.ai_auid = -1;
+#ifdef __APPLE__
+	info.ai_asid = AU_ASSIGN_ASID;
+#else
 	info.ai_asid = getpid();
+#endif
 	mask.am_success = 0;
 	mask.am_failure = 0;
 
@@ -343,8 +347,13 @@ bsm_audit_session_setup(void)
 
 	rc = SetAuditFunc(&info, sizeof(info));
 	if (rc < 0)
+#ifdef __APPLE__
+		fatal("BSM audit: %s: %s failed: %s", __func__,
+		    SetAuditFuncText, strerror(errno));
+#else
 		error("BSM audit: %s: %s failed: %s", __func__,
 		    SetAuditFuncText, strerror(errno));
+#endif
 }
 
 static void
@@ -373,8 +382,14 @@ audit_connection_from(const char *host, int port)
 	AuditInfoTermID *tid = &ssh_bsm_tid;
 	char buf[1024];
 
+#ifndef __APPLE_AUDIT_SESSION_ALWAYS__
+	/*
+	 * Audit session setup depends on ssh_bsm_tid being set,
+	 * otherwise setaudit_addr() will fail.
+	 */
 	if (cannot_audit(0))
 		return;
+#endif
 	debug3("BSM audit: connection from %.100s port %d", host, port);
 
 	/* populate our terminal id structure */
@@ -418,13 +433,25 @@ audit_event(struct ssh *ssh, ssh_audit_event_t event)
 	static int logged_in = 0;
 	const char *user = the_authctxt ? the_authctxt->user : "(unknown user)";
 
+#ifdef __APPLE_AUDIT_SESSION_ALWAYS__
+	/*
+	 * Always set up the audit session, even when the audit
+	 * trail is disabled.
+	 */
+	if (event == SSH_AUTH_SUCCESS) {
+		bsm_audit_session_setup();
+	}
+#endif
+
 	if (cannot_audit(0))
 		return;
 
 	switch(event) {
 	case SSH_AUTH_SUCCESS:
 		logged_in = 1;
+#ifndef __APPLE_AUDIT_SESSION_ALWAYS__
 		bsm_audit_session_setup();
+#endif
 		snprintf(textbuf, sizeof(textbuf),
 		    gettext("successful login %s"), user);
 		bsm_audit_record(0, textbuf, AUE_openssh);

@@ -1,36 +1,20 @@
-/*
- * @APPLE_LICENSE_HEADER_START@
+/*!
+ * HIDVirtualEventService.m
+ * HID
  *
- * Copyright (c) 2018-2022 Apple Computer, Inc.  All Rights Reserved.
- *
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- *
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- *
- * @APPLE_LICENSE_HEADER_END@
+ * Copyright © 2022 Apple Inc. All rights reserved.
  */
 
-#import "HIDVirtualEventService.h"
-#import "HIDEventSystemClient.h"
-#import "HIDEventSystemClientPrivate.h"
+#import <HID/HIDVirtualEventService.h>
+#import <HID/HIDEventSystemClient_Internal.h>
 #import <IOKit/hid/IOHIDEventSystemClient.h>
-#import "HIDServiceClient.h"
-#import "NSError+IOReturn.h"
+#import <HID/HIDServiceClient.h>
+#import <HID/NSError+IOReturn.h>
+#import <IOKit/hid/IOHIDLibPrivate.h>
+#import <stdatomic.h>
+#import <os/assumes.h>
+
 #import "IOHIDPrivateKeys.h"
-#include <IOKit/hid/IOHIDLibPrivate.h>
-#include <stdatomic.h>
-#include <os/assumes.h>
 
 @interface HIDVirtualEventService () {
     _Atomic int _state;
@@ -92,10 +76,11 @@ static void  __HIDVirtualServiceNotifyCallback ( void * __unused target, void * 
     
     HIDVirtualServiceNotificationType notificationType;
     switch (type) {
-        case kIOHIDVirtualServiceScheduledWithDispatchQueue:
+        case kIOHIDVirtualServiceOpenedByEventSystem:
             notificationType = HIDVirtualServiceNotificationTypeEnumerated;
             break;
         case kIOHIDVirtualServiceUnScheduledFromDispatchQueue:
+        case kIOHIDVirtualServiceReset:
             notificationType = HIDVirtualServiceNotificationTypeTerminated;
             break;
         default:
@@ -192,7 +177,7 @@ static IOHIDEventRef _Nullable  __HIDVirtualServiceClientCopyMatchingEventCallba
     };
     
     self.serviceClient = (HIDServiceClient *) CFBridgingRelease(IOHIDVirtualServiceClientCreateWithCallbacks (self.client.client, NULL, (IOHIDVirtualServiceClientCallbacks *)&callbacks,  (__bridge void * _Nullable)(self), NULL));
- 
+    
     __weak HIDVirtualEventService * weakSelf = self;
     HIDBlock thandler = ^{
         __strong HIDVirtualEventService * self_ = weakSelf;
@@ -200,10 +185,8 @@ static IOHIDEventRef _Nullable  __HIDVirtualServiceClientCopyMatchingEventCallba
             [self_.delegate notification:HIDVirtualServiceNotificationTypeTerminated withProperty:nil forService:self_];
         }
     };
-    
-    if (self.serviceClient) {
-        [self.serviceClient setRemovalHandler: thandler];
-    } else {
+
+    if (!self.serviceClient) {
         dispatch_async(self.queue, thandler);
     }
 }

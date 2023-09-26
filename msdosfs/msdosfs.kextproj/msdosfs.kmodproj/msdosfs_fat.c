@@ -703,17 +703,11 @@ void msdosfs_meta_flush(struct msdosfsmount *pmp, int sync)
      *
      * If multiple threads are racing into this routine, they could all end
      * up (re)scheduling the timer.  The first thread to schedule the timer
-     * ends up incrementing both pm_sync_scheduled and pm_sync_incomplete.
+     * ends up incrementing pm_sync_scheduled.
      * Any other thread will both increment and decrement pm_sync_scheduled,
      * leaving it unchanged in the end (but greater than 1 for a brief time).
-     *
-     * NOTE: We can't rely on just a single counter (pm_sync_incomplete) because
-     * it doesn't get decremented until the callback has completed, so it
-     * could be non-zero if the flush has already begun and the iterator has
-     * already passed the newly dirtied blocks.  (And unmount definitely needs
-     * to know when the last callback is *complete*, not just started.)
      */
-    if (pmp->pm_sync_timer)
+    if ((pmp->pm_sync_timer) && (!pmp->pm_flush_shutdown))
     {
     	if (pmp->pm_sync_scheduled == 0)
     	{
@@ -733,8 +727,6 @@ void msdosfs_meta_flush(struct msdosfsmount *pmp, int sync)
 	    OSIncrementAtomic(&pmp->pm_sync_scheduled);
 	    if (thread_call_enter_delayed(pmp->pm_sync_timer, deadline))
 		OSDecrementAtomic(&pmp->pm_sync_scheduled);
-	    else
-		OSIncrementAtomic(&pmp->pm_sync_incomplete);
     	}
 
 	return;

@@ -1,4 +1,4 @@
-﻿#
+#
 # Copyright (C) 2016 and later: Unicode, Inc. and others.
 # License & terms of use: http://www.unicode.org/copyright.html
 # Copyright (C) 2002-2016, International Business Machines Corporation
@@ -6,12 +6,12 @@
 #
 # file:  word_fi_sv.txt
 #
-# ICU Word Break Rules, fi/sv locales (these are actually the standard UAX #29 rules)
+# ICU Word Break Rules
 #      See Unicode Standard Annex #29.
 #      These rules are based on UAX #29 Revision 34 for Unicode Version 12.0
 #
 # Note:  Updates to word.txt will usually need to be merged into
-#        word_POSIX.txt also.
+#        word_fi_sv.txt also.
 
 ##############################################################################
 #
@@ -25,12 +25,15 @@
 
 #
 #  Character Class Definitions.
+#  rdar://107455494 revert adding '@' to $ALetter 
 #
+
+$Han                = [:Han:];
 
 $CR                 = [\p{Word_Break = CR}];
 $LF                 = [\p{Word_Break = LF}];
-$Newline            = [\p{Word_Break = Newline} ];
-$Extend             = [\p{Word_Break = Extend}];
+$Newline            = [\p{Word_Break = Newline}];
+$Extend             = [\p{Word_Break = Extend}-$Han];
 $ZWJ                = [\p{Word_Break = ZWJ}];
 $Regional_Indicator = [\p{Word_Break = Regional_Indicator}];
 $Format             = [\p{Word_Break = Format}];
@@ -42,12 +45,11 @@ $Double_Quote       = [\p{Word_Break = Double_Quote}];
 $MidNumLet          = [\p{Word_Break = MidNumLet}];
 $MidLetter          = [\p{Word_Break = MidLetter}];
 $MidNum             = [\p{Word_Break = MidNum}];
-$Numeric            = [[\p{Word_Break = Numeric}] [\uFF10-\uff19]];  # Patch for ICU-12079
+$Numeric            = [\p{Word_Break = Numeric}];
 $ExtendNumLet       = [\p{Word_Break = ExtendNumLet}];
 $WSegSpace          = [\p{Word_Break = WSegSpace}];
 $Extended_Pict      = [\p{Extended_Pictographic}];
 
-$Han                = [:Han:];
 $Hiragana           = [:Hiragana:];
 $Ideographic        = [\p{Ideographic}];
 

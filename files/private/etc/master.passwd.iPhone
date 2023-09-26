@@ -25,6 +25,7 @@ _findmydevice:*:254:254::0:0:Find My Device Daemon:/var/db/findmydevice:/usr/bin
 _datadetectors:*:257:257::0:0:DataDetectors:/var/db/datadetectors:/usr/bin/false
 _captiveagent:*:258:258::0:0:captiveagent:/var/empty:/usr/bin/false
 _analyticsd:*:263:263::0:0:Analytics Daemon:/var/db/analyticsd:/usr/bin/false
+_fpsd:*:265:265::0:0:FairPlay Services:/var/db/fpsd:/usr/bin/false
 _timed:*:266:266::0:0:Time Sync Daemon:/var/db/timed:/usr/bin/false
 _gpsd:*:267:267::0:0:GPS Daemon:/var/db/gpsd:/usr/bin/false
 _reportmemoryexception:*:269:269::0:0:ReportMemoryException:/var/empty:/usr/bin/false
@@ -44,3 +45,4 @@ _notification_proxy:*:285:285::0:0:Notification Proxy:/var/empty:/usr/bin/false
 _backboardd:*:287:287::0:0:BackBoard:/var/empty:/usr/bin/false
 _avphidbridge:*:288:288::0:0:Apple Virtual Platform HID Bridge:/var/empty:/usr/bin/false
 _launchservices:*:290:290::0:0:Launch Services:/var/empty:/usr/bin/false
+_mobilegestalthelper:*:293:293::0:0:MobileGestaltHelper:/var/empty:/usr/bin/false

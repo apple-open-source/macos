@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2017, 2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2003-2023 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,12 +57,12 @@ enum class FontSmoothingMode : uint8_t {
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, FontSmoothingMode);
 
-enum class FontOrientation : uint8_t {
+enum class FontOrientation : bool {
     Horizontal,
     Vertical
 };
 
-enum class NonCJKGlyphOrientation : uint8_t {
+enum class NonCJKGlyphOrientation : bool {
     Mixed,
     Upright
 };
@@ -178,11 +178,6 @@ struct FontVariantAlternatesValues {
             && ornaments == other.ornaments
             && annotation == other.annotation
             && historicalForms == other.historicalForms;
-    }
-
-    bool operator!=(const FontVariantAlternatesValues& other) const
-    {
-        return !(*this == other);
     }
 
     String stylistic;
@@ -374,8 +369,6 @@ struct FontVariantSettings {
             && eastAsianRuby == other.eastAsianRuby;
     }
 
-    bool operator!=(const FontVariantSettings& other) const { return !(*this == other); }
-
     FontVariantLigatures commonLigatures;
     FontVariantLigatures discretionaryLigatures;
     FontVariantLigatures historicalLigatures;
@@ -487,12 +480,40 @@ enum class FontStyleAxis : uint8_t {
     ital
 };
 
-enum class AllowUserInstalledFonts : uint8_t {
-    No,
-    Yes
-};
+enum class AllowUserInstalledFonts : bool { No, Yes };
 
 using FeaturesMap = HashMap<FontTag, int, FourCharacterTagHash, FourCharacterTagHashTraits>;
 FeaturesMap computeFeatureSettingsFromVariants(const FontVariantSettings&, RefPtr<FontFeatureValues>);
 
-}
+enum class FontVariantEmoji : uint8_t {
+    Normal,
+    Text,
+    Emoji,
+    Unicode,
+};
+
+enum class ResolvedEmojiPolicy : uint8_t {
+    NoPreference,
+    RequireText,
+    RequireEmoji,
+};
+
+enum class ColorGlyphType : uint8_t {
+    Outline,
+    Color,
+};
+
+} // namespace WebCore
+
+namespace WTF {
+
+template<> struct EnumTraits<WebCore::ResolvedEmojiPolicy> {
+    using values = EnumValues<
+        WebCore::ResolvedEmojiPolicy,
+        WebCore::ResolvedEmojiPolicy::NoPreference,
+        WebCore::ResolvedEmojiPolicy::RequireText,
+        WebCore::ResolvedEmojiPolicy::RequireEmoji
+    >;
+};
+
+} // namespace WTF

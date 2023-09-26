@@ -136,10 +136,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/heapsort.c,v 1.6 2008/01/13 02:11:10 das
  * only advantage over quicksort is that it requires little additional memory.
  */
 int
-heapsort_b(vbase, nmemb, size, compar)
-	void *vbase;
-	size_t nmemb, size;
-	int (^compar)(const void *, const void *);
+heapsort_b(void *vbase, size_t nmemb, size_t size,
+    int (^compar)(const void *, const void *))
 {
 	size_t cnt, i, j, l;
 	char tmp, *tmp1, *tmp2;

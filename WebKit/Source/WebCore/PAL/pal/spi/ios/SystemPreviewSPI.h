@@ -29,7 +29,7 @@
 #import <AssetViewer/ARQuickLookWebKitItem.h>
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
 #import <AssetViewer/ASVThumbnailView.h>
 #endif
 
@@ -37,7 +37,7 @@
 #import <AssetViewer/ASVInlinePreview.h>
 #endif
 
-#if HAVE(UIKIT_WEBKIT_INTERNALS)
+#if PLATFORM(VISION)
 #import <AssetViewer/ASVLaunchPreview.h>
 #endif
 
@@ -45,7 +45,7 @@
 
 #import <UIKit/UIKit.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
 #import <pal/spi/ios/QuickLookSPI.h>
 
 @class ASVThumbnailView;
@@ -129,8 +129,9 @@ typedef void (^ASVSetIsPlayingReplyBlock) (BOOL isPlaying, NSError * _Nullable e
 @end
 
 @interface ASVLaunchPreview : NSObject
-+ (void)beginPreviewApplicationWithURLs:(nonnull NSArray *)urls is3DContent:(BOOL)is3DContent completion:(nonnull void (^)(NSError * _Nullable))handler;
-+ (void)launchPreviewApplicationWithURLs:(nonnull NSArray *)urls completion:(nonnull void (^)(NSError * _Nullable))handler;
++ (void)beginPreviewApplicationWithURLs:(NSArray *)urls is3DContent:(BOOL)is3DContent websiteURL:(NSURL *)websiteURL completion:(void (^)(NSError *))handler;
++ (void)launchPreviewApplicationWithURLs:(NSArray *)urls completion:(void (^)(NSError *))handler;
++ (void)cancelPreviewApplicationWithURLs:(NSArray *)urls error:(NSError *)error completion:(void (^)(NSError *))handler;
 @end
 
 NS_ASSUME_NONNULL_END

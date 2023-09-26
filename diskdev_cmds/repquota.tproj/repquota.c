@@ -122,9 +122,7 @@ int	oneof(char *, char **, int);
 void	usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
 #ifndef __APPLE__
 	register struct fstab *fs;

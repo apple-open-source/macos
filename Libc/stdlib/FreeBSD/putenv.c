@@ -73,8 +73,7 @@ _putenvp(char *str, char ***envp, void *state)
 #endif /* BUILDING_VARIANT */
 
 int
-putenv(str)
-	char *str;
+putenv(char *str)
 {
 	int ret;
 	int copy;

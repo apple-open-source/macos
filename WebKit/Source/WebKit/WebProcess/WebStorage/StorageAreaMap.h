@@ -59,9 +59,9 @@ public:
     unsigned length();
     String key(unsigned index);
     String item(const String& key);
-    void setItem(WebCore::Frame& sourceFrame, StorageAreaImpl* sourceArea, const String& key, const String& value, bool& quotaException);
-    void removeItem(WebCore::Frame& sourceFrame, StorageAreaImpl* sourceArea, const String& key);
-    void clear(WebCore::Frame& sourceFrame, StorageAreaImpl* sourceArea);
+    void setItem(WebCore::LocalFrame& sourceFrame, StorageAreaImpl* sourceArea, const String& key, const String& value, bool& quotaException);
+    void removeItem(WebCore::LocalFrame& sourceFrame, StorageAreaImpl* sourceArea, const String& key);
+    void clear(WebCore::LocalFrame& sourceFrame, StorageAreaImpl* sourceArea);
     bool contains(const String& key);
 
     // IPC::MessageReceiver
@@ -77,7 +77,7 @@ public:
 
 private:
     void didSetItem(uint64_t mapSeed, const String& key, bool hasError, HashMap<String, String>&&);
-    void didRemoveItem(uint64_t mapSeed, const String& key);
+    void didRemoveItem(uint64_t mapSeed, const String& key, bool hasError, HashMap<String, String>&&);
     void didClear(uint64_t mapSeed);
 
     // Message handlers.

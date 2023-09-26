@@ -184,7 +184,7 @@ basic_perf_malloc_free_by_size_class_offset(bool singlethreaded)
 #pragma mark 8-byte allocation/free
 
 T_DECL(basic_perf_serial_8_bytes, "Malloc/Free 8 bytes single-threaded",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -204,7 +204,7 @@ T_DECL(basic_perf_serial_8_bytes_V2, "Malloc/Free 8 bytes single-threaded on V2"
 }
 
 T_DECL(basic_perf_parallel_8_bytes, "Malloc/Free 8 bytes parallel",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -228,7 +228,7 @@ T_DECL(basic_perf_parallel_8_bytes_V2, "Malloc/Free 8 bytes single-threaded on V
 
 T_DECL(basic_perf_serial_8_bytes_multi_block_default_scan_policy,
 	   "Malloc/Free 8 bytes single-threaded with block overflow, default scan policy",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -250,7 +250,7 @@ T_DECL(basic_perf_serial_8_bytes_multi_block_default_scan_policy_V2,
 
 T_DECL(basic_perf_parallel_8_bytes_multi_block_default_scan_policy,
 	   "Malloc/Free 8 bytes parallel with block overflow, default scan policy",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -307,7 +307,7 @@ T_DECL(basic_perf_parallel_8_bytes_multi_block_first_fit_V2,
 
 T_DECL(basic_perf_serial_different_size_classes,
 	   "Malloc/Free in different size classes single-threaded",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -329,7 +329,7 @@ T_DECL(basic_perf_serial_different_size_classes_V2,
 
 T_DECL(basic_perf_parallel_different_size_classes,
 	   "Malloc/Free in different size classes parallel",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -354,7 +354,7 @@ T_DECL(basic_perf_parallel_different_size_classes_V2,
 
 T_DECL(basic_perf_serial_by_size_class,
 	   "Malloc/Free by size class single-threaded",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -376,7 +376,7 @@ T_DECL(basic_perf_serial_by_size_class_V2,
 
 T_DECL(basic_perf_parallel_by_size_class,
 	   "Malloc/Free by size class parallel",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -401,7 +401,7 @@ T_DECL(basic_perf_parallel_by_size_class_V2,
 
 T_DECL(basic_perf_serial_by_size_class_offset,
 	   "Malloc/Free by size class with offset single-threaded",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
@@ -423,7 +423,7 @@ T_DECL(basic_perf_serial_by_size_class_offset_V2,
 
 T_DECL(basic_perf_parallel_by_size_class_offset,
 	   "Malloc/Free by size class with offset parallel",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
+	   T_META_TAG_PERF, T_META_TAG_XZONE, T_META_ALL_VALID_ARCHS(NO),
 	   T_META_LTEPHASE(LTE_POSTINIT),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {

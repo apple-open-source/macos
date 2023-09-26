@@ -49,8 +49,11 @@ InputText::~InputText()
 void InputText::setText(const char *in, int32_t len)
 {
     fInputLen  = 0;
-    fC1Bytes   = FALSE;
-    fOnlyTypicalASCII = FALSE; // rdar://56373519
+    fC1Bytes   = false;
+#if APPLE_ICU_CHANGES
+// rdar://56373519
+    fOnlyTypicalASCII = false;
+#endif  // APPLE_ICU_CHANGES
     fRawInput  = (const uint8_t *) in;
     fRawLength = len == -1? (int32_t)uprv_strlen(in) : len;
 }
@@ -76,8 +79,8 @@ UBool InputText::isSet() const
 
 /**
 *  MungeInput - after getting a set of raw input data to be analyzed, preprocess
-*               it by removing what appears to be html markup. Currently only used
-*               by CharsetDetector::detectAll.
+*               it by removing what appears to be html markup.
+*               Apple comment: Currently only used by CharsetDetector::detectAll.
 * 
 * @internal
 */
@@ -85,8 +88,11 @@ void InputText::MungeInput(UBool fStripTags) {
     int     srci = 0;
     int     dsti = 0;
     uint8_t b;
-    bool    inMarkup = FALSE;
-    bool    inCSSDecl = FALSE;
+    bool    inMarkup = false;
+#if APPLE_ICU_CHANGES
+// rdar:/
+    bool    inCSSDecl = false;
+#endif  // APPLE_ICU_CHANGES
     int32_t openTags = 0;
     int32_t badTags  = 0;
 
@@ -101,32 +107,46 @@ void InputText::MungeInput(UBool fStripTags) {
         for (srci = 0; srci < fRawLength && dsti < BUFFER_SIZE; srci += 1) {
             b = fRawInput[srci];
 
+#if APPLE_ICU_CHANGES
+// rdar:/
             if ((b == (uint8_t)0x3C) && !inCSSDecl) { /* Check for the ASCII '<' */
+#else
+            if (b == (uint8_t)0x3C) { /* Check for the ASCII '<' */
+#endif  // APPLE_ICU_CHANGES
                 if (inMarkup) {
                     badTags += 1;
                 }
-                inMarkup = TRUE;
+
+                inMarkup = true;
                 openTags += 1;
             }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
             if ((b == (uint8_t)0x7B) && !inMarkup) { /* Check for the ASCII '{' */
                 if (inCSSDecl) {
                     badTags += 1;
                 }
-                inCSSDecl = TRUE;
+                inCSSDecl = true;
                 openTags += 1;
             }
 
             if (!inMarkup && !inCSSDecl) {
+#else
+            if (! inMarkup) {
+#endif  // APPLE_ICU_CHANGES
                 fInputBytes[dsti++] = b;
             }
 
             if (b == (uint8_t)0x3E) { /* Check for the ASCII '>' */
-                inMarkup = FALSE;
+                inMarkup = false;
             }
+#if APPLE_ICU_CHANGES
+// rdar:/
             if (b == (uint8_t)0x7D) { /* Check for the ASCII '}' */
-                inCSSDecl = FALSE;
+                inCSSDecl = false;
             }
+#endif  // APPLE_ICU_CHANGES
         }
 
         fInputLen = dsti;
@@ -164,20 +184,30 @@ void InputText::MungeInput(UBool fStripTags) {
         fByteStats[fInputBytes[srci]] += 1;
     }
 
-    fOnlyTypicalASCII = TRUE; // rdar://56373519
+#if APPLE_ICU_CHANGES
+// rdar:/
+    fOnlyTypicalASCII = true; // rdar://56373519
     for (int32_t i = 0x01; i <= 0xFF; i += 1) {
         if (fByteStats[i] != 0) {
             if ((i < 0x20 && i != 0x09 && i != 0x0A && i != 0x0D) || i > 0x7E) {
-                fOnlyTypicalASCII = FALSE; // rdar://56373519
+                fOnlyTypicalASCII = false; // rdar://56373519
                 if (i >= 0x80 && i <= 0x9F) {
-                    fC1Bytes = TRUE;
+                    fC1Bytes = true;
                 }
             }
         }
     }
     if (fByteStats[0] > 1) {
-        fOnlyTypicalASCII = FALSE;
+        fOnlyTypicalASCII = false;
     }
+#else
+    for (int32_t i = 0x80; i <= 0x9F; i += 1) {
+        if (fByteStats[i] != 0) {
+            fC1Bytes = true;
+            break;
+        }
+    }
+#endif  // APPLE_ICU_CHANGES
 }
 
 U_NAMESPACE_END

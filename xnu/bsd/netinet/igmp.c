@@ -2396,7 +2396,7 @@ igmp_v3_suppress_group_record(struct in_multi *inm)
 
 	VERIFY(inm->inm_igi->igi_version == IGMP_VERSION_3);
 
-	if (inm->inm_state != IGMP_G_QUERY_PENDING_MEMBER ||
+	if (inm->inm_state != IGMP_G_QUERY_PENDING_MEMBER &&
 	    inm->inm_state != IGMP_SG_QUERY_PENDING_MEMBER) {
 		return;
 	}
@@ -4037,7 +4037,7 @@ igmp_sendpkt(struct mbuf *m)
 			IGMP_PRINTF(("%s: dropped 0x%llx\n", __func__,
 			    (uint64_t)VM_KERNEL_ADDRPERM(m)));
 			IMO_REMREF(imo);
-			atomic_add_32(&ipstat.ips_odropped, 1);
+			os_atomic_inc(&ipstat.ips_odropped, relaxed);
 			return;
 		}
 	}

@@ -27,12 +27,14 @@
 #include "IPCStreamTester.h"
 
 #if ENABLE(IPC_TESTING_API)
+
 #include "Decoder.h"
 #include "IPCStreamTesterMessages.h"
 #include "IPCStreamTesterProxyMessages.h"
 #include "IPCUtilities.h"
 #include "StreamConnectionWorkQueue.h"
 #include "StreamServerConnection.h"
+#include <wtf/WTFProcess.h>
 
 #if USE(FOUNDATION)
 #include <CoreFoundation/CoreFoundation.h>
@@ -49,7 +51,7 @@ RefPtr<IPCStreamTester> IPCStreamTester::create(IPCStreamTesterIdentifier identi
 
 IPCStreamTester::IPCStreamTester(IPCStreamTesterIdentifier identifier, IPC::StreamServerConnection::Handle&& connectionHandle)
     : m_workQueue(IPC::StreamConnectionWorkQueue::create("IPCStreamTester work queue"))
-    , m_streamConnection(IPC::StreamServerConnection::create(WTFMove(connectionHandle), workQueue()))
+    , m_streamConnection(IPC::StreamServerConnection::tryCreate(WTFMove(connectionHandle)).releaseNonNull())
     , m_identifier(identifier)
 {
 }
@@ -58,17 +60,19 @@ IPCStreamTester::~IPCStreamTester() = default;
 
 void IPCStreamTester::initialize()
 {
-    m_streamConnection->startReceivingMessages(*this, Messages::IPCStreamTester::messageReceiverName(), m_identifier.toUInt64());
-    m_streamConnection->open();
     workQueue().dispatch([this] {
+        m_streamConnection->open(workQueue());
+        m_streamConnection->startReceivingMessages(*this, Messages::IPCStreamTester::messageReceiverName(), m_identifier.toUInt64());
         m_streamConnection->send(Messages::IPCStreamTesterProxy::WasCreated(workQueue().wakeUpSemaphore(), m_streamConnection->clientWaitSemaphore()), m_identifier);
     });
 }
 
 void IPCStreamTester::stopListeningForIPC(Ref<IPCStreamTester>&& refFromConnection)
 {
-    m_streamConnection->invalidate();
-    m_streamConnection->stopReceivingMessages(Messages::IPCStreamTester::messageReceiverName(), m_identifier.toUInt64());
+    workQueue().dispatch([this] {
+        m_streamConnection->stopReceivingMessages(Messages::IPCStreamTester::messageReceiverName(), m_identifier.toUInt64());
+        m_streamConnection->invalidate();
+    });
     workQueue().stopAndWaitForCompletion();
 }
 
@@ -84,7 +88,7 @@ void IPCStreamTester::syncMessageReturningSharedMemory1(uint32_t byteCount, Comp
         uint8_t* data = static_cast<uint8_t*>(sharedMemory->data());
         for (size_t i = 0; i < sharedMemory->size(); ++i)
             data[i] = i;
-        return *handle;
+        return WTFMove(*handle);
     }();
     completionHandler(WTFMove(result));
 }
@@ -93,12 +97,7 @@ void IPCStreamTester::syncCrashOnZero(int32_t value, CompletionHandler<void(int3
 {
     if (!value) {
         // Use exit so that we don't leave a crash report.
-#if OS(WINDOWS)
-        // Calling _exit in non-main threads may cause a deadlock in WTF::Thread::ThreadHolder::~ThreadHolder.
-        TerminateProcess(GetCurrentProcess(), EXIT_SUCCESS);
-#else
-        _exit(EXIT_SUCCESS);
-#endif
+        terminateProcess(EXIT_SUCCESS);
     }
     completionHandler(value);
 }

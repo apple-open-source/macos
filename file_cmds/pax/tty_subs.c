@@ -1,7 +1,6 @@
-/*	$OpenBSD: tty_subs.c,v 1.12 2003/06/02 23:32:09 millert Exp $	*/
-/*	$NetBSD: tty_subs.c,v 1.5 1995/03/21 09:07:52 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,24 +33,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)tty_subs.c	8.2 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] = "$OpenBSD: tty_subs.c,v 1.12 2003/06/02 23:32:09 millert Exp $";
+static char sccsid[] = "@(#)tty_subs.c	8.2 (Berkeley) 4/18/94";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
-#include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/param.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <errno.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <string.h>
 #include "pax.h"
 #include "extern.h"
@@ -61,7 +55,7 @@ __used static const char rcsid[] = "$OpenBSD: tty_subs.c,v 1.12 2003/06/02 23:32
  * routines that deal with I/O to and from the user
  */
 
-#define DEVTTY		"/dev/tty"	/* device for interactive i/o */
+#define DEVTTY	  "/dev/tty"      /* device for interactive i/o */
 static FILE *ttyoutf = NULL;		/* output pointing at control tty */
 static FILE *ttyinf = NULL;		/* input pointing at control tty */
 
@@ -145,9 +139,12 @@ void
 paxwarn(int set, const char *fmt, ...)
 {
 	va_list ap;
-
 	va_start(ap, fmt);
-	if (set && (pax_invalid_action==0))
+#ifdef __APPLE__
+	if (set && (pax_invalid_action == 0))
+#else
+	if (set)
+#endif /* __APPLE__ */
 		exit_val = 1;
 	/*
 	 * when vflag we better ship out an extra \n to get this message on a
@@ -174,7 +171,6 @@ void
 syswarn(int set, int errnum, const char *fmt, ...)
 {
 	va_list ap;
-
 	va_start(ap, fmt);
 	if (set)
 		exit_val = 1;

@@ -49,8 +49,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/frune.c,v 1.3 2002/09/18 06:19:12 tjr Ex
 #include "runedepreciated.h"
 
 long
-fgetrune(fp)
-	FILE *fp;
+fgetrune(FILE *fp)
 {
 	rune_t  r;
 	int c, len;
@@ -83,9 +82,7 @@ fgetrune(fp)
 }
 
 int
-fungetrune(r, fp)
-	rune_t r;
-	FILE* fp;
+fungetrune(rune_t r, FILE *fp)
 {
 	int len;
 	char buf[MB_LEN_MAX];
@@ -104,9 +101,7 @@ fungetrune(r, fp)
 }
 
 int
-fputrune(r, fp)
-	rune_t r;
-	FILE *fp;
+fputrune(rune_t r, FILE *fp)
 {
 	int i, len;
 	char buf[MB_LEN_MAX];

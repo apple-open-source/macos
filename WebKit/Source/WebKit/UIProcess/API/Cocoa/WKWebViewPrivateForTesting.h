@@ -23,10 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import <Foundation/Foundation.h>
+
 #if TARGET_OS_IPHONE
-#import "WKWebViewPrivateForTestingIOS.h"
+#import <WebKit/WKWebViewPrivateForTestingIOS.h>
 #else
-#import "WKWebViewPrivateForTestingMac.h"
+#import <WebKit/WKWebViewPrivateForTestingMac.h>
 #endif
 
 NS_ASSUME_NONNULL_BEGIN
@@ -49,6 +51,8 @@ struct WKAppPrivacyReportTestingData {
 
 @property (nonatomic, readonly) NSString *_caLayerTreeAsText;
 
+- (NSString*)_scrollbarStateForScrollingNodeID:(uint64_t)scrollingNodeID isVertical:(bool)isVertical;
+
 - (void)_addEventAttributionWithSourceID:(uint8_t)sourceID destinationURL:(NSURL *)destination sourceDescription:(NSString *)sourceDescription purchaser:(NSString *)purchaser reportEndpoint:(NSURL *)reportEndpoint optionalNonce:(nullable NSString *)nonce applicationBundleID:(NSString *)bundleID ephemeral:(BOOL)ephemeral WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
 - (void)_setPageScale:(CGFloat)scale withOrigin:(CGPoint)origin;
@@ -68,6 +72,7 @@ struct WKAppPrivacyReportTestingData {
 @property (nonatomic, readonly) BOOL _wirelessVideoPlaybackDisabled;
 
 - (void)_setIndexOfGetDisplayMediaDeviceSelectedForTesting:(nullable NSNumber *)index;
+- (void)_setSystemCanPromptForGetDisplayMediaForTesting:(BOOL)canPrompt;
 
 - (BOOL)_beginBackSwipeForTesting;
 - (BOOL)_completeBackSwipeForTesting;
@@ -79,6 +84,8 @@ struct WKAppPrivacyReportTestingData {
 - (void)_didShowContextMenu;
 - (void)_didDismissContextMenu;
 
+- (void)_resetInteraction;
+
 - (BOOL)_shouldBypassGeolocationPromptForTesting;
 
 - (void)_didPresentContactPicker;
@@ -87,6 +94,10 @@ struct WKAppPrivacyReportTestingData {
 
 @property (nonatomic, setter=_setScrollingUpdatesDisabledForTesting:) BOOL _scrollingUpdatesDisabledForTesting;
 @property (nonatomic, readonly) NSString *_scrollingTreeAsText;
+
+@property (nonatomic, readonly) pid_t _networkProcessIdentifier;
+
+@property (nonatomic, readonly) unsigned long _countOfUpdatesWithLayerChanges;
 
 - (void)_processWillSuspendForTesting:(void (^)(void))completionHandler;
 - (void)_processWillSuspendImminentlyForTesting;
@@ -127,6 +138,8 @@ struct WKAppPrivacyReportTestingData {
 - (void)_computePagesForPrinting:(_WKFrameHandle *)handle completionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
 - (void)_setConnectedToHardwareConsoleForTesting:(BOOL)connected;
+
+- (void)_setSystemPreviewCompletionHandlerForLoadTesting:(void(^)(bool))completionHandler;
 
 @end
 

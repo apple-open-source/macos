@@ -224,6 +224,8 @@ typedef enum USentenceBreakTag {
 } USentenceBreakTag;
 
 
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
 /**
  *  Masks to control line break word options (per the CSS word-break property).
  *  NORMAL allows breaks between CJK characters in the middle of words. Other masks
@@ -240,7 +242,7 @@ typedef enum ULineWordOptions {
     /** Prevent breaks between characters of any script, except as determined by a dictionary. */
     UBRK_LINEWORD_KEEP_ALL    = 0x7F
 } ULineWordOptions;
-
+#endif // APPLE_ICU_CHANGES
 
 
 /**
@@ -331,11 +333,12 @@ ubrk_openBinaryRules(const uint8_t *binaryRules, int32_t rulesLength,
  *  If *pBufferSize is not enough for a stack-based safe clone,
  *  new memory will be allocated.
  * @param status to indicate whether the operation went on smoothly or there were errors
- *  An informational status value, U_SAFECLONE_ALLOCATED_ERROR, is used if any allocations were necessary.
+ *  An informational status value, U_SAFECLONE_ALLOCATED_ERROR, is used
+ * if pBufferSize != NULL and any allocations were necessary
  * @return pointer to the new clone
  * @deprecated ICU 69 Use ubrk_clone() instead.
  */
-U_CAPI UBreakIterator * U_EXPORT2
+U_DEPRECATED UBreakIterator * U_EXPORT2
 ubrk_safeClone(
           const UBreakIterator *bi,
           void *stackBuffer,
@@ -344,20 +347,16 @@ ubrk_safeClone(
 
 #endif /* U_HIDE_DEPRECATED_API */
 
-#ifndef U_HIDE_DRAFT_API
-
 /**
  * Thread safe cloning operation.
  * @param bi iterator to be cloned
  * @param status to indicate whether the operation went on smoothly or there were errors
  * @return pointer to the new clone
- * @draft ICU 69
+ * @stable ICU 69
  */
 U_CAPI UBreakIterator * U_EXPORT2
 ubrk_clone(const UBreakIterator *bi,
            UErrorCode *status);
-
-#endif  // U_HIDE_DRAFT_API
 
 #ifndef U_HIDE_DEPRECATED_API
 
@@ -397,6 +396,8 @@ U_NAMESPACE_END
 
 #endif
 
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
 #ifndef U_HIDE_INTERNAL_API
 /**
  * Set the ULineWordOptions for the specified break iterator.
@@ -408,8 +409,8 @@ U_NAMESPACE_END
 U_INTERNAL void U_EXPORT2
 ubrk_setLineWordOpts(UBreakIterator* bi,
                      ULineWordOptions lineWordOpts);
-
 #endif  /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 
 /**
  * Sets an existing iterator to point to a new piece of text.

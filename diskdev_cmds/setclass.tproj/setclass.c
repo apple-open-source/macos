@@ -16,6 +16,7 @@
 #define PROTECTION_CLASS_D 4
 #define PROTECTION_CLASS_E 5
 #define PROTECTION_CLASS_F 6
+#define PROTECTION_CLASS_CX 7
 
 void 
 usage(void)
@@ -42,6 +43,9 @@ chartoclass(char c)
 	case 'C':
 	case 'c':
 		return PROTECTION_CLASS_C;
+	case 'X':
+	case 'x':
+		return PROTECTION_CLASS_CX;
 	case 'D':
 	case 'd':
 		return PROTECTION_CLASS_D;
@@ -70,6 +74,9 @@ classtochar(int class)
 	if (class == 0) {
 		/* Directories are allowed to be "unset" */
 		return 0;
+	}
+	if (class == PROTECTION_CLASS_CX) {
+		return 'X';
 	}
 	return 'A' + (class - 1);
 }

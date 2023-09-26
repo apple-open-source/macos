@@ -28,7 +28,6 @@
 @end
 
 @implementation OTSOSActualAdapter
-@synthesize sosEnabled;
 @synthesize essential = _essential;
 @synthesize providerID = _providerID;
 
@@ -42,9 +41,13 @@
     return list;
 }
 
+- (bool)sosEnabled
+{
+    return SOSCompatibilityModeGetCachedStatus() ? true : false;
+}
+
 - (instancetype)initAsEssential:(BOOL)essential {
     if((self = [super init])) {
-        self.sosEnabled = true;
 
         _essential = essential;
 
@@ -72,6 +75,15 @@
 
 - (SOSCCStatus)circleStatus:(NSError**)error
 {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return kSOSCCError;
+    }
+    
     CFErrorRef cferror = nil;
     SOSCCStatus status = SOSCCThisDeviceIsInCircle(&cferror);
     if(error && cferror) {
@@ -84,6 +96,15 @@
 
 - (id<CKKSSelfPeer> _Nullable)currentSOSSelf:(NSError**)error
 {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return nil;
+    }
+    
     __block SFECKeyPair* signingPrivateKey = nil;
     __block SFECKeyPair* encryptionPrivateKey = nil;
 
@@ -155,6 +176,15 @@
 }
 
 - (CKKSSelves * _Nullable)fetchSelfPeers:(NSError *__autoreleasing  _Nullable * _Nullable)error {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return nil;
+    }
+    
     id<CKKSSelfPeer> peer = [self currentSOSSelf:error];
     if(!peer) {
         return nil;
@@ -165,6 +195,15 @@
 
 - (NSSet<id<CKKSRemotePeerProtocol>>* _Nullable)fetchTrustedPeers:(NSError**)error
 {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return nil;
+    }
+    
     __block NSMutableSet<id<CKKSRemotePeerProtocol>>* peerSet = [NSMutableSet set];
 
     __block NSError* localError = nil;
@@ -229,6 +268,15 @@
 
 
 - (BOOL)preloadOctagonKeySetOnAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return NO;
+    }
+    
     // in case we don't have the keys, don't try to update them
     if (currentSelfPeer.publicSigningKey.secKey == NULL || currentSelfPeer.publicEncryptionKey.secKey == NULL) {
         secnotice("octagon-preload-keys", "no octagon keys available skipping updating SOS record");
@@ -275,8 +323,17 @@
 
 }
 
-- (BOOL)updateOctagonKeySetWithAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error {
-
+- (BOOL)updateOctagonKeySetWithAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error
+{
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return NO;
+    }
+    
     // in case we don't have the keys, don't try to update them
     if (currentSelfPeer.publicSigningKey.secKey == NULL || currentSelfPeer.publicEncryptionKey.secKey == NULL) {
         secnotice("octagon-sos", "no octagon keys available skipping updating SOS record");
@@ -329,6 +386,15 @@
 
 - (BOOL)updateCKKS4AllStatus:(BOOL)status error:(NSError**)error
 {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return NO;
+    }
+    
     CFErrorRef cferror = nil;
     bool result = SOSCCSetCKKS4AllStatus(status, &cferror);
 
@@ -385,6 +451,15 @@
 
 - (BOOL)safariViewSyncingEnabled:(NSError**)error
 {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return NO;
+    }
+    
     CFErrorRef viewCFError = NULL;
     SOSViewResultCode result = SOSCCView(kSOSViewAutofillPasswords, kSOSCCViewQuery, &viewCFError);
 
@@ -402,6 +477,15 @@
 
 - (bool)joinAfterRestore:(NSError * _Nullable __autoreleasing * _Nullable)error
 {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS unsupported on this platform"];
+        }
+        return false;
+    }
+    
     CFErrorRef restoreError = NULL;
     bool restoreResult = SOSCCRequestToJoinCircleAfterRestore(&restoreError);
     
@@ -416,6 +500,15 @@
 
 - (bool)resetToOffering:(NSError * _Nullable __autoreleasing * _Nullable)error
 {
+    if (!self.sosEnabled) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                  description:@"SOS is not enabled for compatibility mode"];
+        }
+        return false;
+    }
+    
     CFErrorRef resetError = NULL;
     bool resetResult = SOSCCResetToOffering(&resetError);
     
@@ -431,19 +524,22 @@
 @end
 
 @implementation OTSOSMissingAdapter
-@synthesize sosEnabled;
 @synthesize providerID = _providerID;
 @synthesize essential = _essential;
 
 - (instancetype)init {
     if((self = [super init])) {
-        self.sosEnabled = false;
         _providerID = @"[OTSOSMissingAdapter]";
 
         // This adapter is never going to return anything, so you probably shouldn't ever consider it Must Succeed
         _essential = NO;
     }
     return self;
+}
+
+- (bool)sosEnabled
+{
+    return false;
 }
 
 - (SOSCCStatus)circleStatus:(NSError**)error

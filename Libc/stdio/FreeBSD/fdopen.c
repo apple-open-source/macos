@@ -56,9 +56,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fdopen.c,v 1.11 2008/05/10 18:39:20 antoi
 #include "local.h"
 
 FILE *
-fdopen(fd, mode)
-	int fd;
-	const char *mode;
+fdopen(int fd, const char *mode)
 {
 	FILE *fp;
 	int flags, oflags, fdflags, tmp;

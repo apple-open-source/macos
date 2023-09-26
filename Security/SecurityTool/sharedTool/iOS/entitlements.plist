@@ -31,5 +31,9 @@
 	<true/>
 	<key>com.apple.private.CoreAuthentication.SPI</key>
 	<true/>
+	<key>com.apple.private.migrate-musr-system-keychain</key>
+	<true/>
+	<key>com.apple.private.keychain.kcsharing.client</key>
+	<true/>
 </dict>
 </plist>

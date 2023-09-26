@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -105,6 +105,7 @@ typedef struct num_to_string {
     int			num;
 } num_to_string;
 
+#if ! TARGET_OS_IPHONE
 
 STATIC SecPreferencesDomain
 map_preferences_domain(EAPOLClientDomain domain)
@@ -138,6 +139,8 @@ set_keychain_domain(SecPreferencesDomain required_domain,
     *previous_set = TRUE;
     return (TRUE);
 }
+
+#endif /* ! TARGET_OS_IPHONE */
 
 STATIC CFDataRef
 CFDataCreateWithFile(const char * filename)
@@ -282,14 +285,18 @@ find_identity_using_cert(EAPOLClientDomain domain, SecCertificateRef cert)
     int				count;
     int				i;
     CFArrayRef			list;
+#if ! TARGET_OS_IPHONE
     SecPreferencesDomain	previous_domain = kSecPreferencesDomainUser;
     bool			previous_domain_set = FALSE;
+#endif
     SecIdentityRef		ret_identity = NULL;
     OSStatus			status;
 
+#if ! TARGET_OS_IPHONE
     previous_domain_set
 	= set_keychain_domain(map_preferences_domain(domain),
 			      &previous_domain_set, &previous_domain);
+#endif /* ! TARGET_OS_IPHONE */
     status = EAPSecIdentityListCreate(&list);
     if (status != noErr) {
 	goto done;
@@ -309,24 +316,28 @@ find_identity_using_cert(EAPOLClientDomain domain, SecCertificateRef cert)
 	    CFRelease(this_cert);
 	}
     }
+    my_CFRelease(&list);
 
  done:
+#if ! TARGET_OS_IPHONE
     if (previous_domain_set) {
 	SecKeychainSetPreferenceDomain(previous_domain);
     }
+#endif /* ! TARGET_OS_IPHONE */
     return (ret_identity);
 }
 
 STATIC EAPOLClientConfigurationRef
 configuration_open(bool need_auth)
 {
-    AuthorizationRef			auth;
+    AuthorizationRef			auth = NULL;
     EAPOLClientConfigurationRef		cfg;
     OSStatus				status;
 
     if (geteuid() == 0 || need_auth == FALSE) {
 	return (EAPOLClientConfigurationCreate(NULL));
     }
+#if ! TARGET_OS_IPHONE
     status = AuthorizationCreate(NULL,
 				 kAuthorizationEmptyEnvironment,
 				 kAuthorizationFlagDefaults,
@@ -335,6 +346,7 @@ configuration_open(bool need_auth)
 	fprintf(stderr, "Failed to get authorization\n");
 	return (NULL);
     }
+#endif
     cfg = EAPOLClientConfigurationCreateWithAuthorization(NULL, auth);
     return (cfg);
 }
@@ -1835,6 +1847,7 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
 		    is_set ? "set" : "clear");
 	    goto done;
 	}
+#if ! TARGET_OS_IPHONE
 	if (identity != NULL) {
 	    status = EAPOLClientSetACLForIdentity(identity);
 	    if (status != noErr) {
@@ -1842,6 +1855,7 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
 			(int)status);
 	    }
 	}
+#endif /* ! TARGET_OS_IPHONE */
     }
     ret = 0;
 
@@ -1855,6 +1869,161 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
     my_CFRelease(&domain);
     return (ret);
 }
+
+STATIC int
+S_get_system_ethernet_profile(const char * command, int argc, char * const * argv)
+{
+    EAPOLClientConfigurationRef	cfg = NULL;
+    EAPOLClientProfileRef	profile;
+    int				ch;
+    bool			details = FALSE;
+    struct option 		longopts[] = {
+	{ "details",	no_argument,	NULL,	'd' },
+	{ NULL,		0,		NULL,	0 }
+    };
+    int				ret = 1;
+
+    while ((ch = getopt_long(argc, argv, "d", longopts, NULL)) != -1) {
+	switch (ch) {
+	    case 'd':
+		details = TRUE;
+		break;
+	    default:
+		show_command_usage(command);
+		goto done;
+	}
+    }
+    argc -= optind;
+    if (argc != 0) {
+	fprintf(stderr, "Too many arguments specified\n");
+	show_command_usage(command);
+	goto done;
+    }
+
+    cfg = EAPOLClientConfigurationCreate(NULL);
+    if (cfg == NULL) {
+	fprintf(stderr, "EAPOLClientConfigurationCreate failed\n");
+	goto done;
+    }
+
+    profile = EAPOLClientConfigurationGetSystemEthernetProfile(cfg);
+    if (profile == NULL) {
+	fprintf(stderr, "No System Ethernet profile found.\n");
+	goto done;
+    }
+    SCPrint(TRUE, stdout, CFSTR("%@\n"), EAPOLClientProfileGetID(profile));
+    ret = 0;
+
+done:
+    my_CFRelease(&cfg);
+    return (ret);
+}
+
+STATIC int
+S_set_system_ethernet_profile(const char * command, int argc, char * const * argv)
+{
+    EAPOLClientConfigurationRef	cfg = NULL;
+    CFStringRef			profileID = NULL;
+    int				ch;
+    struct option 		longopts[] = {
+	{ "profileID",		required_argument,	NULL,	'p' },
+	{ "profileid",		required_argument,	NULL,	'p' },
+	{ NULL,			0,			NULL,	0 }
+    };
+    EAPOLClientProfileRef	profile;
+    int				ret = 1;
+    CFDataRef			ssid = NULL;
+
+    while ((ch = getopt_long(argc, argv, "p", longopts, NULL)) != -1) {
+	switch (ch) {
+	    case 'p':
+		if (profileID != NULL) {
+		    fprintf(stderr, "profileID specified twice\n");
+		    goto done;
+		}
+		profileID = CFStringCreateWithCString(NULL, optarg,
+						      kCFStringEncodingUTF8);
+		break;
+	    default:
+		show_command_usage(command);
+		goto done;
+	}
+    }
+    argc -= optind;
+    /* argv += optind; */
+    if (profileID == NULL) {
+	fprintf(stderr, "No profile specified\n");
+	show_command_usage(command);
+	goto done;
+    }
+    if (argc > 0) {
+	fprintf(stderr, "Too many arguments specified\n");
+	show_command_usage(command);
+	goto done;
+    }
+    cfg = configuration_open(TRUE);
+    if (cfg == NULL) {
+	fprintf(stderr, "Can't open configuration\n");
+	goto done;
+    }
+
+    profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
+    if (profile == NULL) {
+	fprintf(stderr, "No such profile\n");
+	ret = 1;
+	goto done;
+    }
+    if (EAPOLClientConfigurationSetSystemEthernetProfile(cfg, profile) == FALSE) {
+	fprintf(stderr, "Failed to set System Ethernet profile.\n");
+	goto done;
+    }
+    if (EAPOLClientConfigurationSave(cfg) == FALSE) {
+	fprintf(stderr,
+		"Failed to save the configuration, %s\n",
+		SCErrorString(SCError()));
+	ret = 2;
+	goto done;
+    }
+    ret = 0;
+
+done:
+    my_CFRelease(&profileID);
+    my_CFRelease(&ssid);
+    my_CFRelease(&cfg);
+    return (ret);
+}
+
+STATIC int
+S_clear_system_ethernet_profile(const char * command, int argc, char * const * argv)
+{
+    EAPOLClientConfigurationRef	cfg = NULL;
+    int				ret = 1;
+
+    cfg = configuration_open(TRUE);
+    if (cfg == NULL) {
+	fprintf(stderr, "Can't open configuration\n");
+	goto done;
+    }
+
+    if (EAPOLClientConfigurationSetSystemEthernetProfile(cfg, NULL) == FALSE) {
+	fprintf(stderr, "Failed to clear System Ethernet profile.\n");
+	goto done;
+    }
+    if (EAPOLClientConfigurationSave(cfg) == FALSE) {
+	fprintf(stderr,
+		"Failed to save the configuration, %s\n",
+		SCErrorString(SCError()));
+	ret = 2;
+	goto done;
+    }
+    ret = 0;
+
+done:
+    my_CFRelease(&cfg);
+    return (ret);
+}
+
+#if ! TARGET_OS_IPHONE
 
 STATIC int
 S_set_loginwindow_profiles(const char * command, int argc, char * const * argv)
@@ -2196,110 +2365,6 @@ S_set_system_profile(const char * command, int argc, char * const * argv)
 }
 
 STATIC int
-S_set_system_ethernet_profile(const char * command, int argc, char * const * argv)
-{
-    EAPOLClientConfigurationRef	cfg = NULL;
-    CFStringRef			profileID = NULL;
-    int				ch;
-    struct option 		longopts[] = {
-	{ "profileID",		required_argument,	NULL,	'p' },
-	{ "profileid",		required_argument,	NULL,	'p' },
-	{ NULL,			0,			NULL,	0 }
-    };
-    EAPOLClientProfileRef	profile;
-    int				ret = 1;
-    CFDataRef			ssid = NULL;
-
-    while ((ch = getopt_long(argc, argv, "p", longopts, NULL)) != -1) {
-	switch (ch) {
-	    case 'p':
-		if (profileID != NULL) {
-		    fprintf(stderr, "profileID specified twice\n");
-		    goto done;
-		}
-		profileID = CFStringCreateWithCString(NULL, optarg,
-						      kCFStringEncodingUTF8);
-		break;
-	    default:
-		show_command_usage(command);
-		goto done;
-	}
-    }
-    argc -= optind;
-    /* argv += optind; */
-    if (profileID == NULL) {
-	fprintf(stderr, "No profile specified\n");
-	show_command_usage(command);
-	goto done;
-    }
-    if (argc > 0) {
-	fprintf(stderr, "Too many arguments specified\n");
-	show_command_usage(command);
-	goto done;
-    }
-    cfg = configuration_open(TRUE);
-    if (cfg == NULL) {
-	fprintf(stderr, "Can't open configuration\n");
-	goto done;
-    }
-
-    profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
-    if (profile == NULL) {
-	fprintf(stderr, "No such profile\n");
-	ret = 1;
-	goto done;
-    }
-    if (EAPOLClientConfigurationSetSystemEthernetProfile(cfg, profile) == FALSE) {
-	fprintf(stderr, "Failed to set System Ethernet profile.\n");
-	goto done;
-    }
-    if (EAPOLClientConfigurationSave(cfg) == FALSE) {
-	fprintf(stderr,
-		"Failed to save the configuration, %s\n",
-		SCErrorString(SCError()));
-	ret = 2;
-	goto done;
-    }
-    ret = 0;
-
-done:
-    my_CFRelease(&profileID);
-    my_CFRelease(&ssid);
-    my_CFRelease(&cfg);
-    return (ret);
-}
-
-STATIC int
-S_clear_system_ethernet_profile(const char * command, int argc, char * const * argv)
-{
-    EAPOLClientConfigurationRef	cfg = NULL;
-    int				ret = 1;
-
-    cfg = configuration_open(TRUE);
-    if (cfg == NULL) {
-	fprintf(stderr, "Can't open configuration\n");
-	goto done;
-    }
-
-    if (EAPOLClientConfigurationSetSystemEthernetProfile(cfg, NULL) == FALSE) {
-	fprintf(stderr, "Failed to clear System Ethernet profile.\n");
-	goto done;
-    }
-    if (EAPOLClientConfigurationSave(cfg) == FALSE) {
-	fprintf(stderr,
-		"Failed to save the configuration, %s\n",
-		SCErrorString(SCError()));
-	ret = 2;
-	goto done;
-    }
-    ret = 0;
-
-done:
-    my_CFRelease(&cfg);
-    return (ret);
-}
-
-STATIC int
 S_get_clear_system_profile(const char * command, int argc, char * const * argv)
 {
     EAPOLClientConfigurationRef	cfg = NULL;
@@ -2375,55 +2440,6 @@ S_get_clear_system_profile(const char * command, int argc, char * const * argv)
 
  done:
     my_CFRelease(&if_name);
-    my_CFRelease(&cfg);
-    return (ret);
-}
-
-STATIC int
-S_get_system_ethernet_profile(const char * command, int argc, char * const * argv)
-{
-    EAPOLClientConfigurationRef	cfg = NULL;
-    EAPOLClientProfileRef	profile;
-    int				ch;
-    bool			details = FALSE;
-    struct option 		longopts[] = {
-	{ "details",	no_argument,	NULL,	'd' },
-	{ NULL,		0,		NULL,	0 }
-    };
-    int				ret = 1;
-
-    while ((ch = getopt_long(argc, argv, "d", longopts, NULL)) != -1) {
-	switch (ch) {
-	    case 'd':
-		details = TRUE;
-		break;
-	    default:
-		show_command_usage(command);
-		goto done;
-	}
-    }
-    argc -= optind;
-    if (argc != 0) {
-	fprintf(stderr, "Too many arguments specified\n");
-	show_command_usage(command);
-	goto done;
-    }
-
-    cfg = EAPOLClientConfigurationCreate(NULL);
-    if (cfg == NULL) {
-	fprintf(stderr, "EAPOLClientConfigurationCreate failed\n");
-	goto done;
-    }
-
-    profile = EAPOLClientConfigurationGetSystemEthernetProfile(cfg);
-    if (profile == NULL) {
-	fprintf(stderr, "No System Ethernet profile found.\n");
-	goto done;
-    }
-    SCPrint(TRUE, stdout, CFSTR("%@\n"), EAPOLClientProfileGetID(profile));
-    ret = 0;
-
-done:
     my_CFRelease(&cfg);
     return (ret);
 }
@@ -2535,6 +2551,28 @@ S_get_system_loginwindow_interfaces(const char * command,
 
 }
 
+#endif /* ! TARGET_OS_IPHONE */
+
+static Boolean
+is_system_ethernet_configuration_set(void)
+{
+    EAPOLClientConfigurationRef eap_client_cfg = EAPOLClientConfigurationCreate(NULL);
+    EAPOLClientProfileRef	profile = NULL;
+    Boolean 			ret = FALSE;
+
+    if (eap_client_cfg == NULL) {
+	goto done;
+    }
+    profile = EAPOLClientConfigurationGetSystemEthernetProfile(eap_client_cfg);
+    if (profile == NULL) {
+	goto done;
+    }
+    ret = TRUE;
+done:
+    my_CFRelease(&eap_client_cfg);
+    return ret;
+}
+
 STATIC int
 S_authentication_start(const char * command, int argc, char * const * argv)
 {
@@ -2635,11 +2673,19 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 	goto done;
     }
     if (system_flag) {
+	Boolean can_start = TRUE;
+#if TARGET_OS_IPHONE
+	can_start = is_system_ethernet_configuration_set();
+#endif
+	if (can_start == FALSE) {
+	    goto done;
+	}
 	ret = EAPOLControlStartSystemWithClientItemID(ifn, itemID);
     }
     else {
-	CFDictionaryRef		auth_info;
+	CFDictionaryRef		auth_info = NULL;
 
+#if ! TARGET_OS_IPHONE
 	if (no_ui) {
 	    CFStringRef		key = kEAPClientPropDisableUserInteraction;
 	    CFBooleanRef	val = kCFBooleanTrue;
@@ -2651,9 +2697,7 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 					   &kCFTypeDictionaryKeyCallBacks,
 					   &kCFTypeDictionaryValueCallBacks);
 	}
-	else {
-	    auth_info = NULL;
-	}
+#endif /* ! TARGET_OS_IPHONE */
 	ret = EAPOLControlStartWithClientItemID(ifn, itemID, auth_info);
 	my_CFRelease(&auth_info);
     }
@@ -2749,6 +2793,16 @@ STATIC struct command_info 	commands[] = {
     { kCommandGetIdentity, S_identity_set_clear_get, 1,
       "[ --system ] ( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default ) "
     },
+    { kCommandGetSystemEthernetProfile, S_get_system_ethernet_profile, 0,
+	"[ --details ]"
+    },
+    { kCommandSetSystemEthernetProfile, S_set_system_ethernet_profile, 1,
+	"--profileID <profileID> "
+    },
+    { kCommandClearSystemEthernetProfile, S_clear_system_ethernet_profile, 0,
+	""
+    },
+#if ! TARGET_OS_IPHONE
     { kCommandGetLoginWindowProfiles, S_get_clear_loginwindow_profiles, 1, 
       "--interface <ifname>" 
     },
@@ -2767,15 +2821,6 @@ STATIC struct command_info 	commands[] = {
       "--interface <ifname> "
       "( --profileID <profileID> | --SSID <SSID> )"
     },
-    { kCommandGetSystemEthernetProfile, S_get_system_ethernet_profile, 0,
-	"[ --details ]"
-    },
-    { kCommandSetSystemEthernetProfile, S_set_system_ethernet_profile, 1,
-	"--profileID <profileID> "
-    },
-    { kCommandClearSystemEthernetProfile, S_clear_system_ethernet_profile, 0,
-	""
-    },
     { kCommandClearSystemProfile, S_get_clear_system_profile, 1,
       "--interface <ifname>" 
     },
@@ -2784,6 +2829,7 @@ STATIC struct command_info 	commands[] = {
     },
     { kCommandGetSystemInterfaces, S_get_system_loginwindow_interfaces, 0,
       "--details" },
+#endif
     { kCommandStartAuthentication, S_authentication_start, 1,
       "--interface <ifname> [ --system ] [ --no-ui ]"
       "( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default )"

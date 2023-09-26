@@ -146,7 +146,7 @@ Itcl_ParseInit(interp, info)
      *  the class definition.
      */
     Tcl_SetNamespaceResolvers(parserNs, (Tcl_ResolveCmdProc*)NULL,
-        Itcl_ParseVarResolver, (Tcl_ResolveCompiledVarProc*)NULL);
+        &Itcl_ParseVarResolver, (Tcl_ResolveCompiledVarProc*)NULL);
 
     /*
      *  Install the "class" command for defining new classes.
@@ -1013,7 +1013,7 @@ Itcl_ClassCommonCmd(clientData, interp, objc, objv)
 int
 Itcl_ParseVarResolver(interp, name, contextNs, flags, rPtr)
     Tcl_Interp *interp;        /* current interpreter */
-    CONST char* name;                /* name of the variable being accessed */
+    char* name;                /* name of the variable being accessed */
     Tcl_Namespace *contextNs;  /* namespace context */
     int flags;                 /* TCL_GLOBAL_ONLY => global variable
                                 * TCL_NAMESPACE_ONLY => namespace variable */

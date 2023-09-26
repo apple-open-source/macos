@@ -54,6 +54,7 @@ public:
 	
 	static bool candidate(UnixPlusPlus::FileDesc &fd);
 	void registerStapledTicket();
+	CFDataRef copyStapledTicket();
 
 public:
 	static CFDataRef identificationFor(MachO *macho);

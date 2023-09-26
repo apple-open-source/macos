@@ -40,9 +40,9 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#define SHA384_Init(c)		CC_SHA384_Init(c)
-#define SHA384_Update(c, d, l)	CC_SHA384_Update(c, d, l)
-#define SHA384_Final(d, c)	CC_SHA384_Final(d, c)
+#define SHA384_Init	CC_SHA384_Init
+#define SHA384_Update	CC_SHA384_Update
+#define SHA384_Final	CC_SHA384_Final
 
 __BEGIN_DECLS
 char   *SHA384_End(SHA384_CTX *, char *);

@@ -27,9 +27,7 @@ static id generateKey(id keyType, CFStringRef protection, BOOL withACL, BOOL sys
                                      (id)kSecAttrKeyType : keyType,
                                      (id)kSecAttrAccessControl : accessControl,
                                      (id)kSecAttrIsPermanent : @NO,
-#if TARGET_OS_OSX
-                                     (id)kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS : @(systemSession),
-#elif TARGET_OS_IOS
+#if TARGET_OS_OSX || TARGET_OS_IOS
                                      (id)kSecUseSystemKeychainAlways : @(systemSession),
 #endif
     };
@@ -122,6 +120,12 @@ static void attestationTest(CFStringRef protection, BOOL withACL) {
     ok(SecKeySetParameter((__bridge SecKeyRef)uik, kSecKeyParameterSETokenAttestationNonce, (__bridge CFPropertyListRef)nonce, (void *)&error), "Set nonce to UIK: %@", error);
     NSData *attUIKNonce = CFBridgingRelease(SecKeyCreateAttestation((__bridge SecKeyRef)uik, (__bridge SecKeyRef)privKey, (void *)&error));
     ok(attUIKNonce != nil, "SIK attesting UIK, with nonce: %@", error);
+
+    id uikc = CFBridgingRelease(SecKeyCopySystemKey(kSecKeySystemKeyTypeUIKCommitted, (void *)&error));
+    ok(uikc != nil, "get UIKC key: %@", error);
+    id sysPrivKey = generateKey((id)kSecAttrKeyTypeECSECPrimeRandom, protection, withACL, YES);
+    NSData *attSysUIKC = CFBridgingRelease(SecKeyCreateAttestation((__bridge SecKeyRef)uikc, (__bridge SecKeyRef)sysPrivKey, (void *)&error));
+    ok(attSysUIKC != nil, "UIKC attesting sysPriv: %@", error);
 }
 
 static void sysKeyAttestationTest(CFStringRef protection, BOOL withACL, const char *name, SecKeySystemKeyType committed, SecKeySystemKeyType proposed, BOOL canAttest) {
@@ -542,7 +546,7 @@ static void sysKeySignTest(SecKeySystemKeyType keyType, SecKeyAlgorithm algorith
 }
 
 static void systemSessionKeysTest(void) {
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64) || (TARGET_OS_IOS && !TARGET_OS_SIMULATOR)
+#if TARGET_OS_OSX || (TARGET_OS_IOS && !TARGET_OS_SIMULATOR)
     NSError *error;
     id privKey = generateKey((__bridge id)kSecAttrKeyTypeECSECPrimeRandom, kSecAttrAccessibleAlwaysPrivate, NO, YES);
     isnt(privKey, nil, "unable to generate key: %@", error);
@@ -570,20 +574,21 @@ static void systemSessionKeysTest(void) {
     is(signature, nil, "system session key restored in user context unexpectedly succeeded");
 
     params = @{ (id)kSecAttrTokenID: attribs[(id)kSecAttrTokenID], (id)kSecAttrTokenOID: attribs[(id)kSecAttrTokenOID],
-                (id)kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS: @YES,
+                (id)kSecUseSystemKeychainAlways: @YES,
     };
     error = nil;
     createdKey = CFBridgingRelease(SecKeyCreateWithData((__bridge CFDataRef)NSData.data, (__bridge CFDictionaryRef)params, (void *)&error));
     signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)createdKey, algorithm, (CFDataRef)message, (void *)&error));
     isnt(signature, nil, "system session key restored in system context failed: %@", error);
 
-#if 0 // Enable this when system keychain will be available in regular user session, not only in darwinOS.
     id itemCreatedKey = CFBridgingRelease(SecKeyCreateRandomKey((__bridge CFDictionaryRef)@{
         (id)kSecAttrTokenID: (id)kSecAttrTokenIDSecureEnclave,
         (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
-        (id)kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS: @YES,
-        (id)kSecAttrIsPermanent: @YES,
-        (id)kSecAttrLabel: @"si-44-seckey-aks:sepsyskey1",
+        (id)kSecPrivateKeyAttrs: @{
+            (id)kSecUseSystemKeychainAlways: @YES,
+            (id)kSecAttrIsPermanent: @YES,
+            (id)kSecAttrLabel: @"si-44-seckey-aks:sepsyskey1",
+        },
     }, (void *)&error));
     isnt(itemCreatedKey, nil, "failed to generate system key into keychain");
 
@@ -591,7 +596,7 @@ static void systemSessionKeysTest(void) {
     OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecAttrLabel: @"si-44-seckey-aks:sepsyskey1",
-        (id)kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS: @YES,
+        (id)kSecUseSystemKeychainAlways: @YES,
         (id)kSecReturnRef: @YES,
     }, (void *)&itemKey);
     is(status, errSecSuccess, "query system SEP key from system keychain");
@@ -602,9 +607,9 @@ static void systemSessionKeysTest(void) {
 
     SecItemDelete((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseSystemKeychainAlways: @YES,
         (id)kSecAttrLabel: @"si-44-seckey-aks:sepsyskey1",
     });
-#endif
 #endif
 #endif
 }
@@ -620,7 +625,7 @@ int si_44_seckey_aks(int argc, char *const *argv) {
         }
 
         NSNumber *hasPKA = CFBridgingRelease(MGCopyAnswer(kMGQHasPKA, NULL));
-        plan_tests(hasPKA.boolValue ? 197 : 120);
+        plan_tests(hasPKA.boolValue ? 238 : 120);
 
         secAccessControlDescriptionTest();
         secKeySepTest(hasPKA.boolValue);
@@ -639,6 +644,9 @@ int si_44_seckey_aks(int argc, char *const *argv) {
 
         sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "DAK", kSecKeySystemKeyTypeDAKCommitted, kSecKeySystemKeyTypeDAKProposed, YES);
         sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "DAK", kSecKeySystemKeyTypeDAKCommitted, kSecKeySystemKeyTypeDAKProposed, YES);
+
+        sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "SDAK", kSecKeySystemKeyTypeSDAKCommitted, kSecKeySystemKeyTypeSDAKProposed, NO /* canAttest */);
+        sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "SDAK", kSecKeySystemKeyTypeSDAKCommitted, kSecKeySystemKeyTypeSDAKProposed, NO /* canAttest */);
 
         keyFromBlobTest();
         keychainTest();

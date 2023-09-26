@@ -76,4 +76,5 @@ _heim_scram_parse
 _heim_scram_unparse
 heim_scram_session_key
 heim_scram_get_session_key
+scram_data_zero
 %endif

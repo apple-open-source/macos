@@ -22,11 +22,15 @@
 
 headers: "FrameInfoData.h" "WebCoreArgumentCoders.h"
 
+enum class WebKit::FrameType : bool
+
 struct WebKit::FrameInfoData {
     bool isMainFrame
+    WebKit::FrameType frameType
     WebCore::ResourceRequest request
     WebCore::SecurityOriginData securityOrigin
     String frameName
     std::optional<WebCore::FrameIdentifier> frameID
     std::optional<WebCore::FrameIdentifier> parentFrameID
+    WTF::ProcessID processID;
 }

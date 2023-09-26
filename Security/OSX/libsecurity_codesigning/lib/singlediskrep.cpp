@@ -131,11 +131,26 @@ void SingleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedError
 {
 	DiskRep::strictValidate(cd, tolerated, flags);
 
-	if (flags & kSecCSRestrictSidebandData)
-		if (fd().hasExtendedAttribute(XATTR_RESOURCEFORK_NAME) || fd().hasExtendedAttribute(XATTR_FINDERINFO_NAME))
-			if (tolerated.find(errSecCSInvalidAssociatedFileData) == tolerated.end())
-				MacOSError::throwMe(errSecCSInvalidAssociatedFileData);
-	
+	if (flags & kSecCSStripDisallowedXattrs) {
+		if (fd().hasExtendedAttribute(XATTR_RESOURCEFORK_NAME)) {
+			fd().removeAttr(XATTR_RESOURCEFORK_NAME);
+		}
+		if (fd().hasExtendedAttribute(XATTR_FINDERINFO_NAME)) {
+			fd().removeAttr(XATTR_FINDERINFO_NAME);
+		}
+	}
+
+	if (flags & kSecCSRestrictSidebandData && tolerated.find(errSecCSInvalidAssociatedFileData) == tolerated.end()) {
+		if (fd().hasExtendedAttribute(XATTR_RESOURCEFORK_NAME)) {
+			CFStringRef message = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Disallowed xattr %s found on %s"), XATTR_RESOURCEFORK_NAME, mPath.c_str());
+			CSError::throwMe(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, message);
+		}
+		if (fd().hasExtendedAttribute(XATTR_FINDERINFO_NAME)) {
+			CFStringRef message = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Disallowed xattr %s found on %s"), XATTR_FINDERINFO_NAME, mPath.c_str());
+			CSError::throwMe(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, message);
+		}
+	}
+
 	// code limit must cover (exactly) the entire file
 	if (cd && cd->signingLimit() != signingLimit())
 		MacOSError::throwMe(errSecCSSignatureInvalid);

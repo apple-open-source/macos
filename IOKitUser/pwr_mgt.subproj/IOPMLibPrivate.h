@@ -554,7 +554,8 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kPMASLAssertionActionSuspend            "Suspended"
 #define kPMASLAssertionActionResume             "Resumed"
 #define kPMASLAssertionActionSystemTimeout      "SystemTimeOutExpired"
-#define kPMASLAssertionActionOffloaded          "Offloaded"
+#define kPMASLAssertionActionSessionStart       "SessionStarted"
+#define kPMASLAssertionActionSessionEnd         "SessionEnded"
 
 // Async Assertion Actions
 #define kPMAsyncAssertionActionCreate             "Created"
@@ -3299,6 +3300,8 @@ void IOPMUnregisterNotification(IOPMNotificationHandle handle);
  *              incoming network activity. A local user may or may not be looking
  *              at the machine; as the machine may have been asleep or unattended.
  *
+ * @constant kIOPMUserAbsentWithDisplay The display is on without the user interacting with it.
+ *
  */
 enum {
     kIOPMUserPresentActive                  = (1<<0),
@@ -3306,7 +3309,8 @@ enum {
     kIOPMUserPresentPassiveWithDisplay      = (1<<2),
     kIOPMUserPresentPassiveWithoutDisplay   = (1<<3),
     kIOPMUserRemoteClientActive             = (1<<4),
-    kIOPMUserNotificationActive             = (1<<5)
+    kIOPMUserNotificationActive             = (1<<5),
+    kIOPMUserAbsentWithDisplay              = (1<<6)
 };
 
 #define kIOPMDefaultUserActivityTimeout (5*60)  // 5mins

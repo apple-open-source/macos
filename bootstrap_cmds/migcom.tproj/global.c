@@ -70,6 +70,7 @@ boolean_t EmitCountAnnotations = FALSE;
 
 boolean_t IsKernelUser = FALSE;
 boolean_t IsKernelServer = FALSE;
+boolean_t UseMachMsg2 = FALSE;
 boolean_t UseSpecialReplyPort = FALSE;
 boolean_t HasUseSpecialReplyPort = FALSE;
 boolean_t HasConsumeOnSendError = FALSE;

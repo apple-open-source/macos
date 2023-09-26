@@ -70,12 +70,11 @@ enum class PlatformLayerTreeAsTextFlags : uint8_t {
     IncludeModels = 1 << 2,
 };
 
-enum GraphicsLayerPaintFlags {
-    GraphicsLayerPaintNormal                    = 0,
-    GraphicsLayerPaintSnapshotting              = 1 << 0,
-    GraphicsLayerPaintFirstTilePaint            = 1 << 1,
+// See WebCore::PaintBehavior.
+enum class GraphicsLayerPaintBehavior : uint8_t {
+    DefaultAsynchronousImageDecode = 1 << 0,
+    ForceSynchronousImageDecode = 1 << 1,
 };
-typedef unsigned GraphicsLayerPaintBehavior;
     
 class GraphicsLayerClient {
 public:
@@ -90,11 +89,11 @@ public:
     // Notification that a layer property changed that requires a subsequent call to flushCompositingState()
     // to appear on the screen.
     virtual void notifyFlushRequired(const GraphicsLayer*) { }
-    
-    // Notification that this layer requires a flush before the next display refresh.
-    virtual void notifyFlushBeforeDisplayRefresh(const GraphicsLayer*) { }
 
-    virtual void paintContents(const GraphicsLayer*, GraphicsContext&, const FloatRect& /* inClip */, GraphicsLayerPaintBehavior) { }
+    // Notification that this layer requires a flush on the next display refresh.
+    virtual void notifySubsequentFlushRequired(const GraphicsLayer*) { }
+
+    virtual void paintContents(const GraphicsLayer*, GraphicsContext&, const FloatRect& /* inClip */, OptionSet<GraphicsLayerPaintBehavior>) { }
     virtual void didChangePlatformLayerForLayer(const GraphicsLayer*) { }
 
     // Provides current transform (taking transform-origin and animations into account). Input matrix has been
@@ -132,6 +131,8 @@ public:
     virtual void logFilledVisibleFreshTile(unsigned) { };
 
     virtual TransformationMatrix transformMatrixForProperty(AnimatedProperty) const { return { }; }
+
+    virtual bool layerContainsBitmapOnly(const GraphicsLayer*) const { return false; }
 
 #ifndef NDEBUG
     // RenderLayerBacking overrides this to verify that it is not

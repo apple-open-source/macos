@@ -1,0 +1,6 @@
+INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/HIDPlugins/SessionFilters
+
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDMotionEventSessionFilter
+
+INFOPLIST_FILE = IOHIDEventSystemPlugIns/IOHIDActivityReportingSessionFilter/Info.plist
+

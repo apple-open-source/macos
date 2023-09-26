@@ -141,8 +141,8 @@ esysdep_fopen (zfile, fpublic, fappend, fmkdirs)
     }
 
   if (imode == IPUBLIC_FILE_MODE || force_chmod) {
-      e = fchmod(o, imode);
-      if (e) {
+      int res = fchmod(o, imode);
+      if (res != 0) {
 	  ulog(LOG_ERROR, "fchmod %s %o %s", zfile, imode, strerror(errno));
       }
   }

@@ -232,15 +232,21 @@ typedef struct  __attribute__((packed,,aligned(4))) _IOHIDSystemQueueElement {
         value  = (((IOHIDDigitizerEventData*)event)->eventMask & kIOHIDDigitizerEventEstimatedAltitude) ? kIOHIDDigitizerEventUpdateAltitudeMask : 0; \
         value |= (((IOHIDDigitizerEventData*)event)->eventMask & kIOHIDDigitizerEventEstimatedAzimuth) ? kIOHIDDigitizerEventUpdateAzimuthMask : 0;   \
         value |= (((IOHIDDigitizerEventData*)event)->eventMask & kIOHIDDigitizerEventEstimatedPressure) ? kIOHIDDigitizerEventUpdatePressureMask : 0; \
+        value |= (((IOHIDDigitizerEventData*)event)->eventMask & kIOHIDDigitizerEventEstimatedRoll) ? kIOHIDDigitizerEventUpdateRollMask : 0; \
         break;                                                                                                               \
     }                                                                                                                        \
     _IOHIDUnknowDefaultField(event, field)
 
 #define _IOHIDDigitizerSetSynthesizedFieldsAsIntegerMacro(event, field)                                                      \
     case kIOHIDEventFieldDigitizerEstimatedMask: {                                                                           \
-        ((IOHIDDigitizerEventData*)event)->eventMask |= ((value & kIOHIDDigitizerEventUpdateAltitudeMask) ? kIOHIDDigitizerEventEstimatedAltitude : 0); \
-        ((IOHIDDigitizerEventData*)event)->eventMask |= ((value & kIOHIDDigitizerEventUpdateAzimuthMask) ? kIOHIDDigitizerEventEstimatedAzimuth : 0); \
-        ((IOHIDDigitizerEventData*)event)->eventMask |= ((value & kIOHIDDigitizerEventUpdatePressureMask) ? kIOHIDDigitizerEventEstimatedPressure : 0); \
+        ((IOHIDDigitizerEventData*)event)->eventMask = (((IOHIDDigitizerEventData*)event)->eventMask & ~kIOHIDDigitizerEventEstimatedAltitude) | \
+                                                 ((value & kIOHIDDigitizerEventUpdateAltitudeMask) ? kIOHIDDigitizerEventEstimatedAltitude : 0); \
+        ((IOHIDDigitizerEventData*)event)->eventMask = (((IOHIDDigitizerEventData*)event)->eventMask & ~kIOHIDDigitizerEventEstimatedAzimuth) |  \
+                                                   ((value & kIOHIDDigitizerEventUpdateAzimuthMask) ? kIOHIDDigitizerEventEstimatedAzimuth : 0); \
+        ((IOHIDDigitizerEventData*)event)->eventMask = (((IOHIDDigitizerEventData*)event)->eventMask & ~kIOHIDDigitizerEventEstimatedPressure) | \
+                                                 ((value & kIOHIDDigitizerEventUpdatePressureMask) ? kIOHIDDigitizerEventEstimatedPressure : 0); \
+        ((IOHIDDigitizerEventData*)event)->eventMask = (((IOHIDDigitizerEventData*)event)->eventMask & ~kIOHIDDigitizerEventEstimatedRoll) | \
+                                                 ((value & kIOHIDDigitizerEventUpdateRollMask) ? kIOHIDDigitizerEventEstimatedRoll : 0);     \
         break;                                                                                                               \
     }                                                                                                                        \
     _IOHIDUnknowDefaultField(event, field)

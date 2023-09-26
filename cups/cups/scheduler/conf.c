@@ -28,6 +28,11 @@
 #  include <paper.h>
 #endif /* HAVE_LIBPAPER */
 
+#if __has_include(<libmanagedconfigurationfiles.h>)
+#include <libmanagedconfigurationfiles.h>
+#include <sys/stat.h>
+#define _HAS_mcf_service_path_for_service_type  1
+#endif
 
 /*
  * Possibly missing network definitions...
@@ -1135,10 +1140,6 @@ cupsdReadConfiguration(void)
 			     Group, 1, 1) < 0 ||
        cupsdCheckPermissions(ServerRoot, "ssl", 0700, RunUser,
 			     Group, 1, 0) < 0 ||
-       cupsdCheckPermissions(ConfigurationFile, NULL, ConfigFilePerm, RunUser,
-			     Group, 0, 0) < 0 ||
-       cupsdCheckPermissions(CupsFilesFile, NULL, ConfigFilePerm, RunUser,
-			     Group, 0, 0) < 0 ||
        cupsdCheckPermissions(ServerRoot, "classes.conf", 0600, RunUser,
 			     Group, 0, 0) < 0 ||
        cupsdCheckPermissions(ServerRoot, "printers.conf", 0600, RunUser,
@@ -1147,6 +1148,15 @@ cupsdReadConfiguration(void)
 			     Group, 0, 0) < 0) &&
       (FatalErrors & CUPSD_FATAL_PERMISSIONS))
     return (0);
+
+  if (! ConfigurationDirManaged) {
+    if ((cupsdCheckPermissions(ConfigurationFile, NULL, ConfigFilePerm, RunUser,
+			       Group, 0, 0) < 0 ||
+	 cupsdCheckPermissions(CupsFilesFile, NULL, ConfigFilePerm, RunUser,
+			       Group, 0, 0) < 0) &&
+	(FatalErrors & CUPSD_FATAL_PERMISSIONS))
+      return ( 0 );
+  }
 
  /*
   * Update TempDir to the default if it hasn't been set already...
@@ -4252,4 +4262,337 @@ set_policy_defaults(cupsd_policy_t *pol)/* I - Policy */
     cupsdAddString(&(pol->sub_attrs), "notify-subscriber-user-name");
     cupsdAddString(&(pol->sub_attrs), "notify-user-data");
   }
+}
+
+#if _HAS_mcf_service_path_for_service_type
+
+/*
+ This is possibly all overkill; basically if /etc/cups/cupsd.conf exists, rename it to .O and copy the /managed/cupsd.conf file over.
+ The configuration file path will be /managed/cupsd.conf - the local one is for the benefit of other code that is trying to get at it
+ read only.
+ */
+
+struct PerSide {
+  int fdFile;
+  int fdDir;
+  struct stat sb;
+};
+
+struct LinkChecker {
+  struct PerSide localConfigSide;
+  struct PerSide managedConfigSide;
+
+  char name[PATH_MAX];
+  char back_name[PATH_MAX];
+  bool canUndoBackup;
+};
+
+static void prep_side(struct PerSide* p, int fd)
+{
+  p->fdFile = -1;
+  p->fdDir = fd;
+}
+
+static void fin_side(struct PerSide* p)
+{
+  if (p->fdFile != -1) {
+    close(p->fdFile);
+    p->fdFile = -1;
+  }
+  p->fdDir = -1;
+}
+
+static void prep_link(struct LinkChecker* l, int oldDir, int newDir, const char* name)
+{
+  bzero(l, sizeof(*l));
+
+  prep_side(&l->localConfigSide, oldDir);
+  prep_side(&l->managedConfigSide, newDir);
+
+  snprintf(l->name, sizeof(l->name), "%s", name);
+  snprintf(l->back_name, sizeof(l->back_name), "%s.O", name);
+}
+
+static void revert_link(struct LinkChecker* l)
+{
+  if (l->canUndoBackup) {
+    renameatx_np(l->localConfigSide.fdDir, l->back_name, l->localConfigSide.fdDir, l->name, RENAME_SWAP);
+    l->canUndoBackup = false;
+  }
+}
+
+struct Path {
+  char path[MAXPATHLEN];
+};
+
+static bool stat_side(struct PerSide* p, const char* name, struct Path* path)
+{
+  p->fdFile = openat(p->fdDir, name, O_RDONLY);
+  if (p->fdFile == -1)
+    return false;
+
+  if (fstat(p->fdFile, &p->sb) != 0)
+    return false;
+
+  if (path == nil)
+    return true;
+
+  return fcntl(p->fdFile, F_GETPATH, path->path) == 0;
+}
+
+static bool copy_pair(int fdSrc, int fdDstDir, const char* name, const struct stat* srcStat)
+{
+  int dst = openat(fdDstDir, name, O_CREAT | O_WRONLY, 0600);
+  if (dst == -1)
+    return false;
+
+  bool ok = true;
+  while (ok) {
+    char tmp[1024];
+    ssize_t ctRead = read(fdSrc, tmp, sizeof(tmp));
+    if (ctRead <= 0) {
+      // note that this is not 'ok'
+      break;
+    } else {
+      const char* p = tmp;
+      const char* pEnd = &p[ctRead];
+      while (p < pEnd) {
+  ssize_t ctWrote = write(dst, p, (size_t) (pEnd - p));
+  if (ctWrote <= 0) {
+    ok = false;
+  } else {
+    p += ctWrote;
+  }
+      }
+    }
+  }
+
+  if (ok) {
+    struct stat dstStat;
+    ok = fstat(dst, &dstStat) == 0;
+
+    if (ok)
+      ok = (dstStat.st_size == srcStat->st_size);
+  }
+
+  close(dst);
+
+  return ok;
+}
+
+static bool commit_link(struct LinkChecker* l, struct Path* path)
+{
+  // if we can't stat the new side, we fail
+  if (! stat_side(&l->managedConfigSide, l->name, path))
+    return false;
+
+  // it's OK if we can't stat the new side
+  // if we were able to, we might move it aside and
+  // either copy from the managed configuration or
+  // do a hard link
+  if (stat_side(&l->localConfigSide, l->name, NULL)) {
+    bool sameDevice = l->localConfigSide.sb.st_dev == l->managedConfigSide.sb.st_dev;
+
+    if (sameDevice) {
+      bool sameinode = l->localConfigSide.sb.st_ino == l->managedConfigSide.sb.st_ino;
+
+      if (sameinode) {
+  // we don't have to do anything to claim success
+  return true;
+      }
+    }
+
+    if (sameDevice) {
+      // I don't think we can do the hard link in practice; so lets move aside the existing file
+      // do_hard_link();
+      // return true;
+    }
+
+    // remove any existing conf.O file
+    unlinkat(l->localConfigSide.fdDir, l->back_name, 0);
+
+    // rename existing - note that we still have it's fd open read only
+    if (renameat(l->localConfigSide.fdDir, l->name, l->localConfigSide.fdDir, l->back_name) == 0) {
+      l->canUndoBackup = true;
+    } else {
+      // if we can't back it up, we should fail to be safe
+      return false;
+    }
+  }
+
+  // so we decided not to hard link, we should just populate the local files
+  // and ensure they're marked as read only
+  bool copied = copy_pair(l->managedConfigSide.fdFile, l->localConfigSide.fdDir, l->name, &l->managedConfigSide.sb);
+
+  if (! copied) {
+    revert_link(l);
+    return false;
+  }
+
+  return true;
+}
+
+static void fin_link(struct LinkChecker* l)
+{
+  fin_side(&l->localConfigSide);
+
+  if (l->managedConfigSide.fdFile != -1) {
+    close(l->managedConfigSide.fdFile);
+    l->managedConfigSide.fdFile = -1;
+  }
+  l->managedConfigSide.fdDir = -1;
+}
+
+static bool setupPathsForManagedConfiguration(const char* configDir, struct Path* confPath, struct Path* filePath)
+{
+  bool result = false;
+
+  // REMINDSMA: Are we going to allow it to be a symlink?
+  int fdManageDir = open(configDir, O_RDONLY /* | O_NOFOLLOW? | O_NOFOLLOW_ANY? */);
+
+  if (fdManageDir != -1) {
+    int fdLocalDir = open(CUPS_SERVERROOT, O_RDONLY /* | O_NOFOLLOW? | O_NOFOLLOW_ANY? */);
+
+    if (fdLocalDir != -1) {
+      struct LinkChecker cupsd_conf;
+      struct LinkChecker files_conf;
+
+      prep_link(&cupsd_conf, fdLocalDir, fdManageDir, "cupsd.conf");
+      prep_link(&files_conf, fdLocalDir, fdManageDir, "cups-files.conf");
+
+      // commit_link will leave things as it found them,
+      // so undo the first one if the second one fails.
+      if (! commit_link(&cupsd_conf, confPath)) {
+        // then we won't use it...
+      } else if (! commit_link(&files_conf, filePath)) {
+        // so revert the first one
+        revert_link(&cupsd_conf);
+      } else {
+        result = true;
+      }
+
+      fin_link(&cupsd_conf);
+      fin_link(&files_conf);
+
+      close(fdLocalDir);
+    }
+
+    close(fdManageDir);
+  }
+
+  return result;
+}
+
+static const char* get_managed_cups_conf_dir(char mcf[static MAXPATHLEN])
+{
+  bzero(mcf, MAXPATHLEN);
+
+#if DEBUG
+  const char* env = getenv("DEBUG_CUPSD_MANAGED_CONFIG");
+  if (env != NULL) {
+    strlcpy(mcf, env, MAXPATHLEN);
+    return mcf;
+  }
+#endif
+
+#if 0
+  // This was also debugging code
+  // the final API exists:
+  // rdar://102065821 (Need C-based API to return managed location for service configuration files)
+  {
+    const char* checkPath = "/private/etc/ManagedConfigurationFiles/org.cups.cupsd";
+    int fdDir = open(checkPath, O_RDONLY);
+    if (fdDir != -1) {
+      int fd = openat(fdDir, "cupsd.conf", O_RDONLY);
+      if (fd != -1) {
+        close(fd);
+        fd = openat(fdDir, "cups-files.conf", O_RDONLY);
+        if (fd != -1) {
+          close(fd);
+          strlcpy(mcf, checkPath, MAXPATHLEN);
+          return mcf;
+        }
+      }
+    }
+  }
+#endif
+
+  // from looking at other bugs and rdar://102065821
+  // the API has changed slightly, but I don't know how yet.
+
+  size_t r = mcf_service_path_for_service_type("org.cups.cupsd", mcf, MAXPATHLEN);
+  if (r > 0) {
+    return mcf;
+  } else {
+    return NULL;
+  }
+}
+
+#endif
+
+bool cupsdValidatePathsForConfigurationFiles(void)
+{
+#if _HAS_mcf_service_path_for_service_type
+  // if nothing was explicitly set, check (somehow) for a managed
+  // conf file directory; we'll use those files.
+  if (ConfigurationFile == NULL && CupsFilesFile == NULL) {
+    char mcfDir[MAXPATHLEN];
+
+    const char* managedConfigurationDir = get_managed_cups_conf_dir(mcfDir);
+
+    if (managedConfigurationDir != NULL) {
+      struct Path conf_path = { 0 };
+      struct Path files_path = { 0 };
+
+      if (setupPathsForManagedConfiguration(managedConfigurationDir, &conf_path, &files_path)) {
+        cupsdSetString(&ConfigurationFile, conf_path.path);
+        cupsdSetString(&CupsFilesFile, files_path.path);
+  ConfigurationDirManaged = true;
+  return true;
+      } else {
+  // if we failed that, be fatal (upstream)
+  _cupsLangPrintf(stderr, _("cupsd: Unable to open CUPSD_MANAGED_CONFIG specified directory"));
+  return false;
+      }
+    }
+  }
+#else
+#error "check build flags - we should have this"
+#endif
+
+  // So if the globals are not set up, we'll go for the defaults
+  if (!ConfigurationFile)
+    cupsdSetString(&ConfigurationFile, CUPS_SERVERROOT "/cupsd.conf");
+
+  if (!CupsFilesFile)
+  {
+    char	*filename,		/* Copy of cupsd.conf filename */
+    *slash;			/* Final slash in cupsd.conf filename */
+    size_t	len;			/* Size of buffer */
+
+    len = strlen(ConfigurationFile) + 15;
+    if ((filename = malloc(len)) == NULL)
+    {
+      _cupsLangPrintf(stderr,
+		      _("cupsd: Unable to get path to "
+			"cups-files.conf file."));
+      return (1);
+    }
+
+    strlcpy(filename, ConfigurationFile, len);
+    if ((slash = strrchr(filename, '/')) == NULL)
+    {
+      free(filename);
+      _cupsLangPrintf(stderr,
+		      _("cupsd: Unable to get path to "
+			"cups-files.conf file."));
+      return (false);
+    }
+
+    strlcpy(slash, "/cups-files.conf", len - (size_t)(slash - filename));
+    cupsdSetString(&CupsFilesFile, filename);
+    free(filename);
+  }
+
+  return true;
 }

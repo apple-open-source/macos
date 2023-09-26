@@ -29,6 +29,7 @@
 #import "EditorState.h"
 #import "InsertTextOptions.h"
 #import "LoadParameters.h"
+#import "MessageSenderInlines.h"
 #import "PluginView.h"
 #import "UserMediaCaptureManager.h"
 #import "WKAccessibilityWebPageObjectBase.h"
@@ -45,15 +46,16 @@
 #import <WebCore/EventNames.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/FrameView.h>
-#import <WebCore/GeometryUtilities.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/HTMLBodyElement.h>
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLImageElement.h>
 #import <WebCore/HTMLOListElement.h>
+#import <WebCore/HTMLTextFormControlElement.h>
 #import <WebCore/HTMLUListElement.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/ImageOverlay.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/MutableStyleProperties.h>
 #import <WebCore/NetworkExtensionContentFilter.h>
 #import <WebCore/NodeRenderStyle.h>
@@ -65,12 +67,13 @@
 #import <WebCore/RenderedDocumentMarker.h>
 #import <WebCore/TextIterator.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 
 #if ENABLE(GPU_PROCESS) && PLATFORM(COCOA)
 #include "LibWebRTCCodecs.h"
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
 #import <WebCore/ParentalControlsContentFilter.h>
 #endif
 
@@ -91,23 +94,32 @@ void WebPage::platformInitialize(const WebPageCreationParameters& parameters)
 #if USE(LIBWEBRTC)
     LibWebRTCCodecs::setCallbacks(m_page->settings().webRTCPlatformCodecsInGPUProcessEnabled(), m_page->settings().webRTCRemoteVideoFrameEnabled());
     LibWebRTCCodecs::setWebRTCMediaPipelineAdditionalLoggingEnabled(m_page->settings().webRTCMediaPipelineAdditionalLoggingEnabled());
+#endif    
+#if PLATFORM(MAC)
+    // In order to be able to block launchd on macOS, we need to eagerly open up a connection to CARenderServer here.
+    // This is because PDF rendering on macOS requires access to CARenderServer, unless we're in Lockdown mode.
+    if (!WebProcess::singleton().isLockdownModeEnabled())
+        CARenderServerGetServerPort(nullptr);
+#endif
+#if PLATFORM(IOS_FAMILY)
+    setInsertionPointColor(parameters.insertionPointColor);
 #endif
 }
 
 void WebPage::platformDidReceiveLoadParameters(const LoadParameters& parameters)
 {
-    m_dataDetectionContext = parameters.dataDetectionContext;
+    m_dataDetectionReferenceDate = parameters.dataDetectionReferenceDate;
 
 #if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     consumeNetworkExtensionSandboxExtensions(parameters.networkExtensionSandboxExtensionHandles);
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     if (parameters.contentFilterExtensionHandle)
         SandboxExtension::consumePermanently(*parameters.contentFilterExtensionHandle);
     ParentalControlsContentFilter::setHasConsumedSandboxExtension(parameters.contentFilterExtensionHandle.has_value());
 
     if (parameters.frontboardServiceExtensionHandle)
         SandboxExtension::consumePermanently(*parameters.frontboardServiceExtensionHandle);
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS) || PLATFORM(VISION)
 #endif // !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
 }
 
@@ -140,9 +152,12 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
     }
 #endif
     
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    if (!localMainFrame)
+        return;
     // Find the frame the point is over.
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
-    auto result = m_page->mainFrame().eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(roundedIntPoint(floatPoint)), hitType);
+    auto result = localMainFrame->eventHandler().hitTestResultAtPoint(localMainFrame->view()->windowToContents(roundedIntPoint(floatPoint)), hitType);
 
     RefPtr frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document().frame() : &CheckedRef(m_page->focusController())->focusedOrMainFrame();
     if (!frame)
@@ -156,7 +171,7 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
     performDictionaryLookupForRange(*frame, range, options, TextIndicatorPresentationTransition::Bounce);
 }
 
-void WebPage::performDictionaryLookupForSelection(Frame& frame, const VisibleSelection& selection, TextIndicatorPresentationTransition presentationTransition)
+void WebPage::performDictionaryLookupForSelection(LocalFrame& frame, const VisibleSelection& selection, TextIndicatorPresentationTransition presentationTransition)
 {
     auto result = DictionaryLookup::rangeForSelection(selection);
     if (!result)
@@ -172,17 +187,17 @@ void WebPage::performDictionaryLookupOfCurrentSelection()
     performDictionaryLookupForSelection(frame, frame->selection().selection(), TextIndicatorPresentationTransition::BounceAndCrossfade);
 }
     
-void WebPage::performDictionaryLookupForRange(Frame& frame, const SimpleRange& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
+void WebPage::performDictionaryLookupForRange(LocalFrame& frame, const SimpleRange& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
 {
     send(Messages::WebPageProxy::DidPerformDictionaryLookup(dictionaryPopupInfoForRange(frame, range, options, presentationTransition)));
 }
 
-DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame& frame, const SimpleRange& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
+DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(LocalFrame& frame, const SimpleRange& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
 {
     Editor& editor = frame.editor();
     editor.setIsGettingDictionaryPopupInfo(true);
 
-    if (plainText(range).find(isNotSpaceOrNewline) == notFound) {
+    if (plainText(range).find(deprecatedIsNotSpaceOrNewline) == notFound) {
         editor.setIsGettingDictionaryPopupInfo(false);
         return { };
     }
@@ -203,7 +218,7 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame& frame, const Sim
     dictionaryPopupInfo.platformData.options = options;
 
 #if PLATFORM(MAC)
-    auto attributedString = editingAttributedString(range, IncludeImages::No).string;
+    auto attributedString = editingAttributedString(range, IncludeImages::No).nsAttributedString();
     auto scaledAttributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:[attributedString string]]);
     NSFontManager *fontManager = [NSFontManager sharedFontManager];
     [attributedString enumerateAttributesInRange:NSMakeRange(0, [attributedString length]) options:0 usingBlock:^(NSDictionary *attributes, NSRange range, BOOL *stop) {
@@ -232,9 +247,9 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame& frame, const Sim
 
     dictionaryPopupInfo.textIndicator = textIndicator->data();
 #if PLATFORM(MAC)
-    dictionaryPopupInfo.platformData.attributedString = scaledAttributedString;
+    dictionaryPopupInfo.platformData.attributedString = WebCore::AttributedString::fromNSAttributedString(scaledAttributedString);
 #elif PLATFORM(MACCATALYST)
-    dictionaryPopupInfo.platformData.attributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:plainText(range)]);
+    dictionaryPopupInfo.platformData.attributedString = WebCore::AttributedString::fromNSAttributedString(adoptNS([[NSMutableAttributedString alloc] initWithString:plainText(range)]));
 #endif
 
     editor.setIsGettingDictionaryPopupInfo(false);
@@ -258,7 +273,9 @@ void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& re
     if (focusedElement && options.shouldSimulateKeyboardInput)
         focusedElement->dispatchEvent(Event::create(eventNames().keydownEvent, Event::CanBubble::Yes, Event::IsCancelable::Yes));
 
-    ASSERT(!frame->editor().hasComposition());
+    if (frame->editor().hasComposition())
+        return;
+
     frame->editor().insertDictatedText(text, dictationAlternativeLocations, nullptr /* triggeringEvent */);
 
     if (focusedElement && options.shouldSimulateKeyboardInput) {
@@ -366,7 +383,7 @@ WebPaymentCoordinator* WebPage::paymentCoordinator()
 
 void WebPage::getContentsAsAttributedString(CompletionHandler<void(const WebCore::AttributedString&)>&& completionHandler)
 {
-    completionHandler(attributedString(makeRangeSelectingNodeContents(*m_page->mainFrame().document())));
+    completionHandler(is<LocalFrame>(m_page->mainFrame()) ? attributedString(makeRangeSelectingNodeContents(*downcast<LocalFrame>(m_page->mainFrame()).document())) : AttributedString());
 }
 
 void WebPage::setRemoteObjectRegistry(WebRemoteObjectRegistry* registry)
@@ -381,17 +398,18 @@ WebRemoteObjectRegistry* WebPage::remoteObjectRegistry()
 
 void WebPage::updateMockAccessibilityElementAfterCommittingLoad()
 {
-    auto* document = mainFrame()->document();
+    auto* mainFrame = dynamicDowncast<WebCore::LocalFrame>(this->mainFrame());
+    auto* document = mainFrame ? mainFrame->document() : nullptr;
     [m_mockAccessibilityElement setHasMainFramePlugin:document ? document->isPluginDocument() : false];
 }
 
 RetainPtr<CFDataRef> WebPage::pdfSnapshotAtSize(IntRect rect, IntSize bitmapSize, SnapshotOptions options)
 {
-    Frame* coreFrame = m_mainFrame->coreFrame();
+    auto* coreFrame = m_mainFrame->coreLocalFrame();
     if (!coreFrame)
         return nullptr;
 
-    FrameView* frameView = coreFrame->view();
+    auto* frameView = coreFrame->view();
     if (!frameView)
         return nullptr;
 
@@ -449,74 +467,93 @@ void WebPage::getProcessDisplayName(CompletionHandler<void(String&&)>&& completi
 #endif
 }
 
-void WebPage::getPlatformEditorStateCommon(const Frame& frame, EditorState& result) const
+bool WebPage::isTransparentOrFullyClipped(const Element& element) const
+{
+    auto* renderer = element.renderer();
+    if (!renderer)
+        return false;
+
+    auto* enclosingLayer = renderer->enclosingLayer();
+    if (enclosingLayer && enclosingLayer->isTransparentRespectingParentFrames())
+        return true;
+
+    return renderer->hasNonEmptyVisibleRectRespectingParentFrames();
+}
+
+void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState& result) const
 {
     if (!result.hasPostLayoutAndVisualData())
         return;
 
     const auto& selection = frame.selection().selection();
 
-    if (!result.isContentEditable || selection.isNone())
+    if (selection.isNone())
         return;
 
     auto& postLayoutData = *result.postLayoutData;
-    if (auto editingStyle = EditingStyle::styleAtSelectionStart(selection)) {
-        if (editingStyle->hasStyle(CSSPropertyFontWeight, "bold"_s))
-            postLayoutData.typingAttributes |= AttributeBold;
 
-        if (editingStyle->hasStyle(CSSPropertyFontStyle, "italic"_s) || editingStyle->hasStyle(CSSPropertyFontStyle, "oblique"_s))
-            postLayoutData.typingAttributes |= AttributeItalics;
+    if (result.isContentEditable) {
+        if (auto editingStyle = EditingStyle::styleAtSelectionStart(selection)) {
+            if (editingStyle->hasStyle(CSSPropertyFontWeight, "bold"_s))
+                postLayoutData.typingAttributes.add(TypingAttribute::Bold);
 
-        if (editingStyle->hasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"_s))
-            postLayoutData.typingAttributes |= AttributeUnderline;
+            if (editingStyle->hasStyle(CSSPropertyFontStyle, "italic"_s) || editingStyle->hasStyle(CSSPropertyFontStyle, "oblique"_s))
+                postLayoutData.typingAttributes.add(TypingAttribute::Italics);
 
-        if (auto* styleProperties = editingStyle->style()) {
-            bool isLeftToRight = styleProperties->propertyAsValueID(CSSPropertyDirection) == CSSValueLtr;
-            switch (styleProperties->propertyAsValueID(CSSPropertyTextAlign).value_or(CSSValueInvalid)) {
-            case CSSValueRight:
-            case CSSValueWebkitRight:
-                postLayoutData.textAlignment = RightAlignment;
-                break;
-            case CSSValueLeft:
-            case CSSValueWebkitLeft:
-                postLayoutData.textAlignment = LeftAlignment;
-                break;
-            case CSSValueCenter:
-            case CSSValueWebkitCenter:
-                postLayoutData.textAlignment = CenterAlignment;
-                break;
-            case CSSValueJustify:
-                postLayoutData.textAlignment = JustifiedAlignment;
-                break;
-            case CSSValueStart:
-                postLayoutData.textAlignment = isLeftToRight ? LeftAlignment : RightAlignment;
-                break;
-            case CSSValueEnd:
-                postLayoutData.textAlignment = isLeftToRight ? RightAlignment : LeftAlignment;
-                break;
-            default:
-                break;
+            if (editingStyle->hasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"_s))
+                postLayoutData.typingAttributes.add(TypingAttribute::Underline);
+
+            if (auto* styleProperties = editingStyle->style()) {
+                bool isLeftToRight = styleProperties->propertyAsValueID(CSSPropertyDirection) == CSSValueLtr;
+                switch (styleProperties->propertyAsValueID(CSSPropertyTextAlign).value_or(CSSValueInvalid)) {
+                case CSSValueRight:
+                case CSSValueWebkitRight:
+                    postLayoutData.textAlignment = TextAlignment::Right;
+                    break;
+                case CSSValueLeft:
+                case CSSValueWebkitLeft:
+                    postLayoutData.textAlignment = TextAlignment::Left;
+                    break;
+                case CSSValueCenter:
+                case CSSValueWebkitCenter:
+                    postLayoutData.textAlignment = TextAlignment::Center;
+                    break;
+                case CSSValueJustify:
+                    postLayoutData.textAlignment = TextAlignment::Justified;
+                    break;
+                case CSSValueStart:
+                    postLayoutData.textAlignment = isLeftToRight ? TextAlignment::Left : TextAlignment::Right;
+                    break;
+                case CSSValueEnd:
+                    postLayoutData.textAlignment = isLeftToRight ? TextAlignment::Right : TextAlignment::Left;
+                    break;
+                default:
+                    break;
+                }
+                if (auto textColor = styleProperties->propertyAsColor(CSSPropertyColor))
+                    postLayoutData.textColor = *textColor;
             }
-            if (auto textColor = styleProperties->propertyAsColor(CSSPropertyColor))
-                postLayoutData.textColor = *textColor;
         }
+
+        if (auto* enclosingListElement = enclosingList(selection.start().containerNode())) {
+            if (is<HTMLUListElement>(*enclosingListElement))
+                postLayoutData.enclosingListType = ListType::UnorderedList;
+            else if (is<HTMLOListElement>(*enclosingListElement))
+                postLayoutData.enclosingListType = ListType::OrderedList;
+            else
+                ASSERT_NOT_REACHED();
+        }
+
+        postLayoutData.baseWritingDirection = frame.editor().baseWritingDirectionForSelectionStart();
     }
 
-    if (auto* enclosingListElement = enclosingList(selection.start().containerNode())) {
-        if (is<HTMLUListElement>(*enclosingListElement))
-            postLayoutData.enclosingListType = UnorderedList;
-        else if (is<HTMLOListElement>(*enclosingListElement))
-            postLayoutData.enclosingListType = OrderedList;
-        else
-            ASSERT_NOT_REACHED();
-    }
-
-    postLayoutData.baseWritingDirection = frame.editor().baseWritingDirectionForSelectionStart();
-
-#if PLATFORM(MAC)
-    const Vector<FloatPoint> offsetsForHitTesting { { -30, 50 }, { 30, 50 }, { -60, 35 }, { 60, 35 }, { 0, 20 } };
-    postLayoutData.evasionRectsAroundSelection = getEvasionRectsAroundSelection(offsetsForHitTesting, false);
+    if (RefPtr editableRootOrFormControl = enclosingTextFormControl(selection.start()) ?: selection.rootEditableElement()) {
+#if PLATFORM(IOS_FAMILY)
+        auto& visualData = *result.visualData;
+        visualData.selectionClipRect = rootViewInteractionBounds(*editableRootOrFormControl);
 #endif
+        postLayoutData.editableRootIsTransparentOrFullyClipped = result.isContentEditable && isTransparentOrFullyClipped(*editableRootOrFormControl);
+    }
 }
 
 #if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
@@ -540,7 +577,7 @@ void WebPage::getPDFFirstPageSize(WebCore::FrameIdentifier frameID, CompletionHa
     if (!webFrame)
         return completionHandler({ });
 
-    auto* pluginView = pluginViewForFrame(webFrame->coreFrame());
+    auto* pluginView = pluginViewForFrame(webFrame->coreLocalFrame());
     if (!pluginView)
         return completionHandler({ });
     
@@ -627,7 +664,7 @@ void WebPage::replaceImageForRemoveBackground(const ElementContext& elementConte
         }
     }
 
-    constexpr auto restoreSelectionOptions = FrameSelection::defaultSetSelectionOptions(UserTriggered);
+    constexpr auto restoreSelectionOptions = FrameSelection::defaultSetSelectionOptions(UserTriggered::Yes);
     if (!originalSelection.isNoneOrOrphaned()) {
         frame->selection().setSelection(originalSelection, restoreSelectionOptions);
         return;
@@ -668,147 +705,87 @@ void WebPage::readSelectionFromPasteboard(const String& pasteboardName, Completi
     completionHandler(true);
 }
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebPageCocoaAdditions.mm>)
-#include <WebKitAdditions/WebPageCocoaAdditions.mm>
-#else
-URL WebPage::sanitizeLookalikeCharacters(const URL& url, LookalikeCharacterSanitizationTrigger)
+URL WebPage::applyLinkDecorationFiltering(const URL& url, LinkDecorationFilteringTrigger trigger)
 {
-    return url;
-}
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    if (m_linkDecorationFilteringData.isEmpty() && m_domainScopedLinkDecorationFilteringData.isEmpty()) {
+        RELEASE_LOG_ERROR(ResourceLoadStatistics, "Unable to filter tracking query parameters (missing data)");
+        return url;
+    }
 
-URL WebPage::allowedLookalikeCharacters(const URL& url)
-{
-    return url;
-}
-#endif
+    RefPtr mainFrame = m_mainFrame->coreLocalFrame();
+    if (!mainFrame)
+        return url;
 
-Node* WebPage::clickableNodeAtLocation(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation) const
-{
-#if PLATFORM(IOS_FAMILY)
-    return Ref(m_page->mainFrame())->nodeRespondingToClickEvents(viewportLocation, adjustedViewportLocation);
-#else
-    UNUSED_PARAM(adjustedViewportLocation);
-
-    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
-    RefPtr frameView = frame->view();
-    if (!frameView)
-        return nullptr;
-
-    auto pointInContentsCoordinates = frameView->windowToContents(roundedIntPoint(viewportLocation));
-
-    RefPtr document = frame->document();
-    if (!document)
-        return nullptr;
-
-    WebCore::HitTestResult result { pointInContentsCoordinates };
-    constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
-
-    document->hitTest(WebCore::HitTestRequest { hitType }, result);
-    return result.innerNode();
-#endif
-}
-
-bool WebPage::isTransparentOrFullyClipped(const Element& element) const
-{
-    auto* renderer = element.renderer();
-    if (!renderer)
-        return false;
-
-    auto* enclosingLayer = renderer->enclosingLayer();
-    if (enclosingLayer && enclosingLayer->isTransparentRespectingParentFrames())
-        return true;
-
-    return renderer->hasNonEmptyVisibleRectRespectingParentFrames();
-}
-
-Vector<FloatRect> WebPage::getEvasionRectsAroundSelection(const Vector<WebCore::FloatPoint>& offsetsForHitTesting, bool evasionRectsAboveSelection) const
-{
-    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
-    RefPtr frameView = frame->view();
-    if (!frameView)
-        return { };
-
-    auto selection = frame->selection().selection();
-    if (selection.isNone())
-        return { };
-
-    auto selectedRange = selection.toNormalizedRange();
-    if (!selectedRange)
-        return { };
-
-    if (!m_focusedElement || !m_focusedElement->renderer() || isTransparentOrFullyClipped(*m_focusedElement))
-        return { };
-
-    float scaleFactor = pageScaleFactor();
-    const double factorOfContentArea = 0.5;
-    auto unobscuredContentArea = RefPtr(m_page->mainFrame().view())->unobscuredContentRect().area();
-    if (unobscuredContentArea.hasOverflowed())
-        return { };
-
-    double contextMenuAreaLimit = factorOfContentArea * scaleFactor * unobscuredContentArea.value();
-
-    FloatRect selectionBoundsInRootViewCoordinates;
-    if (selection.isRange())
-        selectionBoundsInRootViewCoordinates = frameView->contentsToRootView(unionRect(RenderObject::absoluteTextRects(*selectedRange)));
-    else
-        selectionBoundsInRootViewCoordinates = frameView->contentsToRootView(frame->selection().absoluteCaretBounds());
-
-    auto centerOfTargetBounds = selectionBoundsInRootViewCoordinates.center();
-    FloatPoint centerTopInRootViewCoordinates { centerOfTargetBounds.x(), evasionRectsAboveSelection ? selectionBoundsInRootViewCoordinates.y() : selectionBoundsInRootViewCoordinates.maxY() };
-
-    auto clickableNonEditableNode = [&] (const FloatPoint& locationInRootViewCoordinates) -> Node* {
-        FloatPoint adjustedPoint;
-        auto* hitNode = clickableNodeAtLocation(locationInRootViewCoordinates, adjustedPoint);
-        if (!hitNode || is<HTMLBodyElement>(hitNode) || is<Document>(hitNode) || hitNode->hasEditableStyle())
-            return nullptr;
-
-        return hitNode;
+    auto isLinkDecorationFilteringEnabled = [&](const DocumentLoader* loader) {
+        if (!loader)
+            return false;
+        auto effectivePolicies = trigger == LinkDecorationFilteringTrigger::Navigation ? loader->originatorAdvancedPrivacyProtections() : loader->advancedPrivacyProtections();
+        return effectivePolicies.contains(AdvancedPrivacyProtections::LinkDecorationFiltering);
     };
 
-    // This heuristic attempts to find a list of rects to avoid when showing the callout menu on iOS.
-    // First, hit-test several points above the bounds of the selection rect in search of clickable nodes that are not editable.
-    // Secondly, hit-test several points around the edges of the selection rect and exclude any nodes found in the first round of
-    // hit-testing if these nodes are also reachable by moving outwards from the left, right, or bottom edges of the selection.
-    // Additionally, exclude any hit-tested nodes that are either very large relative to the size of the root view, or completely
-    // encompass the selection bounds. The resulting rects are the bounds of these hit-tested nodes in root view coordinates.
-    HashSet<Ref<Node>> hitTestedNodes;
-    Vector<FloatRect> rectsToAvoidInRootViewCoordinates;
-    for (auto offset : offsetsForHitTesting) {
-        offset.scale(1 / scaleFactor);
-        if (auto* hitNode = clickableNonEditableNode(centerTopInRootViewCoordinates + offset))
-            hitTestedNodes.add(*hitNode);
+    bool shouldApplyLinkDecorationFiltering = [&] {
+        if (isLinkDecorationFilteringEnabled(mainFrame->loader().documentLoader()))
+            return true;
+
+        if (isLinkDecorationFilteringEnabled(mainFrame->loader().provisionalDocumentLoader()))
+            return true;
+
+        return isLinkDecorationFilteringEnabled(mainFrame->loader().policyDocumentLoader());
+    }();
+
+    if (!shouldApplyLinkDecorationFiltering)
+        return url;
+
+    if (!url.hasQuery())
+        return url;
+
+    auto sanitizedURL = url;
+
+    auto domainScopedQueryParameters = m_domainScopedLinkDecorationFilteringData.get(RegistrableDomain { sanitizedURL });
+    auto removedParameters = WTF::removeQueryParameters(sanitizedURL, [&](auto& parameter) {
+        return m_linkDecorationFilteringData.contains(parameter) || domainScopedQueryParameters.contains(parameter);
+    });
+
+    if (!removedParameters.isEmpty() && trigger != LinkDecorationFilteringTrigger::Unspecified) {
+        if (trigger == LinkDecorationFilteringTrigger::Navigation)
+            send(Messages::WebPageProxy::DidApplyLinkDecorationFiltering(url, sanitizedURL));
+        auto removedParametersString = makeStringByJoining(removedParameters, ", "_s);
+        WEBPAGE_RELEASE_LOG(ResourceLoadStatistics, "Blocked known tracking query parameters: %s", removedParametersString.utf8().data());
     }
 
-    const float marginForHitTestingSurroundingNodes = 80 / scaleFactor;
-    Vector<FloatPoint, 3> exclusionHitTestLocations {
-        { selectionBoundsInRootViewCoordinates.x() - marginForHitTestingSurroundingNodes, centerOfTargetBounds.y() },
-        { centerOfTargetBounds.x(), selectionBoundsInRootViewCoordinates.maxY() + marginForHitTestingSurroundingNodes },
-        { selectionBoundsInRootViewCoordinates.maxX() + marginForHitTestingSurroundingNodes, centerOfTargetBounds.y() }
-    };
+    return sanitizedURL;
+#else
+    return url;
+#endif
+}
 
-    for (auto& location : exclusionHitTestLocations) {
-        if (auto* nodeToExclude = clickableNonEditableNode(location))
-            hitTestedNodes.remove(*nodeToExclude);
+URL WebPage::allowedQueryParametersForAdvancedPrivacyProtections(const URL& url)
+{
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    if (m_allowedQueryParametersForAdvancedPrivacyProtections.isEmpty()) {
+        RELEASE_LOG_ERROR(ResourceLoadStatistics, "Unable to allow query parameters (missing data)");
+        return url;
     }
 
-    for (auto& node : hitTestedNodes) {
-        RefPtr frameView = node->document().view();
-        auto* renderer = node->renderer();
-        if (!renderer || !frameView)
-            continue;
+    if (!url.hasQuery() && !url.hasFragmentIdentifier())
+        return url;
 
-        auto bounds = frameView->contentsToRootView(renderer->absoluteBoundingBoxRect());
-        auto area = bounds.area<RecordOverflow>();
-        if (area.hasOverflowed() || area > contextMenuAreaLimit)
-            continue;
+    auto sanitizedURL = url;
 
-        if (bounds.contains(enclosingIntRect(selectionBoundsInRootViewCoordinates)))
-            continue;
+    auto allowedParameters = m_allowedQueryParametersForAdvancedPrivacyProtections.get(RegistrableDomain { sanitizedURL });
 
-        rectsToAvoidInRootViewCoordinates.append(WTFMove(bounds));
-    }
+    if (!allowedParameters.contains("#"_s))
+        sanitizedURL.removeFragmentIdentifier();
 
-    return rectsToAvoidInRootViewCoordinates;
+    WTF::removeQueryParameters(sanitizedURL, [&](auto& parameter) {
+        return !allowedParameters.contains(parameter);
+    });
+
+    return sanitizedURL;
+#else
+    return url;
+#endif
 }
 
 } // namespace WebKit

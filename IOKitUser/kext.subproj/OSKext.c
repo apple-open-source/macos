@@ -17004,6 +17004,11 @@ finish:
     return result;
 }
 
+struct _macho_section_size_accumulator_context {
+    struct max_data *md;
+    OSKextRef aKext;
+};
+
 static macho_seek_result
 _macho_section_size_accumulator(struct load_command *lc, const void * file_end __unused, uint8_t swap __unused, void *user_data) {
     struct segment_command_64 *seg;
@@ -17012,8 +17017,10 @@ _macho_section_size_accumulator(struct load_command *lc, const void * file_end _
     uint64_t max_off = 0;
     struct max_data *md;
     enum enumSegIdx segIndex;
+    OSKextRef aKext;
 
-    md = (struct max_data *)user_data;
+    md = ((struct _macho_section_size_accumulator_context *)user_data)->md;
+    aKext = ((struct _macho_section_size_accumulator_context *)user_data)->aKext;
 
     //kcgen_verboseLog("md %p lc->cmd %x cmdSize %x", md, lc->cmd, lc->cmdsize);
 
@@ -17029,7 +17036,13 @@ _macho_section_size_accumulator(struct load_command *lc, const void * file_end _
             //kcgen_verboseLog("sec %d (%s %s) addr %llx size %llx start_off %llx end_off %llx max_off %llx", i, sec->segname, sec->sectname, sec->addr, sec->size, start_off, end_off, max_off);
             sec = (struct section_64 *)((char *)sec + sizeof(struct section_64));
         }
-        assert(getSegIndex(seg->segname, &segIndex));
+        if (!getSegIndex(seg->segname, &segIndex)) {
+            OSKextLog(aKext,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Invalid/Unknown segment: %s <%s %d>",
+                      seg->segname, __func__, __LINE__);
+            abort();
+        }
         assert(segIndex < SEG_IDX_COUNT);
 
         md->seg_data[segIndex].vmaddr  = seg->vmaddr;
@@ -17047,6 +17060,10 @@ static void __OSKextGetEffectiveSegmentSizes(OSKextRef kext, struct max_data *md
     CFDataRef kextExecutable = NULL;
     struct mach_header *hdr;
     void *file_end;
+    struct _macho_section_size_accumulator_context context = {
+        .md = md,
+        .aKext = kext,
+    };
 
     kextExecutable = OSKextCopyExecutableForArchitecture(kext,
                         OSKextGetArchitecture());
@@ -17056,7 +17073,7 @@ static void __OSKextGetEffectiveSegmentSizes(OSKextRef kext, struct max_data *md
     hdr = (struct mach_header *)CFDataGetBytePtr(kextExecutable);
     file_end = (char *)hdr + CFDataGetLength(kextExecutable);
     
-    macho_scan_load_commands(hdr, file_end, _macho_section_size_accumulator, md);
+    macho_scan_load_commands(hdr, file_end, _macho_section_size_accumulator, &context);
 
     CFRelease(kextExecutable);
 }

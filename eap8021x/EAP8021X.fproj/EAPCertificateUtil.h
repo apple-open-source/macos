@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -152,6 +152,9 @@ isA_SecIdentity(CFTypeRef obj);
  */
 OSStatus
 EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(SecIdentityRef sec_identity, CFArrayRef chain, CFArrayRef * ret_array) API_AVAILABLE(ios(11.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, macCatalyst);
+
+OSStatus
+EAPSecIdentityCompareIdentityHandle(SecIdentityRef identity, CFDataRef handle, Boolean *result);
 
 /*
  * EAPSecCertificateAttribute dictionary keys:

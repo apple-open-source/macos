@@ -776,7 +776,19 @@ man_setup_width() {
 	[Tt][Tt][Yy])
 		if { sizes=$($STTY size 0>&3 2>/dev/null); } 3>&1; then
 			set -- $sizes
-			if [ $2 -gt 80 ]; then
+#ifdef __APPLE__
+			# The upstream version uses an 80 column minimum here,
+			# but there are smaller widths that are still reasonable
+			# to consume manpage content on.  Furthermore, the GNU
+			# version macOS has historically used didn't apply any
+			# limitations here.  Follow suit, but keep upstream's
+			# general rule of reducing by two columns -- this
+			# provides for a margin that makes it a little easier to
+			# read.
+			if [ $2 -gt 2 ]; then
+#else
+#			if [ $2 -gt 80 ]; then
+#endif
 				use_width=$(($2-2))
 			fi
 		fi

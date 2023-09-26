@@ -129,7 +129,7 @@ ClientIdentification::GuestState *ClientIdentification::current() const
 			code = mClientProcess;
 			break;
 		}
-		// else fall through		//  ... the guest we expected to be there isn't
+		[[fallthrough]];		//  ... the guest we expected to be there isn't
 	default:
 		MacOSError::throwMe(rc);
 	}

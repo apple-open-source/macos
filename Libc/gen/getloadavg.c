@@ -72,9 +72,7 @@
  * Return number of samples retrieved, or -1 on error.
  */
 int
-getloadavg(loadavg, nelem)
-	double loadavg[];
-	int nelem;
+getloadavg(double loadavg[], int nelem)
 {
 	struct loadavg loadinfo;
 	int i, mib[2];

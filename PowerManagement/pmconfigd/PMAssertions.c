@@ -223,6 +223,11 @@ CFDictionaryRef                     gAssertionCategoriesDict = NULL;
 
 bool                                gAssertionOptimizationEnabled = false;
 
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+// store previous wake time
+static CFAbsoluteTime previousWakeTime = 0.0;
+#endif
+
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 #pragma mark -
@@ -1027,22 +1032,22 @@ void updateAppSleepStates(ProcessInfo *pinfo, int *disableAppSleep, int *enableA
         *disableAppSleep = 1;
         app_pinfo->disableAS_pend = false;
         if (rbs_appnap_enabled_for_pid(app_pid, RBSAppNapSubFeatureIOPM)) {
-            INFO_LOG("updateAppSleepStates: Setting app nap state to true for %d because of power assertion\n", app_pid);
+            DEBUG_LOG("updateAppSleepStates: Setting app nap state to true for %d because of power assertion\n", app_pid);
             rbs_set_iopm_appnap_state(app_pid, "App is holding power assertion", true);
             *disableAppSleep = 0;
         } else {
-            INFO_LOG("updateAppSleepStates: rbs_appnap_enabled_for_pid returned false for PID: %d on disableAppSleep attempt.\n", app_pid);
+            DEBUG_LOG("updateAppSleepStates: rbs_appnap_enabled_for_pid returned false for PID: %d on disableAppSleep attempt.\n", app_pid);
         }
     }
     if ((enableAppSleep) && (app_pinfo->enableAS_pend == true)) {
         *enableAppSleep = 1;
         app_pinfo->enableAS_pend = false;
         if (rbs_appnap_enabled_for_pid(app_pid, RBSAppNapSubFeatureIOPM)) {
-            INFO_LOG("updateAppSleepStates: Setting app nap state to false for %d because all assertions are released\n", app_pid);
+            DEBUG_LOG("updateAppSleepStates: Setting app nap state to false for %d because all assertions are released\n", app_pid);
             rbs_set_iopm_appnap_state(app_pid, "App has released its last power assertion", false);
             *enableAppSleep = 0;
         } else {
-            INFO_LOG("updateAppSleepStates: rbs_appnap_enabled_for_pid returned false for PID: %d on enableAppSleep attempt.\n", app_pid);
+            DEBUG_LOG("updateAppSleepStates: rbs_appnap_enabled_for_pid returned false for PID: %d on enableAppSleep attempt.\n", app_pid);
         }
     }
 }
@@ -1463,6 +1468,68 @@ __private_extern__ void disableClamshellSleepState(void)
     return;
 }
 
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+
+/*
+ When the user wakes the display using user input, the machine may reach dark wake before
+ power management recieves the HID event that woke the machine. We still want to count this
+ as a "woke from user input" case, so this threshold accounts for the delay
+*/
+#define MAX_HID_DELAY_FOR_WAKE_FROM_SLEEP 1.0
+
+static os_log_t wakePerfLog_log(void)
+{
+    static os_log_t log;
+    static dispatch_once_t once_token;
+    dispatch_once (&once_token, ^{
+        log = os_log_create(PM_LOG_SYSTEM,WAKE_PERF_LOG);
+    });
+    return log;
+}
+
+static void emit_wakePerfLog(void)
+{
+    CFAbsoluteTime wakeTime;
+    CFTimeInterval hardwareAdjustment;
+    IOReturn io_ret = IOPMGetLastWakeTime(&wakeTime ,&hardwareAdjustment);
+    if (kIOReturnSuccess == io_ret) {
+        // only emit signposts for first IOHID event after wake. if wakeTime != previousWakeTime, accounting for rounding
+        if (wakeTime - previousWakeTime > 1.0) {
+            // Convert CFAbsolutetime from IOPMGetLastWakeTime to a mach continuous time to use in the signpost
+            uint64_t machContTime = 0;
+            struct timespec wallTime_timespec = {0, 0};
+            mach_get_times(NULL, &machContTime, &wallTime_timespec);
+            CFAbsoluteTime currentTime = (CFAbsoluteTime) ((double)wallTime_timespec.tv_sec) - kCFAbsoluteTimeIntervalSince1970 + (((double)wallTime_timespec.tv_nsec) / NSEC_PER_SEC);
+            if (currentTime > wakeTime && currentTime - wakeTime < MAX_HID_DELAY_FOR_WAKE_FROM_SLEEP) {
+                // below threshold, consider this a wake from sleep even if we are in dark wake
+                CFAbsoluteTime timeDelta = currentTime - wakeTime;
+                // machTimeUnits conversion
+                static mach_timebase_info_data_t timebaseInfo;
+                if (timebaseInfo.denom == 0) {
+                    mach_timebase_info(&timebaseInfo);
+                }
+                uint64_t timeDeltaToMachTimeUnits = (uint64_t) (timeDelta * ((double)NSEC_PER_SEC) * (((double)timebaseInfo.denom) / ((double)timebaseInfo.numer)));
+                os_signpost_event_emit(wakePerfLog_log(), OS_SIGNPOST_ID_EXCLUSIVE,"Waking from Sleep","wake time %{public, signpost.description:begin_time}llu",machContTime - timeDeltaToMachTimeUnits);
+            } else if (isDisplayAsleep()) {
+                // above threshold, we were already in dark wake when the user woke the machine
+                // We want our start timestamp to be the time of the IOHID event, but that is currently unavailable. The current time is the earliest timestamp available in this case
+                os_signpost_event_emit(wakePerfLog_log(), OS_SIGNPOST_ID_EXCLUSIVE,"Waking from Dark Wake");
+            } else if (!userActiveRootDomain()) {
+                // notification wake, display is not asleep.
+                os_signpost_event_emit(wakePerfLog_log(), OS_SIGNPOST_ID_EXCLUSIVE,"Waking from Notification Wake");
+            } else {
+                // already in full wake, no signpost needed
+            }
+        } else {
+            // this is a subsequent IOHID event, not the event that woke the machine
+        }
+        previousWakeTime = wakeTime;
+    } else {
+        // ignore if we have not slept or unable to get wake time
+    }
+}
+#endif
+
 __private_extern__ void sendActivityTickle (void)
 {
     io_connect_t                connect = IO_OBJECT_NULL;
@@ -1503,6 +1570,8 @@ __private_extern__ void sendActivityTickle (void)
     /* Turn on display if needed */
     if (isDisplayAsleep() || inFlightDimRequest()) {
         INFO_LOG("Display is asleep on activity tickle. Lets turn it on\n");
+        // DisplayPerformance Signpost: decision to turn on the display happens here in response to a hid assertion
+        emit_wakePerfLog();
         unblankDisplay();
     } else {
         DEBUG_LOG("Display is not asleep. Not turning it on\n");
@@ -3037,11 +3106,11 @@ static void disableAppSleep(ProcessInfo *pinfo)
 
     pinfo->disableAS_pend = false;
     if (rbs_appnap_enabled_for_pid(pinfo->pid, RBSAppNapSubFeatureIOPM)) {
-        INFO_LOG("disableAppSleep: Setting app nap state to true for %d\n", pinfo->pid);
+        DEBUG_LOG("disableAppSleep: Setting app nap state to true for %d\n", pinfo->pid);
         rbs_set_iopm_appnap_state(pinfo->pid, "App is holding power assertion", true);
     } else {
-        INFO_LOG("disableAppSleep: rbs_appnap_enabled_for_pid returned false for PID: %d.\n", pinfo->pid);
-        snprintf(notify_str, sizeof(notify_str), "%s.%d", 
+        DEBUG_LOG("disableAppSleep: rbs_appnap_enabled_for_pid returned false for PID: %d.\n", pinfo->pid);
+        snprintf(notify_str, sizeof(notify_str), "%s.%d",
                  kIOPMDisableAppSleepPrefix,pinfo->pid);
         notify_post(notify_str);
     }
@@ -3057,11 +3126,11 @@ static void enableAppSleep(ProcessInfo *pinfo)
 
     pinfo->enableAS_pend = false;
     if (rbs_appnap_enabled_for_pid(pinfo->pid, RBSAppNapSubFeatureIOPM)) {
-        INFO_LOG("enableAppSleep: Setting app nap state to false for %d\n", pinfo->pid);
+        DEBUG_LOG("enableAppSleep: Setting app nap state to false for %d\n", pinfo->pid);
         rbs_set_iopm_appnap_state(pinfo->pid, "App has released its last power assertion", false);
     } else {
-        INFO_LOG("enableAppSleep: rbs_appnap_enabled_for_pid returned false for PID: %d.\n", pinfo->pid);
-        snprintf(notify_str, sizeof(notify_str), "%s.%d", 
+        DEBUG_LOG("enableAppSleep: rbs_appnap_enabled_for_pid returned false for PID: %d.\n", pinfo->pid);
+        snprintf(notify_str, sizeof(notify_str), "%s.%d",
                  kIOPMEnableAppSleepPrefix, pinfo->pid);
         notify_post(notify_str);
     }
@@ -4020,7 +4089,12 @@ static void releaseAssertionMemory(assertion_t *assertion, assertLogAction logAc
     }
 
     assertion->retainCnt = 0;
-    logAssertionEvent(logAction, assertion);
+    if (CFDictionaryGetValue(assertion->props, kIOPMAsyncClientAssertionIdKey) != NULL) {
+        logAssertionEvent(kASessionEndLog, assertion);
+    }
+    else {
+        logAssertionEvent(logAction, assertion);
+    }
     CFDictionaryRemoveValue(gAssertionsArray, (const void *)(uintptr_t)idx);
     if (assertion->props) CFRelease(assertion->props);
 
@@ -5808,7 +5882,7 @@ STATIC IOReturn doCreate(
     assertType = &gAssertionTypes[assertion->kassert];
     if (!(assertion->state & kAssertionStateInactive)) {
         if (CFDictionaryGetValue(assertion->props, kIOPMAsyncClientAssertionIdKey) != NULL) {
-            logAssertionEvent(kAOffloadedLog, assertion);
+            logAssertionEvent(kASessionStartLog, assertion);
         }
         else {
             logAssertionEvent(kACreateLog, assertion);
@@ -6538,7 +6612,6 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
             if (prevBTdisable) {
                 if (assertType->disableCnt) 
                     assertType->disableCnt--;
-                prevBTdisable = false;
             }
         }
         assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
@@ -6585,7 +6658,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
     case kInteractivePushServiceType:
         newEffect = kNoEffect;
 
-        if (getTCPKeepAliveState(NULL, 0) == kActive) {
+        if (getTCPKeepAliveState(NULL, 0, true) == kActive) {
             /* If keep alives are allowed */
             idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
 

@@ -148,7 +148,7 @@ The program will dump messages exchanged on the
 .Dv PF_KEY
 socket, including messages sent from other processes to the kernel.
 .El
-.Ss Configuration syntax
+.Sh Configuration syntax
 With
 .Fl c
 or
@@ -436,11 +436,10 @@ This takes the following form:
 .Ar prefixlen
 and
 .Ar port
-must be decimal numbers.
+must be a decimal number.
 The square brackets around
 .Ar port
-are really necessary,
-they are not man page meta-characters.
+are necessary and are not manpage metacharacters.
 For FQDN resolution, the rules applicable to
 .Ar src
 and
@@ -465,25 +464,26 @@ stands for
 You can also use the protocol number.
 You can specify a type and/or a code of ICMPv6 when the
 upper-layer protocol is ICMPv6.
-The specification can be placed after
+The specification must be placed after
 .Li icmp6 .
 A type is separated from a code by single comma.
 A code must always be specified.
 When a zero is specified, the kernel deals with it as a wildcard.
-Note that the kernel can not distinguish a wildcard from an ICPMv6
+Note that the kernel can not distinguish a wildcard from an ICMPv6
 type of zero.
 For example, the following means that the policy doesn't require IPsec
-for any inbound Neighbor Solicitation.
-.Dl spdadd ::/0 ::/0 icmp6 135,0 -P in none ;
+for any inbound Neighbor Solicitation:
 .Pp
-.Em Note :
+.Dl "spdadd ::/0 ::/0 icmp6 135,0 -P in none ;"
+.Pp
+.Em NOTE:
 .Ar upperspec
 does not work against forwarding case at this moment,
 as it requires extra reassembly at the forwarding node
-.Pq not implemented at this moment .
+.Pq currently not implemented .
 There are many protocols in
 .Pa /etc/protocols ,
-but all protocols except of TCP, UDP, and ICMP may not be suitable
+protocols other than TCP, UDP, and ICMP may not be suitable
 to use with IPsec.
 You have to consider carefully what to use.
 .\"
@@ -491,13 +491,14 @@ You have to consider carefully what to use.
 .It Ar policy
 .Ar policy
 is in one of the following three formats:
-.Bd -literal -offset indent
+.Pp
+.Bl -tag -width 2n -compact
 .It Fl P Ar direction [priority specification] Li discard
 .It Fl P Ar direction [priority specification] Li none
 .It Xo Fl P Ar direction [priority specification] Li ipsec
 .Ar protocol/mode/src-dst/level Op ...
 .Xc
-.Ed
+.El
 .Pp
 You must specify the direction of its policy as
 .Ar direction .
@@ -626,11 +627,14 @@ must be between 1 and 32767.
 It corresponds to
 .Ar extensions Fl u
 of the manual SA configuration.
-When you want to use SA bundle, you can define multiple rules.
+.Pp
+When you want to use an SA bundle, you can define multiple rules.
 For example, if an IP header was followed by an AH header followed
 by an ESP header followed by an upper layer protocol header, the
 rule would be:
+.Pp
 .Dl esp/transport//require ah/transport//require ;
+.Pp
 The rule order is very important.
 .Pp
 When NAT-T is enabled in the kernel, policy matching for ESP over
@@ -664,7 +668,7 @@ See
 for detail.
 .El
 .\"
-.Ss Algorithms
+.Sh Algorithms
 The following list shows the supported algorithms.
 .Sy protocol
 and
@@ -679,7 +683,7 @@ of the
 parameter:
 .Pp
 .Bd -literal -offset indent
-algorithm	keylen (bits)
+algorithm	keylen (bits)   comment
 hmac-md5	128		ah: rfc2403
 		128		ah-old: rfc2085
 hmac-sha1	160		ah: rfc2404
@@ -712,7 +716,7 @@ of the
 parameter:
 .Pp
 .Bd -literal -offset indent
-algorithm	keylen (bits)
+algorithm	keylen (bits)   comment
 des-cbc		64		esp-old: rfc1829, esp: rfc2405
 3des-cbc	192		rfc2451
 null		0 to 2048	rfc2410
@@ -738,11 +742,11 @@ of the
 parameter:
 .Pp
 .Bd -literal -offset indent
-algorithm
+algorithm   comment
 deflate		rfc2394
 .Ed
 .\"
-.Ss RFC vs Linux kernel semantics
+.Sh RFC vs Linux kernel semantics
 The Linux kernel uses the
 .Ar fwd
 policy instead of the
@@ -759,8 +763,6 @@ In
 .Ar RFC
 mode,
 .Nm
-.Bl -item
-.It
 creates
 .Ar fwd
 policies for every

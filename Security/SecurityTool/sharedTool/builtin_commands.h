@@ -54,6 +54,14 @@ SECURITY_COMMAND("bubble", command_bubble,
                  "",
                  "Transfer to sync bubble")
 
+SECURITY_COMMAND("system-transfer", command_system_transfer,
+                 "",
+                 "Transfer (transmogrify) items to system keychain")
+
+SECURITY_COMMAND("system-transcrypt", command_system_transcrypt,
+                 "",
+                 "Transcrypt emulated system keychain items to system keychain keybag")
+
 SECURITY_COMMAND("watchdog", command_watchdog,
                      "[parameter ...]\n"
                      "Where parameter is one of:\n"
@@ -76,9 +84,3 @@ SECURITY_COMMAND("keychain-check", command_keychain_check,
 SECURITY_COMMAND("keychain-cleanup", command_keychain_cleanup,
                     "",
                     "attempt to remove keychain items we can no longer decrypt")
-
-#if !TARGET_OS_BRIDGE
-SECURITY_COMMAND("keychain-diversify-test", keychain_diversify_test,
-                 "",
-                 "Run key diversifcation tests")
-#endif

@@ -414,7 +414,7 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
                     }
 
                     // only dispatch an event if the element values were updated.
-                    if ([self updateEvent] && _eventCallback) {
+                    if ([self pollEventUpdate] && _eventCallback) {
                         logUpsEventDict(_upsUpdatedEvent, @"timer dispatchEvent");
 
                         (_eventCallback)(_eventTarget,
@@ -561,8 +561,6 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
     bool isDischargingPrev = false; // Keeping this seperate bool for case when both charge / discharge is 1 (possible ??)
     bool isACSourcePrev = false;
     [_upsUpdatedEvent removeAllObjects];
-
-    [self updateElements:_elements.feature];
 
     for (HIDLibElement *element in _eventElements) {
         HIDLibElement *latest = [self latestElement:_eventElements
@@ -858,6 +856,20 @@ static void _valueAvailableCallback(void *context,
     }
 }
 
+- (void)initialEventUpdate
+{
+    [self updateElements:_elements.input];
+    [self updateElements:_elements.feature];
+
+    [self updateEvent];
+}
+
+- (BOOL)pollEventUpdate
+{
+    [self updateElements:_elements.feature];
+    return [self updateEvent];
+}
+
 - (IOReturn)start:(NSDictionary * _Nonnull __unused)properties
           service:(io_service_t)service
 {
@@ -982,9 +994,7 @@ static void _valueAvailableCallback(void *context,
     ret = (*_queue)->start(_queue, 0);
     require_noerr(ret, exit);
     
-    // get the initial values for our input/feature elements
-    [self updateElements:_elements.input];
-    [self updateEvent];
+    [self initialEventUpdate];
     
     ret = kIOReturnSuccess;
     
@@ -1083,7 +1093,6 @@ static IOReturn _getEvent(void *iunknown, CFDictionaryRef *event)
         return kIOReturnBadArgument;
     }
     
-    [self updateEvent];
     *event = (__bridge CFDictionaryRef)_upsEvent;
 
     logUpsEventDict(_upsEvent, @"getEvent");

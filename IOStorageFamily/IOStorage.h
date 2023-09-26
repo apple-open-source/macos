@@ -120,6 +120,23 @@
 
 #define kIOStorageFeatureUnmap "Unmap"
 
+/*!
+ * @enum IOStorageUnmapOptions
+ * @discussion
+ * Options for unmap storage requests.
+ * @constant kIOStorageUnmapOptionWhole
+ * Issue a single extent only.
+ */
+
+enum
+{
+    kIOStorageUnmapOptionNone       = 0x00000000,
+    kIOStorageUnmapOptionWhole      = 0x00000001,
+    kIOStorageUnmapOptionReserved   = 0xFFFFFFFE
+};
+
+typedef UInt32 IOStorageUnmapOptions;
+
 #ifdef KERNEL
 #ifdef __cplusplus
 
@@ -235,19 +252,6 @@ enum
 };
 
 typedef UInt32 IOStorageSynchronizeOptions;
-
-/*!
- * @enum IOStorageUnmapOptions
- * @discussion
- * Options for unmap storage requests.
- */
-
-enum
-{
-    kIOStorageUnmapOptionReserved = 0xFFFFFFFF
-};
-
-typedef UInt32 IOStorageUnmapOptions;
 
 /*!
  * @struct IOStorageAttributes

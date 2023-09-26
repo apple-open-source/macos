@@ -16,7 +16,7 @@ void SOSAccountUpdateTestTransports(SOSAccount* account, CFDictionaryRef gestalt
 @property (nonatomic) CFStringRef name;
 @property (nonatomic) CFStringRef circleName;
 -(id) initWithAccount:(SOSAccount*) acct andName:(CFStringRef) name andCircleName:(CFStringRef) circleName;
--(bool) SOSTransportKeyParameterPublishCloudParameters:(CKKeyParameterTest*) transport data:(CFDataRef)newParameters err:(CFErrorRef*) error;
+-(bool) SOSTransportKeyParameterPublishCloudParameters:(CKKeyParameter*) transport data:(CFDataRef)newParameters err:(CFErrorRef*) error;
 -(bool) SOSTransportKeyParameterHandleKeyParameterChanges:(CKKeyParameter*) transport  data:(CFDataRef) data err:(CFErrorRef) error;
 
 @end
@@ -26,7 +26,7 @@ void SOSAccountUpdateTestTransports(SOSAccount* account, CFDictionaryRef gestalt
 @property (nonatomic) CFStringRef name;
 
 -(id) initWithAccount:(SOSAccount*) acct andName:(CFStringRef) name andCircleName:(CFStringRef) circleName;
--(bool) SOSTransportMessageSendMessages:(SOSMessageKVSTest*) transport pm:(CFDictionaryRef) peer_messages err:(CFErrorRef *)error;
+-(bool) SOSTransportMessageSendMessages:(SOSMessage*) transport pm:(CFDictionaryRef) peer_messages err:(CFErrorRef *)error;
 -(CFIndex) SOSTransportMessageGetTransportType;
 -(CFStringRef) SOSTransportMessageGetCircleName;
 -(CFTypeRef) SOSTransportMessageGetEngine;

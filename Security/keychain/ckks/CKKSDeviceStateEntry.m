@@ -448,17 +448,17 @@
     NSError* localerror = nil;
     NSString* contextID = viewState.contextID;
 
-    CKKSAccountStatus hsa2Status = accountTracker.hsa2iCloudAccountStatus;
+    CKKSAccountStatus cdpCapableStatus = accountTracker.cdpCapableiCloudAccountStatus;
 
-    // We must have an HSA2 iCloud account and a CloudKit account to even create one of these
-    if(hsa2Status != CKKSAccountStatusAvailable ||
+    // We must have an HSA2/Managed iCloud account and a CloudKit account to even create one of these
+    if(cdpCapableStatus != CKKSAccountStatusAvailable ||
        accountTracker.currentCKAccountInfo.accountStatus != CKAccountStatusAvailable) {
-        ckkserror("ckksdevice", viewState, "No iCloud account active: %@ hsa2 account:%@",
+        ckkserror("ckksdevice", viewState, "No iCloud account active: %@ cdp capable account:%@",
                   accountTracker.currentCKAccountInfo,
-                  CKKSAccountStatusToString(hsa2Status));
+                  CKKSAccountStatusToString(cdpCapableStatus));
         localerror = [NSError errorWithDomain:@"securityd"
                                          code:errSecInternalError
-                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No active HSA2 iCloud account: %@", accountTracker.currentCKAccountInfo]}];
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No active CDP Capable iCloud account: %@", accountTracker.currentCKAccountInfo]}];
         if(error) {
             *error = localerror;
         }
@@ -555,7 +555,7 @@
 
     // We'd like to have the circle peer ID. Give the account state tracker a fighting chance, but not having it is not an error
     // But, if the platform doesn't have SOS, don't bother
-    if(OctagonIsSOSFeatureEnabled() && [accountTracker.accountCirclePeerIDInitialized wait:500*NSEC_PER_MSEC] != 0 && !accountTracker.accountCirclePeerID) {
+    if(SOSCompatibilityModeGetCachedStatus() && [accountTracker.accountCirclePeerIDInitialized wait:500*NSEC_PER_MSEC] != 0 && !accountTracker.accountCirclePeerID) {
         ckkserror("ckksdevice", viewState, "No SOS peer ID available");
     }
 
@@ -639,7 +639,7 @@
                                                                                error:&localerror];
     [cdse deleteFromDatabase:&localerror];
 
-    ckksinfo("ckksdevice", recordID.zoneID, "CKKSCurrentItemPointer(%@) was deleted: %@ error: %@", cdse, recordID, localerror);
+    ckksinfo("ckksdevice", recordID.zoneID, "CKKSDeviceStateEntry(%@) was deleted: %@ error: %@", cdse, recordID, localerror);
 
     if(error && localerror) {
         *error = localerror;

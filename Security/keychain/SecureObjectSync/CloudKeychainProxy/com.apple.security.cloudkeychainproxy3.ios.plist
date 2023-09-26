@@ -15,7 +15,7 @@
 	</dict>
 	<key>RunAtLoad</key>
 	<false/>
-	<key>enabletransactions</key>
+	<key>EnableTransactions</key>
 	<true/>
 	<key>Program</key>
 	<string>/System/Library/Frameworks/Security.framework/CloudKeychainProxy.bundle/CloudKeychainProxy</string>

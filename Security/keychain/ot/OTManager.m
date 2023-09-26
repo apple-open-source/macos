@@ -100,6 +100,10 @@
 #import "utilities/SecTapToRadar.h"
 #import "keychain/SigninMetrics/OctagonSignPosts.h"
 
+#ifndef TARGET_OS_XR
+#define TARGET_OS_XR 0
+#endif
+
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
 SOFT_LINK_CLASS(CloudServices, SecureBackup);
 
@@ -163,7 +167,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 - (instancetype)init
 {
     // Under Octagon, the sos adapter is not considered essential.
-    id<OTSOSAdapter> sosAdapter = (OctagonIsSOSFeatureEnabled() ?
+    id<OTSOSAdapter> sosAdapter = (OctagonPlatformSupportsSOS() ?
                                    [[OTSOSActualAdapter alloc] initAsEssential:NO] :
                                    [[OTSOSMissingAdapter alloc] init]);
 
@@ -368,7 +372,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
 - (void)registerForCircleChangedNotifications
 {
-    if(![OTClique platformSupportsSOS]) {
+    if(!SOSCompatibilityModeGetCachedStatus()) {
         return;
     }
 
@@ -1204,6 +1208,22 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }];
 }
 
+- (void)resetAcountData:(OTControlArguments*)arguments
+            resetReason:(CuttlefishResetReason)resetReason
+                  reply:(void (^)(NSError* _Nullable error))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                       error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a resetAndEstablish RPC for arguments (%@): %@", arguments, clientError);
+        reply(clientError);
+        return;
+    }
+    [cfshContext startOctagonStateMachine];
+    [cfshContext rpcReset:resetReason reply:reply];
+}
+
 - (void)establish:(OTControlArguments*)arguments
             reply:(void (^)(NSError * _Nullable))reply
 {
@@ -1330,6 +1350,21 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         [tracker stopWithEvent:OctagonEventFetchEscrowContents result:error];
         reply(entropy, bottleID, signingPublicKey, error);
     }];
+}
+
+- (void)totalTrustedPeers:(OTControlArguments*)arguments
+                    reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a totalTrustedPeers RPC for arguments (%@): %@", arguments, clientError);
+        reply(nil, clientError);
+        return;
+    }
+    
+    [cfshContext rpcFetchTotalCountOfTrustedPeers:reply];
 }
 
 ////
@@ -1711,7 +1746,11 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 - (bool)isFullPeer {
     NSString* modelID = self.deviceInformationAdapter.modelID;
 
+#if TARGET_OS_XR
+    for (NSString* p in @[@"Mac", @"iPhone", @"iPad", @"iPod", @"Watch", @"RealityDevice"]) {
+#else
     for (NSString* p in @[@"Mac", @"iPhone", @"iPad", @"iPod", @"Watch"]) {
+#endif
         if ([modelID containsString:p]) {
             return true;
         }
@@ -1900,7 +1939,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     if (![self isFullPeer]) {
         secnotice("octagon-custodian-recovery", "Device is not a full peer; cannot enroll recovery key in Octagon");
         NSError* notFullPeerError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorOperationUnavailableOnLimitedPeer userInfo:@{NSLocalizedDescriptionKey : @"Device is considered a limited peer, cannot enroll recovery key in Octagon"}];
-        [tracker stopWithEvent:OctagonEventCustodianRecoveryKey result:notFullPeerError];
+        [tracker stopWithEvent:OctagonEventCreateCustodianRecoveryKey2 result:notFullPeerError];
         reply(nil, notFullPeerError);
         return;
     }
@@ -1908,7 +1947,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcCreateCustodianRecoveryKeyWithUUID:uuid reply:^(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error) {
-        [tracker stopWithEvent:OctagonEventCustodianRecoveryKey result:error];
+        [tracker stopWithEvent:OctagonEventCreateCustodianRecoveryKey2 result:error];
         reply(crk, error);
     }];
 }
@@ -1938,7 +1977,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
             } else {
                 secnotice("octagon", "join with custodian recovery key succeeded");
             }
-            [tracker stopWithEvent:OctagonEventCustodianRecoveryKey result:error];
+            [tracker stopWithEvent:OctagonEventJoinCustodianRecoveryKey result:error];
             reply(error);
         }];
 }
@@ -1993,7 +2032,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     if (![self isFullPeer]) {
         secnotice("octagon-custodian-recovery", "Device is not a full peer; cannot remove recovery key in Octagon");
         NSError* notFullPeerError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorOperationUnavailableOnLimitedPeer userInfo:@{NSLocalizedDescriptionKey : @"Device is considered a limited peer, cannot remove recovery key in Octagon"}];
-        [tracker stopWithEvent:OctagonEventCustodianRecoveryKey result:notFullPeerError];
+        [tracker stopWithEvent:OctagonEventRemoveCustodianRecoveryKey result:notFullPeerError];
         reply(notFullPeerError);
         return;
     }
@@ -2001,7 +2040,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcRemoveCustodianRecoveryKeyWithUUID:uuid reply:^(NSError *_Nullable error) {
-        [tracker stopWithEvent:OctagonEventCustodianRecoveryKey result:error];
+        [tracker stopWithEvent:OctagonEventRemoveCustodianRecoveryKey result:error];
         reply(error);
     }];
 }
@@ -2026,7 +2065,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcCheckCustodianRecoveryKeyWithUUID:uuid reply:^(bool exists, NSError *_Nullable error) {
-        [tracker stopWithEvent:OctagonEventCustodianRecoveryKey result:error];
+        [tracker stopWithEvent:OctagonEventCheckCustodianRecoveryKey result:error];
         reply(exists, error);
     }];
 }
@@ -2056,7 +2095,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     if (![self isFullPeer]) {
         secnotice("octagon-inheritance", "Device is not a full peer; cannot enroll recovery key in Octagon");
         NSError* notFullPeerError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorOperationUnavailableOnLimitedPeer userInfo:@{NSLocalizedDescriptionKey : @"Device is considered a limited peer, cannot enroll recovery key in Octagon"}];
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:notFullPeerError];
+        [tracker stopWithEvent:OctagonEventCreateInheritanceKey result:notFullPeerError];
         reply(nil, notFullPeerError);
         return;
     }
@@ -2064,7 +2103,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcCreateInheritanceKeyWithUUID:uuid reply:^(OTInheritanceKey *_Nullable crk, NSError *_Nullable error) {
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:error];
+        [tracker stopWithEvent:OctagonEventCreateInheritanceKey result:error];
         reply(crk, error);
     }];
 }
@@ -2089,7 +2128,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     if (![self isFullPeer]) {
         secnotice("octagon-inheritance", "Device is not a full peer; cannot enroll recovery key in Octagon");
         NSError* notFullPeerError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorOperationUnavailableOnLimitedPeer userInfo:@{NSLocalizedDescriptionKey : @"Device is considered a limited peer, cannot enroll recovery key in Octagon"}];
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:notFullPeerError];
+        [tracker stopWithEvent:OctagonEventGenerateInheritanceKey result:notFullPeerError];
         reply(nil, notFullPeerError);
         return;
     }
@@ -2097,7 +2136,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcGenerateInheritanceKeyWithUUID:uuid reply:^(OTInheritanceKey *_Nullable crk, NSError *_Nullable error) {
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:error];
+        [tracker stopWithEvent:OctagonEventGenerateInheritanceKey result:error];
         reply(crk, error);
     }];
 }
@@ -2122,7 +2161,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     if (![self isFullPeer]) {
         secnotice("octagon-inheritance", "Device is not a full peer; cannot enroll recovery key in Octagon");
         NSError* notFullPeerError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorOperationUnavailableOnLimitedPeer userInfo:@{NSLocalizedDescriptionKey : @"Device is considered a limited peer, cannot enroll recovery key in Octagon"}];
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:notFullPeerError];
+        [tracker stopWithEvent:OctagonEventStoreInheritanceKey result:notFullPeerError];
         reply(notFullPeerError);
         return;
     }
@@ -2130,7 +2169,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcStoreInheritanceKeyWithIK:ik reply:^(NSError *_Nullable error) {
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:error];
+        [tracker stopWithEvent:OctagonEventStoreInheritanceKey result:error];
         reply(error);
     }];
 }
@@ -2160,7 +2199,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
             } else {
                 secnotice("octagon-inheritance", "join with inheritance key succeeded");
             }
-            [tracker stopWithEvent:OctagonEventInheritanceKey result:error];
+            [tracker stopWithEvent:OctagonEventJoinInheritanceKey result:error];
             reply(error);
         }];
 }
@@ -2215,7 +2254,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     if (![self isFullPeer]) {
         secnotice("octagon-custodian-recovery", "Device is not a full peer; cannot remove inheritance key in Octagon");
         NSError* notFullPeerError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorOperationUnavailableOnLimitedPeer userInfo:@{NSLocalizedDescriptionKey : @"Device is considered a limited peer, cannot remove inheritance key in Octagon"}];
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:notFullPeerError];
+        [tracker stopWithEvent:OctagonEventRemoveInheritanceKey result:notFullPeerError];
         reply(notFullPeerError);
         return;
     }
@@ -2223,7 +2262,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcRemoveInheritanceKeyWithUUID:uuid reply:^(NSError *_Nullable error) {
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:error];
+        [tracker stopWithEvent:OctagonEventRemoveInheritanceKey result:error];
         reply(error);
     }];
 }
@@ -2248,7 +2287,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcCheckInheritanceKeyWithUUID:uuid reply:^(bool exists, NSError *_Nullable error) {
-        [tracker stopWithEvent:OctagonEventInheritanceKey result:error];
+        [tracker stopWithEvent:OctagonEventCheckInheritanceKey result:error];
         reply(exists, error);
     }];
 }
@@ -2260,6 +2299,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     // rdar://82008582 (aTV miCK: Restart all active Octagon/CKKS state machines on daemon restart)
     [self healthCheck:[[OTControlArguments alloc] init]
 skipRateLimitingCheck:NO
+               repair:NO
                 reply:^(NSError * _Nullable error) {
         if(error) {
             secerror("octagon: error attempting to check octagon health: %@", error);
@@ -2271,6 +2311,7 @@ skipRateLimitingCheck:NO
 
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
+             repair:(BOOL)repair
               reply:(void (^)(NSError *_Nullable error))reply
 {
     NSError* clientError = nil;
@@ -2286,7 +2327,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
     [cfshContext notifyContainerChange:nil];
 
-    [cfshContext checkOctagonHealth:skipRateLimitingCheck reply:^(NSError *error) {
+    [cfshContext checkOctagonHealth:skipRateLimitingCheck repair:repair reply:^(NSError *error) {
         if(error) {
             reply(error);
         } else {

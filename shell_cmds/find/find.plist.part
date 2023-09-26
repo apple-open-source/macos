@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>find</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-03-13</string>
+		<string>2023-01-24</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/find?id=a9275d996c229a30879baa42a6d02d24663ac43b</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/find?id=14ebab25e1231decd80a64194e9028a9ada8d6e6</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-05-06</string>
+		<string>2023-01-24</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Add -xattr and -xattrname options.</string>

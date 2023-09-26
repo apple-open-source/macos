@@ -829,9 +829,9 @@ extern struct vm_pageout_debug vm_pageout_debug;
 	MACRO_BEGIN                                     \
 	        vm_pageout_debug.member += value;       \
 	MACRO_END
-#else
+#else /* DEVELOPMENT || DEBUG */
 #define VM_PAGEOUT_DEBUG(member, value)
-#endif
+#endif /* DEVELOPMENT || DEBUG */
 
 #define MAX_COMPRESSOR_THREAD_COUNT      8
 
@@ -887,6 +887,6 @@ typedef struct vmct_stats_s {
 	int32_t vmct_minpages[MAX_COMPRESSOR_THREAD_COUNT];
 	int32_t vmct_maxpages[MAX_COMPRESSOR_THREAD_COUNT];
 } vmct_stats_t;
-#endif
-#endif
+#endif /* DEVELOPMENT || DEBUG */
+#endif /* XNU_KERNEL_PRIVATE */
 #endif  /* _VM_VM_PAGEOUT_H_ */

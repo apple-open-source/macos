@@ -7,7 +7,7 @@ uk{
             "%digits-ordinal:",
             "-x: \u2212>>;",
             "0: =#,##0=;",
-        }	
+        }
         SpelloutRules{
             "%%lenient-parse:",
             "&[last primary ignorable ] << ' ' << ',' << '-' << '\u00AD';",

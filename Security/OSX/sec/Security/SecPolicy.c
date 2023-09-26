@@ -2375,6 +2375,53 @@ errOut:
 	return result;
 }
 
+SecPolicyRef SecPolicyCreateAppleXROSApplicationSigning(void) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+    CFDataRef xrProdOid = NULL;
+    CFDataRef xrTestOid = NULL;
+    CFArrayRef oids = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+
+    SecPolicyAddBasicCertOptions(options);
+
+    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    require_quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameXROSApplicationSigning),
+                  errOut);
+
+    /* Check for intermediate: Apple Worldwide Developer Relations */
+    /* 1.2.840.113635.100.6.2.1 */
+    add_oid(options, kSecPolicyCheckIntermediateMarkerOid, &oidAppleIntmMarkerAppleWWDR);
+
+    /* Key usage must include Digital Signature; EKU must include Code Signing (or Any) */
+    add_ku(options, kSecKeyUsageDigitalSignature);
+    add_eku(options, &oidAnyExtendedKeyUsage);
+    add_eku(options, &oidExtendedKeyUsageCodeSigning);
+
+    /* Check for prod or test Apple XROS Application Signing OIDs */
+    /* Prod: 1.2.840.113635.100.6.1.36 */
+    /* ProdQA: 1.2.840.113635.100.6.1.36.1 */
+    add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.1.36"));
+    add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.1.36.1"));
+
+    /* Skip networked revocation checks */
+    CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
+
+    require(result = SecPolicyCreate(kSecPolicyAppleXROSApplicationSigning,
+                                     kSecPolicyNameXROSApplicationSigning, options),
+            errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    CFReleaseSafe(oids);
+    CFReleaseSafe(xrProdOid);
+    CFReleaseSafe(xrTestOid);
+    return result;
+}
+
 SecPolicyRef SecPolicyCreateOCSPSigner(void) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
@@ -2636,6 +2683,8 @@ SecPolicyRef SecPolicyCreateLockdownPairing(void) {
     //    kCFBooleanTrue); // Happens automatically in SecPVCPathChecks
 	CFDictionaryAddValue(options, kSecPolicyCheckCriticalExtensions,
 		kCFBooleanTrue);
+    CFDictionaryAddValue(options, kSecPolicyCheckUnparseableExtension, kCFBooleanTrue);
+    CFDictionaryAddValue(options, kSecPolicyCheckDuplicateExtension, kCFBooleanTrue);
 	CFDictionaryAddValue(options, kSecPolicyCheckIdLinkage,
 		kCFBooleanTrue);
 	CFDictionaryAddValue(options, kSecPolicyCheckBasicConstraints,
@@ -3844,6 +3893,7 @@ SecPolicyRef SecPolicyCreateAppleExternalDeveloperOptionalExpiry(bool checkExpir
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.1.12")); // "Mac Developer" leaf OID
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.1.13")); // "Developer ID Application" leaf OID
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.1.14")); // "Developer ID Installer" leaf OID
+    add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.1.35")); // "Swift Package Registry" leaf OID
 
     /* Restrict EKUs */
     add_eku_string(options, CFSTR("1.3.6.1.5.5.7.3.3"));       // CodeSigning EKU
@@ -4902,6 +4952,9 @@ SecPolicyRef SecPolicyCreateMDLTerminalAuth(bool checkExtension, bool leafIsCA) 
 
     /* Check expiration */
     SecPolicyAddBasicX509Options(options);
+
+    /* Require key usage that allows signing */
+    add_ku(options, kSecKeyUsageDigitalSignature);
 
     /* If "checkExtension" the leaf certificate should have the EKU “1.0.18013.5.1.6” */
     if (checkExtension) {

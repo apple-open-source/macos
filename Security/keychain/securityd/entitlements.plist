@@ -4,6 +4,8 @@
 <dict>
 	<key>com.apple.usermanagerd.persona.fetch</key>
 	<true/>
+	<key>com.apple.private.iokit.nvram-write-access</key>
+	<true/>
 	<key>com.apple.private.cloudkit.serviceNameForContainerMap</key>
 	<dict>
 		<key>com.apple.security.shared.keychain</key>
@@ -133,6 +135,11 @@
 	<array>
 		<string>com.apple.keychainsharingmessagingd</string>
 		<string>com.apple.AuthenticationServices.CredentialSharingGroups</string>
+		<string>com.apple.security.KeychainDBMover</string>
 	</array>
+	<key>com.apple.authentication-services.credential-sharing-groups</key>
+	<true/>
+	<key>com.apple.private.keychain.kcsharing.invitation.manager</key>
+	<true/>
 </dict>
 </plist>

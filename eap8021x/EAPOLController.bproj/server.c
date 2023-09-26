@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2019, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -199,8 +199,6 @@ done:
     return (KERN_SUCCESS);
 }
 
-#if ! TARGET_OS_IPHONE
-
 kern_return_t
 eapolcontroller_start_system(mach_port_t server,
 			     if_name_t if_name, 
@@ -231,6 +229,8 @@ eapolcontroller_start_system(mach_port_t server,
     *ret_result = result;
     return (KERN_SUCCESS);
 }
+
+#if ! TARGET_OS_IPHONE
 
 kern_return_t 
 eapolcontroller_client_user_cancelled(mach_port_t server,

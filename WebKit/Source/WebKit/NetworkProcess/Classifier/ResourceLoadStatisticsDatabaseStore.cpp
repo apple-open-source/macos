@@ -64,16 +64,11 @@ constexpr auto observedDomainCountQuery = "SELECT COUNT(*) FROM ObservedDomains"
 constexpr auto countSubframeUnderTopFrameQuery = "SELECT COUNT(*) FROM SubframeUnderTopFrameDomains WHERE subFrameDomainID = ? AND topFrameDomainID = ?;"_s;
 constexpr auto countSubresourceUnderTopFrameQuery = "SELECT COUNT(*) FROM SubresourceUnderTopFrameDomains WHERE subresourceDomainID = ? AND topFrameDomainID = ?;"_s;
 constexpr auto countSubresourceUniqueRedirectsToQuery = "SELECT COUNT(*) FROM SubresourceUniqueRedirectsTo WHERE subresourceDomainID = ? AND toDomainID = ?;"_s;
-constexpr auto countPrevalentResourcesQuery = "SELECT COUNT(DISTINCT registrableDomain) FROM ObservedDomains WHERE isPrevalent = 1;"_s;
-constexpr auto countPrevalentResourcesWithUserInteractionQuery = "SELECT COUNT(DISTINCT registrableDomain) FROM ObservedDomains WHERE isPrevalent = 1 AND hadUserInteraction = 1;"_s;
-
-constexpr auto countPrevalentResourcesWithoutUserInteractionQuery = "SELECT COUNT(DISTINCT registrableDomain) FROM ObservedDomains WHERE isPrevalent = 1 AND hadUserInteraction = 0;"_s;
 
 // INSERT OR IGNORE Queries
 constexpr auto insertObservedDomainQuery = "INSERT INTO ObservedDomains (registrableDomain, lastSeen, hadUserInteraction,"
     "mostRecentUserInteractionTime, grandfathered, isPrevalent, isVeryPrevalent, dataRecordsRemoved, timesAccessedAsFirstPartyDueToUserInteraction,"
     "timesAccessedAsFirstPartyDueToStorageAccessAPI, isScheduledForAllButCookieDataRemoval, mostRecentWebPushInteractionTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"_s;
-constexpr auto insertTopLevelDomainQuery = "INSERT INTO TopLevelDomains VALUES (?)"_s;
 constexpr auto storageAccessUnderTopFrameDomainsQuery = "INSERT OR IGNORE INTO StorageAccessUnderTopFrameDomains (domainID, topLevelDomainID) SELECT ?, domainID FROM ObservedDomains WHERE registrableDomain in ( "_s;
 constexpr auto topFrameUniqueRedirectsToQuery = "INSERT OR IGNORE into TopFrameUniqueRedirectsTo (sourceDomainID, toDomainID) SELECT ?, domainID FROM ObservedDomains where registrableDomain in ( "_s;
 constexpr auto topFrameUniqueRedirectsToSinceSameSiteStrictEnforcementQuery = "INSERT OR IGNORE into TopFrameUniqueRedirectsToSinceSameSiteStrictEnforcement (sourceDomainID, toDomainID) SELECT ?, domainID FROM ObservedDomains where registrableDomain in ( "_s;
@@ -94,10 +89,6 @@ constexpr auto subresourceUnderTopFrameDomainExistsQuery = "SELECT EXISTS (SELEC
     "WHERE subresourceDomainID = ? AND topFrameDomainID = (SELECT domainID FROM ObservedDomains WHERE registrableDomain = ?))"_s;
 constexpr auto subresourceUniqueRedirectsToExistsQuery = "SELECT EXISTS (SELECT 1 FROM SubresourceUniqueRedirectsTo WHERE subresourceDomainID = ? "
     "AND toDomainID = (SELECT domainID FROM ObservedDomains WHERE registrableDomain = ?))"_s;
-constexpr auto topFrameLinkDecorationsFromExistsQuery = "SELECT EXISTS (SELECT 1 FROM TopFrameLinkDecorationsFrom WHERE toDomainID = ? "
-    "AND fromDomainID = (SELECT domainID FROM ObservedDomains WHERE registrableDomain = ?))"_s;
-constexpr auto topFrameLoadedThirdPartyScriptsExistsQuery = "SELECT EXISTS (SELECT 1 FROM TopFrameLoadedThirdPartyScripts WHERE topFrameDomainID = ? "
-    "AND subresourceDomainID = (SELECT domainID FROM ObservedDomains WHERE registrableDomain = ?))"_s;
 constexpr auto storageAccessExistsQuery = "SELECT EXISTS (SELECT 1 FROM StorageAccessUnderTopFrameDomains WHERE domainID = ? AND topLevelDomainID = (SELECT domainID FROM ObservedDomains WHERE registrableDomain = ?))"_s;
 
 // UPDATE Queries
@@ -262,7 +253,7 @@ const MemoryCompactLookupOnlyRobinHoodHashMap<String, TableAndIndexPair>& Resour
     return expectedTableAndIndexQueries;
 }
 
-Span<const ASCIILiteral> ResourceLoadStatisticsDatabaseStore::sortedTables()
+std::span<const ASCIILiteral> ResourceLoadStatisticsDatabaseStore::sortedTables()
 {
     static constexpr std::array sortedTables {
         "ObservedDomains"_s,
@@ -595,6 +586,7 @@ bool ResourceLoadStatisticsDatabaseStore::createSchema()
         return false;
     }
 
+    // FIXME: drop TopLevelDomains table as it is not used.
     if (!m_database.executeCommand(createTopLevelDomains)) {
         LOG_ERROR("Could not create TopLevelDomains table in database (%i) - %s", m_database.lastError(), m_database.lastErrorMsg());
         return false;
@@ -667,7 +659,6 @@ void ResourceLoadStatisticsDatabaseStore::destroyStatements()
 
     m_observedDomainCountStatement = nullptr;
     m_insertObservedDomainStatement = nullptr;
-    m_insertTopLevelDomainStatement = nullptr;
     m_domainIDFromStringStatement = nullptr;
     m_subframeUnderTopFrameDomainExistsStatement = nullptr;
     m_subresourceUnderTopFrameDomainExistsStatement = nullptr;
@@ -2033,12 +2024,24 @@ Vector<RegistrableDomain> ResourceLoadStatisticsDatabaseStore::allDomains() cons
     return domains;
 }
 
+HashMap<RegistrableDomain, WallTime> ResourceLoadStatisticsDatabaseStore::allDomainsWithLastAccessedTime() const
+{
+    ASSERT(!RunLoop::isMain());
+
+    HashMap<RegistrableDomain, WallTime> result;
+    for (auto& domainData : domains()) {
+        auto lastAccessedTime = std::max(domainData.mostRecentUserInteractionTime, domainData.mostRecentWebPushInteractionTime);
+        result.add(WTFMove(domainData.registrableDomain), lastAccessedTime);
+    }
+
+    return result;
+}
+
 void ResourceLoadStatisticsDatabaseStore::clear(CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
     clearDatabaseContents();
-    clearOperatingDates();
 
     auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
 

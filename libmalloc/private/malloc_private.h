@@ -30,11 +30,19 @@
 #include <mach/kern_return.h>
 #include <mach/mach_types.h>
 #include <sys/cdefs.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <Availability.h>
 #include <os/availability.h>
 #include <malloc/malloc.h>
+
+__BEGIN_DECLS
+
+/* Memorypressure notification mask to use by default */
+extern const unsigned long malloc_memorypressure_mask_default_4libdispatch;
+/* Memorypressure notification mask to use if MSL has been enabled */
+extern const unsigned long malloc_memorypressure_mask_msl_4libdispatch;
 
 /*********	Callbacks	************/
 
@@ -138,10 +146,34 @@ typedef struct {
 	stack_trace_t dealloc_trace;
 } pgm_report_t;
 
+
+kern_return_t pgm_extract_report_from_corpse(vm_address_t fault_address, pgm_report_t *report, task_t task,
+		vm_address_t *zone_addresses, uint32_t zone_count, crash_reporter_memory_reader_t crm_reader) __result_use_check;
+
 kern_return_t pgm_diagnose_fault_from_crash_reporter(vm_address_t fault_address, pgm_report_t *report,
 		task_t task, vm_address_t zone_address, crash_reporter_memory_reader_t crm_reader) __result_use_check;
 
-/****** Quarantine Zone ******/
+/****** Sanitizer Zone ******/
+
+struct malloc_sanitizer_poison {
+	// ASAN_HEAP_LEFTRZ: [ptr, ptr + leftrz_sz)
+	// ASAN_VALID: [ptr + leftrz_sz, ptr + alloc_sz)
+	// ASAN_HEAP_RIGHTRZ: [ptr + leftrz_sz + alloc_sz, ptr + leftrz_sz + alloc_sz + rightrz_sz)
+	void (*heap_allocate_poison)(uintptr_t ptr, size_t leftrz_sz, size_t alloc_sz, size_t rightrz_sz);
+	// ASAN_HEAP_FREED: [ptr, ptr + sz)
+	void (*heap_deallocate_poison)(uintptr_t ptr, size_t sz);
+	// ASAN_HEAP_INTERNAL: [ptr, ptr + sz)
+	void (*heap_internal_poison)(uintptr_t ptr, size_t sz);
+};
+
+/* Returns whether sanitizers are enabled */
+bool malloc_sanitizer_is_enabled(void);
+
+/* Returns function pointers for interacting with sanitizer */
+extern const struct malloc_sanitizer_poison *malloc_sanitizer_get_functions(void);
+
+/* Sets function pointers for interacting with sanitizer */
+void malloc_sanitizer_set_functions(struct malloc_sanitizer_poison *);
 
 typedef struct {
 	vm_address_t fault_address;
@@ -149,10 +181,11 @@ typedef struct {
 	size_t allocation_size;
 	stack_trace_t alloc_trace;
 	stack_trace_t dealloc_trace;
-} quarantine_report_t;
+} sanitizer_report_t;
 
-kern_return_t quarantine_diagnose_fault_from_crash_reporter(vm_address_t fault_address, quarantine_report_t *report,
+kern_return_t sanitizer_diagnose_fault_from_crash_reporter(vm_address_t fault_address, sanitizer_report_t *report,
 		task_t task, vm_address_t zone_address, crash_reporter_memory_reader_t crm_reader) __result_use_check;
 
+__END_DECLS
 
 #endif /* _MALLOC_PRIVATE_H_ */

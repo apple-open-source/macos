@@ -1081,6 +1081,7 @@ _SCNetworkSetCreateDefault(SCPreferencesRef prefs)
 	setName = copy_default_set_name(TRUE);
 	ok = SCNetworkSetSetName(set, setName);
 	CFRelease(setName);
+	((SCNetworkSetPrivateRef)set)->isDefault = kCFBooleanTrue;
 	if (!ok) {
 		// if we could not save the new set's "name"
 		SC_log(LOG_NOTICE, "could not save the new set's name: %s",
@@ -1125,64 +1126,117 @@ _SCNetworkSetCreateDefault(SCPreferencesRef prefs)
 CFStringRef
 SCNetworkSetGetSetID(SCNetworkSetRef set)
 {
-	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
-
 	if (!isA_SCNetworkSet(set)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
 
-	return setPrivate->setID;
+	return set->setID;
 }
 
 
-CFStringRef
-SCNetworkSetGetName(SCNetworkSetRef set)
+static Boolean
+_SCNetworkSetCheckIsDefault(SCNetworkSetRef set, CFStringRef name)
 {
-	CFDictionaryRef		entity;
-	CFStringRef		path;
-	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
+	CFBooleanRef		is_default;
+	CFStringRef		non_localized;
+
+	if (set->isDefault != NULL) {
+		goto done;
+	}
+	non_localized = copy_default_set_name(FALSE);
+	if (name != NULL && CFEqual(name, non_localized)) {
+		is_default = kCFBooleanTrue;
+	}
+	else {
+		is_default = kCFBooleanFalse;
+	}
+	if (non_localized != NULL) {
+		CFRelease(non_localized);
+	}
+	((SCNetworkSetPrivateRef)set)->isDefault = is_default;
+ done:
+	return (CFBooleanGetValue(set->isDefault));
+}
+
+static CFStringRef
+_SCNetworkSetCopyUserDefinedName(SCNetworkSetRef set)
+{
+	CFDictionaryRef	entity;
+	CFStringRef	name = NULL;
+	CFStringRef	path;
+
+	if (!isA_SCNetworkSet(set)) {
+		goto done;
+	}
+	path = SCPreferencesPathKeyCreateSet(NULL, set->setID);
+	entity = SCPreferencesPathGetValue(set->prefs, path);
+	CFRelease(path);
+	if (entity == NULL) {
+		goto done;
+	}
+	if (isA_CFDictionary(entity) != NULL) {
+		name = CFDictionaryGetValue(entity, kSCPropUserDefinedName);
+		if (isA_CFString(name) == NULL) {
+			name = NULL;
+		}
+		else {
+			name = CFRetain(name);
+		}
+
+	}
+ done:
+	return (name);
+}
+
+Boolean
+_SCNetworkSetIsDefault(SCNetworkSetRef set)
+{
+	Boolean		is_default;
+	CFStringRef	name;
+
+	if (isA_SCNetworkSet(set) == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return (FALSE);
+	}
+	if (set->isDefault != NULL) {
+		return (CFBooleanGetValue(set->isDefault));
+	}
+	name = _SCNetworkSetCopyUserDefinedName(set);
+	is_default = _SCNetworkSetCheckIsDefault(set, name);
+	if (name != NULL) {
+		CFRelease(name);
+	}
+	return (is_default);
+}
+
+CFStringRef
+SCNetworkSetGetName(SCNetworkSetRef set_c)
+{
+	SCNetworkSetPrivateRef	set = (SCNetworkSetPrivateRef)set_c;
 
 	if (!isA_SCNetworkSet(set)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
-
-	if (setPrivate->name != NULL) {
-		return setPrivate->name;
+	if (set->name != NULL) {
+		return set->name;
 	}
-
-	path = SCPreferencesPathKeyCreateSet(NULL, setPrivate->setID);
-	entity = SCPreferencesPathGetValue(setPrivate->prefs, path);
-	CFRelease(path);
-
-	if (isA_CFDictionary(entity)) {
-		CFStringRef	name;
-
-		name = CFDictionaryGetValue(entity, kSCPropUserDefinedName);
-		if (isA_CFString(name)) {
-			setPrivate->name = CFRetain(name);
-		}
-	}
+	set->name = _SCNetworkSetCopyUserDefinedName(set);
 #if	TARGET_OS_OSX
 	/* only bother to localize the "Automatic" set on macOS */
-	if (setPrivate->name != NULL) {
-		CFStringRef	non_localized;
+	if (_SCNetworkSetCheckIsDefault(set, set->name)) {
+		CFStringRef	localized;
 
-		non_localized = copy_default_set_name(FALSE);
-		if (CFEqual(setPrivate->name, non_localized)) {
-			CFStringRef	localized;
-
-			// if "Automatic", return localized name
-			localized = copy_default_set_name(TRUE);
-			CFRelease(setPrivate->name);
-			setPrivate->name = localized;
+		// if "Automatic", return localized name
+		localized = copy_default_set_name(TRUE);
+		if (set->name != NULL) {
+			CFRelease(set->name);
 		}
-
-		CFRelease(non_localized);
+		set->name = localized;
 	}
 #endif	// TARGET_OS_OSX
-	return setPrivate->name;
+	return set->name;
 }
 
 
@@ -1224,7 +1278,6 @@ SCNetworkSetGetTypeID(void)
 	return __kSCNetworkSetTypeID;
 }
 
-
 #if	TARGET_OS_IPHONE
 static Boolean
 isDefaultSet(SCNetworkSetRef set)
@@ -1241,7 +1294,6 @@ isDefaultSet(SCNetworkSetRef set)
 	return isDefault;
 }
 #endif	// TARGET_OS_IPHONE
-
 
 Boolean
 SCNetworkSetRemove(SCNetworkSetRef set)
@@ -1264,7 +1316,7 @@ SCNetworkSetRemove(SCNetworkSetRef set)
 	}
 
 #if	TARGET_OS_IPHONE
-	if (isDefaultSet(set) && (geteuid() != 0)) {
+	if (_SCNetworkSetIsDefault(set) && (geteuid() != 0)) {
 		SC_log(LOG_ERR, "SCNetworkSetRemove() failed, cannot remove set : %@", set);
 		_SC_crash("The \"Automatic\" network set cannot be removed", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -2550,3 +2602,61 @@ _SCNetworkSetSetSetID(SCNetworkSetRef set, CFStringRef newSetID)
 
 	return ok;
 }
+
+#ifdef TEST_SCNETWORK_DEFAULT_SET
+
+#include "SCD.h"
+
+__SCThreadSpecificDataRef
+__SCGetThreadSpecificData()
+{
+	static __SCThreadSpecificDataRef tsd;
+	if (tsd == NULL) {
+		tsd = CFAllocatorAllocate(kCFAllocatorSystemDefault,
+					  sizeof(__SCThreadSpecificData), 0);
+		bzero(tsd, sizeof(*tsd));
+	}
+	return (tsd);
+}
+
+Boolean
+__SCPreferencesUsingDefaultPrefs(SCPreferencesRef prefs)
+{
+	return (TRUE);
+}
+
+
+int
+main(int argc, char * argv[])
+{
+	CFIndex			count;
+	SCPreferencesRef	prefs;
+	CFArrayRef 		sets;
+
+	prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkCategory"), NULL);
+	sets = SCNetworkSetCopyAll(prefs);
+	if (sets == NULL) {
+		fprintf(stderr, "No sets\n");
+		exit(1);
+	}
+	count = CFArrayGetCount(sets);
+	for (CFIndex i = 0; i < count; i++) {
+		SCNetworkSetRef		set;
+		CFArrayRef		services;
+
+		set = (SCNetworkSetRef)CFArrayGetValueAtIndex(sets, i);
+		if (_SCNetworkSetIsDefault(set)) {
+			printf("It's the default set\n");
+		}
+		services = SCNetworkSetCopyServices(set);
+		SCPrint(TRUE, stdout, CFSTR("set %@ services %@\n"), sets,
+			services);
+		if (services != NULL) {
+			CFRelease(services);
+		}
+	}
+	CFRelease(sets);
+	exit(0);
+}
+
+#endif /* TEST_SCNETWORK_DEFAULT_SET */

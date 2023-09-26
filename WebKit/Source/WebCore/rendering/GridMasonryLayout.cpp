@@ -27,23 +27,36 @@
 
 #include "GridLayoutFunctions.h"
 #include "GridPositionsResolver.h"
+#include "RenderBoxInlines.h"
 #include "RenderGrid.h"
+#include "RenderStyleInlines.h"
+#include "StyleGridData.h"
 #include "WritingMode.h"
 
 namespace WebCore {
 
-void GridMasonryLayout::performMasonryPlacement(unsigned gridAxisTracks, GridTrackSizingDirection masonryAxisDirection)
+void GridMasonryLayout::initializeMasonry(unsigned gridAxisTracks, GridTrackSizingDirection masonryAxisDirection)
 {
+    // Reset global variables as they may contain state from previous runs of Masonry.
     m_masonryAxisDirection = masonryAxisDirection;
     m_masonryAxisGridGap = m_renderGrid.gridGap(m_masonryAxisDirection);
     m_gridAxisTracksCount = gridAxisTracks;
+    m_gridContentSize = 0;
 
     allocateCapacityForMasonryVectors();
     collectMasonryItems();
     m_renderGrid.currentGrid().setupGridForMasonryLayout();
     m_renderGrid.populateExplicitGridAndOrderIterator();
 
-    resizeAndResetRunningPositions(); 
+    resizeAndResetRunningPositions();
+}
+
+void GridMasonryLayout::performMasonryPlacement(unsigned gridAxisTracks, GridTrackSizingDirection masonryAxisDirection)
+{
+    initializeMasonry(gridAxisTracks, masonryAxisDirection);
+
+    m_renderGrid.populateGridPositionsForDirection(ForColumns);
+    m_renderGrid.populateGridPositionsForDirection(ForRows);
 
     // 2.4 Masonry Layout Algorithm
     addItemsToFirstTrack();
@@ -82,7 +95,6 @@ void GridMasonryLayout::collectMasonryItems()
             else
                 m_itemsWithIndefiniteGridAxisPosition.append(child);
         }
-            
     }
 }
 
@@ -224,7 +236,8 @@ void GridMasonryLayout::updateRunningPositions(const RenderBox& child, const Gri
 
 void GridMasonryLayout::updateItemOffset(const RenderBox& child, LayoutUnit offset)
 {
-    m_itemOffsets.add(&child, offset);
+    // We set() and not add() to update the value if the child is already inserted
+    m_itemOffsets.set(&child, offset);
 }
 
 GridSpan GridMasonryLayout::gridAxisPositionUsingPackAutoFlow(const RenderBox& item) const

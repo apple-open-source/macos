@@ -29,8 +29,6 @@
 #include <libkern/OSAtomic.h>
 
 
-static IOReturn _IODataQueueSendDataAvailableNotification(IODataQueueMemory *dataQueue, mach_msg_header_t *msgh);
-
 Boolean IODataQueueDataAvailable(IODataQueueMemory *dataQueue)
 {
     return (dataQueue && (dataQueue->head != dataQueue->tail));
@@ -208,7 +206,7 @@ IOReturn _IODataQueueDequeue(IODataQueueMemory *dataQueue, uint64_t queueSize, v
 }
 
 static IOReturn
-__IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint64_t qSize, mach_msg_header_t *msgh, uint32_t dataSize, void *data, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon)
+__IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint64_t qSize, mach_msg_header_t *msgh, uint32_t dataSize, void *data, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon, uint32_t options)
 {
     UInt32              head;
     UInt32              tail;
@@ -217,6 +215,8 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint64_t qSize, mach_msg_head
     UInt32              entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IOReturn            retVal      = kIOReturnSuccess;
     IODataQueueEntry *  entry;
+    bool                suppressNotify = (options & kIODataQueueDeliveryNotificationSuppress);
+    bool                forceNotify = (options & kIODataQueueDeliveryNotificationForce);
     
     // Force a single read of head and tail
     tail = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_RELAXED);
@@ -326,7 +326,7 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint64_t qSize, mach_msg_head
             head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
         }
         
-        if (tail == head) {
+        if (forceNotify || (!suppressNotify && tail == head)) {
             // Send notification (via mach message) that data is now available.
             retVal = _IODataQueueSendDataAvailableNotification(dataQueue, msgh);
         }
@@ -350,14 +350,20 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint64_t qSize, mach_msg_head
 IOReturn
 IODataQueueEnqueue(IODataQueueMemory *dataQueue, void *data, uint32_t dataSize)
 {
-    return __IODataQueueEnqueue(dataQueue, 0, NULL, dataSize, data, NULL, NULL);
+    return __IODataQueueEnqueue(dataQueue, 0, NULL, dataSize, data, NULL, NULL, 0);
 }
 
 
 IOReturn
 _IODataQueueEnqueueWithReadCallback(IODataQueueMemory *dataQueue, uint64_t queueSize, mach_msg_header_t *msgh, uint32_t dataSize, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon)
 {
-    return __IODataQueueEnqueue(dataQueue, queueSize, msgh, dataSize, NULL, callback, refcon);
+    return __IODataQueueEnqueue(dataQueue, queueSize, msgh, dataSize, NULL, callback, refcon, 0);
+}
+
+IOReturn
+_IODataQueueEnqueueWithReadCallbackOptions(IODataQueueMemory *dataQueue, uint64_t queueSize, mach_msg_header_t *msgh, uint32_t dataSize, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon, uint32_t options)
+{
+    return __IODataQueueEnqueue(dataQueue, queueSize, msgh, dataSize, NULL, callback, refcon, options);
 }
 
 

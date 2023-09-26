@@ -52,6 +52,9 @@
 
 #include "utilities/simulatecrash_assert.h"
 
+#define NOT_A_REAL_UUID "not a real uuid"
+#define MAGIC_BACKUP_KEYBAG "magic backup keybag!"
+
 bool hwaes_key_available(void)
 {
     return false;
@@ -317,6 +320,13 @@ aks_get_bag_uuid(keybag_handle_t handle, uuid_t uuid)
     return kAKSReturnSuccess;
 }
 
+kern_return_t
+aks_kc_backup_get_uuid(keybag_handle_t handle, uuid_t uuid)
+{
+    memcpy(uuid, NOT_A_REAL_UUID, sizeof(uuid_t));
+    return kAKSReturnSuccess;
+}
+
 kern_return_t aks_lock_bag(keybag_handle_t handle)
 {
     if (handle == KEYBAG_DEVICE) {
@@ -382,6 +392,61 @@ aks_wrap_key(const void * key, int key_size, keyclass_t key_class, keybag_handle
     *wrapped_key_size_inout = key_size + PADDINGSIZE;
     memcpy(wrapped_key, key, key_size);
     memset(((uint8_t *)wrapped_key) + key_size, 0xff, PADDINGSIZE);
+    return kAKSReturnSuccess;
+}
+
+kern_return_t
+aks_kc_backup_wrap_key(keybag_handle_t keybag_handle, const uint8_t *key, size_t key_size, uint8_t *wrapped_key, size_t *wrapped_key_size)
+{
+    assert(key_size <= APPLE_KEYSTORE_MAX_KEY_LEN);
+    assert(keybag_handle == KEYBAG_DEVICE);
+    assert(APPLE_KEYSTORE_MAX_ASYM_WRAPPED_KEY_LEN <= *wrapped_key_size);
+
+    *wrapped_key_size = key_size + PADDINGSIZE;
+    memcpy(wrapped_key, key, key_size);
+    memset(((uint8_t *)wrapped_key) + key_size, 0xff, PADDINGSIZE);
+    return kAKSReturnSuccess;
+}
+
+kern_return_t aks_kc_backup_open_keybag(const uint8_t *backup_bag_data, size_t backup_bag_len,
+                                        const uint8_t *backup_secret_data, size_t backup_secret_len,
+                                        keybag_handle_t *backup_handle, struct backup_keypair *keypair)
+{
+    if (backup_bag_data == NULL && backup_bag_len == 0 && backup_secret_data == NULL && backup_secret_len == 0) {
+        *backup_handle = 17; // our "static" handle
+        return kAKSReturnSuccess;
+    } else if (backup_bag_len == 20 && backup_bag_data != NULL && 0 == memcmp(MAGIC_BACKUP_KEYBAG, backup_bag_data, backup_bag_len)) {
+        const char* const swordfish = "swordfish";
+        if (backup_secret_data == NULL || backup_secret_len != strlen(swordfish) || 0 != memcmp(swordfish, backup_secret_data, backup_secret_len)) {
+            return kAKSReturnBadPassword;
+        }
+        *backup_handle = bad_keybag_handle;
+        memcpy(keypair->public_key, NOT_A_REAL_UUID, sizeof(uuid_t)); // because the uuid AKS returns is the first few bytes of the pubkey
+        memcpy(keypair->private_key, MAGIC_BACKUP_KEYBAG, strlen(MAGIC_BACKUP_KEYBAG)); // ensure we get this when unwrapping keys
+        return kAKSReturnSuccess;
+    } else {
+        return kAKSReturnBadArgument;
+    }
+}
+
+kern_return_t aks_kc_backup_unwrap_key(const struct backup_keypair *backup_key, const uint8_t *wrapped_key, size_t wrapped_key_size, uint8_t *key, size_t *key_size)
+{
+    assert(backup_key != NULL);
+    assert(0 == memcmp(backup_key->private_key, MAGIC_BACKUP_KEYBAG, strlen(MAGIC_BACKUP_KEYBAG)));
+
+    assert(wrapped_key != NULL && key != NULL && wrapped_key_size >= PADDINGSIZE);
+
+    for (int i=0; i<PADDINGSIZE; i++) {
+        if (wrapped_key[wrapped_key_size - 1 - i] != 0xff) {
+            return kAKSReturnDecodeError;
+        }
+    }
+
+    assert(*key_size >= wrapped_key_size - PADDINGSIZE);
+    *key_size = wrapped_key_size - PADDINGSIZE;
+
+    memcpy(key, wrapped_key, *key_size);
+
     return kAKSReturnSuccess;
 }
 

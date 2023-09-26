@@ -34,9 +34,7 @@ __RCSID("$NetBSD: rquota.x,v 1.6 2004/07/01 22:52:34 kleink Exp $");
 #endif /* not __lint__ */
 
 bool_t
-xdr_getquota_args(xdrs, objp)
-XDR *xdrs;
-getquota_args *objp;
+xdr_getquota_args(XDR *xdrs, getquota_args *objp)
 {
 	if (!xdr_string(xdrs, &objp->gqa_pathp, RQ_PATHLEN)) {
 		return FALSE;
@@ -48,9 +46,7 @@ getquota_args *objp;
 }
 
 bool_t
-xdr_ext_getquota_args(xdrs, objp)
-XDR *xdrs;
-ext_getquota_args *objp;
+xdr_ext_getquota_args(XDR *xdrs, ext_getquota_args *objp)
 {
 	if (!xdr_string(xdrs, &objp->gqa_pathp, RQ_PATHLEN)) {
 		return FALSE;
@@ -65,9 +61,7 @@ ext_getquota_args *objp;
 }
 
 bool_t
-xdr_rquota(xdrs, objp)
-XDR *xdrs;
-rquota *objp;
+xdr_rquota(XDR *xdrs, rquota *objp)
 {
 	int32_t *buf;
 
@@ -197,9 +191,7 @@ rquota *objp;
 }
 
 bool_t
-xdr_gqr_status(xdrs, objp)
-XDR *xdrs;
-gqr_status *objp;
+xdr_gqr_status(XDR *xdrs, gqr_status *objp)
 {
 	if (!xdr_enum(xdrs, (enum_t *)objp)) {
 		return FALSE;
@@ -208,9 +200,7 @@ gqr_status *objp;
 }
 
 bool_t
-xdr_getquota_rslt(xdrs, objp)
-XDR *xdrs;
-getquota_rslt *objp;
+xdr_getquota_rslt(XDR *xdrs, getquota_rslt *objp)
 {
 	if (!xdr_gqr_status(xdrs, &objp->status)) {
 		return FALSE;

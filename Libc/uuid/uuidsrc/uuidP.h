@@ -32,6 +32,9 @@
  * %End-Header%
  */
 
+#ifdef BUILDING_SIMPLE
+#include <stdint.h>
+#else
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #else
@@ -40,8 +43,18 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <time.h>
+#endif /* BUILDING_SIMPLE */
 
 #include <uuid/uuid.h>
+
+#ifdef BUILDING_SIMPLE
+#define _UUID_INTERNAL __attribute__((visibility("hidden")))
+#ifndef UUID_UNPARSE_DEFAULT_UPPER
+#define UUID_UNPARSE_DEFAULT_UPPER
+#endif
+#else
+#define _UUID_INTERNAL
+#endif /* BUILDING_SIMPLE */
 
 /*
  * Offset between 15-Oct-1582 and 1-Jan-70
@@ -70,9 +83,11 @@ struct uuid {
 /*
  * prototypes
  */
-void uuid_pack(const struct uuid *uu, uuid_t ptr);
-void uuid_unpack(const uuid_t in, struct uuid *uu);
+void uuid_pack(const struct uuid *uu, uuid_t ptr) _UUID_INTERNAL;
+void uuid_unpack(const uuid_t in, struct uuid *uu) _UUID_INTERNAL;
 
+#if !defined(BUILDING_SIMPLE)
 time_t uuid_time(const uuid_t uu, struct timeval *ret_tv);
+#endif /* !defined(BUILDING_SIMPLE) */
 int uuid_type(const uuid_t uu);
 int uuid_variant(const uuid_t uu);

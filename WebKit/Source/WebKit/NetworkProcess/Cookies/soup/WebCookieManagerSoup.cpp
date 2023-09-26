@@ -37,11 +37,11 @@
 namespace WebKit {
 using namespace WebCore;
 
-void WebCookieManager::platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy policy, CompletionHandler<void()>&& completionHandler)
+void WebCookieManager::platformSetHTTPCookieAcceptPolicy(PAL::SessionID sessionID, HTTPCookieAcceptPolicy policy, CompletionHandler<void()>&& completionHandler)
 {
-    m_process.forEachNetworkStorageSession([policy] (auto& session) {
-        session.setCookieAcceptPolicy(policy);
-    });
+    if (auto* storageSession = m_process.storageSession(sessionID))
+        storageSession->setCookieAcceptPolicy(policy);
+
     completionHandler();
 }
 
@@ -49,6 +49,13 @@ void WebCookieManager::setCookiePersistentStorage(PAL::SessionID sessionID, cons
 {
     if (auto* networkSession = m_process.networkSession(sessionID))
         static_cast<NetworkSessionSoup&>(*networkSession).setCookiePersistentStorage(storagePath, storageType);
+}
+
+void WebCookieManager::replaceCookies(PAL::SessionID sessionID, const Vector<WebCore::Cookie>& cookies, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* storageSession = m_process.storageSession(sessionID))
+        storageSession->replaceCookies(cookies);
+    completionHandler();
 }
 
 } // namespace WebKit

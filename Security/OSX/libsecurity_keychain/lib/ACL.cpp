@@ -215,7 +215,8 @@ void ACL::addApplication(TrustedApplication *app)
 			modify();
 			break;
 		}
-		// pure "any" form without description. Cannot convert to appListForm	
+        [[fallthrough]];
+		// pure "any" form without description. Cannot convert to appListForm
 	default:
 		MacOSError::throwMe(errSecACLNotSimple);
 	}
@@ -359,6 +360,7 @@ void ACL::setAccess(AclBearer &target, bool update,
 		break;
 	default:
 		assert(false);
+		break;
 	}
 }
 
@@ -497,5 +499,6 @@ void ACL::makeSubject()
 
 	default:
 		assert(false);	// unexpected
+		break;
 	}
 }

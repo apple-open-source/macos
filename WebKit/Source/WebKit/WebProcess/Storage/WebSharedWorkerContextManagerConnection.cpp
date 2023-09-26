@@ -26,9 +26,11 @@
 #include "config.h"
 #include "WebSharedWorkerContextManagerConnection.h"
 
+#include "Logging.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "RemoteWebLockRegistry.h"
 #include "RemoteWorkerFrameLoaderClient.h"
+#include "RemoteWorkerInitializationData.h"
 #include "RemoteWorkerLibWebRTCProvider.h"
 #include "WebBadgeClient.h"
 #include "WebBroadcastChannelRegistry.h"
@@ -44,6 +46,7 @@
 #include <WebCore/EmptyClients.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageConfiguration.h>
+#include <WebCore/RemoteFrameClient.h>
 #include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <WebCore/SharedWorkerContextManager.h>
 #include <WebCore/SharedWorkerThreadProxy.h>
@@ -95,8 +98,7 @@ void WebSharedWorkerContextManagerConnection::updatePreferencesStore(const WebPr
 void WebSharedWorkerContextManagerConnection::launchSharedWorker(WebCore::ClientOrigin&& origin, WebCore::SharedWorkerIdentifier sharedWorkerIdentifier, WebCore::WorkerOptions&& workerOptions, WebCore::WorkerFetchResult&& workerFetchResult, WebCore::WorkerInitializationData&& initializationData)
 {
     RELEASE_LOG(SharedWorker, "WebSharedWorkerContextManagerConnection::launchSharedWorker: sharedWorkerIdentifier=%" PRIu64, sharedWorkerIdentifier.toUInt64());
-    auto pageConfiguration = WebCore::pageConfigurationWithEmptyClients(WebProcess::singleton().sessionID());
-
+    auto pageConfiguration = WebCore::pageConfigurationWithEmptyClients(m_pageID, WebProcess::singleton().sessionID());
     pageConfiguration.badgeClient = WebBadgeClient::create();
     pageConfiguration.databaseProvider = WebDatabaseProvider::getOrCreate(m_pageGroupID);
     pageConfiguration.socketProvider = WebSocketProvider::create(m_webPageProxyID);
@@ -106,7 +108,7 @@ void WebSharedWorkerContextManagerConnection::launchSharedWorker(WebCore::Client
     pageConfiguration.webRTCProvider = makeUniqueRef<RemoteWorkerLibWebRTCProvider>();
 #endif
 
-    pageConfiguration.loaderClientForMainFrame = makeUniqueRef<RemoteWorkerFrameLoaderClient>(m_webPageProxyID, m_pageID, m_userAgent);
+    pageConfiguration.clientForMainFrame = UniqueRef<WebCore::LocalFrameLoaderClient>(makeUniqueRef<RemoteWorkerFrameLoaderClient>(m_webPageProxyID, m_pageID, m_userAgent));
 
     auto page = makeUniqueRef<WebCore::Page>(WTFMove(pageConfiguration));
     if (m_preferencesStore) {

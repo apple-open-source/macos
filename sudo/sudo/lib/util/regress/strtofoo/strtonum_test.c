@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "sudo_compat.h"
 #include "sudo_util.h"
@@ -78,13 +79,25 @@ static struct strtonum_data {
 int
 main(int argc, char *argv[])
 {
+    int ch, errors = 0, ntests = 0;
     struct strtonum_data *d;
     const char *errstr;
-    int errors = 0;
-    int ntests = 0;
     long long value;
 
     initprogname(argc > 0 ? argv[0] : "strtonum_test");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignore */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     for (d = strtonum_data; d->str != NULL; d++) {
 	ntests++;

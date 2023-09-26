@@ -282,10 +282,18 @@ struct UBiDi {
     int32_t resultLength;
 
     /* memory sizes in bytes */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
     int32_t dirInsertSize, dirPropsSize, levelsSize, openingsSize, parasSize, runsSize, isolatesSize;
+#else
+    int32_t dirPropsSize, levelsSize, openingsSize, parasSize, runsSize, isolatesSize;
+#endif // APPLE_ICU_CHANGES
 
     /* allocated memory */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
     uint16_t *dirInsertMemory;
+#endif // APPLE_ICU_CHANGES
     DirProp *dirPropsMemory;
     UBiDiLevel *levelsMemory;
     Opening *openingsMemory;
@@ -297,7 +305,10 @@ struct UBiDi {
     UBool mayAllocateText, mayAllocateRuns;
 
     /* arrays with one value per text-character */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
     uint16_t *dirInsert;
+#endif // APPLE_ICU_CHANGES
     DirProp *dirProps;
     UBiDiLevel *levels;
 
@@ -388,7 +399,10 @@ struct UBiDi {
 #define IS_VALID_PARA_OR_LINE(x) ((x) && ((x)->pParaBiDi==(x) || (((x)->pParaBiDi) && (x)->pParaBiDi->pParaBiDi==(x)->pParaBiDi)))
 
 typedef union {
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
     uint16_t *dirInsertMemory;
+#endif // APPLE_ICU_CHANGES
     DirProp *dirPropsMemory;
     UBiDiLevel *levelsMemory;
     Opening *openingsMemory;
@@ -447,9 +461,13 @@ U_CFUNC UBool
 ubidi_getMemory(BidiMemoryForAllocation *pMemory, int32_t *pSize, UBool mayAllocate, int32_t sizeNeeded);
 
 /* helper macros for each allocated array in UBiDi */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
+// rdar://23777128 f143265de2.. fix: some dirInsertValue→dirInsertIndex, getDirInsertMemory to use correct length, setLevelsOutsideIsolates to support inserted controls
 #define getDirInsertMemory(pBiDi, length) \
         ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirInsertMemory, &(pBiDi)->dirInsertSize, \
                         (pBiDi)->mayAllocateText, (length)*sizeof(uint16_t))
+#endif // APPLE_ICU_CHANGES
 
 #define getDirPropsMemory(pBiDi, length) \
         ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirPropsMemory, &(pBiDi)->dirPropsSize, \
@@ -464,9 +482,12 @@ ubidi_getMemory(BidiMemoryForAllocation *pMemory, int32_t *pSize, UBool mayAlloc
                         (pBiDi)->mayAllocateRuns, (length)*sizeof(Run))
 
 /* additional macros used by ubidi_open() - always allow allocation */
+#if APPLE_ICU_CHANGES
+// rdar://22875147 72013ab67a.. Sub-TLF: ICU enhancements to enable single bidi engine across Apple: initial work
 #define getInitialDirInsertMemory(pBiDi, length) \
         ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirInsertMemory, &(pBiDi)->dirInsertSize, \
-                        TRUE, (length))
+                        true, (length))
+#endif // APPLE_ICU_CHANGES
 
 #define getInitialDirPropsMemory(pBiDi, length) \
         ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirPropsMemory, &(pBiDi)->dirPropsSize, \

@@ -16,12 +16,12 @@
 @synthesize keyclass = _keyclass;
 - (void)setKeyclass:(int32_t)v
 {
-    _has.keyclass = YES;
+    _has.keyclass = (uint)YES;
     _keyclass = v;
 }
 - (void)setHasKeyclass:(BOOL)f
 {
-    _has.keyclass = f;
+    _has.keyclass = (uint)f;
 }
 - (BOOL)hasKeyclass
 {
@@ -30,12 +30,12 @@
 @synthesize actualKeyclass = _actualKeyclass;
 - (void)setActualKeyclass:(int32_t)v
 {
-    _has.actualKeyclass = YES;
+    _has.actualKeyclass = (uint)YES;
     _actualKeyclass = v;
 }
 - (void)setHasActualKeyclass:(BOOL)f
 {
-    _has.actualKeyclass = f;
+    _has.actualKeyclass = (uint)f;
 }
 - (BOOL)hasActualKeyclass
 {
@@ -106,13 +106,13 @@ BOOL SecDbKeychainSerializedMetadataKeyReadFrom(__unsafe_unretained SecDbKeychai
 
             case 1 /* keyclass */:
             {
-                self->_has.keyclass = YES;
+                self->_has.keyclass = (uint)YES;
                 self->_keyclass = PBReaderReadInt32(reader);
             }
             break;
             case 2 /* actualKeyclass */:
             {
-                self->_has.actualKeyclass = YES;
+                self->_has.actualKeyclass = (uint)YES;
                 self->_actualKeyclass = PBReaderReadInt32(reader);
             }
             break;

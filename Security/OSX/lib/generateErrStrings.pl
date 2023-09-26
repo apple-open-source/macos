@@ -115,6 +115,9 @@ $TARGETSTR=$ARGV[2];				# path of .strings file, e.g.
 
 $#INPUTFILES = $#ARGV - 3;			# truncate to actual number of files
 
+# quote all the strings in @INPUTFILES in case they have (e.g.) spaces
+@INPUTFILES=map { quotemeta($_) } @INPUTFILES;
+
 print "gend: $GENDEBUGSTRINGS, tmpdir: $TMPDIR, targetstr: $TARGETSTR\n";
 open STRINGFILE, "> $TARGETSTR"  or die "can't open $TARGETSTR: $!";
 select STRINGFILE;

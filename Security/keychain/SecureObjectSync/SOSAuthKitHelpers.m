@@ -102,14 +102,18 @@ static ACAccount *GetPrimaryAccount(void) {
     context.altDSID = primaryAccount.aa_altDSID;
     context.services = @[ AKServiceNameiCloud ];
     
-    // -[AKAppleIDAuthenticationController fetchDeviceListWithContext:error:] is not exposed, use a semaphore
     AKAppleIDAuthenticationController *authController = [AKAppleIDAuthenticationController new];
     if(!authController) {
         complete(NULL, [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecParam userInfo:@{NSLocalizedDescriptionKey : @"can't get authController"}]);
         return;
     }
 
-    [authController fetchDeviceListWithContext:context completion:^(NSArray<AKRemoteDevice *> *deviceList, NSError *error) {
+    [authController deviceListWithContext:context completion:^(AKDeviceListResponse *_Nullable response, NSError *_Nullable error) {
+        if (error != nil) {
+            complete(nil, error);
+            return;
+        }
+        NSArray<AKRemoteDevice *> *deviceList = response.deviceList;
         NSMutableSet *mids = [NSMutableSet new];
         for(AKRemoteDevice *akdev in deviceList) {
             SOSTrustedDeviceAttributes *newdev = [SOSTrustedDeviceAttributes new];
@@ -121,7 +125,7 @@ static ACAccount *GetPrimaryAccount(void) {
             secnotice("sosauthkit", "found no devices in account");
             mids = nil;
         }
-        complete(mids, error);
+        complete(mids, nil);
     }];
 }
 
@@ -154,30 +158,58 @@ static ACAccount *GetPrimaryAccount(void) {
 }
 
 
-+ (bool) accountIsHSA2 {
-    bool hsa2 = false;
++ (bool) accountIsCDPCapable {
+    bool isCDPCapable = false;
 
-    if([ACAccount class] == nil || [AKAccountManager class] == nil) {
+    if ([ACAccount class] == nil || [AKAccountManager class] == nil) {
         secnotice("sosauthkit", "ACAccount not available");
         return false;
     }
     
     ACAccount *primaryAccount = GetPrimaryAccount();
-    AKAccountManager *manager = [AKAccountManager new];
+    AKAccountManager *manager = [AKAccountManager sharedInstance];
 
-    if(manager && primaryAccount) {
+    if (manager && primaryAccount) {
         ACAccount *account = [manager authKitAccountWithAltDSID:[manager altDSIDForAccount:primaryAccount]];
         AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount:account];
-        if(securityLevel == AKAppleIDSecurityLevelHSA2) {
-            hsa2 = true;
+        if (securityLevel == AKAppleIDSecurityLevelHSA2 || securityLevel == AKAppleIDSecurityLevelManaged) {
+            isCDPCapable = true;
         } else {
             secnotice("sosauthkit", "Security level is %lu", (unsigned long)securityLevel);
         }
-        secnotice("sosauthkit", "Account %s HSA2", (hsa2) ? "is": "isn't" );
+        NSString* accountType = nil;
+        switch (securityLevel)
+        {
+            case AKAppleIDSecurityLevelUnknown:
+                accountType = @"Unknown";
+                break;
+            case AKAppleIDSecurityLevelPasswordOnly:
+                accountType = @"PasswordOnly";
+                break;
+            case AKAppleIDSecurityLevelStandard:
+                accountType = @"Standard";
+                break;
+            case AKAppleIDSecurityLevelHSA1:
+                accountType = @"HSA1";
+                break;
+            case AKAppleIDSecurityLevelHSA2:
+                accountType = @"HSA2";
+                break;
+            case AKAppleIDSecurityLevelManaged:
+                accountType = @"Managed";
+                break;
+            default:
+                accountType = @"oh no please file a radar to Security | iCloud Keychain security level";
+                break;
+        }
+        
+        secnotice("sosauthkit", "Security level for altDSID %@ is %lu.  Account type: %@", [manager altDSIDForAccount:primaryAccount], (unsigned long)securityLevel, accountType);
+        
+        secnotice("sosauthkit", "Account %s CDP Capable", (isCDPCapable) ? "is": "isn't" );
     } else {
         secnotice("sosauthkit", "Failed to get manager");
     }
-    return hsa2;
+    return isCDPCapable;
 }
 
 
@@ -243,7 +275,7 @@ static ACAccount *GetPrimaryAccount(void) {
     return true;
 }
 
-+ (bool) accountIsHSA2 {
++ (bool) accountIsCDPCapable {
     return false;
 }
 

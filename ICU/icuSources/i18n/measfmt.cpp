@@ -39,9 +39,12 @@
 #include "unicode/numberformatter.h"
 #include "number_longnames.h"
 #include "number_utypes.h"
+#if APPLE_ICU_CHANGES
+// rdar:/
 // Apple-specific
 #include "unicode/uameasureformat.h"
 #include "fphdlimp.h"
+#endif  // APPLE_ICU_CHANGES
 
 #include "sharednumberformat.h"
 #include "sharedpluralrules.h"
@@ -186,10 +189,10 @@ static UBool getString(
     int32_t len = 0;
     const UChar *resStr = ures_getString(resource, &len, &status);
     if (U_FAILURE(status)) {
-        return FALSE;
+        return false;
     }
-    result.setTo(TRUE, resStr, len);
-    return TRUE;
+    result.setTo(true, resStr, len);
+    return true;
 }
 
 static UnicodeString loadNumericDateFormatterPattern(
@@ -242,8 +245,7 @@ static NumericDateFormatters *loadNumericDateFormatters(
     return result;
 }
 
-// FIXME: exported function with internal class specialization
-template<>
+template<> 
 const MeasureFormatCacheData *LocaleCacheKey<MeasureFormatCacheData>::createObject(
         const void * /*unused*/, UErrorCode &status) const {
     const char *localeId = fLoc.getName();
@@ -359,11 +361,18 @@ MeasureFormat::MeasureFormat(
         : cache(NULL),
           numberFormat(NULL),
           pluralRules(NULL),
+#if APPLE_ICU_CHANGES
+// rdar:/
           fWidth((w==UMEASFMT_WIDTH_SHORTER)? UMEASFMT_WIDTH_SHORT: w),
           stripPatternSpaces(w==UMEASFMT_WIDTH_SHORTER),
           listFormatter(NULL),
           listFormatterStd(NULL) {
     initMeasureFormat(locale, (w==UMEASFMT_WIDTH_SHORTER)? UMEASFMT_WIDTH_SHORT: w, NULL, status);
+#else
+          fWidth(w),
+          listFormatter(NULL) {
+    initMeasureFormat(locale, w, NULL, status);
+#endif  // APPLE_ICU_CHANGES
 }
 
 MeasureFormat::MeasureFormat(
@@ -374,11 +383,18 @@ MeasureFormat::MeasureFormat(
         : cache(NULL),
           numberFormat(NULL),
           pluralRules(NULL),
+#if APPLE_ICU_CHANGES
+// rdar:/
           fWidth((w==UMEASFMT_WIDTH_SHORTER)? UMEASFMT_WIDTH_SHORT: w),
           stripPatternSpaces(w==UMEASFMT_WIDTH_SHORTER),
           listFormatter(NULL),
           listFormatterStd(NULL) {
     initMeasureFormat(locale, (w==UMEASFMT_WIDTH_SHORTER)? UMEASFMT_WIDTH_SHORT: w, nfToAdopt, status);
+#else
+          fWidth(w),
+          listFormatter(NULL) {
+    initMeasureFormat(locale, w, nfToAdopt, status);
+#endif  // APPLE_ICU_CHANGES
 }
 
 MeasureFormat::MeasureFormat(const MeasureFormat &other) :
@@ -387,18 +403,26 @@ MeasureFormat::MeasureFormat(const MeasureFormat &other) :
         numberFormat(other.numberFormat),
         pluralRules(other.pluralRules),
         fWidth(other.fWidth),
+#if APPLE_ICU_CHANGES
+// rdar:/
         stripPatternSpaces(other.stripPatternSpaces),
         listFormatter(NULL),
         listFormatterStd(NULL) {
+#else
+        listFormatter(NULL) {
+#endif  // APPLE_ICU_CHANGES
     cache->addRef();
     numberFormat->addRef();
     pluralRules->addRef();
     if (other.listFormatter != NULL) {
         listFormatter = new ListFormatter(*other.listFormatter);
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     if (other.listFormatterStd != NULL) {
         listFormatterStd = new ListFormatter(*other.listFormatterStd);
     }
+#endif  // APPLE_ICU_CHANGES
 }
 
 MeasureFormat &MeasureFormat::operator=(const MeasureFormat &other) {
@@ -410,19 +434,25 @@ MeasureFormat &MeasureFormat::operator=(const MeasureFormat &other) {
     SharedObject::copyPtr(other.numberFormat, numberFormat);
     SharedObject::copyPtr(other.pluralRules, pluralRules);
     fWidth = other.fWidth;
+#if APPLE_ICU_CHANGES
+// rdar:/
     stripPatternSpaces = other.stripPatternSpaces;
+#endif  // APPLE_ICU_CHANGES
     delete listFormatter;
     if (other.listFormatter != NULL) {
         listFormatter = new ListFormatter(*other.listFormatter);
     } else {
         listFormatter = NULL;
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     delete listFormatterStd;
     if (other.listFormatterStd != NULL) {
         listFormatterStd = new ListFormatter(*other.listFormatterStd);
     } else {
         listFormatterStd = NULL;
     }
+#endif  // APPLE_ICU_CHANGES
     return *this;
 }
 
@@ -431,9 +461,14 @@ MeasureFormat::MeasureFormat() :
         numberFormat(NULL),
         pluralRules(NULL),
         fWidth(UMEASFMT_WIDTH_SHORT),
-        stripPatternSpaces(FALSE),
+#if APPLE_ICU_CHANGES
+// rdar:/
+        stripPatternSpaces(false),
         listFormatter(NULL),
         listFormatterStd(NULL) {
+#else
+        listFormatter(NULL) {
+#endif  // APPLE_ICU_CHANGES
 }
 
 MeasureFormat::~MeasureFormat() {
@@ -447,7 +482,10 @@ MeasureFormat::~MeasureFormat() {
         pluralRules->removeRef();
     }
     delete listFormatter;
+#if APPLE_ICU_CHANGES
+// rdar:/
     delete listFormatterStd;
+#endif  // APPLE_ICU_CHANGES
 }
 
 bool MeasureFormat::operator==(const Format &other) const {
@@ -463,7 +501,12 @@ bool MeasureFormat::operator==(const Format &other) const {
     // don't have to check it here.
 
     // differing widths aren't equivalent
+#if APPLE_ICU_CHANGES
+// rdar:/
     if (fWidth != rhs.fWidth || stripPatternSpaces != rhs.stripPatternSpaces) {
+#else
+    if (fWidth != rhs.fWidth) {
+#endif  // APPLE_ICU_CHANGES
         return false;
     }
     // Width the same check locales.
@@ -591,6 +634,8 @@ UnicodeString &MeasureFormat::formatMeasures(
     return appendTo;
 }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 // Apple-specific version for now;
 // uses FieldPositionIterator* instead of FieldPosition&
 UnicodeString &MeasureFormat::formatMeasures(
@@ -664,6 +709,7 @@ UnicodeString &MeasureFormat::formatMeasures(
     delete [] numPositions;
     return appendTo;
 }
+#endif  // APPLE_ICU_CHANGES
 
 UnicodeString MeasureFormat::getUnitDisplayName(const MeasureUnit& unit, UErrorCode& status) const {
     return number::impl::LongNameHandler::getUnitDisplayName(
@@ -717,21 +763,32 @@ void MeasureFormat::initMeasureFormat(
         }
     }
     fWidth = w;
+#if APPLE_ICU_CHANGES
+// rdar:/
     if (stripPatternSpaces) {
         w = UMEASFMT_WIDTH_NARROW;
     }
+#endif  // APPLE_ICU_CHANGES
     delete listFormatter;
     listFormatter = ListFormatter::createInstance(
             locale,
             ULISTFMT_TYPE_UNITS,
+#if APPLE_ICU_CHANGES
+// rdar:/
             listWidths[getRegularWidth(w)],
+#else
+            listWidths[getRegularWidth(fWidth)],
+#endif  // APPLE_ICU_CHANGES
             status);
+#if APPLE_ICU_CHANGES
+// rdar:/
     delete listFormatterStd;
     listFormatterStd = ListFormatter::createInstance(
             locale,
             ULISTFMT_TYPE_AND,
             ULISTFMT_WIDTH_WIDE,
             status);
+#endif  // APPLE_ICU_CHANGES
 }
 
 void MeasureFormat::adoptNumberFormat(
@@ -751,16 +808,19 @@ void MeasureFormat::adoptNumberFormat(
 
 UBool MeasureFormat::setMeasureFormatLocale(const Locale &locale, UErrorCode &status) {
     if (U_FAILURE(status) || locale == getLocale(status)) {
-        return FALSE;
+        return false;
     }
     initMeasureFormat(locale, fWidth, NULL, status);
     return U_SUCCESS(status);
 } 
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 // Apple-specific for now
 UMeasureFormatWidth MeasureFormat::getWidth() const {
     return fWidth;
 }
+#endif  // APPLE_ICU_CHANGES
 
 const NumberFormat &MeasureFormat::getNumberFormatInternal() const {
     return **numberFormat;
@@ -782,6 +842,8 @@ const char *MeasureFormat::getLocaleID(UErrorCode &status) const {
     return Format::getLocaleID(ULOC_VALID_LOCALE, status);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 // Apple=specific
 // now just re-implement using standard getUnitDisplayName
 // so we no longer use cache->getDisplayName
@@ -824,6 +886,7 @@ UnicodeString &MeasureFormat::getMultipleUnitNames(
     result.setToBogus();
     return result;
 }
+#endif  // APPLE_ICU_CHANGES
 
 UnicodeString &MeasureFormat::formatMeasure(
         const Measure &measure,
@@ -845,12 +908,15 @@ UnicodeString &MeasureFormat::formatMeasure(
                 pos,
                 status);
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     int32_t cur = appendTo.length();
     UBool posForFullNumericPart = (pos.getField() == UAMEASFMT_NUMERIC_FIELD_FLAG);
     if (posForFullNumericPart) {
         pos.setField(FieldPosition::DONT_CARE);
     }
 
+#endif  // APPLE_ICU_CHANGES
     auto* df = dynamic_cast<const DecimalFormat*>(&nf);
     if (df == nullptr) {
         // Handle other types of NumberFormat using the ICU 63 code, modified to
@@ -858,11 +924,14 @@ UnicodeString &MeasureFormat::formatMeasure(
         UnicodeString formattedNumber;
         StandardPlural::Form pluralForm = QuantityFormatter::selectPlural(
                 amtNumber, nf, **pluralRules, formattedNumber, pos, status);
+#if APPLE_ICU_CHANGES
+// rdar:/
         if (posForFullNumericPart) {
             pos.setField(UAMEASFMT_NUMERIC_FIELD_FLAG);
             pos.setBeginIndex(0);
             pos.setEndIndex(formattedNumber.length());
         }
+#endif  // APPLE_ICU_CHANGES
         UnicodeString pattern = number::impl::LongNameHandler::getUnitPattern(getLocale(status),
                 amtUnit, getUnitWidth(fWidth), pluralForm, status);
         // The above  handles fallback from other widths to short, and from other plural forms to OTHER
@@ -870,6 +939,8 @@ UnicodeString &MeasureFormat::formatMeasure(
             return appendTo;
         }
         SimpleFormatter formatter(pattern, 0, 1, status);
+#if APPLE_ICU_CHANGES
+// rdar:/
         QuantityFormatter::format(formatter, formattedNumber, appendTo, pos, status);
     } else {
         // This is the current code
@@ -934,6 +1005,19 @@ UnicodeString &MeasureFormat::formatMeasure(
             }
         }
     }
+#else
+        return QuantityFormatter::format(formatter, formattedNumber, appendTo, pos, status);
+    }
+    UFormattedNumberData result;
+    if (auto* lnf = df->toNumberFormatter(status)) {
+        result.quantity.setToDouble(amtNumber.getDouble(status));
+        lnf->unit(amtUnit)
+            .unitWidth(getUnitWidth(fWidth))
+            .formatImpl(&result, status);
+    }
+    DecimalFormat::fieldPositionHelper(result, pos, appendTo.length(), status);
+    appendTo.append(result.toTempString(status));
+#endif  // APPLE_ICU_CHANGES
     return appendTo;
 }
 
@@ -984,6 +1068,8 @@ UnicodeString &MeasureFormat::formatNumeric(
     } else {
         return appendTo;
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     LocalPointer<DecimalFormat> intFmtClone;
     const DecimalFormat *intFmt = dynamic_cast<const DecimalFormat*>(cache->getIntegerFormat());
     if (intFmt) {
@@ -993,10 +1079,11 @@ UnicodeString &MeasureFormat::formatNumeric(
         status = U_INTERNAL_PROGRAM_ERROR;
         return appendTo;
     }
+#endif  // APPLE_ICU_CHANGES
 
     FormattedStringBuilder fsb;
 
-    UBool protect = FALSE;
+    UBool protect = false;
     const int32_t patternLength = pattern.length();
     for (int32_t i = 0; i < patternLength; i++) {
         char16_t c = pattern[i];
@@ -1021,22 +1108,35 @@ UnicodeString &MeasureFormat::formatNumeric(
                     fsb.appendChar16(c, kUndefinedField, status);
                 } else {
                     UnicodeString tmp;
+#if APPLE_ICU_CHANGES
+// rdar:/
                     UBool lastNumField = ((c == u's') || (c == u'm' && bitMap == 3));
+#endif  // APPLE_ICU_CHANGES
                     if ((i + 1 < patternLength) && pattern[i + 1] == c) { // doubled
+#if APPLE_ICU_CHANGES
+// rdar:/
                         if (!lastNumField) {
                             intFmtClone->setMinimumIntegerDigits(2);
                             intFmtClone->format(value, tmp, status);
                         } else {
                             tmp = numberFormatter2.formatDouble(value, status).toString(status);
                         }
+#else
+                        tmp = numberFormatter2.formatDouble(value, status).toString(status);
+#endif  // APPLE_ICU_CHANGES
                         i++;
                     } else {
+#if APPLE_ICU_CHANGES
+// rdar:/
                         if (!lastNumField) {
                             intFmtClone->setMinimumIntegerDigits(1);
                             intFmtClone->format(value, tmp, status);
                         } else {
                             numberFormatter->format(value, tmp, status);
                         }
+#else
+                        numberFormatter->format(value, tmp, status);
+#endif  // APPLE_ICU_CHANGES
                     }
                     // TODO: Use proper Field
                     fsb.append(tmp, kUndefinedField, status);

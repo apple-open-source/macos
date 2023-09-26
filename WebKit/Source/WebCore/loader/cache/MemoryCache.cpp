@@ -32,8 +32,8 @@
 #include "Document.h"
 #include "FrameLoader.h"
 #include "FrameLoaderTypes.h"
-#include "FrameView.h"
 #include "Image.h"
+#include "LocalFrameView.h"
 #include "Logging.h"
 #include "PublicSuffix.h"
 #include "SharedBuffer.h"
@@ -122,7 +122,10 @@ bool MemoryCache::add(CachedResource& resource)
 
     auto key = std::make_pair(resource.url(), resource.cachePartition());
 
-    ensureSessionResourceMap(resource.sessionID()).set(key, &resource);
+    auto& resources = ensureSessionResourceMap(resource.sessionID());
+
+    RELEASE_ASSERT(!resources.get(key));
+    resources.set(key, &resource);
     resource.setInCache(true);
     
     resourceAccessed(resource);
@@ -135,7 +138,8 @@ void MemoryCache::revalidationSucceeded(CachedResource& revalidatingResource, co
 {
     ASSERT(response.source() == ResourceResponse::Source::MemoryCacheAfterValidation);
     ASSERT(revalidatingResource.resourceToRevalidate());
-    CachedResource& resource = *revalidatingResource.resourceToRevalidate();
+    CachedResourceHandle protectedRevalidatingResource { &revalidatingResource }; 
+    auto& resource = *revalidatingResource.resourceToRevalidate();
     ASSERT(!resource.inCache());
     ASSERT(resource.isLoaded());
 
@@ -146,11 +150,20 @@ void MemoryCache::revalidationSucceeded(CachedResource& revalidatingResource, co
 
     remove(revalidatingResource);
 
-    auto& resources = ensureSessionResourceMap(resource.sessionID());
-    auto key = std::make_pair(resource.url(), resource.cachePartition());
+    // A resource with the same URL may have been added back in the cache during revalidation.
+    // In this case, we remove the cached resource and replace it with our freshly revalidated
+    // one.
+    std::pair key { resource.url(), resource.cachePartition() };
+    if (auto* existingResources = sessionResourceMap(resource.sessionID())) {
+        if (auto existingResource = existingResources->get(key))
+            remove(*existingResource);
+    }
 
-    ASSERT(!resources.get(key));
-    resources.set(key, &resource);
+    // Don't move the call to ensureSessionResourceMap() in this function as the calls to
+    // remove() above could invalidate the reference returned by ensureSessionResourceMap().
+    auto& resources = ensureSessionResourceMap(resource.sessionID());
+    ASSERT(!resources.contains(key));
+    resources.add(key, &resource);
     resource.setInCache(true);
     resource.updateResponseAfterRevalidation(response);
     insertInLRUList(resource);
@@ -162,7 +175,7 @@ void MemoryCache::revalidationSucceeded(CachedResource& revalidatingResource, co
 
     revalidatingResource.switchClientsToRevalidatedResource();
     ASSERT(!revalidatingResource.m_deleted);
-    // this deletes the revalidating resource
+    // This deletes the revalidating resource.
     revalidatingResource.clearResourceToRevalidate();
 }
 
@@ -190,7 +203,7 @@ CachedResource* MemoryCache::resourceForRequestImpl(const ResourceRequest& reque
     URL url = removeFragmentIdentifierIfNeeded(request.url());
 
     auto key = std::make_pair(url, request.cachePartition());
-    return resources.get(key);
+    return resources.get(key).get();
 }
 
 unsigned MemoryCache::deadCapacity() const 
@@ -221,9 +234,15 @@ void MemoryCache::pruneLiveResources(bool shouldDestroyDecodedDataForAllLiveReso
 
 void MemoryCache::forEachResource(const Function<void(CachedResource&)>& function)
 {
-    for (auto& unprotectedLRUList : m_allResources) {
-        for (auto& resource : copyToVector(*unprotectedLRUList))
-            function(*resource);
+    Vector<WeakPtr<CachedResource>> allResources;
+    for (auto& lruList : m_allResources) {
+        allResources.reserveCapacity(allResources.size() + lruList->computeSize());
+        for (auto& resource : *lruList)
+            allResources.uncheckedAppend(resource);
+    }
+    for (auto& resource : allResources) {
+        if (CachedResourceHandle resourceHandle = resource.get())
+            function(*resourceHandle);
     }
 }
 
@@ -233,18 +252,19 @@ void MemoryCache::forEachSessionResource(PAL::SessionID sessionID, const Functio
     if (it == m_sessionResources.end())
         return;
 
-    for (auto& resource : copyToVector(it->value->values()))
-        function(*resource);
+    for (auto& resource : copyToVector(it->value->values())) {
+        if (resource)
+            function(*resource);
+    }
 }
 
 void MemoryCache::destroyDecodedDataForAllImages()
 {
-    MemoryCache::singleton().forEachResource([](CachedResource& resource) {
-        if (!resource.isImage())
-            return;
-
-        if (auto image = downcast<CachedImage>(resource).image())
-            image->destroyDecodedData();
+    forEachResource([](CachedResource& resource) {
+        if (auto cachedImage = dynamicDowncast<CachedImage>(resource)) {
+            if (RefPtr image = cachedImage->image())
+                image->destroyDecodedData();
+        }
     });
 }
 
@@ -257,7 +277,7 @@ void MemoryCache::pruneLiveResourcesToSize(unsigned targetSize, bool shouldDestr
 
     SetForScope reentrancyProtector(m_inPruneResources, true);
 
-    MonotonicTime currentTime = FrameView::currentPaintTimeStamp();
+    MonotonicTime currentTime = LocalFrameView::currentPaintTimeStamp();
     if (!currentTime) // In case prune is called directly, outside of a Frame paint.
         currentTime = MonotonicTime::now();
     
@@ -271,9 +291,9 @@ void MemoryCache::pruneLiveResourcesToSize(unsigned targetSize, bool shouldDestr
     // For more details see: https://bugs.webkit.org/show_bug.cgi?id=30209
     auto it = m_liveDecodedResources.begin();
     while (it != m_liveDecodedResources.end()) {
-        auto* current = *it;
+        auto& current = *it;
 
-        LOG(ResourceLoading, " live resource %p %.255s - loaded %d, decodedSize %u", current, current->url().string().utf8().data(), current->isLoaded(), current->decodedSize());
+        LOG(ResourceLoading, " live resource %p %.255s - loaded %d, decodedSize %u", &current, current.url().string().utf8().data(), current.isLoaded(), current.decodedSize());
 
         // Increment the iterator now because the call to destroyDecodedData() below
         // may cause a call to ListHashSet::remove() and invalidate the current
@@ -283,10 +303,10 @@ void MemoryCache::pruneLiveResourcesToSize(unsigned targetSize, bool shouldDestr
         // by a given iterator.
         ++it;
 
-        ASSERT(current->hasClients());
-        if (current->isLoaded() && current->decodedSize()) {
+        ASSERT(current.hasClients());
+        if (current.isLoaded() && current.decodedSize()) {
             // Check to see if the remaining resources are too new to prune.
-            Seconds elapsedTime = currentTime - current->m_lastDecodedAccessTime;
+            Seconds elapsedTime = currentTime - current.m_lastDecodedAccessTime;
             if (!shouldDestroyDecodedDataForAllLiveResources && elapsedTime < cMinDelayBeforeLiveDecodedPrune) {
                 LOG(ResourceLoading, " current time is less than min delay before pruning (%.3fms)", elapsedTime.milliseconds());
                 return;
@@ -294,7 +314,7 @@ void MemoryCache::pruneLiveResourcesToSize(unsigned targetSize, bool shouldDestr
 
             // Destroy our decoded data. This will remove us from m_liveDecodedResources, and possibly move us
             // to a different LRU list in m_allResources.
-            current->destroyDecodedData();
+            current.destroyDecodedData();
 
             if (targetSize && m_liveSize <= targetSize)
                 return;
@@ -337,7 +357,10 @@ void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
         // First flush all the decoded data in this queue.
         // Remove from the head, since this is the least frequently accessed of the objects.
         for (auto& resource : lruList) {
-            LOG(ResourceLoading, " lru resource %p - in cache %d, has clients %d, preloaded %d, loaded %d", resource, resource->inCache(), resource->hasClients(), resource->isPreloaded(), resource->isLoaded());
+            if (!resource)
+                continue;
+
+            LOG(ResourceLoading, " lru resource %p - in cache %d, has clients %d, preloaded %d, loaded %d", resource.get(), resource->inCache(), resource->hasClients(), resource->isPreloaded(), resource->isLoaded());
             if (!resource->inCache())
                 continue;
 
@@ -346,7 +369,7 @@ void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
                 // m_liveDecodedResources, and possibly move us to a different 
                 // LRU list in m_allResources.
 
-                LOG(ResourceLoading, " lru resource %p destroyDecodedData", resource);
+                LOG(ResourceLoading, " lru resource %p destroyDecodedData", resource.get());
 
                 resource->destroyDecodedData();
 
@@ -360,7 +383,10 @@ void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
         // Now evict objects from this list.
         // Remove from the head, since this is the least frequently accessed of the objects.
         for (auto& resource : lruList) {
-            LOG(ResourceLoading, " lru resource %p - in cache %d, has clients %d, preloaded %d, loaded %d", resource, resource->inCache(), resource->hasClients(), resource->isPreloaded(), resource->isLoaded());
+            if (!resource)
+                continue;
+
+            LOG(ResourceLoading, " lru resource %p - in cache %d, has clients %d, preloaded %d, loaded %d", resource.get(), resource->inCache(), resource->hasClients(), resource->isPreloaded(), resource->isLoaded());
             if (!resource->inCache())
                 continue;
 
@@ -373,7 +399,7 @@ void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
             
         // Shrink the vector back down so we don't waste time inspecting
         // empty LRU lists on future prunes.
-        if (!m_allResources[i]->isEmpty())
+        if (!m_allResources[i]->isEmptyIgnoringNullReferences())
             canShrinkLRULists = false;
         else if (canShrinkLRULists)
             m_allResources.shrink(i);
@@ -392,7 +418,9 @@ void MemoryCache::setCapacities(unsigned minDeadBytes, unsigned maxDeadBytes, un
 
 void MemoryCache::remove(CachedResource& resource)
 {
-    ASSERT(isMainThread());
+    RELEASE_ASSERT(isMainThread());
+    CachedResourceHandle protectedResource { resource };
+
     LOG(ResourceLoading, "Evicting resource %p for '%.255s' from cache", &resource, resource.url().string().latin1().data());
     // The resource may have already been removed by someone other than our caller,
     // who needed a fresh copy for a reload. See <http://bugs.webkit.org/show_bug.cgi?id=12479#c6>.
@@ -419,9 +447,7 @@ void MemoryCache::remove(CachedResource& resource)
             LOG(ResourceLoading, "  resource %p is not in cache", &resource);
         }
     }
-
-    if (resource.canDelete())
-        resource.deleteThis();
+    RELEASE_ASSERT(!resource.inCache());
 }
 
 auto MemoryCache::lruListFor(CachedResource& resource) -> LRUList&
@@ -453,7 +479,7 @@ void MemoryCache::removeFromLRUList(CachedResource& resource)
     // Verify that the list we got is the list we want.
     ASSERT(resource.m_lruIndex == oldListIndex);
 
-    bool removed = list.remove(&resource);
+    bool removed = list.remove(resource);
     ASSERT_UNUSED(removed, removed);
 }
 
@@ -462,7 +488,7 @@ void MemoryCache::insertInLRUList(CachedResource& resource)
     ASSERT(resource.inCache());
     ASSERT(resource.accessCount() > 0);
     
-    auto addResult = lruListFor(resource).add(&resource);
+    auto addResult = lruListFor(resource).add(resource);
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }
 
@@ -485,25 +511,33 @@ void MemoryCache::resourceAccessed(CachedResource& resource)
     insertInLRUList(resource);
 }
 
+bool MemoryCache::inLiveDecodedResourcesList(CachedResource& resource) const
+{
+    return m_liveDecodedResources.contains(resource);
+}
+
 void MemoryCache::removeResourcesWithOrigin(const SecurityOrigin& origin, const String& cachePartition)
 {
-    Vector<CachedResource*> resourcesWithOrigin;
+    RELEASE_ASSERT(isMainThread());
+    Vector<WeakPtr<CachedResource>> resourcesWithOrigin;
     for (auto& resources : m_sessionResources.values()) {
         for (auto& keyValue : *resources) {
             auto& resource = *keyValue.value;
             auto& partitionName = keyValue.key.second;
             if (partitionName == cachePartition) {
-                resourcesWithOrigin.append(&resource);
+                resourcesWithOrigin.append(resource);
                 continue;
             }
             auto resourceOrigin = SecurityOrigin::create(resource.url());
             if (resourceOrigin->equal(&origin))
-                resourcesWithOrigin.append(&resource);
+                resourcesWithOrigin.append(resource);
         }
     }
 
-    for (auto* resource : resourcesWithOrigin)
-        remove(*resource);
+    for (auto& resource : resourcesWithOrigin) {
+        if (resource)
+            remove(*resource);
+    }
 }
 
 void MemoryCache::removeResourcesWithOrigin(const SecurityOrigin& origin)
@@ -514,7 +548,7 @@ void MemoryCache::removeResourcesWithOrigin(const SecurityOrigin& origin)
 
 void MemoryCache::removeResourcesWithOrigin(const ClientOrigin& origin)
 {
-    auto cachePartition = origin.topOrigin == origin.clientOrigin ? emptyString() : ResourceRequest::partitionName(origin.topOrigin.host);
+    auto cachePartition = origin.topOrigin == origin.clientOrigin ? emptyString() : ResourceRequest::partitionName(origin.topOrigin.host());
     removeResourcesWithOrigin(origin.clientOrigin.securityOrigin(), cachePartition);
 }
 
@@ -529,20 +563,22 @@ void MemoryCache::removeResourcesWithOrigins(PAL::SessionID sessionID, const Has
     for (auto& origin : origins)
         originPartitions.add(ResourceRequest::partitionName(origin->host()));
 
-    Vector<CachedResource*> resourcesToRemove;
+    Vector<WeakPtr<CachedResource>> resourcesToRemove;
     for (auto& keyValuePair : *resourceMap) {
         auto& resource = *keyValuePair.value;
         auto& partitionName = keyValuePair.key.second;
         if (originPartitions.contains(partitionName)) {
-            resourcesToRemove.append(&resource);
+            resourcesToRemove.append(resource);
             continue;
         }
         if (origins.contains(SecurityOrigin::create(resource.url()).ptr()))
-            resourcesToRemove.append(&resource);
+            resourcesToRemove.append(resource);
     }
 
-    for (auto& resource : resourcesToRemove)
-        remove(*resource);
+    for (auto& resource : resourcesToRemove) {
+        if (resource)
+            remove(*resource);
+    }
 }
 
 void MemoryCache::getOriginsWithCache(SecurityOriginSet& origins)
@@ -580,14 +616,14 @@ HashSet<RefPtr<SecurityOrigin>> MemoryCache::originsWithCache(PAL::SessionID ses
 
 void MemoryCache::removeFromLiveDecodedResourcesList(CachedResource& resource)
 {
-    m_liveDecodedResources.remove(&resource);
+    m_liveDecodedResources.remove(resource);
 }
 
 void MemoryCache::insertInLiveDecodedResourcesList(CachedResource& resource)
 {
     // Make sure we aren't in the list already.
-    ASSERT(!m_liveDecodedResources.contains(&resource));
-    m_liveDecodedResources.add(&resource);
+    ASSERT(!m_liveDecodedResources.contains(resource));
+    m_liveDecodedResources.add(resource);
 }
 
 void MemoryCache::addToLiveResourcesSize(CachedResource& resource)
@@ -642,7 +678,7 @@ MemoryCache::Statistics MemoryCache::getStatistics()
     Statistics stats;
 
     for (auto& resources : m_sessionResources.values()) {
-        for (auto* resource : resources->values()) {
+        for (auto& resource : resources->values()) {
             switch (resource->type()) {
             case CachedResource::Type::ImageResource:
                 stats.images.addResource(*resource);
@@ -761,9 +797,9 @@ void MemoryCache::dumpLRULists(bool includeLive) const
     int size = m_allResources.size();
     for (int i = size - 1; i >= 0; i--) {
         WTFLogAlways("\nList %d:\n", i);
-        for (auto* resource : *m_allResources[i]) {
-            if (includeLive || !resource->hasClients())
-                WTFLogAlways("  %p %.255s %.1fK, %.1fK, accesses: %u, clients: %d\n", resource, resource->url().string().utf8().data(), resource->decodedSize() / 1024.0f, (resource->encodedSize() + resource->overheadSize()) / 1024.0f, resource->accessCount(), resource->numberOfClients());
+        for (auto& resource : *m_allResources[i]) {
+            if (includeLive || !resource.hasClients())
+                WTFLogAlways("  %p %.255s %.1fK, %.1fK, accesses: %u, clients: %d\n", &resource, resource.url().string().utf8().data(), resource.decodedSize() / 1024.0f, (resource.encodedSize() + resource.overheadSize()) / 1024.0f, resource.accessCount(), resource.numberOfClients());
         }
     }
 }

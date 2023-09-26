@@ -538,7 +538,12 @@ request_err:
 				CFRelease(flags_cfnum);
 
 			if (ret) {
+			    if (attrs) {
 				CFRelease(attrs);
+			    }
+			    if (uuid_cfuuid) {
+				CFRelease(uuid_cfuuid);
+			    }
 				_gss_ntlm_delete_sec_context(minor_status, context_handle, NULL);
 				*minor_status = ret;
 				return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_FAILURE, ret,
@@ -547,6 +552,7 @@ request_err:
 
 			// TODO - Do we need to (_gss_ntlm_cred_hold) during authentication?
 			response_cfdict = HeimCredDoAuth(credential_cfcred, attrs, &cferr);
+			CFRelease(attrs);
 			if (response_cfdict) { /* NTLMAuthCallback */
 				_gss_mg_log(1, "ntlm-isc-type3: GSSCred returned");
 
@@ -621,7 +627,6 @@ request_err:
 					ret = KRB5_CC_IO;
 	reply_err:
 				if (ret) {
-					CFRelease(attrs);
 					_gss_ntlm_delete_sec_context(minor_status, context_handle, NULL);
 					krb5_data_free(&data);
 					free(ruser);
@@ -643,12 +648,19 @@ request_err:
 					return GSS_S_FAILURE;
 				}
 			} else { /* HeimCredDoAuth */
-				if (cferr)
-					errcode = CFErrorGetCode(cferr);
-				_gss_mg_log(1, "NTLM: HeimCredCreate failed error(%ld)", errcode);
+			    if (cferr) {
+				errcode = CFErrorGetCode(cferr);
+			    }
+			    _gss_ntlm_delete_sec_context(minor_status, context_handle, NULL);
+			    _gss_mg_log(1, "NTLM: HeimCredCreate failed error(%ld)", errcode);
+			    CFRELEASE_NULL(credential_cfcred);
+			    CFRELEASE_NULL(uuid_cfuuid);
+			    *minor_status = KRB5_CC_IO;
+			    return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_FAILURE, ret,
+							   "HeimCredCreate failed");
 			}
-			CFRelease(attrs);
-			HeimCredDelete(credential_cfcred);
+
+		    CFRelease(credential_cfcred);
 		}
 		CFRelease(uuid_cfuuid);
 	} else {

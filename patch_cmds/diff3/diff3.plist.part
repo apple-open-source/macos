@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>diff3</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-08-02</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/diff3?id=190c4c2499e64e1c88f25f68c2929d110d635300</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-05-03</string>
+		<key>OpenSourceModifications</key>  
+		<array>                             
+			<string>diff3.c: use posix spawn instead of pdfork for creating child diff processes</string>
+		</array>                            
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>patch_cmds.txt</string>
+	</dict>

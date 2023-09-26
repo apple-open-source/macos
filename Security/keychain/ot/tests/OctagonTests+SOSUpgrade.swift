@@ -899,7 +899,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testSOSDoNotAttemptUpgradeWhenPlatformDoesntSupport() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter!.sosEnabled = false
+        self.mockSOSAdapter!.setSOSEnabled(false)
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         let everEnteredSOSUpgrade: CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade]!
@@ -917,7 +917,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testSOSUpgradeStopsWhenOutOfCircle() throws {
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.setSOSEnabled(true)
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -934,7 +934,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.setSOSEnabled(true)
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -967,7 +967,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.setSOSEnabled(true)
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -991,7 +991,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.setSOSEnabled(true)
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -1023,7 +1023,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // this test checks that calling waitForOctagonUpgrade (when SOS is still absent) doesn't unconditionally set the CDP bit.
         self.startCKAccountStatusMock()
 
-        self.mockSOSAdapter!.sosEnabled = true
+        self.mockSOSAdapter!.setSOSEnabled(true)
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         self.cuttlefishContext.startOctagonStateMachine()

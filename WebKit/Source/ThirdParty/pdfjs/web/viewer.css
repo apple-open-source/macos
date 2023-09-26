@@ -13,13 +13,22 @@
  * limitations under the License.
  */
 
+:root {
+  --highlight-bg-color: rgba(180, 0, 170, 1);
+  --highlight-selected-bg-color: rgba(0, 100, 0, 1);
+}
+
+@media screen and (forced-colors: active) {
+  :root {
+    --highlight-bg-color: Highlight;
+    --highlight-selected-bg-color: ButtonText;
+  }
+}
+
 .textLayer {
   position: absolute;
   text-align: initial;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   overflow: hidden;
   opacity: 0.25;
   line-height: 1;
@@ -31,8 +40,7 @@
   z-index: 2;
 }
 
-.textLayer span,
-.textLayer br {
+.textLayer :is(span, br) {
   color: transparent;
   position: absolute;
   white-space: pre;
@@ -50,7 +58,7 @@
 .textLayer .highlight {
   margin: -1px;
   padding: 1px;
-  background-color: rgba(180, 0, 170, 1);
+  background-color: var(--highlight-bg-color);
   border-radius: 4px;
 }
 
@@ -71,7 +79,7 @@
 }
 
 .textLayer .highlight.selected {
-  background-color: rgba(0, 100, 0, 1);
+  background-color: var(--highlight-selected-bg-color);
 }
 
 .textLayer ::-moz-selection {
@@ -95,10 +103,7 @@
 .textLayer .endOfContent {
   display: block;
   position: absolute;
-  left: 0;
-  top: 100%;
-  right: 0;
-  bottom: 0;
+  inset: 100% 0 0;
   z-index: -1;
   cursor: default;
   -webkit-user-select: none;
@@ -118,21 +123,57 @@
   --input-unfocused-border-color: transparent;
   --input-disabled-border-color: transparent;
   --input-hover-border-color: black;
+  --link-outline: none;
 }
 
-@media (forced-colors: active) {
+@media screen and (forced-colors: active) {
   :root {
     --input-focus-border-color: CanvasText;
     --input-unfocused-border-color: ActiveText;
     --input-disabled-border-color: GrayText;
     --input-hover-border-color: Highlight;
+    --link-outline: 1.5px solid LinkText;
+    --hcm-highligh-filter: invert(100%);
   }
-  .annotationLayer .textWidgetAnnotation input:required,
-  .annotationLayer .textWidgetAnnotation textarea:required,
+  .annotationLayer .textWidgetAnnotation :is(input, textarea):required,
   .annotationLayer .choiceWidgetAnnotation select:required,
-  .annotationLayer .buttonWidgetAnnotation.checkBox input:required,
-  .annotationLayer .buttonWidgetAnnotation.radioButton input:required {
+  .annotationLayer
+    .buttonWidgetAnnotation:is(.checkBox, .radioButton)
+    input:required {
     outline: 1.5px solid selectedItem;
+  }
+
+  .annotationLayer .linkAnnotation:hover {
+    -webkit-backdrop-filter: var(--hcm-highligh-filter);
+            backdrop-filter: var(--hcm-highligh-filter);
+  }
+
+  .annotationLayer .linkAnnotation > a:hover {
+    opacity: 0 !important;
+    background: none !important;
+    box-shadow: none;
+  }
+
+  .annotationLayer .popupAnnotation .popup {
+    outline: calc(1.5px * var(--scale-factor)) solid CanvasText !important;
+    background-color: ButtonFace !important;
+    color: ButtonText !important;
+  }
+
+  .annotationLayer .highlightArea:hover::after {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    -webkit-backdrop-filter: var(--hcm-highligh-filter);
+            backdrop-filter: var(--hcm-highligh-filter);
+    content: "";
+    pointer-events: none;
+  }
+
+  .annotationLayer .popupAnnotation.focused .popup {
+    outline: calc(3px * var(--scale-factor)) solid Highlight !important;
   }
 }
 
@@ -145,6 +186,23 @@
   z-index: 3;
 }
 
+.annotationLayer[data-main-rotation="90"] .norotate {
+  transform: rotate(270deg) translateX(-100%);
+}
+.annotationLayer[data-main-rotation="180"] .norotate {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+.annotationLayer[data-main-rotation="270"] .norotate {
+  transform: rotate(90deg) translateY(-100%);
+}
+
+.annotationLayer canvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .annotationLayer section {
   position: absolute;
   text-align: initial;
@@ -153,8 +211,11 @@
   transform-origin: 0 0;
 }
 
-.annotationLayer .linkAnnotation > a,
-.annotationLayer .buttonWidgetAnnotation.pushButton > a {
+.annotationLayer .linkAnnotation {
+  outline: var(--link-outline);
+}
+
+.annotationLayer :is(.linkAnnotation, .buttonWidgetAnnotation.pushButton) > a {
   position: absolute;
   font-size: 1em;
   top: 0;
@@ -163,13 +224,9 @@
   height: 100%;
 }
 
-.annotationLayer .buttonWidgetAnnotation.pushButton > canvas {
-  width: 100%;
-  height: 100%;
-}
-
-.annotationLayer .linkAnnotation > a:hover,
-.annotationLayer .buttonWidgetAnnotation.pushButton > a:hover {
+.annotationLayer
+  :is(.linkAnnotation, .buttonWidgetAnnotation.pushButton)
+  > a:hover {
   opacity: 0.2;
   background: rgba(255, 255, 0, 1);
   box-shadow: 0 2px 10px rgba(255, 255, 0, 1);
@@ -180,13 +237,13 @@
   cursor: pointer;
   width: 100%;
   height: 100%;
+  top: 0;
+  left: 0;
 }
 
-.annotationLayer .textWidgetAnnotation input,
-.annotationLayer .textWidgetAnnotation textarea,
+.annotationLayer .textWidgetAnnotation :is(input, textarea),
 .annotationLayer .choiceWidgetAnnotation select,
-.annotationLayer .buttonWidgetAnnotation.checkBox input,
-.annotationLayer .buttonWidgetAnnotation.radioButton input {
+.annotationLayer .buttonWidgetAnnotation:is(.checkBox, .radioButton) input {
   background-image: var(--annotation-unfocused-field-background);
   border: 2px solid var(--input-unfocused-border-color);
   box-sizing: border-box;
@@ -197,11 +254,11 @@
   width: 100%;
 }
 
-.annotationLayer .textWidgetAnnotation input:required,
-.annotationLayer .textWidgetAnnotation textarea:required,
+.annotationLayer .textWidgetAnnotation :is(input, textarea):required,
 .annotationLayer .choiceWidgetAnnotation select:required,
-.annotationLayer .buttonWidgetAnnotation.checkBox input:required,
-.annotationLayer .buttonWidgetAnnotation.radioButton input:required {
+.annotationLayer
+  .buttonWidgetAnnotation:is(.checkBox, .radioButton)
+  input:required {
   outline: 1.5px solid red;
 }
 
@@ -217,32 +274,30 @@
   resize: none;
 }
 
-.annotationLayer .textWidgetAnnotation input[disabled],
-.annotationLayer .textWidgetAnnotation textarea[disabled],
+.annotationLayer .textWidgetAnnotation :is(input, textarea)[disabled],
 .annotationLayer .choiceWidgetAnnotation select[disabled],
-.annotationLayer .buttonWidgetAnnotation.checkBox input[disabled],
-.annotationLayer .buttonWidgetAnnotation.radioButton input[disabled] {
+.annotationLayer
+  .buttonWidgetAnnotation:is(.checkBox, .radioButton)
+  input[disabled] {
   background: none;
   border: 2px solid var(--input-disabled-border-color);
   cursor: not-allowed;
 }
 
-.annotationLayer .textWidgetAnnotation input:hover,
-.annotationLayer .textWidgetAnnotation textarea:hover,
+.annotationLayer .textWidgetAnnotation :is(input, textarea):hover,
 .annotationLayer .choiceWidgetAnnotation select:hover,
-.annotationLayer .buttonWidgetAnnotation.checkBox input:hover,
-.annotationLayer .buttonWidgetAnnotation.radioButton input:hover {
+.annotationLayer
+  .buttonWidgetAnnotation:is(.checkBox, .radioButton)
+  input:hover {
   border: 2px solid var(--input-hover-border-color);
 }
-.annotationLayer .textWidgetAnnotation input:hover,
-.annotationLayer .textWidgetAnnotation textarea:hover,
+.annotationLayer .textWidgetAnnotation :is(input, textarea):hover,
 .annotationLayer .choiceWidgetAnnotation select:hover,
 .annotationLayer .buttonWidgetAnnotation.checkBox input:hover {
   border-radius: 2px;
 }
 
-.annotationLayer .textWidgetAnnotation input:focus,
-.annotationLayer .textWidgetAnnotation textarea:focus,
+.annotationLayer .textWidgetAnnotation :is(input, textarea):focus,
 .annotationLayer .choiceWidgetAnnotation select:focus {
   background: none;
   border: 2px solid var(--input-focus-border-color);
@@ -250,8 +305,7 @@
   outline: var(--input-focus-outline);
 }
 
-.annotationLayer .buttonWidgetAnnotation.checkBox :focus,
-.annotationLayer .buttonWidgetAnnotation.radioButton :focus {
+.annotationLayer .buttonWidgetAnnotation:is(.checkBox, .radioButton) :focus {
   background-image: none;
   background-color: transparent;
 }
@@ -267,31 +321,31 @@
   outline: var(--input-focus-outline);
 }
 
-.annotationLayer .buttonWidgetAnnotation.checkBox input:checked:before,
-.annotationLayer .buttonWidgetAnnotation.checkBox input:checked:after,
-.annotationLayer .buttonWidgetAnnotation.radioButton input:checked:before {
+.annotationLayer .buttonWidgetAnnotation.checkBox input:checked::before,
+.annotationLayer .buttonWidgetAnnotation.checkBox input:checked::after,
+.annotationLayer .buttonWidgetAnnotation.radioButton input:checked::before {
   background-color: CanvasText;
   content: "";
   display: block;
   position: absolute;
 }
 
-.annotationLayer .buttonWidgetAnnotation.checkBox input:checked:before,
-.annotationLayer .buttonWidgetAnnotation.checkBox input:checked:after {
+.annotationLayer .buttonWidgetAnnotation.checkBox input:checked::before,
+.annotationLayer .buttonWidgetAnnotation.checkBox input:checked::after {
   height: 80%;
   left: 45%;
   width: 1px;
 }
 
-.annotationLayer .buttonWidgetAnnotation.checkBox input:checked:before {
+.annotationLayer .buttonWidgetAnnotation.checkBox input:checked::before {
   transform: rotate(45deg);
 }
 
-.annotationLayer .buttonWidgetAnnotation.checkBox input:checked:after {
+.annotationLayer .buttonWidgetAnnotation.checkBox input:checked::after {
   transform: rotate(-45deg);
 }
 
-.annotationLayer .buttonWidgetAnnotation.radioButton input:checked:before {
+.annotationLayer .buttonWidgetAnnotation.radioButton input:checked::before {
   border-radius: 50%;
   height: 50%;
   left: 30%;
@@ -315,35 +369,34 @@
   width: 103%;
 }
 
-.annotationLayer .buttonWidgetAnnotation.checkBox input,
-.annotationLayer .buttonWidgetAnnotation.radioButton input {
+.annotationLayer .buttonWidgetAnnotation:is(.checkBox, .radioButton) input {
   -webkit-appearance: none;
      -moz-appearance: none;
           appearance: none;
 }
 
-.annotationLayer .popupTriggerArea {
+.annotationLayer .fileAttachmentAnnotation .popupTriggerArea {
   height: 100%;
   width: 100%;
 }
 
-.annotationLayer .popupWrapper {
+.annotationLayer .popupAnnotation {
   position: absolute;
   font-size: calc(9px * var(--scale-factor));
-  width: 100%;
-  min-width: calc(180px * var(--scale-factor));
   pointer-events: none;
+  width: -moz-max-content;
+  width: max-content;
+  max-width: 45%;
+  height: auto;
 }
 
 .annotationLayer .popup {
-  position: absolute;
-  max-width: calc(180px * var(--scale-factor));
   background-color: rgba(255, 255, 153, 1);
   box-shadow: 0 calc(2px * var(--scale-factor)) calc(5px * var(--scale-factor))
     rgba(136, 136, 136, 1);
   border-radius: calc(2px * var(--scale-factor));
+  outline: 1.5px solid rgb(255, 255, 74);
   padding: calc(6px * var(--scale-factor));
-  margin-left: calc(5px * var(--scale-factor));
   cursor: pointer;
   font: message-box;
   white-space: normal;
@@ -351,17 +404,27 @@
   pointer-events: auto;
 }
 
-.annotationLayer .popup > * {
+.annotationLayer .popupAnnotation.focused .popup {
+  outline-width: 3px;
+}
+
+.annotationLayer .popup * {
   font-size: calc(9px * var(--scale-factor));
 }
 
-.annotationLayer .popup h1 {
+.annotationLayer .popup > .header {
   display: inline-block;
 }
 
-.annotationLayer .popupDate {
+.annotationLayer .popup > .header h1 {
+  display: inline;
+}
+
+.annotationLayer .popup > .header .popupDate {
   display: inline-block;
   margin-left: calc(5px * var(--scale-factor));
+  width: -moz-fit-content;
+  width: fit-content;
 }
 
 .annotationLayer .popupContent {
@@ -396,6 +459,8 @@
   position: absolute;
   width: 100%;
   height: 100%;
+  top: 0;
+  left: 0;
 }
 
 .annotationLayer .annotationTextContent {
@@ -421,7 +486,7 @@
   --xfa-focus-outline: auto;
 }
 
-@media (forced-colors: active) {
+@media screen and (forced-colors: active) {
   :root {
     --xfa-focus-outline: 2px solid CanvasText;
   }
@@ -504,14 +569,8 @@
   outline: 1.5px solid red;
 }
 
-.xfaLayer div {
-  pointer-events: none;
-}
-
-.xfaLayer svg {
-  pointer-events: none;
-}
-
+.xfaLayer div,
+.xfaLayer svg,
 .xfaLayer svg * {
   pointer-events: none;
 }
@@ -562,10 +621,7 @@
   align-items: center;
 }
 
-.xfaLeft > .xfaCaption,
-.xfaLeft > .xfaCaptionForCheckButton,
-.xfaRight > .xfaCaption,
-.xfaRight > .xfaCaptionForCheckButton {
+:is(.xfaLeft, .xfaRight) > :is(.xfaCaption, .xfaCaptionForCheckButton) {
   max-height: 100%;
 }
 
@@ -581,10 +637,7 @@
   align-items: flex-start;
 }
 
-.xfaTop > .xfaCaption,
-.xfaTop > .xfaCaptionForCheckButton,
-.xfaBottom > .xfaCaption,
-.xfaBottom > .xfaCaptionForCheckButton {
+:is(.xfaTop, .xfaBottom) > :is(.xfaCaption, .xfaCaptionForCheckButton) {
   width: 100%;
 }
 
@@ -599,16 +652,14 @@
   height: 100%;
 }
 
-.xfaTextfield:focus,
-.xfaSelect:focus {
+:is(.xfaTextfield, .xfaSelect):focus {
   background-image: none;
   background-color: transparent;
   outline: var(--xfa-focus-outline);
   outline-offset: -1px;
 }
 
-.xfaCheckbox:focus,
-.xfaRadio:focus {
+:is(.xfaCheckbox, .xfaRadio):focus {
   outline: var(--xfa-focus-outline);
 }
 
@@ -623,15 +674,10 @@
 }
 
 .xfaSelect {
-  padding-left: 2px;
-  padding-right: 2px;
   padding-inline: 2px;
 }
 
-.xfaTop > .xfaTextfield,
-.xfaTop > .xfaSelect,
-.xfaBottom > .xfaTextfield,
-.xfaBottom > .xfaSelect {
+:is(.xfaTop, .xfaBottom) > :is(.xfaTextfield, .xfaSelect) {
   flex: 0 1 auto;
 }
 
@@ -734,12 +780,7 @@
   flex: 1;
 }
 
-.xfaNonInteractive input,
-.xfaNonInteractive textarea,
-.xfaDisabled input,
-.xfaDisabled textarea,
-.xfaReadOnly input,
-.xfaReadOnly textarea {
+:is(.xfaNonInteractive, .xfaDisabled, .xfaReadOnly) :is(input, textarea) {
   background: initial;
 }
 
@@ -775,7 +816,7 @@
   }
 }
 
-@media (forced-colors: active) {
+@media screen and (forced-colors: active) {
   :root {
     --focus-outline: solid 3px ButtonText;
     --hover-outline: dashed 3px ButtonText;
@@ -809,6 +850,10 @@
 
 .annotationEditorLayer.inkEditing {
   cursor: var(--editorInk-editing-cursor);
+}
+
+.annotationEditorLayer :is(.freeTextEditor, .inkEditor)[draggable="true"] {
+  cursor: move;
 }
 
 .annotationEditorLayer .selectedEditor {
@@ -873,8 +918,8 @@
   resize: horizontal;
 }
 
-.annotationEditorLayer .freeTextEditor:hover:not(.selectedEditor),
-.annotationEditorLayer .inkEditor:hover:not(.selectedEditor) {
+.annotationEditorLayer
+  :is(.freeTextEditor, .inkEditor):hover:not(.selectedEditor) {
   outline: var(--hover-outline);
 }
 
@@ -909,9 +954,8 @@
   --pdfViewer-padding-bottom: 0;
   --page-margin: 1px auto -8px;
   --page-border: 9px solid transparent;
-  --page-border-image: url(images/shadow.png) 9 9 repeat;
   --spreadHorizontalWrapped-margin-LR: -3.5px;
-  --scale-factor: 1;
+  --loading-icon-delay: 400ms;
 }
 
 @media screen and (forced-colors: active) {
@@ -919,7 +963,6 @@
     --pdfViewer-padding-bottom: 9px;
     --page-margin: 8px auto -1px;
     --page-border: 1px solid CanvasText;
-    --page-border-image: none;
     --spreadHorizontalWrapped-margin-LR: 3.5px;
   }
 }
@@ -934,7 +977,20 @@
   transform: rotate(270deg) translateX(-100%);
 }
 
+#hiddenCopyElement {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .pdfViewer {
+  /* Define this variable here and not in :root to avoid to reflow all the UI
+     when scaling (see #15929). */
+  --scale-factor: 1;
+
   padding-bottom: var(--pdfViewer-padding-bottom);
 }
 
@@ -953,8 +1009,6 @@
   position: relative;
   overflow: visible;
   border: var(--page-border);
-  -o-border-image: var(--page-border-image);
-     border-image: var(--page-border-image);
   background-clip: content-box;
   background-color: rgba(255, 255, 255, 1);
 }
@@ -970,20 +1024,9 @@
   border: none;
 }
 
-.pdfViewer.singlePageView {
-  display: inline-block;
-}
-
-.pdfViewer.singlePageView .page {
-  margin: 0;
-  border: none;
-}
-
-.pdfViewer.scrollHorizontal,
-.pdfViewer.scrollWrapped,
+.pdfViewer:is(.scrollHorizontal, .scrollWrapped),
 .spread {
-  margin-left: 3.5px;
-  margin-right: 3.5px;
+  margin-inline: 3.5px;
   text-align: center;
 }
 
@@ -993,39 +1036,33 @@
 }
 
 .pdfViewer.removePageBorders,
-.pdfViewer.scrollHorizontal .spread,
-.pdfViewer.scrollWrapped .spread {
-  margin-left: 0;
-  margin-right: 0;
+.pdfViewer:is(.scrollHorizontal, .scrollWrapped) .spread {
+  margin-inline: 0;
 }
 
-.spread .page,
-.spread .dummyPage,
-.pdfViewer.scrollHorizontal .page,
-.pdfViewer.scrollWrapped .page,
-.pdfViewer.scrollHorizontal .spread,
-.pdfViewer.scrollWrapped .spread {
+.spread :is(.page, .dummyPage),
+.pdfViewer:is(.scrollHorizontal, .scrollWrapped) :is(.page, .spread) {
   display: inline-block;
   vertical-align: middle;
 }
 
 .spread .page,
-.pdfViewer.scrollHorizontal .page,
-.pdfViewer.scrollWrapped .page {
-  margin-left: var(--spreadHorizontalWrapped-margin-LR);
-  margin-right: var(--spreadHorizontalWrapped-margin-LR);
+.pdfViewer:is(.scrollHorizontal, .scrollWrapped) .page {
+  margin-inline: var(--spreadHorizontalWrapped-margin-LR);
 }
 
 .pdfViewer.removePageBorders .spread .page,
-.pdfViewer.removePageBorders.scrollHorizontal .page,
-.pdfViewer.removePageBorders.scrollWrapped .page {
-  margin-left: 5px;
-  margin-right: 5px;
+.pdfViewer.removePageBorders:is(.scrollHorizontal, .scrollWrapped) .page {
+  margin-inline: 5px;
 }
 
 .pdfViewer .page canvas {
   margin: 0;
   display: block;
+}
+
+.pdfViewer .page canvas .structTree {
+  contain: strict;
 }
 
 .pdfViewer .page canvas[hidden] {
@@ -1037,25 +1074,30 @@
   height: 100%;
 }
 
-.pdfViewer .page .loadingIcon {
+.pdfViewer .page.loadingIcon::after {
   position: absolute;
-  display: block;
-  left: 0;
   top: 0;
-  right: 0;
-  bottom: 0;
+  left: 0;
+  content: "";
+  width: 100%;
+  height: 100%;
   background: url("images/loading-icon.gif") center no-repeat;
+  display: none;
+  /* Using a delay with background-image doesn't work,
+     consequently we use the display. */
+  transition-property: display;
+  transition-delay: var(--loading-icon-delay);
   z-index: 5;
-}
-.pdfViewer .page .loadingIcon.notVisible {
-  background: none;
+  contain: strict;
 }
 
-.pdfViewer.enablePermissions .textLayer span {
-  -webkit-user-select: none !important;
-     -moz-user-select: none !important;
-          user-select: none !important;
-  cursor: not-allowed;
+.pdfViewer .page.loading::after {
+  display: block;
+}
+
+.pdfViewer .page:not(.loading)::after {
+  transition-property: none;
+  display: none;
 }
 
 .pdfPresentationMode .pdfViewer {
@@ -1073,18 +1115,18 @@
 
 :root {
   --dir-factor: 1;
+  --inline-start: left;
+  --inline-end: right;
+
   --sidebar-width: 200px;
   --sidebar-transition-duration: 200ms;
   --sidebar-transition-timing-function: ease;
-  --scale-select-width: 140px;
 
   --toolbar-icon-opacity: 0.7;
   --doorhanger-icon-opacity: 0.9;
 
   --main-color: rgba(12, 12, 13, 1);
-  --body-bg-color: rgba(237, 237, 240, 1);
-  --progressBar-percent: 0%;
-  --progressBar-end-offset: 0;
+  --body-bg-color: rgba(212, 212, 215, 1);
   --progressBar-color: rgba(10, 132, 255, 1);
   --progressBar-bg-color: rgba(221, 221, 222, 1);
   --progressBar-blend-color: rgba(116, 177, 239, 1);
@@ -1093,10 +1135,10 @@
   --toolbar-icon-bg-color: rgba(0, 0, 0, 1);
   --toolbar-icon-hover-bg-color: rgba(0, 0, 0, 1);
 
-  --sidebar-narrow-bg-color: rgba(237, 237, 240, 0.9);
+  --sidebar-narrow-bg-color: rgba(212, 212, 215, 0.9);
   --sidebar-toolbar-bg-color: rgba(245, 246, 247, 1);
   --toolbar-bg-color: rgba(249, 249, 250, 1);
-  --toolbar-border-color: rgba(204, 204, 204, 1);
+  --toolbar-border-color: rgba(184, 184, 184, 1);
   --toolbar-box-shadow: 0 1px 0 var(--toolbar-border-color);
   --toolbar-border-bottom: none;
   --toolbarSidebar-box-shadow: inset calc(-1px * var(--dir-factor)) 0 0
@@ -1114,10 +1156,12 @@
   --field-bg-color: rgba(255, 255, 255, 1);
   --field-border-color: rgba(187, 187, 188, 1);
   --treeitem-color: rgba(0, 0, 0, 0.8);
+  --treeitem-bg-color: rgba(0, 0, 0, 0.15);
   --treeitem-hover-color: rgba(0, 0, 0, 0.9);
   --treeitem-selected-color: rgba(0, 0, 0, 0.9);
   --treeitem-selected-bg-color: rgba(0, 0, 0, 0.25);
-  --sidebaritem-bg-color: rgba(0, 0, 0, 0.15);
+  --thumbnail-hover-color: rgba(0, 0, 0, 0.1);
+  --thumbnail-selected-color: rgba(0, 0, 0, 0.2);
   --doorhanger-bg-color: rgba(255, 255, 255, 1);
   --doorhanger-border-color: rgba(12, 12, 13, 0.2);
   --doorhanger-hover-color: rgba(12, 12, 13, 1);
@@ -1170,6 +1214,8 @@
 
 [dir="rtl"]:root {
   --dir-factor: -1;
+  --inline-start: right;
+  --inline-end: left;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1198,10 +1244,12 @@
     --field-bg-color: rgba(64, 64, 68, 1);
     --field-border-color: rgba(115, 115, 115, 1);
     --treeitem-color: rgba(255, 255, 255, 0.8);
+    --treeitem-bg-color: rgba(255, 255, 255, 0.15);
     --treeitem-hover-color: rgba(255, 255, 255, 0.9);
     --treeitem-selected-color: rgba(255, 255, 255, 0.9);
     --treeitem-selected-bg-color: rgba(255, 255, 255, 0.25);
-    --sidebaritem-bg-color: rgba(255, 255, 255, 0.15);
+    --thumbnail-hover-color: rgba(255, 255, 255, 0.1);
+    --thumbnail-selected-color: rgba(255, 255, 255, 0.2);
     --doorhanger-bg-color: rgba(74, 74, 79, 1);
     --doorhanger-border-color: rgba(39, 39, 43, 1);
     --doorhanger-hover-color: rgba(249, 249, 250, 1);
@@ -1242,6 +1290,12 @@
     --doorhanger-separator-color: GrayText;
     --toolbarSidebar-box-shadow: none;
     --toolbarSidebar-border-bottom: 1px solid var(--toolbar-border-color);
+  }
+}
+
+@media screen and (prefers-reduced-motion: reduce) {
+  :root {
+    --sidebar-transition-duration: 0;
   }
 }
 
@@ -1316,34 +1370,9 @@ body {
   position: relative;
 }
 
-[dir="ltr"] #sidebarContainer {
-  left: calc(-1 * var(--sidebar-width));
-}
-
-[dir="rtl"] #sidebarContainer {
-  right: calc(-1 * var(--sidebar-width));
-}
-
-[dir="ltr"] #sidebarContainer {
-  border-right: var(--doorhanger-border-color-whcm);
-}
-
-[dir="rtl"] #sidebarContainer {
-  border-left: var(--doorhanger-border-color-whcm);
-}
-
-[dir="ltr"] #sidebarContainer {
-  transition-property: left;
-}
-
-[dir="rtl"] #sidebarContainer {
-  transition-property: right;
-}
-
 #sidebarContainer {
   position: absolute;
-  top: 32px;
-  bottom: 0;
+  inset-block: 32px 0;
   inset-inline-start: calc(-1 * var(--sidebar-width));
   width: var(--sidebar-width);
   visibility: hidden;
@@ -1357,15 +1386,8 @@ body {
   transition-timing-function: var(--sidebar-transition-timing-function);
 }
 
-#outerContainer.sidebarMoving #sidebarContainer,
-#outerContainer.sidebarOpen #sidebarContainer {
+#outerContainer:is(.sidebarMoving, .sidebarOpen) #sidebarContainer {
   visibility: visible;
-}
-[dir="ltr"] #outerContainer.sidebarOpen #sidebarContainer {
-  left: 0;
-}
-[dir="rtl"] #outerContainer.sidebarOpen #sidebarContainer {
-  right: 0;
 }
 #outerContainer.sidebarOpen #sidebarContainer {
   inset-inline-start: 0;
@@ -1373,60 +1395,28 @@ body {
 
 #mainContainer {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  inset: 0;
   min-width: 350px;
 }
 
-[dir="ltr"] #sidebarContent {
-  left: 0;
-}
-
-[dir="rtl"] #sidebarContent {
-  right: 0;
-}
-
 #sidebarContent {
-  top: 32px;
-  bottom: 0;
+  inset-block: 32px 0;
   inset-inline-start: 0;
   overflow: auto;
   position: absolute;
   width: 100%;
-  background-color: rgba(0, 0, 0, 0.1);
   box-shadow: inset calc(-1px * var(--dir-factor)) 0 0 rgba(0, 0, 0, 0.25);
 }
 
 #viewerContainer {
   overflow: auto;
   position: absolute;
-  top: 32px;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  inset: 32px 0 0;
   outline: none;
 }
 #viewerContainer:not(.pdfPresentationMode) {
   transition-duration: var(--sidebar-transition-duration);
   transition-timing-function: var(--sidebar-transition-timing-function);
-}
-
-[dir="ltr"] #outerContainer.sidebarOpen #viewerContainer:not(.pdfPresentationMode) {
-  left: var(--sidebar-width);
-}
-
-[dir="rtl"] #outerContainer.sidebarOpen #viewerContainer:not(.pdfPresentationMode) {
-  right: var(--sidebar-width);
-}
-
-[dir="ltr"] #outerContainer.sidebarOpen #viewerContainer:not(.pdfPresentationMode) {
-  transition-property: left;
-}
-
-[dir="rtl"] #outerContainer.sidebarOpen #viewerContainer:not(.pdfPresentationMode) {
-  transition-property: right;
 }
 
 #outerContainer.sidebarOpen #viewerContainer:not(.pdfPresentationMode) {
@@ -1436,29 +1426,15 @@ body {
 
 .toolbar {
   position: relative;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   z-index: 9999;
   cursor: default;
   font: message-box;
 }
 
-.toolbar input,
-.toolbar button,
-.toolbar select,
-.secondaryToolbar input,
-.secondaryToolbar button,
-.secondaryToolbar a,
-.secondaryToolbar select,
-.editorParamsToolbar input,
-.editorParamsToolbar button,
-.editorParamsToolbar select,
-.findbar input,
-.findbar button,
-.findbar select,
-#sidebarContainer input,
-#sidebarContainer button,
-#sidebarContainer select {
+:is(.toolbar, .editorParamsToolbar, .findbar, #sidebarContainer)
+  :is(input, button, select),
+.secondaryToolbar :is(input, button, a, select) {
   outline: none;
   font: message-box;
 }
@@ -1475,18 +1451,9 @@ body {
   border-bottom: var(--toolbarSidebar-border-bottom);
 }
 
-[dir="ltr"] #sidebarResizer {
-  right: -6px;
-}
-
-[dir="rtl"] #sidebarResizer {
-  left: -6px;
-}
-
 #sidebarResizer {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  inset-block: 0;
   inset-inline-end: -6px;
   width: 6px;
   z-index: 200;
@@ -1508,25 +1475,12 @@ body {
   height: 32px;
 }
 
-[dir="ltr"] #loadingBar {
-  left: 0;
-  right: var(--progressBar-end-offset);
-}
-
-[dir="rtl"] #loadingBar {
-  right: 0;
-  left: var(--progressBar-end-offset);
-}
-
-[dir="ltr"] #loadingBar {
-  transition-property: left;
-}
-
-[dir="rtl"] #loadingBar {
-  transition-property: right;
-}
-
 #loadingBar {
+  /* Define these variables here, and not in :root, to avoid reflowing the
+     entire viewer when updating progress (see issue 15958). */
+  --progressBar-percent: 0%;
+  --progressBar-end-offset: 0;
+
   position: absolute;
   inset-inline: 0 var(--progressBar-end-offset);
   height: 4px;
@@ -1537,14 +1491,6 @@ body {
   transition-timing-function: var(--sidebar-transition-timing-function);
 }
 
-[dir="ltr"] #outerContainer.sidebarOpen #loadingBar {
-  left: var(--sidebar-width);
-}
-
-[dir="rtl"] #outerContainer.sidebarOpen #loadingBar {
-  right: var(--sidebar-width);
-}
-
 #outerContainer.sidebarOpen #loadingBar {
   inset-inline-start: var(--sidebar-width);
 }
@@ -1552,10 +1498,10 @@ body {
 #loadingBar .progress {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   width: 100%;
   transform: scaleX(var(--progressBar-percent));
-  transform-origin: 0 0;
+  transform-origin: calc(50% - 50% * var(--dir-factor)) 0;
   height: 100%;
   background-color: var(--progressBar-color);
   overflow: hidden;
@@ -1564,7 +1510,7 @@ body {
 
 @keyframes progressIndeterminate {
   0% {
-    transform: translateX(-142px);
+    transform: translateX(calc(-142px * var(--dir-factor)));
   }
   100% {
     transform: translateX(0);
@@ -1580,7 +1526,7 @@ body {
 #loadingBar.indeterminate .progress .glimmer {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   height: 100%;
   width: calc(100% + 150px);
   background: repeating-linear-gradient(
@@ -1595,9 +1541,8 @@ body {
   animation: progressIndeterminate 1s linear infinite;
 }
 
-#outerContainer.sidebarResizing #sidebarContainer,
-#outerContainer.sidebarResizing #viewerContainer,
-#outerContainer.sidebarResizing #loadingBar {
+#outerContainer.sidebarResizing
+  :is(#sidebarContainer, #viewerContainer, #loadingBar) {
   /* Improve responsiveness and avoid visual glitches when the sidebar is resized. */
   transition-duration: 0s;
 }
@@ -1618,14 +1563,6 @@ body {
   cursor: default;
 }
 
-[dir="ltr"] .findbar {
-  left: 64px;
-}
-
-[dir="rtl"] .findbar {
-  right: 64px;
-}
-
 .findbar {
   inset-inline-start: 64px;
   min-width: 300px;
@@ -1633,12 +1570,6 @@ body {
 }
 .findbar > div {
   height: 32px;
-}
-[dir="ltr"] .findbar > div#findbarInputContainer {
-  margin-right: 4px;
-}
-[dir="rtl"] .findbar > div#findbarInputContainer {
-  margin-left: 4px;
 }
 .findbar > div#findbarInputContainer {
   -webkit-margin-end: 4px;
@@ -1691,16 +1622,6 @@ body {
   background-color: rgba(255, 102, 102, 1);
 }
 
-[dir="ltr"] .secondaryToolbar,[dir="ltr"] 
-.editorParamsToolbar {
-  right: 4px;
-}
-
-[dir="rtl"] .secondaryToolbar,[dir="rtl"] 
-.editorParamsToolbar {
-  left: 4px;
-}
-
 .secondaryToolbar,
 .editorParamsToolbar {
   padding: 6px 0 10px;
@@ -1719,17 +1640,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-left: 10px;
-  padding-right: 10px;
   padding-inline: 10px;
-}
-
-[dir="ltr"] .editorParamsToolbarContainer .editorParamsLabel {
-  padding-right: 10px;
-}
-
-[dir="rtl"] .editorParamsToolbarContainer .editorParamsLabel {
-  padding-left: 10px;
 }
 
 .editorParamsToolbarContainer .editorParamsLabel {
@@ -1773,25 +1684,9 @@ body {
   margin-bottom: -4px;
 }
 
-[dir="ltr"] #editorInkParamsToolbar {
-  right: 40px;
-}
-
-[dir="rtl"] #editorInkParamsToolbar {
-  left: 40px;
-}
-
 #editorInkParamsToolbar {
   inset-inline-end: 40px;
   background-color: var(--toolbar-bg-color);
-}
-
-[dir="ltr"] #editorFreeTextParamsToolbar {
-  right: 68px;
-}
-
-[dir="rtl"] #editorFreeTextParamsToolbar {
-  left: 68px;
 }
 
 #editorFreeTextParamsToolbar {
@@ -1806,10 +1701,8 @@ body {
     0 0 0 1px var(--doorhanger-border-color);
   border: var(--doorhanger-border-color-whcm);
 }
-.doorHanger:after,
-.doorHanger:before,
-.doorHangerRight:after,
-.doorHangerRight:before {
+:is(.doorHanger, .doorHangerRight)::after,
+:is(.doorHanger, .doorHangerRight)::before {
   bottom: 100%;
   border: 8px solid rgba(0, 0, 0, 0);
   content: " ";
@@ -1819,77 +1712,28 @@ body {
   pointer-events: none;
   opacity: var(--doorhanger-triangle-opacity-whcm);
 }
-[dir="ltr"] .doorHanger:after {
-  left: 10px;
-}
-[dir="rtl"] .doorHanger:after {
-  right: 10px;
-}
-[dir="ltr"] .doorHanger:after {
-  margin-left: -8px;
-}
-[dir="rtl"] .doorHanger:after {
-  margin-right: -8px;
-}
-.doorHanger:after {
+.doorHanger::after {
   inset-inline-start: 10px;
   -webkit-margin-start: -8px;
           margin-inline-start: -8px;
   border-bottom-color: var(--toolbar-bg-color);
 }
-[dir="ltr"] .doorHangerRight:after {
-  right: 10px;
-}
-[dir="rtl"] .doorHangerRight:after {
-  left: 10px;
-}
-[dir="ltr"] .doorHangerRight:after {
-  margin-right: -8px;
-}
-[dir="rtl"] .doorHangerRight:after {
-  margin-left: -8px;
-}
-.doorHangerRight:after {
+.doorHangerRight::after {
   inset-inline-end: 10px;
   -webkit-margin-end: -8px;
           margin-inline-end: -8px;
   border-bottom-color: var(--doorhanger-bg-color);
 }
-.doorHanger:before,
-.doorHangerRight:before {
+:is(.doorHanger, .doorHangerRight)::before {
   border-bottom-color: var(--doorhanger-border-color);
   border-width: 9px;
 }
-[dir="ltr"] .doorHanger:before {
-  left: 10px;
-}
-[dir="rtl"] .doorHanger:before {
-  right: 10px;
-}
-[dir="ltr"] .doorHanger:before {
-  margin-left: -9px;
-}
-[dir="rtl"] .doorHanger:before {
-  margin-right: -9px;
-}
-.doorHanger:before {
+.doorHanger::before {
   inset-inline-start: 10px;
   -webkit-margin-start: -9px;
           margin-inline-start: -9px;
 }
-[dir="ltr"] .doorHangerRight:before {
-  right: 10px;
-}
-[dir="rtl"] .doorHangerRight:before {
-  left: 10px;
-}
-[dir="ltr"] .doorHangerRight:before {
-  margin-right: -9px;
-}
-[dir="rtl"] .doorHangerRight:before {
-  margin-left: -9px;
-}
-.doorHangerRight:before {
+.doorHangerRight::before {
   inset-inline-end: 10px;
   -webkit-margin-end: -9px;
           margin-inline-end: -9px;
@@ -1903,12 +1747,11 @@ body {
   margin: 5px;
 }
 
-#findMsg {
-  color: rgba(251, 0, 0, 1);
+#findMsg[data-status="notFound"] {
+  font-weight: bold;
 }
 
-#findResultsCount:empty,
-#findMsg:empty {
+:is(#findResultsCount, #findMsg):empty {
   display: none;
 }
 
@@ -1918,49 +1761,13 @@ body {
   transform: translateX(-50%);
 }
 
-[dir="ltr"] #toolbarViewerLeft,[dir="ltr"] 
-#toolbarSidebarLeft {
-  float: left;
-}
-
-[dir="rtl"] #toolbarViewerLeft,[dir="rtl"] 
-#toolbarSidebarLeft {
-  float: right;
-}
-
 #toolbarViewerLeft,
 #toolbarSidebarLeft {
-  float: inline-start;
-}
-[dir="ltr"] #toolbarViewerRight,[dir="ltr"] 
-#toolbarSidebarRight {
-  float: right;
-}
-[dir="rtl"] #toolbarViewerRight,[dir="rtl"] 
-#toolbarSidebarRight {
-  float: left;
+  float: var(--inline-start);
 }
 #toolbarViewerRight,
 #toolbarSidebarRight {
-  float: inline-end;
-}
-
-[dir="ltr"] #toolbarViewerLeft > *,[dir="ltr"] 
-#toolbarViewerMiddle > *,[dir="ltr"] 
-#toolbarViewerRight > *,[dir="ltr"] 
-#toolbarSidebarLeft *,[dir="ltr"] 
-#toolbarSidebarRight *,[dir="ltr"] 
-.findbar * {
-  float: left;
-}
-
-[dir="rtl"] #toolbarViewerLeft > *,[dir="rtl"] 
-#toolbarViewerMiddle > *,[dir="rtl"] 
-#toolbarViewerRight > *,[dir="rtl"] 
-#toolbarSidebarLeft *,[dir="rtl"] 
-#toolbarSidebarRight *,[dir="rtl"] 
-.findbar * {
-  float: right;
+  float: var(--inline-end);
 }
 
 #toolbarViewerLeft > *,
@@ -1970,36 +1777,16 @@ body {
 #toolbarSidebarRight *,
 .findbar * {
   position: relative;
-  float: inline-start;
-}
-
-[dir="ltr"] #toolbarViewerLeft {
-  padding-left: 1px;
-}
-
-[dir="rtl"] #toolbarViewerLeft {
-  padding-right: 1px;
+  float: var(--inline-start);
 }
 
 #toolbarViewerLeft {
   -webkit-padding-start: 1px;
           padding-inline-start: 1px;
 }
-[dir="ltr"] #toolbarViewerRight {
-  padding-right: 1px;
-}
-[dir="rtl"] #toolbarViewerRight {
-  padding-left: 1px;
-}
 #toolbarViewerRight {
   -webkit-padding-end: 1px;
           padding-inline-end: 1px;
-}
-[dir="ltr"] #toolbarSidebarRight {
-  padding-right: 2px;
-}
-[dir="rtl"] #toolbarSidebarRight {
-  padding-left: 2px;
 }
 #toolbarSidebarRight {
   -webkit-padding-end: 2px;
@@ -2010,14 +1797,8 @@ body {
   margin: 2px;
   display: inline-block;
 }
-[dir="ltr"] .splitToolbarButton > .toolbarButton {
-  float: left;
-}
-[dir="rtl"] .splitToolbarButton > .toolbarButton {
-  float: right;
-}
 .splitToolbarButton > .toolbarButton {
-  float: inline-start;
+  float: var(--inline-start);
 }
 
 .toolbarButton,
@@ -2030,13 +1811,11 @@ body {
   outline: none;
 }
 
-.dialogButton:hover,
-.dialogButton:focus-visible {
+.dialogButton:is(:hover, :focus-visible) {
   background-color: var(--dialog-button-hover-bg-color);
 }
 
-.dialogButton:hover > span,
-.dialogButton:focus-visible > span {
+.dialogButton:is(:hover, :focus-visible) > span {
   color: var(--dialog-button-hover-color);
 }
 
@@ -2047,14 +1826,11 @@ body {
   overflow: hidden;
 }
 
-.toolbarButton[disabled],
-.secondaryToolbarButton[disabled],
-.dialogButton[disabled] {
+:is(.toolbarButton, .secondaryToolbarButton, .dialogButton)[disabled] {
   opacity: 0.5;
 }
 
-.splitToolbarButton > .toolbarButton:hover,
-.splitToolbarButton > .toolbarButton:focus-visible,
+.splitToolbarButton > .toolbarButton:is(:hover, :focus-visible),
 .dropdownToolbarButton:hover {
   background-color: var(--button-hover-color);
 }
@@ -2062,27 +1838,13 @@ body {
   position: relative;
   margin: 0;
 }
-[dir="ltr"] #toolbarSidebar .splitToolbarButton > .toolbarButton {
-  margin-right: 2px;
-}
-[dir="rtl"] #toolbarSidebar .splitToolbarButton > .toolbarButton {
-  margin-left: 2px;
-}
 #toolbarSidebar .splitToolbarButton > .toolbarButton {
   -webkit-margin-end: 2px;
           margin-inline-end: 2px;
 }
 
-[dir="ltr"] .splitToolbarButtonSeparator {
-  float: left;
-}
-
-[dir="rtl"] .splitToolbarButtonSeparator {
-  float: right;
-}
-
 .splitToolbarButtonSeparator {
-  float: inline-start;
+  float: var(--inline-start);
   margin: 4px 0;
   width: 1px;
   height: 20px;
@@ -2108,45 +1870,38 @@ body {
   box-sizing: border-box;
 }
 
-.toolbarButton:hover,
-.toolbarButton:focus-visible {
+.toolbarButton:is(:hover, :focus-visible) {
   background-color: var(--button-hover-color);
 }
-.secondaryToolbarButton:hover,
-.secondaryToolbarButton:focus-visible {
+.secondaryToolbarButton:is(:hover, :focus-visible) {
   background-color: var(--doorhanger-hover-bg-color);
   color: var(--doorhanger-hover-color);
 }
 
-.toolbarButton.toggled,
-.splitToolbarButton.toggled > .toolbarButton.toggled,
-.secondaryToolbarButton.toggled {
+:is(.toolbarButton, .secondaryToolbarButton).toggled,
+.splitToolbarButton.toggled > .toolbarButton.toggled {
   background-color: var(--toggled-btn-bg-color);
   color: var(--toggled-btn-color);
 }
 
-.toolbarButton.toggled::before,
-.secondaryToolbarButton.toggled::before {
+:is(.toolbarButton, .secondaryToolbarButton).toggled::before {
   background-color: var(--toggled-btn-color);
 }
 
-.toolbarButton.toggled:hover:active,
-.splitToolbarButton.toggled > .toolbarButton.toggled:hover:active,
-.secondaryToolbarButton.toggled:hover:active {
+:is(.toolbarButton, .secondaryToolbarButton).toggled:hover:active,
+.splitToolbarButton.toggled > .toolbarButton.toggled:hover:active {
   background-color: var(--toggled-hover-active-btn-color);
 }
 
 .dropdownToolbarButton {
+  /* Define this variable here, and not in :root, to avoid reflowing the
+     entire viewer when updating the width. */
+  --scale-select-width: 140px;
+
   width: var(--scale-select-width);
   padding: 0;
   background-color: var(--dropdown-btn-bg-color);
   border: var(--dropdown-btn-border);
-}
-[dir="ltr"] .dropdownToolbarButton::after {
-  right: 6px;
-}
-[dir="rtl"] .dropdownToolbarButton::after {
-  left: 6px;
 }
 .dropdownToolbarButton::after {
   top: 6px;
@@ -2154,14 +1909,6 @@ body {
   pointer-events: none;
   -webkit-mask-image: var(--toolbarButton-menuArrow-icon);
           mask-image: var(--toolbarButton-menuArrow-icon);
-}
-
-[dir="ltr"] .dropdownToolbarButton > select {
-  padding-left: 6px;
-}
-
-[dir="rtl"] .dropdownToolbarButton > select {
-  padding-right: 6px;
 }
 
 .dropdownToolbarButton > select {
@@ -2179,8 +1926,7 @@ body {
   border: none;
   background-color: var(--dropdown-btn-bg-color);
 }
-.dropdownToolbarButton > select:hover,
-.dropdownToolbarButton > select:focus-visible {
+.dropdownToolbarButton > select:is(:hover, :focus-visible) {
   background-color: var(--button-hover-color);
   color: var(--toggled-btn-color);
 }
@@ -2195,10 +1941,8 @@ body {
   height: 1px;
 }
 
-.toolbarButton::before,
-.secondaryToolbarButton::before,
-.dropdownToolbarButton::after,
-.treeItemToggler::before {
+:is(.toolbarButton, .secondaryToolbarButton, .treeItemToggler)::before,
+.dropdownToolbarButton::after {
   /* All matching images have a size of 16x16
    * All relevant containers have a size of 28x28 */
   position: absolute;
@@ -2212,9 +1956,7 @@ body {
           mask-size: cover;
 }
 
-.dropdownToolbarButton:hover::after,
-.dropdownToolbarButton:focus-visible::after,
-.dropdownToolbarButton:active::after {
+.dropdownToolbarButton:is(:hover, :focus-visible, :active)::after {
   background-color: var(--toolbar-icon-hover-bg-color);
 }
 
@@ -2224,19 +1966,9 @@ body {
   left: 6px;
 }
 
-.toolbarButton:hover::before,
-.toolbarButton:focus-visible::before,
-.secondaryToolbarButton:hover::before,
-.secondaryToolbarButton:focus-visible::before {
+.toolbarButton:is(:hover, :focus-visible)::before,
+.secondaryToolbarButton:is(:hover, :focus-visible)::before {
   background-color: var(--toolbar-icon-hover-bg-color);
-}
-
-[dir="ltr"] .secondaryToolbarButton::before {
-  left: 12px;
-}
-
-[dir="rtl"] .secondaryToolbarButton::before {
-  right: 12px;
 }
 
 .secondaryToolbarButton::before {
@@ -2308,14 +2040,12 @@ body {
           mask-image: var(--toolbarButton-print-icon);
 }
 
-#openFile::before,
-#secondaryOpenFile::before {
+:is(#openFile, #secondaryOpenFile)::before {
   -webkit-mask-image: var(--toolbarButton-openFile-icon);
           mask-image: var(--toolbarButton-openFile-icon);
 }
 
-#download::before,
-#secondaryDownload::before {
+:is(#download, #secondaryDownload)::before {
   -webkit-mask-image: var(--toolbarButton-download-icon);
           mask-image: var(--toolbarButton-download-icon);
 }
@@ -2324,8 +2054,7 @@ a.secondaryToolbarButton {
   padding-top: 5px;
   text-decoration: none;
 }
-a.toolbarButton[href="#"],
-a.secondaryToolbarButton[href="#"] {
+a:is(.toolbarButton, .secondaryToolbarButton)[href="#"] {
   opacity: 0.5;
   pointer-events: none;
 }
@@ -2367,14 +2096,6 @@ a.secondaryToolbarButton[href="#"] {
           mask-image: var(--toolbarButton-search-icon);
 }
 
-[dir="ltr"] .pdfSidebarNotification::after {
-  right: 2px;
-}
-
-[dir="rtl"] .pdfSidebarNotification::after {
-  left: 2px;
-}
-
 .pdfSidebarNotification::after {
   position: absolute;
   display: inline-block;
@@ -2386,22 +2107,6 @@ a.secondaryToolbarButton[href="#"] {
   height: 9px;
   width: 9px;
   border-radius: 50%;
-}
-
-[dir="ltr"] .secondaryToolbarButton {
-  padding-left: 36px;
-}
-
-[dir="rtl"] .secondaryToolbarButton {
-  padding-right: 36px;
-}
-
-[dir="ltr"] .secondaryToolbarButton {
-  text-align: left;
-}
-
-[dir="rtl"] .secondaryToolbarButton {
-  text-align: right;
 }
 
 .secondaryToolbarButton {
@@ -2419,12 +2124,6 @@ a.secondaryToolbarButton[href="#"] {
   border-radius: 0;
   box-sizing: border-box;
   display: inline-block;
-}
-[dir="ltr"] .secondaryToolbarButton > span {
-  padding-right: 4px;
-}
-[dir="rtl"] .secondaryToolbarButton > span {
-  padding-left: 4px;
 }
 .secondaryToolbarButton > span {
   -webkit-padding-end: 4px;
@@ -2530,14 +2229,6 @@ a.secondaryToolbarButton[href="#"] {
   outline: none;
 }
 
-[dir="ltr"] .toolbarField[type="checkbox"] {
-  margin-left: 7px;
-}
-
-[dir="rtl"] .toolbarField[type="checkbox"] {
-  margin-right: 7px;
-}
-
 .toolbarField[type="checkbox"] {
   opacity: 0;
   position: absolute !important;
@@ -2549,13 +2240,20 @@ a.secondaryToolbarButton[href="#"] {
 
 #pageNumber {
   -moz-appearance: textfield; /* hides the spinner in moz */
-  text-align: right;
+  text-align: end;
   width: 40px;
+  background-size: 0 0;
+  transition-property: none;
 }
 #pageNumber.visiblePageIsLoading {
   background-image: var(--loading-icon);
   background-repeat: no-repeat;
-  background-position: 3px;
+  background-position: calc(50% - 42% * var(--dir-factor));
+  background-size: 16px 16px;
+  /* Using a delay with background-image doesn't work,
+     consequently we use background-size. */
+  transition-property: background-size;
+  transition-delay: var(--loading-icon-delay);
 }
 #pageNumber::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -2580,14 +2278,6 @@ a.secondaryToolbarButton[href="#"] {
   cursor: default;
 }
 
-[dir="ltr"] #numPages.toolbarLabel {
-  padding-left: 3px;
-}
-
-[dir="rtl"] #numPages.toolbarLabel {
-  padding-right: 3px;
-}
-
 #numPages.toolbarLabel {
   -webkit-padding-start: 3px;
           padding-inline-start: 3px;
@@ -2599,8 +2289,7 @@ a.secondaryToolbarButton[href="#"] {
 #layersView {
   position: absolute;
   width: calc(100% - 8px);
-  top: 0;
-  bottom: 0;
+  inset-block: 0;
   padding: 4px 4px 0;
   overflow: auto;
   -webkit-user-select: none;
@@ -2612,94 +2301,60 @@ a.secondaryToolbarButton[href="#"] {
   padding: 10px 30px 0;
 }
 
-#thumbnailView > a:active,
-#thumbnailView > a:focus {
+#thumbnailView > a:is(:active, :focus) {
   outline: 0;
 }
 
-[dir="ltr"] .thumbnail {
-  float: left;
-}
-
-[dir="rtl"] .thumbnail {
-  float: right;
-}
-
 .thumbnail {
-  float: inline-start;
+  /* Define these variables here, and not in :root, since the individual
+     thumbnails may have different sizes. */
+  --thumbnail-width: 0;
+  --thumbnail-height: 0;
+
+  float: var(--inline-start);
+  width: var(--thumbnail-width);
+  height: var(--thumbnail-height);
   margin: 0 10px 5px;
+  padding: 1px;
+  border: 7px solid transparent;
+  border-radius: 2px;
 }
 
 #thumbnailView > a:last-of-type > .thumbnail {
   margin-bottom: 10px;
 }
-#thumbnailView > a:last-of-type > .thumbnail:not([data-loaded]) {
-  margin-bottom: 9px;
-}
 
-.thumbnail:not([data-loaded]) {
-  border: 1px dashed rgba(132, 132, 132, 1);
-  margin: -1px 9px 4px;
+a:focus > .thumbnail,
+.thumbnail:hover {
+  border-color: var(--thumbnail-hover-color);
+}
+.thumbnail.selected {
+  border-color: var(--thumbnail-selected-color) !important;
 }
 
 .thumbnailImage {
-  border: 1px solid rgba(0, 0, 0, 0);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-  opacity: 0.8;
-  z-index: 99;
-  background-color: rgba(255, 255, 255, 1);
-  background-clip: content-box;
-}
-
-.thumbnailSelectionRing {
-  border-radius: 2px;
-  padding: 7px;
-}
-
-a:focus > .thumbnail > .thumbnailSelectionRing > .thumbnailImage,
-.thumbnail:hover > .thumbnailSelectionRing > .thumbnailImage {
+  width: var(--thumbnail-width);
+  height: var(--thumbnail-height);
   opacity: 0.9;
 }
-
-a:focus > .thumbnail > .thumbnailSelectionRing,
-.thumbnail:hover > .thumbnailSelectionRing {
-  background-color: var(--sidebaritem-bg-color);
-  background-clip: padding-box;
-  color: rgba(255, 255, 255, 0.9);
+a:focus > .thumbnail > .thumbnailImage,
+.thumbnail:hover > .thumbnailImage {
+  opacity: 0.95;
+}
+.thumbnail.selected > .thumbnailImage {
+  opacity: 1 !important;
 }
 
-.thumbnail.selected > .thumbnailSelectionRing > .thumbnailImage {
-  opacity: 1;
-}
-
-.thumbnail.selected > .thumbnailSelectionRing {
-  background-color: var(--sidebaritem-bg-color);
-  background-clip: padding-box;
-  color: rgba(255, 255, 255, 1);
-}
-
-[dir="ltr"] .treeWithDeepNesting > .treeItem,[dir="ltr"] 
-.treeItem > .treeItems {
-  margin-left: 20px;
-}
-
-[dir="rtl"] .treeWithDeepNesting > .treeItem,[dir="rtl"] 
-.treeItem > .treeItems {
-  margin-right: 20px;
+.thumbnail:not([data-loaded]) > .thumbnailImage {
+  width: calc(var(--thumbnail-width) - 2px);
+  height: calc(var(--thumbnail-height) - 2px);
+  border: 1px dashed rgba(132, 132, 132, 1);
 }
 
 .treeWithDeepNesting > .treeItem,
 .treeItem > .treeItems {
   -webkit-margin-start: 20px;
           margin-inline-start: 20px;
-}
-
-[dir="ltr"] .treeItem > a {
-  padding-left: 4px;
-}
-
-[dir="rtl"] .treeItem > a {
-  padding-right: 4px;
 }
 
 .treeItem > a {
@@ -2726,47 +2381,21 @@ a:focus > .thumbnail > .thumbnailSelectionRing,
 #layersView .treeItem > a * {
   cursor: pointer;
 }
-[dir="ltr"] #layersView .treeItem > a > label {
-  padding-left: 4px;
-}
-[dir="rtl"] #layersView .treeItem > a > label {
-  padding-right: 4px;
-}
 #layersView .treeItem > a > label {
   -webkit-padding-start: 4px;
           padding-inline-start: 4px;
 }
-[dir="ltr"] #layersView .treeItem > a > label > input {
-  float: left;
-}
-[dir="rtl"] #layersView .treeItem > a > label > input {
-  float: right;
-}
 #layersView .treeItem > a > label > input {
-  float: inline-start;
+  float: var(--inline-start);
   margin-top: 1px;
-}
-
-[dir="ltr"] .treeItemToggler {
-  float: left;
-}
-
-[dir="rtl"] .treeItemToggler {
-  float: right;
 }
 
 .treeItemToggler {
   position: relative;
-  float: inline-start;
+  float: var(--inline-start);
   height: 0;
   width: 0;
   color: rgba(255, 255, 255, 0.5);
-}
-[dir="ltr"] .treeItemToggler::before {
-  right: 4px;
-}
-[dir="rtl"] .treeItemToggler::before {
-  left: 4px;
 }
 .treeItemToggler::before {
   inset-inline-end: 4px;
@@ -2791,7 +2420,7 @@ a:focus > .thumbnail > .thumbnailSelectionRing,
 .treeItemToggler:hover + a,
 .treeItemToggler:hover ~ .treeItems,
 .treeItem > a:hover {
-  background-color: var(--sidebaritem-bg-color);
+  background-color: var(--treeitem-bg-color);
   background-clip: padding-box;
   border-radius: 2px;
   color: var(--treeitem-hover-color);
@@ -2818,9 +2447,6 @@ dialog {
   border: 1px solid rgba(0, 0, 0, 0.5);
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-}
-dialog::-webkit-backdrop {
-  background-color: rgba(0, 0, 0, 0.2);
 }
 dialog::backdrop {
   background-color: rgba(0, 0, 0, 0.2);
@@ -2865,12 +2491,6 @@ dialog :link {
 #documentPropertiesDialog {
   text-align: left;
 }
-[dir="ltr"] #documentPropertiesDialog .row > * {
-  text-align: left;
-}
-[dir="rtl"] #documentPropertiesDialog .row > * {
-  text-align: right;
-}
 #documentPropertiesDialog .row > * {
   min-width: 100px;
   text-align: start;
@@ -2900,10 +2520,7 @@ dialog :link {
   position: fixed;
   background: rgba(0, 0, 0, 0);
   display: block;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   overflow: hidden;
   z-index: 50000; /* should be higher than anything else in PDF.js! */
 }
@@ -2956,8 +2573,7 @@ dialog :link {
     position: relative;
   }
 
-  #printContainer > .printedPage canvas,
-  #printContainer > .printedPage img {
+  #printContainer > .printedPage :is(canvas, img) {
     /* The intrinsic canvas / image size will make sure that we fit the page. */
     max-width: 100%;
     max-height: 100%;
@@ -2985,12 +2601,6 @@ dialog :link {
 @media all and (max-width: 840px) {
   #sidebarContainer {
     background-color: var(--sidebar-narrow-bg-color);
-  }
-  [dir="ltr"] #outerContainer.sidebarOpen #viewerContainer {
-    left: 0 !important;
-  }
-  [dir="rtl"] #outerContainer.sidebarOpen #viewerContainer {
-    right: 0 !important;
   }
   #outerContainer.sidebarOpen #viewerContainer {
     inset-inline-start: 0 !important;
@@ -3022,12 +2632,6 @@ dialog :link {
   }
   .toolbarButtonSpacer {
     width: 0;
-  }
-  [dir="ltr"] .findbar {
-    left: 34px;
-  }
-  [dir="rtl"] .findbar {
-    right: 34px;
   }
   .findbar {
     inset-inline-start: 34px;

@@ -45,16 +45,17 @@ $LVT         = [\p{Grapheme_Cluster_Break = LVT}];
 
 $Extended_Pict = [:ExtPict:];
 
+# rdar:// 
 # The following classes are no longer needed for ICU rules but may
 # still be needed for WebKit rules in charClasses.txt
-# The first  is still valid using the Unicode 11 properties:
+# The first should still be valid using current properties:
 #  $EmojiNRK    = [[\p{Emoji}] - [\p{Grapheme_Cluster_Break = Regional_Indicator}*\u00230-9©®™〰〽]];
-# The other two are no longer valid because no characters have GCB=EB or GCB=EBG anymore:
+# The other two are no longer valid as originally defined because no characters have GCB=EB or GCB=EBG anymore:
 #  $E_Base      = [[\p{Grapheme_Cluster_Break = EB}];
 #  $E_Base_GAZ  = [\p{Grapheme_Cluster_Break = EBG}];
 # They must be replaced with updated versions as follows
 #  $E_Base      = [:EBase:];
-#  $E_Base_GAZ  = [\U0001F466-\U0001F469\U0001F91D\U0001F9D1]; # EBase that also occur after ZWJ in emoji-zwj-sequences
+#  $E_Base_GAZ  = [\U0001F466-\U0001F469\U0001F91D\U0001F9D1\U0001FAF2]; # EBase that also occur after ZWJ in emoji-zwj-sequences
 
 ## -------------------------------------------------
 !!chain;

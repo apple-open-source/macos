@@ -1,20 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceProject</key>
 	<string>zlib</string>
 	<key>OpenSourceVersion</key>
-	<string>1.2.11</string>
+	<string>1.2.12</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.zlib.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://zlib.net/zlib-1.2.11.tar.gz</string>
+	<string>https://zlib.net/zlib-1.2.12.tar.gz</string>
 	<key>OpenSourceMD5</key>
-	<string>1c9f62f0778697a09d36121ead88e08e</string>
+	<string>5fc414a9726be31427b440b434d05f78</string>
 	<key>OpenSourceImportDate</key>
-	<string>2017-06-07</string>
+	<string>2022-08-26</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>Minor changes to configure script.</string>
+		<string>Minor changes to fix building</string>
+		<string>Some performance optimizations</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>other</string>

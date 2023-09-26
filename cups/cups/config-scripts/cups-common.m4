@@ -338,7 +338,7 @@ INSTALLXPC=""
 case $host_os_name in
         darwin*)
                 BACKLIBS="$BACKLIBS -framework IOKit"
-                SERVERLIBS="$SERVERLIBS -framework IOKit -weak_framework ApplicationServices"
+                SERVERLIBS="$SERVERLIBS -framework IOKit -weak_framework ApplicationServices -lManagedConfigurationFiles"
                 LIBS="-framework CoreFoundation -framework Security $LIBS"
 
 		dnl Check for framework headers...

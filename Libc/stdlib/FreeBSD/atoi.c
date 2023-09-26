@@ -38,16 +38,13 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/atoi.c,v 1.6 2007/01/09 00:28:09 imp Exp
 #include <stdlib.h>
 
 int
-atoi(str)
-	const char *str;
+atoi(const char *str)
 {
 	return (int)strtol_l(str, (char **)NULL, 10, __current_locale());
 }
 
 int
-atoi_l(str, loc)
-	const char *str;
-	locale_t loc;
+atoi_l(const char *str, locale_t loc)
 {
 	/* no need to call NORMALIZE_LOCALE(loc) because strtol_l will */
 	return (int)strtol_l(str, (char **)NULL, 10, loc);

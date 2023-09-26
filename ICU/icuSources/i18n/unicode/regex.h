@@ -22,7 +22,7 @@
 
 /**
  * \file
- * \brief  C++ API:  Regular Expressions
+ * \brief C++ API: Regular Expressions
  *
  * The ICU API for processing regular expressions consists of two classes,
  *  `RegexPattern` and `RegexMatcher`.
@@ -360,9 +360,8 @@ private:
      * `utext_openUChars(UText *ut, const char16_t *text, int64_t textLength, UErrorCode *status);`
      *
      */
-    //FIXME: unimplemented 
-    //RegexMatcher *matcher(const char16_t *input,
-    //    UErrorCode          &status) const;
+    RegexMatcher *matcher(const char16_t *input,
+        UErrorCode          &status) const = delete;
 public:
 
 
@@ -749,9 +748,8 @@ private:
      * or in a UText, using
      * `utext_openUChars(UText *ut, const char16_t *text, int64_t textLength, UErrorCode *status);`
      */
-    // FIXME: unimplemented ... intentionally?
-    //RegexMatcher(const UnicodeString &regexp, const char16_t *input,
-    //    uint32_t flags, UErrorCode &status);
+    RegexMatcher(const UnicodeString &regexp, const char16_t *input,
+        uint32_t flags, UErrorCode &status) = delete;
 public:
 
 
@@ -1159,8 +1157,7 @@ private:
      * `utext_openUChars(UText *ut, const char16_t *text, int64_t textLength, UErrorCode *status);`
      *
      */
-    // FIXME: unimplemented 
-    //RegexMatcher &reset(const char16_t *input);
+    RegexMatcher &reset(const char16_t *input) = delete;
 public:
 
    /**

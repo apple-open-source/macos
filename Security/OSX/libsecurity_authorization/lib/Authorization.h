@@ -115,7 +115,8 @@ typedef CF_OPTIONS(UInt32, AuthorizationFlags) {
 	kAuthorizationFlagPartialRights			= (1 << 2),
 	kAuthorizationFlagDestroyRights			= (1 << 3),
 	kAuthorizationFlagPreAuthorize			= (1 << 4),
-	
+    kAuthorizationFlagSkipInternalAuth      = (1 << 9),
+
 	// private bits (do not use)
 	kAuthorizationFlagNoData                = (1 << 20)
 };

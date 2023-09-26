@@ -199,7 +199,7 @@ OSStatus server_init(void)
     gAuthTokenMap = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kAuthTokenKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     require_action(gAuthTokenMap != NULL, done, status = errAuthorizationInternal);
     
-    gDatabase = authdb_create();
+    gDatabase = authdb_create(false);
     require_action(gDatabase != NULL, done, status = errAuthorizationInternal);
     
     // check to see if we have an updates
@@ -797,30 +797,17 @@ static bool _prompt_for_modifications(process_t __unused proc, rule_t __unused r
 //    if (ruleReq && process_verify_requirment(proc, ruleReq)) {
 //        return false;
 //    }
+  
+    // do not prompt if first party and has the entitlement
+    CFTypeRef modifyEntitlement = process_copy_entitlement_value(proc, "com.apple.private.authorization.modify.all");
+    if (modifyEntitlement && (CFGetTypeID(modifyEntitlement) == CFBooleanGetTypeID()) && modifyEntitlement == kCFBooleanTrue) {
+        os_log_debug(AUTHD_LOG, "server: caller allowed to modify all");
+        CFReleaseSafe(modifyEntitlement);
+        return false;
+    }
+    CFReleaseSafe(modifyEntitlement);
     
     return true;
-}
-
-static CFIndex _get_mechanism_index(CFArrayRef mechanisms, CFStringRef m_name)
-{
-    CFIndex index = -1;
-    require(mechanisms, done);
-
-    CFIndex c = CFArrayGetCount(mechanisms);
-    CFStringRef i_name = NULL;
-    for (CFIndex i = 0; i < c; ++i)
-    {
-        i_name = CFArrayGetValueAtIndex(mechanisms, i);
-        if (i_name && (CFGetTypeID(m_name) == CFStringGetTypeID())) {
-            if (CFStringCompare(i_name, m_name, kCFCompareCaseInsensitive) == kCFCompareEqualTo) {
-                index = i;
-                break;
-            }
-        }
-    }
-
-done:
-    return index;
 }
 
 static int64_t _process_get_identifier_count(process_t proc, authdb_connection_t conn)

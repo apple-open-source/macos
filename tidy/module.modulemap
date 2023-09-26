@@ -1,4 +1,4 @@
-module tidy [system] [extern_c] {
+module tidy [system] {
     link "tidy"
 
     module buffio {

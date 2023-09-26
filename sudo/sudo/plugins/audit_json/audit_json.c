@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2020-2021 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -68,7 +68,7 @@ static struct audit_state {
 } state = { -1 };
 
 /* Filter out entries in settings[] that are not really options. */
-char * const settings_filter[] = {
+const char * const settings_filter[] = {
     "debug_flags",
     "max_groups",
     "network_addrs",
@@ -122,7 +122,7 @@ audit_json_open(unsigned int version, sudo_conv_t conversation,
     }
     if (plugin_path != NULL && !TAILQ_EMPTY(&debug_files)) {
 	audit_debug_instance =
-	    sudo_debug_register(plugin_path, NULL, NULL, &debug_files);
+	    sudo_debug_register(plugin_path, NULL, NULL, &debug_files, -1);
 	if (audit_debug_instance == SUDO_DEBUG_INSTANCE_ERROR) {
 	    *errstr = U_("unable to initialize debugging");
 	    goto bad;
@@ -189,7 +189,7 @@ done:
 }
 
 static bool
-add_key_value(struct json_container *json, const char *str)
+add_key_value(struct json_container *jsonc, const char *str)
 {
     struct json_value json_value;
     const char *cp, *errstr;
@@ -216,9 +216,22 @@ add_key_value(struct json_container *json, const char *str)
 
     /* Check for bool or number. */
     json_value.type = JSON_NULL;
-    switch (*cp) {
-    case '+': case '-': case '0': case '1': case '2': case '3':
-    case '4': case '5': case '6': case '7': case '8': case '9':
+    switch (cp[0]) {
+    case '0':
+	if (cp[1] == '\0') {
+	    /* Only treat a plain "0" as number 0. */
+	    json_value.u.number = 0;
+	    json_value.type = JSON_NUMBER;
+	}
+	break;
+    case '+': case '-':
+	if (cp[1] == '0') {
+	    /* Encode octal numbers as strings. */
+	    break;
+	}
+	FALLTHROUGH;
+    case '1': case '2': case '3': case '4': case '5':
+    case '6': case '7': case '8': case '9':
 	json_value.u.number = sudo_strtonum(cp, INT_MIN, INT_MAX, &errstr);
 	if (errstr == NULL)
 	    json_value.type = JSON_NUMBER;
@@ -243,35 +256,35 @@ add_key_value(struct json_container *json, const char *str)
 	json_value.u.string = cp;
     }
 
-    debug_return_bool(sudo_json_add_value(json, name, &json_value));
+    debug_return_bool(sudo_json_add_value(jsonc, name, &json_value));
 }
 
 static bool
-add_array(struct json_container *json, const char *name, char * const * array)
+add_array(struct json_container *jsonc, const char *name, char * const * array)
 {
     const char *cp;
     struct json_value json_value;
     debug_decl(add_array, SUDO_DEBUG_PLUGIN);
 
-    if (!sudo_json_open_array(json, name))
+    if (!sudo_json_open_array(jsonc, name))
 	debug_return_bool(false);
     while ((cp = *array) != NULL) {
 	json_value.type = JSON_STRING;
 	json_value.u.string = cp;
-	if (!sudo_json_add_value(json, name, &json_value))
+	if (!sudo_json_add_value(jsonc, name, &json_value))
 	    debug_return_bool(false);
 	array++;
     }
-    if (!sudo_json_close_array(json))
+    if (!sudo_json_close_array(jsonc))
 	debug_return_bool(false);
 
     debug_return_bool(true);
 }
 
 static bool
-filter_key_value(const char *kv, char * const * filter)
+filter_key_value(const char *kv, const char * const * filter)
 {
-    char * const *cur;
+    const char * const *cur;
     const char *cp;
     size_t namelen;
 
@@ -286,8 +299,8 @@ filter_key_value(const char *kv, char * const * filter)
 }
 
 static bool
-add_key_value_object(struct json_container *json, const char *name,
-	char * const * array, char * const * filter)
+add_key_value_object(struct json_container *jsonc, const char *name,
+	char * const * array, const char * const * filter)
 {
     char * const *cur;
     const char *cp;
@@ -305,15 +318,15 @@ add_key_value_object(struct json_container *json, const char *name,
 	}
     }
     if (!empty) {
-	if (!sudo_json_open_object(json, name))
+	if (!sudo_json_open_object(jsonc, name))
 	    goto bad;
 	for (cur = array; (cp = *cur) != NULL; cur++) {
 	    if (filter_key_value(cp, filter))
 		continue;
-	    if (!add_key_value(json, cp))
+	    if (!add_key_value(jsonc, cp))
 		goto bad;
 	}
-	if (!sudo_json_close_object(json))
+	if (!sudo_json_close_object(jsonc))
 	    goto bad;
     }
 
@@ -323,44 +336,51 @@ bad:
 }
 
 static bool
-add_timestamp(struct json_container *json, struct timespec *ts)
+add_timestamp(struct json_container *jsonc, struct timespec *ts)
 {
     struct json_value json_value;
     time_t secs = ts->tv_sec;
     char timebuf[1024];
-    struct tm *tm;
+    struct tm gmt;
+    int len;
     debug_decl(add_timestamp, SUDO_DEBUG_PLUGIN);
 
-    if ((tm = gmtime(&secs)) == NULL)
+    if (gmtime_r(&secs, &gmt) == NULL)
 	debug_return_bool(false);
 
-    sudo_json_open_object(json, "timestamp");
+    sudo_json_open_object(jsonc, "timestamp");
 
     json_value.type = JSON_NUMBER;
     json_value.u.number = ts->tv_sec;
-    sudo_json_add_value(json, "seconds", &json_value);
+    sudo_json_add_value(jsonc, "seconds", &json_value);
 
     json_value.type = JSON_NUMBER;
     json_value.u.number = ts->tv_nsec;
-    sudo_json_add_value(json, "nanoseconds", &json_value);
+    sudo_json_add_value(jsonc, "nanoseconds", &json_value);
 
-    strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", tm);
-    json_value.type = JSON_STRING;
-    json_value.u.string = timebuf;
-    sudo_json_add_value(json, "iso8601", &json_value);
+    timebuf[sizeof(timebuf) - 1] = '\0';
+    len = strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", &gmt);
+    if (len != 0 && timebuf[sizeof(timebuf) - 1] == '\0'){
+	json_value.type = JSON_STRING;
+	json_value.u.string = timebuf;
+	sudo_json_add_value(jsonc, "iso8601", &json_value);
+    }
 
-    strftime(timebuf, sizeof(timebuf), "%a %b %e %H:%M:%S %Z %Y", tm);
-    json_value.type = JSON_STRING;
-    json_value.u.string = timebuf;
-    sudo_json_add_value(json, "localtime", &json_value);
+    timebuf[sizeof(timebuf) - 1] = '\0';
+    len = strftime(timebuf, sizeof(timebuf), "%a %b %e %H:%M:%S %Z %Y", &gmt);
+    if (len != 0 && timebuf[sizeof(timebuf) - 1] == '\0'){
+	json_value.type = JSON_STRING;
+	json_value.u.string = timebuf;
+	sudo_json_add_value(jsonc, "localtime", &json_value);
+    }
 
-    sudo_json_close_object(json);
+    sudo_json_close_object(jsonc);
 
     debug_return_bool(true);
 }
 
 static int
-audit_write_json(struct json_container *json)
+audit_write_json(struct json_container *jsonc)
 {
     struct stat sb;
     int ret = -1;
@@ -390,7 +410,7 @@ audit_write_json(struct json_container *json)
 	goto done;
     }
 
-    fputs(sudo_json_get_buf(json), state.log_fp);
+    fputs(sudo_json_get_buf(jsonc), state.log_fp);
     fputs("\n}\n", state.log_fp);
     fflush(state.log_fp);
     (void)sudo_lock_file(fileno(state.log_fp), SUDO_UNLOCK);
@@ -406,7 +426,7 @@ done:
 static int
 audit_write_exit_record(int exit_status, int error)
 {
-    struct json_container json;
+    struct json_container jsonc;
     struct json_value json_value;
     struct timespec now;
     int ret = -1;
@@ -417,33 +437,33 @@ audit_write_exit_record(int exit_status, int error)
 	goto done;
     }
 
-    if (!sudo_json_init(&json, 4, false, false))
+    if (!sudo_json_init(&jsonc, 4, false, false, false))
 	goto oom;
-    if (!sudo_json_open_object(&json, "exit"))
+    if (!sudo_json_open_object(&jsonc, "exit"))
 	goto oom;
 
     /* Write UUID */
     json_value.type = JSON_STRING;
     json_value.u.string = state.uuid_str;
-    if (!sudo_json_add_value(&json, "uuid", &json_value))
+    if (!sudo_json_add_value(&jsonc, "uuid", &json_value))
 	goto oom;
 
     /* Write time stamp */
-    if (!add_timestamp(&json, &now))
+    if (!add_timestamp(&jsonc, &now))
 	goto oom;
 
     if (error != 0) {
 	/* Error executing command */
 	json_value.type = JSON_STRING;
 	json_value.u.string = strerror(error);
-	if (!sudo_json_add_value(&json, "error", &json_value))
+	if (!sudo_json_add_value(&jsonc, "error", &json_value))
 	    goto oom;
     } else {
         if (WIFEXITED(exit_status)) {
 	    /* Command exited normally. */
 	    json_value.type = JSON_NUMBER;
 	    json_value.u.number = WEXITSTATUS(exit_status);
-	    if (!sudo_json_add_value(&json, "exit_value", &json_value))
+	    if (!sudo_json_add_value(&jsonc, "exit_value", &json_value))
 		goto oom;
         } else if (WIFSIGNALED(exit_status)) {
 	    /* Command killed by signal. */
@@ -452,37 +472,37 @@ audit_write_exit_record(int exit_status, int error)
             if (signo <= 0 || sig2str(signo, signame) == -1) {
 		json_value.type = JSON_NUMBER;
 		json_value.u.number = signo;
-		if (!sudo_json_add_value(&json, "signal", &json_value))
+		if (!sudo_json_add_value(&jsonc, "signal", &json_value))
 		    goto oom;
             } else {
 		json_value.type = JSON_STRING;
 		json_value.u.string = signame; // -V507
-		if (!sudo_json_add_value(&json, "signal", &json_value))
+		if (!sudo_json_add_value(&jsonc, "signal", &json_value))
 		    goto oom;
 	    }
 	    /* Core dump? */
 	    json_value.type = JSON_BOOL;
 	    json_value.u.boolean = WCOREDUMP(exit_status);
-	    if (!sudo_json_add_value(&json, "dumped_core", &json_value))
+	    if (!sudo_json_add_value(&jsonc, "dumped_core", &json_value))
 		goto oom;
 	    /* Exit value */
 	    json_value.type = JSON_NUMBER;
 	    json_value.u.number = WTERMSIG(exit_status) | 128;
-	    if (!sudo_json_add_value(&json, "exit_value", &json_value))
+	    if (!sudo_json_add_value(&jsonc, "exit_value", &json_value))
 		goto oom;
         }
     }
 
-    if (!sudo_json_close_object(&json))
+    if (!sudo_json_close_object(&jsonc))
 	goto oom;
 
-    ret = audit_write_json(&json);
-    sudo_json_free(&json);
+    ret = audit_write_json(&jsonc);
+    sudo_json_free(&jsonc);
 done:
     debug_return_int(ret);
 oom:
     sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-    sudo_json_free(&json);
+    sudo_json_free(&jsonc);
     debug_return_int(-1);
 }
 
@@ -491,7 +511,7 @@ audit_write_record(const char *audit_str, const char *plugin_name,
     unsigned int plugin_type, const char *reason, char * const command_info[],
     char * const run_argv[], char * const run_envp[])
 {
-    struct json_container json;
+    struct json_container jsonc;
     struct json_value json_value;
     struct timespec now;
     int ret = -1;
@@ -502,14 +522,14 @@ audit_write_record(const char *audit_str, const char *plugin_name,
 	goto done;
     }
 
-    if (!sudo_json_init(&json, 4, false, false))
+    if (!sudo_json_init(&jsonc, 4, false, false, false))
 	goto oom;
-    if (!sudo_json_open_object(&json, audit_str))
+    if (!sudo_json_open_object(&jsonc, audit_str))
 	goto oom;
 
     json_value.type = JSON_STRING;
     json_value.u.string = plugin_name;
-    if (!sudo_json_add_value(&json, "plugin_name", &json_value))
+    if (!sudo_json_add_value(&jsonc, "plugin_name", &json_value))
 	goto oom;
 
     switch (plugin_type) {
@@ -533,65 +553,85 @@ audit_write_record(const char *audit_str, const char *plugin_name,
 	break;
     }
     json_value.type = JSON_STRING;
-    if (!sudo_json_add_value(&json, "plugin_type", &json_value))
+    if (!sudo_json_add_value(&jsonc, "plugin_type", &json_value))
 	goto oom;
 
     /* error and reject audit events usually contain a reason. */
     if (reason != NULL) {
 	json_value.type = JSON_STRING;
 	json_value.u.string = reason;
-	if (!sudo_json_add_value(&json, "reason", &json_value))
+	if (!sudo_json_add_value(&jsonc, "reason", &json_value))
 	    goto oom;
     }
 
     json_value.type = JSON_STRING;
     json_value.u.string = state.uuid_str;
-    if (!sudo_json_add_value(&json, "uuid", &json_value))
+    if (!sudo_json_add_value(&jsonc, "uuid", &json_value))
 	goto oom;
 
-    if (!add_timestamp(&json, &now))
+    if (!add_timestamp(&jsonc, &now))
 	goto oom;
 
     /* Write key=value objects. */
-    if (!add_key_value_object(&json, "options", state.settings, settings_filter))
-	goto oom;
-    if (!add_key_value_object(&json, "user_info", state.user_info, NULL))
-	goto oom;
+    if (state.settings != NULL) {
+	if (!add_key_value_object(&jsonc, "options", state.settings, settings_filter))
+	    goto oom;
+    } else {
+	sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
+	    "missing settings list");
+    }
+    if (state.user_info != NULL) {
+	if (!add_key_value_object(&jsonc, "user_info", state.user_info, NULL))
+	    goto oom;
+    } else {
+	sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
+	    "missing user_info list");
+    }
     if (command_info != NULL) {
-	if (!add_key_value_object(&json, "command_info", command_info, NULL))
+	if (!add_key_value_object(&jsonc, "command_info", command_info, NULL))
 	    goto oom;
     }
 
     /* Write submit_optind before submit_argv */
     json_value.type = JSON_NUMBER;
     json_value.u.number = state.submit_optind;
-    if (!sudo_json_add_value(&json, "submit_optind", &json_value))
+    if (!sudo_json_add_value(&jsonc, "submit_optind", &json_value))
 	goto oom;
 
-    if (!add_array(&json, "submit_argv", state.submit_argv))
-	goto oom;
-    if (!add_array(&json, "submit_envp", state.submit_envp))
-	goto oom;
+    if (state.submit_argv != NULL) {
+	if (!add_array(&jsonc, "submit_argv", state.submit_argv))
+	    goto oom;
+    } else {
+	sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
+	    "missing submit_argv array");
+    }
+    if (state.submit_envp != NULL) {
+	if (!add_array(&jsonc, "submit_envp", state.submit_envp))
+	    goto oom;
+    } else {
+	sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
+	    "missing submit_envp array");
+    }
     if (run_argv != NULL) {
-	if (!add_array(&json, "run_argv", run_argv))
+	if (!add_array(&jsonc, "run_argv", run_argv))
 	    goto oom;
     }
     if (run_envp != NULL) {
-	if (!add_array(&json, "run_envp", run_envp))
+	if (!add_array(&jsonc, "run_envp", run_envp))
 	    goto oom;
     }
 
-    if (!sudo_json_close_object(&json))
+    if (!sudo_json_close_object(&jsonc))
 	goto oom;
 
-    ret = audit_write_json(&json);
-    sudo_json_free(&json);
+    ret = audit_write_json(&jsonc);
+    sudo_json_free(&jsonc);
 
 done:
     debug_return_int(ret);
 oom:
     sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-    sudo_json_free(&json);
+    sudo_json_free(&jsonc);
     debug_return_int(-1);
 }
 

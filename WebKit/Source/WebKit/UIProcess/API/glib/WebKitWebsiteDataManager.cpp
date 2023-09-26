@@ -4,7 +4,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2,1 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,7 +21,6 @@
 #include "WebKitWebsiteDataManager.h"
 
 #include "WebKitCookieManagerPrivate.h"
-#include "WebKitFaviconDatabasePrivate.h"
 #include "WebKitInitialize.h"
 #include "WebKitMemoryPressureSettings.h"
 #include "WebKitMemoryPressureSettingsPrivate.h"
@@ -38,29 +37,26 @@
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/WTFGType.h>
 
+#if PLATFORM(GTK) && ENABLE(2022_GLIB_API)
+#include "WebKitFaviconDatabasePrivate.h"
+#endif
+
 using namespace WebKit;
 
 /**
  * WebKitWebsiteDataManager:
- * @See_also: #WebKitWebContext, #WebKitWebsiteData
+ * @See_also: #WebKitWebsiteData
  *
  * Manages data stored locally by web sites.
  *
  * You can use WebKitWebsiteDataManager to configure the local directories
  * where website data will be stored. Use #WebKitWebsiteDataManager:base-data-directory
  * and #WebKitWebsiteDataManager:base-cache-directory set a common base directory for all
- * website data and caches. The newly created WebKitWebsiteDataManager must be passed as
- * a construct property to a #WebKitWebContext; you can use webkit_web_context_new_with_website_data_manager()
- * to create a new #WebKitWebContext with a WebKitWebsiteDataManager.
- * If you don't want to set any specific configuration, you don't need to create
- * a WebKitWebsiteDataManager: the #WebKitWebContext will create a WebKitWebsiteDataManager
- * with the default configuration. To get the WebKitWebsiteDataManager of a #WebKitWebContext,
- * you can use webkit_web_context_get_website_data_manager().
+ * website data and caches.
  *
- * A WebKitWebsiteDataManager can also be ephemeral, in which case all the directory configuration
+ * A WebKitWebsiteDataManager can be ephemeral, in which case all the directory configuration
  * is not needed because website data will never persist. You can create an ephemeral WebKitWebsiteDataManager
- * with webkit_website_data_manager_new_ephemeral() and pass the ephemeral WebKitWebsiteDataManager to
- * a #WebKitWebContext, or simply use webkit_web_context_new_ephemeral().
+ * with webkit_website_data_manager_new_ephemeral().
  *
  * WebKitWebsiteDataManager can also be used to fetch website data, remove data
  * stored by particular websites, or clear data for all websites modified since a given
@@ -87,7 +83,9 @@ enum {
     PROP_SERVICE_WORKER_REGISTRATIONS_DIRECTORY,
     PROP_DOM_CACHE_DIRECTORY,
 #endif
-    PROP_IS_EPHEMERAL
+    PROP_IS_EPHEMERAL,
+    PROP_ORIGIN_STORAGE_RATIO,
+    PROP_TOTAL_STORAGE_RATIO
 };
 
 struct _WebKitWebsiteDataManagerPrivate {
@@ -95,7 +93,7 @@ struct _WebKitWebsiteDataManagerPrivate {
     CString baseDataDirectory;
     CString baseCacheDirectory;
 
-#if ENABLE(2022_GLIB_API)
+#if PLATFORM(GTK) && ENABLE(2022_GLIB_API)
     GRefPtr<WebKitFaviconDatabase> faviconDatabase;
 #endif
 
@@ -115,9 +113,12 @@ struct _WebKitWebsiteDataManagerPrivate {
     GUniquePtr<char> swRegistrationsDirectory;
     GUniquePtr<char> domCacheDirectory;
 #endif
+
+    gdouble originStorageRatio;
+    gdouble totalStorageRatio;
 };
 
-WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitWebsiteDataManager, webkit_website_data_manager, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE(WebKitWebsiteDataManager, webkit_website_data_manager, G_TYPE_OBJECT, GObject)
 
 static void webkitWebsiteDataManagerGetProperty(GObject* object, guint propID, GValue* value, GParamSpec* paramSpec)
 {
@@ -216,6 +217,12 @@ static void webkitWebsiteDataManagerSetProperty(GObject* object, guint propID, c
     case PROP_IS_EPHEMERAL:
         if (g_value_get_boolean(value))
             manager->priv->websiteDataStore = WebKit::WebsiteDataStore::createNonPersistent();
+        break;
+    case PROP_ORIGIN_STORAGE_RATIO:
+        manager->priv->originStorageRatio = g_value_get_double(value);
+        break;
+    case PROP_TOTAL_STORAGE_RATIO:
+        manager->priv->totalStorageRatio = g_value_get_double(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, paramSpec);
@@ -483,6 +490,42 @@ static void webkit_website_data_manager_class_init(WebKitWebsiteDataManagerClass
             nullptr, nullptr,
             FALSE,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+
+    /**
+     * WebKitWebsiteDataManager:origin-storage-ratio:
+     *
+     * The percentage of volume space that can be used for data storage for every domain.
+     * If the maximum storage is reached the storage request will fail with a QuotaExceededError exception.
+     * A value of 0.0 means that data storage is not allowed. A value of -1.0, which is the default,
+     * means WebKit will use the default quota (1 GiB).
+     *
+     * Since: 2.42
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_ORIGIN_STORAGE_RATIO,
+        g_param_spec_double("origin-storage-ratio",
+            nullptr, nullptr,
+            -1.0, 1.0, -1.0,
+            static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY)));
+
+    /**
+     * WebKitWebsiteDataManager:total-storage-ratio:
+     *
+     * The percentage of volume space that can be used for data storage for all domains.
+     * If the maximum storage is reached the eviction will happen.
+     * A value of 0.0 means that data storage is not allowed. A value of -1.0, which is the default,
+     * means there's no limit for the total storage.
+     *
+     * Since: 2.42
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_TOTAL_STORAGE_RATIO,
+        g_param_spec_double("total-storage-ratio",
+            nullptr, nullptr,
+            -1.0, 1.0, -1.0,
+            static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY)));
 }
 
 WebKit::WebsiteDataStore& webkitWebsiteDataManagerGetDataStore(WebKitWebsiteDataManager* manager)
@@ -510,6 +553,12 @@ WebKit::WebsiteDataStore& webkitWebsiteDataManagerGetDataStore(WebKitWebsiteData
         if (priv->domCacheDirectory)
             configuration->setCacheStorageDirectory(FileSystem::stringFromFileSystemRepresentation(priv->domCacheDirectory.get()));
 #endif
+        if (priv->originStorageRatio >= 0.0)
+            configuration->setOriginQuotaRatio(priv->originStorageRatio);
+
+        if (priv->totalStorageRatio >= 0.0)
+            configuration->setTotalQuotaRatio(priv->totalStorageRatio);
+
         priv->websiteDataStore = WebKit::WebsiteDataStore::create(WTFMove(configuration), PAL::SessionID::generatePersistentSessionID());
 #if !ENABLE(2022_GLIB_API)
         priv->websiteDataStore->setIgnoreTLSErrors(priv->tlsErrorsPolicy == WEBKIT_TLS_ERRORS_POLICY_IGNORE);
@@ -1034,7 +1083,7 @@ void webkit_website_data_manager_set_network_proxy_settings(WebKitWebsiteDataMan
 }
 #endif
 
-#if ENABLE(2022_GLIB_API)
+#if PLATFORM(GTK) && ENABLE(2022_GLIB_API)
 static String webkitWebsiteDataManagerGetFaviconDatabasePath(WebKitWebsiteDataManager* manager)
 {
     if (webkit_website_data_manager_is_ephemeral(manager))
@@ -1051,8 +1100,8 @@ static String webkitWebsiteDataManagerGetFaviconDatabasePath(WebKitWebsiteDataMa
  * @manager: a #WebKitWebsiteDataManager
  * @enabled: value to set
  *
- * Set whether website icons are enabled. Website icons are enabled by default.
- * When website icons are disabled, the #WebKitFaviconDatabase of @manager is closed
+ * Set whether website icons are enabled. Website icons are disabled by default.
+ * When website icons are disabled, the #WebKitFaviconDatabase of @manager is closed and
  * its reference removed, so webkit_website_data_manager_get_favicon_database() will
  * return %NULL. If website icons are enabled again, a new #WebKitFaviconDatabase will
  * be created.
@@ -1151,7 +1200,7 @@ static OptionSet<WebsiteDataType> toWebsiteDataTypes(WebKitWebsiteDataTypes type
  * @types: #WebKitWebsiteDataTypes
  * @cancellable: (allow-none): a #GCancellable or %NULL to ignore
  * @callback: (scope async): a #GAsyncReadyCallback to call when the request is satisfied
- * @user_data: (closure): the data to pass to callback function
+ * @user_data: the data to pass to callback function
  *
  * Asynchronously get the list of #WebKitWebsiteData for the given @types.
  *
@@ -1206,7 +1255,7 @@ GList* webkit_website_data_manager_fetch_finish(WebKitWebsiteDataManager* manage
  * @website_data: (element-type WebKitWebsiteData): a #GList of #WebKitWebsiteData
  * @cancellable: (allow-none): a #GCancellable or %NULL to ignore
  * @callback: (scope async): a #GAsyncReadyCallback to call when the request is satisfied
- * @user_data: (closure): the data to pass to callback function
+ * @user_data: the data to pass to callback function
  *
  * Asynchronously removes the website data in the given @website_data list.
  *
@@ -1273,7 +1322,7 @@ gboolean webkit_website_data_manager_remove_finish(WebKitWebsiteDataManager* man
  * @timespan: a #GTimeSpan
  * @cancellable: (allow-none): a #GCancellable or %NULL to ignore
  * @callback: (scope async): a #GAsyncReadyCallback to call when the request is satisfied
- * @user_data: (closure): the data to pass to callback function
+ * @user_data: the data to pass to callback function
  *
  * Asynchronously clear the website data of the given @types modified in the past @timespan.
  *
@@ -1593,7 +1642,7 @@ GList* webkit_itp_third_party_get_first_parties(WebKitITPThirdParty* thirdParty)
  * @manager: a #WebKitWebsiteDataManager
  * @cancellable: (allow-none): a #GCancellable or %NULL to ignore
  * @callback: (scope async): a #GAsyncReadyCallback to call when the request is satisfied
- * @user_data: (closure): the data to pass to callback function
+ * @user_data: the data to pass to callback function
  *
  * Asynchronously get the list of #WebKitITPThirdParty seen for @manager.
  *

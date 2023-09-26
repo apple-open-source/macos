@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
@@ -29,8 +29,8 @@
 #import <WebCore/ChromeClient.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/Font.h>
-#import <WebCore/Frame.h>
-#import <WebCore/FrameView.h>
+#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/Page.h>
 #import <WebCore/PopupMenuClient.h>
 #import <pal/spi/mac/NSCellSPI.h>
@@ -88,7 +88,7 @@ void PopupMenuMac::populate()
                 CGFloat size = style.font().primaryFont().platformData().size();
                 font = adoptCF(CTFontCreateUIFontForLanguage(isFontWeightBold(style.font().weight()) ? kCTFontUIFontEmphasizedSystem : kCTFontUIFontSystem, size, nullptr));
             }
-            [attributes setObject:toNSFont(font.get()) forKey:NSFontAttributeName];
+            [attributes setObject:(__bridge NSFont *)(font.get()) forKey:NSFontAttributeName];
         }
 
         RetainPtr<NSMutableParagraphStyle> paragraphStyle = adoptNS([[NSParagraphStyle defaultParagraphStyle] mutableCopy]);
@@ -115,18 +115,18 @@ void PopupMenuMac::populate()
         [menuItem setEnabled:m_client->itemIsEnabled(i)];
         [menuItem setToolTip:m_client->itemToolTip(i)];
 
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         // Allow the accessible text of the item to be overridden if necessary.
         if (AXObjectCache::accessibilityEnabled()) {
             NSString *accessibilityOverride = m_client->itemAccessibilityText(i);
             if ([accessibilityOverride length])
                 [menuItem accessibilitySetOverrideValue:accessibilityOverride forAttribute:NSAccessibilityDescriptionAttribute];
         }
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     }
 }
 
-void PopupMenuMac::show(const IntRect& r, FrameView* v, int selectedIndex)
+void PopupMenuMac::show(const IntRect& r, LocalFrameView* v, int selectedIndex)
 {
     populate();
     int numItems = [m_popup numberOfItems];
@@ -215,7 +215,7 @@ void PopupMenuMac::show(const IntRect& r, FrameView* v, int selectedIndex)
         break;
     }
 
-    PAL::popUpMenu(menu, location, roundf(NSWidth(r)), dummyView.get(), selectedIndex, toNSFont(font), controlSize, !m_client->menuStyle().hasDefaultAppearance());
+    PAL::popUpMenu(menu, location, roundf(NSWidth(r)), dummyView.get(), selectedIndex, (__bridge NSFont *)font, controlSize, !m_client->menuStyle().hasDefaultAppearance());
 
     [m_popup dismissPopUp];
     [dummyView removeFromSuperview];

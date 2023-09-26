@@ -32,13 +32,24 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct __DADiskEncryptionContext
+{
+    bool encrypted;
+    UInt32 detail;
+    DADiskRef disk;
+};
+
+typedef struct __DADiskEncryptionContext __DADiskEncryptionContext;
+
 extern DAReturn _DADiskRefresh( DADiskRef disk );
 
 extern DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption );
 
 extern DAReturn _DADiskSetEncoding( DADiskRef disk, CFStringEncoding encoding );
 
-extern errno_t _DADiskGetEncryptionStatus( CFAllocatorRef allocator, DADiskRef disk, CFBooleanRef *encryption_status, CFNumberRef *encryption_details );
+extern int  _DADiskGetEncryptionStatus( void *parameter);
+
+extern void _DADiskEncryptionStatusCallback(int status, void *parameter);
 
 extern Boolean _DAUnitIsUnreadable( DADiskRef disk );
 

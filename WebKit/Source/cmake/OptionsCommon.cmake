@@ -18,9 +18,20 @@ if (WTF_CPU_ARM)
     #error \"Thumb2 instruction set isn't available\"
     #endif
     int main() {}
-   ")
+    ")
 
+    if (COMPILER_IS_CLANG AND NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin"))
+        set(CLANG_EXTRA_ARM_ARGS " -mthumb")
+    endif ()
+
+    set(CMAKE_REQUIRED_FLAGS "${CLANG_EXTRA_ARM_ARGS}")
     CHECK_CXX_SOURCE_COMPILES("${ARM_THUMB2_TEST_SOURCE}" ARM_THUMB2_DETECTED)
+    unset(CMAKE_REQUIRED_FLAGS)
+
+    if (ARM_THUMB2_DETECTED AND NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin"))
+        string(APPEND CMAKE_C_FLAGS " ${CLANG_EXTRA_ARM_ARGS}")
+        string(APPEND CMAKE_CXX_FLAGS " ${CLANG_EXTRA_ARM_ARGS}")
+    endif ()
 endif ()
 
 # Use ld.lld when building with LTO, or for debug builds, if available.
@@ -154,7 +165,7 @@ if (USE_THIN_ARCHIVES)
 endif ()
 
 set(ENABLE_DEBUG_FISSION_DEFAULT OFF)
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+if (ENABLE_DEVELOPER_MODE AND (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo") AND NOT CMAKE_GENERATOR MATCHES "Visual Studio")
     check_cxx_compiler_flag(-gsplit-dwarf CXX_COMPILER_SUPPORTS_GSPLIT_DWARF)
     if (CXX_COMPILER_SUPPORTS_GSPLIT_DWARF AND LD_SUPPORTS_SPLIT_DEBUG)
         set(ENABLE_DEBUG_FISSION_DEFAULT ON)
@@ -214,9 +225,12 @@ WEBKIT_CHECK_HAVE_INCLUDE(HAVE_SYS_TIMEB_H sys/timeb.h)
 WEBKIT_CHECK_HAVE_INCLUDE(HAVE_LINUX_MEMFD_H linux/memfd.h)
 
 # Check for functions
+# _GNU_SOURCE=1 is required to expose statx
+list(APPEND CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE=1")
 WEBKIT_CHECK_HAVE_FUNCTION(HAVE_ALIGNED_MALLOC _aligned_malloc malloc.h)
 WEBKIT_CHECK_HAVE_FUNCTION(HAVE_LOCALTIME_R localtime_r time.h)
 WEBKIT_CHECK_HAVE_FUNCTION(HAVE_MALLOC_TRIM malloc_trim malloc.h)
+WEBKIT_CHECK_HAVE_FUNCTION(HAVE_STATX statx sys/stat.h)
 WEBKIT_CHECK_HAVE_FUNCTION(HAVE_STRNSTR strnstr string.h)
 WEBKIT_CHECK_HAVE_FUNCTION(HAVE_TIMEGM timegm time.h)
 WEBKIT_CHECK_HAVE_FUNCTION(HAVE_VASPRINTF vasprintf stdio.h)

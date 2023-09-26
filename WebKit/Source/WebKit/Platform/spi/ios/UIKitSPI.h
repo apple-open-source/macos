@@ -63,6 +63,7 @@
 #import <UIKit/UIPickerView_Private.h>
 #import <UIKit/UIPopoverPresentationController_Private.h>
 #import <UIKit/UIPresentationController_Private.h>
+#import <UIKit/UIPrintPageRenderer_Private.h>
 #import <UIKit/UIResponder_Private.h>
 #import <UIKit/UIScene_Private.h>
 #import <UIKit/UIScrollEvent_Private.h>
@@ -128,7 +129,6 @@
 #import <UIKit/UIDragPreviewParameters.h>
 #import <UIKit/UIDragPreview_Private.h>
 #import <UIKit/UIDragSession.h>
-#import <UIKit/UIDragging.h>
 #import <UIKit/UIDropInteraction.h>
 #import <UIKit/UIPreviewInteraction.h>
 #import <UIKit/UIURLDragPreviewView.h>
@@ -381,7 +381,7 @@ typedef enum {
 @interface UIFont ()
 + (UIFont *)fontWithFamilyName:(NSString *)familyName traits:(UIFontTrait)traits size:(CGFloat)fontSize;
 + (UIFont *)systemFontOfSize:(CGFloat)size weight:(CGFloat)weight design:(NSString *)design;
-
+- (BOOL)isSystemFont;
 - (UIFontTrait)traits;
 @end
 
@@ -444,6 +444,7 @@ typedef struct CGSVGDocument *CGSVGDocumentRef;
 + (CGSize)defaultSizeForInterfaceOrientation:(UIInterfaceOrientation)orientation;
 + (BOOL)isInHardwareKeyboardMode;
 + (BOOL)isOnScreen;
++ (BOOL)usesInputSystemUI;
 @end
 
 @interface UIKeyboardImpl : UIView <UIKeyboardCandidateListDelegate>
@@ -465,6 +466,7 @@ typedef struct CGSVGDocument *CGSVGDocumentRef;
 - (void)addInputString:(NSString *)string withFlags:(NSUInteger)flags withInputManagerHint:(NSString *)hint;
 - (BOOL)autocorrectSpellingEnabled;
 - (BOOL)isAutoShifted;
+- (void)dismissKeyboard;
 - (void)clearShiftState;
 - (void)deleteFromInput;
 - (void)deleteFromInputWithFlags:(NSUInteger)flags;
@@ -513,6 +515,10 @@ typedef struct CGSVGDocument *CGSVGDocumentRef;
 + (CGSize)defaultSizeForCurrentOrientation;
 - (void)_setUsesCheckedSelection:(BOOL)usesCheckedSelection;
 @property (nonatomic, setter=_setMagnifierEnabled:) BOOL _magnifierEnabled;
+@end
+
+@interface UIPrintPageRenderer ()
+@property (readonly) UIPrintRenderingQuality requestedRenderingQuality;
 @end
 
 @interface UIResponder ()
@@ -690,7 +696,7 @@ typedef enum {
 @property (readonly) NSString *_hostApplicationBundleIdentifier;
 @end
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
 @interface NSURL ()
 @property (nonatomic, copy, setter=_setTitle:) NSString *_title;
 @end
@@ -1178,6 +1184,7 @@ typedef enum {
 - (id)_initWithAsynchronousLoading:(BOOL)asynchronousLoading;
 - (BOOL)_doneLoading;
 - (NSRange)rangeOfMisspelledWordInString:(NSString *)stringToCheck range:(NSRange)range startingAt:(NSInteger)startingOffset wrap:(BOOL)wrapFlag languages:(NSArray *)languagesArray;
+- (NSArray<NSTextAlternatives *> *)grammarAlternativesForString:(NSString *)string;
 @end
 
 @interface UIKeyboardInputMode : UITextInputMode <NSCopying>
@@ -1565,6 +1572,15 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 - (instancetype)initWithFrame:(CGRect)frame pid:(pid_t)pid contextID:(uint32_t)contextID;
 @end
 
+@interface _UIVisibilityPropagationView : UIView
+@end
+
+#if HAVE(NON_HOSTING_VISIBILITY_PROPAGATION_VIEW)
+@interface _UINonHostingVisibilityPropagationView : _UIVisibilityPropagationView
+- (instancetype)initWithFrame:(CGRect)frame pid:(pid_t)pid environmentIdentifier:(NSString *)environmentIdentifier;
+@end
+#endif
+
 #if __has_include(<UIKit/UITextInputMultiDocument.h>)
 #import <UIKit/UITextInputMultiDocument.h>
 #else
@@ -1640,6 +1656,12 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 
 #endif
 
+#if HAVE(AUTOCORRECTION_ENHANCEMENTS)
+@interface UIWKDocumentContext (Staging_112795757)
+@property (nonatomic, copy) NSArray<NSValue *> *autocorrectedRanges;
+@end
+#endif
+
 WTF_EXTERN_C_BEGIN
 
 BOOL UIKeyboardEnabledInputModesAllowOneToManyShortcuts(void);
@@ -1648,8 +1670,6 @@ BOOL UIKeyboardIsRightToLeftInputModeActive(void);
 
 extern const float UITableCellDefaultFontSize;
 extern const float UITableViewCellDefaultFontSize;
-
-extern NSString *const _UIApplicationDidFinishSuspensionSnapshotNotification;
 
 extern NSString * const UIWindowDidMoveToScreenNotification;
 extern NSString * const UIWindowDidRotateNotification;

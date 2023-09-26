@@ -78,6 +78,7 @@ struct trustd trustd_spi = {
     .sec_trust_settings_set_data            = SecTrustSettingsSetData,
     .sec_trust_settings_copy_data           = SecTrustSettingsCopyData,
     .sec_trust_reset_settings               = _SecTrustResetSettings,
+    .sec_trust_store_migrate_plist          = SecTrustStoreMigratePropertyList,
 };
 #endif
 
@@ -92,17 +93,21 @@ void trustd_init_server(void) {
     gTrustd = &trustd_spi;
 #ifdef LIBTRUSTD
     if (TrustdVariantAllowsFileWrite()) {
-        // Migrate files to DataVault
+        CFErrorRef error = NULL;
+        // Migrate files to data vault
         _SecTrustStoreMigrateConfigurations();
         _SecTrustStoreMigrateTrustSettings();
         SecTrustServerMigrateExceptionsResetCount();
-#if TARGET_OS_IPHONE
-        CFErrorRef error = NULL;
+        // Migrate trust store database content, updating schema if needed
         if (!_SecTrustStoreMigrateUserStore(&error)) {
             secerror("failed to migrate user trust store; new trust store will be empty: %@", error);
         }
         CFReleaseNull(error);
-#endif
+        // Migrate plist file content from data vault to trust store
+        if (!_SecTrustStoreMigrateTrustSettingsPropertyList(&error)) {
+            secerror("failed to migrate trust settings plist content: %@", error);
+        }
+        CFReleaseNull(error);
     }
 
     SecPolicyServerInitialize();    // set up callbacks for policy checks

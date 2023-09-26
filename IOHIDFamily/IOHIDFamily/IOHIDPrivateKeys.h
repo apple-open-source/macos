@@ -188,6 +188,14 @@ enum {
  */
 #define kIOHIDFastPathMotionEventEntitlementKey "FastPathMotionEventEntitlement"
 
+/*!
+ * @define kIOHIDCapsLockLEDDarkWakeInhibitKey
+ * @abstract Boolean value indicating if the caps lock LED should be inhibited in the dark wake state.
+ * @discussion  Key value must be set on domain using the appropriate user  in order to inhibit caps lock LED
+ *              Usage:```sudo -u _hidd defaults write com.apple.iohid HIDCapsLockLEDDarkWakeInhibit [state, can be 0 or 1]```
+ */
+#define kIOHIDCapsLockLEDDarkWakeInhibitKey "HIDCapsLockLEDDarkWakeInhibit"
+
 
 /*!
     @typedef    IOHIDHomeButtonType

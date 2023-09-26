@@ -30,15 +30,15 @@
 #include "RemoteVideoFrameProxy.h"
 #include "ThreadSafeObjectHeap.h"
 #include "WorkQueueMessageReceiver.h"
-#include <WebCore/DestinationColorSpace.h>
-#include <WebCore/VideoFrame.h>
 
 #if PLATFORM(COCOA)
 #include "SharedVideoFrame.h"
 #endif
 
 namespace WebCore {
+class DestinationColorSpace;
 class PixelBufferConformerCV;
+class VideoFrame;
 }
 
 namespace WebKit {
@@ -51,7 +51,7 @@ public:
 
     void close();
     RemoteVideoFrameProxy::Properties add(Ref<WebCore::VideoFrame>&&);
-    RefPtr<WebCore::VideoFrame> get(RemoteVideoFrameReadReference&& read) { return m_heap.retire(WTFMove(read), 0_s); }
+    RefPtr<WebCore::VideoFrame> get(RemoteVideoFrameReadReference&&);
 
     void stopListeningForIPC(Ref<RemoteVideoFrameObjectHeap>&&) { close(); }
 
@@ -69,13 +69,13 @@ private:
     void pixelBuffer(RemoteVideoFrameReadReference&&, CompletionHandler<void(RetainPtr<CVPixelBufferRef>)>&&);
     void convertFrameBuffer(SharedVideoFrame&&, CompletionHandler<void(WebCore::DestinationColorSpace)>&&);
     void setSharedVideoFrameSemaphore(IPC::Semaphore&&);
-    void setSharedVideoFrameMemory(const SharedMemory::Handle&);
+    void setSharedVideoFrameMemory(SharedMemory::Handle&&);
 #endif
 
     void createPixelConformerIfNeeded();
 
     const Ref<IPC::Connection> m_connection;
-    ThreadSafeObjectHeap<RemoteVideoFrameIdentifier, RefPtr<WebCore::VideoFrame>> m_heap;
+    IPC::ThreadSafeObjectHeap<RemoteVideoFrameIdentifier, RefPtr<WebCore::VideoFrame>> m_heap;
 #if PLATFORM(COCOA)
     SharedVideoFrameWriter m_sharedVideoFrameWriter;
     SharedVideoFrameReader m_sharedVideoFrameReader;

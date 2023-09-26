@@ -29,6 +29,7 @@
 
 #include <WebCore/RealtimeMediaSource.h>
 #include <WebCore/RealtimeMediaSourceIdentifier.h>
+#include <wtf/MediaTime.h>
 
 #if PLATFORM(COCOA)
 #include "SharedCARingBuffer.h"
@@ -45,10 +46,13 @@ class WebAudioBufferList;
 namespace WebKit {
 class SpeechRecognitionRemoteRealtimeMediaSourceManager;
     
-class SpeechRecognitionRemoteRealtimeMediaSource : public WebCore::RealtimeMediaSource {
+class SpeechRecognitionRemoteRealtimeMediaSource : public WebCore::RealtimeMediaSource, public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<SpeechRecognitionRemoteRealtimeMediaSource, WTF::DestructionThread::MainRunLoop> {
 public:
     static Ref<WebCore::RealtimeMediaSource> create(SpeechRecognitionRemoteRealtimeMediaSourceManager&, const WebCore::CaptureDevice&, WebCore::PageIdentifier);
     ~SpeechRecognitionRemoteRealtimeMediaSource();
+    void ref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<SpeechRecognitionRemoteRealtimeMediaSource, WTF::DestructionThread::MainRunLoop>::ref(); }
+    void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<SpeechRecognitionRemoteRealtimeMediaSource, WTF::DestructionThread::MainRunLoop>::deref(); }
+    ThreadSafeWeakPtrControlBlock& controlBlock() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<SpeechRecognitionRemoteRealtimeMediaSource, WTF::DestructionThread::MainRunLoop>::controlBlock(); }
 
     WebCore::RealtimeMediaSourceIdentifier identifier() const { return m_identifier; }
 
@@ -56,7 +60,7 @@ public:
     void setStorage(ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&);
 #endif
 
-    void remoteAudioSamplesAvailable(MediaTime, uint64_t numberOfFrames);
+    void remoteAudioSamplesAvailable(WTF::MediaTime, uint64_t numberOfFrames);
     void remoteCaptureFailed();
     void remoteSourceStopped();
 

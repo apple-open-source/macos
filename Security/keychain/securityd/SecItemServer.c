@@ -86,6 +86,10 @@
 #include <unistd.h>
 #endif
 
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#include <sys/stat.h>
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+
 #include <utilities/array_size.h>
 #include <utilities/SecFileLocations.h>
 #include <utilities/SecTrace.h>
@@ -188,6 +192,86 @@ out:
 
     return ok;
 }
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+// Determine whether we've already transcrypted the database, stored in a bit in the DB user version.
+static bool SecKeychainDbGetEduModeTranscrypted(SecDbConnectionRef dbt)
+{
+    int32_t userVersion = getDbUserVersion(dbt);
+    bool done = (userVersion & KeychainDbUserVersion_Transcrypted) == KeychainDbUserVersion_Transcrypted;
+    secnotice("edutranscrypted", "got: %{bool}d", done);
+    return done;
+}
+
+// Set the bit in the DB user version, so we know we already transcrypted (or created a new DB).
+static void SecKeychainDbSetEduModeTranscrypted(SecDbConnectionRef dbt)
+{
+    CFErrorRef localError = NULL;
+    int32_t userVersion = getDbUserVersion(dbt);
+    userVersion |= KeychainDbUserVersion_Transcrypted;
+
+    if (!setDbUserVersion(userVersion, dbt, &localError)) {
+        secnotice("edutranscrypted", "failed to set DB user version: %@", localError);
+        CFReleaseNull(localError);
+    }
+}
+
+static bool InternalTranscryptToSystemKeychainKeybag(SecDbConnectionRef dbt, SecurityClient *client, CFErrorRef *error) {
+    return kc_transaction(dbt, error, ^{
+        bool ok = true;
+
+        CFDataRef systemUUID = SecMUSRGetSystemKeychainUUID();
+
+        const SecDbSchema *schema = current_schema();
+
+        for (SecDbClass const *const *kcClass = schema->classes; *kcClass != NULL; kcClass++) {
+            Query *q = NULL;
+
+            if (!((*kcClass)->itemclass)) {
+                continue;
+            }
+
+            q = query_create(*kcClass, systemUUID, NULL, client, error);
+            if (q == NULL) {
+                secnotice("transcrypt", "could not create query for class %@: %@", (*kcClass)->name, *error);
+                continue;
+            }
+
+            ok &= SecDbItemSelect(q, dbt, error, ^bool(const SecDbAttr *attr) {
+                return (attr->flags & kSecDbInFlag) != 0;
+            }, ^bool(const SecDbAttr *attr) {
+                // No filtering please.
+                return false;
+            }, ^bool(CFMutableStringRef sql, bool *needWhere) {
+                SecDbAppendWhereOrAnd(sql, needWhere);
+                CFStringAppendFormat(sql, NULL, CFSTR("musr = ?"));
+                return true;
+            }, ^bool(sqlite3_stmt *stmt, int col) {
+                return SecDbBindObject(stmt, col++, systemUUID, error);
+            }, ^(SecDbItemRef item, bool *stop) {
+                secnotice("transcrypt", "handling item: " SECDBITEM_FMT, item);
+
+                CFErrorRef localError = NULL;
+                if (!SecDbItemSetKeybag(item, system_keychain_handle, &localError)) {
+                    secnotice("transcrypt", "failed to set keybag, but continuing. Error: %@", localError);
+                    CFReleaseNull(localError);
+                    return;
+                }
+                if (!SecDbItemDoUpdate(item, item, dbt, &localError, ^bool (const SecDbAttr *attr) {
+                    return attr->kind == kSecDbRowIdAttr;
+                })) {
+                    secnotice("transcrypt", "failed to update item, but continuing. Error: %@", localError);
+                    CFReleaseNull(localError);
+                }
+            });
+
+            query_destroy(q, NULL);
+        }
+
+        return ok;
+    });
+}
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 
 static bool
 isClassD(SecDbItemRef item)
@@ -520,7 +604,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
 #endif
                         case errSecNotAvailable:
                             secnotice("upgr", "Bailing in phase 1 because AKS is unavailable: %@", localError);
-                            // FALLTHROUGH
+                            [[fallthrough]];
                         default:
                             ok &= CFErrorPropagate(CFRetainSafe(localError), error);
                             break;
@@ -706,8 +790,11 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
                     case SQLITE_CONSTRAINT:         // yeah...
                         if (!CFEqual(kSecDbErrorDomain, CFErrorGetDomain(localError))) {
                             secerror("Received SQLITE_CONSTRAINT with wrong error domain. Huh? Item: " SECDBITEM_FMT ", error: %@", item, localError);
-                            break;
+                        } else {
+                            secnotice("upgr", "Received SQLITE_CONSTRAINT -- ignoring: " SECDBITEM_FMT, item);
+                            ok = true;
                         }
+                        break;
                     case errSecDuplicateItem:
                         // continue to upgrade and don't propagate errors for insert failures
                         // that are typical of a single item failure
@@ -722,7 +809,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
                     case errSecNotAvailable:
                         *inProgress = true;     // We're not done, call me again later!
                         secnotice("upgr", "Bailing in phase 2 because AKS is unavailable: %@", localError);
-                        // FALLTHROUGH
+                        [[fallthrough]];
                     default:
                         //  Other errors should abort the migration completely.
                         ok = CFErrorPropagate(CFRetainSafe(localError), error);
@@ -802,7 +889,7 @@ static CFErrorRef errorForRowID(CFNumberRef rowID) {
     return matching;
 }
 
-static CFDataRef UUIDDataCreate(void)
+CFDataRef UUIDDataCreate(void)
 {
     CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
     CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(uuid);
@@ -1343,9 +1430,7 @@ bool itemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups) {
 }
 
 
-static CF_RETURNS_RETAINED CFDataRef SecServerExportBackupableKeychain(SecDbConnectionRef dbt,
-    SecurityClient *client,
-    keybag_handle_t src_keybag, keybag_handle_t dest_keybag, CFErrorRef *error) {
+static CF_RETURNS_RETAINED CFDataRef SecServerExportBackupableKeychain(SecDbConnectionRef dbt, SecurityClient *client, keybag_handle_t* dest_keybag, CFErrorRef *error) {
     CFDataRef data_out = NULL;
 
     SecSignpostStart(SecSignpostBackupKeychainBackupable);
@@ -1353,7 +1438,7 @@ static CF_RETURNS_RETAINED CFDataRef SecServerExportBackupableKeychain(SecDbConn
     /* Export everything except the items for which SecItemIsSystemBound()
        returns true. */
     CFDictionaryRef keychain = SecServerCopyKeychainPlist(dbt, client,
-        src_keybag, dest_keybag, kSecBackupableItemFilter,
+        dest_keybag, kSecBackupableItemFilter,
         error);
     if (keychain) {
         data_out = CFPropertyListCreateData(kCFAllocatorDefault, keychain,
@@ -1369,6 +1454,7 @@ static CF_RETURNS_RETAINED CFDataRef SecServerExportBackupableKeychain(SecDbConn
 static bool SecServerImportBackupableKeychain(SecDbConnectionRef dbt,
                                               SecurityClient *client,
                                               keybag_handle_t src_keybag,
+                                              struct backup_keypair* src_bkp,
                                               keybag_handle_t dest_keybag,
                                               CFDataRef data,
                                               CFErrorRef *error)
@@ -1387,6 +1473,7 @@ static bool SecServerImportBackupableKeychain(SecDbConnectionRef dbt,
                 ok = SecServerImportKeychainInPlist(dbt,
                                                     client,
                                                     src_keybag,
+                                                    src_bkp,
                                                     dest_keybag,
                                                     keychain,
                                                     kSecBackupableItemFilter,
@@ -1454,7 +1541,7 @@ static CFDataRef SecServerKeychainCreateBackup(SecDbConnectionRef dbt, SecurityC
     SecSignpostStart(SecSignpostBackupKeychain);
 
     /* Export from system keybag to backup keybag. */
-    backup = SecServerExportBackupableKeychain(dbt, client, KEYBAG_DEVICE, backup_keybag, error);
+    backup = SecServerExportBackupableKeychain(dbt, client, &backup_keybag, error);
 
 #if USE_KEYSTORE
 out:
@@ -1474,16 +1561,22 @@ static bool SecServerKeychainRestore(SecDbConnectionRef dbt,
                                      CFErrorRef *error)
 {
     bool ok = false;
-    keybag_handle_t backup_keybag;
+    keybag_handle_t backup_keybag = bad_keybag_handle;
+    struct backup_keypair bkp;
 
     secnotice("SecServerKeychainRestore", "Restoring keychain backup");
 
     SecSignpostStart(SecSignpostRestoreOpenKeybag);
 #if USE_KEYSTORE
-    MKBKeyBagHandleRef mkbhandle = NULL;
-    require(mkb_open_keybag(keybag, password, &mkbhandle, false, error), out);
-
-    require_noerr(MKBKeyBagGetAKSHandle(mkbhandle, &backup_keybag), out);
+    kern_return_t ret = aks_kc_backup_open_keybag(CFDataGetBytePtr(keybag), CFDataGetLength(keybag), password ? CFDataGetBytePtr(password) : NULL, password ? CFDataGetLength(password) : 0, &backup_keybag, &bkp);
+    if (ret != 0) {
+        secwarning("SecServerKeychainRestore: aks_kc_backup_open_keybag failed: %d", ret);
+        if (error) {
+            SecKernError(ret, error, CFSTR("aks_kc_backup_open_keybag failed: %d"), ret);
+        }
+        goto out;
+    }
+    secnotice("SecServerKeychainRestore", "aks_kc_backup_open_keybag got backup_keybag:%d", backup_keybag);
 #else
     backup_keybag = KEYBAG_NONE;
 #endif
@@ -1491,15 +1584,12 @@ static bool SecServerKeychainRestore(SecDbConnectionRef dbt,
     SecSignpostStart(SecSignpostRestoreKeychain);
 
     /* Import from backup keybag to system keybag. */
-    require(SecServerImportBackupableKeychain(dbt, client, backup_keybag, KEYBAG_DEVICE, backup, error), out);
+    struct backup_keypair* src_bkp = backup_keybag == bad_keybag_handle ? &bkp : NULL;
+    require(SecServerImportBackupableKeychain(dbt, client, backup_keybag, src_bkp, KEYBAG_DEVICE, backup, error), out);
 
     ok = true;
 out:
     SecSignpostStop(SecSignpostRestoreKeychain);
-#if USE_KEYSTORE
-    if (mkbhandle)
-        CFRelease(mkbhandle);
-#endif
 
     if (ok) {
         secnotice("SecServerKeychainRestore", "Restore completed successfully");
@@ -1514,12 +1604,21 @@ out:
 
 CFStringRef __SecKeychainCopyPath(void) {
     CFStringRef kcRelPath = NULL;
+    bool useSystemPath = false;
 
 #if defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
     kcRelPath = CFSTR("system-keychain-2.db");
+    useSystemPath = true;
 #else
     if (os_variant_is_recovery("securityd")) {
         kcRelPath = CFSTR("keychain-recovery-2.db");
+#if !TARGET_OS_OSX
+        // In embedded recovery, don't use user homedir in embedded recovery, to maintain existing behavior.
+        //
+        // In macOS, SecCopyURLForFileInUserScopedKeychainDirectory() is the same as SecCopyURLForFileInKeychainDirectory(),
+        // it will try to use the user homedir. And we do NOT want to use the system path.
+        useSystemPath = true;
+#endif
     } else if (use_hwaes()) {
         kcRelPath = CFSTR("keychain-2.db");
     } else {
@@ -1528,22 +1627,46 @@ CFStringRef __SecKeychainCopyPath(void) {
 #endif // SECURITYD_SYSTEM
 
     CFStringRef kcPath = NULL;
-#if defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
-    CFURLRef kcURL = SecCopyURLForFileInSystemKeychainDirectory(kcRelPath);
-#else
-    CFURLRef kcURL = SecCopyURLForFileInKeychainDirectory(kcRelPath);
-#endif
+    CFURLRef kcURL = useSystemPath ? SecCopyURLForFileInSystemKeychainDirectory(kcRelPath) : SecCopyURLForFileInUserScopedKeychainDirectory(kcRelPath);
     if (kcURL) {
         kcPath = CFURLCopyFileSystemPath(kcURL, kCFURLPOSIXPathStyle);
         CFRelease(kcURL);
     }
+    secnotice("__SecKeychainCopyPath", "path: %s", kcPath ? (CFStringGetCStringPtr(kcPath, kCFStringEncodingUTF8) ?: "<unknown>") : "<null>");
     return kcPath;
 }
 
 // MARK; -
 // MARK: kc_dbhandle init and reset
 
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+static bool SystemKeybagUnlocked() {
+#if DEBUG
+    struct stat st;
+    int result = stat("/Library/Keychains/force_system_keybag_locked", &st);
+    if (result == 0) {
+        secnotice("upgr", "forcing system keybag locked");
+        return false;
+    }
+#endif // DEBUG
+
+    CFErrorRef aksError = NULL;
+    bool locked = true;
+
+    if(!SecAKSGetIsLocked(system_keychain_handle, &locked, &aksError)) {
+        secnotice("upgr", "error querying system keybag lock state: %@", aksError);
+        CFReleaseNull(aksError);
+    }
+
+    return !locked;
+}
+#endif
+
 SecDbRef SecKeychainDbCreate(CFStringRef path, CFErrorRef* error) {
+    // rdar://112992329
+    // localerror is only used in the block passed to SecDbCreate(), but that block is copied, not run synchronously.
+    // So localerror will _not_ be modified by the time SecKeychainDbCreate() returns.
+    // And because of that, the error parameter will never be filled in with anything but NULL.
     __block CFErrorRef localerror = NULL;
 
     SecDbRef kc = SecDbCreate(path, 0600, true, true, true, true, kSecDbMaxIdleHandles,
@@ -1552,14 +1675,67 @@ SecDbRef SecKeychainDbCreate(CFStringRef path, CFErrorRef* error) {
         // Upgrade from version 0 means create the schema in empty db.
         int version = 0;
         bool ok = true;
-        if (!didCreate)
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+        bool needEduBagTranscryption = false;
+        bool needEduModeWorkaround = SecSupportsEnhancedApfs() && !SecSeparateUserKeychain() && SecIsEduMode();
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+
+        if (!didCreate) {
             ok = SecKeychainDbGetVersion(dbconn, &version, createError);
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+            if (ok && needEduModeWorkaround) {
+                if (!SecKeychainDbGetEduModeTranscrypted(dbconn)) {
+                    secnotice("upgr", "must transcrypt");
+                    if (SystemKeybagUnlocked()) {
+                        secnotice("upgr", "using default keybag");
+                        needEduBagTranscryption = true;
+                        // Set the keybag to the default, instead of the system keychain keybag, so
+                        // we can decrypt items in order to upgrade the DB.
+                        SecItemServerSetKeychainKeybagToDefault();
+                    } else {
+                        secerror("Cannot transcrypt because system keybag not (yet) unlocked!! 🫸");
+                        ok = false;
+                        SecError(errSecNotAvailable, createError, CFSTR("transcryption error: system keybag not (yet) unlocked"));
+                    }
+                } else {
+                    secnotice("upgr", "already transcrypted");
+                }
+            }
+        } else if (needEduModeWorkaround) {
+            secnotice("upgr", "created new db, setting edu bag version");
+            // We don't expect to create a new DB when already in edu mode.
+            // But if we do, we don't need to transcrypt, because it is already protected by the system keychain keybag.
+            SecKeychainDbSetEduModeTranscrypted(dbconn);
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+        }
 
         ok = ok && SecKeychainDbUpgradeFromVersion(dbconn, version, callMeAgainForNextConnection, createError);
         if (!ok)
             secerror("Upgrade %sfailed: %@", didCreate ? "from v0 " : "", createError ? *createError : NULL);
 
         localerror = createError ? *createError : NULL;
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+        if (needEduBagTranscryption) {
+            CFStringRef accessGroup = CFSTR("*");
+            SecurityClient client = {
+                .task = NULL,
+                .accessGroups =  CFArrayCreate(kCFAllocatorDefault, (const void **)&accessGroup, 1, &kCFTypeArrayCallBacks),
+                .allowSystemKeychain = true,
+                .allowSyncBubbleKeychain = false,
+                .isNetworkExtension = false,
+            };
+            InternalTranscryptToSystemKeychainKeybag(dbconn, &client, createError);
+            CFReleaseNull(client.accessGroups);
+
+            secnotice("upgr", "transcrypted, setting flag to remember we've already done so");
+            SecKeychainDbSetEduModeTranscrypted(dbconn);
+
+            secnotice("upgr", "transcrypted, using system keychain handle");
+            SecItemServerSetKeychainKeybag(system_keychain_handle);
+        }
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 
         if(ok) {
             // This block might get called many, many times due to callMeAgainForNextConnection.
@@ -2174,6 +2350,7 @@ static bool queryHasValidAttributes(CFDictionaryRef attrs, QueryAttributesDescri
     return true;
 }
 
+
 static bool appClipHasAcceptableAccessGroups(SecurityClient* client) {
     if (!client || !client->applicationIdentifier || !client->accessGroups) {
         secerror("item: no app clip client or attributes not set, cannot verify restrictions");
@@ -2475,11 +2652,12 @@ _SecDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error)
                 CFSTR("com.apple.cfnetwork-recently-deleted"),
                 CFSTR("com.apple.password-manager"),
                 CFSTR("com.apple.password-manager-recently-deleted"),
-                CFSTR("com.apple.password-manager.generated-passwords"),
                 CFSTR("com.apple.password-manager.personal"),
                 CFSTR("com.apple.password-manager.personal-recently-deleted"),
                 CFSTR("com.apple.webkit.webauthn"),
                 CFSTR("com.apple.webkit.webauthn-recently-deleted"),
+                CFSTR("com.apple.password-manager.generated-passwords"),
+                CFSTR("com.apple.password-manager.generated-passwords-recently-deleted"),
                 NULL
             );
 
@@ -3266,7 +3444,8 @@ _SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataR
 
             if (keybag == NULL && passcode == NULL) {
 #if USE_KEYSTORE
-                backup = SecServerExportBackupableKeychain(dbt, client, KEYBAG_DEVICE, backup_keybag_handle, error);
+                // destination keybag pointer is NULL, which means to ask AKS to use the currently-configured backup bag
+                backup = SecServerExportBackupableKeychain(dbt, client, NULL, error);
 #else /* !USE_KEYSTORE */
                 (void)client;
                 SecError(errSecParam, error, CFSTR("Why are you doing this?"));
@@ -3776,7 +3955,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
         require(q, fail);
 
         q->q_limit = kSecMatchUnlimited;
-        q->q_keybag = device_keybag_handle;
+        q->q_keybag = KEYBAG_DEVICE; //keybag when querying in the normal user keychain in edu mode
 
         for (n = 0; n < nItems; n++) {
             query_add_attribute(items[n].attribute, items[n].value, q);
@@ -3809,7 +3988,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
 
         q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
         q->q_limit = kSecMatchUnlimited;
-        q->q_keybag = device_keybag_handle; /* XXX change to session key bag when it exists */
+        q->q_keybag = KEYBAG_DEVICE; // keybag when querying in the normal user keychain in edu mode
 
         for (n = 0; n < nItems; n++) {
             query_add_or_attribute(items[n].attribute, items[n].value, q);
@@ -3833,13 +4012,17 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
                     CFErrorRef error3 = NULL;
                     secinfo("syncbubble", "migrating item");
 
-                    SecDbItemRef new_item = SecDbItemCopyWithUpdates(item, updateAttributes, NULL);
+                    SecDbItemRef new_item = SecDbItemCopyWithUpdates(item, updateAttributes, &error3);
                     if (new_item == NULL)
+                    {
+                        secnotice("syncbubble", "migration failed, no new_item %@", error3);
+                        CFReleaseNull(error3);
                         return;
+                    }
 
                     SecDbItemClearRowId(new_item, NULL);
 
-                    if (!SecDbItemSetKeybag(new_item, device_keybag_handle, NULL)) {
+                    if (!SecDbItemSetKeybag(new_item, KEYBAG_DEVICE, NULL)) { // keybag when storing the transmogrified item into the syncbubble keychain
                         CFRelease(new_item);
                         return;
                     }
@@ -4070,6 +4253,9 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
 {
     __block bool ok = true;
 
+    SecSignpostStart(SecSignpostSecSystemTransfer);
+    secnotice("transmogrify", "begin");
+
     /*
      * we are not in multi user yet, about to switch, otherwise we would
      * check that for client->inEduMode here
@@ -4083,7 +4269,6 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
             SecDbClass const *const *kcClass;
 
             for (kcClass = newSchema->classes; *kcClass != NULL; kcClass++) {
-                CFErrorRef localError = NULL;
                 Query *q = NULL;
 
                 if (!((*kcClass)->itemclass)) {
@@ -4126,13 +4311,68 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
                     SecErrorPropagate(itemError, error);
                 });
 
-                if (q)
-                    query_destroy(q, &localError);
+                query_destroy(q, NULL);
 
             }
             return (bool)true;
         });
     });
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+    // If Enhanced APFS is already enabled, then we also need to transcrypt the DB, as the current keybag will go away soon.
+    if (SecSupportsEnhancedApfs() && !SecSeparateUserKeychain()) {
+        kc_with_dbt(true, error, ^(SecDbConnectionRef dbt) {
+            if (SecKeychainDbGetEduModeTranscrypted(dbt)) {
+                secnotice("transmogrify", "Unexpectedly already transcrypted??");
+                return true;
+            }
+            kc_transaction(dbt, error, ^{
+                secnotice("transmogrify", "must transcrypt, using default keybag");
+                // Since we are transmogrifying, the keybag will already be set to the default, not the system keychain keybag.
+                ok = InternalTranscryptToSystemKeychainKeybag(dbt, client, error) && ok;
+                return true;
+            });
+
+            secnotice("transmogrify", "transcrypted, setting flag to remember we've already done so");
+            SecKeychainDbSetEduModeTranscrypted(dbt);
+
+            // Now we need to use the system keychain keybag.
+            // Otherwise, all item decryptions will fail, causing accessed items to be dropped on the floor.
+            secnotice("transmogrify", "transcrypted, using system keychain handle");
+            SecItemServerSetKeychainKeybag(system_keychain_handle);
+
+            return true;
+        });
+    }
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+
+    secnotice("transmogrify", "end");
+    SecSignpostStop(SecSignpostSecSystemTransfer);
+
+    return ok;
+}
+
+/*
+ * Transcrypt system keychain items from user keychain to system keychain when switching to edu mode
+ */
+
+bool
+_SecServerTranscryptToSystemKeychainKeybag(SecurityClient *client, CFErrorRef *error)
+{
+    __block bool ok = false;
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+    SecSignpostStart(SecSignpostSecSystemTranscrypt);
+    secnotice("transcrypt", "begin");
+
+    kc_with_dbt(true, error, ^(SecDbConnectionRef dbt) {
+        ok = InternalTranscryptToSystemKeychainKeybag(dbt, client, error);
+        return ok;
+    });
+
+    secnotice("transcrypt", "end");
+    SecSignpostStop(SecSignpostSecSystemTranscrypt);
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 
     return ok;
 }

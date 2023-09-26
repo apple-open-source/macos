@@ -1,7 +1,6 @@
-/*	$OpenBSD: tar.h,v 1.7 2003/06/02 23:32:09 millert Exp $	*/
-/*	$NetBSD: tar.h,v 1.3 1995/03/21 09:07:51 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,11 +33,11 @@
  * SUCH DAMAGE.
  *
  *	@(#)tar.h	8.2 (Berkeley) 4/18/94
+ * $FreeBSD$
  */
 
 #ifndef _TAR_H_
 #define _TAR_H_
-
 /*
  * defines and data structures common to all tar formats
  */
@@ -46,13 +45,13 @@
 #define TNMSZ		100		/* size of name field */
 #ifdef _PAX_
 #define NULLCNT		2		/* number of null blocks in trailer */
-#define CHK_OFFSET	148		/* start of chksum field */
+#define CHK_OFFSET	148		/* start of checksum field */
 #define BLNKSUM		256L		/* sum of checksum field using ' ' */
 #endif /* _PAX_ */
 
 /*
  * Values used in typeflag field in all tar formats
- * (only REGTYPE, LNKTYPE and SYMTYPE are used in old bsd tar headers)
+ * (only REGTYPE, LNKTYPE and SYMTYPE are used in old BSD tar headers)
  */
 #define	REGTYPE		'0'		/* Regular File */
 #define	AREGTYPE	'\0'		/* Regular File */
@@ -64,6 +63,7 @@
 #define	FIFOTYPE	'6'		/* FIFO */
 #define	CONTTYPE	'7'		/* high perf file */
 
+#ifdef __APPLE__
 #define	PAXXTYPE	'x'		/* pax format extended header */
 #define	PAXGTYPE	'g'		/* pax format global extended header */
 
@@ -72,6 +72,7 @@
  */
 #define	LONGLINKTYPE	'K'		/* Long Symlink */
 #define	LONGNAMETYPE	'L'		/* Long File */
+#endif /* __APPLE__ */
 
 /*
  * Mode field encoding of the different file types - values in octal
@@ -110,7 +111,11 @@ typedef struct {
 	char chksum[CHK_LEN];		/* checksum */
 	char linkflag;			/* norm, hard, or sym. */
 	char linkname[TNMSZ];		/* linked to name */
-} HD_TAR;
+#ifdef __APPLE__
+} HD_TAR __attribute__((aligned(1)));
+#else
+} HD_TAR __aligned(1);
+#endif /* __APPLE__ */
 
 #ifdef _PAX_
 /*
@@ -122,12 +127,12 @@ typedef struct {
 /*
  * default device names
  */
-#define	DEV_0		"/dev/rst0"
-#define	DEV_1		"/dev/rst1"
-#define	DEV_4		"/dev/rst4"
-#define	DEV_5		"/dev/rst5"
-#define	DEV_7		"/dev/rst7"
-#define	DEV_8		"/dev/rst8"
+#define	DEV_0		"/dev/rmt0"
+#define	DEV_1		"/dev/rmt1"
+#define	DEV_4		"/dev/rmt4"
+#define	DEV_5		"/dev/rmt5"
+#define	DEV_7		"/dev/rmt7"
+#define	DEV_8		"/dev/rmt8"
 #endif /* _PAX_ */
 
 /*
@@ -156,6 +161,10 @@ typedef struct {
 	char devmajor[8];		/* major device number */
 	char devminor[8];		/* minor device number */
 	char prefix[TPFSZ];		/* linked to name */
-} HD_USTAR;
+#ifdef __APPLE__
+} HD_USTAR __attribute__((aligned(1)));
+#else
+} HD_USTAR __aligned(1);
+#endif /* __APPLE__ */
 
 #endif /* _TAR_H_ */

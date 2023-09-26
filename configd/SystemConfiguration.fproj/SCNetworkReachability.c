@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -918,7 +918,7 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 	}
 
 	if (haveOpt) {
-		const char	*opt	= "???";
+		const char	*opt;
 
 		switch (targetPrivate->type) {
 			case reachabilityTypeAddress :
@@ -1718,9 +1718,18 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 	    !targetPrivate->resolverBypass &&
 	    isReachabilityTypeName(targetPrivate->type)) {
 		nw_resolver_t resolver;
+		nw_resolver_t previousResolver;
 		CFRetain(targetPrivate);
-		if (NULL != targetPrivate->resolver) {
-			nw_resolver_cancel(targetPrivate->resolver);
+		previousResolver = targetPrivate->resolver;
+		if (previousResolver != NULL) {
+			dispatch_queue_t callbackQueue;
+
+			nw_retain(previousResolver);
+			callbackQueue = targetPrivate->dispatchQueue;
+			dispatch_async(callbackQueue, ^{
+				nw_resolver_cancel(previousResolver);
+				nw_release(previousResolver);
+			});
 		}
 		if (targetPrivate->lastPath != NULL) {
 			resolver = nw_resolver_create_with_path(targetPrivate->lastPath);
@@ -1996,6 +2005,7 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 			CFRelease(targetPrivate);
 		}
 	} else {
+		nw_resolver_t resolver;
 		if (targetPrivate->dispatchQueue == NULL) {	// if we should be scheduled on a dispatch queue (but are not)
 			_SCErrorSet(kSCStatusInvalidArgument);
 			goto done;
@@ -2017,15 +2027,21 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 		targetPrivate->lastPathParameters = NULL;
 		nw_release(targetPrivate->lastResolvedEndpoints);
 		targetPrivate->lastResolvedEndpoints = NULL;
-		if (NULL != targetPrivate->resolver) {
-			nw_resolver_cancel(targetPrivate->resolver);
-			targetPrivate->resolver = NULL;
+		resolver = targetPrivate->resolver;
+		if (resolver != NULL) {
+			dispatch_queue_t callbackQueue;
+
+			nw_retain(resolver);
+			callbackQueue = targetPrivate->dispatchQueue;
+			dispatch_async(callbackQueue, ^{
+				nw_resolver_cancel(resolver);
+				nw_release(resolver);
+			});
 		}
 		if (targetPrivate->dispatchQueue != NULL) {
 			dispatch_release(targetPrivate->dispatchQueue);
 			targetPrivate->dispatchQueue = NULL;
 		}
-
 		SC_log(LOG_DEBUG, "%sunscheduled", targetPrivate->log_prefix);
 	}
 	ok = TRUE;

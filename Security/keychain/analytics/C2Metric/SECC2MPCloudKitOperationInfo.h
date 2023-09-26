@@ -19,8 +19,8 @@ __attribute__((visibility("hidden")))
     NSString *_operationType;
     BOOL _operationTriggered;
     struct {
-        int operationGroupIndex:1;
-        int operationTriggered:1;
+        uint operationGroupIndex:1;
+        uint operationTriggered:1;
     } _has;
 }
 

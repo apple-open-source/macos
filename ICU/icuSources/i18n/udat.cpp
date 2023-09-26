@@ -25,7 +25,10 @@
 #include "unicode/ustring.h"
 #include "unicode/udisplaycontext.h"
 #include "unicode/ufieldpositer.h"
+#if APPLE_ICU_CHANGES
+// rdar://
 #include "unicode/ucasemap.h"
+#endif  // APPLE_ICU_CHANGES
 #include "cpputils.h"
 #include "reldtfmt.h"
 #include "umutex.h"
@@ -97,13 +100,16 @@ udat_toCalendarDateField(UDateFormatField field) {
   return (field >= UDAT_ERA_FIELD && field < UPRV_LENGTHOF(gDateFieldMapping))? gDateFieldMapping[field]: UCAL_FIELD_COUNT;
 }
 
-// for Apple <rdar://problem/62136559>
+#if APPLE_ICU_CHANGES
+// rdar://
+// for Apple rdar://62136559
 U_CAPI UDateFormatField U_EXPORT2
 udat_patternCharToDateFormatField(UChar patternChar) {
     const UChar* patternUChars = (UChar*)DateFormatSymbols::getPatternUChars();
     UChar* patternOffset = u_strchr(patternUChars, patternChar);
     return (patternOffset)? (UDateFormatField)(patternOffset-patternUChars): UDAT_FIELD_COUNT;
 }
+#endif  // APPLE_ICU_CHANGES
 
 /* For now- one opener. */
 static UDateFormatOpener gOpener = NULL;
@@ -438,9 +444,9 @@ udat_getBooleanAttribute(const UDateFormat* fmt,
                          UDateFormatBooleanAttribute attr, 
                          UErrorCode* status)
 {
-    if(U_FAILURE(*status)) return FALSE;
+    if(U_FAILURE(*status)) return false;
     return ((DateFormat*)fmt)->getBooleanAttribute(attr, *status);
-    //return FALSE;
+    //return false;
 }
 
 U_CAPI void U_EXPORT2
@@ -603,6 +609,8 @@ udat_applyPattern(  UDateFormat     *format,
         ((SimpleDateFormat*)format)->applyPattern(pat);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // Apple addition
 static DateFormatSymbols::ECapitalizationContextUsageType capUsageFromSymbolType(UDateFormatSymbolType type)
 {
@@ -645,8 +653,7 @@ static DateFormatSymbols::ECapitalizationContextUsageType capUsageFromSymbolType
     }
     return capContextUsageType;
 }
-
-
+#endif  // APPLE_ICU_CHANGES
 
 U_CAPI int32_t U_EXPORT2
 udat_getSymbols(const   UDateFormat     *fmt,
@@ -659,13 +666,22 @@ udat_getSymbols(const   UDateFormat     *fmt,
     const DateFormatSymbols *syms;
     const SimpleDateFormat* sdtfmt;
     const RelativeDateFormat* rdtfmt;
+#if APPLE_ICU_CHANGES
+// rdar://
     BreakIterator* capitalizationBrkIter;
+#endif  // APPLE_ICU_CHANGES
     if ((sdtfmt = dynamic_cast<const SimpleDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))) != NULL) {
         syms = sdtfmt->getDateFormatSymbols();
+#if APPLE_ICU_CHANGES
+// rdar://
         capitalizationBrkIter = sdtfmt->getCapitalizationBrkIter();
+#endif  // APPLE_ICU_CHANGES
     } else if ((rdtfmt = dynamic_cast<const RelativeDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))) != NULL) {
         syms = rdtfmt->getDateFormatSymbols();
+#if APPLE_ICU_CHANGES
+// rdar://
         capitalizationBrkIter = rdtfmt->getCapitalizationBrkIter();
+#endif  // APPLE_ICU_CHANGES
     } else {
         return -1;
     }
@@ -801,22 +817,26 @@ udat_getSymbols(const   UDateFormat     *fmt,
         res = syms->getZodiacNames(count, DateFormatSymbols::FORMAT, DateFormatSymbols::NARROW);
         break;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     case UADAT_CYCLIC_ZODIAC_NAMES:
         res = syms->getZodiacNames(count, DateFormatSymbols::FORMAT, DateFormatSymbols::ABBREVIATED);
         index = (index > 0)? (index - 1) % 12: 0;
         break;
 
+#endif  // APPLE_ICU_CHANGES
     }
 
     if(index < count) {
-#if !UCONFIG_NO_BREAK_ITERATION
-        // Apple addition for <rdar://problem/27335144>
+#if APPLE_ICU_CHANGES && !UCONFIG_NO_BREAK_ITERATION
+// rdar://
+        // Apple addition for rdar://27335144
         if (u_islower(res[index].char32At(0)) && capitalizationBrkIter != NULL) {
             UDisplayContext capitalizationContext = ((const DateFormat*)fmt)->getContext(UDISPCTX_TYPE_CAPITALIZATION, *status);
-            UBool titlecase = FALSE;
+            UBool titlecase = false;
             switch (capitalizationContext) {
                 case UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE:
-                    titlecase = TRUE;
+                    titlecase = true;
                     break;
                 case UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU:
                     titlecase = syms->capitalizeForUsage(capUsageFromSymbolType(type), 0);
@@ -825,7 +845,7 @@ udat_getSymbols(const   UDateFormat     *fmt,
                     titlecase = syms->capitalizeForUsage(capUsageFromSymbolType(type), 1);
                     break;
                 default:
-                    // titlecase = FALSE;
+                    // titlecase = false;
                     break;
             }
             if (titlecase) {
@@ -842,7 +862,7 @@ udat_getSymbols(const   UDateFormat     *fmt,
                 }
             }
         }
-#endif
+#endif  // APPLE_ICU_CHANGES && !UCONFIG_NO_BREAK_ITERATION
         return res[index].extract(result, resultLength, *status);
     }
     return 0;
@@ -986,10 +1006,13 @@ udat_countSymbols(    const    UDateFormat                *fmt,
         syms->getZodiacNames(count, DateFormatSymbols::FORMAT, DateFormatSymbols::NARROW);
         break;
 
+#if APPLE_ICU_CHANGES
+// rdar://
      case UADAT_CYCLIC_ZODIAC_NAMES:
         syms->getZodiacNames(count, DateFormatSymbols::FORMAT, DateFormatSymbols::ABBREVIATED);
         break;
 
+#endif  // APPLE_ICU_CHANGES
     }
 
     return count;

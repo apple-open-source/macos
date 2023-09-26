@@ -29,6 +29,7 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "Logging.h"
+#include "MessageSenderInlines.h"
 #include "SpeechRecognitionRealtimeMediaSourceManagerMessages.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManagerMessages.h"
 #include "WebProcess.h"
@@ -124,7 +125,7 @@ private:
         auto bufferSize = AudioSession::sharedSession().sampleRate() / 50;
         if (AudioSession::sharedSession().preferredBufferSize() > bufferSize)
             AudioSession::sharedSession().setPreferredBufferSize(bufferSize);
-        AudioSession::sharedSession().setCategory(AudioSession::CategoryType::PlayAndRecord, RouteSharingPolicy::Default);
+        AudioSession::sharedSession().setCategory(AudioSession::CategoryType::PlayAndRecord, AudioSession::Mode::Default, RouteSharingPolicy::Default);
 #endif
     }
 

@@ -29,6 +29,10 @@
 #define RDAR_48993662 1
 #define OS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY 1
 
+#ifdef DEBUG
+#define QUEUE_MACRO_DEBUG
+#endif
+
 #include <Availability.h>
 #include <TargetConditionals.h>
 #include <_simple.h>
@@ -50,6 +54,7 @@
 #include <mach-o/dyld_priv.h>
 #include <mach/mach.h>
 #include <mach/mach_init.h>
+#include <mach/mach_time.h>
 #include <mach/mach_types.h>
 #include <mach/mach_vm.h>
 #include <mach/shared_region.h>
@@ -74,9 +79,7 @@
 #include <pthread/private.h>  // _pthread_threadid_self_np_direct()
 #include <pthread/tsd_private.h>  // TSD keys
 
-#if __has_feature(ptrauth_calls)
 #include <ptrauth.h>
-#endif
 
 #include <signal.h>
 #include <stdarg.h>
@@ -85,7 +88,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <struct.h>
 #include <sys/cdefs.h>
+#include <sys/event.h>
 #include <sys/mman.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -101,7 +106,7 @@
 #define __TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER __PTK_LIBMALLOC_KEY0
 #define __TSD_MALLOC_ZERO_CORRUPTION_COUNTER   __PTK_LIBMALLOC_KEY1
 #define __TSD_MALLOC_THREAD_OPTIONS            __PTK_LIBMALLOC_KEY2
-#define __TSD_MALLOC_UNUSED3                   __PTK_LIBMALLOC_KEY3
+#define __TSD_MALLOC_TYPE_DESCRIPTOR           __PTK_LIBMALLOC_KEY3
 #define __TSD_MALLOC_UNUSED4                   __PTK_LIBMALLOC_KEY4
 
 #include "dtrace.h"
@@ -113,6 +118,7 @@
 #include "bitarray.h"
 #include "malloc/malloc.h"
 #include "printf.h"
+#include "early_malloc.h"
 #include "frozen_malloc.h"
 #include "legacy_malloc.h"
 #include "magazine_malloc.h"
@@ -120,9 +126,12 @@
 #include "nano_malloc_common.h"
 #include "nanov2_malloc.h"
 #include "pgm_malloc.h"
-#include "quarantine_malloc.h"
+#include "sanitizer_malloc.h"
 #include "purgeable_malloc.h"
 #include "malloc_private.h"
+#include "malloc/_malloc_type.h"  // public
+#include "malloc_type_private.h"  // private
+#include "malloc_type_internal.h" // project
 #include "thresholds.h"
 #include "vm.h"
 #include "magazine_rack.h"
@@ -131,9 +140,63 @@
 #include "nano_zone.h"
 #include "nanov2_zone.h"
 #include "magazine_inline.h"
+#include "xzone/xzone_malloc.h"
+#include "xzone/xzone_inline_internal.h"
 #include "stack_logging.h"
 #include "stack_trace.h"
 #include "malloc_implementation.h"
+
+#pragma mark Memory Pressure Notification Masks
+
+/* We will madvise unused memory on pressure warnings if either:
+ *  - freed pages are not aggressively madvised by default
+ *  - the large cache is enabled (and not enrolled in deferred reclamation)
+ */
+#if CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM)
+#define MALLOC_MEMORYSTATUS_MASK_PRESSURE_RELIEF ( \
+		NOTE_MEMORYSTATUS_PRESSURE_WARN | \
+		NOTE_MEMORYSTATUS_PRESSURE_NORMAL)
+#else /* CONFIG_MADVISE_PRESSURE_RELIEF || (CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM) */
+#define MALLOC_MEMORYSTATUS_MASK_PRESSURE_RELIEF 0
+#endif
+
+/*
+ * Resource Exception Reports are generated on process limits and
+ * system-critical memory pressure.
+ */
+#if ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING
+#define MALLOC_MEMORYSTATUS_MASK_RESOURCE_EXCEPTION_HANDLING ( \
+		NOTE_MEMORYSTATUS_PROC_LIMIT_WARN | \
+		NOTE_MEMORYSTATUS_PROC_LIMIT_CRITICAL | \
+		NOTE_MEMORYSTATUS_PRESSURE_CRITICAL )
+#else /* ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING */
+#define MALLOC_MEMORYSTATUS_MASK_RESOURCE_EXCEPTION_HANDLING 0
+#endif
+
+/* MallocStackLogging.framework notification dependencies */
+#define MSL_MEMORYPRESSURE_MASK ( NOTE_MEMORYSTATUS_PROC_LIMIT_WARN | \
+		NOTE_MEMORYSTATUS_PROC_LIMIT_CRITICAL | \
+		NOTE_MEMORYSTATUS_PRESSURE_CRITICAL )
+
+/*
+ * By default, libdispatch will register eligible processes for memory-pressure
+ * notifications and register a notification handler. libdispatch's
+ * notification handler will then call into malloc to return unused memory (see
+ * `malloc_memory_event_handler()`). We export a mask to libdispatch so that it
+ * will only register for notifications for which malloc is prepared to respond
+ * to. Because MallocStackLogging.framework relies on its own subset of
+ * notifications, we export two masks. libdispatch will initially register for
+ * notifications of the `_DEFAULT` flavor. If MallocStackLogging.framework is
+ * subsequently enabled, libdispatch will reregister for notifications with
+ * the `_MSL` mask.
+ */
+#define MALLOC_MEMORYPRESSURE_MASK_DEFAULT ( NOTE_MEMORYSTATUS_MSL_STATUS | \
+		MALLOC_MEMORYSTATUS_MASK_PRESSURE_RELIEF | \
+		MALLOC_MEMORYSTATUS_MASK_RESOURCE_EXCEPTION_HANDLING )
+#define MALLOC_MEMORYPRESSURE_MASK_MSL ( MALLOC_MEMORYPRESSURE_MASK_DEFAULT | \
+		MSL_MEMORYPRESSURE_MASK )
+
+#pragma mark Globals
 
 MALLOC_NOEXPORT
 extern bool malloc_tracing_enabled;
@@ -148,7 +211,15 @@ MALLOC_NOEXPORT
 extern bool malloc_medium_space_efficient_enabled;
 
 MALLOC_NOEXPORT
-extern bool malloc_quarantine_enabled;
+extern bool malloc_sanitizer_enabled;
+
+MALLOC_NOEXPORT
+extern malloc_zone_t *initial_xzone_zone;
+
+#if CONFIG_MALLOC_PROCESS_IDENTITY
+MALLOC_NOEXPORT
+extern malloc_process_identity_t malloc_process_identity;
+#endif
 
 MALLOC_NOEXPORT MALLOC_NOINLINE
 void
@@ -158,7 +229,7 @@ MALLOC_NOEXPORT MALLOC_NOINLINE MALLOC_USED
 int
 malloc_gdb_po_unsafe(void);
 
-MALLOC_NOEXPORT __attribute__((always_inline, const))
+__attribute__((always_inline, const))
 static inline bool
 malloc_traced(void)
 {
@@ -176,6 +247,30 @@ _malloc_cpu_number(void)
 	return _os_cpu_number();
 #endif
 }
+
+#if CONFIG_MAGAZINE_PER_CLUSTER
+
+static inline unsigned int
+_malloc_cpu_cluster_number(void)
+{
+#if TARGET_OS_SIMULATOR
+#error current cluster id not supported on simulator
+#else
+	return _os_cpu_cluster_number();
+#endif
+}
+
+static inline unsigned int
+_malloc_get_cluster_from_cpu(unsigned int cpu_number)
+{
+#if TARGET_OS_SIMULATOR
+#error cluster id lookup not supported on simulator
+#else
+	return (unsigned int)*(uint8_t *)(uintptr_t)(_COMM_PAGE_CPU_TO_CLUSTER + cpu_number);
+#endif
+}
+
+#endif // CONFIG_MAGAZINE_PER_CLUSTER
 
 /*
   * Copies the malloc library's _malloc_msl_lite_hooks_t structure to a given

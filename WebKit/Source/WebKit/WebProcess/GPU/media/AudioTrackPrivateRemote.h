@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "TrackPrivateRemoteIdentifier.h"
 #include <WebCore/AudioTrackPrivate.h>
@@ -60,7 +60,7 @@ private:
     void setEnabled(bool) final;
     MediaTime startTimeVariance() const final { return m_startTimeVariance; }
 
-    WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
+    ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     AudioTrackKind m_kind { None };
     AtomString m_id;
     AtomString m_label;
@@ -74,4 +74,4 @@ private:
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

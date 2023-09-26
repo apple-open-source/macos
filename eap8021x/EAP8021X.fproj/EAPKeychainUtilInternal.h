@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2019, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,6 +47,25 @@ PRIVATE_EXTERN OSStatus
 EAPSecKeychainItemSetAccessForTrustedApplications(SecKeychainItemRef item,
 						  CFArrayRef trusted_apps);
 #endif /* ! TARGET_OS_IPHONE */
+
+#if TARGET_OS_IPHONE
+
+OSStatus
+EAPKeychainSetIdentityReference(CFStringRef unique_string, CFDataRef reference, Boolean update);
+
+OSStatus
+EAPKeychainCopyIdentityReference(CFStringRef unique_string, CFDataRef *reference);
+
+OSStatus
+EAPKeychainSetPasswordItem(CFStringRef unique_string, CFDataRef username, CFDataRef password, Boolean update);
+
+OSStatus
+EAPKeychainCopyPasswordItem(CFStringRef unique_string, CFDataRef *username_p, CFDataRef *password_p);
+
+OSStatus
+EAPKeychainRemovePasswordItem(CFStringRef unique_string);
+
+#endif /* TARGET_OS_IPHONE */
 
 #endif /* _EAP8021X_EAPKEYCHAINUTILINTERNAL_H */
 

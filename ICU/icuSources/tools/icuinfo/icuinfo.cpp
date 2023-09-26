@@ -46,25 +46,31 @@ static UOption options[]={
   /*5*/ UOPTION_DEF("milisecond-time", 'm', UOPT_NO_ARG),
   /*6*/ UOPTION_DEF("cleanup", 'K', UOPT_NO_ARG),
   /*7*/ UOPTION_DEF("xml", 'x', UOPT_REQUIRES_ARG),
+#if APPLE_ICU_CHANGES
+// rdar://
   /*8*/ UOPTION_DEF("perf", 'p', UOPT_NO_ARG), // Apple
+#endif  // APPLE_ICU_CHANGES
 };
 
 static UErrorCode initStatus = U_ZERO_ERROR;
-static UBool icuInitted = FALSE;
+static UBool icuInitted = false;
 
 static void do_init() {
     if(!icuInitted) {
       u_init(&initStatus);
-      icuInitted = TRUE;
+      icuInitted = true;
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 static void cmd_perf(); // Apple
+#endif  // APPLE_ICU_CHANGES
 
 static void do_cleanup() {
   if (icuInitted) {
     u_cleanup();
-    icuInitted = FALSE;
+    icuInitted = false;
   }
 }
 
@@ -139,7 +145,7 @@ void cmd_version(UBool /* noLoad */, UErrorCode &errorCode)
 #endif
 #else
     fprintf(stderr, "Plugins are disabled.\n");
-#endif
+#endif    
 }
 
 void cmd_cleanup()
@@ -235,7 +241,7 @@ void cmd_listplugins() {
 extern int
 main(int argc, char* argv[]) {
     UErrorCode errorCode = U_ZERO_ERROR;
-    UBool didSomething = FALSE;
+    UBool didSomething = false;
     
     /* preset then read command line options */
     argc=u_parseArgs(argc, argv, UPRV_LENGTHOF(options), options);
@@ -257,8 +263,11 @@ main(int argc, char* argv[]) {
               " -L         or  --list-plugins     - List and diagnose issues with ICU Plugins\n"
 #endif
               " -K         or  --cleanup          - Call u_cleanup() before exiting (will attempt to unload plugins)\n"
+#if APPLE_ICU_CHANGES
+// rdar://
               " -p         or  --perf             - Perf tests (Apple)\n"
-             "\n"
+#endif  // APPLE_ICU_CHANGES
+              "\n"
               "If no arguments are given, the tool will print ICU version and configuration information.\n"
               );
       fprintf(stderr, "International Components for Unicode %s\n%s\n", U_ICU_VERSION, U_COPYRIGHT_STRING );
@@ -271,16 +280,16 @@ main(int argc, char* argv[]) {
 
     if(options[5].doesOccur) {
       cmd_millis();
-      didSomething=TRUE;
+      didSomething=true;
     } 
     if(options[4].doesOccur) {
       cmd_listplugins();
-      didSomething = TRUE;
+      didSomething = true;
     }
 
     if(options[3].doesOccur) {
-      cmd_version(FALSE, errorCode);
-      didSomething = TRUE;
+      cmd_version(false, errorCode);
+      didSomething = true;
     }
 
     if(options[7].doesOccur) {  /* 2nd part of version: cleanup */
@@ -293,21 +302,24 @@ main(int argc, char* argv[]) {
       fprintf(out, "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n");
       udbg_writeIcuInfo(out);
       fclose(out);
-      didSomething = TRUE;
+      didSomething = true;
     }
 
     if(options[6].doesOccur) {  /* 2nd part of version: cleanup */
       cmd_cleanup();
-      didSomething = TRUE;
+      didSomething = true;
     }
 
+#if APPLE_ICU_CHANGES
+// rdar://
     if(options[8].doesOccur) { // Apple
       cmd_perf();
       didSomething=TRUE;
     } 
+#endif  // APPLE_ICU_CHANGES
 
     if(!didSomething) {
-      cmd_version(FALSE, errorCode);  /* at least print the version # */
+      cmd_version(false, errorCode);  /* at least print the version # */
     }
 
     do_cleanup();
@@ -315,6 +327,8 @@ main(int argc, char* argv[]) {
     return U_FAILURE(errorCode);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #if defined(__APPLE__) && defined(__MACH__)
 // Apple addition
 #include <unistd.h>
@@ -366,4 +380,4 @@ static void cmd_perf() {
     printf("This feature is unsupported on this platform\n");
 }
 #endif
-
+#endif  // APPLE_ICU_CHANGES

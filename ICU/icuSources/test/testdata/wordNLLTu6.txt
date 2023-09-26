@@ -2,6 +2,8 @@
 ## The following corresponds to source file from CoreLP of 2018-Jan-17:
 ##   CoreNLP/Tagger.subproj/Source/Data/word.txt
 ##############################################################################
+## Apple addition, originally per rdar://37249396
+##############################################################################
 #
 # Copyright (C) 2002-2013, International Business Machines Corporation
 # and others. All Rights Reserved.

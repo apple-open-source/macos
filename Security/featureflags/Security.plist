@@ -47,6 +47,16 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>TrustSettingsUseTrustStore</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+	</dict>
+	<key>TrustStoreUsesUUID</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+	</dict>
 	<key>WarnTooManyPeers</key>
 	<dict>
 		<key>Enabled</key>
@@ -63,6 +73,11 @@
 		<false/>
 	</dict>
 	<key>SecSystemKeychainAlwaysSupported</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>SeparateUserKeychain</key>
 	<dict>
 		<key>Enabled</key>
 		<false/>
@@ -87,16 +102,11 @@
 		<key>DisplayName</key>
 		<string>Sync shared items automatically</string>
 		<key>DevelopmentPhase</key>
-		<string>UnderDevelopment</string>
+		<string>FeatureComplete</string>
 		<key>Radar</key>
 		<real>83175376</real>
 	</dict>
 	<key>SecCMSMessageSecurityShim</key>
-	<dict>
-		<key>Enabled</key>
-		<false/>
-	</dict>
-	<key>SecSkipSecurityToolAuth</key>
 	<dict>
 		<key>Enabled</key>
 		<true/>

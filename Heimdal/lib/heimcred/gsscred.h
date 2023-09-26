@@ -87,6 +87,7 @@ typedef struct {
     HeimCredSessionExists sessionExists;
     id<ManagedAppProvider> managedAppManager;
     bool useUidMatching;
+    bool disableNTLMReflectionDetection;
     HeimCredSaveToDiskIfNeeded saveToDiskIfNeeded;
     HeimCredGetValueFromPreferences getValueFromPreferences;
     heim_ipc_event_callback_t expireFunction;
@@ -100,6 +101,8 @@ typedef struct {
 
 extern HeimCredGlobalContext HeimCredGlobalCTX;
 
+typedef CFDictionaryRef (*HeimCredAuthCallback)(struct peer *, HeimCredRef, CFDictionaryRef);
+
 /*
  *
  */
@@ -107,6 +110,7 @@ struct HeimSession {
     CFRuntimeBase runtime;
     uid_t session;
     CFMutableDictionaryRef items;
+    CFMutableDictionaryRef challenges;
     CFMutableDictionaryRef defaultCredentials;
     int updateDefaultCredential;
 };
@@ -153,6 +157,9 @@ extern NSString *archivePath;
 void do_Delete(struct peer *peer, xpc_object_t request, xpc_object_t reply);
 void do_SetAttrs(struct peer *peer, xpc_object_t request, xpc_object_t reply);
 void do_Auth(struct peer *peer, xpc_object_t request, xpc_object_t reply);
+void do_Scram(struct peer *peer, xpc_object_t request, xpc_object_t reply);
+void do_AddChallenge(struct peer *peer, xpc_object_t request, xpc_object_t reply);
+void do_CheckChallenge(struct peer *peer, xpc_object_t request, xpc_object_t reply);
 void do_Fetch(struct peer *peer, xpc_object_t request, xpc_object_t reply);
 void do_Query(struct peer *peer, xpc_object_t request, xpc_object_t reply);
 void do_GetDefault(struct peer *peer, xpc_object_t request, xpc_object_t reply);
@@ -163,9 +170,22 @@ void do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply);
 void do_RetainCache(struct peer *peer, xpc_object_t request, xpc_object_t reply);
 void do_ReleaseCache(struct peer *peer, xpc_object_t request, xpc_object_t reply);
 
+bool isChallengeExpired(HeimCredRef cred);
+bool checkNTLMChallenge(struct peer *peer, uint8_t challenge[8]);
+
 CFTypeRef KerberosStatusCallback(HeimCredRef cred) CF_RETURNS_RETAINED;
 CFTypeRef KerberosAcquireCredStatusCallback(HeimCredRef cred) CF_RETURNS_RETAINED;
 CFTypeRef ConfigurationStatusCallback(HeimCredRef cred) CF_RETURNS_RETAINED;
 CFDictionaryRef DefaultTraceCallback(CFDictionaryRef attributes) CF_RETURNS_RETAINED;
+
+void
+_HeimCredRegisterMech(CFStringRef mech,
+		      CFSetRef publicAttributes,
+		      HeimCredStatusCallback statusCallback,
+		      HeimCredAuthCallback authCallback,
+		      HeimCredNotifyCaches notifyCaches,
+		      HeimCredTraceCallback traceCallback,
+		      bool readRestricted,
+		      CFArrayRef readOnlyCommands);
 
 #endif /* gsscred_h */

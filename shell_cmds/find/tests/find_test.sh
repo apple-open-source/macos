@@ -71,8 +71,52 @@ find_samefile_link_body()
 	atf_check -s exit:0 -o "inline:test/link2\n" find test -samefile test/link2
 }
 
+#ifdef __APPLE__
+atf_test_case newerBm_msprec
+newerBm_msprec_body()
+{
+
+	# -newerBm should be able to pick up the difference in birth time
+	# between two files created within milliseconds of each other.  Earlier
+	# versions of find(1) truncated birthtime to just the tv_sec component,
+	# while newer versions compare tv_nsec if the two files were created
+	# within the same second.  Thus, it's imperative to reproduce this that
+	# we both create the files within milliseconds of each other, but also
+	# that those milliseconds not cross a second boundary.
+	mkdir -p scratch
+	while true; do
+		touch baseline
+		touch scratch/file_a
+
+		base=$(stat -f '%m' baseline)
+		new_a=$(stat -f '%m' scratch/file_a)
+
+		if [ "$base" -eq "$new_a" ]; then
+			break
+		else
+			rm baseline scratch/file_a
+		fi
+	done
+
+	# This one's guaranteed to show up with this delay, so we're not worried
+	# about it.
+	sleep 1
+	touch scratch/file_b
+
+	cat <<EOF > expected
+scratch/file_a
+scratch/file_b
+EOF
+
+	atf_check -o file:expected find scratch -type f -newerBm baseline
+}
+#endif
+
 atf_init_test_cases()
 {
 	atf_add_test_case find_newer_link
 	atf_add_test_case find_samefile_link
+#ifdef __APPLE__
+	atf_add_test_case newerBm_msprec
+#endif
 }

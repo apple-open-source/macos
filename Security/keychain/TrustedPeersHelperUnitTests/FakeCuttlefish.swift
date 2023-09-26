@@ -206,6 +206,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         var recoveryEncryptionPubKey: Data?
         var bottles: [Bottle] = []
         var escrowRecords: [EscrowInformation] = []
+        var custodianRecoveryKeys: [String:SignedCustodianRecoveryKey] = [:]
 
         var viewKeys: [CKRecordZone.ID: ViewKeys] = [:]
         var tlkShares: [CKRecordZone.ID: [TLKShare]] = [:]
@@ -743,6 +744,18 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                     }
                 }
             }
+
+            if self.state.custodianRecoveryKeys.isEmpty == false && peer.hasCustodianRecoveryKeyAndSig{
+                for peerID in self.state.custodianRecoveryKeys.keys {
+                    if model.isCustodianRecoveryKeyTrusted(peerID) == false {
+                        guard model.untrustedPeerIDs().contains(peerID) else {
+                            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable)))
+                            return
+                        }
+                    }
+                }
+            }
+
         } catch {
             print("FakeCuttlefish: updateTrust failed to make model: ", String(describing: error))
         }
@@ -840,6 +853,8 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
 
         self.state.peersByID[request.peer.peerID] = request.peer
         self.state.peersByID[request.peerID] = peer
+
+        self.state.custodianRecoveryKeys[request.peer.peerID] = request.peer.custodianRecoveryKeyAndSig
 
         var keyRecords: [CKRecord] = []
         // keyRecords.append(contentsOf: store(viewKeys: request.viewKeys))
@@ -1010,12 +1025,6 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         return assertion.check(peer: self.state.peersByID[assertion.peer], target: self.state.peersByID[assertion.target])
     }
 
-    func validatePeers(_ request: ValidatePeersRequest, completion: @escaping (Result<ValidatePeersResponse, Error>) -> Void) {
-        var response = ValidatePeersResponse()
-        response.validatorsHealth = 0.0
-        response.results = []
-        completion(.success(response))
-    }
     func reportHealth(_ request: ReportHealthRequest, completion: @escaping (Result<ReportHealthResponse, Error>) -> Void) {
         completion(.success(ReportHealthResponse()))
     }

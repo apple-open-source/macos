@@ -107,9 +107,7 @@ int quotaonoff(register struct fstab *, int, int, char *);
 
 int oneof(register char *, register char **, int);
 
-int main(argc, argv)
-	int argc;
-	char **argv;
+int main(int argc, char *argv[])
 {
 	char ch, *qfnp, *whoami, *rindex();
 	long argnum, done = 0;

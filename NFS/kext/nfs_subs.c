@@ -66,6 +66,7 @@
  */
 
 #include "nfs_client.h"
+#include "nfs_kdebug.h"
 
 /*
  * These functions support the macros and help fiddle mbuf chains for
@@ -1059,7 +1060,7 @@ nfs_get_xid(uint64_t *xidp)
 {
 	struct timeval tv;
 
-	lck_mtx_lock(get_lck_mtx(NLM_REQUEST));
+	lck_mtx_lock(get_lck_mtx(NLM_XID));
 	if (!nfs_xid) {
 		/*
 		 * Derive initial xid from system time.
@@ -1078,7 +1079,7 @@ nfs_get_xid(uint64_t *xidp)
 		nfs_xid++;
 	}
 	*xidp = nfs_xid + (nfs_xidwrap << 32);
-	lck_mtx_unlock(get_lck_mtx(NLM_REQUEST));
+	lck_mtx_unlock(get_lck_mtx(NLM_XID));
 }
 
 /*
@@ -1487,11 +1488,12 @@ nfs_loadattrcache(
 	}
 	monitored = vp ? vnode_ismonitored(vp) : 0;
 
-	FSDBG_TOP(527, np, vp, *xidp >> 32, *xidp);
+	NFS_KDBG_ENTRY(NFSDBG_OP_LOADATTRCACHE, np, vp, *xidp >> 32, *xidp);
 
 	if (!((nmp = VFSTONFS(mp)))) {
-		FSDBG_BOT(527, ENXIO, 1, 0, *xidp);
-		return ENXIO;
+		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc001, np, *xidp, ENXIO);
+		error = ENXIO;
+		goto out_return;
 	}
 
 	if (*xidp < np->n_xid) {
@@ -1506,9 +1508,10 @@ nfs_loadattrcache(
 		 * cares - it needs to retry the rpc.
 		 */
 		NATTRINVALIDATE(np);
-		FSDBG_BOT(527, 0, np, np->n_xid, *xidp);
+		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc002, np, np->n_xid, *xidp);
 		*xidp = 0;
-		return 0;
+		error = 0;
+		goto out_return;
 	}
 
 	if (vp && (nvap->nva_type != vnode_vtype(vp))) {
@@ -1703,15 +1706,15 @@ nfs_loadattrcache(
 	if (!vp || (nvap->nva_type != VREG)) {
 		np->n_size = nvap->nva_size;
 	} else if (nvap->nva_size != np->n_size) {
-		FSDBG(527, np, nvap->nva_size, np->n_size, (nvap->nva_type == VREG) | (np->n_flag & NMODIFIED ? 6 : 4));
+		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc003, np, nvap->nva_size, np->n_size);
 		if (!UBCINFOEXISTS(vp) || (dontshrink && (nvap->nva_size < np->n_size))) {
 			/* asked not to shrink, so stick with current size */
-			FSDBG(527, np, np->n_size, np->n_vattr.nva_size, 0xf00d0001);
+			NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc004, np, np->n_size, np->n_vattr.nva_size);
 			nvap->nva_size = np->n_size;
 			NATTRINVALIDATE(np);
 		} else if ((np->n_flag & NMODIFIED) && (nvap->nva_size < np->n_size)) {
 			/* if we've modified, stick with larger size */
-			FSDBG(527, np, np->n_size, np->n_vattr.nva_size, 0xf00d0002);
+			NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc005, np, np->n_size, np->n_vattr.nva_size);
 			nvap->nva_size = np->n_size;
 			npnvap->nva_size = np->n_size;
 		} else {
@@ -1744,7 +1747,9 @@ out:
 	if (monitored && events) {
 		nfs_vnode_notify(np, events);
 	}
-	FSDBG_BOT(527, error, np, np->n_size, *xidp);
+
+out_return:
+	NFS_KDBG_EXIT(NFSDBG_OP_LOADATTRCACHE, np, np->n_size, *xidp, error);
 	return error;
 }
 
@@ -1815,7 +1820,7 @@ nfs_getattrcache(nfsnode_t np, struct nfs_vattr *nvaper, int flags)
 
 	/* Check if the attributes are valid. */
 	if (!NATTRVALID(np) || ((flags & NGA_ACL) && !NACLVALID(np))) {
-		FSDBG(528, np, 0, 0xffffff01, ENOENT);
+		NFS_KDBG_INFO(NFSDBG_OP_GETATTRCACHE, 0xabc001, np, flags, ENOENT);
 		OSAddAtomic64(1, &nfsclntstats.attrcache_misses);
 		return ENOENT;
 	}
@@ -1840,25 +1845,25 @@ nfs_getattrcache(nfsnode_t np, struct nfs_vattr *nvaper, int flags)
 		}
 		timeo = nfs_attrcachetimeout(np);
 		if ((nowup.tv_sec - np->n_attrstamp) >= timeo) {
-			FSDBG(528, np, 0, 0xffffff02, ENOENT);
+			NFS_KDBG_INFO(NFSDBG_OP_GETATTRCACHE, 0xabc002, np, flags, ENOENT);
 			OSAddAtomic64(1, &nfsclntstats.attrcache_misses);
 			return ENOENT;
 		}
 		if ((flags & NGA_ACL) && ((nowup.tv_sec - np->n_aclstamp) >= timeo)) {
-			FSDBG(528, np, 0, 0xffffff02, ENOENT);
+			NFS_KDBG_INFO(NFSDBG_OP_GETATTRCACHE, 0xabc003, np, flags, ENOENT);
 			OSAddAtomic64(1, &nfsclntstats.attrcache_misses);
 			return ENOENT;
 		}
 	}
 
 	nvap = &np->n_vattr;
-	FSDBG(528, np, nvap->nva_size, np->n_size, 0xcace);
+	NFS_KDBG_INFO(NFSDBG_OP_GETATTRCACHE, 0xabc004, np, nvap->nva_size, np->n_size);
 	OSAddAtomic64(1, &nfsclntstats.attrcache_hits);
 
 	if (nvap->nva_type != VREG) {
 		np->n_size = nvap->nva_size;
 	} else if (nvap->nva_size != np->n_size) {
-		FSDBG(528, np, nvap->nva_size, np->n_size, (nvap->nva_type == VREG) | (np->n_flag & NMODIFIED ? 6 : 4));
+		NFS_KDBG_INFO(NFSDBG_OP_GETATTRCACHE, 0xabc005, np, nvap->nva_size, np->n_size);
 		if ((np->n_flag & NMODIFIED) && (nvap->nva_size < np->n_size)) {
 			/* if we've modified, stick with larger size */
 			nvap->nva_size = np->n_size;

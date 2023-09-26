@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2004-2005, 2007-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2004-2005, 2007-2021 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pwd.h>
 #include <time.h>
 
 #include "sudoers.h"
@@ -51,7 +52,7 @@ sudoers_format_member_int(struct sudo_lbuf *lbuf,
     switch (type) {
 	case MYSELF:
 	    sudo_lbuf_append(lbuf, "%s%s", negated ? "!" : "",
-		user_name ? user_name : "");
+		list_pw ? list_pw->pw_name : (user_name ? user_name : ""));
 	    break;
 	case ALL:
 	    if (name == NULL) {
@@ -68,11 +69,22 @@ sudoers_format_member_int(struct sudo_lbuf *lbuf,
 	    }
 	    if (negated)
 		sudo_lbuf_append(lbuf, "!");
-	    sudo_lbuf_append_quoted(lbuf, SUDOERS_QUOTED" \t", "%s",
-		c->cmnd ? c->cmnd : "ALL");
-	    if (c->args) {
+	    if (c->cmnd == NULL || c->cmnd[0] == '^') {
+		/* No additional quoting of characters inside a regex. */
+		sudo_lbuf_append(lbuf, "%s", c->cmnd ? c->cmnd : "ALL");
+	    } else {
+		sudo_lbuf_append_quoted(lbuf, SUDOERS_QUOTED_CMD, "%s",
+		    c->cmnd);
+	    }
+	    if (c->args != NULL) {
 		sudo_lbuf_append(lbuf, " ");
-		sudo_lbuf_append_quoted(lbuf, SUDOERS_QUOTED, "%s", c->args);
+		if (c->args[0] == '^') {
+		    /* No additional quoting of characters inside a regex. */
+		    sudo_lbuf_append(lbuf, "%s", c->args);
+		} else {
+		    sudo_lbuf_append_quoted(lbuf, SUDOERS_QUOTED_ARG, "%s",
+			c->args);
+		}
 	    }
 	    break;
 	case USERGROUP:
@@ -152,6 +164,8 @@ sudoers_defaults_to_tags(const char *var, const char *val, int op,
 	    tags->log_output = op == true;
 	} else if (strcmp(var, "noexec") == 0) {
 	    tags->noexec = op == true;
+	} else if (strcmp(var, "intercept") == 0) {
+	    tags->intercept = op == true;
 	} else if (strcmp(var, "setenv") == 0) {
 	    tags->setenv = op == true;
 	} else if (strcmp(var, "mail_all_cmnds") == 0 ||
@@ -228,6 +242,10 @@ sudoers_format_cmndspec(struct sudo_lbuf *lbuf,
     if (cs->type != NULL && FIELD_CHANGED(prev_cs, cs, type))
 	sudo_lbuf_append(lbuf, "TYPE=%s ", cs->type);
 #endif /* HAVE_SELINUX */
+#ifdef HAVE_APPARMOR
+    if (cs->apparmor_profile != NULL && FIELD_CHANGED(prev_cs, cs, apparmor_profile))
+	sudo_lbuf_append(lbuf, "APPARMOR_PROFILE=%s ", cs->apparmor_profile);
+#endif /* HAVE_APPARMOR */
     if (cs->runchroot != NULL && FIELD_CHANGED(prev_cs, cs, runchroot))
 	sudo_lbuf_append(lbuf, "CHROOT=%s ", cs->runchroot);
     if (cs->runcwd != NULL && FIELD_CHANGED(prev_cs, cs, runcwd))
@@ -238,19 +256,27 @@ sudoers_format_cmndspec(struct sudo_lbuf *lbuf,
 	sudo_lbuf_append(lbuf, "TIMEOUT=%s ", numbuf);
     }
     if (cs->notbefore != UNSPEC && FIELD_CHANGED(prev_cs, cs, notbefore)) {
-	char buf[sizeof("CCYYMMDDHHMMSSZ")];
-	struct tm *tm = gmtime(&cs->notbefore);
-	if (strftime(buf, sizeof(buf), "%Y%m%d%H%M%SZ", tm) != 0)
-	    sudo_lbuf_append(lbuf, "NOTBEFORE=%s ", buf);
+	char buf[sizeof("CCYYMMDDHHMMSSZ")] = "";
+	struct tm gmt;
+	if (gmtime_r(&cs->notbefore, &gmt) != NULL) {
+	    int len = strftime(buf, sizeof(buf), "%Y%m%d%H%M%SZ", &gmt);
+	    if (len != 0 && buf[sizeof(buf) - 1] == '\0')
+		sudo_lbuf_append(lbuf, "NOTBEFORE=%s ", buf);
+	}
     }
     if (cs->notafter != UNSPEC && FIELD_CHANGED(prev_cs, cs, notafter)) {
-	char buf[sizeof("CCYYMMDDHHMMSSZ")];
-	struct tm *tm = gmtime(&cs->notafter);
-	if (strftime(buf, sizeof(buf), "%Y%m%d%H%M%SZ", tm) != 0)
-	    sudo_lbuf_append(lbuf, "NOTAFTER=%s ", buf);
+	char buf[sizeof("CCYYMMDDHHMMSSZ")] = "";
+	struct tm gmt;
+	if (gmtime_r(&cs->notafter, &gmt) != NULL) {
+	    int len = strftime(buf, sizeof(buf), "%Y%m%d%H%M%SZ", &gmt);
+	    if (len != 0 && buf[sizeof(buf) - 1] == '\0')
+		sudo_lbuf_append(lbuf, "NOTAFTER=%s ", buf);
+	}
     }
     if (TAG_CHANGED(prev_cs, cs, tags, setenv))
 	sudo_lbuf_append(lbuf, tags.setenv ? "SETENV: " : "NOSETENV: ");
+    if (TAG_CHANGED(prev_cs, cs, tags, intercept))
+	sudo_lbuf_append(lbuf, tags.intercept ? "INTERCEPT: " : "NOINTERCEPT: ");
     if (TAG_CHANGED(prev_cs, cs, tags, noexec))
 	sudo_lbuf_append(lbuf, tags.noexec ? "NOEXEC: " : "EXEC: ");
     if (TAG_CHANGED(prev_cs, cs, tags, nopasswd))
@@ -265,130 +291,6 @@ sudoers_format_cmndspec(struct sudo_lbuf *lbuf,
 	sudo_lbuf_append(lbuf, tags.follow ? "FOLLOW: " : "NOFOLLOW: ");
     sudoers_format_member(lbuf, parse_tree, cs->cmnd, ", ",
 	expand_aliases ? CMNDALIAS : UNSPEC);
-    debug_return_bool(!sudo_lbuf_error(lbuf));
-}
-
-/*
- * Write a privilege to lbuf in sudoers format.
- */
-bool
-sudoers_format_privilege(struct sudo_lbuf *lbuf,
-    struct sudoers_parse_tree *parse_tree, struct privilege *priv,
-    bool expand_aliases)
-{
-    struct cmndspec *cs, *prev_cs;
-    struct cmndtag tags;
-    struct member *m;
-    debug_decl(sudoers_format_privilege, SUDOERS_DEBUG_UTIL);
-
-    /* Convert per-privilege defaults to tags. */
-    sudoers_defaults_list_to_tags(&priv->defaults, &tags);
-
-    /* Print hosts list. */
-    TAILQ_FOREACH(m, &priv->hostlist, entries) {
-	if (m != TAILQ_FIRST(&priv->hostlist))
-	    sudo_lbuf_append(lbuf, ", ");
-	sudoers_format_member(lbuf, parse_tree, m, ", ",
-	    expand_aliases ? HOSTALIAS : UNSPEC);
-    }
-
-    /* Print commands. */
-    sudo_lbuf_append(lbuf, " = ");
-    prev_cs = NULL;
-    TAILQ_FOREACH(cs, &priv->cmndlist, entries) {
-	if (prev_cs == NULL || RUNAS_CHANGED(cs, prev_cs)) {
-	    if (cs != TAILQ_FIRST(&priv->cmndlist))
-		sudo_lbuf_append(lbuf, ", ");
-	    if (cs->runasuserlist != NULL || cs->runasgrouplist != NULL)
-		sudo_lbuf_append(lbuf, "(");
-	    if (cs->runasuserlist != NULL) {
-		TAILQ_FOREACH(m, cs->runasuserlist, entries) {
-		    if (m != TAILQ_FIRST(cs->runasuserlist))
-			sudo_lbuf_append(lbuf, ", ");
-		    sudoers_format_member(lbuf, parse_tree, m, ", ",
-			expand_aliases ? RUNASALIAS : UNSPEC);
-		}
-	    }
-	    if (cs->runasgrouplist != NULL) {
-		sudo_lbuf_append(lbuf, " : ");
-		TAILQ_FOREACH(m, cs->runasgrouplist, entries) {
-		    if (m != TAILQ_FIRST(cs->runasgrouplist))
-			sudo_lbuf_append(lbuf, ", ");
-		    sudoers_format_member(lbuf, parse_tree, m, ", ",
-			expand_aliases ? RUNASALIAS : UNSPEC);
-		}
-	    }
-	    if (cs->runasuserlist != NULL || cs->runasgrouplist != NULL)
-		sudo_lbuf_append(lbuf, ") ");
-	} else if (cs != TAILQ_FIRST(&priv->cmndlist)) {
-	    sudo_lbuf_append(lbuf, ", ");
-	}
-	sudoers_format_cmndspec(lbuf, parse_tree, cs, prev_cs, tags,
-	    expand_aliases);
-	prev_cs = cs;
-    }
-
-    debug_return_bool(!sudo_lbuf_error(lbuf));
-}
-
-/*
- * Write a userspec to lbuf in sudoers format.
- */
-bool
-sudoers_format_userspec(struct sudo_lbuf *lbuf,
-    struct sudoers_parse_tree *parse_tree,
-    struct userspec *us, bool expand_aliases)
-{
-    struct privilege *priv;
-    struct sudoers_comment *comment;
-    struct member *m;
-    debug_decl(sudoers_format_userspec, SUDOERS_DEBUG_UTIL);
-
-    /* Print comments (if any). */
-    STAILQ_FOREACH(comment, &us->comments, entries) {
-	sudo_lbuf_append(lbuf, "# %s\n", comment->str);
-    }
-
-    /* Print users list. */
-    TAILQ_FOREACH(m, &us->users, entries) {
-	if (m != TAILQ_FIRST(&us->users))
-	    sudo_lbuf_append(lbuf, ", ");
-	sudoers_format_member(lbuf, parse_tree, m, ", ",
-	    expand_aliases ? USERALIAS : UNSPEC);
-    }
-
-    TAILQ_FOREACH(priv, &us->privileges, entries) {
-	if (priv != TAILQ_FIRST(&us->privileges))
-	    sudo_lbuf_append(lbuf, " : ");
-	else
-	    sudo_lbuf_append(lbuf, " ");
-	if (!sudoers_format_privilege(lbuf, parse_tree, priv, expand_aliases))
-	    break;
-    }
-    sudo_lbuf_append(lbuf, "\n");
-
-    debug_return_bool(!sudo_lbuf_error(lbuf));
-}
-
-/*
- * Write a userspec_list to lbuf in sudoers format.
- */
-bool
-sudoers_format_userspecs(struct sudo_lbuf *lbuf,
-    struct sudoers_parse_tree *parse_tree, const char *separator,
-    bool expand_aliases, bool flush)
-{
-    struct userspec *us;
-    debug_decl(sudoers_format_userspecs, SUDOERS_DEBUG_UTIL);
-
-    TAILQ_FOREACH(us, &parse_tree->userspecs, entries) {
-	if (separator != NULL && us != TAILQ_FIRST(&parse_tree->userspecs))
-	    sudo_lbuf_append(lbuf, "%s", separator);
-	if (!sudoers_format_userspec(lbuf, parse_tree, us, expand_aliases))
-	    break;
-	sudo_lbuf_print(lbuf);
-    }
-
     debug_return_bool(!sudo_lbuf_error(lbuf));
 }
 
@@ -412,67 +314,5 @@ sudoers_format_default(struct sudo_lbuf *lbuf, struct defaults *d)
     } else {
 	sudo_lbuf_append(lbuf, "%s%s", d->op == false ? "!" : "", d->var);
     }
-    debug_return_bool(!sudo_lbuf_error(lbuf));
-}
-
-/*
- * Format and append a defaults line to the specified lbuf.
- * If next, is specified, it must point to the next defaults
- * entry in the list; this is used to print multiple defaults
- * entries with the same binding on a single line.
- */
-bool
-sudoers_format_default_line( struct sudo_lbuf *lbuf,
-    struct sudoers_parse_tree *parse_tree, struct defaults *d,
-    struct defaults **next, bool expand_aliases)
-{
-    struct member *m;
-    int alias_type;
-    debug_decl(sudoers_format_default_line, SUDOERS_DEBUG_UTIL);
-
-    /* Print Defaults type and binding (if present) */
-    switch (d->type) {
-	case DEFAULTS_HOST:
-	    sudo_lbuf_append(lbuf, "Defaults@");
-	    alias_type = expand_aliases ? HOSTALIAS : UNSPEC;
-	    break;
-	case DEFAULTS_USER:
-	    sudo_lbuf_append(lbuf, "Defaults:");
-	    alias_type = expand_aliases ? USERALIAS : UNSPEC;
-	    break;
-	case DEFAULTS_RUNAS:
-	    sudo_lbuf_append(lbuf, "Defaults>");
-	    alias_type = expand_aliases ? RUNASALIAS : UNSPEC;
-	    break;
-	case DEFAULTS_CMND:
-	    sudo_lbuf_append(lbuf, "Defaults!");
-	    alias_type = expand_aliases ? CMNDALIAS : UNSPEC;
-	    break;
-	default:
-	    sudo_lbuf_append(lbuf, "Defaults");
-	    alias_type = UNSPEC;
-	    break;
-    }
-    TAILQ_FOREACH(m, d->binding, entries) {
-	if (m != TAILQ_FIRST(d->binding))
-	    sudo_lbuf_append(lbuf, ", ");
-	sudoers_format_member(lbuf, parse_tree, m, ", ", alias_type);
-    }
-
-    sudo_lbuf_append(lbuf, " ");
-    sudoers_format_default(lbuf, d);
-
-    if (next != NULL) {
-	/* Merge Defaults with the same binding, there may be multiple. */
-	struct defaults *n;
-	while ((n = TAILQ_NEXT(d, entries)) && d->binding == n->binding) {
-	    sudo_lbuf_append(lbuf, ", ");
-	    sudoers_format_default(lbuf, n);
-	    d = n;
-	}
-	*next = n;
-    }
-    sudo_lbuf_append(lbuf, "\n");
-
     debug_return_bool(!sudo_lbuf_error(lbuf));
 }

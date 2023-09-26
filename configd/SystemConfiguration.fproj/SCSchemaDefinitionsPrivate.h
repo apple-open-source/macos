@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,6 +39,7 @@
  *
  *   kSCPrefVersion                                     "__VERSION__"                  CFString
  *   kSCPrefVirtualNetworkInterfaces                    "VirtualNetworkInterfaces"     CFDictionary
+ *   kSCPrefCategories                                  "Categories"                   CFDictionary
  *
  * Network Entity Keys
  *
@@ -214,7 +215,7 @@
  *
  *   kSCPropNetQoSMarkingAppleAudioVideoCalls           "QoSMarkingAppleAudioVideoCalls" CFBoolean
  *   kSCPropNetQoSMarkingEnabled                        "QoSMarkingEnabled"            CFBoolean
- *   kSCPropNetQoSMarkingWhitelistedAppIdentifiers      "QoSMarkingWhitelistedAppIdentifiers" CFArray[CFString]
+ *   kSCPropNetQoSMarkingAllowListAppIdentifiers        "QoSMarkingAllowListAppIdentifiers" CFArray[CFString]
  *
  * kSCEntNetService Entity Keys
  *
@@ -396,6 +397,13 @@ extern const CFStringRef kSCPrefVersion                                     API_
  */
 extern const CFStringRef kSCPrefVirtualNetworkInterfaces                    API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPrefVirtualNetworkInterfaces kSCPrefVirtualNetworkInterfaces
+
+/*!
+  @const kSCPrefCategories
+  @discussion Value is a CFDictionary
+ */
+extern const CFStringRef kSCPrefCategories                                  SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0));
+#define kSCPrefCategories kSCPrefCategories
 
 /*!
   @group Network Entity Keys
@@ -1223,8 +1231,15 @@ extern const CFStringRef kSCPropNetQoSMarkingEnabled                        API_
   @const kSCPropNetQoSMarkingWhitelistedAppIdentifiers
   @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetQoSMarkingWhitelistedAppIdentifiers      API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));
+extern const CFStringRef kSCPropNetQoSMarkingWhitelistedAppIdentifiers      API_DEPRECATED_WITH_REPLACEMENT("kSCPropNetQoSMarkingAllowListAppIdentifiers", macos(10.13, 14.0)) SPI_DEPRECATED_WITH_REPLACEMENT("kSCPropNetQoSMarkingAllowListAppIdentifiers", ios(10.0, 17.0), tvos(10.0, 17.0), watchos(3.0, 10.0), bridgeos(2.0, 8.0));
 #define kSCPropNetQoSMarkingWhitelistedAppIdentifiers kSCPropNetQoSMarkingWhitelistedAppIdentifiers
+
+/*!
+  @const kSCPropNetQoSMarkingAllowListAppIdentifiers
+  @discussion Value is a CFArray[CFString]
+ */
+extern const CFStringRef kSCPropNetQoSMarkingAllowListAppIdentifiers        API_AVAILABLE(macos(14.0)) SPI_AVAILABLE(ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0));
+#define kSCPropNetQoSMarkingAllowListAppIdentifiers kSCPropNetQoSMarkingAllowListAppIdentifiers
 
 /*!
   @group kSCEntNetService Entity Keys

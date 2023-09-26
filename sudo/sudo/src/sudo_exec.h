@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010-2017, 2020-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010-2017, 2020-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -27,6 +27,13 @@
 #endif
 
 /*
+ * Linux-specific wait flag used with ptrace(2).
+ */
+#ifndef __WALL
+# define __WALL 0
+#endif
+
+/*
  * Some older systems support siginfo but predate SI_USER.
  */
 #ifdef SI_USER
@@ -35,8 +42,67 @@
 # define USER_SIGNALED(_info) ((_info) != NULL && (_info)->si_code <= 0)
 #endif
 
+/* Values for ttymode. */
+#define TERM_COOKED     0
+#define TERM_RAW        1
+
+struct command_details;
+struct command_status;
+struct sudo_event_base;
+struct stat;
+
 /*
- * Indices into io_fds[] when running a command in a pty.
+ * Closure passed to I/O event callbacks.
+ */
+struct exec_closure {
+    struct command_details *details;
+    struct sudo_event_base *evbase;
+    struct sudo_event *backchannel_event;
+    struct sudo_event *fwdchannel_event;
+    struct sudo_event *sigint_event;
+    struct sudo_event *sigquit_event;
+    struct sudo_event *sigtstp_event;
+    struct sudo_event *sigterm_event;
+    struct sudo_event *sighup_event;
+    struct sudo_event *sigalrm_event;
+    struct sudo_event *sigpipe_event;
+    struct sudo_event *sigusr1_event;
+    struct sudo_event *sigusr2_event;
+    struct sudo_event *sigchld_event;
+    struct sudo_event *sigcont_event;
+    struct sudo_event *siginfo_event;
+    struct sudo_event *sigwinch_event;
+    struct command_status *cstat;
+    void *intercept;
+    pid_t sudo_pid;
+    pid_t monitor_pid;
+    pid_t cmnd_pid;
+    pid_t ppgrp;
+    short rows;
+    short cols;
+};
+
+/*
+ * I/O buffer with associated read/write events and a logging action.
+ * Used to, e.g. pass data from the pty to the user's terminal
+ * and any I/O logging plugins.
+ */
+struct io_buffer;
+typedef bool (*sudo_io_action_t)(const char *, unsigned int, struct io_buffer *);
+struct io_buffer {
+    SLIST_ENTRY(io_buffer) entries;
+    struct exec_closure *ec;
+    struct sudo_event *revent;
+    struct sudo_event *wevent;
+    sudo_io_action_t action;
+    int len; /* buffer length (how much produced) */
+    int off; /* write position (how much already consumed) */
+    char buf[64 * 1024];
+};
+SLIST_HEAD(io_buffer_list, io_buffer);
+
+/*
+ * Indices into io_fds[] when logging I/O.
  */
 #define SFD_STDIN	0
 #define SFD_STDOUT	1
@@ -44,6 +110,9 @@
 #define SFD_LEADER	3
 #define SFD_FOLLOWER	4
 #define SFD_USERTTY	5
+
+/* Evaluates to true if the event has /dev/tty as its fd. */
+#define USERTTY_EVENT(_ev)	(sudo_ev_get_fd((_ev)) == io_fds[SFD_USERTTY])
 
 /*
  * Special values to indicate whether continuing in foreground or background.
@@ -79,21 +148,63 @@
 #define SESH_ERR_NO_FILES   32		/* copy error, no files copied */
 #define SESH_ERR_SOME_FILES 33		/* copy error, some files copied */
 
+#define INTERCEPT_FD_MIN    64		/* minimum fd so shell won't close it */
+#define MESSAGE_SIZE_MAX    2097152	/* 2Mib max intercept message size */
+
+union sudo_token_un {
+    unsigned char u8[16];
+    unsigned int u32[4];
+    unsigned long long u64[2];
+};
+
+#define sudo_token_isset(_t) ((_t).u64[0] || (_t).u64[1])
+
 /*
- * Symbols shared between exec.c, exec_nopty.c, exec_pty.c and exec_monitor.c
+ * Use ptrace-based intercept (using seccomp) on Linux if possible.
+ * On MIPS we can't change the syscall return and only support log_subcmds.
  */
-struct command_details;
-struct command_status;
-struct stat;
+#if defined(_PATH_SUDO_INTERCEPT) && defined(__linux__)
+# if defined(HAVE_DECL_SECCOMP_MODE_FILTER) && HAVE_DECL_SECCOMP_MODE_FILTER
+#  if defined(__x86_64__) || defined(__i386__) || defined(__aarch64__) || defined(__arm__) || defined(__mips__) || defined(__powerpc__) || (defined(__riscv) && __riscv_xlen == 64) || defined(__s390__)
+#   ifndef HAVE_PTRACE_INTERCEPT
+#    define HAVE_PTRACE_INTERCEPT 1
+#   endif /* HAVE_PTRACE_INTERCEPT */
+#  endif /* __amd64__ || __i386__ || __aarch64__ || __riscv || __s390__ */
+# endif /* HAVE_DECL_SECCOMP_MODE_FILTER */
+#endif /* _PATH_SUDO_INTERCEPT && __linux__ */
 
 /* exec.c */
-void exec_cmnd(struct command_details *details, int errfd);
+void exec_cmnd(struct command_details *details, sigset_t *mask, int intercept_fd, int errfd);
 void terminate_command(pid_t pid, bool use_pgrp);
 bool sudo_terminated(struct command_status *cstat);
+void free_exec_closure(struct exec_closure *ec);
 
 /* exec_common.c */
-int sudo_execve(int fd, const char *path, char *const argv[], char *envp[], bool noexec);
+int sudo_execve(int fd, const char *path, char *const argv[], char *envp[], int intercept_fd, int flags);
 char **disable_execute(char *envp[], const char *dso);
+char **enable_monitor(char *envp[], const char *dso);
+
+/* exec_intercept.c */
+void *intercept_setup(int fd, struct sudo_event_base *evbase, struct command_details *details);
+void intercept_cleanup(void);
+
+/* exec_iolog.c */
+bool log_ttyin(const char *buf, unsigned int n, struct io_buffer *iob);
+bool log_stdin(const char *buf, unsigned int n, struct io_buffer *iob);
+bool log_ttyout(const char *buf, unsigned int n, struct io_buffer *iob);
+bool log_stdout(const char *buf, unsigned int n, struct io_buffer *iob);
+bool log_stderr(const char *buf, unsigned int n, struct io_buffer *iob);
+void log_suspend(struct exec_closure *ec, int signo);
+void log_winchange(struct exec_closure *ec, unsigned int rows, unsigned int cols);
+void io_buf_new(int rfd, int wfd, bool (*action)(const char *, unsigned int, struct io_buffer *), void (*read_cb)(int fd, int what, void *v), void (*write_cb)(int fd, int what, void *v), struct exec_closure *ec, struct io_buffer_list *head);
+int safe_close(int fd);
+void ev_free_by_fd(struct sudo_event_base *evbase, int fd);
+void free_io_bufs(void);
+void add_io_events(struct sudo_event_base *evbase);
+void del_io_events(bool nonblocking);
+void init_ttyblock(void);
+extern struct io_buffer_list iobufs;
+extern int ttymode;
 
 /* exec_nopty.c */
 void exec_nopty(struct command_details *details, struct command_status *cstat);
@@ -105,11 +216,23 @@ int pty_make_controlling(void);
 extern int io_fds[6];
 
 /* exec_monitor.c */
-int exec_monitor(struct command_details *details, sigset_t *omask, bool foreground, int backchannel);
+int exec_monitor(struct command_details *details, sigset_t *omask, bool foreground, int backchannel, int intercept_fd);
 
 /* utmp.c */
 bool utmp_login(const char *from_line, const char *to_line, int ttyfd,
     const char *user);
 bool utmp_logout(const char *line, int status);
+
+/* exec_preload.c */
+char **sudo_preload_dso(char *const envp[], const char *dso_file, int intercept_fd);
+char **sudo_preload_dso_mmap(char *const envp[], const char *dso_file, int intercept_fd);
+
+/* exec_ptrace.c */
+bool exec_ptrace_stopped(pid_t pid, int status, void *intercept);
+bool set_exec_filter(void);
+int exec_ptrace_seize(pid_t child);
+
+/* suspend_nopty.c */
+void suspend_sudo_nopty(struct exec_closure *ec, int signo, pid_t my_pid, pid_t my_pgrp, pid_t cmnd_pid);
 
 #endif /* SUDO_EXEC_H */

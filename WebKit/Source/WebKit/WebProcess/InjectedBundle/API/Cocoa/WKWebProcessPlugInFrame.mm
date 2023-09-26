@@ -38,10 +38,10 @@
 #import "_WKFrameHandleInternal.h"
 #import <JavaScriptCore/JSValue.h>
 #import <WebCore/CertificateInfo.h>
-#import <WebCore/Frame.h>
 #import <WebCore/IntPoint.h>
 #import <WebCore/LinkIconCollector.h>
 #import <WebCore/LinkIconType.h>
+#import <WebCore/LocalFrame.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
@@ -147,13 +147,13 @@
 
 - (NSString *)_securityOrigin
 {
-    auto* coreFrame = _frame->coreFrame();
+    auto* coreFrame = _frame->coreLocalFrame();
     if (!coreFrame)
         return nil;
     return coreFrame->document()->securityOrigin().toString();
 }
 
-static RetainPtr<NSArray> collectIcons(WebCore::Frame* frame, OptionSet<WebCore::LinkIconType> iconTypes)
+static RetainPtr<NSArray> collectIcons(WebCore::LocalFrame* frame, OptionSet<WebCore::LinkIconType> iconTypes)
 {
     if (!frame)
         return @[];
@@ -167,12 +167,12 @@ static RetainPtr<NSArray> collectIcons(WebCore::Frame* frame, OptionSet<WebCore:
 
 - (NSArray *)appleTouchIconURLs
 {
-    return collectIcons(_frame->coreFrame(), { WebCore::LinkIconType::TouchIcon, WebCore::LinkIconType::TouchPrecomposedIcon }).autorelease();
+    return collectIcons(_frame->coreLocalFrame(), { WebCore::LinkIconType::TouchIcon, WebCore::LinkIconType::TouchPrecomposedIcon }).autorelease();
 }
 
 - (NSArray *)faviconURLs
 {
-    return collectIcons(_frame->coreFrame(), WebCore::LinkIconType::Favicon).autorelease();
+    return collectIcons(_frame->coreLocalFrame(), WebCore::LinkIconType::Favicon).autorelease();
 }
 
 - (WKWebProcessPlugInFrame *)_parentFrame

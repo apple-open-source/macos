@@ -31,6 +31,7 @@
 
 #include "APINavigation.h"
 #include "APINavigationAction.h"
+#include "WKAPICast.h"
 #include "WKArray.h"
 #include "WKContextMenuItem.h"
 #include "WKMutableArray.h"
@@ -522,7 +523,7 @@ void WebInspectorUIProxy::platformSave(Vector<WebCore::InspectorFrontendClient::
     Vector<uint8_t> dataVector;
     CString dataString;
     if (saveDatas[0].base64Encoded) {
-        auto decodedData = base64Decode(saveDatas[0].content, Base64DecodeOptions::ValidatePadding);
+        auto decodedData = base64Decode(saveDatas[0].content, Base64DecodeMode::DefaultValidatePadding);
         if (!decodedData)
             return;
         decodedData->shrinkToFit();

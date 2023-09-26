@@ -15,7 +15,7 @@
 {
     BOOL _enabled;
     struct {
-        int enabled:1;
+        uint enabled:1;
     } _has;
 }
 

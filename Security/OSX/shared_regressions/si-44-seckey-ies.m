@@ -31,6 +31,7 @@
 #import <corecrypto/ccsha2.h>
 #import <corecrypto/ccec.h>
 #import <corecrypto/ccecies.h>
+#import <corecrypto/ccaes.h>
 
 #include "shared_regressions.h"
 

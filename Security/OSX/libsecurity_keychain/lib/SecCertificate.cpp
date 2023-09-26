@@ -411,6 +411,13 @@ SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray,const CSSM_DATA *issue
         if (status == errSecSuccess) {
             return status;
         }
+        // try the modern system keychain if not found in data protection keychain
+        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+        status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+        if (status == errSecSuccess) {
+            return status;
+        }
     }
 
 	BEGIN_SECAPI
@@ -444,6 +451,13 @@ SecCertificateFindBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *sub
         CFDictionarySetValue(query, kSecAttrSubjectKeyID, subjectKeyIDData);
 
         OSStatus status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+        if (status == errSecSuccess) {
+            return status;
+        }
+        // try the modern system keychain if not found in data protection keychain
+        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+        status = SecItemCopyMatching(query, (CFTypeRef *)certificate);
         if (status == errSecSuccess) {
             return status;
         }
@@ -483,6 +497,13 @@ SecCertificateFindByEmail(CFTypeRef keychainOrArray, const char *emailAddress, S
         CFDictionarySetValue(query, kSecMatchPolicy, policy);
 
         OSStatus status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+        if (status == errSecSuccess) {
+            return status;
+        }
+        // try the modern system keychain if not found in data protection keychain
+        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+        status = SecItemCopyMatching(query, (CFTypeRef *)certificate);
         if (status == errSecSuccess) {
             return status;
         }

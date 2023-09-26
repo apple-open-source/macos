@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,37 +42,50 @@ RemoteBufferProxy::RemoteBufferProxy(RemoteDeviceProxy& parent, ConvertToBacking
 
 RemoteBufferProxy::~RemoteBufferProxy()
 {
+    auto sendResult = send(Messages::RemoteBuffer::Destruct());
+    UNUSED_VARIABLE(sendResult);
 }
 
-void RemoteBufferProxy::mapAsync(PAL::WebGPU::MapModeFlags mapModeFlags, PAL::WebGPU::Size64 offset, std::optional<PAL::WebGPU::Size64> size, CompletionHandler<void()>&& callback)
+void RemoteBufferProxy::mapAsync(WebCore::WebGPU::MapModeFlags mapModeFlags, WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64> size, CompletionHandler<void(bool)>&& callback)
 {
-    auto sendResult = sendSync(Messages::RemoteBuffer::MapAsync(mapModeFlags, offset, size));
-    auto [data] = sendResult.takeReplyOr(std::nullopt);
-    if (!data) {
-        // FIXME: Implement error handling.
-        callback();
-        return;
-    }
+    auto sendResult = sendWithAsyncReply(Messages::RemoteBuffer::MapAsync(mapModeFlags, offset, size), [callback = WTFMove(callback), mapModeFlags, protectedThis = Ref { *this }](auto data) mutable {
 
-    m_data = WTFMove(data);
-    m_mapModeFlags = mapModeFlags;
-    callback();
+        if (!data) {
+            // FIXME: Implement error handling.
+            callback(false);
+            return;
+        }
+
+        protectedThis->m_data = WTFMove(data);
+        protectedThis->m_mapModeFlags = mapModeFlags;
+        callback(true);
+    });
+    UNUSED_PARAM(sendResult);
 }
 
-auto RemoteBufferProxy::getMappedRange(PAL::WebGPU::Size64 offset, std::optional<PAL::WebGPU::Size64> size) -> MappedRange
+static bool offsetOrSizeExceedsBounds(size_t dataSize, WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64> requestedSize)
 {
-    if (m_data.has_value())
+    return offset >= dataSize || (requestedSize.has_value() && requestedSize.value() + offset > dataSize);
+}
+
+auto RemoteBufferProxy::getMappedRange(WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64> size) -> MappedRange
+{
+    if (m_data.has_value() && m_data->data()) {
+        if (offsetOrSizeExceedsBounds(m_data->size(), offset, size))
+            return { };
+
         return { m_data->data() + offset, static_cast<size_t>(size.value_or(m_data->size() - offset)) };
+    }
 
     // FIXME: Implement error handling.
     auto sendResult = sendSync(Messages::RemoteBuffer::GetMappedRange(offset, size));
     auto [data] = sendResult.takeReplyOr(std::nullopt);
 
-    if (!data)
+    if (!data || !data->data() || offsetOrSizeExceedsBounds(data->size(), offset, size))
         return { };
 
     m_data = WTFMove(data);
-    m_mapModeFlags = { PAL::WebGPU::MapMode::Write };
+    m_mapModeFlags = { WebCore::WebGPU::MapMode::Write };
     return { m_data->data() + offset, static_cast<size_t>(size.value_or(m_data->size() - offset)) };
 }
 
@@ -83,7 +96,7 @@ void RemoteBufferProxy::unmap()
         return;
 
     Vector<uint8_t> data;
-    if (m_mapModeFlags.contains(PAL::WebGPU::MapMode::Write))
+    if (m_mapModeFlags.contains(WebCore::WebGPU::MapMode::Write))
         data = WTFMove(*m_data);
     auto sendResult = send(Messages::RemoteBuffer::Unmap(WTFMove(data)));
     UNUSED_VARIABLE(sendResult);

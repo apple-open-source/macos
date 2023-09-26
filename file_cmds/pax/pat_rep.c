@@ -1,7 +1,6 @@
-/*	$OpenBSD: pat_rep.c,v 1.30 2005/08/05 08:30:10 djm Exp $	*/
-/*	$NetBSD: pat_rep.c,v 1.4 1995/03/21 09:07:33 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,24 +33,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)pat_rep.c	8.2 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] = "$OpenBSD: pat_rep.c,v 1.30 2005/08/05 08:30:10 djm Exp $";
+static char sccsid[] = "@(#)pat_rep.c	8.2 (Berkeley) 4/18/94";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
-#include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/param.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <regex.h>
 #include "pax.h"
 #include "pat_rep.h"
@@ -70,14 +64,19 @@ static PATTERN *pattail = NULL;		/* file pattern match list tail */
 static REPLACE *rephead = NULL;		/* replacement string list head */
 static REPLACE *reptail = NULL;		/* replacement string list tail */
 
+#ifdef __APPLE__
 static int rep_name(char *, size_t, int *, int);
 int tty_rename(ARCHD *);
+#else
+static int rep_name(char *, int *, int);
+static int tty_rename(ARCHD *);
+#endif /* __APPLE__ */
 static int fix_path(char *, int *, char *, int);
 static int fn_match(char *, char *, char **);
-#ifdef _HAVE_REGCOMP_
+#ifdef __APPLE__
 static char* extract_equiv_pat(char *, char **);
 static int regex_match(char *, char *, char **);
-#endif
+#endif /* __APPLE__ */
 static char * range_match(char *, int);
 static int resub(regex_t *, regmatch_t *, char *, char *, char *, char *);
 
@@ -118,6 +117,7 @@ rep_add(char *str)
 	 * first character in the string specifies what the delimiter is for
 	 * this expression
 	 */
+#ifdef __APPLE__
 	for (pt1 = str+1; *pt1; pt1++) {
 		if (*pt1 == '\\') {
 			pt1++;
@@ -127,6 +127,9 @@ rep_add(char *str)
 			break;
 	}
 	if (*pt1 == '\0') {
+#else
+	if ((pt1 = strchr(str+1, *str)) == NULL) {
+#endif /* __APPLE__ */
 		paxwarn(1, "Invalid replacement string %s", str);
 		return(-1);
 	}
@@ -144,7 +147,7 @@ rep_add(char *str)
 	if ((res = regcomp(&(rep->rcmp), str+1, 0)) != 0) {
 		regerror(res, &(rep->rcmp), rebuf, sizeof(rebuf));
 		paxwarn(1, "%s while compiling regular expression %s", rebuf, str);
-		(void)free((char *)rep);
+		free(rep);
 		return(-1);
 	}
 
@@ -154,6 +157,7 @@ rep_add(char *str)
 	 * we then point the node at the new substitution string
 	 */
 	*pt1++ = *str;
+#ifdef __APPLE__
 	for (pt2 = pt1; *pt2; pt2++) {
 		if (*pt2 == '\\') {
 			pt2++;
@@ -163,8 +167,11 @@ rep_add(char *str)
 			break;
 	}
 	if (*pt2 == '\0') {
-		regfree(&(rep->rcmp));
-		(void)free((char *)rep);
+#else
+	if ((pt2 = strchr(pt1, *str)) == NULL) {
+#endif /* __APPLE__ */
+		regfree(&rep->rcmp);
+		free(rep);
 		paxwarn(1, "Invalid replacement string %s", str);
 		return(-1);
 	}
@@ -178,7 +185,7 @@ rep_add(char *str)
 	 * set the options if any
 	 */
 	while (*pt2 != '\0') {
-		switch (*pt2) {
+		switch(*pt2) {
 		case 'g':
 		case 'G':
 			rep->flgs  |= GLOB;
@@ -188,8 +195,8 @@ rep_add(char *str)
 			rep->flgs  |= PRNT;
 			break;
 		default:
-			regfree(&(rep->rcmp));
-			(void)free((char *)rep);
+			regfree(&rep->rcmp);
+			free(rep);
 			*pt1 = *str;
 			paxwarn(1, "Invalid replacement string option %s", str);
 			return(-1);
@@ -222,7 +229,7 @@ rep_add(char *str)
  */
 
 int
-pat_add(char *str, char *chdname)
+pat_add(char *str, char *chdnam)
 {
 	PATTERN *pt;
 
@@ -249,7 +256,7 @@ pat_add(char *str, char *chdname)
 	pt->plen = strlen(str);
 	pt->fow = NULL;
 	pt->flgs = 0;
-	pt->chdname = chdname;
+	pt->chdname = chdnam;
 
 	if (pathead == NULL) {
 		pattail = pathead = pt;
@@ -295,7 +302,7 @@ pat_chk(void)
  *
  *	NOTE: When the -c option is used, we are called when there was no match
  *	by pat_match() (that means we did match before the inverted sense of
- *	the logic). Now this seems really strange at first, but with -c we
+ *	the logic). Now this seems really strange at first, but with -c  we
  *	need to keep track of those patterns that cause an archive member to NOT
  *	be selected (it found an archive member with a specified pattern)
  * Return:
@@ -386,7 +393,7 @@ pat_sel(ARCHD *arcn)
 	 * we are then done with this pattern, so we delete it from the list
 	 * because it can never be used for another match.
 	 * Seems kind of strange to do for a -c, but the pax spec is really
-	 * vague on the interaction of -c, -n and -d. We assume that when -c
+	 * vague on the interaction of -c -n and -d. We assume that when -c
 	 * and the pattern rejects a member (i.e. it matched it) it is done.
 	 * In effect we place the order of the flags as having -c last.
 	 */
@@ -405,7 +412,7 @@ pat_sel(ARCHD *arcn)
 		return(-1);
 	}
 	*ppt = pt->fow;
-	(void)free((char *)pt);
+	free(pt);
 	arcn->pat = NULL;
 	return(0);
 }
@@ -471,7 +478,7 @@ pat_match(ARCHD *arcn)
 		return(cflag ? 0 : 1);
 
 	/*
-	 * we had a match, now when we invert the sense (-c) we reject this
+	 * We had a match, now when we invert the sense (-c) we reject this
 	 * member. However we have to tag the pattern a being successful, (in a
 	 * match, not in selecting an archive member) so we call pat_sel() here.
 	 */
@@ -499,10 +506,10 @@ fn_match(char *pattern, char *string, char **pend)
 {
 	char c;
 	char test;
-#ifdef _HAVE_REGCOMP_
+#ifdef __APPLE__
 	char *equiv_pat;
 	char *pat_pend = NULL;
-#endif
+#endif /* __APPLE__ */
 
 	*pend = NULL;
 	for (;;) {
@@ -527,7 +534,7 @@ fn_match(char *pattern, char *string, char **pend)
 			*pend = string;
 			return(0);
 		case '?':
-			if ((*string++) == '\0')
+			if ((test = *string++) == '\0')
 				return (-1);
 			break;
 		case '*':
@@ -547,7 +554,7 @@ fn_match(char *pattern, char *string, char **pend)
 			/*
 			 * General case, use recursion.
 			 */
-			while ((*string) != '\0') {
+			while ((test = *string) != '\0') {
 				if (!fn_match(pattern, string, pend))
 					return (0);
 				++string;
@@ -557,7 +564,7 @@ fn_match(char *pattern, char *string, char **pend)
 			/*
 			 * range match
 			 */
-#ifdef _HAVE_REGCOMP_
+#ifdef __APPLE__
 			/*
 			 * Check for equivalence class and use regex_match to
 			 * handle this case. Note pattern should include the
@@ -578,12 +585,11 @@ fn_match(char *pattern, char *string, char **pend)
 				pattern = pat_pend;
 				break;
 			}
-#endif
+#endif /* __APPLE__ */
 			if (((test = *string++) == '\0') ||
 			    ((pattern = range_match(pattern, test)) == NULL))
 				return (-1);
 			break;
-
 		case '\\':
 		default:
 			if (c != *string++)
@@ -594,7 +600,7 @@ fn_match(char *pattern, char *string, char **pend)
 	/* NOTREACHED */
 }
 
-#ifdef _HAVE_REGCOMP_
+#ifdef __APPLE__
 static char*
 extract_equiv_pat(char *pattern, char **pend)
 {
@@ -710,7 +716,7 @@ regex_match(char *pattern, char *string, char **pend)
 	
 	return(0);
 }
-#endif
+#endif /* __APPLE__ */
 
 static char *
 range_match(char *pattern, int test)
@@ -764,7 +770,7 @@ mod_name(ARCHD *arcn)
 	 * Strip off leading '/' if appropriate.
 	 * Currently, this option is only set for the tar format.
 	 */
-	while (rmleadslash && arcn->name[0] == '/') {
+	if (rmleadslash && arcn->name[0] == '/') {
 		if (arcn->name[1] == '\0') {
 			arcn->name[0] = '.';
 		} else {
@@ -777,7 +783,7 @@ mod_name(ARCHD *arcn)
 			paxwarn(0, "Removing leading / from absolute path names in the archive");
 		}
 	}
-	while (rmleadslash && arcn->ln_name[0] == '/' &&
+	if (rmleadslash && arcn->ln_name[0] == '/' &&
 	    (arcn->type == PAX_HLK || arcn->type == PAX_HRG)) {
 		if (arcn->ln_name[1] == '\0') {
 			arcn->ln_name[0] = '.';
@@ -816,12 +822,20 @@ mod_name(ARCHD *arcn)
 		 * we have replacement strings, modify the name and the link
 		 * name if any.
 		 */
+#ifdef __APPLE__
 		if ((res = rep_name(arcn->name, sizeof(arcn->name), &(arcn->nlen), 1)) != 0)
+#else
+		if ((res = rep_name(arcn->name, &(arcn->nlen), 1)) != 0)
+#endif /* __APPLE__ */
 			return(res);
 
 		if (((arcn->type == PAX_SLK) || (arcn->type == PAX_HLK) ||
 		    (arcn->type == PAX_HRG)) &&
+#ifdef __APPLE__
 		    ((res = rep_name(arcn->ln_name, sizeof(arcn->ln_name), &(arcn->ln_nlen), 0)) != 0))
+#else
+		    ((res = rep_name(arcn->ln_name, &(arcn->ln_nlen), 0)) != 0))
+#endif /* __APPLE__ */
 			return(res);
 	}
 
@@ -848,7 +862,11 @@ mod_name(ARCHD *arcn)
  *	0 process this file, 1 skip this file, -1 we need to exit pax
  */
 
+#ifdef __APPLE__
 int
+#else
+static int
+#endif /* __APPLE__ */
 tty_rename(ARCHD *arcn)
 {
 	char tmpname[PAXPATHLEN+2];
@@ -899,9 +917,14 @@ tty_rename(ARCHD *arcn)
 	 */
 	tty_prnt("Processing continues, name changed to: %s\n", tmpname);
 	res = add_name(arcn->name, arcn->nlen, tmpname);
+#ifdef __APPLE__
 	arcn->nlen = strlcpy(arcn->name, tmpname, sizeof(arcn->name));
 	if (arcn->nlen >= sizeof(arcn->name))
 		arcn->nlen = sizeof(arcn->name) - 1; /* XXX truncate? */
+#else
+	arcn->nlen = l_strncpy(arcn->name, tmpname, sizeof(arcn->name) - 1);
+	arcn->name[arcn->nlen] = '\0';
+#endif /* __APPLE__ */
 	if (res < 0)
 		return(-1);
 	return(0);
@@ -943,7 +966,7 @@ set_dest(ARCHD *arcn, char *dest_dir, int dir_len)
  */
 
 static int
-fix_path(char *or_name, int *or_len, char *dir_name, int dir_len)
+fix_path( char *or_name, int *or_len, char *dir_name, int dir_len)
 {
 	char *src;
 	char *dest;
@@ -1007,7 +1030,11 @@ fix_path(char *or_name, int *or_len, char *dir_name, int dir_len)
  */
 
 static int
+#ifdef __APPLE__
 rep_name(char *name, size_t nsize, int *nlen, int prnt)
+#else
+rep_name(char *name, int *nlen, int prnt)
+#endif /* __APPLE__ */
 {
 	REPLACE *pt;
 	char *inpt;
@@ -1039,7 +1066,9 @@ rep_name(char *name, size_t nsize, int *nlen, int prnt)
 	 */
 	while (pt != NULL) {
 		do {
+#ifdef __APPLE__
 			char *oinpt = inpt;
+#endif /* __APPLE__ */
 			/*
 			 * check for a successful substitution, if not go to
 			 * the next pattern, or cleanup if we were global
@@ -1068,7 +1097,11 @@ rep_name(char *name, size_t nsize, int *nlen, int prnt)
 			 * replacement string and place it the prefix in the
 			 * final output. If we have problems, skip it.
 			 */
+#ifdef __APPLE__
 			if ((res = resub(&(pt->rcmp),pm,pt->nstr,oinpt,outpt,endpt))
+#else
+			if ((res = resub(&(pt->rcmp),pm,inpt,pt->nstr,outpt,endpt))
+#endif /* __APPLE__ */
 			    < 0) {
 				if (prnt)
 					paxwarn(1, "Replacement name error %s",
@@ -1140,21 +1173,31 @@ rep_name(char *name, size_t nsize, int *nlen, int prnt)
 		 */
 		if (*nname == '\0')
 			return(1);
+#ifdef __APPLE__
 		*nlen = strlcpy(name, nname, nsize);
+#else
+		*nlen = l_strncpy(name, nname, PAXPATHLEN + 1);
+		name[PAXPATHLEN] = '\0';
+#endif /* __APPLE__ */
 	}
 	return(0);
 }
 
+
 /*
  * resub()
  *	apply the replacement to the matched expression. expand out the old
- *	style ed(1) subexpression expansion.
+ * 	style ed(1) subexpression expansion.
  * Return:
  *	-1 if error, or the number of characters added to the destination.
  */
 
 static int
+#ifdef __APPLE__
 resub(regex_t *rp, regmatch_t *pm, char *src, char *inpt, char *dest,
+#else
+resub(regex_t *rp, regmatch_t *pm, char *orig, char *src, char *dest,
+#endif /* __APPLE__ */
 	char *destend)
 {
 	char *spt;
@@ -1182,12 +1225,16 @@ resub(regex_t *rp, regmatch_t *pm, char *src, char *inpt, char *dest,
 				return(-1);
 			pmpt = pm + len;
 		} else {
-			/*
+ 			/*
 			 * Ordinary character, just copy it
 			 */
+#ifdef __APPLE__
 			if ((c == '\\') && (*spt != '\0'))
-				c = *spt++;
-			*dpt++ = c;
+#else
+ 			if ((c == '\\') && ((*spt == '\\') || (*spt == '&')))
+#endif /* __APPLE__ */
+ 				c = *spt++;
+ 			*dpt++ = c;
 			continue;
 		}
 
@@ -1195,7 +1242,7 @@ resub(regex_t *rp, regmatch_t *pm, char *src, char *inpt, char *dest,
 		 * continue if the subexpression is bogus
 		 */
 		if ((pmpt->rm_so < 0) || (pmpt->rm_eo < 0) ||
-		    ((len = (int)(pmpt->rm_eo - pmpt->rm_so)) <= 0))
+		    ((len = pmpt->rm_eo - pmpt->rm_so) <= 0))
 			continue;
 
 		/*
@@ -1204,7 +1251,12 @@ resub(regex_t *rp, regmatch_t *pm, char *src, char *inpt, char *dest,
 		 */
 		if (len > (destend - dpt))
 			len = destend - dpt;
+#ifdef __APPLE__
 		strncpy(dpt, inpt + pmpt->rm_so, len);
+#else
+		if (l_strncpy(dpt, orig + pmpt->rm_so, len) != len)
+			return(-1);
+#endif
 		dpt += len;
 	}
 	return(dpt - dest);

@@ -20,7 +20,6 @@ f 1 exp2
 f 1 expm1
 f 1 fabs abs
 f 2 fdim
-f 1 finite
 f 1 floor int
 f 3 fma
 f 2 fmax

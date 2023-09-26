@@ -1,0 +1,547 @@
+# APPLE
+ARABIC                          UCS                             1
+UCS                             ARABIC                          1
+CELTIC                          UCS                             1
+UCS                             CELTIC                          1
+CENTEURO                        UCS                             1
+UCS                             CENTEURO                        1
+CROATIAN                        UCS                             1
+UCS                             CROATIAN                        1
+CYRILLIC                        UCS                             1
+UCS                             CYRILLIC                        1
+DEVANAGA                        UCS                             1
+UCS                             DEVANAGA                        1
+DINGBATS                        UCS                             1
+UCS                             DINGBATS                        1
+FARSI                           UCS                             1
+UCS                             FARSI                           1
+GAELIC                          UCS                             1
+UCS                             GAELIC                          1
+GREEK                           UCS                             1
+UCS                             GREEK                           1
+GUJARATI                        UCS                             1
+UCS                             GUJARATI                        1
+GURMUKHI                        UCS                             1
+UCS                             GURMUKHI                        1
+HEBREW                          UCS                             1
+UCS                             HEBREW                          1
+ICELAND                         UCS                             1
+UCS                             ICELAND                         1
+INUIT                           UCS                             1
+UCS                             INUIT                           1
+KEYBOARD                        UCS                             1
+UCS                             KEYBOARD                        1
+ROMAN                           UCS                             1
+UCS                             ROMAN                           1
+ROMANIAN                        UCS                             1
+UCS                             ROMANIAN                        1
+SYMBOL                          UCS                             1
+UCS                             SYMBOL                          1
+THAI                            UCS                             1
+UCS                             THAI                            1
+TURKISH                         UCS                             1
+UCS                             TURKISH                         1
+
+# AST
+ARMSCII-7                       UCS                             1
+UCS                             ARMSCII-7                       1
+ARMSCII-8                       UCS                             1
+UCS                             ARMSCII-8                       1
+ARMSCII-8A                      UCS                             1
+UCS                             ARMSCII-8A                      1
+
+# BIG5
+# $FreeBSD$
+# $NetBSD: charset.pivot.BIG5.src,v 1.2 2007/03/05 16:57:12 tnozaki Exp $
+
+Big5-2003	UCS		1
+Big5-ETen	UCS		1
+Big5-HKSCS:1999	UCS		1
+Big5-HKSCS:2001	UCS		1
+Big5-HKSCS	UCS		1
+Big5-IBM	UCS		1
+Big5-Plus	UCS		1
+UCS		Big5-2003	1
+UCS		Big5-ETen	1
+UCS		Big5-HKSCS:1999	1
+UCS		Big5-HKSCS:2001	1
+UCS		Big5-HKSCS	1
+UCS		Big5-IBM	1
+UCS		Big5-Plus	1
+
+# CNS
+# $FreeBSD$
+# $NetBSD: charset.pivot.CNS.src,v 1.3 2007/03/05 16:57:15 tnozaki Exp $
+
+CNS11643-1		UCS			1
+CNS11643-2		UCS			1
+CNS11643-3		UCS			1
+CNS11643-4		UCS			1
+CNS11643-5		UCS			1
+CNS11643-6		UCS			1
+CNS11643-7		UCS			1
+UCS			CNS11643-1		1
+UCS			CNS11643-2		1
+UCS			CNS11643-3		1
+UCS			CNS11643-4		1
+UCS			CNS11643-5		1
+UCS			CNS11643-6		1
+UCS			CNS11643-7		1
+
+# CP
+CP037                           UCS                             1
+UCS                             CP037                           1
+CP038                           UCS                             1
+UCS                             CP038                           1
+CP273                           UCS                             1
+UCS                             CP273                           1
+CP274                           UCS                             1
+UCS                             CP274                           1
+CP275                           UCS                             1
+UCS                             CP275                           1
+CP277                           UCS                             1
+UCS                             CP277                           1
+CP278                           UCS                             1
+UCS                             CP278                           1
+CP280                           UCS                             1
+UCS                             CP280                           1
+CP281                           UCS                             1
+UCS                             CP281                           1
+CP284                           UCS                             1
+UCS                             CP284                           1
+CP285                           UCS                             1
+UCS                             CP285                           1
+CP290                           UCS                             1
+UCS                             CP290                           1
+CP297                           UCS                             1
+UCS                             CP297                           1
+CP420                           UCS                             1
+UCS                             CP420                           1
+CP423                           UCS                             1
+UCS                             CP423                           1
+CP424                           UCS                             1
+UCS                             CP424                           1
+CP437                           UCS                             1
+UCS                             CP437                           1
+CP500                           UCS                             1
+UCS                             CP500                           1
+CP737                           UCS                             1
+UCS                             CP737                           1
+CP775                           UCS                             1
+UCS                             CP775                           1
+CP850                           UCS                             1
+UCS                             CP850                           1
+CP851                           UCS                             1
+UCS                             CP851                           1
+CP852                           UCS                             1
+UCS                             CP852                           1
+CP853                           UCS                             1
+UCS                             CP853                           1
+CP855                           UCS                             1
+UCS                             CP855                           1
+CP856                           UCS                             1
+UCS                             CP856                           1
+CP857                           UCS                             1
+UCS                             CP857                           1
+CP858                           UCS                             1
+UCS                             CP858                           1
+CP860                           UCS                             1
+UCS                             CP860                           1
+CP861                           UCS                             1
+UCS                             CP861                           1
+CP862                           UCS                             1
+UCS                             CP862                           1
+CP863                           UCS                             1
+UCS                             CP863                           1
+CP864                           UCS                             1
+UCS                             CP864                           1
+CP865                           UCS                             1
+UCS                             CP865                           1
+CP866                           UCS                             1
+UCS                             CP866                           1
+CP868                           UCS                             1
+UCS                             CP868                           1
+CP869                           UCS                             1
+UCS                             CP869                           1
+CP870                           UCS                             1
+UCS                             CP870                           1
+CP871                           UCS                             1
+UCS                             CP871                           1
+CP874                           UCS                             1
+UCS                             CP874                           1
+CP875                           UCS                             1
+UCS                             CP875                           1
+CP880                           UCS                             1
+UCS                             CP880                           1
+CP891                           UCS                             1
+UCS                             CP891                           1
+CP903                           UCS                             1
+UCS                             CP903                           1
+CP904                           UCS                             1
+UCS                             CP904                           1
+CP905                           UCS                             1
+UCS                             CP905                           1
+CP918                           UCS                             1
+UCS                             CP918                           1
+CP922                           UCS                             1
+UCS                             CP922                           1
+CP932UDA                        UCS                             1
+UCS                             CP932UDA                        1
+CP932VDC:IBM                    UCS                             1
+UCS                             CP932VDC:IBM                    1
+CP932VDC:NEC_IBM                UCS                             1
+UCS                             CP932VDC:NEC_IBM                1
+CP936EXT                        UCS                             1
+UCS                             CP936EXT                        1
+CP942EXT                        UCS                             1
+UCS                             CP942EXT                        1
+CP949EXT                        UCS                             1
+UCS                             CP949EXT                        1
+CP950                           UCS                             1
+UCS                             CP950                           1
+CP1006                          UCS                             1
+UCS                             CP1006                          1
+CP1026                          UCS                             1
+UCS                             CP1026                          1
+CP1046                          UCS                             1
+UCS                             CP1046                          1
+CP1124                          UCS                             1
+UCS                             CP1124                          1
+CP1125                          UCS                             1
+UCS                             CP1125                          1
+CP1129                          UCS                             1
+UCS                             CP1129                          1
+CP1131                          UCS                             1
+UCS                             CP1131                          1
+CP1133                          UCS                             1
+UCS                             CP1133                          1
+CP1161                          UCS                             1
+UCS                             CP1161                          1
+CP1162                          UCS                             1
+UCS                             CP1162                          1
+CP1163                          UCS                             1
+UCS                             CP1163                          1
+CP1250                          UCS                             1
+UCS                             CP1250                          1
+CP1251                          UCS                             1
+UCS                             CP1251                          1
+CP1252                          UCS                             1
+UCS                             CP1252                          1
+CP1253                          UCS                             1
+UCS                             CP1253                          1
+CP1254                          UCS                             1
+UCS                             CP1254                          1
+CP1255                          UCS                             1
+UCS                             CP1255                          1
+CP1256                          UCS                             1
+UCS                             CP1256                          1
+CP1257                          UCS                             1
+UCS                             CP1257                          1
+CP1258                          UCS                             1
+UCS                             CP1258                          1
+CP10000                         UCS                             1
+UCS                             CP10000                         1
+CP10006                         UCS                             1
+UCS                             CP10006                         1
+CP10007                         UCS                             1
+UCS                             CP10007                         1
+CP10029                         UCS                             1
+UCS                             CP10029                         1
+CP10079                         UCS                             1
+UCS                             CP10079                         1
+CP10081                         UCS                             1
+UCS                             CP10081                         1
+# $FreeBSD$
+# $NetBSD: charset.pivot.CP.src,v 1.6 2007/02/17 12:39:44 tnozaki Exp $
+
+CP50220				CP51932				1
+CP50220				CP932KANJI			1
+CP50220				UCS				1
+CP51932				CP50220				1
+CP51932				CP932KANJI			1
+CP51932				UCS				1
+CP932KANJI			CP50220				1
+CP932KANJI			CP51932				1
+CP932KANJI			UCS				1
+CP942				UCS				1
+CP943				UCS				1
+UCS				CP50220				1
+UCS				CP51932				1
+UCS				CP932KANJI			1
+UCS				CP942				1
+UCS				CP943				1
+
+# EBCDIC
+EBCDIC-AT-DE                    UCS                             1
+UCS                             EBCDIC-AT-DE                    1
+EBCDIC-AT-DE-A                  UCS                             1
+UCS                             EBCDIC-AT-DE-A                  1
+EBCDIC-CA-FR                    UCS                             1
+UCS                             EBCDIC-CA-FR                    1
+EBCDIC-DK-NO                    UCS                             1
+UCS                             EBCDIC-DK-NO                    1
+EBCDIC-DK-NO-A                  UCS                             1
+UCS                             EBCDIC-DK-NO-A                  1
+EBCDIC-ES                       UCS                             1
+UCS                             EBCDIC-ES                       1
+EBCDIC-ES-A                     UCS                             1
+UCS                             EBCDIC-ES-A                     1
+EBCDIC-ES-S                     UCS                             1
+UCS                             EBCDIC-ES-S                     1
+EBCDIC-FI-SE                    UCS                             1
+UCS                             EBCDIC-FI-SE                    1
+EBCDIC-FI-SE-A                  UCS                             1
+UCS                             EBCDIC-FI-SE-A                  1
+EBCDIC-FR                       UCS                             1
+UCS                             EBCDIC-FR                       1
+EBCDIC-IT                       UCS                             1
+UCS                             EBCDIC-IT                       1
+EBCDIC-PT                       UCS                             1
+UCS                             EBCDIC-PT                       1
+EBCDIC-UK                       UCS                             1
+UCS                             EBCDIC-UK                       1
+
+# GB
+# $FreeBSD$
+# $NetBSD: charset.pivot.GB.src,v 1.5 2006/11/23 03:25:24 tnozaki Exp $
+
+GB12345			UCS			1
+GB2312			UCS			1
+GB2312GBK		UCS			1
+GB2312:GBK		UCS			1
+GB2312:GB18030		UCS			1
+GBK			UCS			1
+GBK:GB18030		UCS			1
+GBKUCS			UCS			1
+ISO-IR-165		UCS			1
+UCS			GB12345			1
+UCS			GB2312			1
+UCS			GB2312GBK		1
+UCS			GB2312:GBK		1
+UCS			GB2312:GB18030		1
+UCS			GBK			1
+UCS			GBK:GB18030		1
+UCS			GBKUCS			1
+UCS			ISO-IR-165		1
+
+# GEORGIAN
+GEORGIAN-ACADEMY                UCS                             1
+UCS                             GEORGIAN-ACADEMY                1
+GEORGIAN-ACADEMY:OldCapital     UCS                             1
+UCS                             GEORGIAN-ACADEMY:OldCapital     1
+GEORGIAN-PS                     UCS                             1
+UCS                             GEORGIAN-PS                     1
+GEORGIAN-PS:OldCapital          UCS                             1
+UCS                             GEORGIAN-PS:OldCapital          1
+
+# ISO646
+ISO646-BASIC:1983               UCS                             1
+UCS                             ISO646-BASIC:1983               1
+ISO646-IRV:1983                 UCS                             1
+UCS                             ISO646-IRV:1983                 1
+ISO646-GB                       UCS                             1
+UCS                             ISO646-GB                       1
+ISO646-US                       UCS                             1
+UCS                             ISO646-US                       1
+ISO646-SE                       UCS                             1
+UCS                             ISO646-SE                       1
+ISO646-SE2                      UCS                             1
+UCS                             ISO646-SE2                      1
+ISO646-JP                       UCS                             1
+UCS                             ISO646-JP                       1
+ISO646-IT                       UCS                             1
+UCS                             ISO646-IT                       1
+ISO646-PT                       UCS                             1
+UCS                             ISO646-PT                       1
+ISO646-ES                       UCS                             1
+UCS                             ISO646-ES                       1
+ISO646-DE                       UCS                             1
+UCS                             ISO646-DE                       1
+ISO646-FR1                      UCS                             1
+UCS                             ISO646-FR1                      1
+ISO646-CN                       UCS                             1
+UCS                             ISO646-CN                       1
+ISO646-NO                       UCS                             1
+UCS                             ISO646-NO                       1
+ISO646-NO2                      UCS                             1
+UCS                             ISO646-NO2                      1
+ISO646-FR                       UCS                             1
+UCS                             ISO646-FR                       1
+ISO646-PT2                      UCS                             1
+UCS                             ISO646-PT2                      1
+ISO646-ES2                      UCS                             1
+UCS                             ISO646-ES2                      1
+ISO646-HU                       UCS                             1
+UCS                             ISO646-HU                       1
+ISO646-JP-OCR-B                 UCS                             1
+UCS                             ISO646-JP-OCR-B                 1
+ISO646-CA                       UCS                             1
+UCS                             ISO646-CA                       1
+ISO646-CA2                      UCS                             1
+UCS                             ISO646-CA2                      1
+ISO646-YU                       UCS                             1
+UCS                             ISO646-YU                       1
+ISO646-CU                       UCS                             1
+UCS                             ISO646-CU                       1
+ISO646-DK                       UCS                             1
+UCS                             ISO646-DK                       1
+ISO646-KR                       UCS                             1
+UCS                             ISO646-KR                       1
+
+# ISO-8859
+ISO-8859-1                      UCS                             1
+UCS                             ISO-8859-1                      1
+ISO-8859-1:GR                   UCS                             1
+UCS                             ISO-8859-1:GR                   1
+ISO-8859-2                      UCS                             1
+UCS                             ISO-8859-2                      1
+ISO-8859-2:GR                   UCS                             1
+UCS                             ISO-8859-2:GR                   1
+ISO-8859-3                      UCS                             1
+UCS                             ISO-8859-3                      1
+ISO-8859-3:GR                   UCS                             1
+UCS                             ISO-8859-3:GR                   1
+ISO-8859-4                      UCS                             1
+UCS                             ISO-8859-4                      1
+ISO-8859-4:GR                   UCS                             1
+UCS                             ISO-8859-4:GR                   1
+ISO-8859-5                      UCS                             1
+UCS                             ISO-8859-5                      1
+ISO-8859-5:GR                   UCS                             1
+UCS                             ISO-8859-5:GR                   1
+ISO-8859-6                      UCS                             1
+UCS                             ISO-8859-6                      1
+ISO-8859-6:GR                   UCS                             1
+UCS                             ISO-8859-6:GR                   1
+ISO-8859-7                      UCS                             1
+UCS                             ISO-8859-7                      1
+ISO-8859-7:GR                   UCS                             1
+UCS                             ISO-8859-7:GR                   1
+ISO-8859-8                      UCS                             1
+UCS                             ISO-8859-8                      1
+ISO-8859-8:GR                   UCS                             1
+UCS                             ISO-8859-8:GR                   1
+ISO-8859-9                      UCS                             1
+UCS                             ISO-8859-9                      1
+ISO-8859-9:GR                   UCS                             1
+UCS                             ISO-8859-9:GR                   1
+ISO-8859-10                     UCS                             1
+UCS                             ISO-8859-10                     1
+ISO-8859-10:GR                  UCS                             1
+UCS                             ISO-8859-10:GR                  1
+ISO-8859-11                     UCS                             1
+UCS                             ISO-8859-11                     1
+ISO-8859-11:GR                  UCS                             1
+UCS                             ISO-8859-11:GR                  1
+ISO-8859-13                     UCS                             1
+UCS                             ISO-8859-13                     1
+ISO-8859-13:GR                  UCS                             1
+UCS                             ISO-8859-13:GR                  1
+ISO-8859-14                     UCS                             1
+UCS                             ISO-8859-14                     1
+ISO-8859-14:GR                  UCS                             1
+UCS                             ISO-8859-14:GR                  1
+ISO-8859-15                     UCS                             1
+UCS                             ISO-8859-15                     1
+ISO-8859-15:GR                  UCS                             1
+UCS                             ISO-8859-15:GR                  1
+ISO-8859-16                     UCS                             1
+UCS                             ISO-8859-16                     1
+ISO-8859-16:GR                  UCS                             1
+UCS                             ISO-8859-16:GR                  1
+
+# JIS
+# $FreeBSD$ 
+# $NetBSD: charset.pivot.JIS.src,v 1.4 2007/03/05 16:58:34 tnozaki Exp $
+
+JISX0201-KANA		UCS			1
+JISX0208:1978		UCS			1
+JISX0208:1990		UCS			1
+JISX0208:EUCMSSET	UCS			1
+JISX0212		UCS			1
+JISX0212:EUCMSSET	UCS			1
+JISX0213-1		UCS			1
+JISX0213-2		UCS			1
+JISX0212+0213-2		UCS			1
+UCS			JISX0201-KANA		1
+UCS			JISX0208:1978		1
+UCS			JISX0208:1990		1
+UCS			JISX0208:EUCMSSET	1
+UCS			JISX0212		1
+UCS			JISX0212:EUCMSSET	1
+UCS			JISX0213-1		1
+UCS			JISX0213-2		1
+UCS			JISX0212+0213-2		1
+
+# KAZAKH
+# $FreeBSD$ 
+# $NetBSD: charset.pivot.KAZAKH.src,v 1.1 2007/03/13 16:34:38 tnozaki Exp $
+
+KZ1048			UCS			1
+PTCP154			UCS			1
+UCS			KZ1048			1
+UCS			PTCP154			1
+
+# $FreeBSD$ 
+# $NetBSD: charset.pivot.KOI.src,v 1.1 2006/09/16 08:38:20 tnozaki Exp $
+
+ISO-5427		UCS			1
+UCS			ISO-5427		1
+KOI7			UCS			1
+UCS			KOI7			1
+KOI8                            UCS                            1
+UCS                             KOI8                           1
+KOI8-C                          UCS                            1
+UCS                             KOI8-C                         1
+KOI8-E                          UCS                            1
+UCS                             KOI8-E                         1
+KOI8-R                          UCS                            1
+UCS                             KOI8-R                         1
+KOI8-RU                         UCS                            1
+UCS                             KOI8-RU                        1
+KOI8-T                          UCS                            1
+UCS                             KOI8-T                         1
+KOI8-U                          UCS                            1
+UCS                             KOI8-U                         1
+
+# KS
+# $FreeBSD$ 
+# $NetBSD: charset.pivot.KS.src,v 1.2 2006/10/18 17:54:55 tnozaki Exp $
+
+JOHAB			UCS			1
+KSC5601			UCS			1
+KSC5601HANJA		UCS			1
+UCS			JOHAB			1
+UCS			KSC5601			1
+UCS			KSC5601HANJA		1
+
+# MISC
+# $FreeBSD$ 
+# $NetBSD: charset.pivot.MISC.src,v 1.11 2007/04/01 18:52:30 tnozaki Exp $
+
+ATARIST			UCS			1
+DECMCS			UCS			1
+HP-ROMAN8		UCS			1
+MULELAO-1		UCS			1
+NEXTSTEP		UCS			1
+RISCOS-LATIN1		UCS			1
+TDS565			UCS			1
+UCS			ATARIST			1
+UCS			DECMCS			1
+UCS			HP-ROMAN8		1
+UCS			MULELAO-1		1
+UCS			NEXTSTEP		1
+UCS			RISCOS-LATIN1		1
+UCS			TDS565			1
+
+# TCVN
+# $FreeBSD$ 
+# $NetBSD: charset.pivot.TCVN.src,v 1.1 2006/11/13 15:16:30 tnozaki Exp $
+
+TCVN5712-1		UCS			1
+VISCII			UCS			1
+UCS			TCVN5712-1		1
+UCS			VISCII			1
+
+# $FreeBSD$ 
+# $NetBSD: charset.pivot.src,v 1.1 2003/06/27 08:40:00 tshiozak Exp $

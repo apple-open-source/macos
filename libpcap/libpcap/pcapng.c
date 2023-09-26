@@ -58,20 +58,20 @@ struct block_cursor {
 #define PADDED_OPTION_LEN(x) ((x) ? PAD_32BIT(x) + sizeof(struct pcapng_option_header) : 0)
 
 
-void *
+static void *
 pcap_ng_block_header_ptr(pcapng_block_t block)
 {
 	return (block->pcapng_bufptr);
 }
 
-void *
+static void *
 pcap_ng_block_fields_ptr(pcapng_block_t block)
 {
 	return (block->pcapng_bufptr +
 		sizeof(struct pcapng_block_header));
 }
 
-void *
+static void *
 pcap_ng_block_data_ptr(pcapng_block_t block)
 {
 	if (block->pcapng_data_is_external)
@@ -82,7 +82,7 @@ pcap_ng_block_data_ptr(pcapng_block_t block)
 			block->pcapng_fields_len);
 }
 
-void *
+static void *
 pcap_ng_block_records_ptr(pcapng_block_t block)
 {
 	if (block->pcapng_block_type != PCAPNG_BT_NRB)
@@ -99,7 +99,7 @@ pcap_ng_block_records_ptr(pcapng_block_t block)
 			block->pcapng_data_len);
 }
 
-void *
+static void *
 pcap_ng_block_options_ptr(pcapng_block_t block)
 {
 	if (block->pcapng_block_type == PCAPNG_BT_SPB)
@@ -118,7 +118,7 @@ pcap_ng_block_options_ptr(pcapng_block_t block)
 			block->pcapng_records_len);
 }
 
-void *
+static void *
 pcap_ng_block_trailer_ptr(pcapng_block_t block)
 {
 	if (block->pcapng_data_is_external)
@@ -164,7 +164,7 @@ pcap_ng_block_alloc(size_t len)
 }
 
 size_t
-pcap_ng_block_size_max()
+pcap_ng_block_size_max(void)
 {
     return (2 * MAXIMUM_SNAPLEN);
 }
@@ -193,7 +193,7 @@ pcap_ng_block_is_swapped(pcapng_block_t block)
 	return (block->pcapng_block_swapped);
 }
 
-int
+static int
 pcapng_update_block_length(pcapng_block_t block)
 {
 	block->pcapng_block_len = sizeof(struct pcapng_block_header) +
@@ -335,7 +335,7 @@ pcap_ng_get_packet_fields(pcapng_block_t block)
 		return NULL;
 }
 
-struct pcapng_interface_statistics_fields *
+static struct pcapng_interface_statistics_fields *
 pcap_ng_get_interface_statistics_fields(pcapng_block_t block)
 {
 	if (block != NULL && block->pcapng_block_type == PCAPNG_BT_ISB)
@@ -630,7 +630,7 @@ done:
 }
 
 int
-pcnapng_block_iterate_options(pcapng_block_t block,
+pcapng_block_iterate_options(pcapng_block_t block,
                               pcapng_option_iterator_func opt_iterator_func,
                               void *context)
 {
@@ -678,7 +678,15 @@ done:
 }
 
 int
-pcnapng_block_iterate_name_records(pcapng_block_t block,
+pcnapng_block_iterate_options(pcapng_block_t block,
+							  pcapng_option_iterator_func opt_iterator_func,
+							  void *context)
+{
+	return pcapng_block_iterate_options(block, opt_iterator_func, context);
+}
+
+int
+pcapng_block_iterate_name_records(pcapng_block_t block,
                                    pcapng_name_record_iterator_func record_iterator_func,
                                    void *context)
 {
@@ -732,6 +740,14 @@ done:
 }
 
 int
+pcnapng_block_iterate_name_records(pcapng_block_t block,
+								   pcapng_name_record_iterator_func record_iterator_func,
+								   void *context)
+{
+	return pcapng_block_iterate_name_records(block, record_iterator_func, context);
+}
+
+static int
 pcap_ng_block_add_name_record_common(pcapng_block_t block, uint32_t type,
                                      size_t addrlen, void *addr, const char **names)
 {
@@ -1011,7 +1027,7 @@ pcap_ng_dump_block(pcap_dumper_t *p, pcapng_block_t block)
 	return (bytes_written);
 }
 
-int
+static int
 pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_block)
 {
 	pcapng_block_t block = NULL;

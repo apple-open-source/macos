@@ -11,9 +11,9 @@
 # The plugin_options are optional.
 #
 # The sudoers plugin is used by default if no Plugin lines are present.
-#Plugin sudoers_policy sudoers.so
-#Plugin sudoers_io sudoers.so
-#Plugin sudoers_audit sudoers.so
+#Plugin sudoers_policy @sudoers_plugin@
+#Plugin sudoers_io @sudoers_plugin@
+#Plugin sudoers_audit @sudoers_plugin@
 
 #
 # Sudo askpass:
@@ -39,6 +39,21 @@
 #Path devsearch /dev/pts:/dev/vt:/dev/term:/dev/zcons:/dev/pty:/dev
 
 #
+# Sudo command interception:
+#   Path intercept /path/to/sudo_intercept.so
+#
+# Path to a shared library containing replacements for the execv(),
+# execve() and fexecve() library functions that perform a policy check
+# to verify the command is allowed and simply return an error if not.
+# This is used to implement the "intercept" functionality on systems that
+# support LD_PRELOAD or its equivalent.
+#
+# The compiled-in value is usually sufficient and should only be changed
+# if you rename or move the sudo_intercept.so file.
+#
+#Path intercept @intercept_file@
+
+#
 # Sudo noexec:
 #   Path noexec /path/to/sudo_noexec.so
 #
@@ -50,7 +65,7 @@
 # The compiled-in value is usually sufficient and should only be changed
 # if you rename or move the sudo_noexec.so file.
 #
-#Path noexec @plugindir@/sudo_noexec.so
+#Path noexec @noexec_file@
 
 #
 # Sudo plugin directory:
@@ -60,14 +75,6 @@
 # specified without a fully qualified path name.
 #
 #Path plugin_dir @plugindir@
-
-#
-# Sudo developer mode:
-#   Set developer_mode true|false
-#
-# Allow loading of plugins that are owned by non-root or are writable
-# by "group" or "other".  Should only be used during plugin development.
-#Set developer_mode true
 
 #
 # Core dumps:
@@ -114,11 +121,11 @@
 #   Debug program /path/to/debug_log subsystem@priority[,subsyste@priority]
 #
 # Sudo and related programs support logging debug information to a file.
-# The program is typically sudo, sudoers.so, sudoreplay or visudo.
+# The program is typically sudo, sudoers.so, sudoreplay, or visudo.
 #
 # Subsystems vary based on the program; "all" matches all subsystems.
-# Priority may be crit, err, warn, notice, diag, info, trace or debug.
+# Priority may be crit, err, warn, notice, diag, info, trace, or debug.
 # Multiple subsystem@priority may be specified, separated by a comma.
 #
-#Debug sudo /var/log/sudo_debug all@debug
-#Debug sudoers.so /var/log/sudoers_debug all@debug
+#Debug sudo @log_dir@/sudo_debug all@debug
+#Debug sudoers.so @log_dir@/sudoers_debug all@debug

@@ -35,16 +35,16 @@
 #import "CommonAtomStrings.h"
 #import "DataDetectionResultsStorage.h"
 #import "Editing.h"
-#import "ElementAncestorIterator.h"
+#import "ElementAncestorIteratorInlines.h"
 #import "ElementRareData.h"
 #import "ElementTraversal.h"
-#import "FrameView.h"
 #import "HTMLAnchorElement.h"
 #import "HTMLDivElement.h"
 #import "HTMLNames.h"
 #import "HTMLTextFormControlElement.h"
 #import "HitTestResult.h"
 #import "ImageOverlay.h"
+#import "LocalFrameView.h"
 #import "NodeList.h"
 #import "NodeTraversal.h"
 #import "QualifiedName.h"
@@ -54,14 +54,16 @@
 #import "Text.h"
 #import "TextIterator.h"
 #import "TextRecognitionResult.h"
+#import "TypedElementDescendantIteratorInlines.h"
 #import "VisiblePosition.h"
 #import "VisibleUnits.h"
-#import <pal/spi/ios/DataDetectorsUISPI.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/text/StringBuilder.h>
 #import <wtf/text/StringToIntegerConversion.h>
+
 #import <pal/cocoa/DataDetectorsCoreSoftLink.h>
 #import <pal/mac/DataDetectorsSoftLink.h>
+#import <pal/spi/ios/DataDetectorsUISoftLink.h>
 
 #if PLATFORM(MAC)
 template<> struct WTF::CFTypeTrait<DDResultRef> {
@@ -111,7 +113,8 @@ static std::optional<DetectedItem> detectItem(const VisiblePosition& position, c
     if (!view)
         return { };
 
-    auto actionContext = adoptNS([PAL::allocDDActionContextInstance() init]);
+    auto actionContext = adoptNS([PAL::allocWKDDActionContextInstance() init]);
+
     [actionContext setAllResults:@[ (__bridge id)mainResult ]];
     [actionContext setMainResult:mainResult];
 
@@ -144,7 +147,7 @@ std::optional<DetectedItem> DataDetection::detectItemAroundHitTestResult(const H
 
         contextRange = rangeExpandedAroundPositionByCharacters(position, 250);
     } else {
-        Frame* frame = node->document().frame();
+        auto* frame = node->document().frame();
         if (!frame)
             return { };
 
@@ -442,7 +445,14 @@ void DataDetection::removeDataDetectedLinksInDocument(Document& document)
         removeResultLinksFromAnchor(anchor.get());
 }
 
-NSArray *DataDetection::detectContentInRange(const SimpleRange& contextRange, OptionSet<DataDetectorType> types, NSDictionary *context)
+std::optional<double> DataDetection::extractReferenceDate(NSDictionary *context)
+{
+    if (auto date = dynamic_objc_cast<NSDate>([context objectForKey:PAL::get_DataDetectorsUI_kDataDetectorsReferenceDateKey()]))
+        return [date timeIntervalSince1970];
+    return std::nullopt;
+}
+
+NSArray *DataDetection::detectContentInRange(const SimpleRange& contextRange, OptionSet<DataDetectorType> types, std::optional<double> referenceDateFromContext)
 {
     auto scanner = adoptCF(PAL::softLink_DataDetectorsCore_DDScannerCreate(DDScannerTypeStandard, 0, nullptr));
     auto scanQuery = adoptCF(PAL::softLink_DataDetectorsCore_DDScanQueryCreate(NULL));
@@ -540,7 +550,7 @@ NSArray *DataDetection::detectContentInRange(const SimpleRange& contextRange, Op
     }
 
     auto tz = adoptCF(CFTimeZoneCopyDefault());
-    NSDate *referenceDate = [context objectForKey:getkDataDetectorsReferenceDateKey()] ?: [NSDate date];
+    NSDate *referenceDate = referenceDateFromContext ? [NSDate dateWithTimeIntervalSince1970:*referenceDateFromContext] : [NSDate date];
     RefPtr<Text> lastTextNodeToUpdate;
     String lastNodeContent;
     unsigned contentOffset = 0;
@@ -654,7 +664,12 @@ NSArray *DataDetection::detectContentInRange(const SimpleRange& contextRange, Op
 
 #else
 
-NSArray *DataDetection::detectContentInRange(const SimpleRange&, OptionSet<DataDetectorType>, NSDictionary *)
+std::optional<double> DataDetection::extractReferenceDate(NSDictionary *)
+{
+    return std::nullopt;
+}
+
+NSArray *DataDetection::detectContentInRange(const SimpleRange&, OptionSet<DataDetectorType>, std::optional<double>)
 {
     return nil;
 }

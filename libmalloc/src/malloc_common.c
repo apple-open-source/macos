@@ -110,4 +110,40 @@ malloc_common_value_for_key_copy(const char *src, const char *key,
 	return NULL;
 }
 
+unsigned
+malloc_zone_batch_malloc_fallback(malloc_zone_t *zone, size_t size,
+		void **results, unsigned num_requested)
+{
+	unsigned allocated;
+	for (allocated = 0; allocated < num_requested; allocated++) {
+		void *ptr = zone->malloc(zone, size);
+		if (!ptr) {
+			break;
+		}
 
+		results[allocated] = ptr;
+	}
+
+	return allocated;
+}
+
+void
+malloc_zone_batch_free_fallback(malloc_zone_t *zone, void **to_be_freed,
+		unsigned count)
+{
+	for (unsigned i = 1; i <= count; i++) {
+		// Note: we iterate backward because nano and magazine malloc both do,
+		// although that seems likely to just be a vestigial codegen
+		// optimization for ancient non-optimizing compilers
+		void *ptr = to_be_freed[count - i];
+		if (ptr) {
+			zone->free(zone, ptr);
+		}
+	}
+}
+
+size_t
+malloc_zone_pressure_relief_fallback(malloc_zone_t *zone, size_t goal)
+{
+	return 0;
+}

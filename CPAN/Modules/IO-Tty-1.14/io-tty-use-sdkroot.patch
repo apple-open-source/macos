@@ -1,0 +1,56 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index 3ff081b..408d837 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -33,6 +33,7 @@ $|=1; # to see output immediately
+ $^W=1;
+ 
+ my %define;
++my @inc;
+ my @libs;
+ my $Package_Version = '1.14';  # keep this consistent with Tty.pm
+ my $Is_Beta = ($Package_Version =~ m/_/);
+@@ -118,7 +119,7 @@ unlink qw(compilerok.c compilerok.log);
+ # checking for various functions
+ 
+ my %funcs = (ttyname      => "",
+-	     openpty      => "-lutil",
++	     openpty      => "-L@SDKROOT@/usr/lib -lutil",
+ 	     _getpty      => "",
+ 	     strlcpy      => "",
+ 	     sigaction    => "",
+@@ -130,6 +131,18 @@ my %funcs = (ttyname      => "",
+ 	     ptsname_r    => "",
+ 	    );
+ 
++my %funcs_incs = (ttyname      => "",
++		  openpty      => "-I@SDKROOT@/usr/include",
++		  _getpty      => "",
++		  strlcpy      => "",
++		  sigaction    => "",
++		  grantpt      => "",
++		  unlockpt     => "",
++		  getpt        => "",
++		  posix_openpt => "",
++		  ptsname      => "",
++		  ptsname_r    => "",
++		 );
+ foreach my $f (sort keys %funcs) {
+   open(TST,">functest_$f.c") or die "open: $!";
+   print TST <<"ESQ";
+@@ -175,6 +188,7 @@ ESQ
+   } else {
+     $define{"-DHAVE_\U$f"} = undef;
+     push @libs, $funcs{$f} if $funcs{$f};
++    push @inc, $funcs_incs{$f} if $funcs_incs{$f};
+     print "FOUND.\n";
+     unlink "functest_$f.c", "functest_$f.log" ;
+   }
+@@ -431,6 +445,7 @@ WriteMakefile1(
+     'NAME'	     => 'IO::Tty',
+     'VERSION'        => $Package_Version,
+     'DEFINE'	     => join(" ", sort keys %define),
++    'INC'            => join(" ", @inc),
+     'LIBS'           => join(" ", @libs),
+     'clean'	     => {'FILES' => 'xssubs.c conf Tty.exp_old log'},
+     'realclean'	     => {'FILES' => 'Tty IO-Tty.ppd'},

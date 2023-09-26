@@ -1,6 +1,8 @@
-/* $Id: tclock.c,v 1.25 2005/04/16 16:39:27 tom Exp $ */
+/* $Id: tclock.c,v 1.34 2014/08/02 16:37:03 tom Exp $ */
 
 #include <test.priv.h>
+
+#if HAVE_MATH_H
 
 #include <math.h>
 
@@ -51,14 +53,14 @@
 
 /* Plot a point */
 static void
-plot(int x, int y, char col)
+plot(int x, int y, int col)
 {
-    mvaddch(y, x, (chtype) col);
+    MvAddCh(y, x, (chtype) col);
 }
 
 /* Draw a diagonal(arbitrary) line using Bresenham's alogrithm. */
 static void
-dline(int pair, int from_x, int from_y, int x2, int y2, char ch)
+dline(int pair, int from_x, int from_y, int x2, int y2, int ch)
 {
     int dx, dy;
     int ax, ay;
@@ -67,7 +69,7 @@ dline(int pair, int from_x, int from_y, int x2, int y2, char ch)
     int d;
 
     if (has_colors())
-	attrset(COLOR_PAIR(pair));
+	(void) attrset(AttrArg(COLOR_PAIR(pair), 0));
 
     dx = x2 - from_x;
     dy = y2 - from_y;
@@ -130,11 +132,11 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
     struct tm *t;
     char szChar[10];
     char *text;
-    int my_bg = COLOR_BLACK;
+    short my_bg = COLOR_BLACK;
 #if HAVE_GETTIMEOFDAY
     struct timeval current;
-    double fraction = 0.0;
 #endif
+    double fraction = 0.0;
 
     setlocale(LC_ALL, "");
 
@@ -175,10 +177,10 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
 	sdy = A2Y(sangle, sradius);
 	sprintf(szChar, "%d", i + 1);
 
-	mvaddstr(cy - sdy, cx + sdx, szChar);
+	MvAddStr(cy - sdy, cx + sdx, szChar);
     }
 
-    mvaddstr(0, 0, "ASCII Clock by Howard Jones (ha.jones@ic.ac.uk),1994");
+    MvAddStr(0, 0, "ASCII Clock by Howard Jones (ha.jones@ic.ac.uk),1994");
 
     sradius = (4 * sradius) / 5;
     for (;;) {
@@ -201,7 +203,7 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
 
 #if HAVE_GETTIMEOFDAY
 	gettimeofday(&current, 0);
-	fraction = (current.tv_usec / 1.0e6);
+	fraction = ((double) current.tv_usec / 1.0e6);
 #endif
 	sangle = ((t->tm_sec + fraction) * (2.0 * PI) / 60.0);
 	sdx = A2X(sangle, sradius);
@@ -209,20 +211,20 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
 
 	dline(3, cx, cy, cx + mdx, cy - mdy, '#');
 
-	attrset(A_REVERSE);
+	(void) attrset(A_REVERSE);
 	dline(2, cx, cy, cx + hdx, cy - hdy, '.');
 	attroff(A_REVERSE);
 
 	if (has_colors())
-	    attrset(COLOR_PAIR(1));
+	    (void) attrset(AttrArg(COLOR_PAIR(1), 0));
 
 	dline(1, cx, cy, cx + sdx, cy - sdy, 'O');
 
 	if (has_colors())
-	    attrset(COLOR_PAIR(0));
+	    (void) attrset(AttrArg(COLOR_PAIR(0), 0));
 
 	text = ctime(&tim);
-	mvprintw(2, 0, "%.*s", (int) (strlen(text) - 1), text);
+	MvPrintw(2, 0, "%.*s", (int) (strlen(text) - 1), text);
 	refresh();
 	if ((t->tm_sec % 5) == 0
 	    && t->tm_sec != lastbeep) {
@@ -256,3 +258,11 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
     endwin();
     ExitProgram(EXIT_SUCCESS);
 }
+#else
+int
+main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
+{
+    printf("This program requires the development header math.h\n");
+    ExitProgram(EXIT_FAILURE);
+}
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 #include "CryptoKeyRaw.h"
 #include "IDBValue.h"
 #include "ImageBitmapBacking.h"
+#include "JSAudioWorkletGlobalScope.h"
 #include "JSBlob.h"
 #include "JSCryptoKey.h"
 #include "JSDOMBinding.h"
@@ -70,6 +71,7 @@
 #include <JavaScriptCore/CatchScope.h>
 #include <JavaScriptCore/DateInstance.h>
 #include <JavaScriptCore/Error.h>
+#include <JavaScriptCore/ErrorInstance.h>
 #include <JavaScriptCore/Exception.h>
 #include <JavaScriptCore/ExceptionHelpers.h>
 #include <JavaScriptCore/IterationKind.h>
@@ -84,6 +86,7 @@
 #include <JavaScriptCore/JSTypedArrays.h>
 #include <JavaScriptCore/JSWebAssemblyMemory.h>
 #include <JavaScriptCore/JSWebAssemblyModule.h>
+#include <JavaScriptCore/NumberObject.h>
 #include <JavaScriptCore/ObjectConstructor.h>
 #include <JavaScriptCore/PropertyNameArray.h>
 #include <JavaScriptCore/RegExp.h>
@@ -214,6 +217,7 @@ enum SerializationTag {
     WebCodecsVideoFrameTag = 53,
 #endif
     ResizableArrayBufferTag = 54,
+    ErrorInstanceTag = 55,
     ErrorTag = 255
 };
 
@@ -231,6 +235,93 @@ enum ArrayBufferViewSubtag {
     BigInt64ArrayTag = 10,
     BigUint64ArrayTag = 11,
 };
+
+static bool isTypeExposedToGlobalObject(JSC::JSGlobalObject& globalObject, SerializationTag tag)
+{
+#if ENABLE(WEB_AUDIO)
+    if (!jsDynamicCast<JSAudioWorkletGlobalScope*>(&globalObject))
+        return true;
+
+    // Only built-in JS types are exposed to audio worklets.
+    switch (tag) {
+    case ArrayTag:
+    case ObjectTag:
+    case UndefinedTag:
+    case NullTag:
+    case IntTag:
+    case ZeroTag:
+    case OneTag:
+    case FalseTag:
+    case TrueTag:
+    case DoubleTag:
+    case DateTag:
+    case StringTag:
+    case EmptyStringTag:
+    case RegExpTag:
+    case ObjectReferenceTag:
+    case ArrayBufferTag:
+    case ArrayBufferViewTag:
+    case ArrayBufferTransferTag:
+    case TrueObjectTag:
+    case FalseObjectTag:
+    case StringObjectTag:
+    case EmptyStringObjectTag:
+    case NumberObjectTag:
+    case SetObjectTag:
+    case MapObjectTag:
+    case NonMapPropertiesTag:
+    case NonSetPropertiesTag:
+    case SharedArrayBufferTag:
+#if ENABLE(WEBASSEMBLY)
+    case WasmModuleTag:
+#endif
+    case BigIntTag:
+    case BigIntObjectTag:
+#if ENABLE(WEBASSEMBLY)
+    case WasmMemoryTag:
+#endif
+    case ResizableArrayBufferTag:
+    case ErrorInstanceTag:
+    case ErrorTag:
+    case MessagePortReferenceTag:
+        return true;
+    case FileTag:
+    case FileListTag:
+    case ImageDataTag:
+    case BlobTag:
+#if ENABLE(WEB_CRYPTO)
+    case CryptoKeyTag:
+#endif
+    case DOMPointReadOnlyTag:
+    case DOMPointTag:
+    case DOMRectReadOnlyTag:
+    case DOMRectTag:
+    case DOMMatrixReadOnlyTag:
+    case DOMMatrixTag:
+    case DOMQuadTag:
+    case ImageBitmapTransferTag:
+#if ENABLE(WEB_RTC)
+    case RTCCertificateTag:
+#endif
+    case ImageBitmapTag:
+#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
+    case OffscreenCanvasTransferTag:
+#endif
+#if ENABLE(WEB_RTC)
+    case RTCDataChannelTransferTag:
+#endif
+    case DOMExceptionTag:
+#if ENABLE(WEB_CODECS)
+    case WebCodecsEncodedVideoChunkTag:
+    case WebCodecsVideoFrameTag:
+#endif
+        break;
+    }
+    return false;
+#else
+    return true;
+#endif
+}
 
 static unsigned typedArrayElementSize(ArrayBufferViewSubtag tag)
 {
@@ -254,6 +345,55 @@ static unsigned typedArrayElementSize(ArrayBufferViewSubtag tag)
     default:
         return 0;
     }
+}
+
+enum class SerializableErrorType : uint8_t {
+    Error,
+    EvalError,
+    RangeError,
+    ReferenceError,
+    SyntaxError,
+    TypeError,
+    URIError,
+    Last = URIError
+};
+
+static SerializableErrorType errorNameToSerializableErrorType(const String& name)
+{
+    if (equalLettersIgnoringASCIICase(name, "evalerror"_s))
+        return SerializableErrorType::EvalError;
+    if (equalLettersIgnoringASCIICase(name, "rangeerror"_s))
+        return SerializableErrorType::RangeError;
+    if (equalLettersIgnoringASCIICase(name, "referenceerror"_s))
+        return SerializableErrorType::ReferenceError;
+    if (equalLettersIgnoringASCIICase(name, "syntaxerror"_s))
+        return SerializableErrorType::SyntaxError;
+    if (equalLettersIgnoringASCIICase(name, "typeerror"_s))
+        return SerializableErrorType::TypeError;
+    if (equalLettersIgnoringASCIICase(name, "urierror"_s))
+        return SerializableErrorType::URIError;
+    return SerializableErrorType::Error;
+}
+
+static ErrorType toErrorType(SerializableErrorType value)
+{
+    switch (value) {
+    case SerializableErrorType::Error:
+        return ErrorType::Error;
+    case SerializableErrorType::EvalError:
+        return ErrorType::EvalError;
+    case SerializableErrorType::RangeError:
+        return ErrorType::RangeError;
+    case SerializableErrorType::ReferenceError:
+        return ErrorType::ReferenceError;
+    case SerializableErrorType::SyntaxError:
+        return ErrorType::SyntaxError;
+    case SerializableErrorType::TypeError:
+        return ErrorType::TypeError;
+    case SerializableErrorType::URIError:
+        return ErrorType::URIError;
+    }
+    return ErrorType::Error;
 }
 
 enum class PredefinedColorSpaceTag : uint8_t {
@@ -379,14 +519,16 @@ const uint8_t cryptoKeyOKPOpNameTagMaximumValue = 1;
  * Version 10. changed the length (and offsets) of ArrayBuffers (and ArrayBufferViews) from 32 to 64 bits.
  * Version 11. added support for Blob's memory cost.
  * Version 12. added support for agent cluster ID.
+ * Version 13. added support for ErrorInstance objects.
  */
-static const unsigned CurrentVersion = 12;
-static const unsigned TerminatorTag = 0xFFFFFFFF;
-static const unsigned StringPoolTag = 0xFFFFFFFE;
-static const unsigned NonIndexPropertiesTag = 0xFFFFFFFD;
+static constexpr unsigned CurrentVersion = 13;
+static constexpr unsigned TerminatorTag = 0xFFFFFFFF;
+static constexpr unsigned StringPoolTag = 0xFFFFFFFE;
+static constexpr unsigned NonIndexPropertiesTag = 0xFFFFFFFD;
+static constexpr uint32_t ImageDataPoolTag = 0xFFFFFFFE;
 
 // The high bit of a StringData's length determines the character size.
-static const unsigned StringDataIs8BitFlag = 0x80000000;
+static constexpr unsigned StringDataIs8BitFlag = 0x80000000;
 
 /*
  * Object serialization is performed according to the following grammar, all tags
@@ -1371,8 +1513,14 @@ private:
             }
             if (auto* data = JSImageData::toWrapped(vm, obj)) {
                 write(ImageDataTag);
-                write(data->width());
-                write(data->height());
+                auto addResult = m_imageDataPool.add(*data, m_imageDataPool.size());
+                if (!addResult.isNewEntry) {
+                    write(ImageDataPoolTag);
+                    writeImageDataIndex(addResult.iterator->value);
+                    return true;
+                }
+                write(static_cast<uint32_t>(data->width()));
+                write(static_cast<uint32_t>(data->height()));
                 CheckedUint32 dataLength = data->data().length();
                 if (dataLength.hasOverflowed()) {
                     code = SerializationReturnCode::DataCloneError;
@@ -1387,6 +1535,63 @@ private:
                 write(RegExpTag);
                 write(regExp->regExp()->pattern());
                 write(String::fromLatin1(JSC::Yarr::flagsString(regExp->regExp()->flags()).data()));
+                return true;
+            }
+            if (auto* errorInstance = jsDynamicCast<ErrorInstance*>(obj)) {
+                auto& vm = m_lexicalGlobalObject->vm();
+                auto scope = DECLARE_THROW_SCOPE(vm);
+                auto errorTypeValue = errorInstance->get(m_lexicalGlobalObject, vm.propertyNames->name);
+                RETURN_IF_EXCEPTION(scope, false);
+                auto errorTypeString = errorTypeValue.toWTFString(m_lexicalGlobalObject);
+                RETURN_IF_EXCEPTION(scope, false);
+
+                String message;
+                PropertyDescriptor messageDescriptor;
+                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->message, messageDescriptor) && messageDescriptor.isDataDescriptor()) {
+                    EXCEPTION_ASSERT(!scope.exception());
+                    message = messageDescriptor.value().toWTFString(m_lexicalGlobalObject);
+                }
+                RETURN_IF_EXCEPTION(scope, false);
+
+                unsigned line = 0;
+                PropertyDescriptor lineDescriptor;
+                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->line, lineDescriptor) && lineDescriptor.isDataDescriptor()) {
+                    EXCEPTION_ASSERT(!scope.exception());
+                    line = lineDescriptor.value().toNumber(m_lexicalGlobalObject);
+                }
+                RETURN_IF_EXCEPTION(scope, false);
+
+                unsigned column = 0;
+                PropertyDescriptor columnDescriptor;
+                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->column, columnDescriptor) && columnDescriptor.isDataDescriptor()) {
+                    EXCEPTION_ASSERT(!scope.exception());
+                    column = columnDescriptor.value().toNumber(m_lexicalGlobalObject);
+                }
+                RETURN_IF_EXCEPTION(scope, false);
+
+                String sourceURL;
+                PropertyDescriptor sourceURLDescriptor;
+                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->sourceURL, sourceURLDescriptor) && sourceURLDescriptor.isDataDescriptor()) {
+                    EXCEPTION_ASSERT(!scope.exception());
+                    sourceURL = sourceURLDescriptor.value().toWTFString(m_lexicalGlobalObject);
+                }
+                RETURN_IF_EXCEPTION(scope, false);
+
+                String stack;
+                PropertyDescriptor stackDescriptor;
+                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->stack, stackDescriptor) && stackDescriptor.isDataDescriptor()) {
+                    EXCEPTION_ASSERT(!scope.exception());
+                    stack = stackDescriptor.value().toWTFString(m_lexicalGlobalObject);
+                }
+                RETURN_IF_EXCEPTION(scope, false);
+
+                write(ErrorInstanceTag);
+                write(errorNameToSerializableErrorType(errorTypeString));
+                writeNullableString(message);
+                write(line);
+                write(column);
+                writeNullableString(sourceURL);
+                writeNullableString(stack);
                 return true;
             }
             if (obj->inherits<JSMessagePort>()) {
@@ -1636,6 +1841,11 @@ private:
     }
 #endif
 
+    void write(bool b)
+    {
+        writeLittleEndian(m_buffer, static_cast<int32_t>(b));
+    }
+
     void write(uint8_t c)
     {
         writeLittleEndian(m_buffer, c);
@@ -1674,6 +1884,11 @@ private:
     void writeStringIndex(unsigned i)
     {
         writeConstantPoolIndex(m_constantPool, i);
+    }
+
+    void writeImageDataIndex(unsigned i)
+    {
+        writeConstantPoolIndex(m_imageDataPool, i);
     }
     
     void writeObjectIndex(unsigned i)
@@ -1731,6 +1946,14 @@ private:
         if (str.isNull())
             write(m_emptyIdentifier);
         else
+            write(Identifier::fromString(m_lexicalGlobalObject->vm(), str));
+    }
+
+    void writeNullableString(const String& str)
+    {
+        bool isNull = str.isNull();
+        write(isNull);
+        if (!isNull)
             write(Identifier::fromString(m_lexicalGlobalObject->vm(), str));
     }
 
@@ -1945,6 +2168,11 @@ private:
         }
     }
 
+    void write(SerializableErrorType errorType)
+    {
+        write(enumToUnderlyingType(errorType));
+    }
+
     void write(const CryptoKey* key)
     {
         write(currentKeyFormatVersion);
@@ -2050,6 +2278,8 @@ private:
 #endif
     typedef HashMap<RefPtr<UniquedStringImpl>, uint32_t, IdentifierRepHash> StringConstantPool;
     StringConstantPool m_constantPool;
+    using ImageDataPool = HashMap<Ref<ImageData>, uint32_t>;
+    ImageDataPool m_imageDataPool;
     Identifier m_emptyIdentifier;
     SerializationContext m_context;
     ArrayBufferContentsArray& m_sharedBuffers;
@@ -2075,11 +2305,11 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
     Vector<JSSetIterator*, 4> setIteratorStack;
     Vector<JSValue, 4> mapIteratorValueStack;
     Vector<WalkerState, 16> stateStack;
-    WalkerState lexicalGlobalObject = StateUnknown;
+    WalkerState state = StateUnknown;
     JSValue inValue = in;
     auto scope = DECLARE_THROW_SCOPE(vm);
     while (1) {
-        switch (lexicalGlobalObject) {
+        switch (state) {
             arrayStartState:
             case ArrayStartState: {
                 ASSERT(isArray(inValue));
@@ -2310,7 +2540,7 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
         if (stateStack.isEmpty())
             break;
 
-        lexicalGlobalObject = stateStack.last();
+        state = stateStack.last();
         stateStack.removeLast();
     }
     if (m_failed)
@@ -2574,6 +2804,15 @@ private:
     }
 #endif
 
+    bool read(bool& b)
+    {
+        int32_t integer;
+        if (!readLittleEndian(integer) || integer > 1)
+            return false;
+        b = !!integer;
+        return true;
+    }
+
     bool read(uint32_t& i)
     {
         return readLittleEndian(i);
@@ -2611,28 +2850,34 @@ private:
         return readLittleEndian(i);
     }
 
-    bool readStringIndex(uint32_t& i)
+    std::optional<uint32_t> readStringIndex()
     {
-        return readConstantPoolIndex(m_constantPool, i);
+        return readConstantPoolIndex(m_constantPool);
     }
 
-    template <class T> bool readConstantPoolIndex(const T& constantPool, uint32_t& i)
+    std::optional<uint32_t> readImageDataIndex()
+    {
+        return readConstantPoolIndex(m_imageDataPool);
+    }
+
+    template<typename T> std::optional<uint32_t> readConstantPoolIndex(const T& constantPool)
     {
         if (constantPool.size() <= 0xFF) {
             uint8_t i8;
             if (!read(i8))
-                return false;
-            i = i8;
-            return true;
+                return std::nullopt;
+            return i8;
         }
         if (constantPool.size() <= 0xFFFF) {
             uint16_t i16;
             if (!read(i16))
-                return false;
-            i = i16;
-            return true;
+                return std::nullopt;
+            return i16;
         }
-        return read(i);
+        uint32_t i;
+        if (!read(i))
+            return std::nullopt;
+        return i;
     }
 
     static bool readString(const uint8_t*& ptr, const uint8_t* end, String& str, unsigned length, bool is8Bit)
@@ -2667,6 +2912,20 @@ private:
         return true;
     }
 
+    bool readNullableString(String& nullableString)
+    {
+        bool isNull;
+        if (!read(isNull))
+            return false;
+        if (isNull)
+            return true;
+        CachedStringRef stringData;
+        if (!readStringData(stringData))
+            return false;
+        nullableString = stringData->string();
+        return true;
+    }
+
     bool readStringData(CachedStringRef& cachedString)
     {
         bool scratch;
@@ -2685,16 +2944,12 @@ private:
             return false;
         }
         if (length == StringPoolTag) {
-            unsigned index = 0;
-            if (!readStringIndex(index)) {
+            auto index = readStringIndex();
+            if (!index || *index >= m_constantPool.size()) {
                 fail();
                 return false;
             }
-            if (index >= m_constantPool.size()) {
-                fail();
-                return false;
-            }
-            cachedString = CachedStringRef(&m_constantPool, index);
+            cachedString = CachedStringRef(&m_constantPool, *index);
             return true;
         }
         bool is8Bit = length & StringDataIs8BitFlag;
@@ -3385,6 +3640,16 @@ private:
     }
 #endif
 
+    bool read(SerializableErrorType& errorType)
+    {
+        std::underlying_type_t<SerializableErrorType> errorTypeInt;
+        if (!read(errorTypeInt) || errorTypeInt > enumToUnderlyingType(SerializableErrorType::Last))
+            return false;
+
+        errorType = static_cast<SerializableErrorType>(errorTypeInt);
+        return true;
+    }
+
     template<class T>
     JSValue getJSValue(T&& nativeObj)
     {
@@ -3820,6 +4085,8 @@ private:
     JSValue readTerminal()
     {
         SerializationTag tag = readTag();
+        if (!isTypeExposedToGlobalObject(*m_globalObject, tag))
+            return JSValue();
         switch (tag) {
         case UndefinedTag:
             return jsUndefined();
@@ -3911,6 +4178,14 @@ private:
             uint32_t width;
             if (!read(width))
                 return JSValue();
+            if (width == ImageDataPoolTag) {
+                auto index = readImageDataIndex();
+                if (!index || *index >= m_imageDataPool.size()) {
+                    fail();
+                    return JSValue();
+                }
+                return getJSValue(m_imageDataPool[*index]);
+            }
             uint32_t height;
             if (!read(height))
                 return JSValue();
@@ -3947,6 +4222,7 @@ private:
                 memcpy(result.returnValue()->data().data(), bufferStart, length);
             else
                 result.returnValue()->data().zeroFill();
+            m_imageDataPool.append(result.returnValue().copyRef());
             return getJSValue(result.releaseReturnValue());
         }
         case BlobTag: {
@@ -4001,13 +4277,46 @@ private:
             RegExp* regExp = RegExp::create(vm, pattern->string(), reFlags.value());
             return RegExpObject::create(vm, m_globalObject->regExpStructure(), regExp);
         }
-        case ObjectReferenceTag: {
-            unsigned index = 0;
-            if (!readConstantPoolIndex(m_gcBuffer, index)) {
+        case ErrorInstanceTag: {
+            SerializableErrorType serializedErrorType;
+            if (!read(serializedErrorType)) {
                 fail();
                 return JSValue();
             }
-            return m_gcBuffer.at(index);
+            String message;
+            if (!readNullableString(message)) {
+                fail();
+                return JSValue();
+            }
+            uint32_t line;
+            if (!read(line)) {
+                fail();
+                return JSValue();
+            }
+            uint32_t column;
+            if (!read(column)) {
+                fail();
+                return JSValue();
+            }
+            String sourceURL;
+            if (!readNullableString(sourceURL)) {
+                fail();
+                return JSValue();
+            }
+            String stackString;
+            if (!readNullableString(stackString)) {
+                fail();
+                return JSValue();
+            }
+            return ErrorInstance::create(m_lexicalGlobalObject, WTFMove(message), toErrorType(serializedErrorType), line, column, WTFMove(sourceURL), WTFMove(stackString));
+        }
+        case ObjectReferenceTag: {
+            auto index = readConstantPoolIndex(m_gcBuffer);
+            if (!index) {
+                fail();
+                return JSValue();
+            }
+            return m_gcBuffer.at(*index);
         }
         case MessagePortReferenceTag: {
             uint32_t index;
@@ -4242,6 +4551,7 @@ private:
     const uint8_t* const m_end;
     unsigned m_version;
     Vector<CachedString> m_constantPool;
+    Vector<Ref<ImageData>> m_imageDataPool;
     const Vector<RefPtr<MessagePort>>& m_messagePorts;
     ArrayBufferContentsArray* m_arrayBufferContents;
     Vector<RefPtr<JSC::ArrayBuffer>> m_arrayBuffers;
@@ -4293,11 +4603,11 @@ DeserializationResult CloneDeserializer::deserialize()
     MarkedVector<JSMap*, 4> mapStack;
     MarkedVector<JSSet*, 4> setStack;
     Vector<WalkerState, 16> stateStack;
-    WalkerState lexicalGlobalObject = StateUnknown;
+    WalkerState state = StateUnknown;
     JSValue outValue;
 
     while (1) {
-        switch (lexicalGlobalObject) {
+        switch (state) {
         arrayStartState:
         case ArrayStartState: {
             uint32_t length;
@@ -4453,7 +4763,7 @@ DeserializationResult CloneDeserializer::deserialize()
         if (stateStack.isEmpty())
             break;
 
-        lexicalGlobalObject = stateStack.last();
+        state = stateStack.last();
         stateStack.removeLast();
     }
     ASSERT(outValue);

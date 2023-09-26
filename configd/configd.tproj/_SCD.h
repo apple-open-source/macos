@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,8 +43,6 @@
 
 #define APP_CLIP_ENTITLEMENT				\
 	"com.apple.security.on-demand-install-capable"
-#define DEVICE_NAME_PRIVATE_ENTITLEMENT			\
-	"com.apple.private.user-assigned-device-name"
 #define DEVICE_NAME_PUBLIC_ENTITLEMENT			\
 	"com.apple.developer.device-information.user-assigned-device-name"
 

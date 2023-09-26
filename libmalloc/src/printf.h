@@ -28,6 +28,9 @@
 #define MALLOC_REPORT_BACKTRACE		0x100
 #define MALLOC_REPORT_NOWRITE		0x200
 
+#define MALLOC_REPORT_LOG_ONLY \
+		(MALLOC_REPORT_NOPREFIX | MALLOC_REPORT_NOWRITE)
+
 // Most internal logging should use malloc_report() or malloc_vreport(). The
 // flags argument should be a combination of the MALLOC_REPORT_xxx values and
 // an optional log level encoded using the ASL_LEVEL_xxx constants. The log
@@ -84,3 +87,6 @@ malloc_zone_check_fail(const char *msg, const char *fmt, ...) __printflike(2,3);
 // default, goes to stderr if it's a tty, and is otherwise dropped.
 MALLOC_NOEXPORT void
 malloc_print_configure(bool restricted);
+
+MALLOC_NOEXPORT unsigned
+_malloc_default_debug_sleep_time(void);

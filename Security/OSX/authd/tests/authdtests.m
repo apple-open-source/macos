@@ -11,10 +11,6 @@
 #import "authd/debugging.h"
 #import "authdtestlist.h"
 
-void runRaft(NSString *arguments);
-int authd_03_uiauthorization(int argc, char *const *argv);
-bool getCredentials(void);
-
 #define AuthorizationFreeItemSetNull(IS) { AuthorizationItemSet *_is = (IS); \
 if (_is) { (IS) = NULL; AuthorizationFreeItemSet(_is); } }
 
@@ -44,7 +40,7 @@ AuthorizationItem invalidCredentials[] = {
 	{AGENT_PASSWORD, strlen(INCORRECT_PWD), (void *)INCORRECT_PWD,0}
 };
 
-bool getCredentials(void)
+static bool _getCredentials(void)
 {
     static dispatch_once_t onceToken = 0;
     dispatch_once(&onceToken, ^{
@@ -67,14 +63,54 @@ bool getCredentials(void)
     return (correctUsername != nil) && (correctPassword != nil);
 }
 
-void runRaft(NSString *arguments)
+static void _runRaft(NSString *arguments)
 {
     NSTask *task = [[NSTask alloc] init];
-    [task setLaunchPath:@"/usr/local/bin/raft"];
-    [task setArguments:@[ @"-b", @"-o", arguments]];
+    task.launchPath = @"/usr/local/bin/raft";
+    task.arguments = @[ @"-b", @"-o", arguments];
     [task launch];
     [task waitUntilExit];
 }
+
+#ifdef PID_TESTS
+static NSString *_runAuthorization(NSString *right)
+{
+    NSTask *task = [[NSTask alloc] init];
+    task.launchPath = @"/usr/bin/security";
+    task.arguments = @[ @"authorize", @"-u", right];
+    NSPipe *outPipe = [NSPipe pipe];
+    task.standardOutput = outPipe;
+    task.standardError = outPipe;
+    [task launch];
+    [task waitUntilExit];
+
+    NSFileHandle *read = [outPipe fileHandleForReading];
+    NSString *output = [[NSString alloc] initWithData:[read readDataToEndOfFile] encoding:NSUTF8StringEncoding];
+    [read closeFile];
+    return output;
+}
+#endif /* PID_TESTS */
+
+#ifdef PID_TESTS
+static pid_t _get_pid(NSString *name)
+{
+    NSTask *task = [[NSTask alloc] init];
+    task.launchPath = @"/usr/bin/pgrep";
+    task.arguments = @[ @"-x", name ];
+    NSPipe *outPipe = [NSPipe pipe];
+    task.standardOutput = outPipe;
+    task.standardError = nil;
+    [task launch];
+    [task waitUntilExit];
+    NSFileHandle *read = [outPipe fileHandleForReading];
+    NSString *output = [[NSString alloc] initWithData:[read readDataToEndOfFile] encoding:NSUTF8StringEncoding];
+    [read closeFile];
+    if (output.length) {
+        return atoi(output.UTF8String);
+    }
+    return 0;
+}
+#endif /* PID_TESTS */
 
 int authd_01_authorizationdb(int argc, char *const *argv)
 {
@@ -93,71 +129,162 @@ int authd_01_authorizationdb(int argc, char *const *argv)
 
 int authd_02_basicauthorization(int argc, char *const *argv)
 {
-	plan_tests(6);
-    if (!getCredentials()) {
+	plan_tests(9);
+    if (!_getCredentials()) {
         fail("Not able to read credentials for current user!");
-    }
-
-	AuthorizationRef authorizationRef;
-
-	OSStatus status = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &authorizationRef);
-	ok(status == errAuthorizationSuccess, "AuthorizationRef create");
-
-	AuthorizationItem myItems = {SAMPLE_RIGHT, 0, NULL, 0};
-	AuthorizationRights myRights = {1, &myItems};
-	AuthorizationRights *authorizedRights = NULL;
-	AuthorizationEnvironment environment = {sizeof(validCredentials)/sizeof(AuthorizationItem), validCredentials};
-	status = AuthorizationCopyRights(authorizationRef, &myRights, &environment, kAuthorizationFlagDefaults, &authorizedRights);
-	ok(status == errAuthorizationDenied, "Standard authorization without kAuthorizationFlagExtendRights");
-	AuthorizationFreeItemSetNull(authorizedRights);
-
-	status = AuthorizationCopyRights(authorizationRef, &myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights, &authorizedRights);
-	ok(status == errAuthorizationInteractionNotAllowed, "Authorization fail with UI not allowed");
-	AuthorizationFreeItemSetNull(authorizedRights);
-
-	status = AuthorizationCopyRights(authorizationRef, &myRights, &environment, kAuthorizationFlagExtendRights, &authorizedRights);
-	ok(status == errAuthorizationSuccess, "Standard authorization");
-	AuthorizationFreeItemSetNull(authorizedRights);
-
-	AuthorizationItem extendedItems = {SAMPLE_SHARED_RIGHT, 0, NULL, 0};
-	AuthorizationRights extendedRights = {1, &extendedItems};
-
-	status = AuthorizationCopyRights(authorizationRef, &extendedRights, &environment, kAuthorizationFlagExtendRights, &authorizedRights);
-	ok(status == errAuthorizationSuccess, "Extending authorization rights");
-	AuthorizationFreeItemSetNull(authorizedRights);
-
-    AuthorizationItem pwdExtractItems = {SAMPLE_PASSWORD_RIGHT, 0, NULL, 0};
-    AuthorizationRights pwdExtractRight = {1, &pwdExtractItems};
-    
-    // check that non-entitled process cannot extract password from AuthorizationRef
-    status = AuthorizationCopyRights(authorizationRef, &pwdExtractRight, &environment, kAuthorizationFlagExtendRights, &authorizedRights);
-    Boolean passwordFound = false;
-    if (status == errAuthorizationSuccess) {
-        AuthorizationItemSet *returnedInfo;
-        status = AuthorizationCopyInfo(authorizationRef, NULL, &returnedInfo);
-        if (status == errSecSuccess && returnedInfo) {
-            for (uint32_t index = 0; index < returnedInfo->count; ++index) {
-                AuthorizationItem item = returnedInfo->items[index];
-                if (strncpy((char *)item.name, kAuthorizationEnvironmentPassword, strlen(kAuthorizationEnvironmentPassword)) == 0) {
-                    passwordFound = true;
+    } else {
+        AuthorizationRef authorizationRef;
+        
+        OSStatus status = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &authorizationRef);
+        printf("AuthrizationCreate result: %d\n", status);
+        ok(status == errAuthorizationSuccess, "AuthorizationRef create");
+        
+        AuthorizationItem myItems = {SAMPLE_RIGHT, 0, NULL, 0};
+        AuthorizationRights myRights = {1, &myItems};
+        AuthorizationRights *authorizedRights = NULL;
+        AuthorizationEnvironment environment = {sizeof(validCredentials)/sizeof(AuthorizationItem), validCredentials};
+        status = AuthorizationCopyRights(authorizationRef, &myRights, &environment, kAuthorizationFlagDefaults, &authorizedRights);
+        printf("AuthorizationCopyRights without kAuthorizationFlagExtendRights result: %d\n", status);
+        ok(status == errAuthorizationDenied, "Standard authorization without kAuthorizationFlagExtendRights");
+        AuthorizationFreeItemSetNull(authorizedRights);
+        
+        status = AuthorizationCopyRights(authorizationRef, &myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights, &authorizedRights);
+        printf("AuthorizationCopyRights without kAuthorizationFlagInteractionAllowed result: %d\n", status);
+        ok(status == errAuthorizationInteractionNotAllowed, "Authorization fail with UI not allowed");
+        AuthorizationFreeItemSetNull(authorizedRights);
+        
+        status = AuthorizationCopyRights(authorizationRef, &myRights, &environment, kAuthorizationFlagExtendRights, &authorizedRights);
+        printf("Standard AuthorizationCopyRights result: %d\n", status);
+        ok(status == errAuthorizationSuccess, "Standard authorization");
+        AuthorizationFreeItemSetNull(authorizedRights);
+        
+        AuthorizationItem extendedItems = {SAMPLE_SHARED_RIGHT, 0, NULL, 0};
+        AuthorizationRights extendedRights = {1, &extendedItems};
+        
+        status = AuthorizationCopyRights(authorizationRef, &extendedRights, &environment, kAuthorizationFlagExtendRights, &authorizedRights);
+        printf("Extending AuthorizationCopyRights result: %d\n", status);
+        ok(status == errAuthorizationSuccess, "Extending authorization rights");
+        AuthorizationFreeItemSetNull(authorizedRights);
+        
+        AuthorizationItem pwdExtractItems = {SAMPLE_PASSWORD_RIGHT, 0, NULL, 0};
+        AuthorizationRights pwdExtractRight = {1, &pwdExtractItems};
+        
+        // check that non-entitled process cannot extract password from AuthorizationRef
+        status = AuthorizationCopyRights(authorizationRef, &pwdExtractRight, &environment, kAuthorizationFlagExtendRights, &authorizedRights);
+        Boolean passwordFound = false;
+        if (status == errAuthorizationSuccess) {
+            AuthorizationItemSet *returnedInfo;
+            status = AuthorizationCopyInfo(authorizationRef, NULL, &returnedInfo);
+            if (status == errSecSuccess && returnedInfo) {
+                for (uint32_t index = 0; index < returnedInfo->count; ++index) {
+                    AuthorizationItem item = returnedInfo->items[index];
+                    if (strncpy((char *)item.name, kAuthorizationEnvironmentPassword, strlen(kAuthorizationEnvironmentPassword)) == 0) {
+                        passwordFound = true;
+                    }
                 }
+                AuthorizationFreeItemSetNull(returnedInfo);
             }
-            AuthorizationFreeItemSetNull(returnedInfo);
         }
+        printf("Extracting AuthorizationCopyRights result: %d, password extracted %d\n", status, passwordFound);
+        ok(status == errAuthorizationSuccess && passwordFound == false, "Extracting password from AuthorizationRef");
+        AuthorizationFreeItemSetNull(authorizedRights);
+        AuthorizationFree(authorizationRef, kAuthorizationFlagDestroyRights);
     }
     
-    ok(status == errAuthorizationSuccess && passwordFound == false, "Extracting password from AuthorizationRef");
-    AuthorizationFreeItemSetNull(authorizedRights);
+    // parallel authorizations test
+    {
+        AuthorizationRef localAuthRef;
+        AuthorizationItem myItems = {SAMPLE_RIGHT, 0, NULL, 0};
+        AuthorizationRights myRights = {1, &myItems};
+        
+        OSStatus status = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &localAuthRef);
+        printf("localAuthRef result: %d\n", status);
+        ok(status == errAuthorizationSuccess, "localAuthRef create");
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+            AuthorizationCopyRights(localAuthRef, &myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed, NULL);
+        });
+        
+        sleep(0.5); // to give authorization in the background queue time to stat
+        AuthorizationRef localAuthRef2;
+        status = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &localAuthRef2);
+        printf("localAuthRef2 result: %d\n", status);
+        ok(status == errAuthorizationSuccess, "localAuthRef2 create");
+        // this should not hang
+        dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+        __block OSStatus status2 = errAuthorizationInternal;
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+            status2 = AuthorizationCopyRights(localAuthRef2, &myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights, NULL);
+            dispatch_semaphore_signal(sem);
+        });
+        if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 3)) != 0) {
+            // AuthorizationCopyRights which should finish instantly did not return in 3s
+            fail("Failed to run parallel AuthorizationCopyRights calls");
+            printf("Failed to run parallel AuthorizationCopyRights calls\n");
+        } else {
+            printf("Parallel AuthorizationCopyRights result: %d\n", status2);
+            ok(status2 == errAuthorizationInteractionNotAllowed, "Succeeded to run parallel AuthorizationCopyRights");
+        }
+        AuthorizationDismiss();
+        AuthorizationFree(localAuthRef, kAuthorizationFlagDefaults);
+        AuthorizationFree(localAuthRef2, kAuthorizationFlagDefaults);
+    }
     
+#ifdef PID_TESTS
+    // run the UI authorization using security tool
+    // kill the caller
+    // verify that authd did not crash
+    __block NSString *authorization_result;
+    NSString *kAuthd_name = @"authd";
+    NSString *kSecurity_internal_error = @"NO (-60008) \n";
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+
+    pid_t authd_pid = _get_pid(kAuthd_name);
+    if (authd_pid == 0) {
+        fail("Authd is not running");
+    }
     
-    AuthorizationFree(authorizationRef, kAuthorizationFlagDestroyRights);
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        authorization_result = _runAuthorization(@SAMPLE_PASSWORD_RIGHT);
+        dispatch_semaphore_signal(sem);
+    });
+    
+    sleep(2); // give security some time to run
+    pid_t security_pid = _get_pid(@"security");
+    if (!security_pid) {
+        fail("Unable to run security tool");
+    }
+
+    kill(security_pid, SIGKILL);
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * SA_TIMEOUT)) != 0) {
+        fail("Security tool failed to finish");
+    }
+    pid_t new_authd_pid = _get_pid(kAuthd_name);
+    ok(new_authd_pid == authd_pid, "Authd survives death of a caller proces");
+
+    // Now check if authd does not crash and returns -60008 on SecurityAgent crash
+    authorization_result = nil;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        authorization_result = _runAuthorization(@SAMPLE_PASSWORD_RIGHT);
+        dispatch_semaphore_signal(sem);
+    });
+    sleep(2); // give security some time to run
+    pid_t security_agent_pid = _get_pid(@"SecurityAgent");
+
+    kill(security_agent_pid, SIGKILL);
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * SA_TIMEOUT)) != 0) {
+        fail("Security tool failed to finish");
+    }
+    new_authd_pid = _get_pid(kAuthd_name);
+    ok(new_authd_pid == authd_pid, "Authd survives death of a SecurityAgent");
+    ok([kSecurity_internal_error isEqualToString:authorization_result] , "Authd returns secInternalError on SecurityAgent death");
+#endif /* PID_TESTS */
     return 0;
 }
 
 int authd_03_uiauthorization(int argc, char *const *argv)
 {
 	plan_tests(3);
-    if (!getCredentials()) {
+    if (!_getCredentials()) {
         fail("Not able to read credentials for current user!");
     }
 
@@ -195,16 +322,16 @@ int authd_03_uiauthorization(int argc, char *const *argv)
 	};
 	AuthorizationCopyRightsAsync(authorizationRef, &myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed, cancelBlock);
 	sleep(3); // give some time to SecurityAgent to appear
-    runRaft(RAFT_CANCEL);
-    if (dispatch_semaphore_wait(sem, SA_TIMEOUT * NSEC_PER_SEC) != 0) {
+    _runRaft(RAFT_CANCEL);
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * SA_TIMEOUT)) != 0) {
         fail("Async authorization cancel");
     }
 	AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
 
 	AuthorizationCopyRightsAsync(authorizationRef, &myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed, allowBlock);
     sleep(3); // give some time to SecurityAgent to appear
-    runRaft(raftFillValid);
-    if (dispatch_semaphore_wait(sem, SA_TIMEOUT * NSEC_PER_SEC) != 0) {
+    _runRaft(raftFillValid);
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * SA_TIMEOUT)) != 0) {
         fail("Async authorization");
     }	AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
 
@@ -216,7 +343,7 @@ int authd_04_executewithprivileges(int argc, char *const *argv)
     const int NUMBER_OF_ITERATIONS = 10;
     plan_tests(2 + 4 * NUMBER_OF_ITERATIONS);
     
-    if (!getCredentials()) {
+    if (!_getCredentials()) {
         fail("Not able to read credentials for current user!");
     }
     
@@ -293,7 +420,7 @@ int authd_05_rightproperties(int argc, char *const *argv)
     NSString *group;
     NSNumber *passwordOnly;
     
-    OSStatus status = AuthorizationCopyRightProperties("system.csfde.requestpassword", &cfProperties);
+    OSStatus status = AuthorizationCopyRightProperties(SAMPLE_PASSWORD_RIGHT, &cfProperties);
     properties = CFBridgingRelease(cfProperties);
     if (status != errAuthorizationSuccess) {
         fail("AuthorizationCopyRightProperties failed with %d", (int)status);

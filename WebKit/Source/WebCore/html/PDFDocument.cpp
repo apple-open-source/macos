@@ -28,11 +28,9 @@
 #if ENABLE(PDFJS)
 
 #include "AddEventListenerOptions.h"
-#include "DOMWindow.h"
 #include "DocumentLoader.h"
 #include "EventListener.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "FrameDestructionObserverInlines.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLBodyElement.h"
@@ -42,6 +40,8 @@
 #include "HTMLLinkElement.h"
 #include "HTMLNames.h"
 #include "HTMLScriptElement.h"
+#include "LocalDOMWindow.h"
+#include "LocalFrame.h"
 #include "RawDataDocumentParser.h"
 #include "ScriptController.h"
 #include "Settings.h"
@@ -131,7 +131,7 @@ bool PDFDocumentEventListener::operator==(const EventListener& other) const
 
 /* PDFDocument */
 
-PDFDocument::PDFDocument(Frame& frame, const URL& url)
+PDFDocument::PDFDocument(LocalFrame& frame, const URL& url)
     : HTMLDocument(&frame, frame.settings(), url, { }, { DocumentClass::PDF })
 {
 }
@@ -207,16 +207,16 @@ void PDFDocument::postMessageToIframe(const String& name, JSC::JSObject* data)
 
 void PDFDocument::sendPDFArrayBuffer()
 {
-    auto arrayBuffer = loader()->mainResourceData()->tryCreateArrayBuffer();
-    if (!arrayBuffer) {
-        ASSERT_NOT_REACHED();
-        return;
+    auto* documentLoader = loader();
+    ASSERT(documentLoader);
+    if (auto mainResourceData = documentLoader->mainResourceData()) {
+        if (auto arrayBuffer = mainResourceData->tryCreateArrayBuffer()) {
+            auto& vm = globalObject()->vm();
+            JSC::JSLockHolder lock(vm);
+            auto* dataObject = JSC::JSArrayBuffer::create(vm, globalObject()->arrayBufferStructure(arrayBuffer->sharingMode()), WTFMove(arrayBuffer));
+            postMessageToIframe("open-pdf"_s, dataObject);
+        }
     }
-
-    auto& vm = globalObject()->vm();
-    JSC::JSLockHolder lock(vm);
-    auto* dataObject = JSC::JSArrayBuffer::create(vm, globalObject()->arrayBufferStructure(arrayBuffer->sharingMode()), WTFMove(arrayBuffer));
-    postMessageToIframe("open-pdf"_s, dataObject);
 }
 
 void PDFDocument::injectStyleAndContentScript()

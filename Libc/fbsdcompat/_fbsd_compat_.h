@@ -85,6 +85,7 @@
 #define		_listen				listen
 #define		_nanosleep			nanosleep
 #define		_open				open
+#define		_openat				openat
 #define		_pause				pause
 #define		_poll				poll
 #define		_pthread_cond_broadcast		pthread_cond_broadcast

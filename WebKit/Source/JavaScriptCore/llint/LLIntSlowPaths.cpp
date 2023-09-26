@@ -207,12 +207,12 @@ void slowPathLn(const Types&... values)
 template<typename... Types>
 void slowPathLogF(const char* format, const Types&... values)
 {
-    ALLOW_NONLITERAL_FORMAT_BEGIN
+ALLOW_NONLITERAL_FORMAT_BEGIN
     IGNORE_WARNINGS_BEGIN("format-security")
     if (Options::traceLLIntSlowPath())
         dataLogF(format, values...);
     IGNORE_WARNINGS_END
-    ALLOW_NONLITERAL_FORMAT_END
+ALLOW_NONLITERAL_FORMAT_END
 }
 
 #else // not LLINT_TRACING
@@ -223,7 +223,7 @@ template<typename... Types> void slowPathLogF(const char*, const Types&...) { }
 
 #endif // LLINT_TRACING
 
-extern "C" SlowPathReturnType llint_trace_operand(CallFrame* callFrame, const JSInstruction* pc, int fromWhere, int operand)
+extern "C" UGPRPair llint_trace_operand(CallFrame* callFrame, const JSInstruction* pc, int fromWhere, int operand)
 {
     if (!Options::traceLLIntExecution())
         LLINT_END_IMPL();
@@ -241,7 +241,7 @@ extern "C" SlowPathReturnType llint_trace_operand(CallFrame* callFrame, const JS
     LLINT_END();
 }
 
-extern "C" SlowPathReturnType llint_trace_value(CallFrame* callFrame, const JSInstruction* pc, int fromWhere, VirtualRegister operand)
+extern "C" UGPRPair llint_trace_value(CallFrame* callFrame, const JSInstruction* pc, int fromWhere, VirtualRegister operand)
 {
     if (!Options::traceLLIntExecution())
         LLINT_END_IMPL();
@@ -408,7 +408,7 @@ inline bool jitCompileAndSetHeuristics(VM& vm, CodeBlock* codeBlock, BytecodeInd
     return false;
 }
 
-static SlowPathReturnType entryOSR(CodeBlock* codeBlock, const char *name, EntryKind kind)
+static UGPRPair entryOSR(CodeBlock* codeBlock, const char *name, EntryKind kind)
 {
     dataLogLnIf(Options::verboseOSR(),
         *codeBlock, ": Entered ", name, " with executeCounter = ",
@@ -430,7 +430,7 @@ static SlowPathReturnType entryOSR(CodeBlock* codeBlock, const char *name, Entry
     LLINT_RETURN_TWO(codeBlock->jitCode()->addressForCall(MustCheckArity).taggedPtr(), nullptr);
 }
 #else // ENABLE(JIT)
-static SlowPathReturnType entryOSR(CodeBlock* codeBlock, const char*, EntryKind)
+static UGPRPair entryOSR(CodeBlock* codeBlock, const char*, EntryKind)
 {
     codeBlock->dontJITAnytimeSoon();
     LLINT_RETURN_TWO(nullptr, nullptr);
@@ -585,12 +585,12 @@ LLINT_SLOW_PATH_DECL(stack_check)
     LLINT_RETURN_TWO(pc, callFrame);
 }
 
-extern "C" SlowPathReturnType llint_link_call(CallFrame* calleeFrame, JSCell* globalObject, CallLinkInfo* callLinkInfo)
+extern "C" UGPRPair llint_link_call(CallFrame* calleeFrame, JSCell* globalObject, CallLinkInfo* callLinkInfo)
 {
     return linkFor(calleeFrame, jsCast<JSGlobalObject*>(globalObject), callLinkInfo);
 }
 
-extern "C" SlowPathReturnType llint_virtual_call(CallFrame* calleeFrame, JSCell* globalObject, CallLinkInfo* callLinkInfo)
+extern "C" UGPRPair llint_virtual_call(CallFrame* calleeFrame, JSCell* globalObject, CallLinkInfo* callLinkInfo)
 {
     JSCell* calleeAsFunctionCellIgnored;
     return virtualForWithFunction(jsCast<JSGlobalObject*>(globalObject), calleeFrame, callLinkInfo, calleeAsFunctionCellIgnored);
@@ -966,7 +966,8 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
     if (Options::useLLIntICs()
         && baseValue.isCell()
         && slot.isCacheablePut()
-        && oldStructure->propertyAccessesAreCacheable()) {
+        && oldStructure->propertyAccessesAreCacheable()
+        && !oldStructure->mayBePrototype()) {
         {
             StructureID oldStructureID = metadata.m_oldStructureID;
             if (oldStructureID) {
@@ -1505,6 +1506,18 @@ LLINT_SLOW_PATH_DECL(slow_path_has_private_brand)
     LLINT_RETURN(jsBoolean(asObject(baseValue)->hasPrivateBrand(globalObject, getOperand(callFrame, bytecode.m_brand))));
 }
 
+LLINT_SLOW_PATH_DECL(slow_path_has_structure_with_flags)
+{
+    LLINT_BEGIN();
+
+    auto bytecode = pc->as<OpHasStructureWithFlags>();
+    ASSERT(getOperand(callFrame, bytecode.m_operand).isObject());
+    JSObject* object = asObject(getOperand(callFrame, bytecode.m_operand));
+    unsigned flags = bytecode.m_flags;
+
+    LLINT_RETURN(jsBoolean(object->structure()->hasAnyOfBitFieldFlags(flags)));
+}
+
 LLINT_SLOW_PATH_DECL(slow_path_put_getter_by_id)
 {
     LLINT_BEGIN();
@@ -1857,7 +1870,7 @@ LLINT_SLOW_PATH_DECL(slow_path_set_function_name)
     LLINT_END();
 }
 
-static SlowPathReturnType handleHostCall(CallFrame* calleeFrame, JSValue callee, CodeSpecializationKind kind)
+static UGPRPair handleHostCall(CallFrame* calleeFrame, JSValue callee, CodeSpecializationKind kind)
 {
     slowPathLog("Performing host call.\n");
     
@@ -1909,7 +1922,7 @@ static SlowPathReturnType handleHostCall(CallFrame* calleeFrame, JSValue callee,
     LLINT_CALL_THROW(globalObject, createNotAConstructorError(globalObject, callee));
 }
 
-inline SlowPathReturnType setUpCall(CallFrame* calleeFrame, CodeSpecializationKind kind, JSValue calleeAsValue)
+inline UGPRPair setUpCall(CallFrame* calleeFrame, CodeSpecializationKind kind, JSValue calleeAsValue)
 {
     CallFrame* callFrame = calleeFrame->callerFrame();
     CodeBlock* callerCodeBlock = callFrame->codeBlock();
@@ -2037,7 +2050,7 @@ enum class SetArgumentsWith {
 };
 
 template<typename Op, SetArgumentsWith set>
-inline SlowPathReturnType varargsSetup(CallFrame* callFrame, const JSInstruction* pc, CodeSpecializationKind)
+inline UGPRPair varargsSetup(CallFrame* callFrame, const JSInstruction* pc, CodeSpecializationKind)
 {
     LLINT_BEGIN_NO_SET_PC();
 
@@ -2087,7 +2100,7 @@ LLINT_SLOW_PATH_DECL(slow_path_construct_varargs)
     return varargsSetup<OpConstructVarargs, SetArgumentsWith::Object>(callFrame, pc, CodeForConstruct);
 }
 
-inline SlowPathReturnType commonCallDirectEval(CallFrame* callFrame, const JSInstruction* pc, MacroAssemblerCodeRef<JSEntryPtrTag> returnPoint)
+inline UGPRPair commonCallDirectEval(CallFrame* callFrame, const JSInstruction* pc, MacroAssemblerCodeRef<JSEntryPtrTag> returnPoint)
 {
     LLINT_BEGIN_NO_SET_PC();
     auto bytecode = pc->as<OpCallDirectEval>();
@@ -2315,24 +2328,6 @@ LLINT_SLOW_PATH_DECL(slow_path_profile_catch)
     LLINT_END();
 }
 
-LLINT_SLOW_PATH_DECL(slow_path_super_sampler_begin)
-{
-    // FIXME: It seems like we should be able to do this in asm but llint doesn't seem to like global variables.
-    // See: https://bugs.webkit.org/show_bug.cgi?id=179438
-    UNUSED_PARAM(callFrame);
-    g_superSamplerCount++;
-    LLINT_END_IMPL();
-}
-
-LLINT_SLOW_PATH_DECL(slow_path_super_sampler_end)
-{
-    // FIXME: It seems like we should be able to do this in asm but llint doesn't seem to like global variables.
-    // See: https://bugs.webkit.org/show_bug.cgi?id=179438
-    UNUSED_PARAM(callFrame);
-    g_superSamplerCount--;
-    LLINT_END_IMPL();
-}
-
 LLINT_SLOW_PATH_DECL(slow_path_out_of_line_jump_target)
 {
     pc = callFrame->codeBlock()->outOfLineJumpTarget(pc);
@@ -2460,7 +2455,7 @@ static void handleIteratorNextCheckpoint(VM& vm, CallFrame* callFrame, JSGlobalO
         valueRegister = iteratorResultObject.get(globalObject, vm.propertyNames->value);
 }
 
-inline SlowPathReturnType dispatchToNextInstructionDuringExit(ThrowScope& scope, CodeBlock* codeBlock, JSInstructionStream::Ref pc)
+inline UGPRPair dispatchToNextInstructionDuringExit(ThrowScope& scope, CodeBlock* codeBlock, JSInstructionStream::Ref pc)
 {
     if (scope.exception())
         return encodeResult(returnToThrow(scope.vm()), nullptr);
@@ -2483,7 +2478,7 @@ inline SlowPathReturnType dispatchToNextInstructionDuringExit(ThrowScope& scope,
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-extern "C" SlowPathReturnType llint_slow_path_checkpoint_osr_exit_from_inlined_call(CallFrame* callFrame, EncodedJSValue result)
+extern "C" UGPRPair llint_slow_path_checkpoint_osr_exit_from_inlined_call(CallFrame* callFrame, EncodedJSValue result)
 {
     // Since all our calling checkpoints do right now is move result into our dest we can just do that here and return.
     CodeBlock* codeBlock = callFrame->codeBlock();
@@ -2547,7 +2542,7 @@ extern "C" SlowPathReturnType llint_slow_path_checkpoint_osr_exit_from_inlined_c
     return dispatchToNextInstructionDuringExit(scope, codeBlock, pc);
 }
 
-extern "C" SlowPathReturnType llint_slow_path_checkpoint_osr_exit(CallFrame* callFrame, EncodedJSValue /* needed for cCall2 in CLoop */)
+extern "C" UGPRPair llint_slow_path_checkpoint_osr_exit(CallFrame* callFrame, EncodedJSValue /* needed for cCall2 in CLoop */)
 {
     CodeBlock* codeBlock = callFrame->codeBlock();
     VM& vm = codeBlock->vm();
@@ -2592,7 +2587,7 @@ extern "C" SlowPathReturnType llint_slow_path_checkpoint_osr_exit(CallFrame* cal
     return dispatchToNextInstructionDuringExit(scope, codeBlock, pc);
 }
 
-extern "C" SlowPathReturnType llint_throw_stack_overflow_error(VM* vm, ProtoCallFrame* protoFrame)
+extern "C" UGPRPair llint_throw_stack_overflow_error(VM* vm, ProtoCallFrame* protoFrame)
 {
     CallFrame* callFrame = vm->topCallFrame;
     auto scope = DECLARE_THROW_SCOPE(*vm);
@@ -2606,7 +2601,7 @@ extern "C" SlowPathReturnType llint_throw_stack_overflow_error(VM* vm, ProtoCall
 }
 
 #if ENABLE(C_LOOP)
-extern "C" SlowPathReturnType llint_stack_check_at_vm_entry(VM* vm, Register* newTopOfStack)
+extern "C" UGPRPair llint_stack_check_at_vm_entry(VM* vm, Register* newTopOfStack)
 {
     bool success = vm->ensureStackCapacityFor(newTopOfStack);
     return encodeResult(reinterpret_cast<void*>(success), 0);
@@ -2619,7 +2614,7 @@ extern "C" void llint_write_barrier_slow(CallFrame* callFrame, JSCell* cell)
     vm.writeBarrier(cell);
 }
 
-extern "C" SlowPathReturnType llint_check_vm_entry_permission(VM*, ProtoCallFrame*)
+extern "C" UGPRPair llint_check_vm_entry_permission(VM*, ProtoCallFrame*)
 {
     if (Options::crashOnDisallowedVMEntry() || g_jscConfig.vmEntryDisallowed)
         CRASH_WITH_EXTRA_SECURITY_IMPLICATION_AND_INFO(VMEntryDisallowed, "VM entry disallowed"_s);

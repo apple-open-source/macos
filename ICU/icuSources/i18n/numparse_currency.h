@@ -49,7 +49,6 @@ class U_I18N_API CombinedCurrencyMatcher : public NumberParseMatcher, public UMe
     UnicodeString fCurrency2;
 
     bool fUseFullCurrencyData;
-    bool fCurrencyTrails; // Apple <rdar://problem/51938595>
     UnicodeString fLocalLongNames[StandardPlural::COUNT];
 
     UnicodeString afterPrefixInsert;

@@ -72,6 +72,7 @@
 #include <os/variant_private.h>
 #include <regex.h>
 #import <utilities/entitlements.h>
+#import <Security/SecInternalReleasePriv.h>
 
 #define CORE_ENTITLEMENTS_I_KNOW_WHAT_IM_DOING
 #include <CoreEntitlements/CoreEntitlementsPriv.h>
@@ -80,6 +81,11 @@
 
 #import "LWCRHelper.h"
 #include <kern/cs_blobs.h>
+
+#import <CoreTrust/CTEvaluate.h>
+#if !TARGET_OS_SIMULATOR
+#import <libamfi-interface.h>
+#endif
 
 namespace Security {
 namespace CodeSigning {
@@ -1109,14 +1115,30 @@ bool SecStaticCode::verifySignature()
 		CFRef<CFArrayRef> vf_policies(createVerificationPolicies());
 
 		// Verify the CMS signature against mBaseDir (SHA1)
-		MacOSError::check(SecCMSVerifyCopyDataAndAttributes(sig, mBaseDir, vf_policies, &mTrust.aref(), NULL, &attrs.aref()));
+		OSStatus status = SecCMSVerifyCopyDataAndAttributes(sig, mBaseDir, vf_policies, &mTrust.aref(), NULL, &attrs.aref());
+		MacOSError::check(status);
 
 		// Copy the signing time
 		mSigningTime = SecTrustGetVerifyTime(mTrust);
 
 		// Validate the cert chain
-		SecTrustResultType trustResult;
+		SecTrustResultType trustResult = kSecTrustResultInvalid;
 		MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
+
+#if TARGET_OS_XR
+		// The two positive results we check for are kSecTrustResultUnspecified and kSecTrustResultProceed.
+		// kSecTrustResultUnspecified is a positive result that wasn't decided by the user.
+		// kSecTrustResultProceed is a positive result when decided by the user.
+		if (!(trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed)) {
+			// Trust evaluation failed, so try again with xrOS policy
+			CFRef<SecPolicyRef> xrOSRef = SecPolicyCreateAppleXROSApplicationSigning();
+
+			// We can re-use mTrust, because SecTrustSetPolicies function will invalidate the existing trust result,
+			// requiring a fresh evaluation for the newly-set policies
+			MacOSError::check(SecTrustSetPolicies(mTrust, xrOSRef));
+			MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
+		}
+#endif
 
 		// retrieve auxiliary data bag and verify against current state
 		CFRef<CFDataRef> hashBag;
@@ -1812,10 +1834,21 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool is
 	if (!resourceBase())	// no resources in DiskRep
 		MacOSError::throwMe(errSecCSResourcesNotFound);
 	CFRef<CFURLRef> fullpath = makeCFURL(path, false, resourceBase());
+
 	if (version > 1 && ((flags & (kSecCSStrictValidate|kSecCSRestrictSidebandData)) == (kSecCSStrictValidate|kSecCSRestrictSidebandData))) {
 		AutoFileDesc fd(cfString(fullpath));
-		if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME) || fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME))
-			ctx.reportProblem(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, fullpath);
+
+		if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME)) {
+			CFStringRef message = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Disallowed xattr %s found on %s"), XATTR_RESOURCEFORK_NAME, cfString(fullpath).c_str());
+			ctx.reportProblem(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, message);
+		}
+		if (fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME)) {
+			CFStringRef message = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Disallowed xattr %s found on %s"), XATTR_FINDERINFO_NAME, cfString(fullpath).c_str());
+			ctx.reportProblem(errSecCSInvalidAssociatedFileData, kSecCFErrorResourceSideband, message);
+		}
+	}
+	if (mRep->mainExecutablePath() == cfString(fullpath)) {
+		return ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceRecursive, fullpath);
 	}
 	if (CFTypeRef file = CFDictionaryGetValue(files, CFTempString(path))) {
 		ResourceSeal seal(file);
@@ -2181,32 +2214,81 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 	}
 }
 
-unsigned int SecStaticCode::validationCategory()
+bool SecStaticCode::inLoadedTrustCache()
 {
-#if TARGET_OS_OSX
-	if (mValidationCategory == CS_VALIDATION_CATEGORY_INVALID) {
-		SecRequirement platformReq(platformReqData, platformReqDataLen);
-		SecRequirement testflightReq(testflightReqData, testflightReqDataLen);
-		SecRequirement developmentReq(developmentReqData, developmentReqDataLen);
-		SecRequirement appStoreReq(appStoreReqData, appStoreReqDataLen);
-		SecRequirement developerIDReq(developerIDReqData, developerIDReqDataLen);
-
-		unsigned int validationCategory = CS_VALIDATION_CATEGORY_NONE;
-		OSStatus nullError = errSecSuccess;
-		if (this->satisfiesRequirement(platformReq.requirement(), nullError)) {
-			validationCategory = CS_VALIDATION_CATEGORY_PLATFORM;
-		} else if (this->satisfiesRequirement(testflightReq.requirement(), nullError)) {
-			validationCategory = CS_VALIDATION_CATEGORY_TESTFLIGHT;
-		} else if (this->satisfiesRequirement(developmentReq.requirement(), nullError)) {
-			validationCategory = CS_VALIDATION_CATEGORY_DEVELOPMENT;
-		} else if (this->satisfiesRequirement(appStoreReq.requirement(), nullError)) {
-			validationCategory = CS_VALIDATION_CATEGORY_APP_STORE;
-		} else if (this->satisfiesRequirement(developerIDReq.requirement(), nullError)) {
-			validationCategory = CS_VALIDATION_CATEGORY_DEVELOPER_ID;
-		}
-		mValidationCategory = validationCategory;
+#if !TARGET_OS_SIMULATOR
+	CFDataRef cdhash = cdHash();
+	uint64_t trustcache_result = 0;
+	if (amfi_interface_cdhash_in_trustcache(CFDataGetBytePtr(cdhash), CFDataGetLength(cdhash), &trustcache_result) == 0 && trustcache_result == 1) {
+		return true;
 	}
 #endif
+	return false;
+}
+
+unsigned int SecStaticCode::validationCategory()
+{
+	if (mValidationCategory == CS_VALIDATION_CATEGORY_INVALID) {
+		if (inLoadedTrustCache()) {
+			mValidationCategory = CS_VALIDATION_CATEGORY_PLATFORM;
+		} else {
+			CFDataRef signature = NULL;
+			try {
+				signature = this->signature();
+			} catch (...) {}; // Don't throw if this file is unsigned
+#if TARGET_OS_OSX
+			SecRequirement platformReq(platformReqData, platformReqDataLen);
+			OSStatus nullError = errSecSuccess;
+			if (this->satisfiesRequirement(platformReq.requirement(), nullError)) {
+				mValidationCategory = CS_VALIDATION_CATEGORY_PLATFORM;
+			} else
+#endif
+			if (signature == NULL || flag(kSecCodeSignatureAdhoc)) {
+				mValidationCategory = CS_VALIDATION_CATEGORY_NONE;
+			} else {
+				CoreTrustPolicyFlags policyFlags = 0;
+				bool qaCertsAllowed = SecIsInternalRelease() || SecAreQARootCertificatesEnabled();
+				int ctResult = CTVerifyAmfiCertificateChain(CFDataGetBytePtr(signature),
+															CFDataGetLength(signature),
+															qaCertsAllowed,
+															CORETRUST_DIGEST_TYPE_SHA512,
+															&policyFlags);
+				if (ctResult) {
+					// Invalid CMS
+					mValidationCategory = CS_VALIDATION_CATEGORY_NONE;
+				} else {
+					mValidationCategory = CS_VALIDATION_CATEGORY_NONE;
+#if TARGET_OS_OSX
+					if (policyFlags & CORETRUST_POLICY_MAC_PLATFORM) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_PLATFORM;
+					} else if (policyFlags & CORETRUST_POLICY_DEVELOPER_ID) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_DEVELOPER_ID;
+					} else
+#endif
+					if ((policyFlags & (CORETRUST_POLICY_IPHONE_APP_PROD |
+									    CORETRUST_POLICY_TVOS_APP_PROD |
+									    CORETRUST_POLICY_MAC_APP_STORE |
+									    CORETRUST_POLICY_XROS_APP_PROD)) ||
+						(qaCertsAllowed &&
+							   (policyFlags & (CORETRUST_POLICY_IPHONE_APP_DEV |
+											   CORETRUST_POLICY_TVOS_APP_DEV |
+											   CORETRUST_POLICY_XROS_APP_DEV)))) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_APP_STORE;
+					} else if (policyFlags & (CORETRUST_POLICY_MAC_DEVELOPER |
+											  CORETRUST_POLICY_IPHONE_DEVELOPER)) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_DEVELOPMENT;
+					} else if (policyFlags & CORETRUST_POLICY_IPHONE_DISTRIBUTION) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_ENTERPRISE;
+					} else if (policyFlags & CORETRUST_POLICY_IPHONE_VPN_PROD) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_NONE;
+					} else if (policyFlags & (CORETRUST_POLICY_TEST_FLIGHT_DEV |
+											  CORETRUST_POLICY_TEST_FLIGHT_PROD)) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_TESTFLIGHT;
+					}
+				}
+			}
+		}
+	}
 	return mValidationCategory;
 }
 
@@ -2509,6 +2591,12 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 				CFDictionaryAddValue(dict, kSecCodeInfoLaunchConstraintsResponsible, lwcr);
 			}
 		} catch (...) { }
+		try {
+			CFDataRef lwcr = this->component(cdLibraryConstraint);
+			if (lwcr) {
+				CFDictionaryAddValue(dict, kSecCodeInfoLibraryConstraints, lwcr);
+			}
+		} catch (...) { }
 	}
 
 	if (flags & kSecCSCalculateCMSDigest) {
@@ -2527,9 +2615,17 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	// of the signed code. This is (only) useful for packaging or patching-oriented
 	// applications.
 	//
-	if (flags & kSecCSContentInformation && !(flags & kSecCSSkipResourceDirectory))
-		if (CFRef<CFArrayRef> files = mRep->modifiedFiles())
-			CFDictionaryAddValue(dict, kSecCodeInfoChangedFiles, files);
+	if (flags & kSecCSContentInformation) {
+		if (!(flags & kSecCSSkipResourceDirectory)) {
+			if (CFRef<CFArrayRef> files = mRep->modifiedFiles()) {
+				CFDictionaryAddValue(dict, kSecCodeInfoChangedFiles, files);
+			}
+		}
+		CFRef<CFDataRef> ticket = mRep->copyStapledTicket();
+		if (ticket.get()) {
+			CFDictionaryAddValue(dict, kSecCodeInfoStapledNotarizationTicket, ticket);
+		}
+	}
 
 	return dict.yield();
 }
@@ -2907,12 +3003,30 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 }
 
 //
+// A helper that uses visitOtherArchitectures but also enforces policy that if the architectures are signed
+// with a team ID, they must all be signed with the same team ID.
+//
+void SecStaticCode::handleOtherArchitectures(void (^handle)(SecStaticCode* other))
+{
+	this->visitOtherArchitectures(^(SecStaticCode *otherArchCode) {
+		if (this->teamID() == NULL || otherArchCode->teamID() == NULL) {
+			if (this->teamID() != otherArchCode->teamID()) {
+				MacOSError::throwMe(errSecCSSignatureInvalid);
+			}
+		} else if (strcmp(this->teamID(), otherArchCode->teamID()) != 0) {
+			MacOSError::throwMe(errSecCSSignatureInvalid);
+		}
+		handle(otherArchCode);
+	});
+}
+
+//
 // A helper that generates SecStaticCode objects for all but the primary architecture
 // of a fat binary and calls a block on them.
 // If there's only one architecture (or this is an architecture-agnostic code),
 // nothing happens quickly.
 //
-void SecStaticCode::handleOtherArchitectures(void (^handle)(SecStaticCode* other))
+void SecStaticCode::visitOtherArchitectures(void (^visitor)(SecStaticCode* other))
 {
 	if (Universal *fat = this->diskRep()->mainExecutableImage()) {
 		Universal::Architectures architectures;
@@ -2933,12 +3047,7 @@ void SecStaticCode::handleOtherArchitectures(void (^handle)(SecStaticCode* other
 						subcode->setValidationFlags(mValidationFlags & flagsToPropagate);
 
 						subcode->detachedSignature(this->mDetachedSig); // carry over explicit (but not implicit) detached signature
-						if (this->teamID() == NULL || subcode->teamID() == NULL) {
-							if (this->teamID() != subcode->teamID())
-								MacOSError::throwMe(errSecCSSignatureInvalid);
-						} else if (strcmp(this->teamID(), subcode->teamID()) != 0)
-							MacOSError::throwMe(errSecCSSignatureInvalid);
-						handle(subcode);
+						visitor(subcode);
 					}
 				} catch(std::out_of_range e) {
 					// some of our int_casts fell over.
@@ -2948,6 +3057,7 @@ void SecStaticCode::handleOtherArchitectures(void (^handle)(SecStaticCode* other
 		}
 	}
 }
+
 
 //
 // A method that takes a certificate chain (certs) and evaluates

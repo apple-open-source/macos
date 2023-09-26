@@ -43,8 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fgetc.c,v 1.13 2007/01/09 00:28:06 imp Ex
 #include "local.h"
 
 int
-fgetc(fp)
-	FILE *fp;
+fgetc(FILE *fp)
 {
 	int retval;
 	FLOCKFILE(fp);

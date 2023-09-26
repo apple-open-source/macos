@@ -84,6 +84,7 @@
 #endif
         self->_client.applicationIdentifier                  = CFRetainSafe(existingClient->applicationIdentifier);
         self->_client.isAppClip                              = existingClient->isAppClip;
+
     }
     return self;
 }

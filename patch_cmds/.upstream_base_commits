@@ -58,6 +58,32 @@ diff/tests/unified_p.out	freebsd	usr.bin/diff/tests/unified_p.out	3bbe3f672e37e4
 diff/xmalloc.c	freebsd	usr.bin/diff/xmalloc.c	f9eac425775a4e173bff0b63423fd3f503db6131
 diff/xmalloc.h	freebsd	usr.bin/diff/xmalloc.h	3bbe3f672e37e4f609adb3be3a6476edce2243ec
 
+diff3/diff3.1	freebsd	usr.bin/diff3/diff3.1 	 fcd9bb4130898a4129f0c33f6e36b02811b501bf
+diff3/diff3.c	freebsd	usr.bin/diff3/diff3.c 	 d52678846fae2abe5bdafeeb0bf75790964b989b
+diff3/tests/1.out	freebsd	usr.bin/diff3/tests/1.out 	 9b872bf3a8800f1ba8fdd568a610989f71af14f4
+diff3/tests/1.txt	freebsd	usr.bin/diff3/tests/1.txt 	 f0cd8062a6f1e67ace5ea34ad391ae7b71820ac0
+diff3/tests/1cr.txt	freebsd	usr.bin/diff3/tests/1cr.txt 	 c24bf241e68a4d91842fc1fe5f9fd42c48ee7110
+diff3/tests/1t.out	freebsd	usr.bin/diff3/tests/1t.out 	 fc54ce50286fd87c503ed3cd9aa06376f71c7804
+diff3/tests/2.out	freebsd	usr.bin/diff3/tests/2.out 	 420dc4784b804bf1fd34fc8e32253563b2d9f3f2
+diff3/tests/2.txt	freebsd	usr.bin/diff3/tests/2.txt 	 990aa6f345c6fb364bdea50f877e88721fbe07e4
+diff3/tests/3.out	freebsd	usr.bin/diff3/tests/3.out 	 81509d4ca5101984ec4ef4d142d943f2e3f82a84
+diff3/tests/3.txt	freebsd	usr.bin/diff3/tests/3.txt 	 104466e496908b3ee1033d6976fa2aea8250fa12
+diff3/tests/4.out	freebsd	usr.bin/diff3/tests/4.out 	 81509d4ca5101984ec4ef4d142d943f2e3f82a84
+diff3/tests/5.out	freebsd	usr.bin/diff3/tests/5.out 	 420dc4784b804bf1fd34fc8e32253563b2d9f3f2
+diff3/tests/6.out	freebsd	usr.bin/diff3/tests/6.out 	 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff3/tests/7.out	freebsd	usr.bin/diff3/tests/7.out 	 9b872bf3a8800f1ba8fdd568a610989f71af14f4
+diff3/tests/8.out	freebsd	usr.bin/diff3/tests/8.out 	 5d02326ed7d18cbfeaa0e818a0ad74d93383cb8d
+diff3/tests/9.out	freebsd	usr.bin/diff3/tests/9.out 	 2071bab4ce0788e3523f6f6e65f86f64994e5593
+diff3/tests/diff3_test.sh	freebsd	usr.bin/diff3/tests/diff3_test.sh 	 37a493cfefd5acd6e29d1d0a0fc15010a337063a
+diff3/tests/long-A.out	freebsd	usr.bin/diff3/tests/long-A.out 	 2a2e4cbb112dcc14aac5226b82902b001f122117
+diff3/tests/long-ed.out	freebsd	usr.bin/diff3/tests/long-ed.out 	 8814a3518d60910e952ca9dbd999692564fd018e
+diff3/tests/long-m.txt	freebsd	usr.bin/diff3/tests/long-m.txt 	 327bf8c225f7903c674d4559e94fa3fdad68c087
+diff3/tests/long-merge.out	freebsd	usr.bin/diff3/tests/long-merge.out 	 5139a48fa429c113c4ab01b69a3b2607e27c35bc
+diff3/tests/long-o.txt	freebsd	usr.bin/diff3/tests/long-o.txt 	 b4085d1d98c0396002219f379f8c881800012c46
+diff3/tests/long-y.txt	freebsd	usr.bin/diff3/tests/long-y.txt 	 1bb25004924ee5571e203ae85d16e80ca6cbdeef
+diff3/xmalloc.c	freebsd	usr.bin/diff/xmalloc.c   9d02238e87f7ed149c1ce0e1ce4b1a7c0e4c4c3b
+diff3/xmalloc.h	freebsd	usr.bin/diff/xmalloc.h   4f4f9ffbaf13b173929fa505c876d67a95cd2d67
+
 patch/backupfile.c	freebsd	usr.bin/patch/backupfile.c	300ca9a86e0642c9f9285ace20fbb7f4d2695ba8
 patch/backupfile.h	freebsd	usr.bin/patch/backupfile.h	e56ef7d3586d1dea57990c7d94e260b54423ffc3
 patch/common.h	freebsd	usr.bin/patch/common.h	ef30b5a80910bd877f582248004200065eeb3ef5

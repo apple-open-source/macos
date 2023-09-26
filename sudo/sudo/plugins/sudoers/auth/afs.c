@@ -42,13 +42,20 @@
 
 #include "sudoers.h"
 #include "sudo_auth.h"
+#include "check.h"
 
 int
-sudo_afs_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_afs_verify(struct passwd *pw, const char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     struct ktc_encryptionKey afs_key;
     struct ktc_token afs_token;
     debug_decl(sudo_afs_verify, SUDOERS_DEBUG_AUTH);
+
+    if (IS_NONINTERACTIVE(auth))
+	debug_return_int(AUTH_NONINTERACTIVE);
+
+    /* Display lecture if needed and we haven't already done so. */
+    display_lecture(callback);
 
     /* Try to just check the password */
     ka_StringToKey(pass, NULL, &afs_key);

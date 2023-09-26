@@ -57,8 +57,8 @@ tig{
                 "ሓቆ ስርምዕል",
             }
             AmPmMarkersAbbr{
-                "ቀደም ሰርምዕል",
-                "ሓቆ ስርምዕል",
+                "ቀደም ሰርምዕል",
+                "ሓቆ ስርምዕል",
             }
             DateTimePatterns{
                 "h:mm:ss a zzzz",

@@ -94,9 +94,10 @@ static char emptystring[] = "";
 PATH_T to = { to.p_path, emptystring, "" };
 
 int fflag, iflag, lflag, nflag, pflag, sflag, vflag;
-int unix2003_compat;
 #ifdef __APPLE__
+int unix2003_compat;
 int cflag;
+int Sflag;
 int Xflag;
 #endif /* __APPLE__ */
 static int Hflag, Lflag, Rflag, rflag;
@@ -115,20 +116,22 @@ main(int argc, char *argv[])
 	int Pflag, ch, fts_options, r, have_trailing_slash;
 	char *target;
 
+#ifdef __APPLE__
 	unix2003_compat = COMPAT_MODE("bin/cp", "unix2003");
+#endif /* __APPLE__ */
 	fts_options = FTS_NOCHDIR | FTS_PHYSICAL;
 	Pflag = 0;
 #ifdef __APPLE__
-	while ((ch = getopt(argc, argv, "cHLPRXafilnprsvx")) != -1)
-#else
+	while ((ch = getopt(argc, argv, "cHLPRXafilnprSsvx")) != -1)
+#else /* !__APPLE__ */
 	while ((ch = getopt(argc, argv, "HLPRafilnprsvx")) != -1)
-#endif
+#endif /* __APPLE__ */
 		switch (ch) {
 #ifdef __APPLE__
 		case 'c':
 			cflag = 1;
 			break;
-#endif
+#endif /* __APPLE__ */
 		case 'H':
 			Hflag = 1;
 			Lflag = Pflag = 0;
@@ -148,7 +151,7 @@ main(int argc, char *argv[])
 		case 'X':
 			Xflag = 1;
 			break;
-#endif
+#endif /* __APPLE__ */
 		case 'a':
 			pflag = 1;
 			Rflag = 1;
@@ -157,18 +160,22 @@ main(int argc, char *argv[])
 			break;
 		case 'f':
 			fflag = 1;
+#ifdef __APPLE__
 			/* Determine if the STD is SUSv3 or Legacy */
 			if (unix2003_compat)
 				nflag = 0;	/* reset nflag, but not iflag */
 			else
-				iflag = nflag = 0;	/* reset both */
+#endif /* __APPLE__ */
+			iflag = nflag = 0;
 			break;
 		case 'i':
 			iflag = 1;
+#ifdef __APPLE__
 			if (unix2003_compat)
 				nflag = 0;	/* reset nflag, but not fflag */
 			else
-				fflag = nflag = 0;
+#endif /* __APPLE__ */
+			fflag = nflag = 0;
 			break;
 		case 'l':
 			lflag = 1;
@@ -184,6 +191,11 @@ main(int argc, char *argv[])
 			rflag = Lflag = 1;
 			Hflag = Pflag = 0;
 			break;
+#ifdef __APPLE__
+		case 'S':
+			Sflag = 1;
+			break;
+#endif /* __APPLE__ */
 		case 's':
 			sflag = 1;
 			break;
@@ -207,7 +219,7 @@ main(int argc, char *argv[])
 	if (cflag && Xflag) {
 		errx(1, "the -c and -X options may not be specified together");
 	}
-#endif
+#endif /* __APPLE__ */
 
 	if (Rflag && rflag)
 		errx(1, "the -R and -r options may not be specified together");
@@ -351,8 +363,7 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 	recurse_path = NULL;
 	if ((ftsp = fts_open(argv, fts_options, NULL)) == NULL)
 		err(1, "fts_open");
-	for (badcp = rval = 0; (void)(errno = 0), (curr = fts_read(ftsp)) != NULL;
-             badcp = 0) {
+	for (badcp = rval = 0; (curr = fts_read(ftsp)) != NULL; badcp = 0) {
 		switch (curr->fts_info) {
 		case FTS_NS:
 		case FTS_DNR:
@@ -600,14 +611,14 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 			 */
 			if (dne) {
 				if (mkdir(to.p_path,
-					  curr->fts_statp->st_mode | S_IRWXU) < 0) {
-					if (unix2003_compat) {
+				    curr->fts_statp->st_mode | S_IRWXU) < 0) {
+#ifdef __APPLE__
+					if (unix2003_compat)
 						warn("%s", to.p_path);
-					} else {
-						err(1, "%s", to.p_path);
-					}
+					else
+#endif /* __APPLE__ */
+					err(1, "%s", to.p_path);
 				}
-
 				/*
 				 * First DNE with a NULL root_stat is the root
 				 * path, so set root_stat.  We can't really
@@ -619,20 +630,19 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 				    stat(to.p_path, &created_root_stat) == -1) {
 #ifdef __APPLE__
 					if (!unix2003_compat || errno != ENOENT)
-						err(1, "stat");
-#else
+#endif /* __APPLE__ */
 					err(1, "stat");
-#endif
 				} else if (root_stat == NULL) {
 					root_stat = &created_root_stat;
 				}
 			} else if (!S_ISDIR(to_stat.st_mode)) {
 				errno = ENOTDIR;
-				if (unix2003_compat) {
+#ifdef __APPLE__
+				if (unix2003_compat)
 					warn("%s", to.p_path);
-				} else {
-					err(1, "%s", to.p_path);
-				}
+				else
+#endif /* __APPLE__ */
+				err(1, "%s", to.p_path);
 			}
 			/*
 			 * Arrange to correct directory attributes later

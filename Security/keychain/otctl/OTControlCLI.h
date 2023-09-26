@@ -21,12 +21,20 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (int)depart:(OTControlArguments*)arguments;
 
-- (int)resetOctagon:(OTControlArguments*)arguments idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword notifyIdMS:(bool)notifyIdMS timeout:(NSTimeInterval)timeout;
+- (int)resetOctagon:(OTControlArguments*)arguments
+  idmsTargetContext:(NSString*_Nullable)idmsTargetContextString
+idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+         notifyIdMS:(bool)notifyIdMS
+            timeout:(NSTimeInterval)timeout;
 
-- (int)resetProtectedData:(OTControlArguments*)arguments appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid         idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+- (int)resetProtectedData:(OTControlArguments*)arguments
+                  appleID:(NSString * _Nullable)appleID
+                     dsid:(NSString *_Nullable)dsid
+        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
    idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
-	       notifyIdMS:(bool)notifyIdMS
-;
+               notifyIdMS:(bool)notifyIdMS;
+
+- (int)reset:(OTControlArguments*)arguments appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid;
 
 - (int)status:(OTControlArguments*)arguments json:(bool)json;
 
@@ -41,7 +49,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (int)fetchEscrowRecords:(OTControlArguments*)arguments json:(bool)json;
 - (int)fetchAllEscrowRecords:(OTControlArguments*)arguments json:(bool)json;
 
-- (int)healthCheck:(OTControlArguments*)arguments skipRateLimitingCheck:(BOOL)skipRateLimitingCheck;
+- (int)healthCheck:(OTControlArguments*)arguments
+       skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
+                      repair:(BOOL)repair;
+
 - (int)refetchCKKSPolicy:(OTControlArguments*)arguments;
 
 - (int)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar;
@@ -67,6 +78,7 @@ NS_ASSUME_NONNULL_BEGIN
 idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword notifyIdMS:(bool)notifyIdMS ;
 
 - (int)createCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+                                    uuidString:(NSString*_Nullable)uuidString
                                           json:(bool)json
                                        timeout:(NSTimeInterval)timeout;
 
@@ -95,6 +107,7 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
 - (int)setRecoveryKeyWithArguments:(OTControlArguments*)arguments;
 
 - (int)createInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                              uuidString:(NSString*_Nullable)uuidString
                                     json:(bool)json
                                  timeout:(NSTimeInterval)timeout;
 
@@ -135,6 +148,7 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
 - (int)fetchAccountSettingsWithArguments:(OTControlArguments*)argumentsName
                                     json:(bool)json;
 - (int)fetchAccountWideSettingsWithArguments:(OTControlArguments*)arguments
+                                  useDefault:(bool)useDefault
                                   forceFetch:(bool)forceFetch
                                         json:(bool)json;
 

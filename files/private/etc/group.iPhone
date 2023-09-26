@@ -80,6 +80,7 @@ _findmydevice:*:254:
 _datadetectors:*:257:
 _captiveagent:*:258:
 _analyticsd:*:263:
+_fpsd:*:265:
 _timed:*:266:
 _gpsd:*:267:
 _reportmemoryexception:*:269:
@@ -100,5 +101,6 @@ _accessory_mobile_share:*:286:mobile,_accessoryupdater
 _backboardd:*:287:_backboardd
 _avphidbridge:*:288:_avphidbridge
 _launchservices:*:290:_launchservices
-systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd,_darwindaemon,_accessoryupdater,_backboardd,_launchservices
+_mobilegestalthelper:*:293:_mobilegestalthelper
+systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd,_darwindaemon,_accessoryupdater,_backboardd,_launchservices,_fpsd,_mobilegestalthelper
 mobile:*:501:mobile

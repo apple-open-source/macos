@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -410,20 +410,15 @@ using WebCore::LogOverlayScrollbars;
 {
     UNUSED_PARAM(scrollerImp);
 
-    if (!_scrollbar) {
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        return [NSAppearance currentAppearance];
-        ALLOW_DEPRECATED_DECLARATIONS_END
-    }
+    if (!_scrollbar)
+        return [NSAppearance currentDrawingAppearance];
 
-    // Keep this in sync with FrameView::paintScrollCorner.
+    // Keep this in sync with LocalFrameView::paintScrollCorner.
     // The base system does not support dark Aqua, so we might get a null result.
     bool useDarkAppearance = _scrollbar->scrollableArea().useDarkAppearanceForScrollbars();
     if (auto *appearance = [NSAppearance appearanceNamed:useDarkAppearance ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua])
         return appearance;
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    return [NSAppearance currentAppearance];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    return [NSAppearance currentDrawingAppearance];
 }
 #endif
 
@@ -636,9 +631,9 @@ void ScrollbarsControllerMac::contentAreaWillPaint() const
     if ([m_scrollerImpPair overlayScrollerStateIsLocked])
         return;
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [m_scrollerImpPair contentAreaWillDraw];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 void ScrollbarsControllerMac::mouseEnteredContentArea()
@@ -959,7 +954,7 @@ void ScrollbarsControllerMac::updateScrollerStyle()
         verticalScrollbar->invalidate();
 
         NSScrollerImp *oldVerticalPainter = [m_scrollerImpPair verticalScrollerImp];
-        auto newVerticalPainter = retainPtr([NSScrollerImp scrollerImpWithStyle:newStyle controlSize:(NSControlSize)verticalScrollbar->controlSize() horizontal:NO replacingScrollerImp:oldVerticalPainter]);
+        auto newVerticalPainter = retainPtr([NSScrollerImp scrollerImpWithStyle:newStyle controlSize:(NSControlSize)verticalScrollbar->widthStyle() horizontal:NO replacingScrollerImp:oldVerticalPainter]);
 
         [m_scrollerImpPair setVerticalScrollerImp:newVerticalPainter.get()];
         macTheme->setNewPainterForScrollbar(*verticalScrollbar, WTFMove(newVerticalPainter));
@@ -968,7 +963,7 @@ void ScrollbarsControllerMac::updateScrollerStyle()
         // The different scrollbar styles have different thicknesses, so we must re-set the
         // frameRect to the new thickness, and the re-layout below will ensure the position
         // and length are properly updated.
-        int thickness = macTheme->scrollbarThickness(verticalScrollbar->controlSize());
+        int thickness = macTheme->scrollbarThickness(verticalScrollbar->widthStyle());
         verticalScrollbar->setFrameRect(IntRect(0, 0, thickness, thickness));
     }
 
@@ -977,7 +972,7 @@ void ScrollbarsControllerMac::updateScrollerStyle()
         horizontalScrollbar->invalidate();
 
         NSScrollerImp *oldHorizontalPainter = [m_scrollerImpPair horizontalScrollerImp];
-        auto newHorizontalPainter = retainPtr([NSScrollerImp scrollerImpWithStyle:newStyle controlSize:(NSControlSize)horizontalScrollbar->controlSize() horizontal:YES replacingScrollerImp:oldHorizontalPainter]);
+        auto newHorizontalPainter = retainPtr([NSScrollerImp scrollerImpWithStyle:newStyle controlSize:(NSControlSize)horizontalScrollbar->widthStyle() horizontal:YES replacingScrollerImp:oldHorizontalPainter]);
 
         [m_scrollerImpPair setHorizontalScrollerImp:newHorizontalPainter.get()];
         macTheme->setNewPainterForScrollbar(*horizontalScrollbar, WTFMove(newHorizontalPainter));
@@ -986,7 +981,7 @@ void ScrollbarsControllerMac::updateScrollerStyle()
         // The different scrollbar styles have different thicknesses, so we must re-set the
         // frameRect to the new thickness, and the re-layout below will ensure the position
         // and length are properly updated.
-        int thickness = macTheme->scrollbarThickness(horizontalScrollbar->controlSize());
+        int thickness = macTheme->scrollbarThickness(horizontalScrollbar->widthStyle());
         horizontalScrollbar->setFrameRect(IntRect(0, 0, thickness, thickness));
     }
 

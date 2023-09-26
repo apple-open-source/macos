@@ -585,7 +585,7 @@ TCL_EXTERN(int)		Itcl_ClassCommonCmd _ANSI_ARGS_((
 #define Itcl_ParseVarResolver_TCL_DECLARED
 /* 85 */
 TCL_EXTERN(int)		Itcl_ParseVarResolver _ANSI_ARGS_((
-				Tcl_Interp * interp, CONST char* name, 
+				Tcl_Interp * interp, char* name,
 				Tcl_Namespace * contextNs, int flags, 
 				Tcl_Var* rPtr));
 #endif
@@ -882,7 +882,7 @@ typedef struct ItclIntStubs {
     int (*itcl_ClassProcCmd) _ANSI_ARGS_((ClientData clientData, Tcl_Interp * interp, int objc, Tcl_Obj *CONST objv[])); /* 82 */
     int (*itcl_ClassVariableCmd) _ANSI_ARGS_((ClientData clientData, Tcl_Interp * interp, int objc, Tcl_Obj *CONST objv[])); /* 83 */
     int (*itcl_ClassCommonCmd) _ANSI_ARGS_((ClientData clientData, Tcl_Interp * interp, int objc, Tcl_Obj *CONST objv[])); /* 84 */
-    int (*itcl_ParseVarResolver) _ANSI_ARGS_((Tcl_Interp * interp, CONST char* name, Tcl_Namespace * contextNs, int flags, Tcl_Var* rPtr)); /* 85 */
+    int (*itcl_ParseVarResolver) _ANSI_ARGS_((Tcl_Interp * interp, char* name, Tcl_Namespace * contextNs, int flags, Tcl_Var* rPtr)); /* 85 */
     int (*itcl_BiInit) _ANSI_ARGS_((Tcl_Interp * interp)); /* 86 */
     int (*itcl_InstallBiMethods) _ANSI_ARGS_((Tcl_Interp * interp, ItclClass * cdefn)); /* 87 */
     int (*itcl_BiIsaCmd) _ANSI_ARGS_((ClientData clientData, Tcl_Interp * interp, int objc, Tcl_Obj *CONST objv[])); /* 88 */

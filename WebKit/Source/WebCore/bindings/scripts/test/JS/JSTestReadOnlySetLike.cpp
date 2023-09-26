@@ -119,8 +119,8 @@ template<> void JSTestReadOnlySetLikeDOMConstructor::initializeProperties(VM& vm
 
 static const HashTableValue JSTestReadOnlySetLikePrototypeTableValues[] =
 {
-    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestReadOnlySetLikeConstructor, 0 } },
-    { "size"_s, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestReadOnlySetLike_size, 0 } },
+    { "constructor"_s, static_cast<unsigned>(PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestReadOnlySetLikeConstructor, 0 } },
+    { "size"_s, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor, NoIntrinsic, { HashTableValue::GetterSetterType, jsTestReadOnlySetLike_size, 0 } },
     { "has"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestReadOnlySetLikePrototypeFunction_has, 1 } },
     { "entries"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestReadOnlySetLikePrototypeFunction_entries, 0 } },
     { "keys"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsTestReadOnlySetLikePrototypeFunction_keys, 0 } },
@@ -145,18 +145,13 @@ JSTestReadOnlySetLike::JSTestReadOnlySetLike(Structure* structure, JSDOMGlobalOb
 {
 }
 
-void JSTestReadOnlySetLike::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestReadOnlySetLike>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestReadOnlySetLike>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestReadOnlySetLike::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestReadOnlySetLikePrototype::create(vm, &globalObject, JSTestReadOnlySetLikePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestReadOnlySetLikePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestReadOnlySetLikePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestReadOnlySetLike::prototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -292,7 +287,7 @@ void JSTestReadOnlySetLike::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
     auto* thisObject = jsCast<JSTestReadOnlySetLike*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

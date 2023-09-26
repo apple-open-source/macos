@@ -1,4 +1,4 @@
-framework module GSS [extern_c] {
+framework module GSS {
   export *
   header "gssapi.h"
   // The headers below are all included from gssapi.h

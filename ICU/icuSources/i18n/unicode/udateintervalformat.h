@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
 *****************************************************************************************
-* Copyright (C) 2010-2012,2015-2016 International Business Machines
+* Copyright (C) 2010-2012,2015 International Business Machines
 * Corporation and others. All Rights Reserved.
 *****************************************************************************************
 */
@@ -251,6 +251,8 @@ udtitvfmt_format(const UDateIntervalFormat* formatter,
                 UFieldPosition* position,
                 UErrorCode*     status);
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_DRAFT_API
 /**
  * Attributes and values to control the behavior of udtitvfmt_format.
@@ -302,6 +304,7 @@ udtitvfmt_setAttribute(UDateIntervalFormat*             formatter,
                       UErrorCode*                       status);
 
 #endif  /* U_HIDE_DRAFT_API */
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * Formats a date/time range using the conventions established for the
@@ -352,6 +355,8 @@ udtitvfmt_formatCalendarToResult(
                 UFormattedDateInterval* result,
                 UErrorCode*     status);
 
+#if APPLE_ICU_CHANGES
+// rdar://
 /**
  * Formats a date/time range using the conventions established for the
  * UDateIntervalFormat object. This is an Apple-specific interface that is
@@ -404,6 +409,7 @@ udtitvfmt_formatCalendarToResultA(
                 UCalendar*      toCalendar,
                 UFormattedDateInterval* result,
                 UErrorCode*     status);
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * Set a particular UDisplayContext value in the formatter, such as
@@ -431,7 +437,8 @@ udtitvfmt_setContext(UDateIntervalFormat* formatter, UDisplayContext value, UErr
 U_CAPI UDisplayContext U_EXPORT2
 udtitvfmt_getContext(const UDateIntervalFormat* formatter, UDisplayContextType type, UErrorCode* status);
 
-
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
 /**
  * Internal function to support unit testing.
@@ -444,6 +451,7 @@ udtitvfmt_getPatternString(const UDateIntervalFormat* formatter,
                            int32_t resultCapacity,
                            UErrorCode* status);
 #endif // U_HIDE_INTERNAL_API
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

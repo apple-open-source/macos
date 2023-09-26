@@ -1,0 +1,77 @@
+diff --git a/configure b/configure
+index 9d9b204..b5b0bd4 100755
+--- configure
++++ configure
+@@ -22256,6 +22256,7 @@ else
+ #include <errno.h>
+ #include <string.h>
+ #include <stdio.h>
++int
+ main()
+ {
+   char buf[1024];
+@@ -23555,6 +23556,7 @@ else
+ #else
+ #define binmode
+ #endif
++int
+ main()
+ {
+   FILE *f=fopen("conftestval", "w" binmode);
+@@ -23790,6 +23792,7 @@ else
+ #else
+ #define binmode
+ #endif
++int
+ main()
+ {
+   FILE *f=fopen("conftestval", "w" binmode);
+@@ -23853,6 +23856,7 @@ else
+ #else
+ #define binmode
+ #endif
++int
+ main()
+ {
+   FILE *f=fopen("conftestval", "w" binmode);
+@@ -23916,6 +23920,7 @@ else
+ #else
+ #define binmode
+ #endif
++int
+ main()
+ {
+   FILE *f=fopen("conftestval", "w" binmode);
+@@ -24067,7 +24072,7 @@ $ac_includes_default
+ #else
+ #define binmode
+ #endif
+-main()
++int main()
+ {
+   FILE *f=fopen("conftestval", "w" binmode);
+   if (!f) exit(1);
+@@ -24354,6 +24359,7 @@ else
+ #else
+ #define binmode
+ #endif
++int
+ main()
+ {
+   FILE *f=fopen("conftestval", "w" binmode);
+@@ -24973,6 +24979,7 @@ else
+ #include <sys/types.h>
+ #include <sys/time.h>
+ #include <sys/resource.h>
++int
+ main()
+ {
+     struct rlimit limit;
+@@ -25115,6 +25122,7 @@ else
+ #ifndef SEM_FAILED
+ #define SEM_FAILED (-1)
+ #endif
++int
+ main()
+ {
+     sem_t *psem;

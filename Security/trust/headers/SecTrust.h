@@ -35,6 +35,11 @@
 #include <AvailabilityMacros.h>
 #include <Availability.h>
 
+#if TARGET_OS_OSX
+#include <Security/cssmtype.h>
+#include <Security/cssmapple.h>
+#endif
+
 __BEGIN_DECLS
 
 CF_ASSUME_NONNULL_BEGIN
@@ -645,8 +650,6 @@ CF_ASSUME_NONNULL_END
  *  Legacy functions (OS X only)
  */
 #if TARGET_OS_OSX
-#include <Security/cssmtype.h>
-#include <Security/cssmapple.h>
 
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED
@@ -750,10 +753,10 @@ OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef __nullable keychainOr
     @result A result code. See "Security Error Codes" (SecBase.h).
     @discussion This function is deprecated in OS X 10.7 and later,
     and is not available on iOS.
-    To get the complete certificate chain, use SecTrustGetCertificateCount and
-    SecTrustGetCertificateAtIndex. To get detailed status information for each
-    certificate, use SecTrustCopyProperties. To get the overall trust result
-    for the evaluation, use SecTrustGetTrustResult.
+    To get the complete certificate chain, use SecTrustCopyCertificateChain.
+    To get detailed status information for each certificate, use
+    SecTrustCopyProperties. To get the overall trust result for the evaluation,
+    use SecTrustGetTrustResult.
  */
 OSStatus SecTrustGetResult(SecTrustRef trustRef, SecTrustResultType * __nullable result,
     CFArrayRef * __nullable CF_RETURNS_RETAINED certChain, CSSM_TP_APPLE_EVIDENCE_INFO * __nullable * __nullable statusChain)

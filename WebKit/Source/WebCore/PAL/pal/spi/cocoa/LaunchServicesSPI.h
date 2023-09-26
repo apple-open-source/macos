@@ -69,6 +69,13 @@ const uint8_t kLSOpenRunningInstanceBehaviorUseRunningProcess = 1;
 @interface LSAppLink : NSObject <NSSecureCoding>
 @end
 
+@interface _LSOpenConfiguration : NSObject <NSCopying, NSSecureCoding>
+@property (readwrite) BOOL sensitive;
+@property (readwrite) BOOL allowURLOverrides;
+@property (readwrite, copy) NSDictionary<NSString *, id> *frontBoardOptions;
+@property (readwrite, copy, nonatomic) NSURL *referrerURL;
+@end
+
 @interface LSAppLink ()
 #if HAVE(APP_LINKS_WITH_ISENABLED)
 + (NSArray<LSAppLink *> *)appLinksWithURL:(NSURL *)aURL limit:(NSUInteger)limit error:(NSError **)outError;
@@ -77,11 +84,12 @@ const uint8_t kLSOpenRunningInstanceBehaviorUseRunningProcess = 1;
 #else
 + (void)getAppLinkWithURL:(NSURL *)aURL completionHandler:(LSAppLinkCompletionHandler)completionHandler;
 - (void)openInWebBrowser:(BOOL)inWebBrowser setAppropriateOpenStrategyAndWebBrowserState:(NSDictionary<NSString *, id> *)state completionHandler:(LSAppLinkOpenCompletionHandler)completionHandler;
-#endif
+#endif // HAVE(APP_LINKS_WITH_ISENABLED)
 + (void)openWithURL:(NSURL *)aURL completionHandler:(LSAppLinkOpenCompletionHandler)completionHandler;
++ (void)openWithURL:(NSURL *)aURL configuration:(_LSOpenConfiguration *)configuration completionHandler:(LSAppLinkOpenCompletionHandler)completionHandler;
 @property (readonly, strong) LSApplicationProxy *targetApplicationProxy;
 @end
-#endif
+#endif // HAVE(APP_LINKS)
 
 @interface NSURL ()
 - (NSURL *)iTunesStoreURL;
@@ -94,6 +102,7 @@ enum LSSessionID {
 
 enum {
     kLSServerConnectionStatusDoNotConnectToServerMask = 0x1ULL,
+    kLSServerConnectionStatusReleaseNotificationsMask = (1ULL << 2),
 };
 
 WTF_EXTERN_C_BEGIN
@@ -134,6 +143,7 @@ typedef struct ProcessSerialNumber ProcessSerialNumber;
 
 WTF_EXTERN_C_BEGIN
 
+extern const CFStringRef _kLSAuditTokenKey;
 extern const CFStringRef _kLSDisplayNameKey;
 extern const CFStringRef _kLSOpenOptionActivateKey;
 extern const CFStringRef _kLSOpenOptionAddToRecentsKey;
@@ -146,6 +156,7 @@ LSASNRef _LSGetCurrentApplicationASN();
 LSASNRef _LSCopyLSASNForAuditToken(LSSessionID, audit_token_t);
 OSStatus _LSSetApplicationInformationItem(LSSessionID, LSASNRef, CFStringRef keyToSetRef, CFTypeRef valueToSetRef, CFDictionaryRef* newInformationDictRef);
 CFTypeRef _LSCopyApplicationInformationItem(LSSessionID, LSASNRef, CFTypeRef);
+CFArrayRef _LSCopyMatchingApplicationsWithItems(LSSessionID, CFIndex count, CFTypeRef *keys, CFTypeRef *values);
 
 OSStatus _RegisterApplication(CFDictionaryRef, ProcessSerialNumber*);
 

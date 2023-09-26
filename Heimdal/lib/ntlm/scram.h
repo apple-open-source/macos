@@ -57,7 +57,6 @@
 #include <CommonCrypto/CommonKeyDerivation.h>
 #endif
 
-
 struct heim_scram_pair {
     char type;
     heim_scram_data data;

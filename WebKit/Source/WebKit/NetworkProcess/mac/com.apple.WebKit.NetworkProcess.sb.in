@@ -37,17 +37,20 @@
     (allow system-mac-syscall (mac-syscall-number 1)))
 
 (with-filter (mac-policy-name "Quarantine")
-    (allow system-mac-syscall (mac-syscall-number 80 82)))
+    (allow system-mac-syscall (mac-syscall-number 80 82 83)))
 
 (allow system-fcntl
     (fcntl-command
+        F_ADDFILESIGS_RETURN
         F_BARRIERFSYNC
+        F_CHECK_LV
         F_DUPFD_CLOEXEC
         F_GETCONFINED
         F_GETFL
         F_GETFD
         F_GETPATH
         F_GETPROTECTIONCLASS
+        F_NOCACHE
         F_OFD_GETLK
         F_OFD_SETLK
         F_OFD_SETLKWTIMEOUT
@@ -55,11 +58,16 @@
         F_RDADVISE
         F_SETCONFINED
         F_SETFL
-        F_SETFD))
+        F_SETFD
+        F_SETLKW
+        F_SETPROTECTIONCLASS
+        F_SINGLE_WRITER))
 
 (allow process-codesigning-entitlements-der-blob-get)
 (allow process-codesigning-identity-get (target self))
 (allow process-codesigning-status-get)
+
+(allow process-info-codesignature)
 
 (allow socket-ioctl)
 
@@ -70,20 +78,35 @@
     (require-all
         (socket-option-level SOL_SOCKET)
         (socket-option-name
+            0 ;; Replace with 131072 when 32 bit size is supported
             SO_DELEGATED
             SO_DELEGATED_UUID
+            SO_FLOW_DIVERT_TOKEN
+            SO_LINGER
+            SO_MARK_KNOWN_TRACKER
+            SO_MARK_KNOWN_TRACKER_NON_APP_INITIATED
             SO_NECP_ATTRIBUTES
             SO_NECP_CLIENTUUID
             SO_NECP_LISTENUUID
             SO_NOSIGPIPE
             SO_RCVBUF
+            SO_RCVLOWAT
+            SO_RESTRICTIONS
             SO_REUSEADDR
-            SO_REUSEPORT)))
+            SO_REUSEPORT
+            SO_SNDBUF
+            SO_SNDLOWAT
+            SO_TIMESTAMP)))
 
 (allow socket-option-get
     (require-all
         (socket-option-level SOL_SOCKET)
-        (socket-option-name SO_ERROR SO_NREAD)))
+        (socket-option-name
+            SO_ERROR
+            SO_NREAD
+            SO_NWRITE
+            SO_RCVBUF
+            SO_SNDBUF)))
 
 (allow socket-option-set
     (require-all
@@ -93,7 +116,7 @@
 (allow socket-option-set
     (require-all
         (socket-option-level IPPROTO_IP)
-        (socket-option-name 7 20 25 27)))
+        (socket-option-name 3 7 20 25 27 28)))
 
 (allow socket-option-get
     (require-all
@@ -103,7 +126,12 @@
 (allow socket-option-set
     (require-all
         (socket-option-level IPPROTO_IPV6)
-        (socket-option-name 27 61)))
+        (socket-option-name 27 35 36 61 62)))
+
+(allow socket-option-get
+    (require-all
+        (socket-option-level IPPROTO_IPV6)
+        (socket-option-name 125)))
 
 (allow socket-option-get
     (require-all
@@ -117,11 +145,34 @@
 (allow system-necp-client-action)
 (allow necp-client-open)
 
-(allow iokit-open-service (iokit-registry-entry-class "IOPMrootDomain"))
+(allow iokit-open-service (iokit-registry-entry-class
+    "AppleAPFSContainer"
+    "IOPMrootDomain"))
 
 (allow file-link
     (extension-class "com.apple.app-sandbox.read-write")
     (extension "com.apple.app-sandbox.read-write"))
+
+(allow file-link (subpath "/private/var/folders"))
+
+(allow file-clone (with telemetry))
+(allow file-clone
+    (home-subpath "/Library/Caches")
+    (home-subpath "/Library/Containers"))
+(allow file-clone (subpath
+    "/private/var/folders") )
+
+(allow darwin-notification-post
+    (notification-name
+        "com.apple.WebKit.mediaStreamingActivity"
+        "com.apple.accessibility.AirPodsSpatialAudioLockToDeviceChanged"
+        "com.apple.accessibility.cache.app.ax"
+        "com.apple.accessibility.cache.ax"
+        "com.apple.accessibility.darken.system.colors"
+        "com.apple.accessibility.increase.button.legibility"
+        "com.apple.accessibility.reduce.motion.status"
+        "com.apple.accessibility.text.legibility.status"
+        "com.apple.accessibility.wob.status"))
 #endif // USE(SANDBOX_VERSION_3)
 
 #if PLATFORM(MAC)
@@ -252,7 +303,8 @@
         "kern.ostype"
         "kern.osversion" ;; Needed by WebKit and ASL logging.
         "kern.tcsm_available" ;; Needed for IndexedDB support.
-        "kern.tcsm_enable")
+        "kern.tcsm_enable"
+        "vm.malloc_ranges") ;; <rdar://problem/105161083>
     (sysctl-name-prefix "kern.proc.pid.")
     (sysctl-name-prefix "net.routetable"))
 
@@ -349,6 +401,7 @@
     (global-name "com.apple.SystemConfiguration.configd")
     (global-name "com.apple.cfnetwork.AuthBrokerAgent")
     (global-name "com.apple.cfnetwork.cfnetworkagent")
+    (global-name "com.apple.ciphermld") ;; <rdar://106216542>
 #if __MAC_OS_X_VERSION_MIN_REQUIRED < 120000
     (global-name "com.apple.cookied")
 #endif
@@ -694,7 +747,52 @@
 (when (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'mach-kernel-endpoint))
     (allow mach-kernel-endpoint
         (apply-message-filter
-            (allow mach-message-send))))
+            (deny mach-message-send (with telemetry))
+            (allow mach-message-send (kernel-mig-routine
+                _mach_make_memory_entry
+                host_get_io_master
+                host_get_special_port
+                host_info
+                host_request_notification
+                io_connect_method
+                io_iterator_is_valid
+                io_iterator_next
+                io_object_conforms_to
+                io_registry_entry_create_iterator
+                io_registry_entry_from_path
+                io_registry_entry_get_parent_iterator
+                io_registry_entry_get_properties_bin_buf
+                io_registry_entry_get_property_bin_buf
+                io_server_version
+                io_service_add_interest_notification_64
+                io_service_get_matching_service_bin
+                io_service_open_extended
+                mach_exception_raise
+                mach_memory_entry_ownership
+                mach_port_extract_right
+                mach_port_get_context_from_user
+                mach_port_get_refs
+                mach_port_is_connection_for_service
+                mach_port_request_notification
+                mach_port_set_attributes
+                mach_vm_copy
+#if HAVE(MACH_RANGE_CREATE)
+                (when (defined? 'mach_vm_range_create) mach_vm_range_create) ;; <rdar://105161083>
+#endif
+                mach_vm_map_external
+                mach_vm_remap_external
+                semaphore_create
+                semaphore_destroy
+                task_get_special_port_from_user
+                task_info_from_user
+                task_policy_set
+                task_restartable_ranges_synchronize
+                task_set_exc_guard_behavior
+                task_set_special_port
+                task_threads_from_user
+                thread_info
+                thread_resume
+                thread_suspend)))))
 
 (when (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'syscall-mach))
     (deny syscall-mach)
@@ -745,6 +843,10 @@
             (machtrap-number MSC_mach_msg2_trap))))
 #endif // HAVE(SANDBOX_MESSAGE_FILTERING)
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/com.apple.WebKit.NetworkingAdditions.sb.in>)
-#include <WebKitAdditions/com.apple.WebKit.NetworkingAdditions.sb.in>
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+
+(allow mach-lookup
+    (global-name "com.apple.webprivacyd")
+    (global-name "com.apple.WebPrivacy.Service"))
+
 #endif

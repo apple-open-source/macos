@@ -8,5 +8,7 @@
 	</array>
 	<key>com.apple.rootless.storage.timezone</key>
 	<true/>
+	<key>com.apple.rootless.volume.Preboot</key>
+	<true/>
 </dict>
 </plist>

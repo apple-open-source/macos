@@ -41,8 +41,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/isatty.c,v 1.6 2007/01/09 00:27:54 imp Exp 
 #include <errno.h>
 
 int
-isatty(fd)
-	int fd;
+isatty(int fd)
 {
 	int retval, type;
 	struct termios t;

@@ -82,9 +82,7 @@ void	err __P((const char *, ...));
 void	usage __P((void));
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	register DIR *dirp;
 	register struct dirent *dp;

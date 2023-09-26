@@ -16,37 +16,6 @@ en_BR{
         }
     }
     calendar{
-        generic{
-            DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
-                "EEEE, d MMMM y G",
-                "d MMMM y G",
-                "d MMM y G",
-                "dd/MM/yy GGGGG",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            availableFormats{
-                EHm{"E, HH:mm"}
-                EHms{"E, HH:mm:ss"}
-                Ed{"E, d"}
-                Ehm{"E, h:mm a"}
-                Ehms{"E, h:mm:ss a"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                hmsv{"h:mm:ss a v"}
-                hmv{"h:mm a v"}
-                yQQQ{"G y QQQ"}
-                yQQQQ{"G y QQQQ"}
-            }
-        }
         gregorian{
             DateTimePatterns{
                 "HH:mm:ss zzzz",
@@ -67,8 +36,8 @@ en_BR{
                 EHm{"E, HH:mm"}
                 EHms{"E, HH:mm:ss"}
                 Ed{"E, d"}
-                Ehm{"E, h:mm a"}
-                Ehms{"E, h:mm:ss a"}
+                Ehm{"E, h:mm a"}
+                Ehms{"E, h:mm:ss a"}
                 yQQQ{"y QQQ"}
                 yQQQQ{"y QQQQ"}
             }

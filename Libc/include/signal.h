@@ -155,8 +155,10 @@ int	sigwait(const sigset_t * __restrict, int * __restrict) __DARWIN_ALIAS_C(sigw
 int	sigwait(const sigset_t * __restrict, int * __restrict) LIBC_ALIAS_C(sigwait);
 #endif /* !LIBC_ALIAS_SIGWAIT */
 //End-Libc
+#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE >= 200809L || defined(_DARWIN_C_SOURCE)
+void	psignal(int, const char *);
+#endif /*  (!_POSIX_C_SOURCE || _POSIX_C_SOURCE >= 200809L || _DARWIN_C_SOURCE) */
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-void	psignal(unsigned int, const char *);
 int	sigblock(int);
 int	sigsetmask(int);
 int	sigvec(int, struct sigvec *, struct sigvec *);

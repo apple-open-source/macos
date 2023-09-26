@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,12 +38,17 @@
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "MediaPlayerPrivate.h"
+#include "MediaStrategy.h"
+#include "OriginAccessPatterns.h"
 #include "PlatformMediaResourceLoader.h"
 #include "PlatformMediaSessionManager.h"
 #include "PlatformScreen.h"
+#include "PlatformStrategies.h"
 #include "PlatformTextTrack.h"
 #include "PlatformTimeRanges.h"
 #include "SecurityOrigin.h"
+#include "VideoFrame.h"
+#include "VideoFrameMetadata.h"
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/Lock.h>
 #include <wtf/NeverDestroyed.h>
@@ -89,10 +94,6 @@
 
 #endif // PLATFORM(COCOA)
 
-#if PLATFORM(WIN) && USE(AVFOUNDATION) && !USE(GSTREAMER)
-#include "MediaPlayerPrivateAVFoundationCF.h"
-#endif
-
 #if USE(EXTERNAL_HOLEPUNCH)
 #include "MediaPlayerPrivateHolePunch.h"
 #endif
@@ -121,7 +122,6 @@ public:
     String engineDescription() const final { return "NullMediaPlayer"_s; }
 
     PlatformLayer* platformLayer() const final { return nullptr; }
-
     FloatSize naturalSize() const final { return FloatSize(); }
 
     bool hasVideo() const final { return false; }
@@ -151,7 +151,7 @@ public:
 
     float maxTimeSeekable() const final { return 0; }
     double minTimeSeekable() const final { return 0; }
-    std::unique_ptr<PlatformTimeRanges> buffered() const final { return makeUnique<PlatformTimeRanges>(); }
+    const PlatformTimeRanges& buffered() const final { return PlatformTimeRanges::emptyRanges(); }
 
     double seekableTimeRangesLastModifiedTime() const final { return 0; }
     double liveUpdateInterval() const final { return 0; }
@@ -266,9 +266,13 @@ static void buildMediaEnginesVector() WTF_REQUIRES_LOCK(mediaEngineVectorLock)
     ASSERT(mediaEngineVectorLock.isLocked());
 
 #if USE(AVFOUNDATION)
-    if (DeprecatedGlobalSettings::isAVFoundationEnabled()) {
-        auto& registerRemoteEngine = registerRemotePlayerCallback();
+    auto& registerRemoteEngine = registerRemotePlayerCallback();
+#if ENABLE(MEDIA_SOURCE)
+    if (registerRemoteEngine && platformStrategies()->mediaStrategy().mockMediaSourceEnabled())
+        registerRemoteEngine(addMediaEngine, MediaPlayerEnums::MediaEngineIdentifier::MockMSE);
+#endif
 
+    if (DeprecatedGlobalSettings::isAVFoundationEnabled()) {
 #if ENABLE(ALTERNATE_WEBM_PLAYER)
         if (PlatformMediaSessionManager::alternateWebMPlayerEnabled()) {
             if (registerRemoteEngine)
@@ -277,7 +281,7 @@ static void buildMediaEnginesVector() WTF_REQUIRES_LOCK(mediaEngineVectorLock)
                 MediaPlayerPrivateWebM::registerMediaEngine(addMediaEngine);
         }
 #endif
-        
+
 #if PLATFORM(COCOA)
         if (registerRemoteEngine)
             registerRemoteEngine(addMediaEngine, MediaPlayerEnums::MediaEngineIdentifier::AVFoundation);
@@ -294,10 +298,6 @@ static void buildMediaEnginesVector() WTF_REQUIRES_LOCK(mediaEngineVectorLock)
 
 #if ENABLE(MEDIA_STREAM)
         MediaPlayerPrivateMediaStreamAVFObjC::registerMediaEngine(addMediaEngine);
-#endif
-
-#if PLATFORM(WIN)
-        MediaPlayerPrivateAVFoundationCF::registerMediaEngine(addMediaEngine);
 #endif
     }
 #endif // USE(AVFOUNDATION)
@@ -779,6 +779,11 @@ MediaTime MediaPlayer::currentTime() const
     return m_private->currentMediaTime();
 }
 
+bool MediaPlayer::currentTimeMayProgress() const
+{
+    return m_private->currentMediaTimeMayProgress();
+}
+
 bool MediaPlayer::setCurrentTimeDidChangeCallback(CurrentTimeDidChangeCallback&& callback)
 {
     return m_private->setCurrentTimeDidChangeCallback(WTFMove(callback));
@@ -911,6 +916,16 @@ bool MediaPlayer::isVideoFullscreenStandby() const
 
 #endif
 
+FloatSize MediaPlayer::videoInlineSize() const
+{
+    return client().mediaPlayerVideoInlineSize();
+}
+
+void MediaPlayer::setVideoInlineSizeFenced(const FloatSize& size, const WTF::MachSendRight& fence)
+{
+    m_private->setVideoInlineSizeFenced(size, fence);
+}
+
 #if PLATFORM(IOS_FAMILY)
 
 NSArray* MediaPlayer::timedMetadata() const
@@ -935,7 +950,7 @@ MediaPlayer::NetworkState MediaPlayer::networkState()
     return m_private->networkState();
 }
 
-MediaPlayer::ReadyState MediaPlayer::readyState()
+MediaPlayer::ReadyState MediaPlayer::readyState() const
 {
     return m_private->readyState();
 }
@@ -1013,22 +1028,22 @@ void MediaPlayer::setPitchCorrectionAlgorithm(PitchCorrectionAlgorithm pitchCorr
     m_private->setPitchCorrectionAlgorithm(pitchCorrectionAlgorithm);
 }
 
-std::unique_ptr<PlatformTimeRanges> MediaPlayer::buffered()
+const PlatformTimeRanges& MediaPlayer::buffered() const
 {
     return m_private->buffered();
 }
 
-std::unique_ptr<PlatformTimeRanges> MediaPlayer::seekable()
+const PlatformTimeRanges& MediaPlayer::seekable() const
 {
     return m_private->seekable();
 }
 
-MediaTime MediaPlayer::maxTimeSeekable()
+MediaTime MediaPlayer::maxTimeSeekable() const
 {
     return m_private->maxMediaTimeSeekable();
 }
 
-MediaTime MediaPlayer::minTimeSeekable()
+MediaTime MediaPlayer::minTimeSeekable() const
 {
     return m_private->minMediaTimeSeekable();
 }
@@ -1259,6 +1274,16 @@ void MediaPlayer::setShouldMaintainAspectRatio(bool maintainAspectRatio)
     m_private->setShouldMaintainAspectRatio(maintainAspectRatio);
 }
 
+void MediaPlayer::requestHostingContextID(LayerHostingContextIDCallback&& callback)
+{
+    return m_private->requestHostingContextID(WTFMove(callback));
+}
+
+LayerHostingContextID MediaPlayer::hostingContextID() const
+{
+    return m_private->hostingContextID();
+}
+
 bool MediaPlayer::didPassCORSAccessCheck() const
 {
     return m_private->didPassCORSAccessCheck();
@@ -1272,7 +1297,7 @@ bool MediaPlayer::isCrossOrigin(const SecurityOrigin& origin) const
     if (m_url.protocolIsData())
         return false;
 
-    return !origin.canRequest(m_url);
+    return !origin.canRequest(m_url, EmptyOriginAccessPatterns::singleton());
 }
 
 MediaPlayer::MovieLoadType MediaPlayer::movieLoadType() const
@@ -1365,10 +1390,11 @@ void MediaPlayer::setPrivateBrowsingMode(bool privateBrowsingMode)
 // Client callbacks.
 void MediaPlayer::networkStateChanged()
 {
+    if (m_private->networkState() >= MediaPlayer::NetworkState::FormatError)
+        m_lastErrorMessage = m_private->errorMessage();
     // If more than one media engine is installed and this one failed before finding metadata,
     // let the next engine try.
     if (m_private->networkState() >= MediaPlayer::NetworkState::FormatError && m_private->readyState() < MediaPlayer::ReadyState::HaveMetadata) {
-        m_lastErrorMessage = m_private->errorMessage();
         client().mediaPlayerEngineFailedToLoad();
         if (!m_activeEngineIdentifier
             && installedMediaEngines().size() > 1
@@ -1520,13 +1546,6 @@ long MediaPlayer::platformErrorCode() const
 
     return m_private->platformErrorCode();
 }
-
-#if PLATFORM(WIN) && USE(AVFOUNDATION)
-GraphicsDeviceAdapter* MediaPlayer::graphicsDeviceAdapter() const
-{
-    return client().mediaPlayerGraphicsDeviceAdapter();
-}
-#endif
 
 CachedResourceLoader* MediaPlayer::cachedResourceLoader()
 {
@@ -1773,6 +1792,11 @@ bool MediaPlayer::shouldIgnoreIntrinsicSize()
     return m_private->shouldIgnoreIntrinsicSize();
 }
 
+void MediaPlayer::isLoopingChanged()
+{
+    m_private->isLoopingChanged();
+}
+
 void MediaPlayer::remoteEngineFailedToLoad()
 {
     client().mediaPlayerEngineFailedToLoad();
@@ -1942,6 +1966,22 @@ String convertEnumerationToString(MediaPlayer::SupportsType enumerationValue)
     static_assert(static_cast<size_t>(MediaPlayer::SupportsType::MayBeSupported) == 2, "MediaPlayer::SupportsType::MayBeSupported is not 2 as expected");
     ASSERT(static_cast<size_t>(enumerationValue) < std::size(values));
     return values[static_cast<size_t>(enumerationValue)];
+}
+
+WTF::TextStream& operator<<(TextStream& ts, MediaPlayerEnums::VideoGravity gravity)
+{
+    switch (gravity) {
+    case MediaPlayerEnums::VideoGravity::Resize:
+        ts << "resize";
+        break;
+    case MediaPlayerEnums::VideoGravity::ResizeAspect:
+        ts << "resize-aspect";
+        break;
+    case MediaPlayerEnums::VideoGravity::ResizeAspectFill:
+        ts << "resize-aspect-fill";
+        break;
+    }
+    return ts;
 }
 
 String convertEnumerationToString(MediaPlayer::BufferingPolicy enumerationValue)

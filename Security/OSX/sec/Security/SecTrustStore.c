@@ -635,6 +635,16 @@ static bool uid_string_data_cfdata_to_error(enum SecXPCOperation op, uid_t uid, 
     }, NULL);
 }
 
+static bool uid_plist_cfdict_to_error(enum SecXPCOperation op, uid_t uid, CFPropertyListRef plist, CFDictionaryRef certificates, CFErrorRef *error)
+{
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        bool ok = false;
+        ok = SecXPCDictionarySetPListOptional(message, kSecXPCKeySettings, plist, blockError) &&
+        SecXPCDictionarySetPListOptional(message, kSecXPCKeyDictionary, certificates, blockError);
+        return ok;
+    }, NULL);
+}
+
 OSStatus SecTrustSettingsXPCRead(CFStringRef domain, CFDataRef *trustSettings) {
     __block CFDataRef results = NULL;
     OSStatus status = errSecParam;
@@ -668,5 +678,19 @@ OSStatus SecTrustSettingsXPCWrite(CFStringRef domain, CFDataRef auth, CFDataRef 
     });
     return status;
 }
+
+OSStatus SecTrustSettingsXPCMigrate(CFPropertyListRef plist, CFDictionaryRef certificates) {
+    __block OSStatus status = errSecParam;
+
+    os_activity_initiate("SecTrustSettingsXPCMigrate", OS_ACTIVITY_FLAG_DEFAULT, ^{
+        status = SecOSStatusWith(^bool (CFErrorRef *error) {
+            return TRUSTD_XPC(sec_trust_store_migrate_plist,
+                              uid_plist_cfdict_to_error, getuid(),
+                              plist, certificates, error);
+        });
+    });
+    return status;
+}
+
 #endif // TARGET_OS_OSX
 

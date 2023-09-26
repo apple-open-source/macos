@@ -56,7 +56,6 @@
 #include "DynamicsCompressorNode.h"
 #include "EventNames.h"
 #include "FFTFrame.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "GainNode.h"
 #include "HRTFDatabaseLoader.h"
@@ -65,8 +64,10 @@
 #include "IIRFilterOptions.h"
 #include "JSAudioBuffer.h"
 #include "JSDOMPromiseDeferred.h"
+#include "LocalFrame.h"
 #include "Logging.h"
 #include "NetworkingContext.h"
+#include "OriginAccessPatterns.h"
 #include "OscillatorNode.h"
 #include "Page.h"
 #include "PannerNode.h"
@@ -126,6 +127,7 @@ BaseAudioContext::BaseAudioContext(Document& document)
     , m_contextID(generateContextID())
     , m_worklet(AudioWorklet::create(*this))
     , m_listener(AudioListener::create(*this))
+    , m_noiseInjectionPolicy(document.noiseInjectionPolicy())
 {
     liveAudioContexts().add(m_contextID);
 
@@ -271,7 +273,7 @@ bool BaseAudioContext::wouldTaintOrigin(const URL& url) const
         return false;
 
     if (auto* document = this->document())
-        return !document->securityOrigin().canRequest(url);
+        return !document->securityOrigin().canRequest(url, OriginAccessPatternsForWebProcess::singleton());
 
     return false;
 }

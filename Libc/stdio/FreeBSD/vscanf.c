@@ -45,9 +45,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vscanf.c,v 1.13 2007/01/09 00:28:08 imp E
 #include "local.h"
 
 int
-vscanf(fmt, ap)
-	const char * __restrict fmt;
-	__va_list ap;
+vscanf(const char * __restrict fmt, __va_list ap)
 {
 	int retval;
 
@@ -58,10 +56,7 @@ vscanf(fmt, ap)
 }
 
 int
-vscanf_l(loc, fmt, ap)
-	locale_t loc;
-	const char * __restrict fmt;
-	__va_list ap;
+vscanf_l(locale_t loc, const char * __restrict fmt, __va_list ap)
 {
 	int retval;
 

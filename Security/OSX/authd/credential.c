@@ -141,7 +141,9 @@ credential_create(uid_t uid)
         }
         endpwent();
     } else {
-        os_log_error(AUTHD_LOG, "credential: failed to get user uid %d", uid);
+        if ((int)uid != -1) {
+            os_log_error(AUTHD_LOG, "credential: failed to get user uid %d", uid);
+        }
         cred->uid = (uid_t)-3;
         cred->name = _copy_string("invalid");
         cred->valid = false;

@@ -13,14 +13,6 @@
  */
 
 #define ETCDIR				"/etc"
-#if TARGET_OS_OSX
-#else
-#define _PATH_SSH_PROGRAM		"/usr/local/bin/ssh"
-#define _PATH_SFTP_SERVER		"/usr/local/libexec/sftp-server"
-#if defined(ENABLE_PKCS11) && defined(__APPLE_KEYCHAIN__)
-#define _PATH_SSH_APPLE_PKCS11		"/usr/local/libexec/ssh-apple-pkcs11"
-#endif
-#endif
 
 #ifndef SSHDIR
 #define SSHDIR				ETCDIR "/ssh"

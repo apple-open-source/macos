@@ -144,15 +144,19 @@ NS_ASSUME_NONNULL_BEGIN
                                 peerIDs:(NSSet<NSString*>*)peerIDs
                                   reply:(void (^)(NSError * _Nullable))reply;
 
+- (void)dropPeerIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                            peerIDs:(NSSet<NSString*>*)peerIDs
+                              reply:(void (^)(NSError * _Nullable))reply;
+
 - (void)trustStatusWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                               reply:(void (^)(TrustedPeersHelperEgoPeerStatus *status,
                                               NSError* _Nullable error))reply;
 
 - (void)resetWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                   resetReason:(CuttlefishResetReason)reason
-idmsTargetContext:(NSString*_Nullable)idmsTargetContext
-idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
-notifyIdMS:(bool)notifyIdMS
+            idmsTargetContext:(NSString*_Nullable)idmsTargetContext
+       idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+                   notifyIdMS:(bool)notifyIdMS
                         reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)localResetWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
@@ -429,10 +433,6 @@ notifyIdMS:(bool)notifyIdMS
                                                      TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
                                                      NSError * _Nullable error))reply;
 
-- (void)validatePeersWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                                reply:(void (^)(NSDictionary * _Nullable, NSError * _Nullable))reply;
-
-
 // TODO: merge this and trustStatusWithSpecificUser
 - (void)fetchTrustStateWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                   reply:(void (^)(TrustedPeersHelperPeerState* _Nullable selfPeerState,
@@ -474,6 +474,7 @@ notifyIdMS:(bool)notifyIdMS
 
 - (void)requestHealthCheckWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck
+                                    repair:(BOOL)repair
                           knownFederations:(NSArray<NSString *> *)knownFederations
                                      reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext* _Nullable moveRequest, NSError* _Nullable error))reply;
 
@@ -512,6 +513,10 @@ notifyIdMS:(bool)notifyIdMS
                                     recoveryKey:(NSString*)recoveryKey
                                            salt:(NSString*)salt
                                           reply:(void (^)(BOOL correct, NSError * _Nullable error))reply;
+
+- (void)fetchTrustedPeerCountWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                        reply:(void (^)(NSNumber* _Nullable count,
+                                                        NSError* _Nullable error))reply;
 @end
 
 /*

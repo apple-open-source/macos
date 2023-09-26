@@ -200,7 +200,7 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
                 if (delta < 0)
                     section._propertiesEditor.startEditingLastProperty();
                 else
-                    section.startEditingRuleSelector();
+                    section.startEditingFirstGroupingOrRuleSelector();
                 break;
             }
 

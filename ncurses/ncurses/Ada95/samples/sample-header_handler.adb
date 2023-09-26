@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998-2004,2006 Free Software Foundation, Inc.              --
+-- Copyright (c) 1998-2011,2014 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -35,13 +35,15 @@
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control
---  $Revision: 1.16 $
---  $Date: 2006/06/25 14:30:22 $
+--  $Revision: 1.20 $
+--  $Date: 2014/09/13 19:10:18 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 with Ada.Calendar; use Ada.Calendar;
 with Terminal_Interface.Curses.Text_IO.Integer_IO;
 with Sample.Manifest; use Sample.Manifest;
+
+pragma Elaborate_All (Terminal_Interface.Curses.Text_Io.Integer_IO);
 
 --  This package handles the painting of the header line of the screen.
 --
@@ -65,7 +67,7 @@ package body Sample.Header_Handler is
                                 Columns : Column_Count) return Integer;
    pragma Convention (C, Init_Header_Window);
 
-   procedure Internal_Update_Header_Window (Do_Update : in Boolean);
+   procedure Internal_Update_Header_Window (Do_Update : Boolean);
 
    --  The initialization must be called before Init_Screen. It steals two
    --  lines from the top of the screen.
@@ -75,11 +77,11 @@ package body Sample.Header_Handler is
       Rip_Off_Lines (2, Init_Header_Window'Access);
    end Init_Header_Handler;
 
-   procedure N_Out (N : in Integer);
+   procedure N_Out (N : Integer);
 
    --  Emit a two digit number and ensure that a leading zero is generated if
    --  necessary.
-   procedure N_Out (N : in Integer)
+   procedure N_Out (N : Integer)
    is
    begin
       if N < 10 then
@@ -92,7 +94,7 @@ package body Sample.Header_Handler is
 
    --  Paint the header window. The input parameter is a flag indicating
    --  whether or not the screen should be updated physically after painting.
-   procedure Internal_Update_Header_Window (Do_Update : in Boolean)
+   procedure Internal_Update_Header_Window (Do_Update : Boolean)
    is
       type Month_Name_Array is
          array (Month_Number'First .. Month_Number'Last) of String (1 .. 9);
@@ -119,8 +121,11 @@ package body Sample.Header_Handler is
       D      : constant Day_Number   := Day (Now);
    begin
       if Header_Window /= Null_Window then
-         if Minute /= Display_Min or else Hour /= Display_Hour
-           or else Display_Day /= D or else Display_Month /= Mon then
+         if Minute /= Display_Min
+           or else Hour /= Display_Hour
+           or else Display_Day /= D
+           or else Display_Month /= Mon
+         then
             Move_Cursor (Header_Window, 0, 0);
             N_Out (D); Add (Header_Window, '.');
             Add (Header_Window, Month_Names (Mon));
@@ -169,7 +174,7 @@ package body Sample.Header_Handler is
          Pos := Columns - Column_Position (Title'Length);
          Add (Win, 0, Pos / 2, Title);
          --  In this phase we must not allow a physical update, because
-         --  ncurses isn´t properly initialized at this point.
+         --  ncurses is not properly initialized at this point.
          Internal_Update_Header_Window (False);
          return 0;
       else

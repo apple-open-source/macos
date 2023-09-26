@@ -23,12 +23,11 @@ ONE_TEST(si_17_item_system_bluetooth)
 DISABLED_ONE_TEST(si_30_keychain_upgrade) //obsolete, needs updating
 DISABLED_ONE_TEST(si_31_keychain_bad)
 DISABLED_ONE_TEST(si_31_keychain_unreadable)
-#if !TARGET_OS_TV && !TARGET_OS_WATCH
+#if !TARGET_OS_TV && !TARGET_OS_WATCH && !TARGET_OS_XR
 ONE_TEST(si_33_keychain_backup)
 #endif
 ONE_TEST(si_40_seckey)
 ONE_TEST(si_40_seckey_custom)
-ONE_TEST(si_41_sececkey)
 ONE_TEST(si_42_identity)
 ONE_TEST(si_43_persistent)
 ONE_TEST(si_50_secrandom)

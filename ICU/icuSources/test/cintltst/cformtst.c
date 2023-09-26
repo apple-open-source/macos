@@ -42,7 +42,10 @@ void addUListFmtTest(TestNode** root);
 void addUNumberFormatterTest(TestNode** root);
 void addUFormattedValueTest(TestNode** root);
 void addUNumberRangeFormatterTest(TestNode** root);
+#if APPLE_ICU_CHANGES
+// rdar://
 void addMeasureFormatTest(TestNode** root);
+#endif  // APPLE_ICU_CHANGES
 
 void addFormatTest(TestNode** root);
 
@@ -68,7 +71,10 @@ void addFormatTest(TestNode** root)
     addUNumberFormatterTest(root);
     addUFormattedValueTest(root);
     addUNumberRangeFormatterTest(root);
+#if APPLE_ICU_CHANGES
+// rdar://
     addMeasureFormatTest(root);
+#endif  // APPLE_ICU_CHANGES
 }
 /*Internal functions used*/
 

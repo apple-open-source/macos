@@ -34,6 +34,7 @@
 #include <utilities/SecCFError.h>
 #include <Security/SecCFAllocator.h>
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecFileLocations.h>
 #import <CryptoTokenKit/CryptoTokenKit_Private.h>
 #import <LocalAuthentication/LocalAuthentication_Private.h>
 #include "OSX/sec/Security/SecItemShim.h"
@@ -41,8 +42,17 @@
 #include "SecECKey.h"
 #include "SecRSAKey.h"
 #include "SecCTKKeyPriv.h"
+#include "SecKeyCurve25519Priv.h"
 
 #include "SecSoftLink.h"
+
+static os_log_t _SECKEY_LOG(void) {
+    static dispatch_once_t once;
+    static os_log_t log;
+    dispatch_once(&once, ^{ log = os_log_create("com.apple.security", "seckey"); });
+    return log;
+};
+#define SECKEY_LOG _SECKEY_LOG()
 
 const CFStringRef kSecUseToken = CFSTR("u_Token");
 const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
@@ -53,6 +63,29 @@ const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
 @property (nonatomic) NSDictionary *sessionParameters;
 @property (nonatomic, readonly) CFIndex algorithmID;
 @end
+
+bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
+#if TARGET_OS_OSX
+    NSNumber *systemKeychainAlways = [(__bridge NSDictionary *)query objectForKey:(id)kSecUseSystemKeychainAlways];
+    if ([systemKeychainAlways isKindOfClass:NSNumber.class] && systemKeychainAlways.boolValue) {
+        os_log_debug(SECKEY_LOG, "Forcing CTK systemKey due to %{public}@=%{public}@", kSecUseSystemKeychainAlways, systemKeychainAlways);
+        return true;
+    }
+#elif TARGET_OS_IOS
+    NSNumber *systemKeychain = [(__bridge NSDictionary *)query objectForKey:(id)kSecUseSystemKeychain];
+    if ([systemKeychain isKindOfClass:NSNumber.class] && systemKeychain.boolValue) {
+        // This flag is honored only in EDU mode.
+        if (SecIsEduMode()) {
+            os_log_debug(SECKEY_LOG, "Forcing CTK systemKey due to %{public}@=%{public}@ on shared iPad", kSecUseSystemKeychain, systemKeychain);
+            return true;
+        } else {
+            os_log_debug(SECKEY_LOG, "%{public}@=%{public}@ detected, but not on shared iPad, ignoring this flag", kSecUseSystemKeychain, systemKeychain);
+        }
+    }
+#endif
+
+    return false;
+}
 
 @implementation SecCTKKey
 
@@ -69,17 +102,9 @@ const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
                 // Get new session.
                 if (isCryptoTokenKitAvailable()) {
                     NSDictionary *params = @{};
-#if TARGET_OS_OSX || TARGET_OS_IOS
-#if TARGET_OS_OSX
-                    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlwaysDarwinOSOnlyUnavailableOnMacOS;
-#elif TARGET_OS_IOS
-                    CFStringRef localSecUseSystemKeychainAlways = kSecUseSystemKeychainAlways;
-#endif
-                    NSNumber *systemKeychainAlways = [attributes objectForKey:(__bridge id)localSecUseSystemKeychainAlways];
-                    if ([systemKeychainAlways isKindOfClass:NSNumber.class] && [systemKeychainAlways boolValue]) {
-                        params = @{ @"forceSystemSession" /* TKClientTokenParameterForceSystemSession */ : @YES };
+                    if (SecCTKIsQueryForSystemKeychain((__bridge CFDictionaryRef)attributes)) {
+                        params = @{ getTKClientTokenParameterForceSystemSession(): @YES };
                     }
-#endif
                     TKClientToken *token = [[getTKClientTokenClass() alloc] initWithTokenID:attributes[(id)kSecAttrTokenID]];
                     session = [[getTKClientTokenSessionClass() alloc] initWithToken:token LAContext:attributes[(id)kSecUseAuthenticationContext] parameters:params error:error];
                 } else {
@@ -202,8 +227,13 @@ const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
         [keyType isEqualToString:(id)kSecAttrKeyTypeSecureEnclaveAttestation] ||
         [keyType isEqualToString:(id)kSecAttrKeyTypeSecureEnclaveAnonymousAttestation]) {
         return kSecECDSAAlgorithmID;
+    } else if ([keyType isEqualToString:(id)kSecAttrKeyTypeEd25519]) {
+        return kSecEd25519AlgorithmID;
+    } else if ([keyType isEqualToString:(id)kSecAttrKeyTypeX25519]) {
+        return kSecX25519AlgorithmID;
+    } else {
+        return kSecRSAAlgorithmID;
     }
-    return kSecRSAAlgorithmID;
 }
 
 @end
@@ -297,6 +327,11 @@ static CFDictionaryRef SecCTKKeyCopyAttributeDictionary(SecKeyRef keyRef) {
             (id)kSecAttrCanVerifyRecover,
             (id)kSecAttrCanWrap,
             (id)kSecAttrCanUnwrap,
+#if TARGET_OS_OSX
+            (id)kSecUseSystemKeychainAlways,
+#elif TARGET_OS_IOS
+            (id)kSecUseSystemKeychain,
+#endif
         ];
     });
 
@@ -463,14 +498,14 @@ OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey,
     }
 
     // Create non-token public key.
-    NSData *publicKeyData = key.tokenObject.publicKey;
-    if (key.algorithmID == kSecECDSAAlgorithmID) {
-        *publicKey = SecKeyCreateECPublicKey(SecCFAllocatorZeroize(), publicKeyData.bytes, publicKeyData.length, kSecKeyEncodingBytes);
-    } else {
-        *publicKey = SecKeyCreateRSAPublicKey(SecCFAllocatorZeroize(), publicKeyData.bytes, publicKeyData.length, kSecKeyEncodingBytes);
-    }
-
+    NSDictionary *publicKeyAttrs = @{
+        (id)kSecAttrKeyType: attrs[(id)kSecAttrKeyType],
+        (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPublic
+    };
+    error = nil;
+    *publicKey = SecKeyCreateWithData((CFDataRef)key.tokenObject.publicKey, (CFDictionaryRef)publicKeyAttrs, (void *)&error);
     if (*publicKey == NULL) {
+        os_log_error(SECKEY_LOG, "Failed to create token public key: %@", error);
         return errSecInvalidKey;
     }
 
@@ -516,6 +551,11 @@ SecKeyRef SecKeyCopySystemKey(SecKeySystemKeyType keyType, CFErrorRef *error) {
     // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.havenp" dataUsingEncoding:NSUTF8StringEncoding]].data
     static const uint8_t havenProposedObjectIDBytes[] = { 0x04, 24, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 'h', 'a', 'v', 'e', 'n', 'p' };
 
+    // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.sdakc" dataUsingEncoding:NSUTF8StringEncoding]].data
+    static const uint8_t sdakCommittedObjectIDBytes[] = { 0x04, 23, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 's', 'd', 'a', 'k', 'c' };
+    // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.sdakp" dataUsingEncoding:NSUTF8StringEncoding]].data
+    static const uint8_t sdakProposedObjectIDBytes[] = { 0x04, 23, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 's', 'd', 'a', 'k', 'p' };
+
     CFStringRef token = kSecAttrTokenIDAppleKeyStore;
     
     switch (keyType) {
@@ -553,6 +593,12 @@ SecKeyRef SecKeyCopySystemKey(SecKeySystemKeyType keyType, CFErrorRef *error) {
         case kSecKeySystemKeyTypeHavenProposed:
             object_id = CFDataCreate(kCFAllocatorDefault, havenProposedObjectIDBytes, sizeof(havenProposedObjectIDBytes));
             break;
+        case kSecKeySystemKeyTypeSDAKCommitted:
+            object_id = CFDataCreate(kCFAllocatorDefault, sdakCommittedObjectIDBytes, sizeof(sdakCommittedObjectIDBytes));
+            break;
+        case kSecKeySystemKeyTypeSDAKProposed:
+            object_id = CFDataCreate(kCFAllocatorDefault, sdakProposedObjectIDBytes, sizeof(sdakProposedObjectIDBytes));
+            break;
         default:
             SecError(errSecParam, error, CFSTR("unexpected attestation key type %d"), (int)keyType);
             goto out;
@@ -584,7 +630,18 @@ CFDataRef SecKeyCreateAttestation(SecKeyRef keyRef, SecKeyRef toAttestKeyRef, CF
     }
 
     NSError *err;
-    NSData *attestation = [key.tokenObject attestKey:keyToAttest.tokenObject.objectID nonce:key.sessionParameters[(__bridge id)kSecKeyParameterSETokenAttestationNonce] error:&err];
+#if 0 // Once CTK change with this method arrives in SDK, we should switch to this more sane code.
+    NSData *attestation = [key.tokenObject attestKeyObject:keyToAttest.tokenObject nonce:key.sessionParameters[(__bridge id)kSecKeyParameterSETokenAttestationNonce] error:&err];
+#else
+    NSMutableDictionary *parameters = @{
+        @"attesteeSystemSession": @([keyToAttest.tokenObject.session.parameters[@"forceSystemSession"] boolValue]),
+    }.mutableCopy;
+    NSData *nonce = key.sessionParameters[(__bridge id)kSecKeyParameterSETokenAttestationNonce];
+    if (nonce != nil) {
+        parameters[@"nonce"] = nonce;
+    }
+    NSData *attestation = [key.tokenObject operation:TKTokenOperationAttestKey data:keyToAttest.tokenObject.objectID algorithms:@[] parameters:parameters error:&err];
+#endif
     if (attestation == nil) {
         if (error != NULL) {
             *error = (CFErrorRef)CFBridgingRetain(err);

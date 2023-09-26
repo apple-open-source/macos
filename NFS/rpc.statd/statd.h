@@ -177,15 +177,14 @@ struct nfs_conf_statd {
  * 3 LOG_DEBUG and higher
  * 4+ more LOG_DEBUG
  */
-#define LOG_LEVEL       (LOG_WARNING + MIN(config.verbose, 3))
-#define DEBUG(L, ...) \
+#define LOG_LEVEL       (LOG_WARNING + MIN(statd_config.verbose, 3))
+#define STATD_DEBUG(L, ...) \
 	do { \
-	        if ((L) <= (config.verbose - 2)) \
-	                SYSLOG(LOG_DEBUG, __VA_ARGS__); \
+	        if ((L) <= (statd_config.verbose - 2)) \
+STATD_SYSLOG(LOG_DEBUG, __VA_ARGS__); \
 	} while (0)
-#define log SYSLOG
-void SYSLOG(int, const char *, ...) __attribute__((format(printf, 2, 3)));
-extern int log_to_stderr;
+#define log STATD_SYSLOG
+void STATD_SYSLOG(int, const char *, ...) __attribute__((format(printf, 2, 3)));
 
 /* Global variables		 */
 
@@ -195,8 +194,8 @@ extern void *mhroot;            /* root of the MonitoredHost tree	 */
 extern int statd_server;        /* are we the statd server (not notify, list...) */
 extern int notify_only;         /* just send SM_NOTIFY messages */
 extern int list_only;           /* just list status database entries */
-extern struct pidfh *pfh;       /* pid file */
-extern struct nfs_conf_statd config;    /* config settings */
+extern struct pidfh *statpfh;       /* pid file */
+extern struct nfs_conf_statd statd_config;    /* config settings */
 
 /* Function prototypes		 */
 

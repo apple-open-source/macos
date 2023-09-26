@@ -169,7 +169,7 @@ _auth_token_create(const audit_info_s * auditInfo, bool operateAsLeastPrivileged
     auth->auditInfo = *auditInfo;
     auth->least_privileged = operateAsLeastPrivileged;
 
-    auth->dispatch_queue = dispatch_queue_create(NULL, DISPATCH_QUEUE_SERIAL);
+    auth->dispatch_queue = dispatch_queue_create("AuthorizationRef queue", DISPATCH_QUEUE_SERIAL);
     check(auth->dispatch_queue != NULL);
     
     auth->credentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);

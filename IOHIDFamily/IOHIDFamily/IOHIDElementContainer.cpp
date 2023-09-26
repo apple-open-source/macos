@@ -667,7 +667,7 @@ void IOHIDElementContainer::setReportSize(UInt8 reportID,
                                           UInt32 numberOfBits)
 {
     IOHIDElementPrivate *element = NULL;
-    UInt8 variableReportSizeInfo = 0;
+    UInt32 variableReportSizeInfo = 0;
     
     if (reportType == kIOHIDReportTypeInput ||
         reportType == kIOHIDReportTypeFeature) {

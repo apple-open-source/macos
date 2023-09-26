@@ -888,7 +888,10 @@ shm_attach(uint32_t size)
 	shmfd = shm_open(SHM_ID, O_RDONLY, 0);
 	if (shmfd == -1)
 	{
-		REPORT_BAD_BEHAVIOR("Libnotify: %s failed on line %d with errno %d", __func__, __LINE__, errno);
+		// Do not simulated crash on sandbox violation.
+		if (errno != EPERM) {
+		    REPORT_BAD_BEHAVIOR("Libnotify: %s failed on line %d with errno %d", __func__, __LINE__, errno);
+		}
 		return false;
 	}
 
@@ -2925,7 +2928,12 @@ notify_register_coalesced_registration(const char *name, int flags, int *out_tok
 		status = _notify_lib_init(globals, EVENT_INIT);
 		if (status != NOTIFY_STATUS_OK)
 		{
-			if (status != NOTIFY_STATUS_OPT_DISABLE) {
+			/// Do not simulated crash if we are unable to talk to notifyd.
+			/// This happens only in one of the following two scenarios:
+			/// 1. __Shutdown__: simulated crashes for shutdown has been problematic for a long time
+			/// 	(see: rdar://78407301)
+			/// 2. __Sandbox Violation__: sandbox has its own telemetry and crash reporting
+			if (status != NOTIFY_STATUS_OPT_DISABLE && status != NOTIFY_STATUS_SERVER_NOT_FOUND) {
 				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
 			}
 #ifdef DEBUG

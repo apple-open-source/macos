@@ -26,6 +26,7 @@
 #import "config.h"
 #import "NetworkProcess.h"
 
+#import "ArgumentCodersCocoa.h"
 #import "CookieStorageUtilsCF.h"
 #import "Logging.h"
 #import "NetworkCache.h"
@@ -41,7 +42,6 @@
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SecurityOriginData.h>
-#import <WebCore/SocketStreamHandleImpl.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CallbackAggregator.h>
@@ -49,6 +49,10 @@
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+
+#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+#import <pal/spi/cocoa/NEFilterSourceSPI.h>
+#endif
 
 namespace WebKit {
 
@@ -74,10 +78,13 @@ static void initializeNetworkSettings()
 
 void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessCreationParameters& parameters)
 {
+    m_isParentProcessFullWebBrowserOrRunningTest = parameters.isParentProcessFullWebBrowserOrRunningTest;
+
     _CFNetworkSetATSContext(parameters.networkATSContext.get());
+    IPC::setStrictSecureDecodingForAllObjCEnabled(parameters.strictSecureDecodingForAllObjCEnabled);
 
     m_uiProcessBundleIdentifier = parameters.uiProcessBundleIdentifier;
-    
+
     initializeNetworkSettings();
 
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
@@ -97,6 +104,13 @@ void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessC
     // Disable NSURLCache.
     auto urlCache(adoptNS([[NSURLCache alloc] initWithMemoryCapacity:0 diskCapacity:0 diskPath:nil]));
     [NSURLCache setSharedURLCache:urlCache.get()];
+
+#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+    auto auditToken = parentProcessConnection()->getAuditToken();
+    ASSERT(auditToken);
+    if (auditToken && [NEFilterSource respondsToSelector:@selector(setDelegation:)])
+        [NEFilterSource setDelegation:&auditToken.value()];
+#endif
 }
 
 RetainPtr<CFDataRef> NetworkProcess::sourceApplicationAuditData() const
@@ -121,59 +135,22 @@ std::optional<audit_token_t> NetworkProcess::sourceApplicationAuditToken() const
 #endif
 }
 
-#if !HAVE(HSTS_STORAGE)
-static void filterPreloadHSTSEntry(const void* key, const void* value, void* context)
-{
-    RELEASE_ASSERT(context);
-
-    ASSERT(key);
-    ASSERT(value);
-    if (!key || !value)
-        return;
-
-    ASSERT(key != kCFNull);
-    if (key == kCFNull)
-        return;
-    
-    auto* hostnames = static_cast<HashSet<String>*>(context);
-    auto val = static_cast<CFDictionaryRef>(value);
-    if (CFDictionaryGetValue(val, _kCFNetworkHSTSPreloaded) != kCFBooleanTrue)
-        hostnames->add((CFStringRef)key);
-}
-#endif
-
 HashSet<String> NetworkProcess::hostNamesWithHSTSCache(PAL::SessionID sessionID) const
 {
     HashSet<String> hostNames;
-#if HAVE(HSTS_STORAGE)
     if (auto* networkSession = static_cast<NetworkSessionCocoa*>(this->networkSession(sessionID))) {
         for (NSString *host in networkSession->hstsStorage().nonPreloadedHosts)
             hostNames.add(host);
     }
-#else
-    if (auto* session = storageSession(sessionID)) {
-        if (auto HSTSPolicies = adoptCF(_CFNetworkCopyHSTSPolicies(session->platformSession())))
-            CFDictionaryApplyFunction(HSTSPolicies.get(), filterPreloadHSTSEntry, &hostNames);
-    }
-#endif
     return hostNames;
 }
 
 void NetworkProcess::deleteHSTSCacheForHostNames(PAL::SessionID sessionID, const Vector<String>& hostNames)
 {
-#if HAVE(HSTS_STORAGE)
     if (auto* networkSession = static_cast<NetworkSessionCocoa*>(this->networkSession(sessionID))) {
         for (auto& hostName : hostNames)
             [networkSession->hstsStorage() resetHSTSForHost:hostName];
     }
-#else
-    if (auto* session = storageSession(sessionID)) {
-        for (auto& hostName : hostNames) {
-            auto url = URL({ }, makeString("https://", hostName));
-            _CFNetworkResetHSTS(url.createCFURL().get(), session->platformSession());
-        }
-    }
-#endif
 }
 
 void NetworkProcess::allowSpecificHTTPSCertificateForHost(PAL::SessionID, const WebCore::CertificateInfo& certificateInfo, const String& host)
@@ -186,13 +163,8 @@ void NetworkProcess::clearHSTSCache(PAL::SessionID sessionID, WallTime modifiedS
 {
     NSTimeInterval timeInterval = modifiedSince.secondsSinceEpoch().seconds();
     NSDate *date = [NSDate dateWithTimeIntervalSince1970:timeInterval];
-#if HAVE(HSTS_STORAGE)
     if (auto* networkSession = static_cast<NetworkSessionCocoa*>(this->networkSession(sessionID)))
         [networkSession->hstsStorage() resetHSTSHostsSinceDate:date];
-#else
-    if (auto* session = storageSession(sessionID))
-        _CFNetworkResetHSTSHostsSinceDate(session->platformSession(), (__bridge CFDateRef)date);
-#endif
 }
 
 void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<void()>&& completionHandler)
@@ -258,14 +230,32 @@ const String& NetworkProcess::uiProcessBundleIdentifier() const
 }
 
 #if PLATFORM(IOS_FAMILY)
-
 void NetworkProcess::setBackupExclusionPeriodForTesting(PAL::SessionID sessionID, Seconds period, CompletionHandler<void()>&& completionHandler)
 {
     auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
     if (auto* session = networkSession(sessionID))
         session->storageManager().setBackupExclusionPeriodForTesting(period, [callbackAggregator] { });
 }
+#endif // PLATFORM(IOS_FAMILY)
 
-#endif
+#if HAVE(NW_PROXY_CONFIG)
+void NetworkProcess::clearProxyConfigData(PAL::SessionID sessionID)
+{
+    auto* session = networkSession(sessionID);
+    if (!session)
+        return;
+
+    session->clearProxyConfigData();
+}
+
+void NetworkProcess::setProxyConfigData(PAL::SessionID sessionID, Vector<std::pair<Vector<uint8_t>, WTF::UUID>>&& proxyConfigurations)
+{
+    auto* session = networkSession(sessionID);
+    if (!session)
+        return;
+
+    session->setProxyConfigData(WTFMove(proxyConfigurations));
+}
+#endif // HAVE(NW_PROXY_CONFIG)
 
 } // namespace WebKit

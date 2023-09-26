@@ -80,7 +80,7 @@ void AlphabeticIndexTest::runIndexedTest( int32_t index, UBool exec, const char*
 } UPRV_BLOCK_MACRO_END
 
 #define TEST_ASSERT(expr) UPRV_BLOCK_MACRO_BEGIN { \
-    if ((expr)==FALSE) { \
+    if ((expr)==false) { \
         errln("%s:%d: Test failure \n", __FILE__, __LINE__); \
     } \
 } UPRV_BLOCK_MACRO_END
@@ -228,7 +228,7 @@ void AlphabeticIndexTest::APITest() {
         TEST_CHECK_STATUS;
         while (index->nextRecord(status)) {
             TEST_CHECK_STATUS;
-            TEST_ASSERT(FALSE);   // No items have been added.
+            TEST_ASSERT(false);   // No items have been added.
         }
         TEST_CHECK_STATUS;
     }
@@ -250,10 +250,10 @@ void AlphabeticIndexTest::APITest() {
     TEST_CHECK_STATUS;
     TEST_ASSERT(itemCount == 4);
 
-    TEST_ASSERT(index->nextBucket(status) == FALSE);
+    TEST_ASSERT(index->nextBucket(status) == false);
     index->resetBucketIterator(status);
     TEST_CHECK_STATUS;
-    TEST_ASSERT(index->nextBucket(status) == TRUE);
+    TEST_ASSERT(index->nextBucket(status) == true);
 
     index->clearRecords(status);
     TEST_CHECK_STATUS;
@@ -261,7 +261,7 @@ void AlphabeticIndexTest::APITest() {
     while (index->nextBucket(status)) {
         TEST_CHECK_STATUS;
         while (index->nextRecord(status)) {
-            TEST_ASSERT(FALSE);   // No items have been added.
+            TEST_ASSERT(false);   // No items have been added.
         }
     }
     TEST_CHECK_STATUS;
@@ -290,7 +290,7 @@ void AlphabeticIndexTest::APITest() {
             TEST_ASSERT(type == U_ALPHAINDEX_OVERFLOW);
             TEST_ASSERT(label == charlie);
         } else {
-            TEST_ASSERT(FALSE);
+            TEST_ASSERT(false);
         }
     }
     TEST_ASSERT(i==28);
@@ -464,9 +464,9 @@ void AlphabeticIndexTest::HackPinyinTest() {
         // std::string s;
         // std::cout << label.toUTF8String(s) << ":  ";
 
-        UBool  bucketHasContents = FALSE;
+        UBool  bucketHasContents = false;
         while (aindex.nextRecord(status)) {
-            bucketHasContents = TRUE;
+            bucketHasContents = true;
             UnicodeString name = aindex.getRecordName();
             if (aindex.getBucketLabelType() != U_ALPHAINDEX_NORMAL) {
                 errln("File %s, Line %d, Name \"\\u%x\" is in an under or overflow bucket.",
@@ -530,7 +530,12 @@ static const char *localeAndIndexCharactersLists[][2] = {
     /* Ukrainian*/  {"uk", "\\u0410:\\u0411:\\u0412:\\u0413:\\u0490:\\u0414:\\u0415:\\u0404:\\u0416:\\u0417:\\u0418:\\u0406:\\u0407:\\u0419:\\u041A:\\u041B:\\u041C:\\u041D:\\u041E:\\u041F:\\u0420:\\u0421:\\u0422:\\u0423:\\u0424:\\u0425:\\u0426:\\u0427:\\u0428:\\u0429:\\u042E:\\u042F"},
     /* Vietnamese*/ {"vi", "A:\\u0102:\\u00C2:B:C:D:\\u0110:E:\\u00CA:F:G:H:I:J:K:L:M:N:O:\\u00D4:\\u01A0:P:Q:R:S:T:U:\\u01AF:V:W:X:Y:Z"},
     /* Chinese*/    {"zh", "A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:V:W:X:Y:Z"},
+#if APPLE_ICU_CHANGES
+// rdar://104369003 use full pinyin/stroke collations
+    /* Chinese (Traditional Han)*/  {"zh_Hant", "1\\u5283:2\\u5283:3\\u5283:4\\u5283:5\\u5283:6\\u5283:7\\u5283:8\\u5283:9\\u5283:10\\u5283:11\\u5283:12\\u5283:13\\u5283:14\\u5283:15\\u5283:16\\u5283:17\\u5283:18\\u5283:19\\u5283:20\\u5283:21\\u5283:22\\u5283:23\\u5283:24\\u5283:25\\u5283:26\\u5283:27\\u5283:28\\u5283:29\\u5283:30\\u5283:31\\u5283:32\\u5283:33\\u5283:34\\u5283:35\\u5283:36\\u5283:37\\u5283:38\\u5283:39\\u5283:40\\u5283:41\\u5283:42\\u5283:43\\u5283:44\\u5283:46\\u5283:48\\u5283:52\\u5283:53\\u5283:58\\u5283:64\\u5283:76\\u5283:84\\u5283"},
+#else
     /* Chinese (Traditional Han)*/  {"zh_Hant", "1\\u5283:2\\u5283:3\\u5283:4\\u5283:5\\u5283:6\\u5283:7\\u5283:8\\u5283:9\\u5283:10\\u5283:11\\u5283:12\\u5283:13\\u5283:14\\u5283:15\\u5283:16\\u5283:17\\u5283:18\\u5283:19\\u5283:20\\u5283:21\\u5283:22\\u5283:23\\u5283:24\\u5283:25\\u5283:26\\u5283:27\\u5283:28\\u5283:29\\u5283:30\\u5283:31\\u5283:32\\u5283:33\\u5283:35\\u5283:36\\u5283:39\\u5283:48\\u5283"},
+#endif  // APPLE_ICU_CHANGES
 };
 
 void AlphabeticIndexTest::TestIndexCharactersList() {

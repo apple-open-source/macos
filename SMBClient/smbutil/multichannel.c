@@ -274,15 +274,25 @@ format_mc_status(struct smbioc_iod_prop * props)
         sprintf(buf, "%u", props->iod_prop_con_port);
         json_add_str(dict, "port", buf);
     }
-
-    if (props->iod_prop_rx > 0) {
-        sprintf(buf, "%llu", props->iod_prop_rx);
+    
+    if (props->iod_prop_rx_bytes > 0) {
+        sprintf(buf, "%llu", props->iod_prop_rx_bytes);
         json_add_str(dict, "total_rx_bytes", buf);
     }
 
-    if (props->iod_prop_tx > 0) {
-        sprintf(buf, "%llu", props->iod_prop_tx);
+    if (props->iod_prop_tx_bytes > 0) {
+        sprintf(buf, "%llu", props->iod_prop_tx_bytes);
         json_add_str(dict, "total_tx_bytes", buf);
+    }
+    
+    if (props->iod_prop_rx_packets > 0) {
+        sprintf(buf, "%llu", props->iod_prop_rx_packets);
+        json_add_str(dict, "total_rx_packets", buf);
+    }
+
+    if (props->iod_prop_tx_packets > 0) {
+        sprintf(buf, "%llu", props->iod_prop_tx_packets);
+        json_add_str(dict, "total_tx_packets", buf);
     }
 
     if (props->iod_prop_setup_time.tv_sec > 0) {
@@ -505,6 +515,12 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
             sprintf(buf, "%llu", session_info.ioc_total_tx_bytes);
             json_add_str(dict, "total_tx_bytes", buf);
 
+            sprintf(buf, "%llu", session_info.ioc_total_rx_packets);
+            json_add_str(dict, "total_rx_packets", buf);
+
+            sprintf(buf, "%llu", session_info.ioc_total_tx_packets);
+            json_add_str(dict, "total_tx_packets", buf);
+
             sprintf(buf, "%u", session_info.ioc_session_reconnect_count);
             json_add_str(dict, "session_reconnect_count", buf);
 
@@ -538,10 +554,14 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
                 session_info.ioc_session_reconnect_time.tv_sec > 0) {
                 strftime(buf, sizeof buf, "%F %T",
                          localtime(&session_info.ioc_session_reconnect_time.tv_sec));
-                fprintf(stdout, "Reconnect Time %s", buf);
+                fprintf(stdout, ", Reconnect Time %s", buf);
             }
-            fprintf(stdout, "\n\tTotal RX Bytes: %llu, ", session_info.ioc_total_rx_bytes);
-            fprintf(stdout, "Total TX Bytes: %llu", session_info.ioc_total_tx_bytes);
+            fprintf(stdout, "\n\tTotal RX Bytes: %llu (Packets: %llu)",
+                    session_info.ioc_total_rx_bytes,
+                    session_info.ioc_total_rx_packets);
+            fprintf(stdout, "\n\tTotal TX Bytes: %llu (Packets: %llu)",
+                    session_info.ioc_total_tx_bytes,
+                    session_info.ioc_total_tx_packets );
             fprintf(stdout, "\n");
         }
     }

@@ -36,6 +36,7 @@ static ssize_t		ipp_read_http(http_t *http, ipp_uchar_t *buffer,
 			              size_t length);
 static ssize_t		ipp_read_file(int *fd, ipp_uchar_t *buffer,
 			              size_t length);
+__attribute__((format(printf, 2, 3)))
 static void		ipp_set_error(ipp_status_t status, const char *format,
 			              ...);
 static _ipp_value_t	*ipp_set_value(ipp_t *ipp, ipp_attribute_t **attr,

@@ -89,6 +89,8 @@
 #define SMB_ENABLE_AES_256_GCM      0x00020000   /* Enable SMB v3.1.1 AES_256_GCM encryption */
 #define SMB_FORCE_SESSION_ENCRYPT   0x00040000   /* Force session level encryption */
 #define SMB_FORCE_SHARE_ENCRYPT     0x00080000   /* Force share level encryption  */
+#define SMB_ENABLE_AES_128_CMAC     0x00100000   /* Enable SMB v3.1.1 AES_128_CMAC signing */
+#define SMB_ENABLE_AES_128_GMAC     0x00200000   /* Enable SMB v3.1.1 AES_128_GMAC signing */
 
 #define SMB_IOC_SPI_INIT_SIZE	8 * 1024 /* Inital buffer size for server provided init token */
 
@@ -98,6 +100,9 @@
 	user_addr_t	ioc_kern_ ## NAME __attribute((aligned(8))); \
 	TYPE		ioc_ ## NAME __attribute((aligned(8))); \
     }
+
+#define SMB_IOC_CHECK_SIZE(STRUCT)\
+    _Static_assert(sizeof(STRUCT) <= IOCPARM_MAX, #STRUCT " is too large")
 
 struct smbioc_ossn {
 	uint32_t	ioc_reconnect_wait_time;
@@ -285,10 +290,13 @@ struct smbioc_session_properties {
 	uint64_t	rxmax;				
 	uint64_t	wxmax;
     uint32_t    encrypt_cipher;
+    uint32_t    signing_algorithm;
     /* mc additions */
     struct timespec ioc_session_setup_time;
     uint64_t        ioc_total_rx_bytes;
     uint64_t        ioc_total_tx_bytes;
+    uint64_t        ioc_total_rx_packets;
+    uint64_t        ioc_total_tx_packets;
     uint32_t        ioc_session_reconnect_count;
     uint32_t        ioc_reserved0;
     struct timespec ioc_session_reconnect_time;
@@ -330,24 +338,26 @@ struct smbioc_nic_info {
 
 #define MAX_NUM_OF_IODS_IN_QUERY 64
 struct smbioc_multichannel_properties {
-    uint32_t    ioc_version;
-    uint32_t    ioc_reserved;
-    uint32_t    num_of_iod_properties;
     struct smbioc_iod_prop {
         uint32_t iod_prop_id;
         uint32_t iod_flags;
         uint64_t iod_prop_con_speed;
         uint64_t iod_prop_c_if;
         uint32_t iod_prop_c_if_type;
-        uint64_t iod_prop_s_if;
         uint32_t iod_prop_s_if_caps;
-        uint8_t  iod_prop_state;
-        uint32_t iod_prop_con_port;
-        uint64_t iod_prop_rx;
-        uint64_t iod_prop_tx;
+        uint64_t iod_prop_s_if;
+        uint64_t iod_prop_rx_bytes;
+        uint64_t iod_prop_tx_bytes;
+        uint64_t iod_prop_rx_packets;
+        uint64_t iod_prop_tx_packets;
         struct timespec iod_prop_setup_time;
+        uint32_t iod_prop_con_port;
         struct address_properties  iod_prop_s_addr;
+        uint8_t  iod_prop_state;
     } iod_properties[MAX_NUM_OF_IODS_IN_QUERY];
+    uint32_t    ioc_version;
+    uint32_t    ioc_reserved;
+    uint32_t    num_of_iod_properties;
 };
 
 struct smbioc_list_snapshots {
@@ -383,6 +393,25 @@ struct smbioc_list_snapshots {
 #define SMBIOC_MULTICHANNEL_PROPERTIES    _IOWR('n', 131, struct smbioc_multichannel_properties)
 #define SMBIOC_NIC_INFO         _IOWR('n', 132, struct smbioc_nic_info)
 /* Rest of the IOCTLs are defined in smb_dev_2.h */
+
+/*
+ * Compile time check for all structs passed as IOCTL data
+ * Size must not be larger than IOCPARM_MAX
+ */
+SMB_IOC_CHECK_SIZE(struct smbioc_auth_info);
+SMB_IOC_CHECK_SIZE(struct smbioc_rq);
+SMB_IOC_CHECK_SIZE(struct smbioc_t2rq);
+SMB_IOC_CHECK_SIZE(struct smbioc_path_convert);
+SMB_IOC_CHECK_SIZE(struct smbioc_negotiate);
+SMB_IOC_CHECK_SIZE(struct smbioc_ntwrk_identity);
+SMB_IOC_CHECK_SIZE(struct smbioc_rw);
+SMB_IOC_CHECK_SIZE(struct smbioc_setup);
+SMB_IOC_CHECK_SIZE(struct smbioc_share);
+SMB_IOC_CHECK_SIZE(struct smbioc_fsctl);
+SMB_IOC_CHECK_SIZE(struct smbioc_session_properties);
+SMB_IOC_CHECK_SIZE(struct smbioc_os_lanman);
+SMB_IOC_CHECK_SIZE(struct smbioc_multichannel_properties);
+SMB_IOC_CHECK_SIZE(struct smbioc_nic_info);
 
 /*
 * Additional non-errno values that can be returned to NetFS, these get translate

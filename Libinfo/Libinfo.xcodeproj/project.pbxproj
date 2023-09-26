@@ -26,6 +26,7 @@
 		2D31A0FC128074E700D5A84C /* getifmaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D31A0FB128074E700D5A84C /* getifmaddrs.c */; };
 		2D4070B1129354A700FE81ED /* getnameinfo_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D4070B0129354A700FE81ED /* getnameinfo_link.c */; };
 		2D5DD5D21608E6E80051891A /* configuration_profile.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D5DD5D01608E6E80051891A /* configuration_profile.c */; };
+		6CD512ED2885D940008BA24F /* darwin_directory.c in Sources */ = {isa = PBXBuildFile; fileRef = 6CD512EC2885D940008BA24F /* darwin_directory.c */; };
 		BD1379B727D6BB390079209B /* od_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = BD1379B627D6BB380079209B /* od_debug.c */; };
 		C965793A1B94C97100624699 /* muser_module.c in Sources */ = {isa = PBXBuildFile; fileRef = C96579391B94C97100624699 /* muser_module.c */; };
 		FC5284C011478C200058CCB0 /* herror.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283EE11478C200058CCB0 /* herror.c */; };
@@ -151,6 +152,8 @@
 		2D5DD5D11608E6E80051891A /* configuration_profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = configuration_profile.h; sourceTree = "<group>"; };
 		2DBB147712DBD63300D710E3 /* inet6_opt_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_opt_init.3; sourceTree = "<group>"; };
 		3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Libinfo.xcconfig; path = xcodescripts/Libinfo.xcconfig; sourceTree = "<group>"; };
+		6CD512EC2885D940008BA24F /* darwin_directory.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = darwin_directory.c; sourceTree = "<group>"; };
+		6CF15C3528D52EF800086299 /* darwin_directory_helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = darwin_directory_helpers.h; sourceTree = "<group>"; usesTabs = 1; };
 		B73D52B02673D1C700E1E5CF /* lookupPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lookupPriv.h; sourceTree = "<group>"; };
 		BD1379B527D6BB380079209B /* od_debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = od_debug.h; sourceTree = "<group>"; };
 		BD1379B627D6BB380079209B /* od_debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = od_debug.c; sourceTree = "<group>"; };
@@ -383,6 +386,7 @@
 				BD1379B527D6BB380079209B /* od_debug.h */,
 				BDE3980E2044CDA300CAD4A2 /* pseudo_public.h */,
 				BDE3980F2044CDA300CAD4A2 /* pseudo_private.h */,
+				6CF15C3528D52EF800086299 /* darwin_directory_helpers.h */,
 			);
 			path = Libinfo;
 			sourceTree = "<group>";
@@ -437,6 +441,7 @@
 				FC52841911478C200058CCB0 /* bootparams.5 */,
 				FC52841A11478C200058CCB0 /* bootparams.h */,
 				FC52841B11478C200058CCB0 /* cache_module.c */,
+				6CD512EC2885D940008BA24F /* darwin_directory.c */,
 				FC52841C11478C200058CCB0 /* ds_module.c */,
 				FC52841D11478C200058CCB0 /* file_module.c */,
 				FC52841E11478C200058CCB0 /* gai_strerror.3 */,
@@ -572,6 +577,7 @@
 				FC52848B11478C200058CCB0 /* getrpcent.c */,
 				FC52848C11478C200058CCB0 /* getrpcport.3 */,
 				FC52848D11478C200058CCB0 /* getrpcport.c */,
+				847ED8B428598CC90065F74D /* module.modulemap */,
 				FC52849011478C200058CCB0 /* pmap_clnt.c */,
 				FC52849111478C200058CCB0 /* pmap_clnt.h */,
 				FC52849211478C200058CCB0 /* pmap_getmaps.c */,
@@ -586,6 +592,7 @@
 				FC52849B11478C200058CCB0 /* README */,
 				FC52849C11478C200058CCB0 /* rpc.3 */,
 				FC52849D11478C200058CCB0 /* rpc.h */,
+				847ED8B528598D9B0065F74D /* rpc_private.modulemap */,
 				FC52849E11478C200058CCB0 /* rpc_callmsg.c */,
 				FC52849F11478C200058CCB0 /* rpc_commondata.c */,
 				FC5284A011478C200058CCB0 /* rpc_dtablesize.c */,
@@ -785,6 +792,7 @@
 				FC52853111478C200058CCB0 /* getrpcent.c in Sources */,
 				FC52853211478C200058CCB0 /* getrpcport.c in Sources */,
 				FC52853511478C200058CCB0 /* pmap_clnt.c in Sources */,
+				6CD512ED2885D940008BA24F /* darwin_directory.c in Sources */,
 				FC52853711478C200058CCB0 /* pmap_getmaps.c in Sources */,
 				FC52853811478C200058CCB0 /* pmap_getport.c in Sources */,
 				FC52853911478C200058CCB0 /* pmap_prot.c in Sources */,

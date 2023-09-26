@@ -7,12 +7,16 @@
 
 #include <darwintest.h>
 
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+
 #include <malloc/malloc.h>
 #include <stdlib.h>  // free()
 
 #include "../src/platform.h"  // CONFIG_NANOZONE
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_ENVVAR("MallocProbGuard=0"));
+// A local T_META_ENVVAR declaration will override all global ones so we have to
+// restate this on tests that use T_META_ENVVAR.
 
 static void
 check_zone_names(malloc_zone_t **zones, const char **names, uint32_t count)
@@ -33,14 +37,15 @@ check_default_zone_names(const char **names, uint32_t count) {
 }
 
 T_DECL(default_zone, "Zone names: default",
-		T_META_ENVVAR("MallocNanoZone=0"))
+		T_META_ENVVAR("MallocNanoZone=0"), T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_TAG_XZONE)
 {
 	const char *names[] = {"DefaultMallocZone"};
 	check_default_zone_names(names, 1);
 }
 
 T_DECL(default_zone_and_nano, "Zone names: default + nano",
-		T_META_ENVVAR("MallocNanoZone=1"))
+		T_META_ENVVAR("MallocNanoZone=1"), T_META_ENVVAR("MallocProbGuard=0"))
 {
 #if CONFIG_NANOZONE
 	const char *names[] = {"DefaultMallocZone", "MallocHelperZone"};
@@ -51,13 +56,14 @@ T_DECL(default_zone_and_nano, "Zone names: default + nano",
 }
 
 T_DECL(default_zone_and_pgm, "Zone names: default + ProbGuard",
-		T_META_ENVVAR("MallocProbGuard=1"), T_META_ENVVAR("MallocNanoZone=0"))
+		T_META_ENVVAR("MallocProbGuard=1"), T_META_ENVVAR("MallocNanoZone=0"),
+		T_META_TAG_XZONE)
 {
 	const char *names[] = {"ProbGuardMallocZone", "DefaultMallocZone"};
 	check_default_zone_names(names, 2);
 }
 
-T_DECL(zone_singletons, "Zone singletons")
+T_DECL(zone_singletons, "Zone singletons", T_META_TAG_XZONE)
 {
 	malloc_zone_t *zones[] = {
 		malloc_default_zone(),
@@ -86,7 +92,7 @@ T_DECL(virtual_zone0, "Ensure we return the virtual zone in place of zone 0")
 	T_EXPECT_EQ(call_malloc_zone_from_ptr(), virtual_zone, NULL);
 }
 
-T_DECL(zone_creation, "Zone creation")
+T_DECL(zone_creation, "Zone creation", T_META_TAG_XZONE)
 {
 	T_EXPECT_NULL(malloc_create_zone(0, 0)->zone_name, "No name");
 }
@@ -109,10 +115,12 @@ check_set_zone_name(malloc_zone_t* zone)
 	const char *copy = zone_name;
 	malloc_set_zone_name(zone, NULL);
 	T_EXPECT_NULL(zone_name, "zone name set to NULL");
-	T_EXPECT_EQ(malloc_size(copy), 0ul, "copy freed");
+	if (!getenv("MallocSecureAllocator")) {
+		T_EXPECT_EQ(malloc_size(copy), 0ul, "copy freed");
+	}
 }
 
-T_DECL(malloc_set_zone_name, "malloc_set_zone_name")
+T_DECL(malloc_set_zone_name, "malloc_set_zone_name", T_META_TAG_XZONE)
 {
 	malloc_zone_t *zones[] = {
 		malloc_default_zone(),

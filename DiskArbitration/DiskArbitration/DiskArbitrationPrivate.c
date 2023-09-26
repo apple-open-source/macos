@@ -2435,7 +2435,7 @@ void DiskArbUpdateClientFlags( void )
 
                             break;
                         }
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
                         case kDA_DISK_APPROVAL_NOTIFY:
                         {
                             DARegisterDiskMountApprovalCallback( ( void * ) __gDiskArbSession, NULL, __DiskArbDiskMountApprovalCallback, NULL );
@@ -2454,7 +2454,7 @@ void DiskArbUpdateClientFlags( void )
 
                             break;
                         }
-#endif
+
                         case kDA_NOTIFICATIONS_COMPLETE:
                         {
                             DARegisterIdleCallback( __gDiskArbSession, __DiskArbIdleCallback, NULL );
@@ -2712,7 +2712,7 @@ void DARegisterDiskDisappearedCallbackBlock( DASessionRef              session,
     _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskDisappearedCallback, 0, match, NULL, true );
 }
 
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
 void DARegisterDiskEjectApprovalCallbackBlock( DASessionRef                session,
                                           CFDictionaryRef             match,
                                           DADiskEjectApprovalCallbackBlock callback )
@@ -2720,7 +2720,7 @@ void DARegisterDiskEjectApprovalCallbackBlock( DASessionRef                sessi
 
     _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskEjectApprovalCallback, 0, match, NULL, true);
 }
-#endif
+
 
 void DARegisterDiskPeekCallbackBlock( DASessionRef        session,
                                  CFDictionaryRef     match,
@@ -2731,7 +2731,7 @@ void DARegisterDiskPeekCallbackBlock( DASessionRef        session,
     _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskPeekCallback, order, match, NULL , true);
 }
 
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
 void DARegisterDiskMountApprovalCallbackBlock( DASessionRef                session,
                                           CFDictionaryRef             match,
                                           DADiskMountApprovalCallbackBlock callback )
@@ -2747,7 +2747,7 @@ void DARegisterDiskUnmountApprovalCallbackBlock( DASessionRef                  s
     
     _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskUnmountApprovalCallback, 0, match, NULL , true);
 }
-#endif
+
 
 void DADiskMountWithBlock( DADiskRef disk, CFURLRef path, DADiskMountOptions options, DADiskMountCallbackBlock callback )
 {

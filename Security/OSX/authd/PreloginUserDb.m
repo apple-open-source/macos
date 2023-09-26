@@ -136,7 +136,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 - (instancetype)init
 {
 	if ((self = [super init])) {
-		_queue = dispatch_queue_create("com.apple.PLUDB", DISPATCH_QUEUE_SERIAL);
+		_queue = dispatch_queue_create("Prelogin Database Queue", DISPATCH_QUEUE_SERIAL);
 		if (!_queue) {
 			os_log_error(AUTHD_LOG, "Failed to create queue");
 			return nil;

@@ -35,6 +35,10 @@
 #include <security/pam_appl.h>
 #include <pwd.h>
 #include <sys/syslimits.h>
+#include "Logging.h"
+
+PAM_DEFINE_LOG(self)
+#define PAM_LOG PAM_LOG_self()
 
 PAM_EXTERN int
 pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
@@ -48,7 +52,7 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* get target account */
 	if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS ||
 	    NULL == user || 0 != getpwnam_r(user, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) || NULL == pwd) {
-		openpam_log(PAM_LOG_DEBUG, "Invalid user.");
+		os_log_error(PAM_LOG, "Invalid user.");
 		return PAM_AUTH_ERR;
 	}
 	uid = pwd->pw_uid;
@@ -56,14 +60,14 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* get applicant */
 	if (pam_get_item(pamh, PAM_RUSER, (const void **)&ruser) != PAM_SUCCESS ||
 	    NULL == ruser || 0 != getpwnam_r(ruser, &pwdbuf, pwbuffer, sizeof(pwbuffer), &rpwd) || NULL == rpwd) {
-		openpam_log(PAM_LOG_DEBUG, "Invalid remote user.");
+        os_log_error(PAM_LOG, "Invalid remote user.");
 		return PAM_AUTH_ERR;
 	}
 	ruid = rpwd->pw_uid;
 
 	/* compare */
 	if (uid != ruid) {
-		openpam_log(PAM_LOG_DEBUG, "The provided user and remote user do not match.");
+        os_log_error(PAM_LOG, "The provided user and remote user do not match.");
 		return PAM_AUTH_ERR;
 	}
 

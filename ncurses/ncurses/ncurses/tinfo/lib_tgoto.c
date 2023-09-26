@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2000-2006,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 2000-2008,2012 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -36,7 +36,7 @@
 #include <stdio.h>
 #include <termcap.h>
 
-MODULE_ID("$Id: lib_tgoto.c,v 1.13 2008/08/16 19:29:32 tom Exp $")
+MODULE_ID("$Id: lib_tgoto.c,v 1.16 2012/02/24 02:08:08 tom Exp $")
 
 // FIXME: why do we need this prototype here?
 // Without it, we won't build even though we're including stdio.h above..
@@ -164,7 +164,12 @@ tgoto_internal(const char *string, int x, int y)
 		break;
 	    }
 	    if (fmt != 0) {
-		sprintf(result + used, fmtcheck(fmt, "%d"), *value++);
+		_nc_SPRINTF(result + used, _nc_SLIMIT(length - used)
+#ifdef __APPLE__
+			    fmtcheck(fmt, "%d"), *value++);
+#else
+			    fmt, *value++);
+#endif
 		used += strlen(result + used);
 		fmt = 0;
 	    }
@@ -179,7 +184,7 @@ tgoto_internal(const char *string, int x, int y)
     }
     if (result != 0) {
 	if (need_BC) {
-	    strcpy(result + used, BC);
+	    _nc_STRCPY(result + used, BC, length - used);
 	    used += strlen(BC);
 	}
 	result[used] = '\0';
@@ -203,16 +208,16 @@ tgoto(const char *string, int x, int y)
 	result = tgoto_internal(string, x, y);
     else
 #endif
-    if ((result = TIPARM_2((NCURSES_CONST char *) string, y, x)) == NULL) {
-	    /*
-	     * 		* Because termcap did not provide a more general solution such as
-	     * 				* tparm(), it was necessary to handle single-parameter capabilities
-	     * 						* using tgoto().  The internal _nc_tiparm() function returns a NULL
-	     * 								* for that case; retry for the single-parameter case.
-	     * 										*/
-	    if ((result = TIPARM_1(string, y)) == NULL) {
-		    result = TIPARM_0(string);
-	    }
-    }
+	if ((result = TIPARM_2((NCURSES_CONST char *) string, y, x)) == NULL) {
+		/*
+		* Because termcap did not provide a more general solution such as
+		* tparm(), it was necessary to handle single-parameter capabilities
+		* using tgoto().  The internal _nc_tiparm() function returns a NULL
+		* for that case; retry for the single-parameter case.
+		*/
+		if ((result = TIPARM_1(string, y)) == NULL) {
+			result = TIPARM_0(string);
+		}
+	}
     returnPtr(result);
 }

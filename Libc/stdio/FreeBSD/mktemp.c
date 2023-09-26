@@ -86,7 +86,7 @@ mkostemps(char *path, int slen, int oflags)
 		errno = EINVAL;
 		return -1;
 	}
-	return (find_temp_path(AT_FDCWD, path, slen, TRUE, _mkostemps_action, &oflags, &fd) ? fd : -1);
+	return (find_temp_path(AT_FDCWD, path, slen, true, _mkostemps_action, &oflags, &fd) ? fd : -1);
 }
 
 int
@@ -97,7 +97,7 @@ mkostempsat_np(int dfd, char *path, int slen, int oflags)
 		errno = EINVAL;
 		return -1;
 	}
-	return (find_temp_path(dfd, path, slen, TRUE, _mkostemps_action, &oflags, &fd) ? fd : -1);
+	return (find_temp_path(dfd, path, slen, true, _mkostemps_action, &oflags, &fd) ? fd : -1);
 }
 
 int
@@ -105,7 +105,7 @@ mkstemps(char *path, int slen)
 {
 	int fd;
 
-	return (find_temp_path(AT_FDCWD, path, slen, TRUE, _mkostemps_action, NULL, &fd) ? fd : -1);
+	return (find_temp_path(AT_FDCWD, path, slen, true, _mkostemps_action, NULL, &fd) ? fd : -1);
 }
 
 int
@@ -113,7 +113,7 @@ mkstempsat_np(int dfd, char *path, int slen)
 {
 	int fd;
 
-	return (find_temp_path(dfd, path, slen, TRUE, _mkostemps_action, NULL, &fd) ? fd : -1);
+	return (find_temp_path(dfd, path, slen, true, _mkostemps_action, NULL, &fd) ? fd : -1);
 }
 
 int
@@ -124,7 +124,7 @@ mkostemp(char *path, int oflags)
 		errno = EINVAL;
 		return -1;
 	}
-	return (find_temp_path(AT_FDCWD, path, 0, TRUE, _mkostemps_action, &oflags, &fd) ? fd : -1);
+	return (find_temp_path(AT_FDCWD, path, 0, true, _mkostemps_action, &oflags, &fd) ? fd : -1);
 }
 
 int
@@ -132,27 +132,27 @@ mkstemp(char *path)
 {
 	int fd;
 
-	return (find_temp_path(AT_FDCWD, path, 0, TRUE, _mkostemps_action, NULL, &fd) ? fd : -1);
+	return (find_temp_path(AT_FDCWD, path, 0, true, _mkostemps_action, NULL, &fd) ? fd : -1);
 }
 
 char *
 mkdtemp(char *path)
 {
-	return (find_temp_path(AT_FDCWD, path, 0, TRUE, _mkdtemp_action, NULL, NULL) ?
+	return (find_temp_path(AT_FDCWD, path, 0, true, _mkdtemp_action, NULL, NULL) ?
 			path : (char *)NULL);
 }
 
 char *
 mkdtempat_np(int dfd, char *path)
 {
-	return (find_temp_path(dfd, path, 0, TRUE, _mkdtemp_action, NULL, NULL) ?
+	return (find_temp_path(dfd, path, 0, true, _mkdtemp_action, NULL, NULL) ?
 			path : (char *)NULL);
 }
 
 char *
 _mktemp(char *path)
 {
-	return (find_temp_path(AT_FDCWD, path, 0, FALSE, _mktemp_action, NULL, NULL) ?
+	return (find_temp_path(AT_FDCWD, path, 0, false, _mktemp_action, NULL, NULL) ?
 			path : (char *)NULL);
 }
 
@@ -171,7 +171,7 @@ mkstemp_dprotected_np(char *path, int class, int dpflags)
 	int fd;
 	int ctx[2] = { class, dpflags };
 
-	return (find_temp_path(AT_FDCWD, path, 0, TRUE, _mkstemp_dprotected_np_action, &ctx, &fd) ? fd : -1);
+	return (find_temp_path(AT_FDCWD, path, 0, true, _mkstemp_dprotected_np_action, &ctx, &fd) ? fd : -1);
 }
 
 /* For every path matching a given template, invoke an action. Depending on

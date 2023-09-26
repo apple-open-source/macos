@@ -21,8 +21,8 @@ __attribute__((visibility("hidden")))
     SECC2MPError *_errorValue;
     NSString *_stringValue;
     struct {
-        int dateValue:1;
-        int doubleValue:1;
+        uint dateValue:1;
+        uint doubleValue:1;
     } _has;
 }
 

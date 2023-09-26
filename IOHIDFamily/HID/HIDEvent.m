@@ -1,12 +1,12 @@
-//
-//  HIDEvent.m
-//  HID
-//
-//  Created by dekom on 12/20/17.
-//
+/*!
+ * HIDEvent.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
-#import "HIDEvent.h"
-#import "NSError+IOReturn.h"
+#import <HID/HIDEvent.h>
+#import <HID/NSError+IOReturn.h>
 #import <IOKit/hid/IOHIDEventPrivate.h>
 #import <IOKit/hid/IOHIDEventData.h>
 

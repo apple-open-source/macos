@@ -146,6 +146,7 @@ private:
 	std::string teamID;             // team identifier
 	CFRef<CFDataRef> entitlements;	// entitlements
 	vector<CFRef<CFDataRef>> launchConstraints; // Array of Lightweight Code Requirements
+	CFRef<CFDataRef> libraryConstraints; // Lightweight Code Requirement for library load restrictions
 	Architecture preEncryptMainArch; // pre-encrypt main architecture
 	PreEncryptHashMaps preEncryptHashMaps;  // pre-encrypt hashes to keep
 	Architecture runtimeVersionMainArch; // runtime version main architecture

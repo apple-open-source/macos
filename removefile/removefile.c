@@ -122,7 +122,7 @@ canonicalize_path(const char *old_path, char *new_path) {
 	}
 
 	/*
-	 * rdar://74609702 - avoid calling F_GETPATH in case of a hardlink.
+	 * Avoid calling F_GETPATH in case of a hardlink.
 	 * Also avoid the canonicalization if the file is not a directory.
 	 */
 	if ((reply.file_type != VDIR) || (reply.link_count > 1)) {
@@ -154,6 +154,9 @@ removefile(const char* path, removefile_state_t state_param, removefile_flags_t 
 	if (path == NULL) {
 		errno = EINVAL;
 		return -1;
+	} else if (strnlen(path, PATH_MAX) >= PATH_MAX) {
+		errno = ENAMETOOLONG;
+		return -1;
 	}
 
 	// allocate the state if it was not passed in
@@ -171,7 +174,8 @@ removefile(const char* path, removefile_state_t state_param, removefile_flags_t 
 		__removefile_init_random(getpid(), state);
 	}
 
-	// try to canonicalize the path, use the original path upon failure
+	// Try to canonicalize the path, which is guaranteed to fit in `file_path`.
+	// (Use the original path upon failure, which is also a legal length.)
 	if (canonicalize_path(path, file_path) != 0) {
 		strncpy(file_path, path, sizeof(file_path));
 		file_path[sizeof(file_path) - 1] = '\0';

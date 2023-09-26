@@ -32,6 +32,7 @@
 #include <WebCore/CacheQueryOptions.h>
 #include <WebCore/CrossOriginAccessControl.h>
 #include <WebCore/HTTPHeaderMap.h>
+#include <WebCore/OriginAccessPatterns.h>
 #include <WebCore/ResourceError.h>
 #include <wtf/Scope.h>
 
@@ -63,7 +64,7 @@ static Ref<CacheStorageStore> createStore(const String& uniqueName, const String
 
 CacheStorageCache::CacheStorageCache(CacheStorageManager& manager, const String& name, const String& uniqueName, const String& path, Ref<WorkQueue>&& queue)
     : m_manager(manager)
-    , m_identifier(WebCore::DOMCacheIdentifier::generateThreadSafe())
+    , m_identifier(WebCore::DOMCacheIdentifier::generate())
     , m_name(name)
     , m_uniqueName(uniqueName)
 #if ASSERT_ENABLED
@@ -72,6 +73,12 @@ CacheStorageCache::CacheStorageCache(CacheStorageManager& manager, const String&
     , m_store(createStore(uniqueName, path, WTFMove(queue)))
 {
     assertIsOnCorrectQueue();
+}
+
+CacheStorageCache::~CacheStorageCache()
+{
+    for (auto& callback : m_pendingInitializationCallbacks)
+        callback(makeUnexpected(WebCore::DOMCacheEngine::Error::Internal));
 }
 
 CacheStorageManager* CacheStorageCache::manager()
@@ -108,10 +115,14 @@ void CacheStorageCache::open(WebCore::DOMCacheEngine::CacheIdentifierCallback&& 
     if (m_isInitialized)
         return callback(WebCore::DOMCacheEngine::CacheIdentifierOperationResult { m_identifier, false });
 
-    m_store->readAllRecordInfos([this, weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto&& recordInfos) mutable {
+    m_pendingInitializationCallbacks.append(WTFMove(callback));
+    if (m_pendingInitializationCallbacks.size() > 1)
+        return;
+
+    m_store->readAllRecordInfos([this, weakThis = WeakPtr { *this }](auto&& recordInfos) mutable {
         if (!weakThis)
-            return callback(makeUnexpected(WebCore::DOMCacheEngine::Error::Internal));
-        
+            return;
+
         assertIsOnCorrectQueue();
 
         std::sort(recordInfos.begin(), recordInfos.end(), [](auto& a, auto& b) {
@@ -127,7 +138,9 @@ void CacheStorageCache::open(WebCore::DOMCacheEngine::CacheIdentifierCallback&& 
         }
 
         m_isInitialized = true;
-        callback(WebCore::DOMCacheEngine::CacheIdentifierOperationResult { m_identifier, false });
+        for (auto& callback : m_pendingInitializationCallbacks)
+            callback(WebCore::DOMCacheEngine::CacheIdentifierOperationResult { m_identifier, false });
+        m_pendingInitializationCallbacks.clear();
     });
 }
 
@@ -135,7 +148,7 @@ static CacheStorageRecord toCacheStorageRecord(WebCore::DOMCacheEngine::CrossThr
 {
     NetworkCache::Key key { "record"_s, uniqueName, { }, createVersion4UUIDString(), salt };
     CacheStorageRecordInformation recordInfo { WTFMove(key), MonotonicTime::now().secondsSinceEpoch().milliseconds(), record.identifier, 0 , record.responseBodySize, record.request.url(), false, { } };
-    recordInfo.updateVaryHeaders(record.request, record.response.httpHeaderFields.get(WebCore::HTTPHeaderName::Vary));
+    recordInfo.updateVaryHeaders(record.request, record.response);
 
     return CacheStorageRecord { WTFMove(recordInfo), record.requestHeadersGuard, WTFMove(record.request), record.options, WTFMove(record.referrer), record.responseHeadersGuard, WTFMove(record.response), record.responseBodySize, WTFMove(record.responseBody) };
 }
@@ -188,7 +201,7 @@ void CacheStorageCache::retrieveRecords(WebCore::RetrieveRecordsOptions&& option
             }
 
             if (record.response.type == WebCore::ResourceResponse::Type::Opaque) {
-                if (WebCore::validateCrossOriginResourcePolicy(options.crossOriginEmbedderPolicy.value, options.sourceOrigin, record.request.url(), false, record.response.url, record.response.httpHeaderFields.get(WebCore::HTTPHeaderName::CrossOriginResourcePolicy), WebCore::ForNavigation::No))
+                if (WebCore::validateCrossOriginResourcePolicy(options.crossOriginEmbedderPolicy.value, options.sourceOrigin, record.request.url(), false, record.response.url, record.response.httpHeaderFields.get(WebCore::HTTPHeaderName::CrossOriginResourcePolicy), WebCore::ForNavigation::No, WebCore::EmptyOriginAccessPatterns::singleton()))
                     return callback(makeUnexpected(WebCore::DOMCacheEngine::Error::CORP));
             }
 
@@ -215,11 +228,10 @@ void CacheStorageCache::removeRecords(WebCore::ResourceRequest&& request, WebCor
     if (iterator == m_records.end())
         return callback({ });
 
-    auto& urlRecords = iterator->value;
     Vector<uint64_t> targetRecordIdentifiers;
     Vector<CacheStorageRecordInformation> targetRecordInfos;
     uint64_t sizeDecreased = 0;
-    urlRecords.removeAllMatching([&](auto& record) {
+    iterator->value.removeAllMatching([&](auto& record) {
         if (!WebCore::DOMCacheEngine::queryCacheMatch(request, record.url, record.hasVaryStar, record.varyHeaders, options))
             return false;
 
@@ -228,6 +240,8 @@ void CacheStorageCache::removeRecords(WebCore::ResourceRequest&& request, WebCor
         sizeDecreased += record.size;
         return true;
     });
+    if (iterator->value.isEmpty())
+        m_records.remove(iterator);
 
     if (m_manager && sizeDecreased)
         m_manager->sizeDecreased(sizeDecreased);
@@ -350,7 +364,7 @@ void CacheStorageCache::putRecordsInStore(Vector<CacheStorageRecord>&& records, 
             record.request = WTFMove(existingRecord->request);
             record.options = WTFMove(existingRecord->options);
             record.referrer = WTFMove(existingRecord->referrer);
-            record.info.updateVaryHeaders(record.request, record.responseData.httpHeaderFields.get(WebCore::HTTPHeaderName::Vary));
+            record.info.updateVaryHeaders(record.request, record.responseData);
             sizeIncreased += record.info.size;
             sizeDecreased += existingRecordInfo->size;
             existingRecordInfo->size = record.info.size;

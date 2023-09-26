@@ -40,6 +40,7 @@
 namespace WebCore {
 class ImageTransferSessionVT;
 class LocalSampleBufferDisplayLayer;
+enum class VideoFrameRotation : uint16_t;
 };
 
 namespace WebKit {
@@ -70,8 +71,7 @@ private:
     void setLogIdentifier(String&&);
 #endif
     void updateDisplayMode(bool hideDisplayLayer, bool hideRootLayer);
-    void updateAffineTransform(CGAffineTransform);
-    void updateBoundsAndPosition(CGRect, WebCore::VideoFrame::Rotation);
+    void updateBoundsAndPosition(CGRect, std::optional<WTF::MachSendRight>&&);
     void flush();
     void flushAndRemoveImage();
     void play();
@@ -79,7 +79,7 @@ private:
     void enqueueVideoFrame(SharedVideoFrame&&);
     void clearVideoFrames();
     void setSharedVideoFrameSemaphore(IPC::Semaphore&&);
-    void setSharedVideoFrameMemory(const SharedMemory::Handle&);
+    void setSharedVideoFrameMemory(SharedMemory::Handle&&);
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const final;
@@ -92,7 +92,7 @@ private:
     SampleBufferDisplayLayerIdentifier m_identifier;
     Ref<IPC::Connection> m_connection;
     std::unique_ptr<WebCore::ImageTransferSessionVT> m_imageTransferSession;
-    std::unique_ptr<WebCore::LocalSampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
+    RefPtr<WebCore::LocalSampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
     std::unique_ptr<LayerHostingContext> m_layerHostingContext;
     SharedVideoFrameReader m_sharedVideoFrameReader;
     ThreadLikeAssertion m_consumeThread NO_UNIQUE_ADDRESS;

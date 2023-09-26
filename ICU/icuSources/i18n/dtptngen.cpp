@@ -19,7 +19,10 @@
 #include "unicode/dtfmtsym.h"
 #include "unicode/dtptngen.h"
 #include "unicode/localpointer.h"
+#if APPLE_ICU_CHANGES
+// rdar:/
 #include "unicode/schriter.h"
+#endif  // APPLE_ICU_CHANGES
 #include "unicode/simpleformatter.h"
 #include "unicode/smpdtfmt.h"
 #include "unicode/udat.h"
@@ -101,7 +104,7 @@ static void ures_a_open(UResourceBundleAIterator *aiter, UResourceBundle *bund, 
         aiter->entries[i].key = (UChar*)uprv_malloc(len*sizeof(UChar));
         u_charsToUChars(akey, aiter->entries[i].key, len);
     }
-    uprv_sortArray(aiter->entries, aiter->num, sizeof(UResAEntry), ures_a_codepointSort, nullptr, TRUE, status);
+    uprv_sortArray(aiter->entries, aiter->num, sizeof(UResAEntry), ures_a_codepointSort, nullptr, true, status);
 #endif
 }
 
@@ -274,8 +277,6 @@ static const char* const CLDR_FIELD_WIDTH[] = { // [UDATPG_WIDTH_COUNT]
     "", "-short", "-narrow"
 };
 
-// TODO(ticket:13619): remove when definition uncommented in dtptngen.h.
-static const int32_t UDATPG_WIDTH_COUNT = UDATPG_NARROW + 1;
 static constexpr UDateTimePGDisplayWidth UDATPG_WIDTH_APPENDITEM = UDATPG_WIDE;
 static constexpr int32_t UDATPG_FIELD_KEY_MAX = 24; // max length of CLDR field tag (type + width)
 
@@ -286,6 +287,7 @@ static const UChar UDATPG_ItemFormat[]= {0x7B, 0x30, 0x7D, 0x20, 0x251C, 0x7B, 0
 //static const UChar repeatedPatterns[6]={CAP_G, CAP_E, LOW_Z, LOW_V, CAP_Q, 0}; // "GEzvQ"
 
 static const char DT_DateTimePatternsTag[]="DateTimePatterns";
+static const char DT_DateAtTimePatternsTag[]="DateTimePatterns%atTime";
 static const char DT_DateTimeCalendarTag[]="calendar";
 static const char DT_DateTimeGregorianTag[]="gregorian";
 static const char DT_DateTimeAppendItemsTag[]="appendItems";
@@ -303,12 +305,22 @@ DateTimePatternGenerator::createInstance(UErrorCode& status) {
 }
 
 DateTimePatternGenerator* U_EXPORT2
+#if APPLE_ICU_CHANGES
+// rdar:/
 DateTimePatternGenerator::createInstance(const Locale& locale, UErrorCode& status, UBool skipICUData) {
+#else
+DateTimePatternGenerator::createInstance(const Locale& locale, UErrorCode& status) {
+#endif  // APPLE_ICU_CHANGES
     if (U_FAILURE(status)) {
         return nullptr;
     }
     LocalPointer<DateTimePatternGenerator> result(
+#if APPLE_ICU_CHANGES
+// rdar:/
             new DateTimePatternGenerator(locale, status, skipICUData), status);
+#else
+            new DateTimePatternGenerator(locale, status), status);
+#endif  // APPLE_ICU_CHANGES
     return U_SUCCESS(status) ? result.orphan() : nullptr;
 }
 
@@ -351,8 +363,13 @@ DateTimePatternGenerator::DateTimePatternGenerator(const Locale& locale, UErrorC
     skipMatcher(nullptr),
     fAvailableFormatKeyHash(nullptr),
     fDefaultHourFormatChar(0),
+#if APPLE_ICU_CHANGES
+// rdar:/
     internalErrorCode(U_ZERO_ERROR),
     pLocale(locale)
+#else
+    internalErrorCode(U_ZERO_ERROR)
+#endif  // APPLE_ICU_CHANGES
 {
     fp = new FormatParser();
     dtMatcher = new DateTimeMatcher();
@@ -392,9 +409,12 @@ DateTimePatternGenerator::operator=(const DateTimePatternGenerator& other) {
     internalErrorCode = other.internalErrorCode;
     pLocale = other.pLocale;
     fDefaultHourFormatChar = other.fDefaultHourFormatChar;
+#if APPLE_ICU_CHANGES
+// rdar:/
     for (int32_t i = 0; i < 7; i++) {
         fAllowedHourFormats[i] = other.fAllowedHourFormats[i];
     }
+#endif  // APPLE_ICU_CHANGES
     *fp = *(other.fp);
     dtMatcher->copyFrom(other.dtMatcher->skeleton);
     *distanceInfo = *(other.distanceInfo);
@@ -480,7 +500,7 @@ DateTimePatternGenerator::~DateTimePatternGenerator() {
 
 namespace {
 
-UInitOnce initOnce = U_INITONCE_INITIALIZER;
+UInitOnce initOnce {};
 UHashtable *localeToAllowedHourFormatsMap = nullptr;
 
 // Value deleter for hashmap.
@@ -491,7 +511,7 @@ U_CFUNC void U_CALLCONV deleteAllowedHourFormats(void *ptr) {
 // Close hashmap at cleanup.
 U_CFUNC UBool U_CALLCONV allowedHourFormatsCleanup() {
     uhash_close(localeToAllowedHourFormatsMap);
-    return TRUE;
+    return true;
 }
 
 enum AllowedHourFormat{
@@ -662,11 +682,14 @@ void DateTimePatternGenerator::getAllowedHourFormats(const Locale &locale, UErro
 
     const char *language = locale.getLanguage();
     const char *country = locale.getCountry();
+#if APPLE_ICU_CHANGES
+// rdar:/
     const char *locName = locale.getName(); // Apple addition
     if (*locName==0 || uprv_strcmp(locName,"root")==0 || uprv_strcmp(locName,"und")==0) { // Apple addition
         language = "und";
         country = "001";
     }
+#endif  // APPLE_ICU_CHANGES
     
     char regionOverride[8];
     int32_t regionOverrideLength = locale.getKeywordValue("rg", regionOverride, sizeof(regionOverride), status);
@@ -831,7 +854,7 @@ DateTimePatternGenerator::addICUPatterns(const Locale& locale, UErrorCode& statu
         SimpleDateFormat* sdf;
         if (df != nullptr && (sdf = dynamic_cast<SimpleDateFormat*>(df)) != nullptr) {
             sdf->toPattern(dfPattern);
-            addPattern(dfPattern, FALSE, conflictingString, status);
+            addPattern(dfPattern, false, conflictingString, status);
         }
         // TODO Maybe we should return an error when the date format isn't simple.
         delete df;
@@ -840,7 +863,7 @@ DateTimePatternGenerator::addICUPatterns(const Locale& locale, UErrorCode& statu
         df = DateFormat::createTimeInstance(style, locale);
         if (df != nullptr && (sdf = dynamic_cast<SimpleDateFormat*>(df)) != nullptr) {
             sdf->toPattern(dfPattern);
-            addPattern(dfPattern, FALSE, conflictingString, status);
+            addPattern(dfPattern, false, conflictingString, status);
 
             // TODO: C++ and Java are inconsistent (see #12568).
             // C++ uses MEDIUM, but Java uses SHORT.
@@ -860,7 +883,7 @@ DateTimePatternGenerator::hackTimes(const UnicodeString& hackPattern, UErrorCode
 
     fp->set(hackPattern);
     UnicodeString mmss;
-    UBool gotMm=FALSE;
+    UBool gotMm=false;
     for (int32_t i=0; i<fp->itemNumber; ++i) {
         UnicodeString field = fp->items[i];
         if ( fp->isQuoteLiteral(field) ) {
@@ -877,7 +900,7 @@ DateTimePatternGenerator::hackTimes(const UnicodeString& hackPattern, UErrorCode
             else {
                 UChar ch=field.charAt(0);
                 if (ch==LOW_M) {
-                    gotMm=TRUE;
+                    gotMm=true;
                     mmss+=field;
                 }
                 else {
@@ -886,7 +909,7 @@ DateTimePatternGenerator::hackTimes(const UnicodeString& hackPattern, UErrorCode
                             break;
                         }
                         mmss+= field;
-                        addPattern(mmss, FALSE, conflictingString, status);
+                        addPattern(mmss, false, conflictingString, status);
                         break;
                     }
                     else {
@@ -906,6 +929,8 @@ void
 DateTimePatternGenerator::getCalendarTypeToUse(const Locale& locale, CharString& destination, UErrorCode& err) {
     destination.clear().append(DT_DateTimeGregorianTag, -1, err); // initial default
     if ( U_SUCCESS(err) ) {
+#if APPLE_ICU_CHANGES
+// rdar:/
         // HACK to maintain backward compatibility with old behavior-- the Calendar API used to return "japanese"
         // as the default calendar for ja_JP_TRADTITIONAL, but now it returns "gregorian".
         // But ures_getFunctionalEquivalent(), which this function used to call, still returned "japanese".  To keep
@@ -919,6 +944,40 @@ DateTimePatternGenerator::getCalendarTypeToUse(const Locale& locale, CharString&
                 destination.clear().append(calType, -1, err);
             }
         }
+#else
+        UErrorCode localStatus = U_ZERO_ERROR;
+        char localeWithCalendarKey[ULOC_LOCALE_IDENTIFIER_CAPACITY];
+        // obtain a locale that always has the calendar key value that should be used
+        ures_getFunctionalEquivalent(
+            localeWithCalendarKey,
+            ULOC_LOCALE_IDENTIFIER_CAPACITY,
+            nullptr,
+            "calendar",
+            "calendar",
+            locale.getName(),
+            nullptr,
+            false,
+            &localStatus);
+        localeWithCalendarKey[ULOC_LOCALE_IDENTIFIER_CAPACITY-1] = 0; // ensure null termination
+        // now get the calendar key value from that locale
+        char calendarType[ULOC_KEYWORDS_CAPACITY];
+        int32_t calendarTypeLen = uloc_getKeywordValue(
+            localeWithCalendarKey,
+            "calendar",
+            calendarType,
+            ULOC_KEYWORDS_CAPACITY,
+            &localStatus);
+        // If the input locale was invalid, don't fail with missing resource error, instead
+        // continue with default of Gregorian.
+        if (U_FAILURE(localStatus) && localStatus != U_MISSING_RESOURCE_ERROR) {
+            err = localStatus;
+            return;
+        }
+        if (calendarTypeLen > 0 && calendarTypeLen < ULOC_KEYWORDS_CAPACITY) {
+            destination.clear().append(calendarType, -1, err);
+            if (U_FAILURE(err)) { return; }
+        }
+#endif  // APPLE_ICU_CHANGES
     }
 }
 
@@ -953,7 +1012,7 @@ struct DateTimePatternGenerator::AppendItemFormatsSink : public ResourceSink {
     }
 
     void fillInMissing() {
-        UnicodeString defaultItemFormat(TRUE, UDATPG_ItemFormat, UPRV_LENGTHOF(UDATPG_ItemFormat)-1);  // Read-only alias.
+        UnicodeString defaultItemFormat(true, UDATPG_ItemFormat, UPRV_LENGTHOF(UDATPG_ItemFormat)-1);  // Read-only alias.
         for (int32_t i = 0; i < UDATPG_FIELD_COUNT; i++) {
             UDateTimePatternField field = (UDateTimePatternField)i;
             if (dtpg.getAppendItemFormat(field).isEmpty()) {
@@ -1016,20 +1075,33 @@ struct DateTimePatternGenerator::AvailableFormatsSink : public ResourceSink {
 
     // Destination for data, modified via setters.
     DateTimePatternGenerator& dtpg;
-    
+
+#if APPLE_ICU_CHANGES
+// rdar:/
     // UBool flag indicating whether to populate the generator with all patterns or just date patterns with numeric cores
     UBool onlyDatesWithNumericCores;
+#endif  // APPLE_ICU_CHANGES
 
     // Temporary variable, required for calling addPatternWithSkeleton.
     UnicodeString conflictingPattern;
 
+#if APPLE_ICU_CHANGES
+// rdar:/
     AvailableFormatsSink(DateTimePatternGenerator& _dtpg, UBool onlyDatesWithNumericCores) : dtpg(_dtpg), onlyDatesWithNumericCores(onlyDatesWithNumericCores) {}
+#else
+    AvailableFormatsSink(DateTimePatternGenerator& _dtpg) : dtpg(_dtpg) {}
+#endif  // APPLE_ICU_CHANGES
     virtual ~AvailableFormatsSink();
 
     virtual void put(const char *key, ResourceValue &value, UBool isRoot,
             UErrorCode &errorCode) override {
+#if APPLE_ICU_CHANGES
+// rdar:/
         UErrorCode valueErr = U_ZERO_ERROR; // if the resource value isn't a string, skip it without returning an error to the caller
+#endif  // APPLE_ICU_CHANGES
         const UnicodeString formatKey(key, -1, US_INV);
+#if APPLE_ICU_CHANGES
+// rdar:/
         UnicodeString formatValue = value.getUnicodeString(valueErr);
         if (U_SUCCESS(valueErr) && !dtpg.isAvailableFormatSet(formatKey) && (!onlyDatesWithNumericCores || datePatternHasNumericCore(formatValue))) {
             // if the date pattern generator's locale is a LTR locale, strip out any Unicode right-to-left marks
@@ -1038,9 +1110,17 @@ struct DateTimePatternGenerator::AvailableFormatsSink : public ResourceSink {
             if (!dtpg.pLocale.isRightToLeft()) {
                 formatValue.findAndReplace(UnicodeString(u'\u200f'), UnicodeString());
             }
+#else
+        if (!dtpg.isAvailableFormatSet(formatKey) ) {
+#endif  // APPLE_ICU_CHANGES
             dtpg.setAvailableFormat(formatKey, errorCode);
             // Add pattern with its associated skeleton. Override any duplicate
             // derived from std patterns, but not a previous availableFormats entry:
+#if APPLE_ICU_CHANGES
+// rdar:/
+#else
+            const UnicodeString& formatValue = value.getUnicodeString(errorCode);
+#endif  // APPLE_ICU_CHANGES
             conflictingPattern.remove();
             dtpg.addPatternWithSkeleton(formatValue, &formatKey, !isRoot, conflictingPattern, errorCode);
         }
@@ -1058,11 +1138,19 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& errorCod
     UnicodeString rbPattern, value, field;
     CharString path;
 
-    UBool hasCountryFallbackResource = FALSE;
+#if APPLE_ICU_CHANGES
+// rdar:/
+    UBool hasCountryFallbackResource = false;
+#endif  // APPLE_ICU_CHANGES
     LocalUResourceBundlePointer rb(ures_open(nullptr, locale.getName(), &errorCode));
+#if APPLE_ICU_CHANGES
+// rdar:/
     LocalUResourceBundlePointer countryRB(ures_openWithCountryFallback(nullptr, locale.getName(), &hasCountryFallbackResource, &errorCode));
+#endif  // APPLE_ICU_CHANGES
     if (U_FAILURE(errorCode)) { return; }
-    
+
+#if APPLE_ICU_CHANGES
+// rdar:/
     // If we're potentially falling back by country, check to see whether the language and country fallback locales
     // have the same numbering system.  If they don't, fall back by language instead.  (Many date/time patterns have
     // embedded assumptions about which numbering system they're being used with and don't behave well with other ones,
@@ -1073,9 +1161,10 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& errorCod
         const UChar* languageLocaleNumbers = ures_getStringByKeyWithFallback(rb.getAlias(), "NumberElements/default", &dummy, &tempError);
         const UChar* countryLocaleNumbers = ures_getStringByKeyWithFallback(countryRB.getAlias(), "NumberElements/default", &dummy, &tempError);
         if (U_FAILURE(tempError) || u_strcmp(languageLocaleNumbers, countryLocaleNumbers) != 0) {
-            hasCountryFallbackResource = FALSE;
+            hasCountryFallbackResource = false;
         }
     }
+#endif  // APPLE_ICU_CHANGES
     CharString calendarTypeToUse; // to be filled in with the type to use, if all goes well
     getCalendarTypeToUse(locale, calendarTypeToUse, errorCode);
     if (U_FAILURE(errorCode)) { return; }
@@ -1105,6 +1194,11 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& errorCod
     err = U_ZERO_ERROR;
     initHashtable(errorCode);
     if (U_FAILURE(errorCode)) { return; }
+#if APPLE_ICU_CHANGES
+// rdar:/
+#else
+    AvailableFormatsSink availableFormatsSink(*this);
+#endif  // APPLE_ICU_CHANGES
     path.clear()
         .append(DT_DateTimeCalendarTag, errorCode)
         .append('/', errorCode)
@@ -1112,11 +1206,14 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& errorCod
         .append('/', errorCode)
         .append(DT_DateTimeAvailableFormatsTag, errorCode); // i.e., calendar/xxx/availableFormats
     if (U_FAILURE(errorCode)) { return; }
+#if APPLE_ICU_CHANGES
+// rdar:/
     if (hasCountryFallbackResource) {
-        AvailableFormatsSink countryAvailableFormatsSink(*this, TRUE);
+        AvailableFormatsSink countryAvailableFormatsSink(*this, true);
         ures_getAllChildrenWithFallback(countryRB.getAlias(), path.data(), countryAvailableFormatsSink, err);
     }
-    AvailableFormatsSink availableFormatsSink(*this, FALSE);
+    AvailableFormatsSink availableFormatsSink(*this, false);
+#endif  // APPLE_ICU_CHANGES
     ures_getAllChildrenWithFallback(rb.getAlias(), path.data(), availableFormatsSink, err);
 }
 
@@ -1126,7 +1223,7 @@ DateTimePatternGenerator::initHashtable(UErrorCode& err) {
     if (fAvailableFormatKeyHash!=nullptr) {
         return;
     }
-    LocalPointer<Hashtable> hash(new Hashtable(FALSE, err), err);
+    LocalPointer<Hashtable> hash(new Hashtable(false, err), err);
     if (U_SUCCESS(err)) {
         fAvailableFormatKeyHash = hash.orphan();
     }
@@ -1201,7 +1298,12 @@ DateTimePatternGenerator::getBestPattern(const UnicodeString& patternForm, UDate
     int32_t timeMask=(1<<UDATPG_FIELD_COUNT) - 1 - dateMask;
 
     // Replace hour metacharacters 'j', 'C' and 'J', set flags as necessary
+#if APPLE_ICU_CHANGES
+// rdar:/
     UnicodeString patternFormMapped = mapSkeletonMetacharacters(patternForm, &flags, options, status);
+#else
+    UnicodeString patternFormMapped = mapSkeletonMetacharacters(patternForm, &flags, status);
+#endif  // APPLE_ICU_CHANGES
     if (U_FAILURE(status)) {
         return UnicodeString();
     }
@@ -1210,6 +1312,8 @@ DateTimePatternGenerator::getBestPattern(const UnicodeString& patternForm, UDate
     dtMatcher->set(patternFormMapped, fp);
     const PtnSkeleton* specifiedSkeleton = nullptr;
     bestPattern=getBestRaw(*dtMatcher, -1, distanceInfo, status, &specifiedSkeleton);
+#if APPLE_ICU_CHANGES
+// rdar:/
     
     // getBestRaw() might return a pattern with an era field in it, even if the skeleton didn't specifically ask for it.
     // Check for that and take it out of distanceInfo->missingFieldMask so that we don't end up adding a SECOND era
@@ -1218,6 +1322,7 @@ DateTimePatternGenerator::getBestPattern(const UnicodeString& patternForm, UDate
         distanceInfo->missingFieldMask &= ~(1 << UDATPG_ERA_FIELD);
     }
     
+#endif  // APPLE_ICU_CHANGES
     if (U_FAILURE(status)) {
         return UnicodeString();
     }
@@ -1273,16 +1378,24 @@ DateTimePatternGenerator::getBestPattern(const UnicodeString& patternForm, UDate
  * as necessary. Returns the updated skeleton.
  */
 UnicodeString
+#if APPLE_ICU_CHANGES
+// rdar:/
 DateTimePatternGenerator::mapSkeletonMetacharacters(const UnicodeString& patternForm, int32_t* flags, UDateTimePatternMatchOptions options, UErrorCode& status) {
+#else
+DateTimePatternGenerator::mapSkeletonMetacharacters(const UnicodeString& patternForm, int32_t* flags, UErrorCode& status) {
+#endif  // APPLE_ICU_CHANGES
     UnicodeString patternFormMapped;
     patternFormMapped.remove();
+#if APPLE_ICU_CHANGES
+// rdar:/
     UChar hourFormatSkeletonCharForLowJ = fDefaultHourFormatChar;
     switch (options & UADATPG_FORCE_HOUR_CYCLE_MASK) {
         case UADATPG_FORCE_12_HOUR_CYCLE: hourFormatSkeletonCharForLowJ = LOW_H; break;
         case UADATPG_FORCE_24_HOUR_CYCLE: hourFormatSkeletonCharForLowJ = CAP_H; break;
         default: break;
     }
-    UBool inQuoted = FALSE;
+#endif  // APPLE_ICU_CHANGES
+    UBool inQuoted = false;
     int32_t patPos, patLen = patternForm.length();
     for (patPos = 0; patPos < patLen; patPos++) {
         UChar patChr = patternForm.charAt(patPos);
@@ -1306,7 +1419,12 @@ DateTimePatternGenerator::mapSkeletonMetacharacters(const UnicodeString& pattern
                 UChar hourChar = LOW_H;
                 UChar dayPeriodChar = LOW_A;
                 if (patChr == LOW_J) {
+#if APPLE_ICU_CHANGES
+// rdar:/
                     hourChar = hourFormatSkeletonCharForLowJ;
+#else
+                    hourChar = fDefaultHourFormatChar;
+#endif  // APPLE_ICU_CHANGES
                 } else {
                     AllowedHourFormat bestAllowed;
                     if (fAllowedHourFormats[0] != ALLOWED_HOUR_FORMAT_UNKNOWN) {
@@ -1394,7 +1512,7 @@ DateTimePatternGenerator::addCanonicalItems(UErrorCode& status) {
 
     for (int32_t i=0; i<UDATPG_FIELD_COUNT; i++) {
         if (Canonical_Items[i] > 0) {
-            addPattern(UnicodeString(Canonical_Items[i]), FALSE, conflictingPattern, status);
+            addPattern(UnicodeString(Canonical_Items[i]), false, conflictingPattern, status);
         }
         if (U_FAILURE(status)) { return; }
     }
@@ -1443,6 +1561,8 @@ DateTimePatternGenerator::getDateTimeFormat(UDateFormatStyle style, UErrorCode& 
     return dateTimeFormat[style];
 }
 
+static const int32_t cTypeBufMax = 32;
+
 void
 DateTimePatternGenerator::setDateTimeFromCalendar(const Locale& locale, UErrorCode& status) {
     if (U_FAILURE(status)) { return; }
@@ -1450,40 +1570,68 @@ DateTimePatternGenerator::setDateTimeFromCalendar(const Locale& locale, UErrorCo
     const UChar *resStr;
     int32_t resStrLen = 0;
 
-    LocalPointer<Calendar> fCalendar(Calendar::createInstance(locale, status), status);
-    if (U_FAILURE(status)) { return; }
-
     LocalUResourceBundlePointer calData(ures_open(nullptr, locale.getBaseName(), &status));
     if (U_FAILURE(status)) { return; }
     ures_getByKey(calData.getAlias(), DT_DateTimeCalendarTag, calData.getAlias(), &status);
     if (U_FAILURE(status)) { return; }
 
-    LocalUResourceBundlePointer dateTimePatterns;
-    if (fCalendar->getType() != nullptr && *fCalendar->getType() != '\0'
-            && uprv_strcmp(fCalendar->getType(), DT_DateTimeGregorianTag) != 0) {
-        dateTimePatterns.adoptInstead(ures_getByKeyWithFallback(calData.getAlias(), fCalendar->getType(),
-                                                                nullptr, &status));
-        ures_getByKeyWithFallback(dateTimePatterns.getAlias(), DT_DateTimePatternsTag,
-                                  dateTimePatterns.getAlias(), &status);
+    char cType[cTypeBufMax + 1];
+    Calendar::getCalendarTypeFromLocale(locale, cType, cTypeBufMax, status);
+    cType[cTypeBufMax] = 0;
+    if (U_FAILURE(status) || cType[0] == 0) {
+        status = U_ZERO_ERROR;
+        uprv_strcpy(cType, DT_DateTimeGregorianTag);
     }
+    UBool cTypeIsGregorian = (uprv_strcmp(cType, DT_DateTimeGregorianTag) == 0);
 
+    // Currently, for compatibility with pre-CLDR-42 data, we default to the "atTime"
+    // combining patterns. Depending on guidance in CLDR 42 spec and on DisplayOptions,
+    // we may change this.
+    LocalUResourceBundlePointer specificCalBundle;
+    LocalUResourceBundlePointer dateTimePatterns;
+    int32_t dateTimeOffset = 0; // initially for DateTimePatterns%atTime
+    if (!cTypeIsGregorian) {
+        specificCalBundle.adoptInstead(ures_getByKeyWithFallback(calData.getAlias(), cType,
+                                        nullptr, &status));
+        dateTimePatterns.adoptInstead(ures_getByKeyWithFallback(specificCalBundle.getAlias(), DT_DateAtTimePatternsTag, // the %atTime variant, 4 entries
+                                        nullptr, &status));
+    }
     if (dateTimePatterns.isNull() || status == U_MISSING_RESOURCE_ERROR) {
         status = U_ZERO_ERROR;
-        dateTimePatterns.adoptInstead(ures_getByKeyWithFallback(calData.getAlias(), DT_DateTimeGregorianTag,
-                                                                dateTimePatterns.orphan(), &status));
-        ures_getByKeyWithFallback(dateTimePatterns.getAlias(), DT_DateTimePatternsTag,
-                                  dateTimePatterns.getAlias(), &status);
+        specificCalBundle.adoptInstead(ures_getByKeyWithFallback(calData.getAlias(), DT_DateTimeGregorianTag,
+                                        nullptr, &status));
+        dateTimePatterns.adoptInstead(ures_getByKeyWithFallback(specificCalBundle.getAlias(), DT_DateAtTimePatternsTag, // the %atTime variant, 4 entries
+                                        nullptr, &status));
+    }
+    if (U_SUCCESS(status) && (ures_getSize(dateTimePatterns.getAlias()) < 4)) {
+        status = U_INVALID_FORMAT_ERROR;
+    }
+    if (status == U_MISSING_RESOURCE_ERROR) {
+        // Try again with standard variant
+        status = U_ZERO_ERROR;
+        dateTimePatterns.orphan();
+        dateTimeOffset = (int32_t)DateFormat::kDateTimeOffset;
+        if (!cTypeIsGregorian) {
+            specificCalBundle.adoptInstead(ures_getByKeyWithFallback(calData.getAlias(), cType,
+                                            nullptr, &status));
+            dateTimePatterns.adoptInstead(ures_getByKeyWithFallback(specificCalBundle.getAlias(), DT_DateTimePatternsTag, // the standard variant, 13 entries
+                                            nullptr, &status));
+        }
+        if (dateTimePatterns.isNull() || status == U_MISSING_RESOURCE_ERROR) {
+            status = U_ZERO_ERROR;
+            specificCalBundle.adoptInstead(ures_getByKeyWithFallback(calData.getAlias(), DT_DateTimeGregorianTag,
+                                            nullptr, &status));
+            dateTimePatterns.adoptInstead(ures_getByKeyWithFallback(specificCalBundle.getAlias(), DT_DateTimePatternsTag, // the standard variant, 13 entries
+                                            nullptr, &status));
+        }
+        if (U_SUCCESS(status) && (ures_getSize(dateTimePatterns.getAlias()) <= DateFormat::kDateTimeOffset + DateFormat::kShort)) {
+            status = U_INVALID_FORMAT_ERROR;
+        }
     }
     if (U_FAILURE(status)) { return; }
-
-    if (ures_getSize(dateTimePatterns.getAlias()) <= DateFormat::kDateTimeOffset + DateFormat::kShort)
-    {
-        status = U_INVALID_FORMAT_ERROR;
-        return;
-    }
     for (int32_t style = UDAT_FULL; style <= UDAT_SHORT; style++) {
-        resStr = ures_getStringByIndex(dateTimePatterns.getAlias(), (int32_t)DateFormat::kDateTimeOffset + style, &resStrLen, &status);
-        setDateTimeFormat((UDateFormatStyle)style, UnicodeString(TRUE, resStr, resStrLen), status);
+        resStr = ures_getStringByIndex(dateTimePatterns.getAlias(), dateTimeOffset + style, &resStrLen, &status);
+        setDateTimeFormat((UDateFormatStyle)style, UnicodeString(true, resStr, resStrLen), status);
     }
 }
 
@@ -1764,6 +1912,8 @@ DateTimePatternGenerator::adjustFieldTypes(const UnicodeString& pattern,
                         // 3. When hour-cycle is h24 it should replace 'k' by 'H'.
                         // 4. When hour-cycle is h12 it should replace 'K' by 'h'.
 
+#if APPLE_ICU_CHANGES
+// rdar:/
                         UChar defaultHourFormatChar = defaultHourPeriodCharForHourCycle(options);
                         if ((flags & kDTPGSkeletonUsesCapJ) != 0) {
                             reqFieldChar = defaultHourFormatChar;
@@ -1787,6 +1937,19 @@ DateTimePatternGenerator::adjustFieldTypes(const UnicodeString& pattern,
                         } else if (reqFieldChar == CAP_K && defaultHourFormatChar == LOW_H) {
                             c = LOW_H;
                         }
+#else
+                        if ((flags & kDTPGSkeletonUsesCapJ) != 0 || reqFieldChar == fDefaultHourFormatChar) {
+                            c = fDefaultHourFormatChar;
+                        } else if (reqFieldChar == LOW_H && fDefaultHourFormatChar == CAP_K) {
+                            c = CAP_K;
+                        } else if (reqFieldChar == CAP_H && fDefaultHourFormatChar == LOW_K) {
+                            c = LOW_K;
+                        } else if (reqFieldChar == LOW_K && fDefaultHourFormatChar == CAP_H) {
+                            c = CAP_H;
+                        } else if (reqFieldChar == CAP_K && fDefaultHourFormatChar == LOW_H) {
+                            c = LOW_H;
+                        }
+#endif  // APPLE_ICU_CHANGES
                     }
 
                     field.remove();
@@ -1800,6 +1963,8 @@ DateTimePatternGenerator::adjustFieldTypes(const UnicodeString& pattern,
     return newPattern;
 }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 UChar
 DateTimePatternGenerator::defaultHourPeriodCharForHourCycle(UDateTimePatternMatchOptions options) {
     // Figure out the default hour-field character for the specified options.  If the options don't include
@@ -1852,6 +2017,7 @@ DateTimePatternGenerator::defaultHourPeriodCharForHourCycle(UDateTimePatternMatc
     }
     return fDefaultHourFormatChar;
 }
+#endif  // APPLE_ICU_CHANGES
 
 UnicodeString
 DateTimePatternGenerator::getBestAppending(int32_t missingFields, int32_t flags, UErrorCode &status, UDateTimePatternMatchOptions options) {
@@ -2056,14 +2222,14 @@ DateTimePatternGenerator::getRedundants(UErrorCode& status) {
 UBool
 DateTimePatternGenerator::isCanonicalItem(const UnicodeString& item) const {
     if ( item.length() != 1 ) {
-        return FALSE;
+        return false;
     }
     for (int32_t i=0; i<UDATPG_FIELD_COUNT; ++i) {
         if (item.charAt(0)==Canonical_Items[i]) {
-            return TRUE;
+            return true;
         }
     }
-    return FALSE;
+    return false;
 }
 
 
@@ -2076,7 +2242,7 @@ PatternMap::PatternMap() {
    for (int32_t i=0; i < MAX_PATTERN_ENTRIES; ++i ) {
        boot[i] = nullptr;
    }
-   isDupAllowed = TRUE;
+   isDupAllowed = true;
 }
 
 void
@@ -2288,14 +2454,14 @@ PatternMap::getPatternFromSkeleton(const PtnSkeleton& skeleton, const PtnSkeleto
 UBool
 PatternMap::equals(const PatternMap& other) const {
     if ( this==&other ) {
-        return TRUE;
+        return true;
     }
     for (int32_t bootIndex = 0; bootIndex < MAX_PATTERN_ENTRIES; ++bootIndex) {
         if (boot[bootIndex] == other.boot[bootIndex]) {
             continue;
         }
         if ((boot[bootIndex] == nullptr) || (other.boot[bootIndex] == nullptr)) {
-            return FALSE;
+            return false;
         }
         PtnElem *otherElem = other.boot[bootIndex];
         PtnElem *myElem = boot[bootIndex];
@@ -2304,25 +2470,25 @@ PatternMap::equals(const PatternMap& other) const {
                 break;
             }
             if ((otherElem == nullptr) || (myElem == nullptr)) {
-                return FALSE;
+                return false;
             }
             if ( (myElem->basePattern != otherElem->basePattern) ||
                  (myElem->pattern != otherElem->pattern) ) {
-                return FALSE;
+                return false;
             }
             if ((myElem->skeleton.getAlias() != otherElem->skeleton.getAlias()) &&
                 !myElem->skeleton->equals(*(otherElem->skeleton))) {
-                return FALSE;
+                return false;
             }
             myElem = myElem->next.getAlias();
             otherElem = otherElem->next.getAlias();
         }
     }
-    return TRUE;
+    return true;
 }
 
 // find any key existing in the mapping table already.
-// return TRUE if there is an existing key, otherwise return FALSE.
+// return true if there is an existing key, otherwise return false.
 PtnElem*
 PatternMap::getDuplicateElem(
             const UnicodeString &basePattern,
@@ -2338,10 +2504,10 @@ PatternMap::getDuplicateElem(
    }
    do {
      if ( basePattern.compare(curElem->basePattern)==0 ) {
-         UBool isEqual = TRUE;
+         UBool isEqual = true;
          for (int32_t i = 0; i < UDATPG_FIELD_COUNT; ++i) {
             if (curElem->skeleton->type[i] != skeleton.type[i] ) {
-                isEqual = FALSE;
+                isEqual = false;
                 break;
             }
         }
@@ -2386,7 +2552,7 @@ DateTimeMatcher::set(const UnicodeString& pattern, FormatParser* fp, PtnSkeleton
     }
     skeletonResult.original.clear();
     skeletonResult.baseOriginal.clear();
-    skeletonResult.addedDefaultDayPeriod = FALSE;
+    skeletonResult.addedDefaultDayPeriod = false;
 
     fp->set(pattern);
     for (i=0; i < fp->itemNumber; i++) {
@@ -2454,7 +2620,7 @@ DateTimeMatcher::set(const UnicodeString& pattern, FormatParser* fp, PtnSkeleton
                         skeletonResult.original.populate(UDATPG_DAYPERIOD_FIELD, dtTypes[i].patternChar, dtTypes[i].minLen);
                         skeletonResult.baseOriginal.populate(UDATPG_DAYPERIOD_FIELD, dtTypes[i].patternChar, dtTypes[i].minLen);
                         skeletonResult.type[UDATPG_DAYPERIOD_FIELD] = dtTypes[i].type;
-                        skeletonResult.addedDefaultDayPeriod = TRUE;
+                        skeletonResult.addedDefaultDayPeriod = true;
                         break;
                     }
                 }
@@ -2522,7 +2688,7 @@ DateTimeMatcher::copyFrom() {
 
 UBool
 DateTimeMatcher::equals(const DateTimeMatcher* other) const {
-    if (other==nullptr) { return FALSE; }
+    if (other==nullptr) { return false; }
     return skeleton.original == other->skeleton.original;
 }
 
@@ -2681,10 +2847,10 @@ FormatParser::isPatternSeparator(const UnicodeString& field) const {
             continue;
         }
         else {
-            return FALSE;
+            return false;
         }
     }
-    return TRUE;
+    return true;
 }
 
 DistanceInfo::~DistanceInfo() {}
@@ -2726,12 +2892,12 @@ PatternMapIterator::hasNext() const {
     PtnElem *curPtr = nodePtr;
 
     if (patternMap==nullptr) {
-        return FALSE;
+        return false;
     }
     while ( headIndex < MAX_PATTERN_ENTRIES ) {
         if ( curPtr != nullptr ) {
             if ( curPtr->next != nullptr ) {
-                return TRUE;
+                return true;
             }
             else {
                 headIndex++;
@@ -2741,7 +2907,7 @@ PatternMapIterator::hasNext() const {
         }
         else {
             if ( patternMap->boot[headIndex] != nullptr ) {
-                return TRUE;
+                return true;
             }
             else {
                 headIndex++;
@@ -2749,7 +2915,7 @@ PatternMapIterator::hasNext() const {
             }
         }
     }
-    return FALSE;
+    return false;
 }
 
 DateTimeMatcher&
@@ -2856,7 +3022,7 @@ UChar SkeletonFields::getFirstChar() const {
 
 
 PtnSkeleton::PtnSkeleton()
-    : addedDefaultDayPeriod(FALSE) {
+    : addedDefaultDayPeriod(false) {
 }
 
 PtnSkeleton::PtnSkeleton(const PtnSkeleton& other) {
@@ -2953,16 +3119,17 @@ DTSkeletonEnumeration::DTSkeletonEnumeration(PatternMap& patternMap, dtStrEnum t
                     break;
             }
             if ( !isCanonicalItem(s) ) {
-                LocalPointer<UnicodeString> newElem(new UnicodeString(s), status);
+                LocalPointer<UnicodeString> newElem(s.clone(), status);
                 if (U_FAILURE(status)) { 
                     return;
                 }
-                fSkeletons->addElementX(newElem.getAlias(), status);
+                fSkeletons->addElement(newElem.getAlias(), status);
                 if (U_FAILURE(status)) {
                     fSkeletons.adoptInstead(nullptr);
                     return;
                 }
-                newElem.orphan(); // fSkeletons vector now owns the UnicodeString.
+                newElem.orphan(); // fSkeletons vector now owns the UnicodeString (although it
+                                  // does not use a deleter function to manage the ownership).
             }
             curElem = curElem->next.getAlias();
         }
@@ -2993,14 +3160,14 @@ DTSkeletonEnumeration::count(UErrorCode& /*status*/) const {
 UBool
 DTSkeletonEnumeration::isCanonicalItem(const UnicodeString& item) {
     if ( item.length() != 1 ) {
-        return FALSE;
+        return false;
     }
     for (int32_t i=0; i<UDATPG_FIELD_COUNT; ++i) {
         if (item.charAt(0)==Canonical_Items[i]) {
-            return TRUE;
+            return true;
         }
     }
-    return FALSE;
+    return false;
 }
 
 DTSkeletonEnumeration::~DTSkeletonEnumeration() {
@@ -3030,12 +3197,13 @@ DTRedundantEnumeration::add(const UnicodeString& pattern, UErrorCode& status) {
     if (U_FAILURE(status)) {
         return;
     }
-    fPatterns->addElementX(newElem.getAlias(), status);
+    fPatterns->addElement(newElem.getAlias(), status);
     if (U_FAILURE(status)) {
         fPatterns.adoptInstead(nullptr);
         return;
     }
-    newElem.orphan(); // fPatterns now owns the string.
+    newElem.orphan(); // fPatterns now owns the string, although a UVector
+                      // deleter function is not used to manage that ownership.
 }
 
 const UnicodeString*
@@ -3059,14 +3227,14 @@ DTRedundantEnumeration::count(UErrorCode& /*status*/) const {
 UBool
 DTRedundantEnumeration::isCanonicalItem(const UnicodeString& item) const {
     if ( item.length() != 1 ) {
-        return FALSE;
+        return false;
     }
     for (int32_t i=0; i<UDATPG_FIELD_COUNT; ++i) {
         if (item.charAt(0)==Canonical_Items[i]) {
-            return TRUE;
+            return true;
         }
     }
-    return FALSE;
+    return false;
 }
 
 DTRedundantEnumeration::~DTRedundantEnumeration() {
@@ -3080,6 +3248,8 @@ DTRedundantEnumeration::~DTRedundantEnumeration() {
     }    
 }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 /**
  * This is a utility function used by the various date formatting classes to determine whether a particular pattern string will produce an all-numeric date.
  * It does this by examining the pattern string.  If the range between the first d, M, or y and the last d, M, or y in the pattern contains nothing but d, M, y,
@@ -3092,7 +3262,7 @@ extern UBool datePatternHasNumericCore(const UnicodeString& datePattern) {
     int32_t coreEnd = -1;
     int32_t firstLetterAfterCoreStart = -1;
     int32_t numMs = 0;
-    UBool sawD = FALSE, sawY = FALSE;
+    UBool sawD = false, sawY = false;
     for (UChar c = it.first(); it.hasNext(); c = it.next()) {
         switch (c) {
             case u'y': case u'Y': case u'r': case u'u':
@@ -3103,18 +3273,18 @@ extern UBool datePatternHasNumericCore(const UnicodeString& datePattern) {
                 coreEnd = it.getIndex();
                 switch (c) {
                     case u'y': case u'Y': case u'r': case u'u':
-                        sawY = TRUE;
+                        sawY = true;
                         break;
                     case u'M': case u'L':
                         // if the pattern contains more than 2 M's, the month is a word, not a number, which means
                         // we don't have a numeric core
                         ++numMs;
                         if (numMs > 2) {
-                            return FALSE;
+                            return false;
                         }
                         break;
                     case 'd':
-                        sawD = TRUE;
+                        sawD = true;
                         break;
                     default:
                         break;
@@ -3127,37 +3297,38 @@ extern UBool datePatternHasNumericCore(const UnicodeString& datePattern) {
                     }
                 } else if (!u_isspace(c) && !u_ispunct(c) && c != u'\u200f') {
                     // the numeric core must contain nothing but d, M, y, whitespace, punctuation, and the Unicode right-to-left mark
-                    return FALSE;
+                    return false;
                 }
                 break;
         }
     }
     
-    // if we didn't find d, M, or y in the pattern, return FALSE
+    // if we didn't find d, M, or y in the pattern, return false
     if (coreStart < 0 || coreEnd < 0) {
-        return FALSE;
+        return false;
     }
     
     // if there's quoted literal text anywhere in the pattern, whether in the "core" or not, treat it as though
     // we don't have a numeric core
     if (datePattern.indexOf(u'\'') != -1) {
-        return FALSE;
+        return false;
     }
     
     // if we found a letter other than d, M, or y between the first d, M, or y and the last one,
     // we don't have a numeric core
     if (firstLetterAfterCoreStart != -1 && firstLetterAfterCoreStart < coreEnd) {
-        return FALSE;
+        return false;
     }
     
     // if the format contains only one numeric field (out of d, M, or y), we don't count it as a numeric core
     if (((numMs > 0) ? 1 : 0) + (sawY ? 1 : 0) + (sawD ? 1 : 0) <= 1) {
-        return FALSE;
+        return false;
     }
     
     // if we get to here, we have a numeric core
-    return TRUE;
+    return true;
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_END
 

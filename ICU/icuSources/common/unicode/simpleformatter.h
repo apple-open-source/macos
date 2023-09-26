@@ -96,9 +96,16 @@ public:
      */
     SimpleFormatter(const UnicodeString& pattern, int32_t min, int32_t max,
                     UErrorCode &errorCode) {
+#if APPLE_ICU_CHANGES
+// rdar://55667608 Incorrect handling of literal in date/time stamp in Health graphs day view (fi_FI))
         applyPatternMinMaxArguments(pattern, min, max, false, errorCode);
+#else
+        applyPatternMinMaxArguments(pattern, min, max, errorCode);
+#endif // APPLE_ICU_CHANGES
     }
 
+#if APPLE_ICU_CHANGES
+// rdar://55667608 Incorrect handling of literal in date/time stamp in Health graphs day view (fi_FI))
 #ifndef U_HIDE_INTERNAL_API
     /**
      * Constructs a formatter from the pattern string.
@@ -124,6 +131,7 @@ public:
         applyPatternMinMaxArguments(pattern, min, max, removeSingleQuotes, errorCode);
     }
 #endif  /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 
     /**
      * Copy constructor.
@@ -155,7 +163,12 @@ public:
      * @stable ICU 57
      */
     UBool applyPattern(const UnicodeString &pattern, UErrorCode &errorCode) {
+#if APPLE_ICU_CHANGES
+// rdar://55667608 Incorrect handling of literal in date/time stamp in Health graphs day view (fi_FI))
         return applyPatternMinMaxArguments(pattern, 0, INT32_MAX, false, errorCode);
+#else
+        return applyPatternMinMaxArguments(pattern, 0, INT32_MAX, errorCode);
+#endif // APPLE_ICU_CHANGES
     }
 
     /**
@@ -174,10 +187,17 @@ public:
      * @stable ICU 57
      */
     UBool applyPatternMinMaxArguments(const UnicodeString &pattern,
+#if APPLE_ICU_CHANGES
+// rdar://55667608 Incorrect handling of literal in date/time stamp in Health graphs day view (fi_FI))
                                       int32_t min, int32_t max, UErrorCode &errorCode) {
         return applyPatternMinMaxArguments(pattern, min, max, false, errorCode);
     }
+#else
+                                      int32_t min, int32_t max, UErrorCode &errorCode);
+#endif // APPLE_ICU_CHANGES
 
+#if APPLE_ICU_CHANGES
+// rdar://55667608 Incorrect handling of literal in date/time stamp in Health graphs day view (fi_FI))
 #ifndef U_HIDE_INTERNAL_API
     /**
      * Changes this object according to the new pattern.
@@ -203,6 +223,7 @@ public:
                                       int32_t min, int32_t max, UBool removeSingleQuotes,
                                       UErrorCode &errorCode);
 #endif  /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 
     /**
      * @return The max argument number + 1.

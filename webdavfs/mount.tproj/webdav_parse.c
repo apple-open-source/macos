@@ -360,11 +360,10 @@ static webdav_parse_opendir_element_t *create_opendir_element(void)
 {
 	webdav_parse_opendir_element_t *element_ptr;
 	
-	element_ptr = malloc(sizeof(webdav_parse_opendir_element_t));
+	element_ptr = calloc(1, sizeof(webdav_parse_opendir_element_t));
 	if (!element_ptr)
 		return (NULL);
 	
-	bzero(element_ptr, sizeof(webdav_parse_opendir_element_t));
 	element_ptr->dir_data.d_type = DT_REG;
 	element_ptr->seen_href = FALSE;
 	element_ptr->seen_response_end = FALSE;
@@ -635,11 +634,10 @@ create_multistatus_element(void)
 {
 	webdav_parse_multistatus_element_t *element_ptr;
 	
-	element_ptr = malloc(sizeof(webdav_parse_multistatus_element_t));
+	element_ptr = calloc(1, sizeof(webdav_parse_multistatus_element_t));
 	if (!element_ptr)
 		return (NULL);
 	
-	bzero(element_ptr, sizeof(webdav_parse_multistatus_element_t));
 	element_ptr->statusCode = WEBDAV_MULTISTATUS_INVALID_STATUS;
 	element_ptr->name_len = 0;
 	element_ptr->name[0] = 0;
@@ -966,9 +964,13 @@ void parser_opendir_add(void *ctx, const xmlChar *localname, int length)
 	char * ampPointer = NULL;
 	char* str_ptr = NULL;
 	char *ep;
-	
-	text_ptr = malloc(sizeof(webdav_parse_opendir_text_t));
-	bzero(text_ptr,sizeof(webdav_parse_opendir_text_t));
+
+	if ((size_t)length >= sizeof(text_ptr->name)) {
+		debug_string("URI too long 1");
+		parent_ptr->error = ENAMETOOLONG;
+		return;
+	}
+	text_ptr = calloc(1, sizeof(webdav_parse_opendir_text_t));
 	text_ptr->size = (CFIndex)length;
 	memcpy(text_ptr->name,localname,length);
 	/* If the parent is one of our returned directory elements, and if this is a
@@ -985,8 +987,7 @@ void parser_opendir_add(void *ctx, const xmlChar *localname, int length)
 					char * literalPtr = strchr((const char*) localname,'<');
 					int totalLength = (int)(literalPtr - (const char*)localname);
 					if(totalLength >= (length+5)) {
-						str_ptr = (char*)malloc(totalLength+1);
-						memset(str_ptr,0,totalLength+1);
+						str_ptr = (char*)calloc(1, totalLength+1);
 						memcpy(str_ptr,localname,totalLength);
 						ampPointer = strstr((const char*) str_ptr,"amp;");
 						/* To handle multiple ampersands*/
@@ -1012,7 +1013,7 @@ void parser_opendir_add(void *ctx, const xmlChar *localname, int length)
 				}
 				else
 				{
-					debug_string("URI too long");
+					debug_string("URI too long 2");
 					parent_ptr->error = ENAMETOOLONG;
 				}
 				break;
@@ -1076,8 +1077,7 @@ void parser_opendir_add(void *ctx, const xmlChar *localname, int length)
 static void parser_lock_add(void *ctx, const xmlChar *localname, int length)
 {
 	webdav_parse_lock_struct_t *lock_struct = (webdav_parse_lock_struct_t *)ctx;
-	UInt8 *text_ptr = malloc(length+1);
-	bzero(text_ptr,length+1);
+	UInt8 *text_ptr = calloc(1, length + 1);
 	memcpy(text_ptr,localname,length);
 	UInt8* ch = NULL;
 	
@@ -1188,8 +1188,7 @@ static void parser_stat_add(void *ctx, const xmlChar *localname, int length)
 
 static void parser_statfs_add(void *ctx, const xmlChar *localname, int length)
 {
-	char *text_ptr = (char*) malloc(length);
-	bzero(text_ptr,length);
+	char *text_ptr = (char*) calloc(1, length + 1);
 	memcpy(text_ptr,(const char*)localname,length);
 	
 	struct webdav_quotas *quotas = (struct webdav_quotas *)ctx;
@@ -1323,8 +1322,12 @@ static void parser_multistatus_add(void *ctx, const xmlChar *localname, int leng
 	int errnum;
 	/* If the parent is one of our returned directory elements, and if this is a
 	 * text element, than copy the text into the name buffer provided we have room */
-	text_ptr = malloc(sizeof(webdav_parse_multistatus_text_t));
-	bzero(text_ptr,sizeof(webdav_parse_multistatus_text_t));
+	if ((size_t)length >= sizeof(text_ptr->name)) {
+		debug_string("URI too long 1");
+		struct_ptr->error = ENAMETOOLONG;
+		return;
+	}
+	text_ptr = calloc(1, sizeof(webdav_parse_multistatus_text_t));
 	text_ptr->size = (CFIndex)length;
 	memcpy(text_ptr->name,localname,length);
 	
@@ -1344,7 +1347,7 @@ static void parser_multistatus_add(void *ctx, const xmlChar *localname, int leng
 				}
 				else
 				{
-					debug_string("URI too long");
+					debug_string("URI too long 2");
 					struct_ptr->error = ENAMETOOLONG;
 				}
 				break;
@@ -1807,13 +1810,9 @@ parse_multi_status(
 {
 	webdav_parse_multistatus_list_t *multistatus_list;
 	
-	multistatus_list = malloc(sizeof(webdav_parse_multistatus_list_t));
+	multistatus_list = calloc(1, sizeof(webdav_parse_multistatus_list_t));
 	require(multistatus_list != NULL, malloc_list);
-	
-	multistatus_list->error = 0;
-	multistatus_list->head = NULL;
-	multistatus_list->tail = NULL;
-	
+
 	xmlSAXHandler sh;
     memset(&sh,0,sizeof(sh));
     sh.startElementNs = parser_multistatus_create;

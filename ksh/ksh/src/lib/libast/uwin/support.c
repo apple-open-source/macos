@@ -68,7 +68,7 @@ static char sccsid[] = "@(#)support.c	8.1 (Berkeley) 6/4/93";
  *              returns the unbiased exponent of x, a signed integer in 
  *              double precision, except that logb(0) is -INF, logb(INF) 
  *              is +INF, and logb(NAN) is that NAN.
- * (d) finite(x) 
+ * (d) finite(x)
  *              returns the value TRUE if -INF < x < +INF and returns 
  *              FALSE otherwise.
  *
@@ -362,7 +362,7 @@ double x;
 	}
 
     /* sqrt(INF) is INF */
-        if(!finite(x)) return(x);               
+        if(!isfinite(x)) return(x);
 
     /* scale x to [1,4) */
         n=logb(x);

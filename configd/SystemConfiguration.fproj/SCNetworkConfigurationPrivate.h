@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -752,6 +752,29 @@ _SCNetworkInterfaceIsSelfNamed			(SCNetworkInterfaceRef		interface)	SPI_AVAILABL
 
 
 /*!
+	@function _SCNetworkInterfaceSupportsVMNETBridgedMode
+	@discussion Indicates whether the interface has been explicitly
+	marked as supporting vmnet bridged mode.
+	@param interface The network interface.
+	@result TRUE if the interface supports vmnet bridged mode.
+	Note: Some interfaces are implicitly supported by vmnet
+	bridged mode. This function will return FALSE for those.
+ */
+Boolean
+_SCNetworkInterfaceSupportsVMNETBridgedMode	(SCNetworkInterfaceRef		interface)	SPI_AVAILABLE(macos(14.0), ios(17.0));
+
+
+/*!
+	@function _SCNetworkInterfaceIsUserEthernet
+	@discussion Indicates whether this is a UserEthernet interface.
+	@param interface The network interface.
+	@result TRUE if this interface is UserEthernet.
+ */
+Boolean
+_SCNetworkInterfaceIsUserEthernet		(SCNetworkInterfaceRef		interface)	SPI_AVAILABLE(macos(14.0), ios(17.0));
+
+
+/*!
 	@function _SCNetworkInterfaceIsQoSMarkingProfileInstalled
 	@discussion Identifies if a network interface has a QoSMarking profile installed
 	@param interface The network interface.
@@ -1432,6 +1455,17 @@ _SCNetworkSetSetSetID					(SCNetworkSetRef		set,
 							 CFStringRef			setID)		API_AVAILABLE(macos(10.10), ios(8.0));
 
 /*!
+	@function _SCNetworkSetIsDefault
+	@discussion Return whether the specified set is the default i.e.
+	"Automatic" set.
+	@param set The set to introspect.
+	@result TRUE if the set is default, FALSE otherwise.
+ */
+Boolean
+_SCNetworkSetIsDefault(SCNetworkSetRef set)
+	API_AVAILABLE(macos(14.0), ios(17.0));
+
+/*!
 	@group VPN Service configuration
  */
 
@@ -1687,6 +1721,7 @@ SCNetworkInterfaceCost
 SCNetworkInterfaceTypeGetTemporaryOverrideCost(SCPreferencesRef prefs,
 					       CFStringRef type)
 	API_AVAILABLE(macos(13.0), ios(16.0));
+
 
 __END_DECLS
 

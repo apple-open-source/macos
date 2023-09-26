@@ -1,6 +1,8 @@
 ﻿## wordNLLTu9.txt
 ## The following corresponds to a draft(?) source file from CoreLP of 2017
 ##############################################################################
+## Apple addition, originally per rdar://37249396
+##############################################################################
 #
 # Copyright (C) 2016 and later: Unicode, Inc. and others.
 # License & terms of use: http://www.unicode.org/copyright.html

@@ -1,7 +1,7 @@
-.\" Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+.\" Copyright (c) 2002-2023 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_OSREFERENCE_LICENSE_HEADER_START@
-.\" 
+.\"
 .\" This file contains Original Code and/or Modifications of Original Code
 .\" as defined in and that are subject to the Apple Public Source License
 .\" Version 2.0 (the 'License'). You may not use this file except in
@@ -10,7 +10,7 @@
 .\" unlawful or unlicensed copies of an Apple operating system, or to
 .\" circumvent, violate, or enable the circumvention or violation of, any
 .\" terms of an Apple operating system software license agreement.
-.\" 
+.\"
 .\" Please obtain a copy of the License at
 .\" http://www.opensource.apple.com/apsl/ and read it before using this file.
 .\"
@@ -21,7 +21,7 @@
 .\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
 .\" Please see the License for the specific language governing rights and
 .\" limitations under the License.
-.\" 
+.\"
 .\" @APPLE_OSREFERENCE_LICENSE_HEADER_END@
 .\"
 .\" Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -123,6 +123,9 @@ packets to network hosts
 .Ek
 .Bk -words
 .Op Fl Fl apple-connect
+.Ek
+.Bk -words
+.Op Fl Fl apple-progress
 .Ek
 .Bk -words
 .Op Fl Fl apple-time
@@ -267,7 +270,7 @@ option.
 Specifies the traffic class to use for sending ICMPv6 packets.
 The supported traffic classes are
 BK_SYS, BK, BE, RD, OAM, AV, RV, VI, VO and CTL.
-By default 
+By default
 .Nm
 uses the control traffic class (CTL).
 This option is an Apple addition.
@@ -394,6 +397,9 @@ is specified.
 Use the specified traffic class.
 .It Fl Fl apple-connect
 Connects the socket to the destination address.
+This option is an Apple addition.
+.It Fl Fl apple-progress
+Prints progress for debugging.
 This option is an Apple addition.
 .It Fl Fl apple-time
 Prints the time a packet was received.
@@ -601,7 +607,8 @@ and
 .Xr ping 8 .
 Some people argued that it would be more convenient to uniform the
 ping command for both IPv4 and IPv6.
-The followings are an answer to the request.
+.Pp
+The following are an answer to the request:
 .Pp
 From a developer's point of view:
 since the underling raw sockets API is totally different between IPv4

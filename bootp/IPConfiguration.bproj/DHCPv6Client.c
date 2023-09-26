@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -2488,6 +2488,7 @@ DHCPv6Client_Request(DHCPv6ClientRef client, IFEventID_t event_id,
 	    my_log(LOG_NOTICE,
 		   "%s: NotOnLink",
 		   DHCPv6ClientGetDescription(client));
+	    DHCPv6ClientRemoveAddress(client, "Request");
 	    DHCPv6Client_Solicit(client, IFEventID_start_e, NULL);
 	    return;
 	}

@@ -46,7 +46,9 @@ cs{
             }
             patterns{
                 accountingFormat{"#,##0.00 ¤"}
+                accountingFormat%noCurrency{"#,##0.00"}
                 currencyFormat{"#,##0.00 ¤"}
+                currencyPatternAppendISO{"{0} ¤¤"}
                 decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
                 scientificFormat{"#E0"}
@@ -296,8 +298,10 @@ cs{
         minimalPairs{
             case{
                 accusative{"Naměřili jsme {0}."}
+                dative{"Díky {0} navíc to mohl stihnout."}
                 genitive{"Bez {0} se obejdeme."}
                 instrumental{"Spokojíme se s {0}."}
+                locative{"Po {0} se zastavil."}
                 nominative{"Chybí ještě {0}."}
             }
             gender{
@@ -321,7 +325,7 @@ cs{
     calendar{
         buddhist{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -400,8 +404,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -430,22 +441,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y G"}
@@ -486,7 +506,7 @@ cs{
         }
         chinese{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -723,7 +743,7 @@ cs{
         }
         coptic{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -805,8 +825,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -835,22 +862,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y G"}
@@ -1284,7 +1320,7 @@ cs{
         }
         ethiopic{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -1366,8 +1402,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -1396,22 +1439,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y G"}
@@ -1548,7 +1600,7 @@ cs{
         }
         generic{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -1559,6 +1611,12 @@ cs{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimePatterns%atTime{
+                "{1} 'v' {0}",
+                "{1} 'v' {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
@@ -1582,15 +1640,15 @@ cs{
                 EHm{"E H:mm"}
                 EHms{"E H:mm:ss"}
                 Ed{"E d."}
-                Ehm{"E h:mm a"}
-                Ehms{"E h:mm:ss a"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
                 GyMMM{"LLLL y G"}
                 GyMMMEd{"E d. M. y G"}
                 GyMMMMEd{"E d. MMMM y G"}
                 GyMMMMd{"d. MMMM y G"}
                 GyMMMd{"d. M. y G"}
-                GyMd{"d. M. y GGGGG"}
+                GyMd{"d. M. y GGGGG"}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
@@ -1603,9 +1661,9 @@ cs{
                 MMMd{"d. M."}
                 Md{"d. M."}
                 d{"d."}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
                 ms{"mm:ss"}
                 y{"y G"}
                 yyyy{"y G"}
@@ -1680,8 +1738,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -1710,22 +1775,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y G"}
@@ -1778,7 +1852,7 @@ cs{
                 "odp.",
             }
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -1789,6 +1863,12 @@ cs{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimePatterns%atTime{
+                "{1} 'v' {0}",
+                "{1} 'v' {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
@@ -1815,20 +1895,22 @@ cs{
                 EHm{"E H:mm"}
                 EHms{"E H:mm:ss"}
                 Ed{"E d."}
-                Ehm{"E h:mm a"}
-                Ehms{"E h:mm:ss a"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
                 GyMMM{"LLLL y G"}
                 GyMMMEd{"E d. M. y G"}
                 GyMMMMEd{"E d. MMMM y G"}
                 GyMMMMd{"d. MMMM y G"}
                 GyMMMd{"d. M. y G"}
-                GyMd{"d. M. y GGGGG"}
+                GyMd{"d. M. y GGGGG"}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
                 Hmsv{"H:mm:ss v"}
+                Hmsvvvv{"H:mm:ss, vvvv"}
                 Hmv{"H:mm v"}
+                Hmvvvv{"H:mm, vvvv"}
                 M{"L"}
                 MEd{"E d. M."}
                 MMM{"LLL"}
@@ -1844,11 +1926,13 @@ cs{
                 MMMd{"d. M."}
                 Md{"d. M."}
                 d{"d."}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                hmsv{"h:mm:ss a v"}
-                hmv{"h:mm a v"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmsvvvv{"h:mm:ss a, vvvv"}
+                hmv{"h:mm a v"}
+                hmvvvv{"h:mm a, vvvv"}
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"M/y"}
@@ -2086,8 +2170,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -2116,22 +2207,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y"}
@@ -2304,7 +2404,7 @@ cs{
         }
         hebrew{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -2383,8 +2483,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -2413,22 +2520,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y G"}
@@ -2571,7 +2687,7 @@ cs{
         }
         indian{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -2650,8 +2766,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -2680,22 +2803,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y G"}
@@ -2929,7 +3061,7 @@ cs{
         }
         japanese{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -3716,8 +3848,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -3746,22 +3885,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y G"}
@@ -3802,7 +3950,7 @@ cs{
         }
         persian{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -3881,8 +4029,15 @@ cs{
                     H{"H:mm–H:mm v"}
                     m{"H:mm–H:mm v"}
                 }
+                Hmvvvv{
+                    H{"H:mm–H:mm, vvvv"}
+                    m{"H:mm–H:mm, vvvv"}
+                }
                 Hv{
                     H{"H–H v"}
+                }
+                Hvvvv{
+                    H{"H–H, vvvv"}
                 }
                 M{
                     M{"M–M"}
@@ -3911,22 +4066,31 @@ cs{
                 }
                 fallback{"{0} – {1}"}
                 h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
+                    a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hmvvvv{
+                    a{"h:mm a – h:mm a, vvvv"}
+                    h{"h:mm–h:mm a, vvvv"}
+                    m{"h:mm–h:mm a, vvvv"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                hvvvv{
+                    a{"h a – h a, vvvv"}
+                    h{"h–h a, vvvv"}
                 }
                 y{
                     y{"y–y G"}
@@ -4057,7 +4221,7 @@ cs{
         }
         roc{
             DateTimePatterns{
-                "H:mm:ss zzzz",
+                "H:mm:ss, zzzz",
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
@@ -5306,5 +5470,71 @@ cs{
         UK{"Velká Británie"}
         US{"USA"}
         metric{"Metrický"}
+    }
+    personNames{
+        foreignSpaceReplacement{" "}
+        initialPattern{
+            initial{"{0}."}
+            initialSequence{"{0} {1}"}
+        }
+        nameOrderLocales{
+            givenFirst{
+                "und",
+                "cs",
+            }
+            surnameFirst{
+                "ko",
+                "vi",
+                "yue",
+                "zh",
+            }
+        }
+        namePattern{
+            givenFirst-long-addressing-formal{"{prefix} {given} {given2} {surname} {surname2}"}
+            givenFirst-long-addressing-informal{"{given-informal} {surname}"}
+            givenFirst-long-monogram-formal{"{given-monogram}{given2-monogram}{surname-core-monogram}"}
+            givenFirst-long-monogram-informal{"{given-informal-monogram}{surname-core-monogram}"}
+            givenFirst-long-referring-formal{"{prefix} {given} {given2} {surname} {surname2}, {suffix}"}
+            givenFirst-long-referring-informal{"{given-informal} {surname}"}
+            givenFirst-medium-addressing-formal{"{prefix} {surname}"}
+            givenFirst-medium-addressing-informal{"{given-informal}"}
+            givenFirst-medium-monogram-formal{"{given-monogram}{surname-core-monogram}"}
+            givenFirst-medium-monogram-informal{"{given-informal-monogram}{surname-core-monogram}"}
+            givenFirst-medium-referring-formal{"{prefix} {given} {surname}"}
+            givenFirst-medium-referring-informal{"{given-informal} {surname}"}
+            givenFirst-short-addressing-formal{"{surname}"}
+            givenFirst-short-addressing-informal{"{given-informal}"}
+            givenFirst-short-monogram-formal{"{surname-core-monogram}"}
+            givenFirst-short-monogram-informal{"{given-informal-monogram}"}
+            givenFirst-short-referring-formal{"{prefix} {surname}"}
+            givenFirst-short-referring-informal{"{given-informal}"}
+            sorting-long-referring-formal{
+                "{surname-core}, {given} {given2} {surname-prefix} ({prefix}, {suffix"
+                "})"
+            }
+            sorting-long-referring-informal{"{surname-core}, {given-informal} {surname-prefix}"}
+            sorting-medium-referring-formal{"{surname-core}, {given} {given2-initial} {surname-prefix}"}
+            sorting-medium-referring-informal{"{surname-core}, {given-informal} {surname-prefix}"}
+            sorting-short-referring-formal{"{surname-core}, {given-initial} {given2-initial}"}
+            sorting-short-referring-informal{"{surname-core}, {given-informal-initial}"}
+            surnameFirst-long-addressing-formal{"{prefix} {surname} {surname2} {given} {given2}"}
+            surnameFirst-long-addressing-informal{"{surname} {given-informal}"}
+            surnameFirst-long-monogram-formal{"{surname-core-monogram}{given-monogram}{given2-monogram}"}
+            surnameFirst-long-monogram-informal{"{surname-core-monogram}{given-informal-monogram}"}
+            surnameFirst-long-referring-formal{"{prefix} {surname} {surname2} {given} {given2}, {suffix}"}
+            surnameFirst-long-referring-informal{"{surname} {given-informal}"}
+            surnameFirst-medium-addressing-formal{"{prefix} {surname}"}
+            surnameFirst-medium-addressing-informal{"{given-informal}"}
+            surnameFirst-medium-monogram-formal{"{surname-core-monogram}{given-monogram}"}
+            surnameFirst-medium-monogram-informal{"{surname-core-monogram}{given-informal-monogram}"}
+            surnameFirst-medium-referring-formal{"{prefix} {surname} {given}"}
+            surnameFirst-medium-referring-informal{"{surname} {given-informal}"}
+            surnameFirst-short-addressing-formal{"{surname}"}
+            surnameFirst-short-addressing-informal{"{given-informal}"}
+            surnameFirst-short-monogram-formal{"{surname-core-monogram}"}
+            surnameFirst-short-monogram-informal{"{given-informal-monogram}"}
+            surnameFirst-short-referring-formal{"{prefix} {surname}"}
+            surnameFirst-short-referring-informal{"{given-informal}"}
+        }
     }
 }

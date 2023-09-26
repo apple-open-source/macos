@@ -529,7 +529,7 @@ fr{
         }
         LAK{
             "LAK",
-            "kip loatien",
+            "kip laotien",
         }
         LBP{
             "£LB",
@@ -1225,7 +1225,6 @@ fr{
         ZMW{"Kw"}
     }
     Currencies%variant{
-        GEL{"₾"}
         TRY{"LT"}
     }
     CurrencyPlurals{
@@ -1754,8 +1753,8 @@ fr{
             other{"tenges kazakhs"}
         }
         LAK{
-            one{"kip loatien"}
-            other{"kips loatiens"}
+            one{"kip laotien"}
+            other{"kips laotiens"}
         }
         LBP{
             one{"livre libanaise"}

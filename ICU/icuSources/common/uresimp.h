@@ -394,6 +394,9 @@ ures_openDirectFillIn(UResourceBundle *r,
                       const char *locale,
                       UErrorCode *status);
 
+#if APPLE_ICU_CHANGES
+// rdar://54886964 Numeral format should follow the region, not the language
+// rdar://26911014 English + region combinations without specific locales: fall back to en_001 & region’s time cycle
 /**
  * Same as ures_open(), except that if no resource bundle for the specified package name and locale exists,
  * and the incoming locale specifies a country, this will fall back to the resource bundle for the specified country
@@ -408,7 +411,7 @@ ures_openDirectFillIn(UResourceBundle *r,
  *                if NULL, the default locale will be used. If strlen(locale) == 0
  *                root locale will be used.
  * @param didFallBackByCountry If not NULL, filled in with a Boolean value that indicates whether we actually
- *                            did fall back by country.  If this value is FALSE, the result of calling this function
+ *                            did fall back by country.  If this value is false, the result of calling this function
  *                            is the same as the caller would have gotten from ures_open().
  * @param status  fills in the outgoing error code.
  * @return      a newly allocated resource bundle.
@@ -420,7 +423,10 @@ ures_openWithCountryFallback(const char*  packageName,
                              const char*  locale,
                              UBool*       didFallBackByCountry,
                              UErrorCode*  status);
+#endif // APPLE_ICU_CHANGES
 
+#if APPLE_ICU_CHANGES
+// rdar://63880069 ualoc_localizationsToUse should now use parentLocaleTable from uresbund.cpp, not duplicate the mapping
 /**
  * If localeID has a parent in parentLocale data, return that.
  * Otherwise return empty string.
@@ -437,12 +443,13 @@ ures_openWithCountryFallback(const char*  packageName,
  * @param err A UErrorCode value.
  * @return The length of the parent locale ID.
  * @see uloc_getParent
- * @internal Apple <rdar://problem/63880069>
+ * @internal Apple rdar://63880069
  */
 U_CAPI int32_t U_EXPORT2
 ures_getLocParent(const char* localeID,
                  char* parent,
                  int32_t parentCapacity,
                  UErrorCode* err);
+#endif // APPLE_ICU_CHANGES
 
 #endif /*URESIMP_H*/

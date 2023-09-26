@@ -49,14 +49,14 @@ utext_moveIndex32(UText *ut, int32_t delta) {
     UChar32  c;
     if (delta > 0) {
         do {
-            if(ut->chunkOffset>=ut->chunkLength && !utext_access(ut, ut->chunkNativeLimit, TRUE)) {
-                return FALSE;
+            if(ut->chunkOffset>=ut->chunkLength && !utext_access(ut, ut->chunkNativeLimit, true)) {
+                return false;
             }
             c = ut->chunkContents[ut->chunkOffset];
             if (U16_IS_SURROGATE(c)) {
                 c = utext_next32(ut);
                 if (c == U_SENTINEL) {
-                    return FALSE;
+                    return false;
                 }
             } else {
                 ut->chunkOffset++;
@@ -65,14 +65,14 @@ utext_moveIndex32(UText *ut, int32_t delta) {
 
     } else if (delta<0) {
         do {
-            if(ut->chunkOffset<=0 && !utext_access(ut, ut->chunkNativeStart, FALSE)) {
-                return FALSE;
+            if(ut->chunkOffset<=0 && !utext_access(ut, ut->chunkNativeStart, false)) {
+                return false;
             }
             c = ut->chunkContents[ut->chunkOffset-1];
             if (U16_IS_SURROGATE(c)) {
                 c = utext_previous32(ut);
                 if (c == U_SENTINEL) {
-                    return FALSE;
+                    return false;
                 }
             } else {
                 ut->chunkOffset--;
@@ -80,7 +80,7 @@ utext_moveIndex32(UText *ut, int32_t delta) {
         } while(++delta<0);
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -109,30 +109,35 @@ utext_getNativeIndex(const UText *ut) {
 
 U_CAPI void U_EXPORT2
 utext_setNativeIndex(UText *ut, int64_t index) {
+#if APPLE_ICU_CHANGES
+// rdar://53154266 8763681344.. Move utext_setNativeIndex after possible call to access function
     // Apple note, at entry ut->chunkContents may be 0, not necessarily a problem
     // (CF funcs will have set chunkNativeStart/Limit to 0 forcing call to access)
+#endif // APPLE_ICU_CHANGES
     if(index<ut->chunkNativeStart || index>=ut->chunkNativeLimit) {
         // The desired position is outside of the current chunk.
         // Access the new position.  Assume a forward iteration from here,
         // which will also be optimimum for a single random access.
         // Reverse iterations may suffer slightly.
-        ut->pFuncs->access(ut, index, TRUE);
+        ut->pFuncs->access(ut, index, true);
     } else if((int32_t)(index - ut->chunkNativeStart) <= ut->nativeIndexingLimit) {
         // utf-16 indexing.
         ut->chunkOffset=(int32_t)(index-ut->chunkNativeStart);
     } else {
-        ut->chunkOffset=ut->pFuncs->mapNativeIndexToUTF16(ut, index);
+         ut->chunkOffset=ut->pFuncs->mapNativeIndexToUTF16(ut, index);
     }
+#if APPLE_ICU_CHANGES
+// rdar://53610517 a5b08e1cf0.. Remove remaining logging of ut→chunkContents==0, it has served its purpose
     // Apple note, it can still be valid to have ut->chunkContents==0 at this
-    // point (just not inside the next block), see <rdar://problem/53610517>
-
+    // point (just not inside the next block), see rdar://53610517
+#endif // APPLE_ICU_CHANGES
     // The convention is that the index must always be on a code point boundary.
     // Adjust the index position if it is in the middle of a surrogate pair.
     if (ut->chunkOffset<ut->chunkLength) {
         UChar c= ut->chunkContents[ut->chunkOffset];
         if (U16_IS_TRAIL(c)) {
             if (ut->chunkOffset==0) {
-                ut->pFuncs->access(ut, ut->chunkNativeStart, FALSE);
+                ut->pFuncs->access(ut, ut->chunkNativeStart, false);
             }
             if (ut->chunkOffset>0) {
                 UChar lead = ut->chunkContents[ut->chunkOffset-1];
@@ -157,7 +162,7 @@ utext_getPreviousNativeIndex(UText *ut) {
     int64_t result;
     if (i >= 0) {
         UChar c = ut->chunkContents[i];
-        if (U16_IS_TRAIL(c) == FALSE) {
+        if (U16_IS_TRAIL(c) == false) {
             if (i <= ut->nativeIndexingLimit) {
                 result = ut->chunkNativeStart + i;
             } else {
@@ -194,14 +199,14 @@ utext_current32(UText *ut) {
     UChar32  c;
     if (ut->chunkOffset==ut->chunkLength) {
         // Current position is just off the end of the chunk.
-        if (ut->pFuncs->access(ut, ut->chunkNativeLimit, TRUE) == FALSE) {
+        if (ut->pFuncs->access(ut, ut->chunkNativeLimit, true) == false) {
             // Off the end of the text.
             return U_SENTINEL;
         }
     }
 
     c = ut->chunkContents[ut->chunkOffset];
-    if (U16_IS_LEAD(c) == FALSE) {
+    if (U16_IS_LEAD(c) == false) {
         // Normal, non-supplementary case.
         return c;
     }
@@ -223,16 +228,26 @@ utext_current32(UText *ut) {
         //        leading surrogate.  The attempt to access the trail will fail, but
         //        the original position before the unpaired lead still needs to be restored.
         int64_t  nativePosition = ut->chunkNativeLimit;
-        if (ut->pFuncs->access(ut, nativePosition, TRUE)) {
+#if APPLE_ICU_CHANGES
+// rdar://78720690 #253 further fix utext_current32 to restore chunkOffset for non-UTF16 providers
+#else
+        int32_t  originalOffset = ut->chunkOffset;
+#endif // APPLE_ICU_CHANGES
+        if (ut->pFuncs->access(ut, nativePosition, true)) {
             trail = ut->chunkContents[ut->chunkOffset];
         }
-        UBool r = ut->pFuncs->access(ut, nativePosition, FALSE);  // reverse iteration flag loads preceding chunk
-        U_ASSERT(r==TRUE);
+        UBool r = ut->pFuncs->access(ut, nativePosition, false);  // reverse iteration flag loads preceding chunk
+        U_ASSERT(r==true);
+#if APPLE_ICU_CHANGES
+// rdar://78720690 #253 further fix utext_current32 to restore chunkOffset for non-UTF16 providers
         // Here we need to restore chunkOffset since the access functions were called with
         // chunkNativeLimit but that is not where we were (we were 1 code unit before the
         // limit). Restoring was originally added in ICU-4669 but did not support access
         // functions that changed the chunk size, the following does.
         ut->chunkOffset = ut->chunkLength - 1;
+#else
+        ut->chunkOffset = originalOffset;
+#endif // APPLE_ICU_CHANGES
         if(!r) {
             return U_SENTINEL;
         }
@@ -254,7 +269,7 @@ utext_char32At(UText *ut, int64_t nativeIndex) {
     if (nativeIndex>=ut->chunkNativeStart && nativeIndex < ut->chunkNativeStart + ut->nativeIndexingLimit) {
         ut->chunkOffset = (int32_t)(nativeIndex - ut->chunkNativeStart);
         c = ut->chunkContents[ut->chunkOffset];
-        if (U16_IS_SURROGATE(c) == FALSE) {
+        if (U16_IS_SURROGATE(c) == false) {
             return c;
         }
     }
@@ -278,13 +293,13 @@ utext_next32(UText *ut) {
     UChar32       c;
 
     if (ut->chunkOffset >= ut->chunkLength) {
-        if (ut->pFuncs->access(ut, ut->chunkNativeLimit, TRUE) == FALSE) {
+        if (ut->pFuncs->access(ut, ut->chunkNativeLimit, true) == false) {
             return U_SENTINEL;
         }
     }
 
     c = ut->chunkContents[ut->chunkOffset++];
-    if (U16_IS_LEAD(c) == FALSE) {
+    if (U16_IS_LEAD(c) == false) {
         // Normal case, not supplementary.
         //   (A trail surrogate seen here is just returned as is, as a surrogate value.
         //    It cannot be part of a pair.)
@@ -292,14 +307,14 @@ utext_next32(UText *ut) {
     }
 
     if (ut->chunkOffset >= ut->chunkLength) {
-        if (ut->pFuncs->access(ut, ut->chunkNativeLimit, TRUE) == FALSE) {
+        if (ut->pFuncs->access(ut, ut->chunkNativeLimit, true) == false) {
             // c is an unpaired lead surrogate at the end of the text.
             // return it as it is.
             return c;
         }
     }
     UChar32 trail = ut->chunkContents[ut->chunkOffset];
-    if (U16_IS_TRAIL(trail) == FALSE) {
+    if (U16_IS_TRAIL(trail) == false) {
         // c was an unpaired lead surrogate, not at the end of the text.
         // return it as it is (unpaired).  Iteration position is on the
         // following character, possibly in the next chunk, where the
@@ -318,13 +333,13 @@ utext_previous32(UText *ut) {
     UChar32       c;
 
     if (ut->chunkOffset <= 0) {
-        if (ut->pFuncs->access(ut, ut->chunkNativeStart, FALSE) == FALSE) {
+        if (ut->pFuncs->access(ut, ut->chunkNativeStart, false) == false) {
             return U_SENTINEL;
         }
     }
     ut->chunkOffset--;
     c = ut->chunkContents[ut->chunkOffset];
-    if (U16_IS_TRAIL(c) == FALSE) {
+    if (U16_IS_TRAIL(c) == false) {
         // Normal case, not supplementary.
         //   (A lead surrogate seen here is just returned as is, as a surrogate value.
         //    It cannot be part of a pair.)
@@ -332,7 +347,7 @@ utext_previous32(UText *ut) {
     }
 
     if (ut->chunkOffset <= 0) {
-        if (ut->pFuncs->access(ut, ut->chunkNativeStart, FALSE) == FALSE) {
+        if (ut->pFuncs->access(ut, ut->chunkNativeStart, false) == false) {
             // c is an unpaired trail surrogate at the start of the text.
             // return it as it is.
             return c;
@@ -340,7 +355,7 @@ utext_previous32(UText *ut) {
     }
 
     UChar32 lead = ut->chunkContents[ut->chunkOffset-1];
-    if (U16_IS_LEAD(lead) == FALSE) {
+    if (U16_IS_LEAD(lead) == false) {
         // c was an unpaired trail surrogate, not at the end of the text.
         // return it as it is (unpaired).  Iteration position is at c
         return c;
@@ -359,7 +374,7 @@ utext_next32From(UText *ut, int64_t index) {
 
     if(index<ut->chunkNativeStart || index>=ut->chunkNativeLimit) {
         // Desired position is outside of the current chunk.
-        if(!ut->pFuncs->access(ut, index, TRUE)) {
+        if(!ut->pFuncs->access(ut, index, true)) {
             // no chunk available here
             return U_SENTINEL;
         }
@@ -399,7 +414,7 @@ utext_previous32From(UText *ut, int64_t index) {
     //
     if(index<=ut->chunkNativeStart || index>ut->chunkNativeLimit) {
         // Requested native index is outside of the current chunk.
-        if(!ut->pFuncs->access(ut, index, FALSE)) {
+        if(!ut->pFuncs->access(ut, index, false)) {
             // no chunk available here
             return U_SENTINEL;
         }
@@ -408,7 +423,7 @@ utext_previous32From(UText *ut, int64_t index) {
         ut->chunkOffset = (int32_t)(index - ut->chunkNativeStart);
     } else {
         ut->chunkOffset=ut->pFuncs->mapNativeIndexToUTF16(ut, index);
-        if (ut->chunkOffset==0 && !ut->pFuncs->access(ut, index, FALSE)) {
+        if (ut->chunkOffset==0 && !ut->pFuncs->access(ut, index, false)) {
             // no chunk available here
             return U_SENTINEL;
         }
@@ -446,24 +461,24 @@ utext_equals(const UText *a, const UText *b) {
         a->magic != UTEXT_MAGIC ||
         b->magic != UTEXT_MAGIC) {
             // Null or invalid arguments don't compare equal to anything.
-            return FALSE;
+            return false;
     }
 
     if (a->pFuncs != b->pFuncs) {
         // Different types of text providers.
-        return FALSE;
+        return false;
     }
 
     if (a->context != b->context) {
         // Different sources (different strings)
-        return FALSE;
+        return false;
     }
     if (utext_getNativeIndex(a) != utext_getNativeIndex(b)) {
         // Different current position in the string.
-        return FALSE;
+        return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 U_CAPI UBool U_EXPORT2
@@ -995,7 +1010,7 @@ utf8TextAccess(UText *ut, int64_t index, UBool forward) {
                 // Don't swap buffers, but do set the
                 //   current buffer position.
                 ut->chunkOffset = ut->chunkLength;
-                return FALSE;
+                return false;
             } else {
                 // End of current buffer.
                 //   check whether other buffer already has what we need.
@@ -1024,7 +1039,7 @@ utf8TextAccess(UText *ut, int64_t index, UBool forward) {
                     // Current buffer extends up to the end of the string.
                     //   Leave it as the current buffer.
                     ut->chunkOffset = ut->chunkLength;
-                    return FALSE;
+                    return false;
                 }
                 if (ix == u8b->bufNativeLimit) {
                     // Alternate buffer extends to the end of string.
@@ -1046,7 +1061,7 @@ utf8TextAccess(UText *ut, int64_t index, UBool forward) {
             mapIndex = ix - u8b->toUCharsMapStart;
             U_ASSERT(mapIndex < (int32_t)sizeof(UTF8Buf::mapToUChars));
             ut->chunkOffset = u8b->mapToUChars[mapIndex] - u8b->bufStartIdx;
-            return TRUE;
+            return true;
 
         }
     }
@@ -1063,7 +1078,7 @@ utf8TextAccess(UText *ut, int64_t index, UBool forward) {
             // Don't swap buffers, but do set the
             //   current buffer position.
             ut->chunkOffset = 0;
-            return FALSE;
+            return false;
         } else {
             // Start of current buffer.
             //   check whether other buffer already has what we need.
@@ -1116,9 +1131,9 @@ utf8TextAccess(UText *ut, int64_t index, UBool forward) {
         //   one of the trailing bytes.  Because there is no preceding ,
         //   character, this access fails.  We can't pick up on the
         //   situation sooner because the requested index is not zero.
-        return FALSE;
+        return false;
     } else {
-        return TRUE;
+        return true;
     }
 
 
@@ -1147,7 +1162,7 @@ swapBuffers:
         U_ASSERT(mapIndex<(int32_t)sizeof(u8b->mapToUChars));
         ut->chunkOffset = u8b->mapToUChars[mapIndex] - u8b->bufStartIdx;
 
-        return TRUE;
+        return true;
     }
 
 
@@ -1178,7 +1193,7 @@ swapBuffers:
         ut->chunkOffset = 0;
         U_ASSERT(ix == u8b->bufNativeStart);
     }
-    return FALSE;
+    return false;
 
 makeStubBuffer:
     //   The user has done a seek/access past the start or end
@@ -1211,10 +1226,10 @@ fillForward:
         ut->p = u8b_swap;
 
         int32_t strLen = ut->b;
-        UBool   nulTerminated = FALSE;
+        UBool   nulTerminated = false;
         if (strLen < 0) {
             strLen = 0x7fffffff;
-            nulTerminated = TRUE;
+            nulTerminated = true;
         }
 
         UChar   *buf = u8b_swap->buf;
@@ -1222,7 +1237,7 @@ fillForward:
         uint8_t *mapToUChars  = u8b_swap->mapToUChars;
         int32_t  destIx       = 0;
         int32_t  srcIx        = ix;
-        UBool    seenNonAscii = FALSE;
+        UBool    seenNonAscii = false;
         UChar32  c = 0;
 
         // Fill the chunk buffer and mapping arrays.
@@ -1238,8 +1253,8 @@ fillForward:
                 destIx++;
             } else {
                 // General case, handle everything.
-                if (seenNonAscii == FALSE) {
-                    seenNonAscii = TRUE;
+                if (seenNonAscii == false) {
+                    seenNonAscii = true;
                     u8b_swap->bufNILimit = destIx;
                 }
 
@@ -1277,7 +1292,7 @@ fillForward:
         u8b_swap->bufNativeLimit     = srcIx;
         u8b_swap->bufStartIdx        = 0;
         u8b_swap->bufLimitIdx        = destIx;
-        if (seenNonAscii == FALSE) {
+        if (seenNonAscii == false) {
             u8b_swap->bufNILimit     = destIx;
         }
         u8b_swap->toUCharsMapStart   = u8b_swap->bufNativeStart;
@@ -1301,7 +1316,7 @@ fillForward:
                 ut->providerProperties &= ~I32_FLAG(UTEXT_PROVIDER_LENGTH_IS_EXPENSIVE);
             }
         }
-        return TRUE;
+        return true;
     }
 
 
@@ -1410,7 +1425,7 @@ fillReverse:
         ut->chunkNativeStart    = u8b_swap->bufNativeStart;
         ut->chunkNativeLimit    = u8b_swap->bufNativeLimit;
         ut->nativeIndexingLimit = u8b_swap->bufNILimit;
-        return TRUE;
+        return true;
     }
 
 }
@@ -1534,7 +1549,7 @@ utf8TextExtract(UText *ut,
     utext_strFromUTF8(dest, destCapacity, &destLength,
                     (const char *)ut->context+start32, limit32-start32,
                     pErrorCode);
-    utf8TextAccess(ut, limit32, TRUE);
+    utf8TextAccess(ut, limit32, true);
     return destLength;
 }
 
@@ -1768,13 +1783,13 @@ repTextAccess(UText *ut, int64_t index, UBool forward) {
         if (index32>=ut->chunkNativeStart && index32<ut->chunkNativeLimit) {
             // Buffer already contains the requested position.
             ut->chunkOffset = (int32_t)(index - ut->chunkNativeStart);
-            return TRUE;
+            return true;
         }
         if (index32>=length && ut->chunkNativeLimit==length) {
             // Request for end of string, and buffer already extends up to it.
             // Can't get the data, but don't change the buffer.
             ut->chunkOffset = length - (int32_t)ut->chunkNativeStart;
-            return FALSE;
+            return false;
         }
 
         ut->chunkNativeLimit = index + REP_TEXT_CHUNK_SIZE - 1;
@@ -1795,13 +1810,13 @@ repTextAccess(UText *ut, int64_t index, UBool forward) {
         if (index32>ut->chunkNativeStart && index32<=ut->chunkNativeLimit) {
             // Requested position already in buffer.
             ut->chunkOffset = index32 - (int32_t)ut->chunkNativeStart;
-            return TRUE;
+            return true;
         }
         if (index32==0 && ut->chunkNativeStart==0) {
             // Request for start, buffer already begins at start.
             //  No data, but keep the buffer as is.
             ut->chunkOffset = 0;
-            return FALSE;
+            return false;
         }
 
         // Figure out the bounds of the chunk to extract for reverse iteration.
@@ -1857,7 +1872,7 @@ repTextAccess(UText *ut, int64_t index, UBool forward) {
     // Use fast indexing for get/setNativeIndex()
     ut->nativeIndexingLimit = ut->chunkLength;
 
-    return TRUE;
+    return true;
 }
 
 
@@ -1900,7 +1915,7 @@ repTextExtract(UText *ut,
     }
     UnicodeString buffer(dest, 0, destCapacity); // writable alias
     rep->extractBetween(start32, limit32, buffer);
-    repTextAccess(ut, limit32, TRUE);
+    repTextAccess(ut, limit32, true);
 
     return u_terminateUChars(dest, destCapacity, length, status);
 }
@@ -1956,7 +1971,7 @@ repTextReplace(UText *ut,
 
     // set the iteration position to the end of the newly inserted replacement text.
     int32_t newIndexPos = limit32 + lengthDelta;
-    repTextAccess(ut, newIndexPos, TRUE);
+    repTextAccess(ut, newIndexPos, true);
 
     return lengthDelta;
 }
@@ -2020,7 +2035,7 @@ repTextCopy(UText *ut,
     }
 
     // Set position, reload chunk if needed.
-    repTextAccess(ut, nativeIterIndex, TRUE);
+    repTextAccess(ut, nativeIterIndex, true);
 }
 
 static const struct UTextFuncs repFuncs =
@@ -2262,7 +2277,7 @@ unistrTextCopy(UText *ut,
 
     // update chunk description, set iteration position.
     ut->chunkContents = us->getBuffer();
-    if (move==FALSE) {
+    if (move==false) {
         // copy operation, string length grows
         ut->chunkLength += limit32-start32;
         ut->chunkNativeLimit = ut->chunkLength;
@@ -2533,7 +2548,7 @@ ucstrTextExtract(UText *ut,
     // Access the start.  Does two things we need:
     //   Pins 'start' to the length of the string, if it came in out-of-bounds.
     //   Snaps 'start' to the beginning of a code point.
-    ucstrTextAccess(ut, start, TRUE);
+    ucstrTextAccess(ut, start, true);
     const UChar *s=ut->chunkContents;
     start32 = ut->chunkOffset;
 
@@ -2587,7 +2602,7 @@ ucstrTextExtract(UText *ut,
     if (si <= ut->chunkNativeLimit) {
         ut->chunkOffset = si;
     } else {
-        ucstrTextAccess(ut, si, TRUE);
+        ucstrTextAccess(ut, si, true);
     }
 
     // Add a terminating NUL if space in the buffer permits,
@@ -2706,11 +2721,11 @@ charIterTextAccess(UText *ut, int64_t index, UBool  forward) {
     neededIndex -= neededIndex % CIBufSize;
 
     UChar *buf = NULL;
-    UBool  needChunkSetup = TRUE;
+    UBool  needChunkSetup = true;
     int    i;
     if (ut->chunkNativeStart == neededIndex) {
         // The buffer we want is already the current chunk.
-        needChunkSetup = FALSE;
+        needChunkSetup = false;
     } else if (ut->b == neededIndex) {
         // The first buffer (buffer p) has what we need.
         buf = (UChar *)ut->p;
@@ -2817,7 +2832,7 @@ charIterTextExtract(UText *ut,
         srci += len;
     }
 
-    charIterTextAccess(ut, copyLimit, TRUE);
+    charIterTextAccess(ut, copyLimit, true);
 
     u_terminateUChars(dest, destCapacity, desti, status);
     return desti;

@@ -213,37 +213,41 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 			launchConstraints[2] = lwcr;
 		}
 	}
+	libraryConstraints = state.mLibraryConstraints;
+	if ((inherit & kSecCodeSignerPreserveLibraryConstraints) && !libraryConstraints) {
+		CFDataRef lwcr = code->component(cdLibraryConstraint);
+		if (lwcr) {
+			libraryConstraints = lwcr;
+		}
+	}
 	
 	// work out the CodeDirectory flags word
 	bool haveCdFlags = false;
+	cdFlags = 0;
 	if (!haveCdFlags && state.mCdFlagsGiven) {
 		cdFlags = state.mCdFlags;
 		secinfo("signer", "using explicit cdFlags=0x%x", cdFlags);
 		haveCdFlags = true;
 	}
-	if (!haveCdFlags) {
-		cdFlags = 0;
-		if (infoDict) {
-			if (CFTypeRef csflags = CFDictionaryGetValue(infoDict, CFSTR("CSFlags"))) {
-				if (CFGetTypeID(csflags) == CFNumberGetTypeID()) {
-					cdFlags = cfNumber<uint32_t>(CFNumberRef(csflags));
-					secinfo("signer", "using numeric cdFlags=0x%x from Info.plist", cdFlags);
-				} else if (CFGetTypeID(csflags) == CFStringGetTypeID()) {
-					cdFlags = cdTextFlags(cfString(CFStringRef(csflags)));
-					secinfo("signer", "using text cdFlags=0x%x from Info.plist", cdFlags);
-				} else
-					MacOSError::throwMe(errSecCSBadDictionaryFormat);
-				haveCdFlags = true;
-			}
+	if (!haveCdFlags && infoDict) {
+		if (CFTypeRef csflags = CFDictionaryGetValue(infoDict, CFSTR("CSFlags"))) {
+			if (CFGetTypeID(csflags) == CFNumberGetTypeID()) {
+				cdFlags = cfNumber<uint32_t>(CFNumberRef(csflags));
+				secinfo("signer", "using numeric cdFlags=0x%x from Info.plist", cdFlags);
+			} else if (CFGetTypeID(csflags) == CFStringGetTypeID()) {
+				cdFlags = cdTextFlags(cfString(CFStringRef(csflags)));
+				secinfo("signer", "using text cdFlags=0x%x from Info.plist", cdFlags);
+			} else
+				MacOSError::throwMe(errSecCSBadDictionaryFormat);
+			haveCdFlags = true;
 		}
+	}
+	if (!haveCdFlags && (inherit & kSecCodeSignerPreserveRuntime)) {
+		cdFlags |= code->codeDirectory(false)->flags & kSecCodeSignatureRuntime;
 	}
 	if (!haveCdFlags && (inherit & kSecCodeSignerPreserveFlags)) {
 		cdFlags = code->codeDirectory(false)->flags & ~kSecCodeSignatureAdhoc;
 		secinfo("signer", "using inherited cdFlags=0x%x", cdFlags);
-		haveCdFlags = true;
-	}
-	if (!haveCdFlags) {
-		cdFlags = 0;
 	}
 	if ((state.mSigner == SecIdentityRef(kCFNull)) &&
 		!state.mOmitAdhocFlag) { // ad-hoc signing requested...
@@ -450,11 +454,11 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 	assert(rules);
 
 	if (this->state.mLimitedAsync == NULL) {
-		this->state.mLimitedAsync =
-			/* rdar://problem/20299541: Async workers (i.e. parallelization) are currently
-			 * turned off, because the paths for signing code are not ready for it yet. */
-			// new LimitedAsync(rep->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
-			new LimitedAsync(false);
+		if (signingFlags() & kSecCSSingleThreadedSigning) {
+			this->state.mLimitedAsync = new LimitedAsync(false);
+		} else {
+			this->state.mLimitedAsync = new LimitedAsync(rep->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
+		}
 	}
 
 	CFDictionaryRef files2 = NULL;
@@ -484,7 +488,15 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 			bool isNested = (ruleFlags & ResourceBuilder::nested);
 			const std::string path(ent->fts_path);
 			const std::string accpath(ent->fts_accpath);
+			
+			// We want to transfer files into the perform block, so this is equivalent to CFRetain(filesRef)
+			CFRef<CFMutableDictionaryRef> filesTransfer;
+			filesTransfer = filesRef;
+			filesTransfer.yield();
+			
 			this->state.mLimitedAsync->perform(groupRef, ^{
+				CFRef<CFMutableDictionaryRef> localFiles = filesRef;
+				
 				CFRef<CFMutableDictionaryRef> seal;
 				if (isNested) {
 					seal.take(signNested(path, relpath));
@@ -496,6 +508,15 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 					target[len] = '\0';
 					seal.take(cfmake<CFMutableDictionaryRef>("{symlink=%s}", target));
 				} else {
+					if (signingFlags() & kSecCSStripDisallowedXattrs) {
+						UnixPlusPlus::AutoFileDesc fd(path);
+						if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME)) {
+							fd.removeAttr(XATTR_RESOURCEFORK_NAME);
+						}
+						if (fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME)) {
+							fd.removeAttr(XATTR_FINDERINFO_NAME);
+						}
+					}
 					seal.take(resources.hashFile(accpath.c_str(), digestAlgorithms(), signingFlags() & kSecCSSignStrictPreflight));
 				}
 				if (seal.get() == NULL) {
@@ -507,9 +528,9 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 				CFTypeRef hash;
 				StLock<Mutex> _(resourceLock);
 				if ((hash = CFDictionaryGetValue(seal, CFSTR("hash"))) && CFDictionaryGetCount(seal) == 1) // simple form
-					CFDictionaryAddValue(filesRef, CFTempString(relpath).get(), hash);
+					CFDictionaryAddValue(localFiles, CFTempString(relpath).get(), hash);
 				else
-					CFDictionaryAddValue(filesRef, CFTempString(relpath).get(), seal.get());
+					CFDictionaryAddValue(localFiles, CFTempString(relpath).get(), seal.get());
 				code->reportProgress();
 			});
 		});
@@ -575,7 +596,7 @@ CFMutableDictionaryRef SecCodeSigner::Signer::signNested(const std::string &path
 				hash);
 		MacOSError::throwMe(errSecCSUnsigned);
 	} catch (const CommonError &err) {
-		CSError::throwMe(err.osStatus(), kSecCFErrorPath, CFTempURL(relpath, false, this->code->resourceBase()));
+		CSError::throwMe(err.osStatus(), kSecCFErrorPath, CFTempURL(path));
 	}
 }
 
@@ -797,6 +818,10 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 		}
 		lwcrSlot++;
 	}
+	if (libraryConstraints) {
+		writer.component(cdLibraryConstraint, libraryConstraints);
+		builder.specialSlot(cdLibraryConstraint, libraryConstraints);
+	}
 	
 	if (entitlements) {
 		writer.component(cdEntitlementSlot, entitlements);
@@ -821,24 +846,6 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	}
 	
 	writer.addDiscretionary(builder);
-	
-#if 0 // rdar://problem/25720754
-	if ((signingFlags() & (kSecCSSignOpaque|kSecCSSignV1)) == 0 && builder.hashType() != kSecCodeSignatureHashSHA1) {
-		// calculate sorted list of top SuperBlob keys in this EmbeddedSignatureBlob (if any)
-		// (but not for opaque or V1 construction, which must remain bit-for-bit compatible)
-		std::vector<Endian<uint32_t> > slotVector;
-		slotVector.push_back(cdCodeDirectorySlot);	// mandatory
-		std::set<CodeDirectory::Slot> filledSlots = builder.filledSpecialSlots();
-		filledSlots.insert(cdTopDirectorySlot);		// will be added below
-		copy(filledSlots.begin(), filledSlots.end(), back_inserter(slotVector));
-		for (unsigned n = 0; n < alternateDigestCount; n++)
-			slotVector.push_back(cdAlternateCodeDirectorySlots + n);
-		slotVector.push_back(cdSignatureSlot);
-		CFTempData cfSlotVector(&slotVector[0], slotVector.size() * sizeof(slotVector[0]));
-		writer.component(cdTopDirectorySlot, cfSlotVector);
-		builder.specialSlot(cdTopDirectorySlot, cfSlotVector);
-	}
-#endif
 }
 
 #if TARGET_OS_OSX
@@ -1117,6 +1124,7 @@ EditableDiskRep *SecCodeSigner::Signer::editMainExecutableRep(DiskRep *rep)
 	return mainExecRep;
 }
 	
+
 void SecCodeSigner::Signer::prepareForEdit(SecCSFlags flags) {
 	setDigestAlgorithms(code->hashAlgorithms());
 	
@@ -1184,7 +1192,8 @@ void SecCodeSigner::Signer::prepareForEdit(SecCSFlags flags) {
 
 		editComponents[arch] = std::make_unique<RawComponentMap>(editRep->createRawComponents());
 		
-		if (!state.mEditArch || arch == state.mEditArch) {
+		bool archMatch = (arch.cpuType() == state.mEditArch.cpuType()) && (arch.cpuSubtype() == state.mEditArch.cpuSubtype());
+		if (!state.mEditArch || archMatch) {
 			if (state.mEditCMS) {
 				CFDataRef cms = state.mEditCMS.get();
 				(*editComponents[arch])[cdSignatureSlot] = cms;

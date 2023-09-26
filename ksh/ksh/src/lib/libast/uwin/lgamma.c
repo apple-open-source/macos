@@ -154,7 +154,7 @@ extern __pure double lgamma(double x)
 	signgam = 1;
 	endian = ((*(int *) &one)) ? 1 : 0;
 
-	if (!finite(x))
+	if (!isfinite(x))
 		if (_IEEE)
 			return (x+x);
 		else return (infnan(EDOM));

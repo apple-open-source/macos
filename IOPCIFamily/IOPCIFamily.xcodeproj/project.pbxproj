@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		260E650D2A1C4C53007BA0B1 /* IOPCIFamily_xrOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 260E65122A1C4C53007BA0B1 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_xrOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				260E650E2A1C4C53007BA0B1 /* PBXTargetDependency */,
+				260E65102A1C4C53007BA0B1 /* PBXTargetDependency */,
+			);
+			name = IOPCIFamily_xrOS;
+			productName = IOPCIFamily_xrOS;
+		};
 		9808E63A234E4C9200F4FC53 /* IOPCIFamily_macOS */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 9808E641234E4C9200F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_macOS" */;
@@ -137,6 +149,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		260E650F2A1C4C53007BA0B1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 983EB31824A5BC0600557323;
+			remoteInfo = ApplePIODMA;
+		};
+		260E65112A1C4C53007BA0B1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A613B2750D46AA65007BA726;
+			remoteInfo = IOPCIFamily;
+		};
 		98063B3A24F43C68006FD023 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
@@ -679,6 +705,7 @@
 				A613B2A50D46AA65007BA726 /* AppleSamplePCI */,
 				987ECFBF2368B0C100792271 /* PCIDriverKitPEX8733 */,
 				983EB31824A5BC0600557323 /* ApplePIODMA */,
+				260E650D2A1C4C53007BA0B1 /* IOPCIFamily_xrOS */,
 			);
 		};
 /* End PBXProject section */
@@ -767,7 +794,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -ex";
-			shellScript = "if [[ ( \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi || \"${ACTION}\" == install ) ]]; then\n    mkdir -p ${SCRIPT_OUTPUT_FILE_0}\n    \n    # stage .iig and .h files\n    cp ${SCRIPT_INPUT_FILE_0}/*.iig ${SCRIPT_OUTPUT_FILE_0}\n    cp ${SCRIPT_INPUT_FILE_1} ${SCRIPT_OUTPUT_FILE_0}\n\n    # invoke iig to generate .h files (on platforms that need it)\n    if [[ ( \"${PLATFORM_NAME}\" == macosx || \"${PLATFORM_NAME}\" == iphoneos ) ]]; then\n        . ${SRCROOT}/PCIDriverKit/iigKernelFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\n        \n        # stage iig-generated .h files\n        cp ${SCRIPT_INPUT_FILE_0}/*.h ${SCRIPT_OUTPUT_FILE_0}\n        \n        # remove known private file(s)\n        rm ${SCRIPT_OUTPUT_FILE_1}\n    fi\nfi\n";
+			shellScript = "if [[ ( \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi || \"${ACTION}\" == install ) ]]; then\n    mkdir -p ${SCRIPT_OUTPUT_FILE_0}\n    \n    # stage .iig and .h files\n    cp ${SCRIPT_INPUT_FILE_0}/*.iig ${SCRIPT_OUTPUT_FILE_0}\n    cp ${SCRIPT_INPUT_FILE_1} ${SCRIPT_OUTPUT_FILE_0}\n\n    # invoke iig to generate .h files (on platforms that need it)\n    if [[ ( \"${PLATFORM_NAME}\" == macosx || \"${PLATFORM_NAME}\" == iphoneos || \"${PLATFORM_NAME}\" == xros ) ]]; then\n        . ${SRCROOT}/PCIDriverKit/iigKernelFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\n        \n        # stage iig-generated .h files\n        cp ${SCRIPT_INPUT_FILE_0}/*.h ${SCRIPT_OUTPUT_FILE_0}\n        \n        # remove known private file(s)\n        rm ${SCRIPT_OUTPUT_FILE_1}\n    fi\nfi\n";
 		};
 		9876A98523638FBD000531FC /* Install Kernel.framework Headers */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -931,6 +958,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		260E650E2A1C4C53007BA0B1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 983EB31824A5BC0600557323 /* ApplePIODMA */;
+			targetProxy = 260E650F2A1C4C53007BA0B1 /* PBXContainerItemProxy */;
+		};
+		260E65102A1C4C53007BA0B1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A613B2750D46AA65007BA726 /* IOPCIFamily */;
+			targetProxy = 260E65112A1C4C53007BA0B1 /* PBXContainerItemProxy */;
+		};
 		98063B3B24F43C68006FD023 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 983EB31824A5BC0600557323 /* ApplePIODMA */;
@@ -1011,6 +1048,56 @@
 				EXPORTED_SYMBOLS_FILE = "";
 				INFOPLIST_OUTPUT_FORMAT = XML;
 				SDKROOT = macosx.internal;
+			};
+			name = Default;
+		};
+		260E65132A1C4C53007BA0B1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros.internal;
+				SUPPORTED_PLATFORMS = "xrsimulator xros";
+			};
+			name = Development;
+		};
+		260E65142A1C4C53007BA0B1 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros.internal;
+				SUPPORTED_PLATFORMS = "xrsimulator xros";
+			};
+			name = "Development-Embedded";
+		};
+		260E65152A1C4C53007BA0B1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros.internal;
+				SUPPORTED_PLATFORMS = "xrsimulator xros";
+			};
+			name = Deployment;
+		};
+		260E65162A1C4C53007BA0B1 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros.internal;
+				SUPPORTED_PLATFORMS = "xrsimulator xros";
+			};
+			name = "Deployment-Embedded";
+		};
+		260E65172A1C4C53007BA0B1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros.internal;
+				SUPPORTED_PLATFORMS = "xrsimulator xros";
 			};
 			name = Default;
 		};
@@ -2461,6 +2548,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2525,6 +2613,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -2585,6 +2674,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -2683,6 +2773,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2768,6 +2859,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -2837,6 +2929,18 @@
 				1590525409368A190010639A /* Deployment */,
 				B169ED9815BA2B6000A1A90A /* Deployment-Embedded */,
 				1590525509368A190010639A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		260E65122A1C4C53007BA0B1 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_xrOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				260E65132A1C4C53007BA0B1 /* Development */,
+				260E65142A1C4C53007BA0B1 /* Development-Embedded */,
+				260E65152A1C4C53007BA0B1 /* Deployment */,
+				260E65162A1C4C53007BA0B1 /* Deployment-Embedded */,
+				260E65172A1C4C53007BA0B1 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

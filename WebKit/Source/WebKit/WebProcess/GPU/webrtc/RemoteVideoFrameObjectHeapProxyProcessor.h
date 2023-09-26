@@ -64,6 +64,10 @@ public:
     void getVideoFrameBuffer(const RemoteVideoFrameProxy&, bool canUseIOSurfce, Callback&&);
     RefPtr<WebCore::NativeImage> getNativeImage(const WebCore::VideoFrame&);
 
+    void ref() const final { return IPC::WorkQueueMessageReceiver::ref(); }
+    void deref() const final { return IPC::WorkQueueMessageReceiver::deref(); }
+    ThreadSafeWeakPtrControlBlock& controlBlock() const final { return IPC::WorkQueueMessageReceiver::controlBlock(); }
+
 private:
     explicit RemoteVideoFrameObjectHeapProxyProcessor(GPUProcessConnection&);
     void initialize();
@@ -72,7 +76,7 @@ private:
 
     // Messages
     void setSharedVideoFrameSemaphore(IPC::Semaphore&&);
-    void setSharedVideoFrameMemory(const SharedMemory::Handle&);
+    void setSharedVideoFrameMemory(SharedMemory::Handle&&);
     void newVideoFrameBuffer(RemoteVideoFrameIdentifier, std::optional<SharedVideoFrame::Buffer>&&);
     void newConvertedVideoFrameBuffer(std::optional<SharedVideoFrame::Buffer>&&);
 

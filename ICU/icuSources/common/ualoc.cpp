@@ -24,7 +24,7 @@
 #include "ucln_cmn.h"
 // the following has replacements for some math.h funcs etc
 #include "putilimp.h"
-// For <rdar://problem/63880069>
+// For rdar://63880069
 #include "uresimp.h"
 
 #include <algorithm>
@@ -64,14 +64,14 @@ static int compareLangEntries(const void * entry1, const void * entry2) {
 // must be sorted by language code
 static const char * langToDefaultScript[] = {
     "az",   "az_Latn",
-    "bm",   "bm_Latn",  // <rdar://problem/47494729> added
+    "bm",   "bm_Latn",  // rdar://47494729 added
     "bs",   "bs_Latn",
-    "byn",  "byn_Ethi", // <rdar://problem/47494729> added
-    "cu",   "cu_Cyrl",  // <rdar://problem/47494729> added
-    "ff",   "ff_Latn",  // <rdar://problem/47494729> added
-    "ha",   "ha_Latn",  // <rdar://problem/47494729> added
+    "byn",  "byn_Ethi", // rdar://47494729 added
+    "cu",   "cu_Cyrl",  // rdar://47494729 added
+    "ff",   "ff_Latn",  // rdar://47494729 added
+    "ha",   "ha_Latn",  // rdar://47494729 added
     "iu",   "iu_Cans",
-    "kk",   "kk_Cyrl",  // <rdar://problem/47494729> changed from _Arab
+    "kk",   "kk_Cyrl",  // rdar://47494729 changed from _Arab
     "ks",   "ks_Arab",  // unnecessary?
     "ku",   "ku_Latn",
     "ky",   "ky_Cyrl",
@@ -79,7 +79,7 @@ static const char * langToDefaultScript[] = {
     "ms",   "ms_Latn",
     "pa",   "pa_Guru",
     "rif",  "rif_Tfng", // unnecessary? no locale support anyway
-    "sd",   "sd_Arab",  // <rdar://problem/47494729> added
+    "sd",   "sd_Arab",  // rdar://47494729 added
     "shi",  "shi_Tfng",
     "sr",   "sr_Cyrl",
     "tg",   "tg_Cyrl",
@@ -447,8 +447,8 @@ static const char * forceParent[] = { // Not used by ualoc_localizationsToUse
     "en_ZM",   "en_GB",
     "en_ZW",   "en_GB",
     "yue",     "yue_HK",
-    "yue_CN",  "root",  // should this change to e.g. "zh_Hans_CN" for <rdar://problem/30671866>?
-    "yue_HK",  "root",  // should this change to e.g. "zh_Hant_HK" for <rdar://problem/30671866>?
+    "yue_CN",  "root",  // should this change to e.g. "zh_Hans_CN" for rdar://30671866?
+    "yue_HK",  "root",  // should this change to e.g. "zh_Hant_HK" for rdar://30671866?
     "yue_Hans","yue_CN",
     "yue_Hant","yue_HK",
     "zh",      "zh_CN",
@@ -545,7 +545,7 @@ ualoc_getAppleParent(const char* localeID,
             const char * childPtr = NULL;
             if (ures_getType(parentMapBundle) == URES_STRING) {
                 childLen = kLocBaseNameMax;
-                childPtr = ures_getUTF8String(parentMapBundle, childName, &childLen, FALSE, &tempStatus);
+                childPtr = ures_getUTF8String(parentMapBundle, childName, &childLen, false, &tempStatus);
                 if (U_FAILURE(tempStatus) || uprv_strncmp(locbuf, childPtr, kLocBaseNameMax) != 0) {
                     childLen = 0;
                 }
@@ -554,7 +554,7 @@ ualoc_getAppleParent(const char* localeID,
                 for (childCur = 0; childCur < childCount && childLen == 0; childCur++) {
                     tempStatus = U_ZERO_ERROR;
                     childLen = kLocBaseNameMax;
-                    childPtr = ures_getUTF8StringByIndex(parentMapBundle, childCur, childName, &childLen, FALSE, &tempStatus);
+                    childPtr = ures_getUTF8StringByIndex(parentMapBundle, childCur, childName, &childLen, false, &tempStatus);
                     if (U_FAILURE(tempStatus) || uprv_strncmp(locbuf, childPtr, kLocBaseNameMax) != 0) {
                         childLen = 0;
                     }
@@ -630,7 +630,7 @@ enum { kAppleAliasMapCount = UPRV_LENGTHOF(appleAliasMap) };
 // Most of the entries in the following are cases in which
 // localization bundle inheritance is different from
 // ICU resource inheritance, and thus are not in parentLocales data.
-// <rdar://problem/63880069> However, since this is now checked before
+// rdar://63880069 However, since this is now checked before
 // the hashmap of parentLocales data, we add a few important entries
 // from parentLocales data for lookup efficiency.
 static const char * appleParentMap[][2] = {
@@ -733,7 +733,7 @@ U_CDECL_END
 
 U_NAMESPACE_BEGIN
 
-static UInitOnce gUALocaleCacheInitOnce = U_INITONCE_INITIALIZER;
+static UInitOnce gUALocaleCacheInitOnce {};
 
 static int gMapDataState = 0; // 0 = not initialized, 1 = initialized, -1 = failure
 static UResourceBundle* gLanguageAliasesBundle = NULL; 
@@ -752,7 +752,7 @@ static UBool U_CALLCONV ualocale_cleanup(void)
     }
     gMapDataState = 0;
     gUALocaleCacheInitOnce.reset();
-    return TRUE;
+    return true;
 }
 
 static void initializeMapData() {
@@ -817,7 +817,7 @@ static void ualoc_normalize(const char *locale, char *normalized, int32_t normal
         
         if (U_SUCCESS(localStatus) && aliasMapBundle != NULL) {
             len = normalizedCapacity;
-            ures_getUTF8StringByKey(aliasMapBundle, "replacement", normalized, &len, TRUE, status);
+            ures_getUTF8StringByKey(aliasMapBundle, "replacement", normalized, &len, true, status);
             if (U_SUCCESS(*status) && len >= normalizedCapacity) {
                 *status = U_BUFFER_OVERFLOW_ERROR; // treat unterminated as error
             }
@@ -1006,7 +1006,7 @@ void LocaleIDInfo::initBaseNames(const char *originalID, LocIDCharStorage& charS
  * object's strings are written to this storage and `textPtr` is advanced to point to the first memory position after the last string written to the storage.
  * @param textPtrLimit A pointer to the position immediately beyond the end of the separate character storage.  This function won't write beyond
  * this point and will return U_BUFFER_OVERFLOW if the storage is filled (which shouldn't happen).
- * @param penalizeNonDefaultCountry If TRUE, an extra entry is added to the parent chain if the original locale specifies a country other than
+ * @param penalizeNonDefaultCountry If true, an extra entry is added to the parent chain if the original locale specifies a country other than
  * the default country for the locale's language.
  * @param err Pointer to a variable holding the ICU error code.
  */
@@ -1121,11 +1121,11 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
     
 #if DEBUG_UALOC
     for (int32_t i = 0; i < preferredLanguagesCount; i++) {
-        prefLangInfos[i].dump(preferredLanguages[i], charStorage, FALSE, status);
+        prefLangInfos[i].dump(preferredLanguages[i], charStorage, false, status);
     }
     printf("\n");
     for (int32_t i = 0; i < availableLocalizationsCount; i++) {
-        availLocInfos[i].dump(availableLocalizations[i], charStorage, TRUE, status);
+        availLocInfos[i].dump(availableLocalizations[i], charStorage, true, status);
     }
     printf("\n");
 #endif // DEBUG_UALOC
@@ -1155,8 +1155,8 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
                 // If we haven't yet found an exact match, look to see if the two locales have an exact match further
                 // down in their parent chains.  We can skip checking the parent chains if the locales' languages are
                 // different since (with a couple of important exceptions) the parent chain will never change language.
-                prefLangInfo->calcParentChain(charStorage, FALSE, status);
-                availLocInfo->calcParentChain(charStorage, TRUE, status);
+                prefLangInfo->calcParentChain(charStorage, false, status);
+                availLocInfo->calcParentChain(charStorage, true, status);
                 
                 if (U_SUCCESS(*status)) {
                     // Compare each pair of entries in the two locales' parent chains.  If we find an exact match,
@@ -1228,7 +1228,7 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
     if (result != NULL) {
         localizationsToUse[locsToUseCount++] = result->original;
         
-        result->calcParentChain(charStorage, TRUE, status);
+        result->calcParentChain(charStorage, true, status);
         for (int32_t parentChainIndex = 0; result->parentChain[parentChainIndex] != NULL; ++parentChainIndex) {
             if (parentChainIndex > 0 && result->parentChain[parentChainIndex - 1] == result->parentChain[parentChainIndex]) {
                 continue;

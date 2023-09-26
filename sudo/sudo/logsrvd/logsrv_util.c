@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/types.h>
 
@@ -58,19 +63,20 @@ expand_buf(struct connection_buffer *buf, unsigned int needed)
     if (buf->size < needed) {
 	/* Expand buffer. */
 	needed = sudo_pow2_roundup(needed);
+	sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
+	    "expanding buffer from %u to %u", buf->size, needed);
 	if ((newdata = malloc(needed)) == NULL) {
-	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO,
-		"%s: unable to malloc %u", __func__, needed);
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    debug_return_bool(false);
 	}
-	if (buf->off > 0)
+	if (buf->len != buf->off)
 	    memcpy(newdata, buf->data + buf->off, buf->len - buf->off);
 	free(buf->data);
 	buf->data = newdata;
 	buf->size = needed;
     } else {
 	/* Just reset existing buffer. */
-	if (buf->off > 0) {
+	if (buf->len != buf->off) {
 	    memmove(buf->data, buf->data + buf->off,
 		buf->len - buf->off);
 	}
@@ -122,11 +128,31 @@ iolog_seekto(int iolog_dir_fd, const char *iolog_path,
     off_t pos;
     debug_decl(iolog_seekto, SUDO_DEBUG_UTIL);
 
+    if (!sudo_timespecisset(target)) {
+	sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
+	    "resuming at start of file [0, 0]");
+	debug_return_bool(true);
+    }
+
+    memset(&timing, 0, sizeof(timing));
+    timing.decimal = ".";
+
     /* Parse timing file until we reach the target point. */
     for (;;) {
-	if (iolog_read_timing_record(&iolog_files[IOFD_TIMING], &timing) != 0)
+	switch (iolog_read_timing_record(&iolog_files[IOFD_TIMING], &timing)) {
+	case 0:
+	    break;
+	case 1:
+	    /* EOF reading timing file. */
+	    sudo_warnx(U_("%s/%s: unable to find resume point [%lld, %ld]"),
+		iolog_path, "timing", (long long)target->tv_sec,
+		target->tv_nsec);
 	    goto bad;
-	sudo_timespecadd(&timing.delay, elapsed_time, elapsed_time);
+	default:
+	    /* Error printed by iolog_read_timing_record(). */
+	    goto bad;
+	}
+	sudo_timespecadd(elapsed_time, &timing.delay, elapsed_time);
 	if (timing.event < IOFD_TIMING) {
 	    if (!iolog_files[timing.event].enabled) {
 		/* Missing log file. */
@@ -147,9 +173,9 @@ iolog_seekto(int iolog_dir_fd, const char *iolog_path,
 		break;
 
 	    /* Mismatch between resume point and stored log. */
-	    sudo_warnx(U_("unable to find resume point [%lld, %ld] in %s/%s"),
-		(long long)target->tv_sec, target->tv_nsec, iolog_path,
-		"timing");
+	    sudo_warnx(U_("%s/%s: unable to find resume point [%lld, %ld]"),
+		iolog_path, "timing", (long long)target->tv_sec,
+		target->tv_nsec);
 	    goto bad;
 	}
     }

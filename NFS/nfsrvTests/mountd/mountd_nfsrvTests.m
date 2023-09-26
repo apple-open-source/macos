@@ -61,6 +61,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <sys/un.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/socket.h>
@@ -77,7 +78,7 @@
 #include "mountd.h"
 #include "pathnames.h"
 #include "mountd_rpc.h"
-
+#include "test_utils.h"
 #if TARGET_OS_OSX
 
 /* Tests globals */
@@ -86,23 +87,12 @@
 #define EXPORTS     "exports"
 #define CONFIG      "nfs.conf"
 
-char template[] = TEMPLATE;
-char *rootdir = NULL;
-char exportsPath[PATH_MAX];
 char confPath[PATH_MAX];
-int exportsFD = -1, confFD = -1, dirFD = -1;
+int confFD = -1;
 AUTH *auth = NULL;
 CLIENT *mclnt = NULL;
 
 static void doUnmountallRPC(void);
-
-// Exports content
-typedef struct {
-	const char *paths[10]; // last element must be NULL
-	const char *flags;
-	const char *network;
-	const char *mask;
-} export_t;
 
 export_t gExports[5] = {
 	[0] = {
@@ -119,8 +109,8 @@ export_t gExports[5] = {
 	},
 	[2] = {
 		{ "dir3", "dir3/dir3_1", NULL },
-		"-maproot=root -sec=sys:krb5",
-		"-alldirs",
+		"-alldirs -maproot=root -sec=sys:krb5",
+		"",
 		""
 	},
 	[3] = {
@@ -140,25 +130,25 @@ export_t gExports[5] = {
 // Helper functions
 
 const char *
-getRootDir()
+getRootDir(void)
 {
 	return rootdir;
 }
 
 const char*
-getDestPath()
+getDestPath(void)
 {
 	return gExports[2].paths[0];
 }
 
 const char*
-getDestReadOnlyPath()
+getDestReadOnlyPath(void)
 {
 	return gExports[4].paths[0];
 }
 
 const char *
-getLocalMountedPath()
+getLocalMountedPath(void)
 {
 	static char *path = NULL;
 	if (path == NULL) {
@@ -172,7 +162,7 @@ getLocalMountedPath()
 }
 
 const char *
-getLocalMountedReadOnlyPath()
+getLocalMountedReadOnlyPath(void)
 {
 	static char *path = NULL;
 	if (path == NULL) {
@@ -185,16 +175,38 @@ getLocalMountedReadOnlyPath()
 	return path;
 }
 
-int
-unlink_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+void
+doMountExport(const char **nfsdArgs, int nfsdArgsSize, char* exports_file)
 {
-	int rv = remove(path);
+	if (fork() == 0) {
+		int argc = nfsdArgsSize + 3;
+		char **argv = calloc(argc, sizeof(char *));
+		if (argv == NULL) {
+			XCTFail("Cannot allocate argv array");
+			return;
+		}
 
-	if (rv) {
-		XCTFail("remove failed %d", rv);
+		// Build args list
+		argv[0] = "nfsd";
+		argv[1] = "-F";
+		argv[2] = exports_file;
+		for (int i = 0; i < nfsdArgsSize; i++) {
+			argv[i + 3] = (char *)nfsdArgs[i];
+		}
+
+		// Kick nfsd
+		nfsd_imp(argc, argv, confPath);
+		free(argv);
+	} else {
+		// Sleep until NFSD is up
+		int retry = 10;
+		while (retry-- && get_nfsd_pid() == 0) {
+			sleep(1);
+		}
+		if (retry == 0) {
+			XCTFail("nfsd did not start!");
+		}
 	}
-
-	return rv;
 }
 
 void
@@ -242,13 +254,13 @@ doMountSetUpWithArgs(const char **nfsdArgs, int nfsdArgsSize, const char **confV
 	}
 
 	// Create temporary folder
-	dirFD = open(rootdir, O_DIRECTORY | O_SEARCH, 0777);
-	if (dirFD < 0) {
+	testDirFD = open(rootdir, O_DIRECTORY | O_SEARCH, 0777);
+	if (testDirFD < 0) {
 		XCTFail("Unable to open tmpdir (%s): %d", rootdir, errno);
 		return;
 	}
 
-	confFD = openat(dirFD, CONFIG, O_CREAT | O_RDWR | O_EXCL);
+	confFD = openat(testDirFD, CONFIG, O_CREAT | O_RDWR | O_EXCL, 0666);
 	if (confFD < 0) {
 		XCTFail("Unable to create config (%s:/%s): %d", rootdir, CONFIG, errno);
 		return;
@@ -262,7 +274,7 @@ doMountSetUpWithArgs(const char **nfsdArgs, int nfsdArgsSize, const char **confV
 	snprintf(confPath, sizeof(confPath), "%s/%s", rootdir, CONFIG);
 
 	// Create exports file
-	exportsFD = openat(dirFD, EXPORTS, O_CREAT | O_RDWR | O_EXCL);
+	exportsFD = openat(testDirFD, EXPORTS, O_CREAT | O_RDWR | O_EXCL, 0666);
 	if (exportsFD < 0) {
 		XCTFail("Unable to create exports (%s:/%s): %d", rootdir, EXPORTS, errno);
 		return;
@@ -275,7 +287,7 @@ doMountSetUpWithArgs(const char **nfsdArgs, int nfsdArgsSize, const char **confV
 	for (int i = 0; i < ARRAY_SIZE(gExports); i++) {
 		int n;
 		for (int j = 0; j < ARRAY_SIZE(gExports[i].paths) && gExports[i].paths[j] != NULL; j++) {
-			err = mkdirat(dirFD, gExports[i].paths[j], 0777);
+			err = mkdirat(testDirFD, gExports[i].paths[j], 0777);
 			if (err < 0) {
 				XCTFail("Unable to create subdir %s %d", gExports[i].paths[j], errno);
 				return;
@@ -293,42 +305,17 @@ doMountSetUpWithArgs(const char **nfsdArgs, int nfsdArgsSize, const char **confV
 		}
 	}
 
-	// kick NFSD using the temporary exports file
-	if (fork() == 0) {
-		int argc = nfsdArgsSize + 3;
-		char **argv = calloc(argc, sizeof(char *));
-		if (argv == NULL) {
-			XCTFail("Cannot allocate argv array");
-			return;
-		}
-
-		// Build args list
-		argv[0] = "nfsd";
-		argv[1] = "-F";
-		argv[2] = exportsPath;
-		for (int i = 0; i < nfsdArgsSize; i++) {
-			argv[i + 3] = (char *)nfsdArgs[i];
-		}
-
-		// Kick nfsd
-		nfsd_imp(argc, argv, confPath);
-		free(argv);
-	} else {
-		// Sleep until NFSD is up
-		while (get_nfsd_pid() == 0) {
-			sleep(1);
-		}
-	}
+	doMountExport(nfsdArgs, nfsdArgsSize, exportsPath);
 }
 
 void
-doMountSetUp()
+doMountSetUp(void)
 {
 	doMountSetUpWithArgs(NULL, 0, NULL, 0);
 }
 
 void
-doMountTearDown()
+doMountTearDownCloseFD(int closeFD)
 {
 	pid_t pid;
 
@@ -338,8 +325,13 @@ doMountTearDown()
 
 	if ((pid = get_nfsd_pid()) != 0) {
 		kill(pid, SIGTERM);
-		while (get_nfsd_pid() != 0) {
+		// Wait for NFSD termination
+		int retry = 10;
+		while (retry-- && get_nfsd_pid() != 0) {
 			sleep(1);
+		}
+		if (retry == 0) {
+			XCTFail("nfsd is still up!");
 		}
 	}
 
@@ -350,48 +342,45 @@ doMountTearDown()
 		bzero(confPath, sizeof(confPath));
 	}
 
-	if (exportsFD >= 0) {
-		close(exportsFD);
-		exportsFD = -1;
-		unlink(exportsPath);
-		bzero(exportsPath, sizeof(exportsPath));
-	}
+	remove_exports_file();
+	if (closeFD) {
+		if (testDirFD >= 0) {
+			for (int i = 0; i < ARRAY_SIZE(gExports); i++) {
+				// Start from the 2nd element
+				for (int j = 1; i < ARRAY_SIZE(gExports[i].paths) && gExports[i].paths[j] != NULL; j++) {
+					unlinkat(testDirFD, gExports[i].paths[j], AT_REMOVEDIR);
+				}
 
-	if (dirFD >= 0) {
-		for (int i = 0; i < ARRAY_SIZE(gExports); i++) {
-			// Start from the 2nd element
-			for (int j = 1; i < ARRAY_SIZE(gExports[i].paths) && gExports[i].paths[j] != NULL; j++) {
-				unlinkat(dirFD, gExports[i].paths[j], AT_REMOVEDIR);
+				// Now remove the parent subdir
+				if (gExports[i].paths[0]) {
+					unlinkat(testDirFD, gExports[i].paths[0], AT_REMOVEDIR);
+				}
 			}
 
-			// Now remove the parent subdir
-			if (gExports[i].paths[0]) {
-				unlinkat(dirFD, gExports[i].paths[0], AT_REMOVEDIR);
+			close(testDirFD);
+			testDirFD = -1;
+		}
+
+		if (rootdir) {
+			if (rmdir(rootdir) < 0) {
+				XCTFail("Unable to remove dir %s: %d", rootdir, errno);
 			}
+			rootdir = NULL;
 		}
 
-		close(dirFD);
-		dirFD = -1;
-	}
-
-	if (rootdir) {
-		if (rmdir(rootdir) < 0) {
-			XCTFail("Unable to remove dir %s: %d", rootdir, errno);
-		}
-		rootdir = NULL;
-	}
-
-	rmdir(DSTDIR);
-
-	if (auth) {
-		auth_destroy(auth);
-		auth = NULL;
+		rmdir(DSTDIR);
 	}
 
 	if (mclnt) {
 		clnt_destroy(mclnt);
 		mclnt = NULL;
 	}
+}
+
+void
+doMountTearDown(void)
+{
+	doMountTearDownCloseFD(TRUE);
 }
 
 CLIENT *
@@ -539,7 +528,7 @@ createClientForMountProtocol(int socketFamily, int socketType, int authType, int
 }
 
 static void
-doNullRPC()
+doNullRPC(void)
 {
 	void *result;
 	char *arg;
@@ -566,7 +555,7 @@ doMountRPC(dirpath path, int expectedResult)
 }
 
 static mountlist *
-doDumpRPC()
+doDumpRPC(void)
 {
 	mountlist *result;
 	char *arg;
@@ -590,7 +579,7 @@ doUnmountRPC(dirpath dirpath)
 }
 
 static void
-doUnmountallRPC()
+doUnmountallRPC(void)
 {
 	void *result;
 	char *arg;
@@ -602,7 +591,7 @@ doUnmountallRPC()
 }
 
 static exports *
-doExportRPC()
+doExportRPC(void)
 {
 	exports *result;
 	char *arg;
@@ -615,11 +604,12 @@ doExportRPC()
 }
 
 fhandle_t *
-doMountAndVerify(const char *path)
+doMountAndVerify(const char *path, char *sec_mech)
 {
 	static fhandle_t fh = {};
 	mountres3_ok *mountres = NULL;
 	mountres3 *mount = NULL;
+	int err = 0;
 
 	// Zero fh
 	memset(&fh, 0, sizeof(fh));
@@ -648,19 +638,13 @@ doMountAndVerify(const char *path)
 		return NULL;
 	}
 
-	// Verify RPCAUTH_KRB5 and RPCAUTH_UNIX auth flavors are supported
-	if (mountres->auth_flavors.auth_flavors_len != 2) {
-		XCTFail("Amount of supported auth flavors is expected to be 2. actual %d", mountres->auth_flavors.auth_flavors_len);
-		return NULL;
+	err = verify_security_flavors(mountres->auth_flavors.auth_flavors_val,
+	    mountres->auth_flavors.auth_flavors_len,
+	    sec_mech);
+	if (err) {
+		XCTFail("verify_security_flavors failed");
 	}
-	if (mountres->auth_flavors.auth_flavors_val[0] != RPCAUTH_UNIX) {
-		XCTFail("First auth flavor is expected to be RPCAUTH_UNIX. actual %d", mountres->auth_flavors.auth_flavors_val[0]);
-		return NULL;
-	}
-	if (mountres->auth_flavors.auth_flavors_val[1] != RPCAUTH_KRB5) {
-		XCTFail("Second auth flavor is expected to be RPCAUTH_KRB5. actual %d", mountres->auth_flavors.auth_flavors_val[1]);
-		return NULL;
-	}
+
 	return &fh;
 }
 
@@ -670,7 +654,7 @@ doMountUnmountOrUnmountAllAndVerify(void (^doRPC)(void))
 	mountlist *listp = NULL;
 
 	// Mount RPC
-	if (doMountAndVerify(getLocalMountedPath()) == NULL) {
+	if (doMountAndVerify(getLocalMountedPath(), "sys:krb5") == NULL) {
 		XCTFail("doMountAndVerify failed");
 	}
 
@@ -686,7 +670,7 @@ doMountUnmountOrUnmountAllAndVerify(void (^doRPC)(void))
 		XCTFail("List is null");
 		return;
 	}
-	if (strncmp(gExports[2].network, (*listp)->ml_hostname, PATH_MAX) != 0) {
+	if (strncmp("localhost", (*listp)->ml_hostname, PATH_MAX) != 0) {
 		XCTFail("Host is expected to be %s, got %s", gExports[2].network, (*listp)->ml_hostname);
 		return;
 	}
@@ -839,7 +823,7 @@ doMountUnmountOrUnmountAllAndVerify(void (^doRPC)(void))
 		XCTFail("Cannot create client: %d", err);
 	}
 
-	if (doMountAndVerify(getLocalMountedPath()) == NULL) {
+	if (doMountAndVerify(getLocalMountedPath(), "sys:krb5") == NULL) {
 		XCTFail("doMountAndVerify failed");
 	}
 }
@@ -1004,7 +988,12 @@ doMountUnmountOrUnmountAllAndVerify(void (^doRPC)(void))
 				offset = 0;
 			}
 
-			if (strncmp(gExports[i].network + offset, groups->gr_name, NAME_MAX) != 0) {
+			if (strnlen(gExports[i].network + offset, NAME_MAX) == 0) {
+				if (strncmp(groups->gr_name, "(Everyone)", NAME_MAX) != 0) {
+					XCTFail("Network is expected to be %s, got %s", gExports[i].network + offset, groups->gr_name);
+					return;
+				}
+			} else if (strncmp(gExports[i].network + offset, groups->gr_name, NAME_MAX) != 0) {
 				XCTFail("Network is expected to be %s, got %s", gExports[i].network + offset, groups->gr_name);
 				return;
 			}

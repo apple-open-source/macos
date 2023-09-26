@@ -193,7 +193,8 @@ fi
 # check apple non root
 # check-apple-netlogon -- <rdar://problem/16389320> re-enabled netlogon tests
 # check-apple-ad -- <rdar://problem/20488983> renabled check-apple-ad tests
-for a in check-apple-ad check-apple-dump check-apple-mitdump check-apple-acquire ; do
+# check-apple-acquire - disbled until CEAD is available
+for a in check-apple-ad check-apple-dump check-apple-mitdump  ; do
     run_test $a /usr/local/libexec/heimdal/tests/apple/$a
 done
 for a in test_export ; do

@@ -21,57 +21,26 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "cache.h"
+#include "lib_fsck_hfs.h"
 
+#define     EEXIT           8   /* Standard error exit. */
 
-const extern char	*cdevname;		/* name of device being checked */
-extern char	*progname;
-extern char	nflag;			/* assume a no response */
-extern char	yflag;			/* assume a yes response */
-extern char	preen;			/* just fix normal inconsistencies */
-extern char	force;			/* force fsck even if clean */
-extern char	debug;			/* output debugging info */
-extern char	disable_journal;	/* If debug, and set, do not simulate journal replay */
-extern char	embedded;		/* built for embedded */
-extern char	hotroot;		/* checking root device */
-extern char	scanflag;		/* Scan disk for bad blocks */
-
-extern int	upgrading;		/* upgrading format */
-
-extern int	fsmodified;		/* 1 => write done to file system */
-extern int	fsreadfd;		/* file descriptor for reading file system */
-extern int	fswritefd;		/* file descriptor for writing file system */
-extern Cache_t	fscache;
-
-extern int  detonator_run;
-
-
-#define DIRTYEXIT  3		/* Filesystem Dirty, no checks */
-#define FIXEDROOTEXIT  4	/* Writeable Root Filesystem was fixed */
-#define	EEXIT	8		/* Standard error exit. */
-#define	MAJOREXIT	47	/* We had major errors when doing a early-exit verify */
-
-
-char	       *blockcheck __P((char *name));
-void            cleanup_fs_fd __P((void));
+char*       unrawname(char *name);
+char*       rawname(char *name);
+void        cleanup_fs_fd(void);
 void		catch __P((int));
-void		ckfini __P((int markclean));
-void		pfatal __P((const char *fmt, ...)) __printflike(1, 2);
-void		pwarn __P((const char *fmt, ...)) __printflike(1, 2);
+void        ckfini ();
+void        pfatal(char *fmt, va_list ap);
+void        pwarn(char *fmt, va_list ap);
 void		logstring(void *, const char *) __printflike(2, 0);     // write to log file 
 void		outstring(void *, const char *) __printflike(2, 0);     // write to standard out
 void 		llog(const char *fmt, ...) __printflike(1, 2);          // write to log file
 void 		olog(const char *fmt, ...) __printflike(1, 2);          // write to standard out
-void            plog(const char *fmt, ...) __printflike(1, 2);          // printf replacement that writes to both log file and standard out
-void            vplog(const char *fmt, va_list ap) __printflike(1, 0);  // vprintf replacement that writes to both log file and standard out
-void            fplog(FILE *stream, const char *fmt, ...) __printflike(2, 3);    // fprintf replacement that writes to both log file and standard out
+void        plog(const char *fmt, ...) __printflike(1, 2);          // printf replacement that writes to both log file and standard out
+void        vplog(const char *fmt, va_list ap) __printflike(1, 0);  // vprintf replacement that writes to both log file and standard out
+void        fplog(FILE *stream, const char *fmt, va_list ap) __printflike(2, 3);    // fprintf replacement that writes to both log file and standard out
 #define printf  plog      // just in case someone tries to use printf/fprint
 #define fprintf fplog
 
-int		reply __P((char *question));
-
-void		start_progress(void);
-void		draw_progress(int);
-void		end_progress(void);
 void		DumpData(const void *ptr, size_t sz, char *label);
 

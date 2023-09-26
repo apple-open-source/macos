@@ -29,12 +29,12 @@
 #ifndef _H_SECCODESIGNERREMOTE
 #define _H_SECCODESIGNERREMOTE
 
+#include <Security/CSCommon.h>
+#include <Security/SecCodeSigner.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Security/CSCommon.h>
-#include <Security/SecCodeSigner.h>
 
 /*!
  @typedef SecCodeSignerRemoteRef

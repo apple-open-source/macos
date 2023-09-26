@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -550,6 +550,8 @@
 		8C00825223E342E000FE3450 /* gssapi_protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EB168442146E090F0019138B /* gssapi_protos.h */; };
 		8C00825323E342EF00FE3450 /* gssapi_apple.h in Headers */ = {isa = PBXBuildFile; fileRef = EB168440146E090F0019138B /* gssapi_apple.h */; };
 		8C00825423E3439100FE3450 /* gssapi_private.h in Headers */ = {isa = PBXBuildFile; fileRef = EB168441146E090F0019138B /* gssapi_private.h */; };
+		8C08E6AE26EFED450099F253 /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
+		8C08E6AF26F2350D0099F253 /* ntlm.m in Sources */ = {isa = PBXBuildFile; fileRef = EB312E5617B2F22C00BD74D9 /* ntlm.m */; };
 		8C08F2B623BFD55700BFB6FE /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C08F2B523BFD55600BFB6FE /* Network.framework */; };
 		8C08F2B823BFE24100BFB6FE /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
 		8C08F2B923BFE26D00BFB6FE /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
@@ -665,6 +667,10 @@
 		8C763C8C2579556900E87243 /* gssoslog.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C763C8A2579556900E87243 /* gssoslog.m */; };
 		8C763D8D257955DF00E87243 /* gssoslog.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C763C8A2579556900E87243 /* gssoslog.m */; };
 		8C763E0E257955E200E87243 /* gssoslog.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C763C8A2579556900E87243 /* gssoslog.m */; };
+		8C7A0FC826F3FF9C00566BD6 /* heimscram-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EB9CA1271208CD1A0080EEEB /* heimscram-protos.h */; };
+		8C7A0FC926F3FFA000566BD6 /* heimscram-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EB9CA1271208CD1A0080EEEB /* heimscram-protos.h */; };
+		8C7A0FCA26F3FFA900566BD6 /* heimscram.h in Headers */ = {isa = PBXBuildFile; fileRef = EB8C7E8B11D46ABA000BA1B9 /* heimscram.h */; };
+		8C7A0FCB26F3FFAD00566BD6 /* heimscram.h in Headers */ = {isa = PBXBuildFile; fileRef = EB8C7E8B11D46ABA000BA1B9 /* heimscram.h */; };
 		8C820D83249948BE00FD3522 /* GSSCredHelperClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C820D82249948BE00FD3522 /* GSSCredHelperClient.h */; };
 		8C820D84249948BE00FD3522 /* GSSCredHelperClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C820D82249948BE00FD3522 /* GSSCredHelperClient.h */; };
 		8C820D852499497500FD3522 /* GSSCredXPCHelperClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CB25C39247462A30080D987 /* GSSCredXPCHelperClient.h */; };
@@ -691,8 +697,11 @@
 		8C98B5602437CDD600BBAF30 /* MockManagedAppManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C98B55E2437CDD500BBAF30 /* MockManagedAppManager.h */; };
 		8C98B5612437CDD600BBAF30 /* MockManagedAppManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C98B55F2437CDD500BBAF30 /* MockManagedAppManager.m */; };
 		8C99FBB023EA706400D24B77 /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77F2C5E8202289E300209463 /* krb5cf-protos.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		8C9A08762A70973000C8BA44 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C9A08752A70973000C8BA44 /* SystemConfiguration.framework */; platformFilters = (macos, ); };
+		8C9A08782A7097E200C8BA44 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C9A08772A7097E200C8BA44 /* SystemConfiguration.framework */; platformFilters = (macos, ); };
 		8CA1A598241AFE7F002FCCEE /* roken.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2980F22B6CD006BD106 /* roken.h */; };
 		8CAB09912473047F00708C54 /* sym_krb5.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0F9C31111E3FDD00744852 /* sym_krb5.c */; };
+		8CADD1DA29490D5700D430EF /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CADD1D929490D5700D430EF /* CoreAnalytics.framework */; };
 		8CADD4B6244FA67D0024E8DF /* krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F2710F22CD3500D1AB35 /* krb5.h */; };
 		8CADD4B7244FA8620024E8DF /* krb5-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */; };
 		8CADD4B8244FA96C0024E8DF /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2970F22B6CD006BD106 /* config.h */; };
@@ -724,7 +733,6 @@
 		8CEB5A81242129070017B4F0 /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0916CC1A4400D75FA0 /* common.h */; };
 		8CEB5A84242129420017B4F0 /* kerberos.m in Sources */ = {isa = PBXBuildFile; fileRef = EB312E5517B2F22C00BD74D9 /* kerberos.m */; };
 		8CEB5A85242129560017B4F0 /* HeimCredCoder.m in Sources */ = {isa = PBXBuildFile; fileRef = EBB6D5D316D154A7004044DF /* HeimCredCoder.m */; };
-		8CEB5A862421295F0017B4F0 /* ntlm.m in Sources */ = {isa = PBXBuildFile; fileRef = EB312E5617B2F22C00BD74D9 /* ntlm.m */; };
 		8CEB5A87242129690017B4F0 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = EB2C3E0816CC1A4400D75FA0 /* common.c */; };
 		8CEB5A882421299F0017B4F0 /* heimntlm-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE9B1070F2C3CEB006561DA /* heimntlm-protos.h */; };
 		8CEB5A8A24212FC10017B4F0 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C46F09724088EAA00739184 /* libbsm.tbd */; };
@@ -3726,7 +3734,6 @@
 		EBD26EA611EB8AE100FD93AC /* heim_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = EB7B4152114F09C100D6EA17 /* heim_threads.h */; };
 		EBD26EB211EB8E6100FD93AC /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
 		EBD26EB611EBA1ED00FD93AC /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
-		EBD308241B56F3AA00C86898 /* stat.m in Sources */ = {isa = PBXBuildFile; fileRef = EBD308231B56F39B00C86898 /* stat.m */; };
 		EBD5DF7F142B5AC9009CD655 /* gssapi_oid.h in Headers */ = {isa = PBXBuildFile; fileRef = EB085EC11429F37400AD2AA2 /* gssapi_oid.h */; };
 		EBD7E80512AC97B50026DB89 /* rkcf.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD7E80412AC97B50026DB89 /* rkcf.c */; };
 		EBD9A21F0FCCB44100054C5F /* template.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD9A21E0FCCB41800054C5F /* template.c */; };
@@ -8315,7 +8322,10 @@
 		8C98B5592437B88800BBAF30 /* ManagedAppManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = ManagedAppManager.m; path = lib/heimcred/ManagedAppManager.m; sourceTree = "<group>"; };
 		8C98B55E2437CDD500BBAF30 /* MockManagedAppManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MockManagedAppManager.h; path = lib/heimcred/MockManagedAppManager.h; sourceTree = "<group>"; };
 		8C98B55F2437CDD500BBAF30 /* MockManagedAppManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MockManagedAppManager.m; path = lib/heimcred/MockManagedAppManager.m; sourceTree = "<group>"; };
+		8C9A08752A70973000C8BA44 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		8C9A08772A7097E200C8BA44 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
 		8CA1A595241AFA92002FCCEE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		8CADD1D929490D5700D430EF /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.4.Internal.sdk/System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = DEVELOPER_DIR; };
 		8CB0B884255353760056CEF0 /* heim-load-test-2.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "heim-load-test-2.plist"; path = "lib/heimcred/heim-load-test-2.plist"; sourceTree = "<group>"; };
 		8CB0B885255353760056CEF0 /* heim-load-test-1.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "heim-load-test-1.plist"; path = "lib/heimcred/heim-load-test-1.plist"; sourceTree = "<group>"; };
 		8CB25C39247462A30080D987 /* GSSCredXPCHelperClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = GSSCredXPCHelperClient.h; path = lib/heimcred/GSSCredXPCHelperClient.h; sourceTree = "<group>"; };
@@ -8328,6 +8338,7 @@
 		8CBCB5522494208B002E1C01 /* heim-ordered-test-1.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = "heim-ordered-test-1.plist"; path = "lib/heimcred/heim-ordered-test-1.plist"; sourceTree = "<group>"; };
 		8CC147B223F7407B0090DD37 /* UserManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserManagement.framework; path = System/Library/PrivateFrameworks/UserManagement.framework; sourceTree = SDKROOT; };
 		8CC66BB824784CF000772CF1 /* kerberosacquirecred.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = kerberosacquirecred.m; path = lib/heimcred/kerberosacquirecred.m; sourceTree = "<group>"; };
+		8CCEDD6D2811FB850003550B /* check-context.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-context.in"; path = "tests/gss/check-context.in"; sourceTree = "<group>"; };
 		8CCF9CD424205E9200E5F303 /* GSSCredTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GSSCredTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8CCF9CD624205E9300E5F303 /* GSSCredTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GSSCredTests.m; path = lib/heimcred/GSSCredTests.m; sourceTree = "<group>"; };
 		8CCF9CD824205E9300E5F303 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = lib/heimcred/Info.plist; sourceTree = "<group>"; };
@@ -8855,7 +8866,6 @@
 		EB49AB890F2589FC0076E27F /* krb_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = krb_err.h; path = Derived/krb_err.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB49AB8A0F2589FC0076E27F /* krb5_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = krb5_err.h; path = Derived/krb5_err.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB4A373D1B570691008C97DF /* stat-kerberos.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "stat-kerberos.m"; path = "lib/krb5/stat-kerberos.m"; sourceTree = "<group>"; };
-		EB4A373F1B570D0C008C97DF /* lib/krb5/krb5-stat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lib/krb5/krb5-stat.h"; sourceTree = "<group>"; };
 		EB4A37411B572863008C97DF /* libDiagnosticMessagesClient.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libDiagnosticMessagesClient.dylib; path = usr/lib/libDiagnosticMessagesClient.dylib; sourceTree = SDKROOT; };
 		EB50EC1515F9393B0059FEA3 /* DirectoryServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryServer.framework; path = /System/Library/PrivateFrameworks/DirectoryServer.framework; sourceTree = "<absolute>"; };
 		EB513C4A142B352D003062B7 /* authorize_localname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = authorize_localname.c; path = lib/gssapi/krb5/authorize_localname.c; sourceTree = "<group>"; };
@@ -9900,7 +9910,6 @@
 		EBD16B411171956C00F13DFA /* heimbasepriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = heimbasepriv.h; path = base/heimbasepriv.h; sourceTree = "<group>"; };
 		EBD16B421171956C00F13DFA /* test_base.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_base.c; path = base/test_base.c; sourceTree = "<group>"; };
 		EBD26EAC11EB8E4900FD93AC /* heimqueue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = heimqueue.h; path = base/heimqueue.h; sourceTree = "<group>"; };
-		EBD308231B56F39B00C86898 /* stat.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = stat.m; path = lib/krb5/stat.m; sourceTree = "<group>"; };
 		EBD7E74712AC77160026DB89 /* kcache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = kcache.c; path = lib/krb5/kcache.c; sourceTree = "<group>"; };
 		EBD7E80412AC97B50026DB89 /* rkcf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rkcf.c; path = lib/roken/rkcf.c; sourceTree = "<group>"; };
 		EBD9A2160FCCB41800054C5F /* asn1-template.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "asn1-template.h"; path = "lib/asn1/asn1-template.h"; sourceTree = "<group>"; };
@@ -10389,6 +10398,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C9A08782A7097E200C8BA44 /* SystemConfiguration.framework in Frameworks */,
 				8C421B64257826CD000EBE7C /* IOKit.framework in Frameworks */,
 				8C42185E25781C66000EBE7C /* Security.framework in Frameworks */,
 				8C105C11247F54B9000DD060 /* libipc-server.a in Frameworks */,
@@ -10559,6 +10569,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C9A08762A70973000C8BA44 /* SystemConfiguration.framework in Frameworks */,
 				8C105C10247F4DC8000DD060 /* libipc-server.a in Frameworks */,
 				727ABBCE1FD944F900EFD46A /* CommonAuth.framework in Frameworks */,
 				727ABBCB1FD8FCF700EFD46A /* GSS.framework in Frameworks */,
@@ -10668,6 +10679,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8CADD1DA29490D5700D430EF /* CoreAnalytics.framework in Frameworks */,
 				8C46F0982408902600739184 /* libbsm.tbd in Frameworks */,
 				8C08F2B623BFD55700BFB6FE /* Network.framework in Frameworks */,
 				EB4A37401B5713F8008C97DF /* Foundation.framework in Frameworks */,
@@ -13292,6 +13304,7 @@
 				EBECDD25130201A800E709C4 /* check-apple-server.in */,
 				8C8661FB247AE852001442FE /* check-apple-acquire.in */,
 				EBF3F4BE12F10372005EC680 /* check-apple-ad.in */,
+				8CCEDD6D2811FB850003550B /* check-context.in */,
 				8CF0D54025AFC5AF00AA1DB1 /* check-apple-plugins.in */,
 				EBFB161218DC47EB00C34C11 /* check-apple-ac.in */,
 				EBFB161318DC47EB00C34C11 /* check-apple-netlogon.in */,
@@ -13531,8 +13544,6 @@
 				EBC6F29D0F22CD3500D1AB35 /* sendauth.c */,
 				EBC6F29E0F22CD3500D1AB35 /* set_default_realm.c */,
 				EBC6F29F0F22CD3500D1AB35 /* sock_principal.c */,
-				EBD308231B56F39B00C86898 /* stat.m */,
-				EB4A373F1B570D0C008C97DF /* lib/krb5/krb5-stat.h */,
 				EB4A373D1B570691008C97DF /* stat-kerberos.m */,
 				EBC6F2A00F22CD3500D1AB35 /* store_emem.c */,
 				EBC6F2A10F22CD3500D1AB35 /* store_fd.c */,
@@ -13593,6 +13604,9 @@
 		EBD090AB1330353B001D0938 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				8C9A08752A70973000C8BA44 /* SystemConfiguration.framework */,
+				8C9A08772A7097E200C8BA44 /* SystemConfiguration.framework */,
+				8CADD1D929490D5700D430EF /* CoreAnalytics.framework */,
 				8C866223247AF3B4001442FE /* Heimdal.framework */,
 				8CEB5AA92421C75D0017B4F0 /* XCTest.framework */,
 				8CEB5AA32421C0320017B4F0 /* CommonAuth.framework */,
@@ -14335,10 +14349,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				8CEB5A9F2421BDCF0017B4F0 /* heimcred-const.h in Headers */,
+				8C7A0FC926F3FFA000566BD6 /* heimscram-protos.h in Headers */,
 				8C6FBE6A246B4116000B3EB3 /* krb5.h in Headers */,
 				8CEB5A9B2421BD830017B4F0 /* gssapi_private.h in Headers */,
 				8CEB5A9C2421BD830017B4F0 /* gssapi_protos.h in Headers */,
 				8CEB5A9D2421BD830017B4F0 /* gssapi_oid.h in Headers */,
+				8C7A0FCA26F3FFA900566BD6 /* heimscram.h in Headers */,
 				8C820D84249948BE00FD3522 /* GSSCredHelperClient.h in Headers */,
 				8C820D852499497500FD3522 /* GSSCredXPCHelperClient.h in Headers */,
 				8C6FBE60246B358C000B3EB3 /* asn1-common.h in Headers */,
@@ -14910,11 +14926,13 @@
 				8CB25C32247310390080D987 /* krb5-private.h in Headers */,
 				8C98B55D2437CD3D00BBAF30 /* ManagedAppManager.h in Headers */,
 				EBE5865316CC5187000D7E07 /* heimcred-const.h in Headers */,
+				8C7A0FC826F3FF9C00566BD6 /* heimscram-protos.h in Headers */,
 				EBC8FD9718A42D4900FC2E0A /* roken.h in Headers */,
 				8CB25C3B247462A30080D987 /* GSSCredXPCHelperClient.h in Headers */,
 				8C4319E8241B251500BC1F3B /* gsscred.h in Headers */,
 				EB706423177263F700F71BF4 /* krb5-types.h in Headers */,
 				8CB0E361246F727D00C64006 /* common.h in Headers */,
+				8C7A0FCB26F3FFAD00566BD6 /* heimscram.h in Headers */,
 				727ABBCC1FD8FD4C00EFD46A /* heimntlm.h in Headers */,
 				727ABBCD1FD8FD5100EFD46A /* heimntlm-protos.h in Headers */,
 				8C763C8B2579556900E87243 /* gssoslog.h in Headers */,
@@ -15587,6 +15605,7 @@
 				EB7929151226143A004407A7 /* heimscram.h in Headers */,
 				EB79291712261445004407A7 /* heimbase.h in Headers */,
 				EB79292712261458004407A7 /* heimscram-protos.h in Headers */,
+				8C08E6AE26EFED450099F253 /* heimcred-const.h in Headers */,
 				EBAE7AD212B0462D002DA026 /* gssapi_rewrite.h in Headers */,
 				EB085EC91429F39000AD2AA2 /* gssapi_oid.h in Headers */,
 				EB168458146E092A0019138B /* gssapi_apple.h in Headers */,
@@ -20114,12 +20133,12 @@
 				8C763E0E257955E200E87243 /* gssoslog.m in Sources */,
 				8CC66BBA24784E7E00772CF1 /* kerberosacquirecred.m in Sources */,
 				8CEB5A87242129690017B4F0 /* common.c in Sources */,
-				8CEB5A862421295F0017B4F0 /* ntlm.m in Sources */,
 				8C33572A247D8EE80095B996 /* GSSCredTestUtil.m in Sources */,
 				8CEB5A85242129560017B4F0 /* HeimCredCoder.m in Sources */,
 				8CEB5A84242129420017B4F0 /* kerberos.m in Sources */,
 				8CCF9CE024205ED200E5F303 /* gsscred.m in Sources */,
 				8C6FBE69246B4100000B3EB3 /* acquirecred.m in Sources */,
+				8C08E6AF26F2350D0099F253 /* ntlm.m in Sources */,
 				8CB25C3D247465540080D987 /* GSSCredXPCHelperClient.m in Sources */,
 				8C86684F24CA2186007628D1 /* GSSCredHoldTests.m in Sources */,
 				8C33572C247D99180095B996 /* GSSCredKerberosAcquireCredTests.m in Sources */,
@@ -21255,7 +21274,6 @@
 				EB2F0FD116D8020200CB0933 /* tkt.c in Sources */,
 				EBC6F3080F22CD3600D1AB35 /* kuserok.c in Sources */,
 				EBC6F30A0F22CD3600D1AB35 /* log.c in Sources */,
-				EBD308241B56F3AA00C86898 /* stat.m in Sources */,
 				EBC6F30B0F22CD3600D1AB35 /* mcache.c in Sources */,
 				EBC6F30C0F22CD3600D1AB35 /* misc.c in Sources */,
 				EBC6F30D0F22CD3600D1AB35 /* mit_glue.c in Sources */,
@@ -23919,6 +23937,7 @@
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
@@ -23945,6 +23964,7 @@
 				HEIMDAL_TMPDIR = "$(BUILT_PRODUCTS_DIR)/Derived";
 				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)$(INSTALL_PATH_ACTUAL)";
 				LD_GENERATE_MAP_FILE = YES;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c++ objective-c c++ c";
 				OTHER_CFLAGS = (
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"$(inherited)",
@@ -24092,6 +24112,7 @@
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -24119,6 +24140,7 @@
 				HEIMDAL_TMPDIR = "$(BUILT_PRODUCTS_DIR)/Derived";
 				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)$(INSTALL_PATH_ACTUAL)";
 				LD_GENERATE_MAP_FILE = YES;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c++ objective-c c++ c";
 				OTHER_CFLAGS = (
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"$(inherited)",
@@ -27258,6 +27280,7 @@
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
@@ -27281,6 +27304,7 @@
 				HEIMDAL_TMPDIR = "$(BUILT_PRODUCTS_DIR)/Derived";
 				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)$(INSTALL_PATH_ACTUAL)";
 				LD_GENERATE_MAP_FILE = YES;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c++ objective-c c++ c";
 				OTHER_CFLAGS = (
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"$(inherited)",

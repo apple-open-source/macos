@@ -35,14 +35,6 @@
 #import <WebKitLegacy/WAKView.h>
 #endif
 
-#if !defined(ENABLE_DASHBOARD_SUPPORT)
-#if TARGET_OS_IPHONE
-#define ENABLE_DASHBOARD_SUPPORT 0
-#else
-#define ENABLE_DASHBOARD_SUPPORT 1
-#endif
-#endif
-
 #if !defined(ENABLE_REMOTE_INSPECTOR)
 // FIXME: Should we just remove this ENABLE flag everywhere?
 #define ENABLE_REMOTE_INSPECTOR 1
@@ -77,17 +69,6 @@
 @protocol WebDeviceOrientationProvider;
 @protocol WebFormDelegate;
 
-#if !TARGET_OS_IPHONE
-extern NSString *_WebCanGoBackKey;
-extern NSString *_WebCanGoForwardKey;
-extern NSString *_WebEstimatedProgressKey;
-extern NSString *_WebIsLoadingKey;
-extern NSString *_WebMainFrameIconKey;
-extern NSString *_WebMainFrameTitleKey;
-extern NSString *_WebMainFrameURLKey;
-extern NSString *_WebMainFrameDocumentKey;
-#endif
-
 #if TARGET_OS_IPHONE
 extern NSString * const WebViewProgressEstimatedProgressKey;
 extern NSString * const WebViewProgressBackgroundColorKey;
@@ -116,17 +97,6 @@ extern NSString *WebQuickLookUTIKey;
 #endif
 
 extern NSString * const WebViewWillCloseNotification;
-
-#if ENABLE_DASHBOARD_SUPPORT
-// FIXME: Remove this once it is verified no one is dependent on it.
-typedef enum {
-    WebDashboardBehaviorAlwaysSendMouseEventsToAllWindows,
-    WebDashboardBehaviorAlwaysSendActiveNullEventsToPlugIns,
-    WebDashboardBehaviorAlwaysAcceptsFirstMouse,
-    WebDashboardBehaviorAllowWheelScrolling,
-    WebDashboardBehaviorUseBackwardCompatibilityMode
-} WebDashboardBehavior;
-#endif
 
 typedef enum {
     WebInjectAtDocumentStart,
@@ -175,6 +145,7 @@ typedef enum {
     WebNotificationPermissionDenied
 } WebNotificationPermission;
 
+#if TARGET_OS_IPHONE
 @interface WebUITextIndicatorData : NSObject
 @property (nonatomic, retain) UIImage *dataInteractionImage;
 @property (nonatomic, assign) CGRect selectionRectInRootViewCoordinates;
@@ -186,14 +157,6 @@ typedef enum {
 @property (nonatomic, retain) UIImage *contentImageWithoutSelection;
 @property (nonatomic, assign) CGRect contentImageWithoutSelectionRectInRootViewCoordinates;
 @property (nonatomic, retain) UIColor *estimatedBackgroundColor;
-@end
-
-#if !TARGET_OS_IPHONE
-@interface WebController : NSTreeController {
-    IBOutlet WebView *webView;
-}
-- (WebView *)webView;
-- (void)setWebView:(WebView *)newWebView;
 @end
 #endif
 
@@ -549,15 +512,6 @@ Could be worth adding to the API.
 
 #if !TARGET_OS_IPHONE
 - (NSCachedURLResponse *)_cachedResponseForURL:(NSURL *)URL;
-#endif
-
-#if ENABLE_DASHBOARD_SUPPORT
-// FIXME: Remove these once we have verified no one is calling them
-- (void)_addScrollerDashboardRegions:(NSMutableDictionary *)regions;
-- (NSDictionary *)_dashboardRegions;
-
-- (void)_setDashboardBehavior:(WebDashboardBehavior)behavior to:(BOOL)flag;
-- (BOOL)_dashboardBehavior:(WebDashboardBehavior)behavior;
 #endif
 
 #if !TARGET_OS_IPHONE

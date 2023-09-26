@@ -86,6 +86,7 @@
 #ifndef _RPC_PMAPCLNT_H
 #define _RPC_PMAPCLNT_H
 #include <sys/cdefs.h>
+#include <rpc/xdr.h>
 
 __BEGIN_DECLS
 #ifdef __LP64__

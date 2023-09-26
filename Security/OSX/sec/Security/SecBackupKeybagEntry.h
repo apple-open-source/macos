@@ -39,7 +39,7 @@
 @property NSData* publickey;
 @property NSData* musr;         // musr
 
-+ (instancetype) state: (NSString*) ckzone;
++ (instancetype) state:(NSData*) publickeyHash;
 
 + (instancetype) fromDatabase: (NSData*) publickeyHash error: (NSError * __autoreleasing *) error;
 + (instancetype) tryFromDatabase: (NSData*) publickeyHash error: (NSError * __autoreleasing *) error;

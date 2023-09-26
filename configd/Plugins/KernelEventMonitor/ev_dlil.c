@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,6 +31,9 @@
 #include "eventmon.h"
 #include "ev_dlil.h"
 #include "ev_extra.h"
+
+#define PKTAP_STR	"pktap"
+#define PKTAP_STR_LEN	(sizeof(PKTAP_STR) - 1)
 
 static CFStringRef
 create_interface_cfstring(const char * if_name)
@@ -589,7 +592,11 @@ link_add(const char *if_name)
 		/* interface was added, update the global list */
 		messages_add_msg_with_arg("link_add", if_name);
 		interfaceListUpdate(ifList);
-		config_new_interface(if_name);
+
+		/* Exclude pktap interface */
+		if (strncmp(if_name, PKTAP_STR, PKTAP_STR_LEN) != 0) {
+			config_new_interface(if_name);
+		}
 	}
 	CFRelease(ifList);
 	return;

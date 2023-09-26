@@ -3,9 +3,51 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 gaa{
     Languages{
+        ab{"Abkhazia"}
+        ace{"Achinese"}
+        ada{"Dangme"}
+        ady{"Adyghe"}
+        af{"Afrikaans"}
+        agq{"Aghem"}
+        ain{"Ainu"}
+        ak{"Akan"}
+        ale{"Aleut"}
+        am{"Amharic"}
+        an{"Aragonese"}
+        anp{"Angika"}
         ar{"Arabik"}
         ar_001{"Ŋmɛnɛŋmɛnɛ Beiaŋ Arabik"}
+        arp{"Arapaho"}
+        as{"Assamese"}
+        asa{"Asu"}
+        ast{"Asturian"}
+        atj{"Atikamekw"}
+        av{"Avaric"}
+        awa{"Awadhi"}
+        ay{"Aymara"}
+        az{"Azerbaijani"}
+        ba{"Bashkir"}
+        ban{"Balinese"}
+        bas{"Basaa"}
+        be{"Belarusian"}
+        bem{"Bemba"}
+        bez{"Bena"}
+        bg{"Bulgarian"}
+        bho{"Bhojpuri"}
+        bi{"Bislama"}
+        bin{"Bini"}
+        bm{"Bambara"}
         bn{"Bangla"}
+        br{"Breton"}
+        brx{"Bodo"}
+        bs{"Bosnian"}
+        bug{"Buginese"}
+        byn{"Blin"}
+        ca{"Katalan"}
+        cay{"Kayuga"}
+        ccp{"Tsakma"}
+        ceb{"Sebuano"}
+        crr{"Karolina Algonkian"}
         de{"German"}
         de_AT{"Austria German"}
         de_CH{"Switzerland German Krɔŋŋ"}
@@ -18,15 +60,20 @@ gaa{
         es_419{"Romanse Amerika Spanish"}
         es_ES{"Yuropa Spanish"}
         es_MX{"Meziko Spanish"}
+        eu{"Baske"}
         fr{"Frɛntsi"}
         fr_CA{"Kanada Frɛntsi"}
         fr_CH{"Switzerland Frɛntsi"}
+        frc{"Kajun Frɛntsi"}
         gaa{"Gã"}
         hi{"Hindi"}
+        hy{"Armenian"}
         id{"Indonesian"}
         it{"Italian"}
         ja{"Japanese"}
         ko{"Korean"}
+        ksf{"Bafia"}
+        my{"Burmese"}
         nl{"Daatsi"}
         nl_BE{"Flemish"}
         pl{"Polish"}
@@ -34,9 +81,12 @@ gaa{
         pt_BR{"Brazil Portuguese"}
         pt_PT{"Yuropa Portuguese"}
         ru{"Russian"}
+        rup{"Aromanian"}
+        sq{"Albanian"}
         th{"Thai"}
         tr{"Turkish"}
         und{"Wiemɔ ko ni gbɛ́i bɛ mli"}
+        yue{"Kantonese"}
         zh{"Tsainese"}
         zh_Hans{"Tsainese Ni Waaa"}
         zh_Hant{"Blema Tsainese"}
@@ -46,9 +96,11 @@ gaa{
         zh_Hant{"Blema Mandarin Tsainese"}
     }
     Languages%menu{
+        yue{"Tsainesi, Kantonese"}
         zh{"Tsainese, Mandarin"}
     }
     Languages%short{
+        az{"Azeri"}
         en_GB{"UK Blɔfo"}
         en_US{"US Blɔfo"}
     }
@@ -78,5 +130,15 @@ gaa{
         numbers{
             latn{"Blɔfomɛi Anɔmbai"}
         }
+    }
+    codePatterns{
+        language{"Language: {0}"}
+        script{"Script: {0}"}
+        territory{"Region: {0}"}
+    }
+    localeDisplayPattern{
+        keyTypePattern{"{0}: {1}"}
+        pattern{"{0} ({1})"}
+        separator{"{0}, {1}"}
     }
 }

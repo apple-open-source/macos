@@ -27,6 +27,16 @@ es_VI{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMd",
+            }
         }
         gregorian{
             DateTimePatterns{
@@ -42,7 +52,7 @@ es_VI{
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
             }
         }
     }

@@ -2081,6 +2081,7 @@
 		D36EFBDC27A42B77002D30AF /* tst.preprocessor.general.d in Copy common/json */ = {isa = PBXBuildFile; fileRef = D36EFBDB27A42ACA002D30AF /* tst.preprocessor.general.d */; };
 		D36EFBDD27A42B77002D30AF /* tst.preprocessor.general.d.out in Copy common/json */ = {isa = PBXBuildFile; fileRef = D36EFBDA27A42ACA002D30AF /* tst.preprocessor.general.d.out */; };
 		D3CE09A227B3241D0028A6CD /* tst.machtrap.d in Copy common/syscall */ = {isa = PBXBuildFile; fileRef = D3CE09A127B323EE0028A6CD /* tst.machtrap.d */; };
+		D3E1225629775899008589DA /* tst.enabledisable.ksh in Copy common/syscall */ = {isa = PBXBuildFile; fileRef = D3E122552977584E008589DA /* tst.enabledisable.ksh */; };
 		D3E22A28282E3BDA00F477CF /* ctf_lookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E22A27282E3BDA00F477CF /* ctf_lookup.swift */; };
 		D3EAFFAC282BD5670069969C /* ctf_id.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3EAFFAB282BD5670069969C /* ctf_id.swift */; };
 		D3EAFFAD282BD5670069969C /* libctf.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EBC9760099BFB2C0001019C /* libctf.a */; };
@@ -3111,6 +3112,7 @@
 			dstPath = "$(TEST_INSTALL_PATH)/common/syscall";
 			dstSubfolderSpec = 0;
 			files = (
+				D3E1225629775899008589DA /* tst.enabledisable.ksh in Copy common/syscall */,
 				D3CE09A227B3241D0028A6CD /* tst.machtrap.d in Copy common/syscall */,
 				183C248D1EC6880F006F98D1 /* tst.openret.ksh in Copy common/syscall */,
 			);
@@ -6995,6 +6997,7 @@
 		D36EFBDA27A42ACA002D30AF /* tst.preprocessor.general.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.preprocessor.general.d.out; path = test/tst/common/json/tst.preprocessor.general.d.out; sourceTree = "<group>"; };
 		D36EFBDB27A42ACA002D30AF /* tst.preprocessor.general.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.preprocessor.general.d; path = test/tst/common/json/tst.preprocessor.general.d; sourceTree = "<group>"; };
 		D3CE09A127B323EE0028A6CD /* tst.machtrap.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.machtrap.d; path = test/tst/common/syscall/tst.machtrap.d; sourceTree = "<group>"; };
+		D3E122552977584E008589DA /* tst.enabledisable.ksh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.enabledisable.ksh; path = test/tst/common/syscall/tst.enabledisable.ksh; sourceTree = "<group>"; };
 		D3E22A27282E3BDA00F477CF /* ctf_lookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ctf_lookup.swift; sourceTree = "<group>"; };
 		D3EAFFA9282BD5670069969C /* ctf-test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ctf-test.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D3EAFFAB282BD5670069969C /* ctf_id.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ctf_id.swift; sourceTree = "<group>"; };
@@ -7779,6 +7782,7 @@
 		18493A9E1EC6621900736745 /* syscall */ = {
 			isa = PBXGroup;
 			children = (
+				D3E122552977584E008589DA /* tst.enabledisable.ksh */,
 				D3CE09A127B323EE0028A6CD /* tst.machtrap.d */,
 				18493A9F1EC6622C00736745 /* tst.openret.ksh */,
 			);

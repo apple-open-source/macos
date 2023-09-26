@@ -29,19 +29,27 @@ struct ActiveVariable
 
     ActiveVariable &operator=(const ActiveVariable &rhs);
 
-    ShaderType getFirstShaderTypeWhereActive() const;
-    void setActive(ShaderType shaderType, bool used);
+    ShaderType getFirstActiveShaderType() const
+    {
+        return static_cast<ShaderType>(ScanForward(mActiveUseBits.bits()));
+    }
+    void setActive(ShaderType shaderType, bool used, uint32_t id);
     void unionReferencesWith(const ActiveVariable &other);
     bool isActive(ShaderType shaderType) const
     {
         ASSERT(shaderType != ShaderType::InvalidEnum);
         return mActiveUseBits[shaderType];
     }
+    const ShaderMap<uint32_t> &getIds() const { return mIds; }
+    uint32_t getId(ShaderType shaderType) const { return mIds[shaderType]; }
     ShaderBitSet activeShaders() const { return mActiveUseBits; }
-    GLuint activeShaderCount() const;
+    GLuint activeShaderCount() const { return static_cast<GLuint>(mActiveUseBits.count()); }
 
   private:
     ShaderBitSet mActiveUseBits;
+    // The id of a linked variable in each shader stage.  This id originates from
+    // sh::ShaderVariable::id or sh::InterfaceBlock::id
+    ShaderMap<uint32_t> mIds;
 };
 
 // Helper struct representing a single shader uniform
@@ -119,9 +127,11 @@ struct InterfaceBlock : public ShaderVariableBuffer
     InterfaceBlock(const std::string &nameIn,
                    const std::string &mappedNameIn,
                    bool isArrayIn,
+                   bool isReadOnlyIn,
                    unsigned int arrayElementIn,
                    unsigned int firstFieldArraySizeIn,
                    int bindingIn);
+    InterfaceBlock(const InterfaceBlock &other);
 
     std::string nameWithArrayIndex() const;
     std::string mappedNameWithArrayIndex() const;
@@ -129,6 +139,8 @@ struct InterfaceBlock : public ShaderVariableBuffer
     std::string name;
     std::string mappedName;
     bool isArray;
+    // Only valid for SSBOs, specifies whether it has the readonly qualifier.
+    bool isReadOnly;
     unsigned int arrayElement;
     unsigned int firstFieldArraySize;
 };

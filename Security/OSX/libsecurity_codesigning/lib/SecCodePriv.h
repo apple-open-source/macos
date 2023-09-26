@@ -51,7 +51,8 @@ extern const CFStringRef kSecCodeInfoCMSDigest;             /* Internal */
 extern const CFStringRef kSecCodeInfoSignatureVersion;      /* Internal */
 extern const CFStringRef kSecCodeInfoLaunchConstraintsSelf;	/* Internal */
 extern const CFStringRef kSecCodeInfoLaunchConstraintsParent;/* Internal */
-extern const CFStringRef kSecCodeInfoLaunchConstraintsResponsible; /* Internal */ 
+extern const CFStringRef kSecCodeInfoLaunchConstraintsResponsible; /* Internal */
+extern const CFStringRef kSecCodeInfoLibraryConstraints;    /* Internal */
 
 extern const CFStringRef kSecCodeInfoDiskRepVersionPlatform;     /* Number */
 extern const CFStringRef kSecCodeInfoDiskRepVersionMin;          /* Number */

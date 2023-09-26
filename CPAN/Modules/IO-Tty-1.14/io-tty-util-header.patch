@@ -1,0 +1,13 @@
+diff --git a/Tty.xs b/Tty.xs
+index 1e4ac79..a0dae19 100644
+--- a/Tty.xs
++++ b/Tty.xs
+@@ -431,6 +431,8 @@ open_slave(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen)
+     return 1;
+ }
+ 
++int openpty(int *aprimary, int *areplica, char *name, struct termios *termp, struct winsize *winp);
++
+ /*
+  * Allocates and opens a pty.  Returns 0 if no pty could be allocated, or
+  * nonzero if a pty was successfully allocated.  On success, open file

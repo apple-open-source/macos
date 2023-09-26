@@ -117,6 +117,7 @@ CFArrayRef SecAccessGroupsGetCurrent(void);
 
 int secd_02_upgrade_while_locked(int argc, char *const *argv)
 {
+    enableSOSCompatibilityForTests();
     plan_tests(14 + N_THREADS + kSecdTestSetupTestCount);
 
     __block keybag_handle_t keybag;
@@ -178,7 +179,7 @@ int secd_02_upgrade_while_locked(int argc, char *const *argv)
     is_status(query_one(), errSecItemNotFound, "Query after unlock");
 
     /* Reset keybag */
-    SecItemServerResetKeychainKeybag();
+    SecItemServerSetKeychainKeybagToDefault();
 
     // Reset server accessgroups.
     SecAccessGroupsSetCurrent(old_ag);

@@ -118,7 +118,18 @@ iscgraph(int c) {
     (((flags) & VIS_NOLOCALE) ? iscgraph(c) : iswgraph(c))
 
 #define iswoctal(c)	(((u_char)(c)) >= L'0' && ((u_char)(c)) <= L'7')
+#ifdef __APPLE__
+/*
+ * rdar://problem/108684957 - UTF-8, for instance, may define some whitespace
+ * characters above the standard ASCII range, e.g., U+202F.  Based on the
+ * description of VIS_CSTYLE, we should also be passing these through with their
+ * default representation rather than encoding their UTF-16 equivalents.
+ */
+#define iswwhite(flags, c)	(c == L' ' || c == L'\t' || c == L'\n' || \
+    (((flags) & VIS_NOLOCALE) == 0 && c > 0x7f && iswspace(c)))
+#else
 #define iswwhite(c)	(c == L' ' || c == L'\t' || c == L'\n')
+#endif
 #define iswsafe(c)	(c == L'\b' || c == BELL || c == L'\r')
 #define xtoa(c)		L"0123456789abcdef"[c]
 #define XTOA(c)		L"0123456789ABCDEF"[c]
@@ -281,7 +292,7 @@ do_svis(wchar_t *dst, wint_t c, int flags, wint_t nextc, const wchar_t *extra)
 	uint64_t bmsk, wmsk;
 
 	iswextra = wcschr(extra, c) != NULL;
-	if (!iswextra && (ISGRAPH(flags, c) || iswwhite(c) ||
+	if (!iswextra && (ISGRAPH(flags, c) || iswwhite(flags, c) ||
 	    ((flags & VIS_SAFE) && iswsafe(c)))) {
 		*dst++ = c;
 		return dst;

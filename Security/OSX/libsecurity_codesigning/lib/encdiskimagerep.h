@@ -129,6 +129,7 @@ public:
 
 	static bool candidate(UnixPlusPlus::FileDesc &fd);
 	void registerStapledTicket();
+	CFDataRef copyStapledTicket();
 
 	static CFDataRef identificationFor(MachO *macho);
 	void flush();

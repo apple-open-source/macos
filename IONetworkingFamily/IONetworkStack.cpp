@@ -932,6 +932,8 @@ SInt32 IONetworkStack::orderNetworkInterfaces(
     return (netif2->getUnitNumber() - netif1->getUnitNumber());
 }
 
+#define kIONetworkStackUserClientEntitlement "com.apple.networking.ionetworkstack.user-client"
+
 //------------------------------------------------------------------------------
 
 IOReturn IONetworkStack::setProperties( OSObject * properties )
@@ -943,11 +945,35 @@ IOReturn IONetworkStack::setProperties( OSObject * properties )
     OSNumber *              unit;
     OSData *                data;
     uint32_t                cmdType;
+    OSObject *              entitlement;
+    task_t                  currentTask;
     IOReturn                error = kIOReturnBadArgument;
 
     do {
+
         if (!dict)
             break;
+
+        //
+        // Make sure that there's accepted Entitlement for a user app to set IONetworkStack properties.
+        //
+        currentTask = current_task();
+        if (currentTask != kernel_task) {
+
+            error = kIOReturnNotPrivileged;
+            entitlement = IOUserClient::copyClientEntitlement(currentTask, kIONetworkStackUserClientEntitlement);
+            if (entitlement == nullptr) {
+                DLOG("IONetworkStack::setProperties - No Entitlement %p\n", this);
+                break;
+            }
+
+            if (entitlement != kOSBooleanTrue) {
+                DLOG("IONetworkStack::setProperties - Entitlement false %p\n", this);
+                entitlement->release();
+                break;
+            }
+            entitlement->release();
+        }
 
         // [optional] Type of interface naming operation
         // IORegisterNetworkInterface() does not set this for netboot case.
@@ -1067,6 +1093,9 @@ bool IONetworkStackUserClient::initWithTask(	task_t			owningTask,
                                                 UInt32			type,
                                                 OSDictionary *	properties )
 {
+    OSObject *entitlement;
+    bool ret;
+
 	if (!super::initWithTask(owningTask, securityID, type, properties))
 		return false;
 
@@ -1074,7 +1103,18 @@ bool IONetworkStackUserClient::initWithTask(	task_t			owningTask,
 		securityID, kIOClientPrivilegeAdministrator) != kIOReturnSuccess)
 		return false;
 
-    return true;
+    entitlement = copyClientEntitlement(owningTask, kIONetworkStackUserClientEntitlement);
+    if (entitlement == nullptr) {
+        DLOG("IONetworkStack::initWithTask - No Entitlement %p\n", this);
+        return false;
+    }
+
+    ret = (entitlement == kOSBooleanTrue);
+    entitlement->release();
+
+    DLOG("IONetworkStack::initWithTask %p = 0x%08x\n", this, ret);
+
+    return ret;
 }
 
 bool IONetworkStackUserClient::start( IOService * provider )

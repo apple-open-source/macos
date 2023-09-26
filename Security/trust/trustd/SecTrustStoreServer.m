@@ -714,9 +714,115 @@ void _SecTrustStoreMigrateConfigurations(void) {
 void _SecTrustStoreMigrateTrustSettings(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
+        // Migrates our per-user trust settings (as a plist) from kLegacyTrustSettingsBasePath
+        // to the protected data vault location.
         if (SecOTAPKIIsSystemTrustd()) {
             _SecTrustStoreMigrateAdminTrustSettingsPlist();
         }
         _SecTrustStoreMigrateUserTrustSettingsPlist();
     });
 }
+
+
+extern dispatch_queue_t tsReadQueue(void);
+extern dispatch_queue_t tsWriteQueue(void);
+
+/* Important: _SecTrustStoreMigratePropertyList is designed to be invoked only by
+ * SecTrustStoreMigratePropertyListBlock, which dispatches it asynchronously on the
+ * write queue to avoid blocking reads.
+ *
+ * Note that the provided uid comes either from the XPC audit token when we
+ * are called via the XPC interface, or directly from the client via getuid
+ * if libtrustd is being compiled into a standalone test app. We have already
+ * checked the caller's entitlement on the server side of the XPC interface.
+ */
+static bool _SecTrustStoreMigratePropertyList(uid_t uid,
+    CFPropertyListRef _Nullable plist,
+    CFDictionaryRef _Nullable certificates,
+    CFErrorRef _Nonnull * _Nullable error)
+{
+    __block bool result = true;
+
+    // server side of XPC call where we process the incoming plist (rdar://106133178)
+    //     - (rdar://106133379: look up a special UUID entry in a new table to see if we migrated first)
+    //     - for each entry in plist, get key (sha1 hash) and look up corresponding
+    //       cert in certificates dictionary
+    //     - create a SecCertificateRef from the cert data
+    //     - determine trust store based on uid (_trustd is the Admin trust store)
+    //     - given the plist entry, cert, and ts, call _SecTrustStoreSetTrustSettings
+    //     - set the special UUID entry in a new table to say that we migrated
+
+    return result;
+}
+
+typedef void (^SecTrustStoreMigratePropertyListCompletionHandler)(bool result, CFErrorRef error);
+
+static void SecTrustStoreMigratePropertyListCompleted(const void *userData, bool result, CFErrorRef error) {
+    SecTrustStoreMigratePropertyListCompletionHandler completed = (__bridge SecTrustStoreMigratePropertyListCompletionHandler)userData;
+    secdebug("trustsettings", "SecTrustStoreMigratePropertyListCompleted: calling completion handler");
+    completed(result, error);
+    Block_release((__bridge const void*)completed);
+}
+
+void SecTrustStoreMigratePropertyListBlock(uid_t uid, CFPropertyListRef _Nullable plist, CFDictionaryRef _Nullable certificates, void (^ _Nonnull completed)(bool result, CFErrorRef _Nullable error)) {
+    if (!TrustdVariantAllowsFileWrite() || !TrustdVariantAllowsKeychain()) {
+        CFErrorRef localError = NULL;
+        SecError(errSecUnimplemented, &localError, CFSTR("Trust settings not implemented in this environment"));
+        completed(false, localError);
+        return;
+    }
+
+    SecTrustStoreMigratePropertyListCompletionHandler userData = (__bridge SecTrustStoreMigratePropertyListCompletionHandler) Block_copy((__bridge const void *)completed);
+    CFRetainSafe(plist);
+    CFRetainSafe(certificates);
+    secdebug("trustsettings", "SecTrustStoreMigratePropertyListBlock: queuing async task on trustsettings.write");
+
+    /* Dispatch the actual function call to process the input plist asynchronously,
+     * and return immediately to avoid blocking incoming XPC messages. The
+     * completion block takes care of sending back a reply to the client. */
+    dispatch_async(tsWriteQueue(), ^{
+        secdebug("trustsettings", "SecTrustStoreMigratePropertyListBlock: task started, calling _SecTrustStoreMigratePropertyList");
+        CFErrorRef localError = NULL;
+        bool ok = _SecTrustStoreMigratePropertyList(uid, plist, certificates, &localError);
+        SecTrustStoreMigratePropertyListCompleted((__bridge const void *)userData, ok, localError);
+        CFReleaseSafe(localError);
+        CFReleaseSafe(certificates);
+        CFReleaseSafe(plist);
+    });
+}
+
+// NO_SERVER Shim code only, xpc interface should call SecTrustStoreMigratePropertyListBlock() directly
+bool SecTrustStoreMigratePropertyList(uid_t uid,
+    CFPropertyListRef _Nullable plist,
+    CFDictionaryRef _Nullable certificates,
+    CFErrorRef _Nonnull * _Nullable error)
+{
+    __block dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    __block bool result = false;
+    __block dispatch_queue_t queue = dispatch_queue_create("truststore.write.recursive", DISPATCH_QUEUE_SERIAL);
+    secdebug("trustsettings", "SecTrustStoreMigratePropertyList: queuing async task on truststore.write.recursive");
+
+    /* We need to use the async call with the semaphore here instead of a synchronous call
+     * because we will return from SecTrustStoreMigratePropertyListBlock immediately before
+     * the work is completed. The return is necessary in the XPC interface to avoid blocking,
+     * but here, we need to wait for completion before we can return a result. */
+    dispatch_async(queue, ^{
+        secdebug("trustsettings", "SecTrustStoreMigratePropertyList: calling SecTrustStoreMigratePropertyListBlock");
+        SecTrustStoreMigratePropertyListBlock(uid, plist, certificates, ^(bool completionResult, CFErrorRef completionError) {
+            secdebug("trustsettings", "SecTrustStoreMigratePropertyListBlock: completion block called");
+            result = completionResult;
+            if (completionResult == false) {
+                if (error) {
+                    *error = completionError;
+                    CFRetainSafe(completionError);
+                }
+            }
+            dispatch_semaphore_signal(done);
+        });
+    });
+    dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+    done = NULL; // was dispatch_release(done);
+    queue = NULL; // was dispatch_release(queue);
+    return result;
+}
+

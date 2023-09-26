@@ -5,6 +5,12 @@
 *   Copyright (C) 2002-2014 International Business Machines Corporation
 *   and others. All rights reserved.
 ***************************************************************************
+*
+**********************************************************************
+*   Legacy version from ICU 57, only for use by Apple RuleBasedTokenizer
+*   originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+*   urbtok57 interfaces for access via RBT, and better tests
+**********************************************************************
 */
 
 #include "unicode/utypes.h"
@@ -240,7 +246,7 @@ void RBBISymbolTable57::rbbiSymtablePrint() const {
         }
         RBBISymbolTableEntry  *s   = (RBBISymbolTableEntry *)e->value.pointer;
         RBBI_DEBUG_printUnicodeString(s->key);
-        s->val->fLeftChild->printTree(TRUE);
+        s->val->fLeftChild->printTree(true);
         RBBIDebugPrintf("\n");
     }
 }

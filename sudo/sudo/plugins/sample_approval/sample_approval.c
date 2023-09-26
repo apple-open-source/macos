@@ -77,7 +77,7 @@ sample_approval_open(unsigned int version, sudo_conv_t conversation,
     }
     if (plugin_path != NULL && !TAILQ_EMPTY(&debug_files)) {
 	approval_debug_instance =
-	    sudo_debug_register(plugin_path, NULL, NULL, &debug_files);
+	    sudo_debug_register(plugin_path, NULL, NULL, &debug_files, -1);
 	if (approval_debug_instance == SUDO_DEBUG_INSTANCE_ERROR) {
 	    *errstr = U_("unable to initialize debugging");
 	    goto done;
@@ -117,7 +117,7 @@ static int
 sample_approval_check(char * const command_info[], char * const run_argv[],
     char * const run_envp[], const char **errstr)
 {
-    struct tm *tm;
+    struct tm tm;
     time_t now;
     int ret = 0;
     debug_decl(sample_approval_check, SUDO_DEBUG_PLUGIN);
@@ -126,14 +126,14 @@ sample_approval_check(char * const command_info[], char * const run_argv[],
      * Only approve requests that are within business hours,
      * which are 9am - 5pm local time.  Does not check holidays.
      */
-    if (time(&now) == -1 || (tm = localtime(&now)) == NULL)
+    if (time(&now) == -1 || localtime_r(&now, &tm) == NULL)
 	goto done;
-    if (tm->tm_wday < 1 || tm->tm_wday > 5) {
+    if (tm.tm_wday < 1 || tm.tm_wday > 5) {
 	/* bad weekday */
 	goto done;
     }
-    if (tm->tm_hour < 9 || tm->tm_hour > 17 ||
-	    (tm->tm_hour == 17 && tm->tm_min > 0)) {
+    if (tm.tm_hour < 9 || tm.tm_hour > 17 ||
+	    (tm.tm_hour == 17 && tm.tm_min > 0)) {
 	/* bad hour */
 	goto done;
     }

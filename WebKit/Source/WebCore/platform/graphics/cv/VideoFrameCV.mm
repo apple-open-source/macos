@@ -36,9 +36,11 @@
 #include "PixelBufferConformerCV.h"
 #include "ProcessIdentity.h"
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
+#include <wtf/CheckedArithmetic.h>
+#include <wtf/Scope.h>
+
 #include <pal/cf/AudioToolboxSoftLink.h>
 #include <pal/cf/CoreMediaSoftLink.h>
-#include <wtf/Scope.h>
 
 #include "CoreVideoSoftLink.h"
 
@@ -73,7 +75,7 @@ static const uint8_t* copyToCVPixelBufferPlane(CVPixelBufferRef pixelBuffer, siz
     return source;
 }
 
-RefPtr<VideoFrame> VideoFrame::createNV12(Span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& planeY, const ComputedPlaneLayout& planeUV, PlatformVideoColorSpace&& colorSpace)
+RefPtr<VideoFrame> VideoFrame::createNV12(std::span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& planeY, const ComputedPlaneLayout& planeUV, PlatformVideoColorSpace&& colorSpace)
 {
     CVPixelBufferRef rawPixelBuffer = nullptr;
 
@@ -89,11 +91,18 @@ RefPtr<VideoFrame> VideoFrame::createNV12(Span<const uint8_t> span, size_t width
     auto scope = makeScopeExit([&rawPixelBuffer] {
         CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
     });
+    ASSERT(span.size() >= height * planeY.sourceWidthBytes);
+    if (span.size() < height * planeY.sourceWidthBytes)
+        return nullptr;
 
     auto* data = span.data();
     data = copyToCVPixelBufferPlane(rawPixelBuffer, 0, data, height, planeY.sourceWidthBytes);
     if (CVPixelBufferGetPlaneCount(rawPixelBuffer) == 2) {
-        if (CVPixelBufferGetWidthOfPlane(rawPixelBuffer, 1) != (width / 2) || CVPixelBufferGetHeightOfPlane(rawPixelBuffer, 1) != (height / 2))
+        const auto heightUV = height / 2;
+        ASSERT(span.data() + span.size() >= data + (heightUV * planeUV.sourceWidthBytes));
+        if (CVPixelBufferGetWidthOfPlane(rawPixelBuffer, 1) != (width / 2)
+            || CVPixelBufferGetHeightOfPlane(rawPixelBuffer, 1) != heightUV
+            || (data + (heightUV * planeUV.sourceWidthBytes) > span.data() + span.size()))
             return nullptr;
         copyToCVPixelBufferPlane(rawPixelBuffer, 1, data, height / 2, planeUV.sourceWidthBytes);
     }
@@ -101,7 +110,7 @@ RefPtr<VideoFrame> VideoFrame::createNV12(Span<const uint8_t> span, size_t width
     return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
 }
 
-RefPtr<VideoFrame> VideoFrame::createRGBA(Span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& plane, PlatformVideoColorSpace&& colorSpace)
+RefPtr<VideoFrame> VideoFrame::createRGBA(std::span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& plane, PlatformVideoColorSpace&& colorSpace)
 {
     CVPixelBufferRef rawPixelBuffer = nullptr;
 
@@ -138,7 +147,7 @@ RefPtr<VideoFrame> VideoFrame::createRGBA(Span<const uint8_t> span, size_t width
     return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
 }
 
-RefPtr<VideoFrame> VideoFrame::createBGRA(Span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& plane, PlatformVideoColorSpace&& colorSpace)
+RefPtr<VideoFrame> VideoFrame::createBGRA(std::span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& plane, PlatformVideoColorSpace&& colorSpace)
 {
     CVPixelBufferRef rawPixelBuffer = nullptr;
 
@@ -160,7 +169,7 @@ RefPtr<VideoFrame> VideoFrame::createBGRA(Span<const uint8_t> span, size_t width
     return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
 }
 
-RefPtr<VideoFrame> VideoFrame::createI420(Span<const uint8_t> buffer, size_t width, size_t height, const ComputedPlaneLayout& layoutY, const ComputedPlaneLayout& layoutU, const ComputedPlaneLayout& layoutV, PlatformVideoColorSpace&& colorSpace)
+RefPtr<VideoFrame> VideoFrame::createI420(std::span<const uint8_t> buffer, size_t width, size_t height, const ComputedPlaneLayout& layoutY, const ComputedPlaneLayout& layoutU, const ComputedPlaneLayout& layoutV, PlatformVideoColorSpace&& colorSpace)
 {
 #if USE(LIBWEBRTC)
     size_t offsetLayoutU = layoutY.sourceLeftBytes + layoutY.sourceWidthBytes * height;
@@ -188,6 +197,39 @@ RefPtr<VideoFrame> VideoFrame::createI420(Span<const uint8_t> buffer, size_t wid
 #endif
 }
 
+RefPtr<VideoFrame> VideoFrame::createI420A(std::span<const uint8_t> buffer, size_t width, size_t height, const ComputedPlaneLayout& layoutY, const ComputedPlaneLayout& layoutU, const ComputedPlaneLayout& layoutV, const ComputedPlaneLayout& layoutA, PlatformVideoColorSpace&& colorSpace)
+{
+#if USE(LIBWEBRTC)
+    size_t offsetLayoutU = layoutY.sourceLeftBytes + layoutY.sourceWidthBytes * height;
+    size_t offsetLayoutV = offsetLayoutU + layoutU.sourceLeftBytes + layoutU.sourceWidthBytes * ((height + 1) / 2);
+    size_t offsetLayoutA = offsetLayoutV + layoutV.sourceLeftBytes + layoutV.sourceWidthBytes * ((height + 1) / 2);
+    webrtc::I420ABufferLayout layout {
+        {
+            layoutY.sourceLeftBytes, layoutY.sourceWidthBytes,
+            offsetLayoutU, layoutU.sourceWidthBytes,
+            offsetLayoutV, layoutV.sourceWidthBytes
+        },
+        offsetLayoutA, layoutA.sourceWidthBytes
+    };
+    auto pixelBuffer = adoptCF(webrtc::pixelBufferFromI420ABuffer(buffer.data(), buffer.size(), width, height, layout));
+
+    if (!pixelBuffer)
+        return nullptr;
+
+    return VideoFrameCV::create({ }, false, Rotation::None, WTFMove(pixelBuffer), WTFMove(colorSpace));
+#else
+    UNUSED_PARAM(buffer);
+    UNUSED_PARAM(width);
+    UNUSED_PARAM(height);
+    UNUSED_PARAM(layoutY);
+    UNUSED_PARAM(layoutU);
+    UNUSED_PARAM(layoutV);
+    UNUSED_PARAM(layoutA);
+    UNUSED_PARAM(colorSpace);
+    return nullptr;
+#endif
+}
+
 static void copyPlane(uint8_t* destination, const uint8_t* source, uint64_t sourceStride, const ComputedPlaneLayout& spanPlaneLayout, const Function<void(uint8_t*, const uint8_t*, size_t)>& copyRow)
 {
     uint64_t sourceOffset = spanPlaneLayout.sourceTop * sourceStride;
@@ -201,7 +243,7 @@ static void copyPlane(uint8_t* destination, const uint8_t* source, uint64_t sour
     }
 }
 
-static Vector<PlaneLayout> copyRGBData(Span<uint8_t> span, const ComputedPlaneLayout& spanPlaneLayout, CVPixelBufferRef pixelBuffer, const Function<void(uint8_t*, const uint8_t*, size_t)>& copyRow)
+static Vector<PlaneLayout> copyRGBData(std::span<uint8_t> span, const ComputedPlaneLayout& spanPlaneLayout, CVPixelBufferRef pixelBuffer, const Function<void(uint8_t*, const uint8_t*, size_t)>& copyRow)
 {
     auto result = CVPixelBufferLockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
     if (result != kCVReturnSuccess) {
@@ -230,7 +272,7 @@ static Vector<PlaneLayout> copyRGBData(Span<uint8_t> span, const ComputedPlaneLa
     return planeLayouts;
 }
 
-static Vector<PlaneLayout> copyNV12(Span<uint8_t> span, const ComputedPlaneLayout& spanPlaneLayoutY, const ComputedPlaneLayout& spanPlaneLayoutUV, CVPixelBufferRef pixelBuffer)
+static Vector<PlaneLayout> copyNV12(std::span<uint8_t> span, const ComputedPlaneLayout& spanPlaneLayoutY, const ComputedPlaneLayout& spanPlaneLayoutUV, CVPixelBufferRef pixelBuffer)
 {
     auto result = CVPixelBufferLockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
     if (result != kCVReturnSuccess) {
@@ -275,7 +317,7 @@ static Vector<PlaneLayout> copyNV12(Span<uint8_t> span, const ComputedPlaneLayou
     return planeLayouts;
 }
 
-static Vector<PlaneLayout> copyI420(Span<uint8_t> span, const ComputedPlaneLayout& spanPlaneLayoutY, const ComputedPlaneLayout& spanPlaneLayoutU, const ComputedPlaneLayout& spanPlaneLayoutV, CVPixelBufferRef pixelBuffer)
+static Vector<PlaneLayout> copyI420OrI420A(std::span<uint8_t> span, const ComputedPlaneLayout& spanPlaneLayoutY, const ComputedPlaneLayout& spanPlaneLayoutU, const ComputedPlaneLayout& spanPlaneLayoutV, const ComputedPlaneLayout* spanPlaneLayoutA, CVPixelBufferRef pixelBuffer)
 {
     auto result = CVPixelBufferLockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
     if (result != kCVReturnSuccess) {
@@ -334,10 +376,37 @@ static Vector<PlaneLayout> copyI420(Span<uint8_t> span, const ComputedPlaneLayou
     planeLayouts.append(planeLayoutY);
     planeLayouts.append(planeLayoutU);
     planeLayouts.append(planeLayoutV);
+
+    if (spanPlaneLayoutA) {
+        auto* planeA = static_cast<const uint8_t*>(CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 2));
+        if (!planeA) {
+            RELEASE_LOG_ERROR(WebRTC, "VideoFrame::copyTo plane A is null");
+            return { };
+        }
+
+        auto widthA = CVPixelBufferGetWidthOfPlane(pixelBuffer, 2);
+        auto bytesPerRowA = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 2);
+
+        PlaneLayout planeLayoutA { spanPlaneLayoutA->destinationOffset, spanPlaneLayoutA->destinationStride ? spanPlaneLayoutA->destinationStride : widthA };
+
+        size_t planeAEnd;
+        if (!WTF::safeMultiply(planeLayoutA.stride, spanPlaneLayoutA->sourceHeight, planeAEnd))
+            return { };
+        if (!WTF::safeAdd(planeLayoutA.offset, planeAEnd, planeAEnd))
+            return { };
+        if (planeAEnd > span.size())
+            return { };
+
+        copyPlane(span.data(), planeA, bytesPerRowA, *spanPlaneLayoutA, [](auto* destination, auto* source, auto size) {
+            std::memcpy(destination, source, size);
+        });
+        planeLayouts.append(planeLayoutA);
+    }
+
     return planeLayouts;
 }
 
-void VideoFrame::copyTo(Span<uint8_t> span, VideoPixelFormat format, Vector<ComputedPlaneLayout>&& computedPlaneLayout, CompletionHandler<void(std::optional<Vector<PlaneLayout>>&&)>&& callback)
+void VideoFrame::copyTo(std::span<uint8_t> span, VideoPixelFormat format, Vector<ComputedPlaneLayout>&& computedPlaneLayout, CompletionHandler<void(std::optional<Vector<PlaneLayout>>&&)>&& callback)
 {
     // FIXME: We should get the pixel buffer and copy the bytes asynchronously.
     if (format == VideoPixelFormat::NV12) {
@@ -346,7 +415,12 @@ void VideoFrame::copyTo(Span<uint8_t> span, VideoPixelFormat format, Vector<Comp
     }
 
     if (format == VideoPixelFormat::I420) {
-        callback(copyI420(span, computedPlaneLayout[0], computedPlaneLayout[1], computedPlaneLayout[2], this->pixelBuffer()));
+        callback(copyI420OrI420A(span, computedPlaneLayout[0], computedPlaneLayout[1], computedPlaneLayout[2], nullptr, this->pixelBuffer()));
+        return;
+    }
+
+    if (format == VideoPixelFormat::I420A) {
+        callback(copyI420OrI420A(span, computedPlaneLayout[0], computedPlaneLayout[1], computedPlaneLayout[2], &computedPlaneLayout[3], this->pixelBuffer()));
         return;
     }
 
@@ -420,7 +494,7 @@ Ref<VideoFrameCV> VideoFrameCV::create(MediaTime presentationTime, bool isMirror
     return adoptRef(*new VideoFrameCV(presentationTime, isMirrored, rotation, WTFMove(pixelBuffer), WTFMove(colorSpace)));
 }
 
-RefPtr<VideoFrameCV> VideoFrameCV::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer)
+RefPtr<VideoFrame> VideoFrame::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, PlatformVideoColorSpace&& colorSpace)
 {
     auto size = pixelBuffer->size();
     auto width = size.width();
@@ -442,7 +516,7 @@ RefPtr<VideoFrameCV> VideoFrameCV::createFromPixelBuffer(Ref<PixelBuffer>&& pixe
         return nullptr;
     }
     ASSERT_UNUSED(status, !status);
-    return create({ }, false, Rotation::None, WTFMove(cvPixelBuffer));
+    return RefPtr { VideoFrameCV::create({ }, false, Rotation::None, WTFMove(cvPixelBuffer), WTFMove(colorSpace)) };
 }
 
 static PlatformVideoColorSpace computeVideoFrameColorSpace(CVPixelBufferRef pixelBuffer)
@@ -526,13 +600,13 @@ ImageOrientation VideoFrameCV::orientation() const
     // Sample transform first flips x-coordinates, then rotates.
     switch (rotation()) {
     case VideoFrame::Rotation::None:
-        return isMirrored() ? ImageOrientation::OriginTopRight : ImageOrientation::OriginTopLeft;
+        return isMirrored() ? ImageOrientation::Orientation::OriginTopRight : ImageOrientation::Orientation::OriginTopLeft;
     case VideoFrame::Rotation::Right:
-        return isMirrored() ? ImageOrientation::OriginRightBottom : ImageOrientation::OriginRightTop;
+        return isMirrored() ? ImageOrientation::Orientation::OriginRightBottom : ImageOrientation::Orientation::OriginRightTop;
     case VideoFrame::Rotation::UpsideDown:
-        return isMirrored() ? ImageOrientation::OriginBottomLeft : ImageOrientation::OriginBottomRight;
+        return isMirrored() ? ImageOrientation::Orientation::OriginBottomLeft : ImageOrientation::Orientation::OriginBottomRight;
     case VideoFrame::Rotation::Left:
-        return isMirrored() ? ImageOrientation::OriginLeftTop : ImageOrientation::OriginLeftBottom;
+        return isMirrored() ? ImageOrientation::Orientation::OriginLeftTop : ImageOrientation::Orientation::OriginLeftBottom;
     }
 }
 

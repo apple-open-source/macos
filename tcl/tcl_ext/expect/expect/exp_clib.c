@@ -9,6 +9,7 @@ would appreciate credit if this program or parts of it are used.
 
 #include "expect_cf.h"
 #include <stdio.h>
+#include <unistd.h>
 #include <setjmp.h>
 #ifdef HAVE_INTTYPES_H
 #  include <inttypes.h>
@@ -1733,7 +1734,8 @@ int exp_getptyslave();
 
 #define sysreturn(x)	return(errno = x, -1)
 
-void exp_init_pty();
+void exp_init_pty(void);
+void exp_init_tty(void);
 
 /*
    The following functions are linked from the Tcl library.  They

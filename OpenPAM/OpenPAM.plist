@@ -12,6 +12,7 @@
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Modified the dispatch to break for PAM_SM_SETCRED.</string>
+			<string>Added MDM support.</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>OpenPAM</string>

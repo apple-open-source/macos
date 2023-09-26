@@ -58,7 +58,6 @@ __FBSDID("$FreeBSD$");
 #include "archive_read_private.h"
 #include "filter_fork.h"
 
-
 #if ARCHIVE_VERSION_NUMBER < 4000000
 /* Deprecated; remove in libarchive 4.0 */
 int

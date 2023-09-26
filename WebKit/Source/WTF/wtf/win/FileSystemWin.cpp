@@ -136,41 +136,17 @@ std::optional<WallTime> fileCreationTime(const String& path)
     return WallTime::fromRawSeconds(time);
 }
 
-#if !USE(CF)
-
 CString fileSystemRepresentation(const String& path)
 {
-    auto characters = wcharFrom(StringView(path).upconvertedCharacters());
-    int size = WideCharToMultiByte(CP_ACP, 0, characters, path.length(), 0, 0, 0, 0) - 1;
+    auto characters = StringView(path).upconvertedCharacters();
+    int size = WideCharToMultiByte(CP_ACP, 0, wcharFrom(characters), path.length(), 0, 0, 0, 0);
 
     char* buffer;
     CString string = CString::newUninitialized(size, buffer);
 
-    WideCharToMultiByte(CP_ACP, 0, characters, path.length(), buffer, size, 0, 0);
+    WideCharToMultiByte(CP_ACP, 0, wcharFrom(characters), path.length(), buffer, size, 0, 0);
 
     return string;
-}
-
-#endif // !USE(CF)
-
-static String bundleName()
-{
-    static const NeverDestroyed<String> name = [] {
-        String name { "WebKit"_s };
-
-#if USE(CF)
-        if (CFBundleRef bundle = CFBundleGetMainBundle()) {
-            if (CFTypeRef bundleExecutable = CFBundleGetValueForInfoDictionaryKey(bundle, kCFBundleExecutableKey)) {
-                if (CFGetTypeID(bundleExecutable) == CFStringGetTypeID())
-                    name = reinterpret_cast<CFStringRef>(bundleExecutable);
-            }
-        }
-#endif
-
-        return name;
-    }();
-
-    return name;
 }
 
 static String storageDirectory(DWORD pathIdentifier)
@@ -182,7 +158,7 @@ static String storageDirectory(DWORD pathIdentifier)
     buffer.shrink(wcslen(wcharFrom(buffer.data())));
     String directory = String::adopt(WTFMove(buffer));
 
-    directory = pathByAppendingComponent(directory, makeString("Apple Computer\\", bundleName()));
+    directory = pathByAppendingComponent(directory, "Apple Computer\\WebKit"_s);
     if (!makeAllDirectories(directory))
         return String();
 
@@ -395,8 +371,6 @@ MappedFileData::~MappedFileData()
 {
     if (m_fileData)
         UnmapViewOfFile(m_fileData);
-    if (m_fileMapping)
-        CloseHandle(m_fileMapping);
 }
 
 bool MappedFileData::mapFileHandle(PlatformFileHandle handle, FileOpenMode openMode, MappedFileMode)
@@ -430,11 +404,11 @@ bool MappedFileData::mapFileHandle(PlatformFileHandle handle, FileOpenMode openM
         break;
     }
 
-    m_fileMapping = CreateFileMapping(handle, nullptr, pageProtection, 0, 0, nullptr);
+    m_fileMapping = Win32Handle::adopt(CreateFileMapping(handle, nullptr, pageProtection, 0, 0, nullptr));
     if (!m_fileMapping)
         return false;
 
-    m_fileData = MapViewOfFile(m_fileMapping, desiredAccess, 0, 0, *size);
+    m_fileData = MapViewOfFile(m_fileMapping.get(), desiredAccess, 0, 0, *size);
     if (!m_fileData)
         return false;
     m_fileSize = *size;

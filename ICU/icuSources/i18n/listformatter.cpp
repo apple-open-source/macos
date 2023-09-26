@@ -33,7 +33,10 @@
 #include "uarrsort.h"
 #include "ulocimp.h"
 #include "charstr.h"
+#if APPLE_ICU_CHANGES
+// rdar:/
 #include "ubidi_props.h"    // for stringIsRTL()
+#endif  // APPLE_ICU_CHANGES
 #include "ucln_in.h"
 #include "uresimp.h"
 #include "resource.h"
@@ -57,10 +60,21 @@ public:
 
     virtual PatternHandler* clone() const { return new PatternHandler(twoPattern, endPattern); }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
     virtual const SimpleFormatter& getTwoPattern(const UnicodeString&, const UnicodeString&) const {
+#else
+    /** Argument: final string in the list. */
+    virtual const SimpleFormatter& getTwoPattern(const UnicodeString&) const {
+#endif  // APPLE_ICU_CHANGES
         return twoPattern;
     }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
+#else
+    /** Argument: final string in the list. */
+#endif  // APPLE_ICU_CHANGES
     virtual const SimpleFormatter& getEndPattern(const UnicodeString&) const {
         return endPattern;
     }
@@ -102,7 +116,10 @@ public:
     }
 
     const SimpleFormatter& getTwoPattern(
+#if APPLE_ICU_CHANGES
+// rdar:/
         const UnicodeString&, /*ignored*/
+#endif  // APPLE_ICU_CHANGES
         const UnicodeString& text) const override {
         return (test)(text) ? thenTwoPattern : twoPattern;
     }
@@ -121,6 +138,8 @@ private:
 ContextualHandler::~ContextualHandler() {
 }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 class ThaiHandler : public PatternHandler {
 public:
     ThaiHandler(const UnicodeString& two, const UnicodeString& end, UErrorCode& errorCode) :
@@ -196,6 +215,7 @@ private:
 
 ThaiHandler::~ThaiHandler() {
 }
+#endif  // APPLE_ICU_CHANGES
 
 static const char16_t *spanishY = u"{0} y {1}";
 static const char16_t *spanishE = u"{0} e {1}";
@@ -283,8 +303,11 @@ PatternHandler* createPatternHandler(
                 twoIsVav ? replacement : two, two,
                 endIsVav ? replacement : end, end, status);
         }
+#if APPLE_ICU_CHANGES
+// rdar:/
     } else if (uprv_strcmp(lang, "th") == 0) {
         return new ThaiHandler(two, end, status);
+#endif  // APPLE_ICU_CHANGES
     }
     return new PatternHandler(two, end, status);
 }
@@ -295,7 +318,10 @@ struct ListFormatInternal : public UMemory {
     SimpleFormatter startPattern;
     SimpleFormatter middlePattern;
     LocalPointer<PatternHandler> patternHandler;
+#if APPLE_ICU_CHANGES
+// rdar:/
     bool patternsAreRTL;
+#endif  // APPLE_ICU_CHANGES
 
 ListFormatInternal(
         const UnicodeString& two,
@@ -306,21 +332,36 @@ ListFormatInternal(
         UErrorCode &errorCode) :
         startPattern(start, 2, 2, errorCode),
         middlePattern(middle, 2, 2, errorCode),
+#if APPLE_ICU_CHANGES
+// rdar:/
         patternHandler(createPatternHandler(locale.getLanguage(), two, end, errorCode), errorCode),
         patternsAreRTL(uloc_getCharacterOrientation(locale.getName(), &errorCode) == ULOC_LAYOUT_RTL) { }
+#else
+        patternHandler(createPatternHandler(locale.getLanguage(), two, end, errorCode), errorCode) { }
+#endif  // APPLE_ICU_CHANGES
 
 ListFormatInternal(const ListFormatData &data, UErrorCode &errorCode) :
         startPattern(data.startPattern, errorCode),
         middlePattern(data.middlePattern, errorCode),
         patternHandler(createPatternHandler(
+#if APPLE_ICU_CHANGES
+// rdar:/
             data.locale.getLanguage(), data.twoPattern, data.endPattern, errorCode), errorCode),
         patternsAreRTL(uloc_getCharacterOrientation(data.locale.getName(), &errorCode) == ULOC_LAYOUT_RTL) { }
+#else
+            data.locale.getLanguage(), data.twoPattern, data.endPattern, errorCode), errorCode) { }
+#endif  // APPLE_ICU_CHANGES
 
 ListFormatInternal(const ListFormatInternal &other) :
     startPattern(other.startPattern),
     middlePattern(other.middlePattern),
+#if APPLE_ICU_CHANGES
+// rdar:/
     patternHandler(other.patternHandler->clone()),
     patternsAreRTL(other.patternsAreRTL) { }
+#else
+    patternHandler(other.patternHandler->clone()) { }
+#endif  // APPLE_ICU_CHANGES
 };
 
 
@@ -642,15 +683,28 @@ public:
     LocalPointer<FormattedListData> data;
 
     /** For lists of length 1+ */
+#if APPLE_ICU_CHANGES
+// rdar:/
     FormattedListBuilder(const UnicodeString& start, bool addBidiIsolates, UErrorCode& status)
+#else
+    FormattedListBuilder(const UnicodeString& start, UErrorCode& status)
+#endif  // APPLE_ICU_CHANGES
             : data(new FormattedListData(status), status) {
         if (U_SUCCESS(status)) {
             data->getStringRef().append(
                 start,
                 {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 addBidiIsolates,
+#endif  // APPLE_ICU_CHANGES
                 status);
+#if APPLE_ICU_CHANGES
+// rdar:/
             data->appendSpanInfo(UFIELD_CATEGORY_LIST_SPAN, 0, -1, start.length() + (addBidiIsolates ? 2 : 0), status);
+#else
+            data->appendSpanInfo(UFIELD_CATEGORY_LIST_SPAN, 0, -1, start.length(), status);
+#endif  // APPLE_ICU_CHANGES
         }
     }
 
@@ -659,7 +713,12 @@ public:
             : data(new FormattedListData(status), status) {
     }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
     void append(const SimpleFormatter& pattern, const UnicodeString& next, int32_t position, bool addBidiIsolates, UErrorCode& status) {
+#else
+    void append(const SimpleFormatter& pattern, const UnicodeString& next, int32_t position, UErrorCode& status) {
+#endif  // APPLE_ICU_CHANGES
         if (U_FAILURE(status)) {
             return;
         }
@@ -677,23 +736,40 @@ public:
                 0,
                 temp.tempSubStringBetween(0, offsets[0]),
                 {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 false,
+#endif  // APPLE_ICU_CHANGES
                 status);
             data->getStringRef().append(
                 temp.tempSubStringBetween(offsets[0], offsets[1]),
                 {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 false,
+#endif  // APPLE_ICU_CHANGES
                 status);
             data->getStringRef().append(
                 next,
                 {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 addBidiIsolates,
+#endif  // APPLE_ICU_CHANGES
                 status);
+#if APPLE_ICU_CHANGES
+// rdar:/
             data->appendSpanInfo(UFIELD_CATEGORY_LIST_SPAN, position, -1, next.length() + (addBidiIsolates ? 2 : 0), status);
+#else
+            data->appendSpanInfo(UFIELD_CATEGORY_LIST_SPAN, position, -1, next.length(), status);
+#endif  // APPLE_ICU_CHANGES
             data->getStringRef().append(
                 temp.tempSubString(offsets[1]),
                 {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 false,
+#endif  // APPLE_ICU_CHANGES
                 status);
         } else {
             // prefix{1}infix{0}suffix
@@ -703,25 +779,42 @@ public:
                 0,
                 temp.tempSubStringBetween(offsets[1], offsets[0]),
                 {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 false,
+#endif  // APPLE_ICU_CHANGES
                 status);
             data->getStringRef().insert(
                 0,
                 next,
                 {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 addBidiIsolates,
+#endif  // APPLE_ICU_CHANGES
                 status);
+#if APPLE_ICU_CHANGES
+// rdar:/
             data->prependSpanInfo(UFIELD_CATEGORY_LIST_SPAN, position, -1, next.length() + (addBidiIsolates ? 2 : 0), status);
+#else
+            data->prependSpanInfo(UFIELD_CATEGORY_LIST_SPAN, position, -1, next.length(), status);
+#endif  // APPLE_ICU_CHANGES
             data->getStringRef().insert(
                 0,
                 temp.tempSubStringBetween(0, offsets[1]),
                 {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 false,
+#endif  // APPLE_ICU_CHANGES
                 status);
             data->getStringRef().append(
                 temp.tempSubString(offsets[0]),
                 {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD},
+#if APPLE_ICU_CHANGES
+// rdar:/
                 false,
+#endif  // APPLE_ICU_CHANGES
                 status);
         }
     }
@@ -758,7 +851,9 @@ UnicodeString& ListFormatter::format(
     return appendTo;
 }
 
-// For rdar://80868095 -- Internal utility function used by formatStringsToValue() below.
+#if APPLE_ICU_CHANGES
+// rdar://80868095
+// Internal utility function used by formatStringsToValue() below.
 // This function returns true if the specified string needs to be surrounded by bidi-isolate characters
 // when inserted into the formatted list.  To keep the overall list's directionality from getting messed
 // up, we need bidi isolates around an individiual list item if that item contains any characters that
@@ -793,6 +888,7 @@ bool ListFormatter::needsBidiIsolates(const UnicodeString& s) const {
     }
     return false;
 }
+#endif  // APPLE_ICU_CHANGES
 
 FormattedList ListFormatter::formatStringsToValue(
         const UnicodeString items[],
@@ -806,7 +902,12 @@ FormattedList ListFormatter::formatStringsToValue(
             return FormattedList(result.data.orphan());
         }
     } else if (nItems == 1) {
+#if APPLE_ICU_CHANGES
+// rdar:/
         FormattedListBuilder result(items[0], needsBidiIsolates(items[0]), errorCode);
+#else
+        FormattedListBuilder result(items[0], errorCode);
+#endif  // APPLE_ICU_CHANGES
         result.data->getStringRef().writeTerminator(errorCode);
         if (U_FAILURE(errorCode)) {
             return FormattedList(errorCode);
@@ -814,15 +915,28 @@ FormattedList ListFormatter::formatStringsToValue(
             return FormattedList(result.data.orphan());
         }
     } else if (nItems == 2) {
+#if APPLE_ICU_CHANGES
+// rdar:/
         FormattedListBuilder result(items[0], needsBidiIsolates(items[0]), errorCode);
+#else
+        FormattedListBuilder result(items[0], errorCode);
+#endif  // APPLE_ICU_CHANGES
         if (U_FAILURE(errorCode)) {
             return FormattedList(errorCode);
         }
         result.append(
+#if APPLE_ICU_CHANGES
+// rdar:/
             data->patternHandler->getTwoPattern(items[0], items[1]),
+#else
+            data->patternHandler->getTwoPattern(items[1]),
+#endif  // APPLE_ICU_CHANGES
             items[1],
             1,
+#if APPLE_ICU_CHANGES
+// rdar:/
             needsBidiIsolates(items[1]),
+#endif  // APPLE_ICU_CHANGES
             errorCode);
         result.data->getStringRef().writeTerminator(errorCode);
         if (U_FAILURE(errorCode)) {
@@ -832,7 +946,12 @@ FormattedList ListFormatter::formatStringsToValue(
         }
     }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
     FormattedListBuilder result(items[0], needsBidiIsolates(items[0]), errorCode);
+#else
+    FormattedListBuilder result(items[0], errorCode);
+#endif  // APPLE_ICU_CHANGES
     if (U_FAILURE(errorCode)) {
         return FormattedList(errorCode);
     }
@@ -840,21 +959,30 @@ FormattedList ListFormatter::formatStringsToValue(
         data->startPattern,
         items[1],
         1,
+#if APPLE_ICU_CHANGES
+// rdar:/
         needsBidiIsolates(items[1]),
+#endif  // APPLE_ICU_CHANGES
         errorCode);
     for (int32_t i = 2; i < nItems - 1; i++) {
         result.append(
             data->middlePattern,
             items[i],
             i,
+#if APPLE_ICU_CHANGES
+// rdar:/
             needsBidiIsolates(items[i]),
+#endif  // APPLE_ICU_CHANGES
             errorCode);
     }
     result.append(
         data->patternHandler->getEndPattern(items[nItems-1]),
         items[nItems-1],
         nItems-1,
+#if APPLE_ICU_CHANGES
+// rdar:/
         needsBidiIsolates(items[nItems-1]),
+#endif  // APPLE_ICU_CHANGES
         errorCode);
     result.data->getStringRef().writeTerminator(errorCode);
     if (U_FAILURE(errorCode)) {
@@ -863,6 +991,7 @@ FormattedList ListFormatter::formatStringsToValue(
         return FormattedList(result.data.orphan());
     }
 }
+
 
 U_NAMESPACE_END
 

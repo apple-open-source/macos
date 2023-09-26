@@ -40,6 +40,7 @@
 #include "RenderLineBreak.h"
 #include "RenderListItem.h"
 #include "RenderListMarker.h"
+#include "RenderStyleSetters.h"
 #include "RenderTable.h"
 #include "RenderView.h"
 #include "TextUtil.h"
@@ -189,7 +190,9 @@ UniqueRef<Layout::Box> BoxTree::createLayoutBox(RenderObject& renderer)
         auto text = style.textSecurity() == TextSecurity::None
             ? (isCombinedText ? textRenderer.originalText() : textRenderer.text())
             : RenderBlock::updateSecurityDiscCharacters(style, isCombinedText ? textRenderer.originalText() : textRenderer.text());
-        return makeUniqueRef<Layout::InlineTextBox>(text, isCombinedText, textRenderer.canUseSimplifiedTextMeasuring(), textRenderer.canUseSimpleFontCodePath(), WTFMove(style), WTFMove(firstLineStyle));
+        auto canUseSimpleFontCodePath = textRenderer.canUseSimpleFontCodePath();
+        auto canUseSimplifiedTextMeasuring = canUseSimpleFontCodePath && Layout::TextUtil::canUseSimplifiedTextMeasuring(text, style, firstLineStyle.get());
+        return makeUniqueRef<Layout::InlineTextBox>(text, isCombinedText, canUseSimplifiedTextMeasuring, canUseSimpleFontCodePath, WTFMove(style), WTFMove(firstLineStyle));
     }
 
     auto& renderElement = downcast<RenderElement>(renderer);
@@ -219,7 +222,7 @@ void BoxTree::buildTreeForInlineContent()
                 return existingChildBox->removeFromParent();
             return createLayoutBox(childRenderer);
         };
-        appendChild(childLayoutBox(), childRenderer);
+        insertChild(childLayoutBox(), childRenderer, childRenderer.previousSibling());
     }
     m_renderers.shrinkToFit();
 }
@@ -229,19 +232,20 @@ void BoxTree::buildTreeForFlexContent()
     for (auto& flexItemRenderer : childrenOfType<RenderElement>(m_rootRenderer)) {
         auto style = RenderStyle::clone(flexItemRenderer.style());
         auto flexItem = makeUniqueRef<Layout::ElementBox>(elementAttributes(flexItemRenderer), WTFMove(style));
-        appendChild(WTFMove(flexItem), flexItemRenderer);
+        insertChild(WTFMove(flexItem), flexItemRenderer, flexItemRenderer.previousSibling());
     }
     m_renderers.shrinkToFit();
 }
 
-void BoxTree::appendChild(UniqueRef<Layout::Box> childBox, RenderObject& childRenderer)
+void BoxTree::insertChild(UniqueRef<Layout::Box> childBox, RenderObject& childRenderer, const RenderObject* beforeChild)
 {
     auto& parentBox = layoutBoxForRenderer(*childRenderer.parent());
+    auto* beforeChildBox = beforeChild ? &layoutBoxForRenderer(*beforeChild) : nullptr;
 
     m_renderers.append(&childRenderer);
 
     childRenderer.setLayoutBox(childBox);
-    parentBox.appendChild(WTFMove(childBox));
+    parentBox.insertChild(WTFMove(childBox), beforeChildBox);
 }
 
 void BoxTree::updateStyle(const RenderBoxModelObject& renderer)
@@ -258,6 +262,42 @@ void BoxTree::updateStyle(const RenderBoxModelObject& renderer)
         if (child->isInlineTextBox())
             child->updateStyle(RenderStyle::createAnonymousStyleWithDisplay(rendererStyle, DisplayType::Inline), firstLineStyleFor(renderer));
     }
+}
+
+void BoxTree::updateContent(const RenderText& textRenderer)
+{
+    auto& inlineTextBox = downcast<Layout::InlineTextBox>(layoutBoxForRenderer(textRenderer));
+    auto& style = inlineTextBox.style();
+    auto isCombinedText = is<RenderCombineText>(textRenderer) && downcast<RenderCombineText>(textRenderer).isCombined();
+    auto text = style.textSecurity() == TextSecurity::None ? (isCombinedText ? textRenderer.originalText() : textRenderer.text()) : RenderBlock::updateSecurityDiscCharacters(style, isCombinedText ? textRenderer.originalText() : textRenderer.text());
+    auto canUseSimpleFontCodePath = textRenderer.canUseSimpleFontCodePath();
+    auto canUseSimplifiedTextMeasuring = canUseSimpleFontCodePath && Layout::TextUtil::canUseSimplifiedTextMeasuring(text, style, &inlineTextBox.firstLineStyle());
+
+    inlineTextBox.updateContent(text, canUseSimpleFontCodePath, canUseSimplifiedTextMeasuring);
+}
+
+const Layout::Box& BoxTree::insert(const RenderElement& parent, RenderObject& child, const RenderObject* beforeChild)
+{
+    UNUSED_PARAM(parent);
+
+    insertChild(createLayoutBox(child), child, beforeChild);
+    if (!m_boxToRendererMap.isEmpty())
+        m_boxToRendererMap.add(*child.layoutBox(), child);
+    return layoutBoxForRenderer(child);
+}
+
+UniqueRef<Layout::Box> BoxTree::remove(const RenderElement& parent, RenderObject& child)
+{
+    UNUSED_PARAM(parent);
+    ASSERT(child.layoutBox());
+
+    auto* layoutBox = child.layoutBox();
+
+    m_boxToRendererMap = { };
+    child.clearLayoutBox();
+    // FIXME: Move over to WeakListHashSet if this turns out to be too expensive.
+    m_renderers.removeFirst(&child);
+    return layoutBox->removeFromParent();
 }
 
 const Layout::ElementBox& BoxTree::rootLayoutBox() const
@@ -323,8 +363,8 @@ Layout::InitialContainingBlock& BoxTree::initialContainingBlock()
 #if ENABLE(TREE_DEBUGGING)
 void showInlineContent(TextStream& stream, const InlineContent& inlineContent, size_t depth)
 {
-    auto& lines = inlineContent.lines;
-    auto& boxes = inlineContent.boxes;
+    auto& lines = inlineContent.displayContent().lines;
+    auto& boxes = inlineContent.displayContent().boxes;
 
     for (size_t lineIndex = 0, boxIndex = 0; lineIndex < lines.size() && boxIndex < boxes.size(); ++lineIndex) {
         auto addSpacing = [&](auto& streamToUse) {

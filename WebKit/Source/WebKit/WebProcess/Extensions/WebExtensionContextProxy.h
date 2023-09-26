@@ -29,6 +29,7 @@
 
 #include "MessageReceiver.h"
 #include "WebExtensionContextParameters.h"
+#include "WebExtensionEventListenerType.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/FrameIdentifier.h>
@@ -36,9 +37,12 @@
 #include <wtf/Forward.h>
 #include <wtf/WeakHashSet.h>
 
+OBJC_CLASS NSDictionary;
+
 namespace WebKit {
 
 class WebExtensionAPINamespace;
+class WebExtensionMatchPattern;
 class WebFrame;
 
 class WebExtensionContextProxy final : public RefCounted<WebExtensionContextProxy>, public IPC::MessageReceiver {
@@ -47,7 +51,7 @@ class WebExtensionContextProxy final : public RefCounted<WebExtensionContextProx
 
 public:
     static RefPtr<WebExtensionContextProxy> get(WebExtensionContextIdentifier);
-    static Ref<WebExtensionContextProxy> getOrCreate(WebExtensionContextParameters);
+    static Ref<WebExtensionContextProxy> getOrCreate(const WebExtensionContextParameters&);
 
     ~WebExtensionContextProxy();
 
@@ -56,12 +60,12 @@ public:
     WebExtensionContextIdentifier identifier() { return m_identifier; }
 
     bool operator==(const WebExtensionContextProxy& other) const { return (this == &other); }
-    bool operator!=(const WebExtensionContextProxy& other) const { return !(this == &other); }
 
     const URL& baseURL() { return m_baseURL; }
     const String& uniqueIdentifier() const { return m_uniqueIdentifier; }
 
     NSDictionary *manifest() { return m_manifest.get(); }
+    static RetainPtr<NSDictionary> parseManifest(API::Data&);
 
     double manifestVersion() { return m_manifestVersion; }
     bool supportsManifestVersion(double version) { return manifestVersion() >= version; }
@@ -77,7 +81,7 @@ public:
     void enumerateContentScriptNamespaceObjects(const Function<void(WebExtensionAPINamespace&)>& function) { ASSERT(contentScriptWorld()); enumerateNamespaceObjects(function, *contentScriptWorld()); };
 
 private:
-    explicit WebExtensionContextProxy(WebExtensionContextParameters);
+    explicit WebExtensionContextProxy(const WebExtensionContextParameters&);
 
     // webNavigation support
     void dispatchWebNavigationOnBeforeNavigateEvent(WebPageProxyIdentifier, WebCore::FrameIdentifier, URL);
@@ -85,6 +89,9 @@ private:
     void dispatchWebNavigationOnDOMContentLoadedEvent(WebPageProxyIdentifier, WebCore::FrameIdentifier, URL);
     void dispatchWebNavigationOnCompletedEvent(WebPageProxyIdentifier, WebCore::FrameIdentifier, URL);
     void dispatchWebNavigationOnErrorOccurredEvent(WebPageProxyIdentifier, WebCore::FrameIdentifier, URL);
+
+    // Permissions support
+    void dispatchPermissionsEvent(const WebKit::WebExtensionEventListenerType&, HashSet<String> permissions, HashSet<String> origins);
 
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;

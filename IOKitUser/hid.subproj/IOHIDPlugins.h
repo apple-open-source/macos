@@ -21,6 +21,9 @@ CFArrayRef _IOHIDLoadServiceFilterBundles();
 CF_EXPORT
 CFArrayRef _IOHIDLoadServicePluginBundles();
 
+CF_EXPORT
+CFArrayRef _IOHIDLoadConnectionPluginBundles();
+
 void _IOHIDPlugInInstanceCacheAdd (CFUUIDRef factory, const void *value);
 
 void _IOHIDPlugInInstanceCacheClear ();

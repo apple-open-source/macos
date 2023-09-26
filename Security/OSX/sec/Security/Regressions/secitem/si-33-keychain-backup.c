@@ -25,6 +25,7 @@
 #include <TargetConditionals.h>
 
 #include "keychain/securityd/SecKeybagSupport.h"
+#include "keychain/securityd/SOSCloudCircleServer.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecBase.h>
@@ -580,9 +581,16 @@ static void tests(void)
 
 int si_33_keychain_backup(int argc, char *const *argv)
 {
-	plan_tests(78);
+	plan_tests(88);
+
+    CFErrorRef localError = NULL;
+    SOSCCSetCompatibilityMode(true, &localError);
+    CFReleaseNull(localError);
 
 	tests();
+    
+    SOSCCSetCompatibilityMode(false, &localError);
+    CFReleaseNull(localError);
 
 	return 0;
 }

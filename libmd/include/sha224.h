@@ -40,9 +40,9 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#define SHA224_Init(c)		CC_SHA224_Init(c)
-#define	SHA224_Update(c, d, l)	CC_SHA224_Update(c, d, l)
-#define	SHA224_Final(d, c)	CC_SHA224_Final(d, c)
+#define SHA224_Init	CC_SHA224_Init
+#define	SHA224_Update	CC_SHA224_Update
+#define	SHA224_Final	CC_SHA224_Final
 
 __BEGIN_DECLS
 char   *SHA224_End(SHA224_CTX *, char *);

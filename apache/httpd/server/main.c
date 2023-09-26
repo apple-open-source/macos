@@ -46,6 +46,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef __APPLE__
+extern char *configuration_file;
+#endif
+
 /* WARNING: Win32 binds http_main.c dynamically to the server. Please place
  *          extern functions and global data in another appropriate module.
  *
@@ -504,6 +508,9 @@ int main(int argc, const char * const argv[])
     const char *opt_arg;
     APR_OPTIONAL_FN_TYPE(ap_signal_server) *signal_server;
     int rc = OK;
+#ifdef __APPLE__
+    bool configfile_arg = false;
+#endif
 
     AP_MONCONTROL(0); /* turn off profiling of startup */
 
@@ -598,6 +605,10 @@ int main(int argc, const char * const argv[])
 
         case 'f':
             confname = opt_arg;
+#ifdef __APPLE__
+            // -f should override managed configuration
+            configfile_arg = true;
+#endif
             break;
 
         case 'v':
@@ -673,6 +684,15 @@ int main(int argc, const char * const argv[])
      * This allows things, log files configuration
      * for example, to settle down.
      */
+
+#ifdef __APPLE__
+    if (!configfile_arg) {
+        if (0 == access(MANAGED_SERVER_CONFIG_FILE, F_OK)) {
+            configuration_file = MANAGED_SERVER_CONFIG_FILE;
+            confname = MANAGED_SERVER_CONFIG_FILE;
+        } 
+    }
+#endif
 
     ap_server_root = def_server_root;
     if (temp_error_log) {

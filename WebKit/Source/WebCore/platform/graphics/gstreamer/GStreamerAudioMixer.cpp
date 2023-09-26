@@ -32,7 +32,7 @@ GST_DEBUG_CATEGORY_STATIC(webkit_media_gst_audio_mixer_debug);
 
 bool GStreamerAudioMixer::isAvailable()
 {
-    return webkitGstCheckVersion(1, 18, 0) && isGStreamerPluginAvailable("inter") && isGStreamerPluginAvailable("audiomixer");
+    return isGStreamerPluginAvailable("inter") && isGStreamerPluginAvailable("audiomixer");
 }
 
 GStreamerAudioMixer& GStreamerAudioMixer::singleton()
@@ -139,5 +139,8 @@ void GStreamerAudioMixer::unregisterProducer(const GRefPtr<GstPad>& mixerPad)
     GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(m_pipeline.get()), GST_DEBUG_GRAPH_SHOW_ALL, "audio-mixer-after-producer-unregistration");
 }
 
-}
+#undef GST_CAT_DEFAULT
+
+} // namespace WebCore
+
 #endif

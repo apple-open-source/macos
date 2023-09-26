@@ -11,7 +11,7 @@
 #include <malloc/malloc.h>
 #include <stdlib.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
 
 extern int32_t malloc_num_zones;
 extern malloc_zone_t **malloc_zones;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,6 @@
 #define WebKitAllowAnimatedImageLoopingPreferenceKey @"WebKitAllowAnimatedImageLoopingPreferenceKey"
 #define WebKitDisplayImagesKey @"WebKitDisplayImagesKey"
 #define WebKitAdditionalSupportedImageTypesKey  @"WebKitAdditionalSupportedImageTypesKey"
-#define WebKitLoadSiteIconsKey @"WebKitLoadSiteIconsKey"
 #define WebKitBackForwardCacheExpirationIntervalKey @"WebKitBackForwardCacheExpirationIntervalKey"
 #if !TARGET_OS_IPHONE
 #define WebKitTabToLinksPreferenceKey @"WebKitTabToLinksPreferenceKey"
@@ -152,7 +151,6 @@
 #define WebKitHiddenPageDOMTimerThrottlingEnabledPreferenceKey @"WebKitHiddenPageDOMTimerThrottlingEnabled"
 #define WebKitHiddenPageCSSAnimationSuspensionEnabledPreferenceKey @"WebKitHiddenPageCSSAnimationSuspensionEnabled"
 #define WebKitLowPowerVideoAudioBufferSizeEnabledPreferenceKey @"WebKitLowPowerVideoAudioBufferSizeEnabled"
-#define WebKitUseLegacyTextAlignPositionedElementBehaviorPreferenceKey @"WebKitUseLegacyTextAlignPositionedElementBehavior"
 #define WebKitMediaSourceEnabledPreferenceKey @"WebKitMediaSourceEnabled"
 #define WebKitSourceBufferChangeTypeEnabledPreferenceKey @"WebKitSourceBufferChangeTypeEnabled"
 #define WebKitShouldConvertPositionStyleOnCopyPreferenceKey @"WebKitShouldConvertPositionStyleOnCopy"
@@ -250,7 +248,6 @@
 #define WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey @"WebKitCSSOMViewSmoothScrollingEnabled"
 #define WebKitWebAnimationsCompositeOperationsEnabledPreferenceKey @"WebKitWebAnimationsCompositeOperationsEnabled"
 #define WebKitWebAnimationsMutableTimelinesEnabledPreferenceKey @"WebKitWebAnimationsMutableTimelinesEnabled"
-#define WebKitWebGL2EnabledPreferenceKey @"WebKitWebGL2Enabled"
 #define WebKitMaskWebGLStringsEnabledPreferenceKey @"WebKitMaskWebGLStringsEnabled"
 #define WebKitServerTimingEnabledPreferenceKey @"WebKitServerTimingEnabled"
 #define WebKitCSSCustomPropertiesAndValuesEnabledPreferenceKey @"WebKitCSSCustomPropertiesAndValuesEnabled"

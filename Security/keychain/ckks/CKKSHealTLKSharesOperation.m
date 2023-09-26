@@ -249,8 +249,6 @@
     modifyRecordsOp.longLived = NO;
 
     // very important: get the TLKShares off-device ASAP
-    modifyRecordsOp.configuration.automaticallyRetryNetworkFailures = NO;
-    modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
     if(SecCKKSHighPriorityOperations()) {
@@ -261,12 +259,12 @@
     modifyRecordsOp.group = self.deps.ckoperationGroup;
     ckksnotice("ckksshare", viewState.zoneID, "Operation group is %@", self.deps.ckoperationGroup);
 
-    modifyRecordsOp.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
+    modifyRecordsOp.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
         // These should all fail or succeed as one. Do the hard work in the records completion block.
         if(!error) {
-            ckksnotice("ckksshare", viewState.zoneID, "Successfully completed upload for record %@", record.recordID.recordName);
+            ckksnotice("ckksshare", viewState.zoneID, "Successfully completed upload for record %@", recordID.recordName);
         } else {
-            ckkserror("ckksshare",  viewState.zoneID, "error on row: %@ %@", record.recordID, error);
+            ckkserror("ckksshare",  viewState.zoneID, "error on row: %@ %@", recordID, error);
         }
     };
 

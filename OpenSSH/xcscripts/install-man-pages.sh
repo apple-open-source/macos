@@ -1,6 +1,4 @@
 #! /bin/sh
-# Man pages are install on macOS only:
-[ "${PLATFORM_NAME}" = "macosx" ] || exit 0
 . "${SRCROOT}/xcscripts/include.sh"
 
 # $prefix should be set within Xcode for internal man pages

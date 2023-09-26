@@ -35,6 +35,9 @@
 
 __BEGIN_DECLS
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-completeness"
+
 SecTrustStoreRef SecTrustStoreForDomainName(CFStringRef domainName, CFErrorRef *error);
 
 bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef *error);
@@ -57,6 +60,17 @@ void _SecTrustStoreMigrateConfigurations(void);
 
 void _SecTrustStoreMigrateTrustSettings(void);
 
+bool _SecTrustStoreMigrateTrustSettingsPropertyList(CFErrorRef *error);
+
+#pragma clang diagnostic pop
+
+void SecTrustStoreMigratePropertyListBlock(uid_t uid, CFPropertyListRef _Nullable plist, CFDictionaryRef _Nullable certificates, void (^ _Nonnull completed)(bool result, CFErrorRef _Nullable error));
+
+bool SecTrustStoreMigratePropertyList(uid_t uid, CFPropertyListRef _Nullable plist, CFDictionaryRef _Nullable certificates, CFErrorRef _Nonnull * _Nullable error);
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-completeness"
+
 bool _SecTrustStoreSetCTExceptions(CFStringRef appID, CFDictionaryRef exceptions, CFErrorRef *error);
 CF_RETURNS_RETAINED CFDictionaryRef _SecTrustStoreCopyCTExceptions(CFStringRef appID, CFErrorRef *error);
 
@@ -65,6 +79,8 @@ CF_RETURNS_RETAINED CFDictionaryRef _SecTrustStoreCopyCARevocationAdditions(CFSt
 
 bool _SecTrustStoreSetTransparentConnectionPins(CFStringRef appID, CFArrayRef pins, CFErrorRef *error);
 CF_RETURNS_RETAINED CFArrayRef _SecTrustStoreCopyTransparentConnectionPins(CFStringRef appID, CFErrorRef *error);
+
+#pragma clang diagnostic pop
 
 __END_DECLS
 

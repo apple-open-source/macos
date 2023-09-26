@@ -70,6 +70,7 @@
 #include <oncrpc/pmap_clnt.h>
 #include <oncrpc/pmap_prot.h>
 #include <nfs/rpcv2.h>
+#include <nfs/nfsproto.h>
 
 #include <err.h>
 #include <errno.h>
@@ -85,7 +86,7 @@
 struct mountlist *mntdump;
 TAILQ_HEAD(exportslisthead, exportslist) exports;
 int mounttype = MOUNTSHOWHOSTS;
-int rpcs = 0, mntvers = 1, ipvers = 0;
+int rpcs = 0, mntvers = 1, ipvers = 0, nfsvers = 0;
 
 void    usage(void);
 int     xdr_mntdump(XDR *, struct mountlist **);
@@ -103,7 +104,7 @@ main(int argc, char *argv[])
 {
 	int ch, rv, do_browse = 0;
 
-	while ((ch = getopt(argc, argv, "Aade36")) != EOF) {
+	while ((ch = getopt(argc, argv, "Aade36p:")) != EOF) {
 		switch ((char)ch) {
 		case 'A':
 			do_browse = 1;
@@ -130,6 +131,14 @@ main(int argc, char *argv[])
 			break;
 		case '6':
 			ipvers = 6;
+			break;
+		case 'p':
+			nfsvers = atoi(optarg);
+			if (nfsvers < NFS_VER2 || nfsvers > NFS_VER4) {
+				fprintf(stderr, "unsupported NFS version: %s\n", optarg);
+				usage();
+			}
+			rpcs |= DONPING;
 			break;
 		case '?':
 		default:
@@ -381,7 +390,7 @@ xdr_exports(XDR *xdrsp, struct exportslisthead *exphead)
 void
 usage(void)
 {
-	fprintf(stderr, "usage: showmount [-Ae36] [-a|-d] host\n");
+	fprintf(stderr, "usage: showmount [-Ae36] [-p 2|3|4] [-a|-d] host\n");
 	exit(1);
 }
 
@@ -427,14 +436,48 @@ free_dump(struct mountlist *mp)
 	free(mp);
 }
 
+static CLIENT *
+create_client(const char *host, struct sockaddr *sockaddr, int prog, int vers, struct timeval try, char **spcerrp)
+{
+	CLIENT *clp;
+	int so = RPC_ANYSOCK;
+	struct sockaddr addr = {};
+	memcpy(&addr, sockaddr, sizeof(addr));
+
+	/* Try to connect to TCP, otherwise fall back to UDP */
+	clp = clnttcp_create_sa(&addr, prog, vers, &so, 0, 0);
+	if (clp == NULL) {
+		clp = clntudp_create_sa(&addr, prog, vers, try, &so);
+	}
+	if (clp == NULL) {
+		if (*spcerrp) {
+			free(*spcerrp);
+		}
+		*spcerrp = strdup(clnt_spcreateerror(host));
+		return NULL;
+	}
+	clp->cl_auth = authunix_create_default();
+
+	return clp;
+}
+
+static void
+destroy_client(CLIENT *cnp)
+{
+	if (cnp) {
+		auth_destroy(cnp->cl_auth);
+		clnt_destroy(cnp);
+	}
+}
+
 int
 do_print(const char *host)
 {
 	struct exportslist *exp, *expnext;
 	struct grouplist *grp, *grpnext;
-	int so, estat, success = 0;
-	CLIENT *clp;
-	struct timeval try;
+	int estat, success = 0;
+	CLIENT *mclp, *nclp;
+	struct timeval try, before, after, diff;
 	struct addrinfo *ailist = NULL, *ai;
 	char *spcerr = NULL;
 	char *sperr = NULL;
@@ -454,50 +497,62 @@ do_print(const char *host)
 	for (success = 0, ai = ailist; !success && ai; ai = ai->ai_next) {
 		try.tv_sec = 10;
 		try.tv_usec = 0;
-		so = RPC_ANYSOCK;
+		mclp = nclp = NULL;
 
-		/* Try to connect to TCP, otherwise fall back to UDP */
-		clp = clnttcp_create_sa(ai->ai_addr, RPCPROG_MNT, mntvers, &so, 0, 0);
-		if (clp == NULL) {
-			clp = clntudp_create_sa(ai->ai_addr, RPCPROG_MNT, mntvers, try, &so);
+		/* Try to create MOUNT and/or NFS clients */
+		if (rpcs & (DODUMP | DOEXPORTS)) {
+			mclp = create_client(host, ai->ai_addr, RPCPROG_MNT, mntvers, try, &spcerr);
 		}
-		if (clp == NULL) {
-			if (spcerr) {
-				free(spcerr);
-			}
-			spcerr = strdup(clnt_spcreateerror(host));
+		if (rpcs & DONPING) {
+			nclp = create_client(host, ai->ai_addr, RPCPROG_NFS, nfsvers, try, &spcerr);
+		}
+		if (!mclp && !nclp) {
 			continue;
 		}
-		clp->cl_auth = authunix_create_default();
 
-		if (rpcs & DODUMP) {
-			estat = clnt_call(clp, RPCMNT_DUMP, (xdrproc_t)xdr_void, NULL,
+		if (mclp && (rpcs & DODUMP)) {
+			estat = clnt_call(mclp, RPCMNT_DUMP, (xdrproc_t)xdr_void, NULL,
 			    (xdrproc_t)xdr_mntdump, &mntdump, try);
 			if (estat != 0) {
 				if (sperr) {
 					free(sperr);
 				}
 				snprintf(serr, sizeof(serr), "%s: RPC failed:", host);
-				sperr = strdup(clnt_sperror(clp, serr));
+				sperr = strdup(clnt_sperror(mclp, serr));
 			} else {
-				success++;
+				success |= DODUMP;
 			}
 		}
-		if (rpcs & DOEXPORTS) {
-			estat = clnt_call(clp, RPCMNT_EXPORT, (xdrproc_t)xdr_void, NULL,
+		if (mclp && (rpcs & DOEXPORTS)) {
+			estat = clnt_call(mclp, RPCMNT_EXPORT, (xdrproc_t)xdr_void, NULL,
 			    (xdrproc_t)xdr_exports, &exports, try);
 			if (estat != 0) {
 				if (sperr) {
 					free(sperr);
 				}
 				snprintf(serr, sizeof(serr), "%s: RPC failed:", host);
-				sperr = strdup(clnt_sperror(clp, serr));
+				sperr = strdup(clnt_sperror(mclp, serr));
 			} else {
-				success++;
+				success |= DOEXPORTS;
 			}
 		}
-		auth_destroy(clp->cl_auth);
-		clnt_destroy(clp);
+		if (nclp && (rpcs & DONPING)) {
+			gettimeofday(&before, NULL);
+			estat = clnt_call(nclp, NFSPROC_NULL, (xdrproc_t)xdr_void, NULL,
+			    (xdrproc_t)xdr_void, NULL, try);
+			if (estat != 0) {
+				if (sperr) {
+					free(sperr);
+				}
+				snprintf(serr, sizeof(serr), "%s: RPC failed:", host);
+				sperr = strdup(clnt_sperror(nclp, serr));
+			} else {
+				gettimeofday(&after, NULL);
+				success |= DONPING;
+			}
+		}
+		destroy_client(mclp);
+		destroy_client(nclp);
 	}
 
 	if (!success) {
@@ -519,7 +574,7 @@ do_print(const char *host)
 	}
 
 	/* Now just print out the results */
-	if (rpcs & DODUMP) {
+	if (success & DODUMP) {
 		switch (mounttype) {
 		case MOUNTSHOWALL:
 			printf("All mounts on %s:\n", host);
@@ -534,7 +589,7 @@ do_print(const char *host)
 		print_dump(mntdump);
 		free_dump(mntdump);
 	}
-	if (rpcs & DOEXPORTS) {
+	if (success & DOEXPORTS) {
 		printf("Exports list on %s:\n", host);
 		TAILQ_FOREACH_SAFE(exp, &exports, ex_link, expnext) {
 			printf("%-35s", exp->ex_dirp);
@@ -549,6 +604,11 @@ do_print(const char *host)
 			}
 			free(exp);
 		}
+	}
+	if (success & DONPING) {
+		timersub(&after, &before, &diff);
+		printf("Ping to NFSv%d server on %s using the NULL procedure completed in %ld.%06d seconds\n",
+		    nfsvers, host, diff.tv_sec, diff.tv_usec);
 	}
 
 	if (spcerr) {

@@ -28,7 +28,9 @@
 #if ENABLE(VIDEO) && USE(AVFOUNDATION)
 
 #include "MediaPlayerPrivateAVFoundation.h"
+#include "VideoFrameMetadata.h"
 #include <CoreMedia/CMTime.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/Function.h>
 #include <wtf/Observer.h>
 #include <wtf/RobinHoodHashMap.h>
@@ -213,7 +215,7 @@ private:
     void setPitchCorrectionAlgorithm(MediaPlayer::PitchCorrectionAlgorithm) final;
     void seekToTime(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance) final;
     unsigned long long totalBytes() const final;
-    std::unique_ptr<PlatformTimeRanges> platformBufferedTimeRanges() const final;
+    const PlatformTimeRanges& platformBufferedTimeRanges() const final;
     MediaTime platformMinTimeSeekable() const final;
     MediaTime platformMaxTimeSeekable() const final;
     MediaTime platformDuration() const final;
@@ -221,6 +223,8 @@ private:
     void beginLoadingMetadata() final;
     void sizeChanged() final;
     void resolvedURLChanged() final;
+
+    bool isHLS() const { return m_cachedAssetIsHLS.value_or(false); }
 
     bool hasAvailableVideoFrame() const final;
 
@@ -258,8 +262,8 @@ private:
     RetainPtr<CGImageRef> createImageForTimeInRect(float, const FloatRect&);
     void paintWithImageGenerator(GraphicsContext&, const FloatRect&);
 
-    enum class UpdateType { UpdateSynchronously, UpdateAsynchronously };
-    void updateLastImage(UpdateType type = UpdateType::UpdateAsynchronously);
+    using UpdateCompletion = CompletionHandler<void()>;
+    void updateLastImage(UpdateCompletion&&);
 
     void createVideoOutput();
     void destroyVideoOutput();
@@ -269,7 +273,9 @@ private:
     RefPtr<VideoFrame> videoFrameForCurrentTime() final;
     RefPtr<NativeImage> nativeImageForCurrentTime() final;
     DestinationColorSpace colorSpace() final;
-    void waitForVideoOutputMediaDataWillChange();
+
+    enum class UpdateResult { Succeeded, Failed, TimedOut, ObjectDestroyed };
+    UpdateResult waitForVideoOutputMediaDataWillChange();
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     void keyAdded() final;
@@ -430,7 +436,6 @@ private:
     RetainPtr<id> m_currentTimeObserver;
 
     mutable RetainPtr<NSArray> m_cachedSeekableRanges;
-    mutable RetainPtr<NSArray> m_cachedLoadedRanges;
     RetainPtr<NSArray> m_cachedTracks;
     RetainPtr<NSArray> m_currentMetaData;
     FloatSize m_cachedPresentationSize;
@@ -438,7 +443,7 @@ private:
     mutable MediaPlayer::CurrentTimeDidChangeCallback m_currentTimeDidChangeCallback;
     mutable MediaTime m_cachedCurrentMediaTime { -1, 1, 0 };
     mutable MediaTime m_lastPeriodicObserverMediaTime;
-    mutable std::optional<WallTime> m_wallClockAtCachedCurrentTime;
+    mutable Markable<WallTime> m_wallClockAtCachedCurrentTime;
     mutable int m_timeControlStatusAtCachedCurrentTime { 0 };
     mutable double m_requestedRateAtCachedCurrentTime { 0 };
     RefPtr<SharedBuffer> m_keyID;
@@ -464,6 +469,7 @@ private:
     mutable bool m_cachedTracksAreLoaded { false };
     mutable std::optional<bool> m_cachedAssetIsPlayable;
     mutable std::optional<bool> m_cachedTracksArePlayable;
+    mutable std::optional<bool> m_cachedAssetIsHLS;
     bool m_muted { false };
     bool m_shouldObserveTimeControlStatus { false };
     mutable std::optional<bool> m_tracksArePlayable;
@@ -484,6 +490,7 @@ private:
     std::unique_ptr<Observer<void()>> m_currentImageChangedObserver;
     std::unique_ptr<Observer<void()>> m_waitForVideoOutputMediaDataWillChangeObserver;
     ProcessIdentity m_resourceOwner;
+    PlatformTimeRanges m_buffered;
 };
 
 }

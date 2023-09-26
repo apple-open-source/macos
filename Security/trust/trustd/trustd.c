@@ -535,6 +535,7 @@ struct trustd_operations {
     SecXPCServerOperation trust_settings_copy_data;
     SecXPCServerOperation trust_store_remove_all;
     SecXPCServerOperation trust_reset_settings;
+    SecXPCServerOperation trust_store_migrate_plist;
 };
 
 static struct trustd_operations trustd_ops = {
@@ -693,11 +694,59 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                 // If we have no error yet, capture connection and reply in block and properly retain them.
                 xpc_retain(connection);
                 CFRetainSafe(client.task);
+                CFRetainSafe(clientAuditToken);
                 // Clear replyMessage so we don't send a synchronous reply.
                 xpc_object_t asyncReply = replyMessage;
                 replyMessage = NULL;
 
-                SecTrustSettingsSetDataBlock(client.uid, domain, auth, settings,
+                SecTrustSettingsSetDataBlock(client.uid, clientAuditToken, domain, auth, settings,
+                                            ^(bool result, CFErrorRef replyError) {
+                    // Send back reply now
+                    if (replyError) {
+                        CFRetain(replyError);
+                    } else {
+                        xpc_dictionary_set_bool(asyncReply, kSecXPCKeyResult, result);
+                    }
+                    if (replyError) {
+                        secdebug("ipc", "%@ %@ %@", client.task, SOSCCGetOperationDescription((enum SecXPCOperation)operation), replyError);
+                        xpc_object_t xpcReplyError = SecCreateXPCObjectWithCFError(replyError);
+                        if (xpcReplyError) {
+                            xpc_dictionary_set_value(asyncReply, kSecXPCKeyError, xpcReplyError);
+                            xpc_release(xpcReplyError);
+                        }
+                        CFReleaseNull(replyError);
+                    } else {
+                        secdebug("ipc", "%@ %@ responding %@", client.task, SOSCCGetOperationDescription((enum SecXPCOperation)operation), asyncReply);
+                    }
+                    xpc_connection_send_message(connection, asyncReply);
+                    xpc_release(asyncReply);
+                    xpc_release(connection);
+                    CFReleaseSafe(client.task);
+                    CFReleaseSafe(clientAuditToken);
+                });
+            }
+            CFReleaseSafe(settings);
+            CFReleaseSafe(auth);
+            CFReleaseSafe(domain);
+
+        } else if (operation == sec_trust_store_migrate_plist_id) {
+            // Trust migration is dispatched asynchronously to avoid blocking
+            // the processing of other incoming XPC messages.
+            CFPropertyListRef plist = NULL;
+            CFDictionaryRef certificates = NULL;
+            // Calling process must have the trustd entitlement,
+            // and there must be a plist and certificates to migrate
+            if (EntitlementPresentAndTrue(operation, client.task, CFSTR("com.apple.private.security.storage.trustd-private"), &error) &&
+                SecXPCDictionaryCopyPListOptional(event, kSecXPCKeySettings, &plist, &error) &&
+                SecXPCDictionaryCopyDictionaryOptional(event, kSecXPCKeyDictionary, &certificates, &error)) {
+                // If we have no error yet, capture connection and reply in block and properly retain them.
+                xpc_retain(connection);
+                CFRetainSafe(client.task);
+                // Clear replyMessage so we don't send a synchronous reply.
+                xpc_object_t asyncReply = replyMessage;
+                replyMessage = NULL;
+
+                SecTrustStoreMigratePropertyListBlock(client.uid, plist, certificates,
                                             ^(bool result, CFErrorRef replyError) {
                     // Send back reply now
                     if (replyError) {
@@ -722,9 +771,8 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     CFReleaseSafe(client.task);
                 });
             }
-            CFReleaseSafe(settings);
-            CFReleaseSafe(auth);
-            CFReleaseSafe(domain);
+            CFReleaseSafe(certificates);
+            CFReleaseSafe(plist);
 
         } else {
             // all other XPC operations can be performed synchronously
@@ -807,6 +855,9 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     break;
                 case sec_trust_reset_settings_id:
                     server_op = &trustd_ops.trust_reset_settings;
+                    break;
+                case sec_trust_store_migrate_plist_id:
+                    server_op = &trustd_ops.trust_store_migrate_plist;
                     break;
                 default:
                     break;

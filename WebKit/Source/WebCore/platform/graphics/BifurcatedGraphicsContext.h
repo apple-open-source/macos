@@ -77,20 +77,22 @@ public:
     void strokeEllipse(const FloatRect& ellipse) final;
 
 #if USE(CG)
-    void setIsCALayerContext(bool) final;
     bool isCALayerContext() const final;
-
-    void setIsAcceleratedContext(bool) final;
 #endif
 
     RenderingMode renderingMode() const final;
 
-    void clip(const FloatRect&) final;
-    void clipOut(const FloatRect&) final;
+    void resetClip() final;
 
+    void clip(const FloatRect&) final;
+    void clipRoundedRect(const FloatRoundedRect&) final;
+    void clipPath(const Path&, WindRule = WindRule::EvenOdd) final;
+
+    void clipOut(const FloatRect&) final;
+    void clipOutRoundedRect(const FloatRoundedRect&) final;
     void clipOut(const Path&) final;
 
-    void clipPath(const Path&, WindRule = WindRule::EvenOdd) final;
+    void clipToImageBuffer(ImageBuffer&, const FloatRect&) final;
 
     IntRect clipBounds() const final;
 
@@ -103,9 +105,10 @@ public:
     bool needsCachedNativeImageInvalidationWorkaround(RenderingMode) final;
     void drawSystemImage(SystemImage&, const FloatRect&) final;
     void drawPattern(NativeImage&, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { }) final;
-    ImageDrawResult drawImage(Image&, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions& = { ImageOrientation::FromImage }) final;
+    ImageDrawResult drawImage(Image&, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions& = { ImageOrientation::Orientation::FromImage }) final;
     ImageDrawResult drawTiledImage(Image&, const FloatRect& destination, const FloatPoint& source, const FloatSize& tileSize, const FloatSize& spacing, const ImagePaintingOptions& = { }) final;
     ImageDrawResult drawTiledImage(Image&, const FloatRect& destination, const FloatRect& source, const FloatSize& tileScaleFactor, Image::TileRule, Image::TileRule, const ImagePaintingOptions& = { }) final;
+    void drawControlPart(ControlPart&, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle&) final;
 
 #if ENABLE(VIDEO)
     void paintFrameForMedia(MediaPlayer&, const FloatRect& destination) final;
@@ -142,10 +145,6 @@ public:
     bool supportsInternalLinks() const final;
 
     void didUpdateState(GraphicsContextState&) final;
-
-#if OS(WINDOWS) && !USE(CAIRO)
-    GraphicsContextPlatformPrivate* deprecatedPrivateContext() const final;
-#endif
 
 private:
     void verifyStateSynchronization();

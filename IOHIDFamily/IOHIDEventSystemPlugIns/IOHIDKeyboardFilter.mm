@@ -44,6 +44,7 @@
 #include "IOHIDevicePrivateKeys.h"
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/hid/IOHIDPreferences.h>
 
 #ifdef DEBUG_ASSERT_MESSAGE
 #undef DEBUG_ASSERT_MESSAGE
@@ -207,6 +208,7 @@ _lockKeyDelayTimer(0),
 _restoreState(nil),
 _locationID(nil),
 _stickyKeyHandler(nil),
+_doNotDisturbSupported(false),
 _activeModifiedKeyMaps(&_legacyModifiedKeyMaps),
 _unifiedKeyMapping(false)
 {
@@ -337,6 +339,26 @@ exit:
     return;
 }
 
+void IOHIDKeyboardFilter::setDoNotDisturbState()
+{
+    CFTypeRef value = NULL;
+
+
+    // Check f key remappings
+    for (const auto& [srcKey, dstKey] : _fnFunctionUsageMapKeyMap) {
+        if (dstKey == Key(kHIDPage_GenericDesktop, kHIDUsage_GD_DoNotDisturb)) {
+            _doNotDisturbSupported = true;
+            return;
+        }
+    }
+
+    value = IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDKeyboardSupportsDoNotDisturbKey));
+    _doNotDisturbSupported = ( value ? CFBooleanGetValue((CFBooleanRef)value) : _doNotDisturbSupported );
+    if (value) {
+        CFRelease(value);
+    }
+}
+
 //------------------------------------------------------------------------------
 // IOHIDKeyboardFilter::open
 //------------------------------------------------------------------------------
@@ -422,6 +444,23 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
         CFRelease(value);
     }
 
+    // After remappings are set, check if DoNotDisturb is one of the remappable usages.
+    setDoNotDisturbState();
+    
+    value = IOHIDPreferencesCopyDomain(CFSTR(kIOHIDCapsLockLEDDarkWakeInhibitKey), kIOHIDFamilyPreferenceApplicationID);
+    _capsLockDarkWakeLEDInhibit = ( value ? CFBooleanGetValue((CFBooleanRef)value) : true );
+    if (value) {
+        CFRelease(value);
+    }
+    
+    value = IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDCapsLockLEDDarkWakeInhibitKey));
+    if (_capsLockDarkWakeLEDInhibit) {
+        _capsLockDarkWakeLEDInhibit = ( value ? CFBooleanGetValue((CFBooleanRef)value) : true );
+    }
+    if (value) {
+        CFRelease(value);
+    }
+
     // Set initial caps lock LED state.
     propDict = (CFDictionaryRef)IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDEventServicePropertiesKey));
 
@@ -501,6 +540,7 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
 
         CFRelease(propDict);
     }
+
 
 }
 
@@ -773,6 +813,8 @@ CFTypeRef IOHIDKeyboardFilter::copyPropertyForClient(CFStringRef key, CFTypeRef 
         result = CFNumberRefWrap((SInt32)_stickyKeyOn);
     } else if (CFEqual(key, CFSTR(kIOHIDUnifiedKeyMappingKey))) {
         result = _unifiedKeyMapping ? kCFBooleanTrue : kCFBooleanFalse;
+    } else if (CFEqual(key, CFSTR(kIOHIDKeyboardSupportsDoNotDisturbKey))) {
+        result = _doNotDisturbSupported ? kCFBooleanTrue : kCFBooleanFalse;
     }
     return result;
 }
@@ -877,6 +919,12 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
         updateCapslockLED(client);
 
         HIDLogDebug("[%@] _capsLockLEDInhibit: %d", SERVICE_ID, _capsLockLEDInhibit);
+        
+    } else if (CFStringCompare(key, CFSTR(kIOHIDCapsLockLEDDarkWakeInhibitKey), kNilOptions) == kCFCompareEqualTo) {
+
+        _capsLockDarkWakeLEDInhibit = CFBooleanGetValue(boolProp);
+
+        HIDLogDebug("[%@] _capsLockDarkWakeLEDInhibit: %d", SERVICE_ID, _capsLockDarkWakeLEDInhibit);
 
     } else if (CFStringCompare(key, CFSTR(kIOHIDServiceModifierMappingPairsKey), kNilOptions) == kCFCompareEqualTo) {
 
@@ -2852,7 +2900,7 @@ void IOHIDKeyboardFilter::powerNotificationCallback (IOPMConnection connection,
 
     HIDLogInfo ("[%@] powerNotificationCallback IOPMCapabilityBits:0x%x\n", SERVICE_ID, eventDescriptor);
 
-    if (IOPMIsADarkWake(eventDescriptor) || IOPMIsAUserWake(eventDescriptor)) {
+    if ((IOPMIsADarkWake(eventDescriptor) && !_capsLockDarkWakeLEDInhibit) || IOPMIsAUserWake(eventDescriptor)) {
         HIDLog("[%@] wake CapsLockState: %d", SERVICE_ID, _capsLockState);
         if (_capsLockState) {
             _capsLockLEDState = false;

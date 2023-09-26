@@ -256,6 +256,7 @@ struct zone {
 	    z_async_refilling  :1,  /* asynchronous allocation pending? */
 	    z_depot_cleanup    :1,  /* per cpu depots need cleaning */
 	    z_expanding_wait   :1,  /* is thread waiting for expansion? */
+	    z_exhausted_wait   :1,  /* are threads waiting for exhaustion end */
 
 	/*
 	 * Behavior configuration bits
@@ -265,7 +266,6 @@ struct zone {
 	    z_permanent        :1,  /* the zone allocations are permanent */
 	    z_nocaching        :1,  /* disallow zone caching for this zone */
 	    collectable        :1,  /* garbage collect empty pages */
-	    exhaustible        :1,  /* merely return if empty? */
 	    no_callout         :1,
 	    z_destructible     :1,  /* zone can be zdestroy()ed  */
 
@@ -467,7 +467,7 @@ typedef struct zone_security_flags {
  * Zsecurity config to enable adjusting of elements
  * with PGZ-OOB to right-align them in their space.
  */
-#if KASAN || defined(__x86_64__)
+#if KASAN || defined(__x86_64__) || CONFIG_KERNEL_TAGGING
 #   define ZSECURITY_CONFIG_PGZ_OOB_ADJUST              OFF
 #else
 #   define ZSECURITY_CONFIG_PGZ_OOB_ADJUST              ON
@@ -726,6 +726,20 @@ zone_size_wasted(zone_t zone)
 {
 	return zone_size_wired(zone) - zone_scale_for_percpu(zone,
 	           zone_elem_outer_size(zone) * zone->z_elems_avail);
+}
+
+__pure2
+static inline bool
+zone_exhaustible(zone_t zone)
+{
+	return zone->z_wired_max != ~0u;
+}
+
+__pure2
+static inline bool
+zone_exhausted(zone_t zone)
+{
+	return zone->z_wired_cur >= zone->z_wired_max;
 }
 
 /*

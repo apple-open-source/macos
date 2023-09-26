@@ -92,7 +92,10 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     int32_t minSig = properties.minimumSignificantDigits;
     int32_t maxSig = properties.maximumSignificantDigits;
     double roundingIncrement = properties.roundingIncrement;
+#if 0 && APPLE_ICU_CHANGES
+// rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
     bool didAdjustRoundIncr = false;
+#endif  // APPLE_ICU_CHANGES
     // Not assigning directly to macros.roundingMode here: we change
     // roundingMode if and when we also change macros.precision.
     RoundingMode roundingMode = properties.roundingMode.getOrDefault(UNUM_ROUND_HALFEVEN);
@@ -132,6 +135,9 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     if (!properties.currencyUsage.isNull()) {
         precision = Precision::constructCurrency(currencyUsage).withCurrency(currency);
     } else if (roundingIncrement != 0.0) {
+#if 0 && APPLE_ICU_CHANGES
+// rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
+// rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
         double roundingIncrAdj = roundingIncrement;
         if (!explicitMinMaxSig && PatternStringUtils::ignoreRoundingIncrement(&roundingIncrAdj, maxFrac)) {
             precision = Precision::constructFraction(minFrac, maxFrac);
@@ -151,6 +157,14 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
                 precision = Precision::constructIncrement(roundingIncrAdj, minFrac);
             }
         }
+#else
+        if (PatternStringUtils::ignoreRoundingIncrement(roundingIncrement, maxFrac)) {
+            precision = Precision::constructFraction(minFrac, maxFrac);
+        } else {
+            // Convert the double increment to an integer increment
+            precision = Precision::increment(roundingIncrement).withMinFraction(minFrac);
+        }
+#endif  // APPLE_ICU_CHANGES
     } else if (explicitMinMaxSig) {
         minSig = minSig < 1 ? 1 : minSig > kMaxIntFracSig ? kMaxIntFracSig : minSig;
         maxSig = maxSig < 0 ? kMaxIntFracSig : maxSig < minSig ? minSig : maxSig > kMaxIntFracSig
@@ -166,8 +180,10 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         macros.precision = precision;
     }
 
-    // Apple addition for <rdar://problem/39240173>
+#if APPLE_ICU_CHANGES
+// rdar://39240173
     macros.adjustDoublePrecision = (!properties.formatFullPrecision && !explicitMinMaxSig && maxFrac>15);
+#endif  // APPLE_ICU_CHANGES
 
     ///////////////////
     // INTEGER WIDTH //
@@ -273,8 +289,6 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         } else {
             macros.notation = Notation::compactShort();
         }
-        // Do not forward the affix provider.
-        macros.affixProvider = nullptr;
     }
 
     /////////////////
@@ -311,16 +325,28 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         } else if (rounding_.fType == Precision::PrecisionType::RND_INCREMENT
                 || rounding_.fType == Precision::PrecisionType::RND_INCREMENT_ONE
                 || rounding_.fType == Precision::PrecisionType::RND_INCREMENT_FIVE) {
-            increment_ = (didAdjustRoundIncr)? roundingIncrement: rounding_.fUnion.increment.fIncrement; // rdar://51452216
+#if 0 && APPLE_ICU_CHANGES
+// rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
+            increment_ = (didAdjustRoundIncr)? roundingIncrement: rounding_.fUnion.increment.fIncrement;
+#endif  // APPLE_ICU_CHANGES
             minFrac_ = rounding_.fUnion.increment.fMinFrac;
+            // If incrementRounding is used, maxFrac is set equal to minFrac
             maxFrac_ = rounding_.fUnion.increment.fMinFrac;
+            // Convert the integer increment to a double
+            DecimalQuantity dq;
+            dq.setToLong(rounding_.fUnion.increment.fIncrement);
+            dq.adjustMagnitude(rounding_.fUnion.increment.fIncrementMagnitude);
+            increment_ = dq.toDouble();
         } else if (rounding_.fType == Precision::PrecisionType::RND_SIGNIFICANT) {
             minSig_ = rounding_.fUnion.fracSig.fMinSig;
             maxSig_ = rounding_.fUnion.fracSig.fMaxSig;
+#if 0 && APPLE_ICU_CHANGES
+// rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
         } else if (rounding_.fType == Precision::PrecisionType::RND_INCREMENT_SIGNIFICANT) { // Apple rdar://52538227
             increment_ = (didAdjustRoundIncr)? roundingIncrement: rounding_.fUnion.incrSig.fIncrement; // rdar://51452216
             minSig_ = rounding_.fUnion.incrSig.fMinSig;
             maxSig_ = rounding_.fUnion.incrSig.fMaxSig;
+#endif  // APPLE_ICU_CHANGES
         }
 
         exportedProperties->minimumFractionDigits = minFrac_;

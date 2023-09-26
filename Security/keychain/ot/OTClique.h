@@ -71,7 +71,7 @@ extern NSString* kSecEntitlementPrivateOctagonWalrus;
 @interface OTConfigurationContext : NSObject
 @property (nonatomic, copy) NSString* context;
 @property (nonatomic, copy) NSString* containerName;
-@property (nonatomic, copy, nullable) NSString* dsid;
+@property (nonatomic, copy, nullable) NSString* dsid API_DEPRECATED_WITH_REPLACEMENT("altDSID", macos(10.15, 14.0), ios(13.0, 17.0), tvos(13.0, 17.0), watchos(6.0, 10.0));
 @property (nonatomic, copy, nullable) NSString* altDSID;
 @property (nonatomic, copy, nullable) NSString* authenticationAppleID;
 @property (nonatomic, copy, nullable) NSString* passwordEquivalentToken;
@@ -283,38 +283,58 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeConfirmPasscodeCyrus;
  */
 - (BOOL)fetchUserControllableViewsSyncingEnabled:(NSError* __autoreleasing *)error __attribute__((swift_error(nonnull_error)));
 
+/* *
+ * @abstract Establish a new OT circle
+ * @param   error, This will return an error if anything goes wrong
+ * @return YES if establish successfully created a new Octagon circle, NO if something went wrong.
+ */
+- (BOOL)establish:(NSError**)error;
+
+
 /* SOS glue */
 
-- (BOOL)joinAfterRestore:(NSError * __autoreleasing *)error;
+- (BOOL)joinAfterRestore:(NSError * __autoreleasing *)error
+API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(6.0, 10.0), tvos(13.0,17.0));
 
-- (BOOL)safariPasswordSyncingEnabled:(NSError *__autoreleasing*)error
-API_DEPRECATED_WITH_REPLACEMENT("fetchUserControllableViewsSyncingEnabled",macos(10.15, 10.16), ios(13.0, 14.0), watchos(6.0, 7.0), tvos(13.0,14.0));
+- (BOOL)waitForInitialSync:(NSError *__autoreleasing*)error
+API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(6.0, 10.0), tvos(13.0,17.0));
 
-- (BOOL)isLastFriend:(NSError *__autoreleasing*)error;
+- (NSArray* _Nullable)copyViewUnawarePeerInfo:(NSError *__autoreleasing*)error
+API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(6.0, 10.0), tvos(13.0,17.0));
 
-- (BOOL)waitForInitialSync:(NSError *__autoreleasing*)error;
-
-- (NSArray* _Nullable)copyViewUnawarePeerInfo:(NSError *__autoreleasing*)error;
-
-- (BOOL)viewSet:(NSSet*)enabledViews disabledViews:(NSSet*)disabledViews
-API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15, 10.16), ios(13.0, 14.0), watchos(6.0, 7.0), tvos(13.0,14.0));
-
+- (BOOL)setUserCredentialsWithLabel:(NSString*)userLabel
+                           password:(NSData*)userPassword
+                               dsid:(NSString*)dsid
+                              error:(NSError *__autoreleasing*)error
+    API_DEPRECATED("No longer needed", macos(14.0, 14.0), ios(17.0, 17.0), tvos(17.0, 17.0), watchos(10.0, 10.0));
 
 - (BOOL)setUserCredentialsAndDSID:(NSString*)userLabel
                          password:(NSData*)userPassword
-                            error:(NSError *__autoreleasing*)error;
+                            error:(NSError *__autoreleasing*)error
+    API_DEPRECATED_WITH_REPLACEMENT("setUserCredentialsWithLabel:password:dsid:error:", macos(10.15, 14.0), ios(13.0, 17.0), tvos(13.0, 17.0), watchos(6.0, 10.0));
+
+- (BOOL)tryUserCredentialsWithLabel:(NSString*)userLabel
+                           password:(NSData*)userPassword
+                               dsid:(NSString*)dsid
+                              error:(NSError *__autoreleasing*)error
+    API_DEPRECATED("No longer needed", macos(14.0, 14.0), ios(17.0, 17.0), tvos(17.0, 17.0), watchos(10.0, 10.0));
 
 - (BOOL)tryUserCredentialsAndDSID:(NSString*)userLabel
                          password:(NSData*)userPassword
-                            error:(NSError *__autoreleasing*)error;
+                            error:(NSError *__autoreleasing*)error
+    API_DEPRECATED_WITH_REPLACEMENT("tryUserCredentialsWithLabel:password:dsid:error:", macos(10.15, 14.0), ios(13.0, 17.0), tvos(13.0, 17.0), watchos(6.0, 10.0));
 
-- (NSArray* _Nullable)copyPeerPeerInfo:(NSError *__autoreleasing*)error;
+- (NSArray* _Nullable)copyPeerPeerInfo:(NSError *__autoreleasing*)error
+API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(6.0, 10.0), tvos(13.0,17.0));
 
-- (BOOL)peersHaveViewsEnabled:(NSArray<NSString*>*)viewNames error:(NSError *__autoreleasing*)error;
+- (BOOL)peersHaveViewsEnabled:(NSArray<NSString*>*)viewNames error:(NSError *__autoreleasing*)error
+API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(6.0, 10.0), tvos(13.0,17.0));
 
-- (BOOL)requestToJoinCircle:(NSError *__autoreleasing*)error;
+- (BOOL)requestToJoinCircle:(NSError *__autoreleasing*)error
+API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(6.0, 10.0), tvos(13.0,17.0));
 
-- (BOOL)accountUserKeyAvailable;
+- (BOOL)accountUserKeyAvailable
+API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(6.0, 10.0), tvos(13.0,17.0));
 
 
 /*

@@ -33,11 +33,11 @@ NS_ASSUME_NONNULL_BEGIN
 // Two 'bad states':
 //   No iCloud Account (the state machine won't help at all)
 //   Untrusted (user interaction is required to resolve)
-//   WaitForHSA2 (there's some primary icloud account, but it's not HSA2 (yet))
-//   WaitForCDP (there's some HSA2 primary icloud account, but it's not CDP-enabled (yet)
+//   WaitForCDPCapableSecurityLevel (there's some primary icloud account, but it's not HSA2/Managed (yet))
+//   WaitForCDP (there's some HSA2/Managed primary icloud account, but it's not CDP-enabled (yet)
 extern OctagonState* const OctagonStateNoAccount;
 extern OctagonState* const OctagonStateUntrusted;
-extern OctagonState* const OctagonStateWaitForHSA2;
+extern OctagonState* const OctagonStateWaitForCDPCapableSecurityLevel;
 extern OctagonState* const OctagonStateWaitForCDP;
 
 // Entering this state will mark down that the device is untrusted, then go to OctagonStateUntrusted
@@ -138,13 +138,17 @@ extern OctagonState* const OctagonStateResetAndEstablishClearLocalContextState;
 extern OctagonState* const OctagonStateLocalReset;
 extern OctagonState* const OctagonStateLocalResetClearLocalContextState;
 
+// account wipe for SOS deferral testing
+extern OctagonState* const OctagonStateCuttlefishReset;
+extern OctagonState* const OctagonStateCKKSResetAfterOctagonReset;
+
 // this last state might loop through:
 extern OctagonState* const OctagonStateEstablishCKKSReset;
 extern OctagonState* const OctagonStateEstablishAfterCKKSReset;
 // End of account reset state flow
 
 /* used for trust health checks */
-extern OctagonState* const OctagonStateHSA2HealthCheck;
+extern OctagonState* const OctagonStateCDPCapableHealthCheck;
 extern OctagonState* const OctagonStateCDPHealthCheck;
 extern OctagonState* const OctagonStateSecurityTrustCheck;
 extern OctagonState* const OctagonStateTPHTrustCheck;
@@ -206,7 +210,7 @@ extern OctagonState* const OctagonStateUnimplemented;
 + (NSDictionary<OctagonState*, NSNumber*>*) OctagonStateMap;
 + (NSDictionary<NSNumber*, OctagonState*>*) OctagonStateInverseMap;
 
-// Unfortunately, this set contains the 'wait for hsa2' state, which means that many
+// Unfortunately, this set contains the 'wait for cdp capable security level' state, which means that many
 // of our state machine RPCs will work in the SA case.
 // <rdar://problem/54094162> Octagon: ensure Octagon operations can't occur on SA accounts
 + (NSSet<OctagonState*>*) OctagonInAccountStates;

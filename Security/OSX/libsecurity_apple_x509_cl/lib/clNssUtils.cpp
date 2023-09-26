@@ -528,7 +528,7 @@ CSSM_KEY_PTR CL_extractCSSMKeyNSS(
 			 * parameters (currently, DSA only). 
 			 */
 			hdr.KeyAttr |= CSSM_KEYATTR_PARTIAL;
-			/* and drop thru */
+			[[fallthrough]];
 		case CSSM_OK:
 			cssmKey->KeyHeader.LogicalKeySizeInBits = 
 				keySize.LogicalKeySizeInBits;
@@ -579,7 +579,7 @@ void CL_CSSMKeyToSubjPubKeyInfoNSS(
 				clErrorLog("CL SetField: RSA key must be in PKCS1 format\n");
 				CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_FORMAT);
 			}
-			/* and fall thru */
+			[[fallthrough]];
 		default:
 		{
 			/* Key header's algorithm --> OID */

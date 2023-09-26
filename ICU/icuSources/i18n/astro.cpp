@@ -1,7 +1,7 @@
 // © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /************************************************************************
- * Copyright (C) 1996-2014, International Business Machines Corporation
+ * Copyright (C) 1996-2012, International Business Machines Corporation
  * and others. All Rights Reserved.
  ************************************************************************
  *  2003-nov-07   srl       Port from Java
@@ -69,7 +69,7 @@ static icu::UMutex ccLock;
 
 U_CDECL_BEGIN
 static UBool calendar_astro_cleanup(void) {
-  return TRUE;
+  return true;
 }
 U_CDECL_END
 
@@ -242,7 +242,7 @@ inline static  double normPI(double angle)  {
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
 CalendarAstronomer::CalendarAstronomer():
-  fTime(Calendar::getNow()), fLongitude(0.0), fLatitude(0.0), fGmtOffset(0.0), moonPosition(0,0), moonPositionSet(FALSE) {
+  fTime(Calendar::getNow()), fLongitude(0.0), fLatitude(0.0), fGmtOffset(0.0), moonPosition(0,0), moonPositionSet(false) {
   clearCache();
 }
 
@@ -252,7 +252,7 @@ CalendarAstronomer::CalendarAstronomer():
  * @internal
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
-CalendarAstronomer::CalendarAstronomer(UDate d): fTime(d), fLongitude(0.0), fLatitude(0.0), fGmtOffset(0.0), moonPosition(0,0), moonPositionSet(FALSE) {
+CalendarAstronomer::CalendarAstronomer(UDate d): fTime(d), fLongitude(0.0), fLatitude(0.0), fGmtOffset(0.0), moonPosition(0,0), moonPositionSet(false) {
   clearCache();
 }
 
@@ -272,7 +272,7 @@ CalendarAstronomer::CalendarAstronomer(UDate d): fTime(d), fLongitude(0.0), fLat
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
 CalendarAstronomer::CalendarAstronomer(double longitude, double latitude) :
-  fTime(Calendar::getNow()), moonPosition(0,0), moonPositionSet(FALSE) {
+  fTime(Calendar::getNow()), moonPosition(0,0), moonPositionSet(false) {
   fLongitude = normPI(longitude * (double)DEG_RAD);
   fLatitude  = normPI(latitude  * (double)DEG_RAD);
   fGmtOffset = (double)(fLongitude * 24. * (double)HOUR_MS / (double)CalendarAstronomer_PI2);
@@ -535,6 +535,9 @@ CalendarAstronomer::Horizon& CalendarAstronomer::eclipticToHorizon(CalendarAstro
 //double sunR0        1.495585e8        // Semi-major axis in KM
 //double sunTheta0    (0.533128 * CalendarAstronomer::PI/180) // Angular diameter at R0
 
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
 // winter solstice moon date/times 1900-2100 (in UTC)
 // These are in UDate/10000.0 (i.e. in units of 10 seconds) to fit into 32 bits.
 // sources from e.g.
@@ -976,6 +979,7 @@ static const int8_t sunLongitudeAdjustmts[][4] = {
 static const int32_t timeDeltaToSprEquin =  768903; // avg delta in millis/10000 from winter solstice to spring equinox, within 1 hr
 static const int32_t timeDeltaToSumSolst = 1570332; // avg delta in millis/10000 from winter solstice to summer solstice, within 2.7 hrs
 static const int32_t timeDeltaToAutEquin = 2379459; // avg delta in millis/10000 from winter solstice to autumn equinox, within 2 hrs
+#endif // APPLE_ICU_CHANGES
 
 // The following three methods, which compute the sun parameters
 // given above for an arbitrary epoch (whatever time the object is
@@ -1051,7 +1055,9 @@ static double trueAnomaly(double meanAnomaly, double eccentricity)
                                              /(1-eccentricity) ) );
 }
 
-
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
 /**
  * Returns sunLongitude which may be adjusted for correctness
  * based on the time, using a table which only has data covering
@@ -1129,6 +1135,7 @@ double CalendarAstronomer::getSunLongitudeForTime(UDate theTime)
     getSunLongitude(jd, theSunLongitude, theMeanAnomalySun);
     return CalendarAstronomer::adjustSunLongitude(theSunLongitude, theTime);
 }
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * The longitude of the sun at the time specified by this object.
@@ -1147,17 +1154,28 @@ double CalendarAstronomer::getSunLongitude()
     // See page 86 of "Practical Astronomy with your Calculator",
     // by Peter Duffet-Smith, for details on the algorithm.
 
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
     // Currently this is called externally by ChineseCalendar,
     // and internally by getMoonPosition and getSunTime.
-    
+#endif  // APPLE_ICU_CHANGES
+
     if (isINVALID(sunLongitude)) {
+#if APPLE_ICU_CHANGES
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
         // this sets instance variables julianDay (from fTime), sunLongitude, meanAnomalySun
+#endif  // APPLE_ICU_CHANGES
         getSunLongitude(getJulianDay(), sunLongitude, meanAnomalySun);
     }
-    
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
     // apply piecewise linear corrections in the range 1900-2100,
     // update sunLongitude as necessary
     return CalendarAstronomer::adjustSunLongitude(sunLongitude, fTime);
+#else
+    return sunLongitude;
+#endif  // APPLE_ICU_CHANGES
 }
 
 /**
@@ -1258,6 +1276,8 @@ SunTimeAngleFunc::~SunTimeAngleFunc() {}
 
 UDate CalendarAstronomer::getSunTime(double desired, UBool next)
 {
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
     // Currently, the only client is ChineseCalendar, which calls
     // this with desired == CalendarAstronomer::WINTER_SOLSTICE()
     if (desired == CalendarAstronomer::WINTER_SOLSTICE() && fTime >= winterSolsticeDatesFirst && fTime < winterSolsticeDatesLast) {
@@ -1276,6 +1296,7 @@ UDate CalendarAstronomer::getSunTime(double desired, UBool next)
         return  10000.0 * (UDate)(*winterSolsticeDatesPtr);
     }
 
+#endif  // APPLE_ICU_CHANGES
     SunTimeAngleFunc func;
     return timeOfAngle( func,
                         desired,
@@ -1603,6 +1624,9 @@ UDate CalendarAstronomer::getSunRiseSet(UBool rise)
 #define moonT0 (   0.5181 * CalendarAstronomer::PI/180 )     // Angular size at distance A
 #define moonPi (   0.9507 * CalendarAstronomer::PI/180 )     // Parallax at distance A
 
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
 // new moon date/times 1900-2100 (in UTC)
 // These are in UDate/10000.0 (i.e. in units of 10 seconds) to fit into 32 bits.
 // sources from e.g.
@@ -6622,6 +6646,7 @@ static const int16_t fullMoonAdjustmts[] = {
      3792, // 2201
      6006, // 2202
 };
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * The position of the moon at the time set on this
@@ -6635,7 +6660,7 @@ const CalendarAstronomer::Equatorial& CalendarAstronomer::getMoonPosition()
     // See page 142 of "Practical Astronomy with your Calculator",
     // by Peter Duffet-Smith, for details on the algorithm.
     //
-    if (moonPositionSet == FALSE) {
+    if (moonPositionSet == false) {
         // Calculate the solar longitude.  Has the side effect of
         // filling in "meanAnomalySun" as well.
         getSunLongitude();
@@ -6704,7 +6729,7 @@ const CalendarAstronomer::Equatorial& CalendarAstronomer::getMoonPosition()
         double moonEclipLat = ::asin(y * ::sin(moonI));
 
         eclipticToEquatorial(moonPosition, moonEclipLong, moonEclipLat);
-        moonPositionSet = TRUE;
+        moonPositionSet = true;
     }
     return moonPosition;
 }
@@ -6726,6 +6751,8 @@ double CalendarAstronomer::getMoonAge() {
     // Force the moon's position to be calculated.  We're going to use
     // some the intermediate results cached during that calculation.
     //
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
     // Currently, the only client is IslamicCalendar. All it cares
     // about is that the method returns new moon (0) and full moon (PI)
     // at the correct date & time, and otherwise that the returned value
@@ -6751,6 +6778,7 @@ double CalendarAstronomer::getMoonAge() {
         return PI + PI*((double)(curTime - fullMoonDate))/((double)(*(newMoonDatesPtr+1) - fullMoonDate));
     }
 
+#endif  // APPLE_ICU_CHANGES
     getMoonPosition();
 
     return norm2PI(moonEclipLong - sunLongitude);
@@ -6825,6 +6853,8 @@ MoonTimeAngleFunc::~MoonTimeAngleFunc() {}
   return  CalendarAstronomer::MoonAge((CalendarAstronomer::PI*3)/2);
 }*/
 
+#if APPLE_ICU_CHANGES
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
 /**
  * Find the next or previous time of a new moon if date is in the
  * range handled by this function (approx gregorian 1900-2100),
@@ -6855,7 +6885,7 @@ UDate CalendarAstronomer::getNewMoonTimeInRange(UDate theTime, UBool next)
     }
     return 10000.0 * (UDate)(*newMoonDatesPtr);
 }
-
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * Find the next or previous time at which the Moon's ecliptic
@@ -6869,6 +6899,9 @@ UDate CalendarAstronomer::getNewMoonTimeInRange(UDate theTime, UBool next)
  */
 UDate CalendarAstronomer::getMoonTime(double desired, UBool next)
 {
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
+// rdar://17888673 688c98a2e1.. Speed up Calendar use of chinese: Refactor CalendarAstronomer to provide static
     // Currently, we only get here via a call from ChineseCalendar,
     // with desired == CalendarAstronomer::NEW_MOON().value
     if (desired == CalendarAstronomer::NEW_MOON().value) {
@@ -6879,6 +6912,7 @@ UDate CalendarAstronomer::getMoonTime(double desired, UBool next)
         // else fall through to the full calculation
     }
     
+#endif  // APPLE_ICU_CHANGES
     MoonTimeAngleFunc func;
     return timeOfAngle( func,
                         desired,
@@ -6898,8 +6932,11 @@ UDate CalendarAstronomer::getMoonTime(double desired, UBool next)
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
 UDate CalendarAstronomer::getMoonTime(const CalendarAstronomer::MoonAge& desired, UBool next) {
+#if APPLE_ICU_CHANGES
+// rdar://15539491&16688723 9e6ee2fcb8.. For gregorian 1900-2100 use tables instead of or in addition to calculation to get or adjust moon & sun positions & times, faster and much more accurate (e.g. accurate to one minute of time instead of 25, 60, or worse).
     // Currently, the only client is ChineseCalendar, which calls
     // this with desired == CalendarAstronomer::NEW_MOON()
+#endif  // APPLE_ICU_CHANGES
     return getMoonTime(desired.value, next);
 }
 
@@ -7040,7 +7077,7 @@ UDate CalendarAstronomer::riseOrSet(CoordFunc& func, UBool rise,
 
     return fTime + (rise ? -delta : delta);
 }
-/**
+											   /**
  * Return the obliquity of the ecliptic (the angle between the ecliptic
  * and the earth's equator) at the current time.  This varies due to
  * the precession of the earth's axis.
@@ -7081,7 +7118,7 @@ void CalendarAstronomer::clearCache() {
     eclipObliquity  = INVALID;
     siderealTime    = INVALID;
     siderealT0      = INVALID;
-    moonPositionSet = FALSE;
+    moonPositionSet = false;
 }
 
 //private static void out(String s) {
@@ -7106,7 +7143,7 @@ void CalendarAstronomer::clearCache() {
   int32_t rawOffset;
   int32_t dstOffset;
   UErrorCode status = U_ZERO_ERROR;
-  tz->getOffset(localMillis, TRUE, rawOffset, dstOffset, status);
+  tz->getOffset(localMillis, true, rawOffset, dstOffset, status);
   delete tz;
   return localMillis - rawOffset;
 }*/

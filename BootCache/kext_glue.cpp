@@ -29,7 +29,9 @@ com_apple_BootCache::start(IOService *provider)
 	result = IOService::start(provider);
 	if (result == true) {
 		BC_load();
+#ifndef __clang_analyzer__ // Avoid false positive leak (released in stop function)
 		provider->retain();
+#endif
 	}
 	return(result);
 }
@@ -40,5 +42,7 @@ com_apple_BootCache::stop(IOService *provider)
 	if (BC_unload())
 		return;	// refuse unload?
 	IOService::stop(provider);
+#ifndef __clang_analyzer__ // Avoid false positive overdecrement (retained in start function)
 	provider->release();
+#endif
 }

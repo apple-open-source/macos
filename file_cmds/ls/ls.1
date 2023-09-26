@@ -442,6 +442,8 @@ This option is not defined in
 .St -p1003.1-2001 .
 .It Fl %
 Distinguish dataless files and directories with a '%' character in long
+.Pq Fl l
+output, and don't materialize dataless directories when listing them.
 .It Fl 1
 (The numeric digit
 .Dq one . )
@@ -449,8 +451,6 @@ Force output to be
 one entry per line.
 This is the default when
 output is not to a terminal.
-.Pq Fl l
-output, and don't materialize dataless directories when listing them.
 .It Fl ,
 (Comma) When the
 .Fl l

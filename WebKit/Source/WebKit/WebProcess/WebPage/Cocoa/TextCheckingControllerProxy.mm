@@ -98,6 +98,9 @@ void TextCheckingControllerProxy::replaceRelativeToSelection(const WebCore::Attr
 {
     Ref frame = CheckedRef(m_page.corePage()->focusController())->focusedOrMainFrame();
     auto& frameSelection = frame->selection();
+    if (!frameSelection.selection().isContentEditable())
+        return;
+
     RefPtr root = frameSelection.rootEditableElementOrDocumentElement();
     if (!root)
         return;
@@ -114,7 +117,7 @@ void TextCheckingControllerProxy::replaceRelativeToSelection(const WebCore::Attr
         if (auto rangeAndOffsetOfReplacement = rangeAndOffsetRelativeToSelection(selectionOffset + relativeReplacementLocation, relativeReplacementLength)) {
             bool restoreSelection = frameSelection.selection().isRange();
 
-            frame->editor().replaceRangeForSpellChecking(rangeAndOffsetOfReplacement->range, [[annotatedString.string string] substringWithRange:NSMakeRange(relativeReplacementLocation, relativeReplacementLength + [annotatedString.string length] - length)]);
+            frame->editor().replaceRangeForSpellChecking(rangeAndOffsetOfReplacement->range, [annotatedString.string substringWithRange:NSMakeRange(relativeReplacementLocation, relativeReplacementLength + [annotatedString.string length] - length)]);
 
             if (restoreSelection) {
                 uint64_t selectionLocationToRestore = locationInRoot - selectionOffset;
@@ -124,7 +127,7 @@ void TextCheckingControllerProxy::replaceRelativeToSelection(const WebCore::Attr
         }
     }
 
-    [annotatedString.string enumerateAttributesInRange:NSMakeRange(0, [annotatedString.string length]) options:0 usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attrs, NSRange attributeRange, BOOL *stop) {
+    [annotatedString.nsAttributedString() enumerateAttributesInRange:NSMakeRange(0, [annotatedString.string length]) options:0 usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attrs, NSRange attributeRange, BOOL *stop) {
         auto attributeCoreRange = resolveCharacterRange(makeRangeSelectingNodeContents(*root), { locationInRoot + attributeRange.location, attributeRange.length });
 
         [attrs enumerateKeysAndObjectsUsingBlock:^(NSAttributedStringKey key, id value, BOOL *stop) {
@@ -165,6 +168,11 @@ void TextCheckingControllerProxy::removeAnnotationRelativeToSelection(const Stri
 
 WebCore::AttributedString TextCheckingControllerProxy::annotatedSubstringBetweenPositions(const WebCore::VisiblePosition& start, const WebCore::VisiblePosition& end)
 {
+    if (!isEditablePosition(start.deepEquivalent())) {
+        ASSERT(!isEditablePosition(end.deepEquivalent()));
+        return { };
+    }
+
     auto entireRange = makeSimpleRange(start, end);
     if (!entireRange)
         return { };
@@ -188,7 +196,7 @@ WebCore::AttributedString TextCheckingControllerProxy::annotatedSubstringBetween
         }
     }
 
-    return { { WTFMove(string) } };
+    return WebCore::AttributedString::fromNSAttributedString(WTFMove(string));
 }
 
 } // namespace WebKit

@@ -1024,9 +1024,6 @@ no{
         "Europe:Kaliningrad"{
             ec{"Kaliningrad"}
         }
-        "Europe:Kiev"{
-            ec{"Kiev"}
-        }
         "Europe:Kirov"{
             ec{"Kirov"}
         }
@@ -1222,6 +1219,9 @@ no{
         }
         "Pacific:Johnston"{
             ec{"Johnston"}
+        }
+        "Pacific:Kanton"{
+            ec{"Kantonøya"}
         }
         "Pacific:Kiritimati"{
             ec{"Kiritimati"}

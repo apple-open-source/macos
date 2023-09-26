@@ -60,7 +60,7 @@ static const Document* blobOwner(const SecurityOrigin& blobOrigin)
         return nullptr;
 
     for (const auto* document : Document::allDocuments()) {
-        if (&document->securityOrigin() == &blobOrigin)
+        if (document->securityOrigin().isSameOriginAs(blobOrigin))
             return document;
     }
     return nullptr;
@@ -68,7 +68,7 @@ static const Document* blobOwner(const SecurityOrigin& blobOrigin)
 
 URL BlobURL::getOriginURL(const URL& url)
 {
-    ASSERT(url.protocolIs(kBlobProtocol));
+    ASSERT_UNUSED(kBlobProtocol, url.protocolIs(kBlobProtocol));
 
     if (auto blobOrigin = ThreadableBlobRegistry::getCachedOrigin(url)) {
         if (auto* document = blobOwner(*blobOrigin))
@@ -79,20 +79,19 @@ URL BlobURL::getOriginURL(const URL& url)
 
 bool BlobURL::isSecureBlobURL(const URL& url)
 {
-    ASSERT(url.protocolIs(kBlobProtocol));
-
+    ASSERT_UNUSED(kBlobProtocol, url.protocolIs(kBlobProtocol));
     // As per https://github.com/w3c/webappsec-mixed-content/issues/41, Blob URL is secure if the document that created it is secure.
     if (auto origin = ThreadableBlobRegistry::getCachedOrigin(url)) {
         if (auto* document = blobOwner(*origin))
             return document->isSecureContext();
     }
-    return SecurityOrigin::isSecure(url);
+    return false;
 }
 
 URL BlobURL::createBlobURL(StringView originString)
 {
     ASSERT(!originString.isEmpty());
-    String urlString = makeString("blob:"_s, originString, '/', UUID::createVersion4());
+    String urlString = makeString("blob:"_s, originString, '/', WTF::UUID::createVersion4());
     return URL({ }, urlString);
 }
 

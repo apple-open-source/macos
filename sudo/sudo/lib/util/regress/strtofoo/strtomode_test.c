@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "sudo_compat.h"
 #include "sudo_util.h"
@@ -47,11 +48,23 @@ main(int argc, char *argv[])
 {
     struct strtomode_data *d;
     const char *errstr;
-    int errors = 0;
-    int ntests = 0;
+    int ch, errors = 0, ntests = 0;
     mode_t mode;
 
     initprogname(argc > 0 ? argv[0] : "strtomode_test");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignore */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     for (d = strtomode_data; d->mode_str != NULL; d++) {
 	ntests++;

@@ -224,6 +224,7 @@ static const char *initial_keepenv_table[] = {
     "PS2",
     "XAUTHORITY",
     "XAUTHORIZATION",
+    "XDG_CURRENT_DESKTOP",
     NULL
 };
 
@@ -239,6 +240,7 @@ env_init(char * const envp[])
 
     if (envp == NULL) {
 	/* Free the old envp we allocated, if any. */
+	sudoers_gc_remove(GC_PTR, env.old_envp);
 	free(env.old_envp);
 
 	/* Reset to initial state but keep a pointer to what we allocated. */
@@ -261,6 +263,7 @@ env_init(char * const envp[])
 	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    debug_return_bool(false);
 	}
+	sudoers_gc_add(GC_PTR, env.envp);
 #ifdef ENV_DEBUG
 	memset(env.envp, 0, env.env_size * sizeof(char *));
 #endif
@@ -268,6 +271,7 @@ env_init(char * const envp[])
 	env.envp[len] = NULL;
 
 	/* Free the old envp we allocated, if any. */
+	sudoers_gc_remove(GC_PTR, env.old_envp);
 	free(env.old_envp);
 	env.old_envp = NULL;
     }
@@ -307,12 +311,25 @@ env_swap_old(void)
  * Will only overwrite an existing variable if overwrite is set.
  * Does not include warnings or debugging to avoid recursive calls.
  */
-static int
+int
 sudo_putenv_nodebug(char *str, bool dupcheck, bool overwrite)
 {
     char **ep;
-    size_t len;
+    const char *equal;
     bool found = false;
+
+    /* Some putenv(3) implementations check for NULL. */
+    if (str == NULL) {
+	errno = EINVAL;
+	return -1;
+    }
+
+    /* The string must contain a '=' char but not start with one. */
+    equal = strchr(str, '=');
+    if (equal == NULL || equal == str) {
+	errno = EINVAL;
+	return -1;
+    }
 
     /* Make sure there is room for the new entry plus a NULL. */
     if (env.env_size > 2 && env.env_len > env.env_size - 2) {
@@ -332,9 +349,13 @@ sudo_putenv_nodebug(char *str, bool dupcheck, bool overwrite)
 	    errno = EOVERFLOW;
 	    return -1;
 	}
+	sudoers_gc_remove(GC_PTR, env.envp);
 	nenvp = reallocarray(env.envp, nsize, sizeof(char *));
-	if (nenvp == NULL)
+	if (nenvp == NULL) {
+	    sudoers_gc_add(GC_PTR, env.envp);
 	    return -1;
+	}
+	sudoers_gc_add(GC_PTR, nenvp);
 	env.envp = nenvp;
 	env.env_size = nsize;
 #ifdef ENV_DEBUG
@@ -351,7 +372,7 @@ sudo_putenv_nodebug(char *str, bool dupcheck, bool overwrite)
 #endif
 
     if (dupcheck) {
-	len = (strchr(str, '=') - str) + 1;
+	size_t len = (size_t)(equal - str) + 1;
 	for (ep = env.envp; *ep != NULL; ep++) {
 	    if (strncmp(str, *ep, len) == 0) {
 		if (overwrite)
@@ -456,59 +477,10 @@ sudo_setenv(const char *var, const char *val, int overwrite)
 }
 
 /*
- * Similar to setenv(3) but operates on a private copy of the environment.
- * Does not include warnings or debugging to avoid recursive calls.
- */
-static int
-sudo_setenv_nodebug(const char *var, const char *val, int overwrite)
-{
-    char *ep, *estring = NULL;
-    const char *cp;
-    size_t esize;
-    int ret = -1;
-
-    if (var == NULL || *var == '\0') {
-	errno = EINVAL;
-	goto done;
-    }
-
-    /*
-     * POSIX says a var name with '=' is an error but BSD
-     * just ignores the '=' and anything after it.
-     */
-    for (cp = var; *cp && *cp != '='; cp++)
-	continue;
-    esize = (size_t)(cp - var) + 2;
-    if (val) {
-	esize += strlen(val);	/* glibc treats a NULL val as "" */
-    }
-
-    /* Allocate and fill in estring. */
-    if ((estring = ep = malloc(esize)) == NULL)
-	goto done;
-    for (cp = var; *cp && *cp != '='; cp++)
-	*ep++ = *cp;
-    *ep++ = '=';
-    if (val) {
-	for (cp = val; *cp; cp++)
-	    *ep++ = *cp;
-    }
-    *ep = '\0';
-
-    ret = sudo_putenv_nodebug(estring, true, overwrite);
-done:
-    if (ret == -1)
-	free(estring);
-    else
-	sudoers_gc_add(GC_PTR, estring);
-    return ret;
-}
-
-/*
  * Similar to unsetenv(3) but operates on a private copy of the environment.
  * Does not include warnings or debugging to avoid recursive calls.
  */
-static int
+int
 sudo_unsetenv_nodebug(const char *var)
 {
     char **ep = env.envp;
@@ -555,7 +527,7 @@ sudo_unsetenv(const char *name)
  * Similar to getenv(3) but operates on a private copy of the environment.
  * Does not include warnings or debugging to avoid recursive calls.
  */
-static char *
+char *
 sudo_getenv_nodebug(const char *name)
 {
     char **ep, *val = NULL;
@@ -720,7 +692,7 @@ matches_env_check(const char *var, bool *full_match)
 	} else {
 	    const char *val = strchr(var, '=');
 	    if (val != NULL)
-		keepit = !strpbrk(++val, "/%");
+		keepit = !strpbrk(val + 1, "/%");
 	}
     }
     debug_return_int(keepit);
@@ -860,13 +832,13 @@ env_update_didvar(const char *ep, unsigned int *didvar)
 }
 
 #define CHECK_PUTENV(a, b, c)	do {					       \
-    if (sudo_putenv((a), (b), (c)) == -1) {				       \
+    if (sudo_putenv((char *)(a), (b), (c)) == -1) {			       \
 	goto bad;							       \
     }									       \
 } while (0)
 
 #define CHECK_SETENV2(a, b, c, d)	do {				       \
-    if (sudo_setenv2((a), (b), (c), (d)) == -1) {			       \
+    if (sudo_setenv2((char *)(a), (b), (c), (d)) == -1) {		       \
 	goto bad;							       \
     }									       \
 } while (0)
@@ -893,6 +865,7 @@ rebuild_env(void)
     didvar = 0;
     env.env_len = 0;
     env.env_size = 128;
+    sudoers_gc_remove(GC_PTR, env.old_envp);
     free(env.old_envp);
     env.old_envp = env.envp;
     env.envp = reallocarray(NULL, env.env_size, sizeof(char *));
@@ -902,6 +875,7 @@ rebuild_env(void)
 	env.env_size = 0;
 	goto bad;
     }
+    sudoers_gc_add(GC_PTR, env.envp);
 #ifdef ENV_DEBUG
     memset(env.envp, 0, env.env_size * sizeof(char *));
 #else
@@ -945,25 +919,27 @@ rebuild_env(void)
 	}
 
 	/* Pull in vars we want to keep from the old environment. */
-	for (ep = env.old_envp; *ep; ep++) {
-	    bool keepit;
+	if (env.old_envp != NULL) {
+	    for (ep = env.old_envp; *ep; ep++) {
+		bool keepit;
 
-	    /*
-	     * Look up the variable in the env_check and env_keep lists.
-	     */
-	    keepit = env_should_keep(*ep);
+		/*
+		 * Look up the variable in the env_check and env_keep lists.
+		 */
+		keepit = env_should_keep(*ep);
 
-	    /*
-	     * Do SUDO_PS1 -> PS1 conversion.
-	     * This must happen *after* env_should_keep() is called.
-	     */
-	    if (strncmp(*ep, "SUDO_PS1=", 9) == 0)
-		ps1 = *ep + 5;
+		/*
+		 * Do SUDO_PS1 -> PS1 conversion.
+		 * This must happen *after* env_should_keep() is called.
+		 */
+		if (strncmp(*ep, "SUDO_PS1=", 9) == 0)
+		    ps1 = *ep + 5;
 
-	    if (keepit) {
-		/* Preserve variable. */
-		CHECK_PUTENV(*ep, true, false);
-		env_update_didvar(*ep, &didvar);
+		if (keepit) {
+		    /* Preserve variable. */
+		    CHECK_PUTENV(*ep, true, false);
+		    env_update_didvar(*ep, &didvar);
+		}
 	    }
 	}
 	didvar |= didvar << 16;		/* convert DID_* to KEPT_* */
@@ -1025,18 +1001,20 @@ rebuild_env(void)
 	 * Copy environ entries as long as they don't match env_delete or
 	 * env_check.
 	 */
-	for (ep = env.old_envp; *ep; ep++) {
-	    /* Add variable unless it matches a black list. */
-	    if (!env_should_delete(*ep)) {
-		if (strncmp(*ep, "SUDO_PS1=", 9) == 0)
-		    ps1 = *ep + 5;
-		else if (strncmp(*ep, "SHELL=", 6) == 0)
-		    SET(didvar, DID_SHELL);
-		else if (strncmp(*ep, "PATH=", 5) == 0)
-		    SET(didvar, DID_PATH);
-		else if (strncmp(*ep, "TERM=", 5) == 0)
-		    SET(didvar, DID_TERM);
-		CHECK_PUTENV(*ep, true, false);
+	if (env.old_envp != NULL) {
+	    for (ep = env.old_envp; *ep; ep++) {
+		/* Add variable unless it matches a blocklist. */
+		if (!env_should_delete(*ep)) {
+		    if (strncmp(*ep, "SUDO_PS1=", 9) == 0)
+			ps1 = *ep + 5;
+		    else if (strncmp(*ep, "SHELL=", 6) == 0)
+			SET(didvar, DID_SHELL);
+		    else if (strncmp(*ep, "PATH=", 5) == 0)
+			SET(didvar, DID_PATH);
+		    else if (strncmp(*ep, "TERM=", 5) == 0)
+			SET(didvar, DID_TERM);
+		    CHECK_PUTENV(*ep, true, false);
+		}
 	    }
 	}
     }
@@ -1171,7 +1149,8 @@ bool
 validate_env_vars(char * const env_vars[])
 {
     char * const *ep;
-    char *eq, errbuf[4096];
+    char errbuf[4096];
+    char *errpos = errbuf;
     bool okvar, ret = true;
     debug_decl(validate_env_vars, SUDOERS_DEBUG_ENV);
 
@@ -1179,9 +1158,12 @@ validate_env_vars(char * const env_vars[])
 	debug_return_bool(true);	/* nothing to do */
 
     /* Add user-specified environment variables. */
-    errbuf[0] = '\0';
     for (ep = env_vars; *ep != NULL; ep++) {
-	if (def_secure_path && !user_is_exempt() &&
+	char *eq = strchr(*ep, '=');
+	if (eq == NULL || eq == *ep) {
+	    /* Must be in the form var=val. */
+	    okvar = false;
+	} else if (def_secure_path && !user_is_exempt() &&
 	    strncmp(*ep, "PATH=", 5) == 0) {
 	    okvar = false;
 	} else if (def_env_reset) {
@@ -1190,20 +1172,21 @@ validate_env_vars(char * const env_vars[])
 	    okvar = !env_should_delete(*ep);
 	}
 	if (okvar == false) {
-	    /* Not allowed, add to error string, allocating as needed. */
-	    if ((eq = strchr(*ep, '=')) != NULL)
-		*eq = '\0';
-	    if (errbuf[0] != '\0')
-		(void)strlcat(errbuf, ", ", sizeof(errbuf));
-	    if (strlcat(errbuf, *ep, sizeof(errbuf)) >= sizeof(errbuf)) {
-		errbuf[sizeof(errbuf) - 4] = '\0';
-		(void)strlcat(errbuf, "...", sizeof(errbuf));
+	    /* Not allowed, append to error buffer if space remains. */
+	    if (errpos < &errbuf[sizeof(errbuf)]) {
+		size_t varlen = strcspn(*ep, "=");
+		int len = snprintf(errpos, sizeof(errbuf) - (errpos - errbuf),
+		    "%s%.*s", errpos != errbuf ? ", " : "", (int)varlen, *ep);
+		if (len >= ssizeof(errbuf) - (errpos - errbuf)) {
+		    memcpy(&errbuf[sizeof(errbuf) - 4], "...", 4);
+		    errpos = &errbuf[sizeof(errbuf)];
+		} else {
+		    errpos += len;
+		}
 	    }
-	    if (eq != NULL)
-		*eq = '=';
 	}
     }
-    if (errbuf[0] != '\0') {
+    if (errpos != errbuf) {
 	/* XXX - audit? */
 	log_warningx(0,
 	    N_("sorry, you are not allowed to set the following environment variables: %s"), errbuf);
@@ -1295,7 +1278,7 @@ env_file_next_local(void *cookie, int *errnum)
 	val_len = strlen(++val);
 
 	/* Strip leading and trailing single/double quotes */
-	if ((val[0] == '\'' || val[0] == '\"') && val[0] == val[val_len - 1]) {
+	if ((val[0] == '\'' || val[0] == '\"') && val_len > 1 && val[0] == val[val_len - 1]) {
 	    val[val_len - 1] = '\0';
 	    val++;
 	    val_len -= 2;
@@ -1433,74 +1416,4 @@ init_envtables(void)
 	SLIST_INSERT_HEAD(&def_env_keep, cur, entries);
     }
     debug_return_bool(true);
-}
-
-int
-sudoers_hook_getenv(const char *name, char **value, void *closure)
-{
-    static bool in_progress = false; /* avoid recursion */
-
-    if (in_progress || env.envp == NULL)
-	return SUDO_HOOK_RET_NEXT;
-
-    in_progress = true;
-
-    /* Hack to make GNU gettext() find the sudoers locale when needed. */
-    if (*name == 'L' && sudoers_getlocale() == SUDOERS_LOCALE_SUDOERS) {
-	if (strcmp(name, "LANGUAGE") == 0 || strcmp(name, "LANG") == 0) {
-	    *value = NULL;
-	    goto done;
-	}
-	if (strcmp(name, "LC_ALL") == 0 || strcmp(name, "LC_MESSAGES") == 0) {
-	    *value = def_sudoers_locale;
-	    goto done;
-	}
-    }
-
-    *value = sudo_getenv_nodebug(name);
-done:
-    in_progress = false;
-    return SUDO_HOOK_RET_STOP;
-}
-
-int
-sudoers_hook_putenv(char *string, void *closure)
-{
-    static bool in_progress = false; /* avoid recursion */
-
-    if (in_progress || env.envp == NULL)
-	return SUDO_HOOK_RET_NEXT;
-
-    in_progress = true;
-    sudo_putenv_nodebug(string, true, true);
-    in_progress = false;
-    return SUDO_HOOK_RET_STOP;
-}
-
-int
-sudoers_hook_setenv(const char *name, const char *value, int overwrite, void *closure)
-{
-    static bool in_progress = false; /* avoid recursion */
-
-    if (in_progress || env.envp == NULL)
-	return SUDO_HOOK_RET_NEXT;
-
-    in_progress = true;
-    sudo_setenv_nodebug(name, value, overwrite);
-    in_progress = false;
-    return SUDO_HOOK_RET_STOP;
-}
-
-int
-sudoers_hook_unsetenv(const char *name, void *closure)
-{
-    static bool in_progress = false; /* avoid recursion */
-
-    if (in_progress || env.envp == NULL)
-	return SUDO_HOOK_RET_NEXT;
-
-    in_progress = true;
-    sudo_unsetenv_nodebug(name);
-    in_progress = false;
-    return SUDO_HOOK_RET_STOP;
 }

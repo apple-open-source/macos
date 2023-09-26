@@ -49,8 +49,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fpurge.c,v 1.11 2007/01/09 00:28:06 imp E
  * given FILE's buffer empty.
  */
 int
-fpurge(fp)
-	FILE *fp;
+fpurge(FILE *fp)
 {
 	int retval;
 	FLOCKFILE(fp);

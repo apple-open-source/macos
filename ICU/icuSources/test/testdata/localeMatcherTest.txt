@@ -385,9 +385,9 @@ und >> und
 # results:
 
 @supported=it, en
-# und >> it  # Apple, get en
+# und >> it  # rdar:// Apple, get en
 @supported=it, und
-# en >> it   # Apple, get und
+# en >> it   # rdar:// Apple, get und
 
 @favor=script
 @supported=it, fr
@@ -395,9 +395,9 @@ und >> it
 @supported=it, und
 und >> und
 @supported=it, en
-# und >> it  # Apple, get en
+# und >> it  # rdar:// Apple, get en
 @supported=it, und
-# en >> it   # Apple, get und
+# en >> it   # rdar:// Apple, get und
 
 ** test: testGetBestMatch-regionDistance
 
@@ -545,7 +545,7 @@ sv >> sv
 ** test: test8288
 
 @supported=it, en
-# und >> it  # Apple, get en
+# und >> it  # rdar:// Apple, get en
 und, en >> en
 
 # examples from
@@ -553,7 +553,7 @@ und, en >> en
 # http://unicode.org/repos/cldr/tags/latest/common/validity/variant.xml
 
 @favor=script
-# und >> it  # Apple, get en
+# und >> it  # rdar:// Apple, get en
 und, en >> en
 
 ** test: testUnHack
@@ -580,7 +580,7 @@ fr-BE-fonipa >> fr-fonupa | | fr-BE-fonipa
 @supported=und, no
 nn-BE-fonipa >> no | | no-BE-fonipa
 @supported=und, en-GB-u-sd-gbsct
-# en-fonipa-u-nu-Arab-ca-buddhist-t-m0-iso-i0-pinyin >> en-GB-u-sd-gbsct | | en-GB-fonipa-u-nu-Arab-ca-buddhist-t-m0-iso-i0-pinyin  # Apple, get und
+# en-fonipa-u-nu-Arab-ca-buddhist-t-m0-iso-i0-pinyin >> en-GB-u-sd-gbsct | | en-GB-fonipa-u-nu-Arab-ca-buddhist-t-m0-iso-i0-pinyin  # rdar:// Apple, get und
 
 @supported=en-PSCRACK, de-PSCRACK, fr-PSCRACK, pt-PT-PSCRACK
 fr-PSCRACK >> fr-PSCRACK
@@ -597,7 +597,7 @@ fr-BE-fonipa >> fr-fonupa
 @supported=und, no
 nn-BE-fonipa >> no | | no-BE-fonipa
 @supported=und, en-GB-u-sd-gbsct
-# en-fonipa-u-nu-Arab-ca-buddhist-t-m0-iso-i0-pinyin >> en-GB-u-sd-gbsct | | en-GB-fonipa-u-nu-Arab-ca-buddhist-t-m0-iso-i0-pinyin  # Apple, get und
+# en-fonipa-u-nu-Arab-ca-buddhist-t-m0-iso-i0-pinyin >> en-GB-u-sd-gbsct | | en-GB-fonipa-u-nu-Arab-ca-buddhist-t-m0-iso-i0-pinyin  # rdar:// Apple, get und
 
 @supported=en-PSCRACK, de-PSCRACK, fr-PSCRACK, pt-PT-PSCRACK
 fr-PSCRACK >> fr-PSCRACK
@@ -634,9 +634,9 @@ en-ZA >> en-GB
 @supported=und, en-GU, en, en-GB, en-IN
 en-ZA >> en-GB
 @supported=und, en, en-GU, en-IN, en-GB
-# en-VI >> en  # Apple, get und
+# en-VI >> en  # rdar:// Apple, get und
 @supported=und, en-GU, en, en-GB, en-IN
-# en-VI >> en  # Apple, get und
+# en-VI >> en  # rdar:// Apple, get und
 
 # of course, fall back to within cluster
 
@@ -645,9 +645,9 @@ en-ZA >> en-IN
 @supported=und, en-GU, en, en-IN
 en-ZA >> en-IN
 @supported=und, en-GU, en-IN, en-GB
-# en-VI >> en-GU  # Apple, get und
+# en-VI >> en-GU  # rdar:// Apple, get und
 @supported=und, en-GU, en-GB, en-IN
-# en-VI >> en-GU  # Apple, get und
+# en-VI >> en-GU  # rdar:// Apple, get und
 
 @favor=script
 @supported=und, es, es-MA, es-MX, es-419
@@ -673,18 +673,18 @@ en-ZA >> en-GB
 @supported=und, en-GU, en, en-GB, en-IN
 en-ZA >> en-GB
 @supported=und, en, en-GU, en-IN, en-GB
-# en-VI >> en  # Apple, get und
+# en-VI >> en  # rdar:// Apple, get und
 @supported=und, en-GU, en, en-GB, en-IN
-# en-VI >> en  # Apple, get und
+# en-VI >> en  # rdar:// Apple, get und
 
 @supported=und, en, en-GU, en-IN
 en-ZA >> en-IN
 @supported=und, en-GU, en, en-IN
 en-ZA >> en-IN
 @supported=und, en-GU, en-IN, en-GB
-# en-VI >> en-GU  # Apple, get und
+# en-VI >> en-GU  # rdar:// Apple, get und
 @supported=und, en-GU, en-GB, en-IN
-# en-VI >> en-GU  # Apple, get und
+# en-VI >> en-GU  # rdar:// Apple, get und
 
 ** test: testThreshold
 @supported=50, und, fr-CA-fonupa
@@ -921,9 +921,9 @@ und >> und
 # (AddLikelySubtagsWithDefaults) so that max("und")="und". That
 # produces the following, more desirable results:
 @supported=it, en
-# und >> it  # Apple, get en
+# und >> it  # rdar:// Apple, get en
 @supported=it, und
-# en >> it   # Apple, get und
+# en >> it   # rdar:// Apple, get und
 
 ** test: TestVariantWithScriptMatch
 @supported=fr, en, sv
@@ -956,9 +956,9 @@ sr-ME >> sr
 @supported=und, sr-ME
 sr >> sr-ME
 @supported=und, sr-Latn
-# bs >> sr-Latn   # Apple, get und
+# bs >> sr-Latn   # rdar:// Apple, get und
 @supported=und, bs
-# sr-Latn >> bs   # Apple, get und
+# sr-Latn >> bs   # rdar:// Apple, get und
 @supported=und, sr
 bs >> und
 @supported=und, bs
@@ -1170,7 +1170,7 @@ es-VE >> es-MX
 
 @favor=script
 es-001 >> es
-# und >> und   # Apple, get es
+# und >> und   # rdar:// Apple, get es
 ca >> es
 gl-ES >> es
 es >> es
@@ -1256,7 +1256,7 @@ es-VE >> es-419
 
 @favor=script
 es-001 >> es
-# und >> und   # Apple, get es
+# und >> und   # rdar:// Apple, get es
 ca >> es
 gl-ES >> es
 es >> es
@@ -1299,7 +1299,7 @@ es-VE >> es-419
 ** test: Englishes
 @supported=en-GB, en-US
 @default=und
-# und >> und12
+# und >> und   # rdar:// Apple, get en_US
 ja >> und
 fr-CA >> und
 
@@ -1320,7 +1320,7 @@ en-US >> en-US
 en >> en-US
 
 @favor=script
-# und >> und   # Apple, get en_US
+# und >> und   # rdar:// Apple, get en_US
 ja >> und
 fr-CA >> en-US
 en-AU >> en-GB
@@ -1340,7 +1340,7 @@ en >> en-US
 # manyEnMatcher
 @supported=en-GB, en-US, en, en-AU
 @default=und
-# und >> und   # Apple, get en_US
+# und >> und   # rdar:// Apple, get en_US
 ja >> und
 fr-CA >> und
 
@@ -1357,7 +1357,7 @@ fr >> und
 
 @favor=script
 @supported=en-GB, en-US, en, en-AU
-# und >> und      # Apple, get en_US
+# und >> und      # rdar:// Apple, get en_US
 ja >> und
 fr-CA >> en-US
 fr >> en-US
@@ -1634,12 +1634,12 @@ und >> it
 
 ** test: und does not match en
 @supported=it, en
-# und >> it   # Apple, get en
+# und >> it   # rdar:// Apple, get en
 
 ** test: undefined in priority list
 @supported=it, und
 und >> und
-# en >> it   # Apple, get und
+# en >> it   # rdar:// Apple, get und
 
 ** test: undefined
 @supported=it, fr, zh

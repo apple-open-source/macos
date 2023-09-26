@@ -26,6 +26,8 @@
 #include <TargetConditionals.h>
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
+#include <fcntl.h>
+
 #include "SecurityCommands.h"
 
 #include <AssertMacros.h>
@@ -69,13 +71,26 @@ do_keychain_export(const char *backupPath, const char *keybagPath, const char *p
     CFDataRef password=NULL;
     bool ok=false;
 
-    if(passwordString) {
-        require(password = CFDataCreate(NULL, (UInt8 *)passwordString, strlen(passwordString)), out);
+    if (keybagPath) {
+        if(passwordString) {
+            require(password = CFDataCreate(NULL, (UInt8 *)passwordString, strlen(passwordString)), out);
+        }
+        require(keybag=copyFileContents(keybagPath), out);
+        require(backup=_SecKeychainCopyBackup(keybag, password), out);
+        ok=writeFileContents(backupPath, backup);
+    } else {
+        mode_t mode = 0644; // octal!
+        int fd = open(backupPath, O_RDWR|O_CREAT|O_TRUNC, mode);
+        if (fd < 0) {
+            sec_error("failed to open file %s (%d) %s", backupPath, errno, strerror(errno));
+            goto out;
+        }
+        CFErrorRef error = NULL;
+        ok = _SecKeychainWriteBackupToFileDescriptor(NULL, NULL, fd, &error);
+        if (!ok) {
+            sec_error("error: %ld", (long)CFErrorGetCode(error));
+        }
     }
-    require(keybag=copyFileContents(keybagPath), out);
-    require(backup=_SecKeychainCopyBackup(keybag, password), out);
-
-    ok=writeFileContents(backupPath, backup);
 
 out:
     CFReleaseSafe(backup);
@@ -157,17 +172,47 @@ keychain_export(int argc, char * const *argv)
     argc -= optind;
     argv += optind;
 
-    if(keybag==NULL) {
-        sec_error("-k is required\n");
+    if (keybag == NULL && password != NULL) {
+        sec_error("-k is required when -p is specified\n");
         return SHOW_USAGE_MESSAGE;
     }
 
     if (argc != 1) {
-        sec_error("<backup> is required\n");
+        sec_error("<plist> is required\n");
         return SHOW_USAGE_MESSAGE;
     }
 
     return do_keychain_export(argv[0], keybag, password);
+}
+
+int
+keychain_backup_get_uuid(int argc, char * const *argv)
+{
+    // Skip subcommand
+    argc--;
+    argv++;
+
+    if (argc != 1) {
+        sec_error("<plist> is required\n");
+        return SHOW_USAGE_MESSAGE;
+    }
+
+    const char* const backupPath = argv[0];
+    int fd = open(backupPath, O_RDWR);
+    if (fd < 0) {
+        sec_error("failed to open file %s (%d) %s", backupPath, errno, strerror(errno));
+        return 1;
+    }
+    CFErrorRef error = NULL;
+    CFStringRef uuidStr = _SecKeychainCopyKeybagUUIDFromFileDescriptor(fd, &error);
+    if (!uuidStr) {
+        sec_error("error: %ld", (long)CFErrorGetCode(error));
+        return 1;
+    }
+
+    printf("%s\n", CFStringGetCStringPtr(uuidStr, kCFStringEncodingUTF8));
+    CFReleaseNull(uuidStr);
+    return 0;
 }
 
 #endif /* TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR */

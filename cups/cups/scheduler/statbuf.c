@@ -45,11 +45,9 @@ cupsdStatBufDelete(cupsd_statbuf_t *sb)	/* I - Status buffer */
 
 cupsd_statbuf_t	*			/* O - New status buffer */
 cupsdStatBufNew(int        fd,		/* I - File descriptor of pipe */
-                const char *prefix,	/* I - Printf-style prefix string */
-		...)			/* I - Additional args as needed */
+                const char *prefix)	/* I - Prefix string */
 {
   cupsd_statbuf_t	*sb;		/* New status buffer */
-  va_list		ap;		/* Argument list */
 
 
  /*
@@ -82,9 +80,7 @@ cupsdStatBufNew(int        fd,		/* I - File descriptor of pipe */
       * Printf-style prefix string...
       */
 
-      va_start(ap, prefix);
-      vsnprintf(sb->prefix, sizeof(sb->prefix), prefix, ap);
-      va_end(ap);
+      strlcpy(sb->prefix, prefix, sizeof(sb->prefix));
     }
     else
     {

@@ -26,6 +26,8 @@
 #include "config.h"
 #include "StyleVisitedLinkColorData.h"
 
+#include "RenderStyleInlines.h"
+
 namespace WebCore {
 
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleVisitedLinkColorData);

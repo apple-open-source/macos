@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		2A114BEE2956520A005099EA /* tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2A114BEF2956520A005099EA /* Build configuration list for PBXAggregateTarget "tests" */;
+			buildPhases = (
+				2A114BF32956522B005099EA /* Copy m4 Files */,
+				2A114C5729565721005099EA /* Copy plist */,
+			);
+			dependencies = (
+			);
+			name = tests;
+			productName = tests;
+		};
 		723CE9B30FC36FAF00064057 /* Build All */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 723CE9C10FC36FEB00064057 /* Build configuration list for PBXAggregateTarget "Build All" */;
@@ -20,6 +32,7 @@
 				723CE9B80FC36FC600064057 /* PBXTargetDependency */,
 				53D2642B112DD86900FFBD9F /* PBXTargetDependency */,
 				723CE9B60FC36FC600064057 /* PBXTargetDependency */,
+				2A114BF22956521F005099EA /* PBXTargetDependency */,
 			);
 			name = "Build All";
 			productName = "Build All";
@@ -27,6 +40,56 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A114BDD29563666005099EA /* calendar.apple in Copy Calendar Files */ = {isa = PBXBuildFile; fileRef = 2A114BDB29563614005099EA /* calendar.apple */; };
+		2A114BDE29563669005099EA /* calendar.freebsd in Copy Calendar Files */ = {isa = PBXBuildFile; fileRef = 723CE9710FC36C6400064057 /* calendar.freebsd */; };
+		2A114BE0295636CA005099EA /* dates.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114BDF295636CA005099EA /* dates.c */; };
+		2A114BE2295636DD005099EA /* events.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114BE1295636DD005099EA /* events.c */; };
+		2A114BE4295636EA005099EA /* locale.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114BE3295636EA005099EA /* locale.c */; };
+		2A114BE629563723005099EA /* parsedata.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114BE529563723005099EA /* parsedata.c */; };
+		2A114BE929563739005099EA /* pom.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114BE729563739005099EA /* pom.c */; };
+		2A114BEA29563739005099EA /* sunpos.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114BE829563739005099EA /* sunpos.c */; };
+		2A114BF42956525B005099EA /* regress.m4 in Copy m4 Files */ = {isa = PBXBuildFile; fileRef = 2A114BED295651CB005099EA /* regress.m4 */; };
+		2A114C1F29565355005099EA /* calendar.calibrate in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114BFE295652BD005099EA /* calendar.calibrate */; };
+		2A114C2029565399005099EA /* calendar.comment in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C00295652BD005099EA /* calendar.comment */; };
+		2A114C212956539C005099EA /* calendar.cond in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C18295652BE005099EA /* calendar.cond */; };
+		2A114C22295653A1005099EA /* comment_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C14295652BE005099EA /* comment_test.sh */; };
+		2A114C23295653B5005099EA /* comment.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114BFA295652BD005099EA /* comment.sh */; };
+		2A114C24295653C9005099EA /* cond_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C09295652BE005099EA /* cond_test.sh */; };
+		2A114C25295653C9005099EA /* cond.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C1E295652BE005099EA /* cond.sh */; };
+		2A114C26295653C9005099EA /* legacy_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C11295652BE005099EA /* legacy_test.sh */; };
+		2A114C29295653C9005099EA /* regress.a3.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C06295652BD005099EA /* regress.a3.out */; };
+		2A114C2A295653C9005099EA /* regress.a4.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114BFD295652BD005099EA /* regress.a4.out */; };
+		2A114C2B295653C9005099EA /* regress.a5.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C19295652BE005099EA /* regress.a5.out */; };
+		2A114C31295653C9005099EA /* regress.comment.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114BF7295652BD005099EA /* regress.comment.out */; };
+		2A114C32295653C9005099EA /* regress.cond.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C0D295652BE005099EA /* regress.cond.out */; };
+		2A114C33295653C9005099EA /* regress.s1.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C01295652BD005099EA /* regress.s1.out */; };
+		2A114C34295653C9005099EA /* regress.s2.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C0E295652BE005099EA /* regress.s2.out */; };
+		2A114C35295653C9005099EA /* regress.s3.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C02295652BD005099EA /* regress.s3.out */; };
+		2A114C36295653C9005099EA /* regress.s4.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C17295652BE005099EA /* regress.s4.out */; };
+		2A114C37295653C9005099EA /* regress.s5.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114BFF295652BD005099EA /* regress.s5.out */; };
+		2A114C38295653C9005099EA /* regress.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C07295652BE005099EA /* regress.sh */; };
+		2A114C39295653C9005099EA /* regress.w0-1.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C1C295652BE005099EA /* regress.w0-1.out */; };
+		2A114C3A295653C9005099EA /* regress.w0-2.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114BF8295652BD005099EA /* regress.w0-2.out */; };
+		2A114C3B295653C9005099EA /* regress.w0-3.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C1D295652BE005099EA /* regress.w0-3.out */; };
+		2A114C3C295653C9005099EA /* regress.w0-4.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114BFC295652BD005099EA /* regress.w0-4.out */; };
+		2A114C3D295653C9005099EA /* regress.w0-5.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C15295652BE005099EA /* regress.w0-5.out */; };
+		2A114C3E295653C9005099EA /* regress.w0-6.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C10295652BE005099EA /* regress.w0-6.out */; };
+		2A114C3F295653C9005099EA /* regress.w0-7.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C1A295652BE005099EA /* regress.w0-7.out */; };
+		2A114C40295653C9005099EA /* regress.wn-1.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C0A295652BE005099EA /* regress.wn-1.out */; };
+		2A114C41295653C9005099EA /* regress.wn-2.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114BFB295652BD005099EA /* regress.wn-2.out */; };
+		2A114C42295653C9005099EA /* regress.wn-3.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C1B295652BE005099EA /* regress.wn-3.out */; };
+		2A114C43295653C9005099EA /* regress.wn-4.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C0B295652BE005099EA /* regress.wn-4.out */; };
+		2A114C44295653C9005099EA /* regress.wn-5.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C05295652BD005099EA /* regress.wn-5.out */; };
+		2A114C45295653C9005099EA /* regress.wn-6.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C0C295652BE005099EA /* regress.wn-6.out */; };
+		2A114C46295653C9005099EA /* regress.wn-7.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C16295652BE005099EA /* regress.wn-7.out */; };
+		2A114C4829565589005099EA /* regress.a1_apple.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C4729565584005099EA /* regress.a1_apple.out */; };
+		2A114C4A2956559B005099EA /* regress.a2_apple.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C4929565597005099EA /* regress.a2_apple.out */; };
+		2A114C5029565661005099EA /* regress.b1_apple.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C4B29565617005099EA /* regress.b1_apple.out */; };
+		2A114C5129565661005099EA /* regress.b2_apple.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C4C29565624005099EA /* regress.b2_apple.out */; };
+		2A114C5229565661005099EA /* regress.b3_apple.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C4D29565638005099EA /* regress.b3_apple.out */; };
+		2A114C5329565661005099EA /* regress.b4_apple.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C4E29565644005099EA /* regress.b4_apple.out */; };
+		2A114C5429565661005099EA /* regress.b5_apple.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A114C4F2956564D005099EA /* regress.b5_apple.out */; };
+		2A114C5829565741005099EA /* misc_cmds.plist in Copy plist */ = {isa = PBXBuildFile; fileRef = 2A114C5529565712005099EA /* misc_cmds.plist */; };
 		3E59B92E1D4939A700D3128C /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E59B92D1D4939A700D3128C /* libncurses.dylib */; };
 		3E59B92F1D4939B000D3128C /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E59B92D1D4939A700D3128C /* libncurses.dylib */; };
 		53D2641F112DD84700FFBD9F /* calendar.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9040FC34BFF00064057 /* calendar.c */; };
@@ -52,6 +115,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2A114BF12956521F005099EA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A114BEE2956520A005099EA;
+			remoteInfo = tests;
+		};
 		53D2642A112DD86900FFBD9F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
@@ -97,6 +167,90 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2A114BDC29563651005099EA /* Copy Calendar Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/share/calendar;
+			dstSubfolderSpec = 0;
+			files = (
+				2A114BDD29563666005099EA /* calendar.apple in Copy Calendar Files */,
+				2A114BDE29563669005099EA /* calendar.freebsd in Copy Calendar Files */,
+			);
+			name = "Copy Calendar Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A114BF32956522B005099EA /* Copy m4 Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/misc_cmds;
+			dstSubfolderSpec = 0;
+			files = (
+				2A114BF42956525B005099EA /* regress.m4 in Copy m4 Files */,
+			);
+			name = "Copy m4 Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A114BF52956527D005099EA /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/misc_cmds/calendar;
+			dstSubfolderSpec = 0;
+			files = (
+				2A114C1F29565355005099EA /* calendar.calibrate in Copy Test Files */,
+				2A114C2029565399005099EA /* calendar.comment in Copy Test Files */,
+				2A114C212956539C005099EA /* calendar.cond in Copy Test Files */,
+				2A114C22295653A1005099EA /* comment_test.sh in Copy Test Files */,
+				2A114C23295653B5005099EA /* comment.sh in Copy Test Files */,
+				2A114C24295653C9005099EA /* cond_test.sh in Copy Test Files */,
+				2A114C25295653C9005099EA /* cond.sh in Copy Test Files */,
+				2A114C26295653C9005099EA /* legacy_test.sh in Copy Test Files */,
+				2A114C4829565589005099EA /* regress.a1_apple.out in Copy Test Files */,
+				2A114C4A2956559B005099EA /* regress.a2_apple.out in Copy Test Files */,
+				2A114C29295653C9005099EA /* regress.a3.out in Copy Test Files */,
+				2A114C2A295653C9005099EA /* regress.a4.out in Copy Test Files */,
+				2A114C2B295653C9005099EA /* regress.a5.out in Copy Test Files */,
+				2A114C5029565661005099EA /* regress.b1_apple.out in Copy Test Files */,
+				2A114C5129565661005099EA /* regress.b2_apple.out in Copy Test Files */,
+				2A114C5229565661005099EA /* regress.b3_apple.out in Copy Test Files */,
+				2A114C5329565661005099EA /* regress.b4_apple.out in Copy Test Files */,
+				2A114C5429565661005099EA /* regress.b5_apple.out in Copy Test Files */,
+				2A114C31295653C9005099EA /* regress.comment.out in Copy Test Files */,
+				2A114C32295653C9005099EA /* regress.cond.out in Copy Test Files */,
+				2A114C33295653C9005099EA /* regress.s1.out in Copy Test Files */,
+				2A114C34295653C9005099EA /* regress.s2.out in Copy Test Files */,
+				2A114C35295653C9005099EA /* regress.s3.out in Copy Test Files */,
+				2A114C36295653C9005099EA /* regress.s4.out in Copy Test Files */,
+				2A114C37295653C9005099EA /* regress.s5.out in Copy Test Files */,
+				2A114C38295653C9005099EA /* regress.sh in Copy Test Files */,
+				2A114C39295653C9005099EA /* regress.w0-1.out in Copy Test Files */,
+				2A114C3A295653C9005099EA /* regress.w0-2.out in Copy Test Files */,
+				2A114C3B295653C9005099EA /* regress.w0-3.out in Copy Test Files */,
+				2A114C3C295653C9005099EA /* regress.w0-4.out in Copy Test Files */,
+				2A114C3D295653C9005099EA /* regress.w0-5.out in Copy Test Files */,
+				2A114C3E295653C9005099EA /* regress.w0-6.out in Copy Test Files */,
+				2A114C3F295653C9005099EA /* regress.w0-7.out in Copy Test Files */,
+				2A114C40295653C9005099EA /* regress.wn-1.out in Copy Test Files */,
+				2A114C41295653C9005099EA /* regress.wn-2.out in Copy Test Files */,
+				2A114C42295653C9005099EA /* regress.wn-3.out in Copy Test Files */,
+				2A114C43295653C9005099EA /* regress.wn-4.out in Copy Test Files */,
+				2A114C44295653C9005099EA /* regress.wn-5.out in Copy Test Files */,
+				2A114C45295653C9005099EA /* regress.wn-6.out in Copy Test Files */,
+				2A114C46295653C9005099EA /* regress.wn-7.out in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A114C5729565721005099EA /* Copy plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				2A114C5829565741005099EA /* misc_cmds.plist in Copy plist */,
+			);
+			name = "Copy plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		723CE8880FC3454E00064057 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -163,6 +317,62 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A114BDB29563614005099EA /* calendar.apple */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.apple; sourceTree = "<group>"; };
+		2A114BDF295636CA005099EA /* dates.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dates.c; sourceTree = "<group>"; };
+		2A114BE1295636DD005099EA /* events.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = events.c; sourceTree = "<group>"; };
+		2A114BE3295636EA005099EA /* locale.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = locale.c; sourceTree = "<group>"; };
+		2A114BE529563723005099EA /* parsedata.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parsedata.c; sourceTree = "<group>"; };
+		2A114BE729563739005099EA /* pom.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pom.c; sourceTree = "<group>"; };
+		2A114BE829563739005099EA /* sunpos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sunpos.c; sourceTree = "<group>"; };
+		2A114BED295651CB005099EA /* regress.m4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.m4; path = tests/regress.m4; sourceTree = "<group>"; };
+		2A114BF7295652BD005099EA /* regress.comment.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.comment.out; path = tests/regress.comment.out; sourceTree = "<group>"; };
+		2A114BF8295652BD005099EA /* regress.w0-2.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.w0-2.out"; path = "tests/regress.w0-2.out"; sourceTree = "<group>"; };
+		2A114BF9295652BD005099EA /* regress.b2.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.b2.out; path = tests/regress.b2.out; sourceTree = "<group>"; };
+		2A114BFA295652BD005099EA /* comment.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = comment.sh; path = tests/comment.sh; sourceTree = "<group>"; };
+		2A114BFB295652BD005099EA /* regress.wn-2.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.wn-2.out"; path = "tests/regress.wn-2.out"; sourceTree = "<group>"; };
+		2A114BFC295652BD005099EA /* regress.w0-4.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.w0-4.out"; path = "tests/regress.w0-4.out"; sourceTree = "<group>"; };
+		2A114BFD295652BD005099EA /* regress.a4.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.a4.out; path = tests/regress.a4.out; sourceTree = "<group>"; };
+		2A114BFE295652BD005099EA /* calendar.calibrate */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = calendar.calibrate; path = tests/calendar.calibrate; sourceTree = "<group>"; };
+		2A114BFF295652BD005099EA /* regress.s5.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.s5.out; path = tests/regress.s5.out; sourceTree = "<group>"; };
+		2A114C00295652BD005099EA /* calendar.comment */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = calendar.comment; path = tests/calendar.comment; sourceTree = "<group>"; };
+		2A114C01295652BD005099EA /* regress.s1.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.s1.out; path = tests/regress.s1.out; sourceTree = "<group>"; };
+		2A114C02295652BD005099EA /* regress.s3.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.s3.out; path = tests/regress.s3.out; sourceTree = "<group>"; };
+		2A114C03295652BD005099EA /* regress.a1.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.a1.out; path = tests/regress.a1.out; sourceTree = "<group>"; };
+		2A114C04295652BD005099EA /* regress.b4.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.b4.out; path = tests/regress.b4.out; sourceTree = "<group>"; };
+		2A114C05295652BD005099EA /* regress.wn-5.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.wn-5.out"; path = "tests/regress.wn-5.out"; sourceTree = "<group>"; };
+		2A114C06295652BD005099EA /* regress.a3.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.a3.out; path = tests/regress.a3.out; sourceTree = "<group>"; };
+		2A114C07295652BE005099EA /* regress.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = regress.sh; path = tests/regress.sh; sourceTree = "<group>"; };
+		2A114C08295652BE005099EA /* regress.b1.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.b1.out; path = tests/regress.b1.out; sourceTree = "<group>"; };
+		2A114C09295652BE005099EA /* cond_test.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = cond_test.sh; path = tests/cond_test.sh; sourceTree = "<group>"; };
+		2A114C0A295652BE005099EA /* regress.wn-1.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.wn-1.out"; path = "tests/regress.wn-1.out"; sourceTree = "<group>"; };
+		2A114C0B295652BE005099EA /* regress.wn-4.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.wn-4.out"; path = "tests/regress.wn-4.out"; sourceTree = "<group>"; };
+		2A114C0C295652BE005099EA /* regress.wn-6.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.wn-6.out"; path = "tests/regress.wn-6.out"; sourceTree = "<group>"; };
+		2A114C0D295652BE005099EA /* regress.cond.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.cond.out; path = tests/regress.cond.out; sourceTree = "<group>"; };
+		2A114C0E295652BE005099EA /* regress.s2.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.s2.out; path = tests/regress.s2.out; sourceTree = "<group>"; };
+		2A114C0F295652BE005099EA /* regress.a2.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.a2.out; path = tests/regress.a2.out; sourceTree = "<group>"; };
+		2A114C10295652BE005099EA /* regress.w0-6.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.w0-6.out"; path = "tests/regress.w0-6.out"; sourceTree = "<group>"; };
+		2A114C11295652BE005099EA /* legacy_test.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = legacy_test.sh; path = tests/legacy_test.sh; sourceTree = "<group>"; };
+		2A114C12295652BE005099EA /* regress.b3.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.b3.out; path = tests/regress.b3.out; sourceTree = "<group>"; };
+		2A114C13295652BE005099EA /* regress.b5.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.b5.out; path = tests/regress.b5.out; sourceTree = "<group>"; };
+		2A114C14295652BE005099EA /* comment_test.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = comment_test.sh; path = tests/comment_test.sh; sourceTree = "<group>"; };
+		2A114C15295652BE005099EA /* regress.w0-5.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.w0-5.out"; path = "tests/regress.w0-5.out"; sourceTree = "<group>"; };
+		2A114C16295652BE005099EA /* regress.wn-7.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.wn-7.out"; path = "tests/regress.wn-7.out"; sourceTree = "<group>"; };
+		2A114C17295652BE005099EA /* regress.s4.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.s4.out; path = tests/regress.s4.out; sourceTree = "<group>"; };
+		2A114C18295652BE005099EA /* calendar.cond */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = calendar.cond; path = tests/calendar.cond; sourceTree = "<group>"; };
+		2A114C19295652BE005099EA /* regress.a5.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = regress.a5.out; path = tests/regress.a5.out; sourceTree = "<group>"; };
+		2A114C1A295652BE005099EA /* regress.w0-7.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.w0-7.out"; path = "tests/regress.w0-7.out"; sourceTree = "<group>"; };
+		2A114C1B295652BE005099EA /* regress.wn-3.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.wn-3.out"; path = "tests/regress.wn-3.out"; sourceTree = "<group>"; };
+		2A114C1C295652BE005099EA /* regress.w0-1.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.w0-1.out"; path = "tests/regress.w0-1.out"; sourceTree = "<group>"; };
+		2A114C1D295652BE005099EA /* regress.w0-3.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "regress.w0-3.out"; path = "tests/regress.w0-3.out"; sourceTree = "<group>"; };
+		2A114C1E295652BE005099EA /* cond.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = cond.sh; path = tests/cond.sh; sourceTree = "<group>"; };
+		2A114C4729565584005099EA /* regress.a1_apple.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.a1_apple.out; path = tests/regress.a1_apple.out; sourceTree = "<group>"; };
+		2A114C4929565597005099EA /* regress.a2_apple.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.a2_apple.out; path = tests/regress.a2_apple.out; sourceTree = "<group>"; };
+		2A114C4B29565617005099EA /* regress.b1_apple.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.b1_apple.out; path = tests/regress.b1_apple.out; sourceTree = "<group>"; };
+		2A114C4C29565624005099EA /* regress.b2_apple.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.b2_apple.out; path = tests/regress.b2_apple.out; sourceTree = "<group>"; };
+		2A114C4D29565638005099EA /* regress.b3_apple.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.b3_apple.out; path = tests/regress.b3_apple.out; sourceTree = "<group>"; };
+		2A114C4E29565644005099EA /* regress.b4_apple.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.b4_apple.out; path = tests/regress.b4_apple.out; sourceTree = "<group>"; };
+		2A114C4F2956564D005099EA /* regress.b5_apple.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.b5_apple.out; path = tests/regress.b5_apple.out; sourceTree = "<group>"; };
+		2A114C5529565712005099EA /* misc_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = misc_cmds.plist; path = tests/misc_cmds.plist; sourceTree = "<group>"; };
 		3E59B92D1D4939A700D3128C /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = usr/lib/libncurses.dylib; sourceTree = SDKROOT; };
 		53D26428112DD84700FFBD9F /* cal */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cal; sourceTree = BUILT_PRODUCTS_DIR; };
 		723CE8580FC3436900064057 /* leave.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = leave.1; sourceTree = "<group>"; };
@@ -191,57 +401,7 @@
 		723CE95D0FC350FF00064057 /* ostern.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ostern.c; sourceTree = "<group>"; };
 		723CE95E0FC350FF00064057 /* paskha.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = paskha.c; sourceTree = "<group>"; };
 		723CE95F0FC350FF00064057 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
-		723CE96A0FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
-		723CE96B0FC36C6400064057 /* calendar.australia */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.australia; sourceTree = "<group>"; };
-		723CE96C0FC36C6400064057 /* calendar.birthday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.birthday; sourceTree = "<group>"; };
-		723CE96D0FC36C6400064057 /* calendar.christian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.christian; sourceTree = "<group>"; };
-		723CE96E0FC36C6400064057 /* calendar.computer */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.computer; sourceTree = "<group>"; };
-		723CE96F0FC36C6400064057 /* calendar.croatian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.croatian; sourceTree = "<group>"; };
-		723CE9700FC36C6400064057 /* calendar.dutch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.dutch; sourceTree = "<group>"; };
 		723CE9710FC36C6400064057 /* calendar.freebsd */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.freebsd; sourceTree = "<group>"; };
-		723CE9720FC36C6400064057 /* calendar.french */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.french; sourceTree = "<group>"; };
-		723CE9730FC36C6400064057 /* calendar.german */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.german; sourceTree = "<group>"; };
-		723CE9740FC36C6400064057 /* calendar.history */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.history; sourceTree = "<group>"; };
-		723CE9750FC36C6400064057 /* calendar.holiday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.holiday; sourceTree = "<group>"; };
-		723CE9760FC36C6400064057 /* calendar.hungarian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.hungarian; sourceTree = "<group>"; };
-		723CE9770FC36C6400064057 /* calendar.judaic */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.judaic; sourceTree = "<group>"; };
-		723CE9780FC36C6400064057 /* calendar.lotr */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.lotr; sourceTree = "<group>"; };
-		723CE9790FC36C6400064057 /* calendar.music */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.music; sourceTree = "<group>"; };
-		723CE97A0FC36C6400064057 /* calendar.newzealand */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.newzealand; sourceTree = "<group>"; };
-		723CE97B0FC36C6400064057 /* calendar.russian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.russian; sourceTree = "<group>"; };
-		723CE97C0FC36C6400064057 /* calendar.southafrica */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.southafrica; sourceTree = "<group>"; };
-		723CE97D0FC36C6400064057 /* calendar.ukrainian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.ukrainian; sourceTree = "<group>"; };
-		723CE97E0FC36C6400064057 /* calendar.usholiday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.usholiday; sourceTree = "<group>"; };
-		723CE97F0FC36C6400064057 /* calendar.world */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.world; sourceTree = "<group>"; };
-		723CE9810FC36C6400064057 /* calendar.feiertag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.feiertag; sourceTree = "<group>"; };
-		723CE9830FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
-		723CE9840FC36C6400064057 /* calendar.feiertag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.feiertag; sourceTree = "<group>"; };
-		723CE9850FC36C6400064057 /* calendar.geschichte */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.geschichte; sourceTree = "<group>"; };
-		723CE9860FC36C6400064057 /* calendar.kirche */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.kirche; sourceTree = "<group>"; };
-		723CE9870FC36C6400064057 /* calendar.literatur */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.literatur; sourceTree = "<group>"; };
-		723CE9880FC36C6400064057 /* calendar.musik */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.musik; sourceTree = "<group>"; };
-		723CE9890FC36C6400064057 /* calendar.wissenschaft */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.wissenschaft; sourceTree = "<group>"; };
-		723CE98B0FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
-		723CE98C0FC36C6400064057 /* calendar.fetes */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.fetes; sourceTree = "<group>"; };
-		723CE98D0FC36C6400064057 /* calendar.french */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.french; sourceTree = "<group>"; };
-		723CE98E0FC36C6400064057 /* calendar.jferies */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.jferies; sourceTree = "<group>"; };
-		723CE98F0FC36C6400064057 /* calendar.proverbes */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.proverbes; sourceTree = "<group>"; };
-		723CE9910FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
-		723CE9920FC36C6400064057 /* calendar.praznici */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.praznici; sourceTree = "<group>"; };
-		723CE9940FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
-		723CE9950FC36C6400064057 /* calendar.nevnapok */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.nevnapok; sourceTree = "<group>"; };
-		723CE9960FC36C6400064057 /* calendar.unnepek */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.unnepek; sourceTree = "<group>"; };
-		723CE9980FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
-		723CE9990FC36C6400064057 /* calendar.common */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.common; sourceTree = "<group>"; };
-		723CE99A0FC36C6400064057 /* calendar.holiday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.holiday; sourceTree = "<group>"; };
-		723CE99B0FC36C6400064057 /* calendar.military */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.military; sourceTree = "<group>"; };
-		723CE99C0FC36C6400064057 /* calendar.msk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.msk; sourceTree = "<group>"; };
-		723CE99D0FC36C6400064057 /* calendar.orthodox */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.orthodox; sourceTree = "<group>"; };
-		723CE99E0FC36C6400064057 /* calendar.pagan */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.pagan; sourceTree = "<group>"; };
-		723CE9A00FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
-		723CE9A10FC36C6400064057 /* calendar.holiday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.holiday; sourceTree = "<group>"; };
-		723CE9A20FC36C6400064057 /* calendar.misc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.misc; sourceTree = "<group>"; };
-		723CE9A30FC36C6400064057 /* calendar.orthodox */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.orthodox; sourceTree = "<group>"; };
 		723CE9C30FC378FD00064057 /* calendar.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = calendar.1; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -293,6 +453,69 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2A114BEC29565194005099EA /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A114C5529565712005099EA /* misc_cmds.plist */,
+				2A114BED295651CB005099EA /* regress.m4 */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A114BF6295652B1005099EA /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A114BFE295652BD005099EA /* calendar.calibrate */,
+				2A114C00295652BD005099EA /* calendar.comment */,
+				2A114C18295652BE005099EA /* calendar.cond */,
+				2A114C14295652BE005099EA /* comment_test.sh */,
+				2A114BFA295652BD005099EA /* comment.sh */,
+				2A114C09295652BE005099EA /* cond_test.sh */,
+				2A114C1E295652BE005099EA /* cond.sh */,
+				2A114C11295652BE005099EA /* legacy_test.sh */,
+				2A114C4729565584005099EA /* regress.a1_apple.out */,
+				2A114C03295652BD005099EA /* regress.a1.out */,
+				2A114C4929565597005099EA /* regress.a2_apple.out */,
+				2A114C0F295652BE005099EA /* regress.a2.out */,
+				2A114C06295652BD005099EA /* regress.a3.out */,
+				2A114BFD295652BD005099EA /* regress.a4.out */,
+				2A114C19295652BE005099EA /* regress.a5.out */,
+				2A114C4B29565617005099EA /* regress.b1_apple.out */,
+				2A114C08295652BE005099EA /* regress.b1.out */,
+				2A114C4C29565624005099EA /* regress.b2_apple.out */,
+				2A114BF9295652BD005099EA /* regress.b2.out */,
+				2A114C4D29565638005099EA /* regress.b3_apple.out */,
+				2A114C12295652BE005099EA /* regress.b3.out */,
+				2A114C4E29565644005099EA /* regress.b4_apple.out */,
+				2A114C04295652BD005099EA /* regress.b4.out */,
+				2A114C4F2956564D005099EA /* regress.b5_apple.out */,
+				2A114C13295652BE005099EA /* regress.b5.out */,
+				2A114BF7295652BD005099EA /* regress.comment.out */,
+				2A114C0D295652BE005099EA /* regress.cond.out */,
+				2A114C01295652BD005099EA /* regress.s1.out */,
+				2A114C0E295652BE005099EA /* regress.s2.out */,
+				2A114C02295652BD005099EA /* regress.s3.out */,
+				2A114C17295652BE005099EA /* regress.s4.out */,
+				2A114BFF295652BD005099EA /* regress.s5.out */,
+				2A114C07295652BE005099EA /* regress.sh */,
+				2A114C1C295652BE005099EA /* regress.w0-1.out */,
+				2A114BF8295652BD005099EA /* regress.w0-2.out */,
+				2A114C1D295652BE005099EA /* regress.w0-3.out */,
+				2A114BFC295652BD005099EA /* regress.w0-4.out */,
+				2A114C15295652BE005099EA /* regress.w0-5.out */,
+				2A114C10295652BE005099EA /* regress.w0-6.out */,
+				2A114C1A295652BE005099EA /* regress.w0-7.out */,
+				2A114C0A295652BE005099EA /* regress.wn-1.out */,
+				2A114BFB295652BD005099EA /* regress.wn-2.out */,
+				2A114C1B295652BE005099EA /* regress.wn-3.out */,
+				2A114C0B295652BE005099EA /* regress.wn-4.out */,
+				2A114C05295652BD005099EA /* regress.wn-5.out */,
+				2A114C0C295652BE005099EA /* regress.wn-6.out */,
+				2A114C16295652BE005099EA /* regress.wn-7.out */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
 		3E59B92C1D4939A700D3128C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -317,6 +540,7 @@
 				723CE8F60FC34BE400064057 /* ncal */,
 				723CE8C30FC3481100064057 /* units */,
 				723CE8540FC3432D00064057 /* leave */,
+				2A114BEC29565194005099EA /* tests */,
 				723CE8970FC3469A00064057 /* tsort */,
 			);
 			name = Source;
@@ -384,11 +608,18 @@
 				723CE9690FC36C6400064057 /* calendars */,
 				723CE9590FC350FF00064057 /* calendar.c */,
 				723CE95A0FC350FF00064057 /* calendar.h */,
+				2A114BDF295636CA005099EA /* dates.c */,
 				723CE95B0FC350FF00064057 /* day.c */,
+				2A114BE1295636DD005099EA /* events.c */,
 				723CE95C0FC350FF00064057 /* io.c */,
+				2A114BE3295636EA005099EA /* locale.c */,
 				723CE95D0FC350FF00064057 /* ostern.c */,
+				2A114BE529563723005099EA /* parsedata.c */,
 				723CE95E0FC350FF00064057 /* paskha.c */,
 				723CE95F0FC350FF00064057 /* pathnames.h */,
+				2A114BE729563739005099EA /* pom.c */,
+				2A114BE829563739005099EA /* sunpos.c */,
+				2A114BF6295652B1005099EA /* tests */,
 			);
 			path = calendar;
 			sourceTree = "<group>";
@@ -396,115 +627,10 @@
 		723CE9690FC36C6400064057 /* calendars */ = {
 			isa = PBXGroup;
 			children = (
-				723CE96A0FC36C6400064057 /* calendar.all */,
-				723CE96B0FC36C6400064057 /* calendar.australia */,
-				723CE96C0FC36C6400064057 /* calendar.birthday */,
-				723CE96D0FC36C6400064057 /* calendar.christian */,
-				723CE96E0FC36C6400064057 /* calendar.computer */,
-				723CE96F0FC36C6400064057 /* calendar.croatian */,
-				723CE9700FC36C6400064057 /* calendar.dutch */,
+				2A114BDB29563614005099EA /* calendar.apple */,
 				723CE9710FC36C6400064057 /* calendar.freebsd */,
-				723CE9720FC36C6400064057 /* calendar.french */,
-				723CE9730FC36C6400064057 /* calendar.german */,
-				723CE9740FC36C6400064057 /* calendar.history */,
-				723CE9750FC36C6400064057 /* calendar.holiday */,
-				723CE9760FC36C6400064057 /* calendar.hungarian */,
-				723CE9770FC36C6400064057 /* calendar.judaic */,
-				723CE9780FC36C6400064057 /* calendar.lotr */,
-				723CE9790FC36C6400064057 /* calendar.music */,
-				723CE97A0FC36C6400064057 /* calendar.newzealand */,
-				723CE97B0FC36C6400064057 /* calendar.russian */,
-				723CE97C0FC36C6400064057 /* calendar.southafrica */,
-				723CE97D0FC36C6400064057 /* calendar.ukrainian */,
-				723CE97E0FC36C6400064057 /* calendar.usholiday */,
-				723CE97F0FC36C6400064057 /* calendar.world */,
-				723CE9800FC36C6400064057 /* de_AT.ISO_8859-15 */,
-				723CE9820FC36C6400064057 /* de_DE.ISO8859-1 */,
-				723CE98A0FC36C6400064057 /* fr_FR.ISO8859-1 */,
-				723CE9900FC36C6400064057 /* hr_HR.ISO8859-2 */,
-				723CE9930FC36C6400064057 /* hu_HU.ISO8859-2 */,
-				723CE9970FC36C6400064057 /* ru_RU.KOI8-R */,
-				723CE99F0FC36C6400064057 /* uk_UA.KOI8-U */,
 			);
 			path = calendars;
-			sourceTree = "<group>";
-		};
-		723CE9800FC36C6400064057 /* de_AT.ISO_8859-15 */ = {
-			isa = PBXGroup;
-			children = (
-				723CE9810FC36C6400064057 /* calendar.feiertag */,
-			);
-			path = "de_AT.ISO_8859-15";
-			sourceTree = "<group>";
-		};
-		723CE9820FC36C6400064057 /* de_DE.ISO8859-1 */ = {
-			isa = PBXGroup;
-			children = (
-				723CE9830FC36C6400064057 /* calendar.all */,
-				723CE9840FC36C6400064057 /* calendar.feiertag */,
-				723CE9850FC36C6400064057 /* calendar.geschichte */,
-				723CE9860FC36C6400064057 /* calendar.kirche */,
-				723CE9870FC36C6400064057 /* calendar.literatur */,
-				723CE9880FC36C6400064057 /* calendar.musik */,
-				723CE9890FC36C6400064057 /* calendar.wissenschaft */,
-			);
-			path = "de_DE.ISO8859-1";
-			sourceTree = "<group>";
-		};
-		723CE98A0FC36C6400064057 /* fr_FR.ISO8859-1 */ = {
-			isa = PBXGroup;
-			children = (
-				723CE98B0FC36C6400064057 /* calendar.all */,
-				723CE98C0FC36C6400064057 /* calendar.fetes */,
-				723CE98D0FC36C6400064057 /* calendar.french */,
-				723CE98E0FC36C6400064057 /* calendar.jferies */,
-				723CE98F0FC36C6400064057 /* calendar.proverbes */,
-			);
-			path = "fr_FR.ISO8859-1";
-			sourceTree = "<group>";
-		};
-		723CE9900FC36C6400064057 /* hr_HR.ISO8859-2 */ = {
-			isa = PBXGroup;
-			children = (
-				723CE9910FC36C6400064057 /* calendar.all */,
-				723CE9920FC36C6400064057 /* calendar.praznici */,
-			);
-			path = "hr_HR.ISO8859-2";
-			sourceTree = "<group>";
-		};
-		723CE9930FC36C6400064057 /* hu_HU.ISO8859-2 */ = {
-			isa = PBXGroup;
-			children = (
-				723CE9940FC36C6400064057 /* calendar.all */,
-				723CE9950FC36C6400064057 /* calendar.nevnapok */,
-				723CE9960FC36C6400064057 /* calendar.unnepek */,
-			);
-			path = "hu_HU.ISO8859-2";
-			sourceTree = "<group>";
-		};
-		723CE9970FC36C6400064057 /* ru_RU.KOI8-R */ = {
-			isa = PBXGroup;
-			children = (
-				723CE9980FC36C6400064057 /* calendar.all */,
-				723CE9990FC36C6400064057 /* calendar.common */,
-				723CE99A0FC36C6400064057 /* calendar.holiday */,
-				723CE99B0FC36C6400064057 /* calendar.military */,
-				723CE99C0FC36C6400064057 /* calendar.msk */,
-				723CE99D0FC36C6400064057 /* calendar.orthodox */,
-				723CE99E0FC36C6400064057 /* calendar.pagan */,
-			);
-			path = "ru_RU.KOI8-R";
-			sourceTree = "<group>";
-		};
-		723CE99F0FC36C6400064057 /* uk_UA.KOI8-U */ = {
-			isa = PBXGroup;
-			children = (
-				723CE9A00FC36C6400064057 /* calendar.all */,
-				723CE9A10FC36C6400064057 /* calendar.holiday */,
-				723CE9A20FC36C6400064057 /* calendar.misc */,
-				723CE9A30FC36C6400064057 /* calendar.orthodox */,
-			);
-			path = "uk_UA.KOI8-U";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -603,7 +729,8 @@
 				723CE9480FC3505500064057 /* Sources */,
 				723CE9490FC3505500064057 /* Frameworks */,
 				723CE9DA0FC379A200064057 /* Copy manpage */,
-				72FA601A0FC497B500E6462C /* ShellScript */,
+				2A114BDC29563651005099EA /* Copy Calendar Files */,
+				2A114BF52956527D005099EA /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -620,6 +747,11 @@
 		723CE84B0FC342D200064057 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				TargetAttributes = {
+					2A114BEE2956520A005099EA = {
+						CreatedOnToolsVersion = 14.0;
+					};
+				};
 			};
 			buildConfigurationList = 723CE84E0FC342D200064057 /* Build configuration list for PBXProject "misc_cmds" */;
 			compatibilityVersion = "Xcode 3.1";
@@ -641,6 +773,7 @@
 				723CE8F20FC34BD300064057 /* ncal */,
 				723CE94A0FC3505500064057 /* calendar */,
 				53D2641D112DD84700FFBD9F /* cal */,
+				2A114BEE2956520A005099EA /* tests */,
 			);
 		};
 /* End PBXProject section */
@@ -676,19 +809,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "cp $DSTROOT/usr/share/man/man1/ncal.1 $DSTROOT/usr/share/man/man1/cal.1\n";
-		};
-		72FA601A0FC497B500E6462C /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/bash;
-			shellScript = "mkdir -p $DSTROOT/usr/share/calendar\ncp -R $SRCROOT/calendar/calendars/ $DSTROOT/usr/share/calendar/\nmkdir -p $DSTROOT/usr/share/calendar/de_DE.ISO8859-15\nmkdir -p $DSTROOT/usr/share/calendar/fr_FR.ISO8859-15\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -742,8 +862,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				723CE9600FC350FF00064057 /* calendar.c in Sources */,
+				2A114BE4295636EA005099EA /* locale.c in Sources */,
+				2A114BE629563723005099EA /* parsedata.c in Sources */,
 				723CE9610FC350FF00064057 /* day.c in Sources */,
 				723CE9620FC350FF00064057 /* io.c in Sources */,
+				2A114BEA29563739005099EA /* sunpos.c in Sources */,
+				2A114BE2295636DD005099EA /* events.c in Sources */,
+				2A114BE929563739005099EA /* pom.c in Sources */,
+				2A114BE0295636CA005099EA /* dates.c in Sources */,
 				723CE9630FC350FF00064057 /* ostern.c in Sources */,
 				723CE9640FC350FF00064057 /* paskha.c in Sources */,
 			);
@@ -752,6 +878,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2A114BF22956521F005099EA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A114BEE2956520A005099EA /* tests */;
+			targetProxy = 2A114BF12956521F005099EA /* PBXContainerItemProxy */;
+		};
 		53D2642B112DD86900FFBD9F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 53D2641D112DD84700FFBD9F /* cal */;
@@ -785,6 +916,14 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2A114BF02956520A005099EA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		53D26427112DD84700FFBD9F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -810,6 +949,7 @@
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GENERATE_MASTER_OBJECT_FILE = NO;
 				INSTALL_MODE_FLAG = "gou-w,a+rX";
 				INSTALL_PATH = /usr/bin;
@@ -901,6 +1041,7 @@
 				INSTALL_PATH = /usr/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = calendar;
+				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = YES;
 				ZERO_LINK = NO;
 			};
@@ -920,6 +1061,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2A114BEF2956520A005099EA /* Build configuration list for PBXAggregateTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A114BF02956520A005099EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		53D26426112DD84700FFBD9F /* Build configuration list for PBXNativeTarget "cal" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

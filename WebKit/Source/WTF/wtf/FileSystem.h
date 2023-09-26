@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include <span>
 #include <sys/types.h>
 #include <time.h>
 #include <utility>
@@ -50,22 +51,16 @@ typedef const struct __CFData* CFDataRef;
 OBJC_CLASS NSString;
 
 #if OS(WINDOWS)
-typedef void *HANDLE;
+#include <wtf/win/Win32Handle.h>
 #endif
 
-#if USE(GLIB)
-typedef struct _GFileIOStream GFileIOStream;
-#endif
 
 namespace WTF {
 
 namespace FileSystemImpl {
 
 // PlatformFileHandle
-#if USE(GLIB) && !OS(WINDOWS)
-typedef GFileIOStream* PlatformFileHandle;
-const PlatformFileHandle invalidPlatformFileHandle = nullptr;
-#elif OS(WINDOWS)
+#if OS(WINDOWS)
 typedef HANDLE PlatformFileHandle;
 // FIXME: -1 is INVALID_HANDLE_VALUE, defined in <winbase.h>. Chromium tries to
 // avoid using Windows headers in headers. We'd rather move this into the .cpp.
@@ -76,9 +71,7 @@ const PlatformFileHandle invalidPlatformFileHandle = -1;
 #endif
 
 // PlatformFileID
-#if USE(GLIB) && !OS(WINDOWS)
-typedef CString PlatformFileID;
-#elif OS(WINDOWS)
+#if OS(WINDOWS)
 typedef FILE_ID_128 PlatformFileID;
 #else
 typedef ino_t PlatformFileID;
@@ -136,6 +129,7 @@ WTF_EXPORT_PRIVATE bool makeAllDirectories(const String& path);
 WTF_EXPORT_PRIVATE String pathFileName(const String&);
 WTF_EXPORT_PRIVATE String parentPath(const String&);
 WTF_EXPORT_PRIVATE std::optional<uint64_t> volumeFreeSpace(const String&);
+WTF_EXPORT_PRIVATE std::optional<uint64_t> volumeCapacity(const String&);
 WTF_EXPORT_PRIVATE std::optional<uint32_t> volumeFileBlockSize(const String&);
 WTF_EXPORT_PRIVATE std::optional<int32_t> getFileDeviceId(const String&);
 WTF_EXPORT_PRIVATE bool createSymbolicLink(const String& targetPath, const String& symbolicLinkPath);
@@ -152,7 +146,9 @@ WTF_EXPORT_PRIVATE bool markPurgeable(const String&);
 WTF_EXPORT_PRIVATE Vector<String> listDirectory(const String& path); // Returns file names, not full paths.
 
 WTF_EXPORT_PRIVATE CString fileSystemRepresentation(const String&);
+#if !PLATFORM(WIN)
 WTF_EXPORT_PRIVATE String stringFromFileSystemRepresentation(const char*);
+#endif
 
 inline bool isHandleValid(const PlatformFileHandle& handle) { return handle != invalidPlatformFileHandle; }
 
@@ -160,7 +156,7 @@ using Salt = std::array<uint8_t, 8>;
 WTF_EXPORT_PRIVATE std::optional<Salt> readOrMakeSalt(const String& path);
 WTF_EXPORT_PRIVATE std::optional<Vector<uint8_t>> readEntireFile(PlatformFileHandle);
 WTF_EXPORT_PRIVATE std::optional<Vector<uint8_t>> readEntireFile(const String& path);
-WTF_EXPORT_PRIVATE int overwriteEntireFile(const String& path, Span<uint8_t>);
+WTF_EXPORT_PRIVATE int overwriteEntireFile(const String& path, std::span<uint8_t>);
 
 // Prefix is what the filename should be prefixed with, not the full path.
 WTF_EXPORT_PRIVATE String openTemporaryFile(StringView prefix, PlatformFileHandle&, StringView suffix = { });
@@ -197,6 +193,10 @@ WTF_EXPORT_PRIVATE String encodeForFileName(const String&);
 WTF_EXPORT_PRIVATE String decodeFromFilename(const String&);
 
 WTF_EXPORT_PRIVATE bool filesHaveSameVolume(const String&, const String&);
+
+#if !OS(WINDOWS)
+WTF_EXPORT_PRIVATE int posixFileDescriptor(PlatformFileHandle);
+#endif
 
 #if USE(CF)
 WTF_EXPORT_PRIVATE RetainPtr<CFURLRef> pathAsURL(const String&);
@@ -243,6 +243,9 @@ class MappedFileData {
 public:
     MappedFileData() { }
     MappedFileData(MappedFileData&&);
+    static std::optional<MappedFileData> create(const String& filePath, MappedFileMode);
+    static std::optional<MappedFileData> create(PlatformFileHandle, MappedFileMode);
+    static std::optional<MappedFileData> create(PlatformFileHandle, FileOpenMode, MappedFileMode);
     WTF_EXPORT_PRIVATE MappedFileData(const String& filePath, MappedFileMode, bool& success);
     WTF_EXPORT_PRIVATE MappedFileData(PlatformFileHandle, MappedFileMode, bool& success);
     WTF_EXPORT_PRIVATE MappedFileData(PlatformFileHandle, FileOpenMode, MappedFileMode, bool& success);
@@ -252,12 +255,13 @@ public:
     explicit operator bool() const { return !!m_fileData; }
     const void* data() const { return m_fileData; }
     unsigned size() const { return m_fileSize; }
+    std::span<const uint8_t> toSpan() { return { static_cast<const uint8_t *>(data()), size() }; }
 
 #if PLATFORM(COCOA)
     void* leakHandle() { return std::exchange(m_fileData, nullptr); }
 #endif
 #if OS(WINDOWS)
-    HANDLE fileMapping() const { return m_fileMapping; }
+    const Win32Handle& fileMapping() const { return m_fileMapping; }
 #endif
 
 private:
@@ -266,9 +270,39 @@ private:
     void* m_fileData { nullptr };
     unsigned m_fileSize { 0 };
 #if OS(WINDOWS)
-    HANDLE m_fileMapping { nullptr };
+    Win32Handle m_fileMapping;
 #endif
 };
+
+inline std::optional<MappedFileData> MappedFileData::create(const String& filePath, MappedFileMode mode)
+{
+    std::optional<MappedFileData> result;
+    bool success = false;
+    auto data = MappedFileData { filePath, mode, success };
+    if (success)
+        result = WTFMove(data);
+    return result;
+}
+
+inline std::optional<MappedFileData> MappedFileData::create(PlatformFileHandle handle, MappedFileMode mode)
+{
+    std::optional<MappedFileData> result;
+    bool success = false;
+    auto data = MappedFileData { handle, mode, success };
+    if (success)
+        result = WTFMove(data);
+    return result;
+}
+
+inline std::optional<MappedFileData> MappedFileData::create(PlatformFileHandle handle, FileOpenMode openMode, MappedFileMode mappedFileMode)
+{
+    std::optional<MappedFileData> result;
+    bool success = false;
+    auto data = MappedFileData { handle, openMode, mappedFileMode, success };
+    if (success)
+        result = WTFMove(data);
+    return result;
+}
 
 inline MappedFileData::MappedFileData(PlatformFileHandle handle, MappedFileMode mapMode, bool& success)
 {
@@ -284,7 +318,7 @@ inline MappedFileData::MappedFileData(MappedFileData&& other)
     : m_fileData(std::exchange(other.m_fileData, nullptr))
     , m_fileSize(std::exchange(other.m_fileSize, 0))
 #if OS(WINDOWS)
-    , m_fileMapping(std::exchange(other.m_fileMapping, nullptr))
+    , m_fileMapping(WTFMove(other.m_fileMapping))
 #endif
 {
 }
@@ -294,14 +328,14 @@ inline MappedFileData& MappedFileData::operator=(MappedFileData&& other)
     m_fileData = std::exchange(other.m_fileData, nullptr);
     m_fileSize = std::exchange(other.m_fileSize, 0);
 #if OS(WINDOWS)
-    m_fileMapping = std::exchange(other.m_fileMapping, nullptr);
+    m_fileMapping = WTFMove(other.m_fileMapping);
 #endif
     return *this;
 }
 
 // This creates the destination file, maps it, write the provided data to it and returns the mapped file.
 // This function fails if there is already a file at the destination path.
-WTF_EXPORT_PRIVATE MappedFileData mapToFile(const String& path, size_t bytesSize, Function<void(const Function<bool(Span<const uint8_t>)>&)>&& apply, PlatformFileHandle* = nullptr);
+WTF_EXPORT_PRIVATE MappedFileData mapToFile(const String& path, size_t bytesSize, Function<void(const Function<bool(std::span<const uint8_t>)>&)>&& apply, PlatformFileHandle* = nullptr);
 
 WTF_EXPORT_PRIVATE MappedFileData createMappedFileData(const String&, size_t, PlatformFileHandle* = nullptr);
 WTF_EXPORT_PRIVATE void finalizeMappedFileData(MappedFileData&, size_t);

@@ -31,6 +31,9 @@ fail(const char *fmt, ...)
     va_end(ap);
 }
 
+static NSString *kAccessGroup1 = @"keychain-test-secitemfunctionality-1";
+static NSString *kAccessGroup2 = @"keychain-test-secitemfunctionality-2";
+
 #if 0
 /*
  * Create item w/o data, try to make sure we end up in the OS X keychain
@@ -83,7 +86,7 @@ CheckItemAddDeleteNoData(void)
 
     NSDictionary *query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrAccount : @"item-delete-me",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
         (id)kSecUseDataProtectionKeychain: @YES,
@@ -120,12 +123,12 @@ CheckItemUpdateAccessGroupGENP(void)
 
     NSDictionary *clean1 = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecUseDataProtectionKeychain: @YES,
     };
     NSDictionary *clean2 = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
-        (id)kSecAttrAccessGroup : @"keychain-test2",
+        (id)kSecAttrAccessGroup : kAccessGroup2,
         (id)kSecUseDataProtectionKeychain: @YES,
     };
 
@@ -138,7 +141,7 @@ CheckItemUpdateAccessGroupGENP(void)
 
     NSDictionary *add = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrAccount : @"item-delete-me",
         (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
@@ -153,12 +156,12 @@ CheckItemUpdateAccessGroupGENP(void)
      */
     NSDictionary *query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrAccount : @"item-delete-me",
         (id)kSecUseDataProtectionKeychain: @YES,
     };
     NSDictionary *modified = @{
-        (id)kSecAttrAccessGroup : @"keychain-test2",
+        (id)kSecAttrAccessGroup : kAccessGroup2,
     };
 
     status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)modified);
@@ -170,7 +173,7 @@ CheckItemUpdateAccessGroupGENP(void)
      */
     NSDictionary *check1 = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrAccount : @"item-delete-me",
         (id)kSecUseDataProtectionKeychain: @YES,
     };
@@ -181,7 +184,7 @@ CheckItemUpdateAccessGroupGENP(void)
 
     NSDictionary *check2 = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
-        (id)kSecAttrAccessGroup : @"keychain-test2",
+        (id)kSecAttrAccessGroup : kAccessGroup2,
         (id)kSecAttrAccount : @"item-delete-me",
         (id)kSecUseDataProtectionKeychain: @YES,
     };
@@ -296,18 +299,18 @@ CheckItemUpdateAccessGroupIdentity(void)
 
     NSDictionary *clean1 = @{
         (id)kSecClass : (id)kSecClassIdentity,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
     };
     NSDictionary *clean2 = @{
         (id)kSecClass : (id)kSecClassIdentity,
-        (id)kSecAttrAccessGroup : @"keychain-test2",
+        (id)kSecAttrAccessGroup : kAccessGroup2,
     };
 
     (void)SecItemDelete((__bridge CFDictionaryRef)clean1);
     (void)SecItemDelete((__bridge CFDictionaryRef)clean2);
 
-    CheckIdentityItem(@"keychain-test1", errSecItemNotFound);
-    CheckIdentityItem(@"keychain-test2", errSecItemNotFound);
+    CheckIdentityItem(kAccessGroup1, errSecItemNotFound);
+    CheckIdentityItem(kAccessGroup2, errSecItemNotFound);
 
     SecIdentityRef identity = CreateTestIdentity();
     if (identity == NULL)
@@ -320,7 +323,7 @@ CheckItemUpdateAccessGroupIdentity(void)
 
     NSDictionary *add = @{
         (id)kSecValueRef : (__bridge id)identity,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrLabel : @"item-delete-me",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
         (id)kSecUseDataProtectionKeychain: @YES,
@@ -333,8 +336,8 @@ CheckItemUpdateAccessGroupIdentity(void)
     /*
      *
      */
-    CheckIdentityItem(@"keychain-test1", errSecSuccess);
-    CheckIdentityItem(@"keychain-test2", errSecItemNotFound);
+    CheckIdentityItem(kAccessGroup1, errSecSuccess);
+    CheckIdentityItem(kAccessGroup2, errSecItemNotFound);
 
 
     /*
@@ -342,12 +345,12 @@ CheckItemUpdateAccessGroupIdentity(void)
      */
     NSDictionary *query = @{
         (id)kSecClass : (id)kSecClassIdentity,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrLabel : @"item-delete-me",
         (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     NSDictionary *modified = @{
-        (id)kSecAttrAccessGroup : @"keychain-test2",
+        (id)kSecAttrAccessGroup : kAccessGroup2,
     };
 
     status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)modified);
@@ -358,8 +361,8 @@ CheckItemUpdateAccessGroupIdentity(void)
      *
      */
 
-    CheckIdentityItem(@"keychain-test1", errSecItemNotFound);
-    CheckIdentityItem(@"keychain-test2", errSecSuccess);
+    CheckIdentityItem(kAccessGroup1, errSecItemNotFound);
+    CheckIdentityItem(kAccessGroup2, errSecSuccess);
 
     /*
      * Check pref
@@ -368,7 +371,7 @@ CheckItemUpdateAccessGroupIdentity(void)
 
     NSDictionary *prefQuery = @{
         (id)kSecClass : (id)kSecClassIdentity,
-        (id)kSecAttrAccessGroup : @"keychain-test2",
+        (id)kSecAttrAccessGroup : kAccessGroup2,
         (id)kSecAttrLabel : @"item-delete-me",
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecReturnPersistentRef : (id)kCFBooleanTrue,
@@ -385,7 +388,7 @@ CheckItemUpdateAccessGroupIdentity(void)
         (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     NSDictionary *modified2 = @{
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
     };
 
     status = SecItemUpdate((__bridge CFDictionaryRef)query2, (__bridge CFDictionaryRef)modified2);
@@ -393,8 +396,8 @@ CheckItemUpdateAccessGroupIdentity(void)
         fail("update identity with pref fails differntly: %d", (int)status);
 
 /*
-    CheckIdentityItem(@"keychain-test1", errSecSuccess);
-    CheckIdentityItem(@"keychain-test2", errSecItemNotFound);
+    CheckIdentityItem(kAccessGroup1, errSecSuccess);
+    CheckIdentityItem(kAccessGroup2, errSecItemNotFound);
  */
 
 
@@ -406,8 +409,8 @@ CheckItemUpdateAccessGroupIdentity(void)
 
     CFRelease(identity);
 
-    CheckIdentityItem(@"keychain-test1", errSecItemNotFound);
-    CheckIdentityItem(@"keychain-test2", errSecItemNotFound);
+    CheckIdentityItem(kAccessGroup1, errSecItemNotFound);
+    CheckIdentityItem(kAccessGroup2, errSecItemNotFound);
 
 
     printf("[PASS] %s\n", __FUNCTION__);
@@ -426,7 +429,7 @@ CheckFindIdentityByReference(void)
      */
     NSDictionary *clean1 = @{
         (id)kSecClass : (id)kSecClassIdentity,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
     };
     (void)SecItemDelete((__bridge CFDictionaryRef)clean1);
 
@@ -440,7 +443,7 @@ CheckFindIdentityByReference(void)
 
     NSDictionary *add = @{
         (id)kSecValueRef : (__bridge id)identity,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrLabel : @"CheckItemReference",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
         (id)kSecUseDataProtectionKeychain: @YES,
@@ -480,7 +483,7 @@ CheckFindIdentityByReference(void)
 
     NSDictionary *query2 = @{
         (id)kSecClass : (id)kSecClassIdentity,
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrLabel : @"CheckItemReference",
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecReturnPersistentRef: (id)kCFBooleanTrue,
@@ -503,7 +506,7 @@ CheckFindIdentityByReference(void)
      */
 
     NSDictionary *query3 = @{
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecAttrLabel : @"CheckItemReference",
         (id)kSecValueRef : (__bridge id)identity,
         (id)kSecUseDataProtectionKeychain: @YES,
@@ -623,7 +626,7 @@ CheckItemPerformance(void)
     NSDictionary *clean1 = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrService : @"service",
-        (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecAttrAccessGroup : kAccessGroup1,
         (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     (void)SecItemDelete((__bridge CFDictionaryRef)clean1);
@@ -636,7 +639,7 @@ CheckItemPerformance(void)
             (id)kSecAttrAccount : [NSString stringWithFormat:@"account-%d", n],
             (id)kSecAttrService : @"service",
             (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
-            (id)kSecAttrAccessGroup : @"keychain-test1",
+            (id)kSecAttrAccessGroup : kAccessGroup1,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecValueData : data,
         };
@@ -663,7 +666,7 @@ CheckItemPerformance(void)
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
         (id)kSecUseDataProtectionKeychain: @YES,
     });
-    RunDigestPerfTest(@"Digest1000Items", (id)kSecClassGenericPassword, @"keychain-test1", 1000);
+    RunDigestPerfTest(@"Digest1000Items", (id)kSecClassGenericPassword, kAccessGroup1, 1000);
     RunCopyPerfTest(@"GetAttrOneItemUnique", @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccount : @"account-0",

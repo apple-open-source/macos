@@ -108,7 +108,7 @@
 // Returns any cert that CS has cached
 + (NSData* _Nullable)triggerCloudServicesPasscodeRequest:(NSString*)uuid serializedReason:(NSData *)serializedReason error:(NSError**)error
 {
-    SecureBackup* sb = [[SecureBackup alloc] init];
+    SecureBackup* sb = [[SecureBackup alloc] initWithUserActivityLabel:@"passcodeRequest"];
 
     SecureBackupEscrowReason *reason = [[SecureBackupEscrowReason alloc] initWithData:serializedReason];
 

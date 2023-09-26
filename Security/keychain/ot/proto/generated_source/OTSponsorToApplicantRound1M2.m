@@ -16,12 +16,12 @@
 @synthesize epoch = _epoch;
 - (void)setEpoch:(uint64_t)v
 {
-    _has.epoch = YES;
+    _has.epoch = (uint)YES;
     _epoch = v;
 }
 - (void)setHasEpoch:(BOOL)f
 {
-    _has.epoch = f;
+    _has.epoch = (uint)f;
 }
 - (BOOL)hasEpoch
 {
@@ -61,7 +61,7 @@ BOOL OTSponsorToApplicantRound1M2ReadFrom(__unsafe_unretained OTSponsorToApplica
 
             case 1 /* epoch */:
             {
-                self->_has.epoch = YES;
+                self->_has.epoch = (uint)YES;
                 self->_epoch = PBReaderReadUint64(reader);
             }
             break;

@@ -34,12 +34,12 @@
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "FileReaderLoader.h"
-#include "Frame.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "JSBlob.h"
 #include "JSDOMPromise.h"
 #include "JSDOMPromiseDeferred.h"
+#include "LocalFrame.h"
 #include "Page.h"
 #include "PasteboardCustomData.h"
 #include "SharedBuffer.h"
@@ -300,7 +300,7 @@ void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::sanitizeDataIfNee
         if (urlStringToSanitize.isEmpty())
             return;
 
-        m_data = { page->sanitizeLookalikeCharacters(urlStringToSanitize, LookalikeCharacterSanitizationTrigger::Copy) };
+        m_data = { page->applyLinkDecorationFiltering(urlStringToSanitize, LinkDecorationFilteringTrigger::Copy) };
     }
 
     if (m_type == "text/html"_s) {

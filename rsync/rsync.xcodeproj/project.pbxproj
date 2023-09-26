@@ -3,10 +3,21 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		2A96BE92298B85D100F1705B /* generate_wrapper */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2A96BE93298B85D100F1705B /* Build configuration list for PBXAggregateTarget "generate_wrapper" */;
+			buildPhases = (
+				2A96BE95298B85DA00F1705B /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = generate_wrapper;
+			productName = generate_wrapper;
+		};
 		596ED73A0FD5A75D00CCB493 /* Embedded */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 596ED73F0FD5A78D00CCB493 /* Build configuration list for PBXAggregateTarget "Embedded" */;
@@ -24,6 +35,7 @@
 			buildConfigurationList = 596ED7590FD5A7C900CCB493 /* Build configuration list for PBXAggregateTarget "rsyncd" */;
 			buildPhases = (
 				596ED7400FD5A79F00CCB493 /* rsyncd.conf */,
+				2E6DE558291885D800A58119 /* rsyncd.motd */,
 				596ED75B0FD5A86300CCB493 /* SysLibLD rsync.plist */,
 				2B4EC75D1ED372B100EA5042 /* enable all interfaces & ipv6 on bridgeOS */,
 				596ED7740FD5A9AB00CCB493 /* plutil & chmod */,
@@ -55,6 +67,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A96BEA4298B88CB00F1705B /* rsync.wrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A96BEA3298B88CB00F1705B /* rsync.wrapper.c */; };
+		2E6DE55A2918862100A58119 /* rsync.motd in rsyncd.motd */ = {isa = PBXBuildFile; fileRef = 2E6DE5592918860600A58119 /* rsync.motd */; };
+		2EE60D962996EB86005BA0D9 /* password_enabled.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EE60D952996EB86005BA0D9 /* password_enabled.c */; };
 		596ED6300FD4B93A00CCB493 /* rsync.c in Sources */ = {isa = PBXBuildFile; fileRef = 596ED62F0FD4B93A00CCB493 /* rsync.c */; };
 		596ED6350FD4B97400CCB493 /* popt.c in Sources */ = {isa = PBXBuildFile; fileRef = 5982AA310FD4B420003C9845 /* popt.c */; };
 		596ED65B0FD4BB2400CCB493 /* pool_alloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 5982AA300FD4B420003C9845 /* pool_alloc.c */; };
@@ -155,6 +170,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2A96BEAB298CC75D00F1705B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A96BE99298B885100F1705B;
+			remoteInfo = rsync_wrapper;
+		};
 		596ED73D0FD5A76F00CCB493 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -221,6 +243,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2E6DE558291885D800A58119 /* rsyncd.motd */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc;
+			dstSubfolderSpec = 0;
+			files = (
+				2E6DE55A2918862100A58119 /* rsync.motd in rsyncd.motd */,
+			);
+			name = rsyncd.motd;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		596ED6C30FD4C19600CCB493 /* man.1 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -290,7 +323,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		596ED5390FD4B88200CCB493 /* rsync */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rsync; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A96BE9A298B885100F1705B /* rsync */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rsync; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A96BEA3298B88CB00F1705B /* rsync.wrapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rsync.wrapper.c; sourceTree = "<group>"; };
+		2E6DE5592918860600A58119 /* rsync.motd */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rsync.motd; sourceTree = "<group>"; };
+		2EE60D952996EB86005BA0D9 /* password_enabled.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = password_enabled.c; sourceTree = "<group>"; };
+		596ED5390FD4B88200CCB493 /* rsync.samba */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rsync.samba; sourceTree = BUILT_PRODUCTS_DIR; };
 		596ED62F0FD4B93A00CCB493 /* rsync.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rsync.c; path = rsync/rsync.c; sourceTree = "<group>"; };
 		596ED6620FD4BB5C00CCB493 /* authenticate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = authenticate.c; path = rsync/authenticate.c; sourceTree = "<group>"; };
 		596ED6660FD4BB8F00CCB493 /* wildmatch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = wildmatch.c; path = rsync/lib/wildmatch.c; sourceTree = "<group>"; };
@@ -377,6 +414,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2A96BE97298B885100F1705B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		596ED9110FD5E5A800CCB493 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -432,9 +476,11 @@
 		08FB7794FE84155DC02AAC07 /* rsync */ = {
 			isa = PBXGroup;
 			children = (
+				2E6DE5592918860600A58119 /* rsync.motd */,
 				596ED75C0FD5A8C600CCB493 /* launchd */,
 				596ED7030FD5A1BA00CCB493 /* rsyncd.conf.5 */,
 				596ED6D30FD59D8800CCB493 /* rsync.txt */,
+				2A96BEA3298B88CB00F1705B /* rsync.wrapper.c */,
 				596ED6C40FD4C1A600CCB493 /* rsync.1 */,
 				596ED62E0FD4B91B00CCB493 /* Sources */,
 				5982A9D50FD4B106003C9845 /* rsync */,
@@ -448,13 +494,14 @@
 		1AB674ADFE9D54B511CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				596ED5390FD4B88200CCB493 /* rsync */,
+				596ED5390FD4B88200CCB493 /* rsync.samba */,
 				5984D6130FD72BE300CB9A13 /* tls */,
 				5984D6150FD72BF300CB9A13 /* getgroups */,
 				5984D6170FD72C2A00CB9A13 /* getfsdev */,
 				5984D6190FD72C4300CB9A13 /* trimslash */,
 				5984D61B0FD72C4E00CB9A13 /* t_unsafe */,
 				5984D61D0FD72C6400CB9A13 /* wildtest */,
+				2A96BE9A298B885100F1705B /* rsync */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -462,6 +509,7 @@
 		596ED62E0FD4B91B00CCB493 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				2EE60D952996EB86005BA0D9 /* password_enabled.c */,
 				5982A9E80FD4B29F003C9845 /* config.h */,
 				596EDA550FD5F20F00CCB493 /* shconfig */,
 				596ED9900FD5E91300CCB493 /* t_unsafe.c */,
@@ -547,6 +595,22 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2A96BE99298B885100F1705B /* rsync_wrapper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A96BE9E298B885100F1705B /* Build configuration list for PBXNativeTarget "rsync_wrapper" */;
+			buildPhases = (
+				2A96BE96298B885100F1705B /* Sources */,
+				2A96BE97298B885100F1705B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = rsync_wrapper;
+			productName = rsync;
+			productReference = 2A96BE9A298B885100F1705B /* rsync */;
+			productType = "com.apple.product-type.tool";
+		};
 		596ED9120FD5E5A800CCB493 /* tls */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 596ED91F0FD5E5DF00CCB493 /* Build configuration list for PBXNativeTarget "tls" */;
@@ -654,15 +718,17 @@
 				596ED6E20FD5A02900CCB493 /* gzip & chown */,
 				8DD76FAB0486AB0100D96B5E /* Sources */,
 				8DD76FAD0486AB0100D96B5E /* Frameworks */,
+				2A96BEAD298CD02700F1705B /* Install test files */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				2A96BEAC298CC75D00F1705B /* PBXTargetDependency */,
 			);
 			name = rsync;
 			productInstallPath = "$(HOME)/bin";
 			productName = rsync;
-			productReference = 596ED5390FD4B88200CCB493 /* rsync */;
+			productReference = 596ED5390FD4B88200CCB493 /* rsync.samba */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -672,6 +738,14 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0500;
+				TargetAttributes = {
+					2A96BE92298B85D100F1705B = {
+						CreatedOnToolsVersion = 14.3;
+					};
+					2A96BE99298B885100F1705B = {
+						CreatedOnToolsVersion = 14.3;
+					};
+				};
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "rsync" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -686,6 +760,7 @@
 			projectRoot = "";
 			targets = (
 				8DD76FA90486AB0100D96B5E /* rsync */,
+				2A96BE99298B885100F1705B /* rsync_wrapper */,
 				596ED9120FD5E5A800CCB493 /* tls */,
 				596ED9350FD5E74700CCB493 /* getgroups */,
 				596ED9640FD5E84800CCB493 /* getfsdev */,
@@ -695,11 +770,50 @@
 				596ED73A0FD5A75D00CCB493 /* Embedded */,
 				596ED7410FD5A79F00CCB493 /* rsyncd */,
 				596ED9090FD5E57600CCB493 /* testbots */,
+				2A96BE92298B85D100F1705B /* generate_wrapper */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2A96BE95298B85DA00F1705B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/rsync.wrapper",
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/rsync.wrapper.c",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "genwrap -o ${SRCROOT}/rsync.wrapper.c ${SRCROOT}/rsync.wrapper\n";
+		};
+		2A96BEAD298CD02700F1705B /* Install test files */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install test files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcscripts/install-test-files.sh\n";
+		};
 		2B4EC75D1ED372B100EA5042 /* enable all interfaces & ipv6 on bridgeOS */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -712,7 +826,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -xe\n# rdar:32306632\nif [ \"${RC_PLATFORM_NAME}\" == \"BridgeOS\" ]; then\n/usr/libexec/PlistBuddy -x \\\n    -c \"Delete :Sockets:Listeners:SockNodeName\" \\\n    -c \"Delete :Sockets:Listeners:SockFamily\" \\\n    ${DSTROOT}/System/Library/LaunchDaemons/rsync.plist\nfi";
+			shellScript = "set -xe\n# rdar:32306632\nif [ \"${RC_PLATFORM_NAME}\" == \"BridgeOS\" ]; then\n/usr/libexec/PlistBuddy -x \\\n    -c \"Delete :Sockets:Listeners:SockNodeName\" \\\n    -c \"Delete :Sockets:Listeners:SockFamily\" \\\n    ${DSTROOT}/System/Library/LaunchDaemons/rsync.plist\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		596ED6E20FD5A02900CCB493 /* gzip & chown */ = {
@@ -742,7 +856,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -xe\nplutil -convert binary1 ${DSTROOT}/System/Library/LaunchDaemons/rsync.plist\nchmod u-w ${DSTROOT}/System/Library/LaunchDaemons/rsync.plist\nchmod u-w ${DSTROOT}/private/etc/rsyncd.conf";
+			shellScript = "set -xe\nplutil -convert binary1 ${DSTROOT}/System/Library/LaunchDaemons/rsync.plist\nchmod u-w ${DSTROOT}/System/Library/LaunchDaemons/rsync.plist\nchmod u-w ${DSTROOT}/private/etc/rsyncd.conf\n";
 			showEnvVarsInLog = 0;
 		};
 		596ED9D40FD5EBC800CCB493 /* runtests.sh */ = {
@@ -778,6 +892,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2A96BE96298B885100F1705B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A96BEA4298B88CB00F1705B /* rsync.wrapper.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		596ED9100FD5E5A800CCB493 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -862,6 +984,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2EE60D962996EB86005BA0D9 /* password_enabled.c in Sources */,
 				5982A9E30FD4B24F003C9845 /* main.c in Sources */,
 				5982AA090FD4B3B8003C9845 /* io.c in Sources */,
 				5982AA470FD4B420003C9845 /* adler32.c in Sources */,
@@ -921,6 +1044,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2A96BEAC298CC75D00F1705B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A96BE99298B885100F1705B /* rsync_wrapper */;
+			targetProxy = 2A96BEAB298CC75D00F1705B /* PBXContainerItemProxy */;
+		};
 		596ED73E0FD5A76F00CCB493 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 8DD76FA90486AB0100D96B5E /* rsync */;
@@ -973,8 +1101,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = rsync;
+				INSTALL_PATH = /usr/libexec/rsync;
+				PRODUCT_NAME = rsync.samba;
 			};
 			name = Release;
 		};
@@ -999,6 +1127,64 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Werror=format-nonliteral";
 				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		2A96BE94298B85D100F1705B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		2A96BE9F298B885100F1705B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				INSTALL_PATH = /usr/bin;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = rsync;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -1086,6 +1272,22 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A96BE93298B85D100F1705B /* Build configuration list for PBXAggregateTarget "generate_wrapper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A96BE94298B85D100F1705B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A96BE9E298B885100F1705B /* Build configuration list for PBXNativeTarget "rsync_wrapper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A96BE9F298B885100F1705B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -76,6 +76,7 @@
 
 #include <kern/zalloc.h>
 #include <mach/boolean.h>
+#include <pexpert/pexpert.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -98,6 +99,7 @@
 #include <netinet/icmp_var.h>
 #include <netinet/udp.h>
 #include <netinet/udp_var.h>
+#include <netinet/udp_log.h>
 #include <sys/kdebug.h>
 
 #if IPSEC
@@ -228,7 +230,6 @@ struct pr_usrreqs udp_usrreqs = {
 	.pru_sockaddr =         in_getsockaddr,
 	.pru_sosend =           sosend,
 	.pru_soreceive =        soreceive,
-	.pru_soreceive_list =   soreceive_list,
 	.pru_defunct =          udp_defunct,
 };
 
@@ -250,6 +251,11 @@ udp_init(struct protosw *pp, struct domain *dp)
 		/* Improves 10GbE UDP performance. */
 		udp_recvspace = 786896;
 	}
+
+	if (PE_parse_boot_argn("udp_log", &udp_log_enable_flags, sizeof(udp_log_enable_flags))) {
+		os_log(OS_LOG_DEFAULT, "udp_init: set udp_log_enable_flags to 0x%x", udp_log_enable_flags);
+	}
+
 	LIST_INIT(&udb);
 	udbinfo.ipi_listhead = &udb;
 	udbinfo.ipi_hashbase = hashinit(UDBHASHSIZE, M_PCB,
@@ -2157,7 +2163,7 @@ sysctl_udp_sospace(struct sysctl_oid *oidp, void *arg1, int arg2,
 #pragma unused(arg1, arg2)
 	u_int32_t new_value = 0, *space_p = NULL;
 	int changed = 0, error = 0;
-	u_quad_t sb_effective_max = (sb_max / (MSIZE + MCLBYTES)) * MCLBYTES;
+	u_quad_t sb_effective_max = (sb_max / (SB_MSIZE_ADJ + MCLBYTES)) * MCLBYTES;
 
 	switch (oidp->oid_number) {
 	case UDPCTL_RECVSPACE:
@@ -2261,6 +2267,8 @@ udp_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 	}
 #endif /* NECP */
 
+	UDP_LOG_BIND(inp, error);
+
 	return error;
 }
 
@@ -2290,6 +2298,7 @@ udp_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 		if (error == 0) {
 			error = flow_divert_connect_out(so, nam, p);
 		}
+		UDP_LOG_CONNECT(inp, error);
 		return error;
 	}
 #endif /* FLOW_DIVERT */
@@ -2311,7 +2320,9 @@ udp_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 			inp_calc_flowhash(inp);
 			ASSERT(inp->inp_flowhash != 0);
 		}
+		inp->inp_connect_timestamp = mach_continuous_time();
 	}
+	UDP_LOG_CONNECT(inp, error);
 	return error;
 }
 
@@ -2438,6 +2449,8 @@ udp_detach(struct socket *so)
 		socket_post_kev_msg_closed(so);
 	}
 
+	UDP_LOG_CONNECTION_SUMMARY(inp);
+
 	in_pcbdetach(inp);
 	inp->inp_state = INPCB_STATE_DEAD;
 	return 0;
@@ -2455,6 +2468,8 @@ udp_disconnect(struct socket *so)
 	if (inp->inp_faddr.s_addr == INADDR_ANY) {
 		return ENOTCONN;
 	}
+
+	UDP_LOG_CONNECTION_SUMMARY(inp);
 
 	in_pcbdisconnect(inp);
 
@@ -2626,7 +2641,7 @@ udp_gc(struct inpcbinfo *ipi)
 		if (udp_gc_done == TRUE) {
 			udp_gc_done = FALSE;
 			/* couldn't get the lock, must lock next time */
-			atomic_add_32(&ipi->ipi_gc_req.intimer_fast, 1);
+			os_atomic_inc(&ipi->ipi_gc_req.intimer_fast, relaxed);
 			return;
 		}
 		lck_rw_lock_exclusive(&ipi->ipi_lock);
@@ -2652,7 +2667,7 @@ udp_gc(struct inpcbinfo *ipi)
 		 * and try the lock again during next round.
 		 */
 		if (!socket_try_lock(inp->inp_socket)) {
-			atomic_add_32(&ipi->ipi_gc_req.intimer_fast, 1);
+			os_atomic_inc(&ipi->ipi_gc_req.intimer_fast, relaxed);
 			continue;
 		}
 
@@ -2671,7 +2686,7 @@ udp_gc(struct inpcbinfo *ipi)
 			in_pcbdispose(inp);
 		} else {
 			socket_unlock(so, 0);
-			atomic_add_32(&ipi->ipi_gc_req.intimer_fast, 1);
+			os_atomic_inc(&ipi->ipi_gc_req.intimer_fast, relaxed);
 		}
 	}
 	lck_rw_done(&ipi->ipi_lock);

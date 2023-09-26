@@ -85,6 +85,11 @@
         _accessGroup = accessGroup;
 
         _currentPointerIdentifier = [NSString stringWithFormat:@"%@-%@", accessGroup, identifier];
+
+        _ckoperationGroup = ckoperationGroup;
+
+        // Updating a CIP is almost certainly user-initiated. We need to boost our CPU priority so CK will accept our boosted network priority <rdar://problem/49086080>
+        self.qualityOfService = NSQualityOfServiceUserInitiated;
     }
     return self;
 }
@@ -291,8 +296,6 @@
         self.modifyRecordsOperation = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave.allValues recordIDsToDelete:nil];
         self.modifyRecordsOperation.atomic = TRUE;
         // We're likely rolling a PCS identity, or creating a new one. User cares.
-        self.modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
-        self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
         self.modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
         if(SecCKKSHighPriorityOperations()) {
@@ -303,13 +306,13 @@
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
         self.modifyRecordsOperation.group = self.ckoperationGroup;
 
-        self.modifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
+        self.modifyRecordsOperation.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
             STRONGIFY(self);
 
             if(!error) {
-                ckksnotice("ckkscurrent", self.viewState.zoneID, "Current pointer upload successful for %@: %@", record.recordID.recordName, record);
+                ckksnotice("ckkscurrent", self.viewState.zoneID, "Current pointer upload successful for %@: %@", recordID.recordName, record);
             } else {
-                ckkserror("ckkscurrent", self.viewState.zoneID, "error on row: %@ %@", error, record);
+                ckkserror("ckkscurrent", self.viewState.zoneID, "error on row: %@ %@", error, recordID);
             }
         };
 
@@ -387,8 +390,6 @@
     self.fetchRecordsOperation = [[self.deps.cloudKitClassDependencies.fetchRecordsOperationClass alloc] initWithRecordIDs:@[ckme.item.storedCKRecord.recordID]];
 
     // We're likely rolling a PCS identity, or creating a new one. User cares.
-    self.fetchRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
-    self.fetchRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     self.fetchRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
     if(SecCKKSHighPriorityOperations()) {

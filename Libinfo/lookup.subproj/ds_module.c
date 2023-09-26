@@ -197,7 +197,7 @@ _od_xpc_pipe(bool resetPipe)
 		if (!issetugid() && od_debug_enabled()) {
 			__od_pipe = xpc_pipe_create(kODMachLibinfoPortNameDebug, 0);
 		} else {
-			__od_pipe = xpc_pipe_create(kODMachLibinfoPortName, XPC_PIPE_FLAG_PRIVILEGED);
+			__od_pipe = xpc_pipe_create(kODMachLibinfoPortName, XPC_PIPE_PRIVILEGED | XPC_PIPE_PROPAGATE_QOS);
 		}
 	}
 

@@ -1000,7 +1000,12 @@ SMBGetShareAttributes(SMBHANDLE inConnection, void *outAttrs)
         sattrs->session_hflags = session_prop.hflags;
         sattrs->session_hflags2 = session_prop.hflags2;
         sattrs->session_encrypt_cipher = session_prop.encrypt_cipher;
+        sattrs->session_signing_algorithm = session_prop.signing_algorithm;
 
+        /* Reconnect stats */
+        sattrs->session_reconnect_time = session_prop.ioc_session_reconnect_time;
+        sattrs->session_reconnect_count = session_prop.ioc_session_reconnect_count;
+        
         if (sattrs->session_misc_flags & SMBV_MNT_SNAPSHOT) {
             strlcpy(sattrs->snapshot_time, session_prop.snapshot_time,
                     sizeof(sattrs->snapshot_time));

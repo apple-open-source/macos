@@ -55,10 +55,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/freopen.c,v 1.21 2008/04/17 22:17:54 jhb 
  * all possible, no matter what.
  */
 FILE *
-freopen(file, mode, fp)
-	const char * __restrict file;
-	const char * __restrict mode;
-	FILE *fp;
+freopen(const char * __restrict file, const char * __restrict mode, FILE *fp)
 {
 	int f;
 	int dflags, flags, isopen, oflags, sverrno, wantfd;

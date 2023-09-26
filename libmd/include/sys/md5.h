@@ -41,9 +41,9 @@ documentation and/or software.
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#define MD5Init(c)		CC_MD5_Init(c)
-#define MD5Update(c, d, l)	CC_MD5_Update(c, d, l)
-#define MD5Final(d, c)		CC_MD5_Final(d, c)
+#define MD5Init		CC_MD5_Init
+#define MD5Update	CC_MD5_Update
+#define MD5Final	CC_MD5_Final
 
 __BEGIN_DECLS
 char * MD5End(MD5_CTX *, char *);

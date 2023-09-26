@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "JSExportMacros.h"
+
 #if ENABLE(LIBPAS_JIT_HEAP) && ENABLE(JIT)
 #include <wtf/CodePtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -42,6 +44,7 @@
 namespace JSC {
 
 #if ENABLE(LIBPAS_JIT_HEAP) && ENABLE(JIT)
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ExecutableMemoryHandle);
 class ExecutableMemoryHandle : public ThreadSafeRefCounted<ExecutableMemoryHandle> {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ExecutableMemoryHandle);
 

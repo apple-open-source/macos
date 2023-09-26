@@ -17,7 +17,10 @@
 #include "unicode/ustring.h"
 #include "unicode/parsepos.h"
 #include "unicode/uniset.h"
+#if APPLE_ICU_CHANGES
+// rdar://77347002 #222 (iOS: Sky: English/SA: Currency placement is incorrect in system and settings example.)
 #include "unicode/uscript.h"
+#endif // APPLE_ICU_CHANGES
 #include "unicode/usetiter.h"
 #include "unicode/utf16.h"
 #include "ustr_imp.h"
@@ -37,7 +40,10 @@
 #include "uresimp.h"
 #include "ureslocs.h"
 #include "ulocimp.h"
+#if APPLE_ICU_CHANGES
+// rdar://86727185 #282 (Please adopt InstallAPI & enable Deadstripping for: /usr/lib/libicucore.A.dylib)
 #include "ucurrimp.h"
+#endif // APPLE_ICU_CHANGES
 
 using namespace icu;
 
@@ -99,11 +105,11 @@ static const char CURRENCYPLURALS[] = "CurrencyPlurals";
 
 // ISO codes mapping table
 static const UHashtable* gIsoCodes = NULL;
-static icu::UInitOnce gIsoCodesInitOnce = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gIsoCodesInitOnce {};
 
 // Currency symbol equivalances
 static const icu::Hashtable* gCurrSymbolsEquiv = NULL;
-static icu::UInitOnce gCurrSymbolsEquivInitOnce = U_INITONCE_INITIALIZER;
+static icu::UInitOnce gCurrSymbolsEquivInitOnce {};
 
 U_NAMESPACE_BEGIN
 
@@ -240,7 +246,7 @@ isoCodes_cleanup(void)
         gIsoCodes = NULL;
     }
     gIsoCodesInitOnce.reset();
-    return TRUE;
+    return true;
 }
 
 /**
@@ -252,11 +258,11 @@ currSymbolsEquiv_cleanup(void)
     delete const_cast<icu::Hashtable *>(gCurrSymbolsEquiv);
     gCurrSymbolsEquiv = NULL;
     gCurrSymbolsEquivInitOnce.reset();
-    return TRUE;
+    return true;
 }
 
 /**
- * Deleter for OlsonToMetaMappingEntry
+ * Deleter for IsoCodeEntry
  */
 static void U_CALLCONV
 deleteIsoCodeEntry(void *obj) {
@@ -351,7 +357,7 @@ _findMetaData(const UChar* currency, UErrorCode& ec) {
 static void
 idForLocale(const char* locale, char* countryAndVariant, int capacity, UErrorCode* ec)
 {
-    ulocimp_getRegionForSupplementalData(locale, FALSE, countryAndVariant, capacity, ec);
+    ulocimp_getRegionForSupplementalData(locale, false, countryAndVariant, capacity, ec);
 }
 
 // ------------------------------------------
@@ -411,7 +417,7 @@ struct CReg : public icu::UMemory {
     }
 
     static UBool unreg(UCurrRegistryKey key) {
-        UBool found = FALSE;
+        UBool found = false;
         umtx_lock(&gCRegLock);
 
         CReg** p = &gCRegHead;
@@ -419,7 +425,7 @@ struct CReg : public icu::UMemory {
             if (*p == key) {
                 *p = ((CReg*)key)->next;
                 delete (CReg*)key;
-                found = TRUE;
+                found = true;
                 break;
             }
             p = &((*p)->next);
@@ -478,7 +484,7 @@ ucurr_unregister(UCurrRegistryKey key, UErrorCode* status)
     if (status && U_SUCCESS(*status)) {
         return CReg::unreg(key);
     }
-    return FALSE;
+    return false;
 }
 #endif /* UCONFIG_NO_SERVICE */
 
@@ -505,7 +511,7 @@ static UBool U_CALLCONV currency_cleanup(void) {
     isoCodes_cleanup();
     currSymbolsEquiv_cleanup();
 
-    return TRUE;
+    return true;
 }
 U_CDECL_END
 
@@ -568,9 +574,32 @@ ucurr_forLocale(const char* locale,
         UResourceBundle *rb = ures_openDirect(U_ICUDATA_CURR, CURRENCY_DATA, &localStatus);
         UResourceBundle *cm = ures_getByKey(rb, CURRENCY_MAP, rb, &localStatus);
         UResourceBundle *countryArray = ures_getByKey(rb, id, cm, &localStatus);
-        UResourceBundle *currencyReq = ures_getByIndex(countryArray, 0, NULL, &localStatus);
-        s = ures_getStringByKey(currencyReq, "id", &resLen, &localStatus);
-        ures_close(currencyReq);
+        // https://unicode-org.atlassian.net/browse/ICU-21997
+        // Prefer to use currencies that are legal tender.
+        if (U_SUCCESS(localStatus)) {
+            int32_t arrayLength = ures_getSize(countryArray);
+            for (int32_t i = 0; i < arrayLength; ++i) {
+                LocalUResourceBundlePointer currencyReq(
+                    ures_getByIndex(countryArray, i, nullptr, &localStatus));
+                // The currency is legal tender if it is *not* marked with tender{"false"}.
+                UErrorCode tenderStatus = localStatus;
+                const UChar *tender =
+                    ures_getStringByKey(currencyReq.getAlias(), "tender", nullptr, &tenderStatus);
+                bool isTender = U_FAILURE(tenderStatus) || u_strcmp(tender, u"false") != 0;
+                if (!isTender && s != nullptr) {
+                    // We already have a non-tender currency. Ignore all following non-tender ones.
+                    continue;
+                }
+                // Fetch the currency code.
+                s = ures_getStringByKey(currencyReq.getAlias(), "id", &resLen, &localStatus);
+                if (isTender) {
+                    break;
+                }
+            }
+            if (U_SUCCESS(localStatus) && s == nullptr) {
+                localStatus = U_MISSING_RESOURCE_ERROR;
+            }
+        }
         ures_close(countryArray);
     }
 
@@ -600,12 +629,12 @@ ucurr_forLocale(const char* locale,
  * Modify the given locale name by removing the rightmost _-delimited
  * element.  If there is none, empty the string ("" == root).
  * NOTE: The string "root" is not recognized; do not use it.
- * @return TRUE if the fallback happened; FALSE if locale is already
+ * @return true if the fallback happened; false if locale is already
  * root ("").
  */
 static UBool fallback(char *loc) {
     if (!*loc) {
-        return FALSE;
+        return false;
     }
     UErrorCode status = U_ZERO_ERROR;
     if (uprv_strcmp(loc, "en_GB") == 0) {
@@ -625,7 +654,7 @@ static UBool fallback(char *loc) {
     }
     *i = 0;
  */
-    return TRUE;
+    return true;
 }
 
 
@@ -685,8 +714,15 @@ ucurr_getName(const UChar* currency,
     T_CString_toUpperCase(buf);
     
     const UChar* s = NULL;
+#if APPLE_ICU_CHANGES
+// rdar://79879611 #254 (SEED: Wrong currency symbol for en_KH)
     UChar32 s0 = 0;
+#endif // APPLE_ICU_CHANGES
     ec2 = U_ZERO_ERROR;
+#if APPLE_ICU_CHANGES
+// rdar://62548298 #197 ([Mixed locale] Improve locale fallback for currency symbols)
+// rdar://77347002 #222 (iOS: Sky: English/SA: Currency placement is incorrect in system and settings example.)
+// rdar://97268297&97100652 #337 (Currency formatting with locale “zh-Hant_US@currency=USD” returns “US$” rather than “$”)
     UBool didFallBackByCountry = false;
     LocalUResourceBundlePointer languageRB(ures_open(U_ICUDATA_CURR, loc, &ec2));
     LocalUResourceBundlePointer countryRB(ures_openWithCountryFallback(U_ICUDATA_CURR, loc, &didFallBackByCountry, &ec2));
@@ -697,7 +733,10 @@ ucurr_getName(const UChar* currency,
             languageLocaleScripts[0] = USCRIPT_COMMON;
         }
     }
-    
+#else
+    LocalUResourceBundlePointer rb(ures_open(U_ICUDATA_CURR, loc, &ec2));
+#endif // APPLE_ICU_CHANGES
+
     if (nameStyle == UCURR_NARROW_SYMBOL_NAME || nameStyle == UCURR_FORMAL_SYMBOL_NAME || nameStyle == UCURR_VARIANT_SYMBOL_NAME) {
         CharString key;
         switch (nameStyle) {
@@ -716,6 +755,11 @@ ucurr_getName(const UChar* currency,
         }
         key.append("/", ec2);
         key.append(buf, ec2);
+#if APPLE_ICU_CHANGES
+// rdar://62548298 #197 ([Mixed locale] Improve locale fallback for currency symbols)
+// rdar://77347002 #222 (iOS: Sky: English/SA: Currency placement is incorrect in system and settings example.)
+// rdar://79879611 #254 (SEED: Wrong currency symbol for en_KH)
+// rdar://97268297&97100652 #337 (Currency formatting with locale “zh-Hant_US@currency=USD” returns “US$” rather than “$”)
         if (didFallBackByCountry) {
             s = ures_getStringByKeyWithFallback(countryRB.getAlias(), key.data(), len, &ec2);
             if (U_SUCCESS(ec2)) {
@@ -736,6 +780,9 @@ ucurr_getName(const UChar* currency,
             }
             s = ures_getStringByKeyWithFallback(languageRB.getAlias(), key.data(), len, &ec2);
         }
+#else
+        s = ures_getStringByKeyWithFallback(rb.getAlias(), key.data(), len, &ec2);
+#endif // APPLE_ICU_CHANGES
         if (ec2 == U_MISSING_RESOURCE_ERROR) {
             *ec = U_USING_FALLBACK_WARNING;
             ec2 = U_ZERO_ERROR;
@@ -743,6 +790,11 @@ ucurr_getName(const UChar* currency,
         }
     }
     if (s == NULL) {
+#if APPLE_ICU_CHANGES
+// rdar://62548298 #197 ([Mixed locale] Improve locale fallback for currency symbols)
+// rdar://77347002 #222 (iOS: Sky: English/SA: Currency placement is incorrect in system and settings example.)
+// rdar://79879611 #254 (SEED: Wrong currency symbol for en_KH)
+// rdar://97268297&97100652 #337 (Currency formatting with locale “zh-Hant_US@currency=USD” returns “US$” rather than “$”)
         if (choice != UCURR_LONG_NAME && didFallBackByCountry) {
             // if we're looking up a symbol (not a long name), look in the country resource first
             ures_getByKey(countryRB.getAlias(), CURRENCIES, countryRB.getAlias(), &ec2);
@@ -757,7 +809,7 @@ ucurr_getName(const UChar* currency,
                     s = NULL;
                 }
             }
-       }
+        }
 
         // if we're looking for a long name, or we looked for the symbol and the country resource and got back
         // the ISO code, try again in the language resource
@@ -769,7 +821,12 @@ ucurr_getName(const UChar* currency,
             ures_getByKeyWithFallback(languageRB.getAlias(), buf, languageRB.getAlias(), &ec2);
             s = ures_getStringByIndex(languageRB.getAlias(), choice, len, &ec2);
         }
-        }
+#else
+        ures_getByKey(rb.getAlias(), CURRENCIES, rb.getAlias(), &ec2);
+        ures_getByKeyWithFallback(rb.getAlias(), buf, rb.getAlias(), &ec2);
+        s = ures_getStringByIndex(rb.getAlias(), choice, len, &ec2);
+#endif // APPLE_ICU_CHANGES
+    }
 
     // If we've succeeded we're done.  Otherwise, try to fallback.
     // If that fails (because we are already at root) then exit.
@@ -783,7 +840,7 @@ ucurr_getName(const UChar* currency,
     // We no longer support choice format data in names.  Data should not contain
     // choice patterns.
     if (isChoiceFormat != NULL) {
-        *isChoiceFormat = FALSE;
+        *isChoiceFormat = false;
     }
     if (U_SUCCESS(ec2)) {
         U_ASSERT(s != NULL);
@@ -950,7 +1007,7 @@ getCurrencyNameCount(const char* loc, int32_t* total_currency_name_count, int32_
             s = ures_getStringByIndex(names, UCURR_SYMBOL_NAME, &len, &ec2);
             ++(*total_currency_symbol_count);  // currency symbol
             if (currencySymbolsEquiv != NULL) {
-                *total_currency_symbol_count += countEquivalent(*currencySymbolsEquiv, UnicodeString(TRUE, s, len));
+                *total_currency_symbol_count += countEquivalent(*currencySymbolsEquiv, UnicodeString(true, s, len));
             }
             ++(*total_currency_symbol_count); // iso code
             ++(*total_currency_name_count); // long name
@@ -1071,7 +1128,7 @@ collectCurrencyNames(const char* locale,
             (*currencySymbols)[(*total_currency_symbol_count)++].currencyNameLen = len;
             // Add equivalent symbols
             if (currencySymbolsEquiv != NULL) {
-                UnicodeString str(TRUE, s, len);
+                UnicodeString str(true, s, len);
                 icu::EquivIterator iter(*currencySymbolsEquiv, str);
                 const UnicodeString *symbol;
                 while ((symbol = iter.next()) != NULL) {
@@ -1455,7 +1512,7 @@ currency_cache_cleanup(void) {
             currCache[i] = 0;
         }
     }
-    return TRUE;
+    return true;
 }
 
 
@@ -1751,7 +1808,8 @@ typedef struct UCurrencyContext {
 Please keep this list in alphabetical order.
 You can look at the CLDR supplemental data or ISO-4217 for the meaning of some
 of these items.
-ISO-4217: https://www.iso.org/iso-4217-currency-codes.html
+ISO-4217: http://www.iso.org/iso/en/prods-services/popstds/currencycodeslist.html
+(Apple ICU updates link to be https://www.iso.org/iso-4217-currency-codes.html)
 */
 static const struct CurrencyList {
     const char *currency;
@@ -1982,6 +2040,7 @@ static const struct CurrencyList {
     {"SHP", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SIT", UCURR_COMMON|UCURR_DEPRECATED},
     {"SKK", UCURR_COMMON|UCURR_DEPRECATED},
+    {"SLE", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SLL", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SOS", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SRD", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -2019,6 +2078,7 @@ static const struct CurrencyList {
     {"UYW", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"UZS", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VEB", UCURR_COMMON|UCURR_DEPRECATED},
+    {"VED", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"VEF", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VES", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VND", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -2274,19 +2334,19 @@ U_CAPI UBool U_EXPORT2
 ucurr_isAvailable(const UChar* isoCode, UDate from, UDate to, UErrorCode* eErrorCode) {
     umtx_initOnce(gIsoCodesInitOnce, &initIsoCodes, *eErrorCode);
     if (U_FAILURE(*eErrorCode)) {
-        return FALSE;
+        return false;
     }
 
     IsoCodeEntry* result = (IsoCodeEntry *) uhash_get(gIsoCodes, isoCode);
     if (result == NULL) {
-        return FALSE;
+        return false;
     } else if (from > to) {
         *eErrorCode = U_ILLEGAL_ARGUMENT_ERROR;
-        return FALSE;
+        return false;
     } else if  ((from > result->to) || (to < result->from)) {
-        return FALSE;
+        return false;
     }
-    return TRUE;
+    return true;
 }
 
 static const icu::Hashtable* getCurrSymbolsEquiv() {
@@ -2591,7 +2651,7 @@ static const UEnumeration defaultKeywordValues = {
 U_CAPI UEnumeration *U_EXPORT2 ucurr_getKeywordValuesForLocale(const char *key, const char *locale, UBool commonlyUsed, UErrorCode* status) {
     // Resolve region
     char prefRegion[ULOC_COUNTRY_CAPACITY];
-    ulocimp_getRegionForSupplementalData(locale, TRUE, prefRegion, sizeof(prefRegion), status);
+    ulocimp_getRegionForSupplementalData(locale, true, prefRegion, sizeof(prefRegion), status);
     
     // Read value from supplementalData
     UList *values = ulist_createEmptyList(status);
@@ -2624,7 +2684,7 @@ U_CAPI UEnumeration *U_EXPORT2 ucurr_getKeywordValuesForLocale(const char *key, 
             break;
         }
         const char *region = ures_getKey(&bundlekey);
-        UBool isPrefRegion = uprv_strcmp(region, prefRegion) == 0 ? TRUE : FALSE;
+        UBool isPrefRegion = uprv_strcmp(region, prefRegion) == 0 ? true : false;
         if (!isPrefRegion && commonlyUsed) {
             // With commonlyUsed=true, we do not put
             // currencies for other regions in the
@@ -2649,7 +2709,7 @@ U_CAPI UEnumeration *U_EXPORT2 ucurr_getKeywordValuesForLocale(const char *key, 
             }
 
 #if U_CHARSET_FAMILY==U_ASCII_FAMILY
-            ures_getUTF8StringByKey(&curbndl, "id", curID, &curIDLength, TRUE, status);
+            ures_getUTF8StringByKey(&curbndl, "id", curID, &curIDLength, true, status);
             /* optimize - use the utf-8 string */
 #else
             {
@@ -2667,19 +2727,19 @@ U_CAPI UEnumeration *U_EXPORT2 ucurr_getKeywordValuesForLocale(const char *key, 
             if (U_FAILURE(*status)) {
                 break;
             }
-            UBool hasTo = FALSE;
+            UBool hasTo = false;
             ures_getByKey(&curbndl, "to", &to, status);
             if (U_FAILURE(*status)) {
                 // Do nothing here...
                 *status = U_ZERO_ERROR;
             } else {
-                hasTo = TRUE;
+                hasTo = true;
             }
             if (isPrefRegion && !hasTo && !ulist_containsString(values, curID, (int32_t)uprv_strlen(curID))) {
                 // Currently active currency for the target country
-                ulist_addItemEndList(values, curID, TRUE, status);
+                ulist_addItemEndList(values, curID, true, status);
             } else if (!ulist_containsString(otherValues, curID, (int32_t)uprv_strlen(curID)) && !commonlyUsed) {
-                ulist_addItemEndList(otherValues, curID, TRUE, status);
+                ulist_addItemEndList(otherValues, curID, true, status);
             } else {
                 uprv_free(curID);
             }
@@ -2692,7 +2752,7 @@ U_CAPI UEnumeration *U_EXPORT2 ucurr_getKeywordValuesForLocale(const char *key, 
                 // This could happen if no valid region is supplied in the input
                 // locale. In this case, we use the CLDR's default.
                 uenum_close(en);
-                en = ucurr_getKeywordValuesForLocale(key, "und", TRUE, status);
+                en = ucurr_getKeywordValuesForLocale(key, "und", true, status);
             }
         } else {
             // Consolidate the list
@@ -2702,7 +2762,7 @@ U_CAPI UEnumeration *U_EXPORT2 ucurr_getKeywordValuesForLocale(const char *key, 
                 if (!ulist_containsString(values, value, (int32_t)uprv_strlen(value))) {
                     char *tmpValue = (char *)uprv_malloc(sizeof(char) * ULOC_KEYWORDS_CAPACITY);
                     uprv_memcpy(tmpValue, value, uprv_strlen(value) + 1);
-                    ulist_addItemEndList(values, tmpValue, TRUE, status);
+                    ulist_addItemEndList(values, tmpValue, true, status);
                     if (U_FAILURE(*status)) {
                         break;
                     }

@@ -1572,6 +1572,7 @@ keychain_set_key_partition_list(int argc, char * const *argv) {
                 break;
             case 'r':
                 CFDictionarySetValue(query, kSecAttrCanDerive, kCFBooleanTrue);
+                break;
             case 's':
                 CFDictionarySetValue(query, kSecAttrCanSign, kCFBooleanTrue);
                 break;

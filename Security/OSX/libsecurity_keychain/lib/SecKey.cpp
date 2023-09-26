@@ -626,7 +626,7 @@ static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType &
         case CSSM_ALGID_ECDSA:
             if ((keyClass == CSSM_KEYCLASS_PRIVATE_KEY && operation == kSecKeyOperationTypeSign) ||
                 (keyClass == CSSM_KEYCLASS_PUBLIC_KEY && operation == kSecKeyOperationTypeVerify)) {
-                if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureRFC4754)) {
+                if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestRFC4754)) {
                     secondaryAlgorithm = CSSM_ALGID_NONE;
                     paddingAlgorithm = CSSM_PADDING_SIGRAW;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
@@ -1572,20 +1572,20 @@ static OSStatus SetKeyLabelAndTag(SecKeyRef keyRef, CFTypeRef label, CFDataRef t
 }
 
 
-static CFTypeRef GetAttributeFromParams(CFDictionaryRef parameters, CFTypeRef attr, CFTypeRef subParams) {
-    if (subParams != NULL) {
-        CFDictionaryRef subParamsDict = (CFDictionaryRef)CFDictionaryGetValue(parameters, subParams);
-        if (subParamsDict != NULL) {
-            CFTypeRef value = CFDictionaryGetValue(subParamsDict, attr);
-            if (value != NULL) {
-                return value;
-            }
-        }
+static CFDictionaryRef CopyFullKeyParameters(CFDictionaryRef baseDictionary, CFStringRef subtypeName) {
+    CFMutableDictionaryRef merged = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, baseDictionary);
+    CFDictionarySetValue(merged, kSecClass, kSecClassKey);
+    CFDictionaryRef overrideDictionary = (CFDictionaryRef)CFDictionaryGetValue(baseDictionary, subtypeName);
+    if (overrideDictionary != NULL) {
+        cfDictionaryApplyBlock(overrideDictionary, ^(const void *key, const void *value) {
+            CFDictionarySetValue(merged, key, value);
+        });
     }
-    return CFDictionaryGetValue(parameters, attr);
+    return merged;
 }
 
 extern "C" OSStatus SecKeyGeneratePair_ios(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey);
+OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, bool &can_target_osx, bool &useDataProtectionKeychainFlag);
 
 /* new in 10.6 */
 /* Generate a private/public keypair. */
@@ -1601,35 +1601,33 @@ SecKeyGeneratePairInternal(
 	Required(parameters);
     Required(publicKey);
     Required(privateKey);
+    OSStatus result;
 
-    bool forceIOSKey = false;
-    if (_CFMZEnabled()) {
-        // On Catalyst, always go iOS SecItem/SecKey route, do not drag CSSM keys in.
-        forceIOSKey = true;
-    } else {
-        CFTypeRef tokenID = GetAttributeFromParams(parameters, kSecAttrTokenID, NULL);
-        CFTypeRef noLegacy = GetAttributeFromParams(parameters, kSecUseDataProtectionKeychain, NULL);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        if (!noLegacy) {    // Also lookup via deprecated symbol because we do CFDictionaryGetValue and your CFDict might be an idiot
-            noLegacy = GetAttributeFromParams(parameters, kSecAttrNoLegacy, NULL);
-        }
-#pragma clang diagnostic pop
-        CFTypeRef sync = GetAttributeFromParams(parameters, kSecAttrSynchronizable, kSecPrivateKeyAttrs);
-        CFTypeRef accessControl = GetAttributeFromParams(parameters, kSecAttrAccessControl, kSecPrivateKeyAttrs) ?:
-        GetAttributeFromParams(parameters, kSecAttrAccessControl, kSecPublicKeyAttrs);
-        CFTypeRef accessGroup = GetAttributeFromParams(parameters, kSecAttrAccessGroup, kSecPrivateKeyAttrs) ?:
-        GetAttributeFromParams(parameters, kSecAttrAccessGroup, kSecPublicKeyAttrs);
-        // If any of these attributes are present, forward the call to iOS implementation (and create keys in iOS keychain).
-        forceIOSKey = (tokenID != NULL ||
-                       (noLegacy != NULL && CFBooleanGetValue((CFBooleanRef)noLegacy)) ||
-                       (sync != NULL && CFBooleanGetValue((CFBooleanRef)sync)) ||
-                       accessControl != NULL || (accessGroup != NULL && CFEqual(accessGroup, kSecAttrAccessGroupToken)));
+    bool privateCanTargetIOS = false, privateCanTargetMacOS = false, unused;
+    CFDictionaryRef merged = CopyFullKeyParameters(parameters, kSecPrivateKeyAttrs);
+    result = SecItemCategorizeQuery(merged, privateCanTargetIOS, privateCanTargetMacOS, unused);
+    CFRelease(merged);
+    if (result != errSecSuccess) {
+        return result;
     }
 
-    if (forceIOSKey) {
-        // Generate keys in iOS keychain.
-        return SecKeyGeneratePair_ios(parameters, publicKey, privateKey);
+    bool publicCanTargetIOS = false, publicCanTargetMacOS = false;
+    merged = CopyFullKeyParameters(parameters, kSecPublicKeyAttrs);
+    result = SecItemCategorizeQuery(merged, publicCanTargetIOS, publicCanTargetMacOS, unused);
+    CFRelease(merged);
+    if (result != errSecSuccess) {
+        return result;
+    }
+
+    // CDSA keys have precedence unless we are told otherwise.
+    if (!publicCanTargetMacOS || !privateCanTargetMacOS) {
+        if (publicCanTargetIOS && privateCanTargetIOS) {
+            // Generate keys in iOS keychain.
+            return SecKeyGeneratePair_ios(parameters, publicKey, privateKey);
+        } else {
+            // Inconsistent query, cannot be generated neither on iOS or macOS.
+            return errSecParam;
+        }
     }
 
 	CSSM_ALGORITHMS algorithms;
@@ -1645,9 +1643,9 @@ SecKeyGeneratePairInternal(
 	SecAccessRef initialAccess;
 	SecKeychainRef keychain;
 
-	OSStatus result = MakeKeyGenParametersFromDictionary(parameters, algorithms, keySizeInBits, publicKeyUse, publicKeyAttr, publicKeyLabelRef,
-														 publicKeyAttributeTagRef, privateKeyUse, privateKeyAttr, privateKeyLabelRef, privateKeyAttributeTagRef,
-														 initialAccess);
+	result = MakeKeyGenParametersFromDictionary(parameters, algorithms, keySizeInBits, publicKeyUse, publicKeyAttr, publicKeyLabelRef,
+                                                publicKeyAttributeTagRef, privateKeyUse, privateKeyAttr, privateKeyLabelRef, privateKeyAttributeTagRef,
+                                                initialAccess);
 
 	if (result != errSecSuccess) {
 		return result;

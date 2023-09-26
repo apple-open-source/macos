@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #pragma once
@@ -76,18 +76,19 @@ class VideoTrackPrivateMediaSourceAVFObjC;
 class WebCoreDecompressionSession;
 class SharedBuffer;
 
+struct TrackInfo;
+
 class SourceBufferPrivateAVFObjCErrorClient {
 public:
     virtual ~SourceBufferPrivateAVFObjCErrorClient() = default;
     virtual void layerDidReceiveError(AVSampleBufferDisplayLayer *, NSError *, bool& shouldIgnore) = 0;
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     virtual void rendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *, bool& shouldIgnore) = 0;
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 };
 
 class SourceBufferPrivateAVFObjC final
     : public SourceBufferPrivate
-    , public CanMakeWeakPtr<SourceBufferPrivateAVFObjC>
 {
 public:
     static Ref<SourceBufferPrivateAVFObjC> create(MediaSourcePrivateAVFObjC*, Ref<SourceBufferParser>&&);
@@ -128,15 +129,15 @@ public:
     void layerDidReceiveError(AVSampleBufferDisplayLayer *, NSError *);
     void rendererWasAutomaticallyFlushed(AVSampleBufferAudioRenderer *, const CMTime&);
     void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     void rendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *);
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     void setVideoLayer(AVSampleBufferDisplayLayer*);
     void setDecompressionSession(WebCoreDecompressionSession*);
 
     void bufferWasConsumed();
-    
+
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     SharedBuffer* initData() { return m_initData.get(); }
 #endif
@@ -157,11 +158,13 @@ private:
     void didParseInitializationData(InitializationSegment&&);
     void didEncounterErrorDuringParsing(int32_t);
     void didProvideMediaDataForTrackId(Ref<MediaSampleAVFObjC>&&, uint64_t trackId, const String& mediaType);
+    bool isMediaSampleAllowed(const MediaSample&) const final;
+    void didUpdateFormatDescriptionForTrackId(Ref<TrackInfo>&&, uint64_t);
 
     // SourceBufferPrivate overrides
-    void append(Ref<SharedBuffer>&&) final;
+    void appendInternal(Ref<SharedBuffer>&&) final;
     void abort() final;
-    void resetParserState() final;
+    void resetParserStateInternal() final;
     void removedFromMediaSource() final;
     MediaPlayer::ReadyState readyState() const final;
     void setReadyState(MediaPlayer::ReadyState) final;
@@ -180,6 +183,7 @@ private:
     MediaTime currentMediaTime() const final;
     MediaTime duration() const final;
 
+    void processPendingTrackChangeTasks();
     void enqueueSample(Ref<MediaSampleAVFObjC>&&, uint64_t trackID);
     void didBecomeReadyForMoreSamples(uint64_t trackID);
     void appendCompleted();
@@ -188,9 +192,9 @@ private:
     void clearTracks();
 
     void flushVideo();
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     void flushAudio(AVSampleBufferAudioRenderer *);
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     MediaPlayerPrivateMediaSourceAVFObjC* player() const;
     bool canEnqueueSample(uint64_t trackID, const MediaSampleAVFObjC&);
@@ -200,23 +204,20 @@ private:
     void keyStatusesChanged();
 #endif
 
+    void setTrackChangeCallbacks(const Vector<Ref<TrackPrivateBase>>& tracks, bool initialized);
+
     HashMap<AtomString, RefPtr<VideoTrackPrivate>> m_videoTracks;
     HashMap<AtomString, RefPtr<AudioTrackPrivate>> m_audioTracks;
     Vector<SourceBufferPrivateAVFObjCErrorClient*> m_errorClients;
 
-    WeakPtrFactory<SourceBufferPrivateAVFObjC> m_appendWeakFactory;
-
     Ref<SourceBufferParser> m_parser;
-    bool m_processingInitializationSegment { false };
-    bool m_hasPendingAppendCompletedCallback { false };
-    Vector<Function<void()>> m_pendingTrackChangeCallbacks;
-    Vector<std::pair<uint64_t, Ref<MediaSampleAVFObjC>>> m_mediaSamples;
+    Vector<Function<void()>> m_pendingTrackChangeTasks;
     Deque<std::pair<uint64_t, Ref<MediaSampleAVFObjC>>> m_blockedSamples;
 
     RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer;
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     HashMap<uint64_t, RetainPtr<AVSampleBufferAudioRenderer>, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_audioRenderers;
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
     RetainPtr<WebAVSampleBufferErrorListener> m_errorListener;
 #if PLATFORM(IOS_FAMILY)
     bool m_displayLayerWasInterrupted { false };

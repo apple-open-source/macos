@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -245,6 +245,8 @@ manual_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 				    service_requested_ip_dest(service_p));
 	  ServiceRemoveAddressConflict(service_p);
 	  if (service_router_is_iaddr_valid(service_p)
+	      && (service_requested_ip_addr(service_p).s_addr
+		  != service_router_iaddr(service_p).s_addr)
 	      && service_resolve_router(service_p, manual->arp,
 					manual_resolve_router_callback,
 					service_requested_ip_addr(service_p))) {
@@ -289,6 +291,10 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  service_set_requested_ip_addr(service_p, method_data->manual.addr);
 	  service_set_requested_ip_mask(service_p, method_data->manual.mask);
 	  service_set_requested_ip_dest(service_p, method_data->manual.dest);
+	  if (method_data->manual.router.s_addr != 0) {
+	      service_router_set_iaddr(service_p, method_data->manual.router);
+	      service_router_set_iaddr_valid(service_p);
+	  }
 	  if ((if_flags(if_p) & (IFF_LOOPBACK | IFF_POINTOPOINT)) != 0) {
 	      /* set the new address */
 	      (void)service_set_address(service_p, 
@@ -297,12 +303,6 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 					service_requested_ip_dest(service_p));
 	      ServicePublishSuccessIPv4(service_p, NULL);
 	      break;
-	  }
-	  if (method_data->manual.router.s_addr != 0
-	      && (method_data->manual.router.s_addr 
-		  != method_data->manual.addr.s_addr)) {
-	      service_router_set_iaddr(service_p, method_data->manual.router);
-	      service_router_set_iaddr_valid(service_p);
 	  }
 	  snprintf(timer_name, sizeof(timer_name), "manual-%s",
 		   if_name(if_p));

@@ -101,6 +101,21 @@ extern NSString* const OctagonAnalyticsInheritanceTotalTLKSharesRecovered;
 extern NSString* const OctagonAnalyticsInheritanceUniqueTLKsWithSharesCount;
 extern NSString* const OctagonAnalyticsInheritanceTLKUniqueViewCount;
 
+// SOS Deferral Attributes
+
+extern NSString* const SOSDeferralAnalyticsSetCompatibilityMode;
+
+extern NSString* const SOSDeferralAnalyticsSOSEnabled;
+extern NSString* const SOSDeferralAnalyticsJoiningSOSResult;
+extern NSString* const SOSDeferralAnalyticsCircleContainsLegacy;
+extern NSString* const SOSDeferralAnalyticsSOSJoinMethod;
+
+extern NSString* const SOSDeferralAnalyticsReset;
+extern NSString* const SOSDeferralAnalyticsPiggybacking;
+extern NSString* const SOSDeferralAnalyticsPairing;
+extern NSString* const SOSDeferralAnalyticsRestore;
+extern NSString* const SOSDeferralAnalyticsResetToOffering;
+
 @protocol CKKSAnalyticsFailableEvent <NSObject>
 @end
 typedef NSString<CKKSAnalyticsFailableEvent> CKKSAnalyticsFailableEvent;
@@ -143,10 +158,20 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventEstablish;
 extern CKKSAnalyticsFailableEvent* const OctagonEventLeaveClique;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRemoveFriendsInClique;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRecoveryKey;
-extern CKKSAnalyticsFailableEvent* const OctagonEventCustodianRecoveryKey;
+
+extern CKKSAnalyticsFailableEvent* const OctagonEventCreateCustodianRecoveryKey2;
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinCustodianRecoveryKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightCustodianRecoveryKey;
-extern CKKSAnalyticsFailableEvent* const OctagonEventInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventRemoveCustodianRecoveryKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventCheckCustodianRecoveryKey;
+
+extern CKKSAnalyticsFailableEvent* const OctagonEventCreateInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventGenerateInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventStoreInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinInheritanceKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventRemoveInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventCheckInheritanceKey;
 
 /* Inner calls as seen by TPH and securityd */
 /* inner: Upgrade */
@@ -188,7 +213,13 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKeyValidationFailed;
 
 /* inner: create custodian recovery key */
-extern CKKSAnalyticsFailableEvent* const OctagonEventCreateCustodianRecoveryKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventCreateCustodianRecoveryKeyTPH;
+
+/* inner: remove custodian recovery key */
+extern CKKSAnalyticsFailableEvent* const OctagonEventRemoveCustodianRecoveryKeyTPH;
+
+/* inner: check custodian recovery key */
+extern CKKSAnalyticsFailableEvent* const OctagonEventCheckCustodianRecoveryKeyTPH;
 
 /* inner: reset */
 extern CKKSAnalyticsFailableEvent* const OctagonEventReset;
@@ -264,6 +295,19 @@ extern CKKSAnalyticsActivity* const OctagonActivityJoinWithInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityRemoveInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityCheckInheritanceKey;
+
+/* SOS Deferral */
+extern CKKSAnalyticsActivity* const SOSDeferralActivitySetCompatibilityMode;
+
+extern CKKSAnalyticsFailableEvent* const SOSDeferralEventCompatibilityModeEnabled;
+extern CKKSAnalyticsFailableEvent* const SOSDeferralEventCompatibilityModeDisabled;
+
+extern CKKSAnalyticsFailableEvent* const SOSDeferralEventJoinCircleAfterRestore;
+extern CKKSAnalyticsFailableEvent* const SOSDeferralEventResetToOffering;
+extern CKKSAnalyticsFailableEvent* const SOSDeferralEventReset;
+extern CKKSAnalyticsFailableEvent* const SOSDeferralEventPiggybacking;
+extern CKKSAnalyticsFailableEvent* const SOSDeferralEventPairing;
+extern CKKSAnalyticsFailableEvent* const SOSDeferralEventFetchCompatibilityMode;
 
 @class TrustedPeersHelperTLKRecoveryResult;
 @class CKKSTLKShare;

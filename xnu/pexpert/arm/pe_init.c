@@ -51,6 +51,12 @@ char iBoot_Stage_2_version[FW_VERS_LEN];
  */
 SECURITY_READ_ONLY_LATE(volatile uint32_t) debug_enabled = FALSE;
 
+/*
+ * This variable indicates the page protection security policy used by the system.
+ * It is intended mostly for debugging purposes.
+ */
+SECURITY_READ_ONLY_LATE(ml_page_protection_t) page_protection_type;
+
 uint8_t         gPlatformECID[8];
 uint32_t        gPlatformMemoryID;
 static boolean_t vc_progress_initialized = FALSE;
@@ -399,6 +405,7 @@ PE_init_platform(boolean_t vm_initialized, void *args)
 	boot_args      *boot_args_ptr = (boot_args *) args;
 
 	if (PE_state.initialized == FALSE) {
+		page_protection_type = ml_page_protection_type();
 		PE_state.initialized = TRUE;
 		PE_state.bootArgs = boot_args_ptr;
 		PE_state.deviceTreeHead = boot_args_ptr->deviceTreeP;

@@ -29,8 +29,16 @@
 #include <xlocale.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef locale_t xsltLocale;
 typedef xmlChar xsltLocaleChar;
+
+#ifdef __cplusplus
+}
+#endif
 
 #elif defined(_WIN32) && !defined(__CYGWIN__)
 
@@ -43,8 +51,16 @@ typedef xmlChar xsltLocaleChar;
 #include <windows.h>
 #include <winnls.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef LCID xsltLocale;
 typedef wchar_t xsltLocaleChar;
+
+#ifdef __cplusplus
+}
+#endif
 
 #else
 
@@ -54,9 +70,21 @@ typedef wchar_t xsltLocaleChar;
  */
 #define XSLT_LOCALE_NONE
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void *xsltLocale;
 typedef xmlChar xsltLocaleChar;
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 XSLTPUBFUN xsltLocale XSLTCALL
@@ -72,5 +100,9 @@ XSLTPUBFUN int XSLTCALL
 					 const xsltLocaleChar *str2);
 XSLTPUBFUN void XSLTCALL
 	xsltFreeLocales			(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __XML_XSLTLOCALE_H__ */

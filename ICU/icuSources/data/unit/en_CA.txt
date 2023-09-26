@@ -44,11 +44,6 @@ en_CA{
                 one{"{0} millimole per litre"}
                 other{"{0} millimoles per litre"}
             }
-            percent{
-                dnam{"per cent"}
-                one{"{0} per cent"}
-                other{"{0} per cent"}
-            }
             permille{
                 dnam{"per mille"}
                 one{"{0} per mille"}
@@ -85,6 +80,7 @@ en_CA{
         energy{
             kilowatt-hour{
                 one{"{0} kilowatt-hour"}
+                other{"{0} kilowatt-hours"}
             }
         }
         force{
@@ -123,6 +119,7 @@ en_CA{
                 other{"{0} decimetres"}
             }
             earth-radius{
+                one{"{0} earth radius"}
                 other{"{0} earth radii"}
             }
             kilometer{
@@ -166,22 +163,25 @@ en_CA{
         light{
             candela{
                 dnam{"candelas"}
+                one{"{0} candela"}
                 other{"{0} candelas"}
             }
             lumen{
                 dnam{"lumens"}
+                one{"{0} lumen"}
                 other{"{0} lumens"}
             }
         }
         mass{
-            metric-ton{
+            stone{
+                dnam{"stone"}
+                one{"{0} stone"}
+                other{"{0} stone"}
+            }
+            tonne{
                 dnam{"tonnes"}
                 one{"{0} tonne"}
                 other{"{0} tonnes"}
-            }
-            stone{
-                dnam{"stone"}
-                other{"{0} stone"}
             }
         }
         pressure{
@@ -209,6 +209,7 @@ en_CA{
             }
             kelvin{
                 dnam{"kelvin"}
+                one{"{0} kelvin"}
                 other{"{0} kelvin"}
             }
         }
@@ -320,19 +321,13 @@ en_CA{
     unitsNarrow{
         angle{
             revolution{
+                one{"{0}rev"}
                 other{"{0}revs"}
             }
         }
         area{
             square-meter{
                 dnam{"metres²"}
-            }
-        }
-        concentr{
-            karat{
-                dnam{"carat"}
-                one{"{0}ct"}
-                other{"{0}ct"}
             }
         }
         consumption{
@@ -349,6 +344,7 @@ en_CA{
         }
         digital{
             bit{
+                one{"{0}bit"}
                 other{"{0}bits"}
             }
         }
@@ -381,7 +377,6 @@ en_CA{
         }
         mass{
             carat{
-                dnam{"ct"}
                 one{"{0}ct"}
                 other{"{0}ct"}
             }
@@ -395,10 +390,13 @@ en_CA{
                 dnam{"W"}
             }
         }
-        speed{
-            kilometer-per-hour{
-                dnam{"km/h"}
+        pressure{
+            bar{
+                one{"{0}bar"}
+                other{"{0}bars"}
             }
+        }
+        speed{
             mile-per-hour{
                 dnam{"mph"}
             }
@@ -456,6 +454,7 @@ en_CA{
             }
             jigger{
                 dnam{"jiggers"}
+                one{"{0}jigger"}
                 other{"{0}jiggers"}
             }
             liter{
@@ -484,6 +483,7 @@ en_CA{
         }
         angle{
             revolution{
+                one{"{0} rev"}
                 other{"{0} revs"}
             }
         }
@@ -507,6 +507,9 @@ en_CA{
             }
         }
         concentr{
+            item{
+                dnam{"items"}
+            }
             milligram-ofglucose-per-deciliter{
                 dnam{"milligrams/decilitre"}
             }
@@ -515,9 +518,6 @@ en_CA{
             }
             mole{
                 dnam{"moles"}
-            }
-            percent{
-                dnam{"per cent"}
             }
             permille{
                 dnam{"per mille"}
@@ -532,7 +532,6 @@ en_CA{
             }
             liter-per-kilometer{
                 dnam{"litres/km"}
-                one{"{0} l/km"}
             }
             mile-per-gallon{
                 dnam{"miles/US gal"}
@@ -548,15 +547,18 @@ en_CA{
         digital{
             bit{
                 dnam{"bits"}
+                one{"{0} bit"}
                 other{"{0} bits"}
             }
             byte{
                 dnam{"bytes"}
+                one{"{0} byte"}
                 other{"{0} bytes"}
             }
         }
         duration{
             hour{
+                one{"{0} hr"}
                 other{"{0} hrs"}
                 per{"{0}/hr"}
             }
@@ -569,6 +571,7 @@ en_CA{
                 other{"{0} millisecs"}
             }
             minute{
+                one{"{0} min"}
                 other{"{0} mins"}
             }
             month{
@@ -603,6 +606,9 @@ en_CA{
             kilowatt-hour{
                 dnam{"kW-hours"}
             }
+            therm-us{
+                dnam{"US therms"}
+            }
         }
         force{
             kilowatt-hour-per-100-kilometer{
@@ -632,12 +638,22 @@ en_CA{
             }
             grain{
                 dnam{"grains"}
+                one{"{0} grain"}
                 other{"{0} grains"}
+            }
+            stone{
+                dnam{"stone"}
             }
         }
         pressure{
             bar{
                 dnam{"bars"}
+                one{"{0} bar"}
+                other{"{0} bars"}
+            }
+            inch-ofhg{
+                one{"{0} in Hg"}
+                other{"{0} in Hg"}
             }
         }
         speed{
@@ -647,12 +663,10 @@ en_CA{
         }
         temperature{
             celsius{
-                dnam{"deg C"}
                 one{"{0} °C"}
                 other{"{0} °C"}
             }
             fahrenheit{
-                dnam{"deg F"}
                 one{"{0} °F"}
                 other{"{0} °F"}
             }
@@ -742,6 +756,7 @@ en_CA{
             }
             jigger{
                 dnam{"jiggers"}
+                one{"{0} jiggers"}
                 other{"{0} jiggers"}
             }
             liter{
@@ -749,6 +764,7 @@ en_CA{
             }
             pinch{
                 dnam{"pinches"}
+                one{"{0} pinches"}
                 other{"{0} pinches"}
             }
             quart{

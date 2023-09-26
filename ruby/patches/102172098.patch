@@ -1,0 +1,13 @@
+diff --git a/ext/openssl/ossl_ssl.c b/ext/openssl/ossl_ssl.c
+index 7996f22..37976d4 100644
+--- ext/openssl/ossl_ssl.c
++++ ext/openssl/ossl_ssl.c
+@@ -380,7 +380,7 @@ ossl_call_session_get_cb(VALUE ary)
+ }
+ 
+ static SSL_SESSION *
+-#if OPENSSL_VERSION_NUMBER >= 0x10100000 && !defined(LIBRESSL_VERSION_NUMBER)
++#if OPENSSL_VERSION_NUMBER >= 0x10100000
+ ossl_sslctx_session_get_cb(SSL *ssl, const unsigned char *buf, int len, int *copy)
+ #else
+ ossl_sslctx_session_get_cb(SSL *ssl, unsigned char *buf, int len, int *copy)

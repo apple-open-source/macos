@@ -1,0 +1,3 @@
+# ctk: auth 
+auth       required       pam_smartcard.so 		use_first_pass pkinit
+account    required       pam_opendirectory.so

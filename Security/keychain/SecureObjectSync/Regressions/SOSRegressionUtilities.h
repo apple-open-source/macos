@@ -41,7 +41,7 @@
 
 __BEGIN_DECLS
 
-#define SOS_ENABLED (TARGET_OS_OSX || TARGET_OS_IOS)
+#define SOS_ENABLED (!TARGET_OS_XR && (TARGET_OS_OSX || TARGET_OS_IOS))
 
 CFStringRef myMacAddress(void);
 const char *cfabsoluteTimeToString(CFAbsoluteTime abstime);

@@ -35,13 +35,14 @@
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
 
-namespace PAL::WebGPU {
+namespace WebCore::WebGPU {
 class Adapter;
 class BindGroup;
 class BindGroupLayout;
 class Buffer;
 class CommandBuffer;
 class CommandEncoder;
+class CompositorIntegration;
 class ComputePassEncoder;
 class ComputePipeline;
 class Device;
@@ -68,6 +69,7 @@ class RemoteBindGroupLayout;
 class RemoteBuffer;
 class RemoteCommandBuffer;
 class RemoteCommandEncoder;
+class RemoteCompositorIntegration;
 class RemoteComputePassEncoder;
 class RemoteComputePipeline;
 class RemoteDevice;
@@ -104,6 +106,7 @@ public:
     void addObject(WebGPUIdentifier, RemoteBuffer&);
     void addObject(WebGPUIdentifier, RemoteCommandBuffer&);
     void addObject(WebGPUIdentifier, RemoteCommandEncoder&);
+    void addObject(WebGPUIdentifier, RemoteCompositorIntegration&);
     void addObject(WebGPUIdentifier, RemoteComputePassEncoder&);
     void addObject(WebGPUIdentifier, RemoteComputePipeline&);
     void addObject(WebGPUIdentifier, RemoteDevice&);
@@ -125,28 +128,29 @@ public:
 
     void clear();
 
-    PAL::WebGPU::Adapter* convertAdapterFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::BindGroup* convertBindGroupFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::BindGroupLayout* convertBindGroupLayoutFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::Buffer* convertBufferFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::CommandBuffer* convertCommandBufferFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::CommandEncoder* convertCommandEncoderFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::ComputePassEncoder* convertComputePassEncoderFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::ComputePipeline* convertComputePipelineFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::Device* convertDeviceFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::ExternalTexture* convertExternalTextureFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::PipelineLayout* convertPipelineLayoutFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::PresentationContext* convertPresentationContextFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::QuerySet* convertQuerySetFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::Queue* convertQueueFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::RenderBundleEncoder* convertRenderBundleEncoderFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::RenderBundle* convertRenderBundleFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::RenderPassEncoder* convertRenderPassEncoderFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::RenderPipeline* convertRenderPipelineFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::Sampler* convertSamplerFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::ShaderModule* convertShaderModuleFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::Texture* convertTextureFromBacking(WebGPUIdentifier) final;
-    PAL::WebGPU::TextureView* convertTextureViewFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::Adapter* convertAdapterFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::BindGroup* convertBindGroupFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::BindGroupLayout* convertBindGroupLayoutFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::Buffer* convertBufferFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::CommandBuffer* convertCommandBufferFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::CommandEncoder* convertCommandEncoderFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::CompositorIntegration* convertCompositorIntegrationFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::ComputePassEncoder* convertComputePassEncoderFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::ComputePipeline* convertComputePipelineFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::Device* convertDeviceFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::ExternalTexture* convertExternalTextureFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::PipelineLayout* convertPipelineLayoutFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::PresentationContext* convertPresentationContextFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::QuerySet* convertQuerySetFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::Queue* convertQueueFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::RenderBundleEncoder* convertRenderBundleEncoderFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::RenderBundle* convertRenderBundleFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::RenderPassEncoder* convertRenderPassEncoderFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::RenderPipeline* convertRenderPipelineFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::Sampler* convertSamplerFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::ShaderModule* convertShaderModuleFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::Texture* convertTextureFromBacking(WebGPUIdentifier) final;
+    WebCore::WebGPU::TextureView* convertTextureViewFromBacking(WebGPUIdentifier) final;
 
 private:
     ObjectHeap();
@@ -159,6 +163,7 @@ private:
         IPC::ScopedActiveMessageReceiveQueue<RemoteBuffer>,
         IPC::ScopedActiveMessageReceiveQueue<RemoteCommandBuffer>,
         IPC::ScopedActiveMessageReceiveQueue<RemoteCommandEncoder>,
+        IPC::ScopedActiveMessageReceiveQueue<RemoteCompositorIntegration>,
         IPC::ScopedActiveMessageReceiveQueue<RemoteComputePassEncoder>,
         IPC::ScopedActiveMessageReceiveQueue<RemoteComputePipeline>,
         IPC::ScopedActiveMessageReceiveQueue<RemoteDevice>,

@@ -43,8 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/siginterrupt.c,v 1.5 2007/01/09 00:27:55 im
  * after an instance of the indicated signal.
  */
 int
-siginterrupt(sig, flag)
-	int sig, flag;
+siginterrupt(int sig, int flag)
 {
 	extern sigset_t _sigintr;
 	struct sigaction sa;

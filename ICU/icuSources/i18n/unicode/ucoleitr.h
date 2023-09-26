@@ -27,8 +27,15 @@
  * to be returned.
  * @stable ICU 2.0
  */
+#if APPLE_ICU_CHANGES
+// rdar://108151233 (UCOL_NULLORDER should be declared as Int32(-1) in Swift)
+#define UCOL_NULLORDER        ((int32_t)-1)
+#else
 #define UCOL_NULLORDER        ((int32_t)0xFFFFFFFF)
+#endif // APPLE_ICU_CHANGES
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
 /**
  * DO NOT USE, INTERNAL CONSTANT THAT WAS REMOVED AND THEN
@@ -40,6 +47,7 @@
  */
 #define UCOL_PROCESSED_NULLORDER        ((int64_t)U_INT64_MAX)
 #endif  /* U_HIDE_INTERNAL_API */
+#endif  // APPLE_ICU_CHANGES
 
 #include "unicode/ucol.h"
 
@@ -190,6 +198,8 @@ ucol_next(UCollationElements *elems, UErrorCode *status);
 U_CAPI int32_t U_EXPORT2 
 ucol_previous(UCollationElements *elems, UErrorCode *status);
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
 /**
  * DO NOT USE, INTERNAL FUNCTION THAT WAS REMOVED AND THEN
@@ -234,6 +244,7 @@ ucol_nextProcessed(UCollationElements *elems, int32_t *ixLow, int32_t *ixHigh, U
 U_INTERNAL int64_t U_EXPORT2
 ucol_previousProcessed(UCollationElements *elems, int32_t *ixLow, int32_t *ixHigh, UErrorCode *status);
 #endif  /* U_HIDE_INTERNAL_API */
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * Get the maximum length of any expansion sequences that end with the 

@@ -66,15 +66,18 @@ class NumberFormatterApiTest : public IntlTestWithFieldPosition {
     void unitUsageSkeletons();
     void unitCurrency();
     void unitInflections();
+    void unitNounClass();
     void unitGender();
     void unitNotConvertible();
     void unitPercent();
+    void unitLocaleTags();
     void percentParity();
     void roundingFraction();
     void roundingFigures();
     void roundingFractionFigures();
     void roundingOther();
     void roundingIncrementRegressionTest();
+    void roundingPriorityCoverageTest();
     void grouping();
     void padding();
     void integerWidth();
@@ -99,7 +102,8 @@ class NumberFormatterApiTest : public IntlTestWithFieldPosition {
     void toObject();
     void toDecimalNumber();
     void microPropsInternals();
-
+    void formatUnitsAliases();
+    
     void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par = 0) override;
 
   private:
@@ -206,6 +210,7 @@ class DecimalQuantityTest : public IntlTest {
     void testNickelRounding();
     void testScientificAndCompactSuppressedExponent();
     void testSuppressedExponentUnchangedByInitialScaling();
+    void testDecimalQuantityParseFormatRoundTrip();
 
     void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par = 0) override;
 
@@ -322,6 +327,7 @@ class NumberRangeFormatterTest : public IntlTestWithFieldPosition {
     void test21684_Performance();
     void test21358_SignPosition();
     void test21683_StateLeak();
+    void testCreateLNRFFromNumberingSystemInSkeleton();
 
     void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par = 0) override;
 

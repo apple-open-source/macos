@@ -37,6 +37,11 @@
 #include <heimcred-const.h>
 #undef HEIMCRED_CONST
 
+#define CFRELEASE_NULL(x) do { if (x!=NULL) { CFRelease(x); x = NULL; } } while(0)
+
+#if HEIMCRED_SERVER
+struct peer;
+#endif
 /*
  *
  */
@@ -100,6 +105,15 @@ HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error);
 bool
 HeimCredDeleteAll(CFStringRef altDSID, CFErrorRef *error);
 
+bool
+HeimCredAddNTLMChallenge(uint8_t chal[8]);
+
+bool
+HeimCredCheckNTLMChallenge(uint8_t challenge[8]);
+
+CFDictionaryRef
+HeimCredDoSCRAM(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error);
+
 /*
  * Only valid client side
  */
@@ -125,26 +139,21 @@ _HeimCredResetLocalCache(void);
 /*
  * Only valid server side side
  */
-typedef CFDictionaryRef (*HeimCredAuthCallback)(HeimCredRef, CFDictionaryRef);
 typedef CFTypeRef (*HeimCredStatusCallback)(HeimCredRef);
 typedef void (*HeimCredNotifyCaches)(void);
 typedef CFDictionaryRef(*HeimCredTraceCallback)(CFDictionaryRef);
-
-void
-_HeimCredRegisterMech(CFStringRef mech,
-		      CFSetRef publicAttributes,
-		      HeimCredStatusCallback statusCallback,
-		      HeimCredAuthCallback authCallback,
-		      HeimCredNotifyCaches notifyCaches,
-		      HeimCredTraceCallback traceCallback,
-		      bool readRestricted,
-		      CFArrayRef readOnlyCommands);
 
 void
 _HeimCredRegisterKerberos(void);
 
 void
 _HeimCredRegisterNTLM(void);
+
+void
+_HeimCredRegisterNTLMReflection(void);
+
+void
+_HeimCredRegisterSCRAM(void);
 
 void
 _HeimCredRegisterKerberosAcquireCred(void);

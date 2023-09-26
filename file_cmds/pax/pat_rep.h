@@ -1,7 +1,6 @@
-/*	$OpenBSD: pat_rep.h,v 1.4 2003/06/02 23:32:08 millert Exp $	*/
-/*	$NetBSD: pat_rep.h,v 1.3 1995/03/21 09:07:35 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,11 +33,11 @@
  * SUCH DAMAGE.
  *
  *	@(#)pat_rep.h	8.1 (Berkeley) 5/31/93
+ * $FreeBSD$
  */
 
 #ifndef _PAT_REP_H_
 #define _PAT_REP_H_
-
 /*
  * data structure for storing user supplied replacement strings (-s)
  */
@@ -51,6 +50,8 @@ typedef struct replace {
 	struct replace	*fow;	/* pointer to next pattern */
 } REPLACE;
 
+#ifdef __APPLE__
 int tty_rename(ARCHD *);	/* used for -o invalid=rename recovery */
+#endif /* __APPLE__ */
 
 #endif /* _PAT_REP_H_ */

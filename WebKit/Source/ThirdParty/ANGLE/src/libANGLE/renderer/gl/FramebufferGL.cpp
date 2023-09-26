@@ -26,8 +26,8 @@
 #include "libANGLE/renderer/gl/TextureGL.h"
 #include "libANGLE/renderer/gl/formatutilsgl.h"
 #include "libANGLE/renderer/gl/renderergl_utils.h"
-#include "platform/FeaturesGL_autogen.h"
 #include "platform/PlatformMethods.h"
+#include "platform/autogen/FeaturesGL_autogen.h"
 
 using namespace gl;
 using angle::CheckedNumeric;
@@ -1327,8 +1327,17 @@ angle::Result FramebufferGL::syncState(const gl::Context *context,
                                                  mState.getDefaultLayers());
                 break;
             case Framebuffer::DIRTY_BIT_FLIP_Y:
-                functions->framebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_FLIP_Y_MESA,
-                                                 gl::ConvertToGLBoolean(mState.getFlipY()));
+                ASSERT(functions->framebufferParameteri || functions->framebufferParameteriMESA);
+                if (functions->framebufferParameteri)
+                {
+                    functions->framebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_FLIP_Y_MESA,
+                                                     gl::ConvertToGLBoolean(mState.getFlipY()));
+                }
+                else
+                {
+                    functions->framebufferParameteriMESA(GL_FRAMEBUFFER, GL_FRAMEBUFFER_FLIP_Y_MESA,
+                                                         gl::ConvertToGLBoolean(mState.getFlipY()));
+                }
                 break;
             default:
             {

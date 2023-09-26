@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,49 +51,49 @@ private:
     void chromeDestroyed() final;
 
     void setWindowRect(const WebCore::FloatRect&) override;
-    WebCore::FloatRect windowRect() override;
+    WebCore::FloatRect windowRect() const override;
 
-    WebCore::FloatRect pageRect() final;
+    WebCore::FloatRect pageRect() const final;
 
     void focus() override;
     void unfocus() final;
 
-    bool canTakeFocus(WebCore::FocusDirection) final;
+    bool canTakeFocus(WebCore::FocusDirection) const final;
     void takeFocus(WebCore::FocusDirection) override;
 
     void focusedElementChanged(WebCore::Element*) override;
-    void focusedFrameChanged(WebCore::Frame*) final;
+    void focusedFrameChanged(WebCore::LocalFrame*) final;
 
-    WebCore::Page* createWindow(WebCore::Frame&, const WebCore::WindowFeatures&, const WebCore::NavigationAction&) final;
+    WebCore::Page* createWindow(WebCore::LocalFrame&, const WebCore::WindowFeatures&, const WebCore::NavigationAction&) final;
     void show() final;
 
-    bool canRunModal() final;
+    bool canRunModal() const final;
     void runModal() final;
 
     void setToolbarsVisible(bool) final;
-    bool toolbarsVisible() final;
+    bool toolbarsVisible() const final;
 
     void setStatusbarVisible(bool) final;
-    bool statusbarVisible() final;
+    bool statusbarVisible() const final;
 
     void setScrollbarsVisible(bool) final;
-    bool scrollbarsVisible() final;
+    bool scrollbarsVisible() const final;
 
     void setMenubarVisible(bool) final;
-    bool menubarVisible() final;
+    bool menubarVisible() const final;
 
     void setResizable(bool) final;
 
     void addMessageToConsole(JSC::MessageSource, JSC::MessageLevel, const String& message, unsigned lineNumber, unsigned columnNumber, const String& sourceURL) final;
 
     bool canRunBeforeUnloadConfirmPanel() final;
-    bool runBeforeUnloadConfirmPanel(const String& message, WebCore::Frame&) final;
+    bool runBeforeUnloadConfirmPanel(const String& message, WebCore::LocalFrame&) final;
 
     void closeWindow() final;
 
-    void runJavaScriptAlert(WebCore::Frame&, const String&) override;
-    bool runJavaScriptConfirm(WebCore::Frame&, const String&) override;
-    bool runJavaScriptPrompt(WebCore::Frame&, const String& message, const String& defaultValue, String& result) override;
+    void runJavaScriptAlert(WebCore::LocalFrame&, const String&) override;
+    bool runJavaScriptConfirm(WebCore::LocalFrame&, const String&) override;
+    bool runJavaScriptPrompt(WebCore::LocalFrame&, const String& message, const String& defaultValue, String& result) override;
 
     void invalidateRootView(const WebCore::IntRect&) final;
     void invalidateContentsAndRootView(const WebCore::IntRect&) final;
@@ -109,7 +109,7 @@ private:
     void didFinishLoadingImageForElement(WebCore::HTMLImageElement&) final;
 
     PlatformPageClient platformPageClient() const final;
-    void contentsSizeChanged(WebCore::Frame&, const WebCore::IntSize&) const final;
+    void contentsSizeChanged(WebCore::LocalFrame&, const WebCore::IntSize&) const final;
     void intrinsicContentsSizeChanged(const WebCore::IntSize&) const final { }
 
     void scrollContainingScrollViewsToRevealRect(const WebCore::IntRect&) const final;
@@ -117,16 +117,16 @@ private:
 
     bool shouldUnavailablePluginMessageBeButton(WebCore::RenderEmbeddedObject::PluginUnavailabilityReason) const final;
     void unavailablePluginButtonClicked(WebCore::Element&, WebCore::RenderEmbeddedObject::PluginUnavailabilityReason) const final;
-    void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags, const String&, WebCore::TextDirection) final;
+    void mouseDidMoveOverElement(const WebCore::HitTestResult&, OptionSet<WebCore::PlatformEventModifier>, const String&, WebCore::TextDirection) final;
 
     void setToolTip(const String&);
 
-    void print(WebCore::Frame&, const WebCore::StringWithDirection&) final;
-    void exceededDatabaseQuota(WebCore::Frame&, const String& databaseName, WebCore::DatabaseDetails) final;
+    void print(WebCore::LocalFrame&, const WebCore::StringWithDirection&) final;
+    void exceededDatabaseQuota(WebCore::LocalFrame&, const String& databaseName, WebCore::DatabaseDetails) final;
     void reachedMaxAppCacheSize(int64_t spaceNeeded) final;
     void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin&, int64_t totalSpaceNeeded) final;
 
-    void runOpenPanel(WebCore::Frame&, WebCore::FileChooser&) override;
+    void runOpenPanel(WebCore::LocalFrame&, WebCore::FileChooser&) override;
     void showShareSheet(WebCore::ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&) override;
 
     void loadIconForFiles(const Vector<String>&, WebCore::FileIconLoader&) final;
@@ -181,7 +181,7 @@ private:
 
     bool shouldPaintEntireContents() const final;
 
-    void attachRootGraphicsLayer(WebCore::Frame&, WebCore::GraphicsLayer*) override;
+    void attachRootGraphicsLayer(WebCore::LocalFrame&, WebCore::GraphicsLayer*) override;
     void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) final;
     void setNeedsOneShotDrawingSynchronization() final;
     void triggerRenderingUpdate() final;
@@ -253,13 +253,14 @@ private:
     void changeUniversalAccessZoomFocus(const WebCore::IntRect&, const WebCore::IntRect&) final;
 #endif
 
-    RefPtr<PAL::WebGPU::GPU> createGPUForWebGPU() const final;
+    RefPtr<WebCore::WebGPU::GPU> createGPUForWebGPU() const final;
+
+    RefPtr<WebCore::ShapeDetection::BarcodeDetector> createBarcodeDetector(const WebCore::ShapeDetection::BarcodeDetectorOptions&) const final;
+    void getBarcodeDetectorSupportedFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&&) const final;
+    RefPtr<WebCore::ShapeDetection::FaceDetector> createFaceDetector(const WebCore::ShapeDetection::FaceDetectorOptions&) const final;
+    RefPtr<WebCore::ShapeDetection::TextDetector> createTextDetector() const final;
 
     void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&) final;
-
-    void classifyModalContainerControls(Vector<String>&&, CompletionHandler<void(Vector<WebCore::ModalContainerControlType>&&)>&&) final;
-
-    void decidePolicyForModalContainer(OptionSet<WebCore::ModalContainerControlType>, CompletionHandler<void(WebCore::ModalContainerDecision)>&&) final;
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     bool m_mockVideoPresentationModeEnabled { false };

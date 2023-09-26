@@ -25,6 +25,7 @@
 - (bool)restoreKeychainWithBackupPassword:(NSData *)password
                                     error:(NSError * __autoreleasing *)error;
 - (NSError*)backupWithInfo:(NSDictionary*)info;
+- (NSError*)backupForRecoveryKeyWithInfo:(NSDictionary*)info;
 
 @end
 

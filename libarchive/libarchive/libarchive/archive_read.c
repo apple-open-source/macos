@@ -52,6 +52,9 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read.c 201157 2009-12-29 05:30:2
 #include "archive_entry.h"
 #include "archive_private.h"
 #include "archive_read_private.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 #define minimum(a, b) (a < b ? a : b)
 
@@ -1205,6 +1208,14 @@ __archive_read_register_format(struct archive_read *a,
     int (*has_encrypted_entries)(struct archive_read *))
 {
 	int i, number_slots;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_format(name)) {
+		archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+			"Format not allow-listed in entitlements");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(&a->archive,
 	    ARCHIVE_READ_MAGIC, ARCHIVE_STATE_NEW,

@@ -29,6 +29,7 @@
 #if ENABLE(DRAG_SUPPORT)
 
 #include "ArgumentCodersGtk.h"
+#include "MessageSenderInlines.h"
 #include "ShareableBitmap.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
@@ -49,7 +50,7 @@ static RefPtr<ShareableBitmap> convertCairoSurfaceToShareableBitmap(cairo_surfac
         return nullptr;
 
     IntSize imageSize(cairo_image_surface_get_width(surface), cairo_image_surface_get_height(surface));
-    auto bitmap = ShareableBitmap::create(imageSize, { });
+    auto bitmap = ShareableBitmap::create({ imageSize });
     auto graphicsContext = bitmap->createGraphicsContext();
 
     ASSERT(graphicsContext->hasPlatformContext());
@@ -62,11 +63,11 @@ void WebDragClient::didConcludeEditDrag()
 {
 }
 
-void WebDragClient::startDrag(DragItem item, DataTransfer& dataTransfer, Frame&)
+void WebDragClient::startDrag(DragItem item, DataTransfer& dataTransfer, LocalFrame&)
 {
     auto& dragImage = item.image;
     RefPtr<ShareableBitmap> bitmap = convertCairoSurfaceToShareableBitmap(dragImage.get().get());
-    ShareableBitmapHandle handle;
+    ShareableBitmap::Handle handle;
 
     if (bitmap) {
         if (auto imageHandle = bitmap->createHandle())
@@ -79,7 +80,7 @@ void WebDragClient::startDrag(DragItem item, DataTransfer& dataTransfer, Frame&)
 
     m_page->willStartDrag();
 
-    m_page->send(Messages::WebPageProxy::StartDrag(dataTransfer.pasteboard().selectionData(), dataTransfer.sourceOperationMask(), handle, dataTransfer.dragLocation()));
+    m_page->send(Messages::WebPageProxy::StartDrag(dataTransfer.pasteboard().selectionData(), dataTransfer.sourceOperationMask(), WTFMove(handle), dataTransfer.dragLocation()));
 }
 
 }; // namespace WebKit.

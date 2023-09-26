@@ -1,7 +1,6 @@
-/*	$OpenBSD: cpio.h,v 1.4 2003/06/02 23:32:08 millert Exp $	*/
-/*	$NetBSD: cpio.h,v 1.3 1995/03/21 09:07:15 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,6 +33,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)cpio.h	8.1 (Berkeley) 5/31/93
+ * $FreeBSD$
  */
 
 #ifndef _CPIO_H_
@@ -72,7 +72,11 @@ typedef struct {
 	char	c_mtime[11];		/* modification time */
 	char	c_namesize[6];		/* length of pathname */
 	char	c_filesize[11];		/* length of file in bytes */
-} HD_CPIO;
+#ifdef __APPLE__
+} HD_CPIO __attribute__ ((aligned(1)));
+#else
+} HD_CPIO __aligned(1);
+#endif
 
 #define	MAGIC		070707		/* transportable archive id */
 
@@ -103,7 +107,11 @@ typedef struct {
 	u_char	h_namesize[2];
 	u_char	h_filesize_1[2];
 	u_char	h_filesize_2[2];
-} HD_BCPIO;
+#ifdef __APPLE__
+} HD_BCPIO __attribute__ ((aligned(1)));
+#else
+} HD_BCPIO __aligned(1);
+#endif
 
 #ifdef _PAX_
 /*
@@ -141,7 +149,11 @@ typedef struct {
 	char	c_rmin[8];		/* special file minor # */
 	char	c_namesize[8];		/* length of pathname */
 	char	c_chksum[8];		/* 0 OR CRC of bytes of FILE data */
-} HD_VCPIO;
+#ifdef __APPLE__
+} HD_VCPIO __attribute__ ((aligned(1)));
+#else
+} HD_VCPIO __aligned(1);
+#endif
 
 #define	VMAGIC		070701		/* sVr4 new portable archive id */
 #define	VCMAGIC		070702		/* sVr4 new portable archive id CRC */

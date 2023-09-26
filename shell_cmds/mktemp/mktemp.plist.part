@@ -2,14 +2,13 @@
 		<key>OpenSourceProject</key>
 		<string>mktemp</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-07-27</string>
+		<string>2022-11-09</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/mktemp?id=1de7b4b805ddbf2429da511c053686ac4591ed89</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/mktemp?id=d22f03636be1c012951f744f414b0d410970808e</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-10-19</string>
+		<string>2021-11-09</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Avoid double-slash in output. (5334050)</string>
 			<string>Document case-insensitive file system behavior. (14280248)</string>
 			<string>Prefer _CS_DARWIN_USER_TEMP_DIR over TMPDIR and _PATH_TMP. (14338140)</string>
 			<string>mktemp.1: Clarification of _CS_DARWIN_USER_TEMP_DIR/TMPDIR/_PATH_TMP behavior. (22954705)</string>

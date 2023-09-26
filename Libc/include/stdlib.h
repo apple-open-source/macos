@@ -328,6 +328,7 @@ void	 unsetenv(const char *);
 #endif /* __DARWIN_UNIX03 */
 #endif	/* !_ANSI_SOURCE */
 #endif /* UNIFDEF_DRIVERKIT */
+__END_DECLS
 
 #if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #include <machine/types.h>
@@ -337,6 +338,7 @@ void	 unsetenv(const char *);
 #endif /* UNIFDEF_DRIVERKIT */
 #include <_types/_uint32_t.h>
 
+__BEGIN_DECLS
 uint32_t arc4random(void);
 #ifndef UNIFDEF_DRIVERKIT
 void	 arc4random_addrandom(unsigned char * /*dat*/, int /*datlen*/)
@@ -455,8 +457,10 @@ unsigned long long
 extern char *suboptarg;		/* getsubopt(3) external variable */
 /* valloc is now declared in _malloc.h */
 #endif /* UNIFDEF_DRIVERKIT */
+__END_DECLS
 #endif	/* !_ANSI_SOURCE && !_POSIX_SOURCE */
 
+__BEGIN_DECLS
 /* Poison the following routines if -fshort-wchar is set */
 #if !defined(__cplusplus) && defined(__WCHAR_MAX__) && __WCHAR_MAX__ <= 0xffffU
 #pragma GCC poison mbstowcs mbtowc wcstombs wctomb

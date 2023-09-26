@@ -355,7 +355,7 @@ OSStatus AuthorizationCopyRights(AuthorizationRef authorization,
         }
         if (window > 0) {
             os_log_debug(AUTH_LOG, "Trying to use sheet version");
-            static OSStatus (*sheetAuthorizationWorker)(CGWindowID windowID, AuthorizationRef authorization,
+            static OSStatus (*SFAuthorizationSheetWorker)(CGWindowID windowID, AuthorizationRef authorization,
                                                         const AuthorizationRights *rights,
                                                         const AuthorizationEnvironment *environment,
                                                         AuthorizationFlags flags,
@@ -365,13 +365,13 @@ OSStatus AuthorizationCopyRights(AuthorizationRef authorization,
             dispatch_once(&onceToken, ^{
                 void *handle = dlopen("/System/Library/Frameworks/SecurityInterface.framework/SecurityInterface", RTLD_NOW|RTLD_GLOBAL|RTLD_NODELETE);
                 if (handle) {
-                    sheetAuthorizationWorker = dlsym(handle, "sheetAuthorizationWorker");
+                    SFAuthorizationSheetWorker = dlsym(handle, "SFAuthorizationSheetWorker");
                 }
             });
             
-            if (sheetAuthorizationWorker) {
+            if (SFAuthorizationSheetWorker) {
                 Boolean authorizationLaunched;
-                status = sheetAuthorizationWorker(window, authorization, rights, environment, flags, authorizedRights, &authorizationLaunched);
+                status = SFAuthorizationSheetWorker(window, authorization, rights, environment, flags, authorizedRights, &authorizationLaunched);
                 if (authorizationLaunched == true) {
                     os_log_debug(AUTH_LOG, "Returning sheet result %d", (int)status);
                     return status;

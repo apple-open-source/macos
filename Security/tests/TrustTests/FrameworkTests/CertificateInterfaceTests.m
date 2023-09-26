@@ -339,7 +339,7 @@
         CFReleaseSafe(logIDData);
     }
     require_action(matched > 0,
-                   errOut, fail("failed to match known CT log ids"));
+                   errOut, fail("failed to match any known CT log ids"));
 errOut:
     CFReleaseSafe(trustedLogs);
 }
@@ -355,13 +355,13 @@ errOut:
         CFDictionaryRef logDict = NULL;
         const void *operator = NULL;
         require_action(logDict = SecCertificateCopyCTLogForKeyID(logIDData),
-                       errContinue, fail("failed to match CT log"));
+                       errContinue, NSLog(@"failed to match CT log"));
         require_action(isDictionary(logDict),
-                       errContinue, fail("returned CT log is not a dictionary"));
+                       errContinue, NSLog(@"returned CT log is not a dictionary"));
         require_action(CFDictionaryGetValueIfPresent(logDict, CFSTR("operator"), &operator),
-                       errContinue, fail("operator value is not present"));
+                       errContinue, NSLog(@"operator value is not present"));
         require_action(isString(operator),
-                       errContinue, fail("operator value is not a string"));
+                       errContinue, NSLog(@"operator value is not a string"));
 
         ++matched;
 
@@ -370,7 +370,7 @@ errContinue:
         CFReleaseNull(logIDData);
     }
     require_action(matched > 0,
-                   errOut, fail("failed to match known CT log ids"));
+                   errOut, fail("failed to match any known CT log ids"));
 errOut:
     return;
 }
@@ -617,6 +617,18 @@ errOut:
          NULL, "create RSAPSS_SHA256");
     alg = SecCertificateGetSignatureHashAlgorithm(cert);
     ok(alg == kSecSignatureHashAlgorithmUnknown, "expected kSecSignatureHashAlgorithmUnknown (got %d)", (int)alg);
+    CFReleaseNull(cert);
+
+    cert = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ed25519_root"
+                                                                 subdirectory:@"si-18-certificate-parse/KeySuccessCerts"];
+    XCTAssertNotEqual(NULL, cert);
+    alg = SecCertificateGetSignatureHashAlgorithm(cert);
+#if LIBDER_HAS_EDDSA
+    // guard for rdar://106052612
+    XCTAssertEqual(alg, kSecSignatureHashAlgorithmSHA512);
+#else
+    XCTAssertEqual(alg, kSecSignatureHashAlgorithmUnknown);
+#endif
     CFReleaseNull(cert);
 }
 

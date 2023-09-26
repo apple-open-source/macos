@@ -21,10 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "base.h"
-#include "platform.h"
-
-#include <stdbool.h>
+#include "internal.h"
 
 #if MALLOC_TARGET_64BIT
 

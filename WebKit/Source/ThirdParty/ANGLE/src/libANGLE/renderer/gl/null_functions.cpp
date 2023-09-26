@@ -814,6 +814,9 @@ void INTERNAL_GL_APIENTRY glFramebufferFetchBarrierEXTNULL() {}
 
 void INTERNAL_GL_APIENTRY glFramebufferParameteriNULL(GLenum target, GLenum pname, GLint param) {}
 
+void INTERNAL_GL_APIENTRY glFramebufferParameteriMESANULL(GLenum target, GLenum pname, GLint param)
+{}
+
 void INTERNAL_GL_APIENTRY glFramebufferRenderbufferNULL(GLenum target,
                                                         GLenum attachment,
                                                         GLenum renderbuffertarget,
@@ -1900,6 +1903,8 @@ void INTERNAL_GL_APIENTRY glPointParameterivNULL(GLenum pname, const GLint *para
 void INTERNAL_GL_APIENTRY glPointSizeNULL(GLfloat size) {}
 
 void INTERNAL_GL_APIENTRY glPolygonModeNULL(GLenum face, GLenum mode) {}
+
+void INTERNAL_GL_APIENTRY glPolygonModeNVNULL(GLenum face, GLenum mode) {}
 
 void INTERNAL_GL_APIENTRY glPolygonOffsetNULL(GLfloat factor, GLfloat units) {}
 

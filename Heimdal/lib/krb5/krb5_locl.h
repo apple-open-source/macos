@@ -202,6 +202,7 @@ struct _krb5_krb_auth_data;
 #include <der.h>
 
 #include <krb5.h>
+#include <krb5cf-protos.h>
 #include <krb5_err.h>
 #include <asn1_err.h>
 #ifdef PKINIT

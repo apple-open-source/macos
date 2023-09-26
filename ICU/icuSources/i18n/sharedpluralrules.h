@@ -28,11 +28,13 @@ public:
 private:
     PluralRules *ptr;
     SharedPluralRules(const SharedPluralRules &) = delete;
-    SharedPluralRules &operator=(const SharedPluralRules &) = delete;
+    SharedPluralRules &operator=(const SharedPluralRules &) =delete;
 };
 
 template<> U_I18N_API
-const SharedPluralRules *LocaleCacheKey<SharedPluralRules>::createObject(const void * /*unused*/, UErrorCode &status) const;
+const SharedPluralRules *LocaleCacheKey<SharedPluralRules>::createObject(
+        const void * /*unused*/, UErrorCode &status) const;
+
 U_NAMESPACE_END
 
 #endif

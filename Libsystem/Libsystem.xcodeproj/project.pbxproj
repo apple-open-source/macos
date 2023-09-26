@@ -119,6 +119,13 @@
 			remoteGlobalIDString = BA5511C3136C9E2E0012B9B5;
 			remoteInfo = System;
 		};
+		8C3F0589284EB2280040B6D2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511CF136CA8480012B9B5;
+			remoteInfo = "Generate Linker Arguments";
+		};
 		E47E9834221DFE4A006E312E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
@@ -335,6 +342,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				8C3F058A284EB2280040B6D2 /* PBXTargetDependency */,
 			);
 			name = System;
 			productName = System;
@@ -478,6 +486,11 @@
 			isa = PBXTargetDependency;
 			target = BA5511C3136C9E2E0012B9B5 /* System */;
 			targetProxy = 2BBCA229278E5D9600224D15 /* PBXContainerItemProxy */;
+		};
+		8C3F058A284EB2280040B6D2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */;
+			targetProxy = 8C3F0589284EB2280040B6D2 /* PBXContainerItemProxy */;
 		};
 		E47E9835221DFE4A006E312E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

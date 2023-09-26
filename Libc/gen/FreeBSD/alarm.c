@@ -40,8 +40,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/alarm.c,v 1.3 2007/01/09 00:27:53 imp Exp $
 #include <unistd.h>
 
 unsigned int
-alarm(secs)
-	unsigned int secs;
+alarm(unsigned int secs)
 {
 	struct itimerval it, oitv;
 	struct itimerval *itp = &it;

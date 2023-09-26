@@ -168,22 +168,22 @@ T_DECL(lookup_slot, "lookup_slot")
 	#define TEST_LOOKUP_SLOT(addr, expected_slot, expected_bounds, expected_live_block_addr, msg) \
 		{ \
 			slot_lookup_t res = lookup_slot(&zone, addr); \
-			T_EXPECT_EQ(res.slot, expected_slot, msg ": slot"); \
-			T_EXPECT_EQ(res.bounds, expected_bounds, msg ": bounds"); \
+			T_EXPECT_EQ((unsigned int)res.slot, expected_slot, msg ": slot"); \
+			T_EXPECT_EQ((unsigned int)res.bounds, expected_bounds, msg ": bounds"); \
 			T_EXPECT_EQ(!!res.live_block_addr, expected_live_block_addr, msg ": live_block_addr"); \
 		}
 
 	zone.begin = 50000; zone.end = 60000;
 	slots[0].offset = 7; slots[0].size = 2;
-	TEST_LOOKUP_SLOT(51000, 0, b_oob_slot,       FALSE, "slot 0");
-	TEST_LOOKUP_SLOT(51007, 0, b_block_addr,     FALSE, "block address");
-	TEST_LOOKUP_SLOT(51008, 0, b_valid,          FALSE, "valid address");
-	TEST_LOOKUP_SLOT(51009, 0, b_oob_slot,       FALSE, "slot");
-	TEST_LOOKUP_SLOT(52000, 0, b_oob_guard_page, FALSE, "guard page");
-	TEST_LOOKUP_SLOT(53007, 1, b_oob_slot,       FALSE, "slot 1");
+	TEST_LOOKUP_SLOT(51000, 0, b_oob_slot,       false, "slot 0");
+	TEST_LOOKUP_SLOT(51007, 0, b_block_addr,     false, "block address");
+	TEST_LOOKUP_SLOT(51008, 0, b_valid,          false, "valid address");
+	TEST_LOOKUP_SLOT(51009, 0, b_oob_slot,       false, "slot");
+	TEST_LOOKUP_SLOT(52000, 0, b_oob_guard_page, false, "guard page");
+	TEST_LOOKUP_SLOT(53007, 1, b_oob_slot,       false, "slot 1");
 
 	slots[0].state = ss_allocated;
-	TEST_LOOKUP_SLOT(51007, 0, b_block_addr,     TRUE,  "live block address");
+	TEST_LOOKUP_SLOT(51007, 0, b_block_addr,     true,  "live block address");
 }
 
 

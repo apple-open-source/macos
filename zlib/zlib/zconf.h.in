@@ -431,11 +431,9 @@ typedef uLong FAR uLongf;
    typedef unsigned long z_crc_t;
 #endif
 
-#if defined(__APPLE__) /* avoid unistd.h on Win32 */
 #ifdef HAVE_UNISTD_H    /* may be set to #if 1 by ./configure */
 #  define Z_HAVE_UNISTD_H
 #endif
-#endif /* defined(__APPLE__) */
 
 #ifdef HAVE_STDARG_H    /* may be set to #if 1 by ./configure */
 #  define Z_HAVE_STDARG_H
@@ -478,7 +476,7 @@ typedef uLong FAR uLongf;
 #    ifdef VMS
 #      include <unixio.h>       /* for off_t */
 #    endif
-#    if !defined(z_off_t) && !defined(__APPLE__)
+#    ifndef z_off_t
 #      define z_off_t off_t
 #    endif
 #  endif
@@ -508,8 +506,6 @@ typedef uLong FAR uLongf;
 
 #if !defined(_WIN32) && defined(Z_LARGE64)
 #  define z_off64_t off64_t
-#elif defined(__APPLE__)
-#  define z_off64_t off_t
 #else
 #  if defined(_WIN32) && !defined(__GNUC__) && !defined(Z_SOLO)
 #    define z_off64_t __int64

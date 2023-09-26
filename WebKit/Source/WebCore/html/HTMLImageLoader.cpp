@@ -24,14 +24,13 @@
 
 #include "CachedImage.h"
 #include "CommonVM.h"
-#include "DOMWindow.h"
 #include "Element.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLVideoElement.h"
+#include "LocalDOMWindow.h"
 #include "Settings.h"
 
 #include "JSDOMWindowBase.h"
@@ -75,7 +74,8 @@ void HTMLImageLoader::dispatchLoadEvent()
 
 String HTMLImageLoader::sourceURI(const AtomString& attr) const
 {
-    return stripLeadingAndTrailingHTMLSpaces(attr);
+    // FIXME: trimming whitespace is probably redundant with the URL parser
+    return attr.string().trim(isASCIIWhitespace);
 }
 
 void HTMLImageLoader::notifyFinished(CachedResource&, const NetworkLoadMetrics& metrics)

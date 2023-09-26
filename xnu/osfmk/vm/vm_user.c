@@ -126,6 +126,7 @@
 
 #include <libkern/OSDebug.h>
 #include <IOKit/IOBSD.h>
+#include <sys/kdebug_triage.h>
 
 #if     VM_CPM
 #include <vm/cpm.h>
@@ -295,12 +296,14 @@ mach_vm_allocate_kernel(
 
 	/* filter out any kernel-only flags */
 	if (flags & ~VM_FLAGS_USER_ALLOCATE) {
+		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_ALLOCATE_KERNEL_BADFLAGS_ERROR), KERN_INVALID_ARGUMENT /* arg */);
 		return KERN_INVALID_ARGUMENT;
 	}
 
 	vm_map_kernel_flags_set_vmflags(&vmk_flags, flags, tag);
 
 	if (map == VM_MAP_NULL) {
+		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_ALLOCATE_KERNEL_BADMAP_ERROR), KERN_INVALID_ARGUMENT /* arg */);
 		return KERN_INVALID_ARGUMENT;
 	}
 	if (size == 0) {
@@ -316,6 +319,7 @@ mach_vm_allocate_kernel(
 	map_size = vm_map_round_page(size,
 	    VM_MAP_PAGE_MASK(map));
 	if (map_size == 0) {
+		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_ALLOCATE_KERNEL_BADSIZE_ERROR), KERN_INVALID_ARGUMENT /* arg */);
 		return KERN_INVALID_ARGUMENT;
 	}
 
@@ -339,7 +343,9 @@ mach_vm_allocate_kernel(
 		kasan_notify_address(map_addr, map_size);
 	}
 #endif
-
+	if (result != KERN_SUCCESS) {
+		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_ALLOCATE_KERNEL_VMMAPENTER_ERROR), result /* arg */);
+	}
 	*addr = map_addr;
 	return result;
 }

@@ -403,7 +403,7 @@ Itk_ConfigBodyCmd(dummy, interp, objc, objv)
     }
 
     Itcl_PreserveData((ClientData)mcode);
-    Itcl_EventuallyFree((ClientData)mcode, Itcl_DeleteMemberCode);
+    Itcl_EventuallyFree((ClientData)mcode, &Itcl_DeleteMemberCode);
 
     if (opt->member->code) {
         Itcl_ReleaseData((ClientData)opt->member->code);

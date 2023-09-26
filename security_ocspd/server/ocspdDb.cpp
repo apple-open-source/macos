@@ -35,6 +35,7 @@
 #include <security_ocspd/ocspResponse.h>
 #include <security_ocspd/ocspdUtils.h>
 #include <Security/Security.h>
+#include <Security/oidsalg.h>
 #include <security_utilities/utilities.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
 #include <security_utilities/globalizer.h>

@@ -24,7 +24,8 @@ CODEGEN_TARGETS = [
     "//:libEGL",
 ]
 
-SDK_VERSION = '28'
+MIN_SDK_VERSION = '28'
+TARGET_SDK_VERSION = '33'
 STL = 'libc++_static'
 
 ABI_ARM = 'arm'
@@ -209,7 +210,6 @@ third_party_target_allowlist = [
 include_blocklist = [
     '//buildtools/third_party/libc++/',
     '//out/Android/gen/third_party/vulkan-deps/glslang/src/include/',
-    '//third_party/android_ndk/sources/android/cpufeatures/',
     '//third_party/zlib/',
     '//third_party/zlib/google/',
 ]
@@ -380,7 +380,7 @@ def library_target_to_blueprint(target, build_info):
 
         bp['defaults'].append('angle_common_library_cflags')
 
-        bp['sdk_version'] = SDK_VERSION
+        bp['sdk_version'] = MIN_SDK_VERSION
         bp['stl'] = STL
         if target in ROOT_TARGETS:
             bp['vendor'] = True
@@ -521,7 +521,7 @@ def action_target_to_blueprint(abi, target, build_info):
 
     bp['cmd'] = ' '.join(cmd)
 
-    bp['sdk_version'] = SDK_VERSION
+    bp['sdk_version'] = MIN_SDK_VERSION
 
     return blueprint_type, bp
 
@@ -688,7 +688,8 @@ def main():
         {
             'name': 'ANGLE_java_defaults',
             'sdk_version': 'system_current',
-            'min_sdk_version': SDK_VERSION,
+            'target_sdk_version': TARGET_SDK_VERSION,
+            'min_sdk_version': MIN_SDK_VERSION,
             'compile_multilib': 'both',
             'use_embedded_native_libs': True,
             'jni_libs': [
@@ -709,7 +710,8 @@ def main():
     blueprint_targets.append(('android_library', {
         'name': 'ANGLE_library',
         'sdk_version': 'system_current',
-        'min_sdk_version': SDK_VERSION,
+        'target_sdk_version': TARGET_SDK_VERSION,
+        'min_sdk_version': MIN_SDK_VERSION,
         'resource_dirs': ['src/android_system_settings/res',],
         'asset_dirs': ['src/android_system_settings/assets',],
         'aaptflags': ['-0 .json',],

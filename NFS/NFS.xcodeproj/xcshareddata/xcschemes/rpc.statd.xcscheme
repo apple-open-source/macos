@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1320"
+   LastUpgradeVersion = "1430"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -23,11 +23,65 @@
       </BuildActionEntries>
    </BuildAction>
    <TestAction
-      buildConfiguration = "Debug"
+      buildConfiguration = "Coverage"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES">
+      debugAsWhichUser = "root"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      codeCoverageEnabled = "YES"
+      onlyGenerateCoverageForSpecifiedTargets = "YES">
+      <CodeCoverageTargets>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "D6354AA71FA3CF0100AACC99"
+            BuildableName = "rpc.statd"
+            BlueprintName = "rpc.statd"
+            ReferencedContainer = "container:NFS.xcodeproj">
+         </BuildableReference>
+      </CodeCoverageTargets>
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C47CD3D828A0077C000C5AEE"
+               BuildableName = "nfsrvTests.xctest"
+               BlueprintName = "nfsrvTests"
+               ReferencedContainer = "container:NFS.xcodeproj">
+            </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "nfsrvTests_configuration">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_exports">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_mount">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_network">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_nfs_v2">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_nfs_v3">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_nlm">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_replyCache">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_rquota">
+               </Test>
+               <Test
+                  Identifier = "nfsrvTests_syscalls">
+               </Test>
+            </SkippedTests>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

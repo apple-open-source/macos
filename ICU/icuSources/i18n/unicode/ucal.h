@@ -1617,25 +1617,23 @@ U_CAPI int32_t U_EXPORT2
 ucal_getTimeZoneIDForWindowsID(const UChar* winid, int32_t len, const char* region,
                                 UChar* id, int32_t idCapacity, UErrorCode* status);
 
-#ifndef U_FORCE_HIDE_DRAFT_API
 /**
  * Options used by ucal_getTimeZoneOffsetFromLocal and BasicTimeZone::getOffsetFromLocal()
  * to specify how to interpret an input time when it does not exist, or when it is ambiguous,
  * around a time zone transition.
- * @draft ICU 69
+ * @stable ICU 69
  */
 enum UTimeZoneLocalOption {
-#ifndef U_HIDE_DRAFT_API
     /**
      * An input time is always interpreted as local time before
      * a time zone transition.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UCAL_TZ_LOCAL_FORMER = 0x04,
     /**
      * An input time is always interpreted as local time after
      * a time zone transition.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UCAL_TZ_LOCAL_LATTER = 0x0C,
     /**
@@ -1644,7 +1642,7 @@ enum UTimeZoneLocalOption {
      * sides of a time zone transition are standard time,
      * or daylight saving time, the local time before the
      * transition is used.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UCAL_TZ_LOCAL_STANDARD_FORMER = UCAL_TZ_LOCAL_FORMER | 0x01,
     /**
@@ -1653,7 +1651,7 @@ enum UTimeZoneLocalOption {
      * sides of a time zone transition are standard time,
      * or daylight saving time, the local time after the
      * transition is used.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UCAL_TZ_LOCAL_STANDARD_LATTER = UCAL_TZ_LOCAL_LATTER | 0x01,
     /**
@@ -1662,7 +1660,7 @@ enum UTimeZoneLocalOption {
      * sides of a time zone transition are standard time,
      * or daylight saving time, the local time before the
      * transition is used.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UCAL_TZ_LOCAL_DAYLIGHT_FORMER = UCAL_TZ_LOCAL_FORMER | 0x03,
     /**
@@ -1671,19 +1669,11 @@ enum UTimeZoneLocalOption {
      * sides of a time zone transition are standard time,
      * or daylight saving time, the local time after the
      * transition is used.
-     * @draft ICU 69
+     * @stable ICU 69
      */
     UCAL_TZ_LOCAL_DAYLIGHT_LATTER = UCAL_TZ_LOCAL_LATTER | 0x03,
-#else /* U_HIDE_DRAFT_API */
-    /**
-     * Dummy value to prevent empty enum if U_HIDE_DRAFT_API.
-     * This will go away when draft conditionals are removed.
-     * @internal
-     */
-    UCAL_TZ_LOCAL_NONE = 0,
-#endif /* U_HIDE_DRAFT_API */
 };
-typedef enum UTimeZoneLocalOption UTimeZoneLocalOption; /**< @draft ICU 69 */
+typedef enum UTimeZoneLocalOption UTimeZoneLocalOption; /**< @stable ICU 69 */
 
 /**
 * Returns the time zone raw and GMT offset for the given moment
@@ -1710,7 +1700,7 @@ typedef enum UTimeZoneLocalOption UTimeZoneLocalOption; /**< @draft ICU 69 */
 * typically one hour.
 * If the status is set to one of the error code, the value set is unspecified.
 * @param status A pointer to a UErrorCode to receive any errors.
-* @draft ICU 69
+* @stable ICU 69
 */
 U_CAPI void U_EXPORT2
 ucal_getTimeZoneOffsetFromLocal(
@@ -1718,8 +1708,9 @@ ucal_getTimeZoneOffsetFromLocal(
     UTimeZoneLocalOption nonExistingTimeOpt,
     UTimeZoneLocalOption duplicatedTimeOpt,
     int32_t* rawOffset, int32_t* dstOffset, UErrorCode* status);
-#endif /* U_FORCE_HIDE_DRAFT_API */
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_DRAFT_API
 /**
  * Day periods
@@ -1734,8 +1725,8 @@ typedef enum UADayPeriod {
     UADAYPERIOD_EVENING2,
     UADAYPERIOD_NIGHT1,
     UADAYPERIOD_NIGHT2,
-    UADAYPERIOD_MIDNIGHT,   /* Should only get this for formatStyle TRUE */
-    UADAYPERIOD_NOON,       /* Should only get this for formatStyle TRUE */
+    UADAYPERIOD_MIDNIGHT,   /* Should only get this for formatStyle true */
+    UADAYPERIOD_NOON,       /* Should only get this for formatStyle true */
     UADAYPERIOD_UNKNOWN
 } UADayPeriod;
 
@@ -1749,12 +1740,12 @@ typedef enum UADayPeriod {
  *            Hour of day, in range 0..23.
  * @param minute
  *            Minute of the hour, in range 0..59. Currently does not affect dayPeriod
- *            selection if formatStyle is FALSE.
+ *            selection if formatStyle is false.
  * @param formatStyle
- *            FALSE to get dayPeriods for selecting strings to be used "stand-alone"
+ *            false to get dayPeriods for selecting strings to be used "stand-alone"
  *            without a particular time of day, e.g. "Good morning", "Good afternoon",
  *            "Good evening".
- *            TRUE to get dayPeriods for selecting strings to be used when formatting
+ *            true to get dayPeriods for selecting strings to be used when formatting
  *            a particular time of day, e.g. "12:00 noon", "3:00 PM".
  * @param status
  *            A pointer to a UErrorCode to receive any errors. In-out parameter; if
@@ -1771,6 +1762,7 @@ uacal_getDayPeriod( const char* locale,
                     UErrorCode* status );
 
 #endif /* U_HIDE_DRAFT_API */
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

@@ -26,9 +26,9 @@
 #include "unicode/utypes.h"
 #include "unicode/uenum.h"
 
-/**    
+/**
  * \file
- * \brief  C API: Locale 
+ * \brief C API: Locale ID functionality similar to C++ class Locale
  *
  * <h2> ULoc C API for Locale </h2>
  * A <code>Locale</code> represents a specific geographical, political,
@@ -514,6 +514,8 @@ uloc_canonicalize(const char*    localeID,
          int32_t nameCapacity,
          UErrorCode* err);
 
+#if APPLE_ICU_CHANGES
+// rdar://74314220 #189 Add ualoc_canonicalForm, C wrapper for Locale::createCanonical
 /**
  * Put the specified localeID into full canonical form, including
  * mapping of aliases (in addition to the behavior of
@@ -536,6 +538,7 @@ ualoc_canonicalForm(const char* localeID,
          char* name,
          int32_t nameCapacity,
          UErrorCode* err);
+#endif // APPLE_ICU_CHANGES
 
 /**
  * Gets the ISO language code for the specified locale.
@@ -900,7 +903,7 @@ uloc_getISOLanguages(void);
  * Gets a list of all available 2-letter country codes which are valid regular
  * region codes in CLDR; these are based on the non-deprecated alpha-2 region
  * codes in ISO 3166-1. The return value is a pointer to an array of pointers
- * C strings.  All of these pointers are owned by ICU; do not delete them, and
+ * to C strings.  All of these pointers are owned by ICU; do not delete them, and
  * do not write through them.  The array is terminated with a null pointer.
  * @return a list of all available country codes
  * @stable ICU 2.0

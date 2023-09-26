@@ -9,12 +9,6 @@ es_MX{
                 dnam{"miligramos por decilitro"}
             }
         }
-        coordinate{
-            east{"{0} este"}
-            north{"{0} norte"}
-            south{"{0} sur"}
-            west{"{0} oeste"}
-        }
         electric{
             ohm{
                 dnam{"ohmios"}
@@ -76,8 +70,11 @@ es_MX{
     }
     unitsNarrow{
         concentr{
+            karat{
+                one{"{0}kt"}
+                other{"{0}ct"}
+            }
             percent{
-                dnam{"%"}
                 one{"{0}%"}
                 other{"{0}%"}
             }
@@ -119,6 +116,8 @@ es_MX{
         angle{
             degree{
                 dnam{"º"}
+                one{"{0}°"}
+                other{"{0} grados"}
             }
         }
         concentr{

@@ -32,26 +32,18 @@
 
 #import <Foundation/Foundation.h>
 #import <Foundation/NSXPCConnection.h>
-#if !XCTEST
-#import <BacklightServices/BLSBacklightChangeRequest.h>
-#import <BacklightServices/BLSBacklightStateObserving.h>
-#import <BacklightServices/BLSBacklightChangeEvent.h>
-
-#import <BacklightServices/BLSBacklight.h>
-#endif
 #import "_PMCoreSmartPowerNapProtocol.h"
 
 
-#if !XCTEST
-@interface PMCoreSmartPowerNapService : NSXPCListener <NSXPCListenerDelegate, _PMCoreSmartPowerNapProtocol, BLSBacklightStateObserving>
-#else
 @interface PMCoreSmartPowerNapService : NSXPCListener <NSXPCListenerDelegate, _PMCoreSmartPowerNapProtocol>
-#endif
 
 + (instancetype)sharedInstance;
 - (void)updateState:(_PMCoreSmartPowerNapState)state;
 - (void)enterCoreSmartPowerNap;
 - (void)exitCoreSmartPowerNap;
+#if TARGET_OS_OSX
+- (NSDate *)timeForNextEvaluation;
+#endif
 @end
 
 #endif /* PMCoreSmartPowerNapService_h */

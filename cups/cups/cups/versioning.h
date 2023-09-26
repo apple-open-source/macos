@@ -39,6 +39,7 @@
 
 #  ifdef __APPLE__
 #    include <os/availability.h>
+#    include <TargetConditionals.h>
 #  endif /* __APPLE__ */
 
 #  ifdef __has_extension		/* Clang */

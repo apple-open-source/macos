@@ -641,6 +641,7 @@ where each character corresponds to a type of packet metadata as follows:
 \fBF\fP     flags
 \fBU\fP     process UUID (not shown by default)
 \fBV\fP     verbose printf of pcap-ng blocks (not shown by default)
+\fBd\fP     data link type
 \fBf\fP     flow identifier
 \fBt\fP     trace tag
 \fBA\fP     display all types of metadata
@@ -2182,6 +2183,7 @@ is to be compared:
 \fBdir\fP    direction
 \fBeproc\fP  effective process name
 \fBepid\fP   effective process ID
+\fBdlt\fP    data link type
 .fi
 .RE
 .LP
@@ -2203,6 +2205,27 @@ Likewise, strings that contain spaces have to be surrounded by quotes. For examp
 .RS
 .nf
 \fB-Q "proc = 'Some App'"\fP
+.fi
+.RE
+.LP
+Interface names can be filtered by partial string if the unit number is ommitted.
+For example use the following to include interfaces whose name begins with "en":
+.LP
+.RS
+.nf
+\fB-Q "if = en"\fP
+.fi
+.RE
+.LP
+The data link type can be specified by number or by one of the following symbolic names:
+.LP
+.RS
+.nf
+NULL
+EN10MB
+PPP
+RAW
+ether (same as EN10MB)
 .fi
 .RE
 .SH "SEE ALSO"

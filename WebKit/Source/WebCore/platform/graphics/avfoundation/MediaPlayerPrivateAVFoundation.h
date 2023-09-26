@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,6 @@
 #include <wtf/Function.h>
 #include <wtf/Lock.h>
 #include <wtf/LoggerHelper.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -194,7 +193,7 @@ protected:
     MediaPlayer::ReadyState readyState() const override { return m_readyState; }
     MediaTime maxMediaTimeSeekable() const override;
     MediaTime minMediaTimeSeekable() const override;
-    std::unique_ptr<PlatformTimeRanges> buffered() const override;
+    const PlatformTimeRanges& buffered() const override;
     bool didLoadingProgress() const override;
     void paint(GraphicsContext&, const FloatRect&) override = 0;
     DestinationColorSpace colorSpace() override = 0;
@@ -249,7 +248,7 @@ protected:
     virtual bool platformPaused() const { return !rate(); }
     virtual void seekToTime(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance) = 0;
     unsigned long long totalBytes() const override = 0;
-    virtual std::unique_ptr<PlatformTimeRanges> platformBufferedTimeRanges() const = 0;
+    virtual const PlatformTimeRanges& platformBufferedTimeRanges() const = 0;
     virtual MediaTime platformMaxTimeSeekable() const = 0;
     virtual MediaTime platformMinTimeSeekable() const = 0;
     virtual MediaTime platformMaxTimeLoaded() const = 0;
@@ -271,6 +270,8 @@ protected:
 
     virtual void updateVideoLayerGravity() = 0;
     virtual void resolvedURLChanged() = 0;
+
+    virtual bool isHLS() const { return false; }
 
     static bool isUnsupportedMIMEType(const String&);
     static const HashSet<String, ASCIICaseInsensitiveHash>& staticMIMETypeList();
@@ -306,8 +307,7 @@ protected:
 
     const String& assetURL() const { return m_assetURL.string(); }
 
-    MediaPlayer* player() { return m_player.get(); }
-    const MediaPlayer* player() const { return m_player.get(); }
+    RefPtr<MediaPlayer> player() const { return m_player.get(); }
 
     String engineDescription() const override { return "AVFoundation"_s; }
     long platformErrorCode() const override { return assetErrorCode(); }
@@ -332,14 +332,12 @@ protected:
     bool shouldEnableInheritURIQueryComponent() const;
 
 private:
-    WeakPtr<MediaPlayer> m_player;
+    ThreadSafeWeakPtr<MediaPlayer> m_player;
 
     Function<void()> m_pendingSeek;
 
     mutable Lock m_queuedNotificationsLock;
     Deque<Notification> m_queuedNotifications WTF_GUARDED_BY_LOCK(m_queuedNotificationsLock);
-
-    mutable std::unique_ptr<PlatformTimeRanges> m_cachedLoadedTimeRanges;
 
     MediaPlayer::NetworkState m_networkState;
     MediaPlayer::ReadyState m_readyState;

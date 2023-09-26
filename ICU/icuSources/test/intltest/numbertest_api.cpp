@@ -5,19 +5,22 @@
 
 #if !UCONFIG_NO_FORMATTING
 
-#include "charstr.h"
-#include <cstdarg>
 #include <cmath>
+#include <cstdarg>
 #include <memory>
-#include "unicode/unum.h"
+
+#include "unicode/displayoptions.h"
 #include "unicode/numberformatter.h"
 #include "unicode/testlog.h"
+#include "unicode/unum.h"
 #include "unicode/utypes.h"
+
+#include "charstr.h"
 #include "number_asformat.h"
+#include "number_microprops.h"
 #include "number_types.h"
 #include "number_utils.h"
 #include "number_utypes.h"
-#include "number_microprops.h"
 #include "numbertest.h"
 
 using number::impl::UFormattedNumberData;
@@ -87,9 +90,10 @@ void NumberFormatterApiTest::runIndexedTest(int32_t index, UBool exec, const cha
         TESTCASE_AUTO(unitUsageSkeletons);
         TESTCASE_AUTO(unitCurrency);
         TESTCASE_AUTO(unitInflections);
-        TESTCASE_AUTO(unitGender);
+        TESTCASE_AUTO(unitNounClass);
         TESTCASE_AUTO(unitNotConvertible);
         TESTCASE_AUTO(unitPercent);
+        TESTCASE_AUTO(unitLocaleTags);
         if (!quick) {
             // Slow test: run in exhaustive mode only
             TESTCASE_AUTO(percentParity);
@@ -99,6 +103,7 @@ void NumberFormatterApiTest::runIndexedTest(int32_t index, UBool exec, const cha
         TESTCASE_AUTO(roundingFractionFigures);
         TESTCASE_AUTO(roundingOther);
         TESTCASE_AUTO(roundingIncrementRegressionTest);
+        TESTCASE_AUTO(roundingPriorityCoverageTest);
         TESTCASE_AUTO(grouping);
         TESTCASE_AUTO(padding);
         TESTCASE_AUTO(integerWidth);
@@ -127,6 +132,7 @@ void NumberFormatterApiTest::runIndexedTest(int32_t index, UBool exec, const cha
         TESTCASE_AUTO(toObject);
         TESTCASE_AUTO(toDecimalNumber);
         TESTCASE_AUTO(microPropsInternals);
+        TESTCASE_AUTO(formatUnitsAliases);
     TESTCASE_AUTO_END;
 }
 
@@ -655,7 +661,12 @@ void NumberFormatterApiTest::unitMeasure() {
             NumberFormatter::with().unit(SQUARE_METER).unitWidth(UNumberUnitWidth::UNUM_UNIT_WIDTH_NARROW),
             Locale::createFromName("en-GB"),
             5.43,
+#if APPLE_ICU_CHANGES
+// rdar://
             u"5.43 m²"); // Apple data change
+#else
+            u"5.43m²");
+#endif  // APPLE_ICU_CHANGES
 
     // Try accessing a narrow unit directly from root.
     assertFormatSingle(
@@ -685,7 +696,12 @@ void NumberFormatterApiTest::unitMeasure() {
             NumberFormatter::with().unit(FAHRENHEIT).unitWidth(UNUM_UNIT_WIDTH_SHORT),
             Locale("es-US"),
             5.43,
+#if APPLE_ICU_CHANGES
+// rdar://
             u"5.43°F");
+#else
+            u"5.43 °F");
+#endif  // APPLE_ICU_CHANGES
 
     assertFormatSingle(
             u"MeasureUnit form without {0} in CLDR pattern",
@@ -749,10 +765,10 @@ void NumberFormatterApiTest::unitMeasure() {
 
     assertFormatSingle(
             u"Mixed Unit (Narrow Version)",
-            u"unit/metric-ton-and-kilogram-and-gram unit-width-narrow",
-            u"unit/metric-ton-and-kilogram-and-gram unit-width-narrow",
+            u"unit/tonne-and-kilogram-and-gram unit-width-narrow",
+            u"unit/tonne-and-kilogram-and-gram unit-width-narrow",
             NumberFormatter::with()
-                .unit(MeasureUnit::forIdentifier("metric-ton-and-kilogram-and-gram", status))
+                .unit(MeasureUnit::forIdentifier("tonne-and-kilogram-and-gram", status))
                 .unitWidth(UNUM_UNIT_WIDTH_NARROW),
             Locale("en-US"),
             4.28571,
@@ -760,10 +776,10 @@ void NumberFormatterApiTest::unitMeasure() {
 
     assertFormatSingle(
             u"Mixed Unit (Short Version)",
-            u"unit/metric-ton-and-kilogram-and-gram unit-width-short",
-            u"unit/metric-ton-and-kilogram-and-gram unit-width-short",
+            u"unit/tonne-and-kilogram-and-gram unit-width-short",
+            u"unit/tonne-and-kilogram-and-gram unit-width-short",
             NumberFormatter::with()
-                .unit(MeasureUnit::forIdentifier("metric-ton-and-kilogram-and-gram", status))
+                .unit(MeasureUnit::forIdentifier("tonne-and-kilogram-and-gram", status))
                 .unitWidth(UNUM_UNIT_WIDTH_SHORT),
             Locale("en-US"),
             4.28571,
@@ -771,10 +787,10 @@ void NumberFormatterApiTest::unitMeasure() {
 
     assertFormatSingle(
             u"Mixed Unit (Full Name Version)",
-            u"unit/metric-ton-and-kilogram-and-gram unit-width-full-name",
-            u"unit/metric-ton-and-kilogram-and-gram unit-width-full-name",
+            u"unit/tonne-and-kilogram-and-gram unit-width-full-name",
+            u"unit/tonne-and-kilogram-and-gram unit-width-full-name",
             NumberFormatter::with()
-                .unit(MeasureUnit::forIdentifier("metric-ton-and-kilogram-and-gram", status))
+                .unit(MeasureUnit::forIdentifier("tonne-and-kilogram-and-gram", status))
                 .unitWidth(UNUM_UNIT_WIDTH_FULL_NAME),
             Locale("en-US"),
             4.28571,
@@ -860,7 +876,12 @@ void NumberFormatterApiTest::unitMeasure() {
             NumberFormatter::with().unit(MeasureUnit::forIdentifier("celsius", status)),
             Locale("nl-NL"),
             -6.5,
+#if APPLE_ICU_CHANGES
+// rdar://
             u"-6,5\u00A0°C"); // Apple data change
+#else
+            u"-6,5°C");
+#endif  // APPLE_ICU_CHANGES
 
     assertFormatSingle(
             u"Negative numbers: time",
@@ -1192,7 +1213,12 @@ void NumberFormatterApiTest::unitArbitraryMeasureUnits() {
                 .unit(MeasureUnit::forIdentifier("per-second", status)),
             Locale("de-CH"),
             2.4,
+#if APPLE_ICU_CHANGES
+// rdar://
             u"2.4/Sek.");
+#else
+            u"2.4/s");
+#endif  // APPLE_ICU_CHANGES
 
     assertFormatSingle(
             u"No numeratorUnitString: per-second unit-width-full-name",
@@ -1346,7 +1372,7 @@ void NumberFormatterApiTest::unitSkeletons() {
             continue;
         }
         assertEquals(                                                       //
-            UnicodeString(TRUE, cas.inputSkeleton, -1) + u" normalization", //
+            UnicodeString(true, cas.inputSkeleton, -1) + u" normalization", //
             cas.normalizedSkeleton,                                         //
             nf.toSkeleton(status));
         status.errIfFailureAndReset("NumberFormatter::toSkeleton failed");
@@ -1747,6 +1773,46 @@ void NumberFormatterApiTest::unitUsage() {
             30500,
             u"350 m");
 
+    assertFormatSingle(u"Fuel consumption: inverted units",                                     //
+                       u"unit/liter-per-100-kilometer usage/vehicle-fuel",                      //
+                       u"unit/liter-per-100-kilometer usage/vehicle-fuel",                      //
+                       NumberFormatter::with()                                                  //
+                           .unit(MeasureUnit::forIdentifier("liter-per-100-kilometer", status)) //
+                           .usage("vehicle-fuel"),                                              //
+                       Locale("en-US"),                                                         //
+                       6.6,                                                                     //
+                       "36 mpg");
+
+    assertFormatSingle(u"Fuel consumption: inverted units, divide-by-zero, en-US",              //
+                       u"unit/liter-per-100-kilometer usage/vehicle-fuel",                      //
+                       u"unit/liter-per-100-kilometer usage/vehicle-fuel",                      //
+                       NumberFormatter::with()                                                  //
+                           .unit(MeasureUnit::forIdentifier("liter-per-100-kilometer", status)) //
+                           .usage("vehicle-fuel"),                                              //
+                       Locale("en-US"),                                                         //
+                       0,                                                                       //
+                       u"∞ mpg");
+
+    assertFormatSingle(u"Fuel consumption: inverted units, divide-by-zero, en-ZA",      //
+                       u"unit/mile-per-gallon usage/vehicle-fuel",                      //
+                       u"unit/mile-per-gallon usage/vehicle-fuel",                      //
+                       NumberFormatter::with()                                          //
+                           .unit(MeasureUnit::forIdentifier("mile-per-gallon", status)) //
+                           .usage("vehicle-fuel"),                                      //
+                       Locale("en-ZA"),                                                 //
+                       0,                                                               //
+                       u"∞ l/100 km");
+
+    assertFormatSingle(u"Fuel consumption: inverted units, divide-by-inf",              //
+                       u"unit/mile-per-gallon usage/vehicle-fuel",                      //
+                       u"unit/mile-per-gallon usage/vehicle-fuel",                      //
+                       NumberFormatter::with()                                          //
+                           .unit(MeasureUnit::forIdentifier("mile-per-gallon", status)) //
+                           .usage("vehicle-fuel"),                                      //
+                       Locale("de-CH"),                                                 //
+                       uprv_getInfinity(),                                              //
+                       u"0 L/100 km");
+
     // Test calling `.usage("")` should unset the existing usage.
     // First: without usage
     assertFormatSingle(u"Rounding Mode propagates: rounding up",
@@ -1854,9 +1920,16 @@ void NumberFormatterApiTest::unitUsage() {
                        1,                                                               //
                        "0.019 psi");
 
-    // TODO(icu-units#38): improve unit testing coverage. E.g. add vehicle-fuel
-    // triggering inversion conversion code. Test with 0 too, to see
-    // divide-by-zero behaviour.
+    assertFormatSingle(u"negative temperature conversion",                                 //
+                       u"measure-unit/temperature-celsius unit-width-short usage/default", //
+                       u"measure-unit/temperature-celsius unit-width-short usage/default", //
+                       NumberFormatter::with()                                             //
+                           .unit(MeasureUnit::forIdentifier("celsius", status))            //
+                           .usage("default")                                               //
+                           .unitWidth(UNumberUnitWidth::UNUM_UNIT_WIDTH_SHORT),            //
+                       Locale("en-US"),                                                    //
+                       -1,                                                                 //
+                       u"30°F");
 }
 
 void NumberFormatterApiTest::unitUsageErrorCodes() {
@@ -2101,7 +2174,7 @@ void NumberFormatterApiTest::unitCurrency() {
             NumberFormatter::with().unit(USD).unitWidth(UNUM_UNIT_WIDTH_NARROW),
             Locale("en-CA"),
             5.43,
-            u"$5.43");
+            u"US$5.43");
 
     assertFormatSingle(
             u"Currency Difference between Narrow and Short (Short Version)",
@@ -2232,7 +2305,7 @@ void NumberFormatterApiTest::unitCurrency() {
             -123.12,
             u"RON-123.12");
 
-    // TODO(CLDR-13044): Move the sign to the inside of the number
+    // TODO(ICU-21420): Move the sign to the inside of the number
     assertFormatSingle(
             u"Sign position on negative number with currency spacing",
             u"currency/RON",
@@ -2263,6 +2336,39 @@ void NumberFormatterApiTest::runUnitInflectionsTestCases(UnlocalizedNumberFormat
             skel = skelString.getTerminatedBuffer();
         } else {
             unf = unf.unit(mu).unitDisplayCase(t.unitDisplayCase);
+            // No skeleton support for unitDisplayCase yet.
+            skel = nullptr;
+        }
+        assertFormatSingle((UnicodeString("Unit: \"") + t.unitIdentifier + ("\", \"") + skeleton +
+                            u"\", locale=\"" + t.locale + u"\", case=\"" +
+                            (t.unitDisplayCase ? t.unitDisplayCase : "") + u"\", value=" + t.value)
+                               .getTerminatedBuffer(),
+                           skel, skel, unf, Locale(t.locale), t.value, t.expected);
+        status.assertSuccess();
+    }
+
+    for (int32_t i = 0; i < numCases; i++) {
+        UnitInflectionTestCase t = cases[i];
+        status.assertSuccess();
+        MeasureUnit mu = MeasureUnit::forIdentifier(t.unitIdentifier, status);
+        if (status.errIfFailureAndReset("MeasureUnit::forIdentifier(\"%s\", ...) failed",
+                                        t.unitIdentifier)) {
+            continue;
+        };
+
+        UnicodeString skelString = UnicodeString("unit/") + t.unitIdentifier + u" " + skeleton;
+        const UChar *skel;
+        auto displayOptionsBuilder = DisplayOptions::builder();
+        if (t.unitDisplayCase == nullptr || t.unitDisplayCase[0] == 0) {
+            auto displayoptions = displayOptionsBuilder.build();
+            unf = unf.unit(mu).displayOptions(displayoptions);
+            skel = skelString.getTerminatedBuffer();
+        } else {
+            auto displayoptions =
+                displayOptionsBuilder
+                    .setGrammaticalCase(udispopt_fromGrammaticalCaseIdentifier(t.unitDisplayCase))
+                    .build();
+            unf = unf.unit(mu).displayOptions(displayoptions);
             // No skeleton support for unitDisplayCase yet.
             skel = nullptr;
         }
@@ -2384,14 +2490,23 @@ void NumberFormatterApiTest::unitInflections() {
             {"centimeter", "de", nullptr, 1, u"1 Zentimeter"},
             {"centimeter", "de", "genitive", 1, u"1 Zentimeters"},
             {"centimeter", "de", "dative", 10, u"10 Zentimetern"},
-            // TODO(CLDR-14502): check that these inflections are correct, and
+            // TODO(CLDR-14582): check that these inflections are correct, and
             // whether CLDR needs any rules for them (presumably CLDR spec
             // should mention it, if it's a consistent rule):
+#if APPLE_ICU_CHANGES
+// rdar://
             {"meter-and-centimeter", "de", nullptr, 1.01, u"1 Meter und 1 Zentimeter"},
             {"meter-and-centimeter", "de", "genitive", 1.01, u"1 Meters und 1 Zentimeters"},
             {"meter-and-centimeter", "de", "genitive", 1.1, u"1 Meters und 10 Zentimeter"},
             {"meter-and-centimeter", "de", "dative", 1.1, u"1 Meter und 10 Zentimetern"},
             {"meter-and-centimeter", "de", "dative", 2.1, u"2 Metern und 10 Zentimetern"},
+#else
+            {"meter-and-centimeter", "de", nullptr, 1.01, u"1 Meter, 1 Zentimeter"},
+            {"meter-and-centimeter", "de", "genitive", 1.01, u"1 Meters, 1 Zentimeters"},
+            {"meter-and-centimeter", "de", "genitive", 1.1, u"1 Meters, 10 Zentimeter"},
+            {"meter-and-centimeter", "de", "dative", 1.1, u"1 Meter, 10 Zentimetern"},
+            {"meter-and-centimeter", "de", "dative", 2.1, u"2 Metern, 10 Zentimetern"},
+#endif  // APPLE_ICU_CHANGES
         };
         runUnitInflectionsTestCases(unf, skeleton, testCases, UPRV_LENGTHOF(testCases),
                                     status);
@@ -2401,275 +2516,285 @@ void NumberFormatterApiTest::unitInflections() {
     // TODO: look at "↑↑↑" cases: check that inheritance is done right.
 }
 
-void NumberFormatterApiTest::unitGender() {
-    IcuTestErrorCode status(*this, "unitGender");
-
+void NumberFormatterApiTest::unitNounClass() {
+    IcuTestErrorCode status(*this, "unitNounClass");
     const struct TestCase {
         const char *locale;
         const char *unitIdentifier;
-        const char *expectedGender;
+        const UDisplayOptionsNounClass expectedNounClass;
     } cases[] = {
-        {"de", "inch", "masculine"},
-        {"de", "yard", "neuter"},
-        {"de", "meter", "masculine"},
-        {"de", "liter", "masculine"},
-        {"de", "second", "feminine"},
-        {"de", "minute", "feminine"},
-        {"de", "hour", "feminine"},
-        {"de", "day", "masculine"},
-        {"de", "year", "neuter"},
-        {"de", "gram", "neuter"},
-        {"de", "watt", "neuter"},
-        {"de", "bit", "neuter"},
-        {"de", "byte", "neuter"},
+        {"de", "inch", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"de", "yard", UDISPOPT_NOUN_CLASS_NEUTER},
+        {"de", "meter", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"de", "liter", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"de", "second", UDISPOPT_NOUN_CLASS_FEMININE},
+        {"de", "minute", UDISPOPT_NOUN_CLASS_FEMININE},
+        {"de", "hour", UDISPOPT_NOUN_CLASS_FEMININE},
+        {"de", "day", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"de", "year", UDISPOPT_NOUN_CLASS_NEUTER},
+        {"de", "gram", UDISPOPT_NOUN_CLASS_NEUTER},
+        {"de", "watt", UDISPOPT_NOUN_CLASS_NEUTER},
+        {"de", "bit", UDISPOPT_NOUN_CLASS_NEUTER},
+        {"de", "byte", UDISPOPT_NOUN_CLASS_NEUTER},
 
-        {"fr", "inch", "masculine"},
-        {"fr", "yard", "masculine"},
-        {"fr", "meter", "masculine"},
-        {"fr", "liter", "masculine"},
-        {"fr", "second", "feminine"},
-        {"fr", "minute", "feminine"},
-        {"fr", "hour", "feminine"},
-        {"fr", "day", "masculine"},
-        {"fr", "year", "masculine"},
-        {"fr", "gram", "masculine"},
+        {"fr", "inch", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"fr", "yard", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"fr", "meter", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"fr", "liter", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"fr", "second", UDISPOPT_NOUN_CLASS_FEMININE},
+        {"fr", "minute", UDISPOPT_NOUN_CLASS_FEMININE},
+        {"fr", "hour", UDISPOPT_NOUN_CLASS_FEMININE},
+        {"fr", "day", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"fr", "year", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"fr", "gram", UDISPOPT_NOUN_CLASS_MASCULINE},
 
         // grammaticalFeatures deriveCompound "per" rule takes the gender of the
         // numerator unit:
-        {"de", "meter-per-hour", "masculine"},
-        {"fr", "meter-per-hour", "masculine"},
-        {"af", "meter-per-hour", ""}, // ungendered language
+        {"de", "meter-per-hour", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"fr", "meter-per-hour", UDISPOPT_NOUN_CLASS_MASCULINE},
+        {"af", "meter-per-hour",
+         UDISPOPT_NOUN_CLASS_UNDEFINED}, // ungendered language
 
         // French "times" takes gender from first value, German takes the
         // second. Prefix and power does not have impact on gender for these
         // languages:
-        {"de", "square-decimeter-square-second", "feminine"},
-        {"fr", "square-decimeter-square-second", "masculine"},
+        {"de", "square-decimeter-square-second", UDISPOPT_NOUN_CLASS_FEMININE},
+        {"fr", "square-decimeter-square-second",
+         UDISPOPT_NOUN_CLASS_MASCULINE},
 
         // TODO(icu-units#149): percent and permille bypasses LongNameHandler
         // when unitWidth is not FULL_NAME:
         // // Gender of per-second might be that of percent? TODO(icu-units#28)
-        // {"de", "percent", "neuter"},
-        // {"fr", "percent", "masculine"},
+        // {"de", "percent", UNounClass::UNOUN_CLASS_NEUTER},
+        // {"fr", "percent", UNounClass::UNOUN_CLASS_MASCULINE},
 
         // Built-in units whose simple units lack gender in the CLDR data file
-        {"de", "kilopascal", "neuter"},
-        {"fr", "kilopascal", "masculine"},
-        // {"de", "pascal", ""},
-        // {"fr", "pascal", ""},
+        {"de", "kilopascal", UDISPOPT_NOUN_CLASS_NEUTER},
+        {"fr", "kilopascal", UDISPOPT_NOUN_CLASS_MASCULINE},
+        // {"de", "pascal", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "pascal", UNounClass::UNOUN_CLASS_UNDEFINED},
 
         // Built-in units that lack gender in the CLDR data file
-        // {"de", "revolution", ""},
-        // {"de", "radian", ""},
-        // {"de", "arc-minute", ""},
-        // {"de", "arc-second", ""},
-        {"de", "square-yard", "neuter"},    // POWER
-        {"de", "square-inch", "masculine"}, // POWER
-        // {"de", "dunam", ""},
-        // {"de", "karat", ""},
-        // {"de", "milligram-ofglucose-per-deciliter", ""}, // COMPOUND, ofglucose
-        // {"de", "millimole-per-liter", ""},               // COMPOUND, mole
-        // {"de", "permillion", ""},
-        // {"de", "permille", ""},
-        // {"de", "permyriad", ""},
-        // {"de", "mole", ""},
-        {"de", "liter-per-kilometer", "masculine"}, // COMPOUND
-        {"de", "petabyte", "neuter"},               // PREFIX
-        {"de", "terabit", "neuter"},                // PREFIX
-        // {"de", "century", ""},
-        // {"de", "decade", ""},
-        {"de", "millisecond", "feminine"}, // PREFIX
-        {"de", "microsecond", "feminine"}, // PREFIX
-        {"de", "nanosecond", "feminine"},  // PREFIX
-        // {"de", "ampere", ""},
-        // {"de", "milliampere", ""}, // PREFIX, ampere
-        // {"de", "ohm", ""},
-        // {"de", "calorie", ""},
-        // {"de", "kilojoule", ""}, // PREFIX, joule
-        // {"de", "joule", ""},
-        {"de", "kilowatt-hour", "feminine"}, // COMPOUND
-        // {"de", "electronvolt", ""},
-        // {"de", "british-thermal-unit", ""},
-        // {"de", "therm-us", ""},
-        // {"de", "pound-force", ""},
-        // {"de", "newton", ""},
-        // {"de", "gigahertz", ""}, // PREFIX, hertz
-        // {"de", "megahertz", ""}, // PREFIX, hertz
-        // {"de", "kilohertz", ""}, // PREFIX, hertz
-        // {"de", "hertz", ""},
-        // {"de", "em", ""},
-        // {"de", "pixel", ""},
-        // {"de", "megapixel", ""},
-        // {"de", "pixel-per-centimeter", ""}, // COMPOUND, pixel
-        // {"de", "pixel-per-inch", ""},       // COMPOUND, pixel
-        // {"de", "dot-per-centimeter", ""},   // COMPOUND, dot
-        // {"de", "dot-per-inch", ""},         // COMPOUND, dot
-        // {"de", "dot", ""},
-        // {"de", "earth-radius", ""},
-        {"de", "decimeter", "masculine"},  // PREFIX
-        {"de", "micrometer", "masculine"}, // PREFIX
-        {"de", "nanometer", "masculine"},  // PREFIX
-        // {"de", "light-year", ""},
-        // {"de", "astronomical-unit", ""},
-        // {"de", "furlong", ""},
-        // {"de", "fathom", ""},
-        // {"de", "nautical-mile", ""},
-        // {"de", "mile-scandinavian", ""},
-        // {"de", "point", ""},
-        // {"de", "lux", ""},
-        // {"de", "candela", ""},
-        // {"de", "lumen", ""},
-        // {"de", "metric-ton", ""},
-        // {"de", "microgram", "neuter"}, // PREFIX
-        // {"de", "ton", ""},
-        // {"de", "stone", ""},
-        // {"de", "ounce-troy", ""},
-        // {"de", "carat", ""},
-        {"de", "gigawatt", "neuter"},  // PREFIX
-        {"de", "milliwatt", "neuter"}, // PREFIX
-        // {"de", "horsepower", ""},
-        // {"de", "millimeter-ofhg", ""},
-        // {"de", "pound-force-per-square-inch", ""}, // COMPOUND, pound-force
-        // {"de", "inch-ofhg", ""},
-        // {"de", "bar", ""},
-        // {"de", "millibar", ""}, // PREFIX, bar
-        // {"de", "atmosphere", ""},
-        // {"de", "pascal", ""},      // PREFIX, kilopascal? neuter?
-        // {"de", "hectopascal", ""}, // PREFIX, pascal, neuter?
-        // {"de", "megapascal", ""},  // PREFIX, pascal, neuter?
-        // {"de", "knot", ""},
-        {"de", "pound-force-foot", "masculine"}, // COMPOUND
-        {"de", "newton-meter", "masculine"},     // COMPOUND
-        {"de", "cubic-kilometer", "masculine"},  // POWER
-        {"de", "cubic-yard", "neuter"},          // POWER
-        {"de", "cubic-inch", "masculine"},       // POWER
-        {"de", "megaliter", "masculine"},        // PREFIX
-        {"de", "hectoliter", "masculine"},       // PREFIX
-        // {"de", "pint-metric", ""},
-        // {"de", "cup-metric", ""},
-        {"de", "acre-foot", "masculine"}, // COMPOUND
-        // {"de", "bushel", ""},
-        // {"de", "barrel", ""},
+        // {"de", "revolution", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "radian", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "arc-minute", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "arc-second", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"de", "square-yard", UDISPOPT_NOUN_CLASS_NEUTER},    // POWER
+        {"de", "square-inch", UDISPOPT_NOUN_CLASS_MASCULINE}, // POWER
+        // {"de", "dunam", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"de", "karat", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"de", "milligram-ofglucose-per-deciliter", UNounClass::UNOUN_CLASS_UNDEFINED}, // COMPOUND,
+        // ofglucose
+        // {"de", "millimole-per-liter", UNounClass::UNOUN_CLASS_UNDEFINED},               // COMPOUND,
+        // mole
+        // {"de", "permillion", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "permille", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "permyriad", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "mole", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"de", "liter-per-kilometer",
+         UDISPOPT_NOUN_CLASS_MASCULINE},                // COMPOUND
+        {"de", "petabyte", UDISPOPT_NOUN_CLASS_NEUTER}, // PREFIX
+        {"de", "terabit", UDISPOPT_NOUN_CLASS_NEUTER},  // PREFIX
+        // {"de", "century", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "decade", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"de", "millisecond", UDISPOPT_NOUN_CLASS_FEMININE}, // PREFIX
+        {"de", "microsecond", UDISPOPT_NOUN_CLASS_FEMININE}, // PREFIX
+        {"de", "nanosecond", UDISPOPT_NOUN_CLASS_FEMININE},  // PREFIX
+        // {"de", "ampere", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "milliampere", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, ampere
+        // {"de", "ohm", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "calorie", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "kilojoule", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, joule
+        // {"de", "joule", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        {"de", "kilowatt-hour", UDISPOPT_NOUN_CLASS_FEMININE}, // COMPOUND
+        // {"de", "electronvolt", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "british-thermal-unit", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "therm-us", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "pound-force", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "newton", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "gigahertz", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, hertz
+        // {"de", "megahertz", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, hertz
+        // {"de", "kilohertz", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, hertz
+        // {"de", "hertz", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"de", "em", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "pixel", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"de", "megapixel", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "pixel-per-centimeter", UNounClass::UNOUN_CLASS_UNDEFINED}, // COMPOUND, pixel
+        // {"de", "pixel-per-inch", UNounClass::UNOUN_CLASS_UNDEFINED},       // COMPOUND, pixel
+        // {"de", "dot-per-centimeter", UNounClass::UNOUN_CLASS_UNDEFINED},   // COMPOUND, dot
+        // {"de", "dot-per-inch", UNounClass::UNOUN_CLASS_UNDEFINED},         // COMPOUND, dot
+        // {"de", "dot", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "earth-radius", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"de", "decimeter", UDISPOPT_NOUN_CLASS_MASCULINE},  // PREFIX
+        {"de", "micrometer", UDISPOPT_NOUN_CLASS_MASCULINE}, // PREFIX
+        {"de", "nanometer", UDISPOPT_NOUN_CLASS_MASCULINE},  // PREFIX
+        // {"de", "light-year", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "astronomical-unit", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "furlong", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "fathom", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "nautical-mile", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"de", "mile-scandinavian", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "point", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"de", "lux", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "candela", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "lumen", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"de", "tonne", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "microgram", UNounClass::UNOUN_CLASS_NEUTER}, // PREFIX
+        // {"de", "ton", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "stone", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"de", "ounce-troy", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "carat", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        {"de", "gigawatt", UDISPOPT_NOUN_CLASS_NEUTER},  // PREFIX
+        {"de", "milliwatt", UDISPOPT_NOUN_CLASS_NEUTER}, // PREFIX
+        // {"de", "horsepower", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "millimeter-ofhg", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "pound-force-per-square-inch", UNounClass::UNOUN_CLASS_UNDEFINED}, // COMPOUND,
+        // pound-force
+        // {"de", "inch-ofhg", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "bar", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "millibar", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, bar
+        // {"de", "atmosphere", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "pascal", UNounClass::UNOUN_CLASS_UNDEFINED},      // PREFIX, kilopascal? neuter?
+        // {"de", "hectopascal", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, pascal, neuter?
+        // {"de", "megapascal", UNounClass::UNOUN_CLASS_UNDEFINED},  // PREFIX, pascal, neuter?
+        // {"de", "knot", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"de", "pound-force-foot", UDISPOPT_NOUN_CLASS_MASCULINE}, // COMPOUND
+        {"de", "newton-meter", UDISPOPT_NOUN_CLASS_MASCULINE},     // COMPOUND
+        {"de", "cubic-kilometer", UDISPOPT_NOUN_CLASS_MASCULINE},  // POWER
+        {"de", "cubic-yard", UDISPOPT_NOUN_CLASS_NEUTER},          // POWER
+        {"de", "cubic-inch", UDISPOPT_NOUN_CLASS_MASCULINE},       // POWER
+        {"de", "megaliter", UDISPOPT_NOUN_CLASS_MASCULINE},        // PREFIX
+        {"de", "hectoliter", UDISPOPT_NOUN_CLASS_MASCULINE},       // PREFIX
+        // {"de", "pint-metric", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "cup-metric", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"de", "acre-foot", UDISPOPT_NOUN_CLASS_MASCULINE}, // COMPOUND
+        // {"de", "bushel", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"de", "barrel", UNounClass::UNOUN_CLASS_UNDEFINED},
         // Units missing gender in German also misses gender in French:
-        // {"fr", "revolution", ""},
-        // {"fr", "radian", ""},
-        // {"fr", "arc-minute", ""},
-        // {"fr", "arc-second", ""},
-        {"fr", "square-yard", "masculine"}, // POWER
-        {"fr", "square-inch", "masculine"}, // POWER
-        // {"fr", "dunam", ""},
-        // {"fr", "karat", ""},
-        {"fr", "milligram-ofglucose-per-deciliter", "masculine"}, // COMPOUND
-        // {"fr", "millimole-per-liter", ""},                        // COMPOUND, mole
-        // {"fr", "permillion", ""},
-        // {"fr", "permille", ""},
-        // {"fr", "permyriad", ""},
-        // {"fr", "mole", ""},
-        {"fr", "liter-per-kilometer", "masculine"}, // COMPOUND
-        // {"fr", "petabyte", ""},                     // PREFIX
-        // {"fr", "terabit", ""},                      // PREFIX
-        // {"fr", "century", ""},
-        // {"fr", "decade", ""},
-        {"fr", "millisecond", "feminine"}, // PREFIX
-        {"fr", "microsecond", "feminine"}, // PREFIX
-        {"fr", "nanosecond", "feminine"},  // PREFIX
-        // {"fr", "ampere", ""},
-        // {"fr", "milliampere", ""}, // PREFIX, ampere
-        // {"fr", "ohm", ""},
-        // {"fr", "calorie", ""},
-        // {"fr", "kilojoule", ""}, // PREFIX, joule
-        // {"fr", "joule", ""},
-        // {"fr", "kilowatt-hour", ""}, // COMPOUND
-        // {"fr", "electronvolt", ""},
-        // {"fr", "british-thermal-unit", ""},
-        // {"fr", "therm-us", ""},
-        // {"fr", "pound-force", ""},
-        // {"fr", "newton", ""},
-        // {"fr", "gigahertz", ""}, // PREFIX, hertz
-        // {"fr", "megahertz", ""}, // PREFIX, hertz
-        // {"fr", "kilohertz", ""}, // PREFIX, hertz
-        // {"fr", "hertz", ""},
-        // {"fr", "em", ""},
-        // {"fr", "pixel", ""},
-        // {"fr", "megapixel", ""},
-        // {"fr", "pixel-per-centimeter", ""}, // COMPOUND, pixel
-        // {"fr", "pixel-per-inch", ""},       // COMPOUND, pixel
-        // {"fr", "dot-per-centimeter", ""},   // COMPOUND, dot
-        // {"fr", "dot-per-inch", ""},         // COMPOUND, dot
-        // {"fr", "dot", ""},
-        // {"fr", "earth-radius", ""},
-        {"fr", "decimeter", "masculine"},  // PREFIX
-        {"fr", "micrometer", "masculine"}, // PREFIX
-        {"fr", "nanometer", "masculine"},  // PREFIX
-        // {"fr", "light-year", ""},
-        // {"fr", "astronomical-unit", ""},
-        // {"fr", "furlong", ""},
-        // {"fr", "fathom", ""},
-        // {"fr", "nautical-mile", ""},
-        // {"fr", "mile-scandinavian", ""},
-        // {"fr", "point", ""},
-        // {"fr", "lux", ""},
-        // {"fr", "candela", ""},
-        // {"fr", "lumen", ""},
-        // {"fr", "metric-ton", ""},
-        // {"fr", "microgram", "masculine"}, // PREFIX
-        // {"fr", "ton", ""},
-        // {"fr", "stone", ""},
-        // {"fr", "ounce-troy", ""},
-        // {"fr", "carat", ""},
-        // {"fr", "gigawatt", ""}, // PREFIX
-        // {"fr", "milliwatt", ""},
-        // {"fr", "horsepower", ""},
-        {"fr", "millimeter-ofhg", "masculine"},
-        // {"fr", "pound-force-per-square-inch", ""}, // COMPOUND, pound-force
-        {"fr", "inch-ofhg", "masculine"},
-        // {"fr", "bar", ""},
-        // {"fr", "millibar", ""}, // PREFIX, bar
-        // {"fr", "atmosphere", ""},
-        // {"fr", "pascal", ""},      // PREFIX, kilopascal?
-        // {"fr", "hectopascal", ""}, // PREFIX, pascal
-        // {"fr", "megapascal", ""},  // PREFIX, pascal
-        // {"fr", "knot", ""},
-        // {"fr", "pound-force-foot", ""},
-        // {"fr", "newton-meter", ""},
-        {"fr", "cubic-kilometer", "masculine"}, // POWER
-        {"fr", "cubic-yard", "masculine"},      // POWER
-        {"fr", "cubic-inch", "masculine"},      // POWER
-        {"fr", "megaliter", "masculine"},       // PREFIX
-        {"fr", "hectoliter", "masculine"},      // PREFIX
-        // {"fr", "pint-metric", ""},
-        // {"fr", "cup-metric", ""},
-        {"fr", "acre-foot", "feminine"}, // COMPOUND
-        // {"fr", "bushel", ""},
-        // {"fr", "barrel", ""},
+        // {"fr", "revolution", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "radian", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "arc-minute", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "arc-second", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "square-yard", UDISPOPT_NOUN_CLASS_MASCULINE}, // POWER
+        {"fr", "square-inch", UDISPOPT_NOUN_CLASS_MASCULINE}, // POWER
+        // {"fr", "dunam", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"fr", "karat", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        {"fr", "milligram-ofglucose-per-deciliter",
+         UDISPOPT_NOUN_CLASS_MASCULINE}, // COMPOUND
+        // {"fr", "millimole-per-liter", UNounClass::UNOUN_CLASS_UNDEFINED},                        //
+        // COMPOUND, mole
+        // {"fr", "permillion", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "permille", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "permyriad", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "mole", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "liter-per-kilometer",
+         UDISPOPT_NOUN_CLASS_MASCULINE}, // COMPOUND
+        // {"fr", "petabyte", UNounClass::UNOUN_CLASS_UNDEFINED},                     // PREFIX
+        // {"fr", "terabit", UNounClass::UNOUN_CLASS_UNDEFINED},                      // PREFIX
+        // {"fr", "century", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "decade", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "millisecond", UDISPOPT_NOUN_CLASS_FEMININE}, // PREFIX
+        {"fr", "microsecond", UDISPOPT_NOUN_CLASS_FEMININE}, // PREFIX
+        {"fr", "nanosecond", UDISPOPT_NOUN_CLASS_FEMININE},  // PREFIX
+        // {"fr", "ampere", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "milliampere", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, ampere
+        // {"fr", "ohm", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "calorie", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "kilojoule", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, joule
+        // {"fr", "joule", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "kilowatt-hour", UNounClass::UNOUN_CLASS_UNDEFINED}, // COMPOUND
+        // {"fr", "electronvolt", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "british-thermal-unit", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "therm-us", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "pound-force", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "newton", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "gigahertz", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, hertz
+        // {"fr", "megahertz", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, hertz
+        // {"fr", "kilohertz", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, hertz
+        // {"fr", "hertz", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"fr", "em", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "pixel", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"fr", "megapixel", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "pixel-per-centimeter", UNounClass::UNOUN_CLASS_UNDEFINED}, // COMPOUND, pixel
+        // {"fr", "pixel-per-inch", UNounClass::UNOUN_CLASS_UNDEFINED},       // COMPOUND, pixel
+        // {"fr", "dot-per-centimeter", UNounClass::UNOUN_CLASS_UNDEFINED},   // COMPOUND, dot
+        // {"fr", "dot-per-inch", UNounClass::UNOUN_CLASS_UNDEFINED},         // COMPOUND, dot
+        // {"fr", "dot", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "earth-radius", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "decimeter", UDISPOPT_NOUN_CLASS_MASCULINE},  // PREFIX
+        {"fr", "micrometer", UDISPOPT_NOUN_CLASS_MASCULINE}, // PREFIX
+        {"fr", "nanometer", UDISPOPT_NOUN_CLASS_MASCULINE},  // PREFIX
+        // {"fr", "light-year", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "astronomical-unit", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "furlong", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "fathom", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "nautical-mile", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"fr", "mile-scandinavian", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "point", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"fr", "lux", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "candela", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "lumen", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"fr", "tonne", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "microgram", UNounClass::UNOUN_CLASS_MASCULINE}, // PREFIX
+        // {"fr", "ton", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "stone", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"fr", "ounce-troy", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "carat", UNounClass::UNOUN_CLASS_ UNDEFINED},
+        // {"fr", "gigawatt", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX
+        // {"fr", "milliwatt", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "horsepower", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "millimeter-ofhg", UDISPOPT_NOUN_CLASS_MASCULINE},
+        // {"fr", "pound-force-per-square-inch", UNounClass::UNOUN_CLASS_UNDEFINED}, // COMPOUND,
+        // pound-force
+        {"fr", "inch-ofhg", UDISPOPT_NOUN_CLASS_MASCULINE},
+        // {"fr", "bar", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "millibar", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, bar
+        // {"fr", "atmosphere", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "pascal", UNounClass::UNOUN_CLASS_UNDEFINED},      // PREFIX, kilopascal?
+        // {"fr", "hectopascal", UNounClass::UNOUN_CLASS_UNDEFINED}, // PREFIX, pascal
+        // {"fr", "megapascal", UNounClass::UNOUN_CLASS_UNDEFINED},  // PREFIX, pascal
+        // {"fr", "knot", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "pound-force-foot", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "newton-meter", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "cubic-kilometer", UDISPOPT_NOUN_CLASS_MASCULINE}, // POWER
+        {"fr", "cubic-yard", UDISPOPT_NOUN_CLASS_MASCULINE},      // POWER
+        {"fr", "cubic-inch", UDISPOPT_NOUN_CLASS_MASCULINE},      // POWER
+        {"fr", "megaliter", UDISPOPT_NOUN_CLASS_MASCULINE},       // PREFIX
+        {"fr", "hectoliter", UDISPOPT_NOUN_CLASS_MASCULINE},      // PREFIX
+        // {"fr", "pint-metric", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "cup-metric", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "acre-foot", UDISPOPT_NOUN_CLASS_FEMININE}, // COMPOUND
+        // {"fr", "bushel", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "barrel", UNounClass::UNOUN_CLASS_UNDEFINED},
         // Some more French units missing gender:
-        // {"fr", "degree", ""},
-        {"fr", "square-meter", "masculine"}, // POWER
-        // {"fr", "terabyte", ""},              // PREFIX, byte
-        // {"fr", "gigabyte", ""},              // PREFIX, byte
-        // {"fr", "gigabit", ""},               // PREFIX, bit
-        // {"fr", "megabyte", ""},              // PREFIX, byte
-        // {"fr", "megabit", ""},               // PREFIX, bit
-        // {"fr", "kilobyte", ""},              // PREFIX, byte
-        // {"fr", "kilobit", ""},               // PREFIX, bit
-        // {"fr", "byte", ""},
-        // {"fr", "bit", ""},
-        // {"fr", "volt", ""},
-        // {"fr", "watt", ""},
-        {"fr", "cubic-meter", "masculine"}, // POWER
+        // {"fr", "degree", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "square-meter", UDISPOPT_NOUN_CLASS_MASCULINE}, // POWER
+        // {"fr", "terabyte", UNounClass::UNOUN_CLASS_UNDEFINED},              // PREFIX, byte
+        // {"fr", "gigabyte", UNounClass::UNOUN_CLASS_UNDEFINED},              // PREFIX, byte
+        // {"fr", "gigabit", UNounClass::UNOUN_CLASS_UNDEFINED},               // PREFIX, bit
+        // {"fr", "megabyte", UNounClass::UNOUN_CLASS_UNDEFINED},              // PREFIX, byte
+        // {"fr", "megabit", UNounClass::UNOUN_CLASS_UNDEFINED},               // PREFIX, bit
+        // {"fr", "kilobyte", UNounClass::UNOUN_CLASS_UNDEFINED},              // PREFIX, byte
+        // {"fr", "kilobit", UNounClass::UNOUN_CLASS_UNDEFINED},               // PREFIX, bit
+        // {"fr", "byte", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "bit", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "volt", UNounClass::UNOUN_CLASS_UNDEFINED},
+        // {"fr", "watt", UNounClass::UNOUN_CLASS_UNDEFINED},
+        {"fr", "cubic-meter", UDISPOPT_NOUN_CLASS_MASCULINE}, // POWER
 
         // gender-lacking builtins within compound units
-        {"de", "newton-meter-per-second", "masculine"},
+        {"de", "newton-meter-per-second", UDISPOPT_NOUN_CLASS_MASCULINE},
 
         // TODO(ICU-21494): determine whether list genders behave as follows,
         // and implement proper getListGender support (covering more than just
         // two genders):
         // // gender rule for lists of people: de "neutral", fr "maleTaints"
-        // {"de", "day-and-hour-and-minute", "neuter"},
-        // {"de", "hour-and-minute", "feminine"},
-        // {"fr", "day-and-hour-and-minute", "masculine"},
-        // {"fr", "hour-and-minute", "feminine"},
+        // {"de", "day-and-hour-and-minute", UNounClass::UNOUN_CLASS_NEUTER},
+        // {"de", "hour-and-minute", UNounClass::UNOUN_CLASS_FEMININE},
+        // {"fr", "day-and-hour-and-minute", UNounClass::UNOUN_CLASS_MASCULINE},
+        // {"fr", "hour-and-minute", UNounClass::UNOUN_CLASS_FEMININE},
     };
+
     LocalizedNumberFormatter formatter;
     FormattedNumber fn;
     for (const TestCase &t : cases) {
@@ -2677,9 +2802,9 @@ void NumberFormatterApiTest::unitGender() {
                         .unit(MeasureUnit::forIdentifier(t.unitIdentifier, status))
                         .locale(Locale(t.locale));
         fn = formatter.formatDouble(1.1, status);
-        assertEquals(UnicodeString("Testing gender with default width, unit: ") + t.unitIdentifier +
+        assertEquals(UnicodeString("Testing NounClass with default width, unit: ") + t.unitIdentifier +
                          ", locale: " + t.locale,
-                     t.expectedGender, fn.getGender(status));
+                     t.expectedNounClass, fn.getNounClass(status));
         status.assertSuccess();
 
         formatter = NumberFormatter::with()
@@ -2687,18 +2812,23 @@ void NumberFormatterApiTest::unitGender() {
                         .unitWidth(UNUM_UNIT_WIDTH_FULL_NAME)
                         .locale(Locale(t.locale));
         fn = formatter.formatDouble(1.1, status);
-        assertEquals(UnicodeString("Testing gender with UNUM_UNIT_WIDTH_FULL_NAME, unit: ") +
+        assertEquals(UnicodeString("Testing NounClass with UNUM_UNIT_WIDTH_FULL_NAME, unit: ") +
                          t.unitIdentifier + ", locale: " + t.locale,
-                     t.expectedGender, fn.getGender(status));
+                     t.expectedNounClass, fn.getNounClass(status));
         status.assertSuccess();
     }
 
-    // Make sure getGender does not return garbage for genderless languages
+    // Make sure getNounClass does not return garbage for languages without noun classes.
     formatter = NumberFormatter::with().locale(Locale::getEnglish());
     fn = formatter.formatDouble(1.1, status);
     status.assertSuccess();
-    assertEquals("getGender for a genderless language", "", fn.getGender(status));
+    assertEquals("getNounClasses for a not supported language",
+                 UDISPOPT_NOUN_CLASS_UNDEFINED, fn.getNounClass(status));
 }
+
+// The following test of getGender (removed in ICU 72) is replaced by the above
+// parallel test unitNounClass using getNounClass (getGender replacement).
+//void NumberFormatterApiTest::unitGender() {...}
 
 void NumberFormatterApiTest::unitNotConvertible() {
     IcuTestErrorCode status(*this, "unitNotConvertible");
@@ -2848,6 +2978,90 @@ void NumberFormatterApiTest::unitPercent() {
             u"50 meters per percent");
 }
 
+void NumberFormatterApiTest::unitLocaleTags() {
+    IcuTestErrorCode status(*this, "unitLocaleTags");
+
+    const struct TestCase {
+        const UnicodeString message;
+        const char *locale;
+        const char *inputUnit;
+        const double inputValue;
+        const char *usage;
+        const char *expectedOutputUnit;
+        const double expectedOutputValue;
+        const UnicodeString expectedFormattedNumber;
+    } cases[] = {
+        // Test without any tag behaviour
+        {u"Test the locale without any addition and without usage", "en-US", "celsius", 0, nullptr,
+         "celsius", 0.0, u"0 degrees Celsius"},
+        {u"Test the locale without any addition and usage", "en-US", "celsius", 0, "default",
+         "fahrenheit", 32.0, u"32 degrees Fahrenheit"},
+
+        // Test the behaviour of the `mu` tag.
+        {u"Test the locale with mu = celsius and without usage", "en-US-u-mu-celsius", "fahrenheit", 0,
+         nullptr, "fahrenheit", 0.0, u"0 degrees Fahrenheit"},
+        {u"Test the locale with mu = celsius and with usage", "en-US-u-mu-celsius", "fahrenheit", 0,
+         "default", "celsius", -18.0, u"-18 degrees Celsius"},
+        {u"Test the locale with mu = calsius (wrong spelling) and with usage", "en-US-u-mu-calsius",
+         "fahrenheit", 0, "default", "fahrenheit", 0.0, u"0 degrees Fahrenheit"},
+        {u"Test the locale with mu = meter (only temprature units are supported) and with usage",
+         "en-US-u-mu-meter", "foot", 0, "default", "inch", 0.0, u"0 inches"},
+
+        // Test the behaviour of the `ms` tag
+        {u"Test the locale with ms = metric and without usage", "en-US-u-ms-metric", "fahrenheit", 0,
+         nullptr, "fahrenheit", 0.0, u"0 degrees Fahrenheit"},
+        {u"Test the locale with ms = metric and with usage", "en-US-u-ms-metric", "fahrenheit", 0,
+         "default", "celsius", -18, u"-18 degrees Celsius"},
+        {u"Test the locale with ms = Matric (wrong spelling) and with usage", "en-US-u-ms-Matric",
+         "fahrenheit", 0, "default", "fahrenheit", 0.0, u"0 degrees Fahrenheit"},
+
+        // Test the behaviour of the `rg` tag
+        {u"Test the locale with rg = UK and without usage", "en-US-u-rg-ukzzzz", "fahrenheit", 0,
+         nullptr, "fahrenheit", 0.0, u"0 degrees Fahrenheit"},
+        {u"Test the locale with rg = UK and with usage", "en-US-u-rg-ukzzzz", "fahrenheit", 0, "default",
+         "celsius", -18, u"-18 degrees Celsius"},
+        {"Test the locale with mu = fahrenheit and without usage", "en-US-u-mu-fahrenheit", "celsius", 0,
+         nullptr, "celsius", 0.0, "0 degrees Celsius"},
+        {"Test the locale with mu = fahrenheit and with usage", "en-US-u-mu-fahrenheit", "celsius", 0,
+         "default", "fahrenheit", 32.0, "32 degrees Fahrenheit"},
+        {u"Test the locale with rg = UKOI and with usage", "en-US-u-rg-ukoizzzz", "fahrenheit", 0,
+         "default", "celsius", -18.0, u"-18 degrees Celsius"},
+
+        // Test the priorities
+        {u"Test the locale with mu,ms,rg --> mu tag wins", "en-US-u-mu-celsius-ms-ussystem-rg-uszzzz",
+         "celsius", 0, "default", "celsius", 0.0, u"0 degrees Celsius"},
+        {u"Test the locale with ms,rg --> ms tag wins", "en-US-u-ms-metric-rg-uszzzz", "foot", 1,
+         "default", "centimeter", 30.0, u"30 centimeters"},
+    };
+
+    for (const auto &testCase : cases) {
+        UnicodeString message = testCase.message;
+        Locale locale(testCase.locale);
+        auto inputUnit = MeasureUnit::forIdentifier(testCase.inputUnit, status);
+        auto inputValue = testCase.inputValue;
+        auto usage = testCase.usage;
+        auto expectedOutputUnit = MeasureUnit::forIdentifier(testCase.expectedOutputUnit, status);
+        UnicodeString expectedFormattedNumber = testCase.expectedFormattedNumber;
+
+        auto nf = NumberFormatter::with()
+                      .locale(locale)                        //
+                      .unit(inputUnit)                       //
+                      .unitWidth(UNUM_UNIT_WIDTH_FULL_NAME); //
+        if (usage != nullptr) {
+            nf = nf.usage(usage);
+        }
+        auto fn = nf.formatDouble(inputValue, status);
+        if (status.errIfFailureAndReset()) {
+            continue;
+        }
+
+        assertEquals(message, fn.toString(status), expectedFormattedNumber);
+        // TODO: ICU-22154
+        // assertEquals(message, fn.getOutputUnit(status).getIdentifier(),
+        //              expectedOutputUnit.getIdentifier());
+    }
+}
+
 void NumberFormatterApiTest::percentParity() {
     IcuTestErrorCode status(*this, "percentParity");
     UnlocalizedNumberFormatter uNoUnitPercent = NumberFormatter::with().unit(NoUnit::percent());
@@ -2975,6 +3189,28 @@ void NumberFormatterApiTest::roundingFraction() {
             Locale::getEnglish(),
             1,
             "1");
+
+    assertFormatSingle(
+            u"Hide If Whole with Rounding Mode A (ICU-21881)",
+            u".00/w rounding-mode-floor",
+            u".00/w rounding-mode-floor",
+            NumberFormatter::with().precision(Precision::fixedFraction(2)
+                .trailingZeroDisplay(UNUM_TRAILING_ZERO_HIDE_IF_WHOLE))
+                .roundingMode(UNUM_ROUND_FLOOR),
+            Locale::getEnglish(),
+            3.009,
+            "3");
+
+    assertFormatSingle(
+            u"Hide If Whole with Rounding Mode B (ICU-21881)",
+            u".00/w rounding-mode-half-up",
+            u".00/w rounding-mode-half-up",
+            NumberFormatter::with().precision(Precision::fixedFraction(2)
+                .trailingZeroDisplay(UNUM_TRAILING_ZERO_HIDE_IF_WHOLE))
+                .roundingMode(UNUM_ROUND_HALFUP),
+            Locale::getEnglish(),
+            3.001,
+            "3");
 }
 
 void NumberFormatterApiTest::roundingFigures() {
@@ -2995,6 +3231,15 @@ void NumberFormatterApiTest::roundingFigures() {
             Locale::getEnglish(),
             -98.7654321,
             u"-98.8");
+
+    assertFormatSingle(
+            u"Fixed Significant at rounding boundary",
+            u"@@@",
+            u"@@@",
+            NumberFormatter::with().precision(Precision::fixedSignificantDigits(3)),
+            Locale::getEnglish(),
+            9.999,
+            u"10.0");
 
     assertFormatSingle(
             u"Fixed Significant Zero",
@@ -3156,7 +3401,7 @@ void NumberFormatterApiTest::roundingFractionFigures() {
     assertFormatDescending(
             u"FracSig withSignificantDigits STRICT",
             u"precision-integer/@#s",
-            u"./@#",
+            u"./@#s",
             NumberFormatter::with().precision(Precision::maxFraction(0)
                 .withSignificantDigits(1, 2, UNUM_ROUNDING_PRIORITY_STRICT)),
             Locale::getEnglish(),
@@ -3180,7 +3425,7 @@ void NumberFormatterApiTest::roundingFractionFigures() {
             1,
             u"1.00");
 
-    // Trailing zeros are always retained:
+    // Trailing zeros follow the strategy that was chosen:
     assertFormatSingle(
             u"FracSig withSignificantDigits Trailing Zeros STRICT",
             u".0/@@@s",
@@ -3189,7 +3434,7 @@ void NumberFormatterApiTest::roundingFractionFigures() {
                 .withSignificantDigits(3, 3, UNUM_ROUNDING_PRIORITY_STRICT)),
             Locale::getEnglish(),
             1,
-            u"1.00");
+            u"1.0");
 
     assertFormatSingle(
             u"FracSig withSignificantDigits at rounding boundary",
@@ -3199,7 +3444,7 @@ void NumberFormatterApiTest::roundingFractionFigures() {
                     .withSignificantDigits(3, 3, UNUM_ROUNDING_PRIORITY_STRICT)),
             Locale::getEnglish(),
             9.99,
-            u"10.0");
+            u"10");
 
     assertFormatSingle(
             u"FracSig with Trailing Zero Display",
@@ -3397,6 +3642,42 @@ void NumberFormatterApiTest::roundingOther() {
             u"0.0",
             u"0.0");
 
+    assertFormatSingle(
+            u"Large integer increment",
+            u"precision-increment/24000000000000000000000",
+            u"precision-increment/24000000000000000000000",
+            NumberFormatter::with().precision(Precision::incrementExact(24, 21)),
+            Locale::getEnglish(),
+            3.1e22,
+            u"24,000,000,000,000,000,000,000");
+
+    assertFormatSingle(
+            u"Quarter rounding",
+            u"precision-increment/250",
+            u"precision-increment/250",
+            NumberFormatter::with().precision(Precision::incrementExact(250, 0)),
+            Locale::getEnglish(),
+            700,
+            u"750");
+
+    assertFormatSingle(
+            u"ECMA-402 limit",
+            u"precision-increment/.00000000000000000020",
+            u"precision-increment/.00000000000000000020",
+            NumberFormatter::with().precision(Precision::incrementExact(20, -20)),
+            Locale::getEnglish(),
+            333e-20,
+            u"0.00000000000000000340");
+
+    assertFormatSingle(
+            u"ECMA-402 limit with increment = 1",
+            u"precision-increment/.00000000000000000001",
+            u"precision-increment/.00000000000000000001",
+            NumberFormatter::with().precision(Precision::incrementExact(1, -20)),
+            Locale::getEnglish(),
+            4321e-21,
+            u"0.00000000000000000432");
+
     assertFormatDescending(
             u"Currency Standard",
             u"currency/CZK precision-currency-standard",
@@ -3583,6 +3864,67 @@ void NumberFormatterApiTest::roundingIncrementRegressionTest() {
     assertEquals("ICU-21668", u"5,000", increment);
 }
 
+void NumberFormatterApiTest::roundingPriorityCoverageTest() {
+    IcuTestErrorCode status(*this, "roundingPriorityCoverageTest");
+    struct TestCase {
+        double input;
+        const char16_t* expectedRelaxed0113;
+        const char16_t* expectedStrict0113;
+        const char16_t* expectedRelaxed1133;
+        const char16_t* expectedStrict1133;
+    } cases[] = {
+        { 0.9999, u"1",      u"1",     u"1.00",    u"1.0" },
+        { 9.9999, u"10",     u"10",    u"10.0",    u"10.0" },
+        { 99.999, u"100",    u"100",   u"100.0",   u"100" },
+        { 999.99, u"1000",   u"1000",  u"1000.0",  u"1000" },
+
+        { 0, u"0", u"0", u"0.00", u"0.0" },
+
+        { 9.876,  u"9.88",   u"9.9",   u"9.88",   u"9.9" },
+        { 9.001,  u"9",      u"9",     u"9.00",   u"9.0" },
+    };
+    for (const auto& cas : cases) {
+        auto precisionRelaxed0113 = Precision::minMaxFraction(0, 1)
+            .withSignificantDigits(1, 3, UNUM_ROUNDING_PRIORITY_RELAXED);
+        auto precisionStrict0113 = Precision::minMaxFraction(0, 1)
+            .withSignificantDigits(1, 3, UNUM_ROUNDING_PRIORITY_STRICT);
+        auto precisionRelaxed1133 = Precision::minMaxFraction(1, 1)
+            .withSignificantDigits(3, 3, UNUM_ROUNDING_PRIORITY_RELAXED);
+        auto precisionStrict1133 = Precision::minMaxFraction(1, 1)
+            .withSignificantDigits(3, 3, UNUM_ROUNDING_PRIORITY_STRICT);
+
+        auto messageBase = DoubleToUnicodeString(cas.input);
+
+        auto check = [&](
+            const char16_t* name,
+            const UnicodeString& expected,
+            const Precision& precision
+        ) {
+            assertEquals(
+                messageBase + name,
+                expected,
+                NumberFormatter::withLocale(Locale::getEnglish())
+                    .precision(precision)
+                    .grouping(UNUM_GROUPING_OFF)
+                    .formatDouble(cas.input, status)
+                    .toString(status)
+            );
+        };
+
+        check(u" Relaxed 0113", cas.expectedRelaxed0113, precisionRelaxed0113);
+        if (status.errIfFailureAndReset()) continue;
+
+        check(u" Strict 0113", cas.expectedStrict0113, precisionStrict0113);
+        if (status.errIfFailureAndReset()) continue;
+
+        check(u" Relaxed 1133", cas.expectedRelaxed1133, precisionRelaxed1133);
+        if (status.errIfFailureAndReset()) continue;
+
+        check(u" Strict 1133", cas.expectedStrict1133, precisionStrict1133);
+        if (status.errIfFailureAndReset()) continue;
+    }
+}
+
 void NumberFormatterApiTest::grouping() {
     assertFormatDescendingBig(
             u"Western Grouping",
@@ -3731,39 +4073,39 @@ void NumberFormatterApiTest::grouping() {
             u"8,765",
             u"0");
 
-    // NOTE: Bulgarian is interesting because it has no grouping in the default currency format.
+    // NOTE: en_US_POSIX is interesting because it has no grouping in the default currency format.
     // If this test breaks due to data changes, find another locale that has no default grouping.
     assertFormatDescendingBig(
-            u"Bulgarian Currency Grouping",
+            u"en_US_POSIX Currency Grouping",
             u"currency/USD group-auto",
             u"currency/USD",
             NumberFormatter::with().grouping(UNUM_GROUPING_AUTO).unit(USD),
-            Locale("bg"),
-            u"87650000,00 щ.д.",
-            u"8765000,00 щ.д.",
-            u"876500,00 щ.д.",
-            u"87650,00 щ.д.",
-            u"8765,00 щ.д.",
-            u"876,50 щ.д.",
-            u"87,65 щ.д.",
-            u"8,76 щ.д.",
-            u"0,00 щ.д.");
+            Locale("en_US_POSIX"),
+            u"$ 87650000.00",
+            u"$ 8765000.00",
+            u"$ 876500.00",
+            u"$ 87650.00",
+            u"$ 8765.00",
+            u"$ 876.50",
+            u"$ 87.65",
+            u"$ 8.76",
+            u"$ 0.00");
 
     assertFormatDescendingBig(
-            u"Bulgarian Currency Grouping, Always",
+            u"en_US_POSIX Currency Grouping, Always",
             u"currency/USD group-on-aligned",
             u"currency/USD ,!",
             NumberFormatter::with().grouping(UNUM_GROUPING_ON_ALIGNED).unit(USD),
-            Locale("bg"),
-            u"87 650 000,00 щ.д.",
-            u"8 765 000,00 щ.д.",
-            u"876 500,00 щ.д.",
-            u"87 650,00 щ.д.",
-            u"8 765,00 щ.д.",
-            u"876,50 щ.д.",
-            u"87,65 щ.д.",
-            u"8,76 щ.д.",
-            u"0,00 щ.д.");
+            Locale("en_US_POSIX"),
+            u"$ 87,650,000.00",
+            u"$ 8,765,000.00",
+            u"$ 876,500.00",
+            u"$ 87,650.00",
+            u"$ 8,765.00",
+            u"$ 876.50",
+            u"$ 87.65",
+            u"$ 8.76",
+            u"$ 0.00");
 
     MacroProps macros;
     macros.grouper = Grouper(4, 1, 3, UNUM_GROUPING_COUNT);
@@ -4165,15 +4507,15 @@ void NumberFormatterApiTest::symbols() {
             u"currency/USD latin",
             NumberFormatter::with().adoptSymbols(new NumberingSystem(LATN)).unit(USD),
             Locale("ar"),
-            u"\u200f87,650.00\u00a0\u200fUS$",
-            u"\u200f8,765.00\u00a0\u200fUS$",
-            u"\u200f876.50\u00a0\u200fUS$",
-            u"\u200f87.65\u00a0\u200fUS$",
-            u"\u200f8.76\u00a0\u200fUS$",
-            u"\u200f0.88\u00a0\u200fUS$",
-            u"\u200f0.09\u00a0\u200fUS$",
-            u"\u200f0.01\u00a0\u200fUS$",
-            u"\u200f0.00\u00a0\u200fUS$");
+            u"\u200F87,650.00 US$",
+            u"\u200F8,765.00 US$",
+            u"\u200F876.50 US$",
+            u"\u200F87.65 US$",
+            u"\u200F8.76 US$",
+            u"\u200F0.88 US$",
+            u"\u200F0.09 US$",
+            u"\u200F0.01 US$",
+            u"\u200F0.00 US$");
 
     assertFormatDescending(
             u"Math Numbering System with French Data",
@@ -4212,22 +4554,22 @@ void NumberFormatterApiTest::symbols() {
     // NOTE: Locale ar puts ¤ after the number in NS arab but before the number in NS latn.
 
     assertFormatSingle(
-            u"Currency symbol should precede number in ar with NS latn",
+            u"Currency symbol should follow number in ar with NS latn",
             u"currency/USD latin",
             u"currency/USD latin",
             NumberFormatter::with().adoptSymbols(new NumberingSystem(LATN)).unit(USD),
             Locale("ar"),
             12345.67,
-            u"\u200f12,345.67\u00a0\u200fUS$");
+            u"\u200F12,345.67 US$");
 
     assertFormatSingle(
-            u"Currency symbol should precede number in ar@numbers=latn",
+            u"Currency symbol should follow number in ar@numbers=latn",
             u"currency/USD",
             u"currency/USD",
             NumberFormatter::with().unit(USD),
             Locale("ar@numbers=latn"),
             12345.67,
-            u"\u200f12,345.67\u00a0\u200fUS$");
+            u"\u200F12,345.67 US$");
 
     assertFormatSingle(
             u"Currency symbol should follow number in ar-EG with NS arab",
@@ -4236,7 +4578,7 @@ void NumberFormatterApiTest::symbols() {
             NumberFormatter::with().unit(USD),
             Locale("ar-EG"),
             12345.67,
-            u"\u200f١٢٬٣٤٥٫٦٧ \u200fUS$");
+            u"\u200F١٢٬٣٤٥٫٦٧ US$");
 
     assertFormatSingle(
             u"Currency symbol should follow number in ar@numbers=arab",
@@ -4245,7 +4587,7 @@ void NumberFormatterApiTest::symbols() {
             NumberFormatter::with().unit(USD),
             Locale("ar@numbers=arab"),
             12345.67,
-            u"\u200f١٢٬٣٤٥٫٦٧ \u200fUS$");
+            u"\u200F١٢٬٣٤٥٫٦٧ US$");
 
     assertFormatSingle(
             u"NumberingSystem in API should win over @numbers keyword",
@@ -4254,12 +4596,12 @@ void NumberFormatterApiTest::symbols() {
             NumberFormatter::with().adoptSymbols(new NumberingSystem(LATN)).unit(USD),
             Locale("ar@numbers=arab"),
             12345.67,
-            u"\u200f12,345.67\u00a0\u200fUS$");
+            u"\u200F12,345.67 US$");
 
     UErrorCode status = U_ZERO_ERROR;
     assertEquals(
             "NumberingSystem in API should win over @numbers keyword in reverse order",
-            u"\u200f12,345.67\u00a0\u200fUS$",
+            u"\u200F12,345.67 US$",
             NumberFormatter::withLocale(Locale("ar@numbers=arab")).adoptSymbols(new NumberingSystem(LATN))
                     .unit(USD)
                     .formatDouble(12345.67, status)
@@ -4575,7 +4917,7 @@ void NumberFormatterApiTest::sign() {
                 .unitWidth(UNUM_UNIT_WIDTH_NARROW),
             Locale::getCanada(),
             -444444,
-            u"($444,444.00)");
+            u"(US$444,444.00)");
 
     assertFormatSingle(
             u"Sign Accounting Negative Short",
@@ -4613,7 +4955,7 @@ void NumberFormatterApiTest::sign() {
                 .unitWidth(UNUM_UNIT_WIDTH_FULL_NAME),
             Locale::getCanada(),
             -444444,
-            u"-444,444.00 U.S. dollars");
+            u"-444,444.00 US dollars");
 }
 
 void NumberFormatterApiTest::signNearZero() {
@@ -5707,6 +6049,37 @@ void NumberFormatterApiTest::microPropsInternals() {
     assertEquals("Copy Assigned capacity", 4, copyAssigned.mixedMeasures.getCapacity());
 }
 
+void NumberFormatterApiTest::formatUnitsAliases() {
+    IcuTestErrorCode status(*this, "formatUnitsAliases");
+
+    struct TestCase {
+        const MeasureUnit measureUnit;
+        const UnicodeString expectedFormat;
+    } testCases[]{
+        // Aliases
+        {MeasureUnit::getMilligramPerDeciliter(), u"2 milligrams per deciliter"},
+        {MeasureUnit::getLiterPer100Kilometers(), u"2 liters per 100 kilometers"},
+        {MeasureUnit::getPartPerMillion(), u"2 parts per million"},
+        {MeasureUnit::getMillimeterOfMercury(), u"2 millimeters of mercury"},
+
+        // Replacements
+        {MeasureUnit::getMilligramOfglucosePerDeciliter(), u"2 milligrams per deciliter"},
+        {MeasureUnit::forIdentifier("millimeter-ofhg", status), u"2 millimeters of mercury"},
+        {MeasureUnit::forIdentifier("liter-per-100-kilometer", status), u"2 liters per 100 kilometers"},
+        {MeasureUnit::forIdentifier("permillion", status), u"2 parts per million"},
+    };
+
+    for (const auto &testCase : testCases) {
+        UnicodeString actualFormat = NumberFormatter::withLocale(icu::Locale::getEnglish())
+                                         .unit(testCase.measureUnit)
+                                         .unitWidth(UNumberUnitWidth::UNUM_UNIT_WIDTH_FULL_NAME)
+                                         .formatDouble(2.0, status)
+                                         .toString(status);
+
+        assertEquals("test unit aliases", testCase.expectedFormat, actualFormat);
+    }
+}
+
 /* For skeleton comparisons: this checks the toSkeleton output for `f` and for
  * `conciseSkeleton` against the normalized version of `uskeleton` - this does
  * not round-trip uskeleton itself.
@@ -5725,7 +6098,7 @@ void NumberFormatterApiTest::assertFormatDescending(
         ...) {
     va_list args;
     va_start(args, locale);
-    UnicodeString message(TRUE, umessage, -1);
+    UnicodeString message(true, umessage, -1);
     static double inputs[] = {87650, 8765, 876.5, 87.65, 8.765, 0.8765, 0.08765, 0.008765, 0};
     const LocalizedNumberFormatter l1 = f.threshold(0).locale(locale); // no self-regulation
     const LocalizedNumberFormatter l2 = f.threshold(1).locale(locale); // all self-regulation
@@ -5745,7 +6118,7 @@ void NumberFormatterApiTest::assertFormatDescending(
         assertEquals(message + u": Safe Path: " + caseNumber, expected, actual2);
     }
     if (uskeleton != nullptr) { // if null, skeleton is declared as undefined.
-        UnicodeString skeleton(TRUE, uskeleton, -1);
+        UnicodeString skeleton(true, uskeleton, -1);
         // Only compare normalized skeletons: the tests need not provide the normalized forms.
         // Use the normalized form to construct the testing formatter to guarantee no loss of info.
         UnicodeString normalized = NumberFormatter::forSkeleton(skeleton, status).toSkeleton(status);
@@ -5795,7 +6168,7 @@ void NumberFormatterApiTest::assertFormatDescendingBig(
         ...) {
     va_list args;
     va_start(args, locale);
-    UnicodeString message(TRUE, umessage, -1);
+    UnicodeString message(true, umessage, -1);
     static double inputs[] = {87650000, 8765000, 876500, 87650, 8765, 876.5, 87.65, 8.765, 0};
     const LocalizedNumberFormatter l1 = f.threshold(0).locale(locale); // no self-regulation
     const LocalizedNumberFormatter l2 = f.threshold(1).locale(locale); // all self-regulation
@@ -5815,7 +6188,7 @@ void NumberFormatterApiTest::assertFormatDescendingBig(
         assertEquals(message + u": Safe Path: " + caseNumber, expected, actual2);
     }
     if (uskeleton != nullptr) { // if null, skeleton is declared as undefined.
-        UnicodeString skeleton(TRUE, uskeleton, -1);
+        UnicodeString skeleton(true, uskeleton, -1);
         // Only compare normalized skeletons: the tests need not provide the normalized forms.
         // Use the normalized form to construct the testing formatter to guarantee no loss of info.
         UnicodeString normalized = NumberFormatter::forSkeleton(skeleton, status).toSkeleton(status);
@@ -5865,7 +6238,7 @@ NumberFormatterApiTest::assertFormatSingle(
         Locale locale,
         double input,
         const UnicodeString& expected) {
-    UnicodeString message(TRUE, umessage, -1);
+    UnicodeString message(true, umessage, -1);
     const LocalizedNumberFormatter l1 = f.threshold(0).locale(locale); // no self-regulation
     const LocalizedNumberFormatter l2 = f.threshold(1).locale(locale); // all self-regulation
     IcuTestErrorCode status(*this, "assertFormatSingle");
@@ -5878,11 +6251,11 @@ NumberFormatterApiTest::assertFormatSingle(
     assertSuccess(message + u": Safe Path", status);
     assertEquals(message + u": Safe Path", expected, actual2);
     if (uskeleton != nullptr) { // if null, skeleton is declared as undefined.
-        UnicodeString skeleton(TRUE, uskeleton, -1);
+        UnicodeString skeleton(true, uskeleton, -1);
         // Only compare normalized skeletons: the tests need not provide the normalized forms.
         // Use the normalized form to construct the testing formatter to ensure no loss of info.
         UnicodeString normalized = NumberFormatter::forSkeleton(skeleton, status).toSkeleton(status);
-        assertEquals(message + ": Skeleton:", normalized, f.toSkeleton(status));
+        assertEquals(message + ": Skeleton", normalized, f.toSkeleton(status));
         LocalizedNumberFormatter l3 = NumberFormatter::forSkeleton(normalized, status).locale(locale);
         UnicodeString actual3 = l3.formatDouble(input, status).toString(status);
         assertEquals(message + ": Skeleton Path: '" + normalized + "': " + input, expected, actual3);

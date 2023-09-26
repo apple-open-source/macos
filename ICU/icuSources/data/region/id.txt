@@ -310,7 +310,9 @@ id{
         CI{"Pantai Gading"}
         CZ{"Republik Ceko"}
         FK{"Kepulauan Falkland (Malvinas)"}
+        NZ{"Aotearoa (Selandia Baru)"}
         SZ{"Swaziland"}
         TL{"Timor Timur"}
+        TR{"Turkiye"}
     }
 }

@@ -24,6 +24,7 @@
 #include "cintltst.h"
 #include "cstring.h"
 #include "cmemory.h"
+#include <stdbool.h>
 #include <string.h>
 
 /* get the sign of an integer */
@@ -40,7 +41,10 @@ static void TestUnescape(void);
 static void TestUnescapeRepeatedSurrogateLead20725(void);
 static void TestCountChar32(void);
 static void TestUCharIterator(void);
+#if APPLE_ICU_CHANGES
+// rdar://
 static void TestIsWellFormed(void);
+#endif  // APPLE_ICU_CHANGES
 
 void addUStringTest(TestNode** root);
 
@@ -55,7 +59,10 @@ void addUStringTest(TestNode** root)
             "tsutil/custrtst/TestUnescapeRepeatedSurrogateLead20725");
     addTest(root, &TestCountChar32, "tsutil/custrtst/TestCountChar32");
     addTest(root, &TestUCharIterator, "tsutil/custrtst/TestUCharIterator");
+#if APPLE_ICU_CHANGES
+// rdar://
     addTest(root, &TestIsWellFormed, "tsutil/custrtst/TestIsWellFormed");
+#endif  // APPLE_ICU_CHANGES
 }
 
 /* test data for TestStringFunctions ---------------------------------------- */
@@ -447,19 +454,19 @@ static void TestStringFunctions()
                 log_err("error: u_strncmpCodePointOrder(2)!=u_memcmpCodePointOrder(2) for string %d and the following one\n", i);
             }
 
-            /* test u_strCompare(TRUE) */
+            /* test u_strCompare(true) */
             len1=u_strlen(strings[i]);
             len2=u_strlen(strings[i+1]);
-            if( u_strCompare(strings[i], -1, strings[i+1], -1, TRUE)>=0 ||
-                u_strCompare(strings[i], -1, strings[i+1], len2, TRUE)>=0 ||
-                u_strCompare(strings[i], len1, strings[i+1], -1, TRUE)>=0 ||
-                u_strCompare(strings[i], len1, strings[i+1], len2, TRUE)>=0
+            if( u_strCompare(strings[i], -1, strings[i+1], -1, true)>=0 ||
+                u_strCompare(strings[i], -1, strings[i+1], len2, true)>=0 ||
+                u_strCompare(strings[i], len1, strings[i+1], -1, true)>=0 ||
+                u_strCompare(strings[i], len1, strings[i+1], len2, true)>=0
             ) {
                 log_err("error: u_strCompare(code point order) fails for string %d and the following one\n", i);
             }
 
-            /* test u_strCompare(FALSE) */
-            r1=u_strCompare(strings[i], -1, strings[i+1], -1, FALSE);
+            /* test u_strCompare(false) */
+            r1=u_strCompare(strings[i], -1, strings[i+1], -1, false);
             r2=u_strcmp(strings[i], strings[i+1]);
             if(_SIGN(r1)!=_SIGN(r2)) {
                 log_err("error: u_strCompare(code unit order)!=u_strcmp() for string %d and the following one\n", i);
@@ -468,10 +475,10 @@ static void TestStringFunctions()
             /* test u_strCompareIter() */
             uiter_setString(&iter1, strings[i], len1);
             uiter_setString(&iter2, strings[i+1], len2);
-            if(u_strCompareIter(&iter1, &iter2, TRUE)>=0) {
+            if(u_strCompareIter(&iter1, &iter2, true)>=0) {
                 log_err("error: u_strCompareIter(code point order) fails for string %d and the following one\n", i);
             }
-            r1=u_strCompareIter(&iter1, &iter2, FALSE);
+            r1=u_strCompareIter(&iter1, &iter2, false);
             if(_SIGN(r1)!=_SIGN(u_strcmp(strings[i], strings[i+1]))) {
                 log_err("error: u_strCompareIter(code unit order)!=u_strcmp() for string %d and the following one\n", i);
             }
@@ -1314,7 +1321,7 @@ compareIterators(UCharIterator *iter1, const char *n1,
         return;
     }
     if(!iter1->hasNext(iter1)) {
-        log_err("%s->hasNext() at the start returns FALSE\n", n1);
+        log_err("%s->hasNext() at the start returns false\n", n1);
         return;
     }
 
@@ -1324,7 +1331,7 @@ compareIterators(UCharIterator *iter1, const char *n1,
         return;
     }
     if(!iter2->hasNext(iter2)) {
-        log_err("%s->hasNext() at the start returns FALSE\n", n2);
+        log_err("%s->hasNext() at the start returns false\n", n2);
         return;
     }
 
@@ -1338,11 +1345,11 @@ compareIterators(UCharIterator *iter1, const char *n1,
     } while(c1>=0);
 
     if(iter1->hasNext(iter1)) {
-        log_err("%s->hasNext() at the end returns TRUE\n", n1);
+        log_err("%s->hasNext() at the end returns true\n", n1);
         return;
     }
     if(iter2->hasNext(iter2)) {
-        log_err("%s->hasNext() at the end returns TRUE\n", n2);
+        log_err("%s->hasNext() at the end returns true\n", n2);
         return;
     }
 
@@ -1379,7 +1386,7 @@ compareIterators(UCharIterator *iter1, const char *n1,
         return;
     }
     if(!iter1->hasPrevious(iter1)) {
-        log_err("%s->hasPrevious() at the end returns FALSE\n", n1);
+        log_err("%s->hasPrevious() at the end returns false\n", n1);
         return;
     }
 
@@ -1389,7 +1396,7 @@ compareIterators(UCharIterator *iter1, const char *n1,
         return;
     }
     if(!iter2->hasPrevious(iter2)) {
-        log_err("%s->hasPrevious() at the end returns FALSE\n", n2);
+        log_err("%s->hasPrevious() at the end returns false\n", n2);
         return;
     }
 
@@ -1403,11 +1410,11 @@ compareIterators(UCharIterator *iter1, const char *n1,
     } while(c1>=0);
 
     if(iter1->hasPrevious(iter1)) {
-        log_err("%s->hasPrevious() at the start returns TRUE\n", n1);
+        log_err("%s->hasPrevious() at the start returns true\n", n1);
         return;
     }
     if(iter2->hasPrevious(iter2)) {
-        log_err("%s->hasPrevious() at the start returns TRUE\n", n2);
+        log_err("%s->hasPrevious() at the start returns true\n", n2);
         return;
     }
 }
@@ -1577,6 +1584,8 @@ TestUCharIterator() {
     /* ### TODO test other iterators: CharacterIterator, Replaceable */
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 static const UChar valid0[] = { 0 }; // test empty string
 static const UChar valid1[] = { 0x0061,0x270C,0xFE0E, // victory hand with text variation selector
                                 0x0062,0x270C,0xFE0F, // victory hand with emoji variation selector
@@ -1664,23 +1673,23 @@ typedef struct {
 } StringAndResult;
 
 static const StringAndResult wellFormedTests[] = {
-    { "valid0",     valid0,     TRUE },
-    { "valid1",     valid1,     TRUE },
-    { "valid2",     valid2,     TRUE },
-    { "valid3",     valid3,     TRUE },
-    { "valid4",     valid4,     TRUE },
-    { "malformed1", malformed1, FALSE },
-    { "malformed2", malformed2, FALSE },
-    { "malformed3", malformed3, FALSE },
-    { "malformed4", malformed4, FALSE },
-    { "malformed5", malformed5, FALSE },
-    { "malformed6", malformed6, FALSE },
-    { "malformed7", malformed7, FALSE },
-    { "malformed8", malformed8, FALSE },
-    { "malformed9", malformed9, FALSE },
-    { "malformedA", malformedA, FALSE },
-    { "malformedB", malformedB, FALSE },
-    { "malformedC", malformedC, FALSE },
+    { "valid0",     valid0,     true },
+    { "valid1",     valid1,     true },
+    { "valid2",     valid2,     true },
+    { "valid3",     valid3,     true },
+    { "valid4",     valid4,     true },
+    { "malformed1", malformed1, false },
+    { "malformed2", malformed2, false },
+    { "malformed3", malformed3, false },
+    { "malformed4", malformed4, false },
+    { "malformed5", malformed5, false },
+    { "malformed6", malformed6, false },
+    { "malformed7", malformed7, false },
+    { "malformed8", malformed8, false },
+    { "malformed9", malformed9, false },
+    { "malformedA", malformedA, false },
+    { "malformedB", malformedB, false },
+    { "malformedC", malformedC, false },
     { NULL, NULL, 0 }
 };
 
@@ -1700,3 +1709,4 @@ TestIsWellFormed() {
         }
     }
 }
+#endif  // APPLE_ICU_CHANGES

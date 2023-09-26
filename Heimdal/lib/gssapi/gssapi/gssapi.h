@@ -390,8 +390,6 @@ extern GSSAPI_LIB_VARIABLE gss_buffer_desc __gss_c_attr_local_login_user;
 
 #ifdef __APPLE__
 
-#include <CoreFoundation/CoreFoundation.h>
-
 #define kGSSICPassword			CFSTR("kGSSICPassword")
 #define kGSSICCertificate		CFSTR("kGSSICCertificate")
 #define kGSSICVerifyCredential		CFSTR("kGSSICVerifyCredential")
@@ -415,7 +413,6 @@ extern GSSAPI_LIB_VARIABLE gss_buffer_desc __gss_c_attr_local_login_user;
 
 #define kGSSICAuthenticationContext	CFSTR("kGSSICAuthenticationContext")
 
-#include <gssapi_apple.h>
 
 
 #define kGSSChangePasswordOldPassword	CFSTR("kGSSChangePasswordOldPassword")
@@ -429,6 +426,8 @@ extern GSSAPI_LIB_VARIABLE gss_buffer_desc __gss_c_attr_local_login_user;
 #endif
 
 GSSAPI_CPP_END
+
+#include <gssapi_apple.h>
 
 #if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
 #pragma pack(pop)

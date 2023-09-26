@@ -27,7 +27,12 @@
 
 // .dat package file representation ---------------------------------------- ***
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #define STRING_STORE_SIZE 120000
+#else
+#define STRING_STORE_SIZE 100000
+#endif  // APPLE_ICU_CHANGES
 #define MAX_PKG_NAME_LENGTH 64
 
 typedef void CheckDependency(void *context, const char *itemName, const char *targetName);

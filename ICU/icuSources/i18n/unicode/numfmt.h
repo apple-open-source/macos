@@ -1054,15 +1054,18 @@ public:
      */
     virtual void setRoundingMode(ERoundingMode roundingMode);
 
+#if APPLE_ICU_CHANGES
+// rdar://
     /**
      * Group-set several settings used for numbers in date formats.
      * Equivalent to:
-     *    setGroupingUsed(FALSE);
-     *    setParseIntegerOnly(TRUE);
+     *    setGroupingUsed(false);
+     *    setParseIntegerOnly(true);
      *    setMinimumFractionDigits(0);
      * @internal
      */
     virtual void setDateSettings(void);
+#endif  // APPLE_ICU_CHANGES
 
 public:
 

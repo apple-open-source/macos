@@ -220,31 +220,31 @@ static int run_test1(void)
 	assert_no_err(fcntl(fd2, F_NOCACHE, 1));
 
 	gBuf = valloc(gBuf_size);
-	CC_SHA1_CTX ctx;
-	CC_SHA1_Init(&ctx);
+	CC_SHA256_CTX ctx;
+	CC_SHA256_Init(&ctx);
 
 	ssize_t res = check_io(read(fd, gBuf, gBuf_size), gBuf_size);
 
-	CC_SHA1_Update(&ctx, gBuf, (CC_LONG)res);
+	CC_SHA256_Update(&ctx, gBuf, (CC_LONG)res);
 
 	res = check_io(write(fd2, gBuf, res), res);
 
 	bzero(gBuf, gBuf_size);
 
-	CC_SHA1_CTX ctx2;
-	CC_SHA1_Init(&ctx2);
+	CC_SHA256_CTX ctx2;
+	CC_SHA256_Init(&ctx2);
 
 	lseek(fd2, 0, SEEK_SET);
 
 	res = check_io(read(fd2, gBuf, gBuf_size), gBuf_size);
 
-	CC_SHA1_Update(&ctx2, gBuf, (CC_LONG)res);
+	CC_SHA256_Update(&ctx2, gBuf, (CC_LONG)res);
 
-	uint8_t digest1[CC_SHA1_DIGEST_LENGTH], digest2[CC_SHA1_DIGEST_LENGTH];
-	CC_SHA1_Final(digest1, &ctx);
-	CC_SHA1_Final(digest2, &ctx2);
+	uint8_t digest1[CC_SHA256_DIGEST_LENGTH], digest2[CC_SHA256_DIGEST_LENGTH];
+	CC_SHA256_Final(digest1, &ctx);
+	CC_SHA256_Final(digest2, &ctx2);
 
-	assert(!memcmp(digest1, digest2, CC_SHA1_DIGEST_LENGTH));
+	assert(!memcmp(digest1, digest2, CC_SHA256_DIGEST_LENGTH));
 
 	assert_no_err (close(fd));
 	assert_no_err (close(fd2));

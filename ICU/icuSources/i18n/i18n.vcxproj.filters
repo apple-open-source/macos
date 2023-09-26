@@ -315,6 +315,7 @@
     <ClCompile Include="ufieldpositer.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
+    <!-- ClCompile Include="ulocdata.cpp" --> <!-- moved per rdar://51193810 -->
     <ClCompile Include="umsg.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
@@ -667,6 +668,9 @@
       <Filter>formatting</Filter>
     </ClCompile>
     <ClCompile Include="units_router.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="displayoptions.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
   </ItemGroup>

@@ -179,6 +179,16 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
                                                                  error:(NSError**)error;
 
 /* *
+ * @abstract Fetches account settings (walrus and web access). Always return a default value even if no account settings have been set.
+ * @param forceFetch            Always fetch current data from cuttlefish
+ * @param configurationContext  containing parameters to setup OTClique
+ * @param error                 An error parameter
+ */
++ (OTAccountSettings* _Nullable)fetchAccountWideSettingsDefaultWithForceFetch:(bool)forceFetch
+                                                                configuration:(OTConfigurationContext*)configurationContext
+                                                                        error:(NSError**)error;
+
+/* *
  * @abstract        Wait for the download and recovery of 'priority' keychain items.
  *     This is intended to be called soon after successfully joining into this clique.
  * @param error     An error parameter: filled in if the call times out, or recovery was unsuccessful
@@ -251,6 +261,32 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
                                     recoveryKey:(NSString*)recoveryKey
                                           error:(NSError**)error;
 /* *
+ * @abstract                        Checks if a recovery key exists in SOS
+ * @param ctx                       Containing parameters to setup OTClique
+ * @param error                     An error parameter: filled in if the call times out or if something went wrong
+ * @return BOOL                     Returns YES if the recovery key is registered in SOS
+ */
++ (BOOL)isRecoveryKeySetInSOS:(OTConfigurationContext*)ctx error:(NSError**)error;
+
+/* *
+ * @abstract                        Checks if a recovery key exists in Octagon
+ * @param ctx                       Containing parameters to setup OTClique
+ * @param error                     An error parameter: filled in if the call times out or if something went wrong
+ * @return BOOL                     Returns YES if the recovery key is registered in Octagon
+ */
++ (BOOL)isRecoveryKeySetInOctagon:(OTConfigurationContext*)ctx error:(NSError**)error;
+
+/* *
+ * @abstract                        Registers a recovery key in Octagon.  A prerequisite to calling this function is to
+                                    first verify that the user provided recovery key is valid with IdMS.
+ * @param ctx                       Containing parameters to setup OTClique
+ * @param error                     An error parameter: filled in if the call times out or if something went wrong
+ * @return BOOL                     Returns YES if the recovery key was registered in Octagon
+ */
++ (BOOL)setRecoveryKeyWithContext:(OTConfigurationContext*)ctx
+                      recoveryKey:(NSString*)recoveryKey
+                            error:(NSError**)error;
+/* *
  * @abstract                        Register a recovery key in Octagon and SOS.
  * @param ctx                       Containing parameters to setup OTClique
  * @param recoveryKey               Recovery Key string
@@ -259,6 +295,9 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
  *                                  Returns NO if registration fails in either trust system
  */
 + (BOOL)registerRecoveryKeyWithContext:(OTConfigurationContext*)ctx recoveryKey:(NSString*)recoveryKey error:(NSError**)error;
+
+
++ (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
 
 @end
 

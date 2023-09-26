@@ -16,5 +16,10 @@
 		<key>Signpost-Scope</key>
 		<string>Process</string>
 	</dict>
+	<key>oversized</key>
+	<dict>
+		<key>Enable-Oversize-Messages</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

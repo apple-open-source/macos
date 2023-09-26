@@ -36,15 +36,24 @@ public:
             : testClass(callingTestClass), testName(callingTestName), scopeMessage() {}
     virtual ~IcuTestErrorCode();
 
-    // Returns TRUE if isFailure().
+    // Returns true if isFailure().
     UBool errIfFailureAndReset();
+#if APPLE_ICU_CHANGES
+// rdar://
     __attribute__((format(printf, 2, 3)))
+#endif  // APPLE_ICU_CHANGES
     UBool errIfFailureAndReset(const char *fmt, ...);
     UBool errDataIfFailureAndReset();
+#if APPLE_ICU_CHANGES
+// rdar://
     __attribute__((format(printf, 2, 3)))
+#endif  // APPLE_ICU_CHANGES
     UBool errDataIfFailureAndReset(const char *fmt, ...);
     UBool expectErrorAndReset(UErrorCode expectedError);
+#if APPLE_ICU_CHANGES
+// rdar://
     __attribute__((format(printf, 3, 4)))
+#endif  // APPLE_ICU_CHANGES
     UBool expectErrorAndReset(UErrorCode expectedError, const char *fmt, ...);
 
     /** Sets an additional message string to be appended to failure output. */

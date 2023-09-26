@@ -37,6 +37,7 @@
 #include <libxml/xmlerror.h>
 #include <libxml/xmlIO.h>
 #include "xsltutils.h"
+#include "xsltutilsInternal.h"
 #include "templates.h"
 #include "xsltInternals.h"
 #include "imports.h"
@@ -46,35 +47,42 @@
 #define XSLT_WIN32_PERFORMANCE_COUNTER
 #endif
 
-#ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
 #ifdef __APPLE__
 #include <dispatch/dispatch.h>
 #include <mach-o/dyld_priv.h>
-
-bool linkedOnOrAfterFall2022OSVersions(void);
-
-#define LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16 \
-        linkedOnOrAfterFall2022OSVersions()
+#endif /* __APPLE__ */
 
 bool linkedOnOrAfterFall2022OSVersions(void)
 {
-#ifndef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-    return false;
-#elif defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     return true;
-#else
+#elif defined(LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16)
     static bool result;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         result = dyld_program_minos_at_least(dyld_fall_2022_os_versions);
     });
     return result;
+#else
+    return true;
 #endif
 }
+
+bool linkedOnOrAfterFall2023OSVersions(void)
+{
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    return true;
+#elif defined(LIBXSLT_LINKED_ON_OR_AFTER_MACOS14_IOS17_WATCHOS10_TVOS17)
+    static bool result;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        result = dyld_program_minos_at_least(dyld_fall_2023_os_versions);
+    });
+    return result;
 #else
-#define LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16 1 /* true */
-#endif /* __APPLE__ */
-#endif /* LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16 */
+    return true;
+#endif
+}
 
 /************************************************************************
  *									*
@@ -1865,6 +1873,145 @@ xsltSaveResultToString(xmlChar **doc_txt_ptr, int * doc_txt_len,
     return 0;
 }
 
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+
+/**
+ * xsltGetSourceNodeFlags:
+ * @node:  Node from source document
+ *
+ * Returns the flags for a source node.
+ */
+int
+xsltGetSourceNodeFlags(xmlNodePtr node) {
+    /*
+     * Squeeze the bit flags into the upper bits of
+     *
+     * - 'int properties' member in struct _xmlDoc
+     * - 'xmlAttributeType atype' member in struct _xmlAttr
+     * - 'unsigned short extra' member in struct _xmlNode
+     */
+    switch (node->type) {
+        case XML_DOCUMENT_NODE:
+        case XML_HTML_DOCUMENT_NODE:
+            return ((xmlDocPtr) node)->properties >> 27;
+
+        case XML_ATTRIBUTE_NODE:
+            return ((xmlAttrPtr) node)->atype >> 27;
+
+        case XML_ELEMENT_NODE:
+        case XML_TEXT_NODE:
+        case XML_CDATA_SECTION_NODE:
+        case XML_PI_NODE:
+        case XML_COMMENT_NODE:
+            return node->extra >> 12;
+
+        default:
+            return 0;
+    }
+}
+
+/**
+ * xsltSetSourceNodeFlags:
+ * @node:  Node from source document
+ * @flags:  Flags
+ *
+ * Sets the specified flags to 1.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int
+xsltSetSourceNodeFlags(xsltTransformContextPtr ctxt, xmlNodePtr node,
+                       int flags) {
+    if (node->doc == ctxt->initialContextDoc)
+        ctxt->sourceDocDirty = 1;
+
+    switch (node->type) {
+        case XML_DOCUMENT_NODE:
+        case XML_HTML_DOCUMENT_NODE:
+            ((xmlDocPtr) node)->properties |= flags << 27;
+            return 0;
+
+        case XML_ATTRIBUTE_NODE:
+            ((xmlAttrPtr) node)->atype |= flags << 27;
+            return 0;
+
+        case XML_ELEMENT_NODE:
+        case XML_TEXT_NODE:
+        case XML_CDATA_SECTION_NODE:
+        case XML_PI_NODE:
+        case XML_COMMENT_NODE:
+            node->extra |= flags << 12;
+            return 0;
+
+        default:
+            return -1;
+    }
+}
+
+/**
+ * xsltClearSourceNodeFlags:
+ * @node:  Node from source document
+ * @flags:  Flags
+ *
+ * Sets the specified flags to 0.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int
+xsltClearSourceNodeFlags(xmlNodePtr node, int flags) {
+    switch (node->type) {
+        case XML_DOCUMENT_NODE:
+        case XML_HTML_DOCUMENT_NODE:
+            ((xmlDocPtr) node)->properties &= ~(flags << 27);
+            return 0;
+
+        case XML_ATTRIBUTE_NODE:
+            ((xmlAttrPtr) node)->atype &= ~(flags << 27);
+            return 0;
+
+        case XML_ELEMENT_NODE:
+        case XML_TEXT_NODE:
+        case XML_CDATA_SECTION_NODE:
+        case XML_PI_NODE:
+        case XML_COMMENT_NODE:
+            node->extra &= ~(flags << 12);
+            return 0;
+
+        default:
+            return -1;
+    }
+}
+
+/**
+ * xsltGetPSVIPtr:
+ * @cur:  Node
+ *
+ * Returns a pointer to the psvi member of a node or NULL on error.
+ */
+void **
+xsltGetPSVIPtr(xmlNodePtr cur) {
+    switch (cur->type) {
+        case XML_DOCUMENT_NODE:
+        case XML_HTML_DOCUMENT_NODE:
+            return &((xmlDocPtr) cur)->psvi;
+
+        case XML_ATTRIBUTE_NODE:
+            return &((xmlAttrPtr) cur)->psvi;
+
+        case XML_ELEMENT_NODE:
+        case XML_TEXT_NODE:
+        case XML_CDATA_SECTION_NODE:
+        case XML_PI_NODE:
+        case XML_COMMENT_NODE:
+            return &cur->psvi;
+
+        default:
+            return NULL;
+    }
+}
+
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
+
 #ifdef WITH_PROFILER
 
 /************************************************************************
@@ -2371,7 +2518,7 @@ xsltXPathCompileFlags(xsltStylesheetPtr style, const xmlChar *str, int flags) {
 
     if (style != NULL) {
 #ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-        if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+        if (linkedOnOrAfterFall2022OSVersions()) {
             xpathCtxt = style->principal->xpathCtxt;
         } else
 #endif /* LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16 */

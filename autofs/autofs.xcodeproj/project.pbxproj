@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -608,6 +608,8 @@
 		F9482B022443F4FF0051042D /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		F9A0BF90245CD5C900838DD6 /* triggers.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = triggers.exp; sourceTree = "<group>"; };
 		F9A0BF92245CD60400838DD6 /* autofs.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = autofs.exp; sourceTree = "<group>"; };
+		F9AC21402A4CABB500EA8601 /* automountd.osx.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = automountd.osx.entitlements; sourceTree = "<group>"; };
+		F9AC21412A4CACA100EA8601 /* automount.osx.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = automount.osx.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -858,6 +860,7 @@
 		F94829D02442BC300051042D /* automount */ = {
 			isa = PBXGroup;
 			children = (
+				F9AC21412A4CACA100EA8601 /* automount.osx.entitlements */,
 				F94829D72442BC610051042D /* automount.8 */,
 				F94829D62442BC610051042D /* automount.c */,
 			);
@@ -888,6 +891,7 @@
 		F9482A072442C4710051042D /* automountd */ = {
 			isa = PBXGroup;
 			children = (
+				F9AC21402A4CABB500EA8601 /* automountd.osx.entitlements */,
 				F9482A0E2442C4FD0051042D /* autod_autofs.c */,
 				F9482A192442C4FD0051042D /* autod_lookup.c */,
 				F9482A1B2442C4FD0051042D /* autod_main.c */,
@@ -1792,7 +1796,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount.osx.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount/automount.osx.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1808,7 +1812,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount.osx.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount/automount.osx.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1824,7 +1828,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount.osx.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automountd/automountd.osx.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1840,7 +1845,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automount.osx.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = automountd/automountd.osx.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "$(TARGET_NAME)";

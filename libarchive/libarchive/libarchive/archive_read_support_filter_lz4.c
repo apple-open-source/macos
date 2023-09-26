@@ -49,6 +49,9 @@ __FBSDID("$FreeBSD$");
 #include "archive_private.h"
 #include "archive_read_private.h"
 #include "archive_xxhash.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 #define LZ4_MAGICNUMBER		0x184d2204
 #define LZ4_SKIPPABLED		0x184d2a50
@@ -112,6 +115,13 @@ archive_read_support_filter_lz4(struct archive *_a)
 {
 	struct archive_read *a = (struct archive_read *)_a;
 	struct archive_read_filter_bidder *reader;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("lz4")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Filter not allow-listed in entitlements");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_filter_lz4");

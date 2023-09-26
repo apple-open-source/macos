@@ -307,6 +307,7 @@ no{
         CI{"Elfenbenskysten"}
         CZ{"Den tsjekkiske republikk"}
         FK{"Falklandsøyene (Islas Malvinas)"}
+        NZ{"Aotearoa New Zealand"}
         SZ{"Swaziland"}
         TL{"Timor-Leste"}
     }

@@ -164,6 +164,7 @@ verify_cert(int argc, char * const *argv)
 					++optind;
 					break;
 				}
+                [[fallthrough]];
 			}	/* intentional fall-through to "no keychains" case, if no arg */
 			case 'N':
 				/* No keychains, signalled by empty keychain array */

@@ -44,9 +44,10 @@ public:
     int32_t nextByte(InputText* det);
 };
 
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
 #define MAX_KEY_STRING_WITH_NULL 16
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
 class CharsetRecog_mbcs : public CharsetRecognizer {
 
@@ -63,11 +64,13 @@ protected:
      *             <br/>
      *             bits 8-15: The match reason, an enum-like value.
      */
-#if U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
+// rdar://10748760 a11f10f892.. When MBCS detectors have few 2-byte chars, presence of key strings increases confidence
+// rdar://11810267&11721802 c5bdd7da51.. After ICU50m2 import, re-add rdar://10748760
     int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen, const uint8_t (*keyStrings)[MAX_KEY_STRING_WITH_NULL] ) const;
 #else
     int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen) const;
-#endif
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
 public:
 

@@ -44,15 +44,15 @@ void
 mvm_aslr_init(void)
 {
 	// Prepare ASLR
-#if __i386__ || __x86_64__ || __arm64__ || TARGET_OS_DRIVERKIT || (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-#if __i386__
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm64__) || TARGET_OS_DRIVERKIT || (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#if defined(__i386__)
 	uintptr_t stackbase = 0x8fe00000;
 	int entropic_bits = 3;
-#elif __x86_64__
+#elif defined(__x86_64__)
 	uintptr_t stackbase = USRSTACK64;
 	int entropic_bits = 16;
-#elif __arm64__
-#if __LP64__
+#elif defined(__arm64__)
+#if defined(__LP64__)
 	uintptr_t stackbase = USRSTACK64;
 	int entropic_bits = 7;
 #else // __LP64__
@@ -82,7 +82,7 @@ mvm_aslr_init(void)
 			 * we mask off the address to a PTE boundary.
 			 */ 
 			if (KERN_SUCCESS == mach_vm_allocate(mach_task_self(), (mach_vm_address_t *)&addr,
-					vm_page_quanta_size, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_MALLOC))) {
+					vm_page_quanta_size, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_MALLOC_TINY))) {
 				// Fall through and use existing base if addr < stackbase
 				if (addr > stackbase) {
 					t = (addr + ENTROPIC_USER_RANGE_SIZE) & ~((1 << ENTROPIC_SHIFT) - 1);

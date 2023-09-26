@@ -573,7 +573,12 @@ void IntlCalendarTest::TestJapaneseFormat() {
     
     // Now, try in Japanese
     {
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString expect = CharsToUnicodeString("\\u5e73\\u621013\\u5e749\\u67088\\u65e5 \\u571f\\u66dc\\u65e5");
+#else
+        UnicodeString expect = CharsToUnicodeString("\\u5e73\\u621013\\u5e749\\u67088\\u65e5\\u571f\\u66dc\\u65e5");
+#endif  // APPLE_ICU_CHANGES
         UDate         expectDate = 999932400000.0; // Testing a recent date
         Locale        loc("ja_JP@calendar=japanese");
         
@@ -581,7 +586,12 @@ void IntlCalendarTest::TestJapaneseFormat() {
         simpleTest(loc, expect, expectDate, status);
     }
     {
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString expect = CharsToUnicodeString("\\u5e73\\u621013\\u5e749\\u67088\\u65e5 \\u571f\\u66dc\\u65e5");
+#else
+        UnicodeString expect = CharsToUnicodeString("\\u5e73\\u621013\\u5e749\\u67088\\u65e5\\u571f\\u66dc\\u65e5");
+#endif  // APPLE_ICU_CHANGES
         UDate         expectDate = 999932400000.0; // Testing a recent date
         Locale        loc("ja_JP@calendar=japanese");
         
@@ -589,7 +599,12 @@ void IntlCalendarTest::TestJapaneseFormat() {
         simpleTest(loc, expect, expectDate, status);
     }
     {
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString expect = CharsToUnicodeString("\\u5b89\\u6c385\\u5e747\\u67084\\u65e5 \\u6728\\u66dc\\u65e5");
+#else
+        UnicodeString expect = CharsToUnicodeString("\\u5b89\\u6c385\\u5e747\\u67084\\u65e5\\u6728\\u66dc\\u65e5");
+#endif  // APPLE_ICU_CHANGES
         UDate         expectDate = -6106032422000.0; // 1776-07-04T00:00:00Z-075258
         Locale        loc("ja_JP@calendar=japanese");
         
@@ -598,7 +613,12 @@ void IntlCalendarTest::TestJapaneseFormat() {
         
     }
     {   // Jitterbug 1869 - this is an ambiguous era. (Showa 64 = Jan 6 1989, but Showa could be 2 other eras) )
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString expect = CharsToUnicodeString("\\u662d\\u548c64\\u5e741\\u67086\\u65e5 \\u91d1\\u66dc\\u65e5");
+#else
+        UnicodeString expect = CharsToUnicodeString("\\u662d\\u548c64\\u5e741\\u67086\\u65e5\\u91d1\\u66dc\\u65e5");
+#endif  // APPLE_ICU_CHANGES
         UDate         expectDate = 600076800000.0;
         Locale        loc("ja_JP@calendar=japanese");
         
@@ -607,7 +627,12 @@ void IntlCalendarTest::TestJapaneseFormat() {
         
     }
     {   // 1989 Jan 9 Monday = Heisei 1; full is Gy年M月d日EEEE => 平成元年1月9日月曜日
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString expect = CharsToUnicodeString("\\u5E73\\u6210\\u5143\\u5E741\\u67089\\u65E5 \\u6708\\u66DC\\u65E5");
+#else
+        UnicodeString expect = CharsToUnicodeString("\\u5E73\\u6210\\u5143\\u5E741\\u67089\\u65E5\\u6708\\u66DC\\u65E5");
+#endif  // APPLE_ICU_CHANGES
         UDate         expectDate = 600336000000.0;
         Locale        loc("ja_JP@calendar=japanese");
         
@@ -616,7 +641,12 @@ void IntlCalendarTest::TestJapaneseFormat() {
         
     }
     {   // This Feb 29th falls on a leap year by gregorian year, but not by Japanese year.
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString expect = CharsToUnicodeString("\\u5EB7\\u6B632\\u5e742\\u670829\\u65e5 \\u65e5\\u66dc\\u65e5");
+#else
+        UnicodeString expect = CharsToUnicodeString("\\u5EB7\\u6B632\\u5e742\\u670829\\u65e5\\u65e5\\u66dc\\u65e5");
+#endif  // APPLE_ICU_CHANGES
         UDate         expectDate =  -16214400422000.0;  // 1456-03-09T00:00Z-075258
         Locale        loc("ja_JP@calendar=japanese");
         
@@ -988,7 +1018,7 @@ void IntlCalendarTest::TestConsistencyEthiopicAmeteAlem() {
 }
 void IntlCalendarTest::checkConsistency(const char* locale) {
     // Check 2.5 years in quick mode and 8000 years in exhaustive mode.
-    int32_t numOfDaysToTest = (quick ? 2.5 : 8000) * 365;
+    int32_t numOfDaysToTest = static_cast<int32_t>((quick ? 2.5 : 8000) * 365);
     constexpr int32_t msInADay = 1000*60*60*24;
     std::string msg("TestConsistency");
     IcuTestErrorCode status(*this, (msg + locale).c_str());

@@ -212,24 +212,31 @@ static void msdosfs_shutdown_flush_thread(struct msdosfsmount* pmp)
 static void msdosfs_flush_thread(void *arg, __unused wait_result_t wr)
 {
     struct msdosfsmount* pmp = arg;
+	bool flush_requested = true;	// This thread is started with flush already requested
 
-    while (!pmp->pm_flush_shutdown) {
-        OSDecrementAtomic(&pmp->pm_sync_scheduled);
-        msdosfs_meta_flush_internal(pmp, 0);
-        OSDecrementAtomic(&pmp->pm_sync_incomplete);
-        wakeup(&pmp->pm_sync_incomplete);
+    while (true) {
+		if (flush_requested) {
+			msdosfs_meta_flush_internal(pmp, 0);
+		}
 
-        // Sleep
-        lck_mtx_lock(pmp->pm_flush_lock);
-        {
-            if ((!pmp->pm_flush_shutdown) && (!pmp->pm_flush_request)) {
-                msleep(&pmp->pm_flush_thread, pmp->pm_flush_lock, PINOD, "msdosfs-flusher-wait", NULL);
-            }
+		// Shutdown only after we rinsed the last sync request
+		if (pmp->pm_flush_shutdown) {
+			break;
+		}
 
-            pmp->pm_flush_request = false;
-        }
-        lck_mtx_unlock(pmp->pm_flush_lock);
-    }
+		// Sleep
+		lck_mtx_lock(pmp->pm_flush_lock);
+		{
+			pmp->pm_flush_request = false;
+
+			if ((!pmp->pm_flush_shutdown) && (!pmp->pm_flush_request)) {
+				msleep(&pmp->pm_flush_thread, pmp->pm_flush_lock, PINOD, "msdosfs-flusher-wait", NULL);
+			}
+
+			flush_requested = pmp->pm_flush_request;
+		}
+		lck_mtx_unlock(pmp->pm_flush_lock);
+	}
 
     // Shutdown
     lck_mtx_lock(pmp->pm_flush_lock);
@@ -264,6 +271,8 @@ static void msdosfs_meta_sync_callback(void *arg0, __unused void *unused)
         }
     }
     lck_mtx_unlock(pmp->pm_flush_lock);
+
+	OSDecrementAtomic(&pmp->pm_sync_scheduled);
 
     KERNEL_DEBUG_CONSTANT(MSDOSFS_META_SYNC_CALLBACK|DBG_FUNC_END, 0, 0, 0, 0, 0);
 }
@@ -319,7 +328,7 @@ int msdosfs_vfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_con
 		error = 0;
 		if (!(pmp->pm_flags & MSDOSFSMNT_RONLY) && vfs_isrdonly(mp)) {
 			/* Downgrading from read/write to read-only */
-			/* ¥ Is vflush() sufficient?  Is there more we should flush out? */
+			/* ï¿½ Is vflush() sufficient?  Is there more we should flush out? */
 			flags = WRITECLOSE;
 			if (vfs_isforce(mp))
 				flags |= FORCECLOSE;
@@ -331,7 +340,7 @@ int msdosfs_vfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_con
 		if (error)
 			goto error_exit;
 		if ((pmp->pm_flags & MSDOSFSMNT_RONLY) && vfs_iswriteupgrade(mp)) {
-			/* ¥ Assuming that VFS has verified we can write to the device */
+			/* ï¿½ Assuming that VFS has verified we can write to the device */
 
 			pmp->pm_flags &= ~MSDOSFSMNT_RONLY;
 
@@ -426,7 +435,7 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 	 * (except for root, which might share swap device for miniroot).
 	 * Flush out any old buffers remaining from a previous use.
 	 *
-	 *¥ Obsolete?
+	 *ï¿½ Obsolete?
 
 	error = vfs_mountedon(devvp);
 	if (error)
@@ -1051,33 +1060,18 @@ int msdosfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	 */
 	if (pmp->pm_sync_timer)
 	{
-		struct timespec ts = {0, 100000000};	/* 0.1 seconds */
-		
 		/*
 		 * Cancel any timers that have been scheduled, but have not
 		 * fired yet.  NOTE: The kernel considers a timer complete as
 		 * soon as it starts your callback, so the kernel does not
 		 * keep track of the number of callbacks in progress.
 		 */
-		if (thread_call_cancel(pmp->pm_sync_timer))
-			OSDecrementAtomic(&pmp->pm_sync_incomplete);
+		thread_call_cancel(pmp->pm_sync_timer);
 		thread_call_free(pmp->pm_sync_timer);
 		pmp->pm_sync_timer = NULL;
 		
         // Kill the flusher thread
         msdosfs_shutdown_flush_thread(pmp);
-
-		/*
-		 * This waits for all of the callbacks that were entered before
-		 * we did thread_call_cancel above, but have not completed yet.
-		 */
-		while(pmp->pm_sync_incomplete > 0)
-		{
-			msleep(&pmp->pm_sync_incomplete, NULL, PWAIT, "msdosfs_vfs_unmount", &ts);
-		}
-		
-		if (pmp->pm_sync_incomplete < 0)
-			panic("msdosfs_vfs_unmount: pm_sync_incomplete underflow!\n");
 	}
 	
 	error = vflush(mp, NULLVP, flags);
@@ -1149,7 +1143,7 @@ int msdosfs_vfs_statfs(struct mount *mp, struct vfsstatfs *sbp, vfs_context_t co
 	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_STATFS|DBG_FUNC_START, pmp, 0, 0, 0, 0);
 
 	/*
-	 * ¥ VFS fills in everything from a cached copy.
+	 * ï¿½ VFS fills in everything from a cached copy.
 	 * We only need to fill in fields that can change.
 	 */
 	sbp->f_bfree = pmp->pm_freeclustercount;
@@ -1562,10 +1556,7 @@ int msdosfs_sync_callback(vnode_t vp, void *cargs)
 }
 
 
-int msdosfs_vfs_sync(mp, waitfor, context)
-	struct mount *mp;
-	int waitfor;
-	vfs_context_t context;
+int msdosfs_vfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 {
 	struct msdosfsmount *pmp = VFSTOMSDOSFS(mp);
 	int error, allerror = 0;

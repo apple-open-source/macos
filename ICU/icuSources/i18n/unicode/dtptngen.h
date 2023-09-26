@@ -72,7 +72,12 @@ public:
      *               which must not indicate a failure before the function call.
      * @stable ICU 3.8
      */
+#if APPLE_ICU_CHANGES
+// rdar://
     static DateTimePatternGenerator* U_EXPORT2 createInstance(const Locale& uLocale, UErrorCode& status, UBool skipICUData = false);
+#else
+    static DateTimePatternGenerator* U_EXPORT2 createInstance(const Locale& uLocale, UErrorCode& status);
+#endif  // APPLE_ICU_CHANGES
 
 #ifndef U_HIDE_INTERNAL_API
 
@@ -82,14 +87,6 @@ public:
      * @internal
      */
     static DateTimePatternGenerator* U_EXPORT2 createInstanceNoStdPat(const Locale& uLocale, UErrorCode& status);
-
-    /**
-     * For ICU use only
-     *
-     * @internal
-     */
-    // FIXME: unimplemented
-    //static DateTimePatternGenerator* U_EXPORT2 internalMakeInstance(const Locale& uLocale, UErrorCode& status);
 
 #endif /* U_HIDE_INTERNAL_API */
 
@@ -606,8 +603,7 @@ private:
      */
     DateTimePatternGenerator& operator=(const DateTimePatternGenerator& other);
 
-    // TODO(ticket:13619): re-enable when UDATPG_NARROW no longer in  draft mode.
-    // static const int32_t UDATPG_WIDTH_COUNT = UDATPG_NARROW + 1;
+    static const int32_t UDATPG_WIDTH_COUNT = UDATPG_NARROW + 1;
 
     Locale pLocale;  // pattern locale
     FormatParser *fp;
@@ -615,8 +611,7 @@ private:
     DistanceInfo *distanceInfo;
     PatternMap *patternMap;
     UnicodeString appendItemFormats[UDATPG_FIELD_COUNT];
-    // TODO(ticket:13619): [3] -> UDATPG_WIDTH_COUNT
-    UnicodeString fieldDisplayNames[UDATPG_FIELD_COUNT][3];
+    UnicodeString fieldDisplayNames[UDATPG_FIELD_COUNT][UDATPG_WIDTH_COUNT];
     UnicodeString dateTimeFormat[4];
     UnicodeString decimal;
     DateTimeMatcher *skipMatcher;
@@ -656,9 +651,12 @@ private:
     void setFieldDisplayName(UDateTimePatternField field, UDateTimePGDisplayWidth width, const UnicodeString& value);
     UnicodeString& getMutableFieldDisplayName(UDateTimePatternField field, UDateTimePGDisplayWidth width);
     void getAppendName(UDateTimePatternField field, UnicodeString& value);
+#if APPLE_ICU_CHANGES
+// rdar://
     UnicodeString mapSkeletonMetacharacters(const UnicodeString& patternForm, int32_t* flags, UDateTimePatternMatchOptions options, UErrorCode& status);
-    // FIXME: unimplemented
-    //int32_t getCanonicalIndex(const UnicodeString& field);
+#else
+    UnicodeString mapSkeletonMetacharacters(const UnicodeString& patternForm, int32_t* flags, UErrorCode& status);
+#endif  // APPLE_ICU_CHANGES
     const UnicodeString* getBestRaw(DateTimeMatcher& source, int32_t includeMask, DistanceInfo* missingFields, UErrorCode& status, const PtnSkeleton** specifiedSkeletonPtr = 0);
     UnicodeString adjustFieldTypes(const UnicodeString& pattern, const PtnSkeleton* specifiedSkeleton, int32_t flags, UDateTimePatternMatchOptions options = UDATPG_MATCH_NO_OPTIONS);
     UnicodeString getBestAppending(int32_t missingFields, int32_t flags, UErrorCode& status, UDateTimePatternMatchOptions options = UDATPG_MATCH_NO_OPTIONS);
@@ -669,11 +667,14 @@ private:
     UBool isCanonicalItem(const UnicodeString& item) const;
     static void U_CALLCONV loadAllowedHourFormatsData(UErrorCode &status);
     void getAllowedHourFormats(const Locale &locale, UErrorCode &status);
+#if APPLE_ICU_CHANGES
+// rdar://
     UChar defaultHourPeriodCharForHourCycle(UDateTimePatternMatchOptions options);
+#endif  // APPLE_ICU_CHANGES
 
-    struct APPLE_IMPORT AppendItemFormatsSink;
-    struct APPLE_IMPORT AppendItemNamesSink;
-    struct APPLE_IMPORT AvailableFormatsSink;
+    struct U_HIDDEN AppendItemFormatsSink;
+    struct U_HIDDEN AppendItemNamesSink;
+    struct U_HIDDEN AvailableFormatsSink;
 } ;// end class DateTimePatternGenerator
 
 U_NAMESPACE_END

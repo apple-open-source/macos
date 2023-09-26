@@ -416,6 +416,9 @@ format,                                                                         
 
             self.checkUnlockOperation = [NSBlockOperation blockOperationWithBlock:^{
                 STRONGIFY(self);
+                if (self == nil) {
+                    return;
+                }
                 dispatch_sync(self.queue, ^{
                     statemachinelog("pending-flag", "Unlock occurred");
                     self.conditionChecksInFlight &= ~OctagonPendingConditionsDeviceUnlocked;
@@ -441,6 +444,9 @@ format,                                                                         
 
             self.checkReachabilityOperation = [NSBlockOperation blockOperationWithBlock:^{
                 STRONGIFY(self);
+                if (self == nil) {
+                    return;
+                }
                 dispatch_sync(self.queue, ^{
                     statemachinelog("pending-flag", "Network is reachable");
                     self.conditionChecksInFlight &= ~OctagonPendingConditionsNetworkReachable;

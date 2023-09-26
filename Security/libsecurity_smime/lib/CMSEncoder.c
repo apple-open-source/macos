@@ -1109,7 +1109,7 @@ OSStatus CMSEncoderUpdateContent(CMSEncoderRef cmsEncoder, const void* content, 
             if (ortn) {
                 return ortn;
             }
-            /* fall thru to set up the encoder */
+            [[fallthrough]];
 
         case ES_Msg:
             /* We have a cmsMsg but no encoder; create one */
@@ -1420,7 +1420,7 @@ OSStatus CMSEncoderSetEncoder(CMSEncoderRef cmsEncoder, SecCmsEncoderRef encoder
             if (ortn) {
                 return ortn;
             }
-            /* drop thru to set encoder */
+            [[fallthrough]];
         case ES_Msg:
             /* cmsMsg but no encoder */
             ASSERT(cmsEncoder->cmsMsg != NULL);

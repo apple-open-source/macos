@@ -39,8 +39,8 @@ bool IOHIDEventDummyService::handleStart(IOService* provider)
                                    nullptr,
                                    nullptr),
                    exit,
-                   HIDLogError("0x%llx: IOHIDEventDummyService failed to open IOHIDInterface",
-                               getRegistryEntryID()));
+                   HIDLogError("%s:0x%llx: failed to open %s:0x%llx",
+                               getName(), getRegistryEntryID(), _interface->getName(), _interface->getRegistryEntryID()));
     result = true;
 exit:
     return result;

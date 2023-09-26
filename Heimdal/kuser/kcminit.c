@@ -178,8 +178,11 @@ main (int argc, char **argv)
 	}
 	free (prompt);
     }
-
+#ifdef HAVE_KCM
     ret = _krb5_kcm_get_initial_ticket(context, id, client, server, password);
+#else
+    ret = _krb5_xcc_get_initial_ticket(context, id, client, server, password);
+#endif
     memset(password, 0, sizeof(password));
     if (ret) {
 	krb5_cc_destroy(context, id);

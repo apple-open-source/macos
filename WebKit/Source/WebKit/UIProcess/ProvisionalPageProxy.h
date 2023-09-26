@@ -34,6 +34,7 @@
 #include "SandboxExtension.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebPageProxyIdentifier.h"
+#include "WebPageProxyMessageReceiverRegistration.h"
 #include "WebsitePoliciesData.h"
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/FrameIdentifier.h>
@@ -63,6 +64,8 @@ class WebFrameProxy;
 class WebPageProxy;
 class WebProcessProxy;
 class WebsiteDataStore;
+
+struct BackForwardListItemState;
 struct FrameInfoData;
 struct NavigationActionData;
 struct URLSchemeTaskParameters;
@@ -76,10 +79,11 @@ using LayerHostingContextID = uint32_t;
 class ProvisionalPageProxy : public IPC::MessageReceiver, public IPC::MessageSender {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ProvisionalPageProxy(WebPageProxy&, Ref<WebProcessProxy>&&, std::unique_ptr<SuspendedPageProxy>, uint64_t navigationID, bool isServerRedirect, const WebCore::ResourceRequest&, ProcessSwapRequestedByClient, bool isProcessSwappingOnNavigationResponse, API::WebsitePolicies*);
+    ProvisionalPageProxy(WebPageProxy&, Ref<WebProcessProxy>&&, std::unique_ptr<SuspendedPageProxy>, API::Navigation&, bool isServerRedirect, const WebCore::ResourceRequest&, ProcessSwapRequestedByClient, bool isProcessSwappingOnNavigationResponse, API::WebsitePolicies*);
     ~ProvisionalPageProxy();
 
-    WebPageProxy& page() const { return m_page; }
+    WebPageProxy& page() { return m_page.get(); }
+    const WebPageProxy& page() const { return m_page.get(); }
     WebCore::PageIdentifier webPageID() const { return m_webPageID; }
     WebFrameProxy* mainFrame() const { return m_mainFrame.get(); }
     WebProcessProxy& process() { return m_process.get(); }
@@ -92,7 +96,7 @@ public:
     DrawingAreaProxy* drawingArea() const { return m_drawingArea.get(); }
     std::unique_ptr<DrawingAreaProxy> takeDrawingArea();
 
-    void setNavigationID(uint64_t navigationID) { m_navigationID = navigationID; }
+    void setNavigation(API::Navigation&);
 
 #if PLATFORM(COCOA)
     Vector<uint8_t> takeAccessibilityToken() { return WTFMove(m_accessibilityToken); }
@@ -138,7 +142,7 @@ private:
     void didCreateMainFrame(WebCore::FrameIdentifier);
     void didStartProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, URL&&, URL&& unreachableURL, const UserData&);
     void didCommitLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType, const WebCore::CertificateInfo&, bool usedLegacyTLS, bool privateRelayed, bool containsPluginDocument, WebCore::HasInsecureContent, WebCore::MouseEventPolicy, const UserData&);
-    void didFailProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&);
+    void didFailProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&, WebCore::WillInternallyHandleFailure);
     void logDiagnosticMessageFromWebProcess(const String& message, const String& description, WebCore::ShouldSample);
     void logDiagnosticMessageWithEnhancedPrivacyFromWebProcess(const String& message, const String& description, WebCore::ShouldSample);
     void logDiagnosticMessageWithValueDictionaryFromWebProcess(const String& message, const String& description, const WebCore::DiagnosticLoggingClient::ValueDictionary&, WebCore::ShouldSample);
@@ -146,6 +150,7 @@ private:
     void backForwardGoToItem(const WebCore::BackForwardItemIdentifier&, CompletionHandler<void(const WebBackForwardListCounts&)>&&);
     void decidePolicyForNavigationActionSync(WebCore::FrameIdentifier, bool isMainFrame, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(PolicyDecision&&)>&&);
     void backForwardAddItem(BackForwardListItemState&&);
+    void didDestroyNavigation(uint64_t navigationID);
 #if USE(QUICK_LOOK)
     void requestPasswordForQuickLookDocumentInMainFrame(const String& fileName, CompletionHandler<void(const String&)>&&);
 #endif
@@ -165,7 +170,7 @@ private:
     void initializeWebPage(RefPtr<API::WebsitePolicies>&&);
     bool validateInput(WebCore::FrameIdentifier, const std::optional<uint64_t>& navigationID = std::nullopt);
 
-    WebPageProxy& m_page;
+    CheckedRef<WebPageProxy> m_page;
     WebCore::PageIdentifier m_webPageID;
     Ref<WebProcessProxy> m_process;
     // Keep WebsiteDataStore alive for provisional page load.
@@ -179,6 +184,7 @@ private:
     bool m_wasCommitted { false };
     bool m_isProcessSwappingOnNavigationResponse { false };
     URL m_provisionalLoadURL;
+    WebPageProxyMessageReceiverRegistration m_messageReceiverRegistration;
 
 #if PLATFORM(COCOA)
     Vector<uint8_t> m_accessibilityToken;

@@ -48,9 +48,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/wbuf.c,v 1.12 2007/01/09 00:28:08 imp Exp
  * Non-MT-safe
  */
 int
-__swbuf(c, fp)
-	int c;
-	FILE *fp;
+__swbuf(int c, FILE *fp)
 {
 	int n;
 

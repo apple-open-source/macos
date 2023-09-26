@@ -32,6 +32,7 @@
 #include "SandboxExtension.h"
 #include "ShareableBitmap.h"
 #include "WebPageProxyIdentifier.h"
+#include <WebCore/IntDegrees.h>
 #include <WebCore/LibWebRTCEnumTraits.h>
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/Timer.h>
@@ -49,12 +50,16 @@
 #include "WCSharedSceneContextHolder.h"
 #endif
 
+#if HAVE(SCREEN_CAPTURE_KIT)
+#include <WebCore/DisplayCapturePromptType.h>
+#endif
+
 namespace WebCore {
 class CaptureDevice;
 class NowPlayingManager;
 struct MockMediaDevice;
 struct ScreenProperties;
-struct SecurityOriginData;
+class SecurityOriginData;
 }
 
 namespace WebKit {
@@ -120,7 +125,9 @@ public:
     void processIsStartingToCaptureAudio(GPUConnectionToWebProcess&);
 #endif
 
-    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(const ShareableBitmapHandle&)>&&);
+#if ENABLE(VIDEO)
+    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
+#endif
 
 private:
     void lowMemoryHandler(Critical, Synchronous);
@@ -143,17 +150,20 @@ private:
     void updateGPUProcessPreferences(GPUProcessPreferences&&);
     void createGPUConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&, CompletionHandler<void()>&&);
     void updateWebGPUEnabled(WebCore::ProcessIdentifier, bool webGPUEnabled);
+    void updateDOMRenderingEnabled(WebCore::ProcessIdentifier, bool isDOMRenderingEnabled);
     void addSession(PAL::SessionID, GPUProcessSessionParameters&&);
     void removeSession(PAL::SessionID);
+    void updateSandboxAccess(const Vector<SandboxExtension::Handle>&);
     
     bool updatePreference(std::optional<bool>& oldPreference, std::optional<bool>& newPreference);
+    void userPreferredLanguagesChanged(Vector<String>&&);
 
 #if ENABLE(MEDIA_STREAM)
     void setMockCaptureDevicesEnabled(bool);
-    void setOrientationForMediaCapture(uint64_t orientation);
+    void setUseSCContentSharingPicker(bool);
+    void setOrientationForMediaCapture(WebCore::IntDegrees);
     void updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier, CompletionHandler<void()>&&);
     void updateCaptureOrigin(const WebCore::SecurityOriginData&, WebCore::ProcessIdentifier);
-    void updateSandboxAccess(const Vector<SandboxExtension::Handle>&);
     void addMockMediaDevice(const WebCore::MockMediaDevice&);
     void clearMockMediaDevices();
     void removeMockMediaDevice(const String&);
@@ -162,13 +172,16 @@ private:
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
     void triggerMockMicrophoneConfigurationChange();
 #endif
-#if HAVE(SC_CONTENT_SHARING_SESSION)
-    void showWindowPicker(CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&&);
-    void showScreenPicker(CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&&);
+#if HAVE(SCREEN_CAPTURE_KIT)
+    void promptForGetDisplayMedia(WebCore::DisplayCapturePromptType, CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&&);
 #endif
 #if PLATFORM(MAC)
     void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
     void setScreenProperties(const WebCore::ScreenProperties&);
+    void updateProcessName();
+#endif
+#if PLATFORM(COCOA)
+    void platformInitializeGPUProcess(GPUProcessCreationParameters&);
 #endif
 
 #if USE(OS_STATE)
@@ -204,7 +217,7 @@ private:
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
     RefPtr<WorkQueue> m_videoMediaStreamTrackRendererQueue;
 #endif
-    uint64_t m_orientation { 0 };
+    WebCore::IntDegrees m_orientation { 0 };
 #endif
 #if USE(LIBWEBRTC) && PLATFORM(COCOA)
     RefPtr<WorkQueue> m_libWebRTCCodecsQueue;
@@ -224,6 +237,9 @@ private:
     WebCore::Timer m_idleExitTimer;
     std::unique_ptr<WebCore::NowPlayingManager> m_nowPlayingManager;
     String m_applicationVisibleName;
+#if PLATFORM(MAC)
+    String m_uiProcessName;
+#endif
 #if ENABLE(GPU_PROCESS) && USE(AUDIO_SESSION)
     mutable std::unique_ptr<RemoteAudioSessionProxyManager> m_audioSessionManager;
 #endif

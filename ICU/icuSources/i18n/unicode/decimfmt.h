@@ -374,7 +374,9 @@ class NumberParserImpl;
  * DecimalFormatSymbols object.  During formatting, the
  * DecimalFormatSymbols-based digits are output.
  *
- * <p>During parsing, grouping separators are ignored.
+ * <p>During parsing, grouping separators are ignored if in lenient mode;
+ * otherwise, if present, they must be in appropriate positions.
+ * (For Apple ICU, it is just: During parsing, grouping separators are ignored.)
  *
  * <p>For currency parsing, the formatter is able to parse every currency
  * style formats no matter which style the formatter is constructed with.
@@ -2005,17 +2007,22 @@ class U_I18N_API DecimalFormat : public NumberFormat {
      */
     void setSignificantDigitsUsed(UBool useSignificantDigits);
 
+#if APPLE_ICU_CHANGES
+// rdar://
+#ifndef U_HIDE_INTERNAL_API
     /**
      * Group-set several settings used for numbers in date formats.
      * Avoids calls to touch for each separate setting.
      * Equivalent to:
-     *    setGroupingUsed(FALSE);
-     *    setDecimalSeparatorAlwaysShown(FALSE);
-     *    setParseIntegerOnly(TRUE);
+     *    setGroupingUsed(false);
+     *    setDecimalSeparatorAlwaysShown(false);
+     *    setParseIntegerOnly(true);
      *    setMinimumFractionDigits(0);
      * @internal
      */
     void setDateSettings(void) U_OVERRIDE;
+#endif  /* U_HIDE_INTERNAL_API */
+#endif  // APPLE_ICU_CHANGES
 
     /**
      * Sets the currency used to display currency
@@ -2150,16 +2157,17 @@ class U_I18N_API DecimalFormat : public NumberFormat {
      */
     UClassID getDynamicClassID(void) const U_OVERRIDE;
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #ifndef U_HIDE_INTERNAL_API
-
     /**
      * Set whether DecimalFormatSymbols copy in toNumberFormatter
-     * is deep (clone) or shallow (pointer copy). Apple <rdar://problem/49955427>
+     * is deep (clone) or shallow (pointer copy). Apple rdar://49955427
      * @internal
      */
     void setDFSShallowCopy(UBool shallow);
-
 #endif  /* U_HIDE_INTERNAL_API */
+#endif  // APPLE_ICU_CHANGES
 
   private:
 

@@ -7,7 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import <HID/HID.h>
+#import <HID/HID_Private.h>
 
 static uint8_t kbdDescriptor[] = {
     0x05, 0x01,         // Usage Page (Generic Desktop)

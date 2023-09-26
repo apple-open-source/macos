@@ -36,7 +36,7 @@ CL = [:LineBreak =  Close_Punctuation:];
 CMS = [:LineBreak =  Combining_Mark:];
 CP = [:LineBreak =  Close_Parenthesis:];
 CR = [:LineBreak =  Carriage_Return:];
-EB = [[:LineBreak =  EB:] \U0001F46A-\U0001F46D\U0001F46F\U0001F91D\U0001F93C];
+EB = [:LineBreak =  EB:];
 EM = [:LineBreak =  EM:];
 EX = [:LineBreak =  Exclamation:];
 GL = [:LineBreak =  Glue:];

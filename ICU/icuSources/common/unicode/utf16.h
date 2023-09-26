@@ -198,6 +198,7 @@
  * @see U16_GET_UNSAFE
  * @stable ICU 2.4
  */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define U16_GET(s, start, i, length, c) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[i]; \
     if(U16_IS_SURROGATE(c)) { \
@@ -237,6 +238,7 @@
  * @see U16_GET_UNSAFE
  * @stable ICU 60
  */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define U16_GET_OR_FFFD(s, start, i, length, c) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[i]; \
     if(U16_IS_SURROGATE(c)) { \
@@ -306,6 +308,7 @@
  * @see U16_NEXT_UNSAFE
  * @stable ICU 2.4
  */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define U16_NEXT(s, i, length, c) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[(i)++]; \
     if(U16_IS_LEAD(c)) { \
@@ -338,6 +341,7 @@
  * @see U16_NEXT_UNSAFE
  * @stable ICU 60
  */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define U16_NEXT_OR_FFFD(s, i, length, c) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[(i)++]; \
     if(U16_IS_SURROGATE(c)) { \
@@ -567,6 +571,7 @@
  * @see U16_PREV_UNSAFE
  * @stable ICU 2.4
  */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define U16_PREV(s, start, i, c) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[--(i)]; \
     if(U16_IS_TRAIL(c)) { \
@@ -598,6 +603,7 @@
  * @see U16_PREV_UNSAFE
  * @stable ICU 60
  */
+// Apple ICU adds initialization uint16_t __c2 = 0; per rdar://58615391 Fix uninitialized variables in U16/UTF16 macros
 #define U16_PREV_OR_FFFD(s, start, i, c) UPRV_BLOCK_MACRO_BEGIN { \
     (c)=(s)[--(i)]; \
     if(U16_IS_SURROGATE(c)) { \

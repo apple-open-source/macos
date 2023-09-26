@@ -3,7 +3,7 @@
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  * Copyright (C) 2012 University of Szeged
- * Copyright (C) 2015-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2023 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,6 +33,13 @@
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+bool FilterEffect::operator==(const FilterEffect& other) const
+{
+    if (filterType() != other.filterType())
+        return false;
+    return m_operatingColorSpace == other.m_operatingColorSpace;
+}
 
 FilterImageVector FilterEffect::takeImageInputs(FilterImageVector& stack) const
 {
@@ -64,7 +71,7 @@ static Vector<FloatRect> inputImageRects(const FilterImageVector& inputs)
     });
 }
 
-FloatRect FilterEffect::calculatePrimitiveSubregion(const Filter& filter, Span<const FloatRect> inputPrimitiveSubregions, const std::optional<FilterEffectGeometry>& geometry) const
+FloatRect FilterEffect::calculatePrimitiveSubregion(const Filter& filter, std::span<const FloatRect> inputPrimitiveSubregions, const std::optional<FilterEffectGeometry>& geometry) const
 {
     // This function implements https://www.w3.org/TR/filter-effects-1/#FilterPrimitiveSubRegion.
     FloatRect primitiveSubregion;
@@ -91,11 +98,15 @@ FloatRect FilterEffect::calculatePrimitiveSubregion(const Filter& filter, Span<c
     return primitiveSubregion;
 }
 
-FloatRect FilterEffect::calculateImageRect(const Filter& filter, Span<const FloatRect> inputImageRects, const FloatRect& primitiveSubregion) const
+FloatRect FilterEffect::calculateImageRect(const Filter& filter, std::span<const FloatRect> inputImageRects, const FloatRect& primitiveSubregion) const
 {
+    if (inputImageRects.empty())
+        return filter.maxEffectRect(primitiveSubregion);
+
     FloatRect imageRect;
     for (auto& inputImageRect : inputImageRects)
         imageRect.unite(inputImageRect);
+
     return filter.clipToMaxEffectRect(imageRect, primitiveSubregion);
 }
 

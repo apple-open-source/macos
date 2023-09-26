@@ -48,7 +48,6 @@ BEGIN
 	this->f->b[2] = 0;
 	this->f->c[0].alpha = 5;
 	this->f->c[1].alpha = 6;
-	this->f->c[2].alpha = 7;
 	this->f->d[0] = 4;
 	this->f->d[1] = 0;
 	this->f->d[2] = 0;

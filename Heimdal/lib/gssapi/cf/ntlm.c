@@ -32,16 +32,17 @@
 
 #include <Security/Security.h>
 #include "krb5.h"
+#include "heimcred.h"
 
 /*
  *
  */
 
 bool
-GSSCheckNTLMReflection(uint8_t challange[8])
+GSSCheckNTLMReflection(uint8_t challenge[8])
 {
     krb5_boolean found_reflection = false;
-#if HAVE_KCM
+#ifdef HAVE_KCM
     static krb5_context context;
     static dispatch_once_t once;
     krb5_error_code ret;
@@ -53,9 +54,12 @@ GSSCheckNTLMReflection(uint8_t challange[8])
     if (context == NULL) /* fail open for now */
 	return false;
 
-    ret = krb5_kcm_check_ntlm_challenge(context, challange, &found_reflection);
+    ret = krb5_kcm_check_ntlm_challenge(context, challenge, &found_reflection);
     if (ret)
 	return false; /* fail open for now */
+#else
+    found_reflection = HeimCredCheckNTLMChallenge(challenge);
 #endif
+
     return found_reflection;
 }

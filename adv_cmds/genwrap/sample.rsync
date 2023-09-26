@@ -1,0 +1,12 @@
+# Analytics directives must come first
+analytics "com.apple.rsync"
+application "grsync"
+	path "usr/bin/grsync"
+application "openrsync"
+	default
+	path "usr/bin/openrsync"
+	flag "a" "archive"
+	flag "address"
+	flag "D"
+	flag "devices"
+	flag "specials"

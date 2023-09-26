@@ -92,19 +92,19 @@ void CalendarCaseTest::doTestCases(const TestCase *cases, Calendar *cal) {
 
 UBool CalendarCaseTest::checkField(Calendar *cal, UCalendarDateFields field, int32_t value, UErrorCode &status)
 {
-  if(U_FAILURE(status)) return FALSE;
+  if(U_FAILURE(status)) return false;
   int32_t res = cal->get(field, status);
   if(U_FAILURE(status)) {
     errln((UnicodeString)"Checking field " + fieldName(field) + " and got " + u_errorName(status));
-    return FALSE;
+    return false;
   }
   if(res != value) {
     errln((UnicodeString)"FAIL: Checking field " + fieldName(field) + " expected " + value + " and got " + res + UnicodeString("\n"));
-    return FALSE;
+    return false;
   } else {
     logln((UnicodeString)"Checking field " + fieldName(field) + " == " + value + UnicodeString("\n"));
   }
-  return TRUE;
+  return true;
 }
 
 // =========== Test Cases =====================
@@ -166,13 +166,18 @@ void CalendarCaseTest::IslamicCivil()
 
     UErrorCode status = U_ZERO_ERROR;
     Calendar *c = Calendar::createInstance("ar@calendar=islamic-civil", status);
-    if (failure(status, "Calendar::createInstance", TRUE)) return;
-    c->setLenient(TRUE);
+    if (failure(status, "Calendar::createInstance", true)) return;
+    c->setLenient(true);
     doTestCases(tests, c);
 
     static const UChar expectedUChars[] = {
         0x0627, 0x0644, 0x062e, 0x0645, 0x064a, 0x0633, 0x060c, 0x0020, 0x0662, 0x0662, 0x0020,
+#if APPLE_ICU_CHANGES
+// rdar://
         0x0634, 0x0648, 0x0627, 0x0644, 0x060c, 0x0020, 0x0661, 0x0663, 0x0668, 0x0669, 0x0020, 0x0647, 0x0640, 0
+#else
+        0x0634, 0x0648, 0x0627, 0x0644, 0x0020, 0x0661, 0x0663, 0x0668, 0x0669, 0x0020, 0x0647, 0x0640, 0
+#endif  // APPLE_ICU_CHANGES
      };
     UnicodeString result;
     DateFormat *fmt = DateFormat::createDateInstance(DateFormat::kFull, Locale("ar_JO@calendar=islamic-civil"));
@@ -297,8 +302,8 @@ void CalendarCaseTest::Hebrew() {
 
     UErrorCode status = U_ZERO_ERROR;
     Calendar *c = Calendar::createInstance("he_HE@calendar=hebrew", status);
-    if (failure(status, "Calendar::createInstance", TRUE)) return;
-    c->setLenient(TRUE);
+    if (failure(status, "Calendar::createInstance", true)) return;
+    c->setLenient(true);
     doTestCases(tests, c);
 
 
@@ -383,8 +388,8 @@ void CalendarCaseTest::Indian() {
 
     UErrorCode status = U_ZERO_ERROR;
     Calendar *c = Calendar::createInstance("hi_IN@calendar=indian", status);
-    if (failure(status, "Calendar::createInstance", TRUE)) return;
-    c->setLenient(TRUE);
+    if (failure(status, "Calendar::createInstance", true)) return;
+    c->setLenient(true);
     doTestCases(tests, c);
 
     delete c;
@@ -427,9 +432,9 @@ void CalendarCaseTest::Coptic() {
 
     UErrorCode status = U_ZERO_ERROR;
     Calendar *c = Calendar::createInstance("cop_EG@calendar=coptic", status);
-    if (failure(status, "Calendar::createInstance", TRUE)) return;
+    if (failure(status, "Calendar::createInstance", true)) return;
 
-    c->setLenient(TRUE);
+    c->setLenient(true);
     doTestCases(tests, c);
 
     delete c;
@@ -476,8 +481,8 @@ void CalendarCaseTest::Ethiopic() {
 
     UErrorCode status = U_ZERO_ERROR;
     Calendar *c = Calendar::createInstance("am_ET@calendar=ethiopic", status);
-    if (failure(status, "Calendar::createInstance", TRUE)) return;
-    c->setLenient(TRUE);
+    if (failure(status, "Calendar::createInstance", true)) return;
+    c->setLenient(true);
     doTestCases(tests, c);
 
     delete c;
@@ -492,8 +497,8 @@ void CalendarCaseTest::Ethiopic() {
         }
     }
     c = Calendar::createInstance("am_ET@calendar=ethiopic-amete-alem", status);
-    if (failure(status, "Calendar::createInstance", TRUE)) return;
-    c->setLenient(TRUE);
+    if (failure(status, "Calendar::createInstance", true)) return;
+    c->setLenient(true);
     doTestCases(tests, c);
 
     delete c;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #pragma once
 
 #include "CanvasBase.h"
-#include "GraphicsLayer.h"
 #include "GraphicsLayerContentsDisplayDelegate.h"
 #include "ScriptWrappable.h"
 #include <wtf/CheckedRef.h>
@@ -38,13 +37,16 @@
 
 namespace WebCore {
 
+class CSSStyleImageValue;
+class CachedImage;
 class CanvasPattern;
 class DestinationColorSpace;
+class GraphicsLayer;
 class HTMLCanvasElement;
 class HTMLImageElement;
 class HTMLVideoElement;
 class ImageBitmap;
-class CSSStyleImageValue;
+class SVGImageElement;
 class WebGLObject;
 enum class PixelFormat : uint8_t;
 
@@ -62,6 +64,7 @@ public:
 
     CanvasBase& canvasBase() const { return m_canvas; }
 
+    virtual bool is2dBase() const { return false; }
     virtual bool is2d() const { return false; }
     virtual bool isWebGL1() const { return false; }
     virtual bool isWebGL2() const { return false; }
@@ -97,14 +100,16 @@ protected:
     explicit CanvasRenderingContext(CanvasBase&);
     bool taintsOrigin(const CanvasPattern*);
     bool taintsOrigin(const CanvasBase*);
+    bool taintsOrigin(const CachedImage*);
     bool taintsOrigin(const HTMLImageElement*);
+    bool taintsOrigin(const SVGImageElement*);
     bool taintsOrigin(const HTMLVideoElement*);
     bool taintsOrigin(const ImageBitmap*);
     bool taintsOrigin(const URL&);
 
     template<class T> void checkOrigin(const T* arg)
     {
-        if (taintsOrigin(arg))
+        if (m_canvas.originClean() && taintsOrigin(arg))
             m_canvas.setOriginTainted();
     }
     void checkOrigin(const URL&);

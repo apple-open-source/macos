@@ -229,12 +229,15 @@ sudo_aix_change_password(const char *user)
 }
 
 int
-sudo_aix_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_aix_verify(struct passwd *pw, const char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     char *pass, *message = NULL;
     int result = 1, reenter = 0;
     int ret = AUTH_SUCCESS;
     debug_decl(sudo_aix_verify, SUDOERS_DEBUG_AUTH);
+
+    if (IS_NONINTERACTIVE(auth))
+        debug_return_int(AUTH_NONINTERACTIVE);
 
     do {
 	pass = auth_getpass(prompt, SUDO_CONV_PROMPT_ECHO_OFF, callback);

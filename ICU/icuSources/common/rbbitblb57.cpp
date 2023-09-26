@@ -5,6 +5,12 @@
 *   Copyright (c) 2002-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
+*
+**********************************************************************
+*   Legacy version from ICU 57, only for use by Apple RuleBasedTokenizer
+*   originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+*   urbtok57 interfaces for access via RBT, and better tests
+**********************************************************************
 */
 
 
@@ -78,7 +84,7 @@ void  RBBITableBuilder57::build() {
 #ifdef RBBI_DEBUG
     if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "ftree")) {
         RBBIDebugPuts("\nParse tree after flattening variable references.");
-        fTree->printTree(TRUE);
+        fTree->printTree(true);
     }
 #endif
 
@@ -136,7 +142,7 @@ void  RBBITableBuilder57::build() {
 #ifdef RBBI_DEBUG
     if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "stree")) {
         RBBIDebugPuts("\nParse tree after flattening Unicode Set references.");
-        fTree->printTree(TRUE);
+        fTree->printTree(true);
     }
 #endif
 
@@ -203,14 +209,14 @@ void RBBITableBuilder57::calcNullable(RBBINode *n) {
     if (n->fType == RBBINode::setRef ||
         n->fType == RBBINode::endMark ) {
         // These are non-empty leaf node types.
-        n->fNullable = FALSE;
+        n->fNullable = false;
         return;
     }
 
     if (n->fType == RBBINode::lookAhead || n->fType == RBBINode::tag) {
         // Lookahead marker node.  It's a leaf, so no recursion on children.
         // It's nullable because it does not match any literal text from the input stream.
-        n->fNullable = TRUE;
+        n->fNullable = true;
         return;
     }
 
@@ -228,10 +234,10 @@ void RBBITableBuilder57::calcNullable(RBBINode *n) {
         n->fNullable = n->fLeftChild->fNullable && n->fRightChild->fNullable;
     }
     else if (n->fType == RBBINode::opStar || n->fType == RBBINode::opQuestion) {
-        n->fNullable = TRUE;
+        n->fNullable = true;
     }
     else {
-        n->fNullable = FALSE;
+        n->fNullable = false;
     }
 }
 
@@ -628,7 +634,7 @@ void RBBITableBuilder57::buildStateTable() {
         for (tx=1; tx<fDStates->size(); tx++) {
             RBBIStateDescriptor *temp;
             temp = (RBBIStateDescriptor *)fDStates->elementAt(tx);
-            if (temp->fMarked == FALSE) {
+            if (temp->fMarked == false) {
                 T = temp;
                 break;
             }
@@ -638,7 +644,7 @@ void RBBITableBuilder57::buildStateTable() {
         }
 
         // mark T;
-        T->fMarked = TRUE;
+        T->fMarked = true;
 
         // for each input symbol a do begin
         int32_t  a;
@@ -665,7 +671,7 @@ void RBBITableBuilder57::buildStateTable() {
 
             // if U is not empty and not in DStates then
             int32_t  ux = 0;
-            UBool    UinDstates = FALSE;
+            UBool    UinDstates = false;
             if (U != NULL) {
                 U_ASSERT(U->size() > 0);
                 int  ix;
@@ -676,7 +682,7 @@ void RBBITableBuilder57::buildStateTable() {
                         delete U;
                         U  = temp2->fPositions;
                         ux = ix;
-                        UinDstates = TRUE;
+                        UinDstates = true;
                         break;
                     }
                 }
@@ -1066,7 +1072,7 @@ void RBBITableBuilder57::printPosSets(RBBINode *n) {
     printf("\n");
     RBBINode::printNodeHeader();
     n->printNode();
-    RBBIDebugPrintf("         Nullable:  %s\n", n->fNullable?"TRUE":"FALSE");
+    RBBIDebugPrintf("         Nullable:  %s\n", n->fNullable?"true":"false");
 
     RBBIDebugPrintf("         firstpos:  ");
     printSet(n->fFirstPosSet);

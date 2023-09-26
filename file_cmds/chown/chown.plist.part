@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>chown</string>
 		<key>OpenSourceVersion</key>
-		<string>2020-12-08</string>
+		<string>2022-08-24</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.sbin/chown?id=2dfa4b66b3d0caaaae6ce2df476b5615f8415a19</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.sbin/chown?id=0a9b374ecc85d483a52c2bfad548b1bbda496be3</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-06-23</string>
+		<string>2022-08-24</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>chgrp.1, chown.8, chown.c: add -n option (35375995)</string>

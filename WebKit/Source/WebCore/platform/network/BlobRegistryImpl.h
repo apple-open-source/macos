@@ -56,15 +56,14 @@ public:
     BlobData* getBlobDataFromURL(const URL&) const;
 
     Ref<ResourceHandle> createResourceHandle(const ResourceRequest&, ResourceHandleClient*);
-    void writeBlobToFilePath(const URL& blobURL, const String& path, Function<void(bool success)>&& completionHandler);
 
     void appendStorageItems(BlobData*, const BlobDataItemList&, long long offset, long long length);
 
-    void registerFileBlobURL(const URL&, Ref<BlobDataFileReference>&&, const String& contentType);
-    void registerBlobURL(const URL&, Vector<BlobPart>&&, const String& contentType);
+    void registerInternalFileBlobURL(const URL&, Ref<BlobDataFileReference>&&, const String& contentType);
+    void registerInternalBlobURL(const URL&, Vector<BlobPart>&&, const String& contentType);
     void registerBlobURL(const URL&, const URL& srcURL, const PolicyContainer&);
-    void registerBlobURLOptionallyFileBacked(const URL&, const URL& srcURL, RefPtr<BlobDataFileReference>&&, const String& contentType, const PolicyContainer&);
-    void registerBlobURLForSlice(const URL&, const URL& srcURL, long long start, long long end, const String& contentType);
+    void registerInternalBlobURLOptionallyFileBacked(const URL&, const URL& srcURL, RefPtr<BlobDataFileReference>&&, const String& contentType, const PolicyContainer&);
+    void registerInternalBlobURLForSlice(const URL&, const URL& srcURL, long long start, long long end, const String& contentType);
     void unregisterBlobURL(const URL&);
 
     void registerBlobURLHandle(const URL&);
@@ -86,6 +85,7 @@ public:
     void setPartitioningEnabled(bool enabled) { m_isPartitioningEnabled = enabled; }
 
 private:
+    void registerBlobURLOptionallyFileBacked(const URL&, const URL& srcURL, RefPtr<BlobDataFileReference>&&, const String& contentType, const PolicyContainer&);
     void addBlobData(const String& url, RefPtr<BlobData>&&);
     Ref<DataSegment> createDataSegment(Vector<uint8_t>&&, BlobData&);
 

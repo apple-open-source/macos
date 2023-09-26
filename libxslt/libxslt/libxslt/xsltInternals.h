@@ -1793,6 +1793,10 @@ struct _xsltTransformContext {
     unsigned long opLimit;
     unsigned long opCount;
 #endif
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+    int sourceDocDirty;
+    unsigned long currentId; /* For generate-id() */
+#endif
 };
 
 /**
@@ -1918,11 +1922,19 @@ XSLTPUBFUN int XSLTCALL
 XSLTPUBFUN int XSLTCALL
 			xsltExtensionInstructionResultFinalize(
 						 xsltTransformContextPtr ctxt);
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+XSLTPUBFUN int XSLTCALL
+			xsltFlagRVTs(
+						 xsltTransformContextPtr ctxt,
+						 xmlXPathObjectPtr obj,
+						 intptr_t val) LIBXSLT_API_AVAILABLE_MACOS14_IOS17_WATCHOS10_TVOS17;
+#else
 XSLTPUBFUN int XSLTCALL
 			xsltFlagRVTs(
 						 xsltTransformContextPtr ctxt,
 						 xmlXPathObjectPtr obj,
 						 void *val) LIBXSLT_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16;
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 XSLTPUBFUN void XSLTCALL
 			xsltFreeRVTs		(xsltTransformContextPtr ctxt);
 XSLTPUBFUN void XSLTCALL

@@ -52,17 +52,22 @@ static const char sccsid[] = "@(#)forward.c	8.1 (Berkeley) 6/6/93";
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#ifdef __APPLE__
+#include <stdbool.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "extern.h"
-
 #ifndef __APPLE__
 #include <libcasper.h>
 #include <casper/cap_fileargs.h>
+#else
+#define fileargs_fopen(fa, fn, mode) fopen((fn), (mode))
 #endif
+
+#include "extern.h"
 
 static void rlines(FILE *, const char *fn, off_t, struct stat *);
 static int show(file_info_t *);
@@ -203,152 +208,79 @@ rlines(FILE *fp, const char *fn, off_t off, struct stat *sbp)
 	 * to distress, and even on local file systems other processes
 	 * truncating the file can also lead to upset.
 	 *
-	 * Seek to sbp->st_blksize before the end of the file, find
-	 * all the newlines.  If there are enough, print the last off
-	 * lines.  Otherwise go back another sbp->st_blksize bytes,
-	 * and count newlines.  Avoid re-reading blocks when possible.
+	 * We scan the file from back to front, counting newlines until we
+	 * reach the desired number.  For our purposes, a newline marks
+	 * the beginning of the line it precedes, not the end of the line
+	 * it follows; we don't check the last character of the file.  If
+	 * we don't find the number of newline characters that we want, we
+	 * just print the whole file.
 	 */
+	char *buf, *p;
+	off_t wanted = off;	/* how many newlines do we want to see? */
+	off_t found = 0;	/* how many have we found so far? */
+	off_t offset = 0;	/* offset of current block */
+	off_t length;		/* length of current block */
+	bool last;
+	int ch;
 
-	 /*
-	  * +1 because we capture line ends and we want off line _starts_,
-	  * +1 because the first line might be partial when try_at != 0
-	  */
-	off_t search_for = off + 2;
-	off_t try_at = sbp->st_size;
-	off_t last_try = sbp->st_size;
-	off_t found_this_pass = 0;
-	off_t found_total = 0;
-	off_t *found_at = calloc(search_for, sizeof(off_t));
-
+	if (off < 1 || sbp->st_size == 0) {
+		/* nothing to do */
+		return;
+	}
+	if ((buf = malloc(sbp->st_blksize)) == NULL) {
+		ierr(fn);
+		return;
+	}
 	flockfile(fp);
-
-	if (found_at == NULL) {
-		ierr(fn);
-		goto done;
+	if (sbp->st_size < wanted) {
+		/* file too short, print all of it */
+		goto print;
 	}
-
-	if (off == 0 || sbp->st_size == 0) {
-		goto done;
-	}
-
-	/*
-	 * The last character is special.  Check to make sure that it is a \n,
-	 * and if not, subtract one from the number of \n we need to search for.
-	 */
-	if (fseeko(fp, sbp->st_size - 1, SEEK_SET) != 0) {
-		ierr(fn);
-		goto done;
-	}
-	if (getc_unlocked(fp) != '\n') {
-		search_for--;
-	}
-
-	while (try_at != 0) {
-		found_this_pass = 0;
-
-		if (try_at <= sbp->st_blksize) {
-			/*
-			 * If we're within the first block, we need to properly
-			 * account for the beginning of the file and we'll start
-			 * checking from the top.
-			 */
-			found_at[found_this_pass++] = 0;
-			try_at = 0;
-		} else {
-			/* Otherwise, we'll simply rewind a block. */
-			last_try = try_at;
-			try_at -= sbp->st_blksize;
-		}
-
-		/*
-		 * We'll start from the block before the one we just scanned
-		 * and rescan all the way to the end of the file again.  It's
-		 * tempting to try and rewrite this to avoid reading tail blocks
-		 * repeatedly, but doing so is likely not worth the cognitive
-		 * effort.
-		 */
-		if (fseeko(fp, try_at, SEEK_SET) != 0) {
+	offset = roundup(sbp->st_size - 1, sbp->st_blksize);
+	while (offset > 0) {
+		offset -= sbp->st_blksize;
+		if (fseeko(fp, offset, SEEK_SET) != 0) {
 			ierr(fn);
 			goto done;
 		}
-
-		char ch;
-		while ((ch = getc_unlocked(fp)) != EOF) {
-			if (ch == '\n') {
-				/*
-				 * We may be overscanning, in which case we can
-				 * and should overwrite earlier matches with
-				 * later, more relevant, matches.
-				 */
-				found_at[found_this_pass++ % search_for] = ftello(fp);
-				found_total++;
-			}
-			if (ftello(fp) == last_try && found_total < search_for) {
-				/*
-				 * We just reached the last block we scanned,
-				 * and we know there aren't enough lines found
-				 * so far to be happy, so we don't have to
-				 * read it again.
-				 */
-				break;
+		length = MIN(sbp->st_blksize, sbp->st_size - 1 - offset);
+		length = fread(buf, 1, length, fp);
+		if (length == 0) {
+			ierr(fn);
+			goto done;
+		}
+		for (p = buf + length - 1; p >= buf; p--) {
+			if (*p == '\n') {
+				if (++found == wanted) {
+					break;
+				}
 			}
 		}
-
-		if (found_this_pass >= search_for || try_at == 0) {
-			off_t min = found_at[0];
-			int min_i = 0;
-			int i;
-			int lim = (found_this_pass < search_for) ? found_this_pass : search_for;
-
-			/*
-			 * Note that i == 0 is already recorded in min/min_i, so
-			 * we skip it here.  The earlier entries may not
-			 * actually be the lowest in the file because of the
-			 * previously mentioned overscanning; we've effectively
-			 * treated found_at as a ring buffer, so we're scanning
-			 * it for the actual start before we proceed.
-			 */
-			for (i = 1; i < lim; i++) {
-				if (found_at[i] < min) {
-					min = found_at[i];
-					min_i = i;
-				}
-			}
-
-			off_t target = min;
-
-			if (found_this_pass >= search_for) {
-				/*
-				 * min_i might be a partial line (unless
-				 * try_at is 0).   If we found search_for
-				 * lines, min_i+1 is the first known full line
-				 * _and_ because we look for an extra line we
-				 * don't need to show it.
-				 */
-				target = found_at[(min_i + 1) % search_for];
-			}
-
-			if (fseeko(fp, target, SEEK_SET) != 0) {
-				ierr(fn);
-				goto done;
-			}
-
-			flockfile(stdout);
-			while ((ch = getc_unlocked(fp)) != EOF) {
-				if (putchar_unlocked(ch) == EOF) {
-					funlockfile(stdout);
-					oerr();
-					goto done;
-				}
-			}
+		if (found == wanted) {
+			/* position of the newline preceding our first line */
+			offset += p - buf;
+			/* beginning of our first line */
+			offset++;
+			break;
+		}
+	}
+print:
+	if (fseeko(fp, offset, SEEK_SET) != 0) {
+		ierr(fn);
+		goto done;
+	}
+	flockfile(stdout);
+	while ((ch = getc_unlocked(fp)) != EOF) {
+		if (putchar_unlocked(ch) == EOF) {
 			funlockfile(stdout);
+			oerr();
 			goto done;
 		}
 	}
-
+	funlockfile(stdout);
 done:
 	funlockfile(fp);
-	free(found_at);
+	free(buf);
 	return;
 #else
 	struct mapinfo map;
@@ -403,8 +335,8 @@ show(file_info_t *file)
 	int ch;
 
 	while ((ch = getc(file->fp)) != EOF) {
-		if (last != file && no_files > 1) {
-			if (!qflag)
+		if (last != file) {
+			if (vflag || (qflag == 0 && no_files > 1))
 				printfn(file->file_name, 1);
 			last = file;
 		}
@@ -482,7 +414,7 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 		if (file->fp) {
 			active = 1;
 			n++;
-			if (no_files > 1 && !qflag)
+			if (vflag || (qflag == 0 && no_files > 1))
 				printfn(file->file_name, 1);
 			forward(file->fp, file->file_name, style, off, &file->st);
 			if (Fflag && fileno(file->fp) != STDIN_FILENO)
@@ -508,11 +440,7 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 			for (i = 0, file = files; i < no_files; i++, file++) {
 				if (!file->fp) {
 					file->fp =
-#ifndef __APPLE__
 					    fileargs_fopen(fa, file->file_name,
-#else
-					    fopen(file->file_name,
-#endif
 					    "r");
 					if (file->fp != NULL &&
 					    fstat(fileno(file->fp), &file->st)
@@ -526,11 +454,7 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 				}
 				if (fileno(file->fp) == STDIN_FILENO)
 					continue;
-#ifndef __APPLE__
 				ftmp = fileargs_fopen(fa, file->file_name, "r");
-#else
-				ftmp = fopen(file->file_name, "r");
-#endif
 				if (ftmp == NULL ||
 				    fstat(fileno(ftmp), &sb2) == -1) {
 					if (errno != ENOENT)
@@ -576,10 +500,16 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 			/*
 			 * In the -F case we set a timeout to ensure that
 			 * we re-stat the file at least once every second.
+			 * If we've recieved EINTR, ignore it. Both reasons
+			 * for its generation are transient.
 			 */
-			n = kevent(kq, NULL, 0, ev, 1, Fflag ? &ts : NULL);
-			if (n < 0)
-				err(1, "kevent");
+			do {
+				n = kevent(kq, NULL, 0, ev, 1, Fflag ? &ts : NULL);
+				if (n < 0 && errno == EINTR)
+					continue;
+				if (n < 0)
+					err(1, "kevent");
+			} while (n < 0);
 			if (n == 0) {
 				/* timeout */
 				break;

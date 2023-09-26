@@ -26,7 +26,7 @@
 
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/IOLocks.h>
-#include <BlockStorageDeviceDriverKit/IOUserBlockStorageDevice.h>
+#include "IOUserBlockStorageDevice.h"
 #include "IORequestsPool.h"
 #include <stdatomic.h>
 

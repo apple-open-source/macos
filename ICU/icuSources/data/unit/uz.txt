@@ -186,9 +186,9 @@ uz{
                 other{"{0} promille"}
             }
             permillion{
-                dnam{"qism/million"}
-                one{"{0} qism/million"}
-                other{"{0} qism/million"}
+                dnam{"milliondan ulush"}
+                one{"{0} ppm"}
+                other{"{0} ppm"}
             }
             permyriad{
                 dnam{"promiriada"}
@@ -331,6 +331,12 @@ uz{
                 dnam{"nanosoniya"}
                 one{"{0} nanosoniya"}
                 other{"{0} nanosoniya"}
+            }
+            quarter{
+                dnam{"chorak"}
+                one{"{0} chorak"}
+                other{"{0} chorak"}
+                per{"{0}/chorak"}
             }
             second{
                 dnam{"soniya"}
@@ -671,11 +677,6 @@ uz{
                 other{"{0} kilogramm"}
                 per{"{0}/kilogramm"}
             }
-            metric-ton{
-                dnam{"tonna"}
-                one{"{0} tonna"}
-                other{"{0} tonna"}
-            }
             microgram{
                 dnam{"mikrogramm"}
                 one{"{0} mikrogramm"}
@@ -717,6 +718,11 @@ uz{
                 dnam{"amerika tonnasi"}
                 one{"{0} amerika tonnasi"}
                 other{"{0} amerika tonnasi"}
+            }
+            tonne{
+                dnam{"tonna"}
+                one{"{0} tonna"}
+                other{"{0} tonna"}
             }
         }
         power{
@@ -1132,6 +1138,11 @@ uz{
                 one{"{0}%"}
                 other{"{0}%"}
             }
+            permillion{
+                dnam{"ppm"}
+                one{"{0}ppm"}
+                other{"{0}ppm"}
+            }
         }
         consumption{
             liter-per-100-kilometer{
@@ -1172,6 +1183,12 @@ uz{
                 dnam{"oy"}
                 one{"{0} oy"}
                 other{"{0} oy"}
+            }
+            quarter{
+                dnam{"chorak"}
+                one{"{0} chorak"}
+                other{"{0} chorak"}
+                per{"{0}/ch."}
             }
             second{
                 dnam{"son."}
@@ -1543,9 +1560,9 @@ uz{
                 other{"{0}‰"}
             }
             permillion{
-                dnam{"qism/million"}
-                one{"{0} qism/million"}
-                other{"{0} qism/million"}
+                dnam{"milliondan ulush"}
+                one{"{0} ppm"}
+                other{"{0} ppm"}
             }
             permyriad{
                 dnam{"promiriada"}
@@ -1688,6 +1705,12 @@ uz{
                 dnam{"nanosoniya"}
                 one{"{0} ns"}
                 other{"{0} ns"}
+            }
+            quarter{
+                dnam{"chorak"}
+                one{"{0} chorak"}
+                other{"{0} chorak"}
+                per{"{0}/chorak"}
             }
             second{
                 dnam{"son."}
@@ -2030,11 +2053,6 @@ uz{
                 other{"{0} kg"}
                 per{"{0}/kg"}
             }
-            metric-ton{
-                dnam{"t"}
-                one{"{0} t"}
-                other{"{0} t"}
-            }
             microgram{
                 dnam{"μg"}
                 one{"{0} μg"}
@@ -2076,6 +2094,11 @@ uz{
                 dnam{"amer. t"}
                 one{"{0} amer. t"}
                 other{"{0} amer. t"}
+            }
+            tonne{
+                dnam{"t"}
+                one{"{0} t"}
+                other{"{0} t"}
             }
         }
         power{

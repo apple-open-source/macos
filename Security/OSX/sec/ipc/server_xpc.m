@@ -228,6 +228,65 @@
 #endif // OCTAGON
 }
 
+- (void)secItemUnsetCurrentItemsAcrossAllDevices:(NSString*)accessGroup
+                                      identifiers:(NSArray<NSString*>*)identifiers
+                                         viewHint:(NSString*)viewHint
+                                         complete:(void (^)(NSError* operror))xpcComplete
+{
+#if OCTAGON
+    // The calling client might not handle CK types well. Sanitize!
+    void (^complete)(NSError*) = ^(NSError* error){
+        xpcComplete(XPCSanitizeError(error));
+    };
+
+    __block CFErrorRef cferror = NULL;
+    if([self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementKeychainDeny]) {
+        SecError(errSecNotAvailable, &cferror, CFSTR("SecItemUnsetCurrentItemsAcrossAllDevices: %@ has entitlement %@"), _client.task, kSecEntitlementKeychainDeny);
+        complete((__bridge NSError*) cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    if(![self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementPrivateCKKSWriteCurrentItemPointers]) {
+        SecError(errSecMissingEntitlement, &cferror, CFSTR("SecItemUnsetCurrentItemsAcrossAllDevices: %@ does not have entitlement %@"), _client.task, kSecEntitlementPrivateCKKSWriteCurrentItemPointers);
+        complete((__bridge NSError*) cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    if (!accessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+        SecError(errSecMissingEntitlement, &cferror, CFSTR("SecItemUnsetCurrentItemsAcrossAllDevices: client is missing access-group %@: %@"), accessGroup, _client.task);
+        complete((__bridge NSError*)cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    CKKSViewManager* manager = [CKKSViewManager manager];
+    if(!manager) {
+        secerror("SecItemUnsetCurrentItemsAcrossAllDevices: no view manager?");
+        complete([NSError errorWithDomain:CKKSErrorDomain
+                                     code:CKKSNotInitialized
+                              description:@"No view manager, cannot forward request"]);
+        return;
+    }
+
+    // Wait a bit for CKKS initialization in case of daemon start, and bail it doesn't come up
+    if([manager.completedSecCKKSInitialize wait:10] != 0) {
+        secerror("SecItemUnsetCurrentItemsAcrossAllDevices: CKKSViewManager not initialized?");
+        complete([NSError errorWithDomain:CKKSErrorDomain code:CKKSNotInitialized description:@"CKKS not yet initialized"]);
+        return;
+    }
+
+    [manager unsetCurrentItemsForAccessGroup:accessGroup
+                                 identifiers:identifiers
+                                    viewHint:viewHint
+                                    complete:complete];
+    return;
+#else // ! OCTAGON
+    xpcComplete([NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemUnsetCurrentItemsAcrossAllDevices not implemented on this platform"}]);
+#endif // OCTAGON
+}
+
 -(void)secItemFetchCurrentItemAcrossAllDevices:(NSString*)accessGroup
                                     identifier:(NSString*)identifier
                                       viewHint:(NSString*)viewHint

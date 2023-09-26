@@ -45,8 +45,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/nice.c,v 1.4 2007/01/09 00:27:54 imp Exp $"
  * Backwards compatible nice.
  */
 int
-nice(incr)
-	int incr;
+nice(int incr)
 {
 	int prio, rv;
 

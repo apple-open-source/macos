@@ -32,13 +32,13 @@
 #include "DOMPluginArray.h"
 #include "Document.h"
 #include "FeaturePolicy.h"
-#include "Frame.h"
 #include "FrameLoader.h"
-#include "FrameLoaderClient.h"
 #include "GPU.h"
 #include "Geolocation.h"
 #include "JSDOMPromiseDeferred.h"
 #include "LoaderStrategy.h"
+#include "LocalFrame.h"
+#include "LocalFrameLoaderClient.h"
 #include "LocalizedStrings.h"
 #include "Page.h"
 #include "PlatformStrategies.h"
@@ -61,9 +61,9 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(Navigator);
 
-Navigator::Navigator(ScriptExecutionContext* context, DOMWindow& window)
+Navigator::Navigator(ScriptExecutionContext* context, LocalDOMWindow& window)
     : NavigatorBase(context)
-    , DOMWindowProperty(&window)
+    , LocalDOMWindowProperty(&window)
 {
 }
 
@@ -350,7 +350,7 @@ bool Navigator::cookieEnabled() const
     return page->cookieJar().cookiesEnabled(*document);
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(NAVIGATOR_STANDALONE)
 
 bool Navigator::standalone() const
 {
@@ -360,17 +360,13 @@ bool Navigator::standalone() const
 
 #endif
 
-void Navigator::getStorageUpdates()
-{
-}
-
 GPU* Navigator::gpu()
 {
     if (!m_gpuForWebGPU) {
         auto* frame = this->frame();
         if (!frame)
             return nullptr;
-        if (!frame->settings().webGPU())
+        if (!frame->settings().webGPUEnabled())
             return nullptr;
         auto* page = frame->page();
         if (!page)
@@ -397,13 +393,19 @@ void Navigator::setAppBadge(std::optional<unsigned long long> badge, Ref<Deferre
 {
     auto* frame = this->frame();
     if (!frame) {
-        promise->reject();
+        promise->reject(InvalidStateError);
         return;
     }
 
     auto* page = frame->page();
     if (!page) {
-        promise->reject();
+        promise->reject(InvalidStateError);
+        return;
+    }
+
+    auto* document = frame->document();
+    if (document && !document->isFullyActive()) {
+        promise->reject(InvalidStateError);
         return;
     }
 

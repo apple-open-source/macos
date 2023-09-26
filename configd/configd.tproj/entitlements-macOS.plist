@@ -6,6 +6,8 @@
 	<true/>
 	<key>com.apple.networkd_privileged</key>
 	<true/>
+	<key>com.apple.networking.ionetworkstack.user-client</key>
+	<true/>
 	<key>com.apple.private.corewifi</key>
 	<true/>
 	<key>com.apple.private.necp.match</key>
@@ -29,5 +31,9 @@
 	</array>
 	<key>com.apple.wlan.authentication</key>
 	<true/>
+	<key>com.apple.private.driverkit.driver-access</key>
+	<array>
+		<string>com.apple.private.wifi.driverkit</string>
+	</array>
 </dict>
 </plist>

@@ -90,9 +90,9 @@ void ArgumentCoder<String>::encode(Encoder& encoder, const String& string)
     encoder << length << is8Bit;
 
     if (is8Bit)
-        encoder.encodeSpan(Span { string.characters8(), length });
+        encoder.encodeSpan(std::span(string.characters8(), length));
     else
-        encoder.encodeSpan(Span { string.characters16(), length });
+        encoder.encodeSpan(std::span(string.characters16(), length));
 }
 template
 void ArgumentCoder<String>::encode<Encoder>(Encoder&, const String&);

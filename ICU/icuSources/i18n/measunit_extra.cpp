@@ -312,7 +312,7 @@ class CategoriesSink : public icu::ResourceSink {
     int32_t outIndex;
 };
 
-icu::UInitOnce gUnitExtrasInitOnce = U_INITONCE_INITIALIZER;
+icu::UInitOnce gUnitExtrasInitOnce {};
 
 // Array of simple unit IDs.
 //
@@ -349,7 +349,7 @@ UBool U_CALLCONV cleanupUnitExtras() {
     uprv_free(gSimpleUnits);
     gSimpleUnits = nullptr;
     gUnitExtrasInitOnce.reset();
-    return TRUE;
+    return true;
 }
 
 void U_CALLCONV initUnitExtras(UErrorCode& status) {
@@ -615,7 +615,7 @@ private:
 
     // Set to true when we've seen a "-per-" or a "per-", after which all units
     // are in the denominator. Until we find an "-and-", at which point the
-    // identifier is invalid pending TODO(CLDR-13700).
+    // identifier is invalid pending TODO(CLDR-13701).
     bool fAfterPer = false;
 
     Parser() : fSource(""), fTrie(u"") {}
@@ -669,7 +669,7 @@ private:
      * dimensionality.
      *
      * Returns an error if we parse both compound units and "-and-", since mixed
-     * compound units are not yet supported - TODO(CLDR-13700).
+     * compound units are not yet supported - TODO(CLDR-13701).
      *
      * @param result Will be overwritten by the result, if status shows success.
      * @param sawAnd If an "-and-" was parsed prior to finding the "single
@@ -718,7 +718,7 @@ private:
             case COMPOUND_PART_PER:
                 if (sawAnd) {
                     // Mixed compound units not yet supported,
-                    // TODO(CLDR-13700).
+                    // TODO(CLDR-13701).
                     status = kUnitIdentifierSyntaxError;
                     return result;
                 }
@@ -735,7 +735,7 @@ private:
             case COMPOUND_PART_AND:
                 if (fAfterPer) {
                     // Can't start with "-and-", and mixed compound units
-                    // not yet supported, TODO(CLDR-13700).
+                    // not yet supported, TODO(CLDR-13701).
                     status = kUnitIdentifierSyntaxError;
                     return result;
                 }

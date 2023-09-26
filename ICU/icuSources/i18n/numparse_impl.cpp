@@ -114,10 +114,6 @@ NumberParserImpl::createParserFromProperties(const number::impl::DecimalFormatPr
     }
     if (parseCurrency || affixProvider.get().hasCurrencySign()) {
         parseFlags |= PARSE_FLAG_MONETARY_SEPARATORS;
-        // Apple <rdar://problem/51938595> check for curr symbol in suffix; use affix API instead?
-        if (properties.positiveSuffixPattern.indexOf(u'¤') >= 0) {
-            parseFlags |= PARSE_FLAG_HAS_TRAIL_CURRENCY;
-        }
     }
     if (!parseCurrency) {
         parseFlags |= PARSE_FLAG_NO_FOREIGN_CURRENCY;
@@ -264,18 +260,10 @@ void NumberParserImpl::parse(const UnicodeString& input, int32_t start, bool gre
 void NumberParserImpl::parseGreedy(StringSegment& segment, ParsedNumber& result,
                                             UErrorCode& status) const {
     // Note: this method is not recursive in order to avoid stack overflow.
-    bool extraLoop = FALSE;
     for (int i = 0; i <fNumMatchers;) {
         // Base Case
         if (segment.length() == 0) {
-            if ((extraLoop && i==0) || (fParseFlags & PARSE_FLAG_HAS_TRAIL_CURRENCY) == 0 || result.currencyCode[0] != 0) { // Apple <rdar://problem/51938595>
-                return;
-            }
-            // If we are parsing for currency expected at the end but have not found it yet,
-            // allow one more loop to see if we are matching an empty currency symbol
-            if (extraLoop) {
-                extraLoop = TRUE; // Apple <rdar://problem/51938595>
-            }
+            return;
         }
         const NumberParseMatcher* matcher = fMatchers[i];
         if (!matcher->smokeTest(segment)) {
@@ -288,8 +276,7 @@ void NumberParserImpl::parseGreedy(StringSegment& segment, ParsedNumber& result,
         if (U_FAILURE(status)) {
             return;
         }
-        if (segment.getOffset() != initialOffset ||
-                (extraLoop && result.currencyCode[0] != 0)) { // Apple <rdar://problem/51938595>
+        if (segment.getOffset() != initialOffset) {
             // Greedy heuristic: accept the match and loop back
             i = 0;
             continue;

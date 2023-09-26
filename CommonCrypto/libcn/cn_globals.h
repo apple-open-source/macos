@@ -53,7 +53,6 @@ struct cn_globals_s {
 };
 typedef struct cn_globals_s *cn_globals_t;
 
-__attribute__((__pure__))
 static inline cn_globals_t
 _cn_globals(void) {
 #if _LIBCOMMONNUMERICS_HAS_ALLOC_ONCE

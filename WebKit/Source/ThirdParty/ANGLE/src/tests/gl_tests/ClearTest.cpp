@@ -362,7 +362,7 @@ TEST_P(ClearTest, EmptyScissor)
     // These configs have bug that fails this test.
     // These configs are unmaintained so skipping.
     ANGLE_SKIP_TEST_IF(IsIntel() && IsD3D9());
-    ANGLE_SKIP_TEST_IF(IsOSX());
+    ANGLE_SKIP_TEST_IF(IsMac());
     glClearColor(0.25f, 0.5f, 0.5f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glEnable(GL_SCISSOR_TEST);
@@ -481,7 +481,7 @@ TEST_P(ClearTest, ChangeFramebufferAttachmentFromRGBAtoRGB)
     ANGLE_SKIP_TEST_IF(IsAndroid() && IsAdreno() && IsOpenGLES());
 
     // http://anglebug.com/5165
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsDesktopOpenGL() && IsIntel());
+    ANGLE_SKIP_TEST_IF(IsMac() && IsDesktopOpenGL() && IsIntel());
 
     ANGLE_GL_PROGRAM(program, angle::essl1_shaders::vs::Simple(),
                      angle::essl1_shaders::fs::UniformColor());
@@ -2064,7 +2064,7 @@ TEST_P(ClearTest, DrawThenInceptionScissorClears)
 TEST_P(ClearTestES3, ClearDisabledNonZeroAttachmentNoAssert)
 {
     // http://anglebug.com/4612
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsDesktopOpenGL());
+    ANGLE_SKIP_TEST_IF(IsMac() && IsDesktopOpenGL());
 
     GLFramebuffer fb;
     glBindFramebuffer(GL_FRAMEBUFFER, fb);
@@ -2096,7 +2096,7 @@ TEST_P(ClearTestES3, ClearDisabledNonZeroAttachmentNoAssert)
 TEST_P(ClearTestES3, ClearMaxAttachments)
 {
     // http://anglebug.com/4612
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsDesktopOpenGL());
+    ANGLE_SKIP_TEST_IF(IsMac() && IsDesktopOpenGL());
     // http://anglebug.com/5397
     ANGLE_SKIP_TEST_IF(IsAMD() && IsD3D11());
 
@@ -2185,7 +2185,7 @@ TEST_P(ClearTestES3, ClearMaxAttachments)
 TEST_P(ClearTestES3, ClearMaxAttachmentsAfterDraw)
 {
     // http://anglebug.com/4612
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsDesktopOpenGL());
+    ANGLE_SKIP_TEST_IF(IsMac() && IsDesktopOpenGL());
 
     constexpr GLsizei kSize = 16;
 
@@ -2367,7 +2367,7 @@ TEST_P(ClearTestES3, ClearThenMixedMaskedClear)
 TEST_P(ClearTestES3, ClearStencilAfterDraw)
 {
     // http://anglebug.com/4612
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsDesktopOpenGL());
+    ANGLE_SKIP_TEST_IF(IsMac() && IsDesktopOpenGL());
 
     constexpr GLsizei kSize = 16;
 
@@ -2472,7 +2472,7 @@ TEST_P(ClearTestES3, ClearStencilAfterDraw)
 TEST_P(ClearTestES3, MixedRenderPassClearMixedUsedUnusedAttachments)
 {
     // http://anglebug.com/4612
-    ANGLE_SKIP_TEST_IF(IsOSX() && IsDesktopOpenGL());
+    ANGLE_SKIP_TEST_IF(IsMac() && IsDesktopOpenGL());
 
     constexpr GLsizei kSize = 16;
 
@@ -3357,7 +3357,7 @@ void main()
 TEST_P(ClearTestES3, RepeatedDepthClearWithBlitAfterClearAndDrawInBetween)
 {
     glClearDepthf(0.25f);
-    glClear(GL_DEPTH_BUFFER_BIT);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     // Make sure clear is flushed.
     GLRenderbuffer depth;
@@ -3407,7 +3407,7 @@ TEST_P(ClearTestES3, RepeatedDepthClearWithBlitAfterClearAndDrawInBetween)
 TEST_P(ClearTestES3, RepeatedStencilClearWithBlitAfterClearAndDrawInBetween)
 {
     glClearStencil(0xE4);
-    glClear(GL_STENCIL_BUFFER_BIT);
+    glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Make sure clear is flushed.
     GLRenderbuffer stencil;
@@ -3460,16 +3460,19 @@ TEST_P(ClearTestES3, RepeatedStencilClearWithBlitAfterClearAndDrawInBetween)
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(
     ClearTest,
+    ES3_VULKAN().enable(Feature::ForceFallbackFormat),
     ES3_VULKAN().enable(Feature::PreferDrawClearOverVkCmdClearAttachments));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ClearTestES3);
 ANGLE_INSTANTIATE_TEST_ES3_AND(
     ClearTestES3,
+    ES3_VULKAN().enable(Feature::ForceFallbackFormat),
     ES3_VULKAN().enable(Feature::PreferDrawClearOverVkCmdClearAttachments));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ClearTestES31);
 ANGLE_INSTANTIATE_TEST_ES31_AND(
     ClearTestES31,
+    ES31_VULKAN().enable(Feature::ForceFallbackFormat),
     ES31_VULKAN().enable(Feature::PreferDrawClearOverVkCmdClearAttachments));
 
 ANGLE_INSTANTIATE_TEST_COMBINE_4(MaskedScissoredClearTest,
@@ -3482,11 +3485,8 @@ ANGLE_INSTANTIATE_TEST_COMBINE_4(MaskedScissoredClearTest,
                                  ANGLE_ALL_TEST_PLATFORMS_ES3,
                                  ES3_VULKAN()
                                      .disable(Feature::SupportsExtendedDynamicState)
-                                     .disable(Feature::SupportsExtendedDynamicState2)
-                                     .disable(Feature::SupportsLogicOpDynamicState),
-                                 ES3_VULKAN()
-                                     .disable(Feature::SupportsExtendedDynamicState2)
-                                     .disable(Feature::SupportsLogicOpDynamicState));
+                                     .disable(Feature::SupportsExtendedDynamicState2),
+                                 ES3_VULKAN().disable(Feature::SupportsExtendedDynamicState2));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VulkanClearTest);
 ANGLE_INSTANTIATE_TEST_COMBINE_4(VulkanClearTest,

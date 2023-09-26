@@ -46,7 +46,7 @@ public:
 
 private:
     // Create a new drawing area proxy for the given page.
-    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
+    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy() override;
 
     // Tell the view to invalidate the given region. The region is in view coordinates.
     void setViewNeedsDisplay(const WebCore::Region&) override;
@@ -102,12 +102,19 @@ private:
     WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) override;
 
     void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) override;
+#if ENABLE(TOUCH_EVENTS)
+    void doneWithTouchEvent(const NativeWebTouchEvent&, bool) override;
+#endif
 
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
 
     void enterAcceleratedCompositingMode(const LayerTreeContext&) override;
     void exitAcceleratedCompositingMode() override;
     void updateAcceleratedCompositingMode(const LayerTreeContext&) override;
+
+#if USE(GRAPHICS_LAYER_WC)
+    bool usesOffscreenRendering() const override;
+#endif
 
     // Auxiliary Client Creation
 #if ENABLE(FULLSCREEN_API)
@@ -148,6 +155,10 @@ private:
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() override;
 
     void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) override;
+
+#if USE(WPE_RENDERER)
+    UnixFileDescriptor hostFileDescriptor() override;
+#endif
 
     PlayStationWebView& m_view;
 };

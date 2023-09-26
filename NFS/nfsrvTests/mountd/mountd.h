@@ -75,10 +75,11 @@ const char *getDestPath(void);
 const char *getDestReadOnlyPath(void);
 const char *getLocalMountedPath(void);
 const char *getLocalMountedReadOnlyPath(void);
-fhandle_t *doMountAndVerify(const char *dir);
+fhandle_t *doMountAndVerify(const char *dir, char *sec_mech);
 
 #define CREATE_CLIENT_FAILURE   0x1
 #define CREATE_SOCKET           0x2
+#define CREATE_NFS_V2           0x4
 
 int createClientForMountProtocol(int socketFamily, int socketType, int authType, int flags);
 CLIENT *createClientForNFSProtocol(int socketFamily, int socketType, int authType, int flags, int *sockp);
@@ -89,6 +90,9 @@ CLIENT *createClientForProtocol(const char *host, int socketFamily, int socketTy
 
 #define LOCALHOST4 "127.0.0.1"
 #define LOCALHOST6 "::1"
+
+#define UNKNOWNUID ((uid_t)99)
+#define UNKNOWNGID ((gid_t)99)
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof(A[0]))

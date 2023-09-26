@@ -2,11 +2,11 @@
 set -e -x
 
 # Do nothing for installhdrs
-[ "$ACTION" == "installhdrs" ] && exit 0
+[ "$ACTION" = "installhdrs" ] && exit 0
 
 ver=5.4
 
-if [ "$ACTION" == "install" ] ; then
+if [ "$ACTION" = "install" ] ; then
     for link in libform.dylib libmenu.dylib libncurses.dylib libpanel.dylib ; do
 	ln -s -f $(basename -s .dylib $link).${ver}.dylib "$DSTROOT/usr/lib/$link"
     done

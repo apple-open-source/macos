@@ -28,7 +28,6 @@
 #include "unicode/unorm.h"
 #include "unicode/uobject.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 /**
  * Old Unicode normalization API.
@@ -809,7 +808,6 @@ Normalizer::compare(const UnicodeString &s1, const UnicodeString &s2,
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_NORMALIZATION */
 

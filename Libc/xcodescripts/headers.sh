@@ -61,7 +61,6 @@ INC_INSTHDRS=(
 	_ctermid.h
 	aio.h
 	alloca.h
-	ar.h
 	assert.h
 	asm.h
 	bitstring.h
@@ -134,6 +133,9 @@ INC_INSTHDRS=(
 	wordexp.h
 	xlocale.h
 )
+if [ "${PLATFORM_NAME}" == "macosx" -o -n "${DRIVERKIT}" ]; then
+	INC_INSTHDRS=( "${INC_INSTHDRS[@]}" ar.h )
+fi
 if [ "x${FEATURE_LEGACY_RUNE_APIS}" == "x1" ]; then
 	INC_INSTHDRS=( "${INC_INSTHDRS[@]}" rune.h )
 fi
@@ -212,6 +214,9 @@ LOCALHDRS=(
 	${SRCROOT}/darwin/subsystem.h
 	${SRCROOT}/darwin/_libc_init.h
 )
+if [ "${PLATFORM_NAME}" != "macosx" -a -z "${DRIVERKIT}" ]; then
+	LOCALHDRS=( "${LOCALHDRS[@]}" ${SRCROOT}/include/ar.h )
+fi
 
 OS_LOCALHDRS=( ${SRCROOT}/os/assumes.h ${SRCROOT}/os/debug_private.h )
 

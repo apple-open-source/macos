@@ -34,13 +34,7 @@
 #import <xpc/private.h>
 #import <IOKit/pwr_mgt/powermanagement_mig.h>
 
-#if !XCTEST && !TARGET_OS_BRIDGE
-#import <CoreMotion/CMMotionAlarmManager.h>
-#import <CoreMotion/CMMotionAlarmDelegateProtocol.h>
-@interface PMCoreSmartPowerNapPredictor : NSObject <CMMotionAlarmDelegateProtocol>
-#else
 @interface PMCoreSmartPowerNapPredictor : NSObject
-#endif
 
 + (instancetype)sharedInstance;
 
@@ -52,12 +46,16 @@
 - (void)logEndOfSessionWithReason:(NSString *)reason;
 - (void)handleRemoteDeviceIsNear;
 - (void)updateCoreSmartPowerNapState:(BOOL)active;
-- (void)updateLockState:(uint64_t)state;
-- (void)updateMotionState:(BOOL)state;
+
+- (void)updateInactiveState:(uint64_t)state;
+#if TARGET_OS_OSX
+- (NSDate *)nextEvaluationTime;
+#endif
 
 /*
  Update parameters through pmtool
  */
+- (void)updateQueryDelta:(uint32_t)seconds;
 - (void)updateRequeryDelta:(uint32_t)seconds;
 - (void)updateMotionAlarmThreshold:(uint32_t)seconds;
 - (void)updateMotionAlarmStartThreshold:(uint32_t)seconds;

@@ -323,9 +323,7 @@ void RemoteInspector::setupXPCConnectionIfNeeded()
 
     if (m_relayConnection) {
         m_shouldReconnectToRelayOnFailure = true;
-
-        // Send a simple message to make sure the connection is still open.
-        m_relayConnection->sendMessage(@"check", nil);
+        m_relayConnection->sendMessage(WIRPingMessage, nil);
         return;
     }
 
@@ -410,6 +408,8 @@ void RemoteInspector::xpcConnectionReceivedMessage(RemoteInspectorXPCConnection*
         receivedAutomaticInspectionRejectMessage(userInfo);
     else if ([messageName isEqualToString:WIRAutomationSessionRequestMessage])
         receivedAutomationSessionRequestMessage(userInfo);
+    else if ([messageName isEqualToString:WIRPingSuccessMessage])
+        receivedPingSuccessMessage();
     else
         NSLog(@"Unrecognized RemoteInspector XPC Message: %@", messageName);
 }
@@ -453,6 +453,12 @@ void RemoteInspector::xpcConnectionUnhandledMessage(RemoteInspectorXPCConnection
 
 #pragma mark - Listings
 
+static NSString* identifierForPID(ProcessID pid)
+{
+    // This format matches that used in the relay process.
+    return [NSString stringWithFormat:@"PID:%lu", (unsigned long)pid];
+}
+
 RetainPtr<NSDictionary> RemoteInspector::listingForInspectionTarget(const RemoteInspectionTarget& target) const
 {
     // Must collect target information on the WebThread, Main, or Worker thread since RemoteTargets are
@@ -492,6 +498,9 @@ RetainPtr<NSDictionary> RemoteInspector::listingForInspectionTarget(const Remote
         ASSERT_NOT_REACHED();
         break;
     }
+
+    if (auto presentingApplicationPID = target.presentingApplicationPID())
+        [listing setObject:identifierForPID(presentingApplicationPID.value()) forKey:WIRHostApplicationIdentifierKey];
 
     if (auto* connectionToTarget = m_targetConnectionMap.get(target.targetIdentifier()))
         [listing setObject:connectionToTarget->connectionIdentifier() forKey:WIRConnectionIdentifierKey];
@@ -722,6 +731,11 @@ void RemoteInspector::receivedProxyApplicationSetupMessage(NSDictionary *)
     if (!m_relayConnection)
         return;
 
+    // Proxy applications using per-target `presentingApplicationPID`s do not require any additional setup. The remote
+    // relay will complete its setup when the inspectable target listing is sent to it.
+    if (m_usePerTargetPresentingApplicationPIDs)
+        return;
+
     if (!m_parentProcessIdentifier || !m_parentProcessAuditData) {
         // We are a proxy application without parent process information.
         // Wait a bit for the information, but give up after a second.
@@ -819,6 +833,11 @@ void RemoteInspector::receivedAutomationSessionRequestMessage(NSDictionary *user
         return;
 
     m_client->requestAutomationSession(suggestedSessionIdentifier, sessionCapabilities);
+}
+
+void RemoteInspector::receivedPingSuccessMessage()
+{
+    m_shouldReconnectToRelayOnFailure = false;
 }
 
 } // namespace Inspector

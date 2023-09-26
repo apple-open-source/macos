@@ -1,7 +1,7 @@
-/*	$OpenBSD: getoldopt.c,v 1.8 2003/07/02 21:19:33 deraadt Exp $	*/
+/*	$OpenBSD: getoldopt.c,v 1.9 2009/10/27 23:59:22 deraadt Exp $	*/
 /*	$NetBSD: getoldopt.c,v 1.3 1995/03/21 09:07:28 cgd Exp $	*/
 
-/*
+/*-
  * Plug-compatible replacement for getopt() for parsing tar-like
  * arguments.  If the first argument begins with "-", it uses getopt;
  * otherwise, it uses the old rules used by tar, dump, and ps.
@@ -11,17 +11,15 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-__used static const char rcsid[] = "$OpenBSD: getoldopt.c,v 1.8 2003/07/02 21:19:33 deraadt Exp $";
-#endif /* not lint */
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include "pax.h"
-#include "extern.h"
+
+int getoldopt(int, char **, const char *);
 
 int
 getoldopt(int argc, char **argv, const char *optstring)

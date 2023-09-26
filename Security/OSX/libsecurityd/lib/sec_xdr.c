@@ -67,7 +67,7 @@ bool_t sec_xdr_bytes(XDR *xdrs, uint8_t **cpp, u_int *sizep, u_int maxsize)
             if (!sizeof_alloc && cpp != NULL)
                 *cpp = sp; /* sp can be NULL when counting required space */
         }
-        /* FALLTHROUGH */
+        [[fallthrough]];
     case XDR_ENCODE:
         return (xdr_opaque(xdrs, (char *)sp, nodesize));
 
@@ -95,7 +95,7 @@ bool_t sec_xdr_charp(XDR *xdrs, char **cpp, u_int maxsize)
         return (TRUE);
     case XDR_ENCODE:
         if (sp) size = (u_int)(strlen(sp) + 1);
-        /* FALLTHROUGH */
+        [[fallthrough]];
     case XDR_DECODE:
         return sec_xdr_bytes(xdrs, (uint8_t**)cpp, &size, maxsize);
     }

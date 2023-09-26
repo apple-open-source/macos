@@ -45,6 +45,7 @@ static void	cupsd_update_notifier(void);
  * 'cupsdAddEvent()' - Add an event to the global event cache.
  */
 
+__attribute__((format(printf, 4, 5)))
 void
 cupsdAddEvent(
     cupsd_eventmask_t event,		/* I - Event */

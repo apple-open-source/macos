@@ -120,9 +120,11 @@ function mac_process_gpu_entitlements()
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 140000 ))
         then
             plistbuddy add :com.apple.private.disable.screencapturekit.alert bool YES
+            plistbuddy add :com.apple.aneuserd.private.allow bool YES
         fi
 
         plistbuddy Add :com.apple.private.memory.ownership_transfer bool YES
+        plistbuddy Add :com.apple.private.pac.exception bool YES
         plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
         plistbuddy Add :com.apple.rootless.storage.WebKitGPUSandbox bool YES
         plistbuddy Add :com.apple.QuartzCore.webkit-end-points bool YES
@@ -143,6 +145,7 @@ function mac_process_network_entitlements()
             plistbuddy Add :com.apple.private.security.message-filter bool YES
             plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token array
             plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:0 string kTCCServiceWebKitIntelligentTrackingPrevention
+            plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:1 string kTCCServiceUserTracking
         fi
 
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 110000 ))
@@ -158,9 +161,15 @@ function mac_process_network_entitlements()
             plistbuddy Add :com.apple.private.assets.accessible-asset-types:0 string com.apple.MobileAsset.WebContentRestrictions
         fi
 
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 140000 ))
+        then
+            plistbuddy Add :com.apple.private.ciphermld.allow bool YES
+        fi
+
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications array
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications:0 string LSActivePageUserVisibleOriginsKey
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications:1 string LSDisplayName
+        plistbuddy Add :com.apple.private.pac.exception bool YES
         plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
         plistbuddy Add :com.apple.rootless.storage.WebKitNetworkingSandbox bool YES
         plistbuddy Add :com.apple.symptom_analytics.configure bool YES
@@ -172,18 +181,15 @@ function mac_process_network_entitlements()
 function webcontent_sandbox_entitlements()
 {
     plistbuddy Add :com.apple.private.security.mutable-state-flags array
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string EnableMachBootstrap
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string AppCacheDisabled
     plistbuddy Add :com.apple.private.security.mutable-state-flags:1 string EnableExperimentalSandbox
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string EnableExperimentalSandboxWithProbability
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string BlockIOKitInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:4 string LockdownModeEnabled
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:5 string WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string BlockIOKitInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string WebContentProcessLaunched
     plistbuddy Add :com.apple.private.security.enable-state-flags array
-    plistbuddy Add :com.apple.private.security.enable-state-flags:0 string EnableExperimentalSandbox
-    plistbuddy Add :com.apple.private.security.enable-state-flags:1 string EnableExperimentalSandboxWithProbability
+    plistbuddy Add :com.apple.private.security.enable-state-flags:0 string AppCacheDisabled
+    plistbuddy Add :com.apple.private.security.enable-state-flags:1 string EnableExperimentalSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:2 string BlockIOKitInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.enable-state-flags:3 string LockdownModeEnabled
-    plistbuddy Add :com.apple.private.security.enable-state-flags:4 string WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.enable-state-flags:3 string WebContentProcessLaunched
 }
 
 function mac_process_webcontent_shared_entitlements()
@@ -229,6 +235,7 @@ function mac_process_webcontent_shared_entitlements()
 function mac_process_webpushd_entitlements()
 {
     plistbuddy Add :com.apple.private.aps-connection-initiate bool YES
+    plistbuddy Add :com.apple.private.launchservices.entitledtoaccessothersessions bool YES
 }
 
 # ========================================
@@ -309,6 +316,7 @@ function maccatalyst_process_gpu_entitlements()
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
     plistbuddy Add :com.apple.QuartzCore.webkit-end-points bool YES
     plistbuddy Add :com.apple.private.memory.ownership_transfer bool YES
+    plistbuddy Add :com.apple.private.pac.exception bool YES
     plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
     plistbuddy Add :com.apple.QuartzCore.webkit-limited-types bool YES
 
@@ -326,10 +334,12 @@ function maccatalyst_process_network_entitlements()
     plistbuddy Add :com.apple.private.network.socket-delegate bool YES
     plistbuddy Add :com.apple.security.network.client bool YES
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
+    plistbuddy Add :com.apple.private.pac.exception bool YES
     plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
 
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token array
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:0 string kTCCServiceWebKitIntelligentTrackingPrevention
+    plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:1 string kTCCServiceUserTracking
 
     if [[ "${WK_USE_RESTRICTED_ENTITLEMENTS}" == YES ]]
     then
@@ -384,6 +394,8 @@ function ios_family_process_webcontent_entitlements()
 
 function ios_family_process_webcontent_captiveportal_entitlements()
 {
+    plistbuddy Add :com.apple.private.webkit.lockdown-mode bool YES
+
     plistbuddy Add :com.apple.developer.kernel.extended-virtual-addressing bool YES
 
     plistbuddy Add :com.apple.imageio.allowabletypes array
@@ -408,10 +420,12 @@ function ios_family_process_gpu_entitlements()
     plistbuddy Add :com.apple.private.gpu-restricted bool YES
     plistbuddy Add :com.apple.private.mediaexperience.startrecordinginthebackground.allow bool YES
     plistbuddy Add :com.apple.private.mediaexperience.processassertionaudittokens.allow bool YES
+    plistbuddy add :com.apple.private.mediaexperience.recordingWebsite.allow bool YES
     plistbuddy Add :com.apple.private.coremedia.pidinheritance.allow bool YES
     plistbuddy Add :com.apple.private.memorystatus bool YES
     plistbuddy Add :com.apple.private.memory.ownership_transfer bool YES
     plistbuddy Add :com.apple.private.network.socket-delegate bool YES
+    plistbuddy Add :com.apple.private.pac.exception bool YES
     plistbuddy Add :com.apple.private.security.message-filter bool YES
     plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
@@ -455,6 +469,7 @@ function ios_family_process_network_entitlements()
     plistbuddy Add :com.apple.multitasking.systemappassertions bool YES
     plistbuddy Add :com.apple.payment.all-access bool YES
     plistbuddy Add :com.apple.private.accounts.bundleidspoofing bool YES
+    plistbuddy Add :com.apple.private.ciphermld.allow bool YES
     plistbuddy Add :com.apple.private.dmd.policy bool YES
     plistbuddy Add :com.apple.private.memorystatus bool YES
     plistbuddy Add :com.apple.private.network.socket-delegate bool YES
@@ -464,10 +479,12 @@ function ios_family_process_network_entitlements()
 
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token array
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:0 string kTCCServiceWebKitIntelligentTrackingPrevention
+    plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:1 string kTCCServiceUserTracking
 
     plistbuddy Add :com.apple.private.appstored array
-    plistbuddy Add :com.apple.private.appstored:0 string InstallAttribution
+    plistbuddy Add :com.apple.private.appstored:0 string InstallWebAttribution
 
+    plistbuddy Add :com.apple.private.pac.exception bool YES
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.Networking
     plistbuddy Add :com.apple.symptom_analytics.configure bool YES
 
@@ -529,5 +546,20 @@ then
 else
     echo "Unsupported/unknown platform: ${WK_PLATFORM_NAME}"
 fi
+
+function process_additional_entitlements()
+{
+    local ENTITLEMENTS_SCRIPT=$1
+    shift
+    for PREFIX in "${@}"; do
+        if [[ -f "${PREFIX}/${ENTITLEMENTS_SCRIPT}" ]]; then
+            source "${PREFIX}/${ENTITLEMENTS_SCRIPT}"
+            break
+        fi
+    done
+}
+
+ADDITIONAL_ENTITLEMENTS_SCRIPT=usr/local/include/WebKitAdditions/Scripts/process-additional-entitlements.sh
+process_additional_entitlements "${ADDITIONAL_ENTITLEMENTS_SCRIPT}" "${BUILT_PRODUCTS_DIR}" "${SDKROOT}"
 
 exit 0

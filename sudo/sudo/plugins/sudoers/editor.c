@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010-2015 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010-2015, 2020-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -41,7 +41,7 @@ static const char *
 wordsplit(const char *str, const char *endstr, const char **last)
 {
     const char *cp;
-    debug_decl(wordsplit, SUDO_DEBUG_UTIL);
+    debug_decl(wordsplit, SUDOERS_DEBUG_UTIL);
 
     /* If no str specified, use last ptr (if any). */
     if (str == NULL) {
@@ -63,16 +63,22 @@ wordsplit(const char *str, const char *endstr, const char **last)
 
     /* If word is quoted, skip to end quote and return. */
     if (*str == '"' || *str == '\'') {
-	const char *endquote = memchr(str + 1, *str, endstr - str);
-	if (endquote != NULL) {
-	    *last = endquote;
-	    debug_return_const_ptr(str + 1);
+	const char *endquote;
+	for (cp = str + 1; cp < endstr; cp = endquote + 1) {
+	    endquote = memchr(cp, *str, endstr - cp);
+	    if (endquote == NULL)
+		break;
+	    /* ignore escaped quotes */
+	    if (endquote[-1] != '\\') {
+		*last = endquote;
+		debug_return_const_ptr(str + 1);
+	    }
 	}
     }
 
     /* Scan str until we encounter white space. */
     for (cp = str; cp < endstr; cp++) {
-	if (*cp == '\\') {
+	if (cp[0] == '\\' && cp[1] != '\0') {
 	    /* quoted char, do not interpret */
 	    cp++;
 	    continue;
@@ -95,11 +101,10 @@ copy_arg(const char *src, size_t len)
     debug_decl(copy_arg, SUDOERS_DEBUG_UTIL);
 
     if ((copy = malloc(len + 1)) != NULL) {
+	sudoers_gc_add(GC_PTR, copy);
 	for (dst = copy; src < src_end; ) {
-	    if (*src == '\\') {
+	    if (src[0] == '\\' && src[1] != '\0')
 		src++;
-		continue;
-	    }
 	    *dst++ = *src++;
 	}
 	*dst = '\0';
@@ -119,14 +124,14 @@ copy_arg(const char *src, size_t len)
  * as well as the argument vector.
  */
 static char *
-resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
+resolve_editor(const char *ed, size_t edlen, int nfiles, char * const *files,
     int *argc_out, char ***argv_out, char * const *allowlist)
 {
     char **nargv = NULL, *editor = NULL, *editor_path = NULL;
     const char *tmp, *cp, *ep = NULL;
     const char *edend = ed + edlen;
     struct stat user_editor_sb;
-    int nargc;
+    int nargc = 0;
     debug_decl(resolve_editor, SUDOERS_DEBUG_UTIL);
 
     /*
@@ -144,9 +149,8 @@ resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
     /* If we can't find the editor in the user's PATH, give up. */
     if (find_path(editor, &editor_path, &user_editor_sb, getenv("PATH"), NULL,
 	    0, allowlist) != FOUND) {
-	free(editor);
 	errno = ENOENT;
-	debug_return_str(NULL);
+	goto bad;
     }
 
     /* Count rest of arguments and allocate editor argv. */
@@ -157,6 +161,7 @@ resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
     nargv = reallocarray(NULL, nargc + 1, sizeof(char *));
     if (nargv == NULL)
 	goto oom;
+    sudoers_gc_add(GC_PTR, nargv);
 
     /* Fill in editor argv (assumes files[] is NULL-terminated). */
     nargv[0] = editor;
@@ -166,9 +171,20 @@ resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
 	nargv[nargc] = copy_arg(cp, ep - cp);
 	if (nargv[nargc] == NULL)
 	    goto oom;
+
+	/*
+	 * We use "--" to separate the editor and arguments from the files
+	 * to edit.  The editor arguments themselves may not contain "--".
+	 */
+	if (strcmp(nargv[nargc], "--") == 0) {
+	    sudo_warnx(U_("ignoring editor: %.*s"), (int)edlen, ed);
+	    sudo_warnx("%s", U_("editor arguments may not contain \"--\""));
+	    errno = EINVAL;
+	    goto bad;
+	}
     }
     if (nfiles != 0) {
-	nargv[nargc++] = "--";
+	nargv[nargc++] = (char *)"--";
 	while (nfiles--)
 	    nargv[nargc++] = *files++;
     }
@@ -179,11 +195,16 @@ resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
     debug_return_str(editor_path);
 oom:
     sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+bad:
+    sudoers_gc_remove(GC_PTR, editor);
     free(editor);
     free(editor_path);
     if (nargv != NULL) {
-	while (nargc--)
+	while (nargc--) {
+	    sudoers_gc_remove(GC_PTR, nargv[nargc]);
 	    free(nargv[nargc]);
+	}
+	sudoers_gc_remove(GC_PTR, nargv);
 	free(nargv);
     }
     debug_return_str(NULL);
@@ -192,18 +213,17 @@ oom:
 /*
  * Determine which editor to use based on the SUDO_EDITOR, VISUAL and
  * EDITOR environment variables as well as the editor path in sudoers.
- * If env_error is true, an editor environment variable that cannot be
- * resolved is an error.
  *
  * Returns the path to be executed on success, else NULL.
  * The caller is responsible for freeing the returned editor path
  * as well as the argument vector.
  */
 char *
-find_editor(int nfiles, char **files, int *argc_out, char ***argv_out,
-     char * const *allowlist, const char **env_editor, bool env_error)
+find_editor(int nfiles, char * const *files, int *argc_out, char ***argv_out,
+     char * const *allowlist, const char **env_editor)
 {
-    char *ev[3], *editor_path = NULL;
+    char *editor_path = NULL;
+    const char *ev[3];
     unsigned int i;
     debug_decl(find_editor, SUDOERS_DEBUG_UTIL);
 
@@ -227,14 +247,15 @@ find_editor(int nfiles, char **files, int *argc_out, char ***argv_out,
 		debug_return_str(NULL);
 	}
     }
+
+    /*
+     * If SUDO_EDITOR, VISUAL and EDITOR were either not set or not
+     * allowed (based on the values of def_editor and def_env_editor),
+     * choose the first one in def_editor that exists.
+     */
     if (editor_path == NULL) {
 	const char *def_editor_end = def_editor + strlen(def_editor);
 	const char *cp, *ep;
-
-	if (env_error && *env_editor != NULL) {
-	    /* User-specified editor could not be found. */
-	    debug_return_str(NULL);
-	}
 
 	/* def_editor could be a path, split it up, avoiding strtok() */
 	for (cp = sudo_strsplit(def_editor, def_editor_end, ":", &ep);
@@ -248,5 +269,6 @@ find_editor(int nfiles, char **files, int *argc_out, char ***argv_out,
 	}
     }
 
+    /* Caller is responsible for freeing editor_path, not g/c'd. */
     debug_return_str(editor_path);
 }

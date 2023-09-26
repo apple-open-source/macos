@@ -34,6 +34,9 @@
 #include <vis.h>
 
 #include <darwintest.h>
+#include <locale.h>
+
+#include <TargetConditionals.h>
 
 static int styles[] = {
 	VIS_OCTAL,
@@ -98,6 +101,25 @@ T_DECL(strvis_empty, "strvis(3) empty")
 	T_ASSERT_EQ(dst[0], '\0', NULL);
 	T_ASSERT_EQ(dst[1], 'a', NULL);
 }
+
+#if TARGET_OS_OSX
+/* rdar://problem/108684957 - multibyte spaces should also be passed through */
+T_DECL(strvis_cstyle_mbspace, "strvis(3) multibyte space")
+{
+	const char str[] = "\xe2\x80\xaf";
+	char dst[(sizeof(str) - 1) * 4];
+	int ret;
+
+	(void)setlocale(LC_CTYPE, "en_US.UTF-8");
+
+	ret = strsnvisx(dst, sizeof(dst), str, sizeof(str) - 1,
+	    VIS_CSTYLE | VIS_NOSLASH, "\\\"\b\f\n\r\t");
+	T_ASSERT_EQ(ret, sizeof(str) - 1, NULL);
+	T_ASSERT_EQ_STR(dst, str, NULL);
+
+	(void)setlocale(LC_CTYPE, "C");
+}
+#endif
 
 T_DECL(strunvis_hex, "strunvis(3) \\Xxx")
 {

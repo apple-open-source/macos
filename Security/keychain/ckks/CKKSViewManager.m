@@ -588,6 +588,33 @@ dispatch_once_t globalZoneStateQueueOnce;
                               complete:complete];
 }
 
+- (void)unsetCurrentItemsForAccessGroup:(NSString*)accessGroup
+                            identifiers:(NSArray<NSString*>*)identifiers
+                               viewHint:(NSString*)viewHint
+                               complete:(void (^)(NSError* operror))complete
+{
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            complete(findViewError);
+        } else {
+            complete([self defaultViewError]);
+        }
+        return;
+    }
+
+    [view unsetCurrentItemsForAccessGroup:accessGroup
+                              identifiers:identifiers
+                                 viewHint:viewHint
+                                 complete:complete];
+}
+
 -(void)getCurrentItemForAccessGroup:(NSString*)accessGroup
                          identifier:(NSString*)identifier
                            viewHint:(NSString*)viewHint

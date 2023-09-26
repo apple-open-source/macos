@@ -408,8 +408,82 @@ $(error Cross-builds currently not allowed on Linux)
 endif
 endif
 
-MAC_OS_X_VERSION_MIN_REQUIRED=110000
-OSX_HOST_VERSION_MIN_STRING=11.0.0
+# Since we need to build a macOS version of ICU libraries and then a version of the data build
+# tools that link against those libraries, all of those must be targeted for a macODS version
+# that is not incompatible with the system we are running on. However we also want to make sure
+# that if we are running on the latest development macOS with corresponding SDKs, that we do not
+# build an ICU that cannot run on a recent released system. Thus we want to use the lowest version
+# from among the following 3 versions:
+# - MAC_OS_HOST_SYSVERSION, a string like "13.4" or "14.0": The system actually running
+# - MAC_OS_HOST_SDKVERSION, a string like "13.4" or "14.0": The default macosx.internal SDK version
+# - MAC_OS_HOST_MAXVERSION, a released version less than the current macOS release target,
+#   to enable testing on a previous stable release. This should be updated every time a new
+#   open-source ICU version is integrated to Apple ICU.Currently we set this to 13.1 = RomeC.
+#
+# We split each of the three above version into their MAJOR and MINOR parts using cut (since makefile
+# numeric comparison using "test x -lt Y" can only be done on integers). First we find the lower
+# of MAC_OS_HOST_SYSVERSION and MAC_OS_HOST_SDKVERSION, with the result in MAC_OS_HOST_MAJOR1
+# and MAC_OS_HOST_MINOR1. Then we find the lower of that and MAC_OS_HOST_MAXVERSION, with
+# the result in MAC_OS_HOST_MAJOR2 and MAC_OS_HOST_MINOR2; we use that latter result to set
+# MAC_OS_X_VERSION_MIN_REQUIRED and OSX_HOST_VERSION_MIN_STRING.
+#
+# Previously we just had:
+# MAC_OS_X_VERSION_MIN_REQUIRED=130000
+# OSX_HOST_VERSION_MIN_STRING=13.0.0
+
+ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
+  MAC_OS_HOST_SYSVERSION := $(shell sw_vers -productVersion)
+  MAC_OS_HOST_SYSVERSION_MAJOR := $(shell echo $(MAC_OS_HOST_SYSVERSION) | cut -f1 -d.)
+  MAC_OS_HOST_SYSVERSION_MINOR := $(shell echo $(MAC_OS_HOST_SYSVERSION) | cut -f2 -d.)
+
+  MAC_OS_HOST_SDKVERSION := $(shell xcodebuild -version -sdk macosx.internal SDKVersion)
+  MAC_OS_HOST_SDKVERSION_MAJOR := $(shell echo $(MAC_OS_HOST_SDKVERSION) | cut -f1 -d.)
+  MAC_OS_HOST_SDKVERSION_MINOR := $(shell echo $(MAC_OS_HOST_SDKVERSION) | cut -f2 -d.)
+
+  MAC_OS_HOST_MAXVERSION := 13.1
+  MAC_OS_HOST_MAXVERSION_MAJOR := $(shell echo $(MAC_OS_HOST_MAXVERSION) | cut -f1 -d.)
+  MAC_OS_HOST_MAXVERSION_MINOR := $(shell echo $(MAC_OS_HOST_MAXVERSION) | cut -f2 -d.)
+
+  ifeq "$(shell test $(MAC_OS_HOST_SYSVERSION_MAJOR) -lt $(MAC_OS_HOST_SDKVERSION_MAJOR) && echo YES)" "YES"
+    MAC_OS_HOST_MAJOR1 = $(MAC_OS_HOST_SYSVERSION_MAJOR)
+    MAC_OS_HOST_MINOR1 = $(MAC_OS_HOST_SYSVERSION_MINOR)
+  else ifeq "$(shell test $(MAC_OS_HOST_SDKVERSION_MAJOR) -lt $(MAC_OS_HOST_SYSVERSION_MAJOR) && echo YES)" "YES"
+    MAC_OS_HOST_MAJOR1 = $(MAC_OS_HOST_SDKVERSION_MAJOR)
+    MAC_OS_HOST_MINOR1 = $(MAC_OS_HOST_SDKVERSION_MINOR)
+  else ifeq "$(shell test $(MAC_OS_HOST_SYSVERSION_MINOR) -lt $(MAC_OS_HOST_SDKVERSION_MINOR) && echo YES)" "YES"
+    MAC_OS_HOST_MAJOR1 = $(MAC_OS_HOST_SYSVERSION_MAJOR)
+    MAC_OS_HOST_MINOR1 = $(MAC_OS_HOST_SYSVERSION_MINOR)
+  else
+    MAC_OS_HOST_MAJOR1 = $(MAC_OS_HOST_SDKVERSION_MAJOR)
+    MAC_OS_HOST_MINOR1 = $(MAC_OS_HOST_SDKVERSION_MINOR)
+  endif
+
+  ifeq "$(shell test $(MAC_OS_HOST_MAXVERSION_MAJOR) -lt $(MAC_OS_HOST_MAJOR1) && echo YES)" "YES"
+    MAC_OS_HOST_MAJOR2 = $(MAC_OS_HOST_MAXVERSION_MAJOR)
+    MAC_OS_HOST_MINOR2 = $(MAC_OS_HOST_MAXVERSION_MINOR)
+  else ifeq "$(shell test $(MAC_OS_HOST_MAJOR1) -lt $(MAC_OS_HOST_MAXVERSION_MAJOR) && echo YES)" "YES"
+    MAC_OS_HOST_MAJOR2 = $(MAC_OS_HOST_MAJOR1)
+    MAC_OS_HOST_MINOR2 = $(MAC_OS_HOST_MINOR1)
+  else ifeq  "$(shell test $(MAC_OS_HOST_MAXVERSION_MINOR) -lt $(MAC_OS_HOST_MINOR1) && echo YES)" "YES"
+    MAC_OS_HOST_MAJOR2 = $(MAC_OS_HOST_MAXVERSION_MAJOR)
+    MAC_OS_HOST_MINOR2 = $(MAC_OS_HOST_MAXVERSION_MINOR)
+  else
+    MAC_OS_HOST_MAJOR2 = $(MAC_OS_HOST_MAJOR1)
+    MAC_OS_HOST_MINOR2 = $(MAC_OS_HOST_MINOR1)
+  endif
+
+  MAC_OS_X_VERSION_MIN_REQUIRED := $(MAC_OS_HOST_MAJOR2)0$(MAC_OS_HOST_MINOR2)00
+  OSX_HOST_VERSION_MIN_STRING :=  $(MAC_OS_HOST_MAJOR2).$(MAC_OS_HOST_MINOR2).0
+
+  $(info # MAC_OS_HOST_SYSVERSION=$(MAC_OS_HOST_SYSVERSION))
+  $(info # MAC_OS_HOST_SDKVERSION=$(MAC_OS_HOST_SDKVERSION))
+  $(info # MAC_OS_HOST_MAXVERSION=$(MAC_OS_HOST_MAXVERSION))
+  $(info # MAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED))
+  $(info # OSX_HOST_VERSION_MIN_STRING=$(OSX_HOST_VERSION_MIN_STRING))
+else
+  MAC_OS_X_VERSION_MIN_REQUIRED:=0
+  OSX_HOST_VERSION_MIN_STRING:=0
+endif
 
 ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
     export TOOLSEXTRAFLAGS:=
@@ -422,8 +496,12 @@ $(info # TOOLSEXTRAFLAGS=$(TOOLSEXTRAFLAGS))
 
 ifneq "$(RC_PLATFORM_NAME)" ""
  export SDK_PLATFORM_NORMALIZED := $(shell echo $(RC_PLATFORM_NAME) | tr '[:upper:]' '[:lower:]')
-else
+else ifneq "$(PLATFORMROOT)" ""
  export SDK_PLATFORM_NORMALIZED := $(shell basename "$(PLATFORMROOT)" | tr '[:upper:]' '[:lower:]' | sed 's/\.platform$$//')
+else ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
+ export SDK_PLATFORM_NORMALIZED := macosx
+else
+ export SDK_PLATFORM_NORMALIZED :=
 endif
 $(info # SDK_PLATFORM_NORMALIZED=$(SDK_PLATFORM_NORMALIZED))
 
@@ -529,6 +607,9 @@ endif
 
 # even for a crossbuild host build, we want to use the target's latest tzdata as pointed to by latest_tzdata.tar.gz;
 # first try RC_EMBEDDEDPROJECT_DIR (<rdar://problem/28141177>), else SDKPATH.
+# Note: local buildit builds should specify -nolinkEmbeddedProjects so we use SDKPATH, since RC_EMBEDDEDPROJECT_DIR
+# is not meaningful (alternatively, RC_EMBEDDEDPROJECT_DIR can be set to to point to a location with a subdirectory
+# TimeZoneData containing time zone data as in a particular version of the TimeZoneData project).
 ifdef RC_EMBEDDEDPROJECT_DIR
 	ifeq "$(shell test -L $(RC_EMBEDDEDPROJECT_DIR)/TimeZoneData/usr/local/share/tz/latest_tzdata.tar.gz && echo YES )" "YES"
 		export TZDATA:=$(RC_EMBEDDEDPROJECT_DIR)/TimeZoneData/usr/local/share/tz/$(shell readlink $(RC_EMBEDDEDPROJECT_DIR)/TimeZoneData/usr/local/share/tz/latest_tzdata.tar.gz)
@@ -649,30 +730,30 @@ ifeq "$(WINDOWS)" "YES"
 	ifeq "$(ARCH64)" "YES"
 		CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples --disable-icuio \
 			--with-data-packaging=library --prefix=$(PRIVATE_HDR_PREFIX) --with-library-bits=64 \
-			$(DRAFT_FLAG)
+			$(DRAFT_FLAG) $(OTHER_CONFIG_FLAGS)
 	else
 		CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples --disable-icuio \
 			--with-data-packaging=library --prefix=$(PRIVATE_HDR_PREFIX) --with-library-bits=32 \
-			$(DRAFT_FLAG)
+			$(DRAFT_FLAG) $(OTHER_CONFIG_FLAGS)
 	endif
 else ifeq "$(LINUX)" "YES"
 	ifeq "$(ARCH64)" "YES"
 		CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples \
 			--with-data-packaging=library --prefix=$(PRIVATE_HDR_PREFIX) --with-library-bits=64 \
-			$(DRAFT_FLAG)
+			$(DRAFT_FLAG) $(OTHER_CONFIG_FLAGS)
 	else
 		CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples \
 			--with-data-packaging=library --prefix=$(PRIVATE_HDR_PREFIX) --with-library-bits=32 \
-			$(DRAFT_FLAG)
+			$(DRAFT_FLAG) $(OTHER_CONFIG_FLAGS)
 	endif
 else ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
 	CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples \
 		--with-data-packaging=archive --prefix=$(PRIVATE_HDR_PREFIX) \
-		$(DRAFT_FLAG)
+		$(DRAFT_FLAG) $(OTHER_CONFIG_FLAGS)
 else
 	CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples \
 		--with-data-packaging=archive --prefix=$(PRIVATE_HDR_PREFIX) \
-		$(DRAFT_FLAG)
+		$(DRAFT_FLAG) $(OTHER_CONFIG_FLAGS)
 endif
 
 #################################
@@ -687,8 +768,8 @@ endif
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 70
-ICU_SUBVERS = 2
+ICU_VERS = 72
+ICU_SUBVERS = 1
 CORE_VERS = A
 
 ifeq "$(WINDOWS)" "YES"
@@ -748,13 +829,13 @@ DYLIB_profile = DYLIB_PROFILE
 # InstallAPI -> libicucore
 #################################
 
-# Allow B&I to override installAPI when necessarcy. 
+# Allow B&I to override installAPI when necessary. 
 # InstallAPI is only supported when building for Darwin Platforms.
 
 ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
 ifeq ($(RC_ProjectName), $(filter $(RC_ProjectName),ICU ICU_Sim))
   SUPPORTS_TEXT_BASED_API ?= YES
-  $(info SUPPORTS_TEXT_BASED_API=$(SUPPORTS_TEXT_BASED_API))
+  $(info # SUPPORTS_TEXT_BASED_API=$(SUPPORTS_TEXT_BASED_API))
 endif # RC_ProjectName 
 endif # ICU_FOR_APPLE_PLATFORMS
 
@@ -1348,6 +1429,11 @@ extra: icu
 		$(MAKE) $(ENV_DEBUG) $(LIBOVERRIDES); \
 	);
 
+fuzzer: icu
+	(cd $(OBJROOT_CURRENT)/test/fuzzer; \
+		$(MAKE) $(ENV_DEBUG) $(LIBOVERRIDES); \
+	);
+
 ifneq "$(CROSS_BUILD)" "YES"
 $(OBJROOT_CURRENT)/Makefile :
 else
@@ -1438,6 +1524,9 @@ installhdrsint : $(OBJROOT_CURRENT)/Makefile
 else
 installhdrsint :
 endif
+	if test ! -d $(OBJROOT_CURRENT); then \
+		mkdir -p $(OBJROOT_CURRENT); \
+	fi;
 	(if test -e $(SRCROOT)/installsrcNotRunFlag; then cd $(OBJROOT_CURRENT); else cd $(SRCROOT)/icuSources/; fi; \
 		$(MKINSTALLDIRS) $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/; \
 		for subdir in $(HDR_MAKE_SUBDIR); do \
@@ -1500,6 +1589,8 @@ installapi : installhdrsint
 
 ifeq ($(SUPPORTS_TEXT_BASED_API),YES)
 install : installhdrsint icu installapi-verify
+else ifneq (,$(findstring --enable-fuzzer,$(OTHER_CONFIG_FLAGS)))
+install : installhdrsint icu fuzzer
 else
 install : installhdrsint icu
 endif 

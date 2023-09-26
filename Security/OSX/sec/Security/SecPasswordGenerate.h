@@ -30,12 +30,12 @@
 #ifndef _SECURITY_SECPASSWORDGENERATE_H_
 #define _SECURITY_SECPASSWORDGENERATE_H_
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/SecBase.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <CoreFoundation/CoreFoundation.h>
-#include <Security/SecBase.h>
 
 typedef uint32_t SecPasswordType;
 enum {

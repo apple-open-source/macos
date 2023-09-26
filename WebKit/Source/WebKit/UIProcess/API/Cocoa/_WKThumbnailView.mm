@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,12 +29,14 @@
 #if PLATFORM(MAC)
 
 #import "ImageOptions.h"
+#import "ShareableBitmap.h"
 #import "WKAPICast.h"
-#import <WebKit/WKView.h>
+#import "WKView.h"
 #import "WKViewInternal.h"
 #import "WKWebViewInternal.h"
 #import "WebPageProxy.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
+#import <wtf/MathExtras.h>
 #import <wtf/NakedPtr.h>
 #import <wtf/SystemTracing.h>
 
@@ -45,9 +47,9 @@
 // FIXME: We should switch to the low-resolution scale if a view we have high-resolution tiles for repaints.
 
 @implementation _WKThumbnailView {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     RetainPtr<WKView> _wkView;
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<WKWebView> _wkWebView;
     NakedPtr<WebKit::WebPageProxy> _webPageProxy;
 
@@ -61,7 +63,8 @@
     RetainPtr<NSColor> _overrideBackgroundColor;
 }
 
-@synthesize _waitingForSnapshot = _waitingForSnapshot;
+@synthesize _waitingForSnapshot;
+@synthesize _sublayerVerticalTranslationAmount;
 
 - (instancetype)initWithFrame:(NSRect)frame
 {
@@ -101,6 +104,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _originalSourceViewIsInWindow = !![_wkWebView window];
     
     return self;
+}
+
+- (BOOL)isFlipped
+{
+    return YES;
 }
 
 - (BOOL)wantsUpdateLayer
@@ -143,8 +151,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     _lastSnapshotScale = _scale;
     _lastSnapshotMaximumSize = _maximumSnapshotSize;
-    _webPageProxy->takeSnapshot(snapshotRect, bitmapSize, options, [thumbnailView](const WebKit::ShareableBitmapHandle& imageHandle) {
-        auto bitmap = WebKit::ShareableBitmap::create(imageHandle, WebKit::SharedMemory::Protection::ReadOnly);
+    _webPageProxy->takeSnapshot(snapshotRect, bitmapSize, options, [thumbnailView](WebKit::ShareableBitmap::Handle&& imageHandle) {
+        auto bitmap = WebKit::ShareableBitmap::create(WTFMove(imageHandle), WebKit::SharedMemory::Protection::ReadOnly);
         RetainPtr<CGImageRef> cgImage = bitmap ? bitmap->makeCGImage() : nullptr;
         tracePoint(TakeSnapshotEnd, !!cgImage);
         [thumbnailView _didTakeSnapshot:cgImage.get()];
@@ -168,6 +176,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_viewWasUnparented
 {
     if (!_exclusivelyUsesSnapshot) {
+        self._sublayerVerticalTranslationAmount = 0;
         if (_wkView) {
             [_wkView _setThumbnailView:nil];
             [_wkView _setIgnoresAllEvents:NO];
@@ -199,6 +208,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [self _requestSnapshotIfNeeded];
 
     if (!_exclusivelyUsesSnapshot) {
+        self._sublayerVerticalTranslationAmount = -_webPageProxy->topContentInset();
         if (_wkView) {
             [_wkView _setThumbnailView:self];
             [_wkView _setIgnoresAllEvents:YES];
@@ -254,7 +264,17 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     [self _requestSnapshotIfNeeded];
 
-    self.layer.sublayerTransform = CATransform3DMakeScale(_scale, _scale, 1);
+    auto scaleTransform = CATransform3DMakeScale(_scale, _scale, 1);
+    self.layer.sublayerTransform = CATransform3DTranslate(scaleTransform, 0, _sublayerVerticalTranslationAmount, 0);
+}
+
+- (void)_setSublayerVerticalTranslationAmount:(CGFloat)amount
+{
+    if (WTF::areEssentiallyEqual(_sublayerVerticalTranslationAmount, amount))
+        return;
+
+    self.layer.sublayerTransform = CATransform3DTranslate(self.layer.sublayerTransform, 0, amount - _sublayerVerticalTranslationAmount, 0);
+    _sublayerVerticalTranslationAmount = amount;
 }
 
 - (void)setMaximumSnapshotSize:(CGSize)maximumSnapshotSize

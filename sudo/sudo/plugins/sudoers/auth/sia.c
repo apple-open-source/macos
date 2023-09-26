@@ -75,13 +75,16 @@ sudo_sia_setup(struct passwd *pw, char **promptp, sudo_auth *auth)
 }
 
 int
-sudo_sia_verify(struct passwd *pw, char *prompt, sudo_auth *auth,
+sudo_sia_verify(struct passwd *pw, const char *prompt, sudo_auth *auth,
     struct sudo_conv_callback *callback)
 {
     SIAENTITY *siah = auth->data;
     char *pass;
     int rc;
     debug_decl(sudo_sia_verify, SUDOERS_DEBUG_AUTH);
+
+    if (IS_NONINTERACTIVE(auth))
+        debug_return_int(AUTH_NONINTERACTIVE);
 
     /* Get password, return AUTH_INTR if we got ^C */
     pass = auth_getpass(prompt, SUDO_CONV_PROMPT_ECHO_OFF, callback);

@@ -48,11 +48,7 @@ static char *namebuf = NULL;
 static void opendev_namebuf_init(void);
 
 int
-opendev(path, oflags, dflags, realpath)
-	char *path;
-	int oflags;
-	int dflags;
-	char **realpath;
+opendev(char *path, int oflags, int dflags, char **realpath)
 {
 	int fd;
 	char *slash, *prefix;

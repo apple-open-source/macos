@@ -222,3 +222,30 @@ rack_region_maybe_dispose(rack_t *rack, region_t region, size_t region_size,
 	rack_region_unlock(rack);
 	return rv;
 }
+
+
+unsigned int
+rack_get_thread_index(rack_t *rack)
+{
+	mag_index_t index;
+	if (os_likely(_os_cpu_number_override == -1)) {
+		index = _malloc_cpu_number();
+#if CONFIG_MAGAZINE_PER_CLUSTER
+		if (rack->num_magazines == ncpuclusters) {
+			index = _malloc_cpu_cluster_number();
+		}
+#endif // CONFIG_MAGAZINE_PER_CLUSTER
+	} else {
+		index = _os_cpu_number_override;
+#if CONFIG_MAGAZINE_PER_CLUSTER
+		if (rack->num_magazines == ncpuclusters) {
+			index = _malloc_get_cluster_from_cpu(_os_cpu_number_override);
+		}
+#endif // CONFIG_MAGAZINE_PER_CLUSTER
+	}
+#if CONFIG_SZONE_USES_HYPER_SHIFT
+	return index >> hyper_shift;
+#else // CONFIG_SZONE_USES_HYPER_SHIFT
+	return index;
+#endif // CONFIG_SZONE_USES_HYPER_SHIFT
+}

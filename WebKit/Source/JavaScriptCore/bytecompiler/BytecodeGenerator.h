@@ -69,9 +69,9 @@ namespace JSC {
         ExpectArrayConstructor
     };
 
-    enum class EmitAwait { Yes, No };
+    enum class EmitAwait : bool { No, Yes };
 
-    enum class DebuggableCall { Yes, No };
+    enum class DebuggableCall : bool { No, Yes };
     enum class ThisResolutionType { Local, Scoped };
     enum class InvalidPrototypeMode : uint8_t { Throw, Ignore };
     enum class LinkTimeConstant : int32_t;
@@ -256,6 +256,7 @@ namespace JSC {
         WTF_MAKE_NONCOPYABLE(ForInContext);
     public:
         using GetInst = std::tuple<unsigned, int>;
+        using PutInst = GetInst;
         using InInst = GetInst;
         using HasOwnPropertyJumpInst = std::tuple<unsigned, unsigned>;
 
@@ -272,6 +273,11 @@ namespace JSC {
         void addGetInst(unsigned instIndex, int propertyRegIndex)
         {
             m_getInsts.append(GetInst { instIndex, propertyRegIndex });
+        }
+
+        void addPutInst(unsigned instIndex, int propertyRegIndex)
+        {
+            m_putInsts.append(PutInst { instIndex, propertyRegIndex });
         }
 
         void addInInst(unsigned instIndex, int propertyRegIndex)
@@ -309,6 +315,7 @@ namespace JSC {
         unsigned m_bodyBytecodeStartOffset;
         Vector<InInst> m_inInsts;
         Vector<GetInst> m_getInsts;
+        Vector<PutInst> m_putInsts;
         Vector<HasOwnPropertyJumpInst> m_hasOwnPropertyJumpInsts;
     };
 
@@ -691,7 +698,6 @@ namespace JSC {
         RegisterID* emitCreatePromise(RegisterID* dst, RegisterID* newTarget, bool isInternalPromise);
         RegisterID* emitCreateGenerator(RegisterID* dst, RegisterID* newTarget);
         RegisterID* emitCreateAsyncGenerator(RegisterID* dst, RegisterID* newTarget);
-        RegisterID* emitCreateArgumentsButterfly(RegisterID* dst);
         RegisterID* emitInstanceFieldInitializationIfNeeded(RegisterID* dst, RegisterID* constructor, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
         void emitTDZCheck(RegisterID* target);
         bool needsTDZCheck(const Variable&);
@@ -763,6 +769,8 @@ namespace JSC {
 
         RegisterID* emitPutByVal(RegisterID* base, RegisterID* property, RegisterID* value);
         RegisterID* emitPutByVal(RegisterID* base, RegisterID* thisValue, RegisterID* property, RegisterID* value);
+        RegisterID* emitPutByValWithECMAMode(RegisterID* base, RegisterID* thisValue, RegisterID* property, RegisterID* value, ECMAMode);
+        RegisterID* emitEnumeratorPutByVal(ForInContext&, RegisterID* base, RegisterID* property, RegisterID* value);
         RegisterID* emitDirectPutByVal(RegisterID* base, RegisterID* property, RegisterID* value);
         RegisterID* emitDeleteByVal(RegisterID* dst, RegisterID* base, RegisterID* property);
 
@@ -772,6 +780,7 @@ namespace JSC {
         RegisterID* emitPrivateFieldPut(RegisterID* base, RegisterID* property, RegisterID* value);
         RegisterID* emitGetPrivateName(RegisterID* dst, RegisterID* base, RegisterID* property);
         RegisterID* emitHasPrivateName(RegisterID* dst, RegisterID* base, RegisterID* property);
+        RegisterID* emitHasStructureWithFlags(RegisterID* dst, RegisterID* src, unsigned flags);
 
         void emitCreatePrivateBrand(const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
         void emitInstallPrivateBrand(RegisterID* target);
@@ -932,6 +941,8 @@ namespace JSC {
         void emitOutOfLineExceptionHandler(RegisterID* exceptionRegister, RegisterID* thrownValueRegister, RegisterID* completionTypeRegister, TryData*);
 
     public:
+        enum class ScopeType : uint8_t { CatchScope, CatchScopeWithSimpleParameter, LetConstScope, FunctionNameScope, ClassScope };
+
         void restoreScopeRegister();
         void restoreScopeRegister(int lexicalScopeIndex);
 
@@ -948,7 +959,7 @@ namespace JSC {
         void emitThrowRangeError(const Identifier& message);
         void emitThrowOutOfMemoryError();
 
-        void emitPushCatchScope(VariableEnvironment&);
+        void emitPushCatchScope(VariableEnvironment&, ScopeType);
         void emitPopCatchScope(VariableEnvironment&);
 
         void emitAwait(RegisterID*);
@@ -1026,7 +1037,6 @@ namespace JSC {
 
         enum class TDZCheckOptimization { Optimize, DoNotOptimize };
         enum class NestedScopeType { IsNested, IsNotNested };
-        enum class ScopeType { CatchScope, LetConstScope, FunctionNameScope, ClassScope };
     private:
         enum class TDZRequirement { UnderTDZ, NotUnderTDZ };
         enum class ScopeRegisterType { Var, Block };
@@ -1075,7 +1085,7 @@ namespace JSC {
         void retrieveLastUnaryOp(int& dstIndex, int& srcIndex);
         ALWAYS_INLINE void rewind();
 
-        void allocateAndEmitScope();
+        void allocateScope();
 
         template<typename JumpOp>
         void setTargetForJumpInstruction(JSInstructionStream::MutableRef&, int target);
@@ -1236,7 +1246,6 @@ namespace JSC {
         RegisterID m_thisRegister;
         RegisterID m_calleeRegister;
         RegisterID* m_scopeRegister { nullptr };
-        RegisterID* m_topMostScope { nullptr };
         RegisterID* m_argumentsRegister { nullptr };
         RegisterID* m_lexicalEnvironmentRegister { nullptr };
         RegisterID* m_generatorRegister { nullptr };
@@ -1313,7 +1322,7 @@ namespace JSC {
         bool m_usesExceptions { false };
         bool m_expressionTooDeep { false };
         bool m_isBuiltinFunction { false };
-        bool m_usesNonStrictEval { false };
+        bool m_usesSloppyEval { false };
         bool m_inTailPosition { false };
         bool m_needsToUpdateArrowFunctionContext : 1;
         ECMAMode m_ecmaMode;

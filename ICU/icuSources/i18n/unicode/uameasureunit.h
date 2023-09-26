@@ -53,6 +53,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_DURATION_WEEK_PERSON = (4 << 8) + 13,    // (CLDR 35, ICU-641)
     UAMEASUNIT_DURATION_DAY_PERSON  = (4 << 8) + 14,    // (CLDR 35, ICU-641)
     UAMEASUNIT_DURATION_DECADE      = (4 << 8) + 15,    // (CLDR 36, ICU-661)
+    UAMEASUNIT_DURATION_QUARTER     = (4 << 8) + 16,    // (CLDR 42, ICU-721)
     //
     UAMEASUNIT_LENGTH_METER         = (5 << 8) + 0,
     UAMEASUNIT_LENGTH_CENTIMETER    = (5 << 8) + 1,
@@ -84,7 +85,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_MASS_STONE           = (6 << 8) + 4,     // = 14 pounds / 6.35 kg, abbr "st", used in UK/Ireland for body weight (CLDR 26)
     UAMEASUNIT_MASS_MICROGRAM       = (6 << 8) + 5,     // (CLDR 26, ICU-541)
     UAMEASUNIT_MASS_MILLIGRAM       = (6 << 8) + 6,     // (CLDR 26, ICU-541)
-    UAMEASUNIT_MASS_METRIC_TON      = (6 << 8) + 7,     // = "tonne" (CLDR 26, ICU-541)
+    UAMEASUNIT_MASS_METRIC_TON      = (6 << 8) + 7,     // obsolete name, see MASS_TONNE (CLDR 26, ICU-541)
     UAMEASUNIT_MASS_TON             = (6 << 8) + 8,     // = "short ton", U.S. ton (CLDR 26, ICU-541)
     UAMEASUNIT_MASS_CARAT           = (6 << 8) + 9,     // (CLDR 26, ICU-541)
     UAMEASUNIT_MASS_OUNCE_TROY      = (6 << 8) + 10,    // (CLDR 26, ICU-541)
@@ -92,6 +93,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_MASS_EARTH_MASS      = (6 << 8) + 12,    // (CLDR 35, ICU-641)
     UAMEASUNIT_MASS_SOLAR_MASS      = (6 << 8) + 13,    // (CLDR 35, ICU-641)
     UAMEASUNIT_MASS_GRAIN           = (6 << 8) + 14,    // (CLDR 38, ICU-681)
+    UAMEASUNIT_MASS_TONNE           = UAMEASUNIT_MASS_METRIC_TON, // new name (CLDR 42, ICU-721)
     //
     UAMEASUNIT_POWER_WATT           = (7 << 8) + 0,
     UAMEASUNIT_POWER_KILOWATT       = (7 << 8) + 1,

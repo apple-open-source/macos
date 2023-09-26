@@ -34,6 +34,7 @@
  */
 
 #include "gssdigest.h"
+#include "heimcred.h"
 
 OM_uint32 _gss_scram_inquire_cred
            (OM_uint32 * minor_status,
@@ -89,13 +90,14 @@ OM_uint32
 _gss_scram_destroy_cred(OM_uint32 *minor_status,
 		       gss_cred_id_t *cred_handle)
 {
+    if (cred_handle == NULL || *cred_handle == GSS_C_NO_CREDENTIAL)
+	return GSS_S_COMPLETE;
+
+#ifdef HAVE_KCM
     krb5_error_code ret;
     krb5_storage *request, *response;
     krb5_data response_data;
     krb5_context context;
-
-    if (cred_handle == NULL || *cred_handle == GSS_C_NO_CREDENTIAL)
-	return GSS_S_COMPLETE;
 
     ret = krb5_init_context(&context);
     if (ret) {
@@ -125,6 +127,15 @@ _gss_scram_destroy_cred(OM_uint32 *minor_status,
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
+#else
+    CFUUIDRef uuid_cfuuid = NULL;
+    scram_cred cred = (scram_cred)cred_handle;
 
+    CFUUIDBytes cfuuid;
+    memcpy(&cfuuid, &cred->uuid, sizeof(cred->uuid));
+    uuid_cfuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, cfuuid );
+    HeimCredDeleteByUUID(uuid_cfuuid);
+    CFRelease(uuid_cfuuid);
+#endif
     return _gss_scram_release_cred(minor_status, cred_handle);
 }

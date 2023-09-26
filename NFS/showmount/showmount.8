@@ -65,6 +65,7 @@
 .Sh SYNOPSIS
 .Nm showmount
 .Op Fl Ae36
+.Op Fl p 2|3|4
 .Op Fl a | d
 .Op Ar host
 .Sh DESCRIPTION
@@ -100,6 +101,10 @@ exports list.
 Use mount protocol Version 3, compatible with NFS Version 3.
 .It Fl 6
 Use only IPv6 addresses to contact servers.
+.It Fl p
+Ping NFS server on the
+.Ar host
+based on provided version (2,3 or 4) using the NULL procedure.
 .El
 .Sh SEE ALSO
 .Xr mount 1 ,

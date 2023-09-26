@@ -36,9 +36,9 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#define MD4Init(c)		CC_MD4_Init(c)
-#define	MD4Update(c, d, l)	CC_MD4_Update(c, d, l)
-#define MD4Final(c, d)		CC_MD4_Final(c, d)
+#define MD4Init		CC_MD4_Init
+#define	MD4Update	CC_MD4_Update
+#define MD4Final	CC_MD4_Final
 
 __BEGIN_DECLS
 #ifndef __APPLE__

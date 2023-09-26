@@ -1,5 +1,5 @@
 //
-//  DefaultDesignatedLWCR.mm
+//  LWCRHelper.mm
 //  Security
 //
 
@@ -9,6 +9,35 @@
 #import <kern/cs_blobs.h>
 #import <security_utilities/debugging.h>
 #import "LWCRHelper.h"
+#import <TargetConditionals.h>
+
+#if TARGET_OS_SIMULATOR
+// lwcr_keys.h doesn't exist for simulator builds yet...
+#ifndef kLWCRFact_ValidationCategory
+#define kLWCRFact_ValidationCategory "validation-category"
+#endif
+#ifndef kLWCRFact_SigningIdentifier
+#define kLWCRFact_SigningIdentifier "signing-identifier"
+#endif
+#ifndef kLWCRFact_TeamIdentifier
+#define kLWCRFact_TeamIdentifier "team-identifier"
+#endif
+#ifndef kLWCROperator_Or
+#define kLWCROperator_Or "$or"
+#endif
+#ifndef kLWCROperator_And
+#define kLWCROperator_And "$and"
+#endif
+#ifndef kLWCRFact_CDhash
+#define kLWCRFact_CDhash "cdhash"
+#endif
+#ifndef kLWCROperator_In
+#define kLWCROperator_In "$in"
+#endif
+#else
+#import <lwcr_keys.h>
+#endif
+
 
 // anchor apple
 const uint8_t platformReqData[] = {
@@ -84,8 +113,8 @@ static NSDictionary* defaultPlatformLWCR(const char* signingIdentifier)
 		return nil;
 	}
 	NSDictionary* lwcr = @{
-		@"validation-category":@(CS_VALIDATION_CATEGORY_PLATFORM),
-		@"signing-identifier":@(signingIdentifier)
+		@kLWCRFact_ValidationCategory:@(CS_VALIDATION_CATEGORY_PLATFORM),
+		@kLWCRFact_SigningIdentifier:@(signingIdentifier)
 	};
 	return lwcr;
 }
@@ -97,8 +126,8 @@ static NSDictionary* defaultTestflightLWCR(const char* signingIdentifier)
 		return nil;
 	}
 	NSDictionary* lwcr = @{
-		@"validation-category":@(CS_VALIDATION_CATEGORY_TESTFLIGHT),
-		@"signing-identifier":@(signingIdentifier)
+		@kLWCRFact_ValidationCategory:@(CS_VALIDATION_CATEGORY_TESTFLIGHT),
+		@kLWCRFact_SigningIdentifier:@(signingIdentifier)
 	};
 	return lwcr;
 }
@@ -114,9 +143,9 @@ static NSDictionary* defaultDevelopmentLWCR(const char* signingIdentifier, const
 		return nil;
 	}
 	NSDictionary* lwcr = @{
-		@"validation-category":@(CS_VALIDATION_CATEGORY_DEVELOPMENT),
-		@"signing-identifier":@(signingIdentifier),
-		@"team-identifier":@(teamIdentifier),
+		@kLWCRFact_ValidationCategory:@(CS_VALIDATION_CATEGORY_DEVELOPMENT),
+		@kLWCRFact_SigningIdentifier:@(signingIdentifier),
+		@kLWCRFact_TeamIdentifier:@(teamIdentifier),
 	};
 	return lwcr;
 }
@@ -132,14 +161,14 @@ static NSDictionary* defaultAppStoreLWCR(const char* signingIdentifier, const ch
 		return nil;
 	}
 	NSDictionary* lwcr = @{
-		@"$or": @{
-			@"validation-category":@(CS_VALIDATION_CATEGORY_APP_STORE),
-			@"$and":@{
-				@"validation-category":@(CS_VALIDATION_CATEGORY_DEVELOPER_ID),
-				@"team-identifier":@(teamIdentifier)
+		@kLWCROperator_Or: @{
+			@kLWCRFact_ValidationCategory:@(CS_VALIDATION_CATEGORY_APP_STORE),
+			@kLWCROperator_And:@{
+				@kLWCRFact_ValidationCategory:@(CS_VALIDATION_CATEGORY_DEVELOPER_ID),
+				@kLWCRFact_TeamIdentifier:@(teamIdentifier)
 			}
 		},
-		@"signing-identifier":@(signingIdentifier),
+		@kLWCRFact_SigningIdentifier:@(signingIdentifier),
 	};
 	return lwcr;
 }
@@ -155,9 +184,9 @@ static NSDictionary* defaultDeveloperIDLWCR(const char* signingIdentifier, const
 		return nil;
 	}
 	NSDictionary* lwcr = @{
-		@"validation-category":@(CS_VALIDATION_CATEGORY_DEVELOPER_ID),
-		@"signing-identifier":@(signingIdentifier),
-		@"team-identifier":@(teamIdentifier),
+		@kLWCRFact_ValidationCategory:@(CS_VALIDATION_CATEGORY_DEVELOPER_ID),
+		@kLWCRFact_SigningIdentifier:@(signingIdentifier),
+		@kLWCRFact_TeamIdentifier:@(teamIdentifier),
 	};
 	return lwcr;
 }
@@ -169,8 +198,8 @@ static NSDictionary* defaultAdhocLWCR(NSArray* allCdhashes)
 		return nil;
 	}
 	NSDictionary* lwcr = @{
-		@"cdhash" : @{
-			@"$in": allCdhashes
+		@kLWCRFact_CDhash : @{
+			@kLWCROperator_In: allCdhashes
 		},
 	};
 	return lwcr;

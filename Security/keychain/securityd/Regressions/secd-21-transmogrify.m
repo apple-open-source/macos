@@ -40,7 +40,7 @@
 int
 secd_21_transmogrify(int argc, char *const *argv)
 {
-    plan_tests(kSecdTestSetupTestCount + 16);
+    plan_tests(kSecdTestSetupTestCount + 18);
 
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     CFErrorRef error = NULL;
@@ -59,9 +59,8 @@ secd_21_transmogrify(int argc, char *const *argv)
 
     secd_test_setup_temp_keychain("secd_21_transmogrify", NULL);
 
-    /*
-     * Add to user keychain
-     */
+    // Add to user keychain
+    // This is before going into "edu mode"
 
     res = SecItemAdd((CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
@@ -85,6 +84,7 @@ secd_21_transmogrify(int argc, char *const *argv)
         .activeUser = 502,
     };
 
+    // Move things to the system keychain, going into "edu mode'
     is(_SecServerTransmogrifyToSystemKeychain(&client, &error), true, "_SecServerTransmogrifyToSystemKeychain: %@", error);
 
     CFDataRef musr = SecMUSRCreateActiveUserUUID(502);
@@ -92,6 +92,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     client.inEduMode = true;
     client.musr = musr;
 
+    // Check that the item is in the system keychain
     res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"user-label-me",
@@ -114,10 +115,11 @@ secd_21_transmogrify(int argc, char *const *argv)
     }
     CFReleaseNull(result);
 
-    /*
-     * Check sync bubble
-     */
+    // Check sync bubble
+    // Note that we are already in "edu mode", because we called _SecServerTransmogrifyToSystemKeychain above.
+    // This means the DB is (most likely) protected by the system keybag.
 
+    // Add an item to the 502 active user keychain
     res = _SecItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"com.apple.ProtectedCloudStorage",
@@ -125,50 +127,47 @@ secd_21_transmogrify(int argc, char *const *argv)
         (id)kSecAttrAccount :  @"pcs-label-me",
         (id)kSecValueData : [NSData dataWithBytes:"some data" length:9],
     }, &client, NULL, NULL);
-    is(res, true, "SecItemAdd(user)");
+    is(res, true, "SecItemAdd(userforsyncbubble)");
 
+    // Check that the item is in the 502 active user keychain
     res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
-         (id)kSecClass :  (id)kSecClassGenericPassword,
-         (id)kSecAttrAccount :  @"pcs-label-me",
-         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
-         (id)kSecReturnData : @(YES),
-     }, &client, (CFTypeRef *)&result, &error);
-    is(res, true, "SecItemCopyMatching(system): %@", error);
+        (id)kSecClass :  (id)kSecClassGenericPassword,
+        (id)kSecAttrAccount :  @"pcs-label-me",
+        (id)kSecReturnAttributes : (id)kCFBooleanTrue,
+        (id)kSecReturnData : @(YES),
+    }, &client, (CFTypeRef *)&result, &error);
+    is(res, true, "SecItemCopyMatching(userforsyncbubble): %@", error);
 
     ok(isDictionary(result), "result is dictionary");
     ok([[(__bridge NSDictionary*)result valueForKey:(__bridge id)kSecValueData] isEqual:[NSData dataWithBytes:"some data" length:9]], "retrieved data matches stored data");
 
-    /* Check that data are in 502 active user keychain */
-    ok (CFEqualSafe(((__bridge CFDataRef)((__bridge NSDictionary *)result)[@"musr"]), musr), "not in msr 502");
+    ok (CFEqualSafe(((__bridge CFDataRef)((__bridge NSDictionary *)result)[@"musr"]), musr), "should match musr for active user 502");
 
     CFReleaseNull(result);
 
-
+    // Now copy things to the sync bubble keychain
     ok(_SecServerTransmogrifyToSyncBubble((__bridge CFArrayRef)@[@"com.apple.mailq.sync.xpc" ], client.uid, &client, &error),
        "_SecServerTransmogrifyToSyncBubble: %@", error);
 
     CFReleaseNull(error);
 
-    /*
-     * first check normal keychain
-     */
-
+    // Check the 502 active user keychain again, since the item should have been copied, not moved.
     res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"pcs-label-me",
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
+        (id)kSecReturnData : @(YES),
     }, &client, (CFTypeRef *)&result, &error);
     is(res, true, "SecItemCopyMatching(active): %@", error);
 
     ok(isDictionary(result), "result is dictionary");
+    ok([[(__bridge NSDictionary*)result valueForKey:(__bridge id)kSecValueData] isEqual:[NSData dataWithBytes:"some data" length:9]], "retrieved data matches stored data");
+    ok (CFEqualSafe(((__bridge CFDataRef)((__bridge NSDictionary *)result)[@"musr"]), musr), "should still match musr for active user 502");
     CFReleaseNull(result);
 
     SecSecuritySetMusrMode(true, 503, 503);
 
-    /*
-     * then syncbubble keychain
-     */
-
+    // Now check that the item exists in the syncbubble keychain for user 502
     res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"pcs-label-me",

@@ -291,6 +291,7 @@ io_connect_t IORegisterForSystemPower ( void * refcon,
                             callback,refcon,root_notifier);
 
     IOObjectRelease(obj);
+    obj = IO_OBJECT_NULL;
     if ( kr == KERN_SUCCESS ) {
         // Successful exit case
         *thePortRef = notify;

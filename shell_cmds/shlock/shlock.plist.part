@@ -1,0 +1,12 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>shlock</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-04-17</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/src/usr.bin/shlock</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-10-26</string>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

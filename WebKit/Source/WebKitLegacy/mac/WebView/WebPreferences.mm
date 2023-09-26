@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1106,7 +1106,6 @@ public:
     [self _setBoolValue:flag forKey:WebKitAuthorAndUserStylesEnabledPreferenceKey];
 }
 
-// FIXME: applicationChromeMode is no longer needed by ToT, but is still used in Safari 8.
 - (BOOL)applicationChromeModeEnabled
 {
     return NO;
@@ -1114,6 +1113,7 @@ public:
 
 - (void)setApplicationChromeModeEnabled:(BOOL)flag
 {
+    // This is still called. See rdar://106306112
 }
 
 - (BOOL)domTimersThrottlingEnabled
@@ -1954,16 +1954,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     setWebKitLinkTimeVersion(version);
 }
 
-- (void)setLoadsSiteIconsIgnoringImageLoadingPreference: (BOOL)flag
-{
-    [self _setBoolValue: flag forKey: WebKitLoadSiteIconsKey];
-}
-
-- (BOOL)loadsSiteIconsIgnoringImageLoadingPreference
-{
-    return [self _boolValueForKey: WebKitLoadSiteIconsKey];
-}
-
 - (void)setAVFoundationEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitAVFoundationEnabledKey];
@@ -2380,16 +2370,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setLowPowerVideoAudioBufferSizeEnabled:(BOOL)enabled
 {
     [self _setBoolValue:enabled forKey:WebKitLowPowerVideoAudioBufferSizeEnabledPreferenceKey];
-}
-
-- (BOOL)useLegacyTextAlignPositionedElementBehavior
-{
-    return [self _boolValueForKey:WebKitUseLegacyTextAlignPositionedElementBehaviorPreferenceKey];
-}
-
-- (void)setUseLegacyTextAlignPositionedElementBehavior:(BOOL)enabled
-{
-    [self _setBoolValue:enabled forKey:WebKitUseLegacyTextAlignPositionedElementBehaviorPreferenceKey];
 }
 
 - (BOOL)mediaSourceEnabled
@@ -3037,16 +3017,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitWebAnimationsMutableTimelinesEnabledPreferenceKey];
 }
 
-- (BOOL)webGL2Enabled
-{
-    return [self _boolValueForKey:WebKitWebGL2EnabledPreferenceKey];
-}
-
-- (void)setWebGL2Enabled:(BOOL)enabled
-{
-    [self _setBoolValue:enabled forKey:WebKitWebGL2EnabledPreferenceKey];
-}
-
 - (BOOL)maskWebGLStringsEnabled
 {
     return [self _boolValueForKey:WebKitMaskWebGLStringsEnabledPreferenceKey];
@@ -3401,5 +3371,24 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setSubpixelAntialiasedLayerTextEnabled:(BOOL)enabled
 {
 }
+
+- (BOOL)webGL2Enabled
+{
+    return [self _boolValueForKey:WebKitWebGLEnabledPreferenceKey];
+}
+
+- (void)setWebGL2Enabled:(BOOL)enabled
+{
+}
+
+- (void)setLoadsSiteIconsIgnoringImageLoadingPreference: (BOOL)flag
+{
+}
+
+- (BOOL)loadsSiteIconsIgnoringImageLoadingPreference
+{
+    return NO;
+}
+
 
 @end

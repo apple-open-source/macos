@@ -70,7 +70,7 @@ void SecItemServerSetKeychainKeybag(int32_t keybag)
     g_keychain_keybag=keybag;
 }
 
-void SecItemServerResetKeychainKeybag(void)
+void SecItemServerSetKeychainKeybagToDefault(void)
 {
     g_keychain_keybag = kDefault_keychain_keybag;
 }
@@ -263,15 +263,47 @@ out:
  16 byte (128 bit) key returns a 24 byte wrapped key
  24 byte (192 bit) key returns a 32 byte wrapped key
  32 byte (256 bit) key returns a 40 byte wrapped key  */
-bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
-              keyclass_t keyclass, uint32_t textLength, const uint8_t *source, keyclass_t *actual_class, CFMutableDataRef dest, CFErrorRef *error) {
+bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag, struct backup_keypair* bkp,
+              keyclass_t keyclass, uint32_t textLength, const uint8_t *source, keyclass_t *actual_class, CFMutableDataRef dest,
+              bool useNewBackupBehavior, CFErrorRef *error) {
 #if USE_KEYSTORE
     kern_return_t kernResult = kAKSReturnBadArgument;
     
     int dest_len = (int)CFDataGetLength(dest);
     if (CFEqual(operation, kAKSKeyOpEncrypt)) {
-        kernResult = aks_wrap_key(source, textLength, keyclass, keybag, CFDataGetMutableBytePtr(dest), &dest_len, actual_class);
-    } else if (CFEqual(operation, kAKSKeyOpDecrypt) || CFEqual(operation, kAKSKeyOpDelete)) {
+        bool doOldWrapping = true;
+        if (useNewBackupBehavior) {
+            doOldWrapping = false;
+            uint8_t* outBuf = CFDataGetMutableBytePtr(dest);
+            size_t outBufLen = dest_len;
+            kernResult = aks_kc_backup_wrap_key(keybag, source, textLength, outBuf, &outBufLen);
+            if (kernResult == KERN_SUCCESS) {
+                dest_len = (int)outBufLen;
+                if (actual_class) {
+                    // lie & say the actual class matches the input class, even though backup wrapping has no classes
+                    *actual_class = keyclass;
+                }
+            } else {
+                secerror("ks_crypt: aks_kc_backup_wrap_key returned %d", kernResult);
+            }
+        }
+
+        if (doOldWrapping) {
+            kernResult = aks_wrap_key(source, textLength, keyclass, keybag, CFDataGetMutableBytePtr(dest), &dest_len, actual_class);
+        }
+    } else if (CFEqual(operation, kAKSKeyOpDecrypt)) {
+        if (bkp != NULL) {
+            uint8_t* outBuf = CFDataGetMutableBytePtr(dest);
+            size_t outBufLen = dest_len;
+            secnotice("ks_crypt", "have a backup_keypair, attempting to use");
+            kernResult = aks_kc_backup_unwrap_key(bkp, source, textLength, outBuf, &outBufLen);
+            if (kernResult == KERN_SUCCESS) {
+                dest_len = (int)outBufLen;
+            }
+        } else {
+            kernResult = aks_unwrap_key(source, textLength, keyclass, keybag, CFDataGetMutableBytePtr(dest), &dest_len);
+        }
+    } else if (CFEqual(operation, kAKSKeyOpDelete)) {
         kernResult = aks_unwrap_key(source, textLength, keyclass, keybag, CFDataGetMutableBytePtr(dest), &dest_len);
     }
     

@@ -1723,6 +1723,12 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 					}
 					// updating unlock key fails if it is not token login
 					secnotice("KCLogin", "Error %d, reconstructing unlock data", (int)status);
+                    if (!smartCardPassword.get()) {
+                        smartCardPassword = TokenLoginCopyKcPwd(tokenLoginContext);
+                        if (smartCardPassword.get()) {
+                            secnotice("KCLogin", "Obtained and used");
+                        }
+                    }
 					status = TokenLoginUpdateUnlockData(tokenLoginContext, smartCardPassword);
 					if (status == errSecSuccess) {
 						loginResult = TokenLoginGetLoginData(tokenLoginContext, tokenLoginData.take());
@@ -2071,6 +2077,7 @@ DLDbIdentifier StorageManager::makeDLDbIdentifier(const char *pathName) {
 			break;
 		default:
 			assert(false);	// invalid domain for this
+			break;
 		}
 
 		fullPathName += "/Library/Keychains/";

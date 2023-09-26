@@ -227,7 +227,7 @@ void AppleCSPSession::WrapKey(
 				/* only time this is OK */
 				break;
 			}
-			/* else fall thru */
+			[[fallthrough]];
 		default:
 			dprintf1("KeyWrap: invalid wrapFormat (%d)\n", (int)wrapFormat);
 			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_WRAPPED_KEY_FORMAT);

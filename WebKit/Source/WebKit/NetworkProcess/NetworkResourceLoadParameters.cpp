@@ -71,6 +71,7 @@ NetworkResourceLoadParameters::NetworkResourceLoadParameters(
     , URL&& mainDocumentURL
     , std::optional<UserContentControllerIdentifier> userContentControllerIdentifier
 #endif
+    , bool linkPreconnectEarlyHintsEnabled
     ) : NetworkLoadParameters(WTFMove(networkLoadParameters))
         , identifier(identifier)
         , maximumBufferingTime(maximumBufferingTime)
@@ -107,6 +108,7 @@ NetworkResourceLoadParameters::NetworkResourceLoadParameters(
         , mainDocumentURL(WTFMove(mainDocumentURL))
         , userContentControllerIdentifier(userContentControllerIdentifier)
 #endif
+        , linkPreconnectEarlyHintsEnabled(linkPreconnectEarlyHintsEnabled)
 {
     if (httpBody) {
         request.setHTTPBody(WTFMove(httpBody));
@@ -119,7 +121,7 @@ NetworkResourceLoadParameters::NetworkResourceLoadParameters(
         }
     }
     
-    if (request.url().isLocalFile()) {
+    if (request.url().protocolIsFile()) {
         if (!sandboxExtensionIflocalFile)
             RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("NetworkResourceLoadParameters which specify a URL of a local file should have sandboxExtensionIflocalFile");
         resourceSandboxExtension = SandboxExtension::create(WTFMove(*sandboxExtensionIflocalFile));
@@ -152,7 +154,7 @@ std::optional<Vector<SandboxExtension::Handle>> NetworkResourceLoadParameters::s
 
 std::optional<SandboxExtension::Handle> NetworkResourceLoadParameters::sandboxExtensionIflocalFile() const
 {
-    if (!request.url().isLocalFile())
+    if (!request.url().protocolIsFile())
         return std::nullopt;
     
     SandboxExtension::Handle requestSandboxExtension;

@@ -14,8 +14,11 @@
 #include <stdlib.h>
 #include "unicode/errorcode.h"
 #include "unicode/decimfmt.h"
+#if APPLE_ICU_CHANGES
+// rdar:/
 #include "unicode/ucurr.h"
 #include "unicode/ustring.h"
+#endif  // APPLE_ICU_CHANGES
 #include "number_decimalquantity.h"
 #include "number_types.h"
 #include "numparse_impl.h"
@@ -262,7 +265,9 @@ DecimalFormat::setAttribute(UNumberFormatAttribute attr, int32_t newValue, UErro
             setFormatFailIfMoreThanMaxDigits(static_cast<UBool>(newValue));
             break;
 
-        case UNUM_FORMAT_WITH_FULL_PRECISION: // Apple addition for <rdar://problem/39240173>
+#if APPLE_ICU_CHANGES
+// rdar:/
+        case UNUM_FORMAT_WITH_FULL_PRECISION: // Apple addition for rdar://39240173
             {
                 bool boolVal = UBOOL_TO_BOOL(static_cast<UBool>(newValue));
                 if (boolVal != fields->properties.formatFullPrecision) {
@@ -272,6 +277,7 @@ DecimalFormat::setAttribute(UNumberFormatAttribute attr, int32_t newValue, UErro
             }
             break;
 
+#endif  // APPLE_ICU_CHANGES
         default:
             status = U_UNSUPPORTED_ERROR;
             break;
@@ -372,9 +378,12 @@ int32_t DecimalFormat::getAttribute(UNumberFormatAttribute attr, UErrorCode& sta
         case UNUM_FORMAT_FAIL_IF_MORE_THAN_MAX_DIGITS:
             return isFormatFailIfMoreThanMaxDigits();
 
-        case UNUM_FORMAT_WITH_FULL_PRECISION: // Apple addition for <rdar://problem/39240173>
+#if APPLE_ICU_CHANGES
+// rdar:/
+        case UNUM_FORMAT_WITH_FULL_PRECISION: // Apple addition for rdar://39240173
             return (UBool)fields->properties.formatFullPrecision;
 
+#endif  // APPLE_ICU_CHANGES
         default:
             status = U_UNSUPPORTED_ERROR;
             break;
@@ -1426,10 +1435,18 @@ void DecimalFormat::setMinimumIntegerDigits(int32_t newValue) {
 void DecimalFormat::setMaximumFractionDigits(int32_t newValue) {
     if (fields == nullptr) { return; }
     if (newValue == fields->properties.maximumFractionDigits) { return; }
-    // cap for backward compatibility, limit to 340 <rdar://problem/50113359>
+#if APPLE_ICU_CHANGES
+// rdar:/
+    // cap for backward compatibility, limit to 340 rdar://50113359
     if (newValue > 340) {
         newValue = 340;
     }
+#else
+    // cap for backward compatibility, formerly 340, now 999
+    if (newValue > kMaxIntFracSig) {
+        newValue = kMaxIntFracSig;
+    }
+#endif  // APPLE_ICU_CHANGES
     // For backwards compatibility, conflicting min/max need to keep the most recent setting.
     int32_t min = fields->properties.minimumFractionDigits;
     if (min >= 0 && min > newValue) {
@@ -1525,38 +1542,40 @@ void DecimalFormat::setSignificantDigitsUsed(UBool useSignificantDigits) {
     touchNoError();
 }
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 // Group-set several settings used for numbers in date formats. Apple rdar://50064762
 // Equivalent to:
-//    setGroupingUsed(FALSE);
-//    setDecimalSeparatorAlwaysShown(FALSE);
-//    setParseIntegerOnly(TRUE);
+//    setGroupingUsed(false);
+//    setDecimalSeparatorAlwaysShown(false);
+//    setParseIntegerOnly(true);
 //    setMinimumFractionDigits(0);
 void DecimalFormat::setDateSettings(void) {
     if (fields == nullptr) {
         return;
     }
-    UBool didChange = FALSE;
+    UBool didChange = false;
 
     if (fields->properties.groupingUsed) {
-        NumberFormat::setGroupingUsed(FALSE); // to set field for compatibility
+        NumberFormat::setGroupingUsed(false); // to set field for compatibility
         fields->properties.groupingUsed = false;
-        didChange = TRUE;
+        didChange = true;
     }
 
     if (fields->properties.decimalSeparatorAlwaysShown) {
         fields->properties.decimalSeparatorAlwaysShown = false;
-        didChange = TRUE;
+        didChange = true;
     }
 
     if (!fields->properties.parseIntegerOnly) {
-        NumberFormat::setParseIntegerOnly(TRUE); // to set field for compatibility
+        NumberFormat::setParseIntegerOnly(true); // to set field for compatibility
         fields->properties.parseIntegerOnly = true;
-        didChange = TRUE;
+        didChange = true;
     }
 
     if (fields->properties.minimumFractionDigits != 0) {
         fields->properties.minimumFractionDigits = 0;
-        didChange = TRUE;
+        didChange = true;
     }
 
     if (didChange) {
@@ -1564,6 +1583,7 @@ void DecimalFormat::setDateSettings(void) {
     }
 }
 
+#endif  // APPLE_ICU_CHANGES
 void DecimalFormat::setCurrency(const char16_t* theCurrency, UErrorCode& ec) {
     // don't overwrite ec if it's already a failure.
     if (U_FAILURE(ec)) { return; }
@@ -1572,7 +1592,9 @@ void DecimalFormat::setCurrency(const char16_t* theCurrency, UErrorCode& ec) {
         ec = U_MEMORY_ALLOCATION_ERROR;
         return;
     }
-    // <rdar://problem/49544607> Restore behavior in which empty currency sets locale default
+#if APPLE_ICU_CHANGES
+// rdar:/
+    // rdar://49544607 Restore behavior in which empty currency sets locale default
     UChar localeCurr[4];
     if (theCurrency==nullptr || theCurrency[0]==0) {
         UErrorCode getCurrStatus = U_ZERO_ERROR;
@@ -1582,7 +1604,7 @@ void DecimalFormat::setCurrency(const char16_t* theCurrency, UErrorCode& ec) {
             theCurrency = localeCurr;
         }
     }
-    //
+#endif  // APPLE_ICU_CHANGES
     CurrencyUnit currencyUnit(theCurrency, ec);
     if (U_FAILURE(ec)) { return; }
     if (!fields->properties.currency.isNull() && fields->properties.currency.getNoError() == currencyUnit) {
@@ -1664,13 +1686,16 @@ const number::LocalizedNumberFormatter* DecimalFormat::toNumberFormatter(UErrorC
     return &fields->formatter;
 }
 
-// Apple <rdar://problem/49955427>
+#if APPLE_ICU_CHANGES
+// rdar:/
+// Apple rdar://49955427
 void DecimalFormat::setDFSShallowCopy(UBool shallow) {
     if (fields != nullptr) {
         fields->formatter.setDFSShallowCopy(shallow);
     }
 }
 
+#endif  // APPLE_ICU_CHANGES
 /** Rebuilds the formatter object from the property bag. */
 void DecimalFormat::touch(UErrorCode& status) {
     if (U_FAILURE(status)) {
@@ -1713,6 +1738,8 @@ void DecimalFormat::touch(UErrorCode& status) {
     delete fields->atomicCurrencyParser.exchange(nullptr);
 
     // In order for the getters to work, we need to populate some fields in NumberFormat.
+#if APPLE_ICU_CHANGES
+// rdar:/
     const UChar* newCurr = u"";
     CurrencyUnit currency = fields->exportedProperties.currency.get(status);
     if (U_SUCCESS(status)) {
@@ -1728,6 +1755,9 @@ void DecimalFormat::touch(UErrorCode& status) {
         }
     }
     NumberFormat::setCurrency(newCurr, status);
+#else
+    NumberFormat::setCurrency(fields->exportedProperties.currency.get(status).getISOCurrency(), status);
+#endif  // APPLE_ICU_CHANGES
     NumberFormat::setMaximumIntegerDigits(fields->exportedProperties.maximumIntegerDigits);
     NumberFormat::setMinimumIntegerDigits(fields->exportedProperties.minimumIntegerDigits);
     NumberFormat::setMaximumFractionDigits(fields->exportedProperties.maximumFractionDigits);

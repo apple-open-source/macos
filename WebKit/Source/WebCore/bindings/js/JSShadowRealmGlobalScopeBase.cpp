@@ -31,9 +31,10 @@
 #include "JSShadowRealmGlobalScope.h"
 #include "ScriptModuleLoader.h"
 #include "ShadowRealmGlobalScope.h"
+#include <JavaScriptCore/GlobalObjectMethodTable.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSCJSValueInlines.h>
-#include <JavaScriptCore/JSProxy.h>
+#include <JavaScriptCore/JSGlobalProxy.h>
 #include <JavaScriptCore/Microtask.h>
 #include <wtf/Language.h>
 
@@ -43,40 +44,44 @@ using namespace JSC;
 
 const ClassInfo JSShadowRealmGlobalScopeBase::s_info = { "ShadowRealmGlobalScope"_s, &JSDOMGlobalObject::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSShadowRealmGlobalScopeBase) };
 
-const GlobalObjectMethodTable JSShadowRealmGlobalScopeBase::s_globalObjectMethodTable = {
-    &supportsRichSourceInfo,
-    &shouldInterruptScript,
-    &javaScriptRuntimeFlags,
-    &queueMicrotaskToEventLoop,
-    &shouldInterruptScriptBeforeTimeout,
-    &moduleLoaderImportModule,
-    &moduleLoaderResolve,
-    &moduleLoaderFetch,
-    &moduleLoaderCreateImportMetaProperties,
-    &moduleLoaderEvaluate,
-    &promiseRejectionTracker,
-    &reportUncaughtExceptionAtEventLoop,
-    &currentScriptExecutionOwner,
-    &scriptExecutionStatus,
-    &reportViolationForUnsafeEval,
-    [] { return defaultLanguage(); },
+const GlobalObjectMethodTable* JSShadowRealmGlobalScopeBase::globalObjectMethodTable()
+{
+    static constexpr GlobalObjectMethodTable table = {
+        &supportsRichSourceInfo,
+        &shouldInterruptScript,
+        &javaScriptRuntimeFlags,
+        &queueMicrotaskToEventLoop,
+        &shouldInterruptScriptBeforeTimeout,
+        &moduleLoaderImportModule,
+        &moduleLoaderResolve,
+        &moduleLoaderFetch,
+        &moduleLoaderCreateImportMetaProperties,
+        &moduleLoaderEvaluate,
+        &promiseRejectionTracker,
+        &reportUncaughtExceptionAtEventLoop,
+        &currentScriptExecutionOwner,
+        &scriptExecutionStatus,
+        &reportViolationForUnsafeEval,
+        [] { return defaultLanguage(); },
 #if ENABLE(WEBASSEMBLY)
-    &compileStreaming,
-    &instantiateStreaming,
+        &compileStreaming,
+        &instantiateStreaming,
 #else
-    nullptr,
-    nullptr,
+        nullptr,
+        nullptr,
 #endif
-    &deriveShadowRealmGlobalObject,
+        &deriveShadowRealmGlobalObject,
+    };
+    return &table;
 };
 
 JSShadowRealmGlobalScopeBase::JSShadowRealmGlobalScopeBase(JSC::VM& vm, JSC::Structure* structure, RefPtr<ShadowRealmGlobalScope>&& impl)
-    : JSDOMGlobalObject(vm, structure, normalWorld(vm), &s_globalObjectMethodTable)
+    : JSDOMGlobalObject(vm, structure, normalWorld(vm), globalObjectMethodTable())
     , m_wrapped(WTFMove(impl))
 {
 }
 
-void JSShadowRealmGlobalScopeBase::finishCreation(VM& vm, JSProxy* proxy)
+void JSShadowRealmGlobalScopeBase::finishCreation(VM& vm, JSGlobalProxy* proxy)
 {
     m_proxy.set(vm, this, proxy);
     m_wrapped->m_wrapper = JSC::Weak(this);

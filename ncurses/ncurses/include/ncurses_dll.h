@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2006,2007 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2009,2014 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -25,10 +25,33 @@
  * sale, use or other dealings in this Software without prior written       *
  * authorization.                                                           *
  ****************************************************************************/
-/* $Id: ncurses_dll.h,v 1.6 2007/03/10 19:21:49 tom Exp $ */
+/* $Id: ncurses_dll.h.in,v 1.9 2014/08/02 21:30:20 tom Exp $ */
 
 #ifndef NCURSES_DLL_H_incl
 #define NCURSES_DLL_H_incl 1
+
+/* 2014-08-02 workaround for broken MinGW compiler.
+ * Oddly, only TRACE is mapped to trace - the other -D's are okay.
+ * suggest TDM as an alternative.
+ */
+#if defined(__MINGW64__)
+#elif defined(__MINGW32__)
+#if (__GNUC__ == 4) && (__GNUC_MINOR__ == 8)
+
+#ifdef trace
+#undef trace
+#define TRACE
+#endif
+
+#endif	/* broken compiler */
+#endif	/* MingW */
+
+/*
+ * For reentrant code, we map the various global variables into SCREEN by
+ * using functions to access them.
+ */
+#define NCURSES_PUBLIC_VAR(name) _nc_##name
+#define NCURSES_WRAPPED_VAR(type,name) extern type NCURSES_PUBLIC_VAR(name)(void)
 
 /* no longer needed on cygwin or mingw, thanks to auto-import       */
 /* but this structure may be useful at some point for an MSVC build */
@@ -37,7 +60,7 @@
 #undef NCURSES_DLL
 #define NCURSES_STATIC
 
-#if defined(__CYGWIN__)
+#if defined(__CYGWIN__) || defined(__MINGW32__)
 #  if defined(NCURSES_DLL)
 #    if defined(NCURSES_STATIC)
 #      undef NCURSES_STATIC
@@ -75,12 +98,5 @@
 #if !defined(NCURSES_EXPORT_VAR)
 #  define NCURSES_EXPORT_VAR(type) NCURSES_IMPEXP type
 #endif
-
-/*
- * For reentrant code, we map the various global variables into SCREEN by
- * using functions to access them.
- */
-#define NCURSES_PUBLIC_VAR(name) _nc_##name
-#define NCURSES_WRAPPED_VAR(type,name) extern type NCURSES_PUBLIC_VAR(name)(void)
 
 #endif /* NCURSES_DLL_H_incl */

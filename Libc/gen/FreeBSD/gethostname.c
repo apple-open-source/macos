@@ -42,9 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/gethostname.c,v 1.8 2007/01/09 00:27:54 imp
 #include <unistd.h>
 
 int
-gethostname(name, namelen)
-	char *name;
-	size_t namelen;
+gethostname(char *name, size_t namelen)
 {
 	int mib[2];
 

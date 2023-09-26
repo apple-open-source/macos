@@ -12,6 +12,7 @@ override PYTHONPATH := $(TMPPYTHON):$(PYTHONPATH)
 export PYTHONPATH
 override PATH := $(TMPPREFIX)/bin:$(PATH)
 export PATH
+export CFLAGS=-Wno-implicit-function-declaration
 
 include ../Makefile.inc
 
@@ -38,6 +39,7 @@ custompatching:
 	ditto $(PP)/numpy $(NUMPY)
 	cp f2c.py $(FCOMPILER)
 	ed - $(FCOMPILER)/__init__.py < numpy_distutils_fcompiler___init__.py.ed
+	( cd $(DIR) ; patch -p1 ) < 103310602-compilier-fixes.diff
 
 postinstall:
 	cp -f $(DIR)/LICENSE.txt $(OSL)/$(NAME)-$(VERSION).txt

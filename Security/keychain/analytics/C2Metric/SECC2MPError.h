@@ -21,7 +21,7 @@ __attribute__((visibility("hidden")))
     NSString *_errorDomain;
     SECC2MPError *_underlyingError;
     struct {
-        int errorCode:1;
+        uint errorCode:1;
     } _has;
 }
 

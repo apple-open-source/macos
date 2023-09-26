@@ -27,6 +27,7 @@
 #include "WebURLSchemeHandlerProxy.h"
 
 #include "DataReference.h"
+#include "MessageSenderInlines.h"
 #include "URLSchemeTaskParameters.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
@@ -67,7 +68,7 @@ void WebURLSchemeHandlerProxy::loadSynchronously(WebCore::ResourceLoaderIdentifi
 {
     data.shrink(0);
     auto sendResult = m_webPage.sendSync(Messages::WebPageProxy::LoadSynchronousURLSchemeTask(URLSchemeTaskParameters { m_identifier, loadIdentifier, request, webFrame.info() }));
-    if (sendResult)
+    if (sendResult.succeeded())
         std::tie(response, error, data) = sendResult.takeReply();
     else
         error = failedCustomProtocolSyncLoad(request);

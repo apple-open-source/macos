@@ -69,37 +69,32 @@
 
 #include "fsutil.h"
 #include "ext.h"
-
-int alwaysno;		/* assume "no" for all questions */
-int alwaysyes;		/* assume "yes" for all questions */
-int preen;		/* set when preening */
-int quick;		/* set to quickly check if volume is dirty */
-int quiet;		/* set to supress most messages */
-int rdonly;		/* device is opened read only (supersedes above) */
-size_t maxmem;	/* If non-zero, limit major allocations to this many bytes */
+#include "lib_fsck_msdos.h"
 
 static void usage __P((void));
 int main __P((int, char **));
 
 static void
-usage()
+usage(void)
 {
-	errexit("Usage: fsck_msdos [-fnpqy] [-M <integer>[k|K|m|M]] filesystem ... \n");
+	printf("Usage: fsck_msdos [-fnpqy] [-M <integer>[k|K|m|M]] filesystem ... \n");
+	exit(8);
 }
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
 	int ret = 0, erg;
 	int ch;
 	int offset;
+	size_t maxmem = 0;
+
+	fsck_set_context_properties(vprint, vask, NULL);
 
 	/*
 	 * Allow default maximum memory to be specified at compile time.
 	 */
-	#ifdef FSCK_MAX_MEM
+	#if FSCK_MAX_MEM
 	maxmem = FSCK_MAX_MEM;
 	#endif
 
@@ -112,21 +107,22 @@ main(argc, argv)
 			 */
 			break;
 		case 'n':
-			alwaysno = 1;
-			alwaysyes = preen = 0;
+			fsck_set_alwaysno(1);
+			fsck_set_alwaysyes(0);
+			fsck_set_preen(0);
 			break;
 		case 'y':
-			alwaysyes = 1;
-			alwaysno = preen = 0;
+			fsck_set_alwaysyes(1);
+			fsck_set_alwaysno(0);
+			fsck_set_preen(0);
 			break;
-
 		case 'p':
-			preen = 1;
-			alwaysyes = alwaysno = 0;
+			fsck_set_preen(1);
+			fsck_set_alwaysyes(0);
+			fsck_set_alwaysno(0);
 			break;
-
 		case 'q':
-			quick = 1;
+			fsck_set_quick(true);
 			break;
 		case 'M':
 			if (sscanf(optarg, "%zi%n", &maxmem, &offset) == 0)
@@ -153,6 +149,7 @@ bad_multiplier:
 					pfatal("Size multiplier '%s' not recognized\n", optarg+offset);
 					usage();
 			}
+			fsck_set_maxmem(maxmem);
 			break;
 		default:
 			pfatal("Option '%c' not recognized\n", optopt);
@@ -160,6 +157,7 @@ bad_multiplier:
 			break;
 		}
 	}
+
 	argc -= optind;
 	argv += optind;
 
@@ -170,8 +168,8 @@ bad_multiplier:
 	 * Realistically, this does not work well with multiple filesystems.
 	 */
 	while (--argc >= 0) {
-		setcdevname(*argv);
-		erg = checkfilesys(*argv++);
+		fsck_set_dev(*argv);
+		erg = checkfilesys(*argv++, NULL);
 		if (erg > ret)
 			ret = erg;
 	}
@@ -192,37 +190,48 @@ ask(def, fmt, va_alist)
 #endif
 {
 	va_list ap;
-
-	char prompt[256];
-	int c;
-
-	if (preen) {
-		if (rdonly)
-			def = 0;
-		if (def)
-			printf("FIXED\n");
-		return def;
-	}
-
 #if __STDC__
 	va_start(ap, fmt);
 #else
 	va_start(ap);
 #endif
+	int ret = vask(NULL, def, fmt, ap);
+	va_end(ap);
+	return ret;
+}
+
+int vask(fsck_client_ctx_t client, int def, const char *fmt, va_list ap)
+{
+	char prompt[256];
+	int c;
+
+	if (fsck_preen()) {
+		if (fsck_rdonly()) {
+			def = 0;
+		}
+		if (def) {
+			fsck_print(fsck_ctx, LOG_INFO, "FIXED\n");
+		}
+		return def;
+	}
+
 	vsnprintf(prompt, sizeof(prompt), fmt, ap);
 
-	if (alwaysyes || rdonly) {
-		if (!quiet)
-			printf("%s? %s\n", prompt, rdonly ? "no" : "yes");
-		return !rdonly;
+	if (fsck_alwaysyes() || fsck_rdonly()) {
+		if (!fsck_quiet()) {
+			fsck_print(fsck_ctx, LOG_INFO, "%s? %s\n", prompt, fsck_rdonly() ? "no" : "yes");
+		}
+		return !fsck_rdonly();
 	}
 	do {
-		printf("%s? [yn] ", prompt);
+		fsck_print(fsck_ctx, LOG_INFO, "%s? [yn] ", prompt);
 		fflush(stdout);
 		c = getchar();
-		while (c != '\n' && getchar() != '\n')
-			if (feof(stdin))
+		while (c != '\n' && getchar() != '\n') {
+			if (feof(stdin)) {
 				return 0;
+			}
+		}
 	} while (c != 'y' && c != 'Y' && c != 'n' && c != 'N');
 	return c == 'y' || c == 'Y';
 }

@@ -33,6 +33,7 @@
 
 #include <mach/mach_types.h>
 #include <kern/kern_types.h>
+#include <vm/vm_options.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -312,6 +313,10 @@ extern uint32_t vnode_pager_isinuse(
 	struct vnode *);
 extern boolean_t vnode_pager_isSSD(
 	struct vnode *);
+#if FBDP_DEBUG_OBJECT_NO_PAGER
+extern bool vnode_pager_forced_unmount(
+	struct vnode *);
+#endif /* FBDP_DEBUG_OBJECT_NO_PAGER */
 extern void vnode_pager_throttle(
 	void);
 extern uint32_t vnode_pager_return_throttle_io_limit(
@@ -379,6 +384,11 @@ extern kern_return_t vnode_pager_get_isinuse(
 extern kern_return_t vnode_pager_get_isSSD(
 	memory_object_t,
 	boolean_t *);
+#if FBDP_DEBUG_OBJECT_NO_PAGER
+extern kern_return_t vnode_pager_get_forced_unmount(
+	memory_object_t,
+	bool *);
+#endif /* FBDP_DEBUG_OBJECT_NO_PAGER */
 extern kern_return_t vnode_pager_get_throttle_io_limit(
 	memory_object_t,
 	uint32_t *);
@@ -740,10 +750,12 @@ extern void             memory_object_mark_for_realtime(
 	memory_object_control_t         control,
 	bool                            for_realtime);
 
-#if MACH_ASSERT
-extern void             memory_object_mark_for_fbdp(
-	memory_object_control_t         control);
-#endif /* MACH_ASSERT */
+#if FBDP_DEBUG_OBJECT_NO_PAGER
+extern kern_return_t memory_object_mark_as_tracked(
+	memory_object_control_t         control,
+	bool                            new_value,
+	bool                            *old_value);
+#endif /* FBDP_DEBUG_OBJECT_NO_PAGER */
 
 #define MAX_PAGE_RANGE_QUERY    (1ULL * 1024 * 1024 * 1024) /* 1 GB */
 

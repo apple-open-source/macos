@@ -40,6 +40,7 @@ OBJC_CLASS NSMutableURLRequest;
 namespace WebCore {
 class RegistrableDomain;
 class SharedBuffer;
+enum class AdvancedPrivacyProtections : uint16_t;
 }
 
 namespace WebKit {
@@ -120,6 +121,6 @@ private:
 WebCore::Credential serverTrustCredential(const WebCore::AuthenticationChallenge&);
 void setPCMDataCarriedOnRequest(WebCore::PrivateClickMeasurement::PcmDataCarried, NSMutableURLRequest *);
 
-void enableNetworkConnectionIntegrity(NSMutableURLRequest *, bool);
+void enableAdvancedPrivacyProtections(NSMutableURLRequest *, OptionSet<WebCore::AdvancedPrivacyProtections>);
 
 } // namespace WebKit

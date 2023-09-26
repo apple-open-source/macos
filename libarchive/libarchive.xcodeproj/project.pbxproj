@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -39,6 +39,7 @@
 				FD51A7831D76430300F1E80A /* Install Tests */,
 			);
 			dependencies = (
+				D0F76CF02A213B1000649FE7 /* PBXTargetDependency */,
 				CA0BE38F22121C7900E93D29 /* PBXTargetDependency */,
 				CA0BE31E220E79A000E93D29 /* PBXTargetDependency */,
 				CA0BE0AF220E6A7900E93D29 /* PBXTargetDependency */,
@@ -469,7 +470,6 @@
 		CA0BE312220E719A00E93D29 /* archive_digest.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEE81FA8CFBA0018AA21 /* archive_digest.c */; };
 		CA0BE313220E71B700E93D29 /* archive_getdate.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CED11FA8CFB60018AA21 /* archive_getdate.c */; };
 		CA0BE314220E71CA00E93D29 /* archive_pathmatch.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEE11FA8CFB90018AA21 /* archive_pathmatch.c */; };
-		CA0BE315220E71DA00E93D29 /* archive_read_add_passphrase.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEE01FA8CFB80018AA21 /* archive_read_add_passphrase.c */; };
 		CA0BE316220E720400E93D29 /* archive_write_set_passphrase.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CECB1FA8CFB50018AA21 /* archive_write_set_passphrase.c */; };
 		CA0BE317220E721100E93D29 /* archive_check_magic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8969104DC7F00096D791 /* archive_check_magic.c */; };
 		CA0BE318220E723A00E93D29 /* archive_string.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8986104DC7F00096D791 /* archive_string.c */; };
@@ -527,6 +527,15 @@
 		CA0BE38C2212140400E93D29 /* err.c in Sources */ = {isa = PBXBuildFile; fileRef = FDE953B21148815D0033A30A /* err.c */; };
 		CA0BE38D2212154800E93D29 /* cmdline.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8A58104DCC930096D791 /* cmdline.c */; };
 		CAC43C8D2343EE980076863B /* test_read_format_zip_multithread.c in Sources */ = {isa = PBXBuildFile; fileRef = CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */; };
+		D0A701C02A0ED98D00DA39CA /* archive_check_entitlement.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A701BE2A0ED98D00DA39CA /* archive_check_entitlement.c */; };
+		D0A701C22A0EDBD800DA39CA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0A701C12A0EDBD800DA39CA /* Security.framework */; };
+		D0A701C42A12C98F00DA39CA /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0A701C32A12C98F00DA39CA /* CoreFoundation.framework */; };
+		D0A701FC2A14286900DA39CA /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A701FB2A14286900DA39CA /* main.c */; };
+		D0AC7FBF2A3935AB00080E13 /* archive_read_support_filter_program.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEC01FA8CFB40018AA21 /* archive_read_support_filter_program.c */; };
+		D0AC7FC02A3935BF00080E13 /* archive_check_entitlement.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A701BE2A0ED98D00DA39CA /* archive_check_entitlement.c */; };
+		D0AC7FC12A3935DC00080E13 /* archive_read_add_passphrase.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEE01FA8CFB80018AA21 /* archive_read_add_passphrase.c */; };
+		D0AC7FC22A3935E800080E13 /* archive_read.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8984104DC7F00096D791 /* archive_read.c */; };
+		D0AC7FC32A3A117600080E13 /* archive_check_entitlement.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A701BE2A0ED98D00DA39CA /* archive_check_entitlement.c */; };
 		D30BB69C2790EBE500A6D9D7 /* libarchive.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9B8961104D9F050096D791 /* libarchive.2.dylib */; };
 		D30BB69E2790EC2000A6D9D7 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D30BB69D2790EC2000A6D9D7 /* libiconv.tbd */; };
 		D34826F925DC7B3200D25C4E /* liblzma.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D34826F825DC7B3200D25C4E /* liblzma.tbd */; };
@@ -569,8 +578,6 @@
 		D3B0F11A25CC8DBC00E729D9 /* test_read_format_lha_filename_utf16.c in Sources */ = {isa = PBXBuildFile; fileRef = D3B0F11825CC8DBC00E729D9 /* test_read_format_lha_filename_utf16.c */; };
 		D3B0F12625CC8DE400E729D9 /* archive_write_add_filter_zstd.c in Sources */ = {isa = PBXBuildFile; fileRef = D3B0EFB925CC80EA00E729D9 /* archive_write_add_filter_zstd.c */; };
 		D3B0F13225CC8DF400E729D9 /* archive_read_support_filter_zstd.c in Sources */ = {isa = PBXBuildFile; fileRef = D3B0EFAA25CC80C800E729D9 /* archive_read_support_filter_zstd.c */; };
-		D3B0F13E25CC8E1F00E729D9 /* archive_read.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8984104DC7F00096D791 /* archive_read.c */; };
-		D3B0F14A25CC8E4300E729D9 /* archive_read_support_filter_program.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEC01FA8CFB40018AA21 /* archive_read_support_filter_program.c */; };
 		D3B0F15625CC8E5200E729D9 /* archive_write_add_filter_program.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEF11FA8CFBB0018AA21 /* archive_write_add_filter_program.c */; };
 		D3B0F16225CC8E5F00E729D9 /* archive_entry.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B896E104DC7F00096D791 /* archive_entry.c */; };
 		D3B0F16E25CC8E6900E729D9 /* archive_acl.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CED51FA8CFB70018AA21 /* archive_acl.c */; };
@@ -706,6 +713,13 @@
 			remoteGlobalIDString = CA0BE3222212121B00E93D29;
 			remoteInfo = bsdcpio_test;
 		};
+		D0F76CEF2A213B1000649FE7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D0A701F82A14286900DA39CA;
+			remoteInfo = entitlement_test;
+		};
 		D34826F425DC7B1500D25C4E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
@@ -758,6 +772,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		D0A701F72A14286900DA39CA /* Copy Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		D3F6CE0B2627BDA1006EC5CB /* Install Man(3) Pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -868,7 +892,7 @@
 		3EE6CEC21FA8CFB40018AA21 /* archive_read_support_format_rar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_read_support_format_rar.c; path = libarchive/libarchive/archive_read_support_format_rar.c; sourceTree = "<group>"; };
 		3EE6CEC31FA8CFB40018AA21 /* archive_write_add_filter_lzop.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_write_add_filter_lzop.c; path = libarchive/libarchive/archive_write_add_filter_lzop.c; sourceTree = "<group>"; };
 		3EE6CEC41FA8CFB40018AA21 /* archive_read_support_filter_lrzip.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_read_support_filter_lrzip.c; path = libarchive/libarchive/archive_read_support_filter_lrzip.c; sourceTree = "<group>"; };
-		3EE6CEC51FA8CFB40018AA21 /* archive_read_set_format.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_read_set_format.c; path = libarchive/libarchive/archive_read_set_format.c; sourceTree = "<group>"; };
+		3EE6CEC51FA8CFB40018AA21 /* archive_read_set_format.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; name = archive_read_set_format.c; path = libarchive/libarchive/archive_read_set_format.c; sourceTree = "<group>"; tabWidth = 2; usesTabs = 0; };
 		3EE6CEC61FA8CFB50018AA21 /* xxhash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xxhash.c; path = libarchive/libarchive/xxhash.c; sourceTree = "<group>"; };
 		3EE6CEC71FA8CFB50018AA21 /* archive_cmdline.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_cmdline.c; path = libarchive/libarchive/archive_cmdline.c; sourceTree = "<group>"; };
 		3EE6CEC81FA8CFB50018AA21 /* archive_read_support_filter_compress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_read_support_filter_compress.c; path = libarchive/libarchive/archive_read_support_filter_compress.c; sourceTree = "<group>"; };
@@ -1317,6 +1341,14 @@
 		CA0BE3572212129200E93D29 /* test_option_uuencode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_uuencode.c; path = libarchive/cpio/test/test_option_uuencode.c; sourceTree = SOURCE_ROOT; };
 		CA0BE3582212129200E93D29 /* test_option_J_upper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_J_upper.c; path = libarchive/cpio/test/test_option_J_upper.c; sourceTree = SOURCE_ROOT; };
 		CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = test_read_format_zip_multithread.c; path = libarchive/libarchive/test/test_read_format_zip_multithread.c; sourceTree = SOURCE_ROOT; };
+		D0A701BE2A0ED98D00DA39CA /* archive_check_entitlement.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = archive_check_entitlement.c; path = libarchive/libarchive/archive_check_entitlement.c; sourceTree = "<group>"; };
+		D0A701C12A0EDBD800DA39CA /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		D0A701C32A12C98F00DA39CA /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		D0A701C52A12D1CD00DA39CA /* LoggingSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LoggingSupport.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/System/Library/PrivateFrameworks/LoggingSupport.framework; sourceTree = DEVELOPER_DIR; };
+		D0A701E02A14110600DA39CA /* entitlement_test.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlement_test.plist; sourceTree = "<group>"; };
+		D0A701F92A14286900DA39CA /* entitlement_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = entitlement_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		D0A701FB2A14286900DA39CA /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		D0E5438E28A7153F00D986F5 /* test */ = {isa = PBXFileReference; lastKnownFileType = folder; name = test; path = libarchive/libarchive/test; sourceTree = "<group>"; };
 		D30BB69D2790EC2000A6D9D7 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/usr/lib/libiconv.tbd; sourceTree = DEVELOPER_DIR; };
 		D34826F825DC7B3200D25C4E /* liblzma.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = liblzma.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.Internal.sdk/usr/lib/liblzma.tbd; sourceTree = DEVELOPER_DIR; };
 		D371B89526DD9D8E00E8D454 /* archive_write_set_format_cpio_binary.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_write_set_format_cpio_binary.c; path = libarchive/libarchive/archive_write_set_format_cpio_binary.c; sourceTree = "<group>"; };
@@ -1467,6 +1499,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		D0A701F62A14286900DA39CA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D30BB69B2790EBDF00A6D9D7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1480,6 +1519,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0A701C42A12C98F00DA39CA /* CoreFoundation.framework in Frameworks */,
+				D0A701C22A0EDBD800DA39CA /* Security.framework in Frameworks */,
 				D34826F925DC7B3200D25C4E /* liblzma.tbd in Frameworks */,
 				D3B0EF9125CC806D00E729D9 /* libz.tbd in Frameworks */,
 				D3B0EF8425CC806500E729D9 /* libbz2.tbd in Frameworks */,
@@ -1512,6 +1553,9 @@
 		3EE6CF4B1FA8D08E0018AA21 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D0A701C52A12D1CD00DA39CA /* LoggingSupport.framework */,
+				D0A701C32A12C98F00DA39CA /* CoreFoundation.framework */,
+				D0A701C12A0EDBD800DA39CA /* Security.framework */,
 				D30BB69D2790EC2000A6D9D7 /* libiconv.tbd */,
 				D34826F825DC7B3200D25C4E /* liblzma.tbd */,
 				D3B0EF9025CC806D00E729D9 /* libz.tbd */,
@@ -1953,6 +1997,15 @@
 			path = bsdcpio_test;
 			sourceTree = "<group>";
 		};
+		D0A701FA2A14286900DA39CA /* entitlement_test */ = {
+			isa = PBXGroup;
+			children = (
+				D0A701FB2A14286900DA39CA /* main.c */,
+				D0A701E02A14110600DA39CA /* entitlement_test.plist */,
+			);
+			path = entitlement_test;
+			sourceTree = "<group>";
+		};
 		FD22F8B31D6FA2F00046F7FF /* tests */ = {
 			isa = PBXGroup;
 			children = (
@@ -1968,6 +2021,7 @@
 		FD9B894C104D9EED0096D791 = {
 			isa = PBXGroup;
 			children = (
+				D0E5438E28A7153F00D986F5 /* test */,
 				8154971F185E709800B3E145 /* executables.xcconfig */,
 				81549720185E714D00B3E145 /* base.xcconfig */,
 				8154971E185E6F1500B3E145 /* libs.xcconfig */,
@@ -1978,6 +2032,7 @@
 				FD9B8A3A104DCC050096D791 /* tar */,
 				FD9B8A69104DCCA90096D791 /* cpio */,
 				FD22F8B31D6FA2F00046F7FF /* tests */,
+				D0A701FA2A14286900DA39CA /* entitlement_test */,
 				FD9B8962104D9F050096D791 /* Products */,
 				3EE6CF4B1FA8D08E0018AA21 /* Frameworks */,
 			);
@@ -1994,6 +2049,7 @@
 				CA0BDFE3220E69A200E93D29 /* bsdtar_test */,
 				CA0BE0B4220E6CF300E93D29 /* libarchive_test */,
 				CA0BE3232212121B00E93D29 /* bsdcpio_test */,
+				D0A701F92A14286900DA39CA /* entitlement_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2168,6 +2224,7 @@
 				D3F6CE132627BEA6006EC5CB /* mtree.5 */,
 				D3F6CE102627BE1B006EC5CB /* tar.5 */,
 				3EE6CEC61FA8CFB50018AA21 /* xxhash.c */,
+				D0A701BE2A0ED98D00DA39CA /* archive_check_entitlement.c */,
 			);
 			name = libarchive;
 			sourceTree = "<group>";
@@ -2283,6 +2340,23 @@
 			productReference = CA0BE3232212121B00E93D29 /* bsdcpio_test */;
 			productType = "com.apple.product-type.tool";
 		};
+		D0A701F82A14286900DA39CA /* entitlement_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0A701FD2A14286900DA39CA /* Build configuration list for PBXNativeTarget "entitlement_test" */;
+			buildPhases = (
+				D0A701F52A14286900DA39CA /* Sources */,
+				D0A701F62A14286900DA39CA /* Frameworks */,
+				D0A701F72A14286900DA39CA /* Copy Files */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = entitlement_test;
+			productName = entitlement_test;
+			productReference = D0A701F92A14286900DA39CA /* entitlement_test */;
+			productType = "com.apple.product-type.tool";
+		};
 		FD9B8960104D9F050096D791 /* libarchive */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FD9B8965104D9F060096D791 /* Build configuration list for PBXNativeTarget "libarchive" */;
@@ -2374,6 +2448,9 @@
 					CA0BE3222212121B00E93D29 = {
 						CreatedOnToolsVersion = 11.0;
 					};
+					D0A701F82A14286900DA39CA = {
+						CreatedOnToolsVersion = 15.0;
+					};
 					FD22F8AC1D6FA2B50046F7FF = {
 						CreatedOnToolsVersion = 8.0;
 						ProvisioningStyle = Automatic;
@@ -2406,6 +2483,7 @@
 				CA0BDFE2220E69A200E93D29 /* bsdtar_test */,
 				CA0BE0B3220E6CF300E93D29 /* libarchive_test */,
 				CA0BE3222212121B00E93D29 /* bsdcpio_test */,
+				D0A701F82A14286900DA39CA /* entitlement_test */,
 			);
 		};
 /* End PBXProject section */
@@ -2569,6 +2647,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0AC7FC22A3935E800080E13 /* archive_read.c in Sources */,
+				D0AC7FC12A3935DC00080E13 /* archive_read_add_passphrase.c in Sources */,
+				D0AC7FC02A3935BF00080E13 /* archive_check_entitlement.c in Sources */,
+				D0AC7FBF2A3935AB00080E13 /* archive_read_support_filter_program.c in Sources */,
 				CA0BE2D5220E702B00E93D29 /* test_write_disk_secure745.c in Sources */,
 				CA0BE2B1220E702B00E93D29 /* test_write_filter_lzop.c in Sources */,
 				CA0BE1A3220E6E4000E93D29 /* test_read_format_7zip_malformed.c in Sources */,
@@ -2652,7 +2734,6 @@
 				CA0BE2DD220E702B00E93D29 /* test_write_disk_lookup.c in Sources */,
 				CA0BE17E220E6DEA00E93D29 /* test_filter_count.c in Sources */,
 				CA0BE1BA220E6E4000E93D29 /* test_read_format_cpio_bin_bz2.c in Sources */,
-				CA0BE315220E71DA00E93D29 /* archive_read_add_passphrase.c in Sources */,
 				CA0BE2DC220E702B00E93D29 /* test_write_format_iso9660_empty.c in Sources */,
 				CA0BE1B2220E6E4000E93D29 /* test_read_format_cpio_bin_xz.c in Sources */,
 				CA0BE161220E6DEA00E93D29 /* test_archive_write_set_format_option.c in Sources */,
@@ -2762,10 +2843,8 @@
 				CA0BE2CF220E702B00E93D29 /* test_read_too_many_filters.c in Sources */,
 				CA0BE2DE220E702B00E93D29 /* test_read_format_zip_malformed.c in Sources */,
 				CA0BE301220E702B00E93D29 /* test_write_disk_hardlink.c in Sources */,
-				D3B0F14A25CC8E4300E729D9 /* archive_read_support_filter_program.c in Sources */,
 				CA0BE201220E6F8000E93D29 /* test_read_format_isojoliet_bz2.c in Sources */,
 				CA0BE2E4220E702B00E93D29 /* test_warn_missing_hardlink_target.c in Sources */,
-				D3B0F13E25CC8E1F00E729D9 /* archive_read.c in Sources */,
 				CA0BE2C2220E702B00E93D29 /* test_write_format_cpio_newc.c in Sources */,
 				D3B0F18625CC8E8900E729D9 /* filter_fork_posix.c in Sources */,
 				CA0BE204220E6F8000E93D29 /* test_read_format_cpio_svr4_gzip.c in Sources */,
@@ -2931,6 +3010,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D0A701F52A14286900DA39CA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0AC7FC32A3A117600080E13 /* archive_check_entitlement.c in Sources */,
+				D0A701FC2A14286900DA39CA /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FD9B895E104D9F050096D791 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -3029,6 +3117,7 @@
 				FD9B89C1104DC7F10096D791 /* archive_write_open_file.c in Sources */,
 				FD9B89C2104DC7F10096D791 /* archive_write_open_filename.c in Sources */,
 				FD9B89C3104DC7F10096D791 /* archive_write_open_memory.c in Sources */,
+				D0A701C02A0ED98D00DA39CA /* archive_check_entitlement.c in Sources */,
 				FD9B89D1104DC7F10096D791 /* archive_write_set_format.c in Sources */,
 				FD9B89C9104DC7F10096D791 /* archive_write_set_format_ar.c in Sources */,
 				3EE6CF391FA8CFD60018AA21 /* archive_write_add_filter.c in Sources */,
@@ -3112,6 +3201,11 @@
 			isa = PBXTargetDependency;
 			target = CA0BE3222212121B00E93D29 /* bsdcpio_test */;
 			targetProxy = CA0BE38E22121C7900E93D29 /* PBXContainerItemProxy */;
+		};
+		D0F76CF02A213B1000649FE7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D0A701F82A14286900DA39CA /* entitlement_test */;
+			targetProxy = D0F76CEF2A213B1000649FE7 /* PBXContainerItemProxy */;
 		};
 		D34826F525DC7B1500D25C4E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -3206,7 +3300,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx appletvos bridgeos iphoneos watchos";
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/libarchive/tar/test $(SRCROOT) $(SRCROOT)/libarchive/libarchive $(SRCROOT)/libarchive/test_utils";
+				USER_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/libarchive/tar/test",
+					"$(SRCROOT)",
+					"$(SRCROOT)/libarchive/libarchive",
+					"$(SRCROOT)/libarchive/test_utils",
+				);
 				USE_HEADERMAP = NO;
 			};
 			name = Release;
@@ -3267,9 +3366,14 @@
 				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx watchos appletvos bridgeos iphoneos";
+				SUPPORTED_PLATFORMS = "macosx watchos appletvos bridgeos iphoneos watchsimulator";
 				SYSTEM_HEADER_SEARCH_PATHS = "";
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/libarchive/libarchive/test $(SRCROOT) $(SRCROOT)/libarchive/libarchive/** $(SRCROOT)/libarchive/test_utils";
+				USER_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/libarchive/libarchive/test",
+					"$(SRCROOT)",
+					"$(SRCROOT)/libarchive/libarchive/**",
+					"$(SRCROOT)/libarchive/test_utils",
+				);
 				USE_HEADERMAP = NO;
 			};
 			name = Release;
@@ -3329,8 +3433,54 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx appletvos bridgeos iphoneos watchos";
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/libarchive/cpio/test $(SRCROOT) $(SRCROOT)/libarchive/libarchive $(SRCROOT)/libarchive/test_utils $(SRCROOT)/libarchive/libarchive_fe";
+				USER_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/libarchive/cpio/test",
+					"$(SRCROOT)",
+					"$(SRCROOT)/libarchive/libarchive",
+					"$(SRCROOT)/libarchive/test_utils",
+					"$(SRCROOT)/libarchive/libarchive_fe",
+				);
 				USE_HEADERMAP = NO;
+			};
+			name = Release;
+		};
+		D0A701FE2A14286900DA39CA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlement_test/entitlement_test.plist";
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "$(SRCROOT)/entitlement_test/entitlement_test.plist";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/Tests/libarchive;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				USER_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/libarchive/libarchive/**",
+					"$(SRCROOT)/libarchive",
+					"$(SRCROOT)",
+				);
 			};
 			name = Release;
 		};
@@ -3341,6 +3491,7 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "macosx watchos";
 			};
 			name = Release;
 		};
@@ -3351,6 +3502,7 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "macosx watchos";
 			};
 			name = Release;
 		};
@@ -3359,6 +3511,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "macosx watchos watchsimulator";
 			};
 			name = Release;
 		};
@@ -3404,6 +3557,11 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = archive.2;
+				SUPPORTED_PLATFORMS = "macosx watchos watchsimulator";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 			};
 			name = Release;
 		};
@@ -3414,7 +3572,11 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = bsdtar;
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/libarchive/libarchive_fe $(SRCROOT)/libarchive/libarchive";
+				SUPPORTED_PLATFORMS = "macosx watchos";
+				USER_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/libarchive/libarchive_fe",
+					"$(SRCROOT)/libarchive/libarchive",
+				);
 			};
 			name = Release;
 		};
@@ -3423,6 +3585,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = All;
+				SUPPORTED_PLATFORMS = "macosx watchos";
 			};
 			name = Release;
 		};
@@ -3433,7 +3596,11 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = cpio;
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/libarchive/libarchive_fe $(SRCROOT)/libarchive/libarchive";
+				SUPPORTED_PLATFORMS = "macosx watchos watchsimulator";
+				USER_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/libarchive/libarchive_fe",
+					"$(SRCROOT)/libarchive/libarchive",
+				);
 			};
 			name = Release;
 		};
@@ -3445,6 +3612,7 @@
 				PRODUCT_NAME = archive_fe;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "macosx watchos";
 			};
 			name = Release;
 		};
@@ -3471,6 +3639,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				CA0BE3282212121B00E93D29 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D0A701FD2A14286900DA39CA /* Build configuration list for PBXNativeTarget "entitlement_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0A701FE2A14286900DA39CA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

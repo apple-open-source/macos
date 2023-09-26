@@ -28,6 +28,7 @@
 #if ENABLE(SERVICE_WORKER)
 #include "WebSWOriginStore.h"
 
+#include "MessageSenderInlines.h"
 #include "WebSWClientConnectionMessages.h"
 #include "WebSWServerConnection.h"
 #include <WebCore/SecurityOrigin.h>
@@ -86,7 +87,7 @@ void WebSWOriginStore::sendStoreHandle(WebSWServerConnection& connection)
     auto handle = m_store.createSharedMemoryHandle();
     if (!handle)
         return;
-    connection.send(Messages::WebSWClientConnection::SetSWOriginTableSharedMemory(*handle));
+    connection.send(Messages::WebSWClientConnection::SetSWOriginTableSharedMemory(WTFMove(*handle)));
 }
 
 void WebSWOriginStore::didInvalidateSharedMemory()

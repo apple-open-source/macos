@@ -195,6 +195,7 @@ __BEGIN_DECLS
 #define kSecEntitlementPrivateStashService @"com.apple.private.securityd.stash-agent-client"
 #endif
 
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECENTITLEMENTS_H_ */

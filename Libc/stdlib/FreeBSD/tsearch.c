@@ -25,10 +25,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/tsearch.c,v 1.4 2003/01/05 02:43:18 tjr 
 
 /* find or insert datum into search tree */
 void *
-tsearch(vkey, vrootp, compar)
-	const void *vkey;		/* key to be located */
-	void **vrootp;			/* address of tree root */
-	int (*compar)(const void *, const void *);
+tsearch(const void *vkey, void **vrootp,
+    int (*compar)(const void *, const void *))
 {
 	node_t *q;
 	node_t **rootp = (node_t **)vrootp;

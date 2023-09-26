@@ -27,5 +27,4 @@
 
 extern  const CFStringRef kIOHIDEventAttachmentSender;
 
-
 #endif /* IOHIDEventPrivateKeys_h */

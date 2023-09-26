@@ -251,3 +251,6 @@ _xsltCompMatchClearCache
 _xsltDecimalFormatGetByQName
 _xsltFlagRVTs
 _xsltParseStylesheetUser
+
+# Symbols required for LIBXML_API_AVAILABLE_MACOS14_IOS17_WATCHOS10_TVOS17.
+_linkedOnOrAfterFall2023OSVersions

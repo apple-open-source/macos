@@ -765,7 +765,6 @@ hfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	size_t attrsize;
 	void * user_data_ptr = NULL;
 	int result;
-	time_t orig_ctime=VTOC(vp)->c_ctime;
 
 	if (ap->a_name == NULL || ap->a_name[0] == '\0') {
 		return (EINVAL);  /* invalid name */
@@ -782,8 +781,6 @@ hfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 			return result;
 	}
 #endif /* HFS_COMPRESSION */
-
-	nspace_snapshot_event(vp, orig_ctime, NAMESPACE_HANDLER_METADATA_WRITE_OP, NSPACE_REARM_NO_ARG);
 
 	/* Set the Finder Info. */
 	if (strcmp(ap->a_name, XATTR_FINDERINFO_NAME) == 0) {
@@ -1357,7 +1354,6 @@ hfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 	struct BTreeIterator * iterator = NULL;
 	int lockflags;
 	int result;
-	time_t orig_ctime=VTOC(vp)->c_ctime;
 
 	if (ap->a_name == NULL || ap->a_name[0] == '\0') {
 		return (EINVAL);  /* invalid name */
@@ -1372,8 +1368,6 @@ hfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 		return ENOATTR;
 	}
 #endif /* HFS_COMPRESSION */
-
-	nspace_snapshot_event(vp, orig_ctime, NAMESPACE_HANDLER_METADATA_DELETE_OP, NSPACE_REARM_NO_ARG);
 	
 	/* If Resource Fork is non-empty then truncate it. */
 	if (strcmp(ap->a_name, XATTR_RESOURCEFORK_NAME) == 0) {

@@ -48,6 +48,7 @@ void GL_APIENTRY GL_BeginQuery(GLenum target, GLuint id)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_BeginTransformFeedback(GLenum primitiveMode)
@@ -76,6 +77,7 @@ void GL_APIENTRY GL_BeginTransformFeedback(GLenum primitiveMode)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_BindBufferBase(GLenum target, GLuint index, GLuint buffer)
@@ -102,6 +104,7 @@ void GL_APIENTRY GL_BindBufferBase(GLenum target, GLuint index, GLuint buffer)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY
@@ -133,6 +136,7 @@ GL_BindBufferRange(GLenum target, GLuint index, GLuint buffer, GLintptr offset, 
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_BindSampler(GLuint unit, GLuint sampler)
@@ -158,6 +162,7 @@ void GL_APIENTRY GL_BindSampler(GLuint unit, GLuint sampler)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_BindTransformFeedback(GLenum target, GLuint id)
@@ -186,6 +191,7 @@ void GL_APIENTRY GL_BindTransformFeedback(GLenum target, GLuint id)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_BindVertexArray(GLuint array)
@@ -210,6 +216,7 @@ void GL_APIENTRY GL_BindVertexArray(GLuint array)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_BlitFramebuffer(GLint srcX0,
@@ -251,6 +258,7 @@ void GL_APIENTRY GL_BlitFramebuffer(GLint srcX0,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_ClearBufferfi(GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil)
@@ -276,6 +284,7 @@ void GL_APIENTRY GL_ClearBufferfi(GLenum buffer, GLint drawbuffer, GLfloat depth
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_ClearBufferfv(GLenum buffer, GLint drawbuffer, const GLfloat *value)
@@ -301,6 +310,7 @@ void GL_APIENTRY GL_ClearBufferfv(GLenum buffer, GLint drawbuffer, const GLfloat
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_ClearBufferiv(GLenum buffer, GLint drawbuffer, const GLint *value)
@@ -326,6 +336,7 @@ void GL_APIENTRY GL_ClearBufferiv(GLenum buffer, GLint drawbuffer, const GLint *
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_ClearBufferuiv(GLenum buffer, GLint drawbuffer, const GLuint *value)
@@ -351,6 +362,7 @@ void GL_APIENTRY GL_ClearBufferuiv(GLenum buffer, GLint drawbuffer, const GLuint
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 GLenum GL_APIENTRY GL_ClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
@@ -387,6 +399,7 @@ GLenum GL_APIENTRY GL_ClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 tim
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLClientWaitSync, GLenum>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -431,6 +444,7 @@ void GL_APIENTRY GL_CompressedTexImage3D(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_CompressedTexSubImage3D(GLenum target,
@@ -476,6 +490,7 @@ void GL_APIENTRY GL_CompressedTexSubImage3D(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_CopyBufferSubData(GLenum readTarget,
@@ -516,6 +531,7 @@ void GL_APIENTRY GL_CopyBufferSubData(GLenum readTarget,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_CopyTexSubImage3D(GLenum target,
@@ -557,6 +573,7 @@ void GL_APIENTRY GL_CopyTexSubImage3D(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DeleteQueries(GLsizei n, const GLuint *ids)
@@ -571,8 +588,7 @@ void GL_APIENTRY GL_DeleteQueries(GLsizei n, const GLuint *ids)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDeleteQueries) &&
-              ValidateDeleteQueries(context, angle::EntryPoint::GLDeleteQueries, n, idsPacked)));
+             ValidateDeleteQueries(context, angle::EntryPoint::GLDeleteQueries, n, idsPacked));
         if (isCallValid)
         {
             context->deleteQueries(n, idsPacked);
@@ -583,6 +599,7 @@ void GL_APIENTRY GL_DeleteQueries(GLsizei n, const GLuint *ids)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DeleteSamplers(GLsizei count, const GLuint *samplers)
@@ -595,11 +612,9 @@ void GL_APIENTRY GL_DeleteSamplers(GLsizei count, const GLuint *samplers)
     {
         const SamplerID *samplersPacked = PackParam<const SamplerID *>(samplers);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid =
-            (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDeleteSamplers) &&
-              ValidateDeleteSamplers(context, angle::EntryPoint::GLDeleteSamplers, count,
-                                     samplersPacked)));
+        bool isCallValid = (context->skipValidation() ||
+                            ValidateDeleteSamplers(context, angle::EntryPoint::GLDeleteSamplers,
+                                                   count, samplersPacked));
         if (isCallValid)
         {
             context->deleteSamplers(count, samplersPacked);
@@ -610,6 +625,7 @@ void GL_APIENTRY GL_DeleteSamplers(GLsizei count, const GLuint *samplers)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DeleteSync(GLsync sync)
@@ -624,8 +640,7 @@ void GL_APIENTRY GL_DeleteSync(GLsync sync)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDeleteSync) &&
-              ValidateDeleteSync(context, angle::EntryPoint::GLDeleteSync, syncPacked)));
+             ValidateDeleteSync(context, angle::EntryPoint::GLDeleteSync, syncPacked));
         if (isCallValid)
         {
             context->deleteSync(syncPacked);
@@ -636,6 +651,7 @@ void GL_APIENTRY GL_DeleteSync(GLsync sync)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DeleteTransformFeedbacks(GLsizei n, const GLuint *ids)
@@ -650,10 +666,8 @@ void GL_APIENTRY GL_DeleteTransformFeedbacks(GLsizei n, const GLuint *ids)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context,
-                                                angle::EntryPoint::GLDeleteTransformFeedbacks) &&
-              ValidateDeleteTransformFeedbacks(
-                  context, angle::EntryPoint::GLDeleteTransformFeedbacks, n, idsPacked)));
+             ValidateDeleteTransformFeedbacks(
+                 context, angle::EntryPoint::GLDeleteTransformFeedbacks, n, idsPacked));
         if (isCallValid)
         {
             context->deleteTransformFeedbacks(n, idsPacked);
@@ -664,6 +678,7 @@ void GL_APIENTRY GL_DeleteTransformFeedbacks(GLsizei n, const GLuint *ids)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DeleteVertexArrays(GLsizei n, const GLuint *arrays)
@@ -676,11 +691,9 @@ void GL_APIENTRY GL_DeleteVertexArrays(GLsizei n, const GLuint *arrays)
     {
         const VertexArrayID *arraysPacked = PackParam<const VertexArrayID *>(arrays);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid =
-            (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLDeleteVertexArrays) &&
-              ValidateDeleteVertexArrays(context, angle::EntryPoint::GLDeleteVertexArrays, n,
-                                         arraysPacked)));
+        bool isCallValid = (context->skipValidation() ||
+                            ValidateDeleteVertexArrays(
+                                context, angle::EntryPoint::GLDeleteVertexArrays, n, arraysPacked));
         if (isCallValid)
         {
             context->deleteVertexArrays(n, arraysPacked);
@@ -691,6 +704,7 @@ void GL_APIENTRY GL_DeleteVertexArrays(GLsizei n, const GLuint *arrays)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DrawArraysInstanced(GLenum mode,
@@ -722,6 +736,7 @@ void GL_APIENTRY GL_DrawArraysInstanced(GLenum mode,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DrawBuffers(GLsizei n, const GLenum *bufs)
@@ -747,6 +762,7 @@ void GL_APIENTRY GL_DrawBuffers(GLsizei n, const GLenum *bufs)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DrawElementsInstanced(GLenum mode,
@@ -782,6 +798,7 @@ void GL_APIENTRY GL_DrawElementsInstanced(GLenum mode,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_DrawRangeElements(GLenum mode,
@@ -818,6 +835,7 @@ void GL_APIENTRY GL_DrawRangeElements(GLenum mode,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_EndQuery(GLenum target)
@@ -844,6 +862,7 @@ void GL_APIENTRY GL_EndQuery(GLenum target)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_EndTransformFeedback()
@@ -869,6 +888,7 @@ void GL_APIENTRY GL_EndTransformFeedback()
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 GLsync GL_APIENTRY GL_FenceSync(GLenum condition, GLbitfield flags)
@@ -884,8 +904,7 @@ GLsync GL_APIENTRY GL_FenceSync(GLenum condition, GLbitfield flags)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLFenceSync) &&
-              ValidateFenceSync(context, angle::EntryPoint::GLFenceSync, condition, flags)));
+             ValidateFenceSync(context, angle::EntryPoint::GLFenceSync, condition, flags));
         if (isCallValid)
         {
             returnValue = context->fenceSync(condition, flags);
@@ -901,6 +920,7 @@ GLsync GL_APIENTRY GL_FenceSync(GLenum condition, GLbitfield flags)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLFenceSync, GLsync>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -918,10 +938,8 @@ void GL_APIENTRY GL_FlushMappedBufferRange(GLenum target, GLintptr offset, GLsiz
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context,
-                                                angle::EntryPoint::GLFlushMappedBufferRange) &&
-              ValidateFlushMappedBufferRange(context, angle::EntryPoint::GLFlushMappedBufferRange,
-                                             targetPacked, offset, length)));
+             ValidateFlushMappedBufferRange(context, angle::EntryPoint::GLFlushMappedBufferRange,
+                                            targetPacked, offset, length));
         if (isCallValid)
         {
             context->flushMappedBufferRange(targetPacked, offset, length);
@@ -933,6 +951,7 @@ void GL_APIENTRY GL_FlushMappedBufferRange(GLenum target, GLintptr offset, GLsiz
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_FramebufferTextureLayer(GLenum target,
@@ -968,6 +987,7 @@ void GL_APIENTRY GL_FramebufferTextureLayer(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GenQueries(GLsizei n, GLuint *ids)
@@ -982,8 +1002,7 @@ void GL_APIENTRY GL_GenQueries(GLsizei n, GLuint *ids)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLGenQueries) &&
-              ValidateGenQueries(context, angle::EntryPoint::GLGenQueries, n, idsPacked)));
+             ValidateGenQueries(context, angle::EntryPoint::GLGenQueries, n, idsPacked));
         if (isCallValid)
         {
             context->genQueries(n, idsPacked);
@@ -994,6 +1013,7 @@ void GL_APIENTRY GL_GenQueries(GLsizei n, GLuint *ids)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GenSamplers(GLsizei count, GLuint *samplers)
@@ -1008,9 +1028,7 @@ void GL_APIENTRY GL_GenSamplers(GLsizei count, GLuint *samplers)
         SCOPED_SHARE_CONTEXT_LOCK(context);
         bool isCallValid =
             (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLGenSamplers) &&
-              ValidateGenSamplers(context, angle::EntryPoint::GLGenSamplers, count,
-                                  samplersPacked)));
+             ValidateGenSamplers(context, angle::EntryPoint::GLGenSamplers, count, samplersPacked));
         if (isCallValid)
         {
             context->genSamplers(count, samplersPacked);
@@ -1021,6 +1039,7 @@ void GL_APIENTRY GL_GenSamplers(GLsizei count, GLuint *samplers)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GenTransformFeedbacks(GLsizei n, GLuint *ids)
@@ -1033,12 +1052,9 @@ void GL_APIENTRY GL_GenTransformFeedbacks(GLsizei n, GLuint *ids)
     {
         TransformFeedbackID *idsPacked = PackParam<TransformFeedbackID *>(ids);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid =
-            (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context,
-                                                angle::EntryPoint::GLGenTransformFeedbacks) &&
-              ValidateGenTransformFeedbacks(context, angle::EntryPoint::GLGenTransformFeedbacks, n,
-                                            idsPacked)));
+        bool isCallValid = (context->skipValidation() ||
+                            ValidateGenTransformFeedbacks(
+                                context, angle::EntryPoint::GLGenTransformFeedbacks, n, idsPacked));
         if (isCallValid)
         {
             context->genTransformFeedbacks(n, idsPacked);
@@ -1049,6 +1065,7 @@ void GL_APIENTRY GL_GenTransformFeedbacks(GLsizei n, GLuint *ids)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GenVertexArrays(GLsizei n, GLuint *arrays)
@@ -1061,11 +1078,9 @@ void GL_APIENTRY GL_GenVertexArrays(GLsizei n, GLuint *arrays)
     {
         VertexArrayID *arraysPacked = PackParam<VertexArrayID *>(arrays);
         SCOPED_SHARE_CONTEXT_LOCK(context);
-        bool isCallValid =
-            (context->skipValidation() ||
-             (ValidatePixelLocalStorageInactive(context, angle::EntryPoint::GLGenVertexArrays) &&
-              ValidateGenVertexArrays(context, angle::EntryPoint::GLGenVertexArrays, n,
-                                      arraysPacked)));
+        bool isCallValid = (context->skipValidation() ||
+                            ValidateGenVertexArrays(context, angle::EntryPoint::GLGenVertexArrays,
+                                                    n, arraysPacked));
         if (isCallValid)
         {
             context->genVertexArrays(n, arraysPacked);
@@ -1076,6 +1091,7 @@ void GL_APIENTRY GL_GenVertexArrays(GLsizei n, GLuint *arrays)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetActiveUniformBlockName(GLuint program,
@@ -1114,6 +1130,7 @@ void GL_APIENTRY GL_GetActiveUniformBlockName(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetActiveUniformBlockiv(GLuint program,
@@ -1148,6 +1165,7 @@ void GL_APIENTRY GL_GetActiveUniformBlockiv(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetActiveUniformsiv(GLuint program,
@@ -1183,6 +1201,7 @@ void GL_APIENTRY GL_GetActiveUniformsiv(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetBufferParameteri64v(GLenum target, GLenum pname, GLint64 *params)
@@ -1211,6 +1230,7 @@ void GL_APIENTRY GL_GetBufferParameteri64v(GLenum target, GLenum pname, GLint64 
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetBufferPointerv(GLenum target, GLenum pname, void **params)
@@ -1239,6 +1259,7 @@ void GL_APIENTRY GL_GetBufferPointerv(GLenum target, GLenum pname, void **params
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 GLint GL_APIENTRY GL_GetFragDataLocation(GLuint program, const GLchar *name)
@@ -1272,6 +1293,7 @@ GLint GL_APIENTRY GL_GetFragDataLocation(GLuint program, const GLchar *name)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLGetFragDataLocation, GLint>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -1298,6 +1320,7 @@ void GL_APIENTRY GL_GetInteger64i_v(GLenum target, GLuint index, GLint64 *data)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetInteger64v(GLenum pname, GLint64 *data)
@@ -1322,6 +1345,7 @@ void GL_APIENTRY GL_GetInteger64v(GLenum pname, GLint64 *data)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetIntegeri_v(GLenum target, GLuint index, GLint *data)
@@ -1347,6 +1371,7 @@ void GL_APIENTRY GL_GetIntegeri_v(GLenum target, GLuint index, GLint *data)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetInternalformativ(GLenum target,
@@ -1381,6 +1406,7 @@ void GL_APIENTRY GL_GetInternalformativ(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetProgramBinary(GLuint program,
@@ -1415,6 +1441,7 @@ void GL_APIENTRY GL_GetProgramBinary(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetQueryObjectuiv(GLuint id, GLenum pname, GLuint *params)
@@ -1442,6 +1469,7 @@ void GL_APIENTRY GL_GetQueryObjectuiv(GLuint id, GLenum pname, GLuint *params)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetQueryiv(GLenum target, GLenum pname, GLint *params)
@@ -1469,6 +1497,7 @@ void GL_APIENTRY GL_GetQueryiv(GLenum target, GLenum pname, GLint *params)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetSamplerParameterfv(GLuint sampler, GLenum pname, GLfloat *params)
@@ -1496,6 +1525,7 @@ void GL_APIENTRY GL_GetSamplerParameterfv(GLuint sampler, GLenum pname, GLfloat 
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetSamplerParameteriv(GLuint sampler, GLenum pname, GLint *params)
@@ -1523,6 +1553,7 @@ void GL_APIENTRY GL_GetSamplerParameteriv(GLuint sampler, GLenum pname, GLint *p
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 const GLubyte *GL_APIENTRY GL_GetStringi(GLenum name, GLuint index)
@@ -1553,6 +1584,7 @@ const GLubyte *GL_APIENTRY GL_GetStringi(GLenum name, GLuint index)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLGetStringi, const GLubyte *>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -1582,6 +1614,7 @@ GL_GetSynciv(GLsync sync, GLenum pname, GLsizei count, GLsizei *length, GLint *v
     else
     {
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetTransformFeedbackVarying(GLuint program,
@@ -1619,6 +1652,7 @@ void GL_APIENTRY GL_GetTransformFeedbackVarying(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 GLuint GL_APIENTRY GL_GetUniformBlockIndex(GLuint program, const GLchar *uniformBlockName)
@@ -1654,6 +1688,7 @@ GLuint GL_APIENTRY GL_GetUniformBlockIndex(GLuint program, const GLchar *uniform
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLGetUniformBlockIndex, GLuint>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -1687,6 +1722,7 @@ void GL_APIENTRY GL_GetUniformIndices(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetUniformuiv(GLuint program, GLint location, GLuint *params)
@@ -1715,6 +1751,7 @@ void GL_APIENTRY GL_GetUniformuiv(GLuint program, GLint location, GLuint *params
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetVertexAttribIiv(GLuint index, GLenum pname, GLint *params)
@@ -1741,6 +1778,7 @@ void GL_APIENTRY GL_GetVertexAttribIiv(GLuint index, GLenum pname, GLint *params
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_GetVertexAttribIuiv(GLuint index, GLenum pname, GLuint *params)
@@ -1767,6 +1805,7 @@ void GL_APIENTRY GL_GetVertexAttribIuiv(GLuint index, GLenum pname, GLuint *para
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_InvalidateFramebuffer(GLenum target,
@@ -1799,6 +1838,7 @@ void GL_APIENTRY GL_InvalidateFramebuffer(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_InvalidateSubFramebuffer(GLenum target,
@@ -1837,6 +1877,7 @@ void GL_APIENTRY GL_InvalidateSubFramebuffer(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 GLboolean GL_APIENTRY GL_IsQuery(GLuint id)
@@ -1866,6 +1907,7 @@ GLboolean GL_APIENTRY GL_IsQuery(GLuint id)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLIsQuery, GLboolean>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -1897,6 +1939,7 @@ GLboolean GL_APIENTRY GL_IsSampler(GLuint sampler)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLIsSampler, GLboolean>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -1928,6 +1971,7 @@ GLboolean GL_APIENTRY GL_IsSync(GLsync sync)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLIsSync, GLboolean>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -1960,6 +2004,7 @@ GLboolean GL_APIENTRY GL_IsTransformFeedback(GLuint id)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLIsTransformFeedback, GLboolean>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -1991,6 +2036,7 @@ GLboolean GL_APIENTRY GL_IsVertexArray(GLuint array)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLIsVertexArray, GLboolean>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -2030,6 +2076,7 @@ void *GL_APIENTRY GL_MapBufferRange(GLenum target,
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLMapBufferRange, void *>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -2056,6 +2103,7 @@ void GL_APIENTRY GL_PauseTransformFeedback()
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_ProgramBinary(GLuint program,
@@ -2089,6 +2137,7 @@ void GL_APIENTRY GL_ProgramBinary(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_ProgramParameteri(GLuint program, GLenum pname, GLint value)
@@ -2116,6 +2165,7 @@ void GL_APIENTRY GL_ProgramParameteri(GLuint program, GLenum pname, GLint value)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_ReadBuffer(GLenum src)
@@ -2141,6 +2191,7 @@ void GL_APIENTRY GL_ReadBuffer(GLenum src)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_RenderbufferStorageMultisample(GLenum target,
@@ -2175,6 +2226,7 @@ void GL_APIENTRY GL_RenderbufferStorageMultisample(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_ResumeTransformFeedback()
@@ -2200,6 +2252,7 @@ void GL_APIENTRY GL_ResumeTransformFeedback()
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_SamplerParameterf(GLuint sampler, GLenum pname, GLfloat param)
@@ -2226,6 +2279,7 @@ void GL_APIENTRY GL_SamplerParameterf(GLuint sampler, GLenum pname, GLfloat para
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_SamplerParameterfv(GLuint sampler, GLenum pname, const GLfloat *param)
@@ -2253,6 +2307,7 @@ void GL_APIENTRY GL_SamplerParameterfv(GLuint sampler, GLenum pname, const GLflo
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_SamplerParameteri(GLuint sampler, GLenum pname, GLint param)
@@ -2279,6 +2334,7 @@ void GL_APIENTRY GL_SamplerParameteri(GLuint sampler, GLenum pname, GLint param)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_SamplerParameteriv(GLuint sampler, GLenum pname, const GLint *param)
@@ -2306,6 +2362,7 @@ void GL_APIENTRY GL_SamplerParameteriv(GLuint sampler, GLenum pname, const GLint
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_TexImage3D(GLenum target,
@@ -2349,6 +2406,7 @@ void GL_APIENTRY GL_TexImage3D(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY
@@ -2380,6 +2438,7 @@ GL_TexStorage2D(GLenum target, GLsizei levels, GLenum internalformat, GLsizei wi
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_TexStorage3D(GLenum target,
@@ -2416,6 +2475,7 @@ void GL_APIENTRY GL_TexStorage3D(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_TexSubImage3D(GLenum target,
@@ -2460,6 +2520,7 @@ void GL_APIENTRY GL_TexSubImage3D(GLenum target,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_TransformFeedbackVaryings(GLuint program,
@@ -2494,6 +2555,7 @@ void GL_APIENTRY GL_TransformFeedbackVaryings(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_Uniform1ui(GLint location, GLuint v0)
@@ -2519,6 +2581,7 @@ void GL_APIENTRY GL_Uniform1ui(GLint location, GLuint v0)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_Uniform1uiv(GLint location, GLsizei count, const GLuint *value)
@@ -2545,6 +2608,7 @@ void GL_APIENTRY GL_Uniform1uiv(GLint location, GLsizei count, const GLuint *val
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_Uniform2ui(GLint location, GLuint v0, GLuint v1)
@@ -2570,6 +2634,7 @@ void GL_APIENTRY GL_Uniform2ui(GLint location, GLuint v0, GLuint v1)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_Uniform2uiv(GLint location, GLsizei count, const GLuint *value)
@@ -2596,6 +2661,7 @@ void GL_APIENTRY GL_Uniform2uiv(GLint location, GLsizei count, const GLuint *val
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_Uniform3ui(GLint location, GLuint v0, GLuint v1, GLuint v2)
@@ -2621,6 +2687,7 @@ void GL_APIENTRY GL_Uniform3ui(GLint location, GLuint v0, GLuint v1, GLuint v2)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_Uniform3uiv(GLint location, GLsizei count, const GLuint *value)
@@ -2647,6 +2714,7 @@ void GL_APIENTRY GL_Uniform3uiv(GLint location, GLsizei count, const GLuint *val
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_Uniform4ui(GLint location, GLuint v0, GLuint v1, GLuint v2, GLuint v3)
@@ -2672,6 +2740,7 @@ void GL_APIENTRY GL_Uniform4ui(GLint location, GLuint v0, GLuint v1, GLuint v2, 
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_Uniform4uiv(GLint location, GLsizei count, const GLuint *value)
@@ -2698,6 +2767,7 @@ void GL_APIENTRY GL_Uniform4uiv(GLint location, GLsizei count, const GLuint *val
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_UniformBlockBinding(GLuint program,
@@ -2730,6 +2800,7 @@ void GL_APIENTRY GL_UniformBlockBinding(GLuint program,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_UniformMatrix2x3fv(GLint location,
@@ -2761,6 +2832,7 @@ void GL_APIENTRY GL_UniformMatrix2x3fv(GLint location,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_UniformMatrix2x4fv(GLint location,
@@ -2792,6 +2864,7 @@ void GL_APIENTRY GL_UniformMatrix2x4fv(GLint location,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_UniformMatrix3x2fv(GLint location,
@@ -2823,6 +2896,7 @@ void GL_APIENTRY GL_UniformMatrix3x2fv(GLint location,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_UniformMatrix3x4fv(GLint location,
@@ -2854,6 +2928,7 @@ void GL_APIENTRY GL_UniformMatrix3x4fv(GLint location,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_UniformMatrix4x2fv(GLint location,
@@ -2885,6 +2960,7 @@ void GL_APIENTRY GL_UniformMatrix4x2fv(GLint location,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_UniformMatrix4x3fv(GLint location,
@@ -2916,6 +2992,7 @@ void GL_APIENTRY GL_UniformMatrix4x3fv(GLint location,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 GLboolean GL_APIENTRY GL_UnmapBuffer(GLenum target)
@@ -2947,6 +3024,7 @@ GLboolean GL_APIENTRY GL_UnmapBuffer(GLenum target)
         GenerateContextLostErrorOnCurrentGlobalContext();
         returnValue = GetDefaultReturnValue<angle::EntryPoint::GLUnmapBuffer, GLboolean>();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
     return returnValue;
 }
 
@@ -2972,6 +3050,7 @@ void GL_APIENTRY GL_VertexAttribDivisor(GLuint index, GLuint divisor)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_VertexAttribI4i(GLuint index, GLint x, GLint y, GLint z, GLint w)
@@ -2996,6 +3075,7 @@ void GL_APIENTRY GL_VertexAttribI4i(GLuint index, GLint x, GLint y, GLint z, GLi
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_VertexAttribI4iv(GLuint index, const GLint *v)
@@ -3020,6 +3100,7 @@ void GL_APIENTRY GL_VertexAttribI4iv(GLuint index, const GLint *v)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_VertexAttribI4ui(GLuint index, GLuint x, GLuint y, GLuint z, GLuint w)
@@ -3044,6 +3125,7 @@ void GL_APIENTRY GL_VertexAttribI4ui(GLuint index, GLuint x, GLuint y, GLuint z,
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_VertexAttribI4uiv(GLuint index, const GLuint *v)
@@ -3068,6 +3150,7 @@ void GL_APIENTRY GL_VertexAttribI4uiv(GLuint index, const GLuint *v)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY
@@ -3099,6 +3182,7 @@ GL_VertexAttribIPointer(GLuint index, GLint size, GLenum type, GLsizei stride, c
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 void GL_APIENTRY GL_WaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
@@ -3128,6 +3212,7 @@ void GL_APIENTRY GL_WaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
     {
         GenerateContextLostErrorOnCurrentGlobalContext();
     }
+    ASSERT(!egl::Display::GetCurrentThreadUnlockedTailCall()->any());
 }
 
 }  // extern "C"

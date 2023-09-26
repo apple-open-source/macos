@@ -43,12 +43,12 @@
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/RegistrableDomain.h>
+#include <WebCore/SWServerDelegate.h>
 #include <pal/SessionID.h>
 #include <wtf/HashSet.h>
 #include <wtf/Ref.h>
 #include <wtf/Seconds.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
-#include <wtf/UUID.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
@@ -59,11 +59,11 @@ class NetworkStorageSession;
 class ResourceRequest;
 class ResourceError;
 class SWServer;
+class SecurityOriginData;
+enum class AdvancedPrivacyProtections : uint16_t;
 enum class IncludeHttpOnlyCookies : bool;
-enum class NetworkConnectionIntegrity : uint8_t;
 enum class ShouldSample : bool;
 struct ClientOrigin;
-struct SecurityOriginData;
 }
 
 namespace WTF {
@@ -71,7 +71,7 @@ enum class Critical : bool;
 }
 
 namespace WebKit {
-
+class BackgroundFetchStoreImpl;
 class NetworkBroadcastChannelRegistry;
 class NetworkDataTask;
 class NetworkLoadScheduler;
@@ -86,6 +86,7 @@ class WebSharedWorkerServer;
 class WebSocketTask;
 class WebSWOriginStore;
 class WebSWServerConnection;
+struct BackgroundFetchState;
 struct NetworkSessionCreationParameters;
 struct SessionSet;
 
@@ -99,25 +100,32 @@ namespace NetworkCache {
 class Cache;
 }
 
-class NetworkSession : public CanMakeWeakPtr<NetworkSession> {
+class NetworkSession
+#if ENABLE(SERVICE_WORKER)
+    : public WebCore::SWServerDelegate {
+#else
+    : public CanMakeWeakPtr<NetworkSession> {
+#endif
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static std::unique_ptr<NetworkSession> create(NetworkProcess&, const NetworkSessionCreationParameters&);
     virtual ~NetworkSession();
 
     virtual void invalidateAndCancel();
-    virtual void clearCredentials() { };
     virtual bool shouldLogCookieInformation() const { return false; }
     virtual Vector<WebCore::SecurityOriginData> hostNamesWithAlternativeServices() const { return { }; }
     virtual void deleteAlternativeServicesForHostNames(const Vector<String>&) { }
     virtual void clearAlternativeServices(WallTime) { }
+    virtual HashSet<WebCore::SecurityOriginData> originsWithCredentials() { return { }; }
+    virtual void removeCredentialsForOrigins(const Vector<WebCore::SecurityOriginData>&) { }
+    virtual void clearCredentials(WallTime) { }
 
     PAL::SessionID sessionID() const { return m_sessionID; }
-    std::optional<UUID> dataStoreIdentifier() const { return m_dataStoreIdentifier; }
     NetworkProcess& networkProcess() { return m_networkProcess; }
     WebCore::NetworkStorageSession* networkStorageSession() const;
 
     void registerNetworkDataTask(NetworkDataTask&);
+    void unregisterNetworkDataTask(NetworkDataTask&);
 
     void destroyPrivateClickMeasurementStore(CompletionHandler<void()>&&);
 
@@ -182,7 +190,7 @@ public:
     PrefetchCache& prefetchCache() { return m_prefetchCache; }
     void clearPrefetchCache() { m_prefetchCache.clear(); }
 
-    virtual std::unique_ptr<WebSocketTask> createWebSocketTask(WebPageProxyIdentifier, std::optional<WebCore::FrameIdentifier>, std::optional<WebCore::PageIdentifier>, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&, bool hadMainFrameMainResourcePrivateRelayed, bool allowPrivacyProxy, OptionSet<WebCore::NetworkConnectionIntegrity>, WebCore::ShouldRelaxThirdPartyCookieBlocking, WebCore::StoredCredentialsPolicy);
+    virtual std::unique_ptr<WebSocketTask> createWebSocketTask(WebPageProxyIdentifier, std::optional<WebCore::FrameIdentifier>, std::optional<WebCore::PageIdentifier>, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&, bool hadMainFrameMainResourcePrivateRelayed, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections>, WebCore::ShouldRelaxThirdPartyCookieBlocking, WebCore::StoredCredentialsPolicy);
     virtual void removeWebSocketTask(SessionSet&, WebSocketTask&) { }
     virtual void addWebSocketTask(WebPageProxyIdentifier, WebSocketTask&) { }
 
@@ -198,7 +206,6 @@ public:
     void lowMemoryHandler(WTF::Critical);
 
 #if ENABLE(SERVICE_WORKER)
-    void addSoftUpdateLoader(std::unique_ptr<ServiceWorkerSoftUpdateLoader>&& loader) { m_softUpdateLoaders.add(WTFMove(loader)); }
     void removeSoftUpdateLoader(ServiceWorkerSoftUpdateLoader* loader) { m_softUpdateLoaders.remove(loader); }
     void addNavigationPreloaderTask(ServiceWorkerFetchTask&);
     ServiceWorkerFetchTask* navigationPreloaderTaskFromFetchIdentifier(WebCore::FetchIdentifier);
@@ -211,6 +218,13 @@ public:
     void unregisterSWServerConnection(WebSWServerConnection&);
 
     bool hasServiceWorkerDatabasePath() const;
+
+    void getAllBackgroundFetchIdentifiers(CompletionHandler<void(Vector<String>&&)>&&);
+    void getBackgroundFetchState(const String&, CompletionHandler<void(std::optional<BackgroundFetchState>&&)>&&);
+    void abortBackgroundFetch(const String&, CompletionHandler<void()>&&);
+    void pauseBackgroundFetch(const String&, CompletionHandler<void()>&&);
+    void resumeBackgroundFetch(const String&, CompletionHandler<void()>&&);
+    void clickBackgroundFetch(const String&, CompletionHandler<void()>&&);
 #endif
 
     WebSharedWorkerServer* sharedWorkerServer() { return m_sharedWorkerServer.get(); }
@@ -254,11 +268,15 @@ public:
 #endif
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+    std::optional<int64_t> bytesPerSecondLimit() const { return m_bytesPerSecondLimit; }
     void setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit);
 #endif
 
-    static bool needsAdditionalNetworkConnectionIntegritySettings(const WebCore::ResourceRequest&);
-
+#if HAVE(NW_PROXY_CONFIG)
+    virtual void clearProxyConfigData() { }
+    virtual void setProxyConfigData(Vector<std::pair<Vector<uint8_t>, WTF::UUID>>&&) { };
+#endif
+                                    
 protected:
     NetworkSession(NetworkProcess&, const NetworkSessionCreationParameters&);
 
@@ -266,8 +284,21 @@ protected:
     void forwardResourceLoadStatisticsSettings();
 #endif
 
+#if ENABLE(SERVICE_WORKER)
+    // SWServerDelegate
+    void softUpdate(WebCore::ServiceWorkerJobData&&, bool shouldRefreshCache, WebCore::ResourceRequest&&, CompletionHandler<void(WebCore::WorkerFetchResult&&)>&&) final;
+    void createContextConnection(const WebCore::RegistrableDomain&, std::optional<WebCore::ProcessIdentifier>, std::optional<WebCore::ScriptExecutionContextIdentifier>, CompletionHandler<void()>&&) final;
+    void appBoundDomains(CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&) final;
+    void addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier, std::optional<WebCore::ProcessIdentifier>, WebCore::RegistrableDomain&&) final;
+    std::unique_ptr<WebCore::SWRegistrationStore> createUniqueRegistrationStore(WebCore::SWServer&) final;
+    void requestBackgroundFetchPermission(const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&) final;
+    std::unique_ptr<WebCore::BackgroundFetchRecordLoader> createBackgroundFetchRecordLoader(WebCore::BackgroundFetchRecordLoader::Client&, const WebCore::BackgroundFetchRequest&, size_t responseDataSize, const WebCore::ClientOrigin&) final;
+    Ref<WebCore::BackgroundFetchStore> createBackgroundFetchStore() final;
+
+    BackgroundFetchStoreImpl& ensureBackgroundFetchStore();
+#endif // ENABLE(SERVICE_WORKER)
+
     PAL::SessionID m_sessionID;
-    std::optional<UUID> m_dataStoreIdentifier;
     Ref<NetworkProcess> m_networkProcess;
     ThreadSafeWeakHashSet<NetworkDataTask> m_dataTaskSet;
 #if ENABLE(TRACKING_PREVENTION)
@@ -329,6 +360,7 @@ protected:
     };
     std::optional<ServiceWorkerInfo> m_serviceWorkerInfo;
     std::unique_ptr<WebCore::SWServer> m_swServer;
+    RefPtr<BackgroundFetchStoreImpl> m_backgroundFetchStore;
 #endif
     std::unique_ptr<WebSharedWorkerServer> m_sharedWorkerServer;
 

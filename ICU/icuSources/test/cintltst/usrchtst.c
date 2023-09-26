@@ -14,16 +14,18 @@
 
 #if !UCONFIG_NO_COLLATION && !UCONFIG_NO_BREAK_ITERATION && !UCONFIG_NO_FILE_IO
 
+#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+
 #include "unicode/usearch.h"
 #include "unicode/ustring.h"
 #include "ccolltst.h"
 #include "cmemory.h"
-#include <stdio.h>
 #include "usrchdat.c"
 #include "unicode/ubrk.h"
-#include <assert.h>
 
-static UBool      TOCLOSE_ = TRUE;
+static UBool      TOCLOSE_ = true;
 static UCollator *EN_US_; 
 static UCollator *FR_FR_;
 static UCollator *DE_;
@@ -34,7 +36,7 @@ static UCollator *ES_;
  *     Test if a break iterator is passed in AND break iteration is disabled. 
  *     Skip the test if so.
  * CHECK_BREAK_BOOL(char *brk)
- *     Same as above, but returns 'TRUE' as a passing result
+ *     Same as above, but returns 'true' as a passing result
  */
 
 #if !UCONFIG_NO_BREAK_ITERATION
@@ -44,7 +46,7 @@ static UBreakIterator *EN_CHARACTERBREAKER_;
 #define CHECK_BREAK_BOOL(x)
 #else
 #define CHECK_BREAK(x)  if(x) { log_info("Skipping test on %s:%d because UCONFIG_NO_BREAK_ITERATION is on\n", __FILE__, __LINE__); return; }
-#define CHECK_BREAK_BOOL(x)  if(x) { log_info("Skipping test on %s:%d because UCONFIG_NO_BREAK_ITERATION is on\n", __FILE__, __LINE__); return TRUE; }
+#define CHECK_BREAK_BOOL(x)  if(x) { log_info("Skipping test on %s:%d because UCONFIG_NO_BREAK_ITERATION is on\n", __FILE__, __LINE__); return true; }
 #endif
 
 /**
@@ -84,7 +86,7 @@ static void open(UErrorCode* status)
         EN_CHARACTERBREAKER_ = ubrk_open(UBRK_CHARACTER, "en_US", NULL, 0, 
                                         status);
 #endif
-        TOCLOSE_ = TRUE;
+        TOCLOSE_ = true;
     }
 }
 
@@ -99,7 +101,7 @@ static void TestStart(void)
         log_err_status(status, "Unable to open static collators %s\n", u_errorName(status));
         return;
     }
-    TOCLOSE_ = FALSE;
+    TOCLOSE_ = false;
 }
 
 /**
@@ -117,7 +119,7 @@ static void close(void)
         ubrk_close(EN_CHARACTERBREAKER_);
 #endif
     }
-    TOCLOSE_ = FALSE;
+    TOCLOSE_ = false;
 }
 
 /**
@@ -125,9 +127,9 @@ static void close(void)
 */
 static void TestEnd(void)
 {
-    TOCLOSE_ = TRUE;
+    TOCLOSE_ = true;
     close();
-    TOCLOSE_ = TRUE;
+    TOCLOSE_ = true;
 }
 
 /**
@@ -359,7 +361,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
     usearch_setAttribute(strsrch, USEARCH_ELEMENT_COMPARISON, search.elemCompare, &status);
     if (U_FAILURE(status)) {
         log_err("Error setting USEARCH_ELEMENT_COMPARISON attribute %s\n", u_errorName(status));
-        return FALSE;
+        return false;
     }
 
     if (usearch_getMatchedStart(strsrch) != USEARCH_DONE ||
@@ -379,7 +381,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
             log_err("Error next match found at idx %d (len:%d); expected %d (len:%d)\n", 
                     usearch_getMatchedStart(strsrch), usearch_getMatchedLength(strsrch),
                     matchindex, matchlength);
-            return FALSE;
+            return false;
         }
         count ++;
         
@@ -403,7 +405,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
         log_err("Error next match found at %d (len:%d); expected <NO MATCH>\n", 
                     usearch_getMatchedStart(strsrch), 
                     usearch_getMatchedLength(strsrch));
-        return FALSE;
+        return false;
     }
     /* start of previous matches */
     count = count == 0 ? 0 : count - 1;
@@ -421,7 +423,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
             log_err("Error previous match found at %d (len:%d); expected %d (len:%d)\n", 
                     usearch_getMatchedStart(strsrch), usearch_getMatchedLength(strsrch),
                     matchindex, matchlength);
-            return FALSE;
+            return false;
         }
         
         if (usearch_getMatchedText(strsrch, matchtext, 128, &status) !=
@@ -445,7 +447,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
         log_err("Error previous match found at %d (len:%d); expected <NO MATCH>\n", 
                     usearch_getMatchedStart(strsrch), 
                     usearch_getMatchedLength(strsrch));
-        return FALSE;
+        return false;
     }
 
 
@@ -456,7 +458,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
     matchindex  = search.offset[count];
     nextStart = 0;
 
-    while (TRUE) {
+    while (true) {
         usearch_following(strsrch, nextStart, &status);
 
         if (matchindex < 0) {
@@ -469,7 +471,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
                             nextStart, isOverlap,
                             usearch_getMatchedStart(strsrch), 
                             usearch_getMatchedLength(strsrch));
-                return FALSE;
+                return false;
             }
             /* no more matches */
             break;
@@ -487,7 +489,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
                         nextStart, isOverlap,
                         usearch_getMatchedStart(strsrch), usearch_getMatchedLength(strsrch),
                         matchindex, matchlength);
-            return FALSE;
+            return false;
         }
 
         if (isOverlap || usearch_getMatchedLength(strsrch) == 0) {
@@ -507,7 +509,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
     }
     usearch_getText(strsrch, &nextStart);
 
-    while (TRUE) {
+    while (true) {
         usearch_preceding(strsrch, nextStart, &status);
 
         if (count < 0) {
@@ -520,7 +522,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
                             nextStart, isOverlap,
                             usearch_getMatchedStart(strsrch), 
                             usearch_getMatchedLength(strsrch));
-                return FALSE;
+                return false;
             }
             /* no more matches */
             break;
@@ -539,7 +541,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
                         nextStart, isOverlap,
                         usearch_getMatchedStart(strsrch), usearch_getMatchedLength(strsrch),
                         matchindex, matchlength);
-            return FALSE;
+            return false;
         }
 
         nextStart = matchindex;
@@ -547,7 +549,7 @@ static UBool assertEqualWithUStringSearch(      UStringSearch *strsrch,
     }
 
     usearch_setAttribute(strsrch, USEARCH_ELEMENT_COMPARISON, USEARCH_STANDARD_ELEMENT_COMPARISON, &status);
-    return TRUE;
+    return true;
 }
 
 static UBool assertEqual(const SearchData search)
@@ -568,17 +570,17 @@ static UBool assertEqual(const SearchData search)
                                        breaker, &status);
     if (U_FAILURE(status)) {
         log_err("Error opening string search %s\n", u_errorName(status));
-        return FALSE;
+        return false;
     }   
     
     if (!assertEqualWithUStringSearch(strsrch, search)) {
         ucol_setStrength(collator, UCOL_TERTIARY);
         usearch_close(strsrch);
-        return FALSE;
+        return false;
     }
     ucol_setStrength(collator, UCOL_TERTIARY);
     usearch_close(strsrch);
-    return TRUE;
+    return true;
 }
 
 static UBool assertCanonicalEqual(const SearchData search)
@@ -589,7 +591,7 @@ static UBool assertCanonicalEqual(const SearchData search)
     UCollator      *collator = getCollator(search.collator);
     UBreakIterator *breaker  = getBreakIterator(search.breaker);
     UStringSearch  *strsrch; 
-    UBool           result = TRUE;
+    UBool           result = true;
     
     CHECK_BREAK_BOOL(search.breaker);
     u_unescape(search.text, text, 128);
@@ -602,14 +604,14 @@ static UBool assertCanonicalEqual(const SearchData search)
                          &status);
     if (U_FAILURE(status)) {
         log_err("Error opening string search %s\n", u_errorName(status));
-        result = FALSE;
+        result = false;
         goto bail;
     }   
     
     if (!assertEqualWithUStringSearch(strsrch, search)) {
         ucol_setStrength(collator, UCOL_TERTIARY);
         usearch_close(strsrch);
-        result = FALSE;
+        result = false;
         goto bail;
     }
 
@@ -643,17 +645,17 @@ static UBool assertEqualWithAttribute(const SearchData            search,
     
     if (U_FAILURE(status)) {
         log_err("Error opening string search %s\n", u_errorName(status));
-        return FALSE;
+        return false;
     }   
     
     if (!assertEqualWithUStringSearch(strsrch, search)) {
             ucol_setStrength(collator, UCOL_TERTIARY);
             usearch_close(strsrch);
-            return FALSE;
+            return false;
     }
     ucol_setStrength(collator, UCOL_TERTIARY);
     usearch_close(strsrch);
-    return TRUE;
+    return true;
 }
 
 static void TestBasic(void) 
@@ -1767,7 +1769,7 @@ static void TestDiacriticMatch(void)
     search = DIACRITICMATCH[count];
     while (search.text != NULL) {
         if (search.collator != NULL) {
-            coll = ucol_openFromShortString(search.collator, FALSE, NULL, &status);
+            coll = ucol_openFromShortString(search.collator, false, NULL, &status);
         } else {
             /* Always use "en_US" because some of these tests fail in Danish locales. */
             coll = ucol_open("en_US"/*uloc_getDefault()*/, &status);
@@ -2673,7 +2675,10 @@ typedef struct {
     const UChar *   pattern;
     const int32_t * offsets;
     int32_t         offsetsLen;
+#if APPLE_ICU_CHANGES
+// rdar://
     const int32_t * matchLens;
+#endif  // APPLE_ICU_CHANGES
 } PatternAndOffsets;
 
 static const UChar scKoText[] = {
@@ -2705,6 +2710,8 @@ static const int32_t scKoSrchOff23[] = { 5, 21, 25 };
 static const int32_t scKoSrchOff45[] = { 7, 30     };
 
 static const PatternAndOffsets scKoSrchPatternsOffsets[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
     { scKoPat0, scKoSrchOff01, UPRV_LENGTHOF(scKoSrchOff01), NULL },
     { scKoPat1, scKoSrchOff01, UPRV_LENGTHOF(scKoSrchOff01), NULL },
     { scKoPat2, scKoSrchOff23, UPRV_LENGTHOF(scKoSrchOff23), NULL },
@@ -2712,6 +2719,15 @@ static const PatternAndOffsets scKoSrchPatternsOffsets[] = {
     { scKoPat4, scKoSrchOff45, UPRV_LENGTHOF(scKoSrchOff45), NULL },
     { scKoPat5, scKoSrchOff45, UPRV_LENGTHOF(scKoSrchOff45), NULL },
     { NULL,     NULL,          0,                            NULL }
+#else
+    { scKoPat0, scKoSrchOff01, UPRV_LENGTHOF(scKoSrchOff01) },
+    { scKoPat1, scKoSrchOff01, UPRV_LENGTHOF(scKoSrchOff01) },
+    { scKoPat2, scKoSrchOff23, UPRV_LENGTHOF(scKoSrchOff23) },
+    { scKoPat3, scKoSrchOff23, UPRV_LENGTHOF(scKoSrchOff23) },
+    { scKoPat4, scKoSrchOff45, UPRV_LENGTHOF(scKoSrchOff45) },
+    { scKoPat5, scKoSrchOff45, UPRV_LENGTHOF(scKoSrchOff45) },
+    { NULL,     NULL,          0                           }
+#endif  // APPLE_ICU_CHANGES
 };
 
 static const int32_t scKoStndOff01[] = { 3,  9 };
@@ -2720,6 +2736,8 @@ static const int32_t scKoStndOff3[]  = { 25    };
 static const int32_t scKoStndOff45[] = { 7, 30 };
 
 static const PatternAndOffsets scKoStndPatternsOffsets[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
     { scKoPat0, scKoStndOff01, UPRV_LENGTHOF(scKoStndOff01), NULL },
     { scKoPat1, scKoStndOff01, UPRV_LENGTHOF(scKoStndOff01), NULL },
     { scKoPat2, scKoStndOff2,  UPRV_LENGTHOF(scKoStndOff2),  NULL  },
@@ -2727,8 +2745,19 @@ static const PatternAndOffsets scKoStndPatternsOffsets[] = {
     { scKoPat4, scKoStndOff45, UPRV_LENGTHOF(scKoStndOff45), NULL },
     { scKoPat5, scKoStndOff45, UPRV_LENGTHOF(scKoStndOff45), NULL },
     { NULL,     NULL,          0,                            NULL }
+#else
+    { scKoPat0, scKoStndOff01, UPRV_LENGTHOF(scKoStndOff01) },
+    { scKoPat1, scKoStndOff01, UPRV_LENGTHOF(scKoStndOff01) },
+    { scKoPat2, scKoStndOff2,  UPRV_LENGTHOF(scKoStndOff2)  },
+    { scKoPat3, scKoStndOff3,  UPRV_LENGTHOF(scKoStndOff3)  },
+    { scKoPat4, scKoStndOff45, UPRV_LENGTHOF(scKoStndOff45) },
+    { scKoPat5, scKoStndOff45, UPRV_LENGTHOF(scKoStndOff45) },
+    { NULL,     NULL,          0                           }
+#endif  // APPLE_ICU_CHANGES
 };
 
+#if APPLE_ICU_CHANGES
+// rdar://
 static const UChar scJaText[] = {
 /*00*/ 0x304D,0x305F,0x0020,0x30AD,0x30BF,0x0020, /* kita, hiragana and katakana */
 /*06*/ 0x304D,0x3060,0x0020,0x30AD,0x30C0,0x0020, /* kida, hiragana and katakana */
@@ -2847,6 +2876,19 @@ static const PatternAndOffsets scFlagPatternsOffsets[] = {
     { NULL,      NULL,         0,                           NULL }
 };
 
+// rdar://105017088 uk, add search collation that treats 02BC as equiv to 2019
+static const UChar ukApostText[] = u"б’ю, пʼять, п’є, вʼя́зи"; // 1st & 3rd apostrophes are 2019, 2nd & 4th are 02BC
+static const UChar ukApost2019[] = u"’";
+static const UChar ukApost02BC[] = u"ʼ";
+static const int32_t ukApostOff[]  = { 1, 6, 13, 18 };
+static const int32_t ukApostLen[]  = { 1, 1,  1,  1 };
+static const PatternAndOffsets ukApostPatternsOffsets[] = {
+    { ukApost2019, ukApostOff, UPRV_LENGTHOF(ukApostOff), ukApostLen },
+    { ukApost02BC, ukApostOff, UPRV_LENGTHOF(ukApostOff), ukApostLen },
+    { NULL,        NULL,       0,                          NULL }
+};
+
+#endif  // APPLE_ICU_CHANGES
 
 typedef struct {
     const char *  locale;
@@ -2858,6 +2900,8 @@ static const TUSCItem tuscItems[] = {
     { "root",                  scKoText, scKoStndPatternsOffsets },
     { "root@collation=search", scKoText, scKoSrchPatternsOffsets },
     { "ko@collation=search",   scKoText, scKoSrchPatternsOffsets },
+#if APPLE_ICU_CHANGES
+// rdar://
     { "root@colStrength=primary",                  scJaText, scJaStndPatternsOffsets },
     { "root@collation=search;colStrength=primary", scJaText, scJaSrchPatternsOffsets },
     { "ja@colStrength=primary",                    scJaText, scJaStndPatternsOffsets },
@@ -2865,6 +2909,8 @@ static const TUSCItem tuscItems[] = {
     { "fa@collation=search;colStrength=primary",   scFaText, scFaSrchPatternsOffsets }, // Apple <rdar://problem/34998959>
     { "root@collation=search;colStrength=primary", scModsText, scModsPatternsOffsets },
     { "root@collation=search;colStrength=primary", scFlagText, scFlagPatternsOffsets },
+    { "uk@collation=search",   ukApostText, ukApostPatternsOffsets }, // rdar://105017088
+#endif  // APPLE_ICU_CHANGES
     { NULL,                    NULL,     NULL                    }
 };
 
@@ -2881,19 +2927,29 @@ static void TestUsingSearchCollator(void)
             if ( U_SUCCESS(status) ) {
                 const PatternAndOffsets * patternsOffsetsPtr;
                 for ( patternsOffsetsPtr = tuscItemPtr->patternsAndOffsets; patternsOffsetsPtr->pattern != NULL; patternsOffsetsPtr++) {
+#if APPLE_ICU_CHANGES
+// rdar://
                     int32_t patLen = u_strlen(patternsOffsetsPtr->pattern);
                     usearch_setPattern(usrch, patternsOffsetsPtr->pattern, patLen, &status);
+#else
+                    usearch_setPattern(usrch, patternsOffsetsPtr->pattern, -1, &status);
+#endif  // APPLE_ICU_CHANGES
                     if ( U_SUCCESS(status) ) {
                         int32_t offset;
                         const int32_t * nextOffsetPtr;
                         const int32_t * limitOffsetPtr;
+#if APPLE_ICU_CHANGES
+// rdar://
                         const int32_t * nextMatchLenPtr;
+#endif  // APPLE_ICU_CHANGES
 
                         usearch_reset(usrch);
                         nextOffsetPtr = patternsOffsetsPtr->offsets;
                         limitOffsetPtr = patternsOffsetsPtr->offsets + patternsOffsetsPtr->offsetsLen;
+#if APPLE_ICU_CHANGES
+// rdar://
                         nextMatchLenPtr = patternsOffsetsPtr->matchLens;
-                        while (TRUE) {
+                        while (true) {
                             offset = usearch_next(usrch, &status);
                             if ( U_FAILURE(status) || offset == USEARCH_DONE ) {
                                 break;
@@ -2925,12 +2981,35 @@ static void TestUsingSearchCollator(void)
                             log_err("error, locale %s, patn (%d) %04X %04X..., usearch_next returned fewer matches than expected\n",
                                     tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1] );
                         }
+#else
+                        while (true) {
+                            offset = usearch_next(usrch, &status);
+                            if ( U_FAILURE(status) || offset == USEARCH_DONE ) {
+                                break;
+                            }
+                            if ( nextOffsetPtr < limitOffsetPtr ) {
+                                 if (offset != *nextOffsetPtr) {
+                                     log_err("error, locale %s, expected usearch_next %d, got %d\n", tuscItemPtr->locale, *nextOffsetPtr, offset);
+                                     nextOffsetPtr = limitOffsetPtr;
+                                     break;
+                                 }
+                                 nextOffsetPtr++;
+                            } else {
+                                log_err("error, locale %s, usearch_next returned more matches than expected\n", tuscItemPtr->locale );
+                            }
+                        }
+                        if ( U_FAILURE(status) ) {
+                            log_err("error, locale %s, usearch_next failed: %s\n", tuscItemPtr->locale, u_errorName(status) );
+                        } else if ( nextOffsetPtr < limitOffsetPtr ) {
+                            log_err("error, locale %s, usearch_next returned fewer matches than expected\n", tuscItemPtr->locale );
+                        }
+#endif  // APPLE_ICU_CHANGES
 
                         status = U_ZERO_ERROR;
                         usearch_reset(usrch);
                         nextOffsetPtr = patternsOffsetsPtr->offsets + patternsOffsetsPtr->offsetsLen;
                         limitOffsetPtr = patternsOffsetsPtr->offsets;
-                        while (TRUE) {
+                        while (true) {
                             offset = usearch_previous(usrch, &status);
                             if ( U_FAILURE(status) || offset == USEARCH_DONE ) {
                                 break;
@@ -2938,27 +3017,52 @@ static void TestUsingSearchCollator(void)
                             if ( nextOffsetPtr > limitOffsetPtr ) {
                                 nextOffsetPtr--;
                                 if (offset != *nextOffsetPtr) {
+#if APPLE_ICU_CHANGES
+// rdar://
                                     log_err("error, locale %s, patn (%d) %04X %04X..., expected usearch_previous %d, got %d\n",
                                             tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1], *nextOffsetPtr, offset);
+#else
+                                    log_err("error, locale %s, expected usearch_previous %d, got %d\n", tuscItemPtr->locale, *nextOffsetPtr, offset);
+#endif  // APPLE_ICU_CHANGES
                                     nextOffsetPtr = limitOffsetPtr;
                                     break;
                                 }
                             } else {
+#if APPLE_ICU_CHANGES
+// rdar://
                                 log_err("error, locale %s, patn (%d) %04X %04X..., usearch_previous returned more matches than expected\n",
                                         tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1] );
+#else
+                                log_err("error, locale %s, usearch_previous returned more matches than expected\n", tuscItemPtr->locale );
+#endif  // APPLE_ICU_CHANGES
                             }
                         }
                         if ( U_FAILURE(status) ) {
+#if APPLE_ICU_CHANGES
+// rdar://
                             log_err("error, locale %s, patn (%d) %04X %04X..., usearch_previous failed: %s\n", 
                                     tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1], u_errorName(status) );
+#else
+                            log_err("error, locale %s, usearch_previous failed: %s\n", tuscItemPtr->locale, u_errorName(status) );
+#endif  // APPLE_ICU_CHANGES
                         } else if ( nextOffsetPtr > limitOffsetPtr ) {
+#if APPLE_ICU_CHANGES
+// rdar://
                             log_err("error, locale %s, patn (%d) %04X %04X..., usearch_previous returned fewer matches than expected\n",
                                     tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1] );
+#else
+                            log_err("error, locale %s, usearch_previous returned fewer matches than expected\n", tuscItemPtr->locale );
+#endif  // APPLE_ICU_CHANGES
                         }
 
                     } else {
+#if APPLE_ICU_CHANGES
+// rdar://
                         log_err("error, locale %s, usearch_setPattern failed: %s\n",
                                 tuscItemPtr->locale, u_errorName(status) );
+#else
+                        log_err("error, locale %s, usearch_setPattern failed: %s\n", tuscItemPtr->locale, u_errorName(status) );
+#endif  // APPLE_ICU_CHANGES
                     }
                 }
                 usearch_close(usrch);
@@ -2983,7 +3087,7 @@ static void TestPCEBuffer_with(const UChar *search, uint32_t searchLen, const UC
 
 
    coll = ucol_openFromShortString( "LSK_AS_CX_EX_FX_HX_NX_S4",
-                                    FALSE,
+                                    false,
                                     NULL,
                                     &icuStatus );
    if ( U_FAILURE(icuStatus) )
@@ -3127,7 +3231,7 @@ static void TestMatchFollowedByIgnorables(void) {
     sourceLen = UPRV_LENGTHOF(source);
 
     coll = ucol_openFromShortString("LHR_AN_CX_EX_FX_HX_NX_S3",
-                                    FALSE,
+                                    false,
                                     NULL,
                                     &icuStatus);
     if (U_FAILURE(icuStatus)) {

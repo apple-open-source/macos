@@ -41,7 +41,7 @@
 #include <type_traits>
 #include <wtf/text/TextStream.h>
 
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if USE(THEME_ADWAITA)
 #include "ThemeAdwaita.h"
 #endif
 
@@ -406,7 +406,7 @@ void CairoOperationRecorder::fillEllipse(const FloatRect& rect)
         void execute(PaintingOperationReplay& replayer) override
         {
             Path path;
-            path.addEllipse(arg<0>());
+            path.addEllipseInRect(arg<0>());
             Cairo::fillPath(contextForReplay(replayer), path, arg<1>(), arg<2>());
         }
 
@@ -471,7 +471,7 @@ void CairoOperationRecorder::strokeEllipse(const FloatRect& rect)
         void execute(PaintingOperationReplay& replayer) override
         {
             Path path;
-            path.addEllipse(arg<0>());
+            path.addEllipseInRect(arg<0>());
             Cairo::strokePath(contextForReplay(replayer), path, arg<1>(), arg<2>());
         }
 
@@ -691,7 +691,7 @@ void CairoOperationRecorder::drawLine(const FloatPoint& point1, const FloatPoint
         }
     };
 
-    if (strokeStyle() == NoStroke)
+    if (strokeStyle() == StrokeStyle::NoStroke)
         return;
 
     auto& state = this->state();
@@ -762,7 +762,7 @@ void CairoOperationRecorder::drawEllipse(const FloatRect& rect)
 
 void CairoOperationRecorder::drawFocusRing(const Path& path, float outlineWidth, const Color& color)
 {
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if USE(THEME_ADWAITA)
     ThemeAdwaita::paintFocus(*this, path, color);
     UNUSED_PARAM(outlineWidth);
 #else
@@ -786,7 +786,7 @@ void CairoOperationRecorder::drawFocusRing(const Path& path, float outlineWidth,
 
 void CairoOperationRecorder::drawFocusRing(const Vector<FloatRect>& rects, float outlineOffset, float outlineWidth, const Color& color)
 {
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if USE(THEME_ADWAITA)
     ThemeAdwaita::paintFocus(*this, rects, color);
     UNUSED_PARAM(outlineWidth);
 #else
@@ -1046,6 +1046,11 @@ void CairoOperationRecorder::endTransparencyLayer()
     GraphicsContext::endTransparencyLayer();
 
     append(createCommand<EndTransparencyLayer>());
+}
+
+void CairoOperationRecorder::resetClip()
+{
+    ASSERT_NOT_REACHED("resetClip is not supported on Cairo");
 }
 
 void CairoOperationRecorder::clip(const FloatRect& rect)

@@ -25,7 +25,10 @@
 
 #if !UCONFIG_NO_FORMATTING
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #include "unicode/ubidi.h" // for TestCurrencyBidiOrdering()
+#endif  // APPLE_ICU_CHANGES
 #include "unicode/uloc.h"
 #include "unicode/umisc.h"
 #include "unicode/unum.h"
@@ -39,10 +42,9 @@
 #include "cstring.h"
 #include "putilimp.h"
 #include "uassert.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#define APPLE_ADDITIONS 1
 
 static const char *tagAssert(const char *f, int32_t l, const char *msg) {
     static char _fileline[1000];
@@ -78,27 +80,33 @@ static void TestSetMaxFracAndRoundIncr(void);
 static void TestIgnorePadding(void);
 static void TestSciNotationMaxFracCap(void);
 static void TestMinIntMinFracZero(void);
-
+static void Test21479_ExactCurrency(void);
+static void Test22088_Ethiopic(void);
+static void TestParseWithEmptyCurr(void);
+#if APPLE_ICU_CHANGES
+// rdar://
 static void TestParseAltNum(void);
 static void TestParseCurrPatternWithDecStyle(void);
 static void TestFormatPrecision(void);
-static void TestSetSigDigAndRoundIncr(void); // Apple <rdar://problem/52538227>
-static void TestSetAffixOnCurrFmt(void); // Apple <rdar://problem/46755430>
-static void TestParseWithEmptyCurr(void); // Apple <rdar://problem/46915356>
-static void TestSciNotationNumbers(void); // Apple <rdar://problem/50113359>
-static void TestSciNotationPrecision(void); // Apple <rdar://problem/51601250>
-static void TestMinimumGrouping(void); // Apple <rdar://problem/49808819>
-static void TestNumberSystemsMultiplier(void); // Apple <rdar://problem/49120648>
-static void TestParseScientific(void); // Apple <rdar://problem/39156484>
-static void TestCurrForUnkRegion(void); // Apple <rdar://problem/51985640>
-static void TestMinIntMinFracZero(void); // Apple <rdar://problem/54569257>
-#if APPLE_ADDITIONS
-static void TestFormatDecPerf(void); // Apple <rdar://problem/51672521>
-static void TestCountryFallback(void); // Apple <rdar://problem/54886964>
-static void TestCurrencyBidiOrdering(void); // Apple <rdar://76160456>
-static void TestPrecisionOverMultipleCalls(void); // Apple <rdar://76655283>
-static void TestCurrencySymbol(void);   // Apple <rdar://79879611>
-#endif
+static void TestSetSigDigAndRoundIncr(void); // rdar://52538227
+static void TestSetAffixOnCurrFmt(void); // rdar://46755430
+static void TestParseWithEmptyCurr(void); // rdar://46915356
+static void TestSciNotationNumbers(void); // rdar://50113359
+static void TestSciNotationPrecision(void); // rdar://51601250
+static void TestMinimumGrouping(void); // rdar://49808819
+static void TestNumberSystemsMultiplier(void); // rdar://49120648
+static void TestParseScientific(void); // rdar://39156484
+static void TestCurrForUnkRegion(void); // rdar://51985640
+static void TestMinIntMinFracZero(void); // rdar://54569257
+static void TestFormatDecPerf(void); // rdar://51672521
+static void TestCountryFallback(void); // rdar://54886964
+static void TestCurrencyBidiOrdering(void); // rdar://76160456
+static void TestPrecisionOverMultipleCalls(void); // rdar://76655283
+static void TestCurrencySymbol(void);   // rdar://79879611
+static void TestChangingRuleset(void);  // rdar://106781569
+static void TestRgSubtag(void); // rdar://107276400
+static void TestThousandsSeparator(void); // rdar://108506710
+#endif  // APPLE_ICU_CHANGES
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/cnumtst/" #x)
 
@@ -140,26 +148,32 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestIgnorePadding);
     TESTCASE(TestSciNotationMaxFracCap);
     TESTCASE(TestMinIntMinFracZero);
-
+    TESTCASE(Test21479_ExactCurrency);
+    TESTCASE(Test22088_Ethiopic);
+    TESTCASE(TestChangingRuleset);
+    TESTCASE(TestParseWithEmptyCurr);
+#if APPLE_ICU_CHANGES
+// rdar://
     TESTCASE(TestParseAltNum);
     TESTCASE(TestParseCurrPatternWithDecStyle);
     TESTCASE(TestFormatPrecision);
-    TESTCASE(TestSetSigDigAndRoundIncr); // Apple <rdar://problem/52538227>
-    TESTCASE(TestSetAffixOnCurrFmt); // Apple <rdar://problem/46755430>
-    TESTCASE(TestParseWithEmptyCurr); // Apple <rdar://problem/46915356>
-    TESTCASE(TestSciNotationNumbers); // Apple <rdar://problem/50113359>
-    TESTCASE(TestSciNotationPrecision); // Apple <rdar://problem/51601250>
-    TESTCASE(TestMinimumGrouping); // Apple <rdar://problem/49808819>
-    TESTCASE(TestNumberSystemsMultiplier); // Apple <rdar://problem/49120648>
-    TESTCASE(TestParseScientific); // Apple <rdar://problem/39156484>
-    TESTCASE(TestCurrForUnkRegion); // Apple <rdar://problem/51985640>
-#if APPLE_ADDITIONS
-    TESTCASE(TestFormatDecPerf); // Apple <rdar://problem/51672521>
-    TESTCASE(TestCountryFallback); // Apple <rdar://problem/51672521>
-    TESTCASE(TestCurrencyBidiOrdering); // Apple <rdar://76160456>
-    TESTCASE(TestPrecisionOverMultipleCalls); // Apple <rdar://76655283>
-    TESTCASE(TestCurrencySymbol);   // Apple <rdar://79879611>
-#endif
+    TESTCASE(TestSetSigDigAndRoundIncr); // rdar://52538227
+    TESTCASE(TestSetAffixOnCurrFmt); // rdar://46755430
+    TESTCASE(TestParseWithEmptyCurr); // rdar://46915356
+    TESTCASE(TestSciNotationNumbers); // rdar://50113359
+    TESTCASE(TestSciNotationPrecision); // rdar://51601250
+    TESTCASE(TestMinimumGrouping); // rdar://49808819
+    TESTCASE(TestNumberSystemsMultiplier); // rdar://49120648
+    TESTCASE(TestParseScientific); // rdar://39156484
+    TESTCASE(TestCurrForUnkRegion); // rdar://51985640
+    TESTCASE(TestFormatDecPerf); // rdar://51672521
+    TESTCASE(TestCountryFallback); // rdar://51672521
+    TESTCASE(TestCurrencyBidiOrdering); // rdar://76160456
+    TESTCASE(TestPrecisionOverMultipleCalls); // rdar://76655283
+    TESTCASE(TestCurrencySymbol);   // rdar://79879611
+    TESTCASE(TestRgSubtag); // rdar://107276400
+    TESTCASE(TestThousandsSeparator); // rdar://108506710
+#endif  // APPLE_ICU_CHANGES
 }
 
 /* test Parse int 64 */
@@ -306,8 +320,8 @@ static void TestNumberFormat()
     if(numlocales < 0)
         log_err("error in countAvailable");
     else{
-        log_verbose("unum_countAvialable() successful\n");
-        log_verbose("The no: of locales where number formattting is applicable is %d\n", numlocales);
+        log_verbose("unum_countAvailable() successful\n");
+        log_verbose("The no: of locales where number formatting is applicable is %d\n", numlocales);
     }
     for(i=0;i<numlocales;i++)
     {
@@ -554,13 +568,13 @@ free(result);
     /*test for unum_toPattern()*/
     log_verbose("\nTesting unum_toPattern()\n");
     resultlength=0;
-    resultlengthneeded=unum_toPattern(pattern, FALSE, NULL, resultlength, &status);
+    resultlengthneeded=unum_toPattern(pattern, false, NULL, resultlength, &status);
     if(status==U_BUFFER_OVERFLOW_ERROR)
     {
         status=U_ZERO_ERROR;
         resultlength=resultlengthneeded+1;
         result=(UChar*)malloc(sizeof(UChar) * resultlength);
-        unum_toPattern(pattern, FALSE, result, resultlength, &status);
+        unum_toPattern(pattern, false, result, resultlength, &status);
     }
     if(U_FAILURE(status))
     {
@@ -579,13 +593,13 @@ free(result);
     log_verbose("\nTesting unum_getSymbols and unum_setSymbols()\n");
     /*when we try to change the symbols of french to default we need to apply the pattern as well to fetch correct results */
     resultlength=0;
-    resultlengthneeded=unum_toPattern(cur_def, FALSE, NULL, resultlength, &status);
+    resultlengthneeded=unum_toPattern(cur_def, false, NULL, resultlength, &status);
     if(status==U_BUFFER_OVERFLOW_ERROR)
     {
         status=U_ZERO_ERROR;
         resultlength=resultlengthneeded+1;
         result=(UChar*)malloc(sizeof(UChar) * resultlength);
-        unum_toPattern(cur_def, FALSE, result, resultlength, &status);
+        unum_toPattern(cur_def, false, result, resultlength, &status);
     }
     if(U_FAILURE(status))
     {
@@ -631,7 +645,7 @@ free(result);
     if(U_FAILURE(status)){
         log_err("Fail: error in unum_setSymbols: %s\n", myErrorName(status));
     }
-    unum_applyPattern(cur_frpattern, FALSE, result, u_strlen(result),NULL,NULL);
+    unum_applyPattern(cur_frpattern, false, result, u_strlen(result),NULL,NULL);
 
     for (symType = UNUM_DECIMAL_SEPARATOR_SYMBOL; symType < UNUM_FORMAT_SYMBOL_COUNT; symType++) {
         status=U_ZERO_ERROR;
@@ -715,17 +729,17 @@ free(result);
     unum_getTextAttribute(cur_fr, UNUM_NEGATIVE_SUFFIX, temp, resultlength, &status);
     if(U_FAILURE(status))
     {
-        log_err("Failure in gettting the Text attributes of number format: %s\n", myErrorName(status));
+        log_err("Failure in getting the Text attributes of number format: %s\n", myErrorName(status));
     }
     unum_setTextAttribute(cur_def, UNUM_NEGATIVE_SUFFIX, temp, u_strlen(temp), &status);
     if(U_FAILURE(status))
     {
-        log_err("Failure in gettting the Text attributes of number format: %s\n", myErrorName(status));
+        log_err("Failure in getting the Text attributes of number format: %s\n", myErrorName(status));
     }
     unum_getTextAttribute(cur_def, UNUM_NEGATIVE_SUFFIX, suffix, resultlength, &status);
     if(U_FAILURE(status))
     {
-        log_err("Failure in gettting the Text attributes of number format: %s\n", myErrorName(status));
+        log_err("Failure in getting the Text attributes of number format: %s\n", myErrorName(status));
     }
     if(u_strcmp(suffix,temp)!=0)
         log_err("Fail:Error in setTextAttribute or getTextAttribute in setting and getting suffix\n");
@@ -806,6 +820,7 @@ free(result);
     /*Testing unum_getAttribute and  unum_setAttribute() */
     log_verbose("\nTesting get and set Attributes\n");
     attr=UNUM_GROUPING_SIZE;
+    assertTrue("unum_hasAttribute returned false for UNUM_GROUPING_SIZE", unum_hasAttribute(def, attr));
     newvalue=unum_getAttribute(def, attr);
     newvalue=2;
     unum_setAttribute(def, attr, newvalue);
@@ -815,6 +830,7 @@ free(result);
         log_verbose("Pass: setting and getting attributes for UNUM_GROUPING_SIZE works fine\n");
 
     attr=UNUM_MULTIPLIER;
+    assertTrue("unum_hasAttribute returned false for UNUM_MULTIPLIER", unum_hasAttribute(def, attr));
     newvalue=unum_getAttribute(def, attr);
     newvalue=8;
     unum_setAttribute(def, attr, newvalue);
@@ -824,6 +840,7 @@ free(result);
         log_verbose("Pass:setting and getting attributes for UNUM_MULTIPLIER works fine\n");
 
     attr=UNUM_SECONDARY_GROUPING_SIZE;
+    assertTrue("unum_hasAttribute returned false for UNUM_SECONDARY_GROUPING_SIZE", unum_hasAttribute(def, attr));
     newvalue=unum_getAttribute(def, attr);
     newvalue=2;
     unum_setAttribute(def, attr, newvalue);
@@ -837,6 +854,7 @@ free(result);
     log_verbose("\nTesting get and set attributes extensively\n");
     for(attr=UNUM_PARSE_INT_ONLY; attr<= UNUM_PADDING_POSITION; attr=(UNumberFormatAttribute)((int32_t)attr + 1) )
     {
+        assertTrue("unum_hasAttribute returned false", unum_hasAttribute(fr, attr));
         newvalue=unum_getAttribute(fr, attr);
         unum_setAttribute(def, attr, newvalue);
         if(unum_getAttribute(def,attr)!=unum_getAttribute(fr, attr))
@@ -849,6 +867,10 @@ free(result);
     log_verbose("\nTesting spellout format\n");
     if (spellout_def)
     {
+        // check that unum_hasAttribute() works right with a spellout formatter
+        assertTrue("unum_hasAttribute() returned true for UNUM_MULTIPLIER on a spellout formatter", !unum_hasAttribute(spellout_def, UNUM_MULTIPLIER));
+        assertTrue("unum_hasAttribute() returned false for UNUM_LENIENT_PARSE on a spellout formatter", unum_hasAttribute(spellout_def, UNUM_LENIENT_PARSE));
+
         static const int32_t values[] = { 0, -5, 105, 1005, 105050 };
         for (i = 0; i < UPRV_LENGTHOF(values); ++i) {
             UChar buffer[128];
@@ -926,7 +948,7 @@ free(result);
         }
         u_austrncpy(desta, dest, DESTCAPACITY);
         if (strcmp(numFormatted, desta) != 0) {
-            log_err("File %s, Line %d, (expected, acutal) =  (\"%s\", \"%s\")\n",
+            log_err("File %s, Line %d, (expected, actual) =  (\"%s\", \"%s\")\n",
                     __FILE__, __LINE__, numFormatted, desta);
         }
         if ((int32_t)strlen(numFormatted) != resultSize) {
@@ -943,15 +965,15 @@ free(result);
         }
         u_austrncpy(desta, dest, DESTCAPACITY);
         if (strcmp(numFormatted, desta) != 0) {
-            log_err("File %s, Line %d, (expected, acutal) =  (\"%s\", \"%s\")\n",
+            log_err("File %s, Line %d, (expected, actual) =  (\"%s\", \"%s\")\n",
                     __FILE__, __LINE__, numFormatted, desta);
         }
         if (fieldPos.beginIndex != 26) {  /* index of "." in formatted number */
-            log_err("File %s, Line %d, (expected, acutal) =  (%d, %d)\n",
+            log_err("File %s, Line %d, (expected, actual) =  (%d, %d)\n",
                     __FILE__, __LINE__, 0, fieldPos.beginIndex);
         }
         if (fieldPos.endIndex != 27) {
-            log_err("File %s, Line %d, (expected, acutal) =  (%d, %d)\n",
+            log_err("File %s, Line %d, (expected, actual) =  (%d, %d)\n",
                     __FILE__, __LINE__, 0, fieldPos.endIndex);
         }
 
@@ -1199,13 +1221,21 @@ static void TestParseCurrency()
 typedef struct {
     const char *  testname;
     const char *  locale;
+#if APPLE_ICU_CHANGES
+// rdar://
     UBool         lenient;
+#endif  // APPLE_ICU_CHANGES
     const UChar * source;
     int32_t       startPos;
     int32_t       value;
     int32_t       endPos;
     UErrorCode    status;
+#if APPLE_ICU_CHANGES
+// rdar://
 } NumParseTestItem;
+#else
+} SpelloutParseTest;
+#endif  // APPLE_ICU_CHANGES
 
 static const UChar ustr_en0[]   = {0x7A, 0x65, 0x72, 0x6F, 0}; /* zero */
 static const UChar ustr_123[]   = {0x31, 0x32, 0x33, 0};       /* 123 */
@@ -1215,50 +1245,79 @@ static const UChar ustr_en123[] = {0x6f, 0x6e, 0x65, 0x20, 0x68, 0x75, 0x6e, 0x6
 static const UChar ustr_fr123[] = {0x63, 0x65, 0x6e, 0x74, 0x20, 0x76, 0x69, 0x6e, 0x67, 0x74, 0x2d,
                                    0x74, 0x72, 0x6f, 0x69, 0x73, 0};       /* cent vingt-trois */
 static const UChar ustr_ja123[] = {0x767e, 0x4e8c, 0x5341, 0x4e09, 0};     /* kanji 100(+)2(*)10(+)3 */
-static const UChar ustr_zh50s[] = {0x4E94, 0x5341, 0}; /* spellout 50 */
-static const UChar ustr_zh50d[] = {0x4E94, 0x3007, 0}; /* decimal 50 */
-static const UChar ustr_zh05a[] = {0x96F6, 0x4E94, 0}; /* decimal-alt 05 */
-static const UChar ustr_zh05d[] = {0x3007, 0x4E94, 0}; /* decimal 05 */
+#if APPLE_ICU_CHANGES
+// rdar://
+static const UChar ustr_zh50s[] = u"五十"; /* 4E94 5341 spellout 50 */
+static const UChar ustr_zh50d[] = u"五〇"; /* 4E94 3007 decimal 50 */
+static const UChar ustr_zh05a[] = u"零五"; /* 96F6 4E94 decimal-alt 05 */
+static const UChar ustr_zh05d[] = u"〇五"; /* 3007 4E94 decimal 05 */
+#endif  // APPLE_ICU_CHANGES
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #define		NUMERIC_STRINGS_NOT_PARSEABLE	1	//	ticket/8224
 
 static const NumParseTestItem spelloutParseTests[] = {
-    /* name     loc   lenent src       start val  end status */
-    { "en0",    "en", FALSE, ustr_en0,    0,   0,  4, U_ZERO_ERROR },
-    { "en0",    "en", FALSE, ustr_en0,    2,   0,  2, U_PARSE_ERROR },
-    { "en0",    "ja", FALSE, ustr_en0,    0,   0,  0, U_PARSE_ERROR },
+    /* name        loc                   lenent src       start val  end status */
+    { "en0",       "en",                 false, ustr_en0,    0,   0,  4, U_ZERO_ERROR },
+    { "en0",       "en",                 false, ustr_en0,    2,   0,  2, U_PARSE_ERROR },
+    { "en0",       "ja",                 false, ustr_en0,    0,   0,  0, U_PARSE_ERROR },
 #if NUMERIC_STRINGS_NOT_PARSEABLE
-    { "123",    "en", FALSE, ustr_123,    0,   0,  0, U_PARSE_ERROR },
+    { "123",       "en",                 false, ustr_123,    0,   0,  0, U_PARSE_ERROR },
 #else
-    { "123",    "en", FALSE, ustr_123,    0, 123,  3, U_ZERO_ERROR },
+    { "123",       "en",                 false, ustr_123,    0, 123,  3, U_ZERO_ERROR },
 #endif
-    { "123L",   "en", TRUE,  ustr_123,    0, 123,  3, U_ZERO_ERROR },
-    { "en123",  "en", FALSE, ustr_en123,  0, 123, 24, U_ZERO_ERROR },
-    { "en123",  "en", FALSE, ustr_en123, 12,  23, 24, U_ZERO_ERROR },
-    { "en123",  "fr", FALSE, ustr_en123, 16,   0, 16, U_PARSE_ERROR },
-    { "fr123",  "fr", FALSE, ustr_fr123,  0, 123, 16, U_ZERO_ERROR },
-    { "fr123",  "fr", FALSE, ustr_fr123,  5,  23, 16, U_ZERO_ERROR },
-    { "fr123",  "en", FALSE, ustr_fr123,  0,   0,  0, U_PARSE_ERROR },
-    { "ja123",  "ja", FALSE, ustr_ja123,  0, 123,  4, U_ZERO_ERROR },
-    { "ja123",  "ja", FALSE, ustr_ja123,  1,  23,  4, U_ZERO_ERROR },
-    { "ja123",  "fr", FALSE, ustr_ja123,  0,   0,  0, U_PARSE_ERROR },
-    { "zh,50s", "zh", FALSE, ustr_zh50s,  0,  50,  2, U_ZERO_ERROR },
+    { "123L",      "en",                 true,  ustr_123,    0, 123,  3, U_ZERO_ERROR },
+    { "en123",     "en",                 false, ustr_en123,  0, 123, 24, U_ZERO_ERROR },
+    { "en123",     "en",                 false, ustr_en123, 12,  23, 24, U_ZERO_ERROR },
+    { "en123",     "fr",                 false, ustr_en123, 16,   0, 16, U_PARSE_ERROR },
+    { "fr123",     "fr",                 false, ustr_fr123,  0, 123, 16, U_ZERO_ERROR },
+    { "fr123",     "fr",                 false, ustr_fr123,  5,  23, 16, U_ZERO_ERROR },
+    { "fr123",     "en",                 false, ustr_fr123,  0,   0,  0, U_PARSE_ERROR },
+    { "ja123",     "ja",                 false, ustr_ja123,  0, 123,  4, U_ZERO_ERROR },
+    { "ja123",     "ja",                 false, ustr_ja123,  1,  23,  4, U_ZERO_ERROR },
+    { "ja123",     "fr",                 false, ustr_ja123,  0,   0,  0, U_PARSE_ERROR },
+    { "zh,50s",    "zh",                 false, ustr_zh50s,  0,  50,  2, U_ZERO_ERROR },
     // from ICU50m2, NUMERIC_STRINGS_NOT_PARSEABLE no longer affects the next three
-    { "zh@hd,50d", "zh@numbers=hanidec", FALSE, ustr_zh50d,  0,  50,  2, U_ZERO_ERROR },
-    { "zh@hd,05a", "zh@numbers=hanidec", FALSE, ustr_zh05a,  0,   5,  2, U_ZERO_ERROR },
-    { "zh@hd,05d", "zh@numbers=hanidec", FALSE, ustr_zh05d,  0,   5,  2, U_ZERO_ERROR },
-    { "zh@hd,50dL","zh@numbers=hanidec", TRUE,  ustr_zh50d,  0,  50,  2, U_ZERO_ERROR },
-    { "zh@hd,05aL","zh@numbers=hanidec", TRUE,  ustr_zh05a,  0,   5,  2, U_ZERO_ERROR },
-    { "zh@hd,05dL","zh@numbers=hanidec", TRUE,  ustr_zh05d,  0,   5,  2, U_ZERO_ERROR },
-    { "zh,50dL","zh", TRUE,  ustr_zh50d,  0,  50,  2, U_ZERO_ERROR }, /* changed in ICU50m2 */
-    { "zh,05aL","zh", TRUE,  ustr_zh05a,  0,   0,  1, U_ZERO_ERROR },
-    { "zh,05dL","zh", TRUE,  ustr_zh05d,  0,   5,  2, U_ZERO_ERROR }, /* changed in ICU50m2 */
-    { NULL,     NULL, FALSE, NULL,        0,   0,  0, 0 } /* terminator */
+    { "zh@hd,50d", "zh@numbers=hanidec", false, ustr_zh50d,  0,  50,  2, U_ZERO_ERROR },
+    { "zh@hd,05a", "zh@numbers=hanidec", false, ustr_zh05a,  0,   5,  2, U_ZERO_ERROR },
+    { "zh@hd,05d", "zh@numbers=hanidec", false, ustr_zh05d,  0,   5,  2, U_ZERO_ERROR },
+    { "zh@hd,50dL","zh@numbers=hanidec", true,  ustr_zh50d,  0,  50,  2, U_ZERO_ERROR },
+    { "zh@hd,05aL","zh@numbers=hanidec", true,  ustr_zh05a,  0,   5,  2, U_ZERO_ERROR },
+    { "zh@hd,05dL","zh@numbers=hanidec", true,  ustr_zh05d,  0,   5,  2, U_ZERO_ERROR },
+    { "zh,50dL",   "zh",                 true,  ustr_zh50d,  0,  50,  2, U_ZERO_ERROR }, /* changed in ICU50m2 */
+    { "zh,05aL",   "zh",                 true,  ustr_zh05a,  0,   0,  1, U_ZERO_ERROR },
+    { "zh,05dL",   "zh",                 true,  ustr_zh05d,  0,   5,  2, U_ZERO_ERROR }, /* changed in ICU50m2 */
+    { NULL,        NULL,                 false, NULL,        0,   0,  0, 0 } /* terminator */
 };
+#else
+static const SpelloutParseTest spelloutParseTests[] = {
+    /* name    loc   src       start val  end status */
+    { "en0",   "en", ustr_en0,    0,   0,  4, U_ZERO_ERROR },
+    { "en0",   "en", ustr_en0,    2,   0,  2, U_PARSE_ERROR },
+    { "en0",   "ja", ustr_en0,    0,   0,  0, U_PARSE_ERROR },
+    { "123",   "en", ustr_123,    0, 123,  3, U_ZERO_ERROR },
+    { "en123", "en", ustr_en123,  0, 123, 24, U_ZERO_ERROR },
+    { "en123", "en", ustr_en123, 12,  23, 24, U_ZERO_ERROR },
+    { "en123", "fr", ustr_en123, 16,   0, 16, U_PARSE_ERROR },
+    { "fr123", "fr", ustr_fr123,  0, 123, 16, U_ZERO_ERROR },
+    { "fr123", "fr", ustr_fr123,  5,  23, 16, U_ZERO_ERROR },
+    { "fr123", "en", ustr_fr123,  0,   0,  0, U_PARSE_ERROR },
+    { "ja123", "ja", ustr_ja123,  0, 123,  4, U_ZERO_ERROR },
+    { "ja123", "ja", ustr_ja123,  1,  23,  4, U_ZERO_ERROR },
+    { "ja123", "fr", ustr_ja123,  0,   0,  0, U_PARSE_ERROR },
+    { NULL,    NULL, NULL,        0,   0,  0, 0 } /* terminator */
+};
+#endif  // APPLE_ICU_CHANGES
 
 static void TestSpelloutNumberParse()
 {
+#if APPLE_ICU_CHANGES
+// rdar://
     const NumParseTestItem * testPtr;
+#else
+    const SpelloutParseTest * testPtr;
+#endif  // APPLE_ICU_CHANGES
     for (testPtr = spelloutParseTests; testPtr->testname != NULL; ++testPtr) {
         UErrorCode status = U_ZERO_ERROR;
         int32_t value, position = testPtr->startPos;
@@ -1267,7 +1326,10 @@ static void TestSpelloutNumberParse()
             log_err_status(status, "unum_open fails for UNUM_SPELLOUT with locale %s, status %s\n", testPtr->locale, myErrorName(status));
             continue;
         }
+#if APPLE_ICU_CHANGES
+// rdar://
         unum_setAttribute(nf, UNUM_LENIENT_PARSE, testPtr->lenient);
+#endif  // APPLE_ICU_CHANGES
         status = U_ZERO_ERROR;
         value = unum_parse(nf, testPtr->source, -1, &position, &status);
         if ( value != testPtr->value || position != testPtr->endPos || status != testPtr->status ) {
@@ -1296,7 +1358,7 @@ static void TestSignificantDigits()
         log_data_err("got unexpected error for unum_open: '%s'\n", u_errorName(status));
         return;
     }
-    unum_setAttribute(fmt, UNUM_SIGNIFICANT_DIGITS_USED, TRUE);
+    unum_setAttribute(fmt, UNUM_SIGNIFICANT_DIGITS_USED, true);
     unum_setAttribute(fmt, UNUM_MAX_SIGNIFICANT_DIGITS, 6);
 
     u_uastrcpy(temp, "123457");
@@ -1337,8 +1399,8 @@ static void TestSigDigRounding()
         log_data_err("got unexpected error for unum_open: '%s'\n", u_errorName(status));
         return;
     }
-    unum_setAttribute(fmt, UNUM_LENIENT_PARSE, FALSE);
-    unum_setAttribute(fmt, UNUM_SIGNIFICANT_DIGITS_USED, TRUE);
+    unum_setAttribute(fmt, UNUM_LENIENT_PARSE, false);
+    unum_setAttribute(fmt, UNUM_SIGNIFICANT_DIGITS_USED, true);
     unum_setAttribute(fmt, UNUM_MAX_SIGNIFICANT_DIGITS, 2);
     /* unum_setAttribute(fmt, UNUM_MAX_FRACTION_DIGITS, 0); */
 
@@ -1403,13 +1465,13 @@ static void TestNumberFormatPadding()
         /*test for unum_toPattern()*/
         log_verbose("\nTesting padding unum_toPattern()\n");
         resultlength=0;
-        resultlengthneeded=unum_toPattern(pattern, FALSE, NULL, resultlength, &status);
+        resultlengthneeded=unum_toPattern(pattern, false, NULL, resultlength, &status);
         if(status==U_BUFFER_OVERFLOW_ERROR)
         {
             status=U_ZERO_ERROR;
             resultlength=resultlengthneeded+1;
             result=(UChar*)malloc(sizeof(UChar) * resultlength);
-            unum_toPattern(pattern, FALSE, result, resultlength, &status);
+            unum_toPattern(pattern, false, result, resultlength, &status);
         }
         if(U_FAILURE(status))
         {
@@ -1503,7 +1565,10 @@ static void TestInt64Format() {
         log_data_err("error in unum_openPattern() - %s\n", myErrorName(status));
     } else {
         unum_setAttribute(fmt, UNUM_MAX_FRACTION_DIGITS, 20);
-        unum_setAttribute(fmt, UNUM_FORMAT_WITH_FULL_PRECISION, TRUE); // Needed due to ICU68 additions for Apple change <rdar://problem/39240173>
+#if APPLE_ICU_CHANGES
+// rdar://
+        unum_setAttribute(fmt, UNUM_FORMAT_WITH_FULL_PRECISION, true); // Needed due to ICU68 additions for Apple change rdar://39240173
+#endif  // APPLE_ICU_CHANGES
         unum_formatInt64(fmt, U_INT64_MAX, result, 512, NULL, &status);
         if (U_FAILURE(status)) {
             log_err("error in unum_format(): %s\n", myErrorName(status));
@@ -1638,7 +1703,7 @@ static void test_fmt(UNumberFormat* fmt, UBool isDecimal) {
         UErrorCode status = U_ZERO_ERROR;
         UParseError perr;
         u_uastrcpy(buffer, "#,##0.0#");
-        unum_applyPattern(fmt, FALSE, buffer, -1, &perr, &status);
+        unum_applyPattern(fmt, false, buffer, -1, &perr, &status);
         if (isDecimal ? U_FAILURE(status) : (status != U_UNSUPPORTED_ERROR)) {
             log_err("got unexpected error for applyPattern: '%s'\n", u_errorName(status));
         }
@@ -1647,13 +1712,13 @@ static void test_fmt(UNumberFormat* fmt, UBool isDecimal) {
     {
         int isLenient = unum_getAttribute(fmt, UNUM_LENIENT_PARSE);
         log_verbose("lenient: 0x%x\n", isLenient);
-        if (isLenient != FALSE) {
+        if (isLenient != false) {
             log_err("didn't expect lenient value: %d\n", isLenient);
         }
 
-        unum_setAttribute(fmt, UNUM_LENIENT_PARSE, TRUE);
+        unum_setAttribute(fmt, UNUM_LENIENT_PARSE, true);
         isLenient = unum_getAttribute(fmt, UNUM_LENIENT_PARSE);
-        if (isLenient != TRUE) {
+        if (isLenient != true) {
             log_err("didn't expect lenient value after set: %d\n", isLenient);
         }
     }
@@ -1731,7 +1796,7 @@ static void test_fmt(UNumberFormat* fmt, UBool isDecimal) {
 
     {
         UErrorCode status = U_ZERO_ERROR;
-        unum_toPattern(fmt, FALSE, buffer, BUFSIZE, &status);
+        unum_toPattern(fmt, false, buffer, BUFSIZE, &status);
         if (U_SUCCESS(status)) {
             u_austrcpy(temp, buffer);
             log_verbose("pattern: '%s'\n", temp);
@@ -2088,7 +2153,7 @@ static void TestNBSPInPattern(void) {
         UChar pat[200];
         testcase = "ar_AE special pattern: " SPECIAL_PATTERN;
         u_unescape(SPECIAL_PATTERN, pat, UPRV_LENGTHOF(pat));
-        unum_applyPattern(nf, FALSE, pat, -1, NULL, &status);
+        unum_applyPattern(nf, false, pat, -1, NULL, &status);
         if(U_FAILURE(status)) {
             log_err("%s: unum_applyPattern failed with %s\n", testcase, u_errorName(status));
         } else {
@@ -2415,7 +2480,7 @@ static void TestUFormattable(void) {
   {
     UErrorCode status = U_ZERO_ERROR;
     UNumberFormat *unum = unum_open(UNUM_DEFAULT, NULL, -1, "en_US_POSIX", NULL, &status);
-    if(assertSuccessCheck("calling unum_open()", &status, TRUE)) {
+    if(assertSuccessCheck("calling unum_open()", &status, true)) {
       //! [unum_parseToUFormattable]
       const UChar str[] = { 0x0031, 0x0032, 0x0033, 0x0000 }; /* 123 */
       int32_t result = 0;
@@ -2440,7 +2505,7 @@ static void TestUFormattable(void) {
 
     ufmt = ufmt_open(&status);
     unum = unum_open(UNUM_DEFAULT, NULL, -1, "en_US_POSIX", NULL, &status);
-    if(assertSuccessCheck("calling ufmt_open() || unum_open()", &status, TRUE)) {
+    if(assertSuccessCheck("calling ufmt_open() || unum_open()", &status, true)) {
 
       pattern = "31337";
       log_verbose("-- pattern: %s\n", pattern);
@@ -2488,13 +2553,13 @@ static void TestUFormattable(void) {
     u_uastrcpy(buffer, pattern);
 
     unum = unum_open(UNUM_DEFAULT, NULL, -1, "en_US_POSIX", NULL, &status);
-    if(assertSuccessCheck("calling unum_open()", &status, TRUE)) {
+    if(assertSuccessCheck("calling unum_open()", &status, true)) {
 
       ufmt = unum_parseToUFormattable(unum, NULL, /* will be ufmt_open()'ed for us */
                                    buffer, -1, NULL, &status);
       if(assertSuccess("unum_parseToUFormattable(weight of the moon)", &status)) {
         log_verbose("new formattable allocated at %p\n", (void*)ufmt);
-        assertTrue("ufmt_isNumeric() TRUE", ufmt_isNumeric(ufmt));
+        assertTrue("ufmt_isNumeric() true", ufmt_isNumeric(ufmt));
         unum_formatUFormattable(unum, ufmt, out2k, 2048, NULL, &status);
         if(assertSuccess("unum_formatUFormattable(3.14159)", &status)) {
           assertEquals("unum_formatUFormattable r/t", austrdup(buffer), austrdup(out2k));
@@ -2535,14 +2600,14 @@ static const UChar hantDesc[]    = {0x7A,0x68,0x5F,0x48,0x61,0x6E,0x74,0x2F,0x53
 
 static const NumSysTestItem numSysTestItems[] = {
     //locale                         numsys    radix isAlgo  description
-    { "en",                          "latn",    10,  FALSE,  latnDesc },
-    { "en@numbers=roman",            "roman",   10,  TRUE,   romanDesc },
-    { "en@numbers=finance",          "latn",    10,  FALSE,  latnDesc },
-    { "ar-EG",                       "arab",    10,  FALSE,  arabDesc },
-    { "fa",                          "arabext", 10,  FALSE,  arabextDesc },
-    { "zh_Hans@numbers=hanidec",     "hanidec", 10,  FALSE,  hanidecDesc },
-    { "zh_Hant@numbers=traditional", "hant",    10,  TRUE,   hantDesc },
-    { NULL,                          NULL,       0,  FALSE,  NULL },
+    { "en",                          "latn",    10,  false,  latnDesc },
+    { "en@numbers=roman",            "roman",   10,  true,   romanDesc },
+    { "en@numbers=finance",          "latn",    10,  false,  latnDesc },
+    { "ar-EG",                       "arab",    10,  false,  arabDesc },
+    { "fa",                          "arabext", 10,  false,  arabextDesc },
+    { "zh_Hans@numbers=hanidec",     "hanidec", 10,  false,  hanidecDesc },
+    { "zh_Hant@numbers=traditional", "hant",    10,  true,   hantDesc },
+    { NULL,                          NULL,       0,  false,  NULL },
 };
 enum { kNumSysDescripBufMax = 64 };
 
@@ -2584,15 +2649,15 @@ static void TestUNumberingSystem(void) {
         if ( U_SUCCESS(status) ) {
             int32_t numsysCount = 0;
             // sanity check for a couple of number systems that must be in the enumeration
-            UBool foundLatn = FALSE;
-            UBool foundArab = FALSE;
+            UBool foundLatn = false;
+            UBool foundArab = false;
             while ( (numsys = uenum_next(uenum, NULL, &status)) != NULL && U_SUCCESS(status) ) {
                 status = U_ZERO_ERROR;
                 unumsys = unumsys_openByName(numsys, &status);
                 if ( U_SUCCESS(status) ) {
                     numsysCount++;
-                    if ( uprv_strcmp(numsys, "latn") ) foundLatn = TRUE;
-                    if ( uprv_strcmp(numsys, "arab") ) foundArab = TRUE;
+                    if ( uprv_strcmp(numsys, "latn") ) foundLatn = true;
+                    if ( uprv_strcmp(numsys, "arab") ) foundArab = true;
                     unumsys_close(unumsys);
                 } else {
                     log_err("unumsys_openAvailableNames includes %s but unumsys_openByName on it fails with status %s\n",
@@ -2611,7 +2676,12 @@ static void TestUNumberingSystem(void) {
 }
 
 /* plain-C version of test in numfmtst.cpp */
+#if APPLE_ICU_CHANGES
+// rdar://
 enum { kUBufMax = 64, kBBufMax = 128 };
+#else
+enum { kUBufMax = 64 };
+#endif  // APPLE_ICU_CHANGES
 static void TestCurrencyIsoPluralFormat(void) {
     static const char* DATA[][8] = {
         // the data are:
@@ -2646,19 +2716,25 @@ static void TestCurrencyIsoPluralFormat(void) {
                                                                                                                                             "\\u0440\\u0443\\u0431\\u043B\\u044F"},
         {"ru_RU",             "5",        "RUB", "5,00\\u00A0\\u20BD", "5,00\\u00A0\\u20BD", "5,00\\u00A0\\u20BD", "5,00\\u00A0RUB",        "5,00 \\u0440\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u043E\\u0433\\u043E "
                                                                                                                                             "\\u0440\\u0443\\u0431\\u043B\\u044F"},
+#if APPLE_ICU_CHANGES
+// rdar://
         {"ja_JP",             "42",       NULL,  "\\u00A542",          "\\u00A542",          "\\u00A542",          "JPY\\u00A042",          "42\\u00A0\\u5186"},
         {"ja_JP@currency=USD", "42",      NULL,  "$42.00",             "$42.00",             "$42.00",             "USD\\u00A042.00",       "42.00\\u00A0\\u7C73\\u30C9\\u30EB"},
         {"ms_MY",             "1234.56",  "MYR", "RM1,234.56",         "RM1,234.56",         "RM1,234.56",         "MYR1,234.56",           "1,234.56 Ringgit Malaysia"},
         {"id_ID",             "1234.56",  "IDR", "Rp1.235",            "Rp1.235",            "Rp1.235",            "IDR\\u00A01.235",       "1.235 Rupiah Indonesia"},
+#endif  // APPLE_ICU_CHANGES
         // test locale without currency information
         {"root",              "-1.23",    "USD", "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-USD\\u00A01.23", "-1.23 USD"},
         {"root@cf=account",   "-1.23",    "USD", "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-USD\\u00A01.23", "-1.23 USD"},
         // test choice format
         {"es_AR",             "1",        "INR", "INR\\u00A01,00",     "INR\\u00A01,00",     "INR\\u00A01,00",     "INR\\u00A01,00",  "1,00 rupia india"},
+#if APPLE_ICU_CHANGES
+// rdar://
          // test EUR format for some now-redundant locale data removed in rdar://62544359
         {"en_NO",             "1234.56",  "EUR", "\\u20AC\\u00A01\\u00A0234,56", "\\u20AC\\u00A01\\u00A0234,56", "\\u20AC\\u00A01\\u00A0234,56", "EUR\\u00A01\\u00A0234,56", "1\\u00A0234,56 euros"},
         {"en_PL",             "1234.56",  "EUR", "1\\u00A0234,56\\u00A0\\u20AC", "1\\u00A0234,56\\u00A0\\u20AC", "1\\u00A0234,56\\u00A0\\u20AC", "1\\u00A0234,56\\u00A0EUR", "1\\u00A0234,56 euros"},
-   };
+#endif  // APPLE_ICU_CHANGES
+    };
     static const UNumberFormatStyle currencyStyles[] = {
         UNUM_CURRENCY,
         UNUM_CURRENCY_STANDARD,
@@ -2676,17 +2752,27 @@ static void TestCurrencyIsoPluralFormat(void) {
       for (sIndex = 0; sIndex < UPRV_LENGTHOF(currencyStyles); ++sIndex) {
         UNumberFormatStyle style = currencyStyles[sIndex];
         UErrorCode status = U_ZERO_ERROR;
+#if APPLE_ICU_CHANGES
+// rdar://
         UChar currencyCode[4] = {0};
+#else
+        UChar currencyCode[4];
+#endif  // APPLE_ICU_CHANGES
         UChar ubufResult[kUBufMax];
         UChar ubufExpected[kUBufMax];
         int32_t ulenRes;
+#if APPLE_ICU_CHANGES
+// rdar://
         const char* currencyISOCodeForLog = currencyISOCode;
+#endif  // APPLE_ICU_CHANGES
 
         UNumberFormat* unumFmt = unum_open(style, NULL, 0, localeString, NULL, &status);
         if (U_FAILURE(status)) {
             log_data_err("FAIL: unum_open, locale %s, style %d - %s\n", localeString, (int)style, myErrorName(status));
             continue;
         }
+#if APPLE_ICU_CHANGES
+// rdar://
         if (currencyISOCode != NULL) {
             u_charsToUChars(currencyISOCode, currencyCode, 4);
             unum_setTextAttribute(unumFmt, UNUM_CURRENCY_CODE, currencyCode, 3, &status);
@@ -2694,21 +2780,41 @@ static void TestCurrencyIsoPluralFormat(void) {
             unum_setTextAttribute(unumFmt, UNUM_CURRENCY_CODE, NULL, 0, &status);
             currencyISOCodeForLog = "(null)";
         }
+#else
+        u_charsToUChars(currencyISOCode, currencyCode, 4);
+        unum_setTextAttribute(unumFmt, UNUM_CURRENCY_CODE, currencyCode, 3, &status);
+#endif  // APPLE_ICU_CHANGES
         if (U_FAILURE(status)) {
+#if APPLE_ICU_CHANGES
+// rdar://
             log_err("FAIL: unum_setTextAttribute, locale %s, UNUM_CURRENCY_CODE %s: %s\n", localeString, currencyISOCodeForLog, myErrorName(status));
+#else
+            log_err("FAIL: unum_setTextAttribute, locale %s, UNUM_CURRENCY_CODE %s\n", localeString, currencyISOCode);
+#endif  // APPLE_ICU_CHANGES
         }
         ulenRes = unum_formatDouble(unumFmt, numberToBeFormat, ubufResult, kUBufMax, NULL, &status);
         if (U_FAILURE(status)) {
+#if APPLE_ICU_CHANGES
+// rdar://
             log_err("FAIL: unum_formatDouble, locale %s, UNUM_CURRENCY_CODE %s: %s\n", localeString, currencyISOCodeForLog, myErrorName(status));
+#else
+            log_err("FAIL: unum_formatDouble, locale %s, UNUM_CURRENCY_CODE %s - %s\n", localeString, currencyISOCode, myErrorName(status));
+#endif  // APPLE_ICU_CHANGES
         } else {
             int32_t ulenExp = u_unescape(DATA[i][3 + sIndex], ubufExpected, kUBufMax);
             if (ulenRes != ulenExp || u_strncmp(ubufResult, ubufExpected, ulenExp) != 0) {
+#if APPLE_ICU_CHANGES
+// rdar://
                 char bbufExpected[kBBufMax];
                 char bbufResult[kBBufMax];
                 u_strToUTF8(bbufExpected, kBBufMax, NULL, ubufExpected, ulenExp, &status);
                 u_strToUTF8(bbufResult,   kBBufMax, NULL, ubufResult,   ulenRes, &status);
                 log_err("FAIL: unum_formatDouble, locale %s, UNUM_CURRENCY_CODE %s, expected %s, got %s\n",
                         localeString, currencyISOCodeForLog, bbufExpected, bbufResult);
+#else
+                log_err("FAIL: unum_formatDouble, locale %s, UNUM_CURRENCY_CODE %s, expected %s, got something else\n",
+                        localeString, currencyISOCode, DATA[i][3 + sIndex]);
+#endif  // APPLE_ICU_CHANGES
             }
         }
         unum_close(unumFmt);
@@ -2886,10 +2992,10 @@ static void TestCurrFmtNegSameAsPositive(void) {
     UErrorCode status = U_ZERO_ERROR;
     UNumberFormat* unumfmt = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
     if ( U_SUCCESS(status) ) {
-        unum_applyPattern(unumfmt, FALSE, currFmtNegSameAsPos, -1, NULL, &status);
+        unum_applyPattern(unumfmt, false, currFmtNegSameAsPos, -1, NULL, &status);
         if (U_SUCCESS(status)) {
             UChar ubuf[kUBufSize];
-            int32_t ulen = unum_toPattern(unumfmt, FALSE, ubuf, kUBufSize, &status);
+            int32_t ulen = unum_toPattern(unumfmt, false, ubuf, kUBufSize, &status);
             if (U_FAILURE(status)) {
                 log_err("unum_toPattern fails with status %s\n", myErrorName(status));
             } else if (u_strcmp(ubuf, currFmtToPatExpected) != 0) {
@@ -2918,10 +3024,15 @@ static void TestCurrFmtNegSameAsPositive(void) {
 
 typedef struct {
   double value;
+#if APPLE_ICU_CHANGES
+// rdar://
   const char *valueStr;
+#endif  // APPLE_ICU_CHANGES
   const char *expected;
 } ValueAndExpectedString;
 
+#if APPLE_ICU_CHANGES
+// rdar://
 static const ValueAndExpectedString enDecMinFrac[] = {
   {0.0,           "0.0",           "0.0"},
   {0.17,          "0.17",          "0.17"},
@@ -2933,7 +3044,11 @@ static const ValueAndExpectedString enDecMinFrac[] = {
   {12345678.0,    "12345678.0",    "12,345,678.0"},
   {0.0, NULL, NULL}
 };
+#endif  // APPLE_ICU_CHANGES
+
 static const ValueAndExpectedString enShort[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
   {0.0,           "0.0",           "0"},
   {0.17,          "0.17",          "0.17"},
   {1.0,           "1.0",           "1"},
@@ -2951,9 +3066,30 @@ static const ValueAndExpectedString enShort[] = {
   {1.23456789E14, "1.23456789E14", "123T"},
   {1.23456789E15, "1.23456789E15", "1235T"},
   {0.0, NULL, NULL}
+#else
+  {0.0, "0"},
+  {0.17, "0.17"},
+  {1.0, "1"},
+  {1234.0, "1.2K"},
+  {12345.0, "12K"},
+  {123456.0, "123K"},
+  {1234567.0, "1.2M"},
+  {12345678.0, "12M"},
+  {123456789.0, "123M"},
+  {1.23456789E9, "1.2B"},
+  {1.23456789E10, "12B"},
+  {1.23456789E11, "123B"},
+  {1.23456789E12, "1.2T"},
+  {1.23456789E13, "12T"},
+  {1.23456789E14, "123T"},
+  {1.23456789E15, "1235T"},
+  {0.0, NULL}
+#endif  // APPLE_ICU_CHANGES
 };
 
 static const ValueAndExpectedString enShortMax2[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
   {0.0,           "0.0",           "0"},
   {0.17,          "0.17",          "0.17"},
   {1.0,           "1.0",           "1"},
@@ -2971,9 +3107,30 @@ static const ValueAndExpectedString enShortMax2[] = {
   {1.23456789E14, "1.23456789E14", "120T"},
   {1.23456789E15, "1.23456789E15", "1200T"},
   {0.0, NULL, NULL}
+#else
+  {0.0, "0"},
+  {0.17, "0.17"},
+  {1.0, "1"},
+  {1234.0, "1.2K"},
+  {12345.0, "12K"},
+  {123456.0, "120K"},
+  {1234567.0, "1.2M"},
+  {12345678.0, "12M"},
+  {123456789.0, "120M"},
+  {1.23456789E9, "1.2B"},
+  {1.23456789E10, "12B"},
+  {1.23456789E11, "120B"},
+  {1.23456789E12, "1.2T"},
+  {1.23456789E13, "12T"},
+  {1.23456789E14, "120T"},
+  {1.23456789E15, "1200T"},
+  {0.0, NULL}
+#endif  // APPLE_ICU_CHANGES
 };
 
 static const ValueAndExpectedString enShortMax5[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
   {0.0,           "0.0",           "0"},
   {0.17,          "0.17",          "0.17"},
   {1.0,           "1.0",           "1"},
@@ -2991,9 +3148,30 @@ static const ValueAndExpectedString enShortMax5[] = {
   {1.23456789E14, "1.23456789E14", "123.46T"},
   {1.23456789E15, "1.23456789E15", "1234.6T"},
   {0.0, NULL, NULL}
+#else
+  {0.0, "0"},
+  {0.17, "0.17"},
+  {1.0, "1"},
+  {1234.0, "1.234K"},
+  {12345.0, "12.345K"},
+  {123456.0, "123.46K"},
+  {1234567.0, "1.2346M"},
+  {12345678.0, "12.346M"},
+  {123456789.0, "123.46M"},
+  {1.23456789E9, "1.2346B"},
+  {1.23456789E10, "12.346B"},
+  {1.23456789E11, "123.46B"},
+  {1.23456789E12, "1.2346T"},
+  {1.23456789E13, "12.346T"},
+  {1.23456789E14, "123.46T"},
+  {1.23456789E15, "1234.6T"},
+  {0.0, NULL}
+#endif  // APPLE_ICU_CHANGES
 };
 
 static const ValueAndExpectedString enShortMin3[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
   {0.0,           "0.0",           "0.00"},
   {0.17,          "0.17",          "0.170"},
   {1.0,           "1.0",           "1.00"},
@@ -3011,9 +3189,30 @@ static const ValueAndExpectedString enShortMin3[] = {
   {1.23456789E14, "1.23456789E14", "123T"},
   {1.23456789E15, "1.23456789E15", "1230T"},
   {0.0, NULL, NULL}
+#else
+  {0.0, "0.00"},
+  {0.17, "0.170"},
+  {1.0, "1.00"},
+  {1234.0, "1.23K"},
+  {12345.0, "12.3K"},
+  {123456.0, "123K"},
+  {1234567.0, "1.23M"},
+  {12345678.0, "12.3M"},
+  {123456789.0, "123M"},
+  {1.23456789E9, "1.23B"},
+  {1.23456789E10, "12.3B"},
+  {1.23456789E11, "123B"},
+  {1.23456789E12, "1.23T"},
+  {1.23456789E13, "12.3T"},
+  {1.23456789E14, "123T"},
+  {1.23456789E15, "1230T"},
+  {0.0, NULL}
+#endif  // APPLE_ICU_CHANGES
 };
 
 static const ValueAndExpectedString jaShortMax2[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
   {1234.0,        "1234.0",        "1200"},
   {12345.0,       "12345.0",       "1.2\\u4E07"},
   {123456.0,      "123456.0",      "12\\u4E07"},
@@ -3027,9 +3226,26 @@ static const ValueAndExpectedString jaShortMax2[] = {
   {1.23456789E13, "1.23456789E13", "12\\u5146"},
   {1.23456789E14, "1.23456789E14", "120\\u5146"},
   {0.0, NULL, NULL}
+#else
+  {1234.0, "1200"},
+  {12345.0, "1.2\\u4E07"},
+  {123456.0, "12\\u4E07"},
+  {1234567.0, "120\\u4E07"},
+  {12345678.0, "1200\\u4E07"},
+  {123456789.0, "1.2\\u5104"},
+  {1.23456789E9, "12\\u5104"},
+  {1.23456789E10, "120\\u5104"},
+  {1.23456789E11, "1200\\u5104"},
+  {1.23456789E12, "1.2\\u5146"},
+  {1.23456789E13, "12\\u5146"},
+  {1.23456789E14, "120\\u5146"},
+  {0.0, NULL}
+#endif  // APPLE_ICU_CHANGES
 };
 
 static const ValueAndExpectedString srLongMax2[] = {
+#if APPLE_ICU_CHANGES
+// rdar://
   {1234.0,         "1234.0",        "1,2 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"}, // 10^3 few
   {12345.0,        "12345.0",       "12 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"}, // 10^3 other
   {21789.0,        "21789.0",       "22 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"}, // 10^3 few
@@ -3057,8 +3273,39 @@ static const ValueAndExpectedString srLongMax2[] = {
   {-2.18901234E10, "-2.18901234E10", "-22 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"},
   {-1.23456789E11, "-1.23456789E11", "-120 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"},
   {0.0, NULL, NULL}
+#else
+  {1234.0, "1,2 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"}, // 10^3 few
+  {12345.0, "12 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"}, // 10^3 other
+  {21789.0, "22 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"}, // 10^3 few
+  {123456.0, "120 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"}, // 10^3 other
+  {999999.0, "1 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D"}, // 10^6 one
+  {1234567.0, "1,2 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"}, // 10^6 few
+  {12345678.0, "12 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"}, // 10^6 other
+  {123456789.0, "120 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"}, // 10^6 other
+  {1.23456789E9, "1,2 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"}, // 10^9 few
+  {1.23456789E10, "12 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"}, // 10^9 other
+  {2.08901234E10, "21 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0430"}, // 10^9 one
+  {2.18901234E10, "22 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"}, // 10^9 few
+  {1.23456789E11, "120 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"}, // 10^9 other
+  {-1234.0, "-1,2 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"},
+  {-12345.0, "-12 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"},
+  {-21789.0, "-22 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"},
+  {-123456.0, "-120 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"},
+  {-999999.0, "-1 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D"},
+  {-1234567.0, "-1,2 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"},
+  {-12345678.0, "-12 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"},
+  {-123456789.0, "-120 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"},
+  {-1.23456789E9, "-1,2 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"},
+  {-1.23456789E10, "-12 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"},
+  {-2.08901234E10, "-21 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0430"},
+  {-2.18901234E10, "-22 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"},
+  {-1.23456789E11, "-120 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"},
+  {0.0, NULL}
+#endif  // APPLE_ICU_CHANGES
 };
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // rdar://52188411
 static const ValueAndExpectedString enINShortMax2[] = {
   {0.0,           "0.0",           "0"},
@@ -3079,6 +3326,7 @@ static const ValueAndExpectedString enINShortMax2[] = {
   {1.23456789E15, "1.23456789E15", "1200LCr"},
   {0.0, NULL, NULL}
 };
+#endif  // APPLE_ICU_CHANGES
 
 typedef struct {
     const char *       locale;
@@ -3089,14 +3337,20 @@ typedef struct {
 } LocStyleAttributeTest;
 
 static const LocStyleAttributeTest lsaTests[] = {
-  { "en",    UNUM_DECIMAL,                   UNUM_MIN_FRACTION_DIGITS,       1,  enDecMinFrac },
-  { "en",    UNUM_DECIMAL_COMPACT_SHORT,     -1,                             0,  enShort },
-  { "en",    UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  enShortMax2 },
-  { "en",    UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    5,  enShortMax5 },
-  { "en",    UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MIN_SIGNIFICANT_DIGITS,    3,  enShortMin3 },
-  { "ja",    UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  jaShortMax2 },
-  { "sr",    UNUM_DECIMAL_COMPACT_LONG,      UNUM_MAX_SIGNIFICANT_DIGITS,    2,  srLongMax2  },
-  { "en_IN", UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  enINShortMax2 }, // rdar://52188411
+#if APPLE_ICU_CHANGES
+// rdar://
+  { "en",   UNUM_DECIMAL,                   UNUM_MIN_FRACTION_DIGITS,       1,  enDecMinFrac },
+#endif  // APPLE_ICU_CHANGES
+  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     -1,                             0,  enShort },
+  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  enShortMax2 },
+  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    5,  enShortMax5 },
+  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MIN_SIGNIFICANT_DIGITS,    3,  enShortMin3 },
+  { "ja",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  jaShortMax2 },
+  { "sr",   UNUM_DECIMAL_COMPACT_LONG,      UNUM_MAX_SIGNIFICANT_DIGITS,    2,  srLongMax2  },
+#if APPLE_ICU_CHANGES
+// rdar://
+  { "en_IN",UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  enINShortMax2 }, // rdar://52188411
+#endif  // APPLE_ICU_CHANGES
   { NULL,   (UNumberFormatStyle)0,          -1,                             0,  NULL }
 };
 
@@ -3135,6 +3389,8 @@ static void TestVariousStylesAndAttributes(void) {
                     log_err("FAIL: unum_formatDouble style %d, locale %s, attr %d, value %.2f: expect \"%s\", get \"%s\"\n",
                             (int)lsaTestPtr->style, lsaTestPtr->locale, lsaTestPtr->attribute, veItemPtr->value, bexp, bget);
                 }
+#if APPLE_ICU_CHANGES
+// rdar://
                 status = U_ZERO_ERROR;
                 ugetlen = unum_formatDecimal(unum, veItemPtr->valueStr, -1, uget, kUBufSize, NULL, &status);
                 if ( U_FAILURE(status) ) {
@@ -3148,6 +3404,7 @@ static void TestVariousStylesAndAttributes(void) {
                     log_err("FAIL: unum_formatDecimal style %d, locale %s, attr %d, valueStr %s: expect \"%s\", get \"%s\"\n",
                             (int)lsaTestPtr->style, lsaTestPtr->locale, lsaTestPtr->attribute, veItemPtr->valueStr, bexp, bget);
                 }
+#endif  // APPLE_ICU_CHANGES
             }
             unum_close(unum);
         }
@@ -3163,7 +3420,7 @@ static void TestParseCurrPatternWithDecStyle() {
     if (U_FAILURE(status)) {
         log_data_err("unum_open DECIMAL failed for en_US: %s (Are you missing data?)\n", u_errorName(status));
     } else {
-        unum_applyPattern(unumfmt, FALSE, currpat, -1, NULL, &status);
+        unum_applyPattern(unumfmt, false, currpat, -1, NULL, &status);
         if (U_FAILURE(status)) {
             log_err_status(status, "unum_applyPattern failed: %s\n", u_errorName(status));
         } else {
@@ -3207,7 +3464,12 @@ static const FieldsData fields_en_CURR[] = {
     { UNUM_FRACTION_FIELD /*1*/,            9, 11 },
     { -1, -1, -1 },
 };
+#if APPLE_ICU_CHANGES
+// rdar://
 /* "en_US"/"es_US/MX" , UNUM_PERCENT, -34 : "#,##0%" => "-34%" */
+#else
+/* "en_US", UNUM_PERCENT, -34 : "#,##0%" => "-34%" */
+#endif  // APPLE_ICU_CHANGES
 static const FieldsData fields_en_PRCT[] = {
     { UNUM_SIGN_FIELD /*10*/,               0, 1 },
     { UNUM_INTEGER_FIELD /*0*/,             1, 3 },
@@ -3232,8 +3494,11 @@ static const FieldsData fields_en_PATN[] = {
 static const FormatForFieldsItem fffItems[] = {
     { "en_US", UNUM_CURRENCY_STANDARD, 123456.0, fields_en_CURR },
     { "en_US", UNUM_PERCENT,              -0.34, fields_en_PRCT },
+#if APPLE_ICU_CHANGES
+// rdar://
     { "es_US", UNUM_PERCENT,              -0.34, fields_en_PRCT }, // rdar://57000745
     { "es_MX", UNUM_PERCENT,              -0.34, fields_en_PRCT }, // rdar://42948387
+#endif  // APPLE_ICU_CHANGES
     { "fr_FR", UNUM_CURRENCY_STANDARD, 123456.0, fields_fr_CURR },
     { "en_US", UNUM_PATTERN_DECIMAL,       12.0, fields_en_PATN },
     { NULL, (UNumberFormatStyle)0, 0, NULL },
@@ -3262,7 +3527,7 @@ static void TestFormatForFields(void) {
                 } else {
                     const FieldsData * fptr;
                     int32_t field, beginPos, endPos;
-                    for (fptr = itemPtr->expectedFields; TRUE; fptr++) {
+                    for (fptr = itemPtr->expectedFields; true; fptr++) {
                         field = ufieldpositer_next(fpositer, &beginPos, &endPos);
                         if (field != fptr->field || (field >= 0 && (beginPos != fptr->beginPos || endPos != fptr->endPos))) {
                             if (fptr->field >= 0) {
@@ -3291,7 +3556,7 @@ static void Test12052_NullPointer() {
     static const UChar input[] = u"199a";
     UChar currency[200] = {0};
     UNumberFormat *theFormatter = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
-    if (!assertSuccessCheck("unum_open() failed", &status, TRUE)) { return; }
+    if (!assertSuccessCheck("unum_open() failed", &status, true)) { return; }
     status = U_ZERO_ERROR;
     unum_setAttribute(theFormatter, UNUM_LENIENT_PARSE, 1);
     int32_t pos = 1;
@@ -3318,20 +3583,23 @@ typedef struct {
 } ParseCaseItem;
 
 static const ParseCaseItem parseCaseItems[] = {
-    { "en", u"0,000",            FALSE, FALSE, U_ZERO_ERROR,            5,          0, U_ZERO_ERROR,  5,                0.0, U_ZERO_ERROR,  5, "0" },
-    { "en", u"0,000",            TRUE,  FALSE, U_ZERO_ERROR,            5,          0, U_ZERO_ERROR,  5,                0.0, U_ZERO_ERROR,  5, "0" },
-    { "en", u",024",             FALSE, FALSE, U_ZERO_ERROR,            4,         24, U_ZERO_ERROR,  4,               24.0, U_ZERO_ERROR,  4, "24" },
-    { "en", u",024",             TRUE,  FALSE, U_ZERO_ERROR,            4,         24, U_ZERO_ERROR,  4,               24.0, U_ZERO_ERROR,  4, "24" },
-    { "en", u"1000,000",         FALSE, FALSE, U_PARSE_ERROR,           0,          0, U_PARSE_ERROR, 0,                0.0, U_PARSE_ERROR, 0, "" },
-    { "en", u"1000,000",         TRUE,  FALSE, U_ZERO_ERROR,            8,    1000000, U_ZERO_ERROR,  8,          1000000.0, U_ZERO_ERROR,  8, "1000000" },
-    { "en", u"",                 FALSE, FALSE, U_PARSE_ERROR,           0,          0, U_PARSE_ERROR, 0,                0.0, U_PARSE_ERROR, 0, "" },
-    { "en", u"",                 TRUE,  FALSE, U_PARSE_ERROR,           0,          0, U_PARSE_ERROR, 0,                0.0, U_PARSE_ERROR, 0, "" },
-    { "en", u"9999990000503021", FALSE, FALSE, U_INVALID_FORMAT_ERROR, 16, 2147483647, U_ZERO_ERROR, 16, 9999990000503020.0, U_ZERO_ERROR, 16, "9999990000503021" },
-    { "en", u"9999990000503021", FALSE, TRUE,  U_INVALID_FORMAT_ERROR, 16, 2147483647, U_ZERO_ERROR, 16, 9999990000503020.0, U_ZERO_ERROR, 16, "9999990000503021" },
-    { "en", u"1000000.5",        FALSE, FALSE, U_ZERO_ERROR,            9,    1000000, U_ZERO_ERROR,  9,          1000000.5, U_ZERO_ERROR,  9, "1.0000005E+6" /* change from ICU-62nnn */},
-    { "en", u"1000000.5",        FALSE, TRUE,  U_ZERO_ERROR,            7,    1000000, U_ZERO_ERROR,  7,          1000000.0, U_ZERO_ERROR,  7, "1000000" },
-    { "en", u"123.5",            FALSE, FALSE, U_ZERO_ERROR,            5,        123, U_ZERO_ERROR,  5,              123.5, U_ZERO_ERROR,  5, "123.5" },
-    { "en", u"123.5",            FALSE, TRUE,  U_ZERO_ERROR,            3,        123, U_ZERO_ERROR,  3,              123.0, U_ZERO_ERROR,  3, "123" },
+    { "en", u"0,000",            false, false, U_ZERO_ERROR,            5,          0, U_ZERO_ERROR,  5,                0.0, U_ZERO_ERROR,  5, "0" },
+    { "en", u"0,000",            true,  false, U_ZERO_ERROR,            5,          0, U_ZERO_ERROR,  5,                0.0, U_ZERO_ERROR,  5, "0" },
+#if APPLE_ICU_CHANGES
+// rdar://
+    { "en", u",024",             false, false, U_ZERO_ERROR,            4,         24, U_ZERO_ERROR,  4,               24.0, U_ZERO_ERROR,  4, "24" },
+    { "en", u",024",             true,  false, U_ZERO_ERROR,            4,         24, U_ZERO_ERROR,  4,               24.0, U_ZERO_ERROR,  4, "24" },
+#endif  // APPLE_ICU_CHANGES
+    { "en", u"1000,000",         false, false, U_PARSE_ERROR,           0,          0, U_PARSE_ERROR, 0,                0.0, U_PARSE_ERROR, 0, "" },
+    { "en", u"1000,000",         true,  false, U_ZERO_ERROR,            8,    1000000, U_ZERO_ERROR,  8,          1000000.0, U_ZERO_ERROR,  8, "1000000" },
+    { "en", u"",                 false, false, U_PARSE_ERROR,           0,          0, U_PARSE_ERROR, 0,                0.0, U_PARSE_ERROR, 0, "" },
+    { "en", u"",                 true,  false, U_PARSE_ERROR,           0,          0, U_PARSE_ERROR, 0,                0.0, U_PARSE_ERROR, 0, "" },
+    { "en", u"9999990000503021", false, false, U_INVALID_FORMAT_ERROR, 16, 2147483647, U_ZERO_ERROR, 16, 9999990000503020.0, U_ZERO_ERROR, 16, "9999990000503021" },
+    { "en", u"9999990000503021", false, true,  U_INVALID_FORMAT_ERROR, 16, 2147483647, U_ZERO_ERROR, 16, 9999990000503020.0, U_ZERO_ERROR, 16, "9999990000503021" },
+    { "en", u"1000000.5",        false, false, U_ZERO_ERROR,            9,    1000000, U_ZERO_ERROR,  9,          1000000.5, U_ZERO_ERROR,  9, "1.0000005E+6"},
+    { "en", u"1000000.5",        false, true,  U_ZERO_ERROR,            7,    1000000, U_ZERO_ERROR,  7,          1000000.0, U_ZERO_ERROR,  7, "1000000" },
+    { "en", u"123.5",            false, false, U_ZERO_ERROR,            5,        123, U_ZERO_ERROR,  5,              123.5, U_ZERO_ERROR,  5, "123.5" },
+    { "en", u"123.5",            false, true,  U_ZERO_ERROR,            3,        123, U_ZERO_ERROR,  3,              123.0, U_ZERO_ERROR,  3, "123" },
     { NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, NULL }
 };
 
@@ -3436,9 +3704,12 @@ static const SetMaxFracAndRoundIncrItem maxFracAndRoundIncrItems[] = {
     { "29 en_US DEC 1/3/3/0.0075", "en_US", UNUM_DECIMAL,  1,  3,  3, 0.0075, u"#,##0.0075", 0.004, u"0.0075" }, // use incr
     { "2A en_US DEC 1/3/3/0.0075", "en_US", UNUM_DECIMAL,  1,  3,  3, 0.0075, u"#,##0.0075", 0.019, u"0.0225" }, // use incr
 
+#if 0 && APPLE_ICU_CHANGES
+// rdar://
     // Additions for rdar://51452216
     { "30 en_US DEC 1/0/1/0.01",   "en_US", UNUM_DECIMAL,  1,  1,  3, 0.001,   u"#,##0.001", 1.23456789, u"1.235" },
     { "31 en_US DEC 1/1/1/0.01",   "en_US", UNUM_DECIMAL,  1,  1,  3, 0.001f,  u"#,##0.001", 1.23456789, u"1.235" },
+#endif  // APPLE_ICU_CHANGES
 
     { NULL, NULL, UNUM_IGNORE, 0, 0, 0, 0.0, NULL, 0.0, NULL }
 };
@@ -3456,7 +3727,7 @@ static const SetMaxFracAndRoundIncrItem maxFracAndRoundIncrItems[] = {
 // roundIncr must be non-zero
 static UBool ignoreRoundingIncrement(double roundIncr, int32_t maxFrac) {
     if (maxFrac < 0) {
-        return FALSE;
+        return false;
     }
     int32_t frac = 0;
     roundIncr *= 2.0;
@@ -3464,6 +3735,11 @@ static UBool ignoreRoundingIncrement(double roundIncr, int32_t maxFrac) {
     return (frac > maxFrac);
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
+#else
+enum { kBBufMax = 128 };
+#endif  // APPLE_ICU_CHANGES
 static void TestSetMaxFracAndRoundIncr(void) {
     const SetMaxFracAndRoundIncrItem* itemPtr;
     for (itemPtr = maxFracAndRoundIncrItems; itemPtr->descrip != NULL; itemPtr++) {
@@ -3512,7 +3788,7 @@ static void TestSetMaxFracAndRoundIncr(void) {
         }
 
         status = U_ZERO_ERROR;
-        ulen = unum_toPattern(unf, FALSE, ubuf, kUBufMax, &status);
+        ulen = unum_toPattern(unf, false, ubuf, kUBufMax, &status);
         (void)ulen;
         if ( U_FAILURE(status) ) {
             log_err("test %s: unum_toPattern fails with %s\n", itemPtr->descrip, u_errorName(status));
@@ -3555,7 +3831,7 @@ static void TestIgnorePadding(void) {
             unum_setAttribute(unum, UNUM_MAX_FRACTION_DIGITS, 0);
 
             UChar ubuf[kUBufMax];
-            int32_t ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+            int32_t ulen = unum_toPattern(unum, false, ubuf, kUBufMax, &status);
             if (U_FAILURE(status)) {
                 log_err("unum_toPattern fails: %s\n", u_errorName(status));
             } else {
@@ -3565,7 +3841,7 @@ static void TestIgnorePadding(void) {
                     u_austrncpy(bbuf, ubuf, kBBufMax);
                     log_err("unum_toPattern result should ignore padding but get %s\n", bbuf);
                 }
-                unum_applyPattern(unum, FALSE, ubuf, ulen, NULL, &status);
+                unum_applyPattern(unum, false, ubuf, ulen, NULL, &status);
                 if (U_FAILURE(status)) {
                     log_err("unum_applyPattern fails: %s\n", u_errorName(status));
                 } else {
@@ -3598,7 +3874,7 @@ static void TestSciNotationMaxFracCap(void) {
 
         unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
         unum_setAttribute(unum, UNUM_MAX_FRACTION_DIGITS, 2147483647);
-        ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+        ulen = unum_toPattern(unum, false, ubuf, kUBufMax, &status);
         if ( U_SUCCESS(status) ) {
             u_austrncpy(bbuf, ubuf, kUBufMax);
             log_info("unum_toPattern (%d): %s\n", ulen, bbuf);
@@ -3619,15 +3895,27 @@ static void TestSciNotationMaxFracCap(void) {
 }
 
 static void TestMinIntMinFracZero(void) {
+#if APPLE_ICU_CHANGES
+// rdar://
     UChar ubuf[kUBufMax];
     char  bbuf[kBBufMax];
     int minInt, minFrac, maxFrac, ulen;
+#endif  // APPLE_ICU_CHANGES
 
     UErrorCode status = U_ZERO_ERROR;
     UNumberFormat* unum = unum_open(UNUM_DECIMAL, NULL, 0, "en_US", NULL, &status);
     if ( U_FAILURE(status) ) {
         log_data_err("unum_open UNUM_DECIMAL for en_US fails with %s\n", u_errorName(status));
     } else {
+#if APPLE_ICU_CHANGES
+// rdar://
+// move these to top
+#else
+        UChar ubuf[kUBufMax];
+        char  bbuf[kBBufMax];
+        int minInt, minFrac, ulen;
+#endif  // APPLE_ICU_CHANGES
+
         unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
         unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
         minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
@@ -3636,7 +3924,7 @@ static void TestMinIntMinFracZero(void) {
             log_err("after setting minInt=minFrac=0, get minInt %d, minFrac %d\n", minInt, minFrac);
         }
 
-        ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+        ulen = unum_toPattern(unum, false, ubuf, kUBufMax, &status);
         if ( U_FAILURE(status) ) {
             log_err("unum_toPattern fails with %s\n", u_errorName(status));
         } else if (ulen < 3 || u_strstr(ubuf, u"#.#")==NULL) {
@@ -3715,7 +4003,8 @@ static void TestMinIntMinFracZero(void) {
             unum_close(unum);
         }
     }
-
+#if APPLE_ICU_CHANGES
+// rdar://
    // addition for rdar://57291456
     status = U_ZERO_ERROR;
     unum = unum_open(UNUM_PATTERN_DECIMAL, NULL, 0, "en_IE", NULL, &status);
@@ -3741,9 +4030,13 @@ static void TestMinIntMinFracZero(void) {
 
         unum_close(unum);
     }
+#endif  // APPLE_ICU_CHANGES
 }
 
 static void Test21479_ExactCurrency(void) {
+#if APPLE_ICU_CHANGES
+// rdar://
+#else
     UErrorCode status = U_ZERO_ERROR;
     UNumberFormat* nf = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
     if ( U_FAILURE(status) ) {
@@ -3760,14 +4053,225 @@ static void Test21479_ExactCurrency(void) {
 
     cleanup:
     unum_close(nf);
+#endif  // APPLE_ICU_CHANGES
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://106781569, rdar://107388819, https://unicode-org.atlassian.net/browse/ICU-22340, ported back from ICU 73
+static void Test22088_Ethiopic(void) {
+    const struct TestCase {
+        const char* localeID;
+        UNumberFormatStyle style;
+        const UChar* expectedResult;
+    } testCases[] = {
+        { "am_ET@numbers=ethi",        UNUM_DEFAULT,          u"፻፳፫" },
+        { "am_ET@numbers=ethi",        UNUM_NUMBERING_SYSTEM, u"፻፳፫" },
+        { "am_ET@numbers=traditional", UNUM_DEFAULT,          u"፻፳፫" },
+        { "am_ET@numbers=traditional", UNUM_NUMBERING_SYSTEM, u"፻፳፫" },
+        { "am_ET",                     UNUM_NUMBERING_SYSTEM, u"123" },    // make sure default for Ethiopic still works
+        { "en_US",                     UNUM_NUMBERING_SYSTEM, u"123" },    // make sure non-algorithmic default still works
+        { "ar_SA",                     UNUM_NUMBERING_SYSTEM, u"١٢٣" },    // make sure non-algorithmic default still works
+        // NOTE: There are NO locales in ICU 72 whose default numbering system is algorithmic!
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        char errorMessage[200];
+        UErrorCode err = U_ZERO_ERROR;
+        UNumberFormat* nf = unum_open(testCases[i].style, NULL, 0, testCases[i].localeID, NULL, &err);
+
+        snprintf(errorMessage, 200, "Creation of number formatter for %s failed", testCases[i].localeID);
+        if (assertSuccess(errorMessage, &err)) {
+            UChar result[200];
+            
+            unum_formatDouble(nf, 123, result, 200, NULL, &err);
+            snprintf(errorMessage, 200, "Formatting of number for %s failed", testCases[i].localeID);
+            if (assertSuccess(errorMessage, &err)) {
+                snprintf(errorMessage, 200, "Wrong result for %s", testCases[i].localeID);
+                assertUEquals(errorMessage, testCases[i].expectedResult, result);
+            }
+        }
+        unum_close(nf);
+   }
+}
+#else
+static void Test22088_Ethiopic(void) {
+    UErrorCode err = U_ZERO_ERROR;
+    UNumberFormat* nf1 = unum_open(UNUM_DEFAULT, NULL, 0, "am_ET@numbers=ethi", NULL, &err);
+    UNumberFormat* nf2 = unum_open(UNUM_NUMBERING_SYSTEM, NULL, 0, "am_ET@numbers=ethi", NULL, &err);
+    UNumberFormat* nf3 = unum_open(UNUM_NUMBERING_SYSTEM, NULL, 0, "en_US", NULL, &err);}
+
+    if (assertSuccess("Creation of number formatters failed", &err)) {
+        UChar result[200];
+        
+        unum_formatDouble(nf1, 123, result, 200, NULL, &err);
+        assertSuccess("Formatting of number failed", &err);
+        assertUEquals("Wrong result with UNUM_DEFAULT", u"፻፳፫", result);
+        
+        unum_formatDouble(nf2, 123, result, 200, NULL, &err);
+        assertSuccess("Formatting of number failed", &err);
+        assertUEquals("Wrong result with UNUM_NUMBERING_SYSTEM", u"፻፳፫", result);#endif
+        
+        unum_formatDouble(nf3, 123, result, 200, NULL, &err);
+        assertSuccess("Formatting of number failed", &err);
+        assertUEquals("Wrong result with UNUM_NUMBERING_SYSTEM and English", u"123", result);
+    }
+    unum_close(nf1);
+    unum_close(nf2);
+    unum_close(nf3);
+}
+#endif
+
+static void TestParseWithEmptyCurr(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormat* unum = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
+    if (U_FAILURE(status)) {
+        log_data_err("unum_open UNUM_CURRENCY for \"en_US\" fails with %s\n", u_errorName(status));
+    } else {
+        unum_setSymbol(unum, UNUM_CURRENCY_SYMBOL, u"", 0, &status);
+        if (U_FAILURE(status)) {
+            log_err("unum_setSymbol UNUM_CURRENCY_SYMBOL u\"\" fails with %s\n", u_errorName(status));
+        } else {
+            char bbuf[kBBufMax] = { 0 };
+            UChar curr[4] = { 0 };
+            int32_t ppos, blen;
+            double val;
+            const UChar* text = u"3";
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            blen = unum_parseDecimal(unum, text, -1, &ppos, bbuf, kBBufMax, &status);
+            if (U_FAILURE(status)) {
+                log_err("unum_parseDecimal u\"3\" with empty curr symbol fails with %s, ppos %d\n", u_errorName(status), ppos);
+            } else if (ppos != 1 || blen != 1 || bbuf[0] != '3') {
+                log_err("unum_parseDecimal expect ppos 1, blen 1, str 3; get %d, %d, %s\n", ppos, blen, bbuf);
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, text, -1, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("unum_parseDouble u\"3\" with empty curr symbol fails with %s, ppos %d\n", u_errorName(status), ppos);
+            } else if (ppos != 1 || val != 3.0) {
+                log_err("unum_parseDouble expect ppos 1, val 3.0; get %d, %.2f\n", ppos, val);
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDoubleCurrency(unum, text, -1, &ppos, curr, &status);
+            if (U_SUCCESS(status)) {
+                log_err("unum_parseDoubleCurrency u\"3\" with empty curr symbol succeeds, get ppos %d, val %.2f\n", ppos, val);
+            }
+        }
+        unum_close(unum);
+    }
+
+    //                              "¤#,##0.00" "¤ #,##0.00" "#,##0.00 ¤" "#,##,##0.00¤"
+    static const char* locales[] = {"en_US",    "nb_NO",     "cs_CZ",     "bn_BD",       NULL };
+    const char ** localesPtr = locales;
+    const char* locale;
+    while ((locale = *localesPtr++) != NULL) {
+        status = U_ZERO_ERROR;
+        unum = unum_open(UNUM_CURRENCY, NULL, 0, locale, NULL, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("locale %s unum_open UNUM_CURRENCY fails with %s\n", locale, u_errorName(status));
+        } else {
+            UChar ubuf[kUBufMax];
+            int32_t ppos, ulen;
+            const double posValToUse = 37.0;
+            const double negValToUse = -3.0;
+            double val;
+
+            status = U_ZERO_ERROR;
+            unum_setSymbol(unum, UNUM_CURRENCY_SYMBOL, u"", 0, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_setSymbol UNUM_CURRENCY_SYMBOL u\"\" fails with %s, skipping\n", locale, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, posValToUse, ubuf, kUBufMax, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_formatDouble %.1f fails with %s, skipping\n", locale, posValToUse, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, posValToUse);
+            } else if (ppos != ulen || val != posValToUse) {
+                log_err("locale %s unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, posValToUse, ppos, val);
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, negValToUse, ubuf, kUBufMax, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_formatDouble %.1f fails with %s, skipping\n", locale, negValToUse, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, negValToUse);
+            } else if (ppos != ulen || val != negValToUse) {
+                log_err("locale %s unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, negValToUse, ppos, val);
+            }
+
+            status = U_ZERO_ERROR;
+            unum_applyPattern(unum, false, u"#,##0.00¤", -1, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_applyPattern \"#,##0.00¤\" fails with %s, skipping\n", locale, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, posValToUse, ubuf, kUBufMax, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s with \"#,##0.00¤\" unum_formatDouble %.1f fails with %s, skipping\n", locale, posValToUse, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, posValToUse);
+            } else if (ppos != ulen || val != posValToUse) {
+                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, posValToUse, ppos, val);
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, negValToUse, ubuf, kUBufMax, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s with \"#,##0.00¤\" unum_formatDouble %.1f fails with %s, skipping\n", locale, negValToUse, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, negValToUse);
+            } else if (ppos != ulen || val != negValToUse) {
+                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, negValToUse, ppos, val);
+            }
+
+            unum_close(unum);
+        }
+    }
+}
+
+#if APPLE_ICU_CHANGES
+// rdar://
 static const NumParseTestItem altnumParseTests[] = {
-    /* name     loc   lenent src       start val  end status */
-    { "zh@hd,50dL","zh@numbers=hanidec", TRUE,  ustr_zh50d,  0,  50,  2, U_USING_DEFAULT_WARNING },
-    { "zh@hd,05aL","zh@numbers=hanidec", TRUE,  ustr_zh05a,  0,   5,  2, U_USING_DEFAULT_WARNING },
-    { "zh@hd,05dL","zh@numbers=hanidec", TRUE,  ustr_zh05d,  0,   5,  2, U_USING_DEFAULT_WARNING },
-    { NULL,     NULL, FALSE, NULL,        0,   0,  0, 0 } /* terminator */
+    /* name        loc                   lenent src       start val end  status */
+    { "zh@hd,50dL","zh@numbers=hanidec", true,  ustr_zh50d,  0,  50,  2, U_USING_DEFAULT_WARNING },
+    { "zh@hd,05aL","zh@numbers=hanidec", true,  ustr_zh05a,  0,   5,  2, U_USING_DEFAULT_WARNING },
+    { "zh@hd,05dL","zh@numbers=hanidec", true,  ustr_zh05d,  0,   5,  2, U_USING_DEFAULT_WARNING },
+    { NULL,        NULL,                 false, NULL,        0,   0,  0, 0 } /* terminator */
 };
 
 static void TestParseAltNum(void)
@@ -3826,7 +4330,7 @@ static void TestFormatPrecision(void) {
 
         formatFullPrecision = (UBool)unum_getAttribute(unum, UNUM_FORMAT_WITH_FULL_PRECISION);
         if (formatFullPrecision) {
-            log_err("unum_getAttribute, default for UNUM_FORMAT_WITH_FULL_PRECISION is not FALSE\n");
+            log_err("unum_getAttribute, default for UNUM_FORMAT_WITH_FULL_PRECISION is not false\n");
         } else {
             fpos.field = UNUM_DECIMAL_SEPARATOR_FIELD;
             fpos.beginIndex = 0;
@@ -3844,10 +4348,10 @@ static void TestFormatPrecision(void) {
             }
         }
 
-        unum_setAttribute(unum, UNUM_FORMAT_WITH_FULL_PRECISION, TRUE);
+        unum_setAttribute(unum, UNUM_FORMAT_WITH_FULL_PRECISION, true);
         formatFullPrecision = (UBool)unum_getAttribute(unum, UNUM_FORMAT_WITH_FULL_PRECISION);
         if (!formatFullPrecision) {
-            log_err("unum_getAttribute, after set UNUM_FORMAT_WITH_FULL_PRECISION is not TRUE\n");
+            log_err("unum_getAttribute, after set UNUM_FORMAT_WITH_FULL_PRECISION is not true\n");
         } else {
             fpos.field = UNUM_DECIMAL_SEPARATOR_FIELD;
             fpos.beginIndex = 0;
@@ -3869,8 +4373,9 @@ static void TestFormatPrecision(void) {
     }
 }
 
-// Apple only for <rdar://problem/52538227>
+// rdar://52538227
 static void TestSetSigDigAndRoundIncr(void) {
+#if 0 && APPLE_ICU_CHANGES
     UErrorCode status = U_ZERO_ERROR;
     UNumberFormat* unum = unum_open(UNUM_PATTERN_DECIMAL, u"#", 1, "en_US", NULL, &status);
     if ( U_FAILURE(status) ) {
@@ -3893,7 +4398,7 @@ static void TestSetSigDigAndRoundIncr(void) {
             unum_getAttribute(unum,UNUM_MIN_SIGNIFICANT_DIGITS), unum_getAttribute(unum,UNUM_MAX_SIGNIFICANT_DIGITS),
             unum_getAttribute(unum,UNUM_SIGNIFICANT_DIGITS_USED));
         log_info("unum_getDoubleAttribute UNUM_ROUNDING_INCREMENT %f\n", unum_getDoubleAttribute(unum,UNUM_SIGNIFICANT_DIGITS_USED));
-        ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+        ulen = unum_toPattern(unum, false, ubuf, kUBufMax, &status);
         u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
         if ( U_SUCCESS(status) ) {
             log_info("unum_toPattern (%d): %s\n", ulen, bbuf);
@@ -3909,9 +4414,10 @@ static void TestSetSigDigAndRoundIncr(void) {
         }
         unum_close(unum);
     }
+#endif  // 0 && APPLE_ICU_CHANGES
 }
 
-// Apple for <rdar://problem/46755430>
+// rdar://46755430
 typedef struct {
     const char*  descrip;
     const char*  locale;
@@ -3937,7 +4443,7 @@ static const SetAffixOnCurrFmtItem affixOnCurrFmtItems[] = {
     { NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0.0,NULL,NULL }
 };
 
-// Apple only for <rdar://problem/46755430>
+// rdar://46755430
 static void TestSetAffixOnCurrFmt(void) {
     const SetAffixOnCurrFmtItem* itemPtr;
     for (itemPtr = affixOnCurrFmtItems; itemPtr->descrip != NULL; itemPtr++) {
@@ -4018,7 +4524,7 @@ static void TestSetAffixOnCurrFmt(void) {
             log_err("test %s: unum_getTextAttribute UNUM_NEGATIVE_SUFFIX expect %s, get %s\n", itemPtr->descrip, bbufe, bbufg);
         }
         status = U_ZERO_ERROR;
-        ulen = unum_toPattern(unf, FALSE, ubuf, kUBufMax, &status);
+        ulen = unum_toPattern(unf, false, ubuf, kUBufMax, &status);
         if (U_FAILURE(status)) {
             log_err("test %s: unum_toPattern fails with %s\n", itemPtr->descrip, u_errorName(status));
         } else if (u_strcmp(ubuf,itemPtr->expPattern)!=0) {
@@ -4050,154 +4556,7 @@ static void TestSetAffixOnCurrFmt(void) {
     }
 }
 
-// Apple only for <rdar://problem/46915356>
-static void TestParseWithEmptyCurr(void) {
-    UErrorCode status = U_ZERO_ERROR;
-    UNumberFormat* unum = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
-    if (U_FAILURE(status)) {
-        log_data_err("unum_open UNUM_CURRENCY for \"en_US\" fails with %s\n", u_errorName(status));
-    } else {
-        unum_setSymbol(unum, UNUM_CURRENCY_SYMBOL, u"", 0, &status);
-        if (U_FAILURE(status)) {
-            log_err("unum_setSymbol UNUM_CURRENCY_SYMBOL u\"\" fails with %s\n", u_errorName(status));
-        } else {
-            char bbuf[kBBufMax] = { 0 };
-            UChar curr[4] = { 0 };
-            int32_t ppos, blen;
-            double val;
-            const UChar* text = u"3";
-
-            status = U_ZERO_ERROR;
-            ppos = 0;
-            blen = unum_parseDecimal(unum, text, -1, &ppos, bbuf, kBBufMax, &status);
-            if (U_FAILURE(status)) {
-                log_err("unum_parseDecimal u\"3\" with empty curr symbol fails with %s, ppos %d\n", u_errorName(status), ppos);
-            } else if (ppos != 1 || blen != 1 || bbuf[0] != '3') {
-                log_err("unum_parseDecimal expect ppos 1, blen 1, str 3; get %d, %d, %s\n", ppos, blen, bbuf);
-            }
-
-            status = U_ZERO_ERROR;
-            ppos = 0;
-            val = unum_parseDouble(unum, text, -1, &ppos, &status);
-            if (U_FAILURE(status)) {
-                log_err("unum_parseDouble u\"3\" with empty curr symbol fails with %s, ppos %d\n", u_errorName(status), ppos);
-            } else if (ppos != 1 || val != 3.0) {
-                log_err("unum_parseDouble expect ppos 1, val 3.0; get %d, %.2f\n", ppos, val);
-            }
-
-            status = U_ZERO_ERROR;
-            ppos = 0;
-            val = unum_parseDoubleCurrency(unum, text, -1, &ppos, curr, &status);
-            if (U_SUCCESS(status)) {
-                log_err("unum_parseDoubleCurrency u\"3\" with empty curr symbol succeeds, get ppos %d, val %.2f\n", ppos, val);
-            }
-        }
-        unum_close(unum);
-    }
-
-    // Additions for <rdar://problem/51938595>
-    //                              "¤#,##0.00" "¤ #,##0.00" "#,##0.00 ¤" "#,##,##0.00¤"
-    static const char* locales[] = {"en_US",    "en_NO",     "en_CZ",     "en_BD",       NULL };
-    const char ** localesPtr = locales;
-    const char* locale;
-    while ((locale = *localesPtr++) != NULL) {
-        status = U_ZERO_ERROR;
-        unum = unum_open(UNUM_CURRENCY, NULL, 0, locale, NULL, &status);
-        if (U_FAILURE(status)) {
-            log_data_err("locale %s unum_open UNUM_CURRENCY fails with %s\n", locale, u_errorName(status));
-        } else {
-            char bbuf[kBBufMax] = { 0 };
-            UChar curr[4] = { 0 };
-            UChar ubuf[kUBufMax];
-            int32_t ppos, blen, ulen;
-            const double posValToUse = 37.0;
-            const double negValToUse = -3.0;
-            double val;
-
-            status = U_ZERO_ERROR;
-            unum_setSymbol(unum, UNUM_CURRENCY_SYMBOL, u"", 0, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s unum_setSymbol UNUM_CURRENCY_SYMBOL u\"\" fails with %s, skipping\n", locale, u_errorName(status));
-                continue;
-            }
-
-            status = U_ZERO_ERROR;
-            ulen = unum_formatDouble(unum, posValToUse, ubuf, kUBufMax, NULL, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s unum_formatDouble %.1f fails with %s, skipping\n", locale, posValToUse, u_errorName(status));
-                continue;
-            }
-
-            status = U_ZERO_ERROR;
-            ppos = 0;
-            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, posValToUse);
-            } else if (ppos != ulen || val != posValToUse) {
-                log_err("locale %s unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, posValToUse, ppos, val);
-            }
-
-            status = U_ZERO_ERROR;
-            ulen = unum_formatDouble(unum, negValToUse, ubuf, kUBufMax, NULL, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s unum_formatDouble %.1f fails with %s, skipping\n", locale, negValToUse, u_errorName(status));
-                continue;
-            }
-
-            status = U_ZERO_ERROR;
-            ppos = 0;
-            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, negValToUse);
-            } else if (ppos != ulen || val != negValToUse) {
-                log_err("locale %s unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, negValToUse, ppos, val);
-            }
-
-            status = U_ZERO_ERROR;
-            unum_applyPattern(unum, FALSE, u"#,##0.00¤", -1, NULL, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s unum_applyPattern \"#,##0.00¤\" fails with %s, skipping\n", locale, u_errorName(status));
-                continue;
-            }
-
-            status = U_ZERO_ERROR;
-            ulen = unum_formatDouble(unum, posValToUse, ubuf, kUBufMax, NULL, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s with \"#,##0.00¤\" unum_formatDouble %.1f fails with %s, skipping\n", locale, posValToUse, u_errorName(status));
-                continue;
-            }
-
-            status = U_ZERO_ERROR;
-            ppos = 0;
-            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, posValToUse);
-            } else if (ppos != ulen || val != posValToUse) {
-                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, posValToUse, ppos, val);
-            }
-
-            status = U_ZERO_ERROR;
-            ulen = unum_formatDouble(unum, negValToUse, ubuf, kUBufMax, NULL, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s with \"#,##0.00¤\" unum_formatDouble %.1f fails with %s, skipping\n", locale, negValToUse, u_errorName(status));
-                continue;
-            }
-
-            status = U_ZERO_ERROR;
-            ppos = 0;
-            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
-            if (U_FAILURE(status)) {
-                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, negValToUse);
-            } else if (ppos != ulen || val != negValToUse) {
-                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, negValToUse, ppos, val);
-            }
-
-            unum_close(unum);
-        }
-    }
-}
-
-// Apple only for <rdar://problem/50113359>
+/// rdar://50113359
 static const UChar* pat1 = u"#.##E+00;-#.##E+00";
 static void TestSciNotationNumbers(void) {
     UErrorCode status = U_ZERO_ERROR;
@@ -4205,7 +4564,7 @@ static void TestSciNotationNumbers(void) {
     if ( U_FAILURE(status) ) {
         log_data_err("unum_open UNUM_PATTERN_DECIMAL with null pattern for \"en_US\" fails with %s\n", u_errorName(status));
     } else {
-        unum_applyPattern(unum, FALSE, pat1, u_strlen(pat1), NULL, &status);
+        unum_applyPattern(unum, false, pat1, u_strlen(pat1), NULL, &status);
         if ( U_FAILURE(status) ) {
             log_err("unum_applyPattern fails with %s\n", u_errorName(status));
         } else {
@@ -4219,7 +4578,7 @@ static void TestSciNotationNumbers(void) {
             log_info("unum_getAttribute minInt %d maxInt %d minFrac %d maxFrac %d\n",
                 unum_getAttribute(unum,UNUM_MIN_INTEGER_DIGITS), unum_getAttribute(unum,UNUM_MAX_INTEGER_DIGITS),
                 unum_getAttribute(unum,UNUM_MIN_FRACTION_DIGITS), unum_getAttribute(unum,UNUM_MAX_FRACTION_DIGITS));
-            ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+            ulen = unum_toPattern(unum, false, ubuf, kUBufMax, &status);
             u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
             if ( U_SUCCESS(status) ) {
                 log_info("unum_toPattern (%d): %s\n", ulen, bbuf);
@@ -4240,7 +4599,7 @@ static void TestSciNotationNumbers(void) {
     }
 }
 
-// Apple only for <rdar://problem/51601250>
+// rdar://51601250
 static const UChar* patFmt3Exp = u"0.000E+00";
 static void TestSciNotationPrecision(void) {
     UErrorCode status = U_ZERO_ERROR;
@@ -4248,7 +4607,7 @@ static void TestSciNotationPrecision(void) {
     if ( U_FAILURE(status) ) {
         log_data_err("unum_open UNUM_PATTERN_DECIMAL with null pattern for \"en_US\" fails with %s\n", u_errorName(status));
     } else {
-        unum_applyPattern(unum, FALSE, pat1, u_strlen(pat1), NULL, &status);
+        unum_applyPattern(unum, false, pat1, u_strlen(pat1), NULL, &status);
         if ( U_FAILURE(status) ) {
             log_err("unum_applyPattern fails with %s\n", u_errorName(status));
         } else {
@@ -4263,7 +4622,7 @@ static void TestSciNotationPrecision(void) {
             unum_setAttribute(unum, UNUM_GROUPING_USED, 0);
 
             status = U_ZERO_ERROR;
-            ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+            ulen = unum_toPattern(unum, false, ubuf, kUBufMax, &status);
             if ( U_FAILURE(status) ) {
                 log_err("unum_toPattern fails with %s\n", u_errorName(status));
             } else if (u_strcmp(ubuf,patFmt3Exp) != 0) {
@@ -4285,7 +4644,7 @@ static void TestSciNotationPrecision(void) {
     }
 }
 
-// Apple only for <rdar://problem/49808819>
+// rdar://49808819
 static const char* minGroupLocale = "pt_PT"; // has minimumGroupingDigits{"2"}
 typedef struct {
     double value;
@@ -4355,7 +4714,7 @@ static void TestMinimumGrouping(void) {
     }
 }
 
-// Apple only for <rdar://problem/49120648>
+// rdar://49120648
 static const char* const numSysLocales[] = {
     "en_US", "en_US@numbers=arab", "en_US@numbers=roman", "en_US@numbers=grek", "en_US@numbers=hebr",
     "zh@numbers=hanidec", "zh_Hant@numbers=traditional", "en@numbers=finance", NULL
@@ -4376,7 +4735,7 @@ static void TestNumberSystemsMultiplier(void) {
     }
 }
 
-// Apple only for <rdar://problem/39156484>
+// rdar://39156484
 typedef struct {
     const char*  locale;
     const UChar* stringToParse;
@@ -4417,7 +4776,7 @@ static void TestParseScientific(void) {
     }
 }
 
-// Apple only for <rdar://problem/51985640>
+// rdar://51985640
 typedef struct {
     const char*  locale;
     const UChar* expCurrCode;
@@ -4471,7 +4830,7 @@ static void TestCurrForUnkRegion(void) {
     }
 }
 
-#if APPLE_ADDITIONS
+// rdar://51672521
 #include <stdio.h>
 #if U_PLATFORM_IS_DARWIN_BASED
 #include <unistd.h>
@@ -4489,8 +4848,7 @@ static void TestCurrForUnkRegion(void) {
 #define GET_DURATION(start, info) ((unsigned long long)uprv_getUTCtime() - start)
 #endif
 
-// Apple only for <rdar://problem/51672521>
-
+// rdar://51672521
 static void TestFormatDecPerf(void) {
     static const char* locales[] =
         { "en_US", "ar_EG", "ar_EG@numbers=latn", "zh_CN@numbers=traditional", NULL };
@@ -4551,7 +4909,7 @@ static void TestFormatDecPerf(void) {
     }
 }
 
-// Apple only for <rdar://problem/54886964> and <rdar://problem/62544359>
+// rdar://54886964 and rdar://62544359
 
 static void TestCountryFallback(void) {
     // Locales to check fallback behavior for-- the first column (subscript % 3 == 0)
@@ -4661,16 +5019,16 @@ static void TestCountryFallback(void) {
         "en_BN", "en_001", "en_001", // rdar://69272236
         
         // locales specifically mentioned in Radars
-        "fr_US", "en_US", "fr",     // rdar://problem/54886964
-//        "en_TH", "th_TH", "en",   // rdar://problem/29299919 (listed above)
-//        "en_BG", "bg_BG", "en",   // rdar://problem/29299919 (listed above)
-        "en_LI", "de_LI", "en_150", // rdar://problem/29299919
-        "en_MC", "fr_MC", "en_150", // rdar://problem/29299919
-        "en_MD", "ro_MD", "en_150", // rdar://problem/29299919
-        "en_VA", "it_VA", "en_150", // rdar://problem/29299919
-        "fr_GB", "en_GB", "fr",     // rdar://problem/36020946
-        "fr_CN", "zh_CN", "fr",     // rdar://problem/50083902
-        "es_IE", "en_IE", "es",     // rdar://problem/58733843
+        "fr_US", "en_US", "fr",     // rdar://54886964
+//        "en_TH", "th_TH", "en",   // rdar://29299919 (listed above)
+//        "en_BG", "bg_BG", "en",   // rdar://29299919 (listed above)
+        "en_LI", "de_LI", "en_150", // rdar://29299919
+        "en_MC", "fr_MC", "en_150", // rdar://29299919
+        "en_MD", "ro_MD", "en_150", // rdar://29299919
+        "en_VA", "it_VA", "en_150", // rdar://29299919
+        "fr_GB", "en_GB", "fr",     // rdar://36020946
+        "fr_CN", "zh_CN", "fr",     // rdar://50083902
+        "es_IE", "en_IE", "es",     // rdar://58733843
         "en_LB", "ar_LB@numbers=latn", "en_001@currency=LBP", // rdar://66609948
 
         // tests for situations where the default number system is different depending on whether you
@@ -4719,11 +5077,11 @@ static void TestCountryFallback(void) {
                 UChar testPattern[100];
                 UChar fallbackPattern[100];
 
-                unum_toPattern(testFormatter, FALSE, testPattern, 100, &err);
+                unum_toPattern(testFormatter, false, testPattern, 100, &err);
                 if (style == UNUM_PERCENT || style == UNUM_CURRENCY) {
-                    unum_toPattern(languageLocaleFormatter, FALSE, fallbackPattern, 100, &err);
+                    unum_toPattern(languageLocaleFormatter, false, fallbackPattern, 100, &err);
                 } else {
-                    unum_toPattern(fallbackFormatter, FALSE, fallbackPattern, 100, &err);
+                    unum_toPattern(fallbackFormatter, false, fallbackPattern, 100, &err);
                 }
 
                 if (assertSuccess("Error getting number format patterns", &err)) {
@@ -4743,7 +5101,7 @@ static void TestCountryFallback(void) {
         UNumberFormat* languageLocaleFormatter = unum_open(UNUM_DECIMAL, NULL, -1, languageLocale, NULL, &err);
         if (assertSuccess("Error creating formatters", &err)) {
             for (UNumberFormatSymbol symbol = UNUM_DECIMAL_SEPARATOR_SYMBOL; symbol < UNUM_FORMAT_SYMBOL_COUNT; ++symbol) {
-                UBool compareToFallbackLocale = TRUE;
+                UBool compareToFallbackLocale = true;
                 switch (symbol) {
                     case UNUM_CURRENCY_SYMBOL:
                     case UNUM_INTL_CURRENCY_SYMBOL:
@@ -4760,11 +5118,11 @@ static void TestCountryFallback(void) {
                     case UNUM_INFINITY_SYMBOL:
                     case UNUM_NAN_SYMBOL:
                         // unlike most number symbols, these should follow the language
-                        compareToFallbackLocale = FALSE;
+                        compareToFallbackLocale = false;
                         break;
                     default:
                         // everything else follows the country
-                        compareToFallbackLocale = TRUE;
+                        compareToFallbackLocale = true;
                         break;
                 }
 
@@ -4791,7 +5149,7 @@ static void TestCountryFallback(void) {
     }
 }
 
-static void _checkForRTLRun(UBiDi* bidi, UChar* text, UErrorCode* err) {
+static void _checkForRTLRun(const char* locale, UBiDi* bidi, UChar* text, UErrorCode* err) {
     // Helper function used by TestCurrencyBidiOrdering() below.
     //
     // We want to make sure that the currency symbol in a formatted currency value in the Hebrew locale
@@ -4807,6 +5165,13 @@ static void _checkForRTLRun(UBiDi* bidi, UChar* text, UErrorCode* err) {
     // and check to make sure there's at least one RTL run somewhere in the result (other than the RLM at
     // the very beginning).  The RTL run will have an embedding level of 1, so a set of levels with a 1
     // anywhere other than the first character passes the test; a set of levels with all 2s fails.
+    //
+    // rdar://106059271 Not sure some aspects of this test are valid when we have the following:
+    // - A locale like ar_AE that uses 'latn' digits by default
+    // - A currency like PEN which in that locale uses the ISO 4217 code "PEN" (so Latn letters)
+    // - A negative value, since the '- is preceded by a LRM.
+    // Then the valid result is u"\u200F\u200E-1,234.56\u00A0PEN" which has no RTL chars after the first.
+    //
     ubidi_setPara(bidi, text, -1, UBIDI_DEFAULT_LTR, NULL, err);
     if (assertSuccess("Error resolving bidi levels", err)) {
         uint32_t textLen = u_strlen(text);
@@ -4818,7 +5183,7 @@ static void _checkForRTLRun(UBiDi* bidi, UChar* text, UErrorCode* err) {
             }
         }
         if (!sawLTR) {
-            log_err("No resolved LTR runs in %s\n",austrdup(text));
+            log_err("No resolved LTR runs in locale %s, text \"%s\"\n", locale, austrdup(text));
         }
     }
 }
@@ -4826,9 +5191,11 @@ static void _checkForRTLRun(UBiDi* bidi, UChar* text, UErrorCode* err) {
 static void _doCurrencyBidiOrderingTest(const char* locale, UChar* result, UBiDi* bidi, UErrorCode* err) {
     UNumberFormat* nf = unum_open(UNUM_CURRENCY, NULL, 0, locale, NULL, err);
     unum_formatDouble(nf, 1234.56, result, 50, NULL, err);
-    _checkForRTLRun(bidi, result, err);
+    _checkForRTLRun(locale, bidi, result, err);
     unum_formatDouble(nf, -1234.56, result, 50, NULL, err);
-    _checkForRTLRun(bidi, result, err);
+    if (uprv_strcmp(locale, "ar_AE@currency=PEN") != 0) { // rdar://106059271
+        _checkForRTLRun(locale, bidi, result, err);
+    }
     unum_close(nf);
 }
 
@@ -4885,12 +5252,12 @@ static void TestPrecisionOverMultipleCalls(void) {
 }
 
 static void TestCurrencySymbol(void) {
-    // Apple <rdar://79879611> and <rdar://77057954>
+    // rdar://79879611, rdar://77057954, others as noted below
     UChar* testCases[] = {
         u"en_US", u"$1,234.56",     // baseline
-        u"ar_SA", u"\u200f\u0661\u066c\u0662\u0663\u0664\u066b\u0665\u0666\u00a0\u200f\u0631.\u0633.\u200f", // baseline
+        u"ar_SA", u"\u200f\u0661\u066c\u0662\u0663\u0664\u066b\u0665\u0666\u00a0\u0631.\u0633.\u200f", // baseline
         u"en_SA", u"SAR 1,234.56",  // don't use native currency symbol because it's letters in a different script
-        u"ar_US", u"\u200f\u0661\u066c\u0662\u0663\u0664\u066b\u0665\u0666\u00a0\u200f$",
+        u"ar_US", u"\u200f\u0661\u066c\u0662\u0663\u0664\u066b\u0665\u0666\u00a0$",
         u"en_IL", u"₪1,234.56",     // can use native currency symbol because its script code is "common"
         u"he_US", u"\u200f1,234.56\u00a0\u200f$",   // can use native currency symbol because its script code is "common"
         u"th_TH", u"฿1,234.56",     // baseline
@@ -4900,13 +5267,25 @@ static void TestCurrencySymbol(void) {
         // tests for rdar://77057954 (wrong symbol for CNY when region is JP (should get ¥, got 元)
         u"zh_JP@currency=CNY", u"CN¥1,234.56",
         u"zh_Hans_JP@currency=CNY", u"CN¥1,234.56",
-        u"zh_Hant_JP@currency=CNY", u"元 1,234.56",
+        u"zh_Hant_JP@currency=CNY", u"CN¥1,234.56", // per rdar://77057954 this is the desired value 
         u"ja_JP@currency=CNY", u"元 1,234.56",
         u"en_JP@currency=CNY", u"CN¥1,234.56",
         // rdar://88513120
         u"en_CV", u"​ 1 234$56", // decimal separator = actual currency symbol, set currency symbol to ZWSP
         // rdar://97100652
-        u"zh-Hant_US@currency=USD", u"$1,234.56"
+        u"zh-Hant_US@currency=USD", u"$1,234.56",
+        // rdar://107639369
+        u"en_NL", u"€ 1.234,56",
+        u"en_BE", u"€ 1.234,56",
+        // rdar://107636645
+        u"en_AT", u"€ 1.234,56",
+        u"zh-Hant_US@currency=USD", u"$1,234.56",
+        // rdar://107676538, fixed in rdar://108767828
+        u"fr_CH@currency=CHF", u"CHF 1 234,56",
+        // rdar://107711452
+        u"en_ID@currency=IDR", u"Rp 1.235", // IDR has digits="0"
+        // rdar://102824421
+        u"es_VE", u"Bs.D 1.234,56" // want default to be VED (Bs.D), not VES (Bs.S)
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 2) {
@@ -4923,7 +5302,152 @@ static void TestCurrencySymbol(void) {
     }
 }
 
+// rdar://106781569, rdar://107388819, https://unicode-org.atlassian.net/browse/ICU-22340, ported back from ICU 73
+static void TestChangingRuleset(void) {
+    const struct TestCase {
+        const char* localeID;
+        const UChar* rulesetName;
+        const UChar* expectedResult;
+    } testCases[] = {
+        { "en_US",               NULL,            u"123" },
+        { "en_US",               u"%roman-upper", u"CXXIII" },
+        { "en_US",               u"%ethiopic",    u"፻፳፫" },
+        { "en_US@numbers=roman", NULL,            u"CXXIII" },
+        { "en_US@numbers=ethi",  NULL,            u"፻፳፫" },
+        { "am_ET",               NULL,            u"123" },
+        { "am_ET",               u"%ethiopic",    u"፻፳፫" },
+        { "am_ET@numbers=ethi",  NULL,            u"፻፳፫" },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        char errorMessage[200];
+        const char* rulesetNameString = (testCases[i].rulesetName != NULL) ? austrdup(testCases[i].rulesetName) : "NULL";
+        UErrorCode err = U_ZERO_ERROR;
+        UNumberFormat* nf = unum_open(UNUM_NUMBERING_SYSTEM, NULL, 0, testCases[i].localeID, NULL, &err);
 
-#endif /* APPLE_ADDITIONS */
+        snprintf(errorMessage, 200, "Creating of number formatter for %s failed", testCases[i].localeID);
+        if (assertSuccess(errorMessage, &err)) {
+            if (testCases[i].rulesetName != NULL) {
+                unum_setTextAttribute(nf, UNUM_DEFAULT_RULESET, testCases[i].rulesetName, -1, &err);
+                snprintf(errorMessage, 200, "Changing formatter for %s's default ruleset to %s failed", testCases[i].localeID, rulesetNameString);
+                assertSuccess(errorMessage, &err);
+            }
+            
+            if (U_SUCCESS(err)) {
+                UChar result[200];
+                
+                unum_formatDouble(nf, 123, result, 200, NULL, &err);
+                snprintf(errorMessage, 200, "Formatting of number with %s/%s failed", testCases[i].localeID, rulesetNameString);
+                if (assertSuccess(errorMessage, &err)) {
+                    snprintf(errorMessage, 200, "Wrong result for %s/%s", testCases[i].localeID, rulesetNameString);
+                    assertUEquals(errorMessage, testCases[i].expectedResult, result);
+                }
+            }
+        }
+        unum_close(nf);
+    }
+}
+
+// rdar://107276400 and rdar://106566783
+static void TestRgSubtag(void) {
+    UChar* testData[] = {
+        u"fr_FR",                        u"CAD", u"1234.56", u"1 234,56 $CA",
+        u"fr_CA" ,                       u"CAD", u"1234.56", u"1 234,56 $",
+        u"fr_FR@rg=CAzzzz",              u"CAD", u"1234.56", u"1 234,56 $",
+        u"fr_FR",                        u"",    u"1234.56", u"1 234,56 €",
+        u"fr_CA" ,                       u"",    u"1234.56", u"1 234,56 $",
+        u"fr_FR@rg=CAzzzz",              u"",    u"1234.56", u"1 234,56 $",
+        u"fr_FR@currency=CAD",           u"",    u"1234.56", u"1 234,56 $CA",
+        u"fr_CA@currency=CAD" ,          u"",    u"1234.56", u"1 234,56 $",
+        u"fr_FR@rg=CAzzzz;currency=CAD", u"",    u"1234.56", u"1 234,56 $",
+        
+        u"en_US",                        u"USD", u"10.99",   u"$10.99",
+        u"en_US@rg=USzzzz",              u"USD", u"10.99",   u"$10.99",
+        u"es_MX",                        u"USD", u"10.99",   u"USD 10.99",
+        u"es_US",                        u"USD", u"10.99",   u"$10.99",
+        u"es_MX@rg=USzzzz",              u"USD", u"10.99",   u"$10.99",
+
+        u"ar_SA",                        u"USD", u"10.99",   u"\u200f١٠٫٩٩\u00a0US$",
+        u"ar_SA@rg=USzzzz",              u"USD", u"10.99",   u"\u200f١٠٫٩٩\u00a0$",
+        u"ar_US",                        u"USD", u"10.99",   u"\u200f١٠٫٩٩\u00a0$",
+        u"ar_US@rg=USzzzz;numbers=latn", u"USD", u"7.99",    u"\u200f7.99\u00a0$",
+        u"ar_US@numbers=latn",           u"USD", u"7.99",    u"\u200f7.99\u00a0$",
+        
+        u"ru_RU@rg=USzzzz",              u"USD", u"10.99",   u"10.99\u00a0$",
+        u"ru_US",                        u"USD", u"10.99",   u"10.99\u00a0$",
+        u"zh_CN@rg=USzzzz",              u"USD", u"10.99",   u"$10.99",
+        u"zh_Hans_US",                   u"USD", u"10.99",   u"$10.99",
+        u"fr_FR@rg=USzzzz",              u"USD", u"10.99",   u"10.99\u00a0$",
+        u"fr_US",                        u"USD", u"10.99",   u"10.99\u00a0$",
+        u"ko_KR@rg=USzzzz",              u"USD", u"10.99",   u"$10.99",
+        u"ko_US",                        u"USD", u"10.99",   u"$10.99",
+        u"pt_BR@rg=USzzzz",              u"USD", u"10.99",   u"$\u00a010.99",
+//        u"pt-BR_US",                     u"USD", u"10.99",   u"$\u00a010.99", // this locale syntax doesn't work in ICU4C
+        u"vi_VN@rg=USzzzz",              u"USD", u"10.99",   u"10.99\u00a0$",
+        u"vi_US",                        u"USD", u"10.99",   u"10.99\u00a0$",
+        u"zh_TW@rg=USzzzz",              u"USD", u"10.99",   u"$10.99",
+        u"zh_Hant_US",                   u"USD", u"10.99",   u"$10.99",
+    };
+    
+    UErrorCode err = U_ZERO_ERROR;
+    UChar result[200];
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testData); i+= 4) {
+        char* locale = austrdup(testData[i]);
+        UChar* currencyCode = testData[i + 1];
+        double amount = atof(austrdup(testData[i + 2]));
+        UChar* expectedResult = testData[i + 3];
+        
+        err = U_ZERO_ERROR;
+        UNumberFormat* nf = unum_open(UNUM_CURRENCY, NULL, 0, locale, NULL, &err);
+        if (u_strlen(currencyCode) > 0) {
+            unum_setTextAttribute(nf, UNUM_CURRENCY_CODE, currencyCode, -1, &err);
+        }
+        
+        char errorMessage[100];
+        snprintf(errorMessage, 100, "Failed to create number formatter for %s", locale);
+        if (assertSuccess(errorMessage, &err)) {
+            unum_formatDouble(nf, amount, result, 200, NULL, &err);
+            if (assertSuccess("Error formatting", &err)) {
+                snprintf(errorMessage, 100, "Wrong result for %s", locale);
+                assertUEquals(errorMessage, expectedResult, result);
+            }
+        }
+        unum_close(nf);
+    }
+}
+
+// rdar://108506710
+static void TestThousandsSeparator(void) {
+    const char* locales[] = { "en_US", "zh-Hans", "zh_US", "zh-Hans_US" };
+    
+    // save off the regular default locale before changing it, then change it to en_US_POSIX
+    // (we know en_US_POSIX has a different decimal format than most of the other locales)
+    char oldDefaultLocale[ULOC_FULLNAME_CAPACITY];
+    UErrorCode locErr = U_ZERO_ERROR;
+    uprv_strcpy(oldDefaultLocale, uloc_getDefault());
+    uloc_setDefault("en_US_POSIX", &locErr);
+    if (!assertSuccess("Failed to set default locale", &locErr)) {
+        return;
+    }
+    
+    // do the actual test, which is really testing resource-bundle fallback more than number formatting
+    for (int32_t i = 0; i < UPRV_LENGTHOF(locales); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UNumberFormat* nf = unum_open(UNUM_DECIMAL, NULL, 0, locales[i], NULL, &err);
+        
+        UChar pattern[200];
+        unum_toPattern(nf, false, pattern, 200, &err);
+        if (assertSuccess("Failure formatting", &err)) {
+            assertUEquals("Wrong pattern", u"#,##0.###", pattern);
+        }
+        unum_close(nf);
+    }
+    
+    // finally set the default locale back to what it was
+    uloc_setDefault(oldDefaultLocale, &locErr);
+}
+
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

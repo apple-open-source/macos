@@ -48,7 +48,7 @@ WEBCORE_EXPORT bool checkAuxiliaryProcessType(AuxiliaryProcessType);
 WEBCORE_EXPORT std::optional<AuxiliaryProcessType> processType();
 WEBCORE_EXPORT const char* processTypeDescription(std::optional<AuxiliaryProcessType>);
 
-bool isInAuxiliaryProcess();
+WEBCORE_EXPORT bool isInAuxiliaryProcess();
 inline bool isInWebProcess() { return checkAuxiliaryProcessType(AuxiliaryProcessType::WebContent); }
 inline bool isInNetworkProcess() { return checkAuxiliaryProcessType(AuxiliaryProcessType::Network); }
 inline bool isInGPUProcess()
@@ -81,14 +81,8 @@ WEBCORE_EXPORT bool isWebkitTestRunner();
 
 namespace MacApplication {
 
-WEBCORE_EXPORT bool isAOLInstantMessenger();
 WEBCORE_EXPORT bool isAdobeInstaller();
-WEBCORE_EXPORT bool isAperture();
 WEBCORE_EXPORT bool isAppleMail();
-WEBCORE_EXPORT bool isITunes();
-WEBCORE_EXPORT bool isMicrosoftMessenger();
-WEBCORE_EXPORT bool isMicrosoftMyDay();
-WEBCORE_EXPORT bool isMicrosoftOutlook();
 WEBCORE_EXPORT bool isMiniBrowser();
 bool isQuickenEssentials();
 WEBCORE_EXPORT bool isSafari();
@@ -97,6 +91,7 @@ WEBCORE_EXPORT bool isVersions();
 WEBCORE_EXPORT bool isHRBlock();
 WEBCORE_EXPORT bool isIAdProducer();
 WEBCORE_EXPORT bool isEpsonSoftwareUpdater();
+WEBCORE_EXPORT bool isMimeoPhotoProject();
 
 } // MacApplication
 
@@ -119,7 +114,9 @@ WEBCORE_EXPORT bool isEvernote();
 WEBCORE_EXPORT bool isFIFACompanion();
 WEBCORE_EXPORT bool isFeedly();
 WEBCORE_EXPORT bool isFirefox();
+WEBCORE_EXPORT bool isHoYoLAB();
 WEBCORE_EXPORT bool isIMDb();
+WEBCORE_EXPORT bool isGmail();
 WEBCORE_EXPORT bool isJWLibrary();
 WEBCORE_EXPORT bool isLaBanquePostale();
 WEBCORE_EXPORT bool isLutron();
@@ -143,8 +140,8 @@ bool isIBooksStorytime();
 bool isMobileStore();
 bool isMoviStarPlus();
 bool isSpringBoard();
-bool isWechat();
 bool isUNIQLOApp();
+bool isWechat();
 
 } // IOSApplication
 

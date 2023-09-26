@@ -28,11 +28,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   data = data + 2;
   size = size - 3;
 
+#if APPLE_ICU_CHANGES
+// rdar://70810661 (ability to compile ICU with asan and libfuzzer)
+  UText* fuzzstr = utext_openUChars(nullptr, reinterpret_cast<const UChar*>(data), size / 2, &status);
+#else
   size_t unistr_size = size/2;
   std::unique_ptr<char16_t[]> fuzzbuff(new char16_t[unistr_size]);
   std::memcpy(fuzzbuff.get(), data, unistr_size * 2);
 
   UText* fuzzstr = utext_openUChars(nullptr, fuzzbuff.get(), unistr_size, &status);
+#endif  // APPLE_ICU_CHANGES
 
   const icu::Locale& locale = GetRandomLocale(rnd16);
 

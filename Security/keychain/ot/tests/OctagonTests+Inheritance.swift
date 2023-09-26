@@ -307,7 +307,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -432,7 +431,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -924,7 +922,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1024,7 +1021,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1126,7 +1122,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1158,7 +1153,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         // Now, join from a new device
         let newCliqueContext = OTConfigurationContext()
         newCliqueContext.context = OTDefaultContext
-        newCliqueContext.dsid = self.otcliqueContext.dsid
         newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         newCliqueContext.otControl = self.otControl
 
@@ -1223,7 +1217,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1319,7 +1312,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1417,7 +1409,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1534,7 +1525,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1629,7 +1619,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1723,7 +1712,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let clique: OTClique
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.dsid = "1234"
         bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
@@ -1796,6 +1784,27 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.wait(for: [fetchExpectation], timeout: 20)
     }
 
+    func testInheritanceKeyCheckNoKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // This flag gates whether or not we'll error while setting the recovery key
+        OctagonSetSOSFeatureEnabled(true)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        let checkInheritanceKeyExpectation = self.expectation(description: "checkInheritanceKey returns")
+        self.manager.checkInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: UUID()) { exists, error in
+            XCTAssertFalse(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkInheritanceKeyExpectation], timeout: 20)
+        self.verifyDatabaseMocks()
+    }
+
     func testInheritanceKeyExists() throws {
         try self.skipOnRecoveryKeyNotSupported()
         OctagonSetSOSFeatureEnabled(false)
@@ -1855,13 +1864,70 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         let checkInheritanceKeyExpectation = self.expectation(description: "checkInheritanceKey returns")
         self.manager.checkInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otirk.uuid) { exists, error in
-            XCTAssertFalse(exists, "exists mismatch")
-            XCTAssertNil(error, "error should be nil")
+            // Removed IKs should be exist=false, and error==untrustedRecoveryKeys
+            XCTAssertFalse(exists, "exists should be false")
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
             checkInheritanceKeyExpectation.fulfill()
         }
         self.wait(for: [checkInheritanceKeyExpectation], timeout: 20)
 
         self.verifyDatabaseMocks()
+    }
+
+    func testJoinWithInheritanceKeyLeaveAndJoinAgain() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = establishContextID
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
+        bottlerotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        OctagonSetSOSFeatureEnabled(true)
+
+        let (otirk, irk) = try self.createAndSetInheritanceKey(context: establishContext)
+        XCTAssertNotNil(otirk, "otirk should not be nil")
+        XCTAssertNotNil(irk, "irk should not be nil")
+
+        // Remove the IK
+        let removeInheritanceKeyExpectation = self.expectation(description: "removeInheritanceKey returns")
+        self.manager.removeInheritanceKey(OTControlArguments(configuration: bottlerotcliqueContext), uuid: otirk.uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeInheritanceKeyExpectation], timeout: 20)
+
+        // now re-create
+        let (otirk2, irk2) = try self.createAndSetInheritanceKey(context: establishContext)
+        XCTAssertNotNil(otirk2, "otirk should not be nil")
+        XCTAssertNotNil(irk2, "irk should not be nil")
     }
 }
 #endif

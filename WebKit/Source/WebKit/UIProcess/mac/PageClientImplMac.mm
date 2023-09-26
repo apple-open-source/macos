@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 #import "NativeWebMouseEvent.h"
 #import "NativeWebWheelEvent.h"
 #import "NavigationState.h"
+#import "RemoteLayerTreeNode.h"
 #import "StringUtilities.h"
 #import "UndoOrRedo.h"
 #import "ViewGestureController.h"
@@ -119,9 +120,9 @@ void PageClientImpl::setImpl(WebViewImpl& impl)
     m_impl = impl;
 }
 
-std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& process)
+std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy()
 {
-    return m_impl->createDrawingAreaProxy(process);
+    return m_impl->createDrawingAreaProxy();
 }
 
 void PageClientImpl::setViewNeedsDisplay(const WebCore::Region&)
@@ -355,8 +356,6 @@ void PageClientImpl::registerInsertionUndoGrouping()
     registerInsertionUndoGroupingWithUndoManager([m_view undoManager]);
 }
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
-
 void PageClientImpl::createPDFHUD(PDFPluginIdentifier identifier, const WebCore::IntRect& rect)
 {
     m_impl->createPDFHUD(identifier, rect);
@@ -377,8 +376,6 @@ void PageClientImpl::removeAllPDFHUDs()
     m_impl->removeAllPDFHUDs();
 }
 
-#endif // ENABLE(UI_PROCESS_PDF_HUD)
-
 void PageClientImpl::clearAllEditCommands()
 {
     m_impl->clearAllEditCommands();
@@ -394,9 +391,9 @@ void PageClientImpl::executeUndoRedo(UndoOrRedo undoOrRedo)
     return (undoOrRedo == UndoOrRedo::Undo) ? [[m_view undoManager] undo] : [[m_view undoManager] redo];
 }
 
-void PageClientImpl::startDrag(const WebCore::DragItem& item, const ShareableBitmapHandle& image)
+void PageClientImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Handle&& image)
 {
-    m_impl->startDrag(item, image);
+    m_impl->startDrag(item, WTFMove(image));
 }
 
 void PageClientImpl::setPromisedDataForImage(const String& pasteboardName, Ref<FragmentedSharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleURL, RefPtr<FragmentedSharedBuffer>&& archiveBuffer, const String& originIdentifier)
@@ -433,17 +430,17 @@ FloatRect PageClientImpl::convertToUserSpace(const FloatRect& rect)
 
 void PageClientImpl::pinnedStateWillChange()
 {
-    [m_webView willChangeValueForKey:@"_pinnedState"];
+    [webView() willChangeValueForKey:@"_pinnedState"];
 }
 
 void PageClientImpl::pinnedStateDidChange()
 {
-    [m_webView didChangeValueForKey:@"_pinnedState"];
+    [webView() didChangeValueForKey:@"_pinnedState"];
 }
 
 void PageClientImpl::drawPageBorderForPrinting(WebCore::FloatSize&& size)
 {
-    [m_webView drawPageBorderWithSize:size];
+    [webView() drawPageBorderWithSize:size];
 }
     
 IntPoint PageClientImpl::screenToRootView(const IntPoint& point)
@@ -484,9 +481,9 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool 
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void PageClientImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmapHandle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
+void PageClientImpl::requestTextRecognition(const URL& imageURL, ShareableBitmap::Handle&& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
 {
-    m_impl->requestTextRecognition(imageURL, imageData, sourceLanguageIdentifier, targetLanguageIdentifier, WTFMove(completion));
+    m_impl->requestTextRecognition(imageURL, WTFMove(imageData), sourceLanguageIdentifier, targetLanguageIdentifier, WTFMove(completion));
 }
 
 void PageClientImpl::computeHasVisualSearchResults(const URL& imageURL, ShareableBitmap& imageBitmap, CompletionHandler<void(bool)>&& completion)
@@ -498,7 +495,7 @@ void PageClientImpl::computeHasVisualSearchResults(const URL& imageURL, Shareabl
 
 RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& page)
 {
-    return WebPopupMenuProxyMac::create(m_view, page);
+    return WebPopupMenuProxyMac::create(m_view, page.popupMenuClient());
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -510,12 +507,12 @@ Ref<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& pa
 
 void PageClientImpl::didShowContextMenu()
 {
-    [m_webView _didShowContextMenu];
+    [webView() _didShowContextMenu];
 }
 
 void PageClientImpl::didDismissContextMenu()
 {
-    [m_webView _didDismissContextMenu];
+    [webView() _didDismissContextMenu];
 }
 
 #endif // ENABLE(CONTEXT_MENUS)
@@ -523,7 +520,7 @@ void PageClientImpl::didDismissContextMenu()
 #if ENABLE(INPUT_TYPE_COLOR)
 RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page, const WebCore::Color& initialColor, const WebCore::IntRect& rect, Vector<WebCore::Color>&& suggestions)
 {
-    return WebColorPickerMac::create(page, initialColor, rect, WTFMove(suggestions), m_view);
+    return WebColorPickerMac::create(&page->colorPickerClient(), initialColor, rect, WTFMove(suggestions), m_view);
 }
 #endif
 
@@ -629,6 +626,16 @@ CALayer *PageClientImpl::acceleratedCompositingRootLayer() const
     return m_impl->acceleratedCompositingRootLayer();
 }
 
+CALayer *PageClientImpl::headerBannerLayer() const
+{
+    return m_impl->headerBannerLayer();
+}
+
+CALayer *PageClientImpl::footerBannerLayer() const
+{
+    return m_impl->footerBannerLayer();
+}
+
 RefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot(std::optional<WebCore::IntRect>&&)
 {
     return m_impl->takeViewSnapshot();
@@ -641,7 +648,7 @@ void PageClientImpl::selectionDidChange()
 
 bool PageClientImpl::showShareSheet(const ShareDataWithParsedURL& shareData, WTF::CompletionHandler<void(bool)>&& completionHandler)
 {
-    m_impl->showShareSheet(shareData, WTFMove(completionHandler), m_webView.get().get());
+    m_impl->showShareSheet(shareData, WTFMove(completionHandler), webView().get());
     return true;
 }
 
@@ -750,11 +757,6 @@ void PageClientImpl::setEditableElementIsFocused(bool editableElementIsFocused)
     m_impl->setEditableElementIsFocused(editableElementIsFocused);
 }
 
-void PageClientImpl::setCaretDecorationVisibility(bool visibility)
-{
-    m_impl->setCaretDecorationVisibility(visibility);
-}
-
 void PageClientImpl::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction)
 {
 }
@@ -813,20 +815,26 @@ void PageClientImpl::navigationGestureDidBegin()
 {
     m_impl->dismissContentRelativeChildWindowsWithAnimation(true);
 
-    if (auto webView = m_webView.get())
-        NavigationState::fromWebPage(*webView->_page).navigationGestureDidBegin();
+    if (auto webView = this->webView()) {
+        if (auto* navigationState = NavigationState::fromWebPage(*webView->_page))
+            navigationState->navigationGestureDidBegin();
+    }
 }
 
 void PageClientImpl::navigationGestureWillEnd(bool willNavigate, WebBackForwardListItem& item)
 {
-    if (auto webView = m_webView.get())
-        NavigationState::fromWebPage(*webView->_page).navigationGestureWillEnd(willNavigate, item);
+    if (auto webView = this->webView()) {
+        if (auto* navigationState = NavigationState::fromWebPage(*webView->_page))
+            navigationState->navigationGestureWillEnd(willNavigate, item);
+    }
 }
 
 void PageClientImpl::navigationGestureDidEnd(bool willNavigate, WebBackForwardListItem& item)
 {
-    if (auto webView = m_webView.get())
-        NavigationState::fromWebPage(*webView->_page).navigationGestureDidEnd(willNavigate, item);
+    if (auto webView = this->webView()) {
+        if (auto* navigationState = NavigationState::fromWebPage(*webView->_page))
+            navigationState->navigationGestureDidEnd(willNavigate, item);
+    }
 }
 
 void PageClientImpl::navigationGestureDidEnd()
@@ -835,14 +843,18 @@ void PageClientImpl::navigationGestureDidEnd()
 
 void PageClientImpl::willRecordNavigationSnapshot(WebBackForwardListItem& item)
 {
-    if (auto webView = m_webView.get())
-        NavigationState::fromWebPage(*webView->_page).willRecordNavigationSnapshot(item);
+    if (auto webView = this->webView()) {
+        if (auto* navigationState = NavigationState::fromWebPage(*webView->_page))
+            navigationState->willRecordNavigationSnapshot(item);
+    }
 }
 
 void PageClientImpl::didRemoveNavigationGestureSnapshot()
 {
-    if (auto webView = m_webView.get())
-        NavigationState::fromWebPage(*webView->_page).navigationGestureSnapshotWasRemoved();
+    if (auto webView = this->webView()) {
+        if (auto* navigationState = NavigationState::fromWebPage(*webView->_page))
+        navigationState->navigationGestureSnapshotWasRemoved();
+    }
 }
 
 void PageClientImpl::didStartProvisionalLoadForMainFrame()
@@ -881,7 +893,7 @@ void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigatio
 
 void PageClientImpl::handleControlledElementIDResponse(const String& identifier)
 {
-    [m_webView _handleControlledElementIDResponse:nsStringFromWebCoreString(identifier)];
+    [webView() _handleControlledElementIDResponse:nsStringFromWebCoreString(identifier)];
 }
 
 void PageClientImpl::didChangeBackgroundColor()
@@ -1056,9 +1068,9 @@ void PageClientImpl::handleClickForDataDetectionResult(const DataDetectorElement
 
 #endif
 
-void PageClientImpl::beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmapHandle& bitmapHandle, FloatRect bounds)
+void PageClientImpl::beginTextRecognitionForVideoInElementFullscreen(ShareableBitmap::Handle&& bitmapHandle, FloatRect bounds)
 {
-    m_impl->beginTextRecognitionForVideoInElementFullscreen(bitmapHandle, bounds);
+    m_impl->beginTextRecognitionForVideoInElementFullscreen(WTFMove(bitmapHandle), bounds);
 }
 
 void PageClientImpl::cancelTextRecognitionForVideoInElementFullscreen()

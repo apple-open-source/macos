@@ -59,7 +59,7 @@ ScopeAndCrossOriginParent CredentialsContainer::scopeAndCrossOriginParent() cons
         if (!origin.isSameOriginDomain(document->securityOrigin()) && !areRegistrableDomainsEqual(url, document->url()))
             isSameSite = false;
         if (!crossOriginParent && !origin.isSameOriginAs(document->securityOrigin()))
-            crossOriginParent = origin.data();
+            crossOriginParent = document->securityOrigin().data();
     }
 
     if (!crossOriginParent)
@@ -138,7 +138,7 @@ void CredentialsContainer::isCreate(CredentialCreationOptions&& options, Credent
 
 void CredentialsContainer::preventSilentAccess(DOMPromiseDeferred<void>&& promise) const
 {
-    promise.reject(Exception { NotSupportedError, "Not implemented."_s });
+    promise.resolve();
 }
 
 } // namespace WebCore

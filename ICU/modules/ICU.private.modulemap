@@ -1,4 +1,4 @@
-module ICU_Private [extern_c] [system] {
+module ICU_Private [system] {
     header "docmain.h"
     header "icudataver.h"
     header "errorcode.h"

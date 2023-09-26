@@ -34,13 +34,12 @@
 #import "DOMNodeInternal.h"
 #import "DOMPrivate.h"
 #import <WebCore/DocumentFragment.h>
-#import <WebCore/FrameView.h>
-#import <WebCore/HTMLCollection.h>
+#import <WebCore/HTMLCollectionInlines.h>
 #import <WebCore/HTMLDocument.h>
 #import <WebCore/HTMLInputElement.h>
-#import <WebCore/HTMLParserIdioms.h>
 #import <WebCore/HTMLSelectElement.h>
 #import <WebCore/HTMLTextAreaElement.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/Range.h>
 #import <WebCore/RenderTextControl.h>
 #import <WebCore/Settings.h>
@@ -179,7 +178,7 @@
 
 - (DOMDocumentFragment *)_createDocumentFragmentWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString
 {
-    NSURL *baseURL = core(self)->completeURL(WebCore::stripLeadingAndTrailingHTMLSpaces(baseURLString));
+    NSURL *baseURL = core(self)->completeURL(baseURLString);
     return [self createDocumentFragmentWithMarkupString:markupString baseURL:baseURL];
 }
 
@@ -295,7 +294,7 @@ static WebAutocapitalizeType webAutocapitalizeType(WebCore::AutocapitalizeType t
 
 Class kitClass(WebCore::HTMLCollection* collection)
 {
-    if (collection->type() == WebCore::SelectOptions)
+    if (collection->type() == WebCore::CollectionType::SelectOptions)
         return [DOMHTMLOptionsCollection class];
     return [DOMHTMLCollection class];
 }

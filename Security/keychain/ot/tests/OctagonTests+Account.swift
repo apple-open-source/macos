@@ -194,7 +194,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.mockTooManyPeers.limit = 2
 
         // Octagon only examines the JoinState if SOS is enabled
-        self.mockSOSAdapter!.sosEnabled = false
+        self.mockSOSAdapter!.setSOSEnabled(false)
 
         // First peer
         let peer1 = self.manager.context(forContainerName: OTCKContainerName,
@@ -282,7 +282,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.mockTooManyPeers.shouldPop = false
 
         // Octagon only examines the JoinState if SOS is enabled
-        self.mockSOSAdapter!.sosEnabled = false
+        self.mockSOSAdapter!.setSOSEnabled(false)
 
         // Sign in the peer
         self.assertResetAndBecomeTrusted(context: self.cuttlefishContext)
@@ -313,8 +313,8 @@ class OctagonAccountTests: OctagonTestsBase {
 
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
-        // Octagon should go into 'waitforhsa2'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        // Octagon should go into 'wait for cdp capable level'
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
 
         let account2 = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
         self.mockAuthKit.add(account2)
@@ -399,8 +399,8 @@ class OctagonAccountTests: OctagonTestsBase {
         self.mockAuthKit.add(account)
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
-        // Octagon should go into 'waitforhsa2'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+        // Octagon should go into 'cdp capable security level'
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
 
         let account2 = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
         self.mockAuthKit.add(account2)

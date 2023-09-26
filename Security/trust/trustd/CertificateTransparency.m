@@ -89,6 +89,7 @@ SecAsn1Oid *oidForSigAlg(SSL_HashAlgorithm hash, SSL_SignatureAlgorithm alg)
                 default:
                     break;
             }
+            break;
         case SSL_SignatureAlgorithmECDSA:
             switch (hash) {
                 case SSL_HashAlgorithmSHA1:
@@ -100,6 +101,7 @@ SecAsn1Oid *oidForSigAlg(SSL_HashAlgorithm hash, SSL_SignatureAlgorithm alg)
                 default:
                     break;
             }
+            break;
         default:
             break;
     }
@@ -154,7 +156,7 @@ static CFDataRef copy_x509_entry_from_chain(SecPVCRef pvc)
 
     uint8_t *q = CFDataGetMutableBytePtr(data);
     q = SSLEncodeUint24(q, (size_t)SecCertificateGetLength(leafCert));
-    memcpy(q, SecCertificateGetBytePtr(leafCert), SecCertificateGetLength(leafCert));
+    memcpy(q, SecCertificateGetBytePtr(leafCert), (size_t)SecCertificateGetLength(leafCert));
 
     return data;
 }
@@ -183,9 +185,9 @@ static CFDataRef copy_precert_entry_from_chain(SecPVCRef pvc)
     CFDataSetLength(data, CFDataGetLength(issuerKeyHash) + 3 + CFDataGetLength(tbs_precert));
 
     uint8_t *q = CFDataGetMutableBytePtr(data);
-    memcpy(q, CFDataGetBytePtr(issuerKeyHash), CFDataGetLength(issuerKeyHash)); q += CFDataGetLength(issuerKeyHash); // issuer key hash
+    memcpy(q, CFDataGetBytePtr(issuerKeyHash), (size_t)CFDataGetLength(issuerKeyHash)); q += CFDataGetLength(issuerKeyHash); // issuer key hash
     q = SSLEncodeUint24(q, (size_t)CFDataGetLength(tbs_precert));
-    memcpy(q, CFDataGetBytePtr(tbs_precert), CFDataGetLength(tbs_precert));
+    memcpy(q, CFDataGetBytePtr(tbs_precert), (size_t)CFDataGetLength(tbs_precert));
 
 out:
     CFReleaseSafe(issuerKeyHash);
@@ -319,7 +321,7 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, size_t entry_type, CFD
     *q++ = 0; // certificate_timestamp
     memcpy(q, timestampData, 8); q+=8;
     q = SSLEncodeUint16(q, entry_type); // logentry type: 0=cert 1=precert
-    memcpy(q, CFDataGetBytePtr(entry), CFDataGetLength(entry)); q += CFDataGetLength(entry);
+    memcpy(q, CFDataGetBytePtr(entry), (size_t)CFDataGetLength(entry)); q += CFDataGetLength(entry);
     q = SSLEncodeUint16(q, extensionsLen);
     memcpy(q, extensionsData, extensionsLen);
 

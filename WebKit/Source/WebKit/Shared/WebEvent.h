@@ -26,14 +26,17 @@
 
 #pragma once
 
-// FIXME: We should probably move to makeing the WebCore/PlatformFooEvents trivial classes so that
+// FIXME: We should probably move to making the WebCore/PlatformFooEvents trivial classes so that
 // we can use them as the event type.
 
 #include "WebEvent.h"
 #include "WebEventModifier.h"
+#include "WebEventType.h"
 
 #include <wtf/EnumTraits.h>
 #include <wtf/OptionSet.h>
+#include <wtf/RefCounted.h>
+#include <wtf/UUID.h>
 #include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
@@ -44,46 +47,12 @@ class Encoder;
 
 namespace WebKit {
 
-enum class WebEventType : int8_t {
-    NoType = -1,
-    
-    // WebMouseEvent
-    MouseDown,
-    MouseUp,
-    MouseMove,
-    MouseForceChanged,
-    MouseForceDown,
-    MouseForceUp,
-
-    // WebWheelEvent
-    Wheel,
-
-    // WebKeyboardEvent
-    KeyDown,
-    KeyUp,
-    RawKeyDown,
-    Char,
-
-#if ENABLE(TOUCH_EVENTS)
-    // WebTouchEvent
-    TouchStart,
-    TouchMove,
-    TouchEnd,
-    TouchCancel,
-#endif
-
-#if ENABLE(MAC_GESTURE_EVENTS)
-    GestureStart,
-    GestureChange,
-    GestureEnd,
-#endif
-};
-
 class WebEvent {
     WTF_MAKE_FAST_ALLOCATED;
 public:
+    WebEvent(WebEventType, OptionSet<WebEventModifier>, WallTime timestamp, WTF::UUID authorizationToken);
     WebEvent(WebEventType, OptionSet<WebEventModifier>, WallTime timestamp);
-    
+
     WebEventType type() const { return m_type; }
 
     bool shiftKey() const { return m_modifiers.contains(WebEventModifier::ShiftKey); }
@@ -96,16 +65,16 @@ public:
 
     WallTime timestamp() const { return m_timestamp; }
 
+    WTF::UUID authorizationToken() const { return m_authorizationToken; }
+
 protected:
     WebEvent();
-
-    void encode(IPC::Encoder&) const;
-    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, WebEvent&);
 
 private:
     WebEventType m_type;
     OptionSet<WebEventModifier> m_modifiers;
     WallTime m_timestamp;
+    WTF::UUID m_authorizationToken;
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, WebEventType);

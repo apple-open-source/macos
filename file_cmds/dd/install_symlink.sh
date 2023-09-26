@@ -10,7 +10,7 @@ case "$PLATFORM_NAME" in
 iphoneos|appletvos|watchos|bridgeos)
     ln_dd
     ;;
-macosx)
+macosx|iphonesimulator)
     ;;
 *)
     case "$FALLBACK_PLATFORM" in

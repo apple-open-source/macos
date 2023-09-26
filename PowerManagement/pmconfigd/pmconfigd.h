@@ -61,6 +61,7 @@
 #include "PMStore.h"
 #include "PMSettings.h"
 #include "UPSLowPower.h"
+#include "BatteryAuth.h"
 #include "BatteryTimeRemaining.h"
 #include "AutoWakeScheduler.h"
 #include "RepeatingAutoWake.h"

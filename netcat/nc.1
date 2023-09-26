@@ -149,7 +149,7 @@ Additionally, any timeouts specified with the
 .Fl w
 option are ignored.
 .It Fl L Ar num_probes
-Number of probes to send to the peer before declaring that the peer is not reachable and generating an adpative timeout read/write event.
+Number of probes to send to the peer before declaring that the peer is not reachable and generating an adaptive timeout read/write event.
 .It Fl n
 Do not do any DNS or service lookups on any specified addresses,
 hostnames or ports.
@@ -264,7 +264,7 @@ When
 .Ar n
 is greater than 1, set the socket option that generates the
 KEV_SOCKET_CLOSED kernel event when the socket gets closed.
-.It Fl Fl ecn
+.It Fl Fl apple-ecn
 Requests that
 .Nm
 marks to use the socket option TCP_ECN_MODE to set the ECN mode (default, enable, disable)

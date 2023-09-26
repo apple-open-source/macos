@@ -199,6 +199,91 @@ recursive_link_Lflag_body()
 	    '(' ! -L foo-mirror/foo/baz ')'
 }
 
+file_is_sparse()
+{
+	atf_check ${0%/*}/sparse "$1"
+}
+
+files_are_equal()
+{
+	atf_check test "$(stat -f "%d %i" "$1")" != "$(stat -f "%d %i" "$2")"
+	atf_check cmp "$1" "$2"
+}
+
+atf_test_case sparse_leading_hole
+sparse_leading_hole_body()
+{
+	# A 16-megabyte hole followed by one megabyte of data
+	truncate -s 16M foo
+	seq -f%015g 65536 >>foo
+	file_is_sparse foo
+
+	atf_check cp foo bar
+	files_are_equal foo bar
+	file_is_sparse bar
+}
+
+atf_test_case sparse_multiple_holes
+sparse_multiple_holes_body()
+{
+	# Three one-megabyte blocks of data preceded, separated, and
+	# followed by 16-megabyte holes
+	truncate -s 16M foo
+	seq -f%015g 65536 >>foo
+	truncate -s 33M foo
+	seq -f%015g 65536 >>foo
+	truncate -s 50M foo
+	seq -f%015g 65536 >>foo
+	truncate -s 67M foo
+	file_is_sparse foo
+
+	atf_check cp foo bar
+	files_are_equal foo bar
+	file_is_sparse bar
+}
+
+atf_test_case sparse_only_hole
+sparse_only_hole_body()
+{
+	# A 16-megabyte hole
+	truncate -s 16M foo
+	file_is_sparse foo
+
+	atf_check cp foo bar
+	files_are_equal foo bar
+	file_is_sparse bar
+}
+
+atf_test_case sparse_to_dev
+sparse_to_dev_body()
+{
+	# Three one-megabyte blocks of data preceded, separated, and
+	# followed by 16-megabyte holes
+	truncate -s 16M foo
+	seq -f%015g 65536 >>foo
+	truncate -s 33M foo
+	seq -f%015g 65536 >>foo
+	truncate -s 50M foo
+	seq -f%015g 65536 >>foo
+	truncate -s 67M foo
+	file_is_sparse foo
+
+	atf_check -o file:foo cp foo /dev/stdout
+}
+
+atf_test_case sparse_trailing_hole
+sparse_trailing_hole_body()
+{
+	# One megabyte of data followed by a 16-megabyte hole
+	seq -f%015g 65536 >foo
+	truncate -s 17M foo
+	file_is_sparse foo
+
+	atf_check cp foo bar
+	files_are_equal foo bar
+	file_is_sparse bar
+}
+
 atf_test_case standalone_Pflag
 standalone_Pflag_body()
 {
@@ -208,6 +293,100 @@ standalone_Pflag_body()
 	atf_check cp -P foo baz
 	atf_check -o inline:'Symbolic Link\n' stat -f %SHT baz
 }
+
+#ifdef __APPLE__
+atf_test_case pflag_ns
+pflag_ns_body()
+{
+
+	gettime_ns=$(atf_get_srcdir)/gettime_ns
+
+	while true; do
+		# Note that this is a load-bearing rm(1).  The libsyscall
+		# wrappers for *utimens* handle UTIME_NOW with gettimeofday(2),
+		# which only has microsecond resolution.  As such, we have to
+		# make sure that touch(1) is creating the file.  This isn't a
+		# problem in BATS because we're always run in a clean
+		# environment; this is purely for running the test locally.
+		rm -f foo
+		touch foo
+		${gettime_ns} foo > foo.times
+
+		# Verify that we've ended up with a foo that has nanosecond
+		# resolution; i.e., nine digits after the decimal, and the last
+		# three that make it finer than microsecond are non-zero...
+		if ! grep -qEv "\.[0-9]{9}" foo.times && grep -qEv "000$" foo.times; then
+			break
+		fi
+
+	done
+
+	atf_check cp -p foo bar
+
+	atf_check -o file:foo.times ${gettime_ns} bar
+}
+
+NOCLONE_VOLNAME_FILE=noclone_volname
+
+atf_test_case cflag cleanup
+cflag_body()
+{
+
+	# HFS doesn't support clonefile(2), so we'll use that for our fallback
+	# test.
+	noclone_volname=$(mktemp -u cflag_test_vol_XXXXXXXXXX)
+
+	mkdir hfs_part
+	echo test_file > hfs_part/foo
+
+	echo "$noclone_volname" > $NOCLONE_VOLNAME_FILE
+        atf_check -o not-empty hdiutil create -size 10m \
+            -volname "$noclone_volname" -nospotlight -fs HFS+ -srcdir hfs_part \
+            "$noclone_volname.dmg"
+        atf_check -o not-empty hdiutil attach -shadow test_shadow \
+            "$noclone_volname.dmg"
+
+	rootdir="/Volumes/$noclone_volname"
+	# We need to try this copy twice to exercise the two different paths,
+	# both the target file not existing path and the target file already
+	# existing path.
+	atf_check cp -c "$rootdir"/foo "$rootdir"/bar
+	atf_check test -s "$rootdir"/bar
+	atf_check cmp -s "$rootdir"/foo "$rootdir"/bar
+
+	# For the second one, we'll truncate it to zero so that we know the
+	# second copy actually did something.
+	atf_check truncate -s 0 "$rootdir"/bar
+
+	atf_check cp -c "$rootdir"/foo "$rootdir"/bar
+	atf_check test -s "$rootdir"/bar
+	atf_check cmp -s "$rootdir"/foo "$rootdir"/bar
+
+	# We should be running on APFS, so we'll test that, too.
+	atf_check cp -c hfs_part/foo hfs_part/bar
+	atf_check test -s hfs_part/bar
+	atf_check cmp -s hfs_part/foo hfs_part/bar
+}
+cflag_cleanup()
+{
+
+	noclone_volname=$(cat $NOCLONE_VOLNAME_FILE)
+	hdiutil detach /Volumes/"$noclone_volname"
+}
+
+atf_test_case Sflag
+Sflag_body()
+{
+	# A 16-megabyte hole followed by one megabyte of data
+	truncate -s 16M foo
+	seq -f%015g 65536 >>foo
+	file_is_sparse foo
+
+	atf_check cp -S foo bar
+	files_are_equal foo bar
+	atf_check -s exit:1 ${0%/*}/sparse bar
+}
+#endif
 
 atf_init_test_cases()
 {
@@ -221,5 +400,15 @@ atf_init_test_cases()
 	atf_add_test_case recursive_link_dflt
 	atf_add_test_case recursive_link_Hflag
 	atf_add_test_case recursive_link_Lflag
+	atf_add_test_case sparse_leading_hole
+	atf_add_test_case sparse_multiple_holes
+	atf_add_test_case sparse_only_hole
+	atf_add_test_case sparse_to_dev
+	atf_add_test_case sparse_trailing_hole
 	atf_add_test_case standalone_Pflag
+#ifdef __APPLE__
+	atf_add_test_case pflag_ns
+	atf_add_test_case cflag
+	atf_add_test_case Sflag
+#endif
 }

@@ -61,6 +61,7 @@ const char *kSecXPCOTRReady = "otrrdy"; // OTR ready for messages
 const char *kSecXPCKeyViewName = "viewname";
 const char *kSecXPCKeyViewActionCode = "viewactioncode";
 const char *kSecXPCKeyHSA2AutoAcceptInfo = "autoacceptinfo";
+const char *kSecXPCKeyDictionary = "cfdict";
 const char *kSecXPCKeyString = "cfstring";
 const char *kSecXPCKeyArray = "cfarray";
 const char *kSecXPCKeySet = "cfset";
@@ -82,6 +83,7 @@ const char *kSecXPCKeyBackupKeybagIdentifier = "backupKeybagID";
 const char *kSecXPCKeyBackupKeybagPath = "backupKeybagPath";
 const char *kSecXPCVersion = "version";
 const char *kSecXPCKeySignInAnalytics = "signinanalytics";
+const char *kSecXPCKeySOSCompatibilityMode = "sosCompatibilityMode";
 
 
 //
@@ -198,7 +200,7 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("delete");
         case sec_item_update_id: 
             return CFSTR("update");
-        case sec_keychain_backup_id: 
+        case sec_keychain_backup_id:
             return CFSTR("keychain_backup");
         case sec_keychain_backup_syncable_id: 
             return CFSTR("keychain_backup_syncable");
@@ -290,8 +292,16 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("trust_settings_copy_data");
         case sec_truststore_remove_all_id:
             return CFSTR("sec_truststore_remove_all");
+        case sec_trust_store_migrate_plist_id:
+            return CFSTR("sec_trust_store_migrate_plist");
         case sec_trust_reset_settings_id:
             return CFSTR("sec_trust_reset_settings");
+        case kSecXPCOpSetSOSCompatibilityMode:
+            return CFSTR("SetSOSCompatibilityMode");
+        case kSecXPCOpFetchCompatibilityMode:
+            return CFSTR("FetchCompatibilityMode");
+        case kSecXPCOpFetchCompatibilityModeCachedValue:
+            return CFSTR("FetchCompatibilityModeCached");
         default:
             return CFSTR("Unknown xpc operation");
     }

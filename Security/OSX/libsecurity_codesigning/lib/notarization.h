@@ -41,10 +41,9 @@ bool isNotarized(const Requirement::Context *context);
 
 // Representation-specific methods for extracting a stapled ticket and registering
 // it with the notarization daemon.
+CFDataRef copyStapledTicketInBundle(const std::string& path);
 void registerStapledTicketInPackage(const std::string& path);
-void registerStapledTicketInBundle(const std::string& path);
-void registerStapledTicketInDMG(CFDataRef ticketData);
-void registerStapledTicketInMachO(CFDataRef ticketData);
+void registerStapledTicketWithSystem(CFDataRef ticketData);
 
 } // end namespace CodeSigning
 } // end namespace Security

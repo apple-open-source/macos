@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2009, 2012-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,9 +71,9 @@ RetainPtr<NSImage> scaleDragImage(RetainPtr<NSImage> image, FloatSize scale)
     NSSize newSize = NSMakeSize((originalSize.width * scale.width()), (originalSize.height * scale.height()));
     newSize.width = roundf(newSize.width);
     newSize.height = roundf(newSize.height);
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [image setScalesWhenResized:YES];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     [image setSize:newSize];
     return image;
 }
@@ -97,10 +97,10 @@ RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientation orien
     if (is<BitmapImage>(*image)) {
         BitmapImage& bitmapImage = downcast<BitmapImage>(*image);
 
-        if (orientation == ImageOrientation::FromImage)
+        if (orientation == ImageOrientation::Orientation::FromImage)
             orientation = bitmapImage.orientationForCurrentFrame();
 
-        if (orientation != ImageOrientation::None) {
+        if (orientation != ImageOrientation::Orientation::None) {
             // Construct a correctly-rotated copy of the image to use as the drag image.
             FloatSize imageSize = image->size(orientation);
             RetainPtr<NSImage> rotatedDragImage = adoptNS([[NSImage alloc] initWithSize:(NSSize)(imageSize)]);
@@ -149,9 +149,9 @@ RetainPtr<NSImage> createDragImageIconForCachedImageFilename(const String& filen
         extension = @"";
     }
     
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return [[NSWorkspace sharedWorkspace] iconForFileType:extension.get()];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 const CGFloat linkImagePadding = 10;
@@ -290,7 +290,7 @@ LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
     boundingRect.setHeight((static_cast<int>(boundingRect.height() / 2) * 2));
 }
 
-DragImageRef createDragImageForLink(Element& element, URL& url, const String& title, TextIndicatorData&, FontRenderingMode, float deviceScaleFactor)
+DragImageRef createDragImageForLink(Element& element, URL& url, const String& title, TextIndicatorData&, float deviceScaleFactor)
 {
     LinkImageLayout layout(url, title);
 

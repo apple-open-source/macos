@@ -41,6 +41,7 @@
 #include "JSPlaneLayout.h"
 #include "OffscreenCanvas.h"
 #include "PixelBuffer.h"
+#include "SVGImageElement.h"
 #include "VideoColorSpace.h"
 #include "WebCodecsVideoFrameAlgorithms.h"
 
@@ -82,6 +83,17 @@ static std::optional<Exception> checkImageUsability(ScriptExecutionContext& cont
     return switchOn(source,
     [&] (const RefPtr<HTMLImageElement>& imageElement) -> std::optional<Exception> {
         if (!imageElement->originClean(*context.securityOrigin()))
+            return Exception { SecurityError, "Image element is tainted"_s };
+
+        auto* image = imageElement->cachedImage() ? imageElement->cachedImage()->image() : nullptr;
+        if (!image)
+            return Exception { InvalidStateError,  "Image element has no data"_s };
+        if (!image->width() || !image->height())
+            return Exception { InvalidStateError,  "Image element has a bad size"_s };
+        return { };
+    },
+    [] (const RefPtr<SVGImageElement>& imageElement) -> std::optional<Exception> {
+        if (imageElement->renderingTaintsOrigin())
             return Exception { SecurityError, "Image element is tainted"_s };
 
         auto* image = imageElement->cachedImage() ? imageElement->cachedImage()->image() : nullptr;
@@ -144,6 +156,16 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutio
 
     return switchOn(source,
     [&] (RefPtr<HTMLImageElement>& imageElement) -> ExceptionOr<Ref<WebCodecsVideoFrame>> {
+        if (!init.timestamp)
+            return Exception { TypeError,  "timestamp is not provided"_s };
+
+        auto image = imageElement->cachedImage()->image()->nativeImageForCurrentFrame();
+        if (!image)
+            return Exception { InvalidStateError,  "Image element has no video frame"_s };
+
+        return initializeFrameWithResourceAndSize(context, image.releaseNonNull(), WTFMove(init));
+    },
+    [&] (RefPtr<SVGImageElement>& imageElement) -> ExceptionOr<Ref<WebCodecsVideoFrame>> {
         if (!init.timestamp)
             return Exception { TypeError,  "timestamp is not provided"_s };
 
@@ -222,12 +244,7 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutio
     if (!pixelBuffer)
         return Exception { InvalidStateError,  "Buffer has no frame"_s };
 
-    RefPtr<VideoFrame> videoFrame;
-#if PLATFORM(COCOA)
-    videoFrame = VideoFrameCV::createFromPixelBuffer(pixelBuffer.releaseNonNull());
-#elif USE(GSTREAMER)
-    videoFrame = VideoFrameGStreamer::createFromPixelBuffer(pixelBuffer.releaseNonNull(), VideoFrameGStreamer::CanvasContentType::Canvas2D);
-#endif
+    auto videoFrame = VideoFrame::createFromPixelBuffer(pixelBuffer.releaseNonNull(), { PlatformVideoColorPrimaries::Bt709, PlatformVideoTransferCharacteristics::Iec6196621, PlatformVideoMatrixCoefficients::Rgb, true });
 
     if (!videoFrame)
         return Exception { InvalidStateError,  "Unable to create frame from buffer"_s };
@@ -242,19 +259,28 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutio
     return initializeFrameFromOtherFrame(context, WTFMove(initFrame), WTFMove(init));
 }
 
+static std::optional<Exception> validateI420Sizes(const WebCodecsVideoFrame::BufferInit& init)
+{
+    if (init.codedWidth % 2 || init.codedHeight % 2)
+        return Exception { TypeError, "coded width or height is odd"_s };
+    if (init.visibleRect && (static_cast<size_t>(init.visibleRect->x) % 2 || static_cast<size_t>(init.visibleRect->x) % 2))
+        return Exception { TypeError, "visible x or y is odd"_s };
+    return { };
+}
+
 // https://w3c.github.io/webcodecs/#dom-videoframe-videoframe-data-init
 ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutionContext& context, BufferSource&& data, BufferInit&& init)
 {
     if (!isValidVideoFrameBufferInit(init))
         return Exception { TypeError, "buffer init is not valid"_s };
-    
+
     DOMRectInit defaultRect { 0, 0, static_cast<double>(init.codedWidth), static_cast<double>(init.codedHeight) };
     auto parsedRectOrExtension = parseVisibleRect(defaultRect, init.visibleRect, init.codedWidth, init.codedHeight, init.format);
     if (parsedRectOrExtension.hasException())
         return parsedRectOrExtension.releaseException();
-    
+
     auto parsedRect = parsedRectOrExtension.releaseReturnValue();
-    auto layoutOrException = computeLayoutAndAllocationSize(parsedRect, init.layout, init.format);
+    auto layoutOrException = computeLayoutAndAllocationSize(defaultRect, init.layout, init.format);
     if (layoutOrException.hasException())
         return layoutOrException.releaseException();
     
@@ -275,11 +301,13 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutio
     else if (init.format == VideoPixelFormat::BGRA || init.format == VideoPixelFormat::BGRX)
         videoFrame = VideoFrame::createBGRA({ data.data(), data.length() }, parsedRect.width, parsedRect.height, layout.computedLayouts[0], WTFMove(colorSpace));
     else if (init.format == VideoPixelFormat::I420) {
-        if (init.codedWidth % 2 || init.codedHeight % 2)
-            return Exception { TypeError, "coded width or height is odd"_s };
-        if (init.visibleRect && (static_cast<size_t>(init.visibleRect->x) % 2 || static_cast<size_t>(init.visibleRect->x) % 2))
-            return Exception { TypeError, "visible x or y is odd"_s };
+        if (auto exception = validateI420Sizes(init))
+            return WTFMove(*exception);
         videoFrame = VideoFrame::createI420({ data.data(), data.length() }, parsedRect.width, parsedRect.height, layout.computedLayouts[0], layout.computedLayouts[1], layout.computedLayouts[2], WTFMove(colorSpace));
+    } else if (init.format == VideoPixelFormat::I420A) {
+        if (auto exception = validateI420Sizes(init))
+            return WTFMove(*exception);
+        videoFrame = VideoFrame::createI420A({ data.data(), data.length() }, parsedRect.width, parsedRect.height, layout.computedLayouts[0], layout.computedLayouts[1], layout.computedLayouts[2], layout.computedLayouts[3], WTFMove(colorSpace));
     } else
         return Exception { NotSupportedError, "VideoPixelFormat is not supported"_s };
 
@@ -326,13 +354,14 @@ static VideoPixelFormat computeVideoPixelFormat(VideoPixelFormat baseFormat, boo
         return baseFormat;
     switch (baseFormat) {
     case VideoPixelFormat::I420:
-    case VideoPixelFormat::I420A:
     case VideoPixelFormat::I422:
     case VideoPixelFormat::NV12:
     case VideoPixelFormat::I444:
     case VideoPixelFormat::RGBX:
     case VideoPixelFormat::BGRX:
         return baseFormat;
+    case VideoPixelFormat::I420A:
+        return VideoPixelFormat::I420;
     case VideoPixelFormat::RGBA:
         return VideoPixelFormat::RGBX;
     case VideoPixelFormat::BGRA:
@@ -455,7 +484,7 @@ void WebCodecsVideoFrame::copyTo(BufferSource&& source, CopyToOptions&& options,
         return;
     }
 
-    Span<uint8_t> buffer { static_cast<uint8_t*>(source.mutableData()), source.length() };
+    std::span<uint8_t> buffer { static_cast<uint8_t*>(source.mutableData()), source.length() };
     m_data.internalFrame->copyTo(buffer, *m_data.format, WTFMove(combinedLayout.computedLayouts), [source = WTFMove(source), promise = WTFMove(promise)](auto planeLayouts) mutable {
         if (!planeLayouts) {
             promise.reject(Exception { TypeError,  "Unable to copy data"_s });
@@ -472,7 +501,7 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::clone(ScriptExecution
 
     auto clone = adoptRef(*new WebCodecsVideoFrame(context, WebCodecsVideoFrameData { m_data }));
 
-    clone->m_colorSpace = colorSpace();
+    clone->m_colorSpace = &colorSpace();
     clone->m_codedRect = codedRect();
     clone->m_visibleRect = visibleRect();
     clone->m_isDetached = m_isDetached;
@@ -483,12 +512,23 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::clone(ScriptExecution
 // https://w3c.github.io/webcodecs/#close-videoframe
 void WebCodecsVideoFrame::close()
 {
-    m_data = { };
+    m_data.internalFrame = nullptr;
+
+    m_isDetached = true;
+
+    m_data.format = { };
+
+    m_data.codedWidth = 0;
+    m_data.codedHeight = 0;
+    m_data.displayWidth = 0;
+    m_data.displayHeight = 0;
+    m_data.visibleWidth = 0;
+    m_data.visibleHeight = 0;
+    m_data.visibleLeft = 0;
+    m_data.visibleTop = 0;
 
     m_codedRect = nullptr;
     m_visibleRect = nullptr;
-    m_colorSpace = nullptr;
-    m_isDetached = true;
 }
 
 DOMRectReadOnly* WebCodecsVideoFrame::codedRect() const
@@ -525,12 +565,12 @@ void WebCodecsVideoFrame::setVisibleRect(const DOMRectInit& rect)
     m_data.visibleHeight = rect.height;
 }
 
-VideoColorSpace* WebCodecsVideoFrame::colorSpace() const
+VideoColorSpace& WebCodecsVideoFrame::colorSpace() const
 {
-    if (!m_colorSpace && m_data.internalFrame)
-        m_colorSpace = VideoColorSpace::create(m_data.internalFrame->colorSpace());
+    if (!m_colorSpace)
+        m_colorSpace = m_data.internalFrame ? VideoColorSpace::create(m_data.internalFrame->colorSpace()) : VideoColorSpace::create();
 
-    return m_colorSpace.get();
+    return *m_colorSpace.get();
 }
 
 } // namespace WebCore

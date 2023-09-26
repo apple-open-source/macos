@@ -502,6 +502,25 @@ rejfile_body()
 	atf_check -o file:expected_ctx.rej cat foo.in.rej
 }
 
+atf_test_case ed_sh_comments
+ed_sh_comments_body()
+{
+
+	# rdar://problem/103217456 - patch(1) doesn't apply lines with sh-style
+	# comments
+
+	printf "a\nb\nc\n" > foo.orig
+	printf "# 1\n# 2\nc\n" > foo
+
+	atf_check -o save:foo.diff -s exit:1 diff --ed foo.orig foo
+
+	mv foo foo.expected
+	mv foo.orig foo
+
+	atf_check -o empty -s exit:0 patch --ed -o foo.recover foo foo.diff
+	atf_check cmp -s foo.recover foo.expected
+}
+
 atf_init_test_cases()
 {
 	atf_add_test_case backup_policy
@@ -521,4 +540,5 @@ atf_init_test_cases()
 	atf_add_test_case utf16
 	atf_add_test_case noeol
 	atf_add_test_case rejfile
+	atf_add_test_case ed_sh_comments
 }

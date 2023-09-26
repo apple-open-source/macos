@@ -34,15 +34,17 @@
 struct sudo_user sudo_user;
 
 struct test_data {
-    char *input;
-    char *output;
-    char *user;
+    const char *input;
+    const char *output;
+    const char *user;
     bool result;
 } test_data[] = {
     { "foo/bar", NULL, NULL, false },
     { "~root", "/", NULL, true },
     { "~", "/home/millert", "millert", true },
+    { "~/foo", "/home/millert/foo", "millert", true },
     { "~millert", "/home/millert", "millert", true },
+    { "~millert/bar", "/home/millert/bar", "millert", true },
     { NULL }
 };
 
@@ -94,8 +96,10 @@ main(int argc, char *argv[])
 	}
     }
 
-    printf("%s: %d tests run, %d errors, %d%% success rate\n", getprogname(),
-	ntests, errors, (ntests - errors) * 100 / ntests);
+    if (ntests != 0) {
+	printf("%s: %d tests run, %d errors, %d%% success rate\n",
+	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
+    }
 
     exit(errors);
 }

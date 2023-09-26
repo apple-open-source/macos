@@ -1063,6 +1063,34 @@ class PackedRenderPassAttachmentArray final
     gl::AttachmentArray<RenderPassAttachment> mAttachments;
 };
 
+class SecondaryCommandBufferCollector final
+{
+  public:
+    SecondaryCommandBufferCollector()                                              = default;
+    SecondaryCommandBufferCollector(const SecondaryCommandBufferCollector &)       = delete;
+    SecondaryCommandBufferCollector(SecondaryCommandBufferCollector &&)            = default;
+    void operator=(const SecondaryCommandBufferCollector &)                        = delete;
+    SecondaryCommandBufferCollector &operator=(SecondaryCommandBufferCollector &&) = default;
+    ~SecondaryCommandBufferCollector() { ASSERT(empty()); }
+
+    void collectCommandBuffer(priv::SecondaryCommandBuffer &&commandBuffer);
+    void collectCommandBuffer(VulkanSecondaryCommandBuffer &&commandBuffer);
+    void retireCommandBuffers();
+
+    bool empty() const { return mCollectedCommandBuffers.empty(); }
+
+  private:
+    std::vector<VulkanSecondaryCommandBuffer> mCollectedCommandBuffers;
+};
+
+struct CommandsState
+{
+    std::vector<VkSemaphore> waitSemaphores;
+    std::vector<VkPipelineStageFlags> waitSemaphoreStageMasks;
+    PrimaryCommandBuffer primaryCommands;
+    SecondaryCommandBufferCollector secondaryCommands;
+};
+
 // How the ImageHelper object is being used by the renderpass
 enum class RenderPassUsage
 {
@@ -1110,7 +1138,7 @@ class CommandBufferHelperCommon : angle::NonCopyable
         return buffer.writtenByCommandBuffer(mQueueSerial);
     }
 
-    void executeBarriers(const angle::FeaturesVk &features, PrimaryCommandBuffer *primary);
+    void executeBarriers(const angle::FeaturesVk &features, CommandsState *commandsState);
 
     // The markOpen and markClosed functions are to aid in proper use of the *CommandBufferHelper.
     // saw invalid use due to threading issues that can be easily caught by marking when it's safe
@@ -1133,6 +1161,13 @@ class CommandBufferHelperCommon : angle::NonCopyable
     }
 
     const QueueSerial &getQueueSerial() const { return mQueueSerial; }
+
+    void setAcquireNextImageSemaphore(VkSemaphore semaphore)
+    {
+        ASSERT(semaphore != VK_NULL_HANDLE);
+        ASSERT(!mAcquireNextImageSemaphore.valid());
+        mAcquireNextImageSemaphore.setHandle(semaphore);
+    }
 
     // Dumping the command stream is disabled by default.
     static constexpr bool kEnableCommandStreamDiagnostics = false;
@@ -1160,6 +1195,19 @@ class CommandBufferHelperCommon : angle::NonCopyable
     template <class DerivedT>
     void assertCanBeRecycledImpl();
 
+    void bufferReadImpl(VkAccessFlags readAccessType,
+                        PipelineStage readStage,
+                        BufferHelper *buffer);
+    void bufferReadImpl(VkAccessFlags readAccessType,
+                        const gl::ShaderBitSet &readShaderStages,
+                        BufferHelper *buffer)
+    {
+        for (gl::ShaderType shaderType : readShaderStages)
+        {
+            const vk::PipelineStage readStage = vk::GetPipelineStage(shaderType);
+            bufferReadImpl(readAccessType, readStage, buffer);
+        }
+    }
     void imageReadImpl(ContextVk *contextVk,
                        VkImageAspectFlags aspectFlags,
                        ImageLayout imageLayout,
@@ -1201,6 +1249,9 @@ class CommandBufferHelperCommon : angle::NonCopyable
 
     // Tracks resources used in the command buffer.
     QueueSerial mQueueSerial;
+
+    // Only used for swapChain images
+    Semaphore mAcquireNextImageSemaphore;
 };
 
 class SecondaryCommandBufferCollector;
@@ -1241,7 +1292,20 @@ class OutsideRenderPassCommandBufferHelper final : public CommandBufferHelperCom
     void bufferRead(ContextVk *contextVk,
                     VkAccessFlags readAccessType,
                     PipelineStage readStage,
-                    BufferHelper *buffer);
+                    BufferHelper *buffer)
+    {
+        bufferReadImpl(readAccessType, readStage, buffer);
+        setBufferReadQueueSerial(contextVk, buffer);
+    }
+
+    void bufferRead(ContextVk *contextVk,
+                    VkAccessFlags readAccessType,
+                    const gl::ShaderBitSet &readShaderStages,
+                    BufferHelper *buffer)
+    {
+        bufferReadImpl(readAccessType, readShaderStages, buffer);
+        setBufferReadQueueSerial(contextVk, buffer);
+    }
 
     void imageRead(ContextVk *contextVk,
                    VkImageAspectFlags aspectFlags,
@@ -1255,9 +1319,7 @@ class OutsideRenderPassCommandBufferHelper final : public CommandBufferHelperCom
                     ImageLayout imageLayout,
                     ImageHelper *image);
 
-    angle::Result flushToPrimary(Context *context,
-                                 PrimaryCommandBuffer *primary,
-                                 SecondaryCommandBufferCollector *commandBufferCollector);
+    angle::Result flushToPrimary(Context *context, CommandsState *commandsState);
 
     void setGLMemoryBarrierIssued()
     {
@@ -1277,6 +1339,7 @@ class OutsideRenderPassCommandBufferHelper final : public CommandBufferHelperCom
   private:
     angle::Result initializeCommandBuffer(Context *context);
     angle::Result endCommandBuffer(Context *context);
+    void setBufferReadQueueSerial(ContextVk *contextVk, BufferHelper *buffer);
 
     OutsideRenderPassCommandBuffer mCommandBuffer;
     bool mIsCommandBufferEnded = false;
@@ -1373,7 +1436,19 @@ class RenderPassCommandBufferHelper final : public CommandBufferHelperCommon
     void bufferRead(ContextVk *contextVk,
                     VkAccessFlags readAccessType,
                     PipelineStage readStage,
-                    BufferHelper *buffer);
+                    BufferHelper *buffer)
+    {
+        bufferReadImpl(readAccessType, readStage, buffer);
+        buffer->setQueueSerial(mQueueSerial);
+    }
+    void bufferRead(ContextVk *contextVk,
+                    VkAccessFlags readAccessType,
+                    const gl::ShaderBitSet &readShaderStages,
+                    BufferHelper *buffer)
+    {
+        bufferReadImpl(readAccessType, readShaderStages, buffer);
+        buffer->setQueueSerial(mQueueSerial);
+    }
 
     void colorImagesDraw(gl::LevelIndex level,
                          uint32_t layerStart,
@@ -1393,9 +1468,8 @@ class RenderPassCommandBufferHelper final : public CommandBufferHelperCommon
     bool startedAndUsesImageWithBarrier(const ImageHelper &image) const;
 
     angle::Result flushToPrimary(Context *context,
-                                 PrimaryCommandBuffer *primary,
-                                 const RenderPass *renderPass,
-                                 SecondaryCommandBufferCollector *commandBufferCollector);
+                                 CommandsState *commandsState,
+                                 const RenderPass *renderPass);
 
     bool started() const { return mRenderPassStarted; }
 
@@ -1615,26 +1689,6 @@ class CommandBufferRecycler
     std::vector<CommandBufferHelperT *> mCommandBufferHelperFreeList;
 };
 
-class SecondaryCommandBufferCollector final
-{
-  public:
-    SecondaryCommandBufferCollector()                                              = default;
-    SecondaryCommandBufferCollector(const SecondaryCommandBufferCollector &)       = delete;
-    SecondaryCommandBufferCollector(SecondaryCommandBufferCollector &&)            = default;
-    void operator=(const SecondaryCommandBufferCollector &)                        = delete;
-    SecondaryCommandBufferCollector &operator=(SecondaryCommandBufferCollector &&) = default;
-    ~SecondaryCommandBufferCollector() { ASSERT(empty()); }
-
-    void collectCommandBuffer(priv::SecondaryCommandBuffer &&commandBuffer);
-    void collectCommandBuffer(VulkanSecondaryCommandBuffer &&commandBuffer);
-    void retireCommandBuffers();
-
-    bool empty() const { return mCollectedCommandBuffers.empty(); }
-
-  private:
-    std::vector<VulkanSecondaryCommandBuffer> mCollectedCommandBuffers;
-};
-
 // Imagine an image going through a few layout transitions:
 //
 //           srcStage 1    dstStage 2          srcStage 2     dstStage 3
@@ -1769,6 +1823,7 @@ bool CanCopyWithTransfer(RendererVk *renderer,
                          VkImageTiling srcTilingMode,
                          angle::FormatID dstFormatID,
                          VkImageTiling dstTilingMode);
+
 class ImageViewHelper;
 class ImageHelper final : public Resource, public angle::Subject
 {
@@ -2202,16 +2257,15 @@ class ImageHelper final : public Resource, public angle::Subject
     void recordWriteBarrier(Context *context,
                             VkImageAspectFlags aspectMask,
                             ImageLayout newLayout,
-                            OutsideRenderPassCommandBuffer *commandBuffer)
-    {
-        barrierImpl(context, aspectMask, newLayout, mCurrentQueueFamilyIndex, commandBuffer);
-    }
+                            OutsideRenderPassCommandBufferHelper *commands);
 
     void recordWriteBarrierOneOff(Context *context,
                                   ImageLayout newLayout,
-                                  PrimaryCommandBuffer *commandBuffer)
+                                  PrimaryCommandBuffer *commandBuffer,
+                                  VkSemaphore *acquireNextImageSemaphoreOut)
     {
-        barrierImpl(context, getAspectFlags(), newLayout, mCurrentQueueFamilyIndex, commandBuffer);
+        barrierImpl(context, getAspectFlags(), newLayout, mCurrentQueueFamilyIndex, commandBuffer,
+                    acquireNextImageSemaphoreOut);
     }
 
     // This function can be used to prevent issuing redundant layout transition commands.
@@ -2220,15 +2274,7 @@ class ImageHelper final : public Resource, public angle::Subject
     void recordReadBarrier(Context *context,
                            VkImageAspectFlags aspectMask,
                            ImageLayout newLayout,
-                           OutsideRenderPassCommandBuffer *commandBuffer)
-    {
-        if (!isReadBarrierNecessary(newLayout))
-        {
-            return;
-        }
-
-        barrierImpl(context, aspectMask, newLayout, mCurrentQueueFamilyIndex, commandBuffer);
-    }
+                           OutsideRenderPassCommandBufferHelper *commands);
 
     bool isQueueChangeNeccesary(uint32_t newQueueFamilyIndex) const
     {
@@ -2246,7 +2292,8 @@ class ImageHelper final : public Resource, public angle::Subject
                                 VkImageAspectFlags aspectMask,
                                 ImageLayout newLayout,
                                 const QueueSerial &queueSerial,
-                                PipelineBarrier *barrier);
+                                PipelineBarrier *barrier,
+                                VkSemaphore *semaphoreOut);
 
     // Performs an ownership transfer from an external instance or API.
     void acquireFromExternal(ContextVk *contextVk,
@@ -2406,6 +2453,15 @@ class ImageHelper final : public Resource, public angle::Subject
                                                    gl::LevelIndex levelEnd,
                                                    angle::FormatID formatID) const;
 
+    void setAcquireNextImageSemaphore(VkSemaphore semaphore)
+    {
+        ASSERT(semaphore != VK_NULL_HANDLE);
+        ASSERT(!mAcquireNextImageSemaphore.valid());
+        mAcquireNextImageSemaphore.setHandle(semaphore);
+    }
+    const Semaphore &getAcquireNextImageSemaphore() const { return mAcquireNextImageSemaphore; }
+    void resetAcquireNextImageSemaphore() { mAcquireNextImageSemaphore.release(); }
+
   private:
     ANGLE_ENABLE_STRUCT_PADDING_WARNINGS
     struct ClearUpdate
@@ -2519,7 +2575,8 @@ class ImageHelper final : public Resource, public angle::Subject
                      VkImageAspectFlags aspectMask,
                      ImageLayout newLayout,
                      uint32_t newQueueFamilyIndex,
-                     CommandBufferT *commandBuffer);
+                     CommandBufferT *commandBuffer,
+                     VkSemaphore *acquireNextImageSemaphoreOut);
 
     // If the image has emulated channels, we clear them once so as not to leave garbage on those
     // channels.
@@ -2562,6 +2619,7 @@ class ImageHelper final : public Resource, public angle::Subject
 
     angle::Result initializeNonZeroMemory(Context *context,
                                           bool hasProtectedContent,
+                                          VkMemoryPropertyFlags flags,
                                           VkDeviceSize size);
 
     std::vector<SubresourceUpdate> *getLevelUpdates(gl::LevelIndex level);
@@ -2734,6 +2792,10 @@ class ImageHelper final : public Resource, public angle::Subject
     MemoryAllocationType mMemoryAllocationType;
     // Memory type index used for the allocation. It can be used to determine the heap index.
     uint32_t mMemoryTypeIndex;
+
+    // Only used for swapChain images. This is set when an image is acquired and is waited on
+    // by the next submission (which uses this image), at which point it is released.
+    Semaphore mAcquireNextImageSemaphore;
 };
 
 ANGLE_INLINE bool RenderPassCommandBufferHelper::usesImage(const ImageHelper &image) const
@@ -3059,6 +3121,7 @@ class BufferViewHelper final : public Resource
     ~BufferViewHelper() override;
 
     void init(RendererVk *renderer, VkDeviceSize offset, VkDeviceSize size);
+    bool isInitialized() const { return mInitialized; }
     void release(ContextVk *contextVk);
     void destroy(VkDevice device);
 
@@ -3072,6 +3135,8 @@ class BufferViewHelper final : public Resource
     ImageOrBufferViewSubresourceSerial getSerial() const;
 
   private:
+    bool mInitialized;
+
     // To support format reinterpretation, additional views for formats other than the one specified
     // to glTexBuffer may need to be created.  On draw/dispatch, the format layout qualifier of the
     // imageBuffer is used (if provided) to create a potentially different view of the buffer.

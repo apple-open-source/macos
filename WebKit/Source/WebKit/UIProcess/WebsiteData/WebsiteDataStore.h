@@ -80,6 +80,7 @@ class ResourceRequest;
 class SecurityOrigin;
 class LocalWebLockRegistry;
 class PrivateClickMeasurement;
+struct RecentSearch;
 
 struct MockWebAuthenticationConfiguration;
 struct NotificationData;
@@ -120,10 +121,13 @@ public:
     static Ref<WebsiteDataStore> defaultDataStore();
     static bool defaultDataStoreExists();
     static void deleteDefaultDataStoreForTesting();
-    static RefPtr<WebsiteDataStore> existingDataStoreForIdentifier(const UUID&);
-
+    static RefPtr<WebsiteDataStore> existingDataStoreForIdentifier(const WTF::UUID&);
+    
     static Ref<WebsiteDataStore> createNonPersistent();
     static Ref<WebsiteDataStore> create(Ref<WebsiteDataStoreConfiguration>&&, PAL::SessionID);
+#if PLATFORM(COCOA)
+    static Ref<WebsiteDataStore> dataStoreForIdentifier(const WTF::UUID&);
+#endif
 
     WebsiteDataStore(Ref<WebsiteDataStoreConfiguration>&&, PAL::SessionID);
     ~WebsiteDataStore();
@@ -168,7 +172,7 @@ public:
     void storePrivateClickMeasurement(const WebCore::PrivateClickMeasurement&);
 
     uint64_t perOriginStorageQuota() const { return m_resolvedConfiguration->perOriginStorageQuota(); }
-    uint64_t perThirdPartyOriginStorageQuota() const;
+    std::optional<double> originQuotaRatio() { return m_resolvedConfiguration->originQuotaRatio(); }
 
     bool isBlobRegistryPartitioningEnabled() const;
 
@@ -261,6 +265,7 @@ public:
 #endif // ENABLE(TRACKING_PREVENTION)
     void closeDatabases(CompletionHandler<void()>&&);
     void syncLocalStorage(CompletionHandler<void()>&&);
+    void storeServiceWorkerRegistrations(CompletionHandler<void()>&&);
     void setCacheMaxAgeCapForPrevalentResources(Seconds, CompletionHandler<void()>&&);
     void resetCacheMaxAgeCapForPrevalentResources(CompletionHandler<void()>&&);
     void resolveDirectoriesIfNecessary();
@@ -279,6 +284,7 @@ public:
     const String& resolvedResourceLoadStatisticsDirectory() const { return m_resolvedConfiguration->resourceLoadStatisticsDirectory(); }
     const String& resolvedHSTSStorageDirectory() const { return m_resolvedConfiguration->hstsStorageDirectory(); }
     const String& resolvedGeneralStorageDirectory() const { return m_resolvedConfiguration->generalStorageDirectory(); }
+    const String& resolvedSearchFieldHistoryDirectory() const { return m_resolvedConfiguration->searchFieldHistoryDirectory(); }
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     const String& resolvedModelElementCacheDirectory() const { return m_resolvedConfiguration->modelElementCacheDirectory(); }
 #endif
@@ -294,7 +300,6 @@ public:
     static Vector<WebsiteDataStoreParameters> parametersFromEachWebsiteDataStore();
 
     void flushCookies(CompletionHandler<void()>&&);
-    void clearCachedCredentials();
 
     void setAllowsAnySSLCertificateForWebSocket(bool);
 
@@ -332,7 +337,7 @@ public:
     VirtualAuthenticatorManager& virtualAuthenticatorManager();
 #endif
 
-    const WebsiteDataStoreConfiguration& configuration() { return m_configuration.get(); }
+    const WebsiteDataStoreConfiguration& configuration() const { return m_configuration.get(); }
 
     WebsiteDataStoreClient& client() { return m_client.get(); }
     void setClient(UniqueRef<WebsiteDataStoreClient>&& client) { m_client = WTFMove(client); }
@@ -340,8 +345,8 @@ public:
     API::HTTPCookieStore& cookieStore();
     WebCore::LocalWebLockRegistry& webLockRegistry() { return m_webLockRegistry.get(); }
 
-    void renameOriginInWebsiteData(URL&&, URL&&, OptionSet<WebsiteDataType>, CompletionHandler<void()>&&);
-    void originDirectoryForTesting(URL&&, URL&&, WebsiteDataType, CompletionHandler<void(const String&)>&&);
+    void renameOriginInWebsiteData(WebCore::SecurityOriginData&&, WebCore::SecurityOriginData&&, OptionSet<WebsiteDataType>, CompletionHandler<void()>&&);
+    void originDirectoryForTesting(WebCore::ClientOrigin&&, OptionSet<WebsiteDataType>, CompletionHandler<void(const String&)>&&);
 
     bool networkProcessHasEntitlementForTesting(const String&);
 
@@ -354,21 +359,20 @@ public:
 #endif
 
 #if PLATFORM(COCOA)
-    static void fetchAllDataStoreIdentifiers(CompletionHandler<void(Vector<UUID>&&)>&&);
-    static void removeDataStoreWithIdentifier(const UUID& identifier, CompletionHandler<void(const String&)>&&);
-    static String defaultWebsiteDataStoreDirectory(const UUID& identifier);
+    static void fetchAllDataStoreIdentifiers(CompletionHandler<void(Vector<WTF::UUID>&&)>&&);
+    static void removeDataStoreWithIdentifier(const WTF::UUID& identifier, CompletionHandler<void(const String&)>&&);
+    static String defaultWebsiteDataStoreDirectory(const WTF::UUID& identifier);
     static String defaultCookieStorageFile(const String& baseDataDirectory = nullString());
+    static String defaultSearchFieldHistoryDirectory(const String& baseDataDirectory = nullString());
 #endif
     static String defaultServiceWorkerRegistrationDirectory(const String& baseDataDirectory = nullString());
     static String defaultLocalStorageDirectory(const String& baseDataDirectory = nullString());
     static String defaultResourceLoadStatisticsDirectory(const String& baseDataDirectory = nullString());
     static String defaultNetworkCacheDirectory(const String& baseCacheDirectory = nullString());
-    static String defaultAlternativeServicesDirectory(const String& baseDataDirectory = nullString());
+    static String defaultAlternativeServicesDirectory(const String& baseCacheDirectory = nullString());
     static String defaultApplicationCacheDirectory(const String& baseCacheDirectory = nullString());
     static String defaultWebSQLDatabaseDirectory(const String& baseDataDirectory = nullString());
-#if USE(GLIB) || PLATFORM(COCOA)
     static String defaultHSTSStorageDirectory(const String& baseCacheDirectory = nullString());
-#endif
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     static String defaultModelElementCacheDirectory(const String& baseCacheDirectory = nullString());
 #endif
@@ -381,6 +385,17 @@ public:
     static String defaultJavaScriptConfigurationDirectory(const String& baseDataDirectory = nullString());
 
     static constexpr uint64_t defaultPerOriginQuota() { return 1000 * MB; }
+    static constexpr uint64_t defaultStandardVolumeCapacity() {
+#if PLATFORM(MAC)
+        return 128 * GB;
+#elif PLATFORM(IOS) || PLATFORM(VISION)
+        return 64 * GB;
+#else
+        return 16 * GB;
+#endif
+    }
+    static std::optional<double> defaultOriginQuotaRatio();
+    static std::optional<double> defaultTotalQuotaRatio();
     static UnifiedOriginStorageLevel defaultUnifiedOriginStorageLevel();
 
 #if USE(GLIB)
@@ -417,11 +432,15 @@ public:
     void countNonDefaultSessionSets(CompletionHandler<void(size_t)>&&);
 
     void showServiceWorkerNotification(IPC::Connection&, const WebCore::NotificationData&);
-    void cancelServiceWorkerNotification(const UUID& notificationID);
-    void clearServiceWorkerNotification(const UUID& notificationID);
-    void didDestroyServiceWorkerNotification(const UUID& notificationID);
+    void cancelServiceWorkerNotification(const WTF::UUID& notificationID);
+    void clearServiceWorkerNotification(const WTF::UUID& notificationID);
+    void didDestroyServiceWorkerNotification(const WTF::UUID& notificationID);
+
+    bool hasClientGetDisplayedNotifications() const;
+    void getNotifications(const URL& registrationalURL, CompletionHandler<void(Vector<WebCore::NotificationData>&&)>&&);
 
     void openWindowFromServiceWorker(const String& urlString, const WebCore::SecurityOriginData& serviceWorkerOrigin, CompletionHandler<void(std::optional<WebCore::PageIdentifier>)>&&);
+    void reportServiceWorkerConsoleMessage(const URL&, const WebCore::SecurityOriginData&, MessageSource,  MessageLevel, const String& message, unsigned long requestIdentifier);
 
     void workerUpdatedAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t>);
 
@@ -434,10 +453,19 @@ public:
     void setServiceWorkerOverridePreferences(WebPreferences* preferences) { m_serviceWorkerOverridePreferences = preferences; }
     WebPreferences* serviceWorkerOverridePreferences() const { return m_serviceWorkerOverridePreferences.get(); }
 
-    DownloadProxy& createDownloadProxy(Ref<API::DownloadClient>&&, const WebCore::ResourceRequest&, WebPageProxy* originatingPage, const FrameInfoData&);
+    Ref<DownloadProxy> createDownloadProxy(Ref<API::DownloadClient>&&, const WebCore::ResourceRequest&, WebPageProxy* originatingPage, const FrameInfoData&);
     void download(const DownloadProxy&, const String& suggestedFilename);
     void resumeDownload(const DownloadProxy&, const API::Data&, const String& path, CallDownloadDidStart);
 
+    void saveRecentSearches(const String& name, const Vector<WebCore::RecentSearch>&);
+    void loadRecentSearches(const String& name, CompletionHandler<void(Vector<WebCore::RecentSearch>&&)>&&);
+
+#if HAVE(NW_PROXY_CONFIG)
+    void clearProxyConfigData();
+    void setProxyConfigData(Vector<std::pair<Vector<uint8_t>, WTF::UUID>>&&);
+#endif
+    void setCompletionHandlerForRemovalFromNetworkProcess(CompletionHandler<void(String&&)>&&);
+    
 private:
     enum class ForceReinitialization : bool { No, Yes };
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -450,16 +478,15 @@ private:
 
     void platformInitialize();
     void platformDestroy();
-    static void platformRemoveRecentSearches(WallTime);
-
     void platformSetNetworkParameters(WebsiteDataStoreParameters&);
+    void removeRecentSearches(WallTime, CompletionHandler<void()>&&);
 
     WebsiteDataStore();
     static WorkQueue& websiteDataStoreIOQueue();
 
     // FIXME: Only Cocoa ports respect ShouldCreateDirectory, so you cannot rely on it to create
     // directories. This is confusing.
-    enum class ShouldCreateDirectory { No, Yes };
+    enum class ShouldCreateDirectory : bool { No, Yes };
     static String tempDirectoryFileSystemRepresentation(const String& directoryName, ShouldCreateDirectory = ShouldCreateDirectory::Yes);
     static String cacheDirectoryFileSystemRepresentation(const String& directoryName, const String& baseCacheDirectory = nullString(), ShouldCreateDirectory = ShouldCreateDirectory::Yes);
     static String websiteDataDirectoryFileSystemRepresentation(const String& directoryName, const String& baseDataDirectory = nullString(), ShouldCreateDirectory = ShouldCreateDirectory::Yes);
@@ -562,6 +589,7 @@ private:
     Ref<WebCore::LocalWebLockRegistry> m_webLockRegistry;
 
     RefPtr<WebPreferences> m_serviceWorkerOverridePreferences;
+    CompletionHandler<void(String&&)> m_completionHandlerForRemovalFromNetworkProcess;
 };
 
 }

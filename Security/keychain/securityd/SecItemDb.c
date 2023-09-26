@@ -1793,6 +1793,7 @@ OSStatus SecServerPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStr
 struct s3dl_export_row_ctx {
     struct s3dl_query_ctx qc;
     keybag_handle_t dest_keybag;
+    bool useNewBackupBehavior;
     enum SecItemFilter filter;
     bool inEduMode;
 };
@@ -1860,7 +1861,7 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
 
                     /* Encode and encrypt the item to the specified keybag. */
                     CFDataRef edata = NULL;
-                    bool encrypted = ks_encrypt_data(c->dest_keybag, access_control, q->q_use_cred_handle, secretStuff, metadataAttributes, auth_attribs, &edata, false, &q->q_error);
+                    bool encrypted = ks_encrypt_data(c->dest_keybag, access_control, q->q_use_cred_handle, secretStuff, metadataAttributes, auth_attribs, &edata, false, c->useNewBackupBehavior, &q->q_error);
                     CFDictionaryRemoveAllValues(allAttributes);
                     CFRelease(auth_attribs);
                     if (encrypted) {
@@ -1921,26 +1922,60 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
     CFReleaseNull(secretStuff);
 }
 
+#if TARGET_HAS_KEYSTORE
+static CFStringRef SecCreateUUIDString(uuid_t uuid) {
+    uuid_string_t uuidstr = {};
+    uuid_unparse_lower(uuid, uuidstr);
+    return CFStringCreateWithCString(NULL, uuidstr, kCFStringEncodingUTF8);
+}
+#endif
+
+// Called for a keybag that we unpacked (e.g. for restore), vs. getting the UUID for the backup keybag from AKS
 static CFStringRef
-SecCreateKeybagUUID(keybag_handle_t keybag)
+SecCreateKeybagUUID(keybag_handle_t keybag, struct backup_keypair *bkp)
 {
 #if !TARGET_HAS_KEYSTORE
     return NULL;
 #else
-    char uuidstr[37];
     uuid_t uuid;
-    if (aks_get_bag_uuid(keybag, uuid) != KERN_SUCCESS)
+
+    if (bkp == NULL) {
+        kern_return_t ret = aks_get_bag_uuid(keybag, uuid);
+        if (ret != KERN_SUCCESS)
+        {
+            secerror("keybag-uuid: could not determine keybag UUID for %d: %d", keybag, ret);
+            return NULL;
+        }
+    } else {
+        // a bit of a hack, but Fabrice says this should work
+        uuid_copy(uuid, bkp->public_key);
+    }
+
+    return SecCreateUUIDString(uuid);
+#endif
+}
+
+// From AKS, get the UUID of the backup keybag for the specified original_keybag
+static CFStringRef SecCreateBackupKeybagUUID(keybag_handle_t original_keybag)
+{
+#if !TARGET_HAS_KEYSTORE
+    return NULL;
+#else
+    uuid_t uuid;
+    kern_return_t ret = aks_kc_backup_get_uuid(original_keybag, uuid);
+    if (ret != KERN_SUCCESS) {
+        secerror("keybag-uuid: could not determine backup keybag UUID for %d: %d", original_keybag, ret);
         return NULL;
-    uuid_unparse_lower(uuid, uuidstr);
-    return CFStringCreateWithCString(NULL, uuidstr, kCFStringEncodingUTF8);
+    }
+
+    return SecCreateUUIDString(uuid);
 #endif
 }
 
 CFDictionaryRef
 SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
                            SecurityClient *client,
-                           keybag_handle_t src_keybag,
-                           keybag_handle_t dest_keybag,
+                           keybag_handle_t* dest_keybag,
                            enum SecItemFilter filter,
                            CFErrorRef *error) {
     CFMutableDictionaryRef keychain;
@@ -1949,7 +1984,7 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
     unsigned class_ix;
     bool inEduMode = false;
     CFStringRef keybaguuid = NULL;
-    Query q = { .q_keybag = src_keybag,
+    Query q = { .q_keybag = KEYBAG_DEVICE,
         .q_musrView = NULL
     };
 
@@ -1977,7 +2012,7 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
         q.q_musrView = SecMUSRGetSingleUserKeychainUUID();
         CFRetain(q.q_musrView);
 
-        keybaguuid = SecCreateKeybagUUID(dest_keybag);
+        keybaguuid = dest_keybag ? SecCreateKeybagUUID(*dest_keybag, NULL) : SecCreateBackupKeybagUUID(KEYBAG_DEVICE);
         if (keybaguuid) {
             CFDictionarySetValue(keychain, kSecBackupKeybagUUIDKey, keybaguuid);
         }
@@ -1996,7 +2031,9 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
         q.q_class = SecDbClasses[class_ix];
         struct s3dl_export_row_ctx ctx = {
             .qc = { .q = &q, .dbt = dbt },
-            .dest_keybag = dest_keybag, .filter = filter,
+            .dest_keybag = dest_keybag ? *dest_keybag : KEYBAG_DEVICE,
+            .useNewBackupBehavior = dest_keybag == NULL,
+            .filter = filter,
             .inEduMode = inEduMode,
         };
 
@@ -2042,6 +2079,7 @@ struct SecServerImportClassState {
 	SecDbConnectionRef dbt;
     CFErrorRef error;
     keybag_handle_t src_keybag;
+    struct backup_keypair* src_bkp;
     keybag_handle_t dest_keybag;
     SecurityClient *client;
     enum SecItemFilter filter;
@@ -2081,10 +2119,10 @@ SecServerImportItem(const void *value, void *context)
      - During restore from backup, existing sys_bound items are exported with KEYBAG_NONE, and are exported as dictionary of attributes.
      - Item in the actual backup are export with a real keybag, and are exported as encrypted v_Data and v_PersistentRef
      */
-    if (state->s->src_keybag == KEYBAG_NONE) {
+    if (state->s->src_keybag == KEYBAG_NONE && state->s->src_bkp == NULL) {
         item = SecDbItemCreateWithAttributes(kCFAllocatorDefault, state->class, dict, state->s->dest_keybag,  &state->s->error);
     } else {
-        item = SecDbItemCreateWithBackupDictionary(state->class, dict, state->s->src_keybag, state->s->dest_keybag, &state->s->error);
+        item = SecDbItemCreateWithBackupDictionary(state->class, dict, state->s->src_keybag, state->s->src_bkp, state->s->dest_keybag, &state->s->error);
     }
 
     /* If item is NULL here, control flow ends up at the end where error is cleared. */
@@ -2290,7 +2328,8 @@ static void SecServerImportClass(const void *key, const void *value,
 }
 
 bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *client,
-                                            keybag_handle_t src_keybag, keybag_handle_t dest_keybag,
+                                            keybag_handle_t src_keybag, struct backup_keypair* src_bkp,
+                                            keybag_handle_t dest_keybag,
                                             CFDictionaryRef keychain, enum SecItemFilter filter,
                                             bool removeKeychainContent, CFErrorRef *error) {
     CFStringRef keybaguuid = NULL;
@@ -2300,15 +2339,14 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
     if (filter == kSecBackupableItemFilter) {
         /* Grab a copy of all the items for which SecItemIsSystemBound()
          returns true. */
-        require(sys_bound = SecServerCopyKeychainPlist(dbt, client, KEYBAG_DEVICE,
-                                                       KEYBAG_NONE, kSecSysBoundItemFilter,
-                                                       error), errOut);
+        keybag_handle_t keybag_none = KEYBAG_NONE;
+        require(sys_bound = SecServerCopyKeychainPlist(dbt, client, &keybag_none, kSecSysBoundItemFilter, error), errOut);
     }
 
     /*
      * Validate the uuid of the source keybag matches what we have in the backup
      */
-    keybaguuid = SecCreateKeybagUUID(src_keybag);
+    keybaguuid = SecCreateKeybagUUID(src_keybag, src_bkp);
     if (keybaguuid) {
         CFStringRef uuid = CFDictionaryGetValue(keychain, kSecBackupKeybagUUIDKey);
         if (isString(uuid)) {
@@ -2363,6 +2401,7 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
     struct SecServerImportClassState state = {
         .dbt = dbt,
         .src_keybag = src_keybag,
+        .src_bkp = src_bkp,
         .dest_keybag = dest_keybag,
         .client = client,
         .filter = filter,
@@ -2373,6 +2412,7 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
 
     if (sys_bound) {
         state.src_keybag = KEYBAG_NONE;
+        state.src_bkp = NULL;
         /* Import the items we preserved with random rowids. */
         state.filter = kSecSysBoundItemFilter;
         secwarning("Restoring sysbound items '%ld'", (long)CFDictionaryGetCount(sys_bound));
@@ -2504,15 +2544,15 @@ bool s3dl_dbt_update_keys(SecDbConnectionRef dbt, SecurityClient *client, CFErro
             /* take a lock assertion */
             bool operated_while_unlocked = SecAKSDoWithKeybagLockAssertion(g_keychain_keybag, error, ^{
                 CFErrorRef localError = NULL;
-                CFDictionaryRef backup = SecServerCopyKeychainPlist(dbt, NULL,
-                                                                    KEYBAG_DEVICE, KEYBAG_NONE, kSecNoItemFilter, &localError);
+                keybag_handle_t keybag_none = KEYBAG_NONE;
+                CFDictionaryRef backup = SecServerCopyKeychainPlist(dbt, NULL, &keybag_none, kSecNoItemFilter, &localError);
                 if (backup) {
                     if (localError) {
                         secerror("Ignoring export error: %@ during roll export", localError);
                         CFReleaseNull(localError);
                     }
                     // 'true' argument: we're replacing everything with newly wrapped entries so remove the old stuff
-                    ok = SecServerImportKeychainInPlist(dbt, client, KEYBAG_NONE,
+                    ok = SecServerImportKeychainInPlist(dbt, client, KEYBAG_NONE, NULL,
                                                         KEYBAG_DEVICE, backup, kSecNoItemFilter, true, &localError);
                     if (localError) {
                         secerror("Ignoring export error: %@ during roll export", localError);

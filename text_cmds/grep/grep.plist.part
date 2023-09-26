@@ -21,6 +21,7 @@
                 <string>grep.c, grep.h, util.c: Implement linkbehave correctly (33017461)</string>
                 <string>grep.c: Fix -L return value (88986027)</string>
                 <string>grep.c: Don't ignore errors when flushing stdout (89040553)</string>
+                <string>util.c: Properly advance past zero-length matches (108870627)</string>
         </array>
         <key>OpenSourceLicense</key>
         <string>BSD</string>

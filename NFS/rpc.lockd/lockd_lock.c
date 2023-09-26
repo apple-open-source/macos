@@ -271,7 +271,7 @@ debuglog(char const *fmt, ...)
 {
 	va_list ap;
 
-	if (config.verbose < 1) {
+	if (l_config.verbose < 1) {
 		return;
 	}
 
@@ -283,18 +283,13 @@ debuglog(char const *fmt, ...)
 }
 
 void
-dump_static_object(object, size_object, hbuff, size_hbuff, cbuff, size_cbuff)
-const unsigned char *object;
-const int size_object;
-unsigned char *hbuff;
-const int size_hbuff;
-unsigned char *cbuff;
-const int size_cbuff;
+dump_static_object(const unsigned char *object, const int size_object, unsigned char *hbuff,
+    const int size_hbuff, unsigned char *cbuff, const int size_cbuff)
 {
 	int i, objectsize;
 	char *tmp = (char*)hbuff;
 
-	if (config.verbose < 2) {
+	if (l_config.verbose < 2) {
 		return;
 	}
 
@@ -345,7 +340,7 @@ dump_netobj(const struct netobj *nobj)
 	char hbuff[MAXBUFFERSIZE * 2];
 	char cbuff[MAXBUFFERSIZE];
 
-	if (config.verbose < 2) {
+	if (l_config.verbose < 2) {
 		return;
 	}
 
@@ -370,7 +365,7 @@ dump_filelock(const struct file_lock *fl)
 	char cbuff[MAXBUFFERSIZE];
 #endif
 
-	if (config.verbose < 2) {
+	if (l_config.verbose < 2) {
 		return;
 	}
 
@@ -403,10 +398,7 @@ dump_filelock(const struct file_lock *fl)
 }
 
 void
-copy_nlm4_lock_to_nlm4_holder(src, exclusive, dest)
-const struct nlm4_lock *src;
-const bool_t exclusive;
-struct nlm4_holder *dest;
+copy_nlm4_lock_to_nlm4_holder(const struct nlm4_lock *src, const bool_t exclusive, struct nlm4_holder *dest)
 {
 	dest->exclusive = exclusive;
 	dest->oh.n_len = src->oh.n_len;
@@ -507,8 +499,7 @@ deallocate_file_lock(struct file_lock *fl)
  * overlap.
  */
 int
-regions_overlap(start1, len1, start2, len2)
-const u_int64_t start1, len1, start2, len2;
+regions_overlap(const u_int64_t start1, const u_int64_t len1, const u_int64_t start2, const u_int64_t len2)
 {
 	u_int64_t d1, d2, d3, d4;
 	enum split_status result;
@@ -538,10 +529,8 @@ const u_int64_t start1, len1, start2, len2;
  * XXX: This DESPERATELY needs a regression test.
  */
 enum split_status
-region_compare(starte, lene, startu, lenu,
-    start1, len1, start2, len2)
-const u_int64_t starte, lene, startu, lenu;
-u_int64_t *start1, *len1, *start2, *len2;
+region_compare(const u_int64_t starte, const u_int64_t lene, const u_int64_t startu, const u_int64_t lenu,
+    u_int64_t *start1, u_int64_t *len1, u_int64_t *start2, u_int64_t *len2)
 {
 	/*
 	 * Please pay attention to the sequential exclusions
@@ -725,8 +714,7 @@ same_netobj(const netobj *n0, const netobj *n1)
  * same_filelock_identity: Compares the appropriate bits of a file_lock
  */
 int
-same_filelock_identity(fl0, fl1)
-const struct file_lock *fl0, *fl1;
+same_filelock_identity(const struct file_lock *fl0, const struct file_lock *fl1)
 {
 	int retval;
 
@@ -980,9 +968,8 @@ delete_nfslock(struct file_lock *fl)
 }
 
 enum split_status
-split_nfslock(exist_lock, unlock_lock, left_lock, right_lock)
-const struct file_lock *exist_lock, *unlock_lock;
-struct file_lock **left_lock, **right_lock;
+split_nfslock(const struct file_lock *exist_lock, const struct file_lock *unlock_lock,
+    struct file_lock **left_lock, struct file_lock **right_lock)
 {
 	u_int64_t start1, len1, start2, len2;
 	enum split_status spstatus;
@@ -1027,12 +1014,8 @@ struct file_lock **left_lock, **right_lock;
 }
 
 enum nfslock_status
-unlock_nfslock(fl, released_lock, left_lock, right_lock, cleanup)
-const struct file_lock *fl;
-struct file_lock **released_lock;
-struct file_lock **left_lock;
-struct file_lock **right_lock;
-int cleanup;
+unlock_nfslock(const struct file_lock *fl, struct file_lock **released_lock, struct file_lock **left_lock,
+    struct file_lock **right_lock, int cleanup)
 {
 	struct file_lock *mfl; /* Matching file lock */
 	enum nfslock_status retval;
@@ -1253,9 +1236,7 @@ unlock_hwlock(const struct file_lock *fl)
 }
 
 enum hwlock_status
-test_hwlock(fl, conflicting_fl)
-const struct file_lock *fl __unused;
-struct file_lock **conflicting_fl __unused;
+test_hwlock(const struct file_lock *fl __unused, struct file_lock **conflicting_fl __unused)
 {
 	/*
 	 * XXX: lock tests on hardware are not required until
@@ -2153,7 +2134,7 @@ do_notify_mounts(const char *hostname)
 			if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6)) {
 				continue;
 			}
-			if (config.verbose > 1) {
+			if (l_config.verbose > 1) {
 				char addrbuf[NI_MAXHOST], *addr = NULL;
 				void *sinaddr = (ai->ai_family == AF_INET) ?
 				    (void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
@@ -2649,7 +2630,7 @@ unmonitor_lock_host(const char *hostname)
 
 	TAILQ_REMOVE(&hostlst_head, ihp, hostlst);
 	TAILQ_INSERT_HEAD(&hostlst_unref, ihp, hostlst);
-	if (config.host_monitor_cache_timeout <= 0) {
+	if (l_config.host_monitor_cache_timeout <= 0) {
 		destroy_lock_host(ihp);
 	}
 }
@@ -2710,13 +2691,13 @@ expire_lock_hosts(void)
 		if (ihp == NULL) {
 			break;
 		}
-		if ((config.host_monitor_cache_timeout > 0) &&
-		    (ihp->lastuse >= (currsec - config.host_monitor_cache_timeout))) {
+		if ((l_config.host_monitor_cache_timeout > 0) &&
+		    (ihp->lastuse >= (currsec - l_config.host_monitor_cache_timeout))) {
 			break;
 		}
 		debuglog("expire_lock_hosts: expiring %s %d %d %d\n",
 		    ihp->name, (int)ihp->lastuse,
-		    (int)currsec, (int)currsec - config.host_monitor_cache_timeout);
+		    (int)currsec, (int)currsec - l_config.host_monitor_cache_timeout);
 		destroy_lock_host(ihp);
 	}
 	return TAILQ_LAST(&hostlst_unref, hostlst_head) != NULL;
@@ -2752,9 +2733,7 @@ notify(const char *hostname, const int state)
 }
 
 int
-send_granted(fl, opcode)
-struct file_lock *fl;
-int opcode __unused;
+send_granted(struct file_lock *fl, int opcode __unused)
 {
 	CLIENT *cli;
 	static char dummy;
@@ -2830,7 +2809,7 @@ int opcode __unused;
 			    &retval, timeo);
 		}
 	}
-	if (config.verbose > 2) {
+	if (l_config.verbose > 2) {
 		debuglog("clnt_call returns %d(%s) for granted",
 		    rv, clnt_sperrno(rv));
 	}

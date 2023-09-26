@@ -1007,6 +1007,9 @@ extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_kcc_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_api_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_temp_api_ops;
+#ifdef ENABLE_KCM_COMPAT
+extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_kcm_compat_ops;
+#endif
 
 extern KRB5_LIB_VARIABLE const krb5_kt_ops krb5_fkt_ops;
 extern KRB5_LIB_VARIABLE const krb5_kt_ops krb5_wrfkt_ops;

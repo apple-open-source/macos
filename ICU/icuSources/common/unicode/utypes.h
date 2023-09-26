@@ -38,9 +38,14 @@
 #include "unicode/umachine.h"
 #include "unicode/uversion.h"
 #include "unicode/uconfig.h"
+#if APPLE_ICU_CHANGES
+// rdar://10040518 2ca6a7de75.. Refine previous fix to use platform conditionals
 #if U_PLATFORM!=U_PF_IPHONE
 #include <float.h>
 #endif
+#else
+#include <float.h>
+#endif // APPLE_ICU_CHANGES
 
 #if !U_NO_DEFAULT_INCLUDE_UTF_HEADERS
 #   include "unicode/utf.h"
@@ -59,9 +64,11 @@
 
 /**
  * \def U_SHOW_CPLUSPLUS_API
- * (Apple modifies the default to be 0, not 1)
  * @internal
  */
+#if APPLE_ICU_CHANGES
+// rdar://60884991 #58 Replace installsrc patching with changes directly in header files
+// Apple modifies the default to be 0, not 1
 #ifdef __cplusplus
 #   ifndef U_SHOW_CPLUSPLUS_API
 #       define U_SHOW_CPLUSPLUS_API 0
@@ -71,7 +78,23 @@
 #   define U_SHOW_CPLUSPLUS_API 0
 #endif
 
+#else
 
+#ifdef __cplusplus
+#   ifndef U_SHOW_CPLUSPLUS_API
+#       define U_SHOW_CPLUSPLUS_API 1
+#   endif
+#else
+#   undef U_SHOW_CPLUSPLUS_API
+#   define U_SHOW_CPLUSPLUS_API 0
+#endif
+
+#endif // APPLE_ICU_CHANGES
+
+
+#if APPLE_ICU_CHANGES
+// rdar://30624081 64b8ed9b89.. Add #if U_SHOW_CPLUSPLUS_API..#endif around C++ interfaces that don’t have it
+// rdar://24075048 0f5f76d43c.. update ICU for AAS to use VS2015, remove old ICU 4.0 shims, fix build issues
 /* 
  * Apple-specific warning if U_SHOW_CPLUSPLUS_API set and the compile
  * is not for a build of ICU itself (ICU_DATA_DIR is always defined
@@ -86,6 +109,7 @@
 #endif
 #endif
 #endif
+#endif // APPLE_ICU_CHANGES
 
 /** @{ API visibility control */
 
@@ -234,17 +258,28 @@ typedef double UDate;
  * Maximum UDate value 
  * @stable ICU 4.8 
  */ 
+#if APPLE_ICU_CHANGES
+// rdar://9390182 45b2490fc2.. Fix #8093 - #incude “float.h” incorrectly added for DBL_MAX, use explicit number for now
+// rdar://10040518 2ca6a7de75.. Refine previous fix to use platform conditionals
 #if U_PLATFORM!=U_PF_IPHONE
 #define U_DATE_MAX DBL_MAX
 #else
 #define U_DATE_MAX (1.7976931348623157e+308)
 #endif
+#else
+#define U_DATE_MAX DBL_MAX
+#endif // APPLE_ICU_CHANGES
 
 /**
  * Minimum UDate value 
  * @stable ICU 4.8 
  */ 
+#if APPLE_ICU_CHANGES
+// rdar://9390182 45b2490fc2.. Fix #8093 - #incude “float.h” incorrectly added for DBL_MAX, use explicit number for now
 #define U_DATE_MIN (-U_DATE_MAX)
+#else
+#define U_DATE_MIN -U_DATE_MAX
+#endif // APPLE_ICU_CHANGES
 
 /*===========================================================================*/
 /* Shared library/DLL import-export API control                              */

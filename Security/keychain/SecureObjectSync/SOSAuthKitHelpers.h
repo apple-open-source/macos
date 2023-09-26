@@ -14,7 +14,7 @@
 + (void) activeMIDs:(void(^_Nonnull)(NSSet <SOSTrustedDeviceAttributes *> * _Nullable activeMIDs, NSError * _Nullable error))complete;
 + (bool) updateMIDInPeerInfo: (SOSAccount *_Nonnull) account;
 + (bool) peerinfoHasMID: (SOSAccount *_Nonnull) account;
-+ (bool) accountIsHSA2;
++ (bool) accountIsCDPCapable;
 - (id _Nullable) initWithActiveMIDS: (NSSet *_Nullable) theMidList;
 - (bool) midIsValidInList: (NSString *_Nullable) machineId;
 - (bool) serialIsValidInList: (NSString *_Nullable) serialNumber;

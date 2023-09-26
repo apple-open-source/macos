@@ -81,8 +81,8 @@ library uses the following information for section names:
 .Pp
 Possible keywords may include:
 .Bl -column ".Va signing_required" ".Sy Section" ".Va Default"
-.It Sy "Keyword	Section	Default    Comment"
-.It Sy "	A B C      Values"
+.It Sy "Keyword	Section	Default        Comment"
+.It Sy "	A B C          Values"
 .It Va addr                Ta "- + -"  Ta ""       Ta "DNS name or IP address of server"
 .It Va nbtimeout           Ta "+ + -"  Ta "1s"     Ta "Timeout for resolving a NetBIOS name"
 .It Va minauth             Ta "+ + -"  Ta "NTLMv2" Ta "Minimum authentication level allowed"
@@ -91,10 +91,11 @@ Possible keywords may include:
 .It Va soft                Ta "+ + +"  Ta "no"     Ta "Force all mounts to be soft"
 .It Va notify_off          Ta "+ + +"  Ta "no"     Ta "Turn off using notifications"
 .It Va kloglevel           Ta "+ - -"  Ta "0"      Ta "Turn on smb kernel logging"
-.It Va protocol_vers_map   Ta "+ - -"  Ta "7"      Ta "Bitmap of SMB Versions that are enabled"
-.It Va signing_required    Ta "+ - -"  Ta "no"     Ta "Turn on smb client signing"
-.It Va signing_req_vers    Ta "+ - -"  Ta "6"      Ta "Bitmap of SMB Versions that have signing required"
-.It Va validate_neg_off    Ta "+ - -"  Ta "no"     Ta "Turn off using validate negotiate"
+.It Va protocol_vers_map   Ta "+ + -"  Ta "7"      Ta "Bitmap of SMB Versions that are enabled"
+.It Va signing_required    Ta "+ + -"  Ta "no"     Ta "Turn on smb client signing"
+.It Va signing_alg_map     Ta "+ + -"  Ta "no"     Ta "Bitmap of SMB 3.1.1 signing algorithms that are enabled"
+.It Va signing_req_vers    Ta "+ + -"  Ta "6"      Ta "Bitmap of SMB Versions that have signing required"
+.It Va validate_neg_off    Ta "+ + -"  Ta "no"     Ta "Turn off using validate negotiate"
 .It Va max_resp_timeout    Ta "+ + -"  Ta "30s"    Ta "Max time to wait for any response from server"
 .It Va submounts_off       Ta "+ + +"  Ta "no"     Ta "Turn off using submounts"
 .It Va dir_cache_async_cnt Ta "+ + -"  Ta "10"     Ta "Max async queries to fill dir cache"
@@ -103,11 +104,11 @@ Possible keywords may include:
 .It Va max_dirs_cached     Ta "+ + -"  Ta "Varies" Ta "Varies from 200-300 depending on RAM amount"
 .It Va max_cached_per_dir  Ta "+ + -"  Ta "Varies" Ta "Varies from 2000-10000 depending on RAM amount"
 .It Va netBIOS_before_DNS  Ta "+ + +"  Ta "no"     Ta "Try NetBIOS resolution before DNS resolution"
-.It Va mc_on               Ta "+ - -"  Ta "yes"    Ta "Turn on SMB multichannel (allow more than one channel per session)"
-.It Va mc_prefer_wired     Ta "+ - -"  Ta "no"     Ta "Prefer wired NIC's over wireless in multichannel mode"
-.It Va encrypt_cipher_map  Ta "+ - -"  Ta "15"     Ta "Bitmap of SMB 3.1.1 encryption algorithms that are enabled"
-.It Va force_sess_encrypt  Ta "+ - -"  Ta "no"     Ta "Force session encryption for all mounts"
-.It Va force_share_encrypt Ta "+ - -"  Ta "no"     Ta "Force share encryption for all mounts"
+.It Va mc_on               Ta "+ + -"  Ta "yes"    Ta "Turn on SMB multichannel (allow more than one channel per session)"
+.It Va mc_prefer_wired     Ta "+ + -"  Ta "no"     Ta "Prefer wired NIC's over wireless in multichannel mode"
+.It Va encrypt_cipher_map  Ta "+ + -"  Ta "15"     Ta "Bitmap of SMB 3.1.1 encryption algorithms that are enabled"
+.It Va force_sess_encrypt  Ta "+ + -"  Ta "no"     Ta "Force session encryption"
+.It Va force_share_encrypt Ta "+ + -"  Ta "no"     Ta "Force share encryption"
 .El
 .Pp
 The minimum authentication level can be one of:
@@ -169,6 +170,14 @@ Signing required for SMB 1/2/3.
 Signing required for SMB 2/3.
 .It Li 4
 Signing required for SMB 3.
+.El
+.Pp
+"Bitmap of SMB 3.1.1 signing algorithms that are enabled" can be one of:
+.Bl -tag -width ".Li 7"
+.It Li 3 == 0011
+AES-128-GMAC/AES-128-CMAC should be enabled
+.It Li 1 == 0001
+AES-128-CMAC should be enabled
 .El
 .Pp
 "Bitmap of SMB 3.1.1 encryption algorithms that are enabled" can be one of:

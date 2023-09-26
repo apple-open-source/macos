@@ -283,7 +283,7 @@ NSData* _Nullable extractStartFromInitialMessage(NSData* initialMessage, uint64_
         switch(piggy_version){
             case kPiggyV2:
                 *octagon = octagonData;
-                //fall through to pick up v1
+                [[fallthrough]];
             case kPiggyV1:{
                 NSUUID *uuid = [[NSUUID alloc]initWithUUIDBytes:uuidData.bytes];
                 *uuidString = uuid.UUIDString;

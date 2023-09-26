@@ -83,9 +83,9 @@ enum {
 	kAuthorityFlagVirtual =	0x0001,	// virtual rule (anchoring object records)
 	kAuthorityFlagDefault =	0x0002,	// rule is part of the original default set
 	kAuthorityFlagInhibitCache = 0x0004, // never cache outcome of this rule
-	kAuthorityFlagWhitelist = 0x1000,	// whitelist override
-	kAuthorityFlagWhitelistV2 = 0x2000, // apply "deep" signature to this record
-	kAuthorityFlagWhitelistSHA256 = 0x4000, // use SHA256 signature
+	kAuthorityFlagAllowlist = 0x1000,	// allowlist override
+	kAuthorityFlagAllowlistV2 = 0x2000, // apply "deep" signature to this record
+	kAuthorityFlagAllowlistSHA256 = 0x4000, // use SHA256 signature
 };
 
 

@@ -56,6 +56,16 @@
 #endif
 
 /**
+ * \def APPLE_ICU_CHANGES
+ * Marks Apple changes from open-source ICU rdar://97937093
+ *
+ * @internal
+ */
+#ifndef APPLE_ICU_CHANGES
+#   define APPLE_ICU_CHANGES 1
+#endif
+
+/**
  * \def U_DEBUG
  * Determines whether to include debugging code.
  * Automatically set on Windows, but most compilers do not have
@@ -86,11 +96,15 @@
 /**
  * \def U_DISABLE_RENAMING
  * Determines whether to disable renaming or not.
- * (Apple modifies the default to be 1, not 0)
  * @internal
  */
 #ifndef U_DISABLE_RENAMING
+#if APPLE_ICU_CHANGES
+//rdar://60884991 #58 Replace installsrc patching with changes directly in header files
 #define U_DISABLE_RENAMING 1
+#else
+#define U_DISABLE_RENAMING 0
+#endif // APPLE_ICU_CHANGES
 #endif
 
 /**
@@ -427,12 +441,16 @@
 /**
  * \def UCONFIG_NO_SERVICE
  * This switch turns off service registration.
- * (Apple modifies the default to be 1, not 0)
  *
  * @stable ICU 3.2
  */
 #ifndef UCONFIG_NO_SERVICE
+#if APPLE_ICU_CHANGES
+// rdar://60884991 #58 Replace installsrc patching with changes directly in header files
 #   define UCONFIG_NO_SERVICE 1
+#else
+#   define UCONFIG_NO_SERVICE 0
+#endif // APPLE_ICU_CHANGES
 #endif
 
 /**

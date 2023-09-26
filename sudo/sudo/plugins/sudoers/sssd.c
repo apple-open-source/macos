@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2003-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2003-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  * Copyright (c) 2011 Daniel Kopecek <dkopecek@redhat.com>
  *
  * This code is derived from software contributed by Aaron Spangler.
@@ -168,29 +168,38 @@ sudo_sss_check_user(struct sudo_sss_handle *handle, struct sss_sudo_rule *rule)
     const char *host = handle->ipa_host ? handle->ipa_host : user_runhost;
     const char *shost = handle->ipa_shost ? handle->ipa_shost : user_srunhost;
     char **val_array;
-    int i, ret = false;
+    int i, rc, ret = false;
     debug_decl(sudo_sss_check_user, SUDOERS_DEBUG_SSSD);
 
     if (rule == NULL)
 	debug_return_bool(false);
 
-    switch (handle->fn_get_values(rule, "sudoUser", &val_array)) {
+    rc = handle->fn_get_values(rule, "sudoUser", &val_array);
+    switch (rc) {
     case 0:
 	break;
     case ENOENT:
 	sudo_debug_printf(SUDO_DEBUG_INFO, "No result.");
 	debug_return_bool(false);
+    case ENOMEM:
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	FALLTHROUGH;
     default:
 	sudo_debug_printf(SUDO_DEBUG_ERROR,
-	    "handle->fn_get_values(sudoUser): != 0");
+	    "handle->fn_get_values(sudoOption): rc=%d", rc);
 	debug_return_bool(false);
     }
 
     /* Walk through sudoUser values.  */
     for (i = 0; val_array[i] != NULL && !ret; ++i) {
 	const char *val = val_array[i];
+	bool negated = false;
 
 	sudo_debug_printf(SUDO_DEBUG_DEBUG, "val[%d]=%s", i, val);
+	if (*val == '!') {
+	    val++;
+	    negated = true;
+	}
 	switch (*val) {
 	case '+':
 	    /* Netgroup spec found, check membership. */
@@ -214,8 +223,14 @@ sudo_sss_check_user(struct sudo_sss_handle *handle, struct sss_sudo_rule *rule)
 	    break;
 	}
 	sudo_debug_printf(SUDO_DEBUG_DIAG,
-	    "sssd/ldap sudoUser '%s' ... %s (%s)", val,
-	    ret ? "MATCH!" : "not", handle->pw->pw_name);
+	    "sssd/ldap sudoUser '%s%s' ... %s (%s)", negated ? "!" : "",
+	    val, ret ? "MATCH!" : "not", handle->pw->pw_name);
+
+	/* A negated match overrides all other entries. */
+	if (ret && negated) {
+	    ret = false;
+	    break;
+	}
     }
     handle->fn_free_values(val_array);
     debug_return_bool(ret);
@@ -329,22 +344,14 @@ sss_rule_to_priv(struct sudo_sss_handle *handle, struct sss_sudo_rule *rule,
     rc = 0;
 
 cleanup:
-    if (cn_array != NULL)
-	handle->fn_free_values(cn_array);
-    if (cmnds != NULL)
-	handle->fn_free_values(cmnds);
-    if (hosts != NULL)
-	handle->fn_free_values(hosts);
-    if (runasusers != NULL)
-	handle->fn_free_values(runasusers);
-    if (runasgroups != NULL)
-	handle->fn_free_values(runasgroups);
-    if (opts != NULL)
-	handle->fn_free_values(opts);
-    if (notbefore != NULL)
-	handle->fn_free_values(notbefore);
-    if (notafter != NULL)
-	handle->fn_free_values(notafter);
+    handle->fn_free_values(cn_array);
+    handle->fn_free_values(cmnds);
+    handle->fn_free_values(hosts);
+    handle->fn_free_values(runasusers);
+    handle->fn_free_values(runasgroups);
+    handle->fn_free_values(opts);
+    handle->fn_free_values(notbefore);
+    handle->fn_free_values(notafter);
 
     *rc_out = rc;
 
@@ -363,14 +370,14 @@ sss_to_sudoers(struct sudo_sss_handle *handle,
     /* We only have a single userspec */
     if ((us = calloc(1, sizeof(*us))) == NULL)
 	goto oom;
-    us->file = rcstr_dup("SSSD");
+    us->file = sudo_rcstr_dup("SSSD");
     TAILQ_INIT(&us->users);
     TAILQ_INIT(&us->privileges);
     STAILQ_INIT(&us->comments);
     TAILQ_INSERT_TAIL(&handle->parse_tree.userspecs, us, entries);
 
     /* We only include rules where the user matches. */
-    if ((m = new_member_all(NULL)) == NULL)
+    if ((m = sudo_ldap_new_member_all()) == NULL)
 	goto oom;
     TAILQ_INSERT_TAIL(&us->users, m, entries);
 
@@ -412,7 +419,7 @@ oom:
 static bool
 sudo_sss_parse_options(struct sudo_sss_handle *handle, struct sss_sudo_rule *rule, struct defaults_list *defs)
 {
-    int i;
+    int i, rc;
     char *source = NULL;
     bool ret = false;
     char **val_array = NULL;
@@ -422,7 +429,8 @@ sudo_sss_parse_options(struct sudo_sss_handle *handle, struct sss_sudo_rule *rul
     if (rule == NULL)
 	debug_return_bool(true);
 
-    switch (handle->fn_get_values(rule, "sudoOption", &val_array)) {
+    rc = handle->fn_get_values(rule, "sudoOption", &val_array);
+    switch (rc) {
     case 0:
 	break;
     case ENOENT:
@@ -431,7 +439,8 @@ sudo_sss_parse_options(struct sudo_sss_handle *handle, struct sss_sudo_rule *rul
     case ENOMEM:
 	goto oom;
     default:
-	sudo_debug_printf(SUDO_DEBUG_ERROR, "handle->fn_get_values(sudoOption): != 0");
+	sudo_debug_printf(SUDO_DEBUG_ERROR,
+	    "handle->fn_get_values(sudoOption): rc=%d", rc);
 	debug_return_bool(false);
     }
 
@@ -441,7 +450,7 @@ sudo_sss_parse_options(struct sudo_sss_handle *handle, struct sss_sudo_rule *rul
 	    char *cp;
 	    if (asprintf(&cp, "sudoRole %s", cn_array[0]) == -1)
 		goto oom;
-	    source = rcstr_dup(cp);
+	    source = sudo_rcstr_dup(cp);
 	    free(cp);
 	    if (source == NULL)
 		goto oom;
@@ -450,7 +459,7 @@ sudo_sss_parse_options(struct sudo_sss_handle *handle, struct sss_sudo_rule *rul
 	cn_array = NULL;
     }
     if (source == NULL) {
-	if ((source = rcstr_dup("sudoRole UNKNOWN")) == NULL)
+	if ((source = sudo_rcstr_dup("sudoRole UNKNOWN")) == NULL)
 	    goto oom;
     }
 
@@ -460,7 +469,7 @@ sudo_sss_parse_options(struct sudo_sss_handle *handle, struct sss_sudo_rule *rul
 	int op;
 
 	op = sudo_ldap_parse_option(val_array[i], &var, &val);
-	if (!sudo_ldap_add_default(var, val, op, source, defs))
+	if (!append_default(var, val, op, source, defs))
 	    goto oom;
     }
     ret = true;
@@ -470,7 +479,7 @@ oom:
     sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 
 done:
-    rcstr_delref(source);
+    sudo_rcstr_delref(source);
     handle->fn_free_values(val_array);
     debug_return_bool(ret);
 }
@@ -491,30 +500,31 @@ sudo_sss_result_get(struct sudo_nss *nss, struct passwd *pw)
 	handle->domainname, &sss_error, &sss_result);
     switch (rc) {
     case 0:
-	switch (sss_error) {
-	case 0:
-	    if (sss_result != NULL) {
-		sudo_debug_printf(SUDO_DEBUG_INFO, "Received %u rule(s)",
-		    sss_result->num_rules);
-	    } else {
-		sudo_debug_printf(SUDO_DEBUG_ERROR,
-		    "Internal error: sss_result == NULL && sss_error == 0");
-		debug_return_ptr(NULL);
-	    }
-	    break;
-	case ENOENT:
-	    sudo_debug_printf(SUDO_DEBUG_INFO, "The user was not found in SSSD.");
-	    debug_return_ptr(NULL);
-	default:
-	    sudo_debug_printf(SUDO_DEBUG_ERROR, "sss_error=%u\n", sss_error);
-	    debug_return_ptr(NULL);
-	}
 	break;
     case ENOMEM:
 	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	FALLTHROUGH;
     default:
 	sudo_debug_printf(SUDO_DEBUG_ERROR, "handle->fn_send_recv: rc=%d", rc);
+	debug_return_ptr(NULL);
+    }
+
+    switch (sss_error) {
+    case 0:
+	if (sss_result != NULL) {
+	    sudo_debug_printf(SUDO_DEBUG_INFO, "Received %u rule(s)",
+		sss_result->num_rules);
+	} else {
+	    sudo_debug_printf(SUDO_DEBUG_ERROR,
+		"Internal error: sss_result == NULL && sss_error == 0");
+	    debug_return_ptr(NULL);
+	}
+	break;
+    case ENOENT:
+	sudo_debug_printf(SUDO_DEBUG_INFO, "The user was not found in SSSD.");
+	debug_return_ptr(NULL);
+    default:
+	sudo_debug_printf(SUDO_DEBUG_ERROR, "sss_error=%u\n", sss_error);
 	debug_return_ptr(NULL);
     }
 
@@ -532,9 +542,6 @@ sudo_sss_close(struct sudo_nss *nss)
 	sudo_dso_unload(handle->ssslib);
 	if (handle->pw != NULL)
 	    sudo_pw_delref(handle->pw);
-	free(handle->ipa_host);
-	if (handle->ipa_host != handle->ipa_shost)
-	    free(handle->ipa_shost);
 	free_parse_tree(&handle->parse_tree);
 	free(handle);
 	nss->handle = NULL;
@@ -752,11 +759,15 @@ sudo_sss_getdefs(struct sudo_nss *nss)
 	break;
     case ENOMEM:
 	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-	FALLTHROUGH;
+	debug_return_int(-1);
     default:
+	/*
+	 * Unable to connect to the sudo SSSD connector.
+	 * SSSD may not be configured for sudo, treat as non-fatal.
+	 */
 	sudo_debug_printf(SUDO_DEBUG_ERROR,
 	    "handle->fn_send_recv_defaults: rc=%d, sss_error=%u", rc, sss_error);
-	debug_return_int(-1);
+	debug_return_int(0);
     }
 
     switch (sss_error) {
@@ -791,6 +802,7 @@ bad:
 /* sudo_nss implementation */
 struct sudo_nss sudo_nss_sss = {
     { NULL, NULL },
+    "sss",
     sudo_sss_open,
     sudo_sss_close,
     sudo_sss_parse,

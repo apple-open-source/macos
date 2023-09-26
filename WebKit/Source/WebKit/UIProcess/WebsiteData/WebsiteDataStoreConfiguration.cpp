@@ -36,6 +36,9 @@ WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(IsPersistent isPers
     : m_isPersistent(isPersistent)
     , m_unifiedOriginStorageLevel(WebsiteDataStore::defaultUnifiedOriginStorageLevel())
     , m_perOriginStorageQuota(WebsiteDataStore::defaultPerOriginQuota())
+    , m_originQuotaRatio(WebsiteDataStore::defaultOriginQuotaRatio())
+    , m_totalQuotaRatio(WebsiteDataStore::defaultTotalQuotaRatio())
+    , m_standardVolumeCapacity(WebsiteDataStore::defaultStandardVolumeCapacity())
 {
     if (isPersistent == IsPersistent::Yes && shouldInitializePaths == ShouldInitializePaths::Yes) {
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -47,7 +50,7 @@ WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(IsPersistent isPers
         initializePaths();
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
         setPCMMachServiceName("com.apple.webkit.adattributiond.service"_s);
 #endif
     }
@@ -55,14 +58,17 @@ WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(IsPersistent isPers
 
 #if PLATFORM(COCOA)
 
-WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(const UUID& identifier)
+WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(const WTF::UUID& identifier)
     : m_isPersistent(IsPersistent::Yes)
     , m_unifiedOriginStorageLevel(WebsiteDataStore::defaultUnifiedOriginStorageLevel())
     , m_identifier(identifier)
     , m_baseCacheDirectory(WebsiteDataStore::defaultWebsiteDataStoreDirectory(identifier))
     , m_baseDataDirectory(WebsiteDataStore::defaultWebsiteDataStoreDirectory(identifier))
     , m_perOriginStorageQuota(WebsiteDataStore::defaultPerOriginQuota())
-#if PLATFORM(IOS)
+    , m_originQuotaRatio(WebsiteDataStore::defaultOriginQuotaRatio())
+    , m_totalQuotaRatio(WebsiteDataStore::defaultTotalQuotaRatio())
+    , m_standardVolumeCapacity(WebsiteDataStore::defaultStandardVolumeCapacity())
+#if PLATFORM(IOS) || PLATFORM(VISION)
     , m_pcmMachServiceName("com.apple.webkit.adattributiond.service"_s)
 #endif
 {
@@ -80,6 +86,9 @@ WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(const String& baseC
     , m_baseCacheDirectory(baseCacheDirectory)
     , m_baseDataDirectory(baseDataDirectory)
     , m_perOriginStorageQuota(WebsiteDataStore::defaultPerOriginQuota())
+    , m_originQuotaRatio(WebsiteDataStore::defaultOriginQuotaRatio())
+    , m_totalQuotaRatio(WebsiteDataStore::defaultTotalQuotaRatio())
+    , m_standardVolumeCapacity(WebsiteDataStore::defaultStandardVolumeCapacity())
 {
     initializePaths();
 }
@@ -89,12 +98,9 @@ void WebsiteDataStoreConfiguration::initializePaths()
 {
     setApplicationCacheDirectory(WebsiteDataStore::defaultApplicationCacheDirectory(m_baseCacheDirectory));
     setCacheStorageDirectory(WebsiteDataStore::defaultCacheStorageDirectory(m_baseCacheDirectory));
-    setGeneralStorageDirectory(WebsiteDataStore::defaultGeneralStorageDirectory(m_baseCacheDirectory));
     setNetworkCacheDirectory(WebsiteDataStore::defaultNetworkCacheDirectory(m_baseCacheDirectory));
     setMediaCacheDirectory(WebsiteDataStore::defaultMediaCacheDirectory(m_baseCacheDirectory));
-#if USE(GLIB) || PLATFORM(COCOA)
     setHSTSStorageDirectory(WebsiteDataStore::defaultHSTSStorageDirectory(m_baseCacheDirectory));
-#endif
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     setModelElementCacheDirectory(WebsiteDataStore::defaultModelElementCacheDirectory());
 #endif
@@ -108,8 +114,10 @@ void WebsiteDataStoreConfiguration::initializePaths()
     setResourceLoadStatisticsDirectory(WebsiteDataStore::defaultResourceLoadStatisticsDirectory(m_baseDataDirectory));
     setDeviceIdHashSaltsStorageDirectory(WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory(m_baseDataDirectory));
     setJavaScriptConfigurationDirectory(WebsiteDataStore::defaultJavaScriptConfigurationDirectory(m_baseDataDirectory));
+    setGeneralStorageDirectory(WebsiteDataStore::defaultGeneralStorageDirectory(m_baseDataDirectory));
 #if PLATFORM(COCOA)
     setCookieStorageFile(WebsiteDataStore::defaultCookieStorageFile(m_baseDataDirectory));
+    setSearchFieldHistoryDirectory(WebsiteDataStore::defaultSearchFieldHistoryDirectory(m_baseDataDirectory));
 #endif
 }
 
@@ -127,6 +135,10 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
     copy->m_generalStorageDirectory = this->m_generalStorageDirectory;
     copy->m_unifiedOriginStorageLevel = this->m_unifiedOriginStorageLevel;
     copy->m_perOriginStorageQuota = this->m_perOriginStorageQuota;
+    copy->m_originQuotaRatio = this->m_originQuotaRatio;
+    copy->m_totalQuotaRatio = this->m_totalQuotaRatio;
+    copy->m_standardVolumeCapacity = this->m_standardVolumeCapacity;
+    copy->m_volumeCapacityOverride = this->m_volumeCapacityOverride;
     copy->m_networkCacheDirectory = this->m_networkCacheDirectory;
     copy->m_applicationCacheDirectory = this->m_applicationCacheDirectory;
     copy->m_applicationCacheFlatFileSubdirectoryName = this->m_applicationCacheFlatFileSubdirectoryName;
@@ -141,6 +153,7 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
     copy->m_deviceIdHashSaltsStorageDirectory = this->m_deviceIdHashSaltsStorageDirectory;
     copy->m_resourceLoadStatisticsDirectory = this->m_resourceLoadStatisticsDirectory;
     copy->m_javaScriptConfigurationDirectory = this->m_javaScriptConfigurationDirectory;
+    copy->m_searchFieldHistoryDirectory = this->m_searchFieldHistoryDirectory;
     copy->m_cookieStorageFile = this->m_cookieStorageFile;
     copy->m_sourceApplicationBundleIdentifier = this->m_sourceApplicationBundleIdentifier;
     copy->m_sourceApplicationSecondaryIdentifier = this->m_sourceApplicationSecondaryIdentifier;

@@ -173,6 +173,7 @@ int secd_80_views_basic(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(kTestTestCount);
+    enableSOSCompatibilityForTests();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     secd_test_clear_testviews();
     testViewLists();

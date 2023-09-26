@@ -972,7 +972,7 @@ static void show( io_registry_entry_t service,
         CFStringRef ancestryCFStr;
         char *      aCStr;
 
-        classCFStr = IOObjectCopyClass (service);
+        classCFStr = _IOObjectCopyClass (service, kIOClassNameOverrideNone);
         if (classCFStr) {
             ancestryCFStr = createInheritanceStringForIORegistryClassName (classCFStr);
             if (ancestryCFStr) {

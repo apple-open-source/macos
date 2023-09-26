@@ -520,6 +520,8 @@ extern int icmp6_dgram_send(struct socket *, int, struct mbuf *,
     struct sockaddr *, struct mbuf *, struct proc *);
 extern int icmp6_dgram_attach(struct socket *, int, struct proc *);
 
+extern void ip6_register_m_tag(void);
+
 extern void ip6_init(struct ip6protosw *, struct domain *);
 extern void ip6_input(struct mbuf *);
 extern void ip6_setsrcifaddr_info(struct mbuf *, uint32_t, struct in6_ifaddr *);

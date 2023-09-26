@@ -1,7 +1,7 @@
 PROJECT := libmalloc
 TEST_DIR := tests/
 
-DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer/
+DEVELOPER_DIR ?= $(shell xcode-select -p)
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common
 
@@ -30,7 +30,10 @@ WARNING_CFLAGS := -Wno-format-invalid-specifier -Wno-format-extra-args
 OTHER_CFLAGS += \
 	-DDARWINTEST \
 	-DOS_UNFAIR_LOCK_INLINE=1 \
+	-DT_META_TAG_XZONE=T_META_TAG\(\"xzone\"\) \
+	-DT_META_TAG_XZONE_ONLY=T_META_TAG\(\"xzone_only\"\) \
 	-fno-builtin \
+	-fno-typed-memory-operations \
 	-lCrashReporterClient \
 	-I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	-I$(SRCROOT)/../private \
@@ -78,6 +81,32 @@ EXCLUDED_SOURCES += tsan.c
 endif
 
 madvise: OTHER_CFLAGS += -I../src
+
+xzone: OTHER_LDFLAGS += -ldarwintest_utils
+
+malloc_type: OTHER_CFLAGS += -ftyped-memory-operations
+
+ifneq ($(PLATFORM),WatchOS)
+# Modify the BATS plist to run general tests again with xzone malloc enabled
+add_xzone_tests: bats.plist
+	xcrun -sdk $(SDKROOT) python3 ./add_xzone_tests.py $(SYMROOT)/bats.plist
+
+CUSTOM_TARGETS += libmalloc_debug_symlink
+
+# Create a symlink to the debug version of the dylib that can be picked up in
+# isolation using DYLD_LIBRARY_PATH and DYLD_IMAGE_SUFFIX
+libmalloc_debug_symlink: ;
+
+install-libmalloc_debug_symlink:
+	mkdir -p $(INSTALLDIR)
+	ln -sf /usr/lib/system/libsystem_malloc_debug.dylib $(INSTALLDIR)/libsystem_malloc_testdebug.dylib
+
+.PHONY: add_xzone_tests
+
+# Ensure that we add the xzone tests before bats.plist is installed to the
+# dstroot
+install: add_xzone_tests
+endif # ($(PLATFORM),WatchOS)
 
 .DEFAULT_GOAL := all
 

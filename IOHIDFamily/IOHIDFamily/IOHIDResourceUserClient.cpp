@@ -42,6 +42,7 @@ enum {
 
 #include "IOHIDResourceUserClient.h"
 #include <libkern/OSAtomic.h>
+#include <libkern/c++/OSValueObject.h>
 #include "IOHIDDebug.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDFamilyPrivate.h"
@@ -55,6 +56,16 @@ enum {
 
 
 OSDefineMetaClassAndStructors(IOHIDResourceDeviceUserClient, IOUserClient2022)
+
+typedef struct {
+    IOReturn             ret;
+    IOMemoryDescriptor * descriptor;
+    u_int64_t            token;
+    IOHIDCompletion      completion;
+    AbsoluteTime         deadline;
+} __ReportResult;
+
+OSDefineValueObjectForDependentType(__ReportResult)
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDResourceDeviceUserClient::_methods
@@ -621,14 +632,6 @@ IOReturn IOHIDResourceDeviceUserClient::_handleReport(IOHIDResourceDeviceUserCli
     return target->handleReport(arguments);
 }
 
-typedef struct {
-    IOReturn             ret;
-    IOMemoryDescriptor * descriptor;
-    u_int64_t            token;
-    IOHIDCompletion      completion;
-    AbsoluteTime         deadline;
-} __ReportResult;
-
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::getReport
 //----------------------------------------------------------------------------------------------------
@@ -658,7 +661,7 @@ IOReturn IOHIDResourceDeviceUserClient::getReportGated(ReportGatedArguments * ar
     IOHIDResourceDataQueueHeader    header;
     __ReportResult                  result;
     IOReturn                        ret = kIOReturnSuccess;
-    OSData *                        retData = NULL;
+    OSValueObject<__ReportResult> * retData = NULL;
     bool                            async = arguments->completion && arguments->completion->action;
     
     require_action(!isInactive() && !_suspended, exit, ret=kIOReturnOffline);
@@ -671,11 +674,8 @@ IOReturn IOHIDResourceDeviceUserClient::getReportGated(ReportGatedArguments * ar
     result.token      = _tokenIndex++;
     result.completion = async ? *arguments->completion : (IOHIDCompletion){NULL, NULL, NULL};
 
-    if (async) {
-        retData = OSData::withBytes(&result, sizeof(__ReportResult));
-    } else {
-        retData = OSData::withBytesNoCopy(&result, sizeof(__ReportResult));
-    }
+    retData = OSValueObject<__ReportResult>::withValue(result);
+
     require_action(retData, exit, ret=kIOReturnNoMemory);
     
     header.direction   = kIOHIDResourceReportDirectionIn;
@@ -707,9 +707,10 @@ IOReturn IOHIDResourceDeviceUserClient::getReportGated(ReportGatedArguments * ar
         setNextAsyncTimeout();
         _outstandingAsyncCount++;
     } else {
-        switch (_commandGate->commandSleep(retData, result.deadline, THREAD_ABORTSAFE)) {
+        const __ReportResult& resultRef = retData->getRef();
+        switch (_commandGate->commandSleep(retData, resultRef.deadline, THREAD_ABORTSAFE)) {
             case THREAD_AWAKENED:
-                ret = result.ret;
+                ret = resultRef.ret;
                 _getReportCompletedCount++;
                 break;
             case THREAD_TIMED_OUT:
@@ -764,7 +765,7 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
     IOHIDResourceDataQueueHeader    header;
     __ReportResult                  result;
     IOReturn                        ret = kIOReturnSuccess;
-    OSData *                        retData = NULL;
+    OSValueObject<__ReportResult> * retData = NULL;
     IOMemoryDescriptor *            report = arguments->report;
     bool                            async = arguments->completion && arguments->completion->action;
 
@@ -778,11 +779,8 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
     result.token      = _tokenIndex++;
     result.completion = async ? *arguments->completion : (IOHIDCompletion){NULL, NULL, NULL};
 
-    if (async) {
-        retData = OSData::withBytes(&result, sizeof(__ReportResult));
-    } else {
-        retData = OSData::withBytesNoCopy(&result, sizeof(__ReportResult));
-    }
+    retData = OSValueObject<__ReportResult>::withValue(result);
+
     require_action(retData, exit, ret = kIOReturnNoMemory);
     
     header.direction   = kIOHIDResourceReportDirectionOut;
@@ -815,7 +813,7 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
             ret = kIOReturnNoMemory;
             goto exit;
         }
-        IOHIDResourceOOBReportInfo reportInfo = {(mach_vm_address_t)overSizedReportMap->getAddress(), (uint32_t)overSizedReportMap->getLength()};
+        IOHIDResourceOOBReportInfo reportInfo = {(user_addr_t)overSizedReportMap->getAddress(), (uint32_t)overSizedReportMap->getLength()};
 
         // Assigning a buffer here is overkill, but we want to keep the same interface for the enqueue reports.
         report = IOBufferMemoryDescriptor::withBytes(&reportInfo, sizeof(IOHIDResourceOOBReportInfo), kIODirectionInOut);
@@ -836,9 +834,10 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
         setNextAsyncTimeout();
         _outstandingAsyncCount++;
     } else {
-        switch (_commandGate->commandSleep(retData, result.deadline, THREAD_ABORTSAFE)) {
+        const __ReportResult& resultRef = retData->getRef();
+        switch (_commandGate->commandSleep(retData, resultRef.deadline, THREAD_ABORTSAFE)) {
             case THREAD_AWAKENED:
-                ret = result.ret;
+                ret = resultRef.ret;
                 _setReportCompletedCount++;
                 break;
             case THREAD_TIMED_OUT:
@@ -884,7 +883,7 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArgumen
         IOMemoryDescriptor * reportDescriptor = NULL;
         IOMemoryMap * reportMap = NULL;
 
-        pResult = (__ReportResult*)((OSData*)object)->getBytesNoCopy();
+        pResult = (__ReportResult*)((OSValueObject<__ReportResult>*)object)->getBytesNoCopy();
 
         if (pResult->token != token) {
             pResult = NULL;
@@ -987,7 +986,7 @@ void IOHIDResourceDeviceUserClient::setNextAsyncTimeout()
 
     // TODO: Decide if there is a better way to iterate pending. Iterators fail if the collection is modified, and sets do not use indices. Switch to array?
     set->iterateObjects(^bool(OSObject * object) {
-        __ReportResult * pResult = (__ReportResult*)((OSData*)object)->getBytesNoCopy();
+        __ReportResult * pResult = (__ReportResult*)((OSValueObject<__ReportResult>*)object)->getBytesNoCopy();
 
         if (!pResult->completion.action) {
             return false;
@@ -1026,7 +1025,7 @@ void IOHIDResourceDeviceUserClient::cleanupPendingReports()
     _asyncReportTimer->cancelTimeout();
     
     set->iterateObjects(^bool(OSObject * object) {
-        __ReportResult * pResult = (__ReportResult*)((OSData*)object)->getBytesNoCopy();
+        __ReportResult * pResult = (__ReportResult*)((OSValueObject<__ReportResult>*)object)->getBytesNoCopy();
 
         pResult->ret = kIOReturnAborted;
 

@@ -74,6 +74,7 @@ public:
 	CFRef<CFDataRef> mApplicationData; // contents of application slot
 	CFRef<CFDataRef> mEntitlementData; // entitlement configuration data
 	vector<CFRef<CFDataRef>> mLaunchConstraints; // Array of Lightweight Code Requirements
+	CFRef<CFDataRef> mLibraryConstraints; // Library load Lightweight Code Requirement
 	CFRef<CFURLRef> mSDKRoot;		// substitute filesystem root for sub-component lookup
 	CFRef<CFTypeRef> mRequirements; // internal code requirements
 	size_t mCMSSize;				// size estimate for CMS blob

@@ -88,7 +88,7 @@ void __malloc_late_init(const struct _malloc_late_init *);
  * This is SPI that is *not* intended for use elsewhere. It will change
  * and will eventually be removed, without prior warning.
  */
-#if MALLOC_ENABLE_MSL_LITE_SPI
+#if defined(MALLOC_ENABLE_MSL_LITE_SPI) && MALLOC_ENABLE_MSL_LITE_SPI
 
 typedef struct szone_s szone_t;
 
@@ -119,7 +119,7 @@ typedef struct _malloc_msl_lite_hooks_s {
 	malloc_zone_t *(*basic_zone)(szone_t *zone);
 } _malloc_msl_lite_hooks_t;
 
-#endif // MALLOC_ENABLE_MSL_LITE_SPI
+#endif // defined(MALLOC_ENABLE_MSL_LITE_SPI) && MALLOC_ENABLE_MSL_LITE_SPI
 
 #endif
 

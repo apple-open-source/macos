@@ -869,9 +869,6 @@ ms{
             other{"Pula Botswana"}
         }
         BYN{
-            other{"rubel lama Belarus"}
-        }
-        BYR{
             other{"Rubel Belarus"}
         }
         BZD{

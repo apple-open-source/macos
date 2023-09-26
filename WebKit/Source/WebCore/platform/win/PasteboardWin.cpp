@@ -35,12 +35,12 @@
 #include "DocumentFragment.h"
 #include "Editor.h"
 #include "ElementInlines.h"
-#include "Frame.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "HWndDC.h"
 #include "HitTestResult.h"
 #include "Image.h"
+#include "LocalFrame.h"
 #include "NotImplemented.h"
 #include "Range.h"
 #include "RenderImage.h"
@@ -475,7 +475,7 @@ void Pasteboard::setDragImage(DragImage, const IntPoint&)
 }
 #endif
 
-void Pasteboard::writeRangeToDataObject(const SimpleRange& selectedRange, Frame& frame)
+void Pasteboard::writeRangeToDataObject(const SimpleRange& selectedRange, LocalFrame& frame)
 {
     if (!m_writableDataObject)
         return;
@@ -502,7 +502,7 @@ void Pasteboard::writeRangeToDataObject(const SimpleRange& selectedRange, Frame&
         m_writableDataObject->SetData(smartPasteFormat(), &medium, TRUE);
 }
 
-void Pasteboard::writeSelection(const SimpleRange& selectedRange, bool canSmartCopyOrDelete, Frame& frame, ShouldSerializeSelectedTextForDataTransfer shouldSerializeSelectedTextForDataTransfer)
+void Pasteboard::writeSelection(const SimpleRange& selectedRange, bool canSmartCopyOrDelete, LocalFrame& frame, ShouldSerializeSelectedTextForDataTransfer shouldSerializeSelectedTextForDataTransfer)
 {
     clear();
 
@@ -618,7 +618,7 @@ static String fileSystemPathFromURLOrTitle(const String& urlString, const String
         // we just use the entire url.
         DWORD len = fsPathMaxLengthExcludingExtension;
         auto lastComponent = url.lastPathComponent();
-        if (url.isLocalFile() || (!isLink && !lastComponent.isEmpty())) {
+        if (url.protocolIsFile() || (!isLink && !lastComponent.isEmpty())) {
             len = std::min<DWORD>(fsPathMaxLengthExcludingExtension, lastComponent.length());
             lastComponent.left(len).getCharacters(fsPathBuffer);
         } else {
@@ -690,7 +690,7 @@ void Pasteboard::writeURLToDataObject(const URL& kurl, const String& titleStr)
     WebCore::writeURL(m_writableDataObject.get(), kurl, titleStr, true, true);
 
     String url = kurl.string();
-    ASSERT(url.isAllASCII()); // URL::string() is URL encoded.
+    ASSERT(url.containsOnlyASCII()); // URL::string() is URL encoded.
 
     String fsPath = fileSystemPathFromURLOrTitle(url, titleStr, ".URL"_s, true);
     String contentString("[InternetShortcut]\r\nURL=" + url + "\r\n");
@@ -849,7 +849,7 @@ void Pasteboard::read(PasteboardPlainText& text, PlainTextURLReadingPolicy, std:
     }
 }
 
-RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const SimpleRange& context, bool allowPlainText, bool& chosePlainText)
+RefPtr<DocumentFragment> Pasteboard::documentFragment(LocalFrame& frame, const SimpleRange& context, bool allowPlainText, bool& chosePlainText)
 {
     chosePlainText = false;
     
@@ -992,7 +992,7 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Fragme
 
     WCHAR filePath[MAX_PATH];
 
-    if (url.isLocalFile()) {
+    if (url.protocolIsFile()) {
         String localPath = PAL::decodeURLEscapeSequences(url.path());
         // windows does not enjoy a leading slash on paths
         if (localPath[0] == '/')

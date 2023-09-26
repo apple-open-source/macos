@@ -27,10 +27,10 @@
 
 #if ENABLE(WEB_CODECS)
 
-#include "VideoFrame.h"
+#include <span>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Expected.h>
-#include <wtf/Span.h>
+#include <wtf/Ref.h>
 
 namespace WebCore {
 
@@ -38,16 +38,17 @@ class VideoFrame;
 
 class VideoDecoder {
 public:
-    virtual ~VideoDecoder() = default;
+    WEBCORE_EXPORT VideoDecoder();
+    WEBCORE_EXPORT virtual ~VideoDecoder();
 
     struct Config {
-        Span<const uint8_t> description;
+        std::span<const uint8_t> description;
         uint64_t width { 0 };
         uint64_t height { 0 };
     };
 
     struct EncodedFrame {
-        Span<const uint8_t> data;
+        std::span<const uint8_t> data;
         bool isKeyFrame { false };
         int64_t timestamp { 0 };
         std::optional<uint64_t> duration;

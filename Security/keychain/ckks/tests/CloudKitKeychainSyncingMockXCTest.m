@@ -1364,6 +1364,25 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
                      message:@"Add item to keychain with an access group"];
 }
 
+- (void)addRandomPrivateKeyWithAccessGroup:(NSString *)accessGroup message:(NSString*)message {
+    CFErrorRef cfError = NULL;
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((__bridge CFDictionaryRef)@{
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrSynchronizable : @YES,
+        (id)kSecAttrKeyType : (id)kSecAttrKeyTypeECSECPrimeRandom,
+        (id)kSecAttrKeySizeInBits : @256,
+        (id)kSecPrivateKeyAttrs : @{
+            (id)kSecAttrIsPermanent : @YES,
+            (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+            (id)kSecAttrAccessGroup : accessGroup,
+            (id)kSecAttrSyncViewHint : @"keychain",
+        },
+    }, &cfError));
+    NSError *error = CFBridgingRelease(cfError);
+    XCTAssertNotNil(privateKey, "%@", message);
+    XCTAssertNil(error, "Should not return error adding random private key");
+}
+
 - (void)updateGenericPassword: (NSString*) newPassword account: (NSString*)account {
     NSDictionary* query = @{
                                     (id)kSecClass : (id)kSecClassGenericPassword,

@@ -85,6 +85,7 @@
 
 #define ARM_PAGEIN_STATE         27
 
+
 #ifndef ARM_STATE_FLAVOR_IS_OTHER_VALID
 #define ARM_STATE_FLAVOR_IS_OTHER_VALID(_flavor_) 0
 #endif
@@ -1019,6 +1020,7 @@ neon_state64(arm_neon_saved_state_t *state)
 {
 	return &state->ns_64;
 }
+
 
 
 /*

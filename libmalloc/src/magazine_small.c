@@ -66,25 +66,6 @@ small_meta_header_set_middle(msize_t *meta_headers, msize_t index)
 	meta_headers[index] = 0;
 }
 
-static MALLOC_INLINE MALLOC_ALWAYS_INLINE
-mag_index_t
-small_mag_get_thread_index(void)
-{
-#if CONFIG_SMALL_USES_HYPER_SHIFT
-	if (os_likely(_os_cpu_number_override == -1)) {
-		return _malloc_cpu_number() >> hyper_shift;
-	} else {
-		return _os_cpu_number_override >> hyper_shift;
-	}
-#else // CONFIG_SMALL_USES_HYPER_SHIFT
-	if (os_likely(_os_cpu_number_override == -1)) {
-		return _malloc_cpu_number();
-	} else {
-		return _os_cpu_number_override;
-	}
-#endif // CONFIG_SMALL_USES_HYPER_SHIFT
-}
-
 #pragma mark in-place free list
 
 static MALLOC_INLINE void
@@ -2081,7 +2062,7 @@ void *
 small_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requested)
 {
 	void *ptr;
-	mag_index_t mag_index = small_mag_get_thread_index() % rack->num_magazines;
+	mag_index_t mag_index = rack_get_thread_index(rack) % rack->num_magazines;
 	magazine_t *small_mag_ptr = &(rack->magazines[mag_index]);
 
 	MALLOC_TRACE(TRACE_small_malloc, (uintptr_t)rack, SMALL_BYTES_FOR_MSIZE(msize), (uintptr_t)small_mag_ptr, cleared_requested);

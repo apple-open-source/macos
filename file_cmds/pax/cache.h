@@ -1,7 +1,6 @@
-/*	$OpenBSD: cache.h,v 1.4 2003/10/20 06:22:27 jmc Exp $	*/
-/*	$NetBSD: cache.h,v 1.3 1995/03/21 09:07:12 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,6 +33,7 @@
  * SUCH DAMAGE.
  *
  *      @(#)cache.h	8.1 (Berkeley) 5/31/93
+ * $FreeBSD$
  */
 
 #ifndef _CACHE_H_

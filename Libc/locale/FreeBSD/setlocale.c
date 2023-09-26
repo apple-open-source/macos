@@ -101,9 +101,7 @@ __private_extern__ const char *__get_locale_env(int);
 #define	UNLOCK_AND_RETURN(x)	{XL_UNLOCK(&__global_locale); return (x);}
 
 char *
-setlocale(category, locale)
-	int category;
-	const char *locale;
+setlocale(int category, const char *locale)
 {
 	int i, j, len, saverr, save__numeric_fp_cvt;
         const char *env, *r;
@@ -221,7 +219,7 @@ setlocale(category, locale)
 }
 
 static char *
-currentlocale()
+currentlocale(void)
 {
 	int i;
 
@@ -250,8 +248,7 @@ currentlocale()
 }
 
 static char *
-loadlocale(category)
-	int category;
+loadlocale(int category)
 {
 	char *new = new_categories[category];
 	char *old = current_categories[category];
@@ -318,8 +315,7 @@ loadlocale(category)
 }
 
 __private_extern__ const char *
-__get_locale_env(category)
-        int category;
+__get_locale_env(int category)
 {
         const char *env;
 

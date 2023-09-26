@@ -54,10 +54,10 @@ class FormattingContext {
 public:
     virtual ~FormattingContext();
 
-    virtual void layoutInFlowContent(const ConstraintsForInFlowContent&) = 0;
+    virtual void layoutInFlowContent(const ConstraintsForInFlowContent&) { };
     void layoutOutOfFlowContent(const ConstraintsForOutOfFlowContent&);
     virtual IntrinsicWidthConstraints computedIntrinsicWidthConstraints() = 0;
-    virtual LayoutUnit usedContentHeight() const = 0;
+    virtual LayoutUnit usedContentHeight() const { return { }; }
 
     const ElementBox& root() const { return m_root; }
     LayoutState& layoutState() const;
@@ -84,7 +84,7 @@ public:
 
     static const InitialContainingBlock& initialContainingBlock(const Box&);
     static const ElementBox& containingBlock(const Box&);
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     static const ElementBox& formattingContextRoot(const Box&);
 #endif
 
@@ -94,7 +94,7 @@ protected:
     FormattingState& formattingState() { return m_formattingState; }
     void computeBorderAndPadding(const Box&, const HorizontalConstraints&);
 
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     virtual void validateGeometryConstraintsAfterLayout() const;
 #endif
 

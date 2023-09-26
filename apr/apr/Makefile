@@ -40,7 +40,8 @@ AEP_Patches    = configure.diff \
                  apr_proc_spawn.diff \
                  remove-darwin10-hacks.diff \
                  apr-config.in.diff \
-                 CVE-2017-12613.diff
+                 CVE-2017-12613.diff \
+                 103583402.diff
 
 # Extract the source.
 install_source::

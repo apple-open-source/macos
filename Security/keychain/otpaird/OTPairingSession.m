@@ -1,4 +1,5 @@
 #import <KeychainCircle/KeychainCircle.h>
+#import <os/assumes.h>
 
 #if !TARGET_OS_SIMULATOR
 #import <MobileKeyBag/MobileKeyBag.h>
@@ -13,31 +14,29 @@
 
 @implementation OTPairingSession
 
-- (instancetype)initWithDeviceInfo:(OTDeviceInformationActualAdapter *)deviceInfo
-{
-    return [self initWithDeviceInfo:deviceInfo identifier:[[NSUUID UUID] UUIDString]];
-}
-
-- (instancetype)initWithDeviceInfo:(OTDeviceInformationActualAdapter *)deviceInfo identifier:(NSString *)identifier
+- (instancetype)initAsInitiator:(bool)initiator deviceInfo:(OTDeviceInformationActualAdapter *)deviceInfo identifier:(NSString *)identifier
 {
     KCPairingChannelContext *channelContext = nil;
 
     if ((self = [super init])) {
-        self.identifier = identifier;
-
-        channelContext = [KCPairingChannelContext new];
+        channelContext = [[KCPairingChannelContext alloc] init];
         channelContext.uniqueClientID = [NSUUID UUID].UUIDString;
         channelContext.uniqueDeviceID = [NSUUID UUID].UUIDString;
         channelContext.intent = KCPairingIntent_Type_SilentRepair;
         channelContext.model = deviceInfo.modelID;
         channelContext.osVersion = deviceInfo.osVersion;
 
-#if TARGET_OS_WATCH
-        self.channel = [KCPairingChannel pairingChannelInitiator:channelContext];
-#elif TARGET_OS_IOS
-        self.channel = [KCPairingChannel pairingChannelAcceptor:channelContext];
-#endif
+        if (initiator) {
+            os_assert(identifier == nil);
+            self.identifier = [[NSUUID UUID] UUIDString];
+            self.channel = [KCPairingChannel pairingChannelInitiator:channelContext];
+        } else {
+            os_assert(identifier != nil);
+            self.identifier = identifier;
+            self.channel = [KCPairingChannel pairingChannelAcceptor:channelContext];
+        }
     }
+
     return self;
 }
 

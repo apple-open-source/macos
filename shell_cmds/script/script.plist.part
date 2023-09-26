@@ -2,13 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>script</string>
 		<key>OpenSourceVersion</key>
-		<string>2014-01-17</string>
+		<string>2022-10-27</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://svnweb.freebsd.org/base/head/usr.bin/script/</string>
-		<key>OpenSourceSCM</key>
-		<string>svn co http://svn.freebsd.org/base/head/usr.bin/script/</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/script?id=473e9fcab4ea9379f53e1f7d8e41f5a5754d0007</string>
 		<key>OpenSourceImportDate</key>
-		<string>2014-09-22</string>
+		<string>2022-10-27</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Use OSByteOrder swap functions.</string>

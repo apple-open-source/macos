@@ -28,21 +28,11 @@
 #include "HTTPHeaderMap.h"
 #include "ResourceLoadPriority.h"
 #include "ResourceRequestBase.h"
-
-#if USE(CFURLCONNECTION)
-#include <pal/spi/win/CFNetworkSPIWin.h>
-#elif PLATFORM(COCOA)
 #include <pal/spi/cf/CFNetworkSPI.h>
-#endif
 
 namespace WebCore {
 
 class ResourceRequest;
-
-#if USE(CFURLCONNECTION)
-void getResourceRequest(ResourceRequest&, CFURLRequestRef);
-CFURLRequestRef cfURLRequest(const ResourceRequest&);
-#endif
 
 #if HAVE(CFNETWORK_NSURLSESSION_CONNECTION_CACHE_LIMITS)
 inline ResourceLoadPriority toResourceLoadPriority(CFURLRequestPriority priority)
@@ -128,7 +118,7 @@ inline CFURLRequestPriority toPlatformRequestPriority(ResourceLoadPriority prior
 
 inline RetainPtr<CFStringRef> httpHeaderValueUsingSuitableEncoding(HTTPHeaderMap::const_iterator::KeyValue header)
 {
-    if (header.keyAsHTTPHeaderName && *header.keyAsHTTPHeaderName == HTTPHeaderName::LastEventID && !header.value.isAllASCII()) {
+    if (header.keyAsHTTPHeaderName && *header.keyAsHTTPHeaderName == HTTPHeaderName::LastEventID && !header.value.containsOnlyASCII()) {
         auto utf8Value = header.value.utf8();
         // Constructing a string with the UTF-8 bytes but claiming that it’s Latin-1 is the way to get CFNetwork to put those UTF-8 bytes on the wire.
         return adoptCF(CFStringCreateWithBytes(nullptr, utf8Value.dataAsUInt8Ptr(), utf8Value.length(), kCFStringEncodingISOLatin1, false));

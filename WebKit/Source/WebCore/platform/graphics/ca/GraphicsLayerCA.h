@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,7 @@ class InMemoryDisplayList;
 }
 
 class FloatRoundedRect;
+class HTMLVideoElement;
 class Image;
 class NativeImage;
 class TransformState;
@@ -59,7 +60,7 @@ public:
     WEBCORE_EXPORT void setName(const String&) override;
     WEBCORE_EXPORT String debugName() const override;
 
-    WEBCORE_EXPORT PlatformLayerID primaryLayerID() const override;
+    WEBCORE_EXPORT PlatformLayerIdentifier primaryLayerID() const override;
 
     WEBCORE_EXPORT PlatformLayer* platformLayer() const override;
     PlatformCALayer* platformCALayer() const { return primaryLayer(); }
@@ -129,6 +130,8 @@ public:
     WEBCORE_EXPORT void setContentsClippingRect(const FloatRoundedRect&) override;
     WEBCORE_EXPORT void setContentsRectClipsDescendants(bool) override;
 
+    WEBCORE_EXPORT void setVideoGravity(MediaPlayerVideoGravity) override;
+
     WEBCORE_EXPORT void setShapeLayerPath(const Path&) override;
     WEBCORE_EXPORT void setShapeLayerWindRule(WindRule) override;
 
@@ -149,12 +152,15 @@ public:
     WEBCORE_EXPORT PlatformLayer* contentsLayerForMedia() const override;
 #endif
     WEBCORE_EXPORT void setContentsToPlatformLayer(PlatformLayer*, ContentsLayerPurpose) override;
+    WEBCORE_EXPORT void setContentsToPlatformLayerHost(LayerHostingContextIdentifier) override;
+    WEBCORE_EXPORT void setContentsToVideoElement(HTMLVideoElement&, ContentsLayerPurpose) override;
     WEBCORE_EXPORT void setContentsDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>&&, ContentsLayerPurpose) override;
+    WEBCORE_EXPORT PlatformLayerIdentifier setContentsToAsyncDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>, ContentsLayerPurpose);
 
     WEBCORE_EXPORT void setContentsToSolidColor(const Color&) override;
 #if ENABLE(MODEL_ELEMENT)
     WEBCORE_EXPORT void setContentsToModel(RefPtr<Model>&&, ModelInteraction) override;
-    WEBCORE_EXPORT PlatformLayerID contentsLayerIDForModel() const override;
+    WEBCORE_EXPORT PlatformLayerIdentifier contentsLayerIDForModel() const override;
 #endif
     WEBCORE_EXPORT void setContentsMinificationFilter(ScalingFilter) override;
     WEBCORE_EXPORT void setContentsMagnificationFilter(ScalingFilter) override;
@@ -193,11 +199,15 @@ public:
 
     WEBCORE_EXPORT TiledBacking* tiledBacking() const override;
 
-    WEBCORE_EXPORT Vector<std::pair<String, double>> acceleratedAnimationsForTesting() const final;
+    WEBCORE_EXPORT Vector<std::pair<String, double>> acceleratedAnimationsForTesting(const Settings&) const final;
 
     constexpr static CompositingCoordinatesOrientation defaultContentsOrientation = CompositingCoordinatesOrientation::TopDown;
 
-    WEBCORE_EXPORT RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> createAsyncContentsDisplayDelegate() override;
+    WEBCORE_EXPORT RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate*) override;
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    WEBCORE_EXPORT void setAcceleratedEffectsAndBaseValues(AcceleratedEffects&&, AcceleratedEffectValues&&) override;
+#endif
 
 private:
     bool isGraphicsLayerCA() const override { return true; }
@@ -210,7 +220,7 @@ private:
     WEBCORE_EXPORT void platformCALayerAnimationStarted(const String& animationKey, MonotonicTime beginTime) override;
     WEBCORE_EXPORT void platformCALayerAnimationEnded(const String& animationKey) override;
     CompositingCoordinatesOrientation platformCALayerContentsOrientation() const override { return contentsOrientation(); }
-    WEBCORE_EXPORT void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect& clip, GraphicsLayerPaintBehavior) override;
+    WEBCORE_EXPORT void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect& clip, OptionSet<GraphicsLayerPaintBehavior>) override;
     bool platformCALayerShowDebugBorders() const override { return isShowingDebugBorder(); }
     WEBCORE_EXPORT bool platformCALayerShowRepaintCounter(PlatformCALayer*) const override;
     int platformCALayerRepaintCount(PlatformCALayer*) const override { return repaintCount(); }
@@ -229,6 +239,9 @@ private:
     WEBCORE_EXPORT bool platformCALayerUseGiantTiles() const override;
     WEBCORE_EXPORT bool platformCALayerUseCSS3DTransformInteroperability() const override;
     WEBCORE_EXPORT void platformCALayerLogFilledVisibleFreshTile(unsigned) override;
+    bool platformCALayerContainsBitmapOnly(const PlatformCALayer*) const override { return client().layerContainsBitmapOnly(this); }
+    bool platformCALayerShouldPaintUsingCompositeCopy() const override { return shouldPaintUsingCompositeCopy(); }
+
 
     bool isCommittingChanges() const override { return m_isCommittingChanges; }
     bool isUsingDisplayListDrawing(PlatformCALayer*) const override { return m_usesDisplayListDrawing; }
@@ -258,6 +271,8 @@ private:
 #if ENABLE(MODEL_ELEMENT)
     virtual Ref<PlatformCALayer> createPlatformCALayer(Ref<WebCore::Model>, PlatformCALayerClient* owner);
 #endif
+    virtual Ref<PlatformCALayer> createPlatformCALayerHost(LayerHostingContextIdentifier, PlatformCALayerClient*);
+    WEBCORE_EXPORT virtual Ref<PlatformCALayer> createPlatformVideoLayer(HTMLVideoElement&, PlatformCALayerClient* owner);
     virtual Ref<PlatformCAAnimation> createPlatformCAAnimation(PlatformCAAnimation::AnimationType, const String& keyPath);
 
     PlatformCALayer* primaryLayer() const { return m_structuralLayer.get() ? m_structuralLayer.get() : m_layer.get(); }
@@ -317,6 +332,8 @@ private:
     WEBCORE_EXPORT void setReplicatedByLayer(RefPtr<GraphicsLayer>&&) override;
 
     WEBCORE_EXPORT void getDebugBorderInfo(Color&, float& width) const override;
+    virtual WEBCORE_EXPORT Color pageTiledBackingBorderColor() const;
+
     WEBCORE_EXPORT void dumpAdditionalProperties(WTF::TextStream&, OptionSet<LayerTreeAsTextOptions>) const override;
     void dumpInnerLayer(WTF::TextStream&, PlatformCALayer*, OptionSet<PlatformLayerTreeAsTextFlags>) const;
     const char *purposeNameForInnerLayer(PlatformCALayer&) const;
@@ -465,6 +482,7 @@ private:
     void updateBlendMode();
 #endif
 
+    void updateVideoGravity();
     void updateShape();
     void updateWindRule();
 
@@ -588,6 +606,7 @@ private:
 #endif
 #endif
         ContentsScalingFiltersChanged           = 1LLU << 43,
+        VideoGravityChanged                     = 1LLU << 44,
     };
     typedef uint64_t LayerChangeFlags;
     static const char* layerChangeAsString(LayerChange);
@@ -672,6 +691,9 @@ private:
     bool m_hasEverPainted : 1;
     bool m_hasDescendantsWithRunningTransformAnimations : 1;
     bool m_hasDescendantsWithUncommittedChanges : 1;
+#if ENABLE(AVKIT)
+    uint32_t m_layerHostingContextID { 0 };
+#endif
 };
 
 } // namespace WebCore

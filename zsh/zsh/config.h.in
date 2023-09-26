@@ -104,21 +104,40 @@
    undefined, don't source anything */
 #undef GLOBAL_ZLOGIN
 
+/* Managed Configuration version of GLOBAL_ZLOGIN */
+#undef MANAGED_GLOBAL_ZLOGIN
+
 /* The global file to source whenever zsh was run as a login shell. This is
    sourced right before exiting. If undefined, don't source anything. */
 #undef GLOBAL_ZLOGOUT
+
+/* Managed Configuration version of GLOBAL_ZLOGOUT */
+#undef MANAGED_GLOBAL_ZLOGOUT
 
 /* The global file to source whenever zsh is run as a login shell, before
    zshrc is read; if undefined, don't source anything. */
 #undef GLOBAL_ZPROFILE
 
+/* Managed Configuration version of GLOBAL_ZPROFILE */
+#undef MANAGED_GLOBAL_ZPROFILE
+
 /* The global file to source absolutely first whenever zsh is run; if
    undefined, don't source anything. */
 #undef GLOBAL_ZSHENV
 
+/* Managed Configuration version of GLOBAL_ZSHENV */
+#undef MANAGED_GLOBAL_ZSHENV
+
 /* The global file to source whenever zsh is run; if undefined, don't source
    anything */
 #undef GLOBAL_ZSHRC
+
+/* Managed Configuration version of GLOBAL_ZSHRC */
+#undef MANAGED_GLOBAL_ZSHRC
+
+/* Managed Configuration versions of profile and suid_profile */
+ #undef MANAGED_EMULATE_PROFILE
+ #undef MANAGED_EMULATE_SUID_PROFILE
 
 /* Define if TIOCGWINSZ is defined in sys/ioctl.h but not in termios.h. */
 #undef GWINSZ_IN_SYS_IOCTL

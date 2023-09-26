@@ -62,17 +62,17 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
     if (editorState.hasPostLayoutData()) {
         TextStream::GroupScope scope(ts);
         ts << "postLayoutData";
-        if (editorState.postLayoutData->typingAttributes != AttributeNone)
-            ts.dumpProperty("typingAttributes", editorState.postLayoutData->typingAttributes);
+        if (!editorState.postLayoutData->typingAttributes.isEmpty())
+            ts.dumpProperty("typingAttributes", editorState.postLayoutData->typingAttributes.toRaw());
 #if PLATFORM(COCOA)
         if (editorState.postLayoutData->selectedTextLength)
             ts.dumpProperty("selectedTextLength", editorState.postLayoutData->selectedTextLength);
-        if (editorState.postLayoutData->textAlignment != NoAlignment)
-            ts.dumpProperty("textAlignment", editorState.postLayoutData->textAlignment);
+        if (editorState.postLayoutData->textAlignment != TextAlignment::Natural)
+            ts.dumpProperty("textAlignment", enumToUnderlyingType(editorState.postLayoutData->textAlignment));
         if (editorState.postLayoutData->textColor.isValid())
             ts.dumpProperty("textColor", editorState.postLayoutData->textColor);
-        if (editorState.postLayoutData->enclosingListType != NoList)
-            ts.dumpProperty("enclosingListType", editorState.postLayoutData->enclosingListType);
+        if (editorState.postLayoutData->enclosingListType != ListType::None)
+            ts.dumpProperty("enclosingListType", enumToUnderlyingType(editorState.postLayoutData->enclosingListType));
         if (editorState.postLayoutData->baseWritingDirection != WebCore::WritingDirection::Natural)
             ts.dumpProperty("baseWritingDirection", static_cast<uint8_t>(editorState.postLayoutData->baseWritingDirection));
 #endif // PLATFORM(COCOA)
@@ -142,6 +142,43 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
 #endif
     }
     return ts;
+}
+
+void EditorState::clipOwnedRectExtentsToNumericLimits()
+{
+    auto sanitizePostLayoutData = [](auto& postLayoutData) {
+#if PLATFORM(MAC)
+        postLayoutData.selectionBoundingRect = postLayoutData.selectionBoundingRect.toRectWithExtentsClippedToNumericLimits();
+#else
+        UNUSED_PARAM(postLayoutData);
+#endif
+    };
+    if (hasPostLayoutData())
+        sanitizePostLayoutData(*postLayoutData);
+
+    auto sanitizeVisualData = [](auto& visualData) {
+#if PLATFORM(IOS_FAMILY)
+        visualData.selectionClipRect = visualData.selectionClipRect.toRectWithExtentsClippedToNumericLimits();
+        visualData.caretRectAtEnd = visualData.caretRectAtEnd.toRectWithExtentsClippedToNumericLimits();
+        visualData.markedTextCaretRectAtStart = visualData.markedTextCaretRectAtStart.toRectWithExtentsClippedToNumericLimits();
+        visualData.markedTextCaretRectAtEnd = visualData.markedTextCaretRectAtEnd.toRectWithExtentsClippedToNumericLimits();
+
+        auto sanitizeSelectionGeometryVector = [](auto& selectionGeometries) {
+            forEach(selectionGeometries, [](auto& selectionGeometry) {
+                selectionGeometry.setRect(selectionGeometry.rect().toRectWithExtentsClippedToNumericLimits());
+            });
+        };
+        sanitizeSelectionGeometryVector(visualData.selectionGeometries);
+        sanitizeSelectionGeometryVector(visualData.markedTextRects);
+#endif
+#if PLATFORM(IOS_FAMILY) || PLATFORM(GTK) || PLATFORM(WPE)
+        visualData.caretRectAtStart = visualData.caretRectAtStart.toRectWithExtentsClippedToNumericLimits();
+#else
+        UNUSED_PARAM(visualData);
+#endif
+    };
+    if (hasVisualData())
+        sanitizeVisualData(*visualData);
 }
 
 } // namespace WebKit

@@ -6,22 +6,19 @@
 
 // SystemInfo_macos.mm: implementation of the macOS-specific parts of SystemInfo.h
 
-#include "common/platform.h"
+#include "gpu_info_util/SystemInfo_internal.h"
 
-#if defined(ANGLE_PLATFORM_MACOS) || defined(ANGLE_PLATFORM_MACCATALYST)
+#import <Cocoa/Cocoa.h>
+#import <IOKit/IOKitLib.h>
+#import <Metal/Metal.h>
 
-#    include "gpu_info_util/SystemInfo_internal.h"
+#include "common/gl/cgl/FunctionsCGL.h"
 
-#    import <Cocoa/Cocoa.h>
-#    import <IOKit/IOKitLib.h>
-
-#    include "common/gl/cgl/FunctionsCGL.h"
-
-#    if !defined(__MAC_OS_X_VERSION_MIN_REQUIRED) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
-#        define HAVE_MAIN_PORT_DEFAULT 1
-#    else
-#        define HAVE_MAIN_PORT_DEFAULT 0
-#    endif
+#if !defined(__MAC_OS_X_VERSION_MIN_REQUIRED) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+#    define HAVE_MAIN_PORT_DEFAULT 1
+#else
+#    define HAVE_MAIN_PORT_DEFAULT 0
+#endif
 
 namespace angle
 {
@@ -34,14 +31,14 @@ constexpr CGLRendererProperty kCGLRPRegistryIDHigh = static_cast<CGLRendererProp
 
 std::string GetMachineModel()
 {
-#    if HAVE_MAIN_PORT_DEFAULT
+#if HAVE_MAIN_PORT_DEFAULT
     const mach_port_t mainPort = kIOMainPortDefault;
-#    else
-#        pragma clang diagnostic push
-#        pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdeprecated-declarations"
     const mach_port_t mainPort = kIOMasterPortDefault;
-#        pragma clang diagnostic pop
-#    endif
+#    pragma clang diagnostic pop
+#endif
     io_service_t platformExpert =
         IOServiceGetMatchingService(mainPort, IOServiceMatching("IOPlatformExpertDevice"));
 
@@ -105,14 +102,14 @@ void GetIORegistryDevices(std::vector<GPUDeviceInfo> *devices)
         CFMutableDictionaryRef matchDictionary = IOServiceMatching(kServiceNames[i]);
 
         io_iterator_t entryIterator;
-#    if HAVE_MAIN_PORT_DEFAULT
+#if HAVE_MAIN_PORT_DEFAULT
         const mach_port_t mainPort = kIOMainPortDefault;
-#    else
-#        pragma clang diagnostic push
-#        pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdeprecated-declarations"
         const mach_port_t mainPort = kIOMasterPortDefault;
-#        pragma clang diagnostic pop
-#    endif
+#    pragma clang diagnostic pop
+#endif
         if (IOServiceGetMatchingServices(mainPort, matchDictionary, &entryIterator) !=
             kIOReturnSuccess)
         {
@@ -193,6 +190,12 @@ void GetIORegistryDevices(std::vector<GPUDeviceInfo> *devices)
 
 void ForceGPUSwitchIndex(SystemInfo *info)
 {
+    // Early-out if on a single-GPU system
+    if (info->gpus.size() < 2)
+    {
+        return;
+    }
+
     VendorID activeVendor = 0;
     DeviceID activeDevice = 0;
 
@@ -202,14 +205,14 @@ void ForceGPUSwitchIndex(SystemInfo *info)
         return;
 
     CFMutableDictionaryRef matchDictionary = IORegistryEntryIDMatching(gpuID);
-#    if HAVE_MAIN_PORT_DEFAULT
+#if HAVE_MAIN_PORT_DEFAULT
     const mach_port_t mainPort = kIOMainPortDefault;
-#    else
-#        pragma clang diagnostic push
-#        pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdeprecated-declarations"
     const mach_port_t mainPort = kIOMasterPortDefault;
-#        pragma clang diagnostic pop
-#    endif
+#    pragma clang diagnostic pop
+#endif
     io_service_t gpuEntry = IOServiceGetMatchingService(mainPort, matchDictionary);
 
     if (gpuEntry == IO_OBJECT_NULL)
@@ -239,11 +242,24 @@ void ForceGPUSwitchIndex(SystemInfo *info)
 
 }  // anonymous namespace
 
-// Code from WebKit to get the active GPU's ID given a Core Graphics display ID.
+// Modified code from WebKit to get the active GPU's ID given a Core Graphics display ID.
 // https://trac.webkit.org/browser/webkit/trunk/Source/WebCore/platform/mac/PlatformScreenMac.mm
 // Used with permission.
 uint64_t GetGpuIDFromDisplayID(uint32_t displayID)
 {
+    // First attempt to use query the registryID from a Metal device before falling back to CGL.
+    // This avoids loading the OpenGL framework when possible.
+    if (@available(macOS 10.13, *))
+    {
+        id<MTLDevice> device = CGDirectDisplayCopyCurrentMetalDevice(displayID);
+        if (device)
+        {
+            uint64_t registryId = [device registryID];
+            [device release];
+            return registryId;
+        }
+    }
+
     return GetGpuIDFromOpenGLDisplayMask(CGDisplayIDToOpenGLDisplayMask(displayID));
 }
 
@@ -297,10 +313,10 @@ uint64_t GetGpuIDFromOpenGLDisplayMask(uint32_t displayMask)
 // Get VendorID from metal device's registry ID
 VendorID GetVendorIDFromMetalDeviceRegistryID(uint64_t registryID)
 {
-#    if defined(ANGLE_PLATFORM_MACOS)
+#if defined(ANGLE_PLATFORM_MACOS)
     // On macOS, the following code is only supported since 10.13.
     if (@available(macOS 10.13, *))
-#    endif
+#endif
     {
         // Get a matching dictionary for the IOGraphicsAccelerator2
         CFMutableDictionaryRef matchingDict = IORegistryEntryIDMatching(registryID);
@@ -311,14 +327,14 @@ VendorID GetVendorIDFromMetalDeviceRegistryID(uint64_t registryID)
 
         // IOServiceGetMatchingService will consume the reference on the matching dictionary,
         // so we don't need to release the dictionary.
-#    if HAVE_MAIN_PORT_DEFAULT
+#if HAVE_MAIN_PORT_DEFAULT
         const mach_port_t mainPort = kIOMainPortDefault;
-#    else
-#        pragma clang diagnostic push
-#        pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdeprecated-declarations"
         const mach_port_t mainPort = kIOMasterPortDefault;
-#        pragma clang diagnostic pop
-#    endif
+#    pragma clang diagnostic pop
+#endif
         io_registry_entry_t acceleratorEntry = IOServiceGetMatchingService(mainPort, matchingDict);
         if (acceleratorEntry == IO_OBJECT_NULL)
         {
@@ -389,13 +405,7 @@ bool GetSystemInfo_mac(SystemInfo *info)
         info->isMacSwitchable = true;
     }
 
-#    if defined(ANGLE_PLATFORM_MACCATALYST) && defined(ANGLE_CPU_ARM64)
-    info->needsEAGLOnMac = true;
-#    endif
-
     return true;
 }
 
 }  // namespace angle
-
-#endif  // defined(ANGLE_PLATFORM_MACOS) || defined(ANGLE_PLATFORM_MACCATALYST)

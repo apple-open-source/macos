@@ -244,11 +244,17 @@ void DiskImageRep::Writer::addDiscretionary(CodeDirectory::Builder &builder)
 
 void DiskImageRep::registerStapledTicket()
 {
+	CFRef<CFDataRef> data = copyStapledTicket();
+	registerStapledTicketWithSystem(data);
+}
+
+CFDataRef DiskImageRep::copyStapledTicket()
+{
 	CFRef<CFDataRef> data = NULL;
 	if (mSigningData) {
 		data.take(mSigningData->component(cdTicketSlot));
-		registerStapledTicketInDMG(data);
 	}
+	return data.yield();
 }
 
 

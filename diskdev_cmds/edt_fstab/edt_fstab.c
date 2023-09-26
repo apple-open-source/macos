@@ -198,4 +198,31 @@ get_boot_manifest_hash(char *boot_manifest_hash, size_t boot_manifest_hash_len)
 
 	return err;
 }
+
+#ifndef kEDTFilesystemsEnhancedAPFS
+#define kEDTFilesystemsEnhancedAPFS           "e-apfs"
+#endif
+
+bool
+enhanced_apfs_supported(void)
+{
+	bool enabled = false;
+	io_registry_entry_t fs_props = IORegistryEntryFromPath(kIOMasterPortDefault,
+														   kIODeviceTreePlane kEDTFilesystems);
+	if (fs_props != IO_OBJECT_NULL) {
+		CFDataRef eapfs;
+
+		eapfs = IORegistryEntryCreateCFProperty(fs_props,
+												CFSTR(kEDTFilesystemsEnhancedAPFS),
+												kCFAllocatorDefault, 0);
+		if (eapfs != NULL) {
+			CFRelease(eapfs);
+			enabled = true;
+		}
+		IOObjectRelease(fs_props);
+	}
+
+	return enabled;
+}
+
 #endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */

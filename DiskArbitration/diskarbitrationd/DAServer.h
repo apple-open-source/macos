@@ -30,6 +30,8 @@
 #include <dispatch/private.h>
 #include <dispatch/dispatch.h>
 
+#include "DADisk.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -39,6 +41,7 @@ extern void _DAConfigurationCallback( SCDynamicStoreRef store, CFArrayRef keys, 
 #if TARGET_OS_IOS
 extern void DARegisterForFirstUnlockNotification( void );
 #endif
+extern DADiskRef DADiskListGetDisk( const char * diskID );
 extern void _DAMediaAppearedCallback( void * context, io_iterator_t notification );
 extern void _DAMediaDisappearedCallback( void * context, io_iterator_t notification );
 extern void _DAServerCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );

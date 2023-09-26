@@ -137,7 +137,7 @@ static const UChar   kFULLSTOP = 0x002E; // '.'
  */
 class SimpleFilteredSentenceBreakData : public UMemory {
 public:
-  SimpleFilteredSentenceBreakData(UCharsTrie *forwards, UCharsTrie *backwards )
+  SimpleFilteredSentenceBreakData(UCharsTrie *forwards, UCharsTrie *backwards ) 
       : fForwardsPartialTrie(forwards), fBackwardsTrie(backwards), refcount(1) { }
     SimpleFilteredSentenceBreakData *incr() {
         umtx_atomic_inc(&refcount);
@@ -234,7 +234,7 @@ private:
     int32_t internalPrev(int32_t n);
     /**
      * set up the UText with the value of the fDelegate.
-     * Call this before calling breakExceptionAt.
+     * Call this before calling breakExceptionAt. 
      * May be able to avoid excess calls
      */
     void resetState(UErrorCode &status);
@@ -324,6 +324,9 @@ SimpleFilteredSentenceBreakIterator::breakExceptionAt(int32_t n) {
       //int32_t bestValue = iter.getValue();
       ////if(debug2) u_printf("rev< /%C/ matched, skip..%d  bestValue=%d\n", (UChar)uch, r, bestValue);
 
+#if APPLE_ICU_CHANGES
+// rdar://23680636 5c36a106a0.. Sentence break suppressions should only match if not preceded by other alphabetic context
+// rdar://25426114 4fa7370034.. Correct the fix from rdar://23680636 to examine the char before the best match
       if(bestPosn>0) {
         UChar32 prevch = utext_char32At(fText.getAlias(), bestPosn-1); // char before the best match
         if (prevch != U_SENTINEL && u_isUAlphabetic(prevch)) {
@@ -331,6 +334,7 @@ SimpleFilteredSentenceBreakIterator::breakExceptionAt(int32_t n) {
           return kNoExceptionHere;
         }
       }
+#endif // APPLE_ICU_CHANGES
 
       if(bestValue == kMATCH) { // exact match!
         //if(debug2) u_printf(" exact backward match\n");
@@ -395,7 +399,7 @@ SimpleFilteredSentenceBreakIterator::internalNext(int32_t n) {
     default:
     case kNoExceptionHere:
       return n;
-    }
+    }    
   }
   return n;
 }
@@ -424,7 +428,7 @@ SimpleFilteredSentenceBreakIterator::internalPrev(int32_t n) {
     default:
     case kNoExceptionHere:
       return n;
-    }
+    }    
   }
   return n;
 }
@@ -467,9 +471,9 @@ UBool SimpleFilteredSentenceBreakIterator::isBoundary(int32_t offset) {
   default:
   case kNoExceptionHere:
     return true;
-  }
+  }    
 }
-
+ 
 int32_t
 SimpleFilteredSentenceBreakIterator::next(int32_t offset) {
   return internalNext(fDelegate->next(offset));
@@ -506,7 +510,7 @@ SimpleFilteredBreakIteratorBuilder::~SimpleFilteredBreakIteratorBuilder()
 {
 }
 
-SimpleFilteredBreakIteratorBuilder::SimpleFilteredBreakIteratorBuilder(UErrorCode &status)
+SimpleFilteredBreakIteratorBuilder::SimpleFilteredBreakIteratorBuilder(UErrorCode &status) 
   : fSet(status)
 {
 }
@@ -607,7 +611,7 @@ SimpleFilteredBreakIteratorBuilder::build(BreakIterator* adoptBreakIterator, UEr
   int32_t subCount = fSet.size();
 
   UnicodeString *ustrs_ptr = newUnicodeStringArray(subCount);
-
+  
   LocalArray<UnicodeString> ustrs(ustrs_ptr);
 
   LocalMemory<int> partials;
@@ -622,11 +626,11 @@ SimpleFilteredBreakIteratorBuilder::build(BreakIterator* adoptBreakIterator, UEr
         i++) {
     const UnicodeString *abbr = fSet.getStringAt(i);
     if(abbr) {
-      FB_TRACE("build",abbr,TRUE,i);
+      FB_TRACE("build",abbr,true,i);
       ustrs[n] = *abbr; // copy by value
-      FB_TRACE("ustrs[n]",&ustrs[n],TRUE,i);
+      FB_TRACE("ustrs[n]",&ustrs[n],true,i);
     } else {
-      FB_TRACE("build",abbr,FALSE,i);
+      FB_TRACE("build",abbr,false,i);
       status = U_MEMORY_ALLOCATION_ERROR;
       return NULL;
     }
@@ -637,49 +641,69 @@ SimpleFilteredBreakIteratorBuilder::build(BreakIterator* adoptBreakIterator, UEr
   for(int i=0;i<subCount;i++) {
     int nn = ustrs[i].indexOf(kFULLSTOP); // TODO: non-'.' abbreviations
     if(nn>-1 && (nn+1)!=ustrs[i].length()) {
-      FB_TRACE("partial",&ustrs[i],FALSE,i);
+      FB_TRACE("partial",&ustrs[i],false,i);
       // is partial.
       // is it unique?
       int sameAs = -1;
       for(int j=0;j<subCount;j++) {
         if(j==i) continue;
         if(ustrs[i].compare(0,nn+1,ustrs[j],0,nn+1)==0) {
-          FB_TRACE("prefix",&ustrs[j],FALSE,nn+1);
+          FB_TRACE("prefix",&ustrs[j],false,nn+1);
           //UBool otherIsPartial = ((nn+1)!=ustrs[j].length());  // true if ustrs[j] doesn't end at nn
           if(partials[j]==0) { // hasn't been processed yet
+#if APPLE_ICU_CHANGES
+// rdar://21660147 0d8fd7b941.. For break suppressions with . in middle, add full entry to rev list; add case variants of e.g., i.e.
             partials[j] = (ustrs[j].length() == nn+1)? (kSuppressInReverse | kAddToForward): kAddToForward;
-            FB_TRACE("suppressing",&ustrs[j],FALSE,j);
+#else
+            partials[j] = kSuppressInReverse | kAddToForward;
+#endif // APPLE_ICU_CHANGES
+            FB_TRACE("suppressing",&ustrs[j],false,j);
           } else if(partials[j] & kSuppressInReverse) {
             sameAs = j; // the other entry is already in the reverse table.
           }
         }
       }
-      FB_TRACE("for partial same-",&ustrs[i],FALSE,sameAs);
-      FB_TRACE(" == partial #",&ustrs[i],FALSE,partials[i]);
+      FB_TRACE("for partial same-",&ustrs[i],false,sameAs);
+      FB_TRACE(" == partial #",&ustrs[i],false,partials[i]);
       UnicodeString prefix(ustrs[i], 0, nn+1);
       if(sameAs == -1 && partials[i] == 0) {
         // first one - add the prefix to the reverse table.
         prefix.reverse();
         builder->add(prefix, kPARTIAL, status);
         revCount++;
-        FB_TRACE("Added partial",&prefix,FALSE, i);
-        FB_TRACE(u_errorName(status),&ustrs[i],FALSE,i);
+        FB_TRACE("Added partial",&prefix,false, i);
+        FB_TRACE(u_errorName(status),&ustrs[i],false,i);
+#if APPLE_ICU_CHANGES
+// rdar://21660147 0d8fd7b941.. For break suppressions with . in middle, add full entry to rev list; add case variants of e.g., i.e.
         partials[i] = kAddToForward;
+#else
+        partials[i] = kSuppressInReverse | kAddToForward;
+#endif // APPLE_ICU_CHANGES
       } else {
-        FB_TRACE("NOT adding partial",&prefix,FALSE, i);
-        FB_TRACE(u_errorName(status),&ustrs[i],FALSE,i);
+        FB_TRACE("NOT adding partial",&prefix,false, i);
+        FB_TRACE(u_errorName(status),&ustrs[i],false,i);
       }
     }
   }
   for(int i=0;i<subCount;i++) {
+#if APPLE_ICU_CHANGES
+// rdar://21660147 0d8fd7b941.. For break suppressions with . in middle, add full entry to rev list; add case variants of e.g., i.e.
     if((partials[i] & kSuppressInReverse) == 0) {
+#else
+    if(partials[i]==0) {
+#endif // APPLE_ICU_CHANGES
       ustrs[i].reverse();
       builder->add(ustrs[i], kMATCH, status);
       revCount++;
-      FB_TRACE(u_errorName(status), &ustrs[i], FALSE, i);
+      FB_TRACE(u_errorName(status), &ustrs[i], false, i);
+#if APPLE_ICU_CHANGES
+// rdar://21660147 0d8fd7b941.. For break suppressions with . in middle, add full entry to rev list; add case variants of e.g., i.e.
     }
     if((partials[i] & kAddToForward) != 0) {
-      FB_TRACE("Adding fwd",&ustrs[i], FALSE, i);
+#else
+    } else {
+#endif // APPLE_ICU_CHANGES
+      FB_TRACE("Adding fwd",&ustrs[i], false, i);
 
       // an optimization would be to only add the portion after the '.'
       // for example, for "Ph.D." we store ".hP" in the reverse table. We could just store "D." in the forward,
@@ -691,12 +715,12 @@ SimpleFilteredBreakIteratorBuilder::build(BreakIterator* adoptBreakIterator, UEr
       ////if(debug2) u_printf("SUPPRESS- not Added(%d):  /%S/ status=%s\n",partials[i], ustrs[i].getTerminatedBuffer(), u_errorName(status));
     }
   }
-  FB_TRACE("AbbrCount",NULL,FALSE, subCount);
+  FB_TRACE("AbbrCount",NULL,false, subCount);
 
   if(revCount>0) {
     backwardsTrie.adoptInstead(builder->build(USTRINGTRIE_BUILD_FAST, status));
     if(U_FAILURE(status)) {
-      FB_TRACE(u_errorName(status),NULL,FALSE, -1);
+      FB_TRACE(u_errorName(status),NULL,false, -1);
       return NULL;
     }
   }
@@ -704,7 +728,7 @@ SimpleFilteredBreakIteratorBuilder::build(BreakIterator* adoptBreakIterator, UEr
   if(fwdCount>0) {
     forwardsPartialTrie.adoptInstead(builder2->build(USTRINGTRIE_BUILD_FAST, status));
     if(U_FAILURE(status)) {
-      FB_TRACE(u_errorName(status),NULL,FALSE, -1);
+      FB_TRACE(u_errorName(status),NULL,false, -1);
       return NULL;
     }
   }

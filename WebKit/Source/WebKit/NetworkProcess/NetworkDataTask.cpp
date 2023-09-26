@@ -28,6 +28,7 @@
 
 #include "AuthenticationManager.h"
 #include "NetworkDataTaskBlob.h"
+#include "NetworkDataTaskDataURL.h"
 #include "NetworkLoadParameters.h"
 #include "NetworkProcess.h"
 #include "NetworkSession.h"
@@ -53,15 +54,26 @@ using namespace WebCore;
 Ref<NetworkDataTask> NetworkDataTask::create(NetworkSession& session, NetworkDataTaskClient& client, const NetworkLoadParameters& parameters)
 {
     ASSERT(!parameters.request.url().protocolIsBlob());
+    auto dataTask = [&] {
 #if PLATFORM(COCOA)
-    return NetworkDataTaskCocoa::create(session, client, parameters);
-#endif
+        return NetworkDataTaskCocoa::create(session, client, parameters);
+#else
+        if (parameters.request.url().protocolIsData())
+            return NetworkDataTaskDataURL::create(session, client, parameters);
 #if USE(SOUP)
-    return NetworkDataTaskSoup::create(session, client, parameters);
+        return NetworkDataTaskSoup::create(session, client, parameters);
 #endif
 #if USE(CURL)
-    return NetworkDataTaskCurl::create(session, client, parameters);
+        return NetworkDataTaskCurl::create(session, client, parameters);
 #endif
+#endif
+    }();
+
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+    dataTask->setEmulatedConditions(session.bytesPerSecondLimit());
+#endif
+
+    return dataTask;
 }
 
 NetworkDataTask::NetworkDataTask(NetworkSession& session, NetworkDataTaskClient& client, const ResourceRequest& requestWithCredentials, StoredCredentialsPolicy storedCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation)
@@ -91,12 +103,17 @@ NetworkDataTask::NetworkDataTask(NetworkSession& session, NetworkDataTaskClient&
         scheduleFailure(FailureType::FTPDisabled);
         return;
     }
+
+    m_session->registerNetworkDataTask(*this);
 }
 
 NetworkDataTask::~NetworkDataTask()
 {
     ASSERT(RunLoop::isMain());
     ASSERT(!m_client);
+
+    if (m_session)
+        m_session->unregisterNetworkDataTask(*this);
 }
 
 void NetworkDataTask::scheduleFailure(FailureType type)
@@ -121,6 +138,12 @@ void NetworkDataTask::scheduleFailure(FailureType type)
             m_client->wasBlockedByDisabledFTP();
         }
     });
+}
+
+void NetworkDataTask::didReceiveInformationalResponse(ResourceResponse&& headers)
+{
+    if (m_client)
+        m_client->didReceiveInformationalResponse(WTFMove(headers));
 }
 
 void NetworkDataTask::didReceiveResponse(ResourceResponse&& response, NegotiatedLegacyTLS negotiatedLegacyTLS, PrivateRelayed privateRelayed, ResponseCompletionHandler&& completionHandler)

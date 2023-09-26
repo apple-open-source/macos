@@ -48,6 +48,7 @@ const CFStringRef kSecCFErrorResourceAdded =		CFSTR("SecCSResourceAdded");
 const CFStringRef kSecCFErrorResourceAltered =	CFSTR("SecCSResourceAltered");
 const CFStringRef kSecCFErrorResourceMissing =	CFSTR("SecCSResourceMissing");
 const CFStringRef kSecCFErrorResourceSideband =	CFSTR("SecCSResourceHasSidebandData");
+const CFStringRef kSecCFErrorResourceRecursive =	CFSTR("SecCSResourceRecursive");
 const CFStringRef kSecCFErrorInfoPlist =			CFSTR("SecCSInfoPlist");
 const CFStringRef kSecCFErrorGuestAttributes =	CFSTR("SecCSGuestAttributes");
 const CFStringRef kSecCFErrorRequirementSyntax = CFSTR("SecRequirementSyntax");
@@ -310,6 +311,7 @@ const CFStringRef kSecCodeInfoUnique =			CFSTR("unique");
 const CFStringRef kSecCodeInfoCdHashes =        CFSTR("cdhashes");
 const CFStringRef kSecCodeInfoCdHashesFull =	CFSTR("cdhashes-full");
 const CFStringRef kSecCodeInfoRuntimeVersion = 	CFSTR("runtime-version");
+const CFStringRef kSecCodeInfoStapledNotarizationTicket = CFSTR("stapled-ticket");
 
 const CFStringRef kSecCodeInfoCodeDirectory =	CFSTR("CodeDirectory");
 const CFStringRef kSecCodeInfoCodeOffset =		CFSTR("CodeOffset");
@@ -323,6 +325,7 @@ const CFStringRef kSecCodeInfoSignatureVersion = CFSTR("SignatureVersion");
 const CFStringRef kSecCodeInfoLaunchConstraintsSelf = CFSTR("LaunchConstraints-self");
 const CFStringRef kSecCodeInfoLaunchConstraintsParent = CFSTR("LaunchConstraints-parent");
 const CFStringRef kSecCodeInfoLaunchConstraintsResponsible = CFSTR("LaunchConstraints-responsible");
+const CFStringRef kSecCodeInfoLibraryConstraints = CFSTR("LibraryConstraints");
 
 /* DiskInfoRepInfo types */
 const CFStringRef kSecCodeInfoDiskRepVersionPlatform =	 	CFSTR("VersionPlatform");

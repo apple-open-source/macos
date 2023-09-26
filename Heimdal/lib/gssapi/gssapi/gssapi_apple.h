@@ -3,6 +3,7 @@
 #define __gssapi_apple_h__
 
 #include <stdarg.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #ifndef HEIMDAL_PRINTF_ATTRIBUTE
 #if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))

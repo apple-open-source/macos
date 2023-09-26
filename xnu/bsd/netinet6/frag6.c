@@ -123,10 +123,10 @@ static int frag6_timeout_run;           /* frag6 timer is scheduled to run */
 static void frag6_timeout(void *);
 static void frag6_sched_timeout(void);
 
-static struct ip6q *ip6q_alloc(int);
+static struct ip6q *ip6q_alloc(void);
 static void ip6q_free(struct ip6q *);
 static void ip6q_updateparams(void);
-static struct ip6asfrag *ip6af_alloc(int);
+static struct ip6asfrag *ip6af_alloc(void);
 static void ip6af_free(struct ip6asfrag *);
 
 static LCK_GRP_DECLARE(ip6qlock_grp, "ip6qlock");
@@ -167,11 +167,6 @@ SYSCTL_PROC(_net_inet6_ip6, IPV6CTL_MAXFRAGS, maxfrags,
 void
 frag6_init(void)
 {
-	/* ip6q_alloc() uses mbufs for IPv6 fragment queue structures */
-	_CASSERT(sizeof(struct ip6q) <= _MLEN);
-	/* ip6af_alloc() uses mbufs for IPv6 fragment queue structures */
-	_CASSERT(sizeof(struct ip6asfrag) <= _MLEN);
-
 	lck_mtx_lock(&ip6qlock);
 	/* Initialize IPv6 reassembly queue. */
 	ip6q.ip6q_next = ip6q.ip6q_prev = &ip6q;
@@ -477,7 +472,7 @@ frag6_input(struct mbuf **mp, int *offp, int proto)
 		 */
 		first_frag = 1;
 
-		q6 = ip6q_alloc(M_DONTWAIT);
+		q6 = ip6q_alloc();
 		if (q6 == NULL) {
 			goto dropfrag;
 		}
@@ -616,7 +611,7 @@ frag6_input(struct mbuf **mp, int *offp, int proto)
 		}
 	}
 
-	ip6af = ip6af_alloc(M_DONTWAIT);
+	ip6af = ip6af_alloc();
 	if (ip6af == NULL) {
 		goto dropfrag;
 	}
@@ -1192,9 +1187,8 @@ frag6_drain(void)
 }
 
 static struct ip6q *
-ip6q_alloc(int how)
+ip6q_alloc(void)
 {
-	struct mbuf *t;
 	struct ip6q *q6;
 
 	/*
@@ -1206,13 +1200,9 @@ ip6q_alloc(int how)
 		return NULL;
 	}
 
-	t = m_get(how, MT_FTABLE);
-	if (t != NULL) {
-		atomic_add_32(&ip6q_count, 1);
-		q6 = mtod(t, struct ip6q *);
-		bzero(q6, sizeof(*q6));
-	} else {
-		q6 = NULL;
+	q6 = kalloc_type(struct ip6q, Z_NOWAIT | Z_ZERO);
+	if (q6 != NULL) {
+		os_atomic_inc(&ip6q_count, relaxed);
 	}
 	return q6;
 }
@@ -1220,14 +1210,13 @@ ip6q_alloc(int how)
 static void
 ip6q_free(struct ip6q *q6)
 {
-	(void) m_free(dtom(q6));
-	atomic_add_32(&ip6q_count, -1);
+	kfree_type(struct ip6q, q6);
+	os_atomic_dec(&ip6q_count, relaxed);
 }
 
 static struct ip6asfrag *
-ip6af_alloc(int how)
+ip6af_alloc(void)
 {
-	struct mbuf *t;
 	struct ip6asfrag *af6;
 
 	/*
@@ -1239,13 +1228,9 @@ ip6af_alloc(int how)
 		return NULL;
 	}
 
-	t = m_get(how, MT_FTABLE);
-	if (t != NULL) {
-		atomic_add_32(&ip6af_count, 1);
-		af6 = mtod(t, struct ip6asfrag *);
-		bzero(af6, sizeof(*af6));
-	} else {
-		af6 = NULL;
+	af6 = kalloc_type(struct ip6asfrag, Z_NOWAIT | Z_ZERO);
+	if (af6 != NULL) {
+		os_atomic_inc(&ip6af_count, relaxed);
 	}
 	return af6;
 }
@@ -1253,8 +1238,8 @@ ip6af_alloc(int how)
 static void
 ip6af_free(struct ip6asfrag *af6)
 {
-	(void) m_free(dtom(af6));
-	atomic_add_32(&ip6af_count, -1);
+	kfree_type(struct ip6asfrag, af6);
+	os_atomic_dec(&ip6af_count, relaxed);
 }
 
 static void

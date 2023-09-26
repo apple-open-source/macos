@@ -370,6 +370,8 @@
 
 #define SIOCSIFNOTRAFFICSHAPING _IOWR('i', 215, struct ifreq) /* skip dummynet and netem traffic shaping */
 #define SIOCGIFNOTRAFFICSHAPING _IOWR('i', 216, struct ifreq) /* skip dummynet and netem traffic shaping */
+
+#define SIOCGIFGENERATIONID _IOWR('i', 217, struct ifreq) /* value of generation count at interface creation */
 #endif /* PRIVATE */
 
 #endif /* !_SYS_SOCKIO_H_ */

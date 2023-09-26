@@ -29,8 +29,8 @@
 #include "FormattingGeometry.h"
 #include "FormattingQuirks.h"
 #include "FormattingState.h"
-#include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
+#include "LayoutBoxInlines.h"
 #include "LayoutContainingBlockChainIterator.h"
 #include "LayoutContext.h"
 #include "LayoutDescendantIterator.h"
@@ -38,6 +38,7 @@
 #include "LayoutInitialContainingBlock.h"
 #include "LayoutState.h"
 #include "Logging.h"
+#include "RenderStyleInlines.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
@@ -334,7 +335,7 @@ const ElementBox& FormattingContext::containingBlock(const Box& layoutBox)
     return layoutBox.parent();    
 }
 
-#ifndef NDEBUG
+#if ASSERT_ENABLED
 const ElementBox& FormattingContext::formattingContextRoot(const Box& layoutBox)
 {
     // We should never need to ask this question on the ICB.
@@ -354,7 +355,6 @@ const ElementBox& FormattingContext::formattingContextRoot(const Box& layoutBox)
 
 void FormattingContext::validateGeometryConstraintsAfterLayout() const
 {
-#if ASSERT_ENABLED
     auto& root = this->root();
     // FIXME: add a descendantsOfType<> flavor that stops at nested formatting contexts
     for (auto& layoutBox : descendantsOfType<Box>(root)) {
@@ -379,7 +379,6 @@ void FormattingContext::validateGeometryConstraintsAfterLayout() const
                 + boxGeometry.paddingAfter().value_or(0) + boxGeometry.borderAfter() + boxGeometry.marginAfter() == containingBlockHeight);
         }
     }
-#endif
 }
 #endif
 

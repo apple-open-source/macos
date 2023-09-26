@@ -192,6 +192,17 @@ __private_extern__ io_registry_entry_t getIOPMPowerSource(void)
     return ps;
 }
 
+__private_extern__ io_registry_entry_t getAppleSmartBattery(void)
+{
+    static io_registry_entry_t asbm = MACH_PORT_NULL;
+
+    if (asbm == MACH_PORT_NULL) {
+        asbm = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"));
+    }
+
+    return asbm;
+}
+
 /*****************************************************************************/
 /*****************************************************************************/
 

@@ -421,6 +421,15 @@ WriteDispatcher(FILE *file)
 {
   statement_t *stat;
   int descr_count = 0;
+  char *kern_ = "";
+  char *k = "";
+  char *kernel = "";
+
+  if (UseMachMsg2) {
+    kern_ = "kern_";
+    k = "k";
+    kernel = "kernel ";
+  }
 
   for (stat = stats; stat != stNULL; stat = stat->stNext)
     if (stat->stKind == skRoutine) {
@@ -430,21 +439,29 @@ WriteDispatcher(FILE *file)
   fprintf(file, "\n");
 
   WriteMigExternal(file);
-  fprintf(file, "boolean_t %s(\n", ServerDemux);
-  fprintf(file, "\t\tmach_msg_header_t *InHeadP,\n");
-  fprintf(file, "\t\tmach_msg_header_t *OutHeadP);\n\n");
+  fprintf(file, "boolean_t %s(", ServerDemux);
+  fprintf(file, "\n\t\tmach_msg_header_t *InHeadP,");
+  if (!UseMachMsg2) {
+    fprintf(file, "\n\t\tmach_msg_header_t *OutHeadP");
+  } else {
+    fprintf(file, "\n\t\tvoid *InDataP,");
+    fprintf(file, "\n\t\tmach_msg_max_trailer_t *InTrailerP,");
+    fprintf(file, "\n\t\tmach_msg_header_t *OutHeadP,");
+    fprintf(file, "\n\t\tvoid *OutDataP");
+  }
+  fprintf(file, ");\n\n");
 
   WriteMigExternal(file);
-  fprintf(file, "mig_routine_t %s_routine(\n", ServerDemux);
+  fprintf(file, "mig_%sroutine_t %s_routine(\n", kern_, ServerDemux);
   fprintf(file, "\t\tmach_msg_header_t *InHeadP);\n\n");
 
-  fprintf(file, "\n/* Description of this subsystem, for use in direct RPC */\n");
+  fprintf(file, "\n/* Description of this %ssubsystem, for use in direct RPC */\n", kernel);
   fprintf(file, "extern const struct %s {\n", ServerSubsys);
   if (UseRPCTrap) {
     fprintf(file, "\tstruct subsystem *\tsubsystem;\t/* Reserved for system use */\n");
   }
   else {
-    fprintf(file, "\tmig_server_routine_t\tserver;\t/* Server routine */\n");
+   fprintf(file, "\tmig_%sserver_routine_t\t%sserver;\t/* Server routine */\n", kern_, k);
   }
   fprintf(file, "\tmach_msg_id_t\tstart;\t/* Min routine number */\n");
   fprintf(file, "\tmach_msg_id_t\tend;\t/* Max routine number + 1 */\n");
@@ -455,9 +472,9 @@ WriteDispatcher(FILE *file)
   }
   else {
     fprintf(file, "\tvm_address_t\treserved;\t/* Reserved */\n");
-    fprintf(file, "\tstruct routine_descriptor\t/* Array of routine descriptors */\n");
+    fprintf(file, "\tstruct %sroutine_descriptor\t/* Array of routine descriptors */\n", kern_);
   }
-  fprintf(file, "\t\troutine[%d];\n", rtNumber);
+  fprintf(file, "\t\t%sroutine[%d];\n", k, rtNumber);
   if (UseRPCTrap) {
     fprintf(file, "\tstruct rpc_routine_arg_descriptor\t/*Array of arg descriptors */\n");
     fprintf(file, "\t\targ_descriptor[%d];\n", descr_count);

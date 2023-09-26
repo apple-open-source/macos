@@ -44,6 +44,9 @@ __FBSDID("$FreeBSD$");
 #include "archive.h"
 #include "archive_private.h"
 #include "archive_read_private.h"
+#ifdef __APPLE__
+#include "archive_check_entitlement.h"
+#endif
 
 static const unsigned char grzip_magic[] = {
 	0x47, 0x52, 0x5a, 0x69, 0x70, 0x49, 0x49, 0x00,
@@ -66,6 +69,13 @@ archive_read_support_filter_grzip(struct archive *_a)
 {
 	struct archive_read *a = (struct archive_read *)_a;
 	struct archive_read_filter_bidder *reader;
+
+#ifdef __APPLE__
+	if (!archive_allow_entitlement_filter("grzip")) {
+		archive_set_error(_a, ARCHIVE_ERRNO_MISC, "Filter not allow-listed in entitlements");
+		return ARCHIVE_FATAL;
+	}
+#endif
 
 	archive_check_magic(_a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_filter_grzip");

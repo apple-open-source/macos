@@ -485,6 +485,9 @@ void SetTexParameterBase(Context *context, Texture *texture, GLenum pname, const
         case GL_TEXTURE_PROTECTED_EXT:
             texture->setProtectedContent(context, (params[0] == GL_TRUE));
             break;
+        case GL_RENDERABILITY_VALIDATION_ANGLE:
+            texture->setRenderabilityValidation(context, (params[0] == GL_TRUE));
+            break;
         default:
             UNREACHABLE();
             break;
@@ -3075,6 +3078,7 @@ unsigned int GetTexParameterCount(GLenum pname)
         case GL_DEPTH_STENCIL_TEXTURE_MODE:
         case GL_TEXTURE_NATIVE_ID_ANGLE:
         case GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES:
+        case GL_RENDERABILITY_VALIDATION_ANGLE:
             return 1;
         default:
             return 0;
@@ -3244,6 +3248,26 @@ bool GetQueryParameterInfo(const State &glState,
             *numParams = 1;
             return true;
         }
+        case GL_POLYGON_OFFSET_POINT_NV:
+        {
+            if (!extensions.polygonModeNV)
+            {
+                return false;
+            }
+            *type      = GL_BOOL;
+            *numParams = 1;
+            return true;
+        }
+        case GL_POLYGON_OFFSET_LINE_NV:  // = GL_POLYGON_OFFSET_LINE_ANGLE
+        {
+            if (!extensions.polygonModeAny())
+            {
+                return false;
+            }
+            *type      = GL_BOOL;
+            *numParams = 1;
+            return true;
+        }
         case GL_DEPTH_CLAMP_EXT:
         {
             if (!extensions.depthClampEXT)
@@ -3383,6 +3407,16 @@ bool GetQueryParameterInfo(const State &glState,
             *type      = GL_INT;
             *numParams = 1;
             return true;
+        case GL_POLYGON_MODE_NV:  // = GL_POLYGON_MODE_ANGLE
+        {
+            if (!extensions.polygonModeAny())
+            {
+                return false;
+            }
+            *type      = GL_INT;
+            *numParams = 1;
+            return true;
+        }
         case GL_PRIMITIVE_BOUNDING_BOX:
             if (!extensions.primitiveBoundingBoxAny())
             {
@@ -3801,7 +3835,6 @@ bool GetQueryParameterInfo(const State &glState,
         case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS:
         case GL_UNPACK_IMAGE_HEIGHT:
         case GL_UNPACK_SKIP_IMAGES:
-        case GL_FRAGMENT_INTERPOLATION_OFFSET_BITS_OES:
         {
             *type      = GL_INT;
             *numParams = 1;
@@ -3830,12 +3863,30 @@ bool GetQueryParameterInfo(const State &glState,
         }
 
         case GL_MAX_TEXTURE_LOD_BIAS:
-        case GL_MIN_FRAGMENT_INTERPOLATION_OFFSET_OES:
-        case GL_MAX_FRAGMENT_INTERPOLATION_OFFSET_OES:
         {
             *type      = GL_FLOAT;
             *numParams = 1;
             return true;
+        }
+    }
+
+    if (extensions.shaderMultisampleInterpolationOES)
+    {
+        switch (pname)
+        {
+            case GL_MIN_FRAGMENT_INTERPOLATION_OFFSET_OES:
+            case GL_MAX_FRAGMENT_INTERPOLATION_OFFSET_OES:
+            {
+                *type      = GL_FLOAT;
+                *numParams = 1;
+                return true;
+            }
+            case GL_FRAGMENT_INTERPOLATION_OFFSET_BITS_OES:
+            {
+                *type      = GL_INT;
+                *numParams = 1;
+                return true;
+            }
         }
     }
 

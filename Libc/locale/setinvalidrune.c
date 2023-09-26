@@ -43,8 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/setinvalidrune.c,v 1.3 2002/09/24 09:25:
 #include "runedepreciated.h"
 
 void
-setinvalidrune(ir)
-	rune_t ir;
+setinvalidrune(rune_t ir)
 {
 	static int warn_depreciated = 1;
 	locale_t loc = __current_locale();

@@ -78,7 +78,7 @@ bool authRequired(void) {
 
     if (os_feature_enabled(Security, SecSkipSecurityToolAuth)) {
         fprintf(stderr,
-                "WARNING! Authentication skipped. It is required starting in iOS 17.0 / macOS 14.0.\n"
+                "WARNING! Authentication skipped!\n"
                 "Please add \"-y\" to be prompted for authentication, or \"-Y passcode\" to specify on the command line.\n");
         if (!os_feature_enabled(Security, SecSkipSecurityToolAuthSimCrash)) {
 #if TARGET_OS_IOS
@@ -88,7 +88,7 @@ bool authRequired(void) {
         }
         return false;
     } else {
-        fprintf(stderr, "Authentication required!\n");
+        fprintf(stderr, "Authentication is required to interact with keychain items. Add -y after the subcommand for interactive authentication, or -Y <passcode> to authenticate directly, which is insecure.\n");
         return true;
     }
 #endif // TARGET_OS_TV || TARGET_OS_BRIDGE

@@ -55,6 +55,13 @@ DATA_SYMLINK_PREFIX=/DataVolumeSymlinks
 DATA_SYMLINK_DEST=System/Volumes/Data
 endif
 
+ifeq "$(RC_PROJECT_COMPILATION_PLATFORM)" "ios"
+DDTOOL_PATH=$(shell xcrun -sdk $(SDKROOT) -find ddtool)
+ifeq "$(DDTOOL_PATH)" ""
+$(error ddtool not found)
+endif
+endif
+
 install::
 
 	# The hierarchy files REQUIRE that their columns be TAB-SEPARATED. Using
@@ -68,6 +75,16 @@ install::
 		print sprintf("install -d -m %s -o %s -g %s \"$(Destination)/%s\";", $$1, $$2, $$3, $$4); \
 		print sprintf("[ ! -f \"%s/Makefile\" ] || make -C \"%s\" CONTENT_PLATFORM=\"$(CONTENT_PLATFORM)\" Destination=\"$(Destination)/%s\" $@ ;", $$4, $$4, $$4); \
 	}' | sh -x -e
+
+ifeq "$(RC_PROJECT_COMPILATION_PLATFORM)" "ios"
+	# Generate DarwinDirectory files.
+	$(_v) ./DarwinDirectory.py -g private/etc/group.iPhone -p private/etc/master.passwd.iPhone .
+	# Writing ddtool output into an intermediate directory first to avoid removing or overwriting existing files and directories in the destination.
+	$(_v) $(INSTALL_DIRECTORY) ./DarwinDirectory/ddtool_out
+	$(_v) $(DDTOOL_PATH) root create --dst-dir ./DarwinDirectory/ddtool_out --target-os embedded ./DarwinDirectory/plists
+	# Create the required directories separately (do nothing if it already exists) to avoid overwriting directory ownership with ownership from the source (straight copy).
+	$(_v) ( cd ./DarwinDirectory/ddtool_out && $(FIND) . \( -type d -exec $(MKDIR) -v "$(Destination)/{}" \; \) -or -exec /bin/cp -vnPp '{}' "$(Destination)/{}" \; -or -exec $(FALSE) '{}' + )
+endif
 
 ifeq "$(CONTENT_PLATFORM)" "osx"
 	# Create symlinks at the firmlink paths, but prepend a fixed prefix
@@ -138,3 +155,4 @@ ifeq "$(CONTENT_PLATFORM)" "ios"
 	# cp has -pR in the options..
 	$(_v) $(CP) "$(Destination)/private/var/mobile/" "$(Destination)/System/Library/Templates/User/"
 endif
+

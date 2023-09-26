@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2012,2013 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -61,7 +61,7 @@ Options:
   traces will be dumped.  The program stops and waits for one character of
   input at the beginning and end of the interval.
 
-  $Id: worm.c,v 1.58 2008/10/04 21:54:09 tom Exp $
+  $Id: worm.c,v 1.65 2013/06/22 20:01:41 tom Exp $
 */
 
 #include <test.priv.h>
@@ -79,7 +79,7 @@ static chtype flavor[] =
 {
     'O', '*', '#', '$', '%', '0', '@',
 };
-static const short xinc[] =
+static const int xinc[] =
 {
     1, 1, 1, 0, -1, -1, -1, 0
 }, yinc[] =
@@ -90,8 +90,8 @@ static const short xinc[] =
 typedef struct worm {
     int orientation;
     int head;
-    short *xpos;
-    short *ypos;
+    int *xpos;
+    int *ypos;
     chtype attrs;
 #ifdef USE_PTHREADS
     pthread_t thread;
@@ -102,7 +102,7 @@ static unsigned long sequence = 0;
 static bool quitting = FALSE;
 
 static WORM worm[MAX_WORMS];
-static short **refs;
+static int **refs;
 static int last_x, last_y;
 
 static const char *field;
@@ -202,6 +202,14 @@ static const struct options {
 /* *INDENT-ON* */
 
 static void
+failed(const char *s)
+{
+    perror(s);
+    endwin();
+    ExitProgram(EXIT_FAILURE);
+}
+
+static void
 cleanup(void)
 {
     USING_WINDOW(stdscr, wrefresh);
@@ -209,18 +217,18 @@ cleanup(void)
     endwin();
 }
 
-static RETSIGTYPE
+static void
 onsig(int sig GCC_UNUSED)
 {
     cleanup();
     ExitProgram(EXIT_FAILURE);
 }
 
-static float
+static double
 ranf(void)
 {
     long r = (rand() & 077777);
-    return ((float) r / 32768.);
+    return ((double) r / 32768.);
 }
 
 static int
@@ -228,7 +236,7 @@ draw_worm(WINDOW *win, void *data)
 {
     WORM *w = (WORM *) data;
     const struct options *op;
-    unsigned mask = ~(1 << (w - worm));
+    unsigned mask = (unsigned) (~(1 << (w - worm)));
     chtype attrs = w->attrs | ((mask & pending) ? A_REVERSE : 0);
 
     int x;
@@ -291,7 +299,7 @@ draw_worm(WINDOW *win, void *data)
 	w->orientation = op->opts[0];
 	break;
     default:
-	w->orientation = op->opts[(int) (ranf() * (float) op->nopts)];
+	w->orientation = op->opts[(int) (ranf() * (double) op->nopts)];
 	break;
     }
 
@@ -330,7 +338,11 @@ start_worm(void *arg)
     while (!quit_worm(((struct worm *) arg) - worm)) {
 	while (compare < sequence) {
 	    ++compare;
+#if HAVE_USE_WINDOW
 	    use_window(stdscr, draw_worm, arg);
+#else
+	    draw_worm(stdscr, arg);
+#endif
 	}
     }
     Trace(("...start_worm (done)"));
@@ -350,13 +362,18 @@ draw_all_worms(void)
     if (first) {
 	first = FALSE;
 	for (n = 0, w = &worm[0]; n < number; n++, w++) {
-	    int rc;
-	    rc = pthread_create(&(w->thread), NULL, start_worm, w);
+	    (void) pthread_create(&(w->thread), NULL, start_worm, w);
 	}
     }
 #else
     for (n = 0, w = &worm[0]; n < number; n++, w++) {
-	if (USING_WINDOW2(stdscr, draw_worm, w))
+	if (
+#if HAVE_USE_WINDOW
+	       USING_WINDOW2(stdscr, draw_worm, w)
+#else
+	       draw_worm(stdscr, w)
+#endif
+	    )
 	    done = TRUE;
     }
 #endif
@@ -380,7 +397,9 @@ update_refs(WINDOW *win)
     (void) win;
     if (last_x != COLS - 1) {
 	for (y = 0; y <= last_y; y++) {
-	    refs[y] = typeRealloc(short, COLS, refs[y]);
+	    refs[y] = typeRealloc(int, (size_t) COLS, refs[y]);
+	    if (!refs[y])
+		failed("update_refs");
 	    for (x = last_x + 1; x < COLS; x++)
 		refs[y][x] = 0;
 	}
@@ -389,9 +408,11 @@ update_refs(WINDOW *win)
     if (last_y != LINES - 1) {
 	for (y = LINES; y <= last_y; y++)
 	    free(refs[y]);
-	refs = typeRealloc(short *, LINES, refs);
+	refs = typeRealloc(int *, (size_t) LINES, refs);
 	for (y = last_y + 1; y < LINES; y++) {
-	    refs[y] = typeMalloc(short, COLS);
+	    refs[y] = typeMalloc(int, (size_t) COLS);
+	    if (!refs[y])
+		failed("update_refs");
 	    for (x = 0; x < COLS; x++)
 		refs[y][x] = 0;
 	}
@@ -407,8 +428,9 @@ main(int argc, char *argv[])
     int x, y;
     int n;
     struct worm *w;
-    short *ip;
+    int *ip;
     bool done = FALSE;
+    int max_refs;
 
     setlocale(LC_ALL, "");
 
@@ -478,8 +500,8 @@ main(int argc, char *argv[])
 #endif
 
 #define SET_COLOR(num, fg) \
-	    init_pair(num+1, fg, bg); \
-	    flavor[num] |= COLOR_PAIR(num+1) | A_BOLD
+	    init_pair(num+1, (short) fg, (short) bg); \
+	    flavor[num] |= (chtype) COLOR_PAIR(num+1) | A_BOLD
 
 	SET_COLOR(0, COLOR_GREEN);
 	SET_COLOR(1, COLOR_RED);
@@ -491,9 +513,10 @@ main(int argc, char *argv[])
     }
 #endif /* A_COLOR */
 
-    refs = typeMalloc(short *, LINES);
-    for (y = 0; y < LINES; y++) {
-	refs[y] = typeMalloc(short, COLS);
+    max_refs = LINES;
+    refs = typeMalloc(int *, (size_t) max_refs);
+    for (y = 0; y < max_refs; y++) {
+	refs[y] = typeMalloc(int, (size_t) COLS);
 	for (x = 0; x < COLS; x++) {
 	    refs[y][x] = 0;
 	}
@@ -505,18 +528,18 @@ main(int argc, char *argv[])
 #endif /* BADCORNER */
 
     for (n = number, w = &worm[0]; --n >= 0; w++) {
-	w->attrs = flavor[n % SIZEOF(flavor)];
+	w->attrs = flavor[(unsigned) n % SIZEOF(flavor)];
 	w->orientation = 0;
 	w->head = 0;
 
-	if (!(ip = typeMalloc(short, (length + 1)))) {
+	if (!(ip = typeMalloc(int, (size_t) (length + 1)))) {
 	    fprintf(stderr, "%s: out of memory\n", *argv);
 	    ExitProgram(EXIT_FAILURE);
 	}
 	w->xpos = ip;
 	for (x = length; --x >= 0;)
 	    *ip++ = -1;
-	if (!(ip = typeMalloc(short, (length + 1)))) {
+	if (!(ip = typeMalloc(int, (size_t) (length + 1)))) {
 	    fprintf(stderr, "%s: out of memory\n", *argv);
 	    ExitProgram(EXIT_FAILURE);
 	}
@@ -586,7 +609,7 @@ main(int argc, char *argv[])
     Trace(("Cleanup"));
     cleanup();
 #ifdef NO_LEAKS
-    for (y = 0; y < LINES; y++) {
+    for (y = 0; y < max_refs; y++) {
 	free(refs[y]);
     }
     free(refs);

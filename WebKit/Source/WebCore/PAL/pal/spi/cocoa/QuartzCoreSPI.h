@@ -38,6 +38,7 @@
 
 #ifdef __OBJC__
 
+#import <QuartzCore/CAAnimationPrivate.h>
 #import <QuartzCore/CAContext.h>
 #import <QuartzCore/CALayerHost.h>
 #import <QuartzCore/CALayerPrivate.h>
@@ -54,6 +55,10 @@
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
 #import <QuartzCore/CAFenceHandle.h>
+#endif
+
+#if PLATFORM(VISION)
+#import <QuartzCore/CARemoteEffectPrivate.h>
 #endif
 
 #endif // __OBJC__
@@ -103,7 +108,9 @@ typedef struct _CARenderContext CARenderContext;
 + (void)setAllowsCGSConnections:(BOOL)flag;
 #endif
 
+@property uint32_t displayMask;
 #if PLATFORM(MAC)
+@property uint64_t GPURegistryID;
 @property uint32_t commitPriority;
 @property BOOL colorMatchUntaggedContent;
 #endif
@@ -118,6 +125,16 @@ typedef struct _CARenderContext CARenderContext;
 
 @end
 
+@interface CAPresentationModifierGroup : NSObject
++ (instancetype)groupWithCapacity:(NSUInteger)capacity;
+- (void)flush;
+@end
+
+@interface CAPresentationModifier : NSObject
+- (instancetype)initWithKeyPath:(NSString *)keyPath initialValue:(id)value additive:(BOOL)additive group:(CAPresentationModifierGroup *)group;
+@property (strong) id value;
+@end
+
 @interface CALayer ()
 - (CAContext *)context;
 - (void)setContextId:(uint32_t)contextID;
@@ -125,6 +142,8 @@ typedef struct _CARenderContext CARenderContext;
 - (void *)regionBeingDrawn;
 - (void)reloadValueForKeyPath:(NSString *)keyPath;
 - (void)setCornerRadius:(CGFloat)cornerRadius;
+- (void)addPresentationModifier:(CAPresentationModifier *)modifier;
+- (void)removePresentationModifier:(CAPresentationModifier *)modifier;
 @property BOOL allowsGroupBlending;
 @property BOOL allowsHitTesting;
 @property BOOL canDrawConcurrently;
@@ -138,6 +157,10 @@ typedef struct _CARenderContext CARenderContext;
 @property (getter=isSeparated) BOOL separated;
 #endif
 @property BOOL toneMapToStandardDynamicRange;
+#if PLATFORM(VISION)
+@property (nonatomic) CGFloat sizeMultiplier;
+@property (nonatomic, copy) void (^effectGroupConfigurator)(CARemoteEffectGroup *group);
+#endif
 @end
 
 #if ENABLE(FILTERS_LEVEL_2)
@@ -209,6 +232,11 @@ typedef enum {
 #if HAVE(CALAYER_USES_WEBKIT_BEHAVIOR)
 @property BOOL usesWebKitBehavior;
 #endif
+@property CGRect contentsDirtyRect;
+@end
+
+@interface CATransaction ()
++ (void)setDisableImplicitTransactionMainThreadAssert:(BOOL)flag;
 @end
 
 WTF_EXTERN_C_BEGIN
@@ -225,6 +253,8 @@ CAMachPortRef CAMachPortCreate(mach_port_t);
 mach_port_t CAMachPortGetPort(CAMachPortRef);
 CFTypeID CAMachPortGetTypeID(void);
 
+typedef struct _CAIOSurface *CAIOSurfaceRef;
+
 void CABackingStoreCollectBlocking(void);
 
 typedef struct _CARenderCGContext CARenderCGContext;
@@ -234,6 +264,7 @@ CARenderCGContext *CARenderCGNew(uint32_t feature_flags);
 CARenderUpdate* CARenderUpdateBegin(void* buffer, size_t, CFTimeInterval, const CVTimeStamp*, uint32_t finished_seed, const CGRect* bounds);
 bool CARenderServerStart();
 mach_port_t CARenderServerGetPort();
+mach_port_t CARenderServerGetServerPort(const char *name);
 void CARenderCGDestroy(CARenderCGContext*);
 void CARenderCGRender(CARenderCGContext*, CARenderUpdate*, CGContextRef);
 void CARenderUpdateAddContext(CARenderUpdate*, CARenderContext*);

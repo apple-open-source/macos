@@ -26,9 +26,9 @@
 
 #include <pcap/pcap.h>
 
-#ifdef PRIVATE
-
 #include <uuid/uuid.h>
+
+#include <os/availability.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -367,18 +367,25 @@ struct pcapng_os_event_fields {
 /*
  * To open for reading a file in pcap-ng file format
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 pcap_t *pcap_ng_fopen_offline(FILE *, char *);
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 pcap_t *pcap_ng_open_offline(const char *, char *);
 
 /* 
  * Open for writing a capture file -- a "savefile" in pcap-ng file format
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 pcap_dumper_t *pcap_ng_dump_open(pcap_t *, const char *);
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 pcap_dumper_t *pcap_ng_dump_fopen(pcap_t *, FILE *);
 
 /*
  * Close a "savefile" being written to
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 void pcap_ng_dump_close(pcap_dumper_t *);
 
 /*
@@ -386,6 +393,7 @@ void pcap_ng_dump_close(pcap_dumper_t *);
  * This assume the packet are all of the same link type
  * pcap_ng_dump() is obsolete
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 void pcap_ng_dump(u_char *, const struct pcap_pkthdr *, const u_char *);
 
 /*
@@ -407,11 +415,13 @@ typedef struct pcapng_block * pcapng_block_t;
  * pcap_ng_block_size_max() the allocation fails and NULL
  * is returned.
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 pcapng_block_t pcap_ng_block_alloc(size_t );
 
 /*
  * Returns the maximum size that can be passed to pcap_ng_block_alloc().
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 size_t pcap_ng_block_size_max(void);
 
 /*
@@ -419,78 +429,113 @@ size_t pcap_ng_block_size_max(void);
  * Re-using pcapng_block_t is more efficient than using  
  * pcap_ng_block_alloc() for each block. 
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_reset(pcapng_block_t, bpf_u_int32 );
 
 /*
  * Free the memory associated internalized pcap-ng block
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 void pcap_ng_free_block(pcapng_block_t);
 	
 /*
  * Write a internalized pcap-ng block into a savefile
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 bpf_u_int32 pcap_ng_dump_block(pcap_dumper_t *, pcapng_block_t);
 
 /*
  * Write a internalized pcap-ng block into a memory buffer
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 bpf_u_int32 pcap_ng_externalize_block(void *, size_t, pcapng_block_t );
 
 /*
  * To allocate or initialize a raw block read from pcap-ng file
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 pcapng_block_t pcap_ng_block_alloc_with_raw_block(pcap_t *, u_char *);
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_init_with_raw_block(pcapng_block_t block, pcap_t *p, u_char *);
 
 /*
  * Essential accessors
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 bpf_u_int32 pcap_ng_block_get_type(pcapng_block_t);
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 bpf_u_int32 pcap_ng_block_get_len(pcapng_block_t);
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_is_swapped(pcapng_block_t);
 
 /*
  * Provide access to field of the block header in the native host byte order
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 struct pcapng_section_header_fields *pcap_ng_get_section_header_fields(pcapng_block_t );
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 struct pcapng_interface_description_fields *pcap_ng_get_interface_description_fields(pcapng_block_t );
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 struct pcapng_enhanced_packet_fields *pcap_ng_get_enhanced_packet_fields(pcapng_block_t );
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 struct pcapng_simple_packet_fields *pcap_ng_get_simple_packet_fields(pcapng_block_t );
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 struct pcapng_packet_fields *pcap_ng_get_packet_fields(pcapng_block_t );
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 struct pcapng_process_information_fields *pcap_ng_get_process_information_fields(pcapng_block_t );
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 struct pcapng_os_event_fields *pcap_ng_get_os_event_fields(pcapng_block_t );
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 struct pcapng_decryption_secrets_fields *pcap_ng_get_decryption_secrets_fields(pcapng_block_t );
 
 /*
  * Set the packet data to the passed buffer by copying into the internal block buffer
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 bpf_u_int32 pcap_ng_block_packet_copy_data(pcapng_block_t, const void *, bpf_u_int32 );
 	
 /*
  * Set the packet data by referencing an external buffer.
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 bpf_u_int32 pcap_ng_block_packet_set_data(pcapng_block_t block, const void *, bpf_u_int32 );
 	
 /*
  * Return the first byte of the packet data (if any, or NULL otherwise)
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 void *pcap_ng_block_packet_get_data_ptr(pcapng_block_t);
 	
 /*
  * Returns the length of the packet data
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 bpf_u_int32 pcap_ng_block_packet_get_data_len(pcapng_block_t);
 	
 /*
  * Returns zero if the block does not support packet data
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_does_support_data(pcapng_block_t);
 
 /*
  * Add a option with the given code and value
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_add_option_with_value(pcapng_block_t, u_short, const void *, u_short );
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_add_option_with_string(pcapng_block_t, u_short, const char *);
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_add_option_with_uuid(pcapng_block_t, u_short, const uuid_t);
 
 /*
@@ -510,6 +555,7 @@ struct pcapng_option_info {
  * this returns the first option with the given code
  * Returns zero their is no option with that code in the block
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_get_option(pcapng_block_t block, u_short code, struct pcapng_option_info *option_info);
 	
 /*
@@ -518,12 +564,16 @@ int pcap_ng_block_get_option(pcapng_block_t block, u_short code, struct pcapng_o
 typedef void (*pcapng_option_iterator_func)(pcapng_block_t ,
 											struct pcapng_option_info *,
 											void *);
+SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0))
+int pcapng_block_iterate_options(pcapng_block_t block,
+								  pcapng_option_iterator_func opt_iterator_func,
+								  void *context);
+
+SPI_DEPRECATED_WITH_REPLACEMENT("pcapng_block_iterate_options", macos(10.8,14.0), ios(5.0,17.0), tvos(9.0,17.0), watchos(1.0,10.0), bridgeos(1.0,8.0))
 int pcnapng_block_iterate_options(pcapng_block_t block,
 								  pcapng_option_iterator_func opt_iterator_func,
 								  void *context);
-int pcap_ng_block_iterate_options(pcapng_block_t block,
-                                  pcapng_option_iterator_func opt_iterator_func,
-                                  void *context);
+
 
 /*
  * To access name records
@@ -539,28 +589,36 @@ typedef void (*pcapng_name_record_iterator_func)(pcapng_block_t ,
 												struct pcapng_name_record_info *,
 												void * );
 
+SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0))
+int pcapng_block_iterate_name_records(pcapng_block_t ,
+									   pcapng_name_record_iterator_func ,
+									   void *);
+
+SPI_DEPRECATED_WITH_REPLACEMENT("pcapng_block_iterate_name_records", macos(10.8,14.0), ios(5.0,17.0), tvos(9.0,17.0), watchos(1.0,10.0), bridgeos(1.0,8.0))
 int pcnapng_block_iterate_name_records(pcapng_block_t ,
 									   pcapng_name_record_iterator_func ,
 									   void *);
-int pcap_ng_block_iterate_name_records(pcapng_block_t ,
-                                       pcapng_name_record_iterator_func ,
-                                       void *);
+
 struct in_addr;
 struct in6_addr;
 
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_add_name_record_with_ip4(pcapng_block_t, struct in_addr *, const char **);
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int pcap_ng_block_add_name_record_with_ip6(pcapng_block_t, struct in6_addr *, const char **);
 	
 /*
  * To map between DLT and Link Type
  */
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int dlt_to_linktype(int );
+
+SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 int linktype_to_dlt(int );
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* PRIVATE */
 
 #endif /* libpcap_pcap_ng_h */

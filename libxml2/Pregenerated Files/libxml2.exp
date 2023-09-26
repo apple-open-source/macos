@@ -537,6 +537,7 @@ _xmlMemMalloc
 _xmlMemRealloc
 _xmlMemSetup
 _xmlMemShow
+_xmlMemSize
 _xmlMemStrdup
 _xmlMemStrdupLoc
 _xmlMemUsed

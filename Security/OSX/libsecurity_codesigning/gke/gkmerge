@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# gkmerge - merge Gatekeeper whitelist snippets
+# gkmerge - merge Gatekeeper allowlist snippets
 #
 # gkmerge [--output name] files...
 #	Takes GKE data from all files, merges it together, and writes it to a new snippet file 'output'.

@@ -64,25 +64,21 @@
 #undef sigismember
 
 int
-sigemptyset(set)
-	sigset_t *set;
+sigemptyset(sigset_t *set)
 {
 	*set = 0;
 	return (0);
 }
 
 int
-sigfillset(set)
-	sigset_t *set;
+sigfillset(sigset_t *set)
 {
 	*set = ~(sigset_t)0;
 	return (0);
 }
 
 int
-sigaddset(set, signo)
-	sigset_t *set;
-	int signo;
+sigaddset(sigset_t *set, int signo)
 {
 	if ((signo < 0 ) || (signo > NSIG)) {
 		errno = EINVAL;
@@ -95,9 +91,7 @@ sigaddset(set, signo)
 }
 
 int
-sigdelset(set, signo)
-	sigset_t *set;
-	int signo;
+sigdelset(sigset_t *set, int signo)
 {
 	if ((signo < 0 ) || (signo > NSIG)) {
 		errno = EINVAL;
@@ -110,9 +104,7 @@ sigdelset(set, signo)
 }
 
 int
-sigismember(set, signo)
-	const sigset_t *set;
-	int signo;
+sigismember(const sigset_t *set, int signo)
 {
 	if ((signo < 0 ) || (signo > NSIG)) {
 		errno = EINVAL;

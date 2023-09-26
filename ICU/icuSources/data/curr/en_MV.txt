@@ -3,4 +3,10 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_MV{
     %%Parent{"en_001"}
+    Currencies{
+        MVR{
+            "Rf",
+            "Maldivian Rufiyaa",
+        }
+    }
 }

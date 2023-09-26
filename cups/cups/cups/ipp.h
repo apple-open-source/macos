@@ -902,10 +902,13 @@ extern int		ippSetVersion(ipp_t *ipp, int major, int minor)
 			              _CUPS_API_1_6;
 
 /**** New in CUPS 1.7 ****/
+__attribute__((format(printf, 6, 7)))
 extern ipp_attribute_t	*ippAddStringf(ipp_t *ipp, ipp_tag_t group,
 			               ipp_tag_t value_tag, const char *name,
 			               const char *language, const char *format,
 			               ...) _CUPS_API_1_7;
+
+__attribute__((format(printf, 6, 0)))
 extern ipp_attribute_t	*ippAddStringfv(ipp_t *ipp, ipp_tag_t group,
 					ipp_tag_t value_tag, const char *name,
 					const char *language,
@@ -922,9 +925,11 @@ extern ipp_t		*ippNewResponse(ipp_t *request) _CUPS_API_1_7;
 extern int		ippSetOctetString(ipp_t *ipp, ipp_attribute_t **attr,
 			                  int element, const void *data,
 					  int datalen) _CUPS_API_1_7;
+__attribute__((format(printf, 4, 5)))
 extern int		ippSetStringf(ipp_t *ipp, ipp_attribute_t **attr,
 			              int element, const char *format,
 				      ...) _CUPS_API_1_7;
+__attribute__((format(printf, 4, 0)))
 extern int		ippSetStringfv(ipp_t *ipp, ipp_attribute_t **attr,
 			               int element, const char *format,
 				       va_list ap) _CUPS_API_1_7;

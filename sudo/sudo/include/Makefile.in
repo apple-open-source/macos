@@ -31,7 +31,7 @@ scriptdir = $(top_srcdir)/scripts
 cross_compiling = @CROSS_COMPILING@
 
 # Our install program supports extra flags...
-INSTALL = $(SHELL) $(top_srcdir)/install-sh -c
+INSTALL = $(SHELL) $(scriptdir)/install-sh -c
 INSTALL_OWNER = -o $(install_uid) -g $(install_gid)
 
 # Where to install things...
@@ -77,6 +77,8 @@ install-includes: install-dirs
 
 install-plugin:
 
+install-fuzzer:
+
 uninstall:
 	-rm -f $(DESTDIR)$(includedir)/sudo_plugin.h
 
@@ -88,7 +90,13 @@ pvs-log-files:
 
 pvs-studio:
 
-check:
+fuzz:
+
+check-fuzzer:
+
+check: check-fuzzer
+
+check-verbose: check
 
 clean:
 
@@ -102,3 +110,5 @@ clobber: distclean
 realclean: distclean
 
 cleandir: distclean
+
+.PHONY: clean mostlyclean distclean cleandir clobber realclean

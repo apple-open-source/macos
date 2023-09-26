@@ -35,6 +35,9 @@ applegpu_g13c.testfile \
 applegpu_g13d.testfile \
 applegpu_g14p.testfile \
 applegpu_g14g.testfile \
+applegpu_g14s.testfile \
+applegpu_g14d.testfile \
+applegpu_g15p.testfile \
 amdgpu_gfx600.testfile \
 amdgpu_gfx600_nwh.testfile \
 amdgpu_gfx701.testfile \
@@ -126,6 +129,9 @@ applegpu_g13c.result \
 applegpu_g13d.result \
 applegpu_g14p.result \
 applegpu_g14g.result \
+applegpu_g14s.result \
+applegpu_g14d.result \
+applegpu_g15p.result \
 amdgpu_gfx600.result \
 amdgpu_gfx600_nwh.result \
 amdgpu_gfx701.result \

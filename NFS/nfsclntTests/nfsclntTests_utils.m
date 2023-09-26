@@ -98,6 +98,16 @@ extern char *dst;
 extern char **argv;
 extern int argc;
 
+static Boolean
+isEtypeExists(NSArray *args, NSString *nfsOutArg)
+{
+	Boolean result = FALSE;
+	if ([nfsOutArg hasPrefix:@"etype="] && [nfsOutArg stringByReplacingOccurrencesOfString:@"etype=" withString:@"etype=*"]) {
+		result = TRUE;
+	}
+	return result;
+}
+
 static NSString *
 isParameterExists(NSArray *args, char **nfsOutArgs)
 {
@@ -109,7 +119,7 @@ isParameterExists(NSArray *args, char **nfsOutArgs)
 
 	for (; *nfsOutArgs != NULL; nfsOutArgs++) {
 		nfsOutArg = [NSString stringWithUTF8String:*nfsOutArgs];
-		if (![args containsObject:nfsOutArg]) {
+		if (![args containsObject:nfsOutArg] && !isEtypeExists(args, nfsOutArg)) {
 			return nfsOutArg;
 		}
 	}
@@ -464,7 +474,7 @@ writeArgToOptions(nfstests_options_kind_t option, const char *value, void *expec
 }
 
 void
-optionsVerify()
+optionsVerify(void)
 {
 	type_t type;
 	char *str1, *str2;
@@ -493,6 +503,10 @@ optionsVerify()
 			str1 = *(char **)(expectedoptionsptr + offset);
 			str2 = *(char **)(optionsptr + offset);
 			if (!str1 && !str2) {
+				continue;
+			}
+			if (!str1 || !str2) {
+				XCTFail("Got null str");
 				continue;
 			}
 			len1 = strnlen(str1, MAXPATHLEN);
@@ -525,7 +539,7 @@ handleTimeout(long seconds, char *value)
 }
 
 void
-setUpOptions()
+setUpOptions(void)
 {
 	/* Init with defaults */
 	memset(&options, 0, sizeof(options));
@@ -604,7 +618,7 @@ writeArgToConf(nfstests_conf_kind_t option, const char* value)
 }
 
 void
-configVerify()
+configVerify(void)
 {
 	type_t type;
 	char *str1, *str2;
@@ -624,6 +638,10 @@ configVerify()
 			str1 = *(char **)(expectedconfptr + offset);
 			str2 = *(char **)(confptr + offset);
 			if (!str1 && !str2) {
+				continue;
+			}
+			if (!str1 || !str2) {
+				XCTFail("Got null str");
 				continue;
 			}
 			len1 = strnlen(str1, MAXPATHLEN);
@@ -770,8 +788,10 @@ serversVerify(struct nfs_fs_server *srv1, struct nfs_fs_server *srv2)
 	if (srv1 == NULL && srv2 == NULL) {
 		return;
 	}
-	XCTAssertTrue(srv1);
-	XCTAssertTrue(srv2);
+	if (srv1 == NULL || srv2 == NULL) {
+		XCTFail("Got null server");
+		return;
+	}
 
 	/* Verify server name */
 	XCTAssertTrue(srv1->ns_name);
@@ -811,8 +831,10 @@ LocationsVerify(struct nfs_fs_location *nfsl1, struct nfs_fs_location *nfsl2)
 	if (nfsl1 == NULL && nfsl2 == NULL) {
 		return;
 	}
-	XCTAssertTrue(nfsl1);
-	XCTAssertTrue(nfsl2);
+	if (nfsl1 == NULL || nfsl2 == NULL) {
+		XCTFail("Got null location");
+		return;
+	}
 
 	/* Compare location */
 	XCTAssertEqual(nfsl1->nl_servcnt, nfsl2->nl_servcnt);

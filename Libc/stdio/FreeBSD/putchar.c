@@ -49,8 +49,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/putchar.c,v 1.16 2008/05/05 16:03:52 jhb 
  * A subroutine version of the macro putchar
  */
 int
-putchar(c)
-	int c;
+putchar(int c)
 {
 	int retval;
 	FILE *so = stdout;

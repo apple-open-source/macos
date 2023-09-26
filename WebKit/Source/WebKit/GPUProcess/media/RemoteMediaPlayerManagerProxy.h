@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "Connection.h"
 #include "GPUConnectionToWebProcess.h"
@@ -67,7 +67,7 @@ public:
 
     RefPtr<WebCore::MediaPlayer> mediaPlayer(const WebCore::MediaPlayerIdentifier&);
 
-    ShareableBitmapHandle bitmapImageForCurrentTime(WebCore::MediaPlayerIdentifier);
+    ShareableBitmap::Handle bitmapImageForCurrentTime(WebCore::MediaPlayerIdentifier);
 
 private:
     // IPC::MessageReceiver
@@ -92,4 +92,4 @@ private:
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

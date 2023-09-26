@@ -38,7 +38,7 @@ WebsitePolicies::WebsitePolicies() = default;
 Ref<WebsitePolicies> WebsitePolicies::copy() const
 {
     auto policies = WebsitePolicies::create();
-    policies->setContentBlockersEnabled(m_contentBlockersEnabled);
+    policies->m_contentExtensionEnablement = m_contentExtensionEnablement;
     policies->m_activeContentRuleListActionPatterns = m_activeContentRuleListActionPatterns;
     policies->setAllowedAutoplayQuirks(m_allowedAutoplayQuirks);
     policies->setAutoplayPolicy(m_autoplayPolicy);
@@ -58,7 +58,7 @@ Ref<WebsitePolicies> WebsitePolicies::copy() const
     policies->setAllowContentChangeObserverQuirk(m_allowContentChangeObserverQuirk);
     policies->setWebsiteDataStore(m_websiteDataStore.get());
     policies->setUserContentController(m_userContentController.get());
-    policies->setNetworkConnectionIntegrityPolicy(m_networkConnectionIntegrityPolicy);
+    policies->setAdvancedPrivacyProtections(m_advancedPrivacyProtections);
     policies->setIdempotentModeAutosizingOnlyHonorsPercentages(m_idempotentModeAutosizingOnlyHonorsPercentages);
     policies->setCustomHeaderFields(Vector<WebCore::CustomHeaderFields> { m_customHeaderFields });
     policies->setAllowSiteSpecificQuirksToOverrideContentMode(m_allowSiteSpecificQuirksToOverrideContentMode);
@@ -91,7 +91,7 @@ WebKit::WebsitePoliciesData WebsitePolicies::data()
     customHeaderFields.appendVector(this->customHeaderFields());
 
     return {
-        contentBlockersEnabled(),
+        m_contentExtensionEnablement,
         activeContentRuleListActionPatterns(),
         allowedAutoplayQuirks(),
         autoplayPolicy(),
@@ -112,7 +112,7 @@ WebKit::WebsitePoliciesData WebsitePolicies::data()
         m_mouseEventPolicy,
         m_modalContainerObservationPolicy,
         m_colorSchemePreference,
-        m_networkConnectionIntegrityPolicy,
+        m_advancedPrivacyProtections,
         m_idempotentModeAutosizingOnlyHonorsPercentages,
         m_allowPrivacyProxy
     };

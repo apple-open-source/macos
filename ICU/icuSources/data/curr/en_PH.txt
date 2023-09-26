@@ -9,7 +9,7 @@ en_PH{
         }
         PHP{
             "₱",
-            "Philippine Piso",
+            "Philippine Peso",
         }
         USD{
             "US$",

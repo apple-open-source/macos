@@ -346,7 +346,7 @@ static CFStringRef SecORVCCopyFormatDescription(CFTypeRef cf, CFDictionaryRef fo
 
 CFGiblisFor(SecORVC);
 
-static CF_RETURNS_RETAINED SecORVCRef SecORVCCreate(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX) {
+CF_RETURNS_RETAINED SecORVCRef SecORVCCreate(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX) {
     SecORVCRef orvc = NULL;
     orvc = CFTypeAllocate(SecORVC, struct OpaqueSecORVC, kCFAllocatorDefault);
     secdebug("alloc", "orvc %p", orvc);
@@ -355,10 +355,12 @@ static CF_RETURNS_RETAINED SecORVCRef SecORVCCreate(SecRVCRef rvc, SecPathBuilde
         orvc->rvc = rvc;
         orvc->certIX = certIX;
 
-        SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(builder, certIX);
-        if (SecPathBuilderGetCertificateCount(builder) > (certIX + 1)) {
-            SecCertificateRef issuer = SecPathBuilderGetCertificateAtIndex(builder, certIX + 1);
-            orvc->ocspRequest = SecOCSPRequestCreate(cert, issuer);
+        if (builder) {
+            SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(builder, certIX);
+            if (SecPathBuilderGetCertificateCount(builder) > (certIX + 1)) {
+                SecCertificateRef issuer = SecPathBuilderGetCertificateAtIndex(builder, certIX + 1);
+                orvc->ocspRequest = SecOCSPRequestCreate(cert, issuer);
+            }
         }
     }
     return orvc;

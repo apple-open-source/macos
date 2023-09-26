@@ -303,7 +303,7 @@ struct s_server servers[] = {
     // This server went offline as of May 2016 -- {"vpp.visa.co.uk", 443, kTLSProtocol12 }, // Doesnt like SSL 3.0 in initial record layer version
     {"imap.softbank.jp",993, kTLSProtocol12 },   // softbank imap server, there are multiple servers behind this, one of them is not able to handle downgrading to TLS 1.2 properly (126.240.66.17).
     {"mobile.charter.net",993, kTLSProtocol12 }, // Support 1.2 but fail to negotiate properly
-    {"mybill.vodafone.com.au", 443, kTLSProtocol12 }, /* 2056 bit server key */
+    {"mybill.vodafone.com.au", 443, kTLSProtocol12 }, /* had 2056 bit server key, now 2048 bit */
 };
 
 #define NSERVERS (int)(sizeof(servers)/sizeof(servers[0]))

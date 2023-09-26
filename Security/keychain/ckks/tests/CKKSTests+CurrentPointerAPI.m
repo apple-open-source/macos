@@ -1255,6 +1255,8 @@
     SecResetLocalSecuritydXPCFakeEntitlements();
 }
 
+// TODO: add test for SecItemUnsetCurrentItemsAcrossAllDevices
+
 - (void) testMaintainSameUUIDPrefDuringItemConflict
 {
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);

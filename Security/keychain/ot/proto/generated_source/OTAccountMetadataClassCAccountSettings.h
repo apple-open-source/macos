@@ -18,8 +18,8 @@ __attribute__((visibility("hidden")))
     BOOL _w;
     BOOL _webAccess;
     struct {
-        int w:1;
-        int webAccess:1;
+        uint w:1;
+        uint webAccess:1;
     } _has;
 }
 

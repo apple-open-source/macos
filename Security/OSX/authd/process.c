@@ -137,7 +137,7 @@ process_create(const audit_info_s * auditInfo, session_t session)
     proc->authTokens = CFBagCreateMutable(kCFAllocatorDefault, 0, &kCFTypeBagCallBacks);
     check(proc->authTokens != NULL);
     
-    proc->dispatch_queue = dispatch_queue_create(NULL, DISPATCH_QUEUE_SERIAL);
+    proc->dispatch_queue = dispatch_queue_create("Process Dispatch Queue", DISPATCH_QUEUE_SERIAL);
     check(proc->dispatch_queue != NULL);
 
     // to have at least some code URL just for case later methods fail

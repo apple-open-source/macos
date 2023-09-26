@@ -16,6 +16,8 @@
 	<true/>
 	<key>com.apple.powerd.coresmartpowernap.tester</key>
 	<true/>
+	<key>com.apple.private.iokit.dominoservice</key>
+	<true/>
 	<key>com.apple.security.iokit-user-client-class</key>
 	<array>
 		<string>ApplePPMUserClient</string>

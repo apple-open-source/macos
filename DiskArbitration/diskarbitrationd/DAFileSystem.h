@@ -50,7 +50,7 @@ extern const CFStringRef kDAFileSystemUnmountArgumentForce;
 
 typedef void ( *DAFileSystemCallback )( int status, void * context );
 
-typedef void ( *DAFileSystemProbeCallback )( int status, CFBooleanRef clean, CFStringRef name, CFStringRef type, CFUUIDRef uuid, void * context );
+typedef void ( *DAFileSystemProbeCallback )( int status, int clean, CFStringRef name, CFStringRef type, CFUUIDRef uuid, void * context );
 
 extern CFStringRef _DAFileSystemCopyNameAndUUID( DAFileSystemRef filesystem, CFURLRef mountpoint, uuid_t *volumeUUID);
 
@@ -58,11 +58,15 @@ extern CFUUIDRef _DAFileSystemCreateUUIDFromString( CFAllocatorRef allocator, CF
 
 extern DAFileSystemRef DAFileSystemCreate( CFAllocatorRef allocator, CFURLRef path );
 
+extern DAFileSystemRef DAFileSystemCreateFromProperties( CFAllocatorRef allocator, CFDictionaryRef properties );
+
 extern dispatch_mach_t DAFileSystemCreateMachChannel( void );
 
 extern CFStringRef DAFileSystemGetKind( DAFileSystemRef filesystem );
 
 extern CFDictionaryRef DAFileSystemGetProbeList( DAFileSystemRef filesystem );
+
+extern CFBooleanRef DAFileSystemIsFSModule( DAFileSystemRef filesystem );
 
 extern CFTypeID DAFileSystemGetTypeID( void );
 

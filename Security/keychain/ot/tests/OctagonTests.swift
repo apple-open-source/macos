@@ -50,10 +50,6 @@ class FakeCKOperationRunner: CKOperationRunner {
             if let completionBlock = operation.codeOperationResultBlock as? ((Result<FetchPolicyDocumentsResponse, Error>) -> Void) {
                 self.server.fetchPolicyDocuments(request, completion: completionBlock)
             }
-        } else if let request = operation.request as? ValidatePeersRequest {
-            if let completionBlock = operation.codeOperationResultBlock as? ((Result<ValidatePeersResponse, Error>) -> Void) {
-                self.server.validatePeers(request, completion: completionBlock)
-            }
         } else if let request = operation.request as? ReportHealthRequest {
             if let completionBlock = operation.codeOperationResultBlock as? ((Result<ReportHealthResponse, Error>) -> Void) {
                 self.server.reportHealth(request, completion: completionBlock)
@@ -438,7 +434,6 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         self.otcliqueContext = OTConfigurationContext()
         self.otcliqueContext.context = OTDefaultContext
-        self.otcliqueContext.dsid = "1234"
         self.otcliqueContext.altDSID = OTMockPersonaAdapter.defaultMockPersonaString()
         self.otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
         self.otcliqueContext.otControl = self.otControl
@@ -635,22 +630,26 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     func assertConsidersSelfTrusted(context: OTCuttlefishContext, isLocked: Bool = false, checkActiveAccount: Bool = true, file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(context.currentMemoizedTrustState(), .TRUSTED, "Trust state (for \(context)) should be trusted", file: file, line: line)
 
-        let accountMetadata = try! context.accountMetadataStore.loadOrCreateAccountMetadata()
-        XCTAssertEqual(accountMetadata.attemptedJoin, .ATTEMPTED, "Should have 'attempted a join'", file: file, line: line)
+        do {
+            let accountMetadata = try context.accountMetadataStore.loadOrCreateAccountMetadata()
+            XCTAssertEqual(accountMetadata.attemptedJoin, .ATTEMPTED, "Should have 'attempted a join'", file: file, line: line)
 
-        let statusexpectation = self.expectation(description: "trust status returns")
-        let configuration = OTOperationConfiguration()
-        configuration.timeoutWaitForCKAccount = 500 * NSEC_PER_MSEC
-        context.rpcTrustStatus(configuration) { egoStatus, egoPeerID, _, isLocked, _, _   in
-            XCTAssertEqual(egoStatus, .in, "Self peer (for \(context)) should be trusted", file: file, line: line)
-            XCTAssertNotNil(egoPeerID, "Should have a peerID", file: file, line: line)
-            XCTAssertEqual(isLocked, isLocked, "should be \(isLocked)", file: file, line: line)
-            statusexpectation.fulfill()
-        }
-        self.wait(for: [statusexpectation], timeout: 10)
+            let statusexpectation = self.expectation(description: "trust status returns")
+            let configuration = OTOperationConfiguration()
+            configuration.timeoutWaitForCKAccount = 500 * NSEC_PER_MSEC
+            context.rpcTrustStatus(configuration) { egoStatus, egoPeerID, _, isLocked, _, _   in
+                XCTAssertEqual(egoStatus, .in, "Self peer (for \(context)) should be trusted", file: file, line: line)
+                XCTAssertNotNil(egoPeerID, "Should have a peerID", file: file, line: line)
+                XCTAssertEqual(isLocked, isLocked, "should be \(isLocked)", file: file, line: line)
+                statusexpectation.fulfill()
+            }
+            self.wait(for: [statusexpectation], timeout: 10)
 
-        if checkActiveAccount {
-            XCTAssertNotNil(context.activeAccount, "Context must have an active account to consider itself trusted")
+            if checkActiveAccount {
+                XCTAssertNotNil(context.activeAccount, "Context must have an active account to consider itself trusted")
+            }
+        } catch {
+            XCTFail("Fail to load/create account metadata: \(error)")
         }
     }
 
@@ -671,7 +670,6 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         let cliqueConfiguration = OTConfigurationContext()
         cliqueConfiguration.context = context.contextID
-        cliqueConfiguration.dsid = "1234"
         cliqueConfiguration.altDSID = try! XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         cliqueConfiguration.otControl = self.otControl
         let otclique = OTClique(contextData: cliqueConfiguration)
@@ -965,8 +963,12 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     }
 
     func assertSelfTLKSharesInCloudKit(context: OTCuttlefishContext, file: StaticString = #file, line: UInt = #line) {
-        let accountMetadata = try! context.accountMetadataStore.loadOrCreateAccountMetadata()
-        self.assertSelfTLKSharesInCloudKit(peerID: accountMetadata.peerID)
+        do {
+            let accountMetadata = try context.accountMetadataStore.loadOrCreateAccountMetadata()
+            self.assertSelfTLKSharesInCloudKit(peerID: accountMetadata.peerID)
+        } catch {
+            XCTFail("Fail to load/create account metadata: \(error)")
+        }
     }
 
     func assertSelfTLKSharesInCloudKit(peerID: String, file: StaticString = #file, line: UInt = #line) {
@@ -978,11 +980,15 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     }
 
     func assertTLKSharesInCloudKit(receiver: OTCuttlefishContext, sender: OTCuttlefishContext, file: StaticString = #file, line: UInt = #line) {
-        let receiverAccountMetadata = try! receiver.accountMetadataStore.loadOrCreateAccountMetadata()
-        let senderAccountMetadata = try! sender.accountMetadataStore.loadOrCreateAccountMetadata()
+        do {
+            let receiverAccountMetadata = try receiver.accountMetadataStore.loadOrCreateAccountMetadata()
+            let senderAccountMetadata = try sender.accountMetadataStore.loadOrCreateAccountMetadata()
 
-        self.assertTLKSharesInCloudKit(receiverPeerID: receiverAccountMetadata.peerID,
-                                       senderPeerID: senderAccountMetadata.peerID)
+            self.assertTLKSharesInCloudKit(receiverPeerID: receiverAccountMetadata.peerID,
+                                           senderPeerID: senderAccountMetadata.peerID)
+        } catch {
+            XCTFail("Fail to load/create account metadata: \(error)")
+        }
     }
 
     func assertTLKSharesInCloudKit(receiverPeerID: String, senderPeerID: String, file: StaticString = #file, line: UInt = #line) {
@@ -1748,39 +1754,6 @@ class OctagonTests: OctagonTestsBase {
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
     }
 
-    func testRequestToJoinCircleForEmptyAccount() throws {
-        self.startCKAccountStatusMock()
-
-        self.cuttlefishContext.startOctagonStateMachine()
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-
-        let clique = OTClique(contextData: self.otcliqueContext)
-
-        // Now, call requestToJoin. It should cause an establish to happen
-        try clique.requestToJoinCircle()
-
-        // Now, we should be in 'ready'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
-        self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
-
-        // and all subCKKSes should enter ready...
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
-        self.verifyDatabaseMocks()
-
-        self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
-
-        // But calling it again shouldn't make establish() occur again
-        self.fakeCuttlefishServer.establishListener = { _ in
-            XCTFail("establish called at incorrect time")
-            return nil
-        }
-
-        // call should be a nop
-        try clique.requestToJoinCircle()
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-    }
-
     func testCliqueStatusWhileLocked() throws {
         self.startCKAccountStatusMock()
 
@@ -2516,6 +2489,19 @@ class OctagonTests: OctagonTestsBase {
         }
     }
 
+    func testPeerDeviceNamesByPeerIDNoCKAccount() throws {
+        let peerDeviceNamesByPeerIDExpectation = self.expectation(description: "peerDeviceNamesByPeerID callback occurs")
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        XCTAssertThrowsError(try clique.peerDeviceNamesByPeerID(), "peerDeviceNamesByPeerID should fail") { error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
+            XCTAssertEqual((error as NSError).code, OctagonError.iCloudAccountStateUnknown.rawValue, "error code should be OctagonErrorNotSignedIn")
+            peerDeviceNamesByPeerIDExpectation.fulfill()
+        }
+        self.wait(for: [peerDeviceNamesByPeerIDExpectation], timeout: 20)
+        self.startCKAccountStatusMock()
+    }
+
     func testOTCliqueOctagonAuthoritativeTrustResponse() throws {
         self.startCKAccountStatusMock()
 
@@ -2553,7 +2539,6 @@ class OctagonTests: OctagonTestsBase {
 
         let newOTCliqueContext = OTConfigurationContext()
         newOTCliqueContext.context = "newCliqueContext"
-        newOTCliqueContext.dsid = self.otcliqueContext.dsid
         newOTCliqueContext.altDSID = self.otcliqueContext.altDSID
         newOTCliqueContext.otControl = self.otcliqueContext.otControl
         let newClique: OTClique
@@ -2646,7 +2631,7 @@ class OctagonTests: OctagonTestsBase {
         let stateTransitionOp = OctagonStateTransitionOperation(name: "will-never-run",
                                                                 entering: OctagonStateReady)
         let requestNever = OctagonStateTransitionRequest("name",
-                                                         sourceStates: Set([OctagonStateWaitForHSA2]),
+                                                         sourceStates: Set([OctagonStateWaitForCDPCapableSecurityLevel]),
                                                          serialQueue: self.cuttlefishContext.queue,
                                                          timeout: 1 * NSEC_PER_SEC,
                                                          transitionOp: stateTransitionOp)
@@ -2875,6 +2860,7 @@ class OctagonTests: OctagonTestsBase {
             "CreditCards",
             "DevicePairing",
             "Engram",
+            "Groups",
             "Health",
             "Home",
             "LimitedPeersAllowed",
@@ -2882,6 +2868,7 @@ class OctagonTests: OctagonTestsBase {
             "Manatee",
             "MFi",
             "Passwords",
+            "Photos",
             "ProtectedCloudStorage",
             "SecureObjectSync",
             "WiFi",
@@ -3183,6 +3170,68 @@ class OctagonTests: OctagonTestsBase {
         self.sendTTRRequest(context: self.cuttlefishContext)
 
         self.wait(for: [try XCTUnwrap(self.ttrExpectation)], timeout: 10)
+    }
+
+    func testTrustedPeerCountAPI() throws {
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        var count: NSNumber?
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertTrue(count?.intValue == 1, "count should be 1")
+
+        // until there's another peer around
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertTrue(count?.intValue == 2, "count should be 2")
+
+        let secondJoiningContext = self.makeInitiatorContext(contextID: "second_joiner", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertTrue(count?.intValue == 3, "count should be 3")
+    }
+
+    func testTrustedPeerCountAPIWhileNotTrusted() throws {
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        var count: NSNumber?
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertTrue(count?.intValue == 1, "count should be 1")
+
+        // until there's another peer around
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertTrue(count?.intValue == 2, "count should be 2")
+
+        let secondJoiningContext = self.makeInitiatorContext(contextID: "second_joiner", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertTrue(count?.intValue == 3, "count should be 3")
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        XCTAssertNoThrow(try clique.leave(), "Should not be an error departing clique")
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertTrue(count?.intValue == 2, "count should be 2")
     }
 
     func testPersistRefSchedulerLessThan100Items() throws {
@@ -4162,8 +4211,18 @@ class OctagonTestsOverrideModelTV: OctagonTestsOverrideModelBase {
                                                       deviceName: "intro-TV",
                                                       serialNumber: "456",
                                                       osVersion: "tvOS (whatever TV version)")
-
         super.setUp()
+#if os(xrOS)
+        TPSetBecomeiPadOverride(false)
+#endif
+    }
+
+    override func tearDown() {
+        super.tearDown()
+
+#if os(xrOS)
+        TPClearBecomeiPadOverride()
+#endif
     }
 
     func testVoucherFromTV() throws {
@@ -4191,6 +4250,17 @@ class OctagonTestsOverrideModelWindows: OctagonTestsOverrideModelBase {
                                                       osVersion: "Windows (whatever Windows version)")
 
         super.setUp()
+#if os(xrOS)
+        TPSetBecomeiPadOverride(false)
+#endif
+    }
+
+    override func tearDown() {
+        super.tearDown()
+
+#if os(xrOS)
+        TPClearBecomeiPadOverride()
+#endif
     }
 
     func testVoucherFromTV() throws {
@@ -4219,6 +4289,17 @@ class OctagonTestsOverrideModelMac: OctagonTestsOverrideModelBase {
                                                       serialNumber: "456",
                                                       osVersion: "OSX 11")
         super.setUp()
+#if os(xrOS)
+        TPSetBecomeiPadOverride(false)
+#endif
+    }
+
+    override func tearDown() {
+        super.tearDown()
+
+#if os(xrOS)
+        TPClearBecomeiPadOverride()
+#endif
     }
 
     func testVoucherFromMac() throws {

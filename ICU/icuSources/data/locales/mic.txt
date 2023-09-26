@@ -1,0 +1,38 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+mic{
+    AuxExemplarCharacters{"[b c d f g h r v x z]"}
+    ExemplarCharacters{
+        "[a {a\u0301} e {e\u0301} i {\u0268} j k l m n o {o\u0301} p q s t u {u"
+        "\u0301} w y ʼ]"
+    }
+    ExemplarCharactersIndex{
+        "[A {A\u0301} E {E\u0301} I {\u0197} J K L M N O {O\u0301} P Q S T U {U"
+        "\u0301} W Y]"
+    }
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
+    }
+    calendar{
+        gregorian{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, MMMM d, y",
+                "MMMM d, y",
+                "MMM d, y",
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+        }
+    }
+}

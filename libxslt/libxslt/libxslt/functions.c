@@ -13,7 +13,15 @@
 #define IN_LIBXSLT
 #include "libxslt.h"
 
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#ifdef HAVE_PTHREAD_H
+#include <pthread.h>
+#elif defined(HAVE_WIN32_THREADS)
+#include <windows.h>
+#endif
 
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -36,6 +44,7 @@
 #include "xslt.h"
 #include "xsltInternals.h"
 #include "xsltutils.h"
+#include "xsltutilsInternal.h"
 #include "functions.h"
 #include "extensions.h"
 #include "numbersInternals.h"
@@ -53,19 +62,15 @@
  */
 #define DOCBOOK_XSL_HACK
 
-#ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-#ifdef __APPLE__
-#include <stdbool.h>
-
-extern bool linkedOnOrAfterFall2022OSVersions(void);  // See xsltutils.c.
-
-#define LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16 \
-        linkedOnOrAfterFall2022OSVersions()
-
-#else
-#define LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16 1 /* true */
-#endif /* __APPLE__ */
-#endif /* LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16 */
+#ifdef HAVE_PTHREAD_H
+static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+#elif defined(HAVE_WIN32_THREADS)
+static struct {
+    DWORD done;
+    DWORD control;
+} run_once = {0, 0};
+#endif
+static intptr_t base_value = 0;
 
 /**
  * xsltXPathFunctionLookup:
@@ -194,7 +199,7 @@ xsltDocumentFunctionLoadDocument(xmlXPathParserContextPtr ctxt, xmlChar* URI)
 
 #if defined(LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16) && \
     (LIBXML_VERSION >= 20911 || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION))
-    if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+    if (linkedOnOrAfterFall2022OSVersions()) {
         xptrctxt->opLimit = ctxt->context->opLimit;
         xptrctxt->opCount = ctxt->context->opCount;
         xptrctxt->depth = ctxt->context->depth;
@@ -202,7 +207,7 @@ xsltDocumentFunctionLoadDocument(xmlXPathParserContextPtr ctxt, xmlChar* URI)
 
     resObj = xmlXPtrEval(fragment, xptrctxt);
 
-    if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+    if (linkedOnOrAfterFall2022OSVersions()) {
         ctxt->context->opCount = xptrctxt->opCount;
     }
 #else
@@ -701,6 +706,13 @@ xsltFormatNumberFunction(xmlXPathParserContextPtr ctxt, int nargs)
     xmlXPathFreeObject(decimalObj);
 }
 
+static void
+_initBaseValue()
+{
+    srandom(time(NULL));
+    base_value = random() || random();
+}
+
 /**
  * xsltGenerateIdFunction:
  * @ctxt:  the XPath Parser context
@@ -711,11 +723,18 @@ xsltFormatNumberFunction(xmlXPathParserContextPtr ctxt, int nargs)
  */
 void
 xsltGenerateIdFunction(xmlXPathParserContextPtr ctxt, int nargs){
-    static char base_address;
+    xsltTransformContextPtr tctxt;
     xmlNodePtr cur = NULL;
     xmlXPathObjectPtr obj = NULL;
-    long val;
-    xmlChar str[30];
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+    char *str;
+    const xmlChar *nsPrefix = NULL;
+    void **psviPtr;
+    unsigned long id;
+    size_t size, nsPrefixSize = 0;
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
+
+    tctxt = xsltXPathGetTransformContext(ctxt);
 
     if (nargs == 0) {
 	cur = ctxt->context->node;
@@ -725,16 +744,15 @@ xsltGenerateIdFunction(xmlXPathParserContextPtr ctxt, int nargs){
 
 	if ((ctxt->value == NULL) || (ctxt->value->type != XPATH_NODESET)) {
 	    ctxt->error = XPATH_INVALID_TYPE;
-	    xsltTransformError(xsltXPathGetTransformContext(ctxt), NULL, NULL,
+	    xsltTransformError(tctxt, NULL, NULL,
 		"generate-id() : invalid arg expecting a node-set\n");
-	    return;
+            goto out;
 	}
 	obj = valuePop(ctxt);
 	nodelist = obj->nodesetval;
 	if ((nodelist == NULL) || (nodelist->nodeNr <= 0)) {
-	    xmlXPathFreeObject(obj);
 	    valuePush(ctxt, xmlXPathNewCString(""));
-	    return;
+	    goto out;
 	}
 	cur = nodelist->nodeTab[0];
 	for (i = 1;i < nodelist->nodeNr;i++) {
@@ -743,22 +761,129 @@ xsltGenerateIdFunction(xmlXPathParserContextPtr ctxt, int nargs){
 	        cur = nodelist->nodeTab[i];
 	}
     } else {
-	xsltTransformError(xsltXPathGetTransformContext(ctxt), NULL, NULL,
+	xsltTransformError(tctxt, NULL, NULL,
 		"generate-id() : invalid number of args %d\n", nargs);
 	ctxt->error = XPATH_INVALID_ARITY;
-	return;
+	goto out;
     }
 
-    if (obj)
-        xmlXPathFreeObject(obj);
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+    if (linkedOnOrAfterFall2023OSVersions()) {
+    size = 30; /* for "id%lu" */
 
-    val = (long)((char *)cur - (char *)&base_address);
-    if (val >= 0) {
-      snprintf((char *)str, sizeof(str), "idp%ld", val);
+    if (cur->type == XML_NAMESPACE_DECL) {
+        xmlNsPtr ns = (xmlNsPtr) cur;
+
+        nsPrefix = ns->prefix;
+        if (nsPrefix == NULL)
+            nsPrefix = BAD_CAST "";
+        nsPrefixSize = xmlStrlen(nsPrefix);
+        /* For "ns" and hex-encoded string */
+        size += nsPrefixSize * 2 + 2;
+
+        /* Parent is stored in 'next'. */
+        cur = (xmlNodePtr) ns->next;
+    }
+
+    psviPtr = xsltGetPSVIPtr(cur);
+    if (psviPtr == NULL) {
+        xsltTransformError(tctxt, NULL, NULL,
+                "generate-id(): invalid node type %d\n", cur->type);
+        ctxt->error = XPATH_INVALID_TYPE;
+        goto out;
+    }
+
+    if (xsltGetSourceNodeFlags(cur) & XSLT_SOURCE_NODE_HAS_ID) {
+        id = (unsigned long) *psviPtr;
     } else {
-      snprintf((char *)str, sizeof(str), "idm%ld", -val);
+        if (cur->type == XML_TEXT_NODE && cur->line == USHRT_MAX) {
+            /* Text nodes store big line numbers in psvi. */
+            cur->line = 0;
+        } else if (*psviPtr != NULL) {
+            xsltTransformError(tctxt, NULL, NULL,
+                    "generate-id(): psvi already set\n");
+            ctxt->error = XPATH_MEMORY_ERROR;
+            goto out;
+        }
+
+        if (tctxt->currentId == ULONG_MAX) {
+            xsltTransformError(tctxt, NULL, NULL,
+                    "generate-id(): id overflow\n");
+            ctxt->error = XPATH_MEMORY_ERROR;
+            goto out;
+        }
+
+        id = ++tctxt->currentId;
+        *psviPtr = (void *) id;
+        xsltSetSourceNodeFlags(tctxt, cur, XSLT_SOURCE_NODE_HAS_ID);
     }
-    valuePush(ctxt, xmlXPathNewString(str));
+
+    str = xmlMalloc(size);
+    if (str == NULL) {
+        xsltTransformError(tctxt, NULL, NULL,
+                "generate-id(): out of memory\n");
+        ctxt->error = XPATH_MEMORY_ERROR;
+        goto out;
+    }
+    if (nsPrefix == NULL) {
+        snprintf(str, size, "id%lu", id);
+    } else {
+        size_t i, j;
+
+        snprintf(str, size, "id%luns", id);
+
+        /*
+         * Only ASCII alphanumerics are allowed, so we hex-encode the prefix.
+         */
+        j = strlen(str);
+        for (i = 0; i < nsPrefixSize; i++) {
+            int v;
+
+            v = nsPrefix[i] >> 4;
+            str[j++] = v < 10 ? '0' + (char)v : 'A' + (char)(v - 10);
+            v = nsPrefix[i] & 15;
+            str[j++] = v < 10 ? '0' + (char)v : 'A' + (char)(v - 10);
+        }
+        str[j] = '\0';
+    }
+    valuePush(ctxt, xmlXPathWrapString(BAD_CAST str));
+    } else
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
+    {
+    long val;
+    xmlChar idstr[30];
+
+#ifdef HAVE_PTHREAD_H
+    pthread_once(&once_control, _initBaseValue);
+#elif defined(HAVE_WIN32_THREADS)
+    if (!run_once.done) {
+        if (InterlockedIncrement(&run_once.control) == 1) {
+            _initBaseValue();
+            run_once.done = 1;
+        } else {
+            /* Another thread is working; give up our slice and
+             * wait until they're done. */
+            while (!run_once.done)
+                Sleep(0);
+        }
+    }
+#else
+#pragma error "_initBaseValue() is probably not thread-safe on this platform."
+    if (base_value == 0)
+        _initBaseValue();
+#endif
+
+    val = (long)((intptr_t)cur - base_value);
+    if (val >= 0) {
+      snprintf((char *)idstr, sizeof(idstr), "idp%ld", val);
+    } else {
+      snprintf((char *)idstr, sizeof(idstr), "idm%ld", -val);
+    }
+    valuePush(ctxt, xmlXPathNewString(idstr));
+    }
+
+out:
+    xmlXPathFreeObject(obj);
 }
 
 /**

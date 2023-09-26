@@ -2825,42 +2825,6 @@ xmlXPathCacheConvertNumber(xmlXPathContextPtr ctxt, xmlXPathObjectPtr val) {
  ************************************************************************/
 
 /**
- * xmlXPathSetFrame:
- * @ctxt: an XPath parser context
- *
- * Set the callee evaluation frame
- *
- * Returns the previous frame value to be restored once done
- */
-static int
-xmlXPathSetFrame(xmlXPathParserContextPtr ctxt) {
-    int ret;
-
-    if (ctxt == NULL)
-        return(0);
-    ret = ctxt->valueFrame;
-    ctxt->valueFrame = ctxt->valueNr;
-    return(ret);
-}
-
-/**
- * xmlXPathPopFrame:
- * @ctxt: an XPath parser context
- * @frame: the previous frame value
- *
- * Remove the callee evaluation frame
- */
-static void
-xmlXPathPopFrame(xmlXPathParserContextPtr ctxt, int frame) {
-    if (ctxt == NULL)
-        return;
-    if (ctxt->valueNr < ctxt->valueFrame) {
-        xmlXPatherror(ctxt, __FILE__, __LINE__, XPATH_STACK_ERROR);
-    }
-    ctxt->valueFrame = frame;
-}
-
-/**
  * valuePop:
  * @ctxt: an XPath evaluation context
  *
@@ -2875,11 +2839,6 @@ valuePop(xmlXPathParserContextPtr ctxt)
 
     if ((ctxt == NULL) || (ctxt->valueNr <= 0))
         return (NULL);
-
-    if (ctxt->valueNr <= ctxt->valueFrame) {
-        xmlXPatherror(ctxt, __FILE__, __LINE__, XPATH_STACK_ERROR);
-        return (NULL);
-    }
 
     ctxt->valueNr--;
     if (ctxt->valueNr > 0)
@@ -5130,6 +5089,8 @@ xmlXPathRegisteredVariablesCleanup(xmlXPathContextPtr ctxt) {
 int
 xmlXPathRegisterNs(xmlXPathContextPtr ctxt, const xmlChar *prefix,
 			   const xmlChar *ns_uri) {
+    xmlChar *copy;
+
     if (ctxt == NULL)
 	return(-1);
     if (prefix == NULL)
@@ -5144,8 +5105,17 @@ xmlXPathRegisterNs(xmlXPathContextPtr ctxt, const xmlChar *prefix,
     if (ns_uri == NULL)
         return(xmlHashRemoveEntry(ctxt->nsHash, prefix,
 	                          xmlHashDefaultDeallocator));
-    return(xmlHashUpdateEntry(ctxt->nsHash, prefix, (void *) xmlStrdup(ns_uri),
-			      xmlHashDefaultDeallocator));
+
+    copy = xmlStrdup(ns_uri);
+    if (copy == NULL)
+        return(-1);
+    if (xmlHashUpdateEntry(ctxt->nsHash, prefix, copy,
+                           xmlHashDefaultDeallocator) < 0) {
+        xmlFree(copy);
+        return(-1);
+    }
+
+    return(0);
 }
 
 /**
@@ -6287,7 +6257,6 @@ xmlXPathCompParserContext(xmlXPathCompExprPtr comp, xmlXPathContextPtr ctxt) {
     ret->valueNr = 0;
     ret->valueMax = 10;
     ret->value = NULL;
-    ret->valueFrame = 0;
 
     ret->context = ctxt;
     ret->comp = comp;
@@ -13260,20 +13229,17 @@ xmlXPathCompOpEval(xmlXPathParserContextPtr ctxt, xmlXPathStepOpPtr op)
 		int i;
                 int frame;
 
-                frame = xmlXPathSetFrame(ctxt);
+                frame = ctxt->valueNr;
                 if (op->ch1 != -1) {
                     total +=
                         xmlXPathCompOpEval(ctxt, &comp->steps[op->ch1]);
-                    if (ctxt->error != XPATH_EXPRESSION_OK) {
-                        xmlXPathPopFrame(ctxt, frame);
+                    if (ctxt->error != XPATH_EXPRESSION_OK)
                         break;
-                    }
                 }
-		if (ctxt->valueNr < ctxt->valueFrame + op->value) {
+		if (ctxt->valueNr < frame + op->value) {
 		    xmlGenericError(xmlGenericErrorContext,
 			    "xmlXPathCompOpEval: parameter error\n");
 		    ctxt->error = XPATH_INVALID_OPERAND;
-                    xmlXPathPopFrame(ctxt, frame);
 		    break;
 		}
 		for (i = 0; i < op->value; i++) {
@@ -13281,7 +13247,6 @@ xmlXPathCompOpEval(xmlXPathParserContextPtr ctxt, xmlXPathStepOpPtr op)
 			xmlGenericError(xmlGenericErrorContext,
 				"xmlXPathCompOpEval: parameter error\n");
 			ctxt->error = XPATH_INVALID_OPERAND;
-                        xmlXPathPopFrame(ctxt, frame);
 			break;
 		    }
                 }
@@ -13300,7 +13265,6 @@ xmlXPathCompOpEval(xmlXPathParserContextPtr ctxt, xmlXPathStepOpPtr op)
                             xmlGenericError(xmlGenericErrorContext,
             "xmlXPathCompOpEval: function %s bound to undefined prefix %s\n",
                                     (char *)op->value4, (char *)op->value5);
-                            xmlXPathPopFrame(ctxt, frame);
                             ctxt->error = XPATH_UNDEF_PREFIX_ERROR;
                             break;
                         }
@@ -13324,9 +13288,8 @@ xmlXPathCompOpEval(xmlXPathParserContextPtr ctxt, xmlXPathStepOpPtr op)
                 ctxt->context->function = oldFunc;
                 ctxt->context->functionURI = oldFuncURI;
                 if ((ctxt->error == XPATH_EXPRESSION_OK) &&
-                    (ctxt->valueNr != ctxt->valueFrame + 1))
+                    (ctxt->valueNr != frame + 1))
                     XP_ERROR0(XPATH_STACK_ERROR);
-                xmlXPathPopFrame(ctxt, frame);
                 break;
             }
         case XPATH_OP_ARG:
@@ -14036,7 +13999,6 @@ xmlXPathRunEval(xmlXPathParserContextPtr ctxt, int toBool)
 	ctxt->valueNr = 0;
 	ctxt->valueMax = 10;
 	ctxt->value = NULL;
-        ctxt->valueFrame = 0;
     }
 #ifdef XPATH_STREAMING
     if (ctxt->comp->stream) {

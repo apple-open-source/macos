@@ -89,8 +89,6 @@ private:
     void uppercaseWord() final;
     void lowercaseWord() final;
     void capitalizeWord() final;
-
-    void setCaretDecorationVisibility(bool) final { };
 #endif
 
 #if USE(AUTOMATIC_TEXT_REPLACEMENT)
@@ -112,10 +110,10 @@ private:
     TextCheckerClient* textChecker() final { return this; }
 
     void respondToChangedContents() final;
-    void respondToChangedSelection(WebCore::Frame*) final;
+    void respondToChangedSelection(WebCore::LocalFrame*) final;
     void didEndUserTriggeredSelectionChanges() final { }
     void updateEditorStateAfterLayoutIfEditabilityChanged() final;
-    void discardedComposition(WebCore::Frame*) final;
+    void discardedComposition(const WebCore::Document&) final;
     void canceledComposition() final;
     void didUpdateComposition() final { }
 
@@ -123,8 +121,8 @@ private:
     void registerRedoStep(WebCore::UndoStep&) final;
     void clearUndoRedoOperations() final;
 
-    bool canCopyCut(WebCore::Frame*, bool defaultValue) const final;
-    bool canPaste(WebCore::Frame*, bool defaultValue) const final;
+    bool canCopyCut(WebCore::LocalFrame*, bool defaultValue) const final;
+    bool canPaste(WebCore::LocalFrame*, bool defaultValue) const final;
     bool canUndo() const final;
     bool canRedo() const final;
     
@@ -202,6 +200,10 @@ private:
     RetainPtr<NSString> m_paragraphContextForCandidateRequest;
     NSRange m_rangeForCandidates;
     NSInteger m_lastCandidateRequestSequenceNumber;
+#endif
+
+#if ENABLE(TEXT_CARET)
+    bool m_lastSelectionWasPainted { false };
 #endif
 
     enum class EditorStateIsContentEditable { No, Yes, Unset };

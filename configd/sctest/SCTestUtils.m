@@ -51,6 +51,15 @@ getTestClasses(void)
 			}
 
 			if (superClass == base) {
+
+#if TARGET_OS_BRIDGE
+				// Only SCTestDynamicStore tests are allowed on BridgeOS.
+				NSString *className = (NSString *)@(class_getName(classList[i]));
+				if (!([className isEqualToString:@"SCTestDynamicStore"]
+				    || [className isEqualToString:@"SCTestUnitTest"])) {
+					continue;
+				}
+#endif // TARGET_OS_BRIDGE
 				[subclassNames addObject:@(class_getName(classList[i]))];
 			}
 		}
@@ -95,13 +104,17 @@ getUnitTestListForClass(Class base)
 NSDictionary *
 getOptionsDictionary(int argc, const char * const argv[])
 {
-    NSMutableDictionary *options;
-    NSNumberFormatter *numberFormatter;
-    int ch;
-    int i;
-    struct option entries[] = {
-        kSCTestOptionEntries
-    };
+	NSMutableDictionary *options;
+	NSNumberFormatter *numberFormatter;
+	int ch;
+	int i;
+	struct option entries[] = {
+		kSCTestOptionEntriesAllPlatforms
+#if !TARGET_OS_BRIDGE
+		kSCTestOptionEntriesNonBridgeOS
+#endif // !TARGET_OS_BRIDGE
+		{NULL, 0, NULL, 0}
+	};
 
 	options = [NSMutableDictionary dictionary];
 	optind = 0;
@@ -112,7 +125,7 @@ getOptionsDictionary(int argc, const char * const argv[])
 		struct option opt = entries[i];
 		NSString *optKey = [NSString stringWithFormat:@"%s_Str", opt.name]; // ... "_Str" suffix is standardized across all keys.
 		id optVal = nil;
-        id existingValue = nil;
+		id existingValue = nil;
 
 		if (opt.has_arg) {
 			// Parse the optarg

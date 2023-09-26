@@ -46,9 +46,14 @@
  * This indicates an error has occurred during processing or there are no more CEs 
  * to be returned.
  */
-#ifndef UCOL_PROCESSED_NULLORDER
-#define UCOL_PROCESSED_NULLORDER        ((int64_t)U_INT64_MAX)
-#endif
+#if APPLE_ICU_CHANGES
+// rdar://
+ #ifndef UCOL_PROCESSED_NULLORDER
+ #define UCOL_PROCESSED_NULLORDER        ((int64_t)U_INT64_MAX)
+ #endif
+#else
+ #define UCOL_PROCESSED_NULLORDER        ((int64_t)U_INT64_MAX)
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_BEGIN
 

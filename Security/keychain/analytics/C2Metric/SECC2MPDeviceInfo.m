@@ -38,16 +38,16 @@
 @synthesize isAppleInternal = _isAppleInternal;
 - (void)setIsAppleInternal:(BOOL)v
 {
-    _has.isAppleInternal = YES;
+    _has.isAppleInternal = (uint)YES;
     _isAppleInternal = v;
 }
 - (void)setHasIsAppleInternal:(BOOL)f
 {
-    _has.isAppleInternal = f;
+    _has.isAppleInternal = (uint)f;
 }
 - (BOOL)hasIsAppleInternal
 {
-    return _has.isAppleInternal;
+    return _has.isAppleInternal != 0;
 }
 - (BOOL)hasProcessName
 {
@@ -193,7 +193,7 @@ BOOL SECC2MPDeviceInfoReadFrom(__unsafe_unretained SECC2MPDeviceInfo *self, __un
             break;
             case 105 /* isAppleInternal */:
             {
-                self->_has.isAppleInternal = YES;
+                self->_has.isAppleInternal = (uint)YES;
                 self->_isAppleInternal = PBReaderReadBOOL(reader);
             }
             break;

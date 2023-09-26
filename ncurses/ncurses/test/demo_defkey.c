@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2002-2007,2008 Free Software Foundation, Inc.              *
+ * Copyright (c) 2002-2012,2013 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: demo_defkey.c,v 1.19 2008/08/04 16:24:47 tom Exp $
+ * $Id: demo_defkey.c,v 1.22 2013/09/28 22:02:17 tom Exp $
  *
  * Demonstrate the define_key() function.
  * Thomas Dickey - 2002/11/23
@@ -98,7 +98,7 @@ static char *
 visible(const char *string)
 {
     char *result = 0;
-    unsigned need = 1;
+    size_t need = 1;
     int pass;
     int n;
 
@@ -106,7 +106,7 @@ visible(const char *string)
 	for (pass = 0; pass < 2; ++pass) {
 	    for (n = 0; string[n] != '\0'; ++n) {
 		char temp[80];
-		strcpy(temp, visichar(string[n]));
+		strncpy(temp, visichar(string[n]), sizeof(temp) - 2);
 		if (pass)
 		    strcat(result, temp);
 		else
@@ -116,7 +116,7 @@ visible(const char *string)
 		result = typeCalloc(char, need);
 	}
     } else {
-	result = typeCalloc(char, 1);
+	result = typeCalloc(char, (size_t) 1);
     }
     return result;
 }
@@ -186,9 +186,9 @@ duplicate(WINDOW *win, NCURSES_CONST char *name, int code)
 	const char *prefix = 0;
 	char temp[BUFSIZ];
 
-	if (!strncmp(value, "\033[", 2)) {
+	if (!strncmp(value, "\033[", (size_t) 2)) {
 	    prefix = "\033O";
-	} else if (!strncmp(value, "\033O", 2)) {
+	} else if (!strncmp(value, "\033O", (size_t) 2)) {
 	    prefix = "\033[";
 	}
 	if (prefix != 0) {

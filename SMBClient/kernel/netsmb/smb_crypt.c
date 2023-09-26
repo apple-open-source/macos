@@ -1022,21 +1022,270 @@ smb2_rq_verify(struct smb_rq *rqp, struct mdchain *mdp, uint8_t *signature)
  * SMB 3 Routines
  */
 
+#define SMB2_GMAC_IV_IS_RESPONSE 0x1
+#define SMB2_GMAC_IV_IS_CANCEL   0x2
+
+typedef struct {
+    uint64_t message_id;
+    uint32_t flags;
+} gmac_iv;
+
+static int
+smb3_init_gmac_iv(uint64_t message_id,
+                  uint16_t command,
+                  bool is_response,
+                  gmac_iv  *iv)
+{
+    if (iv == NULL) {
+        SMBERROR("iv is NULL");
+        return EINVAL;
+    }
+    iv->message_id = message_id;
+    
+    if (is_response) {
+        iv->flags |= SMB2_GMAC_IV_IS_RESPONSE;
+    }
+    if (command == SMB2_CANCEL) {
+        iv->flags |= SMB2_GMAC_IV_IS_CANCEL;
+    }
+    return 0;
+}
+
+static int
+smb3_get_signature_one_shot(uint16_t algorithm,
+                            uint8_t *key,
+                            size_t size,
+                            u_char *block,
+                            u_char *mac,
+                            uint64_t message_id,
+                            uint16_t command,
+                            bool is_response)
+{
+    
+    int error;
+
+    switch (algorithm) {
+        case SMB2_SIGNING_AES_CMAC:
+        {
+            const struct ccmode_cbc *ccmode = ccaes_cbc_encrypt_mode();
+            error = cccmac_one_shot_generate(ccmode,
+                                             SMB3_KEY_LEN, key,
+                                             size, block,
+                                             CMAC_BLOCKSIZE, mac);
+            break;
+        }
+        case SMB2_SIGNING_AES_GMAC:
+        {
+            const struct ccmode_gcm *gcmode = ccaes_gcm_encrypt_mode();
+            gmac_iv iv = {0};
+            error = smb3_init_gmac_iv(message_id, command, is_response, &iv);
+            if (error) {
+                return EAUTH;
+            }
+            error = ccgcm_one_shot(gcmode,
+                                   SMB3_KEY_LEN, key,
+                                   CCGCM_IV_NBYTES, (void*)&iv,
+                                   size, block,
+                                   0, NULL, NULL, // not used for signing
+                                   CCGCM_BLOCK_NBYTES, mac);
+            break;
+        }
+        default:
+        {
+            SMBERROR("Signing algorithm (%u) not supported", algorithm);
+            error = EINVAL;
+            break;
+        }
+    }
+    return error;
+}
+
+static int
+smb3_get_signature_blocks(struct smb_rq *rqp,
+                          uint8_t *key,
+                          struct mbchain *mbp,
+                          struct mdchain *mdp,
+                          u_char *mac,
+                          size_t packet_len)
+{
+    const struct ccmode_cbc *ccmode = ccaes_cbc_encrypt_mode();
+    const struct ccmode_gcm *gcmode = ccaes_gcm_encrypt_mode();
+    mbuf_t mb, starting_mp;
+    size_t mb_len;
+    u_char *mb_data;
+    int mb_count = 0;
+    int error;
+    bool is_response;
+    uint16_t algorithm = rqp->sr_session->session_smb3_signing_algorithm;
+    cccmac_mode_decl(ccmode, cmac);
+    ccgcm_ctx_decl(ccgcm_context_size(gcmode), context);
+
+    if (mdp == NULL) {
+        /* Signing a request - easy case */
+        starting_mp = mbp->mb_top;
+        is_response = false;
+    }
+    else {
+        /* Signing a reply - complicated case */
+        starting_mp = mdp->md_cur;
+        is_response = true;
+    }
+
+    /* Initial mb setup */
+    mb_count = 0;
+
+    /* Init the cipher */
+    switch (algorithm) {
+        case SMB2_SIGNING_AES_CMAC:
+            error = cccmac_init(ccmode, cmac, SMB3_KEY_LEN, key);
+            if (error) {
+                SMBERROR("cccmac_init failed %d \n", error);
+                goto out;
+            }
+            break;
+        case SMB2_SIGNING_AES_GMAC:
+        {
+            gmac_iv iv = {0};
+            error = smb3_init_gmac_iv(rqp->sr_messageid,
+                                      rqp->sr_command,
+                                      is_response,
+                                      &iv);
+            if (error) {
+                return EAUTH;
+            }
+
+            error = ccgcm_init_with_iv(gcmode, context, SMB3_KEY_LEN, key, (void*)&iv);
+            if (error) {
+                SMBERROR("ccgcm_init failed %d \n", error);
+                goto out;
+            }
+            break;
+        }
+        default:
+            SMBERROR("Signing algorithm (%u) not supported", algorithm);
+            error = EINVAL;
+            goto out;
+    }
+
+    /*
+     * Loop through the mbufs and process each one
+     * Requests - loop until we get to end of mbuf chain
+     * Replies - loop until packet_len is 0
+     */
+    for (mb = starting_mp; mb != NULL; mb = mbuf_next(mb)) {
+        if ((mdp) &&
+            (mb == starting_mp)) {
+            /*
+             * For replies and for the first mbuf:
+             * 1) len is how ever many bytes are left in the current mbuf
+             * that have not been processed yet
+             * 2) mbuf data starts at mdp->md_pos
+             */
+            mb_len = (size_t) mbuf_data(mb) + mbuf_len(mb) - (size_t) mdp->md_pos;
+            //SMBERROR("reply start len %ld \n", mb_len);
+            mb_data = mdp->md_pos;
+        }
+        else {
+            /*
+             * Either its is a request or past the first mbuf for a reply
+             */
+            mb_len = mbuf_len(mb);
+            mb_data = mbuf_data(mb);
+        }
+
+        /*
+         * Only replies use packet_len. See if the reply ends before the end
+         * of this mbuf. If so, then only process up to the end of the reply.
+         */
+        if ((mdp) && (packet_len > 0)) {
+            if (packet_len < mb_len) {
+                mb_len = packet_len;
+            }
+        }
+
+        /* Process this m_buf's data */
+        switch (algorithm) {
+            case SMB2_SIGNING_AES_CMAC:
+                error = cccmac_update(cmac, mb_len, mb_data);
+                if (error) {
+                    SMBERROR("cccmac_update failed %d \n", error);
+                    goto out;
+                }
+                break;
+            case SMB2_SIGNING_AES_GMAC:
+                error = ccgcm_aad(gcmode, context, mb_len, mb_data);
+                if (error) {
+                    SMBERROR("ccgcm_aad failed %d \n", error);
+                    goto out;
+                }
+                break;
+            default:
+                // Should never happen
+                SMBERROR("Signing algorithm (%u) not supported", algorithm);
+                error = EINVAL;
+                goto out;
+        }
+
+
+        /* For replies, decrement how much of the reply we have left */
+        if ((mdp) && (packet_len > 0)) {
+            packet_len -= mb_len;
+
+            if (packet_len == 0) {
+                /* Done with reply, go to cccmac_final */
+                break;
+            }
+        }
+
+        mb_count += 1;
+    }
+
+    /* Finalize the signature */
+    switch (algorithm) {
+        case SMB2_SIGNING_AES_CMAC:
+            error = cccmac_final_generate(cmac, CMAC_BLOCKSIZE, mac);
+            if (error) {
+                SMBERROR("cccmac_final_generate failed %d \n", error);
+            }
+            break;
+        case SMB2_SIGNING_AES_GMAC:
+            error = ccgcm_finalize(gcmode, context, CCGCM_BLOCK_NBYTES, mac);
+            if (error) {
+                SMBERROR("ccgcm_finalize failed %d \n", error);
+            }
+            break;
+        default:
+            // Should never happen
+            SMBERROR("Signing algorithm (%u) not supported", algorithm);
+            break;
+    }
+
+
+    /* Replies only check */
+    if ((mdp) && (packet_len > 0)) {
+        SMBERROR("Not enough bytes in packet? <%zu>\n", packet_len);
+    }
+
+    return 0;
+out:
+    return error;
+}
+
 static void
-smb3_get_signature(uint8_t *key, uint32_t keylen,
+smb3_get_signature(struct smb_rq *rqp,
+                   uint8_t *key, uint32_t keylen,
 				   struct mbchain *mbp,
 				   struct mdchain *mdp,
 				   size_t packet_len,
 				   uint8_t *out_signature,
 				   size_t out_signature_len)
 {
-	mbuf_t mb, starting_mp;
+	mbuf_t mb;
 	size_t mb_off, mb_len, n;
-	u_char mac[CMAC_BLOCKSIZE], *mb_data;
-	const struct ccmode_cbc *ccmode = ccaes_cbc_encrypt_mode();
-	int mb_count = 0;
+	u_char mac[CMAC_BLOCKSIZE];
 	int error;
 	u_char *block = NULL;
+    bool is_response;
 #if USE_MALLOC
 	size_t malloc_size = HYBRID_MALLOC_SIZE;
 #else
@@ -1048,9 +1297,14 @@ smb3_get_signature(uint8_t *key, uint32_t keylen,
 	 * Refer to smb3_verify() for more details on how complicated compound
 	 * replies are to process
 	 */
-	
+
+    if (rqp == NULL) {
+        SMBERROR("rqp is null\n");
+        return;
+    }
+
 	if (out_signature == NULL) {
-		SMBERROR("mbp or out_signature is null\n");
+		SMBERROR("out_signature is null\n");
 		return;
 	}
 	
@@ -1090,16 +1344,16 @@ smb3_get_signature(uint8_t *key, uint32_t keylen,
 			mb = mbp->mb_top;
 			mb_len = mbuf_len(mb);
 			mb_off = 0;
+            is_response = false;
 		}
 		else {
 			/* Its a reply to process */
 			mb = mdp->md_cur;
 			mb_len = (size_t) mbuf_data(mb) + mbuf_len(mb) - (size_t) mdp->md_pos;
 			mb_off = mbuf_len(mb) - mb_len;
+            is_response = true;
 		}
-		
-		//SMBERROR("One chunk %zu \n", malloc_size);
-		
+
 		n = mbuf_get_nbytes(malloc_size, block, 0, &mb, &mb_len, &mb_off);
 		if (n != malloc_size) {
 			SMBERROR("mbuf chain exhausted on first block exp: %zu, got: %lu\n",
@@ -1108,114 +1362,34 @@ smb3_get_signature(uint8_t *key, uint32_t keylen,
 		}
 		
 		/* Sign entire packet in one call */
-		error = cccmac_one_shot_generate(ccmode,
-										 SMB3_KEY_LEN, key,
-										 malloc_size, block,
-										 CMAC_BLOCKSIZE, mac);
-		if (error) {
-			SMBERROR("cccmac_one_shot_generate failed %d \n", error);
-			goto out;
-		}
+        error = smb3_get_signature_one_shot(rqp->sr_session->session_smb3_signing_algorithm,
+                                            key, malloc_size,
+                                            block, mac,
+                                            rqp->sr_messageid,
+                                            rqp->sr_command,
+                                            is_response);
+        if (error) {
+            SMBERROR("smb3_get_signature_one_shot failed %d \n", error);
+            goto out;
+        }
 	}
 	else {
 		/*
 		 * Probably a read or write. Have to do multiple calls to the crypto
 		 * code to process this packet
 		 */
-		
-		/* Init the cipher */
-		cccmac_mode_decl(ccmode, cmac);
-		error = cccmac_init(ccmode, cmac, SMB3_KEY_LEN, key);
-		if (error) {
-			SMBERROR("cccmac_init failed %d \n", error);
-			goto out;
-		}
-		
-		/* Initial mb setup */
-		mb_count = 0;
-		
-		if (mdp == NULL) {
-			/* Signing a request - easy case */
-			starting_mp = mbp->mb_top;
-		}
-		else {
-			/* Signing a reply - complicated case */
-			starting_mp = mdp->md_cur;
-		}
-		
-		/* 
-		 * Loop through the mbufs and process each one 
-		 * Requests - loop until we get to end of mbuf chain
-		 * Replies - loop until packet_len is 0
-		 */
-		for (mb = starting_mp; mb != NULL; mb = mbuf_next(mb)) {
-			if ((mdp) &&
-				(mb == starting_mp)) {
-				/*
-				 * For replies and for the first mbuf:
-				 * 1) len is how ever many bytes are left in the current mbuf
-				 * that have not been processed yet
-				 * 2) mbuf data starts at mdp->md_pos
-				 */
-				mb_len = (size_t) mbuf_data(mb) + mbuf_len(mb) - (size_t) mdp->md_pos;
-				//SMBERROR("reply start len %ld \n", mb_len);
-				mb_data = mdp->md_pos;
-			}
-			else {
-				/*
-				 * Either its is a request or past the first mbuf for a reply
-				 */
-				mb_len = mbuf_len(mb);
-				mb_data = mbuf_data(mb);
-			}
-			
-			/*
-			 * Only replies use packet_len. See if the reply ends before the end
-			 * of this mbuf. If so, then only process up to the end of the reply.
-			 */
-			if ((mdp) && (packet_len > 0)) {
-				if (packet_len < mb_len) {
-					mb_len = packet_len;
-				}
-			}
-			
-			/*SMBERROR("mb number <%d> mb_len() <%ld> mb_len <%ld>, packet_len %ld\n",
-					 mb_count, mbuf_len(mb), mb_len, packet_len);*/
-			
-			/* Process this m_buf's data */
-			error = cccmac_update(cmac, mb_len, mb_data);
-			if (error) {
-				SMBERROR("cccmac_update failed %d \n", error);
-				break;
-			}
-			
-			/* For replies, decrement how much of the reply we have left */
-			if ((mdp) && (packet_len > 0)) {
-				packet_len -= mb_len;
-				
-				if (packet_len == 0) {
-					/* Done with reply, go to cccmac_final */
-					break;
-				}
-			}
-			
-			mb_count += 1;
-		}
-		
-		/* Finalize the signature */
-		//SMBERROR("Calling cccmac_final_generate \n");
-		error = cccmac_final_generate(cmac, CMAC_BLOCKSIZE, mac);
-		if (error) {
-			SMBERROR("cccmac_final_generate failed %d \n", error);
-		}
-		
-		/* Replies only check */
-		if ((mdp) && (packet_len > 0)) {
-			SMBERROR("Not enough bytes in packet? <%zu>\n", packet_len);
-		}
+
+        error = smb3_get_signature_blocks(rqp, key, mbp, mdp, mac,
+                                          packet_len);
+        if (error) {
+            SMBERROR("smb3_get_signature_blocks failed %d \n", error);
+            goto out;
+        }
+
+
 	}
-	
-	/* Copy first 16 bytes of the HMAC hash into the signature field */
+
+	/* Copy first 16 bytes of the signature into the signature field */
 	bcopy(mac, out_signature, SMB2SIGLEN);
 
 out:
@@ -1415,8 +1589,8 @@ smb3_verify(struct smb_rq *rqp, struct mdchain *mdp,
         key    = sessionp->session_smb3_signing_key;
         keylen = sessionp->session_smb3_signing_key_len;
     }
-	smb3_get_signature(key, keylen, NULL, mdp, reply_len,
-					   reply_signature, SMB2SIGLEN);
+	smb3_get_signature(rqp ,key, keylen,
+                       NULL, mdp, reply_len, reply_signature, SMB2SIGLEN);
 	
     /*
      * Finally, verify the signature.
@@ -1450,7 +1624,6 @@ smb3_verify_session_setup(struct smb_session *sessionp, struct smbiod *iod,
     uint8_t *key = NULL;
     uint32_t keylen = 0;
     u_char mac[CMAC_BLOCKSIZE];
-    const struct ccmode_cbc *ccmode = ccaes_cbc_encrypt_mode();
     int error;
     
     /*
@@ -1499,12 +1672,15 @@ smb3_verify_session_setup(struct smb_session *sessionp, struct smbiod *iod,
     bzero(sess_setup_reply + SMB2SIGOFF, SMB2SIGLEN);
     
     /* Calculate signature in one call */
-    error = cccmac_one_shot_generate(ccmode,
-                                     SMB3_KEY_LEN, key,
-                                     sess_setup_len, sess_setup_reply,
-                                     CMAC_BLOCKSIZE, mac);
+
+    error = smb3_get_signature_one_shot(sessionp->session_smb3_signing_algorithm,
+                                        key, sess_setup_len, sess_setup_reply, mac,
+                                        iod->iod_sess_setup_message_id,
+                                        SMB2_SESSION_SETUP,
+                                        true);
+
     if (error) {
-        SMBERROR("cccmac_one_shot_generate failed %d \n", error);
+        SMBERROR("smb3_get_signature_one_shot failed %d \n", error);
         return(EAUTH);
     }
     
@@ -1546,8 +1722,8 @@ smb3_sign(struct smb_rq *rqp)
 	struct mbchain *mbp;
 	size_t request_len;
 	mbuf_t mb;
-	
-	if (rqp->sr_rqsig == NULL) {
+
+    if (rqp->sr_rqsig == NULL) {
 		SMBDEBUG("sr_rqsig was never allocated.\n");
 		return;
 	}
@@ -1585,8 +1761,8 @@ smb3_sign(struct smb_rq *rqp)
         key    = sessionp->session_smb3_signing_key;
         keylen = sessionp->session_smb3_signing_key_len;
     }
-	smb3_get_signature(key, keylen, mbp, NULL, request_len,
-					   rqp->sr_rqsig, SMB2SIGLEN);
+	smb3_get_signature(rqp, key, keylen,
+                       mbp, NULL, request_len, rqp->sr_rqsig, SMB2SIGLEN);
 }
 
 

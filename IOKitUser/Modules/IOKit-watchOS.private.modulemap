@@ -126,6 +126,7 @@ framework module IOKit [extern_c] [system] {
     header "pwr_mgt/IOPMKeys.h"
     header "pwr_mgt/IOPMLib.h"
     header "pwr_mgt/IOPMLibDefs.h"
+    header "pwr_mgt/IOPMLibPrivate.h"
     export *
   }
 
@@ -158,6 +159,15 @@ framework module IOKit [extern_c] [system] {
     header "stream/IOStreamShared.h"
     export *
   }
+
+  explicit module usb {
+      header "usb/AppleUSBDefinitions.h"
+      header "usb/IOUSBHostFamilyDefinitions.h"
+      header "usb/IOUSBLib.h"
+      header "usb/USB.h"
+      header "usb/USBSpec.h"
+      export *
+    }
 
   explicit module video {
     // rdar://problem/19486850

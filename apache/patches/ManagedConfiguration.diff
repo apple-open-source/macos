@@ -1,0 +1,101 @@
+diff --git a/httpd/include/httpd.h b/httpd/include/httpd.h
+index 799cf97..a4ae0f9 100644
+--- include/httpd.h
++++ include/httpd.h
+@@ -146,6 +146,11 @@ extern "C" {
+ #define SERVER_CONFIG_FILE "conf/httpd.conf"
+ #endif
+ 
++#ifndef MANAGED_SERVER_CONFIG_FILE
++/* This needs to be kept in sync with our SERVER_CONFIG_FILE setting */
++#define MANAGED_SERVER_CONFIG_FILE "/private/var/db/ManagedConfigurationFiles/com.apple.apache.httpd/etc/apache2/httpd.conf"
++#endif
++
+ /** The default path for CGI scripts if none is currently set */
+ #ifndef DEFAULT_PATH
+ #define DEFAULT_PATH "/bin:/usr/bin:/usr/ucb:/usr/bsd:/usr/local/bin"
+diff --git a/httpd/server/config.c b/httpd/server/config.c
+index be889db..89c98a6 100644
+--- server/config.c
++++ server/config.c
+@@ -250,6 +250,12 @@ static merger_func *merger_func_cache;
+ #define AP_MAX_INCLUDE_DIR_DEPTH (128)
+ #endif
+ 
++#ifdef __APPLE__
++char *configuration_file = SERVER_CONFIG_FILE;
++#else
++static char *configuration_file = SERVER_CONFIG_FILE;
++#endif
++
+ /* Dealing with config vectors.  These are associated with per-directory,
+  * per-server, and per-request configuration, and have a void* pointer for
+  * each modules.  The nature of the structure pointed to is private to the
+@@ -1921,9 +1927,15 @@ AP_DECLARE(const char *) ap_process_fnmatch_configs(server_rec *s,
+     w.depth = 0;
+ 
+     /* don't require conf/httpd.conf if we have a -C or -c switch */
++#ifdef __APPLE__
++    if ((ap_server_pre_read_config->nelts
++        || ap_server_post_read_config->nelts)
++        && !(strcmp(fname, ap_server_root_relative(ptemp, configuration_file)))) {
++#else // !__APPLE__
+     if ((ap_server_pre_read_config->nelts
+         || ap_server_post_read_config->nelts)
+         && !(strcmp(fname, ap_server_root_relative(ptemp, SERVER_CONFIG_FILE)))) {
++#endif // __APPLE__
+         apr_finfo_t finfo;
+ 
+         if (apr_stat(&finfo, fname, APR_FINFO_LINK | APR_FINFO_TYPE, ptemp) != APR_SUCCESS)
+diff --git a/httpd/server/main.c b/httpd/server/main.c
+index 7da7aa2..6a18681 100644
+--- server/main.c
++++ server/main.c
+@@ -46,6 +46,10 @@
+ #include <unistd.h>
+ #endif
+ 
++#ifdef __APPLE__
++extern char *configuration_file;
++#endif
++
+ /* WARNING: Win32 binds http_main.c dynamically to the server. Please place
+  *          extern functions and global data in another appropriate module.
+  *
+@@ -504,6 +508,9 @@ int main(int argc, const char * const argv[])
+     const char *opt_arg;
+     APR_OPTIONAL_FN_TYPE(ap_signal_server) *signal_server;
+     int rc = OK;
++#ifdef __APPLE__
++    bool configfile_arg = false;
++#endif
+ 
+     AP_MONCONTROL(0); /* turn off profiling of startup */
+ 
+@@ -598,6 +605,10 @@ int main(int argc, const char * const argv[])
+ 
+         case 'f':
+             confname = opt_arg;
++#ifdef __APPLE__
++            // -f should override managed configuration
++            configfile_arg = true;
++#endif
+             break;
+ 
+         case 'v':
+@@ -674,6 +685,15 @@ int main(int argc, const char * const argv[])
+      * for example, to settle down.
+      */
+ 
++#ifdef __APPLE__
++    if (!configfile_arg) {
++        if (0 == access(MANAGED_SERVER_CONFIG_FILE, F_OK)) {
++            configuration_file = MANAGED_SERVER_CONFIG_FILE;
++            confname = MANAGED_SERVER_CONFIG_FILE;
++        } 
++    }
++#endif
++
+     ap_server_root = def_server_root;
+     if (temp_error_log) {
+         ap_replace_stderr_log(process->pool, temp_error_log);

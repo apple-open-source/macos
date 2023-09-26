@@ -110,7 +110,7 @@ static WebCore::CocoaColor *colorForItem(WarningItem item, ViewType *warning)
 
     auto colorNamed = [] (NSString *name) -> WebCore::CocoaColor * {
 #if HAVE(SAFE_BROWSING)
-        return [NSColor colorNamed:name bundle:[NSBundle bundleWithIdentifier:@"com.apple.WebKit"]];
+        return [NSColor colorNamed:name bundle:[NSBundle bundleForClass:NSClassFromString(@"WKWebView")]];
 #else
         ASSERT_NOT_REACHED();
         return nil;
@@ -499,7 +499,11 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     [self layoutText];
 }
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (BOOL)textView:(UITextView *)textView shouldInteractWithURL:(NSURL *)URL inRange:(NSRange)characterRange interaction:(UITextItemInteraction)interaction
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 {
     [self clickedOnLink:URL];
     return NO;

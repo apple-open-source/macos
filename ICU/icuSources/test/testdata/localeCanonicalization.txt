@@ -1,5 +1,5 @@
-# Test data for locale identifier canonicalization
 # File copied from cldr common/testData/localeIdentifiers/localeCanonicalization.txt
+# Test data for locale identifier canonicalization
 #  Copyright © 1991-2020 Unicode, Inc.
 #  For terms of use, see http://www.unicode.org/copyright.html
 #  Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.

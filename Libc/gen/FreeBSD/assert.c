@@ -45,10 +45,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/assert.c,v 1.8 2007/01/09 00:27:53 imp Exp 
 #include "_simple.h"
 
 void
-__assert_rtn(func, file, line, failedexpr)
-	const char *func, *file;
-	int line;
-	const char *failedexpr;
+__assert_rtn(const char *func, const char *file, int line,
+    const char *failedexpr)
 {
 	if (func == (const char *)-1L) {
 		/* 8462256: special case to replace __eprintf */

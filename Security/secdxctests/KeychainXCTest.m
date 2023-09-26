@@ -37,7 +37,6 @@
 #import "SecDbKeychainSerializedMetadata.h"
 #import "SecDbKeychainSerializedSecretData.h"
 #import "SecDbKeychainSerializedAKSWrappedKey.h"
-#import "SecCDKeychain.h"
 #import <utilities/SecCFWrappers.h>
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <SecurityFoundation/SFCryptoServicesErrors.h>
@@ -77,68 +76,6 @@ void* testlist = NULL;
 @interface SecDbKeychainItemV7 ()
 
 + (SFAESKeySpecifier*)keySpecifier;
-
-@end
-
-@interface FakeAKSRefKey : NSObject <SecAKSRefKey>
-@end
-
-@implementation FakeAKSRefKey {
-    SFAESKey* _key;
-}
-
-- (instancetype)initWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass
-{
-    if (self = [super init]) {
-        _key = [[SFAESKey alloc] initRandomKeyWithSpecifier:[[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256] error:nil];
-    }
-
-    return self;
-}
-
-- (instancetype)initWithBlob:(NSData*)blob keybag:(keybag_handle_t)keybag
-{
-    if (self = [super init]) {
-        _key = [[SFAESKey alloc] initWithData:blob specifier:[[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256] error:nil];
-    }
-
-    return self;
-}
-
-- (NSData*)wrappedDataForKey:(SFAESKey*)key
-{
-    SFAuthenticatedEncryptionOperation* encryptionOperation = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:[[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256]];
-    return [NSKeyedArchiver archivedDataWithRootObject:[encryptionOperation encrypt:key.keyData withKey:_key error:nil] requiringSecureCoding:YES error:nil];
-}
-
-- (SFAESKey*)keyWithWrappedData:(NSData*)wrappedKeyData
-{
-    SFAESKeySpecifier* keySpecifier = [[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256];
-    SFAuthenticatedEncryptionOperation* encryptionOperation = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:keySpecifier];
-    NSData* keyData = [encryptionOperation decrypt:[NSKeyedUnarchiver unarchivedObjectOfClass:[SFAuthenticatedCiphertext class] fromData:wrappedKeyData error:nil] withKey:_key error:nil];
-    return [[SFAESKey alloc] initWithData:keyData specifier:keySpecifier error:nil];
-}
-
-- (NSData*)refKeyBlob
-{
-    return _key.keyData;
-}
-
-@end
-
-@implementation SFKeychainServerFakeConnection {
-    NSArray* _fakeAccessGroups;
-}
-
-- (void)setFakeAccessGroups:(NSArray*)fakeAccessGroups
-{
-    _fakeAccessGroups = fakeAccessGroups.copy;
-}
-
-- (NSArray*)clientAccessGroups
-{
-    return _fakeAccessGroups ?: @[@"com.apple.token"];
-}
 
 @end
 
@@ -194,9 +131,6 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
 
     // bring back with <rdar://problem/37523001>
 //    [[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(isKeychainUnlocked) onObject:self] isKeychainUnlocked];
-
-    id refKeyMock = OCMClassMock([SecAKSRefKey class]);
-    [[[refKeyMock stub] andCall:@selector(alloc) onObject:[FakeAKSRefKey class]] alloc];
 
     NSArray* partsOfName = [self.name componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" ]"]];
     self.keychainDirectoryPrefix = partsOfName[1];

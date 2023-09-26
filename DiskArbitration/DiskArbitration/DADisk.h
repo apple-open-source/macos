@@ -42,8 +42,7 @@ extern const CFStringRef kDADiskDescriptionVolumeNameKey       /* ( CFString    
 extern const CFStringRef kDADiskDescriptionVolumeNetworkKey    /* ( CFBoolean    ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionVolumePathKey       /* ( CFURL        ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionVolumeTypeKey       /* ( CFString     ) */ API_AVAILABLE(macos(10.11));
-extern const CFStringRef kDADiskDescriptionVolumeUUIDKey;      /* ( CFUUID       ) */ API_AVAILABLE(macos(10.4));
-
+extern const CFStringRef kDADiskDescriptionVolumeUUIDKey      /* ( CFUUID       ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionMediaBlockSizeKey   /* ( CFNumber     ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionMediaBSDMajorKey    /* ( CFNumber     ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionMediaBSDMinorKey    /* ( CFNumber     ) */ API_AVAILABLE(macos(10.4));
@@ -55,7 +54,7 @@ extern const CFStringRef kDADiskDescriptionMediaIconKey        /* ( CFDictionary
 extern const CFStringRef kDADiskDescriptionMediaKindKey        /* ( CFString     ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionMediaLeafKey        /* ( CFBoolean    ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionMediaNameKey        /* ( CFString     ) */ API_AVAILABLE(macos(10.4));
-extern const CFStringRef kDADiskDescriptionMediaPathKey;       /* ( CFString     ) */ API_AVAILABLE(macos(10.4));
+extern const CFStringRef kDADiskDescriptionMediaPathKey        /* ( CFString     ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionMediaRemovableKey   /* ( CFBoolean    ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionMediaSizeKey        /* ( CFNumber     ) */ API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionMediaTypeKey        /* ( CFString     ) */ API_AVAILABLE(macos(10.4));

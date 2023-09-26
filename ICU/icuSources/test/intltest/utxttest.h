@@ -39,7 +39,10 @@ public:
     void Ticket10983();
     void Ticket12130();
     void Ticket13344();
+#if APPLE_ICU_CHANGES
+// rdar://
     void AccessChangesChunkSize(); // rdar://78720690 
+#endif  // APPLE_ICU_CHANGES
 
 private:
     struct m {                              // Map between native indices & code points.

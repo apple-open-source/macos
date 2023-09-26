@@ -83,7 +83,31 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 		pktp_hdr->pth_length > h->caplen) {
 		return (-1);
 	}
-	
+	/*
+	 * Filter on packet metadata
+	 */
+	if (pkt_meta_data_expression != NULL) {
+		struct pkt_meta_data pmd = {};
+
+		pmd.itf = &pktp_hdr->pth_ifname[0];
+		pmd.dlt = pktp_hdr->pth_dlt;
+		pmd.proc = &pktp_hdr->pth_comm[0];
+		pmd.eproc = &pktp_hdr->pth_ecomm[0];
+		pmd.pid = pktp_hdr->pth_pid;
+		pmd.epid = pktp_hdr->pth_epid;
+		pmd.svc = svc2str(pktp_hdr->pth_svc);
+		pmd.dir = (pktp_hdr->pth_flags & PTH_FLAG_DIR_IN) ? "in" :
+			(pktp_hdr->pth_flags & PTH_FLAG_DIR_OUT) ? "out" : "";
+		pmd.flowid = pktp_hdr->pth_flowid;
+
+		match = evaluate_expression(pkt_meta_data_expression, &pmd);
+		if (match == 0) {
+			packets_mtdt_fltr_drop++;
+
+			return 0;
+		}
+	}
+
 	if (if_info == NULL) {
 		if_info = pcap_find_if_info_by_name(pcap, pktp_hdr->pth_ifname);
 		/*
@@ -117,27 +141,6 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 		pkt_data = sp + pktp_hdr->pth_length;
         
 		match = pcap_offline_filter(&if_info->if_filter_program, &tmp_hdr, pkt_data);
-	}
-	/*
-	 * Filter on packet metadata
-	 */
-	if (match && pkt_meta_data_expression != NULL) {
-		struct pkt_meta_data pmd = {};
-		
-		pmd.itf = &pktp_hdr->pth_ifname[0];
-		pmd.proc = &pktp_hdr->pth_comm[0];
-		pmd.eproc = &pktp_hdr->pth_ecomm[0];
-		pmd.pid = pktp_hdr->pth_pid;
-		pmd.epid = pktp_hdr->pth_epid;
-		pmd.svc = svc2str(pktp_hdr->pth_svc);
-		pmd.dir = (pktp_hdr->pth_flags & PTH_FLAG_DIR_IN) ? "in" :
-			(pktp_hdr->pth_flags & PTH_FLAG_DIR_OUT) ? "out" : "";
-		pmd.flowid = pktp_hdr->pth_flowid;
-		
-		match = evaluate_expression(pkt_meta_data_expression, &pmd);
-		if (match == 0) {
-			packets_mtdt_fltr_drop++;
-		}
 	}
 	
 	return (match);
@@ -180,6 +183,31 @@ pktapv2_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 	if (pktap_v2_hdr->pth_e_comm_offset != 0)
 		e_comm = ((char *) pktap_v2_hdr) + pktap_v2_hdr->pth_e_comm_offset;
 
+	/*
+	 * Filter on packet metadata
+	 */
+	if (match && pkt_meta_data_expression != NULL) {
+		struct pkt_meta_data pmd = {};
+
+		pmd.itf = ifname;
+		pmd.dlt = pktap_v2_hdr->pth_dlt;
+		pmd.proc = comm;
+		pmd.eproc = e_comm;
+		pmd.pid = pktap_v2_hdr->pth_pid;
+		pmd.epid = pktap_v2_hdr->pth_e_pid;
+		pmd.svc = svc2str(pktap_v2_hdr->pth_svc);
+		pmd.dir = (pktap_v2_hdr->pth_flags & PTH_FLAG_DIR_IN) ? "in" :
+			(pktap_v2_hdr->pth_flags & PTH_FLAG_DIR_OUT) ? "out" : "";
+		pmd.flowid = pktap_v2_hdr->pth_flowid;
+
+		match = evaluate_expression(pkt_meta_data_expression, &pmd);
+		if (match == 0) {
+			packets_mtdt_fltr_drop++;
+			
+			return 0;
+		}
+	}
+
 	if (if_info == NULL) {
 		if_info = pcap_find_if_info_by_name(pcap, ifname);
 		/*
@@ -213,27 +241,6 @@ pktapv2_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 		pkt_data = sp + pktap_v2_hdr->pth_length;
 
 		match = pcap_offline_filter(&if_info->if_filter_program, &tmp_hdr, pkt_data);
-	}
-	/*
-	 * Filter on packet metadata
-	 */
-	if (match && pkt_meta_data_expression != NULL) {
-		struct pkt_meta_data pmd = {};
-
-		pmd.itf = ifname;
-		pmd.proc = comm;
-		pmd.eproc = e_comm;
-		pmd.pid = pktap_v2_hdr->pth_pid;
-		pmd.epid = pktap_v2_hdr->pth_e_pid;
-		pmd.svc = svc2str(pktap_v2_hdr->pth_svc);
-		pmd.dir = (pktap_v2_hdr->pth_flags & PTH_FLAG_DIR_IN) ? "in" :
-			(pktap_v2_hdr->pth_flags & PTH_FLAG_DIR_OUT) ? "out" : "";
-		pmd.flowid = pktap_v2_hdr->pth_flowid;
-
-		match = evaluate_expression(pkt_meta_data_expression, &pmd);
-		if (match == 0) {
-			packets_mtdt_fltr_drop++;
-		}
 	}
 
 	return (match);

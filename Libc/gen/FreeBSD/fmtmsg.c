@@ -27,12 +27,12 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/fmtmsg.c,v 1.6 2009/11/08 14:02:54 brueffer Exp $");
 
+#include <sys/stat.h>
+
 #include <fmtmsg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 /* Default value for MSGVERB. */
 #define	DFLT_MSGVERB	"label:severity:text:action:tag"
@@ -59,7 +59,8 @@ fmtmsg(long class, const char *label, int sev, const char *text,
 	char *env, *msgverb, *output;
 	int ret = MM_OK;
 
-	if (action == NULL) action = "";
+	if (action == NULL)
+		action = "";
 
 	if (class & MM_PRINT) {
 		if ((env = getenv("MSGVERB")) != NULL && *env != '\0' &&
@@ -82,10 +83,8 @@ def:
 			return (MM_NOTOK);
 		}
 		if (*output != '\0') {
-			int out_len = fprintf(stderr, "%s", output);
-			if (out_len < 0) {
-			    ret = MM_NOMSG;
-			}
+			if (fprintf(stderr, "%s", output) < 0)
+				ret = MM_NOMSG;
 		}
 		free(msgverb);
 		free(output);
@@ -96,53 +95,52 @@ def:
 		if (output == NULL)
 			return (MM_NOCON);
 		if (*output != '\0') {
-
-/*
-//                        /-------------\
-//                       /               \
-//                      /                 \
-//                     /                   \
-//                     |   XXXX     XXXX   |
-//                     |   XXXX     XXXX   |
-//                     |   XXX       XXX   |
-//                     \         X         /
-//                      --\     XXX     /--
-//                       | |    XXX    | |
-//                       | |           | |
-//                       | I I I I I I I |
-//                       |  I I I I I I  |
-//                        \             /
-//                         --         --
-//                           \-------/
-//
-//                      DO NOT INTEGRATE THIS CHANGE
-//
-//                      Integrating it means DEATH.
-//               (see Revelation 6:8 for full details)
-
-			XXX this is a *huge* kludge to pass the SuSv3 tests,
-			  I don't think of it as cheating because they are
-			  looking in the wrong place (/var/log/console) to do
-			  their testing, but they can't look in the "right"
-			  place for various reasons */
-			char *cpath = "/dev/console";
+			/*
+			 * The Unix conformance test suite expects the
+			 * console to be a socket or a device node on a
+			 * normal writeable file system.  It tests console
+			 * functionality such as fmtmsg(MM_CONSOLE) by
+			 * temporarily replacing that socket or device
+			 * with a regular file which it can then inspect
+			 * after the test.  This worked fine in the 1980s,
+			 * but we are no longer in the 1980s, so in order
+			 * for the test suite to work at all we have to
+			 * lie and tell it that the console is
+			 * `/var/log/console`.
+			 *
+			 * Furthermore, part of the test suite for
+			 * fmtmsg() attempts to verify that it returns the
+			 * correct error codes when it fails to write to
+			 * the console (either MM_NOCON if it successfully
+			 * wrote to stderr or MM_NOTOK if it didn't).  It
+			 * does this by replacing what it thinks is the
+			 * console with a directory, rather than a regular
+			 * file, in order to trigger a failure from
+			 * fopen().
+			 *
+			 * In order to pass this misbegotten test, we
+			 * check to see if `/var/log/console` exists and
+			 * is a directory.  If that is the case, we try to
+			 * open that instead of the real console.  We will
+			 * of course fail, but that's what we're expected
+			 * to do at this point.
+			 */
 			struct stat sb;
-			int rc = stat("/var/log/console", &sb);
-			if (rc == 0 && (sb.st_mode & S_IFDIR)) {
-			    cpath = "/var/log/console";
+			const char *trap_path = "/var/log/console";
+			const char *console_path = "/dev/console";
+			if (stat(trap_path, &sb) == 0 && S_ISDIR(sb.st_mode)) {
+				/* the trap has been laid, walk into it */
+				console_path = trap_path;
 			}
-			/* XXX thus ends the kludge - changes after
-			  this point may be safely integrated */
-
-			if ((fp = fopen(cpath, "a")) == NULL) {
+			if ((fp = fopen(console_path, "a")) == NULL) {
 				if (ret == MM_OK) {
-				    ret = MM_NOCON;
+					ret = MM_NOCON;
 				} else {
-				    ret = MM_NOTOK;
+					ret = MM_NOTOK;
 				}
 			} else {
-			    fprintf(fp, "%s", output);
-			    fclose(fp);
+				fprintf(fp, "%s", output);
+				fclose(fp);
 			}
 		}
 		free(output);

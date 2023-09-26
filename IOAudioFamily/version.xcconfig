@@ -3,7 +3,7 @@
 //  IOAudioFamily
 //
 //  Created by Mike Mckenna on 10/31/13.
-//  Copyright 2000-2021 Apple Inc. All rights reserved.
+//  Copyright 2000-2023 Apple Inc. All rights reserved.
 //
 
 // RC_ProjectSourceVersion is set by:
@@ -22,4 +22,4 @@ INFOPLIST_PREPROCESS = YES
 
 OTHER_CFLAGS = -DPROJECT_NAME=\"$(TARGET)\" -DPROJECT_VERSION=\"${AE_CONCISE_VERSION}\"
 
-AE_COPYRIGHT_END = 2021
+AE_COPYRIGHT_END = 2023

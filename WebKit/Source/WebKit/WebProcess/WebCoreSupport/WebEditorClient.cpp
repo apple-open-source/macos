@@ -27,6 +27,7 @@
 #include "WebEditorClient.h"
 
 #include "EditorState.h"
+#include "MessageSenderInlines.h"
 #include "SharedBufferReference.h"
 #include "UndoOrRedo.h"
 #include "WKBundlePageEditorClient.h"
@@ -41,13 +42,13 @@
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/DocumentFragment.h>
 #include <WebCore/FocusController.h>
-#include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/FrameView.h>
 #include <WebCore/HTMLInputElement.h>
 #include <WebCore/HTMLNames.h>
 #include <WebCore/HTMLTextAreaElement.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameView.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/Range.h>
@@ -210,7 +211,7 @@ void WebEditorClient::respondToChangedContents()
     m_page->didChangeContents();
 }
 
-void WebEditorClient::respondToChangedSelection(Frame* frame)
+void WebEditorClient::respondToChangedSelection(LocalFrame* frame)
 {
     static NeverDestroyed<String> WebViewDidChangeSelectionNotification(MAKE_STATIC_STRING_IMPL("WebViewDidChangeSelectionNotification"));
     m_page->injectedBundleEditorClient().didChangeSelection(*m_page, WebViewDidChangeSelectionNotification.get().impl());
@@ -239,9 +240,9 @@ void WebEditorClient::didUpdateComposition()
     m_page->didUpdateComposition();
 }
 
-void WebEditorClient::discardedComposition(Frame*)
+void WebEditorClient::discardedComposition(const Document& document)
 {
-    m_page->discardedComposition();
+    m_page->discardedComposition(document);
 }
 
 void WebEditorClient::canceledComposition()
@@ -298,12 +299,12 @@ void WebEditorClient::clearUndoRedoOperations()
     m_page->send(Messages::WebPageProxy::ClearAllEditCommands());
 }
 
-bool WebEditorClient::canCopyCut(Frame*, bool defaultValue) const
+bool WebEditorClient::canCopyCut(LocalFrame*, bool defaultValue) const
 {
     return defaultValue;
 }
 
-bool WebEditorClient::canPaste(Frame*, bool defaultValue) const
+bool WebEditorClient::canPaste(LocalFrame*, bool defaultValue) const
 {
     return defaultValue;
 }
@@ -361,7 +362,7 @@ void WebEditorClient::textFieldDidBeginEditing(Element& element)
     auto* webFrame = WebFrame::fromCoreFrame(*element.document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().textFieldDidBeginEditing(m_page, *inputElement, webFrame);
+    m_page->injectedBundleFormClient().textFieldDidBeginEditing(m_page.get(), *inputElement, webFrame);
 }
 
 void WebEditorClient::textFieldDidEndEditing(Element& element)
@@ -373,7 +374,7 @@ void WebEditorClient::textFieldDidEndEditing(Element& element)
     auto* webFrame = WebFrame::fromCoreFrame(*element.document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().textFieldDidEndEditing(m_page, *inputElement, webFrame);
+    m_page->injectedBundleFormClient().textFieldDidEndEditing(m_page.get(), *inputElement, webFrame);
 }
 
 void WebEditorClient::textDidChangeInTextField(Element& element)
@@ -387,7 +388,7 @@ void WebEditorClient::textDidChangeInTextField(Element& element)
     auto* webFrame = WebFrame::fromCoreFrame(*element.document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().textDidChangeInTextField(m_page, *inputElement, webFrame, initiatedByUserTyping);
+    m_page->injectedBundleFormClient().textDidChangeInTextField(m_page.get(), *inputElement, webFrame, initiatedByUserTyping);
 }
 
 void WebEditorClient::textDidChangeInTextArea(Element& element)
@@ -399,7 +400,7 @@ void WebEditorClient::textDidChangeInTextArea(Element& element)
     auto* webFrame = WebFrame::fromCoreFrame(*element.document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().textDidChangeInTextArea(m_page, *textAreaElement, webFrame);
+    m_page->injectedBundleFormClient().textDidChangeInTextArea(m_page.get(), *textAreaElement, webFrame);
 }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -472,7 +473,7 @@ bool WebEditorClient::doTextFieldCommandFromEvent(Element& element, KeyboardEven
     auto* webFrame = WebFrame::fromCoreFrame(*element.document().frame());
     ASSERT(webFrame);
 
-    return m_page->injectedBundleFormClient().shouldPerformActionInTextField(m_page, *inputElement, toInputFieldAction(actionType), webFrame);
+    return m_page->injectedBundleFormClient().shouldPerformActionInTextField(m_page.get(), *inputElement, toInputFieldAction(actionType), webFrame);
 }
 
 void WebEditorClient::textWillBeDeletedInTextField(Element& element)
@@ -484,14 +485,14 @@ void WebEditorClient::textWillBeDeletedInTextField(Element& element)
     auto* webFrame = WebFrame::fromCoreFrame(*element.document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().shouldPerformActionInTextField(m_page, *inputElement, toInputFieldAction(WKInputFieldActionTypeInsertDelete), webFrame);
+    m_page->injectedBundleFormClient().shouldPerformActionInTextField(m_page.get(), *inputElement, toInputFieldAction(WKInputFieldActionTypeInsertDelete), webFrame);
 }
 
 bool WebEditorClient::shouldEraseMarkersAfterChangeSelection(WebCore::TextCheckingType type) const
 {
-    // This prevents erasing spelling markers on OS X Lion or later to match AppKit on these Mac OS X versions.
+    // This prevents erasing spelling and grammar markers to match AppKit.
 #if PLATFORM(COCOA)
-    return type != TextCheckingType::Spelling;
+    return !(type == TextCheckingType::Spelling || type == TextCheckingType::Grammar);
 #else
     UNUSED_PARAM(type);
     return true;
@@ -521,7 +522,7 @@ void WebEditorClient::checkGrammarOfString(StringView text, Vector<WebCore::Gram
     auto sendResult = m_page->sendSync(Messages::WebPageProxy::CheckGrammarOfString(text.toStringWithoutCopying()));
     int32_t resultLocation = -1;
     int32_t resultLength = 0;
-    if (sendResult)
+    if (sendResult.succeeded())
         std::tie(grammarDetails, resultLocation, resultLength) = sendResult.takeReply();
     *badGrammarLocation = resultLocation;
     *badGrammarLength = resultLength;
@@ -570,7 +571,7 @@ bool WebEditorClient::spellingUIIsShowing()
 void WebEditorClient::getGuessesForWord(const String& word, const String& context, const VisibleSelection& currentSelection, Vector<String>& guesses)
 {
     auto sendResult = m_page->sendSync(Messages::WebPageProxy::GetGuessesForWord(word, context, insertionPointFromCurrentSelection(currentSelection)));
-    if (sendResult)
+    if (sendResult.succeeded())
         std::tie(guesses) = sendResult.takeReply();
 }
 

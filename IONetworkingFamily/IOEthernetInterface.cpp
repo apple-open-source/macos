@@ -282,6 +282,8 @@ bool IOEthernetInterface::initIfnetParams(struct ifnet_init_params *params)
 
 void IOEthernetInterface::free()
 {
+    DLOG("IOEthernetInterface::free\n");
+
     if ( _requiredFilters )
     {
         _requiredFilters->release();

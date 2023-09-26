@@ -10,7 +10,7 @@ include(M4MACRO)dnl
 --                                 S P E C                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998 Free Software Foundation, Inc.                        --
+-- Copyright (c) 1998-2011,2014 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -38,10 +38,11 @@ include(M4MACRO)dnl
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.14 $
+--  $Revision: 1.19 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 with Interfaces.C;
+with Terminal_Interface.Curses.Aux;
 
 package Terminal_Interface.Curses.Forms.Field_Types is
    pragma Preelaborate (Terminal_Interface.Curses.Forms.Field_Types);
@@ -64,8 +65,8 @@ package Terminal_Interface.Curses.Forms.Field_Types is
    type Field_Type_Access is access all Field_Type'Class;
 
    --  ANCHOR(`set_field_type()',`Set_Type')
-   procedure Set_Field_Type (Fld      : in Field;
-                             Fld_Type : in Field_Type) is abstract;
+   procedure Set_Field_Type (Fld      : Field;
+                             Fld_Type : Field_Type) is abstract;
    --  AKA
    --  But: we hide the vararg mechanism of the C interface. You always
    --       have to pass a single Field_Type parameter.
@@ -75,7 +76,7 @@ package Terminal_Interface.Curses.Forms.Field_Types is
    --  MANPAGE(`form_field_validation.3x')
 
    --  ANCHOR(`field_type()',`Get_Type')
-   function Get_Type (Fld : in Field) return Field_Type_Access;
+   function Get_Type (Fld : Field) return Field_Type_Access;
    --  AKA
    --  ALIAS(`field_arg()')
    --  In Ada95 we can combine these. If you try to retrieve the field type
@@ -101,15 +102,15 @@ private
    pragma Convention (C, Freearg_Function);
 
    type Field_Check_Function is access
-     function (Fld : Field; Usr : System.Address) return C_Int;
+     function (Fld : Field; Usr : System.Address) return Curses_Bool;
    pragma Convention (C, Field_Check_Function);
 
    type Char_Check_Function is access
-     function (Ch : C_Int; Usr : System.Address) return C_Int;
+     function (Ch : C_Int; Usr : System.Address) return Curses_Bool;
    pragma Convention (C, Char_Check_Function);
 
    type Choice_Function is access
-     function (Fld : Field; Usr : System.Address) return C_Int;
+     function (Fld : Field; Usr : System.Address) return Curses_Bool;
    pragma Convention (C, Choice_Function);
 
    --  +----------------------------------------------------------------------
@@ -117,7 +118,7 @@ private
    --  |
    type Low_Level_Field_Type is
       record
-         Status :              Interfaces.C.short;
+         Status :              Interfaces.C.unsigned_short;
          Ref_Count :           Interfaces.C.long;
          Left, Right :         System.Address;
          Makearg :             Makearg_Function;
@@ -159,7 +160,7 @@ private
    --  Any other value will raise a Form_Exception.
 
    function Make_Arg (Args : System.Address) return System.Address;
-   pragma Convention (C, Make_Arg);
+   pragma Import (C, Make_Arg, "void_star_make_arg");
    --  This is the Makearg_Function for the internal low-level types
    --  introduced by this binding.
 
@@ -174,7 +175,7 @@ private
    --  introduced by this binding.
 
    function Field_Check_Router (Fld : Field;
-                                Usr : System.Address) return C_Int;
+                                Usr : System.Address) return Curses_Bool;
    pragma Convention (C, Field_Check_Router);
    --  This is the Field_Check_Function for the internal low-level types
    --  introduced to wrap the low-level types by a Field_Type derived
@@ -182,7 +183,7 @@ private
    --  function.
 
    function Char_Check_Router (Ch : C_Int;
-                               Usr : System.Address) return C_Int;
+                               Usr : System.Address) return Curses_Bool;
    pragma Convention (C, Char_Check_Router);
    --  This is the Char_Check_Function for the internal low-level types
    --  introduced to wrap the low-level types by a Field_Type derived
@@ -190,7 +191,7 @@ private
    --  function.
 
    function Next_Router (Fld : Field;
-                         Usr : System.Address) return C_Int;
+                         Usr : System.Address) return Curses_Bool;
    pragma Convention (C, Next_Router);
    --  This is the Choice_Function for the internal low-level types
    --  introduced to wrap the low-level types by a Field_Type derived
@@ -198,7 +199,7 @@ private
    --  function.
 
    function Prev_Router (Fld : Field;
-                         Usr : System.Address) return C_Int;
+                         Usr : System.Address) return Curses_Bool;
    pragma Convention (C, Prev_Router);
    --  This is the Choice_Function for the internal low-level types
    --  introduced to wrap the low-level types by a Field_Type derived
@@ -227,12 +228,12 @@ private
                                Mak : Makearg_Function := Make_Arg'Access;
                                Cop : Copyarg_Function := Copy_Arg'Access;
                                Fre : Freearg_Function := Free_Arg'Access)
-     return C_Int;
+     return Aux.Eti_Error;
    pragma Import (C, Set_Fieldtype_Arg, "set_fieldtype_arg");
 
    function Set_Fieldtype_Choice (Cft : C_Field_Type;
                                   Next, Prev : Choice_Function)
-     return C_Int;
+     return Aux.Eti_Error;
    pragma Import (C, Set_Fieldtype_Choice, "set_fieldtype_choice");
 
 end Terminal_Interface.Curses.Forms.Field_Types;

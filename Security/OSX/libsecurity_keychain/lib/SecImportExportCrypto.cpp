@@ -683,7 +683,7 @@ CSSM_RETURN impExpExportKeyCommon(
 		wrapPad,
 		0,					// Params
 		&ccHand);
-	if(ortn) {
+	if(crtn) {
 		SecImpExpDbg("impExpExportKeyCommon CSSM_CSP_CreateSymmetricContext error");
 		return crtn;
 	}
@@ -742,9 +742,9 @@ CSSM_RETURN impExpExportKeyCommon(
 				SecImpExpDbg("impExpExportKeyCommon !SENSITIVE, NULL wrap");
 				return errSecPassphraseRequired;
 			}
-
+            [[fallthrough]];
 		}
-		default:
+        default:
 			SecImpExpDbg("impExpExportKeyCommon CSSM_WrapKey error");
 	}
 	return crtn;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -504,7 +504,7 @@ main(int argc, char *argv[])
 			do {
 				char *str;
 				char *ep;
-				
+
 				if ((str = strsep(&ptr, ",")) == NULL)
 					errx(1, "-G requires maximum packet size");
 				ultmp = strtoul(str, &ep, 0);
@@ -533,7 +533,7 @@ main(int argc, char *argv[])
 						     MAXDATALEN);
 					}
 				}
-				
+
 				if ((str = strsep(&ptr, ",")) == NULL)
 					break;
 				if (*str == 0)
@@ -769,7 +769,7 @@ main(int argc, char *argv[])
 
 	if ((options & F_SWEEP) && (options & F_NOUSERDATA))
 		errx(EX_USAGE, "Option -G incompatible with -t, -w and -W");
-	
+
 	argc -= optind;
 	argv += optind;
 
@@ -917,14 +917,14 @@ main(int argc, char *argv[])
 		if (connect(s, (struct sockaddr *)&dst, sizeof(dst)) == -1)
 			err(EX_OSERR, "connect");
 	}
-	
+
 	if (sweepmax) {
 		if (sweepmin >= sweepmax)
 			errx(EX_USAGE, "Maximum packet size must be greater than the minimum packet size");
-		
+
 		if (datalen != DEFDATALEN)
 			errx(EX_USAGE, "Packet size and ping sweep are mutually exclusive");
-		
+
 		if (npackets > 0) {
 			snpackets = npackets;
 			npackets = 0;
@@ -932,7 +932,7 @@ main(int argc, char *argv[])
 			snpackets = 1;
 		datalen = sweepmin;
 	}
-	
+
 	if ((options & F_NOUSERDATA) == 0) {
 		if (datalen >= sizeof(struct tv32)) {
 			/* we can time transfer */
@@ -1105,7 +1105,7 @@ main(int argc, char *argv[])
 			if (setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS,
 			    (void *)&so_traffic_class, sizeof (so_traffic_class)) != 0)
 				warn("setsockopt(SO_TRAFFIC_CLASS");
-			
+
 		}
 	} else {
 		if (net_service_type != -1)
@@ -1389,12 +1389,12 @@ main(int argc, char *argv[])
 	sigemptyset(&newset);
 	if (sigprocmask(SIG_SETMASK, &newset, NULL) != 0)
 		err(EX_OSERR, "sigprocmask(newset)");
-	
+
 	seenalrm = seenint = 0;
 #ifdef SIGINFO
 	seeninfo = 0;
 #endif
-	
+
 	(void)signal(SIGINT, onsignal);
 #ifdef SIGINFO
 	(void)signal(SIGINFO, onsignal);
@@ -1546,7 +1546,7 @@ void
 onsignal(int sig)
 {
 	fflush(stdout);
-	
+
 	switch (sig) {
 	case SIGINT:
 	case SIGALRM:
@@ -3131,7 +3131,7 @@ nigroup(char *name, int nig_oldmcprefix)
 	}
 	if (valid != 1)
 		return NULL;	/*XXX*/
-	
+
 	if (nig_oldmcprefix) {
 		/* draft-ietf-ipngwg-icmp-name-lookup */
 	bcopy(digest, &in6.s6_addr[12], 4);
@@ -3151,9 +3151,9 @@ str2sotc(const char *str, bool *valid)
 {
 	int sotc = -1;
 	char *endptr;
-	
+
 	*valid = true;
-	
+
 	if (str == NULL || *str == '\0')
 		*valid = false;
 	else if (strcasecmp(str, "BK_SYS") == 0)
@@ -3189,9 +3189,9 @@ str2netservicetype(const char *str, bool *valid)
 {
 	int svc = -1;
 	char *endptr;
-	
+
 	*valid = true;
-	
+
 	if (str == NULL || *str == '\0')
 		*valid = false;
 	else if (strcasecmp(str, "BK") == 0)
@@ -3225,9 +3225,9 @@ str2tclass(const char *str, bool *valid)
 {
 	u_int8_t dscp = -1;
 	char *endptr;
-	
+
 	*valid = true;
-	
+
 	if (str == NULL || *str == '\0')
 		*valid = false;
 	else if (strcasecmp(str, "DF") == 0)
@@ -3236,7 +3236,7 @@ str2tclass(const char *str, bool *valid)
 		dscp = _DSCP_EF;
 	else if (strcasecmp(str, "VA") == 0)
 		dscp = _DSCP_VA;
-	
+
 	else if (strcasecmp(str, "CS0") == 0)
 		dscp = _DSCP_CS0;
 	else if (strcasecmp(str, "CS1") == 0)
@@ -3253,7 +3253,7 @@ str2tclass(const char *str, bool *valid)
 		dscp = _DSCP_CS6;
 	else if (strcasecmp(str, "CS7") == 0)
 		dscp = _DSCP_CS7;
-	
+
 	else if (strcasecmp(str, "AF11") == 0)
 		dscp = _DSCP_AF11;
 	else if (strcasecmp(str, "AF12") == 0)
@@ -3278,7 +3278,7 @@ str2tclass(const char *str, bool *valid)
 		dscp = _DSCP_AF42;
 	else if (strcasecmp(str, "AF43") == 0)
 		dscp = _DSCP_AF43;
-	
+
 	else {
 		unsigned long val = strtoul(str, &endptr, 0);
 		if (*endptr != '\0' || val > 255)
@@ -3295,9 +3295,9 @@ pr_currenttime(void)
 {
 	int s;
 	struct timeval tv;
-	
+
 	gettimeofday(&tv, NULL);
-	
+
 	s = (tv.tv_sec + thiszone) % 86400;
 	printf("%02d:%02d:%02d.%06u ", s / 3600, (s % 3600) / 60, s % 60,
 	       (u_int32_t)tv.tv_usec);
@@ -3335,6 +3335,6 @@ usage(void)
 	(void)fprintf(stderr, "            -K net_service_type  # set traffic class socket options\n");
 	(void)fprintf(stderr, "            --apple-connect      # call connect(2) in the socket\n");
 	(void)fprintf(stderr, "            --apple-time         # display current time\n");
-	(void)fprintf(stderr, "            -=apple-progress     # show progress for debugging\n");
+	(void)fprintf(stderr, "            --apple-progress     # show progress for debugging\n");
 	exit(1);
 }

@@ -1,6 +1,10 @@
 #ifndef __SECURE_DOWNLOAD__
 #define __SECURE_DOWNLOAD__
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/SecBase.h>
+#include <Security/SecTrust.h> /* SecTrustRef */
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -52,10 +56,6 @@ extern "C" {
 */
 
 
-
-#include <CoreFoundation/CoreFoundation.h>
-#include <Security/SecBase.h>
-#include <Security/SecTrust.h> /* SecTrustRef */
 
 #define SECUREDOWNLOAD_API_DEPRECATED API_DEPRECATED("SecureDownload is not supported", macos(10.5, 12.0))  API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst)
 

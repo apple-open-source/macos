@@ -325,7 +325,7 @@ CssmDateStringToCFDate(const char *cssmDate, unsigned int len, CFDateRef *outCFD
   			break;
 		case LOCALIZED_UTC_TIME_STRLEN:	// "YYMMDDhhmmssThhmm" (where T=[+,-])
 			isUtc = 1;
-			// deliberate fallthrough
+            [[fallthrough]];
 		case LOCALIZED_TIME_STRLEN:		// "YYYYMMDDhhmmssThhmm" (where T=[+,-])
 			isLocal = 1;
 			break;

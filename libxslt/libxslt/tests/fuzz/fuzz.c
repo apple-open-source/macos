@@ -75,8 +75,9 @@ xsltFuzzLoadDoc(const char *argv0, const char *dir, const char *filename) {
     char *path;
 
     if (dir != NULL) {
-        path = malloc(strlen(dir) + 1 + strlen(filename) + 1);
-        sprintf(path, "%s/%s", dir, filename);
+        size_t pathLength = strlen(dir) + 1 + strlen(filename) + 1;
+        path = malloc(pathLength);
+        snprintf(path, pathLength, "%s/%s", dir, filename);
         doc = xmlReadFile(path, NULL, 0);
         if (doc == NULL)
             fprintf(stderr, "Error: unable to parse file '%s' in '%s'\n",

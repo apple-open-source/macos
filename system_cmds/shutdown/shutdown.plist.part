@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>shutdown</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/sbin/shutdown?id=814321a0e85a448b1dd87e7d27e64e4c063e9410</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-11-09</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>shutdown.c: audit support (3903178)</string>
+			<string>shutdown.c: add the sleep flag (4108344)</string>
+			<string>shutdown.c: add ups flag (4576409)</string>
+			<string>shutdown.c: don't error if wall missing (5169504)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

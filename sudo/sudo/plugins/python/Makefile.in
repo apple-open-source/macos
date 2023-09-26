@@ -36,11 +36,12 @@ cross_compiling = @CROSS_COMPILING@
 # Compiler & tools to use
 CC = @CC@
 LIBTOOL = @LIBTOOL@
+EGREP = @EGREP@
 SED = @SED@
 AWK = @AWK@
 
 # Our install program supports extra flags...
-INSTALL = $(SHELL) $(top_srcdir)/install-sh -c
+INSTALL = $(SHELL) $(scriptdir)/install-sh -c
 INSTALL_OWNER = -o $(install_uid) -g $(install_gid)
 INSTALL_BACKUP = @INSTALL_BACKUP@
 
@@ -72,8 +73,8 @@ PIE_CFLAGS = @PIE_CFLAGS@
 PIE_LDFLAGS = @PIE_LDFLAGS@
 
 # Stack smashing protection flags
-SSP_CFLAGS = @SSP_CFLAGS@
-SSP_LDFLAGS = @SSP_LDFLAGS@
+HARDENING_CFLAGS = @HARDENING_CFLAGS@
+HARDENING_LDFLAGS = @HARDENING_LDFLAGS@
 
 # cppcheck options, usually set in the top-level Makefile
 CPPCHECK_OPTS = -q --enable=warning,performance,portability --suppress=constStatement --suppress=compareBoolExpressionWithInt --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_HOST_NAME_MAX -U_POSIX_PATH_MAX -U__NBBY -DNSIG=64
@@ -114,13 +115,14 @@ install_gid = 0
 
 SHELL = @SHELL@
 
-EXAMPLES = example_conversation.py  example_debugging.py  example_group_plugin.py  example_io_plugin.py  example_policy_plugin.py \
-           example_audit_plugin.py example_approval_plugin.py
+EXAMPLES = example_approval_plugin.py example_audit_plugin.py \
+           example_conversation.py example_debugging.py \
+           example_group_plugin.py example_io_plugin.py example_policy_plugin.py
 
-OBJS =	python_plugin_common.lo python_plugin_policy.lo python_plugin_io.lo python_plugin_group.lo pyhelpers.lo \
-	python_loghandler.lo \
-	python_importblocker.lo python_convmessage.lo sudo_python_module.lo sudo_python_debug.lo \
-	python_baseplugin.lo python_plugin_audit.lo python_plugin_approval.lo
+OBJS = python_plugin_common.lo python_plugin_policy.lo python_plugin_io.lo \
+       python_plugin_group.lo pyhelpers.lo python_loghandler.lo \
+       python_convmessage.lo sudo_python_module.lo sudo_python_debug.lo \
+       python_baseplugin.lo python_plugin_audit.lo python_plugin_approval.lo
 
 IOBJS = $(OBJS:.lo=.i)
 
@@ -131,8 +133,9 @@ LIBOBJDIR = $(top_builddir)/@ac_config_libobj_dir@/
 VERSION = @PACKAGE_VERSION@
 
 TEST_PROGS = check_python_examples
+TEST_VERBOSE =
 
-CHECK_PYTHON_EXAMPLES_OBJS = check_python_examples.o iohelpers.o testhelpers.o pyhelpers.lo sudo_python_debug.lo
+CHECK_PYTHON_EXAMPLES_OBJS = check_python_examples.o iohelpers.o testhelpers.o pyhelpers.o sudo_python_debug.o
 
 all: python_plugin.la
 
@@ -147,10 +150,10 @@ Makefile: $(srcdir)/Makefile.in
 .SUFFIXES: .c .h .i .lo .plog .o
 
 .c.o:
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $<
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $<
 
 .c.lo:
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $<
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $<
 
 .c.i:
 	$(CC) -E -o $@ $(CPPFLAGS) $<
@@ -165,7 +168,7 @@ $(shlib_opt): $(shlib_exp)
 	@$(SED) 's/^/+e /' $(shlib_exp) > $@
 
 python_plugin.la: $(OBJS) $(LT_LIBS) @LT_LDDEP@
-	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) $(LDFLAGS) $(ASAN_LDFLAGS) $(SSP_LDFLAGS) $(LT_LDFLAGS) -o $@ $(OBJS) $(LIBS) -module -avoid-version -rpath $(plugindir) -shrext .so
+	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) $(LDFLAGS) $(ASAN_LDFLAGS) $(HARDENING_LDFLAGS) $(LT_LDFLAGS) -o $@ $(OBJS) $(LIBS) -module -avoid-version -rpath $(plugindir) -shrext .so
 
 pre-install:
 
@@ -185,6 +188,8 @@ install-plugin: install-dirs python_plugin.la
 	if [ X"$(shlib_enable)" = X"yes" ]; then \
 	    INSTALL_BACKUP='$(INSTALL_BACKUP)' $(LIBTOOL) $(LTFLAGS) --mode=install $(INSTALL) $(INSTALL_OWNER) -m $(shlib_mode) python_plugin.la $(DESTDIR)$(plugindir); \
 	fi
+
+install-fuzzer:
 
 uninstall:
 	-$(LIBTOOL) $(LTFLAGS) --mode=uninstall rm -f $(DESTDIR)$(plugindir)/python_plugin.la
@@ -218,10 +223,25 @@ realclean: distclean
 
 cleandir: realclean
 
-check: $(TEST_PROGS)
+fuzz:
+
+check-fuzzer:
+
+check: $(TEST_PROGS) check-fuzzer
 	@if test X"$(cross_compiling)" != X"yes"; then \
-            ./check_python_examples ".libs/python_plugin.so"; \
+	    l=`locale -a 2>&1 | $(EGREP) -i '^C\.UTF-?8$$' | $(SED) 1q` || true; \
+	    test -n "$$l" || l="C"; \
+	    LC_ALL="$$l"; export LC_ALL; \
+	    unset LANG || LANG=; \
+	    unset LANGUAGE || LANGUAGE=; \
+	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+	    LSAN_OPTIONS=suppressions=$(srcdir)/lsan_suppr.txt \
+		./check_python_examples ".libs/python_plugin.so"; \
 	fi
+
+check-verbose:
+	exec $(MAKE) $(MFLAGS) TEST_VERBOSE=-v FUZZ_VERBOSE=-verbosity=1 check
 
 update_test_data: $(TEST_PROGS)
 	@if test X"$(cross_compiling)" != X"yes"; then \
@@ -229,7 +249,9 @@ update_test_data: $(TEST_PROGS)
 	fi
 
 check_python_examples: $(CHECK_PYTHON_EXAMPLES_OBJS) $(LIBPYTHONPLUGIN)
-	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) -o $@ $(CHECK_PYTHON_EXAMPLES_OBJS) $(LDFLAGS) $(ASAN_LDFLAGS) $(PIE_LDFLAGS) $(SSP_LDFLAGS) $(LIBS)
+	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) -o $@ $(CHECK_PYTHON_EXAMPLES_OBJS) $(LDFLAGS) $(ASAN_LDFLAGS) $(PIE_LDFLAGS) $(HARDENING_LDFLAGS) $(LIBS)
+
+.PHONY: clean mostlyclean distclean cleandir clobber realclean
 
 # Autogenerated dependencies, do not modify
 check_python_examples.o: $(srcdir)/regress/check_python_examples.c \
@@ -241,7 +263,7 @@ check_python_examples.o: $(srcdir)/regress/check_python_examples.c \
                          $(srcdir)/regress/iohelpers.h \
                          $(srcdir)/regress/testhelpers.h \
                          $(srcdir)/sudo_python_debug.h $(top_builddir)/config.h
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/regress/check_python_examples.c
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/regress/check_python_examples.c
 check_python_examples.i: $(srcdir)/regress/check_python_examples.c \
                          $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                          $(incdir)/sudo_conf.h $(incdir)/sudo_debug.h \
@@ -254,11 +276,13 @@ check_python_examples.i: $(srcdir)/regress/check_python_examples.c \
 	$(CC) -E -o $@ $(CPPFLAGS) $<
 check_python_examples.plog: check_python_examples.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/regress/check_python_examples.c --i-file $< --output-file $@
-iohelpers.o: $(srcdir)/regress/iohelpers.c $(incdir)/sudo_compat.h \
-             $(srcdir)/regress/iohelpers.h $(top_builddir)/config.h
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/regress/iohelpers.c
-iohelpers.i: $(srcdir)/regress/iohelpers.c $(incdir)/sudo_compat.h \
-             $(srcdir)/regress/iohelpers.h $(top_builddir)/config.h
+iohelpers.o: $(srcdir)/regress/iohelpers.c $(incdir)/compat/stdbool.h \
+             $(incdir)/sudo_compat.h $(srcdir)/regress/iohelpers.h \
+             $(top_builddir)/config.h
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/regress/iohelpers.c
+iohelpers.i: $(srcdir)/regress/iohelpers.c $(incdir)/compat/stdbool.h \
+             $(incdir)/sudo_compat.h $(srcdir)/regress/iohelpers.h \
+             $(top_builddir)/config.h
 	$(CC) -E -o $@ $(CPPFLAGS) $<
 iohelpers.plog: iohelpers.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/regress/iohelpers.c --i-file $< --output-file $@
@@ -268,7 +292,7 @@ pyhelpers.lo: $(srcdir)/pyhelpers.c $(incdir)/compat/stdbool.h \
               $(srcdir)/pyhelpers.h $(srcdir)/pyhelpers_cpychecker.h \
               $(srcdir)/sudo_python_debug.h $(top_builddir)/config.h \
               $(top_builddir)/pathnames.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/pyhelpers.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/pyhelpers.c
 pyhelpers.i: $(srcdir)/pyhelpers.c $(incdir)/compat/stdbool.h \
               $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
               $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
@@ -278,13 +302,20 @@ pyhelpers.i: $(srcdir)/pyhelpers.c $(incdir)/compat/stdbool.h \
 	$(CC) -E -o $@ $(CPPFLAGS) $<
 pyhelpers.plog: pyhelpers.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/pyhelpers.c --i-file $< --output-file $@
+pyhelpers.o: $(srcdir)/pyhelpers.c $(incdir)/compat/stdbool.h \
+             $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
+             $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
+             $(srcdir)/pyhelpers.h $(srcdir)/pyhelpers_cpychecker.h \
+             $(srcdir)/sudo_python_debug.h $(top_builddir)/config.h \
+             $(top_builddir)/pathnames.h
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/pyhelpers.c
 python_baseplugin.lo: $(srcdir)/python_baseplugin.c $(incdir)/compat/stdbool.h \
                       $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
                       $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
                       $(srcdir)/pyhelpers.h $(srcdir)/pyhelpers_cpychecker.h \
                       $(srcdir)/sudo_python_debug.h \
                       $(srcdir)/sudo_python_module.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_baseplugin.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_baseplugin.c
 python_baseplugin.i: $(srcdir)/python_baseplugin.c $(incdir)/compat/stdbool.h \
                       $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
                       $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
@@ -301,7 +332,7 @@ python_convmessage.lo: $(srcdir)/python_convmessage.c \
                        $(srcdir)/pyhelpers_cpychecker.h \
                        $(srcdir)/sudo_python_debug.h \
                        $(srcdir)/sudo_python_module.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_convmessage.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_convmessage.c
 python_convmessage.i: $(srcdir)/python_convmessage.c \
                        $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                        $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
@@ -312,33 +343,13 @@ python_convmessage.i: $(srcdir)/python_convmessage.c \
 	$(CC) -E -o $@ $(CPPFLAGS) $<
 python_convmessage.plog: python_convmessage.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/python_convmessage.c --i-file $< --output-file $@
-python_importblocker.lo: $(srcdir)/python_importblocker.c \
-                         $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
-                         $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
-                         $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                         $(srcdir)/pyhelpers.h \
-                         $(srcdir)/pyhelpers_cpychecker.h \
-                         $(srcdir)/sudo_python_debug.h \
-                         $(srcdir)/sudo_python_module.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_importblocker.c
-python_importblocker.i: $(srcdir)/python_importblocker.c \
-                         $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
-                         $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
-                         $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                         $(srcdir)/pyhelpers.h \
-                         $(srcdir)/pyhelpers_cpychecker.h \
-                         $(srcdir)/sudo_python_debug.h \
-                         $(srcdir)/sudo_python_module.h $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
-python_importblocker.plog: python_importblocker.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/python_importblocker.c --i-file $< --output-file $@
 python_loghandler.lo: $(srcdir)/python_loghandler.c $(incdir)/compat/stdbool.h \
                       $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
                       $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
                       $(srcdir)/pyhelpers.h $(srcdir)/pyhelpers_cpychecker.h \
                       $(srcdir)/sudo_python_debug.h \
                       $(srcdir)/sudo_python_module.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_loghandler.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_loghandler.c
 python_loghandler.i: $(srcdir)/python_loghandler.c $(incdir)/compat/stdbool.h \
                       $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
                       $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
@@ -357,7 +368,7 @@ python_plugin_approval.lo: $(srcdir)/python_plugin_approval.c \
                            $(srcdir)/python_plugin_common.h \
                            $(srcdir)/sudo_python_debug.h \
                            $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_plugin_approval.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_plugin_approval.c
 python_plugin_approval.i: $(srcdir)/python_plugin_approval.c \
                            $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                            $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
@@ -378,7 +389,7 @@ python_plugin_audit.lo: $(srcdir)/python_plugin_audit.c \
                         $(srcdir)/python_plugin_audit_multi.inc \
                         $(srcdir)/python_plugin_common.h \
                         $(srcdir)/sudo_python_debug.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_plugin_audit.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_plugin_audit.c
 python_plugin_audit.i: $(srcdir)/python_plugin_audit.c \
                         $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                         $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
@@ -399,7 +410,7 @@ python_plugin_common.lo: $(srcdir)/python_plugin_common.c \
                          $(srcdir)/python_plugin_common.h \
                          $(srcdir)/sudo_python_debug.h \
                          $(srcdir)/sudo_python_module.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_plugin_common.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_plugin_common.c
 python_plugin_common.i: $(srcdir)/python_plugin_common.c \
                          $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                          $(incdir)/sudo_conf.h $(incdir)/sudo_debug.h \
@@ -419,7 +430,7 @@ python_plugin_group.lo: $(srcdir)/python_plugin_group.c \
                         $(srcdir)/pyhelpers_cpychecker.h \
                         $(srcdir)/python_plugin_common.h \
                         $(srcdir)/sudo_python_debug.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_plugin_group.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_plugin_group.c
 python_plugin_group.i: $(srcdir)/python_plugin_group.c \
                         $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                         $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
@@ -437,7 +448,7 @@ python_plugin_io.lo: $(srcdir)/python_plugin_io.c $(incdir)/compat/stdbool.h \
                      $(srcdir)/python_plugin_common.h \
                      $(srcdir)/python_plugin_io_multi.inc \
                      $(srcdir)/sudo_python_debug.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_plugin_io.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_plugin_io.c
 python_plugin_io.i: $(srcdir)/python_plugin_io.c $(incdir)/compat/stdbool.h \
                      $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
                      $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
@@ -455,7 +466,7 @@ python_plugin_policy.lo: $(srcdir)/python_plugin_policy.c \
                          $(srcdir)/pyhelpers_cpychecker.h \
                          $(srcdir)/python_plugin_common.h \
                          $(srcdir)/sudo_python_debug.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/python_plugin_policy.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/python_plugin_policy.c
 python_plugin_policy.i: $(srcdir)/python_plugin_policy.c \
                          $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                          $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
@@ -472,7 +483,7 @@ sudo_python_debug.lo: $(srcdir)/sudo_python_debug.c $(incdir)/compat/stdbool.h \
                       $(incdir)/sudo_gettext.h $(incdir)/sudo_plugin.h \
                       $(incdir)/sudo_queue.h $(srcdir)/sudo_python_debug.h \
                       $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/sudo_python_debug.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/sudo_python_debug.c
 sudo_python_debug.i: $(srcdir)/sudo_python_debug.c $(incdir)/compat/stdbool.h \
                       $(incdir)/sudo_compat.h $(incdir)/sudo_conf.h \
                       $(incdir)/sudo_debug.h $(incdir)/sudo_fatal.h \
@@ -482,6 +493,13 @@ sudo_python_debug.i: $(srcdir)/sudo_python_debug.c $(incdir)/compat/stdbool.h \
 	$(CC) -E -o $@ $(CPPFLAGS) $<
 sudo_python_debug.plog: sudo_python_debug.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/sudo_python_debug.c --i-file $< --output-file $@
+sudo_python_debug.o: $(srcdir)/sudo_python_debug.c $(incdir)/compat/stdbool.h \
+                     $(incdir)/sudo_compat.h $(incdir)/sudo_conf.h \
+                     $(incdir)/sudo_debug.h $(incdir)/sudo_fatal.h \
+                     $(incdir)/sudo_gettext.h $(incdir)/sudo_plugin.h \
+                     $(incdir)/sudo_queue.h $(srcdir)/sudo_python_debug.h \
+                     $(top_builddir)/config.h
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/sudo_python_debug.c
 sudo_python_module.lo: $(srcdir)/sudo_python_module.c \
                        $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                        $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
@@ -489,7 +507,7 @@ sudo_python_module.lo: $(srcdir)/sudo_python_module.c \
                        $(srcdir)/pyhelpers_cpychecker.h \
                        $(srcdir)/sudo_python_debug.h \
                        $(srcdir)/sudo_python_module.h $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/sudo_python_module.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/sudo_python_module.c
 sudo_python_module.i: $(srcdir)/sudo_python_module.c \
                        $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
                        $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \
@@ -507,7 +525,7 @@ testhelpers.o: $(srcdir)/regress/testhelpers.c $(incdir)/compat/stdbool.h \
                $(srcdir)/pyhelpers_cpychecker.h $(srcdir)/regress/iohelpers.h \
                $(srcdir)/regress/testhelpers.h $(srcdir)/sudo_python_debug.h \
                $(top_builddir)/config.h
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/regress/testhelpers.c
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/regress/testhelpers.c
 testhelpers.i: $(srcdir)/regress/testhelpers.c $(incdir)/compat/stdbool.h \
                $(incdir)/sudo_compat.h $(incdir)/sudo_conf.h \
                $(incdir)/sudo_debug.h $(incdir)/sudo_plugin.h \

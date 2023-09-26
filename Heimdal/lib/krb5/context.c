@@ -380,6 +380,9 @@ cc_ops_register(krb5_context context)
 #ifdef XCACHE_IS_API_CACHE
     krb5_cc_register(context, &krb5_xcc_api_ops, TRUE);
 #endif
+#ifdef ENABLE_KCM_COMPAT
+    krb5_cc_register(context, &krb5_xcc_kcm_compat_ops, TRUE);
+#endif
     krb5_cc_register(context, &krb5_xcc_ops, TRUE);
     krb5_cc_register(context, &krb5_xcc_temp_api_ops, TRUE);
 #endif

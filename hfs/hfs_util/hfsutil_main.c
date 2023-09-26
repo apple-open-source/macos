@@ -70,7 +70,7 @@
 
 /*
  * CommonCrypto provides a more stable API than OpenSSL guarantees;
- * the #define causes it to use the same API for MD5 and SHA1, so the rest of
+ * the #define causes it to use the same API for MD5 and SHA256, so the rest of
  * the code need not change.
  */
 #define COMMON_DIGEST_FOR_OPENSSL
@@ -2698,93 +2698,7 @@ static unsigned long ConvertHexStringToULong(const char *hs, long maxdigits);
  *****************************************************************************/
 
 void GenerateHFSVolumeUUID(hfs_UUID_t *newuuid) {
-	SHA_CTX context;
-	char randomInputBuffer[26];
-	unsigned char digest[20];
-	time_t now;
-	clock_t uptime;
-	int mib[2];
-	int sysdata;
-	char sysctlstring[128];
-	size_t datalen;
-	double sysloadavg[3];
-	struct vmtotal sysvmtotal;
-	hfs_UUID_t hfsuuid;
-
-	memset (&hfsuuid, 0, sizeof(hfsuuid));
-
-	do {
-		/* Initialize the SHA-1 context for processing: */
-		SHA1_Init(&context);
-		
-		/* Now process successive bits of "random" input to seed the process: */
-		
-		/* The current system's uptime: */
-		uptime = clock();
-		SHA1_Update(&context, &uptime, sizeof(uptime));
-		
-		/* The kernel's boot time: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_BOOTTIME;
-		datalen = sizeof(sysdata);
-		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
-		SHA1_Update(&context, &sysdata, datalen);
-		
-		/* The system's host id: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_HOSTID;
-		datalen = sizeof(sysdata);
-		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
-		SHA1_Update(&context, &sysdata, datalen);
-
-		/* The system's host name: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_HOSTNAME;
-		datalen = sizeof(sysctlstring);
-		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1_Update(&context, sysctlstring, datalen);
-
-		/* The running kernel's OS release string: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_OSRELEASE;
-		datalen = sizeof(sysctlstring);
-		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1_Update(&context, sysctlstring, datalen);
-
-		/* The running kernel's version string: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_VERSION;
-		datalen = sizeof(sysctlstring);
-		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1_Update(&context, sysctlstring, datalen);
-
-		/* The system's load average: */
-		datalen = sizeof(sysloadavg);
-		getloadavg(sysloadavg, 3);
-		SHA1_Update(&context, &sysloadavg, datalen);
-
-		/* The system's VM statistics: */
-		mib[0] = CTL_VM;
-		mib[1] = VM_METER;
-		datalen = sizeof(sysvmtotal);
-		sysctl(mib, 2, &sysvmtotal, &datalen, NULL, 0);
-		SHA1_Update(&context, &sysvmtotal, datalen);
-
-		/* The current GMT (26 ASCII characters): */
-		time(&now);
-		strncpy(randomInputBuffer, asctime(gmtime(&now)), 26);	/* "Mon Mar 27 13:46:26 2000" */
-		SHA1_Update(&context, randomInputBuffer, 26);
-		
-		/* Pad the accumulated input and extract the final digest hash: */
-		SHA1_Final(digest, &context);
-	
-		memcpy(&hfsuuid, digest, sizeof(hfsuuid));
-	} while ((hfsuuid.high == 0) || (hfsuuid.low == 0));
-
-	/* now copy out the hfs uuid */
-	memcpy (newuuid, &hfsuuid, sizeof (hfsuuid));
-
-	return;
+	arc4random_buf(newuuid, sizeof(*newuuid));
 }
 
 int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr) {

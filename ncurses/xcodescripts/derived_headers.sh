@@ -2,6 +2,7 @@
 set -e -x
 
 export AWK=awk
+export UNIFDEF=unifdef
 CAPS="$PROJECT_DIR"/ncurses/include/Caps
 
 # curses.h
@@ -35,8 +36,23 @@ sh "$PROJECT_DIR"/ncurses/include/edit_cfg.sh \
 	"$PROJECT_DIR"/ncurses/include/ncurses_cfg.h \
 	"$BUILT_PRODUCTS_DIR"/term.h
 
-# transform.h
-echo "#define PROG_CAPTOINFO \"captoinfo\"" >  "$BUILT_PRODUCTS_DIR"/transform.h
-echo "#define PROG_INFOTOCAP \"infotocap\"" >> "$BUILT_PRODUCTS_DIR"/transform.h
-echo "#define PROG_RESET     \"reset\""     >> "$BUILT_PRODUCTS_DIR"/transform.h
-echo "#define PROG_INIT      \"init\""      >> "$BUILT_PRODUCTS_DIR"/transform.h
+# transform.h, sync with ncurses/progrs/Makefile.in
+cat <<EOF > "$BUILT_PRODUCTS_DIR"/transform.h
+#ifndef __TRANSFORM_H
+#define __TRANSFORM_H 1
+#include <progs.priv.h>
+extern bool same_program(const char *, const char *);
+#define PROG_CAPTOINFO "captoinfo"
+#define PROG_INFOTOCAP "infotocap"
+#define PROG_RESET     "reset"
+#define PROG_INIT      "init"
+#endif /* __TRANSFORM_H */
+EOF
+
+# ncurses.modulemap
+if [ $PLATFORM_NAME = "macosx" ]
+then
+	"$UNIFDEF" -DPUBLIC -o "$BUILT_PRODUCTS_DIR"/ncurses.modulemap "$PROJECT_DIR"/ncurses/include/ncurses.modulemap || [ $? -eq 1 ]
+else
+	"$UNIFDEF" -UPUBLIC -o "$BUILT_PRODUCTS_DIR"/ncurses.modulemap "$PROJECT_DIR"/ncurses/include/ncurses.modulemap || [ $? -eq 1 ]
+fi

@@ -18,7 +18,7 @@ namespace {
 alignas(DecimalFormatProperties)
 char kRawDefaultProperties[sizeof(DecimalFormatProperties)];
 
-icu::UInitOnce gDefaultPropertiesInitOnce = U_INITONCE_INITIALIZER;
+icu::UInitOnce gDefaultPropertiesInitOnce {};
 
 void U_CALLCONV initDefaultProperties(UErrorCode&) {
     // can't fail, uses placement new into statically allocated space.
@@ -76,7 +76,10 @@ void DecimalFormatProperties::clear() {
     roundingMode.nullify();
     secondaryGroupingSize = -1;
     signAlwaysShown = false;
-    formatFullPrecision = false; // Apple addition for <rdar://problem/39240173>
+#if APPLE_ICU_CHANGES
+// rdar:/
+    formatFullPrecision = false; // Apple addition for rdar://39240173
+#endif  // APPLE_ICU_CHANGES
 }
 
 bool
@@ -110,7 +113,10 @@ DecimalFormatProperties::_equals(const DecimalFormatProperties& other, bool igno
     eq = eq && roundingMode == other.roundingMode;
     eq = eq && secondaryGroupingSize == other.secondaryGroupingSize;
     eq = eq && signAlwaysShown == other.signAlwaysShown;
-    eq = eq && formatFullPrecision == other.formatFullPrecision; // Apple addition for <rdar://problem/39240173>
+#if APPLE_ICU_CHANGES
+// rdar:/
+    eq = eq && formatFullPrecision == other.formatFullPrecision; // Apple addition for rdar://39240173
+#endif  // APPLE_ICU_CHANGES
 
     if (ignoreForFastFormat) {
         return eq;

@@ -24,8 +24,10 @@
 
 #include "GStreamerCommon.h"
 
+#include <wtf/FileSystem.h>
 #include <wtf/PrintStream.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringConcatenate.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 
@@ -76,6 +78,12 @@ static GstStaticPadTemplate s_harnessSinkPadTemplate = GST_STATIC_PAD_TEMPLATE("
  *
  * The harness can work on elements exposing either a static source pad, or one-to-many "sometimes"
  * source pads. Support for different topologies can be added as-needed.
+ *
+ * In cases where a graph dump of the harness and its downstream harnesses is needed for debugging
+ * purposes, it can be done by calling the `dumpGraph()` method. At runtime you need to set the
+ * `$WEBKIT_GST_HARNESS_DUMP_DIR` environment variable to a filesystem directory path where `mmd`
+ * [Mermaid](https://mermaid.js.org/) files will be created. Those can then be exported to SVG or
+ * PNG using the mermaid CLI tools or the [live editor](https://mermaid.live).
  */
 
 GStreamerElementHarness::GStreamerElementHarness(GRefPtr<GstElement>&& element, ProcessBufferCallback&& processOutputBufferCallback, std::optional<PadLinkCallback>&& padLinkCallback)
@@ -116,6 +124,7 @@ GStreamerElementHarness::GStreamerElementHarness(GRefPtr<GstElement>&& element, 
             }
 
             harness.m_outputStreams.append(GStreamerElementHarness::Stream::create(WTFMove(outputPad), WTFMove(downstreamHarness)));
+            harness.dumpGraph("pad-added");
         }), this);
 
         g_signal_connect(m_element.get(), "pad-removed", reinterpret_cast<GCallback>(+[](GstElement* element, GstPad* pad, gpointer userData) {
@@ -184,6 +193,7 @@ void GStreamerElementHarness::pushStickyEvents(GRefPtr<GstCaps>&& inputCaps)
 {
     if (!m_inputCaps || !gst_caps_is_equal(inputCaps.get(), m_inputCaps.get())) {
         m_inputCaps = WTFMove(inputCaps);
+        GST_DEBUG_OBJECT(m_element.get(), "Signaling downstream with caps %" GST_PTR_FORMAT, m_inputCaps.get());
         pushEvent(adoptGRef(gst_event_new_caps(m_inputCaps.get())));
     } else if (m_stickyEventsSent.load()) {
         GST_DEBUG_OBJECT(m_element.get(), "Input caps have not changed, not pushing sticky events again");
@@ -247,14 +257,13 @@ GStreamerElementHarness::Stream::Stream(GRefPtr<GstPad>&& pad, RefPtr<GStreamerE
 
     gst_pad_set_chain_function_full(m_targetPad.get(), reinterpret_cast<GstPadChainFunction>(+[](GstPad* pad, GstObject*, GstBuffer* buffer) -> GstFlowReturn {
         auto& stream = *reinterpret_cast<GStreamerElementHarness::Stream*>(pad->chaindata);
-        if (stream.m_downstreamHarness)
-            return stream.m_downstreamHarness->pushBufferFull(buffer);
+        if (auto downstreamHarness = stream.downstreamHarness()) {
+            if (!downstreamHarness->isStarted())
+                downstreamHarness->start(GRefPtr<GstCaps>(stream.outputCaps()));
+            return downstreamHarness->pushBufferFull(adoptGRef(buffer));
+        }
         return stream.chainBuffer(buffer);
     }),  this, nullptr);
-    gst_pad_set_query_function_full(m_targetPad.get(), reinterpret_cast<GstPadQueryFunction>(+[](GstPad* pad, GstObject* parent, GstQuery* query) -> gboolean {
-        auto& stream = *reinterpret_cast<GStreamerElementHarness::Stream*>(pad->querydata);
-        return stream.sinkQuery(pad, parent, query);
-    }), this, nullptr);
     gst_pad_set_event_function_full(m_targetPad.get(), reinterpret_cast<GstPadEventFunction>(+[](GstPad* pad, GstObject*, GstEvent* event) -> gboolean {
         auto& stream = *reinterpret_cast<GStreamerElementHarness::Stream*>(pad->eventdata);
         return stream.sinkEvent(event);
@@ -300,6 +309,7 @@ bool GStreamerElementHarness::Stream::sendEvent(GstEvent* event)
 
 const GRefPtr<GstCaps>& GStreamerElementHarness::Stream::outputCaps()
 {
+    Locker locker { m_sinkEventQueueLock };
     if (m_outputCaps)
         return m_outputCaps;
 
@@ -316,41 +326,14 @@ GstFlowReturn GStreamerElementHarness::Stream::chainBuffer(GstBuffer* outputBuff
     return GST_FLOW_OK;
 }
 
-bool GStreamerElementHarness::Stream::sinkQuery(GstPad* pad, GstObject* parent, GstQuery* query)
-{
-    bool result = TRUE;
-    switch (GST_QUERY_TYPE(query)) {
-    case GST_QUERY_CAPS: {
-        GstCaps* filter = nullptr;
-        GRefPtr<GstCaps> caps;
-        if (m_outputCaps)
-            caps = m_outputCaps;
-        else
-            caps = adoptGRef(gst_pad_get_pad_template_caps(pad));
-
-        if (!caps) {
-            result = gst_pad_query_default(pad, parent, query);
-            break;
-        }
-
-        gst_query_parse_caps(query, &filter);
-        if (filter) {
-            auto intersectedCaps = adoptGRef(gst_caps_intersect_full(filter, caps.get(), GST_CAPS_INTERSECT_FIRST));
-            gst_query_set_caps_result(query, intersectedCaps.get());
-        } else
-            gst_query_set_caps_result(query, caps.get());
-        break;
-    }
-    default:
-        result = gst_pad_query_default(pad, parent, query);
-    }
-
-    return result;
-}
-
 bool GStreamerElementHarness::Stream::sinkEvent(GstEvent* event)
 {
     Locker locker { m_sinkEventQueueLock };
+
+    // Clear cached output caps when the pad receives a new caps event.
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CAPS)
+        m_outputCaps = nullptr;
+
     m_sinkEventQueue.prepend(GRefPtr<GstEvent>(event));
     return true;
 }
@@ -402,9 +385,20 @@ void GStreamerElementHarness::flush()
 {
     GST_DEBUG_OBJECT(element(), "Flushing");
 
+    if (!flushBuffers())
+        return;
+
+    m_inputCaps.clear();
+    m_stickyEventsSent.store(false);
+    GST_DEBUG_OBJECT(element(), "Flushing done, input caps and sticky events cleared");
+}
+
+bool GStreamerElementHarness::flushBuffers()
+{
+    GST_DEBUG_OBJECT(element(), "Flushing buffers");
     if (element()->current_state <= GST_STATE_PAUSED) {
         GST_DEBUG_OBJECT(element(), "No need to flush in paused state");
-        return;
+        return false;
     }
 
     processOutputBuffers();
@@ -420,10 +414,226 @@ void GStreamerElementHarness::flush()
         }
     }
 
-    m_inputCaps.clear();
-    m_stickyEventsSent.store(false);
-    GST_DEBUG_OBJECT(element(), "Flushing done");
+    GST_DEBUG_OBJECT(element(), "Buffers flushed");
+    return true;
 }
+
+#ifndef GST_DISABLE_GST_DEBUG
+class MermaidBuilder {
+public:
+    MermaidBuilder();
+    void process(GStreamerElementHarness&, bool generateFooter = true);
+    std::span<uint8_t> span();
+
+private:
+    String generatePadId(GStreamerElementHarness&,  GstPad*);
+    String getPadClass(const GRefPtr<GstPad>&);
+    String describeCaps(const GRefPtr<GstCaps>&);
+    void dumpPad(GStreamerElementHarness&, GstPad* = nullptr);
+    void dumpElement(GStreamerElementHarness&, GstElement* = nullptr);
+
+    StringBuilder m_stringBuilder;
+    uint64_t m_invisibleLinesCounter { 0 };
+    uint64_t m_elementCounter { 0 };
+    Vector<std::tuple<GStreamerElementHarness&, GRefPtr<GstPad>, GRefPtr<GstPad>>> m_padLinks;
+};
+
+MermaidBuilder::MermaidBuilder()
+{
+    m_stringBuilder.append("flowchart LR\n"_s);
+}
+
+String MermaidBuilder::generatePadId(GStreamerElementHarness& harness, GstPad* pad)
+{
+    auto parent = adoptGRef(gst_pad_get_parent(GST_OBJECT_CAST(pad)));
+    if (!parent)
+        return makeString(GST_ELEMENT_NAME(harness.element()), "-harness-", GST_PAD_NAME(pad));
+    return makeString(GST_OBJECT_NAME(parent.get()), '_', GST_PAD_NAME(pad));
+}
+
+String MermaidBuilder::getPadClass(const GRefPtr<GstPad>& pad)
+{
+    auto direction = gst_pad_get_direction(pad.get());
+    if (GST_IS_GHOST_PAD(pad.get()))
+        return direction == GST_PAD_SRC ? "ghostSrcPadClass"_s : "ghostSinkPadClass"_s;
+
+    return direction == GST_PAD_SRC ? "srcPadClass"_s : "sinkPadClass"_s;
+}
+
+void MermaidBuilder::process(GStreamerElementHarness& harness, bool generateFooter)
+{
+    dumpElement(harness);
+    dumpPad(harness);
+
+    for (auto& outputStream : harness.outputStreams()) {
+        auto pad = outputStream->targetPad();
+        auto padId = generatePadId(harness, pad.get());
+        m_stringBuilder.append("subgraph "_s, padId, " [", GST_PAD_NAME(pad.get()), "]\n");
+        m_stringBuilder.append("end\n"_s);
+
+        auto downstreamHarness = outputStream->downstreamHarness();
+        if (!downstreamHarness)
+            continue;
+        process(*downstreamHarness, false);
+        m_stringBuilder.append(padId, "--->"_s, generatePadId(*downstreamHarness, downstreamHarness->inputPad()), '\n');
+    }
+
+    if (!generateFooter)
+        return;
+
+    for (auto& [padHarness, srcPad, sinkPad] : m_padLinks) {
+        m_stringBuilder.append(generatePadId(padHarness, srcPad.get()), ":::"_s, getPadClass(srcPad));
+        if (GST_IS_PROXY_PAD(srcPad.get()))
+            m_stringBuilder.append("--->"_s);
+        else if (auto srcCaps = adoptGRef(gst_pad_get_current_caps(srcPad.get()))) {
+            auto capsString = describeCaps(srcCaps.get());
+            m_stringBuilder.append("--\""_s, capsString, "\"-->"_s);
+        } else
+            m_stringBuilder.append("--->"_s);
+        m_stringBuilder.append(generatePadId(padHarness, sinkPad.get()), ":::"_s, getPadClass(sinkPad), '\n');
+    }
+
+    m_stringBuilder.append("classDef srcPadClass fill:#ffaaaa\n"_s);
+    m_stringBuilder.append("classDef sinkPadClass fill:#aaaaff\n"_s);
+    m_stringBuilder.append("classDef ghostSrcPadClass fill:#ffdddd\n"_s);
+    m_stringBuilder.append("classDef ghostSinkPadClass fill:#ddddff\n"_s);
+    m_stringBuilder.append("classDef elementClass fill:#aaffaa\n"_s);
+}
+
+void MermaidBuilder::dumpPad(GStreamerElementHarness& harness, GstPad* pad)
+{
+    if (!pad)
+        pad = harness.inputPad();
+    m_stringBuilder.append("subgraph "_s, generatePadId(harness, pad), " ["_s, GST_PAD_NAME(pad), "]\n"_s);
+
+    if (gst_pad_is_linked(pad)) {
+        auto peerPad = adoptGRef(gst_pad_get_peer(pad));
+        if (gst_pad_get_direction(pad) == GST_PAD_SRC) {
+            m_padLinks.append({ harness, pad, peerPad });
+            if (GST_IS_PROXY_PAD(pad)) {
+                auto internalPad = adoptGRef(gst_proxy_pad_get_internal(GST_PROXY_PAD(pad)));
+                m_padLinks.append({ harness, GST_PAD_CAST(internalPad.get()), pad });
+            }
+        }
+    }
+
+    m_stringBuilder.append("end\n"_s);
+    if (!GST_IS_GHOST_PAD(pad))
+        return;
+
+    auto padTarget = adoptGRef(gst_ghost_pad_get_target(GST_GHOST_PAD_CAST(pad)));
+    if (!padTarget)
+        return;
+
+    auto peerPad = adoptGRef(gst_pad_get_peer(padTarget.get()));
+    if (!peerPad)
+        return;
+    dumpPad(harness, peerPad.get());
+}
+
+void MermaidBuilder::dumpElement(GStreamerElementHarness& harness, GstElement* element)
+{
+    if (!element)
+        element= harness.element();
+    auto elementId = makeString(GST_ELEMENT_NAME(element), '_', m_elementCounter);
+    m_elementCounter++;
+    m_stringBuilder.append("subgraph "_s, elementId, " [<center>"_s, G_OBJECT_TYPE_NAME(element), "\\n<small>"_s, GST_ELEMENT_NAME(element), "]\n"_s);
+
+    if (GST_IS_BIN(element)) {
+        for (auto element : GstIteratorAdaptor<GstElement>(GUniquePtr<GstIterator>(gst_bin_iterate_recurse(GST_BIN_CAST(element)))))
+            dumpElement(harness, element);
+    }
+
+    GRefPtr<GstPad> firstSinkPad, firstSrcPad;
+    for (auto pad : GstIteratorAdaptor<GstPad>(GUniquePtr<GstIterator>(gst_element_iterate_sink_pads(element)))) {
+        if (!firstSinkPad)
+            firstSinkPad = pad;
+        dumpPad(harness, pad);
+    }
+    for (auto pad : GstIteratorAdaptor<GstPad>(GUniquePtr<GstIterator>(gst_element_iterate_src_pads(element)))) {
+        if (!firstSrcPad)
+            firstSrcPad = pad;
+        dumpPad(harness, pad);
+    }
+
+    // There is no clean way to maintain subgraph ordering, so draw invisible links between pads.
+    // Upstream bug report: https://github.com/mermaid-js/mermaid/issues/815
+    if (firstSinkPad && firstSrcPad) {
+        m_stringBuilder.append(generatePadId(harness, firstSinkPad.get()), "---"_s, generatePadId(harness, firstSrcPad.get()), '\n');
+        m_stringBuilder.append("linkStyle "_s, m_invisibleLinesCounter, " stroke-width:0px\n"_s);
+        m_invisibleLinesCounter++;
+    }
+
+    m_stringBuilder.append("end\n"_s);
+    if (GST_IS_BIN(element))
+        return;
+
+    m_stringBuilder.append("class "_s, elementId, " elementClass\n"_s);
+}
+
+String MermaidBuilder::describeCaps(const GRefPtr<GstCaps>& caps)
+{
+    if (gst_caps_is_any(caps.get()) || gst_caps_is_empty(caps.get())) {
+        GUniquePtr<char> capsString(gst_caps_to_string(caps.get()));
+        return makeString(capsString.get());
+    }
+
+    StringBuilder builder;
+    unsigned capsSize = gst_caps_get_size(caps.get());
+    for (unsigned i = 0; i < capsSize; i++) {
+        auto* features = gst_caps_get_features(caps.get(), i);
+        const auto* structure = gst_caps_get_structure(caps.get(), i);
+        builder.append(gst_structure_get_name(structure), "<br/>"_s);
+        if (features && (gst_caps_features_is_any(features) || !gst_caps_features_is_equal(features, GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY))) {
+            GUniquePtr<char> serializedFeature(gst_caps_features_to_string(features));
+            builder.append('(', serializedFeature.get(), ')');
+        }
+
+        gst_structure_foreach(structure, [](GQuark field, const GValue* value, gpointer builderPointer) -> gboolean {
+            auto* builder = reinterpret_cast<StringBuilder*>(builderPointer);
+            builder->append(g_quark_to_string(field), ": "_s);
+
+            GUniquePtr<char> serializedValue(gst_value_serialize(value));
+            auto valueString = makeString(serializedValue.get());
+            if (valueString.length() > 25)
+                builder->append(valueString.substring(0, 25), "…");
+            else
+                builder->append(valueString);
+            builder->append("<br/>"_s);
+            return TRUE;
+        }, &builder);
+    }
+    return builder.toString();
+}
+
+std::span<uint8_t> MermaidBuilder::span()
+{
+    auto data = m_stringBuilder.span<uint8_t>();
+    return std::span(const_cast<uint8_t*>(data.data()), data.size_bytes());
+}
+#endif
+
+void GStreamerElementHarness::dumpGraph(const char* filenamePrefix)
+{
+#ifndef GST_DISABLE_GST_DEBUG
+    const char* dumpPath = g_getenv("WEBKIT_GST_HARNESS_DUMP_DIR");
+    if (!dumpPath)
+        return;
+
+    auto elapsed = gst_util_get_timestamp() - webkitGstInitTime();
+    GUniquePtr<char> elapsedTimeStamp(gst_info_strdup_printf("%" GST_TIME_FORMAT, GST_TIME_ARGS(elapsed)));
+    auto filename = makeString(elapsedTimeStamp.get(), '-', filenamePrefix, "-harness-"_s, GST_ELEMENT_NAME(m_element.get()), ".mmd"_s);
+
+    MermaidBuilder builder;
+    builder.process(*this);
+    auto path = FileSystem::pathByAppendingComponent(makeString(dumpPath), filename);
+    FileSystem::overwriteEntireFile(path, builder.span());
+#else
+    UNUSED_PARAM(filenamePrefix);
+#endif
+}
+
+#undef GST_CAT_DEFAULT
 
 } // namespace WebCore
 

@@ -47,8 +47,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/wsetup.c,v 1.11 2009/01/08 06:38:06 das E
  * _wsetup returns 0 if OK to write; otherwise, it returns EOF and sets errno.
  */
 int
-__swsetup(fp)
-	FILE *fp;
+__swsetup(FILE *fp)
 {
 	/* make sure stdio is set up */
 	pthread_once(&__sdidinit, __sinit);

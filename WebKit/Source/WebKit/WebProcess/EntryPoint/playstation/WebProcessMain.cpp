@@ -55,11 +55,23 @@ int main(int argc, char** argv)
 #if defined(WebP_LOAD_AT)
     loadLibraryOrExit(WebP_LOAD_AT);
 #endif
+#if defined(Brotli_LOAD_AT)
+    loadLibraryOrExit(Brotli_LOAD_AT);
+#endif
     loadLibraryOrExit(Freetype_LOAD_AT);
     loadLibraryOrExit(Fontconfig_LOAD_AT);
     loadLibraryOrExit(HarfBuzz_LOAD_AT);
     loadLibraryOrExit(Cairo_LOAD_AT);
+#if defined(LibPSL_LOAD_AT)
+    loadLibraryOrExit(LibPSL_LOAD_AT);
+#endif
+#if defined(LibXml2_LOAD_AT)
+    loadLibraryOrExit(LibXml2_LOAD_AT);
+#endif
     loadLibraryOrExit(WebKitRequirements_LOAD_AT);
+#if defined(WPE_LOAD_AT)
+    loadLibraryOrExit(WPE_LOAD_AT);
+#endif
 #if !ENABLE(STATIC_JSC)
     loadLibraryOrExit("libJavaScriptCore");
 #endif

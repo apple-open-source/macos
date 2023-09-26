@@ -206,6 +206,22 @@ struct smbioc_notifier_pid {
 #define SMBIOC_GET_NOTIFIER_PID           _IOR('n', 129, struct smbioc_notifier_pid)
 #define SMBIOC_NOTIFIER_UPDATE_INTERFACES _IOW('n', 130, struct smbioc_client_interface)
 
+/*
+ * Compile time check for all structs passed as IOCTL data
+ * Size must not be larger than IOCPARM_MAX
+ */
+SMB_IOC_CHECK_SIZE(struct smb2ioc_check_dir);
+SMB_IOC_CHECK_SIZE(struct smb2ioc_close);
+SMB_IOC_CHECK_SIZE(struct smb2ioc_create);
+SMB_IOC_CHECK_SIZE(struct smb2ioc_ioctl);
+SMB_IOC_CHECK_SIZE(struct smb2ioc_rw);
+SMB_IOC_CHECK_SIZE(struct smb2ioc_get_dfs_referral);
+SMB_IOC_CHECK_SIZE(struct smbioc_share_properties);
+SMB_IOC_CHECK_SIZE(struct smb2ioc_query_dir);
+SMB_IOC_CHECK_SIZE(struct smbioc_client_interface);
+SMB_IOC_CHECK_SIZE(struct smbioc_notifier_pid);
+SMB_IOC_CHECK_SIZE(struct smbioc_client_interface);
+
 #ifdef _KERNEL
 
 int smb_usr_check_dir(struct smb_share *share, struct smb_session *sessionp,

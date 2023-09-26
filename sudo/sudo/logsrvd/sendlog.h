@@ -19,17 +19,23 @@
 #ifndef SUDO_SENDLOG_H
 #define SUDO_SENDLOG_H
 
+#include "log_server.pb-c.h"
 #if PROTOBUF_C_VERSION_NUMBER < 1003000
 # error protobuf-c version 1.30 or higher required
 #endif
 
-#include "config.h"
+#include <config.h>
 
 #if defined(HAVE_OPENSSL)
+# if defined(HAVE_WOLFSSL)
+#  include <wolfssl/options.h>
+# endif
 # include <openssl/ssl.h>
+# include <openssl/err.h>
 #endif
 
 #include "logsrv_util.h"
+#include "tls_common.h"
 
 enum client_state {
     ERROR,
@@ -51,16 +57,16 @@ struct client_closure {
     bool write_instead_of_read;
     bool temporary_write_event;
     struct timespec restart;
+    struct timespec stop_after;
     struct timespec elapsed;
     struct timespec committed;
     struct timing_closure timing;
     struct sudo_event_base *evbase;
     struct connection_buffer read_buf;
-    struct connection_buffer write_buf;
+    struct connection_buffer_list write_bufs;
+    struct connection_buffer_list free_bufs;
 #if defined(HAVE_OPENSSL)
-    SSL *ssl;
-    struct sudo_event *tls_connect_ev;
-    bool tls_connect_state;
+    struct tls_client_closure tls_client;
 #endif
     struct sudo_event *read_ev;
     struct sudo_event *write_ev;

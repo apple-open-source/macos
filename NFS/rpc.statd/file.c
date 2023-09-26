@@ -550,7 +550,7 @@ reopen:
 	/* Scan the whole status file.  Along the way, we'll verify the	 */
 	/* integrity of the file and clean up monitored/notification fields.	 */
 	if (!update && notify_only) {
-		DEBUG(1, "notify_only: skipping database initialization");
+		STATD_DEBUG(1, "notify_only: skipping database initialization");
 	}
 
 	if (!hip) {
@@ -607,7 +607,7 @@ reopen:
 			hip->hi_len = ntohs(hip->hi_len);
 		}
 		if (hip->hi_notify && (statd_server || notify_only)) {
-			DEBUG(1, "need notify: %s", hip->hi_name);
+			STATD_DEBUG(1, "need notify: %s", hip->hi_name);
 			need_notify = TRUE;
 		}
 		off += hip->hi_len;
@@ -700,7 +700,7 @@ notify_one_host(char *hostname, int warn)
 	arg.state = ntohl(status_info->fh_state);
 	result = FALSE;
 
-	DEBUG(1, "Sending SM_NOTIFY to host %s from %s", hostname, our_hostname);
+	STATD_DEBUG(1, "Sending SM_NOTIFY to host %s from %s", hostname, our_hostname);
 
 	/* get the list of addresses for this host */
 	ailist = NULL;
@@ -719,11 +719,11 @@ notify_one_host(char *hostname, int warn)
 
 	/* try each address until we get success */
 	for (ai = ailist; ai && (result == FALSE); ai = ai->ai_next) {
-		if (config.send_using_tcp) {
+		if (statd_config.send_using_tcp) {
 			sock = RPC_ANYSOCK;
 			cli = clnttcp_create_sa(ai->ai_addr, SM_PROG, SM_VERS, &sock, 0, 0);
 		}
-		if (!config.send_using_tcp || !cli) {
+		if (!statd_config.send_using_tcp || !cli) {
 			sock = RPC_ANYSOCK;
 			cli = clntudp_create_sa(ai->ai_addr, SM_PROG, SM_VERS, try, &sock);
 		}
@@ -771,8 +771,8 @@ notify_hosts(void)
 	pid_t pid;
 
 	/* claim PID file */
-	pfh = pidfile_open(_PATH_STATD_NOTIFY_PID, 0644, &pid);
-	if (pfh == NULL) {
+	statpfh = pidfile_open(_PATH_STATD_NOTIFY_PID, 0644, &pid);
+	if (statpfh == NULL) {
 		log(LOG_ERR, "can't open statd.notify pidfile: %s (%d)", strerror(errno), errno);
 		if (errno == EEXIST) {
 			log(LOG_ERR, "statd.notify already running, pid: %d", pid);
@@ -780,7 +780,7 @@ notify_hosts(void)
 		}
 		return 2;
 	}
-	if (pidfile_write(pfh) == -1) {
+	if (pidfile_write(statpfh) == -1) {
 		log(LOG_WARNING, "can't write to statd.notify pidfile: %s (%d)", strerror(errno), errno);
 	}
 
@@ -789,7 +789,7 @@ notify_hosts(void)
 	if (!work_to_do) {
 		/* No work found */
 		log(LOG_NOTICE, "statd.notify - no notifications needed");
-		pidfile_remove(pfh);
+		pidfile_remove(statpfh);
 		return 0;
 	}
 	log(LOG_INFO, "statd.notify starting");
@@ -849,7 +849,7 @@ notify_hosts(void)
 			sleep(60 * 60);
 		}
 	}
-	pidfile_remove(pfh);
+	pidfile_remove(statpfh);
 	return 0;
 }
 
@@ -957,7 +957,7 @@ loop:
 	for (i = 0; i < reccnt && off < status_file_len; i++, off += ntohs(hip->hi_len)) {
 		hip = HOSTINFO(off);
 		if (!hip->hi_namelen || !hip->hi_name[0] ||
-		    (!hip->hi_monitored && !hip->hi_notify && (!config.verbose || watchmode))) {
+		    (!hip->hi_monitored && !hip->hi_notify && (!statd_config.verbose || watchmode))) {
 			continue;
 		}
 		if (!watchmode) {

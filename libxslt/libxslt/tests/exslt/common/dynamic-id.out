@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<result xmlns:exsl="http://exslt.org/common">
+  <id>id1</id>
+  <id>id2</id>
+  <id>id3</id>
+  <id>id4</id>
+  <id>id5</id>
+  <id>id6</id>
+  <id>id7</id>
+  <id>id8</id>
+  <id>id9</id>
+  <id>id10</id>
+</result>

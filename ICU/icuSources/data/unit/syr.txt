@@ -2,4 +2,1961 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 syr{
+    units{
+        acceleration{
+            meter-per-square-second{
+                dnam{"ܡܝܬܪ̈ܐ ܒܪܦܦܐ ܡܪܒܥܐ"}
+                one{"{0} ܡܝܬܪܐ ܒܪܦܦܐ ܡܪܒܥܐ"}
+                other{"{0} ܡܝܬܪ̈ܐ ܒܪܦܦܐ ܡܪܒܥܐ"}
+            }
+        }
+        angle{
+            arc-minute{
+                one{"ܩܛܝܢܐ ܩܫܬܢܝܐ"}
+                other{"{0} ܩܛܝ̈ܢܬܐ ܩܫܬܢܝܬܐ"}
+            }
+            arc-second{
+                one{"{0} ܪ̈ܦܦܐ ܩܫܬܢܝܐ"}
+                other{"{0} ܪ̈ܦܦܐ ܩܫܬܢ̈ܝܐ"}
+            }
+            degree{
+                one{"ܕܪܓ݂ܐ"}
+                other{"{0} ܕܪ̈ܓ݂ܐ"}
+            }
+            revolution{
+                dnam{"ܚܘܕܖ̈ܐ"}
+                one{"{0} ܚܘܕܪܐ"}
+                other{"{0} ܚܘܕܖ̈ܐ"}
+            }
+        }
+        area{
+            hectare{
+                dnam{"ܗܟܬܪ"}
+                one{"{0} ܗܟܬܪ"}
+                other{"{0} ܗܟܬܪ"}
+            }
+            square-centimeter{
+                dnam{"ܣܢܬܝܡܝܬܪ̈ܐ ܡܪܒܥܐ"}
+                one{"{0} ܣܢܬܝܡܝܬܪܐ ܡܪܒܥܐ"}
+                other{"{0} ܣܢܬܝܡܝܬܪ̈ܐ ܡܪܒܥܐ"}
+                per{"{0} ܒܣܢܬܝܡܝܬܪܐ ܡܪܒܥܐ"}
+            }
+            square-foot{
+                dnam{"ܐܩܠ̈ܐ ܡܪܒܥܐ"}
+                one{"{0} ܐܩܠܐ ܡܪܒܥܐ"}
+                other{"{0} ܐܩܠ̈ܐ ܡܪܒܥܐ"}
+            }
+            square-inch{
+                dnam{"ܐܢܟ̈ܐ ܡܪܒܥܐ"}
+                one{"{0} ܐܢܟ ܡܪܒܥܐ"}
+                other{"{0} ܐܢܟ̈ܐ ܡܪܒܥܐ"}
+                per{"{0} ܒܐܢܟ ܡܪܒܥܐ"}
+            }
+            square-kilometer{
+                dnam{"ܟܝܠܘܡܝܬܪ̈ܐ ܡܪܒܥܐ"}
+                one{"{0} ܟܝܠܘܡܝܬܪܐ ܡܪܒܥܐ"}
+                other{"{0} ܟܝܠܘܡܝܬܪ̈ܐ ܡܪܒܥܐ"}
+                per{"{0} ܒܟܝܠܘܡܝܬܪܐ ܡܪܒܥܐ"}
+            }
+            square-meter{
+                dnam{"ܡܝܬܪ̈ܐ ܡܪܒܥܐ"}
+                one{"{0} ܡܝܬܪܐ ܡܪܒܥܐ"}
+                other{"{0} ܡܝܬܪ̈ܐ ܡܪܒܥܐ"}
+                per{"{0} ܒܡܝܬܪܐ ܡܪܒܥܐ"}
+            }
+            square-mile{
+                dnam{"ܡܝܠ̈ܐ ܡܪܒܥܐ"}
+                one{"{0} ܡܝܠ̈ܐ ܡܪܒܥܐ"}
+                other{"{0} ܡܝܠ̈ܐ ܡܪܒܥܐ"}
+                per{"{0} ܒܡܝܠ̈ܐ ܡܪܒܥܐ"}
+            }
+            square-yard{
+                dnam{"ܝܪ̈ܕܐ ܡܪܒܥܐ"}
+                one{"{0} ܝܪܕܐ ܡܪܒܥܐ"}
+                other{"{0} ܝܪ̈ܕܐ ܡܪܒܥܐ"}
+            }
+        }
+        compound{
+            1024p1{"ܟܝܒܝ{0}"}
+            1024p2{"ܡܝܒܝ{0}"}
+            1024p3{"ܓܝܒܝ{0}"}
+            1024p4{"ܬܝܒܝ{0}"}
+            1024p5{"ܦܝܒܝ{0}"}
+            1024p6{"ܐܟܣܒܝ{0}"}
+            1024p7{"ܙܝܒܝ{0}"}
+            1024p8{"ܝܘܒܝ{0}"}
+            10p-1{"ܕܝܣܝ{0}"}
+            10p-12{"ܦܝܟܘ{0}"}
+            10p-15{"ܦ̮ܝܡܬܘ{0}"}
+            10p-18{"ܐܬܘ{0}"}
+            10p-2{"ܣܢܬܝ{0}"}
+            10p-21{"ܙܝܦܬܘ{0}"}
+            10p-24{"ܝܟܬܘ{0}"}
+            10p-3{"ܡܝܠܝ{0}"}
+            10p-6{"ܡܝܟܪܘ{0}"}
+            10p-9{"ܢܐܢܘ{0}"}
+            10p1{"ܕܝܟܐ{0}"}
+            10p12{"ܬܝܪܐ{0}"}
+            10p15{"ܦܝܬܐ{0}"}
+            10p18{"ܐܟܣܐ{0}"}
+            10p2{"ܗܟܬܘ{0}"}
+            10p21{"ܙܝܬܐ{0}"}
+            10p24{"ܝܘܬܐ{0}"}
+            10p3{"ܟܝܠܘ{0}"}
+            10p6{"ܡܝܓܐ{0}"}
+            10p9{"ܓܝܓܐ{0}"}
+            power2{
+                one{
+                    _{
+                        _{"{0} ܡܪܒܥܐ"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} ܡܪܒܥܐ"}
+                    }
+                }
+            }
+            power3{
+                one{
+                    _{
+                        _{"{0} ܡܩܦܣܐ"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} ܡܩܦܣܐ"}
+                    }
+                }
+            }
+        }
+        concentr{
+            item{
+                dnam{"ܡܠܘܐ̈ܐ"}
+                one{"ܚܕ ܡܠܘܐܐ"}
+                other{"{0} ܡܠܘܐ̈ܐ"}
+            }
+            karat{
+                one{"ܩܪܛܐ"}
+                other{"{0} ܩܪ̈ܛܐ"}
+            }
+            milligram-ofglucose-per-deciliter{
+                dnam{"ܡܝܠܝܓܪ̈ܡܐ ܒܕܝܣܝܠܝܬܪܐ"}
+                one{"{0} ܡܝܠܝܓܪܡܐ ܒܕܝܣܝܠܝܬܪ"}
+                other{"{0} ܡܝܠܝܓܪ̈ܡܐ ܒܕܝܣܝܠܝܬܪܐ"}
+            }
+            millimole-per-liter{
+                dnam{"ܡܝܠܝܡܘܠ ܒܠܝܬܪܐ"}
+                one{"{0} ܡܝܠܝܡܘܠ ܒܠܝܬܪܐ"}
+                other{"{0} ܡܝܠܝܡܘܠ ܒܠܝܬܪܐ"}
+            }
+            percent{
+                one{"{0} ܒܡܐܐ"}
+                other{"{0} ܒܡܐܐ"}
+            }
+            permille{
+                one{"{0} ܒܐܠܦܐ"}
+                other{"{0} ܒܐܠܦܐ"}
+            }
+            permillion{
+                dnam{"ܡܢܘ̈ܬܐ ܒܡܠܝܘܢ"}
+                one{"{0} ܡܢܬܐ ܒܡܠܝܘܢ"}
+                other{"{0} ܡܢܘ̈ܬܐ ܒܡܠܝܘܢ"}
+            }
+        }
+        consumption{
+            liter-per-100-kilometer{
+                dnam{"ܠܝܬܪ̈ܐ ܒ 100 ܟܝܠܘܡܝܬܪ̈ܐ"}
+                one{"{0} ܠܝܬܪܐ ܒ 100 ܟܝܠܘܡܝܬܪ̈ܐ"}
+                other{"{0} ܠܝܬܪ̈ܐ ܒ 100 ܟܝܠܘܡܝܬܪ̈ܐ"}
+            }
+            liter-per-kilometer{
+                dnam{"ܠܝܬܪ̈ܐ ܒܟܝܠܘܡܝܬܪܐ"}
+                one{"{0} ܠܝܬܪܐ ܒܟܝܠܘܡܝܬܪܐ"}
+                other{"{0} ܠܝܬܪ̈ܐ ܒܟܝܠܘܡܝܬܪܐ"}
+            }
+            mile-per-gallon{
+                dnam{"ܡܝܠ̈ܐ ܒܓܠܘܢܐ"}
+                one{"{0} ܡܝܠܐ ܒܓܠܘܢܐ"}
+                other{"{0} ܡܝܠ̈ܐ ܒܓܠܘܢܐ"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"ܡܝܠ̈ܐ ܒܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+                one{"{0} ܡܝܠܐ ܒܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+                other{"{0} ܡܝܠ̈ܐ ܒܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+            }
+        }
+        duration{
+            century{
+                dnam{"ܕܪ̈ܐ"}
+                one{"ܕܪܐ"}
+                other{"{0} ܕܪ̈ܐ"}
+            }
+            day{
+                per{"{0} ܒܝܘܡܐ"}
+            }
+            decade{
+                dnam{"ܥܣܝܪ̈ܘܬܐ"}
+            }
+            hour{
+                one{"ܫܥܬܐ"}
+                other{"{0} ܫ̈ܥܐ"}
+                per{"{0} ܒܫܥܬܐ"}
+            }
+            microsecond{
+                dnam{"ܡܝܟܪܘܪ̈ܦܦܐ"}
+                one{"{0} ܡܝܟܪܘܪܦܦܐ"}
+                other{"{0} ܡܝܟܪܘܪ̈ܦܦܐ"}
+            }
+            millisecond{
+                one{"{0} ܡܝܠܝܪܦܦܐ"}
+                other{"{0} ܡܝܠܝܪ̈ܦܦܐ"}
+            }
+            minute{
+                dnam{"ܩܛܝܢ̈ܬܐ"}
+                one{"ܩܛܝܢܐ"}
+                other{"{0} ܩܛܝܢ̈ܬܐ"}
+                per{"{0} ܒܩܛܝܢܐ"}
+            }
+            month{
+                per{"{0} ܒܝܪܚܐ"}
+            }
+            nanosecond{
+                dnam{"ܢܐܢܘܪ̈ܦܦܐ"}
+                one{"{0} ܢܐܢܘܪܦܦܐ"}
+                other{"{0} ܢܐܢܘܪ̈ܦܦܐ"}
+            }
+            quarter{
+                dnam{"ܪ̈ܘܒܥܐ"}
+                per{"{0}/ܪܘܒܥܐ"}
+            }
+            second{
+                one{"ܪܦܦܐ"}
+                other{"{0} ܪ̈ܦܦܐ"}
+                per{"{0} ܒܪܦܦܐ"}
+            }
+            week{
+                dnam{"ܫܒ̈ܘܥܐ"}
+                one{"ܫܒ݂ܘܥܐ"}
+                other{"{0} ܫܒ݂̈ܘܥܐ"}
+                per{"{0} ܒܫܒ݂ܘܥܐ"}
+            }
+            year{
+                dnam{"ܫ̈ܢܐ"}
+                one{"ܫܢܬܐ"}
+                other{"{0} ܫ̈ܢܐ"}
+                per{"{0} ܒܫܢܬܐ"}
+            }
+        }
+        energy{
+            kilocalorie{
+                one{"{0} ܟ ܟܐܠܘܪܝ"}
+                other{"{0} ܟܝܠܘܟܐܠܘܪܝ"}
+            }
+            kilojoule{
+                dnam{"ܟܝܠܘܓܝܐܘܠ"}
+                one{"{0} ܟܝܠܘܓܝܐܘܠ"}
+                other{"{0} ܟܝܠܘܓܝܐܘܠ"}
+            }
+            kilowatt-hour{
+                dnam{"ܟܝܠܘܘܐܬ-ܫܥ̈ܐ"}
+                one{"{0} ܟܝܠܘܘܐܬ-ܫܥܬܐ"}
+                other{"{0} ܟܝܠܘܘܐܬ-ܫܥ̈ܐ"}
+            }
+        }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"ܟܝܠܘܘܐܬ-ܫܥ̈ܐ ܒ 100 ܟܝܠܘܡܝܬܪ̈ܐ"}
+                one{"{0} ܟܝܠܘܘܐܬ-ܫܥܬܐ ܒ 100 ܟܝܠܘܡܝܬܪ̈ܐ"}
+                other{"{0} ܟܝܠܘܘܐܬ-ܫܥ̈ܐ ܒ 100 ܟܝܠܘܡܝܬܪ̈ܐ"}
+            }
+            newton{
+                dnam{"ܢܝܘܬܢ"}
+                one{"{0} ܢܝܘܬܢ"}
+                other{"{0} ܢܝܘܬܢ"}
+            }
+        }
+        graphics{
+            megapixel{
+                dnam{"ܡܝܓܐܦܝ̈ܟܣܠܐ"}
+                one{"{0} ܡܝܓܐܦܝܟܣܠܐ"}
+                other{"{0} ܡܝܓܐܦܝ̈ܟܣܠܐ"}
+            }
+            pixel{
+                dnam{"ܦܝ̈ܟܣܠܐ"}
+                one{"{0} ܦܝܟܣܠܐ"}
+                other{"{0} ܦܝ̈ܟܣܠܐ"}
+            }
+            pixel-per-centimeter{
+                dnam{"ܦܝ̈ܟܣܠܐ ܒܣܢܬܝܡܝܬܪܐ"}
+                one{"{0} ܦܝܟܣܠܐ ܒܣܢܬܝܡܝܬܪܐ"}
+                other{"{0} ܦܝ̈ܟܣܠܐ ܒܣܢܬܝܡܝܬܪܐ"}
+            }
+            pixel-per-inch{
+                dnam{"ܦܝ̈ܟܣܠܐ ܒܐܢܟ"}
+                one{"{0} ܦܝܟܣܠܐ ܒܐܢܟ"}
+                other{"{0} ܦܝ̈ܟܣܠܐ ܒܐܢܟ"}
+            }
+        }
+        length{
+            astronomical-unit{
+                dnam{"ܡܫܘܚܬܐ ܪܩܝܥܝܬܐ"}
+                one{"{0} ܡܫܘܚܬܐ ܪܩܝܥܝܬܐ"}
+                other{"{0} ܡܫܘܚܬܐ ܪܩܝܥܝܬܐ"}
+            }
+            centimeter{
+                dnam{"ܣܢܬܝܡܝܬܪ̈ܐ"}
+                one{"{0} ܣܢܬܝܡܝܬܪܐ"}
+                other{"{0} ܣܢܬܝܡܝܬܪ̈ܐ"}
+                per{"{0} ܒܣܢܬܝܡܝܬܪܐ"}
+            }
+            decimeter{
+                dnam{"ܕܝܣܝܡܝܬܪ̈ܐ"}
+                one{"{0} ܕܝܣܝܡܝܬܪܐ"}
+                other{"{0} ܕܝܣܝܡܝܬܪ̈ܐ"}
+            }
+            earth-radius{
+                dnam{"ܥܘܒܐ ܦܫܝܬܐ ܐܪܥܝܐ"}
+                one{"{0} ܥܘܒܐ ܦܫܝܬܐ ܐܪܥܝܐ"}
+                other{"{0} ܥܘܒܐ ܦܫܝܬܐ ܐܪܥܝܐ"}
+            }
+            foot{
+                one{"{0} ܐܩܠܐ"}
+                other{"{0} ܐܩܠ̈ܐ"}
+            }
+            furlong{
+                dnam{"ܦܘܪ̈ܠܢܓ"}
+                one{"{0} ܦܘܪܠܢܓ"}
+                other{"{0} ܦܘܪ̈ܠܢܓ"}
+            }
+            inch{
+                dnam{"ܐܢܟ̈ܐ"}
+                one{"ܚܕܐ ܐܢܟ"}
+                other{"{0} ܐܢܟ̈ܐ"}
+                per{"{0}/ܐܢܟ"}
+            }
+            kilometer{
+                dnam{"ܟܝܠܘܡܝܬܪ̈ܐ"}
+                one{"{0} ܟܝܠܘܡܝܬܪܐ"}
+                other{"{0} ܟܝܠܘܡܝܬܪ̈ܐ"}
+                per{"{0} ܒܟܝܠܘܡܝܬܪܐ"}
+            }
+            light-year{
+                dnam{"ܫ̈ܢܐ ܕܢܘܗܪܐ"}
+                one{"{0} ܫܢܬܐ ܕܢܘܗܪܐ"}
+                other{"{0} ܫ̈ܢܐ ܕܢܘܗܪܐ"}
+            }
+            meter{
+                dnam{"ܡܝܬܪ̈ܐ"}
+                one{"ܡܝܬܪܐ"}
+                other{"{0} ܡܝܬܪ̈ܐ"}
+                per{"{0} ܒܡܝܬܪܐ"}
+            }
+            micrometer{
+                dnam{"ܡܝܟܪܘܡܝܬܪ̈ܐ"}
+                one{"{0} ܡܟܡ"}
+                other{"{0}ܡܟܡ"}
+            }
+            mile{
+                one{"{0} ܡܝܠܐ"}
+                other{"{0} ܡܝܠ̈ܐ"}
+            }
+            mile-scandinavian{
+                dnam{"ܡܝ̈ܠܐ-ܐܣܟܢܕܝܢܒܝܝܢ"}
+                one{"{0} ܡܝ̈ܠܐ-ܐܣܟܢܕܝܢܒܝܝܢ"}
+                other{"{0} ܡܝ̈ܠܐ-ܐܣܟܢܕܝܢܒܝܝܢ"}
+            }
+            millimeter{
+                dnam{"ܡܝܠܝܡܝܬܪ̈ܐ"}
+                one{"{0} ܡܝܠܝܡܝܬܪܐ"}
+                other{"{0} ܡܝܠܝܡܝܬܪ̈ܐ"}
+            }
+            nanometer{
+                dnam{"ܢܐܢܘܡܝܬܪ̈ܐ"}
+                one{"{0} ܢܐܢܘܡܝܬܪܐ"}
+                other{"{0} ܢܐܢܘܡܝܬܪ̈ܐ"}
+            }
+            nautical-mile{
+                dnam{"ܡܝ̈ܠܐ ܝܡܝ̈ܐ"}
+                one{"{0} ܡܝܠܐ ܝܡܝܐ"}
+                other{"{0} ܡܝ̈ܠܐ ܝܡܝ̈ܐ"}
+            }
+            parsec{
+                dnam{"ܦܪ̈ܣܚܐ"}
+                one{"{0} ܦܪܣܚܐ"}
+                other{"{0} ܦܪ̈ܣܚܐ"}
+            }
+            picometer{
+                dnam{"ܦܝܟܘܡܝܬܪ̈ܐ"}
+                one{"{0} ܦܝܟܘܡܝܬܪܐ"}
+                other{"{0} ܦܝܟܘܡܝܬܪ̈ܐ"}
+            }
+            solar-radius{
+                dnam{"ܥܘܒܐ ܦܫܝܬܐ ܫܡܫܝܐ"}
+                one{"{0} ܥܘܒܐ ܦܫܝܬܐ ܫܡܫܝܐ"}
+                other{"{0} ܥܘܒܐ ܦܫܝܬܐ ܫܡܫܝܐ"}
+            }
+        }
+        light{
+            candela{
+                dnam{"ܢܗܝܪܐ"}
+                one{"{0} ܢܗܝܪܐ"}
+                other{"{0} ܢܗܝܪܐ"}
+            }
+            lumen{
+                dnam{"ܠܘܡܝܢ"}
+                one{"{0} ܠܘܡܝܢ"}
+                other{"{0} ܠܘܡܝܢ"}
+            }
+            lux{
+                dnam{"ܠܘܩܣ"}
+                one{"{0} ܠܘܩܣ"}
+                other{"{0} ܠܘܩܣ"}
+            }
+        }
+        mass{
+            carat{
+                dnam{"ܩܪ̈ܛܐ"}
+                one{"{0} ܩܪܛܐ"}
+                other{"{0} ܩܪ̈ܛܐ"}
+            }
+            dalton{
+                dnam{"ܕܐܠܬܘܢ"}
+                one{"{0} ܕܐܠܬܘܢ"}
+                other{"{0} ܕܐܠܬܘܢ"}
+            }
+            earth-mass{
+                dnam{"ܥܘܫܢܐ ܐܪܥܝܐ"}
+                one{"{0} ܥܘܫܢܐ ܐܪܥܝܐ"}
+                other{"{0} ܥܘܫܢܐ ܐܪܥܝܐ"}
+            }
+            grain{
+                dnam{"ܦܪ̈ܕܐ"}
+                one{"{0} ܦܪܕܐ"}
+                other{"{0} ܦܪ̈ܕܐ"}
+            }
+            gram{
+                dnam{"ܓܪ̈ܡܐ"}
+                one{"ܓܪܡܐ"}
+                other{"{0} ܓܪ̈ܡܐ"}
+                per{"{0} ܒܓܪܡܐ"}
+            }
+            kilogram{
+                dnam{"ܟܝܠܘܓܪ̈ܡܐ"}
+                one{"{0} ܟܝܠܘܓܪܡܐ"}
+                other{"{0} ܟܝܠܘܓܪ̈ܡܐ"}
+                per{"{0} ܒܟܝܠܘܓܪܡܐ"}
+            }
+            microgram{
+                dnam{"ܡܝܟܪܘܓܪ̈ܡܐ"}
+                one{"{0} ܡܝܟܪܘܓܪܡܐ"}
+                other{"{0} ܡܝܟܪܘܓܪ̈ܡܐ"}
+            }
+            milligram{
+                dnam{"ܡܝܠܝܓܪ̈ܡܐ"}
+                one{"{0} ܡܝܠܝܓܪܡܐ"}
+                other{"{0} ܡܝܠܝܓܪ̈ܡܐ"}
+            }
+            ounce{
+                dnam{"ܐܘܢܩ̈ܝܐ"}
+                one{"{0} ܐܘܢܩܝܐ"}
+                other{"{0} ܐܘܢܩ̈ܝܐ"}
+                per{"{0} ܒܐܘܢܩܝܐ"}
+            }
+            pound{
+                dnam{"ܡܢܝ̈ܐ"}
+                one{"{0} ܡܢܝܐ"}
+                other{"{0} ܡܢܝ̈ܐ"}
+                per{"{0} ܒܡܢܝܐ"}
+            }
+            solar-mass{
+                dnam{"ܥܘܫܢܐ ܫܡܫܝܐ"}
+                one{"{0} ܥܘܫܢܐ ܫܡܫܝܐ"}
+                other{"{0} ܥܘܫܢܐ ܫܡܫܝܐ"}
+            }
+            stone{
+                dnam{"ܣܛܘܢ"}
+                one{"{0} ܣܛܘܢ"}
+                other{"{0} ܣܛܘܢ"}
+            }
+            ton{
+                dnam{"ܬܘܢ̈ܐ"}
+                one{"{0} ܬܘܢܐ"}
+                other{"{0} ܬܘܢ̈ܐ"}
+            }
+            tonne{
+                dnam{"ܬܘܢ ܡܝܬܪܝܐ"}
+                one{"{0} ܬܘܢ ܡܝܬܪܝܐ"}
+                other{"{0} ܬܘܢ̈ ܡܝܬܪ̈ܝܐ"}
+            }
+        }
+        power{
+            gigawatt{
+                one{"{0} ܓܝܓܐܘܐܬ"}
+                other{"{0} ܓܝܓܐܘܐܬ"}
+            }
+            kilowatt{
+                one{"{0} ܟܝܠܘܘܐܬ"}
+                other{"{0} ܟܝܠܘܘܐܬ"}
+            }
+            megawatt{
+                one{"{0} ܡܝܓܐܘܐܬ"}
+                other{"{0} ܡܝܓܐܘܐܬ"}
+            }
+        }
+        pressure{
+            hectopascal{
+                dnam{"ܗܟܬܘܦܣܟ̈ܠܐ"}
+                one{"{0} ܗܟܬܘܦܣܟ̈ܠܐ"}
+                other{"{0} ܗܟܬܘܦܣܟ̈ܠܐ"}
+            }
+            pascal{
+                dnam{"ܦܣܟ̈ܠܐ"}
+                one{"{0} ܦܣܟ̈ܠܐ"}
+                other{"{0} ܦܣܟ̈ܠܐ"}
+            }
+        }
+        speed{
+            kilometer-per-hour{
+                dnam{"ܟܝܠܘܡܝܬܪ̈ܐ ܒܫܥܬܐ"}
+                one{"{0} ܟܝܠܘܡܝܬܪܐ ܒܫܥܬܐ"}
+                other{"{0} ܟܝܠܘܡܝܬܪ̈ܐ ܒܫܥܬܐ"}
+            }
+            knot{
+                dnam{"ܩܛܪ̈ܐ"}
+            }
+            meter-per-second{
+                dnam{"ܡܝܬܪ̈ܐ ܒܪܦܦܐ"}
+                one{"{0} ܡܝܬܪܐ ܒܪܦܦܐ"}
+                other{"{0} ܡܝܬܪ̈ܐ ܒܪܦܦܐ"}
+            }
+            mile-per-hour{
+                dnam{"ܡܝܠ̈ܐ ܒܫܥܬܐ"}
+                one{"{0} ܡܝܠܐ ܒܫܥܬܐ"}
+                other{"{0} ܡܝܠ̈ܐ ܒܫܥܬܐ"}
+            }
+        }
+        temperature{
+            celsius{
+                dnam{"ܕܪ̈ܓܐ ܡܐܢܝܐ"}
+                one{"{0} ܕܪܓܐ ܡܐܢܝܐ"}
+                other{"{0} ܕܪ̈ܓܐ ܡܐܢܝܐ"}
+            }
+            fahrenheit{
+                dnam{"ܕܪ̈ܓܐ ܦܐܗܪܢܗܥܝܬ"}
+                one{"{0} ܕܪܓܐ ܦܐܗܪܢܗܥܝܬ"}
+                other{"{0} ܕܪ̈ܓܐ ܦܐܗܪܢܗܥܝܬ"}
+            }
+            kelvin{
+                dnam{"ܕܪ̈ܓܐ ܟܠܒܝܢ"}
+                one{"{0} ܕܪܓܐ ܟܠܒܝܢ"}
+                other{"{0} ܕܪ̈ܓܐ ܟܠܒܝܢ"}
+            }
+        }
+        torque{
+            newton-meter{
+                dnam{"ܢܝܘܬܢ-ܡܝܬܪ̈ܐ"}
+                one{"{0} ܢܝܘܬܢ-ܡܝܬܪܐ"}
+                other{"{0} ܢܝܘܬܢ-ܡܝܬܪ̈ܐ"}
+            }
+        }
+        volume{
+            acre-foot{
+                dnam{"ܐܩܠ̈ܐ-ܦܕܢܐ"}
+                one{"{0} ܐܩܠܐ-ܦܕܢܐ"}
+                other{"{0} ܐܩܠ̈ܐ-ܦܕܢܐ"}
+            }
+            centiliter{
+                dnam{"ܣܢܬܝܠܝܬܪ̈ܐ"}
+                one{"{0} ܣܢܬܝܠܝܬܪܐ"}
+                other{"{0} ܣܢܬܝܠܝܬܪ̈ܐ"}
+            }
+            cubic-centimeter{
+                dnam{"ܣܢܬܝܡܝܬܪ̈ܐ ܡܩܦܣܐ"}
+                one{"{0} ܣܢܬܝܡܝܬܪܐ ܡܩܦܣܐ"}
+                other{"{0} ܣܢܬܝܡܝܬܪ̈ܐ ܡܩܦܣܐ"}
+                per{"{0}/ܣܢܬܝܡܝܬܪܐ ܡܩܦܣܐ"}
+            }
+            cubic-foot{
+                dnam{"ܐܩܠ̈ܐ ܡܩܦܣܐ"}
+                one{"{0} ܐܩܠܐ ܡܩܦܣܐ"}
+                other{"{0} ܐܩܠ̈ܐ ܡܩܦܣܐ"}
+            }
+            cubic-inch{
+                dnam{"ܐܢܟ̈ܐ ܡܩܦܣܐ"}
+                one{"ܚܕܐ ܐܢܟ ܡܩܦܣܐ"}
+                other{"{0} ܐܢܟ̈ܐ ܡܩܦܣܐ"}
+            }
+            cubic-kilometer{
+                dnam{"ܟܝܠܘܡܝܬܪ̈ܐ ܡܩܦܣܐ"}
+                one{"{0} ܟܝܠܘܡܝܬܪܐ ܡܩܦܣܐ"}
+                other{"{0} ܟܝܠܘܡܝܬܪ̈ܐ ܡܩܦܣܐ"}
+            }
+            cubic-meter{
+                dnam{"ܡܝܬܪ̈ܐ ܡܩܦܣܐ"}
+                one{"{0} ܡܝܬܪܐ ܡܩܦܣܐ"}
+                other{"{0} ܡܝܬܪ̈ܐ ܡܩܦܣܐ"}
+                per{"{0}/ܡܝܬܪܐ ܡܩܦܣܐ"}
+            }
+            cubic-mile{
+                dnam{"ܡܝܠ̈ܐ ܡܩܦܣܐ"}
+                one{"{0} ܡܝܠܐ ܡܩܦܣܐ"}
+                other{"{0} ܡܝܠ̈ܐ ܡܩܦܣܐ"}
+            }
+            cubic-yard{
+                dnam{"ܝܪ̈ܕܐ ܡܩܦܣܐ"}
+                one{"{0} ܝܪܕܐ ܡܩܦܣܐ"}
+                other{"{0} ܝܪ̈ܕܐ ܡܩܦܣܐ"}
+            }
+            deciliter{
+                dnam{"ܕܝܣܝܠܝܬܪ̈ܐ"}
+                one{"{0} ܕܝܣܝܠܝܬܪܐ"}
+                other{"{0} ܕܝܣܝܠܝܬܪ̈ܐ"}
+            }
+            dram{
+                dnam{"ܕܪ̈ܟܡܐ ܪ̈ܕܘܝܐ"}
+            }
+            drop{
+                dnam{"ܛܘܦ̈ܐ"}
+            }
+            fluid-ounce{
+                one{"{0} ܐܘܢܩܝܐ ܪܕܘܝܐ"}
+                other{"{0} ܐܘܢܩ̈ܝܐ ܪ̈ܕܘܝܐ"}
+            }
+            fluid-ounce-imperial{
+                one{"{0} ܐܘܢܩܝܐ ܪܕܘܝܐ ܐܡܦܪܬܘܪܝܐ"}
+                other{"{0} ܐܘܢܩ̈ܝܐ ܪ̈ܕܘܝܐ ܐܡܦܪܬܘܪܝܐ"}
+            }
+            gallon{
+                one{"{0} ܓܠܘܢܐ"}
+                other{"{0} ܓܠܘܢ̈ܐ"}
+                per{"{0}/ܓܠܘܢܐ"}
+            }
+            hectoliter{
+                dnam{"ܗܟܬܘܠܝܬܪ̈ܐ"}
+                one{"{0} ܗܟܬܘܠܝܬܪܐ"}
+                other{"{0} ܗܟܬܘܠܝܬܪ̈ܐ"}
+            }
+            liter{
+                dnam{"ܠܝܬܪ̈ܐ"}
+                per{"{0}/ܠܝܬܪܐ"}
+            }
+            megaliter{
+                dnam{"ܡܝܓܐܠܝܬܪ̈ܐ"}
+                one{"{0} ܡܝܓܐܠܝܬܪܐ"}
+                other{"{0} ܡܝܓܐܠܝܬܪ̈ܐ"}
+            }
+            milliliter{
+                dnam{"ܡܝܠܝܠܝܬܪ̈ܐ"}
+                one{"{0} ܡܝܠܝܠܝܬܪܐ"}
+                other{"{0} ܡܝܠܝܠܝܬܪ̈ܐ"}
+            }
+        }
+    }
+    unitsNarrow{
+        area{
+            acre{
+                dnam{"ܦܕܢܐ"}
+            }
+            hectare{
+                dnam{"ܗܟܬܪ"}
+                one{"{0} ܗܟܬܪ"}
+                other{"{0} ܗܟܬܪ"}
+            }
+            square-centimeter{
+                dnam{"ܣܡ²"}
+                one{"{0} ܣܡ²"}
+                other{"{0} ܣܡ²"}
+                per{"{0}/ܣܡ²"}
+            }
+            square-foot{
+                dnam{"ܐܩܠ̈ܐ²"}
+            }
+            square-inch{
+                dnam{"ܐܢ²"}
+                one{"{0}/ܐܢ²"}
+                other{"{0}/ܐܢ²"}
+                per{"{0}/ܐܢ²"}
+            }
+            square-kilometer{
+                dnam{"ܟܡ²"}
+                one{"{0} ܟܡ²"}
+                other{"{0} ܟܡ²"}
+                per{"{0}/ܟܡ²"}
+            }
+            square-meter{
+                dnam{"ܡ²"}
+                one{"{0} ܡ²"}
+                other{"{0} ܡ²"}
+                per{"{0}/ܡ²"}
+            }
+            square-mile{
+                dnam{"ܡܝܠ̈ܐ²"}
+                one{"{0} ܡܝܠ̈ܐ²"}
+                other{"{0} ܡܝܠ̈ܐ²"}
+                per{"{0}/ܡܝܠ̈ܐ²"}
+            }
+            square-yard{
+                one{"{0} ܝܪܕܐ²"}
+                other{"{0} ܝܪ̈ܕܐ²"}
+            }
+        }
+        compound{
+            1024p1{"ܟܝܒܝ{0}"}
+            1024p2{"ܡܝܒܝ{0}"}
+            1024p3{"ܓܝܒܝ{0}"}
+            1024p4{"ܬܝܒܝ{0}"}
+            1024p5{"ܦܝܒܝ{0}"}
+            1024p6{"ܐܟܣܒܝ{0}"}
+            1024p7{"ܙܝܒܝ{0}"}
+            1024p8{"ܝܘܒܝ{0}"}
+            10p-12{"ܦ{0}"}
+            10p-15{"ܦ̮{0}"}
+            10p-18{"ܐ{0}"}
+            10p-21{"ܙܝܦ{0}"}
+            10p-24{"ܝܟ{0}"}
+            10p-3{"ܡ{0}"}
+            10p-6{"ܡܟ{0}"}
+            10p-9{"ܢ{0}"}
+            10p1{"ܕܐ{0}"}
+            10p12{"ܬ{0}"}
+            10p15{"ܦܝܬ{0}"}
+            10p18{"ܐܟ{0}"}
+            10p2{"ܗ{0}"}
+            10p21{"ܙܬ{0}"}
+            10p24{"ܝܘ{0}"}
+            10p3{"ܟ{0}"}
+            10p6{"ܡܝܓ{0}"}
+            10p9{"ܓܝ{0}"}
+            power2{
+                one{
+                    _{
+                        _{"{0}²"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0}²"}
+                    }
+                }
+            }
+        }
+        concentr{
+            karat{
+                dnam{"ܩܪܛܐ"}
+            }
+            milligram-ofglucose-per-deciliter{
+                dnam{"ܡܓ/ܕܝܣܝܠܝܬܪܐ"}
+                one{"{0} ܡܓ/ܕܝܣܝܠܝܬܪܐ"}
+                other{"{0} ܡܓ/ܕܝܣܝܠܝܬܪܐ"}
+            }
+            millimole-per-liter{
+                dnam{"ܡܡܘܠ܊/ܠ"}
+                one{"{0} ܡܡܘܠ܊/ܠ"}
+                other{"{0} ܡܡܘܠ܊/ܠ"}
+            }
+            permillion{
+                one{"{0} ܡܢܘܬܐ/ܡܠ܊"}
+                other{"{0} ܡܢܘ̈ܬܐ/ܡܠ܊"}
+            }
+        }
+        consumption{
+            liter-per-100-kilometer{
+                dnam{"ܠ/100ܟܡ"}
+                one{"{0} ܠ/100ܟܡ"}
+                other{"{0} ܠ/100ܟܡ"}
+            }
+            liter-per-kilometer{
+                dnam{"ܠ/ܟܡ"}
+                one{"{0} ܠ/ܟܡ"}
+                other{"{0} ܠ/ܟܡ"}
+            }
+        }
+        duration{
+            century{
+                dnam{"ܕܪܐ"}
+                one{"{0} ܕܪܐ"}
+                other{"{0} ܕܪ̈ܐ"}
+            }
+            day{
+                dnam{"ܝܘܡܐ"}
+                one{"{0} ܝ"}
+                other{"{0} ܝ"}
+            }
+            decade{
+                one{"{0} ܥܣܝܪܘܬܐ"}
+                other{"{0} ܥܣܝܪ̈ܘܬܐ"}
+            }
+            hour{
+                dnam{"ܫܥܬܐ"}
+            }
+            microsecond{
+                dnam{"ܡܝܟܪܘ ܪ"}
+            }
+            millisecond{
+                dnam{"ܡܝܠܝ ܪ"}
+            }
+            month{
+                dnam{"ܝܪܚܐ"}
+                one{"{0} ܝܪܚܐ"}
+                other{"{0} ܝܪ̈ܚܐ"}
+            }
+            quarter{
+                one{"{0} ܪܘܒܥܐ"}
+                other{"{0} ܪ̈ܘܒܥܐ"}
+                per{"{0}/ܪܘܒܥܐ"}
+            }
+            second{
+                dnam{"ܪ"}
+                per{"{0}/ܪ"}
+            }
+            week{
+                dnam{"ܫܒܘܥܐ"}
+                one{"{0} ܫ"}
+                other{"{0} ܫ"}
+                per{"{0}/ܫ"}
+            }
+            year{
+                dnam{"ܫܢܬܐ"}
+                one{"{0} ܫܢܬܐ"}
+                other{"{0} ܫ̈ܢܐ"}
+            }
+        }
+        energy{
+            calorie{
+                dnam{"ܟܐܠ"}
+            }
+            kilocalorie{
+                dnam{"ܟ ܟܐܠܘܪܝ"}
+            }
+            kilojoule{
+                dnam{"ܟ ܓܝܐܘܠ"}
+            }
+            kilowatt-hour{
+                dnam{"ܟܘܫ܏-ܫ"}
+            }
+        }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"ܟܘܫ܊/100 ܟܡ"}
+            }
+        }
+        graphics{
+            megapixel{
+                dnam{"ܡܝܓܐܦܝ̈ܟܣܠܐ"}
+            }
+            pixel{
+                dnam{"ܦܝ̈ܟܣܠܐ"}
+            }
+            pixel-per-centimeter{
+                dnam{"ܦܝ̈ܟܣܠܐ/ܣܡ"}
+            }
+            pixel-per-inch{
+                dnam{"ܦܝ̈ܟܣܠܐ ܒܐܢܟ"}
+            }
+        }
+        length{
+            astronomical-unit{
+                dnam{"ܡ.ܪ."}
+            }
+            centimeter{
+                one{"{0}ܣܡ"}
+                other{"{0}ܣܡ"}
+            }
+            decimeter{
+                one{"{0}ܕܣܡ"}
+                other{"{0}ܕܣܡ"}
+            }
+            foot{
+                one{"{0} ܐܩܠܐ"}
+                other{"{0} ܐܩܠ̈ܐ"}
+            }
+            furlong{
+                dnam{"ܦܘܪܠܢܓ"}
+            }
+            inch{
+                dnam{"ܐܢ܊"}
+                per{"{0}/ܐܢܟ"}
+            }
+            kilometer{
+                one{"{0}ܟܡ"}
+                other{"{0}ܟܡ"}
+            }
+            light-year{
+                one{"{0} ܫ ܢ"}
+                other{"{0} ܫ ܢ"}
+            }
+            meter{
+                dnam{"ܡ"}
+                one{"{0}ܡ"}
+                other{"{0}ܡ"}
+            }
+            micrometer{
+                dnam{"ܡܟܡ"}
+                one{"{0}ܡܟܡ"}
+                other{"{0}ܡܟܡ"}
+            }
+            mile{
+                dnam{"ܡܝܠܐ"}
+                one{"{0} ܡܝܠܐ"}
+                other{"{0} ܡܝܠ̈ܐ"}
+            }
+            millimeter{
+                one{"{0}ܡܡ"}
+                other{"{0}ܡܡ"}
+            }
+            nanometer{
+                dnam{"ܢܡ"}
+                one{"{0}ܢܡ"}
+                other{"{0}ܢܡ"}
+            }
+            parsec{
+                dnam{"ܦܪܣܚܐ"}
+            }
+            picometer{
+                dnam{"ܦܝܟܘܡܝܬܪܐ"}
+                one{"{0} ܦܝܟܘܡܝܬܪܐ"}
+                other{"{0} ܦܝܟܘܡܝܬܪܐ"}
+            }
+            solar-radius{
+                dnam{"ܥܘܒܐ ܫܡܫܝܐ"}
+            }
+        }
+        light{
+            lumen{
+                one{"{0} ܠܘܡܝܢ"}
+                other{"{0} ܠܘܡܝܢ"}
+            }
+        }
+        mass{
+            carat{
+                dnam{"ܩܪܛܐ"}
+                one{"{0} ܩܪܛܐ"}
+                other{"{0} ܩܪ̈ܛܐ"}
+            }
+            earth-mass{
+                one{"{0} ܥܘܫܢܐ ܐܪܥܝܐ"}
+                other{"{0} ܥܘܫܢܐ ܐܪܥܝܐ"}
+            }
+            gram{
+                dnam{"ܓ"}
+                one{"{0} ܓ"}
+                other{"{0} ܓ"}
+                per{"{0}/ܓ"}
+            }
+            kilogram{
+                dnam{"ܟܓ"}
+                one{"{0} ܟܓ"}
+                other{"{0} ܟܓ"}
+                per{"{0}/ܟܓ"}
+            }
+            microgram{
+                dnam{"ܡܟܓܡ"}
+                one{"{0} ܡܟܓܡ"}
+                other{"{0} ܡܟܓܡ"}
+            }
+            milligram{
+                dnam{"ܡܓܡ"}
+                one{"{0} ܡܓܡ"}
+                other{"{0} ܡܓܡ"}
+            }
+            ounce{
+                dnam{"ܐܘܢܩ̈ܝܐ"}
+                one{"{0} ܐܘܢܩܝܐ"}
+                other{"{0} ܐܘܢܩ̈ܝܐ"}
+                per{"{0}/ܐܘܢܩܝܐ"}
+            }
+            pound{
+                dnam{"ܡܢܝܐ"}
+                one{"{0} ܡܢܝܐ"}
+                other{"{0} ܡܢܝ̈ܐ"}
+                per{"{0}/ܡܢܝܐ"}
+            }
+            ton{
+                dnam{"ܬܘܢܐ"}
+                one{"{0} ܬܘܢܐ"}
+                other{"{0} ܬܘܢ̈ܐ"}
+            }
+        }
+        power{
+            gigawatt{
+                dnam{"ܓ ܘܐܬ"}
+            }
+            kilowatt{
+                dnam{"ܟ ܘܐܬ"}
+            }
+            megawatt{
+                dnam{"ܡ ܘܐܬ"}
+            }
+        }
+        pressure{
+            hectopascal{
+                one{"{0} ܗܟܬܘܦܣܟ̈ܠܐ"}
+                other{"{0} ܗܟܬܘܦܣܟ̈ܠܐ"}
+            }
+            pascal{
+                one{"{0} ܦܣܟ̈ܠܐ"}
+                other{"{0} ܦܣܟ̈ܠܐ"}
+            }
+        }
+        temperature{
+            celsius{
+                dnam{"°ܡ"}
+            }
+            fahrenheit{
+                dnam{"°ܦ"}
+            }
+        }
+        torque{
+            newton-meter{
+                one{"{0} ܢܝܘܬܢ-ܡܝܬܪ̈ܐ"}
+                other{"{0} ܢܝܘܬܢ-ܡܝܬܪ̈ܐ"}
+            }
+        }
+        volume{
+            acre-foot{
+                dnam{"ܐܩܠ̈ܐ-ܦܕܢܐ"}
+                one{"{0} ܐܩܠ̈ܐ-ܦܕܢܐ"}
+                other{"{0} ܐܩܠ̈ܐ-ܦܕܢܐ"}
+            }
+            centiliter{
+                dnam{"ܣܢܬܝܠܝܬܪ̈ܐ"}
+                one{"{0} ܣܢܬܝܠܝܬܪܐ"}
+                other{"{0} ܣܢܬܝܠܝܬܪ̈ܐ"}
+            }
+            cubic-centimeter{
+                dnam{"ܣܡ³"}
+            }
+            cubic-foot{
+                dnam{"ܐܩܠ̈ܐ³"}
+            }
+            cubic-inch{
+                dnam{"ܐܢ³"}
+                one{"{0} ܐܢ³"}
+                other{"{0} ܐܢ³"}
+            }
+            cubic-meter{
+                dnam{"ܡ³"}
+            }
+            cubic-mile{
+                dnam{"ܡܝܠ̈ܐ³"}
+            }
+            cubic-yard{
+                dnam{"ܝܪ̈ܕܐ³"}
+            }
+            deciliter{
+                dnam{"ܕܝܣܝܠܝܬܪ̈ܐ"}
+                one{"{0} ܕܝܣܝܠܝܬܪܐ"}
+                other{"{0} ܕܝܣܝܠܝܬܪ̈ܐ"}
+            }
+            dram{
+                dnam{"ܕܪܟܡܐ ܪܕܘܝܐ"}
+            }
+            gallon{
+                per{"{0}/ܓܠܘܢ̈ܐ"}
+            }
+            hectoliter{
+                dnam{"ܗܟܬܘܠܝܬܪ̈ܐ"}
+                one{"{0} ܗܟܬܘܠܝܬܪܐ"}
+                other{"{0} ܗܟܬܘܠܝܬܪ̈ܐ"}
+            }
+            liter{
+                dnam{"ܠܝܬܪܐ"}
+            }
+            megaliter{
+                dnam{"ܡܝܓܐܠܝܬܪ̈ܐ"}
+                one{"{0} ܡܝܓܐܠܝܬܪܐ"}
+                other{"{0} ܡܝܓܐܠܝܬܪ̈ܐ"}
+            }
+            milliliter{
+                dnam{"ܡܠܬܪ"}
+                one{"{0} ܡܠܬܪ܊"}
+                other{"{0} ܡܠܬܪ̈܊"}
+            }
+        }
+    }
+    unitsShort{
+        acceleration{
+            g-force{
+                dnam{"ܚܝܠܐ ܢܬܘܦܘܬܐ"}
+                one{"{0} ܚܝܠܐ ܢܬܘܦܘܬܐ"}
+                other{"{0} ܚܝܠܐ ܢܬܘܦܘܬܐ"}
+            }
+            meter-per-square-second{
+                dnam{"ܡ/ܪ²"}
+                one{"{0} ܡ/ܪ²"}
+                other{"{0} ܡ/ܪ²"}
+            }
+        }
+        angle{
+            arc-minute{
+                dnam{"ܩܛܝ̈ܢܬܐ ܩܫܬܢܝܬܐ"}
+                one{"ܩܛܝܢܐ ܩܫܬܢܝܐ"}
+                other{"{0} ܩܛܝ̈ܢܬܐ ܩܫܬܢܝܬܐ"}
+            }
+            arc-second{
+                dnam{"ܪ̈ܦܦܐ ܩܫܬܢܝܐ"}
+                one{"ܪܦܦܐ ܩܫܬܢܝܐ"}
+                other{"{0} ܪ̈ܦܦܐ ܩܫܬܢ̈ܝܐ"}
+            }
+            degree{
+                dnam{"ܕܪ̈ܓ݂ܐ"}
+                one{"ܕܪܓ݂ܐ"}
+                other{"{0} ܕܪ̈ܓ݂ܐ"}
+            }
+            radian{
+                dnam{"ܪܐܕܝܐܢ"}
+                one{"{0} ܪܐܕܝܐܢ"}
+                other{"{0} ܪܐܕܝܐܢ"}
+            }
+            revolution{
+                dnam{"ܚܘܕ"}
+                one{"{0} ܚܘܕ"}
+                other{"{0} ܚܘܕ"}
+            }
+        }
+        area{
+            acre{
+                dnam{"ܦ̈ܕܢܐ"}
+                one{"{0} ܦܕܢܐ"}
+                other{"{0} ܦ̈ܕܢܐ"}
+            }
+            hectare{
+                dnam{"ܗܟܬܪ"}
+                one{"{0} ܗܟܬܪ"}
+                other{"{0} ܗܟܬܪ"}
+            }
+            square-centimeter{
+                dnam{"ܣܡ²"}
+                one{"{0} ܣܡ²"}
+                other{"{0} ܣܡ²"}
+                per{"{0}/ܣܡ²"}
+            }
+            square-foot{
+                dnam{"ܐܩܠ̈ܐ²"}
+                one{"{0} ܐܩܠܐ²"}
+                other{"{0} ܐܩܠ̈ܐ²"}
+            }
+            square-inch{
+                dnam{"ܐܢܟ̈ܐ²"}
+                one{"{0}/ܐܢ²"}
+                other{"{0}/ܐܢ²"}
+                per{"{0}/ܐܢ²"}
+            }
+            square-kilometer{
+                dnam{"ܟܡ²"}
+                one{"{0} ܟܡ²"}
+                other{"{0} ܟܡ²"}
+                per{"{0}/ܟܡ²"}
+            }
+            square-meter{
+                dnam{"ܡ²"}
+                one{"{0} ܡ²"}
+                other{"{0} ܡ²"}
+                per{"{0}/ܡ²"}
+            }
+            square-mile{
+                dnam{"ܡܝܠ̈ܐ²"}
+                one{"{0} ܡܝܠ̈ܐ²"}
+                other{"{0} ܡܝܠ̈ܐ²"}
+                per{"{0}/ܡܝܠ̈ܐ²"}
+            }
+            square-yard{
+                dnam{"ܝܪ̈ܕܐ²"}
+                one{"{0} ܝܪܕܐ²"}
+                other{"{0} ܝܪ̈ܕܐ²"}
+            }
+        }
+        compound{
+            1024p1{"ܟܝܒܝ{0}"}
+            1024p2{"ܡܝܒܝ{0}"}
+            1024p3{"ܓܝܒܝ{0}"}
+            1024p4{"ܬܝܒܝ{0}"}
+            1024p5{"ܦܝܒܝ{0}"}
+            1024p6{"ܐܟܣܒܝ{0}"}
+            1024p7{"ܙܝܒܝ{0}"}
+            1024p8{"ܝܘܒܝ{0}"}
+            10p-1{"ܕܝܣܝ{0}"}
+            10p-12{"ܦ{0}"}
+            10p-15{"ܦ̮{0}"}
+            10p-18{"ܐ{0}"}
+            10p-2{"ܣܢܬܝ{0}"}
+            10p-21{"ܙܝܦ{0}"}
+            10p-24{"ܝܟ{0}"}
+            10p-3{"ܡ{0}"}
+            10p-6{"ܡܟ{0}"}
+            10p-9{"ܢ{0}"}
+            10p1{"ܕܐ{0}"}
+            10p12{"ܬ{0}"}
+            10p15{"ܦܝܬ{0}"}
+            10p18{"ܐܟ{0}"}
+            10p2{"ܗ{0}"}
+            10p21{"ܙܬ{0}"}
+            10p24{"ܝܘ{0}"}
+            10p3{"ܟ{0}"}
+            10p6{"ܡܝܓ{0}"}
+            10p9{"ܓܝ{0}"}
+        }
+        concentr{
+            item{
+                dnam{"ܡܠܘܐܐ"}
+                one{"ܡܠܘܐܐ"}
+                other{"{0} ܡܠܘܐ̈ܐ"}
+            }
+            karat{
+                dnam{"ܩܪ̈ܛܐ"}
+                one{"ܩܪܛܐ"}
+                other{"{0} ܩܪ̈ܛܐ"}
+            }
+            milligram-ofglucose-per-deciliter{
+                dnam{"ܡܓܡ/ܕܝܣܝܠܝܬܪܐ"}
+                one{"{0} ܡܓܡ/ܕܝܣܝܠܝܬܪܐ"}
+                other{"{0} ܡܓܡ/ܕܝܣܝܠܝܬܪܐ"}
+            }
+            millimole-per-liter{
+                dnam{"ܡܡܘܠ܊/ܠ"}
+                one{"{0} ܡܡܘܠ܊/ܠ"}
+                other{"{0} ܡܡܘܠ܊/ܠ"}
+            }
+            mole{
+                dnam{"ܡܘܠ"}
+                one{"{0} ܡܘܠ"}
+                other{"{0} ܡܘܠ"}
+            }
+            percent{
+                dnam{"ܒܡܐܐ"}
+            }
+            permille{
+                dnam{"ܒܐܠܦܐ"}
+            }
+            permillion{
+                dnam{"ܡܢܘ̈ܬܐ/ܡܠܝܘܢ"}
+                one{"{0} ܡܢܘܬܐ/ܡܠ܊"}
+                other{"{0} ܡܢܘ̈ܬܐ/ܡܠ܊"}
+            }
+        }
+        consumption{
+            liter-per-100-kilometer{
+                dnam{"ܠܝܬܪ̈ܐ/100 ܟܡ"}
+                one{"{0} ܠܝܬܪܐ/100 ܟܡ"}
+                other{"{0} ܠܝܬܪ̈ܐ/100 ܟܡ"}
+            }
+            liter-per-kilometer{
+                dnam{"ܠܝܬܪ̈ܐ/ܟܡ"}
+                one{"{0} ܠܝܬܪܐ/ܟܡ"}
+                other{"{0} ܠܝܬܪ̈ܐ/ܟܡ"}
+            }
+            mile-per-gallon{
+                dnam{"ܡܝܠ̈ܐ/ܓܠܘܢܐ"}
+                one{"{0} ܡܝܠܐ ܒܓܠܘܢܐ"}
+                other{"{0} ܡܝܠ̈ܐ ܒܓܠܘܢܐ"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"ܡܝܠ̈ܐ/ܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+                one{"{0} ܡܝܠܐ/ܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+                other{"{0} ܡܝܠܐ/ܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+            }
+        }
+        coordinate{
+            dnam{"ܦܢܝܬܐ ܫܪܫܢܝܬܐ"}
+            east{"{0} ܡܕܢܚܐ"}
+            north{"{0} ܓܪܒܝܐ"}
+            south{"{0} ܬܝܡܢܐ"}
+            west{"{0} ܡܥܪܒ݂ܐ"}
+        }
+        digital{
+            bit{
+                dnam{"ܒܬ"}
+                one{"{0} ܒܬ"}
+                other{"{0} ܒܬ"}
+            }
+            byte{
+                dnam{"ܒܐܝܬ"}
+                one{"{0} ܒܐܝܬ"}
+                other{"{0} ܒܐܝܬ"}
+            }
+            gigabit{
+                dnam{"ܓܝܓܐܒܬ"}
+                one{"{0} ܓܝܓܐܒܬ"}
+                other{"{0} ܓܝܓܐܒܬ"}
+            }
+            gigabyte{
+                dnam{"ܓܝܓܐܒܐܝܬ"}
+                one{"{0} ܓܝܓܐܒܐܝܬ"}
+                other{"{0} ܓܝܓܐܒܐܝܬ"}
+            }
+            kilobit{
+                dnam{"ܟܝܠܘܒܬ"}
+                one{"{0} ܟܝܠܘܒܬ"}
+                other{"{0} ܟܝܠܘܒܬ"}
+            }
+            kilobyte{
+                dnam{"ܟܝܠܘܒܐܝܬ"}
+                one{"{0} ܟܝܠܘܒܐܝܬ"}
+                other{"{0} ܟܝܠܘܒܐܝܬ"}
+            }
+            megabit{
+                dnam{"ܡܝܓܐܒܬ"}
+                one{"{0} ܡܝܓܐܒܬ"}
+                other{"{0} ܡܝܓܐܒܬ"}
+            }
+            megabyte{
+                dnam{"ܡܝܓܐܒܐܝܬ"}
+                one{"{0} ܡܝܓܐܒܐܝܬ"}
+                other{"{0} ܡܝܓܐܒܐܝܬ"}
+            }
+            petabyte{
+                dnam{"ܦܝܬܐܒܐܝܬ"}
+                one{"{0} ܦܝܬܐܒܐܝܬ"}
+                other{"{0} ܦܝܬܐܒܐܝܬ"}
+            }
+            terabit{
+                dnam{"ܬܝܪܐܒܬ"}
+                one{"{0} ܬܝܪܐܒܬ"}
+                other{"{0} ܬܝܪܐܒܬ"}
+            }
+            terabyte{
+                dnam{"ܬܝܪܐܒܐܝܬ"}
+                one{"{0} ܬܝܪܐܒܐܝܬ"}
+                other{"{0} ܬܝܪܐܒܐܝܬ"}
+            }
+        }
+        duration{
+            century{
+                dnam{"ܕܪܐ"}
+                one{"ܕܪܐ"}
+                other{"{0} ܕܪ̈ܐ"}
+            }
+            day{
+                dnam{"ܝܘ̈ܡܬܐ"}
+                one{"ܝܘܡܐ"}
+                other{"{0} ܝܘ̈ܡܬܐ"}
+                per{"{0}/ܝܘܡܐ"}
+            }
+            decade{
+                dnam{"ܥܣܝܪܘܬܐ"}
+                one{"ܥܣܝܪܘܬܐ"}
+                other{"{0} ܥܣܝܪ̈ܘܬܐ"}
+            }
+            hour{
+                dnam{"ܫ̈ܥܐ"}
+                one{"{0} ܫܥ"}
+                other{"{0} ܫܥ"}
+                per{"{0}/ܫܥ"}
+            }
+            microsecond{
+                dnam{"ܡܝܟܪܘ ܪ"}
+                one{"{0} ܡܝܟܪܘ ܪ"}
+                other{"{0} ܡܝܟܪܘ ܪ"}
+            }
+            millisecond{
+                dnam{"ܡܝܠܝܪ̈ܦܦܐ"}
+                one{"{0} ܡܝܠܝ ܪ"}
+                other{"{0} ܡܝܠܝ ܪ"}
+            }
+            minute{
+                dnam{"ܩ"}
+                one{"{0} ܩ"}
+                other{"{0} ܩ"}
+                per{"{0}/ܩ"}
+            }
+            month{
+                dnam{"ܝܪ̈ܚܐ"}
+                one{"ܝܪܚܐ"}
+                other{"{0} ܝܪ̈ܚܐ"}
+                per{"{0}/ܝܪܚܐ"}
+            }
+            nanosecond{
+                dnam{"ܢܐܢܘ ܪ"}
+                one{"{0} ܢܐܢܘ ܪ"}
+                other{"{0} ܢܐܢܘ ܪ"}
+            }
+            quarter{
+                dnam{"ܪܘܒܥܐ"}
+                one{"ܪܘܒܥܐ"}
+                other{"{0} ܪ̈ܘܒܥܐ"}
+                per{"{0}/ܪܘܒܥܐ"}
+            }
+            second{
+                dnam{"ܪ̈ܦܦܐ"}
+                one{"{0} ܪ"}
+                other{"{0} ܪ"}
+                per{"{0}/ܪ"}
+            }
+            week{
+                dnam{"ܫܒ̈ܘܥܐ"}
+                one{"ܫܒ݂ܘܥܐ"}
+                other{"{0} ܫܒ݂̈ܘܥܐ"}
+                per{"{0}/ܫ"}
+            }
+            year{
+                dnam{"ܫ̈ܢܐ"}
+                one{"ܫܢܬܐ"}
+                other{"{0} ܫ̈ܢܐ"}
+                per{"{0}/ܫܢܬܐ"}
+            }
+        }
+        electric{
+            ampere{
+                dnam{"ܐܡܦܝܪ"}
+                one{"{0} ܐܡܦܝܪ"}
+                other{"{0} ܐܡܦܝܪ"}
+            }
+            milliampere{
+                dnam{"ܡܝܠܝܐܡܦܝܪ"}
+                one{"{0} ܡ ܐܡܦܝܪ"}
+                other{"{0} ܡ ܐܡܦܝܪ"}
+            }
+            ohm{
+                dnam{"ܘܗܡ"}
+                one{"{0} ܘܗܡ"}
+                other{"{0} ܘܗܡ"}
+            }
+            volt{
+                dnam{"ܒܘܠܬ"}
+                one{"{0} ܒܘܠܬ"}
+                other{"{0} ܒܘܠܬ"}
+            }
+        }
+        energy{
+            british-thermal-unit{
+                dnam{"ܡܫܘܚܬܐ ܕܫܚܝܢܘܬܐ ܕܒܪܝܛܢܝܐ"}
+                one{"{0} ܡܫܘܚܬܐ ܕܫܚܝܢܘܬܐ ܕܒܪܝܛܢܝܐ"}
+                other{"{0} ܡܫܘܚܬܐ ܕܫܚܝܢܘܬܐ ܕܒܪܝܛܢܝܐ"}
+            }
+            calorie{
+                dnam{"ܟܐܠ"}
+                one{"{0} ܟܐܠ"}
+                other{"{0} ܟܐܠ"}
+            }
+            electronvolt{
+                dnam{"ܐܠܝܟܬܪܘܢ ܒܘܠܬ"}
+                one{"{0} ܐܠܝܟܬܪܘܢ ܒܘܠܬ"}
+                other{"{0} ܐܠܝܟܬܪܘܢ ܒܘܠܬ"}
+            }
+            joule{
+                dnam{"ܓܝܐܘܠ"}
+                one{"{0} ܓܝܐܘܠ"}
+                other{"{0} ܓܝܐܘܠ"}
+            }
+            kilocalorie{
+                dnam{"ܟ ܟܐܠܘܪܝ"}
+                one{"{0} ܟ ܟܐܠܘܪܝ"}
+                other{"{0} ܟ ܟܐܠܘܪܝ"}
+            }
+            kilojoule{
+                dnam{"ܟ ܓܝܐܘܠ"}
+                one{"{0} ܟ ܓܝܐܘܠ"}
+                other{"{0} ܟ ܓܝܐܘܠ"}
+            }
+            kilowatt-hour{
+                dnam{"ܟܝܠܘܘܐܬ-ܫ"}
+                one{"{0} ܟܘܫ܏-ܫ"}
+                other{"{0} ܟܘܫ܏-ܫ"}
+            }
+            therm-us{
+                dnam{"ܡܫܘܚܬܐ ܕܫܚܝܢܘܬܐ ܕܐܡܪܝܟܐ"}
+                one{"{0} ܡܫܘܚܬܐ ܕܫܚܝܢܘܬܐ ܕܐܡܪܝܟܐ"}
+                other{"{0} ܡܫܘܚܬܐ ܕܫܚܝܢܘܬܐ ܕܐܡܪܝܟܐ"}
+            }
+        }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"ܟܘܫ܊ ܒ 100 ܟܡ"}
+                one{"{0} ܟܘܫ܊ ܒ 100 ܟܡ"}
+                other{"{0} ܟܘܫ܊ ܒ 100 ܟܡ"}
+            }
+            newton{
+                dnam{"ܢܝܘܬܢ"}
+                one{"{0} ܢܝܘܬܢ"}
+                other{"{0} ܢܝܘܬܢ"}
+            }
+        }
+        frequency{
+            gigahertz{
+                dnam{"ܓܝܓܐܗܪܬܙ"}
+                one{"{0} ܓܝܓܐܗܪܬܙ"}
+                other{"{0} ܓܝܓܐܗܪܬܙ"}
+            }
+            hertz{
+                dnam{"ܗܪܬܙ"}
+                one{"{0} ܗܪܬܙ"}
+                other{"{0} ܗܪܬܙ"}
+            }
+            kilohertz{
+                dnam{"ܟܝܠܘܗܪܬܙ"}
+                one{"{0} ܟܝܠܘܗܪܬܙ"}
+                other{"{0} ܟܝܠܘܗܪܬܙ"}
+            }
+            megahertz{
+                dnam{"ܡܝܓܐܗܪܬܙ"}
+                one{"{0} ܡܝܓܐܗܪܬܙ"}
+                other{"{0} ܡܝܓܐܗܪܬܙ"}
+            }
+        }
+        graphics{
+            megapixel{
+                dnam{"ܡܝܓܐܦܝ̈ܟܣܠܐ"}
+                one{"{0} ܡ.ܦܝܟܣܠܐ"}
+                other{"{0} ܡ.ܦܝܟܣܠܐ"}
+            }
+            pixel{
+                dnam{"ܦܝ̈ܟܣܠܐ"}
+                one{"{0} ܦܝܟܣܠܐ"}
+                other{"{0} ܦܝܟܣܠܐ"}
+            }
+            pixel-per-centimeter{
+                dnam{"ܦܝ̈ܟܣܠܐ ܒܣܢܬܝܡܝܬܪܐ"}
+                one{"{0} ܦܝ̈ܟܣܠܐ/ܣܡ"}
+                other{"{0} ܦܝ̈ܟܣܠܐ/ܣܡ"}
+            }
+            pixel-per-inch{
+                dnam{"ܦܝ̈ܟܣܠܐ ܒܐܢܟ"}
+                one{"{0} ܦܝ̈ܟܣܠܐ/ܐܢ"}
+                other{"{0} ܦܝ̈ܟܣܠܐ/ܐܢ"}
+            }
+        }
+        length{
+            astronomical-unit{
+                dnam{"ܡ.ܪ."}
+                one{"{0} ܡ.ܪ."}
+                other{"{0} ܡ.ܪ."}
+            }
+            centimeter{
+                dnam{"ܣܡ"}
+                one{"{0} ܣܡ"}
+                other{"{0} ܣܡ"}
+                per{"{0}/ܣܡ"}
+            }
+            decimeter{
+                dnam{"ܕܣܡ"}
+                one{"{0} ܕܣܡ"}
+                other{"{0} ܕܣܡ"}
+            }
+            earth-radius{
+                dnam{"ܥܘܒܐ ܐܪܥܝܐ"}
+                one{"{0} ܥܘܒܐ ܐܪܥܝܐ"}
+                other{"{0} ܥܘܒܐ ܐܪܥܝܐ"}
+            }
+            foot{
+                dnam{"ܐܩܠ̈ܐ"}
+                one{"{0} ܐܩܠ̈ܐ"}
+                other{"{0} ܐܩܠ̈ܐ"}
+                per{"{0}/ܐܩܠܐ"}
+            }
+            furlong{
+                dnam{"ܦܘܪ̈ܠܢܓ"}
+                one{"{0} ܦܘܪܠܢܓ"}
+                other{"{0} ܦܘܪ̈ܠܢܓ"}
+            }
+            inch{
+                dnam{"ܐܢܟ̈ܐ"}
+                one{"ܚܕܐ ܐܢ܊"}
+                other{"{0} ܐܢ܊"}
+                per{"{0}/ܐܢܟ"}
+            }
+            kilometer{
+                dnam{"ܟܡ"}
+                one{"{0} ܟܡ"}
+                other{"{0} ܟܡ"}
+                per{"{0}/ܟܡ"}
+            }
+            light-year{
+                dnam{"ܫ̈ܢܐ ܕܢܘܗܪܐ"}
+                one{"{0} ܫܢܬܐ ܕܢܘܗܪܐ"}
+                other{"{0} ܫ̈ܢܐ ܕܢܘܗܪܐ"}
+            }
+            meter{
+                dnam{"ܡܝܬܪܐ"}
+                one{"ܡܝܬܪܐ"}
+                other{"{0} ܡ"}
+                per{"{0}/ܡ"}
+            }
+            micrometer{
+                dnam{"ܡܝܟܪܘܡܝܬܪ̈ܐ"}
+                one{"{0} ܡܟܡ"}
+                other{"{0}ܡܟܡ"}
+            }
+            mile{
+                dnam{"ܡܝܠ̈ܐ"}
+                one{"ܡܝܠܐ"}
+                other{"{0} ܡܝܠ̈ܐ"}
+            }
+            mile-scandinavian{
+                dnam{"ܡܝ̈ܠܐ-ܐܣܟܢܕܝܢܒܝܝܢ"}
+                one{"{0} ܡܝ̈ܠܐ-ܐܣܟܢܕܝܢܒܝܝܢ"}
+                other{"{0} ܡܝ̈ܠܐ-ܐܣܟܢܕܝܢܒܝܝܢ"}
+            }
+            millimeter{
+                dnam{"ܡܡ"}
+                one{"{0} ܡܡ"}
+                other{"{0} ܡܡ"}
+            }
+            nanometer{
+                dnam{"ܢܡ"}
+                one{"{0} ܢܡ"}
+                other{"{0} ܢܡ"}
+            }
+            nautical-mile{
+                dnam{"ܡܝ̈ܠܐ ܝܡܝ̈ܐ"}
+                one{"{0} ܡܝܠܐ ܝܡܝܐ"}
+                other{"{0} ܡܝ̈ܠܐ ܝܡܝ̈ܐ"}
+            }
+            parsec{
+                dnam{"ܦܪ̈ܣܚܐ"}
+                one{"{0} ܦܪܣܚܐ"}
+                other{"{0} ܦܪ̈ܣܚܐ"}
+            }
+            picometer{
+                dnam{"ܦܝܟܘܡܝܬܪܐ"}
+                one{"{0} ܦܝܟܘܡܝܬܪܐ"}
+                other{"{0} ܦܝܟܘܡܝܬܪܐ"}
+            }
+            point{
+                dnam{"ܢܘܩܙ̈ܐ"}
+                one{"{0} ܢܘܩܙܐ"}
+                other{"{0} ܢܘܩܙ̈ܐ"}
+            }
+            solar-radius{
+                dnam{"ܥܘܒܐ ܦܫܝܬܐ ܫܡܫܝܐ"}
+                one{"{0} ܥܘܒܐ ܫܡܫܝܐ"}
+                other{"{0} ܥܘܒܐ ܫܡܫܝܐ"}
+            }
+            yard{
+                dnam{"ܝܪܕ̈ܐ"}
+                one{"{0} ܝܪܕ̈ܐ"}
+                other{"{0} ܝܪܕ̈ܐ"}
+            }
+        }
+        light{
+            candela{
+                dnam{"ܢܗܝܪܐ"}
+                one{"{0} ܢܗܝܪܐ"}
+                other{"{0} ܢܗܝܪܐ"}
+            }
+            lumen{
+                dnam{"ܠܘܡܝܢ"}
+                one{"{0} ܠܘܡܝܢ"}
+                other{"{0} ܠܘܡܝܢ"}
+            }
+            lux{
+                dnam{"ܠܘܩܣ"}
+                one{"{0} ܠܘܩܣ"}
+                other{"{0} ܠܘܩܣ"}
+            }
+        }
+        mass{
+            carat{
+                dnam{"ܩܪ̈ܛܐ"}
+                one{"{0} ܩܪܛܐ"}
+                other{"{0} ܩܪ̈ܛܐ"}
+            }
+            dalton{
+                dnam{"ܕܐܠܬܘܢ"}
+                one{"{0} ܕܐܠܬܘܢ"}
+                other{"{0} ܕܐܠܬܘܢ"}
+            }
+            earth-mass{
+                dnam{"ܥܘܫܢܐ ܐܪܥܝܐ"}
+                one{"{0} ܥܘܫܢܐ ܐܪܥܝܐ"}
+                other{"{0} ܥܘܫܢܐ ܐܪܥܝܐ"}
+            }
+            grain{
+                dnam{"ܦܪܕܐ"}
+                one{"{0} ܦܪܕܐ"}
+                other{"{0} ܦܪ̈ܕܐ"}
+            }
+            gram{
+                dnam{"ܓܪ̈ܡܐ"}
+                one{"ܓܪܡܐ"}
+                other{"{0} ܓܪ̈ܡܐ"}
+                per{"{0}/ܓܪܡܐ"}
+            }
+            kilogram{
+                dnam{"ܟܓܡ"}
+                one{"{0} ܟܓܡ"}
+                other{"{0} ܟܓܡ"}
+                per{"{0}/ܟܓܡ"}
+            }
+            microgram{
+                dnam{"ܡܟܓܡ"}
+                one{"{0} ܡܟܓܡ"}
+                other{"{0} ܡܟܓܡ"}
+            }
+            milligram{
+                dnam{"ܡܓܡ"}
+                one{"{0} ܡܓܡ"}
+                other{"{0} ܡܓܡ"}
+            }
+            ounce{
+                dnam{"ܐܘܢܩ̈ܝܐ"}
+                one{"{0} ܐܘܢܩܝܐ"}
+                other{"{0} ܐܘܢܩ̈ܝܐ"}
+                per{"{0}/ܐܘܢܩܝܐ"}
+            }
+            pound{
+                dnam{"ܡܢܝ̈ܐ"}
+                one{"{0} ܡܢܝܐ"}
+                other{"{0} ܡܢܝ̈ܐ"}
+                per{"{0}/ܡܢܝܐ"}
+            }
+            solar-mass{
+                dnam{"ܥܘܫܢܐ ܫܡܫܝܐ"}
+                one{"{0} ܥܘܫܢܐ ܫܡܫܝܐ"}
+                other{"{0} ܥܘܫܢܐ ܫܡܫܝܐ"}
+            }
+            stone{
+                dnam{"ܣܬܘܢ"}
+                one{"{0} ܣܛܘܢ"}
+                other{"{0} ܣܛܘܢ"}
+            }
+            ton{
+                dnam{"ܬܘܢ̈ܐ"}
+                one{"{0} ܬܘܢܐ"}
+                other{"{0} ܬܘܢ̈ܐ"}
+            }
+            tonne{
+                dnam{"ܬ.ܡ"}
+                one{"{0} ܬ.ܡ"}
+                other{"{0} ܬ.ܡ"}
+            }
+        }
+        power{
+            gigawatt{
+                dnam{"ܓ ܘܐܬ"}
+                one{"{0} ܓ ܘܐܬ"}
+                other{"{0} ܓ ܘܐܬ"}
+            }
+            horsepower{
+                dnam{"ܚܝܠܐ ܕܣܘܣܝܐ"}
+                one{"{0} ܣܘܣܝܐ"}
+                other{"{0} ܣܘܣܝܐ"}
+            }
+            kilowatt{
+                dnam{"ܟ ܘܐܬ"}
+                one{"{0} ܟ ܘܐܬ"}
+                other{"{0} ܟ ܘܐܬ"}
+            }
+            megawatt{
+                dnam{"ܡ ܘܐܬ"}
+                one{"{0} ܡ ܘܐܬ"}
+                other{"{0} ܡ ܘܐܬ"}
+            }
+            milliwatt{
+                dnam{"ܡܝܠܝܘܐܬ"}
+                one{"{0} ܡܝܠܝܘܐܬ"}
+                other{"{0} ܡܝܠܝܘܐܬ"}
+            }
+            watt{
+                dnam{"ܘܐܬ"}
+                one{"{0} ܘܐܬ"}
+                other{"{0} ܘܐܬ"}
+            }
+        }
+        pressure{
+            hectopascal{
+                dnam{"ܗܟܬܘܦܣܟܠ"}
+                one{"{0} ܗܟܬܘܦܣܟ̈ܠܐ"}
+                other{"{0} ܗܟܬܘܦܣܟ̈ܠܐ"}
+            }
+            kilopascal{
+                dnam{"ܟܝܠܘܦܣܟܠ"}
+                one{"{0} ܟܝܠܘܦܣܟܠ"}
+                other{"{0} ܟܝܠܘܦܣܟܠ"}
+            }
+            megapascal{
+                dnam{"ܡܝܓܐܦܣܟܠ"}
+                one{"{0} ܡܝܓܐܦܣܟܠ"}
+                other{"{0} ܡܝܓܐܦܣܟܠ"}
+            }
+            pascal{
+                dnam{"ܦܣܟܠ"}
+                one{"{0} ܦܣܟ̈ܠܐ"}
+                other{"{0} ܦܣܟ̈ܠܐ"}
+            }
+        }
+        speed{
+            kilometer-per-hour{
+                dnam{"ܟܡ/ܫ"}
+                one{"{0} ܟܡ/ܫ"}
+                other{"{0} ܟܡ/ܫ"}
+            }
+            knot{
+                dnam{"ܩܛܪ̈ܐ"}
+                one{"{0} ܩܛܪܐ"}
+                other{"{0} ܩܛܪ̈ܐ"}
+            }
+            meter-per-second{
+                dnam{"ܡ/ܪ"}
+                one{"{0} ܡ/ܪ"}
+                other{"{0} ܡ/ܪ"}
+            }
+            mile-per-hour{
+                dnam{"ܡܝܠ̈ܐ/ܫ"}
+                one{"{0} ܡܝܠܐ/ܫ"}
+                other{"{0} ܡܝܠ̈ܐ/ܫ"}
+            }
+        }
+        temperature{
+            celsius{
+                dnam{"ܕܪܓܐ ܡܐܢܝܐ"}
+                one{"{0}°ܡ"}
+                other{"{0}°ܡ"}
+            }
+            fahrenheit{
+                dnam{"ܕܪܓܐ ܦܐܗܪܢܗܥܝܬ"}
+                one{"{0}°ܦ"}
+                other{"{0}°ܦ"}
+            }
+            kelvin{
+                dnam{"ܕ ܟܠܒܝܢ"}
+                one{"{0} ܕ ܟܠܒܝܢ"}
+                other{"{0} ܕ ܟܠܒܝܢ"}
+            }
+        }
+        torque{
+            newton-meter{
+                dnam{"ܢܝܘܬܢ-ܡܝܬܪ̈ܐ"}
+                one{"{0} ܢܝܘܬܢ-ܡܝܬܪ̈ܐ"}
+                other{"{0} ܢܝܘܬܢ-ܡܝܬܪ̈ܐ"}
+            }
+        }
+        volume{
+            acre-foot{
+                dnam{"ܐܩܠ̈ܐ-ܦܕܢܐ"}
+                one{"{0} ܐܩܠ̈ܐ-ܦܕܢܐ"}
+                other{"{0} ܐܩܠ̈ܐ-ܦܕܢܐ"}
+            }
+            centiliter{
+                dnam{"ܣܢܬܝܠܝܬܪ̈ܐ"}
+                one{"{0} ܣܢܬܝܠܝܬܪܐ"}
+                other{"{0} ܣܢܬܝܠܝܬܪ̈ܐ"}
+            }
+            cubic-centimeter{
+                dnam{"ܣܡ³"}
+                one{"{0} ܣܡ³"}
+                other{"{0} ܣܡ³"}
+                per{"{0}/ܣܡ³"}
+            }
+            cubic-foot{
+                dnam{"ܐܩܠ̈ܐ³"}
+                one{"{0} ܐܩܠܐ³"}
+                other{"{0} ܐܩܠ̈ܐ³"}
+            }
+            cubic-inch{
+                dnam{"ܐܢܟ̈ܐ³"}
+                one{"{0} ܐܢ³"}
+                other{"{0} ܐܢ³"}
+            }
+            cubic-kilometer{
+                dnam{"ܟܡ³"}
+                one{"{0} ܟܡ³"}
+                other{"{0} ܟܡ³"}
+            }
+            cubic-meter{
+                dnam{"ܡܝܬܪ̈ܐ ܡܩܦܣܐ"}
+                one{"{0} ܡ³"}
+                other{"{0} ܡ³"}
+                per{"{0}/ܡ³"}
+            }
+            cubic-mile{
+                dnam{"ܡܝܠ̈ܐ³"}
+                one{"{0} ܡܝܠܐ³"}
+                other{"{0} ܡܝܠ̈ܐ³"}
+            }
+            cubic-yard{
+                dnam{"ܝܪ̈ܕܐ³"}
+                one{"{0} ܝܪܕܐ³"}
+                other{"{0} ܝܪ̈ܕܐ³"}
+            }
+            deciliter{
+                dnam{"ܕܝܣܝܠܝܬܪ̈ܐ"}
+                one{"{0} ܕܝܣܝܠܝܬܪܐ"}
+                other{"{0} ܕܝܣܝܠܝܬܪ̈ܐ"}
+            }
+            dessert-spoon{
+                dnam{"ܬܪ̈ܘܕܐ ܚܠܝ̈ܐ"}
+                one{"{0} ܬܪܘܕܐ ܚܠܝܐ"}
+                other{"{0} ܬܪ̈ܘܕܐ ܚܠܝ̈ܐ"}
+            }
+            dessert-spoon-imperial{
+                dnam{"ܬܪ̈ܘܕܐ ܚܠܝ̈ܐ ܐܡܦܪܬܘܪܝܐ"}
+                one{"{0} ܬܪܘܕܐ ܚܠܝܐ ܐܡܦܪܬܘܪܝܐ"}
+                other{"{0} ܬܪ̈ܘܕܐ ܚܠܝ̈ܐ ܐܡܦܪܬܘܪܝܐ"}
+            }
+            dram{
+                dnam{"ܕܪܟܡܐ ܪܕܘܝܐ"}
+                one{"{0} ܕܪܟܡܐ ܪܕܘܝܐ"}
+                other{"{0} ܕܪ̈ܟܡܐ ܪ̈ܕܘܝܐ"}
+            }
+            drop{
+                dnam{"ܛܘܦܬܐ"}
+                one{"{0} ܛܘܦܬܐ"}
+                other{"{0} ܛܘܦ̈ܐ"}
+            }
+            fluid-ounce{
+                dnam{"ܐܘܢܩ̈ܝܐ ܪ̈ܕܘܝܐ"}
+                one{"{0} ܐܘܢܩܝܐ ܪܕܘܝܐ"}
+                other{"{0} ܐܘܢܩ̈ܝܐ ܪ̈ܕܘܝܐ"}
+            }
+            fluid-ounce-imperial{
+                dnam{"ܐܘܢܩ̈ܝܐ ܪ̈ܕܘܝܐ ܐܡܦܪܬܘܪܝܐ"}
+                one{"{0} ܐܘܢܩܝܐ ܪܕܘܝܐ ܐܡܦܪܬܘܪܝܐ"}
+                other{"{0} ܐܘܢܩ̈ܝܐ ܪ̈ܕܘܝܐ ܐܡܦܪܬܘܪܝܐ"}
+            }
+            gallon{
+                dnam{"ܓܠܘܢ̈ܐ"}
+                one{"{0} ܓܠܘܢܐ"}
+                other{"{0} ܓܠܘܢ̈ܐ"}
+                per{"{0}/ܓܠܘܢ̈ܐ"}
+            }
+            gallon-imperial{
+                dnam{"ܓܠܘܢ̈ܐ ܐܡܦܪܬܘܪܝܐ"}
+                one{"{0} ܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+                other{"{0} ܓܠܘܢ̈ܐ ܐܡܦܪܬܘܪܝܐ"}
+                per{"{0}/ܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+            }
+            hectoliter{
+                dnam{"ܗܟܬܘܠܝܬܪ̈ܐ"}
+                one{"{0} ܗܟܬܘܠܝܬܪܐ"}
+                other{"{0} ܗܟܬܘܠܝܬܪ̈ܐ"}
+            }
+            liter{
+                dnam{"ܠܝܬܪ̈ܐ"}
+                one{"{0} ܠܝܬܪܐ"}
+                other{"{0} ܠܝܬܪ̈ܐ"}
+                per{"{0}/ܠ"}
+            }
+            megaliter{
+                dnam{"ܡܝܓܐܠܝܬܪ̈ܐ"}
+                one{"{0} ܡܝܓܐܠܝܬܪܐ"}
+                other{"{0} ܡܝܓܐܠܝܬܪ̈ܐ"}
+            }
+            milliliter{
+                dnam{"ܡܠܬܪ"}
+                one{"{0} ܡܠܬܪ܊"}
+                other{"{0} ܡܠܬܪ̈܊"}
+            }
+            quart{
+                dnam{"ܪ̈ܘܒܥܐ ܓܠܘܢ̈ܐ"}
+                one{"{0} ܪܘܒܥܐ ܓܠܘܢܐ"}
+                other{"{0} ܪ̈ܘܒܥܐ ܓܠܘܢ̈ܐ"}
+            }
+            quart-imperial{
+                dnam{"ܪ̈ܘܒܥܐ ܓܠܘܢ̈ܐ ܐܡܦܪܬܘܪܝܐ"}
+                one{"{0} ܪܘܒܥܐ ܓܠܘܢܐ ܐܡܦܪܬܘܪܝܐ"}
+                other{"{0} ܪ̈ܘܒܥܐ ܓܠܘܢ̈ܐ ܐܡܦܪܬܘܪܝܐ"}
+            }
+            tablespoon{
+                dnam{"ܬܪ̈ܘܕܐ ܪ̈ܒܐ"}
+                one{"{0} ܬܪܘܕܐ ܪܒܐ"}
+                other{"{0} ܬܪ̈ܘܕܐ ܪ̈ܒܐ"}
+            }
+            teaspoon{
+                dnam{"ܬܪ̈ܘܕܐ ܙܥܘܪ̈ܐ"}
+                one{"{0} ܬܪܘܕܐ ܙܥܘܪܐ"}
+                other{"{0} ܬܪ̈ܘܕܐ ܙܥܘܪ̈ܐ"}
+            }
+        }
+    }
 }

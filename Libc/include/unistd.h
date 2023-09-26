@@ -809,6 +809,7 @@ int	 execvP(const char * __file, const char * __searchpath, char * const * __arg
 char	*fflagstostr(unsigned long);
 int	 getdomainname(char *, int);
 int	 getgrouplist(const char *, int, int *, int *);
+__END_DECLS
 #if defined(__has_include)
 #if __has_include(<gethostuuid_private.h>)
 #include <gethostuuid_private.h>
@@ -818,6 +819,7 @@ int	 getgrouplist(const char *, int, int *, int *);
 #else
 #include <gethostuuid.h>
 #endif
+__BEGIN_DECLS
 mode_t	 getmode(const void *, mode_t);
 int	 getpeereid(int, uid_t *, gid_t *);
 int	 getsgroups_np(int *, uuid_t);

@@ -56,15 +56,6 @@ inline bool webkitGstCheckVersion(guint major, guint minor, guint micro)
     return true;
 }
 
-// gst_video_format_info_component() is GStreamer 1.18 API, so for older versions we use a local
-// vendored copy of the function.
-#if !GST_CHECK_VERSION(1, 18, 0)
-#define GST_VIDEO_MAX_COMPONENTS 4
-void webkitGstVideoFormatInfoComponent(const GstVideoFormatInfo*, guint, gint components[GST_VIDEO_MAX_COMPONENTS]);
-
-#define gst_video_format_info_component webkitGstVideoFormatInfoComponent
-#endif
-
 #define GST_VIDEO_CAPS_TYPE_PREFIX  "video/"
 #define GST_AUDIO_CAPS_TYPE_PREFIX  "audio/"
 #define GST_TEXT_CAPS_TYPE_PREFIX   "text/"
@@ -85,9 +76,6 @@ void registerWebKitGStreamerElements();
 void registerWebKitGStreamerVideoEncoder();
 unsigned getGstPlayFlag(const char* nick);
 uint64_t toGstUnsigned64Time(const MediaTime&);
-#if ENABLE(THUNDER)
-bool isThunderRanked();
-#endif
 
 inline GstClockTime toGstClockTime(const MediaTime& mediaTime)
 {
@@ -107,11 +95,12 @@ inline MediaTime fromGstClockTime(GstClockTime time)
     return MediaTime(GST_TIME_AS_USECONDS(time), G_USEC_PER_SEC);
 }
 
-class GstMappedBuffer {
-    WTF_MAKE_NONCOPYABLE(GstMappedBuffer);
+template<typename MapType, gboolean(mapFunction)(GstBuffer*, MapType*, GstMapFlags), void(unmapFunction)(GstBuffer*, MapType*)>
+class GstBufferMapper {
+    WTF_MAKE_NONCOPYABLE(GstBufferMapper);
 public:
 
-    GstMappedBuffer(GstMappedBuffer&& other)
+    GstBufferMapper(GstBufferMapper&& other)
         : m_buffer(other.m_buffer)
         , m_info(other.m_info)
         , m_isValid(other.m_isValid)
@@ -122,51 +111,67 @@ public:
     // This GstBuffer is [ transfer none ], meaning that no reference
     // is increased. Hence, this buffer must outlive the mapped
     // buffer.
-    GstMappedBuffer(GstBuffer* buffer, GstMapFlags flags)
+    GstBufferMapper(GstBuffer* buffer, GstMapFlags flags)
         : m_buffer(buffer)
     {
         ASSERT(GST_IS_BUFFER(buffer));
-        m_isValid = gst_buffer_map(m_buffer, &m_info, flags);
+        m_isValid = mapFunction(m_buffer, &m_info, flags);
     }
 
     // Unfortunately, GST_MAP_READWRITE is defined out of line from the MapFlags
     // enum as an int, and C++ is careful to not implicity convert it to an enum.
-    GstMappedBuffer(GstBuffer* buffer, int flags)
-        : GstMappedBuffer(buffer, static_cast<GstMapFlags>(flags)) { }
-    GstMappedBuffer(const GRefPtr<GstBuffer>& buffer, GstMapFlags flags)
-        : GstMappedBuffer(buffer.get(), flags) { }
+    GstBufferMapper(GstBuffer* buffer, int flags)
+        : GstBufferMapper(buffer, static_cast<GstMapFlags>(flags)) { }
+    GstBufferMapper(const GRefPtr<GstBuffer>& buffer, GstMapFlags flags)
+        : GstBufferMapper(buffer.get(), flags) { }
 
-    virtual ~GstMappedBuffer()
+    virtual ~GstBufferMapper()
     {
         unmapEarly();
     }
 
     void unmapEarly()
     {
-        if (m_isValid) {
-            m_isValid = false;
-            gst_buffer_unmap(m_buffer, &m_info);
-        }
+        if (!m_isValid)
+            return;
+
+        m_isValid = false;
+        unmapFunction(m_buffer, &m_info);
     }
 
     bool isValid() const { return m_isValid; }
     uint8_t* data() { RELEASE_ASSERT(m_isValid); return static_cast<uint8_t*>(m_info.data); }
     const uint8_t* data() const { RELEASE_ASSERT(m_isValid); return static_cast<uint8_t*>(m_info.data); }
     size_t size() const { ASSERT(m_isValid); return m_isValid ? static_cast<size_t>(m_info.size) : 0; }
+    MapType* mappedData() const  { ASSERT(m_isValid); return m_isValid ? const_cast<MapType*>(&m_info) : nullptr; }
     Vector<uint8_t> createVector() const;
 
     explicit operator bool() const { return m_isValid; }
     bool operator!() const { return !m_isValid; }
 
 private:
-    friend bool operator==(const GstMappedBuffer&, const GstMappedBuffer&);
-    friend bool operator==(const GstMappedBuffer&, const GstBuffer*);
-    friend bool operator==(const GstBuffer* a, const GstMappedBuffer& b) { return operator==(b, a); }
+    friend bool operator==(const GstBufferMapper& a, const GstBufferMapper& b)
+    {
+        ASSERT(a.isValid());
+        ASSERT(b.isValid());
+        return a.isValid() && b.isValid() && a.size() == b.size() && !gst_buffer_memcmp(a.m_buffer, 0, b.data(), b.size());
+    }
+    friend bool operator==(const GstBufferMapper& a, const GstBuffer* b)
+    {
+        ASSERT(a.isValid());
+        ASSERT(GST_IS_BUFFER(b));
+        GstBuffer* nonConstB = const_cast<GstBuffer*>(b);
+        return a.isValid() && GST_IS_BUFFER(b) && a.size() == gst_buffer_get_size(nonConstB) && !gst_buffer_memcmp(nonConstB, 0, a.data(), a.size());
+    }
+
+    friend bool operator==(const GstBuffer* a, const GstBufferMapper& b) { return operator==(b, a); }
 
     GstBuffer* m_buffer { nullptr };
-    GstMapInfo m_info;
+    MapType m_info;
     bool m_isValid { false };
 };
+
+using GstMappedBuffer = GstBufferMapper<GstMapInfo, gst_buffer_map, gst_buffer_unmap>;
 
 // This class maps only buffers in GST_MAP_READ mode to be able to
 // bump the reference count and keep it alive during the life of this
@@ -211,21 +216,6 @@ private:
 
     GRefPtr<GstBuffer> m_ownedBuffer;
 };
-
-inline bool operator==(const GstMappedBuffer& a, const GstMappedBuffer& b)
-{
-    ASSERT(a.isValid());
-    ASSERT(b.isValid());
-    return a.isValid() && b.isValid() && a.size() == b.size() && !gst_buffer_memcmp(a.m_buffer, 0, b.data(), b.size());
-}
-
-inline bool operator==(const GstMappedBuffer& a, const GstBuffer* b)
-{
-    ASSERT(a.isValid());
-    ASSERT(GST_IS_BUFFER(b));
-    GstBuffer* nonConstB = const_cast<GstBuffer*>(b);
-    return a.isValid() && GST_IS_BUFFER(b) && a.size() == gst_buffer_get_size(nonConstB) && !gst_buffer_memcmp(nonConstB, 0, a.data(), a.size());
-}
 
 class GstMappedFrame {
     WTF_MAKE_NONCOPYABLE(GstMappedFrame);
@@ -333,12 +323,7 @@ GstElement* makeGStreamerBin(const char* description, bool ghostUnlinkedPads);
 
 String gstStructureToJSONString(const GstStructure*);
 
-// gst_element_get_current_running_time() is GStreamer 1.18 API, so for older versions we use a local
-// vendored copy of the function.
-#if !GST_CHECK_VERSION(1, 18, 0)
-GstClockTime webkitGstElementGetCurrentRunningTime(GstElement*);
-#define gst_element_get_current_running_time webkitGstElementGetCurrentRunningTime
-#endif
+GstClockTime webkitGstInitTime();
 
 PlatformVideoColorSpace videoColorSpaceFromCaps(const GstCaps*);
 PlatformVideoColorSpace videoColorSpaceFromInfo(const GstVideoInfo&);

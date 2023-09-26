@@ -329,6 +329,8 @@ public:
      */
     virtual UClassID getDynamicClassID(void) const override;
 
+#if APPLE_ICU_CHANGES
+// rdar://
     /**
      * Apple addition
      * This is for ICU internal use only. Please do not use.
@@ -340,13 +342,17 @@ public:
      * @internal
      */
     BreakIterator* getCapitalizationBrkIter(void) const;
+#endif  // APPLE_ICU_CHANGES
 };
 
+#if APPLE_ICU_CHANGES
+// rdar://
 inline BreakIterator*
 RelativeDateFormat::getCapitalizationBrkIter() const
 {
     return fCapitalizationBrkIter;
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_END
 

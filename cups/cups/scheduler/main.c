@@ -324,38 +324,8 @@ main(int  argc,				/* I - Number of command-line args */
     }
   }
 
-  if (!ConfigurationFile)
-    cupsdSetString(&ConfigurationFile, CUPS_SERVERROOT "/cupsd.conf");
-
-  if (!CupsFilesFile)
-  {
-    char	*filename,		/* Copy of cupsd.conf filename */
-		*slash;			/* Final slash in cupsd.conf filename */
-    size_t	len;			/* Size of buffer */
-
-    len = strlen(ConfigurationFile) + 15;
-    if ((filename = malloc(len)) == NULL)
-    {
-      _cupsLangPrintf(stderr,
-		      _("cupsd: Unable to get path to "
-			"cups-files.conf file."));
-      return (1);
-    }
-
-    strlcpy(filename, ConfigurationFile, len);
-    if ((slash = strrchr(filename, '/')) == NULL)
-    {
-      free(filename);
-      _cupsLangPrintf(stderr,
-		      _("cupsd: Unable to get path to "
-			"cups-files.conf file."));
-      return (1);
-    }
-
-    strlcpy(slash, "/cups-files.conf", len - (size_t)(slash - filename));
-    cupsdSetString(&CupsFilesFile, filename);
-    free(filename);
-  }
+  if (! cupsdValidatePathsForConfigurationFiles())
+    return (1);
 
   if (disconnect)
   {

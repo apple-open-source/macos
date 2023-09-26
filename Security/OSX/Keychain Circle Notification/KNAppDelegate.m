@@ -53,11 +53,13 @@
 #import <CoreCDP/CDPAccount.h>
 #import <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 
+#import <AAAFoundation/AFUtilities.h>
+
 static const char     * const kLaunchLaterXPCName      = "com.apple.security.Keychain-Circle-Notification-TICK";
 static const NSString * const kKickedOutKey            = @"KickedOut";
 static const NSString * const kValidOnlyOutOfCircleKey = @"ValidOnlyOutOfCircle";
 static const NSString * const kPasswordChangedOrTrustedDeviceChanged = @"TDorPasswordChanged";
-static NSString *prefpane = @"/System/Library/PreferencePanes/iCloudPref.prefPane";
+static NSString *prefpane = @"/System/Library/PreferencePanes/AppleIDPrefPane.prefPane";
 #define kPublicKeyNotAvailable "com.apple.security.publickeynotavailable"
 #define kPublicKeyAvailable "com.apple.security.publickeyavailable"
 static NSString *KeychainPCDetailsAEAction            = @"AKPCDetailsAEAction";
@@ -84,14 +86,14 @@ static BOOL isErrorFromXPC(CFErrorRef error)
 
 static void PSKeychainSyncIsUsingICDP(void)
 {
-    ACAccountStore *accountStore = [ACAccountStore defaultStore];
-    ACAccount *primaryiCloudAccount = nil;
-    
-    if ([accountStore respondsToSelector:@selector(icaPrimaryAppleAccount)]){
-        primaryiCloudAccount = [accountStore icaPrimaryAppleAccount];
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
     }
     
-    NSString *dsid = primaryiCloudAccount.icaPersonID;
+    ACAccountStore *accountStore = [ACAccountStore defaultStore];
+    ACAccount *primaryiCloudAccount = accountStore.aa_primaryAppleAccount;
+    
+    NSString *dsid = primaryiCloudAccount.aa_personID;
     BOOL isICDPEnabled = NO;
     if (dsid) {
         isICDPEnabled = [CDPAccount isICDPEnabledForDSID:dsid];
@@ -105,11 +107,26 @@ static void PSKeychainSyncIsUsingICDP(void)
 
 -(void) startFollowupKitRepair
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     NSError *localError = NULL;
     CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-    CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+    
+    CDPFollowUpContext *context = nil;
+    if (SOSCompatibilityModeEnabled()) {
+        context = [CDPFollowUpContext contextForSOSCompatibilityMode];
+    } else {
+        context = [CDPFollowUpContext contextForStateRepair];
+    }
 
-    secnotice("followup", "Posting a follow up (for SOS) of type repair");
+    if (SOSCompatibilityModeEnabled()) {
+        secnotice("followup", "Posting a follow up (for SOS) of type SOS Compatibility Mode");
+    } else {
+        secnotice("followup", "Posting a follow up (for SOS) of type repair");
+    }
+    
     [cdpd postFollowUpWithContext:context error:&localError ];
     if(localError){
         secnotice("kcn", "request to CoreCDP to follow up failed: %@", localError);
@@ -122,6 +139,10 @@ static void PSKeychainSyncIsUsingICDP(void)
 
 - (void) handleDismissedNotification
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     if(_isAccountICDP){
         secnotice("kcn", "handling dismissed notification, would start a follow up");
         [self startFollowupKitRepair];
@@ -132,33 +153,33 @@ static void PSKeychainSyncIsUsingICDP(void)
 
 - (void) notifyiCloudPreferencesAbout: (NSString *) eventName
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+
     if (eventName == nil)
         return;
 
     secnotice("kcn", "notifyiCloudPreferencesAbout %@", eventName);
-    
-    NSString *accountID = (__bridge_transfer NSString*)(MMCopyLoggedInAccountFromAccounts());
+
     ACAccountStore *accountStore = [ACAccountStore defaultStore];
-    ACAccount *primaryiCloudAccount = nil;
-    
-    if ([accountStore respondsToSelector:@selector(icaPrimaryAppleAccount)]){
-        primaryiCloudAccount = [accountStore icaPrimaryAppleAccount];
-    }
-    
-    if(primaryiCloudAccount){
+    ACAccount *primaryiCloudAccount = accountStore.aa_primaryAppleAccount;
+
+    if (primaryiCloudAccount){
         AEDesc	aeDesc;
-        BOOL	createdAEDesc = createAEDescWithAEActionAndAccountID((__bridge NSString *) kMMServiceIDKeychainSync, eventName, accountID, &aeDesc);
+        BOOL	createdAEDesc = createAEDescWithAEActionAndAccountID((__bridge NSString *) kMMServiceIDKeychainSync, eventName, primaryiCloudAccount.appleID, &aeDesc);
         if (createdAEDesc) {
-            NSArray *prefPaneURL = [NSArray arrayWithObject: [NSURL fileURLWithPath: prefpane ]];
-            
+            NSURL *systemSettingsURL = [NSURL fileURLWithPath:AFUtilitiesSystemSettingsPath];
+            NSArray *prefPaneURL = [NSArray arrayWithObject: [NSURL fileURLWithPath: prefpane]];
+
             LSLaunchURLSpec	lsSpec = {
-                .appURL			= NULL,
+                .appURL			= (__bridge CFURLRef _Nullable)systemSettingsURL,
                 .itemURLs		= (__bridge CFArrayRef)prefPaneURL,
                 .passThruParams	= &aeDesc,
                 .launchFlags	= kLSLaunchDefaults | kLSLaunchAsync,
                 .asyncRefCon	= NULL,
             };
-            
+
             OSErr			err = LSOpenFromURLSpec(&lsSpec, NULL);
             
             if (err)
@@ -167,12 +188,17 @@ static void PSKeychainSyncIsUsingICDP(void)
         } else {
             secerror("unable to create and send aedesc for account: '%@' and action: '%@'\n", primaryiCloudAccount, eventName);
         }
+    } else {
+        secerror("unable to find primary account");
     }
-    secerror("unable to find primary account");
 }
 
 - (void) timerCheck
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	NSDate *nowish = [NSDate new];
 
 	self.state = [KNPersistentState loadFromStorage];
@@ -199,6 +225,10 @@ static void PSKeychainSyncIsUsingICDP(void)
 
 - (void) scheduleActivityAt: (NSDate *) time
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	if ([time compare:[NSDate distantFuture]] != NSOrderedSame) {
 		NSTimeInterval howSoon = [time timeIntervalSinceNow];
 		if (howSoon > 0)
@@ -211,6 +241,10 @@ static void PSKeychainSyncIsUsingICDP(void)
 
 - (void) scheduleActivityIn: (int) alertInterval
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     xpc_object_t options = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_uint64(options, XPC_ACTIVITY_DELAY, alertInterval);
     xpc_dictionary_set_uint64(options, XPC_ACTIVITY_GRACE_PERIOD, XPC_ACTIVITY_INTERVAL_1_MIN);
@@ -233,6 +267,10 @@ static void PSKeychainSyncIsUsingICDP(void)
 }
 
 - (NSMutableSet *) makeApplicantSet {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return [NSMutableSet set];
+    }
+    
     KNAppDelegate *me = self;
     NSMutableSet *applicantIds = [NSMutableSet new];
     for (KDCirclePeer *applicant in me.circle.applicants) {
@@ -243,6 +281,10 @@ static void PSKeychainSyncIsUsingICDP(void)
 }
 
 - (bool) removeAllNotificationsOfType: (NSString *) typeString {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return true;
+    }
+    
     bool didRemove = false;
     NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
     for (NSUserNotification *note in noteCenter.deliveredNotifications) {
@@ -281,6 +323,10 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
 
 - (void) processCircleState {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     CFErrorRef err = NULL;
     KNAppDelegate *me = self;
 
@@ -456,7 +502,7 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
 - (void) applicationDidFinishLaunching: (NSNotification *) aNotification
 {
-    IF_SOS_DISABLED {
+    if (!OctagonPlatformSupportsSOS()) {
         secnotice("nosos", "KCN triggered even though SOS is turned off for this platform");
         return;
     }
@@ -535,6 +581,10 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
 - (void) postForApplicant: (KDCirclePeer *) applicant
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	static int postCount = 0;
 
 	if ([self.viewedIds containsObject:applicant.idString]) {
@@ -599,6 +649,10 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
 - (void) postRequirePassword
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     SOSCCStatus currentCircleStatus     = SOSCCThisDeviceIsInCircle(NULL);
     if(currentCircleStatus != kSOSCCError) {
         secnotice("kcn", "postRequirePassword when not needed");
@@ -653,7 +707,10 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
 - (void) outOfCircleAlert: (int) reason
 {
-
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
     if(!_isAccountICDP){
         NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
         for (NSUserNotification *note in noteCenter.deliveredNotifications) {
@@ -706,6 +763,10 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
 - (void) postApplicationReminder
 {
+    if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
+        return;
+    }
+    
 	NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
 	for (NSUserNotification *note in noteCenter.deliveredNotifications) {
 		if (note.userInfo[@"ApplicationReminder"]) {

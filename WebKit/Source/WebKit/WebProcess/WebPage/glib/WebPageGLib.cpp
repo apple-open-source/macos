@@ -28,22 +28,28 @@
 
 #include "EditorState.h"
 #include "InputMethodState.h"
+#include "MessageSenderInlines.h"
 #include "UserMessage.h"
-#include "WebKitExtensionManager.h"
 #include "WebKitUserMessage.h"
-#include "WebKitWebExtension.h"
 #include "WebKitWebPagePrivate.h"
 #include "WebPageProxyMessages.h"
+#include "WebProcessExtensionManager.h"
 #include <WebCore/Editor.h>
-#include <WebCore/Frame.h>
-#include <WebCore/FrameView.h>
 #include <WebCore/HTMLInputElement.h>
 #include <WebCore/HTMLTextAreaElement.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameView.h>
 #include <WebCore/Range.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/UserAgent.h>
 #include <WebCore/VisiblePosition.h>
 #include <WebCore/VisibleUnits.h>
+
+#if ENABLE(2022_GLIB_API)
+#include "WebKitWebProcessExtension.h"
+#else
+#include "WebKitWebExtension.h"
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -77,15 +83,19 @@ void WebPage::platformDetach()
 #endif
 }
 
-void WebPage::sendMessageToWebExtensionWithReply(UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler)
+void WebPage::sendMessageToWebProcessExtensionWithReply(UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler)
 {
-    auto* extension = WebKitExtensionManager::singleton().extension();
+    auto* extension = WebProcessExtensionManager::singleton().extension();
     if (!extension) {
         completionHandler(UserMessage(message.name, WEBKIT_USER_MESSAGE_UNHANDLED_MESSAGE));
         return;
     }
 
+#if ENABLE(2022_GLIB_API)
+    auto* page = webkit_web_process_extension_get_page(extension, m_identifier.toUInt64());
+#else
     auto* page = webkit_web_extension_get_page(extension, m_identifier.toUInt64());
+#endif
     if (!page) {
         completionHandler(UserMessage(message.name, WEBKIT_USER_MESSAGE_UNHANDLED_MESSAGE));
         return;
@@ -94,12 +104,12 @@ void WebPage::sendMessageToWebExtensionWithReply(UserMessage&& message, Completi
     webkitWebPageDidReceiveUserMessage(page, WTFMove(message), WTFMove(completionHandler));
 }
 
-void WebPage::sendMessageToWebExtension(UserMessage&& message)
+void WebPage::sendMessageToWebProcessExtension(UserMessage&& message)
 {
-    sendMessageToWebExtensionWithReply(WTFMove(message), [](UserMessage&&) { });
+    sendMessageToWebProcessExtensionWithReply(WTFMove(message), [](UserMessage&&) { });
 }
 
-void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
+void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) const
 {
     if (!result.hasPostLayoutAndVisualData() || !frame.view() || frame.view()->needsLayout())
         return;
@@ -116,22 +126,22 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
     const Editor& editor = frame.editor();
     if (selection.isRange()) {
         if (editor.selectionHasStyle(CSSPropertyFontWeight, "bold"_s) == TriState::True)
-            postLayoutData.typingAttributes |= AttributeBold;
+            postLayoutData.typingAttributes.add(TypingAttribute::Bold);
         if (editor.selectionHasStyle(CSSPropertyFontStyle, "italic"_s) == TriState::True)
-            postLayoutData.typingAttributes |= AttributeItalics;
+            postLayoutData.typingAttributes.add(TypingAttribute::Italics);
         if (editor.selectionHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"_s) == TriState::True)
-            postLayoutData.typingAttributes |= AttributeUnderline;
+            postLayoutData.typingAttributes.add(TypingAttribute::Underline);
         if (editor.selectionHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "line-through"_s) == TriState::True)
-            postLayoutData.typingAttributes |= AttributeStrikeThrough;
+            postLayoutData.typingAttributes.add(TypingAttribute::StrikeThrough);
     } else if (selection.isCaret()) {
         if (editor.selectionStartHasStyle(CSSPropertyFontWeight, "bold"_s))
-            postLayoutData.typingAttributes |= AttributeBold;
+            postLayoutData.typingAttributes.add(TypingAttribute::Bold);
         if (editor.selectionStartHasStyle(CSSPropertyFontStyle, "italic"_s))
-            postLayoutData.typingAttributes |= AttributeItalics;
+            postLayoutData.typingAttributes.add(TypingAttribute::Italics);
         if (editor.selectionStartHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"_s))
-            postLayoutData.typingAttributes |= AttributeUnderline;
+            postLayoutData.typingAttributes.add(TypingAttribute::Underline);
         if (editor.selectionStartHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "line-through"_s))
-            postLayoutData.typingAttributes |= AttributeStrikeThrough;
+            postLayoutData.typingAttributes.add(TypingAttribute::StrikeThrough);
     }
 #endif
 

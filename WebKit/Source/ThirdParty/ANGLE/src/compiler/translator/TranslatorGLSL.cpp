@@ -67,8 +67,6 @@ bool TranslatorGLSL::translate(TIntermBlock *root,
     if (compileOptions.flattenPragmaSTDGLInvariantAll && getPragma().stdgl.invariantAll &&
         !sh::RemoveInvariant(getShaderType(), getShaderVersion(), getOutputType(), compileOptions))
     {
-        ASSERT(wereVariablesCollected());
-
         switch (getShaderType())
         {
             case GL_VERTEX_SHADER:
@@ -225,12 +223,6 @@ bool TranslatorGLSL::shouldFlattenPragmaStdglInvariantAll()
     return IsGLSL130OrNewer(getOutputType());
 }
 
-bool TranslatorGLSL::shouldCollectVariables(const ShCompileOptions &compileOptions)
-{
-    return compileOptions.flattenPragmaSTDGLInvariantAll ||
-           TCompiler::shouldCollectVariables(compileOptions);
-}
-
 void TranslatorGLSL::writeVersion(TIntermNode *root)
 {
     TVersionGLSL versionGLSL(getShaderType(), getPragma(), getOutputType());
@@ -318,13 +310,6 @@ void TranslatorGLSL::writeExtensionBehavior(TIntermNode *root,
         {
             sink << "#extension GL_ARB_conservative_depth : " << GetBehaviorString(iter.second)
                  << "\n";
-        }
-
-        if (getOutputType() != SH_ESSL_OUTPUT && iter.first == TExtension::OES_sample_variables &&
-            getOutputType() < SH_GLSL_420_CORE_OUTPUT)
-        {
-            sink << "#extension GL_ARB_sample_shading : " << GetBehaviorString(iter.second) << "\n"
-                 << "#extension GL_ARB_gpu_shader5 : " << GetBehaviorString(iter.second) << "\n";
         }
 
         if ((iter.first == TExtension::OES_texture_cube_map_array ||

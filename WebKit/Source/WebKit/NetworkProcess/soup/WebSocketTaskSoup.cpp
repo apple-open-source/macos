@@ -34,7 +34,7 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SoupVersioning.h>
-#include <WebCore/WebSocketChannel.h>
+#include <WebCore/ThreadableWebSocketChannel.h>
 #include <wtf/RunLoop.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
@@ -68,7 +68,7 @@ WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, const WebCore::Resou
         protocols.reset(static_cast<char**>(g_new0(char*, protocolList.size() + 1)));
         unsigned i = 0;
         for (auto& subprotocol : protocolList)
-            protocols.get()[i++] = g_strdup(WebCore::stripLeadingAndTrailingHTTPSpaces(subprotocol).utf8().data());
+            protocols.get()[i++] = g_strdup(subprotocol.trim(WebCore::isHTTPSpace).utf8().data());
     }
 
 #if USE(SOUP2)
@@ -212,7 +212,7 @@ void WebSocketTask::didFail(String&& errorMessage)
     }
 
     if (soup_websocket_connection_get_state(m_connection.get()) == SOUP_WEBSOCKET_STATE_OPEN)
-        didClose(WebCore::WebSocketChannel::CloseEventCodeAbnormalClosure, { });
+        didClose(WebCore::ThreadableWebSocketChannel::CloseEventCodeAbnormalClosure, { });
 }
 
 void WebSocketTask::didCloseCallback(WebSocketTask* task)
@@ -267,7 +267,7 @@ void WebSocketTask::close(int32_t code, const String& reason)
     }
 
 #if SOUP_CHECK_VERSION(2, 67, 90)
-    if (code == WebCore::WebSocketChannel::CloseEventCodeNotSpecified)
+    if (code == WebCore::ThreadableWebSocketChannel::CloseEventCodeNotSpecified)
         code = SOUP_WEBSOCKET_CLOSE_NO_STATUS;
 #endif
 

@@ -23,11 +23,17 @@
 #include "unicode/udatpg.h"
 #include "unicode/uenum.h"
 #include "unicode/strenum.h"
-#include "unicode/unistr.h"
 #include "unicode/dtptngen.h"
+#if APPLE_ICU_CHANGES
+// rdar://
+#include "unicode/unistr.h"
 #include "unicode/uchar.h"
+#endif  // APPLE_ICU_CHANGES
 #include "ustrenum.h"
+#if APPLE_ICU_CHANGES
+// rdar://
 #include "dtitv_impl.h"
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_USE
 
@@ -253,7 +259,7 @@ udatpg_getDateTimeFormatForStyle(const UDateTimePatternGenerator *udtpg,
     // was NUL-terminated when it was set, to avoid doing it here which could re-allocate
     // the buffer and affect const references to the string or its buffer.
     return result.getBuffer();
-}
+ }
 
 U_CAPI void U_EXPORT2
 udatpg_setDecimal(UDateTimePatternGenerator *dtpg,
@@ -329,6 +335,8 @@ udatpg_getPatternForSkeleton(const UDateTimePatternGenerator *dtpg,
     return result.getBuffer();
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 // Helper function for uadatpg_remapPatternWithOptionsLoc
 static int32_t
 _doReplaceAndReturnAdj( UDateTimePatternGenerator *dtpg, uint32_t options, UBool matchHourLen,
@@ -362,7 +370,7 @@ _doReplaceAndReturnAdj( UDateTimePatternGenerator *dtpg, uint32_t options, UBool
         // Now scan to find position from just after hours to end of minutes/seconds/milliseconds.
         timeNonHourStart = -1;
         timeNonHourLimit = 0;
-        UBool inQuoted = FALSE;
+        UBool inQuoted = false;
         int32_t repPos, repLen = replacement.length();
         for (repPos = 0; repPos < repLen; repPos++) {
             UChar repChr = replacement.charAt(repPos);
@@ -374,7 +382,7 @@ _doReplaceAndReturnAdj( UDateTimePatternGenerator *dtpg, uint32_t options, UBool
                 } else if (timeNonHourStart < 0 && (repChr==LOW_M || repChr==LOW_S)) { // 'm' or 's' and we did not have hour
                     timeNonHourStart = repPos;
                 }
-                if (!u_isWhitespace(repChr) && timeNonHourStart >= 0 && repChr!=LOW_A) { // NonHour portion should not include 'a'
+                if (!u_isUWhiteSpace(repChr) && timeNonHourStart >= 0 && repChr!=LOW_A) { // NonHour portion should not include 'a'
                     timeNonHourLimit = repPos + 1;
                 }
             }
@@ -423,9 +431,9 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
     UBool force12 = ((options & UADATPG_FORCE_HOUR_CYCLE_MASK) == UADATPG_FORCE_12_HOUR_CYCLE);
     UBool force24 = ((options & UADATPG_FORCE_HOUR_CYCLE_MASK) == UADATPG_FORCE_24_HOUR_CYCLE);
     if (force12 || force24) {
-        UBool inQuoted = FALSE;
-        UBool inTimePat = FALSE;
-        UBool needReplacement = FALSE;
+        UBool inQuoted = false;
+        UBool inTimePat = false;
+        UBool needReplacement = false;
         int32_t timePatStart = 0;
         int32_t timePatLimit = 0;
         int32_t timeNonHourStart = -1;
@@ -444,7 +452,7 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
                 if (timePatChars.indexOf(patChr) >= 0) {
                     // in a time pattern
                     if (!inTimePat) {
-                        inTimePat = TRUE;
+                        inTimePat = true;
                         timePatStart = patPos;
                         timeNonHourStart = -1;
                         skeleton.remove();
@@ -454,7 +462,7 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
                     if (patChr==LOW_H || patChr==CAP_K) { // hK, hour, 12-hour cycle
                         if (force24) {
                             otherCycPatChr = CAP_H; // force to H
-                            needReplacement = TRUE;
+                            needReplacement = true;
                             timeNonHourStart = patPos + 1;
                             // If we are switching from a 12-hour cycle to a 24-hour cycle
                             // and the pattern for 12-hour cycle was zero-padded to 2 digits,
@@ -471,7 +479,7 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
                     } else if (patChr==CAP_H || patChr==LOW_K) { // Hk, hour, 24-hour cycle
                         if (force12) {
                             otherCycPatChr = LOW_H; // force to h
-                            needReplacement = TRUE;
+                            needReplacement = true;
                             timeNonHourStart = patPos + 1;
                         }
                     } else if (timeNonHourStart < 0 && (patChr==LOW_M || patChr==LOW_S)) { // 'm' or 's' and we did not have hour
@@ -482,9 +490,9 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
                 } else if ((patChr >= 0x41 && patChr <= 0x5A) || (patChr >= 0x61 && patChr <= 0x7A)) {
                     // a non-time pattern character, forces end of any time pattern
                     if (inTimePat) {
-                        inTimePat = FALSE;
+                        inTimePat = false;
                         if (needReplacement) {
-                            needReplacement = FALSE;
+                            needReplacement = false;
                             // do replacement
                             int32_t posAdjust = _doReplaceAndReturnAdj(dtpg, options, numForcedH >= 2, patternString, skeleton, otherCycSkeleton,
                                                                        timePatStart, timePatLimit, timeNonHourStart, timeNonHourLimit, pErrorCode);
@@ -493,7 +501,7 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
                         }
                     }
                 }
-                if (inTimePat && !u_isWhitespace(patChr)) {
+                if (inTimePat && !u_isUWhiteSpace(patChr)) {
                     timePatLimit = patPos + 1;
                     if (timeNonHourStart >= 0 && patChr!=LOW_A && patChr!=LOW_B && patChr!=CAP_B) { // NonHour portion should not include 'a','b','B'
                         timeNonHourLimit = timePatLimit;
@@ -510,6 +518,7 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
     }
     return patternString.extract(newPattern, newPatternCapacity, *pErrorCode);
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_CAPI UDateFormatHourCycle U_EXPORT2
 udatpg_getDefaultHourCycle(const UDateTimePatternGenerator *dtpg, UErrorCode* pErrorCode) {

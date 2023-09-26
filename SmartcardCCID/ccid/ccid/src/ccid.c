@@ -76,7 +76,7 @@ int ccid_open_hack_pre(unsigned int reader_index)
 			 * connected to a USB 3 port */
 			if (0x0200 == ccid_descriptor->IFD_bcdDevice)
 			{
-				ccid_descriptor->zlp = TRUE;
+				ccid_descriptor->zlp = true;
 				DEBUG_INFO1("ZLP fixup");
 			}
 			break;
@@ -224,7 +224,7 @@ static void set_gemalto_firmware_features(unsigned int reader_index)
 		RESPONSECODE ret;
 
 		ret = CmdEscapeCheck(reader_index, cmd, sizeof cmd,
-			(unsigned char*)gf_features, &len_features, 0, TRUE);
+			(unsigned char*)gf_features, &len_features, 0, true);
 		if ((IFD_SUCCESS == ret) &&
 			(len_features == sizeof *gf_features))
 		{
@@ -404,11 +404,11 @@ int ccid_open_hack_post(unsigned int reader_index)
 				/* The other Unixes just use the LANG env variable */
 				lang = getenv("LANG");
 #endif
-				DEBUG_COMM2("Using lang: %s", lang);
 				if (NULL == lang)
 					l10n = en;
 				else
 				{
+                    DEBUG_COMM2("Using lang: %s", lang);
 					if (0 == strncmp(lang, "fr", 2))
 						l10n = fr;
 					else if (0 == strncmp(lang, "de", 2))
@@ -719,6 +719,12 @@ void ccid_error(int log_level, int error, const char *file, int line,
 			break;
 	}
 	log_msg(log_level, "%s:%d:%s %s", file, line, function, text);
+#else
+	(void)log_level;
+	(void)error;
+	(void)file;
+	(void)line;
+	(void)function;
 #endif
 
 } /* ccid_error */

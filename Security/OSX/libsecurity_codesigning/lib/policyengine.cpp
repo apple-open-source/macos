@@ -70,16 +70,16 @@ PolicyEngine::PolicyEngine()
 	: PolicyDatabase(NULL, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOFOLLOW)
 {
 	try {
-		mOpaqueWhitelist = new OpaqueWhitelist();
+		mOpaqueAllowlist = new OpaqueAllowlist();
 	} catch (...) {
-		mOpaqueWhitelist = NULL;
+		mOpaqueAllowlist = NULL;
 		secerror("Failed opening the gkopaque database.");
 	}
 }
 
 PolicyEngine::~PolicyEngine()
 {
-	delete mOpaqueWhitelist;
+	delete mOpaqueAllowlist;
 }
 
 
@@ -105,15 +105,15 @@ void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlag
 
 
 //
-// Create GKE whitelist filter screens.
+// Create GKE allowlist filter screens.
 // These are strings that are used to determine quickly whether unsigned code may
-// have a GKE-style whitelist entry in the authority database. The idea is to make
+// have a GKE-style allowlist entry in the authority database. The idea is to make
 // up a decent hash quickly.
 //
 // Note: We continue to use SHA1 here for compatibility of existing GKE entries.
 // These are a prescreen, backed up by code signature checks later on. Use of SHA1 here is not a security problem.
 //
-static std::string createWhitelistScreen(char type, const Byte *digest, size_t length)
+static std::string createAllowlistScreen(char type, const Byte *digest, size_t length)
 {
         size_t cap = 2*length + 2;
 	char buffer[cap];
@@ -124,7 +124,7 @@ static std::string createWhitelistScreen(char type, const Byte *digest, size_t l
 	return buffer;
 }
 
-static std::string createWhitelistScreen(SecStaticCodeRef code)
+static std::string createAllowlistScreen(SecStaticCodeRef code)
 {
 	DiskRep *rep = SecStaticCode::requiredStatic(code)->diskRep();
 	std::string screen;
@@ -134,7 +134,7 @@ static std::string createWhitelistScreen(SecStaticCodeRef code)
 		hash.update(CFDataGetBytePtr(info), CFDataGetLength(info));
 		SHA1::Digest digest;
 		hash.finish(digest);
-		return createWhitelistScreen('I', digest, sizeof(digest));
+		return createAllowlistScreen('I', digest, sizeof(digest));
 	} else if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot)) {
 		// has a rep-specific slot - hash that (this catches disk images cheaply)
 		// got invented after SHA-1 deprecation, so we'll use SHA256, which is the new default
@@ -142,7 +142,7 @@ static std::string createWhitelistScreen(SecStaticCodeRef code)
 		hash.update(CFDataGetBytePtr(repSpecific), CFDataGetLength(repSpecific));
 		Byte digest[256/8];
 		hash.finish(digest);
-		return createWhitelistScreen('R', digest, sizeof(digest));
+		return createAllowlistScreen('R', digest, sizeof(digest));
 	} else if (rep->mainExecutableImage()) {
 		// stand-alone Mach-O executables are always candidates
 		return "N";
@@ -152,7 +152,7 @@ static std::string createWhitelistScreen(SecStaticCodeRef code)
 		hashFileData(rep->mainExecutablePath().c_str(), &hash);
 		SHA1::Digest digest;
 		hash.finish(digest);
-		return createWhitelistScreen('M', digest, sizeof(digest));
+		return createAllowlistScreen('M', digest, sizeof(digest));
 	}
 }
 
@@ -273,26 +273,26 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 	addAuthority(flags, result, latentLabel.c_str(), latentID);
 }
 
-CFDictionaryRef PolicyEngine::opaqueWhitelistValidationConditionsFor(SecStaticCodeRef code)
+CFDictionaryRef PolicyEngine::opaqueAllowlistValidationConditionsFor(SecStaticCodeRef code)
 {
-	 return (mOpaqueWhitelist != NULL) ? mOpaqueWhitelist->validationConditionsFor(code) : NULL;
+	 return (mOpaqueAllowlist != NULL) ? mOpaqueAllowlist->validationConditionsFor(code) : NULL;
 }
 
-bool PolicyEngine::opaqueWhiteListContains(SecStaticCodeRef code, SecAssessmentFeedback feedback, OSStatus reason)
+bool PolicyEngine::opaqueAllowlistContains(SecStaticCodeRef code, SecAssessmentFeedback feedback, OSStatus reason)
 {
-	return (mOpaqueWhitelist != NULL) ? mOpaqueWhitelist->contains(code, feedback, reason) : false;
+	return (mOpaqueAllowlist != NULL) ? mOpaqueAllowlist->contains(code, feedback, reason) : false;
 }
 
-void PolicyEngine::opaqueWhitelistAdd(SecStaticCodeRef code)
+void PolicyEngine::opaqueAllowlistAdd(SecStaticCodeRef code)
 {
-	if (mOpaqueWhitelist) {
-		mOpaqueWhitelist->add(code);
+	if (mOpaqueAllowlist) {
+		mOpaqueAllowlist->add(code);
 	}
 }
 
 void PolicyEngine::adjustValidation(SecStaticCodeRef code)
 {
-	CFRef<CFDictionaryRef> conditions = opaqueWhitelistValidationConditionsFor(code);
+	CFRef<CFDictionaryRef> conditions = opaqueAllowlistValidationConditionsFor(code);
 	SecStaticCodeSetValidationConditions(code, conditions);
 }
 
@@ -302,7 +302,7 @@ bool PolicyEngine::temporarySigning(SecStaticCodeRef code, AuthorityType type, C
     secnotice("gk", "temporarySigning type=%d matchFlags=0x%x path=%s", type, int(matchFlags), cfString(path).c_str());
 
     // see if we have a screened record to take matchFlags from
-    std::string screen = createWhitelistScreen(code);
+    std::string screen = createAllowlistScreen(code);
     SQLite::Statement query(*this,
         "SELECT flags FROM authority "
         "WHERE type = :type"
@@ -323,12 +323,12 @@ bool PolicyEngine::temporarySigning(SecStaticCodeRef code, AuthorityType type, C
 		// ad-hoc sign the code and attach the signature
 		CFRef<CFDataRef> signature = CFDataCreateMutable(NULL, 0);
 		CFTemp<CFMutableDictionaryRef> arguments("{%O=%O, %O=#N, %O=%d}", kSecCodeSignerDetached, signature.get(), kSecCodeSignerIdentity,
-			kSecCodeSignerDigestAlgorithm, (matchFlags & kAuthorityFlagWhitelistSHA256) ? kSecCodeSignatureHashSHA256 : kSecCodeSignatureHashSHA1);
-		// for modern whitelist entries, neuter the identifier since it may be derived from the filename
-		if (matchFlags & kAuthorityFlagWhitelistSHA256)
+			kSecCodeSignerDigestAlgorithm, (matchFlags & kAuthorityFlagAllowlistSHA256) ? kSecCodeSignatureHashSHA256 : kSecCodeSignatureHashSHA1);
+		// for modern allowlist entries, neuter the identifier since it may be derived from the filename
+		if (matchFlags & kAuthorityFlagAllowlistSHA256)
 			CFDictionaryAddValue(arguments, kSecCodeSignerIdentifier, CFSTR("ADHOC"));
 		CFRef<SecCodeSignerRef> signer;
-		MacOSError::check(SecCodeSignerCreate(arguments, (matchFlags & kAuthorityFlagWhitelistV2) ? kSecCSSignOpaque : kSecCSSignV1, &signer.aref()));
+		MacOSError::check(SecCodeSignerCreate(arguments, (matchFlags & kAuthorityFlagAllowlistV2) ? kSecCSSignOpaque : kSecCSSignV1, &signer.aref()));
 		MacOSError::check(SecCodeSignerAddSignature(signer, code, kSecCSDefaultFlags));
 		MacOSError::check(SecCodeSetDetachedSignature(code, signature, kSecCSDefaultFlags));
 		
@@ -472,7 +472,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	case errSecCSInvalidSymlink:
 	case errSecCSNotAppLike:
 	{
-		// consult the whitelist
+		// consult the allowlist
 		bool allow = false;
 		const char *label;
 		// we've bypassed evaluateCodeItem before we failed validation. Explicitly apply it now
@@ -482,8 +482,8 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 			// verdict rendered from a nested component - signature not acceptable to Gatekeeper
 			if (CFEqual(verdict, kCFBooleanFalse))	// nested code rejected by rule book; result was filled out there
 				return;
-			if (CFEqual(verdict, kCFBooleanTrue) && !(flags & kSecAssessmentFlagIgnoreWhitelist))
-				if (opaqueWhiteListContains(code, feedback, rc)) {
+			if (CFEqual(verdict, kCFBooleanTrue) && !(flags & kSecAssessmentFlagIgnoreAllowlist))
+				if (opaqueAllowlistContains(code, feedback, rc)) {
 					allow = true;
 				}
 		}
@@ -831,7 +831,7 @@ CFDictionaryRef PolicyEngine::add(CFTypeRef inTarget, AuthorityType type, SecAss
 		}
 		break;
 	case kAuthorityOpenDoc:
-		// handle document-open differently: use quarantine flags for whitelisting
+		// handle document-open differently: use quarantine flags for allowlisting
 		if (!target || CFGetTypeID(target) != CFURLGetTypeID())	// can only "add" file paths
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
 		try {
@@ -858,7 +858,7 @@ CFDictionaryRef PolicyEngine::add(CFTypeRef inTarget, AuthorityType type, SecAss
 	bool allow = true;
 	double expires = never;
 	string remarks;
-	SQLite::uint64 dbFlags = kAuthorityFlagWhitelistV2 | kAuthorityFlagWhitelistSHA256;
+	SQLite::uint64 dbFlags = kAuthorityFlagAllowlistV2 | kAuthorityFlagAllowlistSHA256;
 	
 	if (CFNumberRef pri = ctx.get<CFNumberRef>(kSecAssessmentUpdateKeyPriority))
 		CFNumberGetValue(pri, kCFNumberDoubleType, &priority);
@@ -907,7 +907,7 @@ CFDictionaryRef PolicyEngine::add(CFTypeRef inTarget, AuthorityType type, SecAss
 CFDictionaryRef PolicyEngine::remove(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context)
 {
 	if (type == kAuthorityOpenDoc) {
-		// handle document-open differently: use quarantine flags for whitelisting
+		// handle document-open differently: use quarantine flags for allowlisting
 		authorizeUpdate(flags, context);
 		if (!target || CFGetTypeID(target) != CFURLGetTypeID())
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
@@ -1182,15 +1182,17 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 			}
 			break;
 		case errSecCSUnsigned:
-			if (signUnsigned && temporarySigning(code, type, path, kAuthorityFlagWhitelistV2 | kAuthorityFlagWhitelistSHA256)) {	// ad-hoc sign the code temporarily
+			if (signUnsigned && temporarySigning(code, type, path, kAuthorityFlagAllowlistV2 | kAuthorityFlagAllowlistSHA256)) {	// ad-hoc sign the code temporarily
 				MacOSError::check(SecCodeCopyDesignatedRequirement(code, kSecCSDefaultFlags, (SecRequirementRef *)&target.aref()));
-				*signUnsigned = createWhitelistScreen(code);
+				*signUnsigned = createAllowlistScreen(code);
 				break;
 			}
 			MacOSError::check(rc);
+			break;
 		case errSecCSSignatureFailed:
 		default:
 			MacOSError::check(rc);
+			break;
 		}
 		if (context.get(kSecAssessmentUpdateKeyRemarks) == NULL)	{
 			// no explicit remarks; add one with the path
@@ -1202,8 +1204,8 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 		}
 		CFStringRef edit = CFStringRef(context.get(kSecAssessmentContextKeyUpdate));
 		if (type == kAuthorityExecute && CFEqual(edit, kSecAssessmentUpdateOperationAdd)) {
-			// implicitly whitelist the code
-			opaqueWhitelistAdd(code);
+			// implicitly allowlist the code
+			opaqueAllowlistAdd(code);
 		}
 	}
 }

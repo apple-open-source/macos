@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +34,11 @@
 #import <WebCore/Document.h>
 #import <WebCore/Element.h>
 #import <WebCore/FloatRect.h>
-#import <WebCore/Frame.h>
-#import <WebCore/FrameView.h>
 #import <WebCore/FullscreenManager.h>
 #import <WebCore/HTMLElement.h>
 #import <WebCore/IntRect.h>
+#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderLayerBacking.h>
 #import <WebCore/RenderObject.h>
@@ -203,12 +203,14 @@ static NSRect convertRectToScreen(NSWindow *window, NSRect rect)
     webViewFrame.origin.y = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - NSMaxY(webViewFrame);
     
     CGWindowID windowID = [[_webView window] windowNumber];
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     RetainPtr<CGImageRef> webViewContents = adoptCF(CGWindowListCreateImage(NSRectToCGRect(webViewFrame), kCGWindowListOptionIncludingWindow, windowID, kCGWindowImageShouldBeOpaque));
-    
+ALLOW_DEPRECATED_DECLARATIONS_END
+
     // Screen updates to be re-enabled in beganEnterFullScreenWithInitialFrame:finalFrame:
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[self window] setAutodisplay:NO];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     NSResponder *webWindowFirstResponder = [[_webView window] firstResponder];
     [[self window] setFrame:screenFrame display:NO];
@@ -303,9 +305,9 @@ static void setClipRectForWindow(NSWindow *window, NSRect clipRect)
         return;
     _isFullScreen = NO;
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[self window] setAutodisplay:NO];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     _finalFrame = screenRectOfContents(_element.get());
 
@@ -492,9 +494,9 @@ static NSRect windowFrameFromApparentFrames(NSRect screenFrame, NSRect initialFr
     
     // setClipRectForWindow takes window coordinates, so convert from screen coordinates here:
     NSRect finalBounds = _finalFrame;
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     finalBounds.origin = [[self window] convertScreenToBase:finalBounds.origin];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     setClipRectForWindow(self.window, finalBounds);
     
     [[self window] makeKeyAndOrderFront:self];
@@ -521,9 +523,9 @@ static NSRect windowFrameFromApparentFrames(NSRect screenFrame, NSRect initialFr
     
     [_backgroundWindow.get() orderWindow:NSWindowBelow relativeTo:[[self window] windowNumber]];
     
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[self window] setAutodisplay:YES];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     [[self window] displayIfNeeded];
 }
 
@@ -563,14 +565,14 @@ static NSRect windowFrameFromApparentFrames(NSRect screenFrame, NSRect initialFr
     
     // setClipRectForWindow takes window coordinates, so convert from screen coordinates here:
     NSRect finalBounds = _finalFrame;
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     finalBounds.origin = [[self window] convertScreenToBase:finalBounds.origin];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     setClipRectForWindow(self.window, finalBounds);
     
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[self window] setAutodisplay:YES];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     [[self window] displayIfNeeded];
 }
 

@@ -53,12 +53,15 @@ dump_credentials(struct dump_credentials_options *opt, int argc, char **argv)
     void *values[1] = { NULL };
     
     
-    if (opt->type_string == NULL)
-	values[0] = (void *)kHEIMTypeKerberos;
-    else if (strcasecmp(opt->type_string, "Kerberos") == 0)
+    if (opt->type_string == NULL) {
+	keys[0] = (void*)kHEIMObjectType;
+	values[0] = (void *)kHEIMObjectAny;
+    } else if (strcasecmp(opt->type_string, "Kerberos") == 0)
 	values[0] = (void *)kHEIMTypeKerberos;
     else if (strcasecmp(opt->type_string, "NTLM") == 0)
 	values[0] = (void *)kHEIMTypeNTLM;
+    else if (strcasecmp(opt->type_string, "SCRAM") == 0)
+	values[0] = (void *)kHEIMTypeSCRAM;
     else if (strcasecmp(opt->type_string, "Configuration") == 0)
 	values[0] = (void *)kHEIMTypeConfiguration;
     else if (strcasecmp(opt->type_string, "Generic") == 0)

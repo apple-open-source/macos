@@ -45,9 +45,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/getsubopt.c,v 1.7 2007/01/09 00:28:10 im
 char *suboptarg;
 
 int
-getsubopt(optionp, tokens, valuep)
-	char **optionp, **valuep;
-	char * const *tokens;
+getsubopt(char **optionp, char * const *tokens, char **valuep)
 {
 	int cnt;
 	char *p;

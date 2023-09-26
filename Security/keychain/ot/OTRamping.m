@@ -103,11 +103,10 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     return self;
 }
 
--(void)fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock
+-(void)fetchRampRecordWithReply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock
 {
     CKOperationConfiguration *opConfig = [[CKOperationConfiguration alloc] init];
     opConfig.allowsCellularAccess = YES;
-    opConfig.discretionaryNetworkBehavior = networkBehavior;
     opConfig.isCloudKitSupportOperation = YES;
 
     CKRecordID *recordID = [[CKRecordID alloc] initWithRecordName:_recordName zoneID:_zoneID];
@@ -214,7 +213,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
 
     [tracker start];
 
-    [self fetchRampRecord:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary reply:^(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError) {
+    [self fetchRampRecordWithReply:^(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError) {
         secnotice("octagon", "fetch ramp records returned with featureAllowed: %d,\n featurePromoted: %d,\n featureVisible: %d,\n", featureAllowed, featurePromoted, featureVisible);
 
         isFeatureEnabled = featureAllowed;

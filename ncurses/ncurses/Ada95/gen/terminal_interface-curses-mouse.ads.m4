@@ -10,7 +10,7 @@ include(M4MACRO)dnl
 --                                 S P E C                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998-2004,2006 Free Software Foundation, Inc.              --
+-- Copyright (c) 1998-2014,2015 Free Software Foundation, Inc.              --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -38,21 +38,16 @@ include(M4MACRO)dnl
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control:
---  $Revision: 1.27 $
---  $Date: 2006/06/25 14:30:22 $
+--  $Revision: 1.32 $
+--  $Date: 2015/05/30 23:19:19 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
-include(`Mouse_Base_Defs')
 with System;
 
 package Terminal_Interface.Curses.Mouse is
    pragma Preelaborate (Terminal_Interface.Curses.Mouse);
 
    --  MANPAGE(`curs_mouse.3x')
-   --  Please note, that in ncurses-1.9.9e documentation mouse support
-   --  is still marked as experimental. So also this binding will change
-   --  if the ncurses methods change.
-   --
    --  mouse_trafo, wmouse_trafo are implemented as Transform_Coordinates
    --  in the parent package.
    --
@@ -95,20 +90,20 @@ package Terminal_Interface.Curses.Mouse is
    --  Return true if a mouse device is supported, false otherwise.
 
    procedure Register_Reportable_Event
-     (Button : in Mouse_Button;
-      State  : in Button_State;
+     (Button : Mouse_Button;
+      State  : Button_State;
       Mask   : in out Event_Mask);
    --  Stores the event described by the button and the state in the mask.
-   --  Before you call this the first time, you should init the mask
+   --  Before you call this the first time, you should initialize the mask
    --  with the Empty_Mask constant
    pragma Inline (Register_Reportable_Event);
 
    procedure Register_Reportable_Events
-     (Button : in Mouse_Button;
-      State  : in Button_States;
+     (Button : Mouse_Button;
+      State  : Button_States;
       Mask   : in out Event_Mask);
    --  Register all events described by the Button and the State bitmap.
-   --  Before you call this the first time, you should init the mask
+   --  Before you call this the first time, you should initialize the mask
    --  with the Empty_Mask constant
 
    --  ANCHOR(`mousemask()',`Start_Mouse')
@@ -121,7 +116,7 @@ package Terminal_Interface.Curses.Mouse is
    --  AKA
    pragma Inline (Start_Mouse);
 
-   procedure End_Mouse (Mask : in Event_Mask := No_Events);
+   procedure End_Mouse (Mask : Event_Mask := No_Events);
    --  Terminates the mouse, restores the specified event mask
    pragma Inline (End_Mouse);
 
@@ -130,7 +125,7 @@ package Terminal_Interface.Curses.Mouse is
    --  AKA
    pragma Inline (Get_Mouse);
 
-   procedure Get_Event (Event  : in  Mouse_Event;
+   procedure Get_Event (Event  : Mouse_Event;
                         Y      : out Line_Position;
                         X      : out Column_Position;
                         Button : out Mouse_Button;
@@ -142,7 +137,7 @@ package Terminal_Interface.Curses.Mouse is
    pragma Inline (Get_Event);
 
    --  ANCHOR(`ungetmouse()',`Unget_Mouse')
-   procedure Unget_Mouse (Event : in Mouse_Event);
+   procedure Unget_Mouse (Event : Mouse_Event);
    --  AKA
    pragma Inline (Unget_Mouse);
 
@@ -159,7 +154,10 @@ package Terminal_Interface.Curses.Mouse is
    pragma Inline (Mouse_Interval);
 
 private
-   type Event_Mask is new Interfaces.C.unsigned_long;
+   --  This can be as little as 32 bits (unsigned), or as long as the system's
+   --  unsigned long.  Declare it as the minimum size to handle all valid
+   --  sizes.
+   type Event_Mask is mod 4294967296;
 
    type Mouse_Event is
       record
@@ -171,12 +169,35 @@ private
       end record;
    pragma Convention (C, Mouse_Event);
 
-include(`Mouse_Event_Rep')
-   Generation_Bit_Order : constant System.Bit_Order := System.M4_BIT_ORDER;
-   --  This constant may be different on your system.
+   for Mouse_Event use
+      record
+         Id     at 0 range Curses_Constants.MEVENT_id_First
+           .. Curses_Constants.MEVENT_id_Last;
+         X      at 0 range Curses_Constants.MEVENT_x_First
+           .. Curses_Constants.MEVENT_x_Last;
+         Y      at 0 range Curses_Constants.MEVENT_y_First
+           .. Curses_Constants.MEVENT_y_Last;
+         Z      at 0 range Curses_Constants.MEVENT_z_First
+           .. Curses_Constants.MEVENT_z_Last;
+         Bstate at 0 range Curses_Constants.MEVENT_bstate_First
+           .. Curses_Constants.MEVENT_bstate_Last;
+      end record;
+   for Mouse_Event'Size use Curses_Constants.MEVENT_Size;
+   Generation_Bit_Order : System.Bit_Order renames Curses_Constants.Bit_Order;
 
-include(`Mouse_Events')
-   No_Events  : constant Event_Mask := 0;
-   All_Events : constant Event_Mask := ALL_MOUSE_EVENTS;
+   BUTTON_CTRL      : constant Event_Mask := Curses_Constants.BUTTON_CTRL;
+   BUTTON_SHIFT     : constant Event_Mask := Curses_Constants.BUTTON_SHIFT;
+   BUTTON_ALT       : constant Event_Mask := Curses_Constants.BUTTON_ALT;
+   BUTTON1_EVENTS   : constant Event_Mask
+     := Curses_Constants.all_events_button_1;
+   BUTTON2_EVENTS   : constant Event_Mask
+     := Curses_Constants.all_events_button_2;
+   BUTTON3_EVENTS   : constant Event_Mask
+     := Curses_Constants.all_events_button_3;
+   BUTTON4_EVENTS   : constant Event_Mask
+     := Curses_Constants.all_events_button_4;
+   ALL_MOUSE_EVENTS : constant Event_Mask := Curses_Constants.ALL_MOUSE_EVENTS;
+   No_Events        : constant Event_Mask := 0;
+   All_Events       : constant Event_Mask := ALL_MOUSE_EVENTS;
 
 end Terminal_Interface.Curses.Mouse;

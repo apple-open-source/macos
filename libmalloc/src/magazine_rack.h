@@ -104,14 +104,18 @@ bool
 rack_region_maybe_dispose(rack_t *rack, region_t region, size_t region_size,
 		region_trailer_t *trailer);
 
-MALLOC_NOEXPORT MALLOC_ALWAYS_INLINE
+MALLOC_NOEXPORT
+unsigned int
+rack_get_thread_index(rack_t *rack);
+
+MALLOC_NOEXPORT MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static void
 rack_region_lock(rack_t *rack)
 {
 	_malloc_lock_lock(&rack->region_lock);
 }
 
-MALLOC_NOEXPORT MALLOC_ALWAYS_INLINE
+MALLOC_NOEXPORT MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static void
 rack_region_unlock(rack_t *rack)
 {

@@ -40,6 +40,7 @@
 #include "xslt.h"
 #include "xsltInternals.h"
 #include "xsltutils.h"
+#include "xsltutilsInternal.h"
 #include "pattern.h"
 #include "transform.h"
 #include "variables.h"
@@ -81,20 +82,6 @@ int xsltMaxVars = 15000;
 
 #define IS_BLANK_NODE(n)						\
     (((n)->type == XML_TEXT_NODE) && (xsltIsBlank((n)->content)))
-
-#ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-#ifdef __APPLE__
-#include <stdbool.h>
-
-extern bool linkedOnOrAfterFall2022OSVersions(void);  // See xsltutils.c.
-
-#define LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16 \
-        linkedOnOrAfterFall2022OSVersions()
-
-#else
-#define LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16 1 /* true */
-#endif /* __APPLE__ */
-#endif /* LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16 */
 
 /*
 * Forward declarations
@@ -2287,19 +2274,41 @@ xsltReleaseLocalRVTs(xsltTransformContextPtr ctxt, xmlDocPtr base)
         base->prev = NULL;
 
     do {
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+        int tmpRVT = 0;
+#else
+        void *tmpRVT = NULL;
+#endif
         tmp = cur;
         cur = (xmlDocPtr) cur->next;
-        if (tmp->psvi == XSLT_RVT_LOCAL) {
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+        if (linkedOnOrAfterFall2023OSVersions()) {
+            tmpRVT = tmp->compression;
+        } else {
+            tmpRVT = (int)tmp->psvi;
+        }
+#else
+        tmpRVT = tmp->psvi;
+#endif
+        if (tmpRVT == XSLT_RVT_LOCAL) {
             xsltReleaseRVT(ctxt, tmp);
-        } else if (tmp->psvi == XSLT_RVT_GLOBAL) {
+        } else if (tmpRVT == XSLT_RVT_GLOBAL) {
             xsltRegisterPersistRVT(ctxt, tmp);
-        } else if (tmp->psvi == XSLT_RVT_FUNC_RESULT) {
+        } else if (tmpRVT == XSLT_RVT_FUNC_RESULT) {
             /*
              * This will either register the RVT again or move it to the
              * context variable.
              */
             xsltRegisterLocalRVT(ctxt, tmp);
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+            if (linkedOnOrAfterFall2023OSVersions()) {
+                tmp->compression = XSLT_RVT_FUNC_RESULT;
+            } else {
+                tmp->psvi = (void *)XSLT_RVT_FUNC_RESULT;
+            }
+#else
             tmp->psvi = XSLT_RVT_FUNC_RESULT;
+#endif
         } else {
             xmlGenericError(xmlGenericErrorContext,
                     "xsltReleaseLocalRVTs: Unexpected RVT flag %p\n",
@@ -2392,7 +2401,7 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
     cur = list;
     while (cur != NULL) {
 #ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
-        if (LIBXSLT_LINKED_ON_OR_AFTER_MACOS13_IOS16_WATCHOS9_TVOS16) {
+        if (linkedOnOrAfterFall2022OSVersions()) {
             if (ctxt->opLimit != 0) {
                 if (ctxt->opCount >= ctxt->opLimit) {
                     xsltTransformError(ctxt, NULL, cur,
@@ -5764,6 +5773,51 @@ xsltCountKeys(xsltTransformContextPtr ctxt)
     return(ctxt->nbKeys);
 }
 
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+
+/**
+ * xsltCleanupSourceDoc:
+ * @doc:  Document
+ *
+ * Resets source node flags and ids stored in 'psvi' member.
+ */
+static void
+xsltCleanupSourceDoc(xmlDocPtr doc) {
+    xmlNodePtr cur = (xmlNodePtr) doc;
+    void **psviPtr;
+
+    while (1) {
+        xsltClearSourceNodeFlags(cur, XSLT_SOURCE_NODE_MASK);
+        psviPtr = xsltGetPSVIPtr(cur);
+        if (psviPtr)
+            *psviPtr = NULL;
+
+        if (cur->type == XML_ELEMENT_NODE) {
+            xmlAttrPtr prop = cur->properties;
+
+            while (prop) {
+                prop->atype &= ~(XSLT_SOURCE_NODE_MASK << 27);
+                prop->psvi = NULL;
+                prop = prop->next;
+            }
+        }
+
+        if (cur->children != NULL && cur->type != XML_ENTITY_REF_NODE) {
+            cur = cur->children;
+        } else {
+            while (cur->next == NULL) {
+                cur = cur->parent;
+                if (cur == (xmlNodePtr) doc)
+                    return;
+            }
+
+            cur = cur->next;
+        }
+    }
+}
+
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
+
 /**
  * xsltApplyStylesheetInternal:
  * @style:  a parsed XSLT stylesheet
@@ -6161,6 +6215,13 @@ xsltApplyStylesheetInternal(xsltStylesheetPtr style, xmlDocPtr doc,
     printf("# Reused tree fragments: %d\n", ctxt->cache->dbgReusedRVTs);
     printf("# Reused variables     : %d\n", ctxt->cache->dbgReusedVars);
 #endif
+
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+    if (linkedOnOrAfterFall2023OSVersions()) {
+    if (ctxt->sourceDocDirty)
+        xsltCleanupSourceDoc(doc);
+    }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 
     if ((ctxt != NULL) && (userCtxt == NULL))
 	xsltFreeTransformContext(ctxt);

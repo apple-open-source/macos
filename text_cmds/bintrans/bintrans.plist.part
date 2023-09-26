@@ -1,0 +1,20 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2022-12-12</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>uudecode.c, uuencode.c: custom base64 implementation to handle base64url (103238762)</string>
+		<string>uudecode.c, uuencode.c: use correct types in various places (103238762)</string>
+		<string>bintrans.c, bintrans.h: supply nitems (103238762)</string>
+		<string>bintrans.c, uudecode.c, uuencode.c: match historical base64(1)'s interface (103238762)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>uudecode</string>
+	<key>OpenSourceVersion</key>
+	<string>2022-08-23</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/bintrans?id=83e8c2317846dd0c889fb784a11f94f98b982062</string>
+</dict>
+

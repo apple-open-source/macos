@@ -28,6 +28,7 @@
 #include "config.h"
 #include "WebPage.h"
 
+#include "MessageSenderInlines.h"
 #include "WebFrame.h"
 #include "WebKeyboardEvent.h"
 #include "WebPageProxyMessages.h"
@@ -36,9 +37,9 @@
 #include <WebCore/Editor.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/FocusController.h>
-#include <WebCore/Frame.h>
-#include <WebCore/FrameView.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameView.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformKeyboardEvent.h>
@@ -104,15 +105,15 @@ OptionSet<PointerCharacteristics> WebPage::pointerCharacteristicsOfAllAvailableP
 void WebPage::collapseSelectionInFrame(FrameIdentifier frameID)
 {
     WebFrame* frame = WebProcess::singleton().webFrame(frameID);
-    if (!frame || !frame->coreFrame())
+    if (!frame || !frame->coreLocalFrame())
         return;
 
     // Collapse the selection without clearing it.
-    const VisibleSelection& selection = frame->coreFrame()->selection().selection();
-    frame->coreFrame()->selection().setBase(selection.extent(), selection.affinity());
+    const VisibleSelection& selection = frame->coreLocalFrame()->selection().selection();
+    frame->coreLocalFrame()->selection().setBase(selection.extent(), selection.affinity());
 }
 
-void WebPage::showEmojiPicker(Frame& frame)
+void WebPage::showEmojiPicker(LocalFrame& frame)
 {
     CompletionHandler<void(String)> completionHandler = [frame = Ref { frame }](String result) {
         if (!result.isEmpty())

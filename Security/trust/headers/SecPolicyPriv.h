@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2021 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -217,6 +217,8 @@ extern const CFStringRef kSecPolicyAppleQiSigning
     API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
 extern const CFStringRef kSecPolicyApplePPMAggregatorConfigSigning
     API_AVAILABLE(macos(13.1), ios(16.2), watchos(9.2), tvos(16.2));
+extern const CFStringRef kSecPolicyAppleXROSApplicationSigning
+    API_AVAILABLE(macos(14.0), ios(17.0), watchos(10.0), tvos(17.0));
 
 
 /*!
@@ -673,6 +675,26 @@ SecPolicyRef SecPolicyCreateiPhoneProvisioningProfileSigning(void);
 */
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleTVOSApplicationSigning(void);
+
+/*!
+ @function SecPolicyCreateAppleXROSApplicationSigning
+ @abstract Returns a policy object for evaluating signed application
+ signatures.  This is for apps signed directly by the Apple XROS app store,
+ and allows for both the prod and the dev/test certs.
+ @discussion This policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.1.
+     * The leaf has ExtendedKeyUsage, if any, with the AnyExtendedKeyUsage OID or
+       the CodeSigning OID.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.36 or OID
+       1.2.840.113635.100.6.1.36.1.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+*/
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleXROSApplicationSigning(void);
 
 /*!
  @function SecPolicyCreateOCSPSigner

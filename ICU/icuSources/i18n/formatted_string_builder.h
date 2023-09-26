@@ -122,11 +122,16 @@ class U_I18N_API FormattedStringBuilder : public UMemory {
     inline int32_t append(const UnicodeString &unistr, Field field, UErrorCode &status) {
         return insert(fLength, unistr, field, status);
     }
+#if APPLE_ICU_CHANGES
+// rdar:/
     inline int32_t append(const UnicodeString &unistr, Field field, bool addBidiIsolates, UErrorCode &status) {
         return insert(fLength, unistr, field, addBidiIsolates, status);
     }
+#endif  // APPLE_ICU_CHANGES
 
     /** Inserts a string. Note: insert at index 0 is very efficient. */
+#if APPLE_ICU_CHANGES
+// rdar:/
     inline int32_t insert(int32_t index, const UnicodeString &unistr, Field field, UErrorCode &status) {
         return insert(index, unistr, field, false, status);
     }
@@ -137,6 +142,9 @@ class U_I18N_API FormattedStringBuilder : public UMemory {
                           UErrorCode &status) {
         return insert(index, unistr, start, end, field, false, status);
     }
+#else
+    int32_t insert(int32_t index, const UnicodeString &unistr, Field field, UErrorCode &status);
+#endif  // APPLE_ICU_CHANGES
 
     /** Inserts a substring. Note: insert at index 0 is very efficient.
      *
@@ -144,7 +152,12 @@ class U_I18N_API FormattedStringBuilder : public UMemory {
      * @param end End index of the substring of unistr to be inserted (exclusive).
      */
     int32_t insert(int32_t index, const UnicodeString &unistr, int32_t start, int32_t end, Field field,
+#if APPLE_ICU_CHANGES
+// rdar:/
                    bool addBidiIsolates, UErrorCode &status);
+#else
+                   UErrorCode &status);
+#endif  // APPLE_ICU_CHANGES
 
     /** Deletes a substring and then inserts a string at that same position.
      * Similar to JavaScript Array.prototype.splice().
@@ -230,7 +243,9 @@ class U_I18N_API FormattedStringBuilder : public UMemory {
 };
 
 static_assert(
-    std::is_pod<FormattedStringBuilder::Field>::value,
+    // std::is_pod<> is deprecated.
+    std::is_standard_layout<FormattedStringBuilder::Field>::value &&
+        std::is_trivial<FormattedStringBuilder::Field>::value,
     "Field should be a POD type for efficient initialization");
 
 constexpr FormattedStringBuilder::Field::Field(uint8_t category, uint8_t field)

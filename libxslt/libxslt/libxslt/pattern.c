@@ -29,6 +29,7 @@
 #include "xslt.h"
 #include "xsltInternals.h"
 #include "xsltutils.h"
+#include "xsltutilsInternal.h"
 #include "imports.h"
 #include "templates.h"
 #include "keys.h"
@@ -1512,6 +1513,7 @@ xsltCompileStepPattern(xsltParserContextPtr ctxt, xmlChar *token, int novar) {
     xmlChar *name = NULL;
     const xmlChar *URI = NULL;
     xmlChar *URL = NULL;
+    xmlChar *ret = NULL;
     int level;
     xsltAxis axis = 0;
 
@@ -1588,7 +1590,6 @@ parse_node_test:
 		    xsltTransformError(NULL, NULL, NULL,
 			    "xsltCompileStepPattern : Name expected\n");
 		    ctxt->error = 1;
-                    xmlFree(URL);
 		    goto error;
 		}
 	    } else {
@@ -1651,7 +1652,6 @@ parse_predicate:
     level = 0;
     while (CUR == '[') {
 	const xmlChar *q;
-	xmlChar *ret = NULL;
 
 	level++;
 	NEXT;
@@ -1695,6 +1695,10 @@ error:
 	xmlFree(token);
     if (name != NULL)
 	xmlFree(name);
+    if (URL != NULL)
+	xmlFree(URL);
+    if (ret != NULL)
+	xmlFree(ret);
 }
 
 /**
@@ -2361,37 +2365,73 @@ xsltGetTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
 		    list = curstyle->rootMatch;
 		else
 		    list = curstyle->elemMatch;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+		if (!linkedOnOrAfterFall2023OSVersions()) {
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		if (node->psvi != NULL) keyed = 1;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		break;
 	    case XML_ATTRIBUTE_NODE: {
 	        xmlAttrPtr attr;
 
 		list = curstyle->attrMatch;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+		if (!linkedOnOrAfterFall2023OSVersions()) {
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		attr = (xmlAttrPtr) node;
 		if (attr->psvi != NULL) keyed = 1;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		break;
 	    }
 	    case XML_PI_NODE:
 		list = curstyle->piMatch;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+		if (!linkedOnOrAfterFall2023OSVersions()) {
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		if (node->psvi != NULL) keyed = 1;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		break;
 	    case XML_DOCUMENT_NODE:
 	    case XML_HTML_DOCUMENT_NODE: {
 	        xmlDocPtr doc;
 
 		list = curstyle->rootMatch;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+		if (!linkedOnOrAfterFall2023OSVersions()) {
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		doc = (xmlDocPtr) node;
 		if (doc->psvi != NULL) keyed = 1;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		break;
 	    }
 	    case XML_TEXT_NODE:
 	    case XML_CDATA_SECTION_NODE:
 		list = curstyle->textMatch;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+		if (!linkedOnOrAfterFall2023OSVersions()) {
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		if (node->psvi != NULL) keyed = 1;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		break;
 	    case XML_COMMENT_NODE:
 		list = curstyle->commentMatch;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+		if (!linkedOnOrAfterFall2023OSVersions()) {
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		if (node->psvi != NULL) keyed = 1;
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+                }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 		break;
 	    case XML_ENTITY_REF_NODE:
 	    case XML_ENTITY_NODE:
@@ -2461,6 +2501,10 @@ xsltGetTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	}
 
 keyed_match:
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+	if (linkedOnOrAfterFall2023OSVersions())
+	    keyed = xsltGetSourceNodeFlags(node) & XSLT_SOURCE_NODE_HAS_KEY;
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 	if (keyed) {
 	    list = curstyle->keyMatch;
 	    while ((list != NULL) &&
@@ -2489,6 +2533,11 @@ keyed_match:
 	    if (xsltComputeAllKeys(ctxt, node) == -1)
 		goto error;
 
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+	    if (linkedOnOrAfterFall2023OSVersions()) {
+		keyed = xsltGetSourceNodeFlags(node) & XSLT_SOURCE_NODE_HAS_KEY;
+	    } else {
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 	    switch (node->type) {
 		case XML_ELEMENT_NODE:
 		    if (node->psvi != NULL) keyed = 1;
@@ -2509,6 +2558,9 @@ keyed_match:
 		default:
 		    break;
 	    }
+#ifdef LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17
+	    }
+#endif /* LIBXSLT_API_FOR_MACOS14_IOS17_WATCHOS10_TVOS17 */
 	    if (keyed)
 		goto keyed_match;
 	}

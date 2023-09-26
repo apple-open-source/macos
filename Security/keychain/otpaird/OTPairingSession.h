@@ -4,22 +4,24 @@
 
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface OTPairingSession : NSObject
 
 @property (readonly) NSString *identifier;
-@property (readwrite) OTPairingPacketContext *packet;
+@property (readwrite, nullable) OTPairingPacketContext *packet;
 @property (readonly) KCPairingChannel *channel;
 @property (readwrite) NSString *sentMessageIdentifier;
 
-#if TARGET_OS_WATCH
 @property OTPairingCompletionHandler completionHandler;
-#endif /* TARGET_OS_WATCH */
 
 #if !TARGET_OS_SIMULATOR
-@property (readwrite) MKBAssertionRef lockAssertion;
+@property (readwrite, nullable) MKBAssertionRef lockAssertion;
 #endif /* !TARGET_OS_SIMULATOR */
 
-- (instancetype)initWithDeviceInfo:(OTDeviceInformationActualAdapter *)deviceInfo;
-- (instancetype)initWithDeviceInfo:(OTDeviceInformationActualAdapter *)deviceInfo identifier:(NSString *)identifier;
+- (instancetype)initAsInitiator:(bool)initiator deviceInfo:(OTDeviceInformationActualAdapter *)deviceInfo identifier:(nullable NSString *)identifier;
+- (instancetype)init NS_UNAVAILABLE;
 
 @end
+
+NS_ASSUME_NONNULL_END

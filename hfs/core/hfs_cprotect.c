@@ -33,7 +33,6 @@
 #include <sys/vnode_if.h>
 #include <sys/fcntl.h>
 #include <libkern/OSByteOrder.h>
-#include <libkern/crypto/sha1.h>
 #include <sys/proc.h>
 #include <sys/kauth.h>
 #include <sys/sysctl.h>

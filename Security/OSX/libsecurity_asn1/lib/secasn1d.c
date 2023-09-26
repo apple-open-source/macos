@@ -742,7 +742,7 @@ static sec_asn1d_state* sec_asn1d_init_state_based_on_template(sec_asn1d_state* 
 			 * If it ever is, remove this assert...
 			 */
                 PORT_Assert((under_kind & SEC_ASN1_GROUP) != 0);
-                /* fallthru */
+                [[fallthrough]];
             case SEC_ASN1_SEQUENCE:
                 expect_tag_modifiers |= SEC_ASN1_CONSTRUCTED;
                 break;

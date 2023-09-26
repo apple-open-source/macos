@@ -115,6 +115,7 @@ tcsetattr_nobg(int fd, int flags, struct termios *tp)
 {
     struct sigaction sa, osa;
     int rc;
+    debug_decl(tcsetattr_nobg, SUDO_DEBUG_UTIL);
 
     /*
      * If we receive SIGTTOU from tcsetattr() it means we are
@@ -131,7 +132,7 @@ tcsetattr_nobg(int fd, int flags, struct termios *tp)
     } while (rc != 0 && errno == EINTR && !got_sigttou);
     sigaction(SIGTTOU, &osa, NULL);
 
-    return rc;
+    debug_return_int(rc);
 }
 
 /*
@@ -285,6 +286,30 @@ sudo_term_copy_v1(int src, int dst)
 
     if (ioctl(src, TIOCGWINSZ, &wsize) == 0)
 	(void)ioctl(dst, TIOCSWINSZ, &wsize);
+
+    debug_return_bool(true);
+}
+
+/*
+ * Returns true if fd refers to a tty in raw mode, else false.
+ */
+bool
+sudo_term_is_raw_v1(int fd)
+{
+    struct termios term;
+    debug_decl(sudo_term_is_raw, SUDO_DEBUG_UTIL);
+
+    if (tcgetattr(fd, &term) != 0)
+	debug_return_bool(false);
+
+    if (term.c_cc[VMIN] != 1 || term.c_cc[VTIME] != 0)
+	debug_return_bool(false);
+
+    if (ISSET(term.c_oflag, OPOST))
+	debug_return_bool(false);
+
+    if (ISSET(term.c_oflag, ECHO|ECHONL|ICANON))
+	debug_return_bool(false);
 
     debug_return_bool(true);
 }

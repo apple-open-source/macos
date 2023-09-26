@@ -1,0 +1,19 @@
+# Keep in line with arg_selector_complex, modulo the argmode that's specified
+# for newfoo.
+application "bestfoo"
+	default
+	cwdpath "bin/bestfoo"
+	flag "a"
+	flag "b"
+	flag "c"
+	flag "d"
+application "newfoo"
+	cwdpath "bin/newfoo"
+	argmode logonly
+	flag "b"
+	flag "c"
+	# -e is hardly used, so no need for it in bestfoo but newfoo did
+	# support it.
+	flag "e"
+application "foo"
+	cwdpath "bin/foo"

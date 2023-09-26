@@ -615,30 +615,37 @@ SecDbExec(SecDbConnectionRef dbconn, CFStringRef sql, CFErrorRef *error)
     return ok;
 }
 
-static int SecDBGetInteger(SecDbConnectionRef dbconn, CFStringRef sql)
+int SecDBGetInteger(SecDbConnectionRef dbconn, CFStringRef sql, int defaultValue)
 {
-    __block int number = -1;
+    __block bool ok = true;
+    __block int number = defaultValue;
     __block CFErrorRef error = NULL;
 
-    (void)SecDbWithSQL(dbconn, sql, &error, ^bool(sqlite3_stmt *sqlStmt) {
-        (void)SecDbStep(dbconn, sqlStmt, &error, ^(bool *stop) {
+    ok &= SecDbWithSQL(dbconn, sql, &error, ^bool(sqlite3_stmt *sqlStmt) {
+        ok &= SecDbStep(dbconn, sqlStmt, &error, ^(bool *stop) {
             number = sqlite3_column_int(sqlStmt, 0);
             *stop = true;
         });
         return true;
     });
+
+    if (!ok) {
+        secerror("SecDBGetInteger [%@] failed: %@", sql, error);
+    }
+
     CFReleaseNull(error);
+
     return number;
 }
 
 
 void SecDBManagementTasks(SecDbConnectionRef dbconn)
 {
-    int64_t page_count = SecDBGetInteger(dbconn, CFSTR("pragma page_count"));
+    int64_t page_count = SecDBGetInteger(dbconn, CFSTR("pragma page_count"), -1);
     if (page_count <= 0) {
         return;
     }
-    int64_t free_count = SecDBGetInteger(dbconn, CFSTR("pragma freelist_count"));
+    int64_t free_count = SecDBGetInteger(dbconn, CFSTR("pragma freelist_count"), -1);
     if (free_count < 0) {
         return;
     }
@@ -750,7 +757,7 @@ static bool SecDbEndTransaction(SecDbConnectionRef dbconn, bool commit, CFErrorR
         if(!dbconn->readOnly) {
             SecDbNotifyPhase(dbconn, commited ? kSecDbTransactionDidCommit : kSecDbTransactionDidRollback);
         }
-        secdebug("db", "SecDbEndTransaction %s %s %p", dbconn->readOnly ? "Readonly" : "", "commited" ? "kSecDbTransactionDidCommit" : "kSecDbTransactionDidRollback", dbconn);
+        secdebug("db", "SecDbEndTransaction %s %s %p", dbconn->readOnly ? "Readonly" : "", commited ? "kSecDbTransactionDidCommit" : "kSecDbTransactionDidRollback", dbconn);
         dbconn->source = kSecDbAPITransaction;
 
         if (commit && dbconn->db->useRobotVacuum && !dbconn->readOnly) {
@@ -1194,7 +1201,7 @@ static bool SecDbPerformFirstOpen(SecDbRef db, SecDbConnectionRef* dbconnRef, CF
             *error = localError;
             localError = NULL;
         }
-
+        // rdar://112992022 Should we release firstOpenDbConn here?
         return false;
     }
     CFReleaseNull(localError);
@@ -1241,8 +1248,11 @@ static bool SecDbPerformFirstOpen(SecDbRef db, SecDbConnectionRef* dbconnRef, CF
 
     secinfo("#SecDB", "#SecDB ending maintenance");
 
-    // first connection always created "rw", so add it to the pool
-    CFArrayAppendValue(db->idleWriteConnections, firstOpenDbConn);
+    if (ok) {
+        // first connection always created "rw", so add it to the pool
+        // but only if nothing above failed
+        CFArrayAppendValue(db->idleWriteConnections, firstOpenDbConn);
+    }
     CFReleaseNull(firstOpenDbConn);
 
     // Clear the dbconnRef, as it no longer owns the connection anymore

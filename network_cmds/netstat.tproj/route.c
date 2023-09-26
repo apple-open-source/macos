@@ -187,12 +187,12 @@ pr_family(int af)
 #define	WID_IF(af)	14	/* width of netif column */
 #else
 #define	WID_DST(af) \
-	((af) == AF_INET6 ? (lflag ? 39 : (nflag ? 39: 18)) : 18)
+((af) == AF_INET6 ? (Wflag ? 53 : (lflag ? 39 : (nflag ? 39: 18))) : 18)
 #define	WID_GW(af) \
-	((af) == AF_INET6 ? (lflag ? 31 : (nflag ? 31 : 18)) : 18)
+	((af) == AF_INET6 ? (Wflag ? 53 : (lflag ? 39 : (nflag ? 39: 18))) : 18)
 #define	WID_RT_IFA(af) \
-	((af) == AF_INET6 ? (lflag ? 39 : (nflag ? 39 : 18)) : 18)
-#define	WID_IF(af)	(lflag ? 14 : 10)
+	((af) == AF_INET6 ? (Wflag ? 53 : (lflag ? 39 : (nflag ? 39: 18))) : 18)
+#define	WID_IF(af)	14
 #endif /*INET6*/
 
 /*

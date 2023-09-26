@@ -33,15 +33,40 @@
 
 extern NSString *NSTextCheckingInsertionPointKey;
 extern NSString *NSTextCheckingSuppressInitialCapitalizationKey;
+#if HAVE(INLINE_PREDICTIONS)
+extern NSString *NSTextCompletionAttributeName;
+#endif
 
 @interface NSSpellChecker ()
+
+#if HAVE(INLINE_PREDICTIONS)
+@property (class, readonly, getter=isAutomaticInlineCompletionEnabled) BOOL automaticInlineCompletionEnabled;
+- (NSTextCheckingResult *)completionCandidateFromCandidates:(NSArray<NSTextCheckingResult *> *)candidates;
+- (void)showCompletionForCandidate:(NSTextCheckingResult *)candidate selectedRange:(NSRange)selectedRange offset:(NSUInteger)offset inString:(NSString *)string rect:(NSRect)rect view:(NSView *)view completionHandler:(void (^)(NSDictionary *resultDictionary))completionBlock;
+- (void)showCompletionForCandidate:(NSTextCheckingResult *)candidate selectedRange:(NSRange)selectedRange offset:(NSUInteger)offset inString:(NSString *)string rect:(NSRect)rect view:(NSView *)view client:(id <NSTextInputClient>)client completionHandler:(void (^)(NSDictionary *resultDictionary))completionBlock;
+#endif
 
 - (NSString *)languageForWordRange:(NSRange)range inString:(NSString *)string orthography:(NSOrthography *)orthography;
 - (BOOL)deletesAutospaceBeforeString:(NSString *)string language:(NSString *)language;
 - (void)_preflightChosenSpellServer;
 
++ (BOOL)grammarCheckingEnabled;
+
 @end
 
+#if HAVE(INLINE_PREDICTIONS)
+typedef NS_OPTIONS(uint64_t, NSTextCheckingTypeAppKitTemporary) {
+    _NSTextCheckingTypeSingleCompletion = 1ULL << 29,
+};
+#endif
+
+#endif // USE(APPLE_INTERNAL_SDK)
+
+#if HAVE(AUTOCORRECTION_ENHANCEMENTS)
+// FIXME: rdar://105853874 Remove staging code.
+@interface NSSpellChecker (Staging_105286196)
++ (NSColor *)correctionIndicatorUnderlineColor;
+@end
 #endif
 
 #endif // PLATFORM(MAC)

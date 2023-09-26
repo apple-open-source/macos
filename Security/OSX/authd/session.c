@@ -71,7 +71,7 @@ session_create(session_id_t sid)
         os_log_error(AUTHD_LOG, "session: failed to get session info");
     }
     
-    session->dispatch_queue = dispatch_queue_create(NULL, DISPATCH_QUEUE_SERIAL);
+    session->dispatch_queue = dispatch_queue_create("Session queue", DISPATCH_QUEUE_SERIAL);
     check(session->dispatch_queue != NULL);
     
     session->credentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);

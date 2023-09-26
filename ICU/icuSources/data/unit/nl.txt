@@ -95,6 +95,7 @@ nl{
             }
             square-meter{
                 dnam{"vierkante meter"}
+                gender{"common"}
                 one{"{0} vierkante meter"}
                 other{"{0} vierkante meter"}
                 per{"{0} per vierkante meter"}
@@ -183,6 +184,7 @@ nl{
         concentr{
             item{
                 dnam{"onderdelen"}
+                gender{"neuter"}
                 one{"{0} onderdeel"}
                 other{"{0} onderdelen"}
             }
@@ -199,6 +201,7 @@ nl{
             }
             millimole-per-liter{
                 dnam{"millimol per liter"}
+                gender{"common"}
                 one{"{0} millimol per liter"}
                 other{"{0} millimol per liter"}
             }
@@ -207,7 +210,7 @@ nl{
             }
             percent{
                 dnam{"procent"}
-                gender{"common"}
+                gender{"neuter"}
                 one{"{0} procent"}
                 other{"{0} procent"}
             }
@@ -233,6 +236,7 @@ nl{
             }
             liter-per-kilometer{
                 dnam{"liter per kilometer"}
+                gender{"common"}
                 one{"{0} liter per kilometer"}
                 other{"{0} liter per kilometer"}
             }
@@ -250,7 +254,7 @@ nl{
             }
         }
         coordinate{
-            dnam{"windstreek"}
+            dnam{"hoofdwindstreek"}
             east{"{0} oosterlengte"}
             north{"{0} noorderbreedte"}
             south{"{0} zuiderbreedte"}
@@ -265,46 +269,55 @@ nl{
             }
             gigabit{
                 dnam{"gigabit"}
+                gender{"common"}
                 one{"{0} gigabit"}
                 other{"{0} gigabits"}
             }
             gigabyte{
                 dnam{"gigabyte"}
+                gender{"common"}
                 one{"{0} gigabyte"}
                 other{"{0} gigabyte"}
             }
             kilobit{
                 dnam{"kilobit"}
+                gender{"common"}
                 one{"{0} kilobit"}
                 other{"{0} kilobits"}
             }
             kilobyte{
                 dnam{"kilobyte"}
+                gender{"common"}
                 one{"{0} kilobyte"}
                 other{"{0} kilobyte"}
             }
             megabit{
                 dnam{"megabit"}
+                gender{"common"}
                 one{"{0} megabit"}
                 other{"{0} megabits"}
             }
             megabyte{
                 dnam{"megabyte"}
+                gender{"common"}
                 one{"{0} megabyte"}
                 other{"{0} megabyte"}
             }
             petabyte{
                 dnam{"petabyte"}
+                gender{"common"}
                 one{"{0} petabyte"}
                 other{"{0} petabyte"}
             }
             terabit{
                 dnam{"terabit"}
+                gender{"common"}
                 one{"{0} terabit"}
                 other{"{0} terabits"}
             }
             terabyte{
                 dnam{"terabyte"}
+                gender{"common"}
                 one{"{0} terabyte"}
                 other{"{0} terabyte"}
             }
@@ -341,11 +354,13 @@ nl{
             }
             microsecond{
                 dnam{"microseconden"}
+                gender{"common"}
                 one{"{0} microseconde"}
                 other{"{0} microseconden"}
             }
             millisecond{
                 dnam{"milliseconden"}
+                gender{"common"}
                 one{"{0} milliseconde"}
                 other{"{0} milliseconden"}
             }
@@ -365,8 +380,16 @@ nl{
             }
             nanosecond{
                 dnam{"nanoseconden"}
+                gender{"common"}
                 one{"{0} nanoseconde"}
                 other{"{0} nanoseconden"}
+            }
+            quarter{
+                dnam{"kwartaal"}
+                gender{"neuter"}
+                one{"{0} kwartaal"}
+                other{"{0} kwartalen"}
+                per{"{0}/kw."}
             }
             second{
                 dnam{"seconden"}
@@ -399,6 +422,7 @@ nl{
             }
             milliampere{
                 dnam{"milliampère"}
+                gender{"common"}
                 one{"{0} milliampère"}
                 other{"{0} milliampère"}
             }
@@ -452,11 +476,13 @@ nl{
             }
             kilojoule{
                 dnam{"kilojoule"}
+                gender{"common"}
                 one{"{0} kilojoule"}
                 other{"{0} kilojoules"}
             }
             kilowatt-hour{
                 dnam{"kilowattuur"}
+                gender{"neuter"}
                 one{"{0} kilowattuur"}
                 other{"{0} kilowattuur"}
             }
@@ -469,6 +495,7 @@ nl{
         force{
             kilowatt-hour-per-100-kilometer{
                 dnam{"ki­lo­wattuur per 100 kilometer"}
+                gender{"neuter"}
                 one{"{0} ki­lo­wattuur per 100 kilometer"}
                 other{"{0} ki­lo­wattuur per 100 kilometer"}
             }
@@ -487,6 +514,7 @@ nl{
         frequency{
             gigahertz{
                 dnam{"gigahertz"}
+                gender{"common"}
                 one{"{0} gigahertz"}
                 other{"{0} gigahertz"}
             }
@@ -498,11 +526,13 @@ nl{
             }
             kilohertz{
                 dnam{"kilohertz"}
+                gender{"common"}
                 one{"{0} kilohertz"}
                 other{"{0} kilohertz"}
             }
             megahertz{
                 dnam{"megahertz"}
+                gender{"common"}
                 one{"{0} megahertz"}
                 other{"{0} megahertz"}
             }
@@ -531,6 +561,7 @@ nl{
             }
             megapixel{
                 dnam{"megapixels"}
+                gender{"common"}
                 one{"{0} megapixel"}
                 other{"{0} megapixels"}
             }
@@ -542,6 +573,7 @@ nl{
             }
             pixel-per-centimeter{
                 dnam{"pixels per centimeter"}
+                gender{"common"}
                 one{"{0} pixel per centimeter"}
                 other{"{0} pixels per centimeter"}
             }
@@ -566,8 +598,14 @@ nl{
             }
             decimeter{
                 dnam{"decimeter"}
+                gender{"common"}
                 one{"{0} decimeter"}
                 other{"{0} decimeter"}
+            }
+            earth-radius{
+                dnam{"aardstraal"}
+                one{"{0} aardstraal"}
+                other{"{0} aardstralen"}
             }
             fathom{
                 dnam{"vadem"}
@@ -614,6 +652,7 @@ nl{
             }
             micrometer{
                 dnam{"micrometer"}
+                gender{"common"}
                 one{"{0} micrometer"}
                 other{"{0} micrometer"}
             }
@@ -637,6 +676,7 @@ nl{
             }
             nanometer{
                 dnam{"nanometer"}
+                gender{"common"}
                 one{"{0} nanometer"}
                 other{"{0} nanometer"}
             }
@@ -663,7 +703,7 @@ nl{
                 other{"{0} punten"}
             }
             solar-radius{
-                dnam{"solar radii"}
+                dnam{"zonneradius"}
                 gender{"common"}
                 one{"{0} solar radius"}
                 other{"{0} solar radii"}
@@ -722,38 +762,33 @@ nl{
             }
             grain{
                 dnam{"grein"}
-                gender{"common"}
+                gender{"neuter"}
                 one{"{0} grein"}
                 other{"{0} grein"}
             }
             gram{
                 dnam{"gram"}
-                gender{"common"}
+                gender{"neuter"}
                 one{"{0} gram"}
                 other{"{0} gram"}
                 per{"{0} per gram"}
             }
             kilogram{
                 dnam{"kilogram"}
-                gender{"common"}
+                gender{"neuter"}
                 one{"{0} kilogram"}
                 other{"{0} kilogram"}
                 per{"{0} per kilogram"}
             }
-            metric-ton{
-                dnam{"metrische ton"}
-                gender{"common"}
-                one{"{0} metrische ton"}
-                other{"{0} metrische ton"}
-            }
             microgram{
                 dnam{"microgram"}
+                gender{"neuter"}
                 one{"{0} microgram"}
                 other{"{0} microgram"}
             }
             milligram{
                 dnam{"milligram"}
-                gender{"common"}
+                gender{"neuter"}
                 one{"{0} milligram"}
                 other{"{0} milligram"}
             }
@@ -792,10 +827,17 @@ nl{
                 one{"{0} ton"}
                 other{"{0} ton"}
             }
+            tonne{
+                dnam{"metrische ton"}
+                gender{"common"}
+                one{"{0} metrische ton"}
+                other{"{0} metrische ton"}
+            }
         }
         power{
             gigawatt{
                 dnam{"gigawatt"}
+                gender{"common"}
                 one{"{0} gigawatt"}
                 other{"{0} gigawatt"}
             }
@@ -806,16 +848,19 @@ nl{
             }
             kilowatt{
                 dnam{"kilowatt"}
+                gender{"common"}
                 one{"{0} kilowatt"}
                 other{"{0} kilowatt"}
             }
             megawatt{
                 dnam{"megawatt"}
+                gender{"common"}
                 one{"{0} megawatt"}
                 other{"{0} megawatt"}
             }
             milliwatt{
                 dnam{"milliwatt"}
+                gender{"common"}
                 one{"{0} milliwatt"}
                 other{"{0} milliwatt"}
             }
@@ -841,6 +886,7 @@ nl{
             }
             hectopascal{
                 dnam{"hectopascal"}
+                gender{"common"}
                 one{"{0} hectopascal"}
                 other{"{0} hectopascal"}
             }
@@ -857,11 +903,13 @@ nl{
             }
             megapascal{
                 dnam{"megapascal"}
+                gender{"common"}
                 one{"{0} megapascal"}
                 other{"{0} megapascal"}
             }
             millibar{
                 dnam{"millibar"}
+                gender{"common"}
                 one{"{0} millibar"}
                 other{"{0} millibar"}
             }
@@ -936,6 +984,7 @@ nl{
         torque{
             newton-meter{
                 dnam{"newtonmeter"}
+                gender{"common"}
                 one{"{0} newtonmeter"}
                 other{"{0} newtonmeter"}
             }
@@ -987,11 +1036,13 @@ nl{
             }
             cubic-kilometer{
                 dnam{"kubieke kilometer"}
+                gender{"common"}
                 one{"{0} kubieke kilometer"}
                 other{"{0} kubieke kilometer"}
             }
             cubic-meter{
                 dnam{"kubieke meter"}
+                gender{"common"}
                 one{"{0} kubieke meter"}
                 other{"{0} kubieke meter"}
                 per{"{0} per kubieke meter"}
@@ -1077,6 +1128,7 @@ nl{
             }
             hectoliter{
                 dnam{"hectoliter"}
+                gender{"common"}
                 one{"{0} hectoliter"}
                 other{"{0} hectoliter"}
             }
@@ -1094,6 +1146,7 @@ nl{
             }
             megaliter{
                 dnam{"megaliter"}
+                gender{"common"}
                 one{"{0} megaliter"}
                 other{"{0} megaliter"}
             }
@@ -1197,7 +1250,7 @@ nl{
             item{
                 dnam{"onderdeel"}
                 one{"{0} onderdeel"}
-                other{"{0} onderdelen"}
+                other{"{0} ond."}
             }
             karat{
                 dnam{"K"}
@@ -1269,6 +1322,7 @@ nl{
                 per{"{0}/d"}
             }
             decade{
+                dnam{"dec."}
                 one{"{0} dec."}
                 other{"{0} dec."}
             }
@@ -1294,6 +1348,11 @@ nl{
                 one{"{0} m"}
                 other{"{0} m"}
                 per{"{0}/m"}
+            }
+            quarter{
+                dnam{"kw."}
+                one{"{0} kw."}
+                other{"{0} kw."}
             }
             second{
                 dnam{"s"}
@@ -1373,8 +1432,8 @@ nl{
             }
             inch{
                 dnam{"in"}
-                one{"{0}\u0022"}
-                other{"{0}\u0022"}
+                one{"{0}″"}
+                other{"{0}″"}
                 per{"{0}/in"}
             }
             light-year{
@@ -1646,7 +1705,7 @@ nl{
             item{
                 dnam{"onderdeel"}
                 one{"{0} onderdeel"}
-                other{"{0} onderdelen"}
+                other{"{0} ond."}
             }
             karat{
                 dnam{"K"}
@@ -1788,9 +1847,9 @@ nl{
                 per{"{0}/dag"}
             }
             decade{
-                dnam{"decennia"}
-                one{"{0} decennium"}
-                other{"{0} decennia"}
+                dnam{"dec."}
+                one{"{0} dec."}
+                other{"{0} dec."}
             }
             hour{
                 dnam{"uur"}
@@ -1824,6 +1883,12 @@ nl{
                 dnam{"ns"}
                 one{"{0} ns"}
                 other{"{0} ns"}
+            }
+            quarter{
+                dnam{"kwart."}
+                one{"{0} kwart."}
+                other{"{0} kwart."}
+                per{"{0}/kw."}
             }
             second{
                 dnam{"sec"}
@@ -2141,11 +2206,6 @@ nl{
                 other{"{0} kg"}
                 per{"{0}/kg"}
             }
-            metric-ton{
-                dnam{"t"}
-                one{"{0} t"}
-                other{"{0} t"}
-            }
             microgram{
                 dnam{"μg"}
                 one{"{0} μg"}
@@ -2187,6 +2247,11 @@ nl{
                 dnam{"ton"}
                 one{"{0} ton"}
                 other{"{0} ton"}
+            }
+            tonne{
+                dnam{"t"}
+                one{"{0} t"}
+                other{"{0} t"}
             }
         }
         power{

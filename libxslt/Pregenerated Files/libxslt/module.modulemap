@@ -1,4 +1,4 @@
-module libxslt [system] [extern_c] {
+module libxslt [system] {
     link "xslt"
 
     module attributes {

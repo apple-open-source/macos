@@ -5,7 +5,7 @@ INFOPLIST_EXPAND_BUILD_SETTINGS = YES
 INFOPLIST_FILE = tests/xctests/Info.plist
 PRODUCT_BUNDLE_IDENTIFIER = com.apple.libmalloc-xctests
 
-OTHER_CFLAGS = -fno-builtin
+OTHER_CFLAGS = -fno-builtin -fno-typed-memory-operations
 OTHER_LDFLAGS = -framework Foundation -lCrashReporterClient
 
 CLANG_ENABLE_OBJC_ARC = YES

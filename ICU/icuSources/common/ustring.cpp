@@ -43,13 +43,13 @@ static inline UBool
 isMatchAtCPBoundary(const UChar *start, const UChar *match, const UChar *matchLimit, const UChar *limit) {
     if(U16_IS_TRAIL(*match) && start!=match && U16_IS_LEAD(*(match-1))) {
         /* the leading edge of the match is in the middle of a surrogate pair */
-        return FALSE;
+        return false;
     }
     if(U16_IS_LEAD(*(matchLimit-1)) && matchLimit!=limit && U16_IS_TRAIL(*matchLimit)) {
         /* the trailing edge of the match is in the middle of a surrogate pair */
-        return FALSE;
+        return false;
     }
-    return TRUE;
+    return true;
 }
 
 U_CAPI UChar * U_EXPORT2
@@ -461,7 +461,7 @@ u_memrchr32(const UChar *s, UChar32 c, int32_t count) {
 /*
  * Match each code point in a string against each code point in the matchSet.
  * Return the index of the first string code point that
- * is (polarity==TRUE) or is not (FALSE) contained in the matchSet.
+ * is (polarity==true) or is not (false) contained in the matchSet.
  * Return -(string length)-1 if there is no such code point.
  */
 static int32_t
@@ -540,7 +540,7 @@ endloop:
 U_CAPI UChar * U_EXPORT2
 u_strpbrk(const UChar *string, const UChar *matchSet)
 {
-    int32_t idx = _matchFromSet(string, matchSet, TRUE);
+    int32_t idx = _matchFromSet(string, matchSet, true);
     if(idx >= 0) {
         return (UChar *)string + idx;
     } else {
@@ -552,7 +552,7 @@ u_strpbrk(const UChar *string, const UChar *matchSet)
 U_CAPI int32_t U_EXPORT2
 u_strcspn(const UChar *string, const UChar *matchSet)
 {
-    int32_t idx = _matchFromSet(string, matchSet, TRUE);
+    int32_t idx = _matchFromSet(string, matchSet, true);
     if(idx >= 0) {
         return idx;
     } else {
@@ -564,7 +564,7 @@ u_strcspn(const UChar *string, const UChar *matchSet)
 U_CAPI int32_t U_EXPORT2
 u_strspn(const UChar *string, const UChar *matchSet)
 {
-    int32_t idx = _matchFromSet(string, matchSet, FALSE);
+    int32_t idx = _matchFromSet(string, matchSet, false);
     if(idx >= 0) {
         return idx;
     } else {
@@ -929,13 +929,13 @@ u_strCompare(const UChar *s1, int32_t length1,
     if(s1==NULL || length1<-1 || s2==NULL || length2<-1) {
         return 0;
     }
-    return uprv_strCompare(s1, length1, s2, length2, FALSE, codePointOrder);
+    return uprv_strCompare(s1, length1, s2, length2, false, codePointOrder);
 }
 
 /* String compare in code point order - u_strcmp() compares in code unit order. */
 U_CAPI int32_t U_EXPORT2
 u_strcmpCodePointOrder(const UChar *s1, const UChar *s2) {
-    return uprv_strCompare(s1, -1, s2, -1, FALSE, TRUE);
+    return uprv_strCompare(s1, -1, s2, -1, false, true);
 }
 
 U_CAPI int32_t   U_EXPORT2
@@ -960,7 +960,7 @@ u_strncmp(const UChar     *s1,
 
 U_CAPI int32_t U_EXPORT2
 u_strncmpCodePointOrder(const UChar *s1, const UChar *s2, int32_t n) {
-    return uprv_strCompare(s1, n, s2, n, TRUE, TRUE);
+    return uprv_strCompare(s1, n, s2, n, true, true);
 }
 
 U_CAPI UChar* U_EXPORT2
@@ -1049,10 +1049,10 @@ U_CAPI UBool U_EXPORT2
 u_strHasMoreChar32Than(const UChar *s, int32_t length, int32_t number) {
 
     if(number<0) {
-        return TRUE;
+        return true;
     }
     if(s==NULL || length<-1) {
-        return FALSE;
+        return false;
     }
 
     if(length==-1) {
@@ -1062,10 +1062,10 @@ u_strHasMoreChar32Than(const UChar *s, int32_t length, int32_t number) {
         /* count code points until they exceed */
         for(;;) {
             if((c=*s++)==0) {
-                return FALSE;
+                return false;
             }
             if(number==0) {
-                return TRUE;
+                return true;
             }
             if(U16_IS_LEAD(c) && U16_IS_TRAIL(*s)) {
                 ++s;
@@ -1079,13 +1079,13 @@ u_strHasMoreChar32Than(const UChar *s, int32_t length, int32_t number) {
 
         /* s contains at least (length+1)/2 code points: <=2 UChars per cp */
         if(((length+1)/2)>number) {
-            return TRUE;
+            return true;
         }
 
         /* check if s does not even contain enough UChars */
         maxSupplementary=length-number;
         if(maxSupplementary<=0) {
-            return FALSE;
+            return false;
         }
         /* there are maxSupplementary=length-number more UChars than asked-for code points */
 
@@ -1096,16 +1096,16 @@ u_strHasMoreChar32Than(const UChar *s, int32_t length, int32_t number) {
         limit=s+length;
         for(;;) {
             if(s==limit) {
-                return FALSE;
+                return false;
             }
             if(number==0) {
-                return TRUE;
+                return true;
             }
             if(U16_IS_LEAD(*s++) && s!=limit && U16_IS_TRAIL(*s)) {
                 ++s;
                 if(--maxSupplementary<=0) {
                     /* too many pairs - too few code points */
-                    return FALSE;
+                    return false;
                 }
             }
             --number;
@@ -1113,6 +1113,8 @@ u_strHasMoreChar32Than(const UChar *s, int32_t length, int32_t number) {
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://35928771 6926e4a22e.. Add u_strIsWellFormed SPI (Apple-only for now)
 /* ----- String validation functions --- */
 
 /*
@@ -1139,9 +1141,9 @@ static UBool isWellFormed(UChar32 c, UChar32 cLast, int32_t *nonStarterCountP, U
     if (*inTagSeqP) {
         // can only have tag_spec or tag_term
         if (c == 0xE007F) { // tag_term
-            *inTagSeqP = FALSE;
+            *inTagSeqP = false;
         } else if (c < 0xE0020 || c > 0xE007E) {
-            return FALSE;
+            return false;
         }
     } else if (c < 0x0300) {
         // Everything in this range (includes ASCII) is a valid character with combining class 0
@@ -1178,7 +1180,7 @@ static UBool isWellFormed(UChar32 c, UChar32 cLast, int32_t *nonStarterCountP, U
                 newEntry++;
             }
             if (newEntry > kBidiMaxDepth || *dirStatusIndexP > kBidiMaxDepth) {
-                return FALSE; // Checking for this is the whole point.
+                return false; // Checking for this is the whole point.
             }
             if (c >= 0x2066 &&  c <= 0x2068) { // LRI/RLI/FSI
                 newEntry |= 0x80; // set directional isolate status
@@ -1188,43 +1190,43 @@ static UBool isWellFormed(UChar32 c, UChar32 cLast, int32_t *nonStarterCountP, U
         }
     } else if (c == 0xFE0F) { // emoji variation selector
         if (!u_isEmoji(cLast)) { // previous char must be emoji
-            return FALSE;
+            return false;
         }
         // previous character would have set *nonStarterCountP = 0;
     } else if (c >= 0xE0020 && c <= 0xE007E) { // tag_spec
         if (!u_isEmoji(cLast) && cLast != 0xFE0F) { // previous char must be emoji or FE0F
-              return FALSE;
+              return false;
         } 
-        *inTagSeqP = TRUE;
+        *inTagSeqP = true;
         // previous character would have set  *nonStarterCountP = 0;
     } else if (c == 0xE007F) { // tag_term
-         return FALSE;
+         return false;
     } else {
         // we have checked specific ranges/chars, now check general info for others
         int8_t genCat = u_charType(c);
         if (genCat == U_UNASSIGNED || genCat == U_SURROGATE) {
-            return FALSE;
+            return false;
         }
         if ((genCat == U_NON_SPACING_MARK || genCat == U_COMBINING_SPACING_MARK) && u_getCombiningClass(c) != 0) {
             // non-starter
             if (++(*nonStarterCountP) > 30) {
-                return FALSE;
+                return false;
             }
         } else {
              *nonStarterCountP = 0;
         }
     }
-    return TRUE;
+    return true;
 }
 
 U_CAPI UBool U_EXPORT2
 u_strIsWellFormed(const UChar *s, int32_t length) {
     if (s==NULL || length<-1) {
-        return FALSE;
+        return false;
     }
     UChar32 c, c2, cLast = 0;
     int32_t nonStarterCount = 0;
-    UBool inTagSeq = FALSE;
+    UBool inTagSeq = false;
     uint8_t dirStatus[kBidiMaxDepth + 3]; // low 7 bits is embed level, high bit is direction override status
     int32_t dirStatusIndex = 0;
     int32_t validIsolateCount = 0;
@@ -1241,7 +1243,7 @@ u_strIsWellFormed(const UChar *s, int32_t length) {
             }
             // check current c
             if (!isWellFormed(c, cLast, &nonStarterCount, &inTagSeq, dirStatus, &dirStatusIndex, &validIsolateCount)) {
-                return FALSE;
+                return false;
             }
             // setup next iteration
             cLast = c;
@@ -1260,16 +1262,17 @@ u_strIsWellFormed(const UChar *s, int32_t length) {
             }
             // check current c
             if (!isWellFormed(c, cLast, &nonStarterCount, &inTagSeq, dirStatus, &dirStatusIndex, &validIsolateCount)) {
-                return FALSE;
+                return false;
             }
             // setup next iteration
             cLast = c;
         }
     }
-    return TRUE;
+    return true;
 }
 
 /* ----- U_mem functions --- */
+#endif // APPLE_ICU_CHANGES
 
 U_CAPI UChar * U_EXPORT2
 u_memcpy(UChar *dest, const UChar *src, int32_t count) {
@@ -1320,7 +1323,7 @@ u_memcmp(const UChar *buf1, const UChar *buf2, int32_t count) {
 
 U_CAPI int32_t U_EXPORT2
 u_memcmpCodePointOrder(const UChar *s1, const UChar *s2, int32_t count) {
-    return uprv_strCompare(s1, count, s2, count, FALSE, TRUE);
+    return uprv_strCompare(s1, count, s2, count, false, true);
 }
 
 /* u_unescape & support fns ------------------------------------------------- */
@@ -1381,7 +1384,7 @@ u_unescapeAt(UNESCAPE_CHAR_AT charAt,
     int8_t maxDig = 0;
     int8_t bitsPerDigit = 4; 
     int32_t dig;
-    UBool braces = FALSE;
+    UBool braces = false;
 
     /* Check that offset is in range */
     if (*offset < 0 || *offset >= length) {
@@ -1403,7 +1406,7 @@ u_unescapeAt(UNESCAPE_CHAR_AT charAt,
         minDig = 1;
         if (*offset < length && charAt(*offset, context) == u'{') {
             ++(*offset);
-            braces = TRUE;
+            braces = true;
             maxDig = 8;
         } else {
             maxDig = 2;

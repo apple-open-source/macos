@@ -20,9 +20,7 @@
 
 #pragma once
 
-#include "RenderStyleConstants.h"
-#include "SVGRenderStyleDefs.h"
-#include "TextFlags.h"
+#include <span>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -30,6 +28,7 @@ namespace WebCore {
 class Animation;
 class CSSFunctionValue;
 class CSSPrimitiveValue;
+class CSSValue;
 class CSSValueList;
 class Element;
 class FilterOperations;
@@ -38,35 +37,50 @@ class Node;
 class RenderElement;
 class RenderStyle;
 class ShadowData;
+class StyleColor;
 class StylePropertyShorthand;
 class TransformOperation;
+
+struct PropertyValue;
+
+enum CSSPropertyID : uint16_t;
+enum CSSValueID : uint16_t;
+
+enum class PseudoId : uint16_t;
+enum class SVGPaintType : uint8_t;
+
+using CSSValueListBuilder = Vector<Ref<CSSValue>, 4>;
 
 class ComputedStyleExtractor {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ComputedStyleExtractor(Node*, bool allowVisitedStyle = false, PseudoId = PseudoId::None);
-    ComputedStyleExtractor(Element*, bool allowVisitedStyle = false, PseudoId = PseudoId::None);
+    ComputedStyleExtractor(Node*, bool allowVisitedStyle = false);
+    ComputedStyleExtractor(Node*, bool allowVisitedStyle, PseudoId);
+    ComputedStyleExtractor(Element*, bool allowVisitedStyle = false);
+    ComputedStyleExtractor(Element*, bool allowVisitedStyle, PseudoId);
 
-    enum class UpdateLayout : uint8_t { Yes, No };
-    enum class PropertyValueType : uint8_t { Resolved, Computed };
+    enum class UpdateLayout : bool { No, Yes };
+    enum class PropertyValueType : bool { Resolved, Computed };
+    bool hasProperty(CSSPropertyID);
     RefPtr<CSSValue> propertyValue(CSSPropertyID, UpdateLayout = UpdateLayout::Yes, PropertyValueType = PropertyValueType::Resolved);
     RefPtr<CSSValue> valueForPropertyInStyle(const RenderStyle&, CSSPropertyID, RenderElement* = nullptr, PropertyValueType = PropertyValueType::Resolved);
     String customPropertyText(const AtomString& propertyName);
     RefPtr<CSSValue> customPropertyValue(const AtomString& propertyName);
 
     // Helper methods for HTML editing.
-    Ref<MutableStyleProperties> copyProperties(Span<const CSSPropertyID>);
+    Ref<MutableStyleProperties> copyProperties(std::span<const CSSPropertyID>);
     Ref<MutableStyleProperties> copyProperties();
     RefPtr<CSSPrimitiveValue> getFontSizeCSSValuePreferringKeyword();
     bool useFixedFontDefaultSize();
     bool propertyMatches(CSSPropertyID, const CSSValue*);
+    bool propertyMatches(CSSPropertyID, CSSValueID);
 
-    enum class AdjustPixelValuesForComputedStyle : uint8_t { Yes, No };
+    enum class AdjustPixelValuesForComputedStyle : bool { No, Yes };
     static Ref<CSSValue> valueForFilter(const RenderStyle&, const FilterOperations&, AdjustPixelValuesForComputedStyle = AdjustPixelValuesForComputedStyle::Yes);
 
     static Ref<CSSPrimitiveValue> currentColorOrValidColor(const RenderStyle&, const StyleColor&);
 
-    static void addValueForAnimationPropertyToList(CSSValueList&, CSSPropertyID, const Animation*);
+    static void addValueForAnimationPropertyToList(CSSValueListBuilder&, CSSPropertyID, const Animation*);
 
     static bool updateStyleIfNeededForProperty(Element&, CSSPropertyID);
 
@@ -88,6 +102,7 @@ private:
     Ref<CSSValue> getMaskShorthandValue();
     Ref<CSSValueList> getCSSPropertyValuesForGridShorthand(const StylePropertyShorthand&);
     Ref<CSSValue> fontVariantShorthandValue();
+    RefPtr<CSSValue> whiteSpaceShorthandValue(const RenderStyle&);
 
     RefPtr<Element> m_element;
     PseudoId m_pseudoElementSpecifier;

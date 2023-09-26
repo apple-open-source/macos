@@ -9,6 +9,7 @@
 #
 # Note: Rule syntax and the monkey test itself are still a work in progress.
 #       They are expected to change with review and the addition of support for rule tailoring.
+#  rdar://107455494 revert adding '@' to $ALetter 
 
 
 type = word;      # one of grapheme | word | line | sentence
@@ -29,7 +30,7 @@ ALetter            = [\p{Word_Break = ALetter}];
 Single_Quote       = [\p{Word_Break = Single_Quote}];
 Double_Quote       = [\p{Word_Break = Double_Quote}];
 MidNumLet          = [\p{Word_Break = MidNumLet}];
-MidLetter          = [\p{Word_Break = MidLetter} - [\:]];
+MidLetter          = [\p{Word_Break = MidLetter} - [\: \uFE55 \uFF1A]];
 MidNum             = [\p{Word_Break = MidNum}];
 Numeric            = [\p{Word_Break = Numeric}];
 ExtendNumLet       = [\p{Word_Break = ExtendNumLet}];

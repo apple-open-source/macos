@@ -2018,7 +2018,8 @@ oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_statu
 			
 			CFStringRef address;
 			CFIndex addressLen;
-			char *addressBuf, numAddress[128];
+            char *addressBuf;
+            union sockaddr_in_4_6 sa = {};
 			int result;
 			
 			address = CFArrayGetValueAtIndex(addresses, pos);			
@@ -2033,11 +2034,25 @@ oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_statu
 				return -1;
 			}
 			if (CFStringGetCString(address, addressBuf, ADDRESS_BUF_SIZE, kCFStringEncodingUTF8) == TRUE) {
-				result = inet_pton(idtype == IPSECDOI_ID_IPV4_ADDR ? AF_INET : AF_INET6, addressBuf, numAddress);
+                if (idtype == IPSECDOI_ID_IPV4_ADDR) {
+                    result = inet_pton(AF_INET, addressBuf, &(sa.sin.sin_addr));
+                } else if (idtype == IPSECDOI_ID_IPV6_ADDR) {
+                    result = inet_pton(AF_INET6, addressBuf, &(sa.sin6.sin6_addr));
+                } else {
+                    result = 0;
+                }
 				racoon_free(addressBuf);
 				if (result == 0)
 					continue;	// wrong type or invalid address
-				if (!memcmp(id, numAddress, idtype == IPSECDOI_ID_IPV4_ADDR ? 32 : 128) == 0) {		// found a match ?
+                if (idtype == IPSECDOI_ID_IPV4_ADDR && idlen >= sizeof(sa.sin.sin_addr)) {
+                    result = memcmp(id, &(sa.sin.sin_addr), sizeof(sa.sin.sin_addr));
+                } else if (idtype == IPSECDOI_ID_IPV6_ADDR && idlen >= sizeof(sa.sin6.sin6_addr)) {
+                    result = memcmp(id, &(sa.sin.sin_addr), sizeof(sa.sin6.sin6_addr));
+                } else {
+                    continue;
+                }
+
+                if (result == 0) {
 					CFRelease(addresses);
 					CFRelease(certificate);
 					return 0;

@@ -1,5 +1,5 @@
 /* infback.c -- inflate using a call-back interface
- * Copyright (C) 1995-2016 Mark Adler
+ * Copyright (C) 1995-2022 Mark Adler
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
@@ -101,14 +101,14 @@ struct inflate_state FAR *state;
         next = fixed;
         lenfix = next;
         bits = 9;
-        inflate_table(LENS, state->lens, 288, &(next), &(bits), state->work);
+        inflate_table(LENS, state->lens, 288, &(next), &(bits), state->work, ENOUGH_LENS);
 
         /* distance table */
         sym = 0;
         while (sym < 32) state->lens[sym++] = 5;
         distfix = next;
         bits = 5;
-        inflate_table(DISTS, state->lens, 32, &(next), &(bits), state->work);
+        inflate_table(DISTS, state->lens, 32, &(next), &(bits), state->work, ENOUGH_DISTS);
 
         /* do this just once */
         virgin = 0;
@@ -386,7 +386,7 @@ void FAR *out_desc;
             state->lencode = (code const FAR *)(state->next);
             state->lenbits = 7;
             ret = inflate_table(CODES, state->lens, 19, &(state->next),
-                                &(state->lenbits), state->work);
+                                &(state->lenbits), state->work, 0);
             if (ret) {
                 strm->msg = (char *)"invalid code lengths set";
                 state->mode = BAD;
@@ -399,6 +399,9 @@ void FAR *out_desc;
             while (state->have < state->nlen + state->ndist) {
                 for (;;) {
                     here = state->lencode[BITS(state->lenbits)];
+#if defined(INFFAST_OPT)
+                    INFLATE_SUB_EXTRA_BITS(here);
+#endif
                     if ((unsigned)(here.bits) <= bits) break;
                     PULLBYTE();
                 }
@@ -456,31 +459,36 @@ void FAR *out_desc;
             /* build code tables -- note: do not change the lenbits or distbits
                values here (9 and 6) without reading the comments in inftrees.h
                concerning the ENOUGH constants, which depend on those values */
+#if defined(INFFAST_OPT)
+            if (inffast_tables(strm)) break;
+#else
             state->next = state->codes;
             state->lencode = (code const FAR *)(state->next);
-            state->lenbits = 9;
+            state->lenbits = INFLATE_LEN_BITS;
             ret = inflate_table(LENS, state->lens, state->nlen, &(state->next),
-                                &(state->lenbits), state->work);
+                                &(state->lenbits), state->work, ENOUGH_LENS);
             if (ret) {
                 strm->msg = (char *)"invalid literal/lengths set";
                 state->mode = BAD;
                 break;
             }
             state->distcode = (code const FAR *)(state->next);
-            state->distbits = 6;
+            state->distbits = INFLATE_DIST_BITS;
             ret = inflate_table(DISTS, state->lens + state->nlen, state->ndist,
-                            &(state->next), &(state->distbits), state->work);
+                            &(state->next), &(state->distbits), state->work, ENOUGH_DISTS);
             if (ret) {
                 strm->msg = (char *)"invalid distances set";
                 state->mode = BAD;
                 break;
             }
+#endif
             Tracev((stderr, "inflate:       codes ok\n"));
             state->mode = LEN;
+                /* fallthrough */
 
         case LEN:
             /* use inflate_fast() if we have enough input and output */
-            if (have >= 6 && left >= 258) {
+            if (have >= INFLATE_MIN_INPUT && left >= INFLATE_MIN_OUTPUT) {
                 RESTORE();
                 if (state->whave < state->wsize)
                     state->whave = state->wsize - left;
@@ -492,6 +500,9 @@ void FAR *out_desc;
             /* get a literal, length, or end-of-block code */
             for (;;) {
                 here = state->lencode[BITS(state->lenbits)];
+#if defined(INFFAST_OPT)
+                INFLATE_SUB_EXTRA_BITS(here);
+#endif
                 if ((unsigned)(here.bits) <= bits) break;
                 PULLBYTE();
             }
@@ -500,6 +511,9 @@ void FAR *out_desc;
                 for (;;) {
                     here = state->lencode[last.val +
                             (BITS(last.bits + last.op) >> last.bits)];
+#if defined(INFFAST_OPT)
+                    INFLATE_SUB_EXTRA_BITS(here);
+#endif
                     if ((unsigned)(last.bits + here.bits) <= bits) break;
                     PULLBYTE();
                 }
@@ -546,6 +560,9 @@ void FAR *out_desc;
             /* get distance code */
             for (;;) {
                 here = state->distcode[BITS(state->distbits)];
+#if defined(INFFAST_OPT)
+                INFLATE_SUB_EXTRA_BITS(here);
+#endif
                 if ((unsigned)(here.bits) <= bits) break;
                 PULLBYTE();
             }
@@ -554,6 +571,9 @@ void FAR *out_desc;
                 for (;;) {
                     here = state->distcode[last.val +
                             (BITS(last.bits + last.op) >> last.bits)];
+#if defined(INFFAST_OPT)
+                    INFLATE_SUB_EXTRA_BITS(here);
+#endif
                     if ((unsigned)(last.bits + here.bits) <= bits) break;
                     PULLBYTE();
                 }

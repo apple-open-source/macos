@@ -21,7 +21,7 @@
 .Nd print the route packets take to network host
 .Sh SYNOPSIS
 .Nm traceroute
-.Op Fl adeFISdNnrvx
+.Op Fl adeEFISdNnrvx
 .Op Fl A Ar as_server
 .Op Fl f Ar first_ttl
 .Op Fl g Ar gateway
@@ -42,7 +42,7 @@ The Internet is a large and complex aggregation of
 network hardware, connected together by gateways.
 Tracking the route one's packets follow (or finding the miscreant
 gateway that's discarding your packets) can be difficult.
-.Nm 
+.Nm
 utilizes the IP protocol `time to live' field and attempts to elicit an
 .Tn ICMP
 .Dv TIME_EXCEEDED
@@ -74,6 +74,11 @@ Bytes that are unchanged in the quoted packet are shown as underscores.
 Note,
 the IP checksum and the TTL of the quoted packet are not expected to match.
 By default, only one probe per hop is sent with this option.
+.It Fl E
+Detect ECN bleaching.
+Set the
+.Em IPTOS_ECN_ECT1
+bit and report if that value has been bleached or mangled.
 .It Fl e
 Firewall evasion mode.
 Use fixed destination ports for UDP and TCP probes.
@@ -91,9 +96,9 @@ host. (See the
 .Fl s
 flag for another way to do this.)
 .It Fl I
-Use 
+Use
 .Tn ICMP
-ECHO instead of 
+ECHO instead of
 .Tn UDP
 datagrams.  (A synonym for "-P icmp").
 .It Fl M Ar first_ttl
@@ -103,7 +108,7 @@ The default is 1, i.e., start with the first hop.
 Set the max time-to-live (max number of hops) used in outgoing probe
 packets.  The default is
 .Em net.inet.ip.ttl
-hops (the same default used for 
+hops (the same default used for
 .Tn TCP
 connections).
 .It Fl n
@@ -112,28 +117,28 @@ Print hop addresses numerically rather than symbolically and numerically
 path).
 .It Fl P Ar proto
 Send packets of specified IP protocol. The currently supported protocols
-are: 
+are:
 .Tn UDP
-, 
+,
 .Tn TCP
-, 
+,
 .Tn GRE
-and 
+and
 .Tn ICMP
 Other protocols may also be specified (either by name or by number), though
-.Nm 
+.Nm
 does not implement any special knowledge of their packet formats. This
 option is useful for determining which router along a path may be
 blocking packets based on IP protocol number. But see BUGS below.
 .It Fl p Ar port
-Protocol specific. For 
+Protocol specific. For
 .Tn UDP
-and 
-.Tn TCP, 
+and
+.Tn TCP,
 sets the base
 .Ar port
 number used in probes (default is 33434).
-.Nm 
+.Nm
 hopes that nothing is listening on
 .Tn UDP
 ports
@@ -204,7 +209,7 @@ are listed.
 .It Fl w
 Set the time (in seconds) to wait for a response to a probe (default 5 sec.).
 .It Fl x
-Toggle IP checksums. Normally, this prevents 
+Toggle IP checksums. Normally, this prevents
 .Nm
 from calculating
 IP checksums. In some cases, the operating system can overwrite parts of
@@ -212,7 +217,7 @@ the outgoing packet but not recalculate the checksum (so in some cases
 the default is to not calculate checksums and using
 .Fl x
 causes them to be calculated). Note that checksums are usually required
-for the last hop when using 
+for the last hop when using
 .Tn ICMP
 ECHO probes (
 .Fl I
@@ -220,7 +225,7 @@ ECHO probes (
 .It Fl z Ar pausemsecs
 Set the time (in milliseconds) to pause between probes (default 0).
 Some systems such as Solaris and routers such as Ciscos rate limit
-ICMP messages. A good value to use with this this is 500 (e.g. 1/2 second).
+ICMP messages. A good value to use with this is 500 (e.g. 1/2 second).
 .El
 .Pp
 This program attempts to trace the route an IP packet would follow to some
@@ -406,7 +411,7 @@ or
 .Sy !<num>
 (ICMP unreachable code <num>).
 These are defined by RFC1812 (which supersedes RFC1716).
-If almost all the probes result in some kind of unreachable, 
+If almost all the probes result in some kind of unreachable,
 .Nm
 will give up and exit.
 .Pp

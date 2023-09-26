@@ -1,0 +1,13 @@
+diff --git a/scipy/sparse/linalg/dsolve/SuperLU/SRC/slu_util.h b/scipy/sparse/linalg/dsolve/SuperLU/SRC/slu_util.h
+index f41b4ca..d010b70 100644
+--- a/scipy/sparse/linalg/dsolve/SuperLU/SRC/slu_util.h
++++ b/scipy/sparse/linalg/dsolve/SuperLU/SRC/slu_util.h
+@@ -346,7 +346,7 @@ extern void    ilu_heap_relax_snode (const int, int *, const int, int *,
+ extern void    resetrep_col (const int, const int *, int *);
+ extern int     spcoletree (int *, int *, int *, int, int, int *);
+ extern int     *TreePostorder (int, int *);
+-extern double  SuperLU_timer_ ();
++extern double  SuperLU_timer_ (void);
+ extern int     sp_ienv (int);
+ extern int     lsame_ (char *, char *);
+ extern int     xerbla_ (char *, int *);

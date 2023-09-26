@@ -1837,10 +1837,8 @@ set_thread_extra_flags(task_t task, struct uthread *uth, os_reason_t reason)
 	    reason->osr_code == SIGSEGV) {
 		mach_vm_address_t fault_address = uth->uu_subcode;
 
-#if defined(__arm64__)
-		/* Address is in userland, so we hard clear TBI bits to 0 here */
-		fault_address = tbi_clear(fault_address);
-#endif /* __arm64__ */
+		/* Address is in userland, so we hard clear any non-canonical bits to 0 here */
+		fault_address = VM_USER_STRIP_PTR(fault_address);
 
 		if (fault_address >= SHARED_REGION_BASE &&
 		    fault_address <= SHARED_REGION_BASE + SHARED_REGION_SIZE) {

@@ -65,14 +65,14 @@ String WebsiteDataRecord::displayNameForHostName(const String& hostName)
 
 String WebsiteDataRecord::displayNameForOrigin(const WebCore::SecurityOriginData& securityOrigin)
 {
-    const auto& protocol = securityOrigin.protocol;
+    const auto& protocol = securityOrigin.protocol();
 
     if (protocol == "file"_s)
         return displayNameForLocalFiles();
 
 #if ENABLE(PUBLIC_SUFFIX_LIST)
     if (protocol == "http"_s || protocol == "https"_s)
-        return WebCore::topPrivatelyControlledDomain(securityOrigin.host);
+        return WebCore::topPrivatelyControlledDomain(securityOrigin.host());
 #endif
 
     return String();
@@ -98,7 +98,7 @@ void WebsiteDataRecord::addHSTSCacheHostname(const String& hostName)
 
 void WebsiteDataRecord::addAlternativeServicesHostname(const String& hostName)
 {
-#if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
+#if HAVE(ALTERNATIVE_SERVICE)
     types.add(WebsiteDataType::AlternativeServices);
     alternativeServicesHostNames.add(hostName);
 #else
@@ -137,7 +137,7 @@ bool WebsiteDataRecord::matches(const WebCore::RegistrableDomain& domain) const
     }
 
     for (const auto& dataRecordOriginData : origins) {
-        if (hostIsInDomain(dataRecordOriginData.host, domain.string()))
+        if (hostIsInDomain(dataRecordOriginData.host(), domain.string()))
             return true;
     }
 

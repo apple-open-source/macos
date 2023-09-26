@@ -847,7 +847,7 @@ static bool dsRestoreObject(SOSTransactionRef txn, uint64_t handle, CFDictionary
     if (!dbclass)
         return SecError(errSecDecode, error, CFSTR("no such class %@; update kc_class_with_name "), item_class);
 
-    SecDbItemRef dbitem = SecDbItemCreateWithEncryptedData(kCFAllocatorDefault, dbclass, data, (keybag_handle_t)handle, error);
+    SecDbItemRef dbitem = SecDbItemCreateWithEncryptedData(kCFAllocatorDefault, dbclass, data, (keybag_handle_t)handle, NULL, error);
     bool ok = dbitem && (dsMergeObject(txn, (SOSObjectRef)dbitem, NULL, error) != kSOSMergeFailure);
     CFReleaseSafe(dbitem);
     return ok;

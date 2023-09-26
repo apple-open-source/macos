@@ -53,7 +53,7 @@ int LFHFS_Write       ( UVFSFileNode psNode, uint64_t uOffset, size_t iLength, c
 int LFHFS_Create      ( UVFSFileNode psNode, const char *pcName, const UVFSFileAttributes *psAttr, UVFSFileNode *ppsOutNode );
 int LFHFS_GetAttr     ( UVFSFileNode psNode, UVFSFileAttributes *psOutAttr );
 int LFHFS_SetAttr     ( UVFSFileNode psNode, const UVFSFileAttributes *psSetAttr, UVFSFileAttributes *psOutAttr );
-int LFHFS_Reclaim     ( UVFSFileNode psNode, __unused int flags );
+int LFHFS_Reclaim     ( UVFSFileNode psNode, __unused unsigned int flags );
 int LFHFS_ReadLink    ( UVFSFileNode psNode, void *pvOutBuf, size_t iBufSize, size_t *iActuallyRead, UVFSFileAttributes *psOutAttr );
 int LFHFS_SymLink     ( UVFSFileNode psNode, const char *pcName, const char *psContent, const UVFSFileAttributes *psAttr, UVFSFileNode *ppsOutNode );
 int LFHFS_Rename      ( UVFSFileNode psFromDirNode, UVFSFileNode psFromNode, const char *pcFromName, UVFSFileNode psToDirNode, UVFSFileNode psToNode, const char *pcToName, uint32_t flags);

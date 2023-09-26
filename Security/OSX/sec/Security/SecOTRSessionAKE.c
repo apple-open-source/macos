@@ -224,12 +224,14 @@ static OSStatus SecOTRSProcessDHMessage(SecOTRSessionRef session,
                 break;
             } // Else intentionally fall through to idle
             messageMessage = CFSTR("Our GX is smaller, sending DHKey");
+            [[fallthrough]];
         case kAwaitingSignature:
         case kIdle:
         case kDone:
             // Generate a new X and GX..
             SecOTRInitMyDHKeys(session);
             // If we were already waiting on reveal, then just send the packet again
+            [[fallthrough]];
         case kAwaitingRevealSignature:
             SecOTRAppendDHKeyMessage(session, negotiationResponse);
 

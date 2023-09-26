@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "ARM64Assembler.h"
 #include "AbortReason.h"
 #include "AssemblerBuffer.h"
 #include "AssemblerCommon.h"
@@ -56,7 +57,7 @@ namespace DFG {
 struct OSRExit;
 }
 
-#define JIT_COMMENT(jit, ...) do { if (UNLIKELY(Options::dumpDisassembly())) { (jit).comment(__VA_ARGS__); } else { (void) jit; } } while (0);
+#define JIT_COMMENT(jit, ...) do { if (UNLIKELY(Options::needDisassemblySupport())) { (jit).comment(__VA_ARGS__); } else { (void) jit; } } while (0)
 
 class AbstractMacroAssemblerBase {
     WTF_MAKE_FAST_ALLOCATED;
@@ -426,9 +427,7 @@ public:
         friend class Watchpoint;
 
     public:
-        Label()
-        {
-        }
+        Label() = default;
 
         Label(AbstractMacroAssemblerType* masm)
             : m_label(masm->m_assembler.label())
@@ -947,12 +946,6 @@ public:
     }
 
     template<PtrTag tag>
-    static void repatchInt32(CodeLocationDataLabel32<tag> dataLabel32, int32_t value)
-    {
-        AssemblerType::repatchInt32(dataLabel32.dataLocation(), value);
-    }
-
-    template<PtrTag tag>
     static void repatchPointer(CodeLocationDataLabelPtr<tag> dataLabelPtr, void* value)
     {
         AssemblerType::repatchPointer(dataLabelPtr.dataLocation(), value);
@@ -962,18 +955,6 @@ public:
     static void* readPointer(CodeLocationDataLabelPtr<tag> dataLabelPtr)
     {
         return AssemblerType::readPointer(dataLabelPtr.dataLocation());
-    }
-    
-    template<PtrTag tag>
-    static void replaceWithLoad(CodeLocationConvertibleLoad<tag> label)
-    {
-        AssemblerType::replaceWithLoad(label.dataLocation());
-    }
-
-    template<PtrTag tag>
-    static void replaceWithAddressComputation(CodeLocationConvertibleLoad<tag> label)
-    {
-        AssemblerType::replaceWithAddressComputation(label.dataLocation());
     }
 
     template<typename Functor>
@@ -1025,7 +1006,7 @@ public:
     template<typename... Types>
     void comment(const Types&... values)
     {
-        if (LIKELY(!Options::dumpDisassembly()))
+        if (LIKELY(!Options::needDisassemblySupport()))
             return;
         StringPrintStream s;
         s.print(values...);

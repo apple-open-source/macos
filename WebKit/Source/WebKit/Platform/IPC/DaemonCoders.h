@@ -39,7 +39,7 @@ struct ExceptionData;
 class CertificateInfo;
 struct PushSubscriptionData;
 class PrivateClickMeasurement;
-struct SecurityOriginData;
+class SecurityOriginData;
 class RegistrableDomain;
 namespace PCM {
 struct AttributionTimeToSendData;
@@ -162,7 +162,7 @@ template<> struct Coder<WTF::UUID> {
     template<typename Decoder>
     static std::optional<WTF::UUID> decode(Decoder& decoder)
     {
-        return UUID::decode(decoder);
+        return WTF::UUID::decode(decoder);
     }
 };
 

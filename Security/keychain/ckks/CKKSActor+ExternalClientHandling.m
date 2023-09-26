@@ -214,8 +214,6 @@
                                                                                                      recordIDsToDelete:@[]];
             modifyRecordsOperation.atomic = TRUE;
 
-            modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
-            modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
             modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
             modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
@@ -227,11 +225,11 @@
                 ckksinfo("ckks-se", record.recordID.zoneID, "Record to save: %@", record.recordID);
             }
 
-            modifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
+            modifyRecordsOperation.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
                 if(!error) {
-                    ckksnotice("ckks-se", record.recordID.zoneID, "Record upload successful for %@ (%@)", record.recordID.recordName, record.recordChangeTag);
+                    ckksnotice("ckks-se", recordID.zoneID, "Record upload successful for %@ (%@)", recordID.recordName, record.recordChangeTag);
                 } else {
-                    ckkserror("ckks-se", record.recordID.zoneID, "error on row: %@ %@", error, record);
+                    ckkserror("ckks-se", recordID.zoneID, "error on row: %@ %@", error, recordID);
                 }
             };
 
@@ -484,8 +482,6 @@
                                                                                                      recordIDsToDelete:recordIDsToDelete];
             modifyRecordsOperation.atomic = TRUE;
 
-            modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
-            modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
             modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
             modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
@@ -501,11 +497,11 @@
                 ckksinfo("ckks-se", recordID.zoneID, "Record to delete: %@", recordID);
             }
 
-            modifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
+            modifyRecordsOperation.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
                 if(!error) {
-                    ckksnotice("ckks-se", record.recordID.zoneID, "Record upload successful for %@ (%@)", record.recordID.recordName, record.recordChangeTag);
+                    ckksnotice("ckks-se", recordID.zoneID, "Record upload successful for %@ (%@)", recordID.recordName, record.recordChangeTag);
                 } else {
-                    ckkserror("ckks-se", record.recordID.zoneID, "error on row: %@ %@", error, record);
+                    ckkserror("ckks-se", recordID.zoneID, "error on row: %@ %@", error, record);
                 }
             };
 

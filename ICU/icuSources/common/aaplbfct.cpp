@@ -1,7 +1,9 @@
 /**
  *******************************************************************************
  * Copyright (C) 2007,2012 International Business Machines Corporation, Apple Inc.,*
- * and others.  All Rights Reserved.                                           *
+ * and others.  All Rights Reserved.  
+ *                                         *
+ * originally added per rdar://4448220 Add user dictionary support
  *******************************************************************************
  */
 

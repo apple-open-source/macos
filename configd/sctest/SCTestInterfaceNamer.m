@@ -48,6 +48,7 @@
 @property SCDynamicStoreRef	store;
 @end
 
+#if !TARGET_OS_BRIDGE
 @implementation SCTestInterfaceNamer
 
 + (NSString *)command
@@ -720,3 +721,4 @@ create_hidden_interface(u_char ea_unique)
 }
 
 @end
+#endif // !TARGET_OS_BRIDGE

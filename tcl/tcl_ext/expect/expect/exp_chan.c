@@ -51,6 +51,8 @@ static void		ExpWatchProc _ANSI_ARGS_((ClientData instanceData,
 		            int mask));
 static int		ExpGetHandleProc _ANSI_ARGS_((ClientData instanceData,
 		            int direction, ClientData *handlePtr));
+void exp_background_channelhandlers_run_all();
+void exp_background_channelhandler(ClientData clientData, int mask);
 
 /*
  * This structure describes the channel type structure for Expect-based IO:

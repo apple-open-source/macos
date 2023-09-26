@@ -1,5 +1,7 @@
-framework module Security [extern_c][system] {
+framework module Security [system] {
   umbrella header "Security.h"
+
+  config_macros SEC_IOS_ON_OSX
 
   export *
   module * { 

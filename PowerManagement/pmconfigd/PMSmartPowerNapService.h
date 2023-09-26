@@ -48,6 +48,7 @@
 #endif
 
 + (instancetype)sharedInstance;
+- (void)updateAmbientState:(BOOL)state;
 - (void)updateState:(_PMSmartPowerNapState)state;
 - (void)enterSmartPowerNap;
 - (void)exitSmartPowerNap;

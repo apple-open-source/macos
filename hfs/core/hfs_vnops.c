@@ -1372,13 +1372,6 @@ hfs_vnop_setattr(struct vnop_setattr_args *ap)
 	if (error)
 		return error;
 #endif
-	//
-	// if this is not a size-changing setattr and it is not just
-	// an atime update, then check for a snapshot.
-	//
-	if (!VATTR_IS_ACTIVE(vap, va_data_size) && !(vap->va_active == VNODE_ATTR_va_access_time)) {
-		nspace_snapshot_event(vp, orig_ctime, NAMESPACE_HANDLER_METADATA_MOD, NSPACE_REARM_NO_ARG);
-	}
 
 #if CONFIG_PROTECT
 	/*
@@ -1453,8 +1446,6 @@ hfs_vnop_setattr(struct vnop_setattr_args *ap)
 			}
 		}
 		
-		nspace_snapshot_event(vp, orig_ctime, vap->va_data_size == 0 ? NAMESPACE_HANDLER_TRUNCATE_OP|NAMESPACE_HANDLER_DELETE_OP : NAMESPACE_HANDLER_TRUNCATE_OP, NULL);
-
 		decmpfs_lock_compressed_data(dp, 1);
 		if (hfs_file_is_compressed(VTOC(vp), 1)) {
 			error = decmpfs_decompress_file(vp, dp, -1/*vap->va_data_size*/, 0, 1);
@@ -2159,10 +2150,7 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	 * Normally, we want to notify the user handlers about the event,
 	 * except if it's a handler driving the event.
 	 */
-	if ((ap->a_options & FSOPT_EXCHANGE_DATA_ONLY) == 0) {
-		nspace_snapshot_event(from_vp, orig_from_ctime, NAMESPACE_HANDLER_WRITE_OP, NULL);
-		nspace_snapshot_event(to_vp, orig_to_ctime, NAMESPACE_HANDLER_WRITE_OP, NULL);
-	} else {
+	if (ap->a_options & FSOPT_EXCHANGE_DATA_ONLY) {
 		/*
 		 * This is currently used by mtmd so we should tidy up the
 		 * file now because the data won't be used again in the
@@ -2722,17 +2710,12 @@ hfs_vnop_mmap(struct vnop_mmap_args *ap)
 		/* allow pageins of the resource fork */
 	} else {
 		int compressed = hfs_file_is_compressed(cp, 1); /* 1 == don't take the cnode lock */
-		time_t orig_ctime = cp->c_ctime;
-		
+
 		if (!compressed && (cp->c_bsdflags & UF_COMPRESSED)) {
 			error = check_for_dataless_file(vp, NAMESPACE_HANDLER_READ_OP);
 			if (error != 0) {
 				return error;
 			}
-		}
-
-		if (ap->a_fflags & PROT_WRITE) {
-			nspace_snapshot_event(vp, orig_ctime, NAMESPACE_HANDLER_WRITE_OP, NULL);
 		}
 	}
 
@@ -3384,7 +3367,6 @@ hfs_vnop_rmdir(struct vnop_rmdir_args *ap)
 		return (EINVAL);
 	}
 
-	nspace_snapshot_event(vp, orig_ctime, NAMESPACE_HANDLER_DELETE_OP, NULL);
 	cp = VTOC(vp);
 
 	if ((error = hfs_lockpair(dcp, cp, HFS_EXCLUSIVE_LOCK))) {
@@ -3676,21 +3658,10 @@ hfs_vnop_remove(struct vnop_remove_args *ap)
 	int error=0, recycle_rsrc=0;
 	int recycle_vnode = 0;
 	uint32_t rsrc_vid = 0;
-	time_t orig_ctime;
 
 	if (dvp == vp) {
 		return (EINVAL);
 	}
-
-	orig_ctime = VTOC(vp)->c_ctime;
-	if (!vnode_isnamedstream(vp) && ((ap->a_flags & VNODE_REMOVE_SKIP_NAMESPACE_EVENT) == 0)) {
-		error = nspace_snapshot_event(vp, orig_ctime, NAMESPACE_HANDLER_DELETE_OP, NULL);
-		if (error) {
-			// XXXdbg - decide on a policy for handling namespace handler failures!
-			// for now we just let them proceed.
-		}		
-	}
-	error = 0;
 
 	cp = VTOC(vp);
 
@@ -4611,13 +4582,6 @@ hfs_vnop_renamex(struct vnop_renamex_args *ap)
 		 */
 		if (VTOC(fvp)->c_bsdflags & UF_TRACKED) {
 			is_tracked = 1;
-		}
-		nspace_snapshot_event(fvp, orig_from_ctime, NAMESPACE_HANDLER_RENAME_OP, NULL);
-	}
-
-	if (tvp && VTOC(tvp)) {
-		if (emit_delete) {
-			nspace_snapshot_event(tvp, orig_to_ctime, NAMESPACE_HANDLER_DELETE_OP, NULL);
 		}
 	}
 

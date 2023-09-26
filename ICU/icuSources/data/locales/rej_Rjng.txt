@@ -1,0 +1,14 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+rej_Rjng{
+    ExemplarCharacters{
+        "[ꤰ {ꤰ꥓} ꤱ ꤲ ꤳ ꤴ ꤵ ꤶ ꤷ ꤸ ꤹ ꤺ ꤻ ꤼ ꤽ ꤾ ꤿ ꥀ ꥁ ꥂ ꥃ ꥄ ꥅ ꥆ {ꥆꥇ} {ꥆꥈ} {ꥆꥉ} {ꥆꥊ} {ꥆꥋ}"
+        " {ꥆꥌ} {ꥆꥍ} {ꥆꥎ} {ꥆꥏ} {ꥆꥐ} {ꥆꥑ} {ꥆꥒ}]"
+    }
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 ꤰ ꤱ ꤲ ꤳ ꤴ ꤵ ꤶ ꤷ ꤸ ꤹ]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
+    }
+}

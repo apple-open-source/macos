@@ -6,6 +6,7 @@ es_HN{
     Countries{
         BA{"Bosnia y Herzegovina"}
         TA{"Tristán de Acuña"}
+        TL{"Timor-Leste"}
         UM{"Islas menores alejadas de EE. UU."}
     }
     Countries%short{

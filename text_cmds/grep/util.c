@@ -690,8 +690,21 @@ procline(struct parsec *pc)
 					nst = pmatch.rm_eo;
 #ifdef __APPLE__
 					/* rdar://problem/86536080 */
-					if (pmatch.rm_so == pmatch.rm_eo)
-						nst++;
+					if (pmatch.rm_so == pmatch.rm_eo) {
+						if (MB_CUR_MAX > 1) {
+							wchar_t wc;
+							int advance;
+
+							advance = mbtowc(&wc,
+							    &pc->ln.dat[nst],
+							    MB_CUR_MAX);
+
+							assert(advance > 0);
+							nst += advance;
+						} else {
+							nst++;
+						}
+					}
 #endif
 				}
 			} else {
@@ -707,8 +720,21 @@ procline(struct parsec *pc)
 				 * search at one past the 0-length match and
 				 * either make progress or end the search.
 				 */
-				if (pmatch.rm_so == pmatch.rm_eo)
-					nst++;
+				if (pmatch.rm_so == pmatch.rm_eo) {
+					if (MB_CUR_MAX > 1) {
+						wchar_t wc;
+						int advance;
+
+						advance = mbtowc(&wc,
+						    &pc->ln.dat[nst],
+						    MB_CUR_MAX);
+
+						assert(advance > 0);
+						nst += advance;
+					} else {
+						nst++;
+					}
+				}
 #endif
 			}
 			/* avoid excessive matching - skip further patterns */

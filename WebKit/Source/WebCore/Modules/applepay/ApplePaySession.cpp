@@ -45,14 +45,14 @@
 #include "ApplePayShippingMethodSelectedEvent.h"
 #include "ApplePayShippingMethodUpdate.h"
 #include "ApplePayValidateMerchantEvent.h"
-#include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "JSDOMPromiseDeferred.h"
 #include "LinkIconCollector.h"
 #include "LinkIconType.h"
+#include "LocalDOMWindow.h"
+#include "LocalFrame.h"
 #include "Page.h"
 #include "PageConsoleClient.h"
 #include "PaymentContact.h"
@@ -644,6 +644,11 @@ ExceptionOr<void> ApplePaySession::completeMerchantValidation(JSC::JSGlobalObjec
         window.printErrorMessage(errorMessage);
         return Exception { InvalidAccessError };
     }
+
+    // PaymentMerchantSession::fromJS() may run JS, which may abort the request so we need to
+    // make sure we still have an active session.
+    if (!paymentCoordinator().hasActiveSession())
+        return Exception { InvalidStateError };
 
     m_merchantValidationState = MerchantValidationState::ValidationComplete;
     paymentCoordinator().completeMerchantValidation(*merchantSession);

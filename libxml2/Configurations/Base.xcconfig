@@ -41,9 +41,7 @@ PREBINDING = NO;
 WARNING_CFLAGS = -Wall -Wextra -Wchar-subscripts -Wextra-tokens -Wformat=2 -Wmissing-format-attribute -Winit-self -Wmissing-noreturn -Wpacked -Wpointer-arith -Wredundant-decls -Wundef -Wwrite-strings $(SECURITY_WARNING_CFLAGS) -Wno-cast-qual -Wno-documentation -Wno-shorten-64-to-32;
 SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=format-security -Werror=memset-transposed-args -Werror=return-stack-address -Werror=shadow -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
 
-OTHER_CFLAGS = $(inherited) $(LIBXML2_STACK_AUTO_INIT_$(LIBXML2_ENABLE_STACK_AUTO_INIT));
-LIBXML2_STACK_AUTO_INIT_YES = -ftrivial-auto-var-init=zero -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang;
-LIBXML2_ENABLE_STACK_AUTO_INIT[sdk=iphone*] = YES;
+CLANG_TRIVIAL_AUTO_VAR_INIT[sdk=iphone*]=zero;
 
 STRIP_INSTALLED_PRODUCT = YES;
 HEADER_SEARCH_PATHS = $(LIBXML2_HEADER_PATH);

@@ -26,9 +26,15 @@ U_CDECL_BEGIN
 
 extern const char *gCurrentFileName;
 
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 2, 3)))
+#endif  // APPLE_ICU_CHANGES
 U_CFUNC void error(uint32_t linenumber, const char *msg, ...);
+#if APPLE_ICU_CHANGES
+// rdar://
 __attribute__((format(printf, 2, 3)))
+#endif  // APPLE_ICU_CHANGES
 U_CFUNC void warning(uint32_t linenumber, const char *msg, ...);
 
 /* Show warnings? */

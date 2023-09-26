@@ -701,7 +701,6 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		my_log(LOG_INFO, "RTADV %s: ignoring RA (not from %@)",
 		       if_name(if_p),
 		       RouterAdvertisementGetSourceIPAddressAsString(rtadv->ra));
-		CFRelease(ra);
 		break;
 	    }
 	}
@@ -709,7 +708,6 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	    rtadv->router_lifetime_zero = TRUE;
 	    my_log(LOG_INFO,
 		   "RTADV %s: ignoring RA (lifetime zero)", if_name(if_p));
-	    CFRelease(ra);
 	    break;
 	}
 
@@ -723,10 +721,10 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	    my_log(LOG_NOTICE,
 		   "RTADV %s: router lifetime became zero",
 		   if_name(if_p));
-	    my_CFRelease(&ra);
 	}
 	else {
 	    /* save the new RA */
+	    CFRetain(ra);
 	    rtadv->ra = ra;
 	}
 
@@ -918,9 +916,15 @@ rtadv_solicit(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 			   service_p, (void *)IFEventID_timeout_e, NULL);
 	break;
 
-    case IFEventID_data_e:
-	rtadv_acquired(service_p, IFEventID_start_e, event_data);
+    case IFEventID_data_e: {
+	RouterAdvertisementRef ra;
+
+	ra = (RouterAdvertisementRef)event_data;
+	if (RouterAdvertisementGetRouterLifetime(ra) != 0) {
+		rtadv_acquired(service_p, IFEventID_start_e, event_data);
+	}
 	break;
+    }
     default:
 	break;
     }
@@ -1367,6 +1371,29 @@ rtadv_provide_summary(ServiceRef service_p, CFMutableDictionaryRef summary)
     return;
 }
 
+
+STATIC void
+rtadv_start(ServiceRef service_p, __unused void * arg2, __unused void * arg3)
+{
+    interface_t *	if_p = service_interface(service_p);
+
+    my_log(LOG_NOTICE, "RTADV %s: start", if_name(if_p));
+    rtadv_init(service_p);
+}
+
+STATIC void
+rtadv_schedule_start(ServiceRef service_p)
+{
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    struct timeval	tv;
+
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    timer_set_relative(rtadv->timer, tv,
+		       (timer_func_t *)rtadv_start,
+		       service_p, NULL, NULL);
+}
+
 PRIVATE_EXTERN ipconfig_status_t
 rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 {
@@ -1424,7 +1451,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	/* clear out prefix (in case of crash) */
 	rtadv_set_nat64_prefixlist(service_p, NULL);
-	rtadv_init(service_p);
+	rtadv_schedule_start(service_p);
 	break;
 
     stop:

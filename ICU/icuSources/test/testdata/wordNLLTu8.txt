@@ -5,6 +5,8 @@
 ##   CoreNLP.framework/Resources/word.dat       [for ICU before 60, including ICU 57]
 ##   CoreNLP.framework/Resources/word_icu60.dat
 ##############################################################################
+## Apple addition, originally per rdar://37249396
+##############################################################################
 #
 # Copyright (C) 2002-2016, International Business Machines Corporation
 # and others. All Rights Reserved.

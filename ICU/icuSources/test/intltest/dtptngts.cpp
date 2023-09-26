@@ -47,12 +47,21 @@ void IntlTestDateTimePatternGeneratorAPI::runIndexedTest( int32_t index, UBool e
         TESTCASE(11, test_jConsistencyOddLocales);
         TESTCASE(12, testBestPattern);
         TESTCASE(13, testDateTimePatterns);
-        TESTCASE(14, testHorizontalInheritance);
+        TESTCASE(14, testRegionOverride);
+#if APPLE_ICU_CHANGES
+// rdar://
+        TESTCASE(15, testHorizontalInheritance);
+#endif  // APPLE_ICU_CHANGES
         default: name = ""; break;
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://
 #define MAX_LOCALE   15
+#else
+#define MAX_LOCALE   12
+#endif  // APPLE_ICU_CHANGES
 
 /**
  * Test various generic API methods of DateTimePatternGenerator for API coverage.
@@ -93,9 +102,12 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         {"ru", "", "", ""},                     // 9
         {"zh", "", "", "calendar=chinese"},     // 10
         {"ja", "JP", "TRADITIONAL", ""},        // 11
+#if APPLE_ICU_CHANGES
+// rdar://
         {"zh", "", "", "calendar=chinese;numbers=hanidays"},    // 12 Apple add
         {"ar", "", "", ""},                     // 13 Apple add
         {"en", "ID", "", "calendar=buddhist"},  // 14 Apple add <rdar://problem/37505940>
+#endif  // APPLE_ICU_CHANGES
      };
 
     // For Weds, Jan 13, 1999, 23:58:59
@@ -109,41 +121,69 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("Jan 13"),                              // 05: MMMd
         UnicodeString("January 13"),                          // 06: MMMMd
         UnicodeString("Q1 1999"),                             // 07: yQQQ
-        UnicodeString("11:58 PM"),                            // 08: hhmm
+        UnicodeString(u"11:58\u202FPM", -1),                 // 08: hhmm
         UnicodeString("23:58"),                               // 09: HHmm
-        UnicodeString("11:58 PM"),                            // 10: jjmm
+        UnicodeString(u"11:58\u202FPM", -1),                 // 10: jjmm
         UnicodeString("58:59"),                               // 11: mmss
         UnicodeString("January 1999"),                        // 12: yyyyMMMM
         UnicodeString("Wed, Jan 13"),                         // 13: MMMEd -> EEE, MMM d
-        UnicodeString("Wed 13"),                              // 14: Ed    -> EEE d
-        UnicodeString("11:58:59.123 PM"),                     // 15: jmmssSSS -> "h:mm:ss.SSS a"
+#if APPLE_ICU_CHANGES
+// rdar://
+        UnicodeString("Wed 13"),                              // 14: Ed    -> E d
+#else
+        UnicodeString("13 Wed"),                              // 14: Ed    -> d EEE
+#endif  // APPLE_ICU_CHANGES
+        UnicodeString(u"11:58:59.123\u202FPM", -1),          // 15: jmmssSSS -> "h:mm:ss.SSS a"
         UnicodeString("11:58"),                               // 16: JJmm
     };
 
     UnicodeString patternResults_en_US_japanese[] = {
         // en_US@calendar=japanese                            // 1 en_US@calendar=japanese
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("1/H11"),                               //  0: yM
         UnicodeString("Jan Heisei 11"),                       //  1: yMMM
         UnicodeString("1/13/H11"),                            //  2: yMd
         UnicodeString("Jan 13, Heisei 11"),                   //  3: yMMMd
+#else
+        UnicodeString("1/11 H"),                              //  0: yM
+        UnicodeString("Jan 11 Heisei"),                       //  1: yMMM
+        UnicodeString("1/13/11 H"),                           //  2: yMd
+        UnicodeString("Jan 13, 11 Heisei"),                   //  3: yMMMd
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("1/13"),                                //  4: Md
         UnicodeString("Jan 13"),                              //  5: MMMd
         UnicodeString("January 13"),                          //  6: MMMMd
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("Q1 Heisei 11"),                        //  7: yQQQ
-        UnicodeString("11:58 PM"),                            //  8: hhmm
+#else
+        UnicodeString("Q1 11 Heisei"),                        //  7: yQQQ
+#endif  // APPLE_ICU_CHANGES
+        UnicodeString(u"11:58\u202FPM", -1),                 //  8: hhmm
         UnicodeString("23:58"),                               //  9: HHmm
-        UnicodeString("11:58 PM"),                            // 10: jjmm
+        UnicodeString(u"11:58\u202FPM", -1),                 // 10: jjmm
         UnicodeString("58:59"),                               // 11: mmss
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("January Heisei 11"),                   // 12: yyyyMMMM
+#else
+        UnicodeString("January 11 Heisei"),                   // 12: yyyyMMMM
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("Wed, Jan 13"),                         // 13: MMMEd -> EEE, MMM d"
         UnicodeString("13 Wed"),                              // 14: Ed    -> d EEE
-        UnicodeString("11:58:59.123 PM"),                     // 15: jmmssSSS -> "h:mm:ss.SSS a"
+        UnicodeString(u"11:58:59.123\u202FPM", -1),          // 15: jmmssSSS -> "h:mm:ss.SSS a"
         UnicodeString("11:58"),                               // 16: JJmm
     };
 
     UnicodeString patternResults_de_DE[] = {
         // de_DE                                              // 2 de_DE
+#if APPLE_ICU_CHANGES
+// rdar://97937093 restore . not /
         UnicodeString("1.1999"),                              // 00: yM
+#else
+        UnicodeString("01/1999"),                             // 00: yM
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("Jan. 1999"),                           // 01: yMMM
         UnicodeString("13.1.1999"),                           // 02: yMd
         UnicodeString("13. Jan. 1999"),                       // 03: yMMMd
@@ -151,13 +191,19 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("13. Jan."),                            // 05: MMMd
         UnicodeString("13. Januar"),                          // 06: MMMMd
         UnicodeString("Q1 1999"),                             // 07: yQQQ
-        UnicodeString("11:58 PM"),                            // 08: hhmm
+        UnicodeString(u"11:58\u202FPM", -1),                 // 08: hhmm
         UnicodeString("23:58"),                               // 09: HHmm
         UnicodeString("23:58"),                               // 10: jjmm
         UnicodeString("58:59"),                               // 11: mmss
         UnicodeString("Januar 1999"),                         // 12: yyyyMMMM
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("Mi. 13. Jan."),                        // 13: MMMEd -> E d. MMM
         UnicodeString("Mi. 13."),                             // 14: Ed   -> E d.
+#else
+        UnicodeString("Mi., 13. Jan."),                       // 13: MMMEd -> EEE, d. MMM
+        UnicodeString("Mi., 13."),                            // 14: Ed   -> EEE d.
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("23:58:59,123"),                        // 15: jmmssSSS -> "HH:mm:ss,SSS"
         UnicodeString("23:58"),                               // 16: JJmm
     };
@@ -167,17 +213,32 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("1.1999"),                              // 00: yM (fixed expected result per ticket:6626:)
         UnicodeString("tammi 1999"),                          // 01: yMMM
         UnicodeString("13.1.1999"),                           // 02: yMd
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("13.1.1999"),                           // 03: yMMMd
+#else
+        UnicodeString("13. tammik. 1999"),                    // 03: yMMMd
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("13.1."),                               // 04: Md
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("13.1."),                               // 05: MMMd
+#else
+        UnicodeString("13. tammik."),                         // 05: MMMd
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("13. tammikuuta"),                      // 06: MMMMd
         UnicodeString("1. nelj. 1999"),                       // 07: yQQQ
-        UnicodeString("11.58 ip."),                           // 08: hhmm
+        UnicodeString(u"11.58\u202Fip.", -1),                // 08: hhmm
         UnicodeString("23.58"),                               // 09: HHmm
         UnicodeString("23.58"),                               // 10: jjmm
         UnicodeString("58.59"),                               // 11: mmss
         UnicodeString("tammikuu 1999"),                       // 12: yyyyMMMM
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("ke 13.1."),                            // 13: MMMEd -> EEE d.M.
+#else
+        UnicodeString("ke 13. tammik."),                      // 13: MMMEd -> EEE d. MMM
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("ke 13."),                              // 14: Ed    -> ccc d.
         UnicodeString("23.58.59,123"),                        // 15: jmmssSSS -> "H.mm.ss,SSS"
         UnicodeString("23.58"),                               // 16: JJmm
@@ -193,7 +254,12 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("13 ene"),                              // 05: MMMd  -> "d 'de' MMM"
         UnicodeString("13 de enero"),                         // 06: MMMMd -> "d 'de' MMMM"
         UnicodeString("T1 1999"),                             // 07: yQQQ  -> "QQQ y"
-        CharsToUnicodeString("11:58 p.\\u202Fm."),            // 08: hhmm  -> "hh:mm a"
+#if APPLE_ICU_CHANGES
+// rdar://
+        CharsToUnicodeString("11:58\\u202Fp.\\u202Fm."),       // 08: hhmm  -> "hh:mm a"
+#else
+        UnicodeString(u"11:58\u202Fp.\u00A0m.", -1),          // 08: hhmm  -> "hh:mm a"
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("23:58"),                               // 09: HHmm  -> "HH:mm"
         UnicodeString("23:58"),                               // 10: jjmm  -> "HH:mm"
         UnicodeString("58:59"),                               // 11: mmss  -> "mm:ss"
@@ -219,19 +285,35 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("23:58"),                                           // 10: jjmm
         UnicodeString("58:59"),                                           // 11: mmss  -> mm:ss
         CharsToUnicodeString("1999\\u5E741\\u6708"),                      // 12: yyyyMMMM  -> y\u5E74M\u6708
+#if APPLE_ICU_CHANGES
+// rdar://
         CharsToUnicodeString("1\\u670813\\u65E5(\\u6C34)"),               // 13: MMMEd -> M\u6708d\u65E5(E)
         CharsToUnicodeString("13\\u65E5(\\u6C34)"),                       // 14: Ed    -> d\u65E5(E)
+#else
+        CharsToUnicodeString("1\\u670813\\u65E5(\\u6C34)"),               // 13: MMMEd -> M\u6708d\u65E5(EEE)
+        CharsToUnicodeString("13\\u65E5(\\u6C34)"),                       // 14: Ed    -> d\u65E5(EEE)
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("23:58:59.123"),                                    // 15: jmmssSSS -> "H:mm:ss.SSS"
         UnicodeString("23:58"),                                           // 16: JJmm
     };
 
     UnicodeString patternResults_ja_japanese[] = {
         // ja@calendar=japanese                                           // 6 ja@calendar=japanese
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("H11/01"),                                          // 00: yM    -> GGGGGy/MM
+#else
+        UnicodeString("H11/1"),                                           // 00: yM    -> GGGGGy/m
+#endif  // APPLE_ICU_CHANGES
         CharsToUnicodeString("\\u5E73\\u621011\\u5E741\\u6708"),          // 01: yMMM  -> Gy\u5E74M\u6708
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString("H11/01/13"),                                       // 02: yMd   -> GGGGGy/MM/dd
+#else
+        UnicodeString("H11/1/13"),                                        // 02: yMd   -> GGGGGy/m/d
+#endif  // APPLE_ICU_CHANGES
         CharsToUnicodeString("\\u5E73\\u621011\\u5E741\\u670813\\u65E5"), // 03: yMMMd -> Gy\u5E74M\u6708d\u65E5
-        UnicodeString("1/13"),                                            // 04: Md    -> M/dd
+        UnicodeString("1/13"),                                            // 04: Md    -> M/d (M/dd for Apple, rdar:// )
         CharsToUnicodeString("1\\u670813\\u65E5"),                        // 05: MMMd  -> M\u6708d\u65E5
         CharsToUnicodeString("1\\u670813\\u65E5"),                        // 06: MMMMd  -> M\u6708d\u65E5
         CharsToUnicodeString("\\u5E73\\u621011/Q1"),                     // 07: yQQQ  -> Gy/QQQ
@@ -240,8 +322,8 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("23:58"),                                           // 10: jjmm
         UnicodeString("58:59"),                                           // 11: mmss  -> mm:ss          (as for ja)
         CharsToUnicodeString("\\u5E73\\u621011\\u5E741\\u6708"),          // 12: yyyyMMMM  -> Gyyyy\u5E74M\u6708
-        CharsToUnicodeString("1\\u670813\\u65E5(\\u6C34)"),               // 13: MMMEd -> M\u6708d\u65E5(E)
-        CharsToUnicodeString("13\\u65E5(\\u6C34)"),                       // 14: Ed    -> d\u65E5(E)
+        CharsToUnicodeString("1\\u670813\\u65E5(\\u6C34)"),               // 13: MMMEd -> M\u6708d\u65E5(EEE)
+        CharsToUnicodeString("13\\u65E5(\\u6C34)"),                       // 14: Ed    -> d\u65E5(EEE)
         UnicodeString("23:58:59.123"),                                    // 15: jmmssSSS -> "H:mm:ss.SSS"
         UnicodeString("23:58"),                                           // 16: JJmm
     };
@@ -261,28 +343,53 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         CharsToUnicodeString("23:58"),                                    // 10: jjmm
         UnicodeString("58:59"),                                           // 11: mmss
         CharsToUnicodeString("1999\\u5E741\\u6708"),                      // 12: yyyyMMMM  -> yyyy\u5E74MMM
+#if APPLE_ICU_CHANGES
+// rdar://
         CharsToUnicodeString("1\\u670813\\u65E5 \\u5468\\u4E09"),         // 13: MMMEd -> MMMd\u65E5 EEE
         CharsToUnicodeString("13 \\u5468\\u4E09"),                        // 14: Ed    -> d\u65E5EEE
+#else
+        CharsToUnicodeString("1\\u670813\\u65E5\\u5468\\u4E09"),          // 13: MMMEd -> MMMd\u65E5EEE
+        CharsToUnicodeString("13\\u65E5\\u5468\\u4E09"),                  // 14: Ed    -> d\u65E5EEE
+#endif  // APPLE_ICU_CHANGES
         CharsToUnicodeString("23:58:59.123"),                             // 15: jmmssSSS -> "ah:mm:ss.SSS"
         UnicodeString("23:58"),                                           // 16: JJmm
     };
 
     UnicodeString patternResults_zh_TW_roc[] = {
         // zh_TW@calendar=roc                                             // 8 zh_TW@calendar=roc
+#if APPLE_ICU_CHANGES
+// rdar://
         CharsToUnicodeString("\\u6C11\\u570B 88/1"),                      // 00: yM    -> G y/M
         CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u6708"),         // 01: yMMM  -> G y\u5E74M\u6708
         CharsToUnicodeString("\\u6C11\\u570B 88/1/13"),                   // 02: yMd   -> G y/M/d
         CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u670813\\u65E5"), // 03: yMMMd -> G y\u5E74M\u6708d\u65E5
+#else
+        CharsToUnicodeString("\\u6C11\\u570B88/1"),                       // 00: yM    -> Gy/M
+        CharsToUnicodeString("\\u6C11\\u570B88\\u5E741\\u6708"),          // 01: yMMM  -> Gy\u5E74M\u6708
+        CharsToUnicodeString("\\u6C11\\u570B88/1/13"),                    // 02: yMd   -> Gy/M/d
+        CharsToUnicodeString("\\u6C11\\u570B88\\u5E741\\u670813\\u65E5"), // 03: yMMMd -> Gy\u5E74M\u6708d\u65E5
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("1/13"),                                            // 04: Md    -> M/d
         CharsToUnicodeString("1\\u670813\\u65E5"),                        // 05: MMMd  ->M\u6708d\u65E5
         CharsToUnicodeString("1\\u670813\\u65E5"),                        // 06: MMMMd  ->M\u6708d\u65E5
+#if APPLE_ICU_CHANGES
+// rdar://
         CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u5B63"),         // 07: yQQQ  -> G yQQQ
+#else
+        CharsToUnicodeString("\\u6C11\\u570B88\\u5E74\\u7B2C1\\u5B63"),   // 07: yQQQ  -> Gy QQQ
+#endif  // APPLE_ICU_CHANGES
         CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 08: hhmm  ->
         UnicodeString("23:58"),                                           // 09: HHmm  ->
         CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 10: jjmm
         UnicodeString("58:59"),                                           // 11: mmss  ->
+#if APPLE_ICU_CHANGES
+// rdar://
         CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u6708"),         // 12: yyyyMMMM  -> G y\u5E74M\u670
         CharsToUnicodeString("1\\u670813\\u65E5 \\u9031\\u4E09"),         // 13: MMMEd -> M\u6708d\u65E5 E
+#else
+        CharsToUnicodeString("\\u6C11\\u570B88\\u5E741\\u6708"),          // 12: yyyyMMMM  -> Gy\u5E74M\u670
+        CharsToUnicodeString("1\\u670813\\u65E5\\u9031\\u4E09"),          // 13: MMMEd -> M\u6708d\u65E5EEE
+#endif  // APPLE_ICU_CHANGES
         CharsToUnicodeString("13 \\u9031\\u4E09"),                        // 14: Ed    -> d E
         CharsToUnicodeString("\\u4E0B\\u534811:58:59.123"),               // 15: jmmssSSS -> "ah:mm:ss.SSS"
         UnicodeString("11:58"),                                           // 16: JJmm
@@ -291,48 +398,80 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     UnicodeString patternResults_ru[] = {
         // ru                                                             // 9 ru
         UnicodeString("01.1999"),                                         // 00: yM    -> MM.y
-        CharsToUnicodeString("\\u044F\\u043D\\u0432. 1999\\u00A0\\u0433."), // 01: yMMM  -> LLL y
+        UnicodeString(u"\u044F\u043D\u0432. 1999\u202F\u0433.", -1),      // 01: yMMM  -> LLL y
         UnicodeString("13.01.1999"),                                      // 02: yMd   -> dd.MM.y
-        CharsToUnicodeString("13 \\u044F\\u043D\\u0432. 1999\\u00A0\\u0433."), // 03: yMMMd -> d MMM y
+        UnicodeString(u"13 \u044F\u043D\u0432. 1999\u202F\u0433.",-1),    // 03: yMMMd -> d MMM y
         UnicodeString("13.01"),                                           // 04: Md    -> dd.MM
         CharsToUnicodeString("13 \\u044F\\u043D\\u0432."),                // 05: MMMd  -> d MMM
         CharsToUnicodeString("13 \\u044F\\u043D\\u0432\\u0430\\u0440\\u044F"), // 06: MMMMd  -> d MMMM
-        CharsToUnicodeString("1-\\u0439 \\u043A\\u0432. 1999\\u00A0\\u0433."), // 07: yQQQ  -> y QQQ
-        CharsToUnicodeString("11:58 PM"),                                 // 08: hhmm  -> hh:mm a
+        UnicodeString(u"1-\u0439 \u043A\u0432. 1999\u202F\u0433.",-1),    // 07: yQQQ  -> y QQQ
+        UnicodeString(u"11:58\u202FPM", -1),                              // 08: hhmm  -> hh:mm a
         UnicodeString("23:58"),                                           // 09: HHmm  -> HH:mm
         UnicodeString("23:58"),                                           // 10: jjmm  -> HH:mm
         UnicodeString("58:59"),                                           // 11: mmss  -> mm:ss
-        CharsToUnicodeString("\\u044F\\u043D\\u0432\\u0430\\u0440\\u044C 1999\\u00A0\\u0433."), // 12: yyyyMMMM -> LLLL y
+        UnicodeString(u"\u044F\u043D\u0432\u0430\u0440\u044C 1999\u202F\u0433.",-1), // 12: yyyyMMMM -> LLLL y
+#if APPLE_ICU_CHANGES
+// rdar://
         CharsToUnicodeString("\\u0421\\u0440, 13 \\u044F\\u043D\\u0432."), // 13: MMMEd -> ccc, d MMM
         CharsToUnicodeString("\\u0421\\u0440, 13"),                       // 14: Ed    -> EEE, d
+#else
+        CharsToUnicodeString("\\u0441\\u0440, 13 \\u044F\\u043D\\u0432."), // 13: MMMEd -> ccc, d MMM
+        CharsToUnicodeString("\\u0441\\u0440, 13"),                       // 14: Ed    -> EEE, d
+#endif  // APPLE_ICU_CHANGES
         UnicodeString("23:58:59,123"),                                    // 15: jmmssSSS -> "H:mm:ss,SSS"
         UnicodeString("23:58"),                                           // 16: JJmm
     };
 
     UnicodeString patternResults_zh_chinese[] = {
         // zh@calendar=chinese                                            // 10 zh@calendar=chinese
+#if APPLE_ICU_CHANGES
+// rdar://
         CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u51AC\\u6708"),  // 00: yMMM
         CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u51AC\\u6708"),  // 01: yMMM
         CharsToUnicodeString("1998\\u5E74\\u51AC\\u670826"),              // 02: yMMMd
         CharsToUnicodeString("1998\\u5E74\\u51AC\\u670826"),              // 03: yMMMd
-        UnicodeString("11-26"),                                           // 04: Md
+#else
+        CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u5341\\u4E00\\u6708"), // 00: yMMM
+        CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u5341\\u4E00\\u6708"), // 01: yMMM
+        CharsToUnicodeString("1998\\u5E74\\u5341\\u4E00\\u670826"),             // 02: yMMMd
+        CharsToUnicodeString("1998\\u5E74\\u5341\\u4E00\\u670826"),             // 03: yMMMd
+#endif  // APPLE_ICU_CHANGES
+        UnicodeString("11-26"),                                                 // 04: Md
+#if APPLE_ICU_CHANGES
+// rdar://
         CharsToUnicodeString("\\u51AC\\u670826"),                         // 05: MMMd
         CharsToUnicodeString("\\u51AC\\u670826"),                         // 06: MMMMd
+#else
+        CharsToUnicodeString("\\u5341\\u4E00\\u670826\\u65E5"),                 // 05: MMMd
+        CharsToUnicodeString("\\u5341\\u4E00\\u670826\\u65E5"),                 // 06: MMMMd
+#endif  // APPLE_ICU_CHANGES
         CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u7b2c\\u56db\\u5B63\\u5EA6"),  // 07: yQQQ
-        CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 08: hhmm
-        UnicodeString("23:58"),                                           // 09: HHmm
-        CharsToUnicodeString("23:58"),                                    // 10: jjmm
-        UnicodeString("58:59"),                                           // 11: mmss
-        CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u51AC\\u6708"),  // 12: yyyyMMMM
-        CharsToUnicodeString("\\u51AC\\u670826\\u5468\\u4E09"),           // 13: MMMEd
-        CharsToUnicodeString("26\\u5468\\u4E09"),                         // 14: Ed -> dEEE
-        CharsToUnicodeString("23:58:59.123"),                             // 15: jmmssSS
-        UnicodeString("23:58"),                                           // 16: JJmm
+        CharsToUnicodeString("\\u4E0B\\u534811:58"),                            // 08: hhmm
+        UnicodeString("23:58"),                                                 // 09: HHmm
+        CharsToUnicodeString("23:58"),                                          // 10: jjmm
+        UnicodeString("58:59"),                                                 // 11: mmss
+#if APPLE_ICU_CHANGES
+// rdar://
+        CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u51AC\\u6708"),        // 12: yyyyMMMM
+        CharsToUnicodeString("\\u51AC\\u670826\\u5468\\u4E09"),                 // 13: MMMEd
+        CharsToUnicodeString("26\\u5468\\u4E09"),                               // 14: Ed -> dEEE
+#else
+        CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u5341\\u4E00\\u6708"), // 12: yyyyMMMM
+        CharsToUnicodeString("\\u5341\\u4E00\\u670826\\u65E5\\u5468\\u4E09"),   // 13: MMMEd
+        CharsToUnicodeString("26\\u65E5\\u5468\\u4E09"),                        // 14: Ed    -> d\u65E5EEE
+#endif  // APPLE_ICU_CHANGES
+        CharsToUnicodeString("23:58:59.123"),                                   // 15: jmmssSS
+        UnicodeString("23:58"),                                                 // 16: JJmm
     };
 
     UnicodeString patternResults_ja_jp_traditional[] = { // 11
         // ja_JP_TRADITIONAL                 // 11 ja_JP_TRADITIONAL
+#if APPLE_ICU_CHANGES
+// rdar://
         u"AD1999/01",                        // 00: yM
+#else
+        u"AD1999/1",                         // 00: yM
+#endif  // APPLE_ICU_CHANGES
         u"西暦1999年1月",                     // 01: yMMM
         u"1999年1月13日",                     // 02: yMd
         u"西暦1999年1月13日",                  // 03: yMMMd
@@ -351,6 +490,8 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         u"23:58",                            // 16: JJmm
     };
 
+#if APPLE_ICU_CHANGES
+// rdar://
     UnicodeString patternResults_zh_chinese_hanidays[] = { // 12 Apple add
         // zh@calendar=chinese,numbers=hanidays                           // 10 zh@calendar=chinese,numbers=hanidays
         CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u51AC\\u6708"),  // 00: yMMM
@@ -378,7 +519,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         CharsToUnicodeString("\\u064A\\u0646\\u0627\\u064A\\u0631 \\u0661\\u0669\\u0669\\u0669"),                       // 01: yMMM
         CharsToUnicodeString("\\u0661\\u0663\\u200F/\\u0661\\u200F/\\u0661\\u0669\\u0669\\u0669"),                      // 02: yMd
         CharsToUnicodeString("\\u0661\\u0663 \\u064A\\u0646\\u0627\\u064A\\u0631\\u060C \\u0661\\u0669\\u0669\\u0669"), // 03: yMMMd
-        CharsToUnicodeString("\\u0661\\u0663/\\u200F\\u0661"),                                                          // 04: Md
+        CharsToUnicodeString("\\u0661\\u0663\\u200F/\\u0661"),                                                          // 04: Md
         CharsToUnicodeString("\\u0661\\u0663 \\u064A\\u0646\\u0627\\u064A\\u0631"),                                     // 05: MMMd
         CharsToUnicodeString("\\u0661\\u0663 \\u064A\\u0646\\u0627\\u064A\\u0631"),                                     // 06: MMMMd
         CharsToUnicodeString("\\u0627\\u0644\\u0631\\u0628\\u0639 \\u0627\\u0644\\u0623\\u0648\\u0644 \\u0661\\u0669\\u0669\\u0669"), // 07: yQQQ
@@ -403,16 +544,17 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         u"13 Jan",                           // 05: MMMd
         u"13 January",                       // 06: MMMMd
         u"Q1 2542 BE",                       // 07: yQQQ
-        u"11.58 PM",                         // 08: hhmm
+        u"11.58\u202FPM",                    // 08: hhmm
         u"23.58",                            // 09: HHmm
         u"23.58",                            // 10: jjmm
         u"58.59",                            // 11: mmss
         u"January 2542 BE",                  // 12: yyyyMMMM
         u"Wed, 13 Jan",                      // 13: MMMEd
-        u"Wed 13",                           // 14: Ed
+        u"Wed, 13",                          // 14: Ed
         u"23.58.59,123",                     // 15: jmmssSSS
         u"23.58",                            // 16: JJmm
     };
+#endif  // APPLE_ICU_CHANGES
 
     UnicodeString* patternResults[] = {
         patternResults_en_US, // 0
@@ -427,9 +569,12 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         patternResults_ru, // 9
         patternResults_zh_chinese, // 10
         patternResults_ja_jp_traditional, // 11
+#if APPLE_ICU_CHANGES
+// rdar://
         patternResults_zh_chinese_hanidays, // 12 Apple add
         patternResults_ar, // 13 Apple add
         patternResults_en_ID_buddhist, // 14 Apple add
+#endif  // APPLE_ICU_CHANGES
     };
 
     UnicodeString patternTests2[] = {
@@ -467,15 +612,28 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("O 14, 1999"),
         UnicodeString("T, O 14"),
         UnicodeString("Oct 14"),
-        UnicodeString("Oct 14 at 6:58 AM"),
-        UnicodeString("Thu, Oct 14 at 6:58:59 AM"),
-        UnicodeString("10/14, 6:58 AM"),
-        UnicodeString("Thursday, Oct 14 at 6:58:59 AM"),
-        UnicodeString("Oct 14, 1999 at 6:58:59 AM"),
-        UnicodeString("Thu, Oct 14, 1999 at 6:58:59 AM"),
-        UnicodeString("6:58 AM"),
-        UnicodeString("6:58 AM"),
-        UnicodeString("6:58 AM GMT"),
+#if APPLE_ICU_CHANGES
+// rdar://
+        UnicodeString("Oct 14 at 6:58\u202FAM"),
+        UnicodeString("Thu, Oct 14 at 6:58:59\u202FAM"),
+#else
+        UnicodeString(u"Oct 14, 6:58\u202FAM", -1),
+        UnicodeString(u"Thu, Oct 14, 6:58:59\u202FAM", -1),
+#endif  // APPLE_ICU_CHANGES
+        UnicodeString(u"10/14, 6:58\u202FAM", -1),
+#if APPLE_ICU_CHANGES
+// rdar://
+        UnicodeString("Thursday, Oct 14 at 6:58:59\u202FAM"),
+        UnicodeString("Oct 14, 1999 at 6:58:59\u202FAM"),
+        UnicodeString("Thu, Oct 14, 1999 at 6:58:59\u202FAM"),
+#else
+        UnicodeString(u"Thursday, Oct 14, 6:58:59\u202FAM", -1),
+        UnicodeString(u"Oct 14, 1999, 6:58:59\u202FAM", -1),
+        UnicodeString(u"Thu, Oct 14, 1999, 6:58:59\u202FAM", -1),
+#endif  // APPLE_ICU_CHANGES
+        UnicodeString(u"6:58\u202FAM", -1),
+        UnicodeString(u"6:58\u202FAM", -1),
+        UnicodeString(u"6:58\u202FAM GMT", -1),
         UnicodeString(""),
     };
 
@@ -736,7 +894,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
          // Trac# 6172 duplicate time pattern
          status = U_ZERO_ERROR;
          pattern = UnicodeString("hmv");
-         UnicodeString expR = UnicodeString("h:mm a v"); // avail formats has hm -> "h:mm a" (fixed expected result per ticket:6626:)
+         UnicodeString expR = UnicodeString(u"h:mm\u202Fa v", -1);
          Locale loc("en");
          DateTimePatternGenerator *patGen=DateTimePatternGenerator::createInstance(loc, status);
          if(U_FAILURE(status)) {
@@ -989,48 +1147,62 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
 typedef struct DTPtnGenOptionsData {
     const char *locale;
     const char *skel;
-    const char *expectedPattern;
+    const UChar *expectedPattern;
     UDateTimePatternMatchOptions    options;
 } DTPtnGenOptionsData;
 void IntlTestDateTimePatternGeneratorAPI::testOptions(/*char *par*/)
 {
     DTPtnGenOptionsData testData[] = {
-    //   locale  skel   expectedPattern     options
-        { "en", "Hmm",  "HH:mm",   UDATPG_MATCH_NO_OPTIONS        },
-        { "en", "HHmm", "HH:mm",   UDATPG_MATCH_NO_OPTIONS        },
-        { "en", "hhmm", "h:mm a",  UDATPG_MATCH_NO_OPTIONS        },
-        { "en", "Hmm",  "HH:mm",   UDATPG_MATCH_HOUR_FIELD_LENGTH },
-        { "en", "HHmm", "HH:mm",   UDATPG_MATCH_HOUR_FIELD_LENGTH },
-        { "en", "hhmm", "hh:mm a", UDATPG_MATCH_HOUR_FIELD_LENGTH },
-        { "da", "Hmm",  "HH.mm",   UDATPG_MATCH_NO_OPTIONS        },
-        { "da", "HHmm", "HH.mm",   UDATPG_MATCH_NO_OPTIONS        },
-        { "da", "hhmm", "h.mm a",  UDATPG_MATCH_NO_OPTIONS        },
-        { "da", "Hmm",  "H.mm",    UDATPG_MATCH_HOUR_FIELD_LENGTH },
-        { "da", "HHmm", "HH.mm",   UDATPG_MATCH_HOUR_FIELD_LENGTH },
-        { "da", "hhmm", "hh.mm a", UDATPG_MATCH_HOUR_FIELD_LENGTH },
+    //   locale  skel   expectedPattern  options
+        { "en", "Hmm",  u"HH:mm",        UDATPG_MATCH_NO_OPTIONS        },
+        { "en", "HHmm", u"HH:mm",        UDATPG_MATCH_NO_OPTIONS        },
+        { "en", "hhmm", u"h:mm\u202Fa",  UDATPG_MATCH_NO_OPTIONS        },
+        { "en", "Hmm",  u"HH:mm",        UDATPG_MATCH_HOUR_FIELD_LENGTH },
+        { "en", "HHmm", u"HH:mm",        UDATPG_MATCH_HOUR_FIELD_LENGTH },
+        { "en", "hhmm", u"hh:mm\u202Fa", UDATPG_MATCH_HOUR_FIELD_LENGTH },
+        { "da", "Hmm",  u"HH.mm",        UDATPG_MATCH_NO_OPTIONS        },
+        { "da", "HHmm", u"HH.mm",        UDATPG_MATCH_NO_OPTIONS        },
+        { "da", "hhmm", u"h.mm\u202Fa",  UDATPG_MATCH_NO_OPTIONS        },
+        { "da", "Hmm",  u"H.mm",         UDATPG_MATCH_HOUR_FIELD_LENGTH },
+        { "da", "HHmm", u"HH.mm",        UDATPG_MATCH_HOUR_FIELD_LENGTH },
+        { "da", "hhmm", u"hh.mm\u202Fa", UDATPG_MATCH_HOUR_FIELD_LENGTH },
         //
-        { "en",                   "yyyy",  "yyyy",  UDATPG_MATCH_NO_OPTIONS },
-        { "en",                   "YYYY",  "YYYY",  UDATPG_MATCH_NO_OPTIONS },
-        { "en",                   "U",     "y",     UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=japanese", "yyyy",  "G y",   UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=japanese", "YYYY",  "G Y",   UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=japanese", "U",     "G y",   UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=chinese",  "yyyy",  "r(U)",  UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=chinese",  "YYYY",  "Y(Y)",  UDATPG_MATCH_NO_OPTIONS }, // not a good result, want r(Y) or r(U)
-        { "en@calendar=chinese",  "U",     "r(U)",     UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=chinese",  "Gy",    "r(U)",     UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=chinese",  "GU",    "r(U)",     UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=chinese",  "ULLL",  "MMM U",    UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=chinese",  "yMMM",  "MMM r",    UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=chinese",  "GUMMM", "MMM r",    UDATPG_MATCH_NO_OPTIONS },
-        { "zh@calendar=chinese",  "yyyy",  "U\\u5E74",     UDATPG_MATCH_NO_OPTIONS },
-        { "zh@calendar=chinese",  "YYYY",  "Y\\u5E74",     UDATPG_MATCH_NO_OPTIONS }, // not a great result, may want r(Y) or r(U)
-        { "zh@calendar=chinese",  "U",     "U\\u5E74",     UDATPG_MATCH_NO_OPTIONS },
-        { "zh@calendar=chinese",  "Gy",    "rU\\u5E74",    UDATPG_MATCH_NO_OPTIONS },
-        { "zh@calendar=chinese",  "GU",    "rU\\u5E74",    UDATPG_MATCH_NO_OPTIONS },
-        { "zh@calendar=chinese",  "ULLL",  "U\\u5E74MMM",  UDATPG_MATCH_NO_OPTIONS },
-        { "zh@calendar=chinese",  "yMMM",  "rU\\u5E74MMM", UDATPG_MATCH_NO_OPTIONS },
-        { "zh@calendar=chinese",  "GUMMM", "rU\\u5E74MMM", UDATPG_MATCH_NO_OPTIONS },
+        { "en",                   "yyyy",  u"yyyy",  UDATPG_MATCH_NO_OPTIONS },
+        { "en",                   "YYYY",  u"YYYY",  UDATPG_MATCH_NO_OPTIONS },
+        { "en",                   "U",     u"y",     UDATPG_MATCH_NO_OPTIONS },
+#if APPLE_ICU_CHANGES
+// rdar://
+        { "en@calendar=japanese", "yyyy",  u"G y",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=japanese", "YYYY",  u"G Y",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=japanese", "U",     u"G y",   UDATPG_MATCH_NO_OPTIONS },
+#else
+        { "en@calendar=japanese", "yyyy",  u"y G",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=japanese", "YYYY",  u"Y G",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=japanese", "U",     u"y G",   UDATPG_MATCH_NO_OPTIONS },
+#endif  // APPLE_ICU_CHANGES
+        { "en@calendar=chinese",  "yyyy",  u"r(U)",  UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=chinese",  "YYYY",  u"Y(Y)",  UDATPG_MATCH_NO_OPTIONS }, // not a good result, want r(Y) or r(U)
+        { "en@calendar=chinese",  "U",     u"r(U)",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=chinese",  "Gy",    u"r(U)",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=chinese",  "GU",    u"r(U)",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=chinese",  "ULLL",  u"MMM U",  UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=chinese",  "yMMM",  u"MMM r",  UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=chinese",  "GUMMM", u"MMM r",  UDATPG_MATCH_NO_OPTIONS },
+#if APPLE_ICU_CHANGES
+// rdar://
+        { "zh@calendar=chinese",  "yyyy",  u"U年",    UDATPG_MATCH_NO_OPTIONS },
+        { "zh@calendar=chinese",  "YYYY",  u"Y年",    UDATPG_MATCH_NO_OPTIONS }, // not a good result, may want r(Y) or r(U)
+        { "zh@calendar=chinese",  "U",     u"U年",    UDATPG_MATCH_NO_OPTIONS },
+#else
+        { "zh@calendar=chinese",  "yyyy",  u"rU年",    UDATPG_MATCH_NO_OPTIONS },
+        { "zh@calendar=chinese",  "YYYY",  u"YY年",    UDATPG_MATCH_NO_OPTIONS }, // not a good result, may want r(Y) or r(U)
+        { "zh@calendar=chinese",  "U",     u"rU年",    UDATPG_MATCH_NO_OPTIONS },
+#endif  // APPLE_ICU_CHANGES
+        { "zh@calendar=chinese",  "Gy",    u"rU年",    UDATPG_MATCH_NO_OPTIONS },
+        { "zh@calendar=chinese",  "GU",    u"rU年",    UDATPG_MATCH_NO_OPTIONS },
+        { "zh@calendar=chinese",  "ULLL",  u"U年MMM",  UDATPG_MATCH_NO_OPTIONS },
+        { "zh@calendar=chinese",  "yMMM",  u"rU年MMM", UDATPG_MATCH_NO_OPTIONS },
+        { "zh@calendar=chinese",  "GUMMM", u"rU年MMM", UDATPG_MATCH_NO_OPTIONS },
     };
 
     int count = UPRV_LENGTHOF(testData);
@@ -1041,7 +1213,7 @@ void IntlTestDateTimePatternGeneratorAPI::testOptions(/*char *par*/)
 
         Locale locale(testDataPtr->locale);
         UnicodeString skel(testDataPtr->skel);
-        UnicodeString expectedPattern(UnicodeString(testDataPtr->expectedPattern).unescape());
+        UnicodeString expectedPattern(testDataPtr->expectedPattern, -1);
         UDateTimePatternMatchOptions options = testDataPtr->options;
 
         DateTimePatternGenerator * dtpgen = DateTimePatternGenerator::createInstance(locale, status);
@@ -1179,7 +1351,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAllFieldPatterns(/*char *par*/)
                         // test that resulting pattern has at least one char in mustIncludeOneOf
                         UnicodeString mustIncludeOneOf(testDataPtr->mustIncludeOneOf, -1, US_INV);
                         int32_t patIndx, patLen = pattern.length();
-                        UBool inQuoted = FALSE;
+                        UBool inQuoted = false;
                         for (patIndx = 0; patIndx < patLen; patIndx++) {
                             UChar c = pattern.charAt(patIndx);
                             if (c == 0x27) {
@@ -1241,13 +1413,13 @@ void IntlTestDateTimePatternGeneratorAPI::testC() {
             {"de",     "CCm",     "HH:mm"},
             {"de",     "CCCm",    "HH:mm"},
             {"de",     "CCCCm",   "HH:mm"},
-            {"en",     "Cm",      "h:mm a"},
-            {"en",     "CCm",     "hh:mm a"},
-            {"en",     "CCCm",    "h:mm aaaa"},
-            {"en",     "CCCCm",   "hh:mm aaaa"},
-            {"en",     "CCCCCm",  "h:mm aaaaa"},
-            {"en",     "CCCCCCm", "hh:mm aaaaa"},
-            {"en-BN",  "Cm",      "h:mm b"},
+            {"en",     "Cm",      "h:mm\\u202Fa"},
+            {"en",     "CCm",     "hh:mm\\u202Fa"},
+            {"en",     "CCCm",    "h:mm\\u202Faaaa"},
+            {"en",     "CCCCm",   "hh:mm\\u202Faaaa"},
+            {"en",     "CCCCCm",  "h:mm\\u202Faaaaa"},
+            {"en",     "CCCCCCm", "hh:mm\\u202Faaaaa"},
+            {"en-BN",  "Cm",      "h:mm\\u202Fb"},
             {"gu-IN",  "Cm",      "h:mm B"},
             {"und-IN", "Cm",      "h:mm B"}
     };
@@ -1263,7 +1435,7 @@ void IntlTestDateTimePatternGeneratorAPI::testC() {
         }
         UDateTimePatternMatchOptions options = UDATPG_MATCH_HOUR_FIELD_LENGTH;
         UnicodeString pattern = gen->getBestPattern(tests[i][1], options, status);
-        UnicodeString expectedPattern = tests[i][2];
+        UnicodeString expectedPattern = UnicodeString(tests[i][2]).unescape();
 
         char message[100] = "\0";
         strcat(message, tests[i][0]);
@@ -1325,7 +1497,7 @@ void IntlTestDateTimePatternGeneratorAPI::testSkeletonsWithDayPeriods() {
         int32_t i, len = UPRV_LENGTHOF(patterns);
         for (i = 0; i < len; i++) {
             UnicodeString conflictingPattern;
-            (void)gen->addPattern(UnicodeString(patterns[i]), TRUE, conflictingPattern, status);
+            (void)gen->addPattern(UnicodeString(patterns[i]), true, conflictingPattern, status);
             if (U_FAILURE(status)) {
                 errln("ERROR: addPattern %s fail, status: %s", patterns[i], u_errorName(status));
                 break;
@@ -1490,10 +1662,15 @@ void IntlTestDateTimePatternGeneratorAPI::test20640_HourCyclArsEnNH() {
     } cases[] = {
         // ars is interesting because it does not have a region, but it aliases
         // to ar_SA, which has a region.
+#if APPLE_ICU_CHANGES
+// rdar://
         {"ars", u"h\u00A0a", u"h:mm\u00A0a", UDAT_HOUR_CYCLE_12},
+#else
+        {"ars", u"h a", u"h:mm a", UDAT_HOUR_CYCLE_12},
+#endif  // APPLE_ICU_CHANGES
         // en_NH is interesting because NH is a deprecated region code;
         // formerly New Hebrides, now Vanuatu => VU => h.
-        {"en_NH", u"h a", u"h:mm a", UDAT_HOUR_CYCLE_12},
+        {"en_NH", u"h\u202Fa", u"h:mm\u202Fa", UDAT_HOUR_CYCLE_12},
         // ch_ZH is a typo (should be zh_CN), but we should fail gracefully.
         {"cn_ZH", u"HH", u"HH:mm", UDAT_HOUR_CYCLE_23 }, // Desired & now actual behavior (does this fix ICU-20653?)
         // a non-BCP47 locale without a country code should not fail
@@ -1666,12 +1843,19 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
         // ICU-21428: Bad patterns for nonstandard calendars
         { "en_GB",                   "yMd", u"dd/MM/y"          },
         { "en_GB@calendar=coptic",   "yMd", u"dd/MM/y GGGGG"    },
+#if APPLE_ICU_CHANGES
+// rdar://
         { "en_GB@calendar=japanese", "yMd", u"dd/MM/GGGGGy"    },
+#else
+        { "en_GB@calendar=japanese", "yMd", u"dd/MM/y GGGGG"    },
+#endif  // APPLE_ICU_CHANGES
         { "en_GB@calendar=buddhist", "yMd", u"dd/MM/y GGGGG"    },
         // ICU-20992: Bad patterns for missing fields
         { "ckb_IR",     "mmSSS",       u"mm:ss\u066bSSS"     },
+#if APPLE_ICU_CHANGES
+// rdar://
         { "ckb_IR",     "BSSS",        u"SSS \u251C'\u067E.\u0646/\u062F.\u0646': B\u2524" },
-        // Apple rdar://71721198: Space before day of week in some zh_Hant patterns
+        // rdar://71721198: Space before day of week in some zh_Hant patterns
         { "zh_Hant",    "MMMEd",       u"M\u6708d\u65E5 EEE"         },
         { "zh_Hant_HK", "MMMEd",       u"M\u6708d\u65E5 EEE"         },
         { "zh_Hant",    "GyMMMEd",     u"Gy\u5E74M\u6708d\u65E5 EEE" },
@@ -1680,17 +1864,20 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
         { "zh_Hant_HK", "yMMMEd",      u"y\u5E74M\u6708d\u65E5 EEE"  },
         { "zh_Hant",    "full",        u"y\u5E74M\u6708d\u65E5 EEEE" },
         { "zh_Hant_HK", "full",        u"y\u5E74M\u6708d\u65E5 EEEE" },
-        // Apple rdar://90816171: Day format consistency for different calendars in vi
+        // rdar://90816171: Day format consistency for different calendars in vi
         { "vi",                   "Ed", u"EEE, d" },
         { "vi@calendar=buddhist", "Ed", u"EEE, d" },
         { "vi@calendar=islamic",  "Ed", u"EEE, d" },
         { "vi",                   "d",  u"d"      },
         { "vi@calendar=buddhist", "d",  u"d"      },
         { "vi@calendar=islamic",  "d",  u"d"      },
-        // Apple rdar://98584839: Weird en_US day+date pattern
+        // rdar://98584839: Weird en_US day+date pattern
         { "en",         "EEEd",        u"EEE d" }, // the case that was failing
         { "en_GB",      "EEEd",        u"EEE d" }, // the cases that were succeeding (and that we want to match)
         { "en_CA",      "EEEd",        u"EEE d" },
+#else
+        { "ckb_IR",     "BSSS",        u"SSS \u251c'Dayperiod': B\u2524" },
+#endif  // APPLE_ICU_CHANGES
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
@@ -1732,15 +1919,25 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
     // The following tests some locales in which there are differences between the
     // DateTimePatterns of various length styles.
     DTPLocaleAndResults localeAndResults[] = {
-        { "en", { UnicodeString(u"EEEE, MMMM d, y 'at' h:mm a"), // long != medium
-                  UnicodeString(u"MMMM d, y 'at' h:mm a"),
-                  UnicodeString(u"MMM d, y 'at' h:mm a"),
-                  UnicodeString(u"M/d/y, h:mm a") } },
-        { "fr", { UnicodeString(u"EEEE d MMMM y à HH:mm"), // medium != short
-                  UnicodeString(u"d MMMM y à HH:mm"),
-                  UnicodeString(u"d MMM y à HH:mm"),
+        { "en", { UnicodeString(u"EEEE, MMMM d, y 'at' h:mm\u202Fa"), // long != medium
+                  UnicodeString(u"MMMM d, y 'at' h:mm\u202Fa"),
+#if APPLE_ICU_CHANGES
+// rdar://
+                  UnicodeString(u"MMM d, y 'at' h:mm\u202Fa"),
+#else
+                  UnicodeString(u"MMM d, y, h:mm\u202Fa"),
+#endif  // APPLE_ICU_CHANGES
+                  UnicodeString(u"M/d/y, h:mm\u202Fa") } },
+        { "fr", { UnicodeString(u"EEEE d MMMM y 'à' HH:mm"), // medium != short
+                  UnicodeString(u"d MMMM y 'à' HH:mm"),
+ #if APPLE_ICU_CHANGES
+// rdar://
+                 UnicodeString(u"d MMM y 'à' HH:mm"),
+#else
+                 UnicodeString(u"d MMM y, HH:mm"),
+#endif  // APPLE_ICU_CHANGES
                   UnicodeString(u"dd/MM/y HH:mm") } },
-        { "ha", { UnicodeString(u"EEEE d MMMM, y HH:mm"), // full != long
+        { "ha", { UnicodeString(u"EEEE d MMMM, y 'da' HH:mm"),
                   UnicodeString(u"d MMMM, y 'da' HH:mm"),
                   UnicodeString(u"d MMM, y, HH:mm"),
                   UnicodeString(u"y-MM-dd, HH:mm") } },
@@ -1751,7 +1948,12 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
     UnicodeString enDTPatterns[kNumDateTimePatterns] = {
         UnicodeString(u"{1} 'at' {0}"),
         UnicodeString(u"{1} 'at' {0}"),
+#if APPLE_ICU_CHANGES
+// rdar://
         UnicodeString(u"{1} 'at' {0}"),
+#else
+        UnicodeString(u"{1}, {0}"),
+#endif  // APPLE_ICU_CHANGES
         UnicodeString(u"{1}, {0}")
     };
     UnicodeString modDTPatterns[kNumDateTimePatterns] = {
@@ -1760,10 +1962,10 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
         UnicodeString(u"{1} _2_ {0}"),
         UnicodeString(u"{1} _3_ {0}")
     };
-    DTPLocaleAndResults enModResults = { "en", { UnicodeString(u"EEEE, MMMM d, y _0_ h:mm a"),
-                                                 UnicodeString(u"MMMM d, y _1_ h:mm a"),
-                                                 UnicodeString(u"MMM d, y _2_ h:mm a"),
-                                                 UnicodeString(u"M/d/y _3_ h:mm a") }
+    DTPLocaleAndResults enModResults = { "en", { UnicodeString(u"EEEE, MMMM d, y _0_ h:mm\u202Fa"),
+                                                 UnicodeString(u"MMMM d, y _1_ h:mm\u202Fa"),
+                                                 UnicodeString(u"MMM d, y _2_ h:mm\u202Fa"),
+                                                 UnicodeString(u"M/d/y _3_ h:mm\u202Fa") }
     };
 
     // Test various locales with standard data
@@ -1850,6 +2052,34 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
     }
 }
 
+void IntlTestDateTimePatternGeneratorAPI::testRegionOverride() {
+    const struct TestCase {
+        const char* locale;
+        const UChar* expectedPattern;
+        UDateFormatHourCycle expectedHourCycle;
+    } testCases[] = {
+        { "en_US",           u"h:mm\u202fa", UDAT_HOUR_CYCLE_12 },
+        { "en_GB",           u"HH:mm",       UDAT_HOUR_CYCLE_23 },
+        { "en_US@rg=GBZZZZ", u"HH:mm",       UDAT_HOUR_CYCLE_23 },
+        { "en_US@hours=h23", u"HH:mm",       UDAT_HOUR_CYCLE_23 },
+    };
+
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        LocalPointer<DateTimePatternGenerator> dtpg(DateTimePatternGenerator::createInstance(testCases[i].locale, err));
+        
+        if (assertSuccess("Error creating dtpg", err)) {
+            UDateFormatHourCycle actualHourCycle = dtpg->getDefaultHourCycle(err);
+            UnicodeString actualPattern = dtpg->getBestPattern(u"jmm", err);
+            
+            if (assertSuccess("Error using dtpg", err)) {
+                assertEquals("Wrong hour cycle", testCases[i].expectedHourCycle, actualHourCycle);
+                assertEquals("Wrong pattern", testCases[i].expectedPattern, actualPattern);
+            }
+        }
+    }
+}
+
 void IntlTestDateTimePatternGeneratorAPI::doDTPatternTest(DateTimePatternGenerator* dtpg, UnicodeString* skeletons, DTPLocaleAndResults* localeAndResultsPtr) {
     for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
         UErrorCode status = U_ZERO_ERROR;
@@ -1868,17 +2098,19 @@ void IntlTestDateTimePatternGeneratorAPI::doDTPatternTest(DateTimePatternGenerat
     }
 }
 
-// Apple rdar://78420184
+#if APPLE_ICU_CHANGES
+// rdar://
+// rdar://78420184
 void IntlTestDateTimePatternGeneratorAPI::testHorizontalInheritance() {
     static const char* testCases[] = {
         "en_DK@calendar=buddhist", "MMMd",    "d MMM",
         "en_DK@calendar=buddhist", "MMMEd",   "EEE, d MMM",
         "en_DK@calendar=buddhist", "GGGGGyM", "M y GGGGG",
-        "en_DK@calendar=buddhist", "h",       "h a",
+        "en_DK@calendar=buddhist", "h",       "h\\u202Fa",
         "en_DK@calendar=islamic",  "MMMd",    "d MMM",
         "en_DK@calendar=islamic",  "MMMEd",   "EEE, d MMM",
         "en_DK@calendar=islamic",  "GGGGGyM", "M y GGGGG",
-        "en_DK@calendar=islamic",  "h",       "h a",
+        "en_DK@calendar=islamic",  "h",       "h\\u202Fa",
         
         "en_IN@calendar=buddhist", "Ed",      "EEE d",
         "en_IN@calendar=islamic",  "Ed",      "EEE d",
@@ -1929,13 +2161,16 @@ void IntlTestDateTimePatternGeneratorAPI::testHorizontalInheritance() {
             errln("Failure for test case %s/%s: %s", localeID, skeleton, u_errorName(err));
         } else {
             char failureMessage[100];
+            UChar expected[32];
+            int32_t expLen = u_unescape(expectedPattern, expected, sizeof(expected));
             strcpy(failureMessage, "Wrong result for test case ");
             strcat(failureMessage, localeID);
             strcat(failureMessage, "/");
             strcat(failureMessage, skeleton);
-            assertEquals(failureMessage, UnicodeString(expectedPattern), actualPattern);
+            assertEquals(failureMessage, UnicodeString(expected, expLen), actualPattern);
         }
     }
 }
+#endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

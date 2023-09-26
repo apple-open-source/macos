@@ -289,9 +289,9 @@
 		</dict>
 	</dict>
 	<key>FSImplementation</key>
-	<array>
-		<string>kext</string>
-		<string>userfs</string>
-	</array>
+    <array>
+        <string>UserFS</string>
+        <string>kext</string>
+    </array>
 </dict>
 </plist>

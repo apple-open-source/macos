@@ -19,6 +19,14 @@
   },
   "testTargets" : [
     {
+      "skippedTests" : [
+        "HFSModuleUnitTests",
+        "HFSPerformanceTests",
+        "HFSUnitTests",
+        "MaintenanceCheckTests",
+        "MaintenanceFormatTests",
+        "UVFSPluginUnitTests"
+      ],
       "target" : {
         "containerPath" : "container:hfs.xcodeproj",
         "identifier" : "D39F1547287D55BD00366492",

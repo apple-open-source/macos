@@ -539,7 +539,7 @@ int secd_81_item_acl(int argc, char *const *argv)
 #endif
 
 #if LA_CONTEXT_IMPLEMENTED
-    SecItemServerResetKeychainKeybag();
+    SecItemServerSetKeychainKeybagToDefault();
 #endif
 
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);

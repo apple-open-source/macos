@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebCore/FrameLoaderClient.h>
+#import <WebCore/LocalFrameLoaderClient.h>
 #import <WebCore/Timer.h>
 #import <wtf/Forward.h>
 #import <wtf/HashMap.h>
@@ -50,13 +50,14 @@ class AuthenticationChallenge;
 class CachedFrame;
 class FragmentedSharedBuffer;
 class HistoryItem;
+class LocalFrame;
 class ProtectionSpace;
 class ResourceLoader;
 class ResourceRequest;
 class SharedBuffer;
 }
 
-class WebFrameLoaderClient : public WebCore::FrameLoaderClient, public CanMakeWeakPtr<WebFrameLoaderClient> {
+class WebFrameLoaderClient : public WebCore::LocalFrameLoaderClient, public CanMakeWeakPtr<WebFrameLoaderClient> {
 public:
     explicit WebFrameLoaderClient(WebFrame* = nullptr);
     ~WebFrameLoaderClient();
@@ -66,8 +67,6 @@ public:
 
 private:
     bool hasWebView() const final; // mainly for assertions
-
-    std::optional<WebCore::PageIdentifier> pageID() const final;
 
     void makeRepresentation(WebCore::DocumentLoader*) final;
     bool hasHTMLView() const final;
@@ -119,13 +118,13 @@ private:
     void dispatchDidStartProvisionalLoad() final;
     void dispatchDidReceiveTitle(const WebCore::StringWithDirection&) final;
     void dispatchDidCommitLoad(std::optional<WebCore::HasInsecureContent>, std::optional<WebCore::UsedLegacyTLS>, std::optional<WebCore::WasPrivateRelayed>) final;
-    void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&, WebCore::WillContinueLoading) final;
+    void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&, WebCore::WillContinueLoading, WebCore::WillInternallyHandleFailure) final;
     void dispatchDidFailLoad(const WebCore::ResourceError&) final;
     void dispatchDidFinishDocumentLoad() final;
     void dispatchDidFinishLoad() final;
     void dispatchDidReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone>) final;
 
-    WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&, WebCore::NewFrameOpenerPolicy) final;
+    WebCore::LocalFrame* dispatchCreatePage(const WebCore::NavigationAction&, WebCore::NewFrameOpenerPolicy) final;
     void dispatchShow() final;
 
     void dispatchDecidePolicyForResponse(const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, WebCore::PolicyCheckIdentifier, const String&, WebCore::FramePolicyFunction&&) final;
@@ -173,6 +172,7 @@ private:
 
     WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&) const final;
     WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&) const final;
+    WebCore::ResourceError httpsUpgradeRedirectLoopError(const WebCore::ResourceRequest&) const final;
     WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&) const final;
 
     bool shouldFallBack(const WebCore::ResourceError&) const final;
@@ -205,7 +205,7 @@ private:
 
     void setTitle(const WebCore::StringWithDirection&, const URL&) final;
 
-    RefPtr<WebCore::Frame> createFrame(const WTF::AtomString& name, WebCore::HTMLFrameOwnerElement&) final;
+    RefPtr<WebCore::LocalFrame> createFrame(const WTF::AtomString& name, WebCore::HTMLFrameOwnerElement&) final;
     RefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement&, const URL&,
     const Vector<WTF::AtomString>&, const Vector<WTF::AtomString>&, const WTF::String&, bool) final;
     void redirectDataToPlugin(WebCore::Widget&) final;
@@ -220,8 +220,11 @@ private:
 #endif
 
     RemoteAXObjectRef accessibilityRemoteObject() final { return 0; }
-    
-    RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::PolicyCheckIdentifier, WebCore::FramePolicyFunction&&, WebCore::PolicyAction defaultPolicy, NSURL *appLinkURL = nil);
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    void setAXIsolatedTreeRoot(WebCore::AXCoreObject*) final { }
+#endif
+
+    RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::PolicyCheckIdentifier, WebCore::FramePolicyFunction&&, WebCore::PolicyAction defaultPolicy, NSURL *appLinkURL, NSURL* referrerURL);
 
     NSDictionary *actionDictionary(const WebCore::NavigationAction&, WebCore::FormState*) const;
     

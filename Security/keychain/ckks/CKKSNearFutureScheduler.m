@@ -95,10 +95,29 @@
    dependencyDescriptionCode:(NSInteger)code
                        block:(void (^_Nonnull)(void))futureBlock
 {
+    return [self initWithName:name
+                 initialDelay:initialDelay
+           exponentialBackoff:backoff
+                 maximumDelay:maximumDelay keepProcessAlive:keepProcessAlive
+    dependencyDescriptionCode:code
+                     qosClass:QOS_CLASS_UNSPECIFIED
+                        block:futureBlock];
+}
+
+- (instancetype)initWithName:(NSString*)name
+                initialDelay:(dispatch_time_t)initialDelay
+          exponentialBackoff:(double)backoff
+                maximumDelay:(dispatch_time_t)maximumDelay
+            keepProcessAlive:(bool)keepProcessAlive
+   dependencyDescriptionCode:(NSInteger)code
+                    qosClass:(qos_class_t)qosClass
+                       block:(void (^_Nonnull)(void))futureBlock
+{
     if((self = [super init])) {
         _name = name;
 
-        _queue = dispatch_queue_create([[NSString stringWithFormat:@"near-future-scheduler-%@",name] UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        dispatch_queue_attr_t qos = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL, qosClass, 0);
+        _queue = dispatch_queue_create([[NSString stringWithFormat:@"near-future-scheduler-%@",name] UTF8String], qos);
         _initialDelay = initialDelay;
 
         _currentDelay = initialDelay;

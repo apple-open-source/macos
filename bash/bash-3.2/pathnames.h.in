@@ -27,6 +27,11 @@
 /* The default login shell startup file. */
 #define SYS_PROFILE "/etc/profile"
 
+#ifdef __APPLE__
+/* The name of the managed shell startup file */
+#define MANAGED_SYS_PROFILE "/private/var/db/ManagedConfigurationFiles/com.apple.bash/etc/profile"
+#endif
+
 /* The default location of the bash debugger initialization/startup file. */
 #define DEBUGGER_START_FILE	"@DEBUGGER_START_FILE@"
 

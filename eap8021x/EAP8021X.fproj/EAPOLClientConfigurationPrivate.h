@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2011, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,8 +68,9 @@ EAPOLClientItemIDRef
 EAPOLClientItemIDCreateWithDictionary(EAPOLClientConfigurationRef cfg,
 				      CFDictionaryRef dict);
 
-
+#if ! TARGET_OS_IPHONE
 OSStatus
 EAPOLClientSetACLForIdentity(SecIdentityRef identity);
+#endif /* ! TARGET_OS_IPHONE */
 
 #endif /* _EAP8021X_EAPOLCLIENTCONFIGURATIONPRIVATE_H */

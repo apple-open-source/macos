@@ -4,7 +4,9 @@
 /*
 **********************************************************************
 *   Legacy version of RBBISymbolTable and RBBIRuleBuilder from ICU 57,
-*   only for use by Apple RuleBasedTokenizer
+*   only for use by Apple RuleBasedTokenizer.
+*   originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+*   urbtok57 interfaces for access via RBT, and better tests
 **********************************************************************
 */
 

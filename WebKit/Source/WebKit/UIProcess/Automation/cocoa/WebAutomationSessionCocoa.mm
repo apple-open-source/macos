@@ -56,9 +56,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 
-std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(const ShareableBitmapHandle& imageDataHandle)
+std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(ShareableBitmap::Handle&& imageDataHandle)
 {
-    auto bitmap = ShareableBitmap::create(imageDataHandle, SharedMemory::Protection::ReadOnly);
+    auto bitmap = ShareableBitmap::create(WTFMove(imageDataHandle), SharedMemory::Protection::ReadOnly);
     if (!bitmap)
         return std::nullopt;
 
@@ -70,8 +70,8 @@ std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(cons
     auto* snapshotSurface = snapshot.surface();
     if (!snapshotSurface)
         return std::nullopt;
-
-    return getBase64EncodedPNGData(snapshotSurface->createImage());
+    auto context = snapshotSurface->createPlatformContext();
+    return getBase64EncodedPNGData(snapshotSurface->createImage(context.get()));
 }
 
 std::optional<String> WebAutomationSession::platformGenerateLocalFilePathForRemoteFile(const String& remoteFilePath, const String& base64EncodedFileContents)

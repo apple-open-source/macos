@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2007-2020
+ * Copyright (c) 1996, 1998-2005, 2007-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -51,10 +51,11 @@
 #endif
 
 // PVS Studio suppression
-// -V::519, 1004, 1037
+// -V::519, 547, 1004, 1037, 1048
 
 int sudolineno;			/* current sudoers line number. */
 char *sudoers;			/* sudoers file being parsed. */
+const char *sudoers_errstr;	/* description of last error from lexer. */
 struct sudolinebuf sudolinebuf;	/* sudoers line being parsed. */
 
 /* Default sudoers path, mode and owner (may be set via sudo.conf) */
@@ -69,6 +70,10 @@ static int digest_type = -1;
 
 static bool pop_include(void);
 static yy_size_t sudoers_input(char *buf, yy_size_t max_size);
+
+#ifndef TRACELEXER
+static struct sudo_lbuf trace_lbuf;
+#endif
 
 int (*trace_print)(const char *msg) = sudoers_trace_print;
 
@@ -97,6 +102,7 @@ HOSTNAME		[[:alnum:]_-]+
 WORD			([^#>!=:,\(\) \t\r\n\\\"]|\\[^\t\n])+
 ID			#-?[0-9]+
 PATH			\/(\\[\,:= \t#]|[^\,:=\\ \t\r\n#])+
+REGEX			\^([^#\r\n\$]|\\[#\$])*\$
 ENVAR			([^#!=, \t\r\n\\\"]|\\[^\r\n])([^#=, \t\r\n\\\"]|\\[^\r\n])*
 DEFVAR			[a-z_]+
 
@@ -107,6 +113,7 @@ DEFVAR			[a-z_]+
 
 %s	GOTDEFS
 %x	GOTCMND
+%x	GOTREGEX
 %x	STARTDEFS
 %x	INDEFS
 %x	INSTR
@@ -179,7 +186,7 @@ DEFVAR			[a-z_]+
 			    BEGIN prev_state;
 
 			    if (sudoerslval.string == NULL) {
-				sudoerserror(N_("empty string"));
+				sudoers_errstr = N_("empty string");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -189,7 +196,9 @@ DEFVAR			[a-z_]+
 				    if (sudoerslval.string[1] == '\0' ||
 					(sudoerslval.string[1] == ':' &&
 					sudoerslval.string[2] == '\0')) {
-					sudoerserror(N_("empty group"));
+					parser_leak_remove(LEAK_PTR, sudoerslval.string);
+					free(sudoerslval.string);
+					sudoers_errstr = N_("empty group");
 					LEXTRACE("ERROR ");
 					return ERROR;
 				    }
@@ -197,7 +206,9 @@ DEFVAR			[a-z_]+
 				    return USERGROUP;
 				case '+':
 				    if (sudoerslval.string[1] == '\0') {
-					sudoerserror(N_("empty netgroup"));
+					parser_leak_remove(LEAK_PTR, sudoerslval.string);
+					free(sudoerslval.string);
+					sudoers_errstr = N_("empty netgroup");
 					LEXTRACE("ERROR ");
 					return ERROR;
 				    }
@@ -223,7 +234,7 @@ DEFVAR			[a-z_]+
 }
 
 <GOTCMND>{
-    \\[\*\?\[\]\!]	{
+    \\[\*\?\[\]\!^]	{
 			    /* quoted fnmatch glob char, pass verbatim */
 			    LEXTRACE("QUOTEDCHAR ");
 			    if (!fill_args(sudoerstext, 2, sawspace))
@@ -247,11 +258,67 @@ DEFVAR			[a-z_]+
 			}			/* end of command line args */
 
     [^#\\:, \t\r\n]+ 	{
-			    LEXTRACE("ARG ");
-			    if (!fill_args(sudoerstext, sudoersleng, sawspace))
-				yyterminate();
-			    sawspace = false;
+			    if (sudoerslval.command.args == NULL && sudoerstext[0] == '^') {
+				LEXTRACE("ARG REGEX ");
+				BEGIN GOTREGEX;
+				sudoersless(0);
+				yy_set_bol(0);
+			    } else {
+				LEXTRACE("ARG ");
+				if (!fill_args(sudoerstext, sudoersleng, sawspace))
+				    yyterminate();
+				sawspace = false;
+			    }
 			}			/* a command line arg */
+}
+
+<GOTREGEX>{
+    \\[^\r\n]		{
+			    /* quoted character, pass verbatim */
+			    LEXTRACE("QUOTEDCHAR ");
+			    if (!fill_args(sudoerstext, 2, false))
+				yyterminate();
+			}
+
+    [#\r\n]		{
+			    /* Let the parser attempt to recover. */
+			    sudoersless(0);
+			    yy_set_bol(0);
+			    BEGIN INITIAL;
+
+			    sudoers_errstr = N_("unterminated regular expression");
+			    LEXTRACE("ERROR ");
+			    return ERROR;
+			}			/* illegal inside regex */
+
+    \$			{
+			    if (!fill_args("$", 1, false))
+				yyterminate();
+			    BEGIN INITIAL;
+			    continued = false;
+			    if (sudoers_strict) {
+				if (!sudo_regex_compile(NULL, sudoerstext, &sudoers_errstr)) {
+				    LEXTRACE("ERROR ");
+				    return ERROR;
+				}
+			    }
+			    return COMMAND;
+			}
+
+    [^#\\\r\n$]+ 	{
+			    if (continued) {
+				/* remove whitespace after line continuation */
+				while (isblank((unsigned char)*sudoerstext)) {
+				    sudoerstext++;
+				    sudoersleng--;
+				}
+				continued = false;
+			    }
+			    if (sudoersleng != 0) {
+				if (!fill_args(sudoerstext, sudoersleng, false))
+				    yyterminate();
+			    }
+			}
 }
 
 <WANTDIGEST>[[:xdigit:]]+ {
@@ -293,7 +360,7 @@ DEFVAR			[a-z_]+
 
 <INITIAL>@include	{
 			    if (continued) {
-				sudoerserror(N_("invalid line continuation"));
+				sudoers_errstr = N_("invalid line continuation");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -305,7 +372,7 @@ DEFVAR			[a-z_]+
 
 <INITIAL>@includedir	{
 			    if (continued) {
-				sudoerserror(N_("invalid line continuation"));
+				sudoers_errstr = N_("invalid line continuation");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -317,7 +384,7 @@ DEFVAR			[a-z_]+
 
 <INITIAL>^#include[[:blank:]]+.*(\r\n|\n)? {
 			    if (continued) {
-				sudoerserror(N_("invalid line continuation"));
+				sudoers_errstr = N_("invalid line continuation");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -333,7 +400,7 @@ DEFVAR			[a-z_]+
 
 <INITIAL>^#includedir[[:blank:]]+.*(\r\n|\n)? {
 			    if (continued) {
-				sudoerserror(N_("invalid line continuation"));
+				sudoers_errstr = N_("invalid line continuation");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -352,7 +419,7 @@ DEFVAR			[a-z_]+
 			    int n;
 
 			    if (continued) {
-				sudoerserror(N_("invalid line continuation"));
+				sudoers_errstr = N_("invalid line continuation");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -392,7 +459,7 @@ DEFVAR			[a-z_]+
 			    int n;
 
 			    if (continued) {
-				sudoerserror(N_("invalid line continuation"));
+				sudoers_errstr = N_("invalid line continuation");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -435,6 +502,16 @@ NOEXEC[[:blank:]]*:	{
 EXEC[[:blank:]]*:	{
 			    	LEXTRACE("EXEC ");
 			    	return EXEC;
+			}
+
+INTERCEPT[[:blank:]]*:	{
+			    	LEXTRACE("INTERCEPT ");
+			    	return INTERCEPT;
+			}
+
+NOINTERCEPT[[:blank:]]*: {
+			    	LEXTRACE("NOINTERCEPT ");
+			    	return NOINTERCEPT;
 			}
 
 SETENV[[:blank:]]*:	{
@@ -489,9 +566,9 @@ NOFOLLOW[[:blank:]]*:	{
 
 <INITIAL,GOTDEFS>(\+|\%|\%:) {
 			    if (sudoerstext[0] == '+')
-				sudoerserror(N_("empty netgroup"));
+				sudoers_errstr = N_("empty netgroup");
 			    else
-				sudoerserror(N_("empty group"));
+				sudoers_errstr = N_("empty group");
 			    LEXTRACE("ERROR ");
 			    return ERROR;
 			}
@@ -528,7 +605,7 @@ NOFOLLOW[[:blank:]]*:	{
 
 {IPV6ADDR}(\/{IPV6ADDR})? {
 			    if (!ipv6_valid(sudoerstext)) {
-				sudoerserror(N_("invalid IPv6 address"));
+				sudoers_errstr = N_("invalid IPv6 address");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -540,7 +617,7 @@ NOFOLLOW[[:blank:]]*:	{
 
 {IPV6ADDR}\/([0-9]|[1-9][0-9]|1[01][0-9]|12[0-8]) {
 			    if (!ipv6_valid(sudoerstext)) {
-				sudoerserror(N_("invalid IPv6 address"));
+				sudoers_errstr = N_("invalid IPv6 address");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -602,6 +679,14 @@ ALL {
 			    goto got_alias;
 #endif
 			}
+<INITIAL>APPARMOR_PROFILE {
+#ifdef HAVE_APPARMOR
+			    LEXTRACE("APPARMOR_PROFILE ");
+			    return APPARMOR_PROFILE;
+#else
+			    goto got_alias;
+#endif
+			}
 <INITIAL>PRIVS {
 #ifdef HAVE_PRIV_SET
 			    LEXTRACE("PRIVS ");
@@ -628,7 +713,7 @@ ALL {
 			    return ALIAS;
 			}
 
-<GOTDEFS>({PATH}|sudoedit) {
+<GOTDEFS>({PATH}|{REGEX}|sudoedit) {
 			    /* XXX - no way to specify digest for command */
 			    /* no command args allowed for Defaults!/path */
 			    if (!fill_cmnd(sudoerstext, sudoersleng))
@@ -665,6 +750,14 @@ sha512			{
 			    return SHA512_TOK;
 			}
 
+list			{
+			    /* No command line args. */
+			    LEXTRACE("COMMAND ");
+			    if (!fill_cmnd(sudoerstext, sudoersleng))
+				yyterminate();
+			    return COMMAND;
+			}			/* sudo -l -U otheruser */
+
 sudoedit		{
 			    BEGIN GOTCMND;
 			    LEXTRACE("COMMAND ");
@@ -693,6 +786,19 @@ sudoedit		{
 			    if (!fill_cmnd(sudoerstext, sudoersleng))
 				yyterminate();
 			}			/* a pathname */
+
+{REGEX}			{
+			    if (sudoers_strict) {
+				if (!sudo_regex_compile(NULL, sudoerstext, &sudoers_errstr)) {
+				    LEXTRACE("ERROR ");
+				    return ERROR;
+				}
+			    }
+			    BEGIN GOTCMND;
+			    LEXTRACE("COMMAND ");
+			    if (!fill_cmnd(sudoerstext, sudoersleng))
+				yyterminate();
+			}			/* a regex */
 
 <INITIAL,GOTDEFS>\"	{
 			    LEXTRACE("BEGINSTR ");
@@ -761,10 +867,13 @@ sudoedit		{
 
 <*>\r?\n		{
 			    if (YY_START == INSTR) {
+				/* throw away old string */
+				parser_leak_remove(LEAK_PTR, sudoerslval.string);
+				free(sudoerslval.string);
 				/* re-scan after changing state */
 				BEGIN INITIAL;
 				sudoersless(0);
-				sudoerserror(N_("unexpected line break in string"));
+				sudoers_errstr = N_("unexpected line break in string");
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -792,7 +901,7 @@ sudoedit		{
 				sudolineno++;
 				continued = false;
 			    } else if (!feof(sudoersin)) {
-				sudoerserror(strerror(errno));
+				sudoers_errstr = strerror(errno);
 				LEXTRACE("ERROR ");
 				return ERROR;
 			    }
@@ -853,6 +962,7 @@ read_dir_files(const char *dirpath, struct path_list ***pathsp)
     int max_paths = 32;
     struct dirent *dent;
     struct path_list **paths = NULL;
+    const size_t dirlen = strlen(dirpath);
     debug_decl(read_dir_files, SUDOERS_DEBUG_PARSER);
 
     dir = opendir(dirpath);
@@ -866,27 +976,32 @@ read_dir_files(const char *dirpath, struct path_list ***pathsp)
     if (paths == NULL)
 	goto oom;
     while ((dent = readdir(dir)) != NULL) {
+	const size_t namelen = NAMLEN(dent);
 	struct path_list *pl;
 	struct stat sb;
 	size_t len;
 	char *path;
 
 	/* Ignore files that end in '~' or have a '.' in them. */
-	if (dent->d_name[0] == '\0' || dent->d_name[NAMLEN(dent) - 1] == '~'
+	if (namelen == 0 || dent->d_name[namelen - 1] == '~'
 	    || strchr(dent->d_name, '.') != NULL) {
 	    continue;
 	}
-	len = strlen(dirpath) + 1 + NAMLEN(dent);
-	if ((path = rcstr_alloc(len)) == NULL)
+	len = dirlen + 1 + namelen;
+	if ((path = sudo_rcstr_alloc(len)) == NULL)
 	    goto oom;
-	(void)snprintf(path, len + 1, "%s/%s", dirpath, dent->d_name);
+	if ((size_t)snprintf(path, len + 1, "%s/%s", dirpath, dent->d_name) != len) {
+	    sudo_warnx(U_("internal error, %s overflow"), __func__);
+	    sudo_rcstr_delref(path);
+	    goto bad;
+	}
 	if (stat(path, &sb) != 0 || !S_ISREG(sb.st_mode)) {
-	    rcstr_delref(path);
+	    sudo_rcstr_delref(path);
 	    continue;
 	}
 	pl = malloc(sizeof(*pl));
 	if (pl == NULL) {
-	    rcstr_delref(path);
+	    sudo_rcstr_delref(path);
 	    goto oom;
 	}
 	pl->path = path;
@@ -895,7 +1010,7 @@ read_dir_files(const char *dirpath, struct path_list ***pathsp)
 	    max_paths <<= 1;
 	    tmp = reallocarray(paths, max_paths, sizeof(*paths));
 	    if (tmp == NULL) {
-		rcstr_delref(path);
+		sudo_rcstr_delref(path);
 		free(pl);
 		goto oom;
 	    }
@@ -918,7 +1033,7 @@ bad:
     if (dir != NULL)
 	closedir(dir);
     for (i = 0; i < count; i++) {
-	rcstr_delref(paths[i]->path);
+	sudo_rcstr_delref(paths[i]->path);
 	free(paths[i]);
     }
     free(paths);
@@ -964,14 +1079,19 @@ init_lexer(void)
     struct path_list *pl;
     debug_decl(init_lexer, SUDOERS_DEBUG_PARSER);
 
+#ifndef TRACELEXER
+    free(trace_lbuf.buf);
+    sudo_lbuf_init(&trace_lbuf, NULL, 0, NULL, 0);
+#endif
+
     while (idepth) {
 	idepth--;
 	while ((pl = SLIST_FIRST(&istack[idepth].more)) != NULL) {
 	    SLIST_REMOVE_HEAD(&istack[idepth].more, entries);
-	    rcstr_delref(pl->path);
+	    sudo_rcstr_delref(pl->path);
 	    free(pl);
 	}
-	rcstr_delref(istack[idepth].path);
+	sudo_rcstr_delref(istack[idepth].path);
 	if (idepth && !istack[idepth].keepopen)
 	    fclose(istack[idepth].bs->yy_input_file);
 	sudoers_delete_buffer(istack[idepth].bs);
@@ -988,6 +1108,7 @@ init_lexer(void)
     continued = false;
     digest_type = -1;
     prev_state = INITIAL;
+    BEGIN INITIAL;
 
     debug_return;
 }
@@ -998,39 +1119,45 @@ init_lexer(void)
  * Returns a reference-counted string.
  */
 static char *
-expand_include(const char *opath, size_t olen)
+expand_include(const char *opath)
 {
     const char *cp, *ep;
     char *path, *pp;
-    int dirlen = 0, len;
-    size_t shost_len = 0;
+    size_t len, olen, dirlen = 0;
     bool subst = false;
     debug_decl(expand_include, SUDOERS_DEBUG_PARSER);
 
     /* Strip double quotes if present. */
-    if (*opath == '"') {
+    olen = strlen(opath);
+    if (olen > 1 && opath[0] == '"' && opath[olen - 1] == '"') {
 	opath++;
 	olen -= 2;
     }
+    if (olen == 0)
+	debug_return_ptr(NULL);
 
     /* Relative paths are located in the same dir as the sudoers file. */
     if (*opath != '/') {
 	char *dirend = strrchr(sudoers, '/');
 	if (dirend != NULL)
-	    dirlen = (int)(dirend - sudoers) + 1;
+	    dirlen = (size_t)(dirend - sudoers) + 1;
     }
 
+    cp = opath;
+    ep = opath + olen;
     len = olen;
-    for (cp = opath, ep = opath + olen; cp < ep; cp++) {
+    while (cp < ep) {
 	if (cp[0] == '%' && cp[1] == 'h') {
-	    shost_len = strlen(user_shost);
-	    len += shost_len - 2;
 	    subst = true;
+	    len += strlen(user_shost);
+	    cp += 2;
+	    continue;
 	}
+	cp++;
     }
 
     /* Make a copy of the fully-qualified path and return it. */
-    path = pp = rcstr_alloc(len + dirlen);
+    path = pp = sudo_rcstr_alloc(dirlen + len);
     if (path == NULL) {
 	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	sudoerserror(NULL);
@@ -1045,12 +1172,18 @@ expand_include(const char *opath, size_t olen)
 	cp = opath;
 	while (cp < ep) {
 	    if (cp[0] == '%' && cp[1] == 'h') {
-		memcpy(pp, user_shost, shost_len);
-		pp += shost_len;
+		size_t n = strlcpy(pp, user_shost, len + 1);
+		if (n >= len + 1)
+		    goto oflow;
 		cp += 2;
+		pp += n;
+		len -= n;
 		continue;
 	    }
+	    if (len < 1)
+		goto oflow;
 	    *pp++ = *cp++;
+	    len--;
 	}
 	*pp = '\0';
     } else {
@@ -1059,6 +1192,11 @@ expand_include(const char *opath, size_t olen)
     }
 
     debug_return_str(path);
+oflow:
+    sudo_warnx(U_("internal error, %s overflow"), __func__);
+    sudoerserror(NULL);
+    sudo_rcstr_delref(path);
+    debug_return_str(NULL);
 }
 
 /*
@@ -1075,7 +1213,7 @@ push_include(const char *opath, bool isdir)
     FILE *fp;
     debug_decl(push_include, SUDOERS_DEBUG_PARSER);
 
-    if ((path = expand_include(opath, strlen(opath))) == NULL)
+    if ((path = expand_include(opath)) == NULL)
 	debug_return_bool(false);
 
     /* push current state onto stack */
@@ -1083,8 +1221,10 @@ push_include(const char *opath, bool isdir)
 	struct include_stack *new_istack;
 
 	if (idepth > MAX_SUDOERS_DEPTH) {
-	    sudoerserror(N_("too many levels of includes"));
-	    rcstr_delref(path);
+	    if (sudoers_warnings)
+		sudo_warnx(U_("%s: %s"), path, U_("too many levels of includes"));
+	    sudoerserror(NULL);
+	    sudo_rcstr_delref(path);
 	    debug_return_bool(false);
 	}
 	istacksize += SUDOERS_STACK_INCREMENT;
@@ -1092,7 +1232,7 @@ push_include(const char *opath, bool isdir)
 	if (new_istack == NULL) {
 	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    sudoerserror(NULL);
-	    rcstr_delref(path);
+	    sudo_rcstr_delref(path);
 	    debug_return_bool(false);
 	}
 	istack = new_istack;
@@ -1128,19 +1268,19 @@ push_include(const char *opath, bool isdir)
 		}
 	    }
 	    /* A missing or insecure include dir is not a fatal error. */
-	    rcstr_delref(path);
+	    sudo_rcstr_delref(path);
 	    debug_return_bool(true);
 	}
 	count = switch_dir(&istack[idepth], path);
 	if (count <= 0) {
 	    /* switch_dir() called sudoerserror() for us */
-	    rcstr_delref(path);
+	    sudo_rcstr_delref(path);
 	    debug_return_bool(count ? false : true);
 	}
 
 	/* Parse the first dir entry we can open, leave the rest for later. */
 	do {
-	    rcstr_delref(path);
+	    sudo_rcstr_delref(path);
 	    if ((pl = SLIST_FIRST(&istack[idepth].more)) == NULL) {
 		/* Unable to open any files in include dir, not an error. */
 		debug_return_bool(true);
@@ -1153,7 +1293,7 @@ push_include(const char *opath, bool isdir)
 	if ((fp = open_sudoers(path, true, &keepopen)) == NULL) {
 	    /* The error was already printed by open_sudoers() */
 	    sudoerserror(NULL);
-	    rcstr_delref(path);
+	    sudo_rcstr_delref(path);
 	    debug_return_bool(false);
 	}
     }
@@ -1197,7 +1337,7 @@ pop_include(void)
 	if (fp != NULL) {
 	    sudolinebuf.len = sudolinebuf.off = 0;
 	    sudolinebuf.toke_start = sudolinebuf.toke_end = 0;
-	    rcstr_delref(sudoers);
+	    sudo_rcstr_delref(sudoers);
 	    sudoers = pl->path;
 	    sudolineno = 1;
 	    sudoers_switch_to_buffer(sudoers_create_buffer(fp, YY_BUF_SIZE));
@@ -1205,7 +1345,7 @@ pop_include(void)
 	    break;
 	}
 	/* Unable to open path in include dir, go to next one. */
-	rcstr_delref(pl->path);
+	sudo_rcstr_delref(pl->path);
 	free(pl);
     }
     /* If no path list, just pop the last dir on the stack. */
@@ -1214,7 +1354,7 @@ pop_include(void)
 	sudoers_switch_to_buffer(istack[idepth].bs);
 	free(sudolinebuf.buf);
 	sudolinebuf = istack[idepth].line;
-	rcstr_delref(sudoers);
+	sudo_rcstr_delref(sudoers);
 	sudoers = istack[idepth].path;
 	sudolineno = istack[idepth].lineno;
 	keepopen = istack[idepth].keepopen;
@@ -1232,54 +1372,81 @@ sudoers_trace_print(const char *msg)
 int
 sudoers_trace_print(const char *msg)
 {
-    static bool initialized;
-    static struct sudo_lbuf lbuf;
+    const int sudo_debug_subsys = SUDOERS_DEBUG_PARSER;
 
-    if (!initialized) {
-	initialized = true;
-	sudo_lbuf_init(&lbuf, NULL, 0, NULL, 0);
-    }
-
-    sudo_lbuf_append(&lbuf, "%s", msg);
-    /* XXX - assumes a final newline */
-    if (strchr(msg, '\n') != NULL)
-    {
-	sudo_debug_printf2(NULL, NULL, 0, SUDOERS_DEBUG_PARSER|SUDO_DEBUG_DEBUG,
-	    "%s:%d: %s", sudoers, sudolineno, lbuf.buf);
-	lbuf.len = 0;
+    if (sudo_debug_needed(SUDO_DEBUG_DEBUG)) {
+	sudo_lbuf_append(&trace_lbuf, "%s", msg);
+	if (strchr(msg, '\n') != NULL)
+	{
+	    /* We already parsed the newline so sudolineno is off by one. */
+	    sudo_debug_printf2(NULL, NULL, 0,
+		sudo_debug_subsys|SUDO_DEBUG_DEBUG, "sudoerslex: %s:%d: %s",
+		sudoers, sudolineno - 1, trace_lbuf.buf);
+	    trace_lbuf.len = 0;
+	}
     }
     return 0;
 }
 #endif /* TRACELEXER */
 
+/*
+ * Custom input function that uses getdelim(3) and stores the buffer
+ * where the error functions can access it for better reporting.
+ * On success, buf is guaranteed to end in a newline and not contain
+ * embedded NULs.  Calls YY_FATAL_ERROR on error.
+ */
 static yy_size_t
 sudoers_input(char *buf, yy_size_t max_size)
 {
+    char *cp;
     size_t avail = sudolinebuf.len - sudolinebuf.off;
+    debug_decl(sudoers_input, SUDOERS_DEBUG_PARSER);
 
     /* Refill line buffer if needed. */
     if (avail == 0) {
+	/*
+	 * Some getdelim(3) implementations write NUL to buf on EOF.
+	 * We peek ahead one char to detect EOF and skip the getdelim() call.
+	 * This will preserve the original value of the last line read.
+	 */
+	int ch = getc(sudoersin);
+	if (ch == EOF)
+	    goto sudoers_eof;
+	ungetc(ch, sudoersin);
 	avail = getdelim(&sudolinebuf.buf, &sudolinebuf.size, '\n', sudoersin);
 	if (avail == (size_t)-1) {
+sudoers_eof:
 	    /* EOF or error. */
-	    if (ferror(sudoersin) && errno != EINTR)
-		YY_FATAL_ERROR("input in flex scanner failed");
-	    return 0;
+	    if (feof(sudoersin))
+		return 0;
+	    YY_FATAL_ERROR("input in flex scanner failed");
+	}
+
+	/* getdelim() can return embedded NULs, truncate if we find one. */
+	cp = memchr(sudolinebuf.buf, '\0', avail);
+	if (cp != NULL) {
+	    *cp++ = '\n';
+	    *cp = '\0';
+	    avail = (size_t)(cp - sudolinebuf.buf);
 	}
 
 	/* Add trailing newline if it is missing. */
 	if (sudolinebuf.buf[avail - 1] != '\n') {
-	    if (avail == sudolinebuf.size) {
-		char *cp = realloc(sudolinebuf.buf, avail + 1);
+	    if (avail + 2 >= sudolinebuf.size) {
+		cp = realloc(sudolinebuf.buf, avail + 2);
 		if (cp == NULL) {
 		    YY_FATAL_ERROR("unable to allocate memory");
 		    return 0;
 		}
 		sudolinebuf.buf = cp;
-		sudolinebuf.size++;
+		sudolinebuf.size = avail + 2;
 	    }
 	    sudolinebuf.buf[avail++] = '\n';
+	    sudolinebuf.buf[avail] = '\0';
 	}
+
+	sudo_debug_printf(SUDO_DEBUG_DEBUG, "%s:%d: %.*s", sudoers, sudolineno,
+	    (int)(avail -1), sudolinebuf.buf);
 
 	sudolinebuf.len = avail;
 	sudolinebuf.off = 0;
@@ -1291,5 +1458,5 @@ sudoers_input(char *buf, yy_size_t max_size)
     memcpy(buf, sudolinebuf.buf + sudolinebuf.off, avail);
     sudolinebuf.off += avail;
 
-    return avail;
+    debug_return_size_t(avail);
 }

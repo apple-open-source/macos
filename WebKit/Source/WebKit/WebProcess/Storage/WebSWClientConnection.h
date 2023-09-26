@@ -30,10 +30,15 @@
 #include "Connection.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include "RetrieveRecordResponseBodyCallbackIdentifier.h"
 #include "SharedMemory.h"
 #include <WebCore/MessageWithMessagePorts.h>
 #include <WebCore/SWClientConnection.h>
 #include <wtf/UniqueRef.h>
+
+namespace IPC {
+class SharedBufferReference;
+}
 
 namespace WebCore {
 struct ExceptionData;
@@ -90,7 +95,7 @@ private:
 
     void didResolveRegistrationPromise(const WebCore::ServiceWorkerRegistrationKey&) final;
     void storeRegistrationsOnDiskForTesting(CompletionHandler<void()>&&) final;
-    
+
     void subscribeToPushService(WebCore::ServiceWorkerRegistrationIdentifier, const Vector<uint8_t>& applicationServerKey, SubscribeToPushServiceCallback&&) final;
     void unsubscribeFromPushService(WebCore::ServiceWorkerRegistrationIdentifier, WebCore::PushSubscriptionIdentifier, UnsubscribeFromPushServiceCallback&&) final;
     void getPushSubscription(WebCore::ServiceWorkerRegistrationIdentifier, GetPushSubscriptionCallback&&) final;
@@ -102,9 +107,17 @@ private:
     void setNavigationPreloadHeaderValue(WebCore::ServiceWorkerRegistrationIdentifier, String&&, ExceptionOrVoidCallback&&) final;
     void getNavigationPreloadState(WebCore::ServiceWorkerRegistrationIdentifier, ExceptionOrNavigationPreloadStateCallback&&) final;
 
-    void getServiceWorkerClientPendingMessages(WebCore::ScriptExecutionContextIdentifier clientIdentifier, CompletionHandler<void(Vector<WebCore::ServiceWorkerClientPendingMessage>&&)>&&) final;
+    void startBackgroundFetch(WebCore::ServiceWorkerRegistrationIdentifier, const String&, Vector<WebCore::BackgroundFetchRequest>&&, WebCore::BackgroundFetchOptions&&, ExceptionOrBackgroundFetchInformationCallback&&) final;
+    void backgroundFetchInformation(WebCore::ServiceWorkerRegistrationIdentifier, const String&, ExceptionOrBackgroundFetchInformationCallback&&) final;
+    void backgroundFetchIdentifiers(WebCore::ServiceWorkerRegistrationIdentifier, BackgroundFetchIdentifiersCallback&&) final;
+    void abortBackgroundFetch(WebCore::ServiceWorkerRegistrationIdentifier, const String&, AbortBackgroundFetchCallback&&) final;
+    void matchBackgroundFetch(WebCore::ServiceWorkerRegistrationIdentifier, const String&, WebCore::RetrieveRecordsOptions&&, MatchBackgroundFetchCallback&&) final;
+    void retrieveRecordResponse(WebCore::BackgroundFetchRecordIdentifier, RetrieveRecordResponseCallback&&) final;
+    void retrieveRecordResponseBody(WebCore::BackgroundFetchRecordIdentifier, RetrieveRecordResponseBodyCallback&&) final;
 
     void focusServiceWorkerClient(WebCore::ScriptExecutionContextIdentifier, CompletionHandler<void(std::optional<WebCore::ServiceWorkerClientData>&&)>&&);
+    void notifyRecordResponseBodyChunk(RetrieveRecordResponseBodyCallbackIdentifier, IPC::SharedBufferReference&&);
+    void notifyRecordResponseBodyEnd(RetrieveRecordResponseBodyCallbackIdentifier, WebCore::ResourceError&&);
 
     void scheduleStorageJob(const WebCore::ServiceWorkerJobData&);
 
@@ -113,7 +126,7 @@ private:
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final { return 0; }
 
-    void setSWOriginTableSharedMemory(const SharedMemory::Handle&);
+    void setSWOriginTableSharedMemory(SharedMemory::Handle&&);
     void setSWOriginTableIsImported();
 
     void clear();
@@ -124,7 +137,8 @@ private:
 
     Deque<Function<void()>> m_tasksPendingOriginImport;
     bool m_isThrottleable { true };
-}; // class WebSWServerConnection
+    HashMap<RetrieveRecordResponseBodyCallbackIdentifier, RetrieveRecordResponseBodyCallback> m_retrieveRecordResponseBodyCallbacks;
+};
 
 } // namespace WebKit
 

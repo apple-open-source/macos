@@ -66,6 +66,11 @@ typedef enum {
 	NLG_BUF,
 	NLG_GSS_KRB5_MECH,
 	NLG_GSS_CLNT,
+	NLG_XID,
+	NLG_ASYNC_WRITE,
+	NLG_OPEN_OWNERS,
+	NLG_DELEGATIONS,
+	NLG_SEND_STATE,
 	NLG_NUM_GROUPS
 } nfs_lck_group_kind_t;
 
@@ -77,6 +82,7 @@ typedef enum {
 	NLM_NODE_HASH,
 	NLM_LOCK,
 	NLM_BUF,
+	NLM_XID,
 	NLM_NUM_MUTEXES
 } nfs_lck_mtx_kind_t;
 
@@ -115,21 +121,6 @@ void nfsclnt_device_remove(void);
 
 int install_nfs_vfs_fs(void);
 int uninstall_nfs_vfs_fs(void);
-
-/* ------------ */
-
-#define NFS_KERNEL_DEBUG KERNEL_DEBUG
-
-/* kernel debug trace macros */
-#define FSDBG(A, B, C, D, E) \
-	NFS_KERNEL_DEBUG((FSDBG_CODE(DBG_FSRW, (A))) | DBG_FUNC_NONE, \
-	                                (int)(B), (int)(C), (int)(D), (int)(E), 0)
-#define FSDBG_TOP(A, B, C, D, E) \
-	NFS_KERNEL_DEBUG((FSDBG_CODE(DBG_FSRW, (A))) | DBG_FUNC_START, \
-	                                (int)(B), (int)(C), (int)(D), (int)(E), 0)
-#define FSDBG_BOT(A, B, C, D, E) \
-	NFS_KERNEL_DEBUG((FSDBG_CODE(DBG_FSRW, (A))) | DBG_FUNC_END, \
-	                                (int)(B), (int)(C), (int)(D), (int)(E), 0)
 
 nfstype vtonfs_type(enum vtype, int);
 enum vtype nfstov_type(nfstype, int);
@@ -357,7 +348,8 @@ void    nfs_mbuf_init(void);
 
 #if CONFIG_NFS4
 int     nfs4_init_clientid(struct nfsmount *);
-int     nfs4_setclientid(struct nfsmount *);
+int     nfs4_setclientid(struct nfsmount *, int);
+void    nfs4_remove_clientid(struct nfsmount *);
 int     nfs4_renew(struct nfsmount *, int);
 void    nfs4_renew_timer(void *, void *);
 void    nfs4_mount_callback_setup(struct nfsmount *);
@@ -449,6 +441,7 @@ void    nfs_dulookup_finish(struct nfs_dulookup *, nfsnode_t, vfs_context_t);
 int     nfs_dir_buf_cache_lookup(nfsnode_t, nfsnode_t *, struct componentname *, vfs_context_t, int, int *);
 int     nfs_dir_buf_search(struct nfsbuf *, struct componentname *, fhandle_t *, struct nfs_vattr *, uint64_t *, time_t *, daddr64_t *, int);
 void    nfs_name_cache_purge(nfsnode_t, nfsnode_t, struct componentname *, vfs_context_t);
+void    nfs_negative_cache_purge(nfsnode_t);
 
 #if CONFIG_NFS4
 uint32_t nfs4_ace_nfstype_to_vfstype(uint32_t, int *);
@@ -488,6 +481,7 @@ void    nfs_owner_seqid_increment(struct nfs_open_owner *, struct nfs_lock_owner
 int     nfs_open_file_find(nfsnode_t, struct nfs_open_owner *, struct nfs_open_file **, uint32_t, uint32_t, int);
 int     nfs_open_file_find_internal(nfsnode_t, struct nfs_open_owner *, struct nfs_open_file **, uint32_t, uint32_t, int);
 void    nfs_open_file_destroy(struct nfs_open_file *);
+void    nfs_open_file_busy_ref(struct nfs_open_file *);
 int     nfs_open_file_set_busy(struct nfs_open_file *, thread_t);
 void    nfs_open_file_clear_busy(struct nfs_open_file *);
 void    nfs_open_file_add_open(struct nfs_open_file *, uint32_t, uint32_t, int);
@@ -531,7 +525,7 @@ int     nfs4_claim_delegated_state_for_node(nfsnode_t, int);
 int     nfs4_open_downgrade_rpc(nfsnode_t, struct nfs_open_file *, vfs_context_t);
 int     nfs4_close_rpc(nfsnode_t, struct nfs_open_file *, thread_t, kauth_cred_t, int);
 void    nfs4_delegation_return_enqueue(nfsnode_t);
-void    nfs4_delegation_return_read(vfs_context_t, nfsnode_t, int);
+void    nfs4_delegation_return_read(nfsnode_t, int, thread_t, kauth_cred_t);
 int     nfs4_delegation_return(nfsnode_t, int, thread_t, kauth_cred_t);
 int     nfs4_delegreturn_rpc(struct nfsmount *, u_char *, int, struct nfs_stateid *, int, thread_t, kauth_cred_t);
 
@@ -563,7 +557,6 @@ int     nfs_vnop_mnomap(struct vnop_mnomap_args *);
 #if CONFIG_NFS4
 int     nfs4_vnop_create(struct vnop_create_args *);
 int     nfs4_vnop_mknod(struct vnop_mknod_args *);
-int     nfs4_vnop_close(struct vnop_close_args *);
 int     nfs4_vnop_getattr(struct vnop_getattr_args *);
 int     nfs4_vnop_link(struct vnop_link_args *);
 int     nfs4_vnop_mkdir(struct vnop_mkdir_args *);
@@ -655,6 +648,7 @@ extern uint32_t nfsclnt_debug_ctl;
 #define NFSCLNT_FAC_GSS                  0x020
 #define NFSCLNT_FAC_VFS                  0x040
 #define NFSCLNT_FAC_SRV                  0x080
+#define NFSCLNT_FAC_KDBG                 0x100
 #define NFSCLNT_DEBUG_LEVEL              __NFS_DEBUG_LEVEL(nfsclnt_debug_ctl)
 #define NFSCLNT_DEBUG_FACILITY           __NFS_DEBUG_FACILITY(nfsclnt_debug_ctl)
 #define NFSCLNT_DEBUG_FLAGS              __NFS_DEBUG_FLAGS(nfsclnt_debug_ctl)

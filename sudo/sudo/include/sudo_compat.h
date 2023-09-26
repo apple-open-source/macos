@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2008, 2009-2018
+ * Copyright (c) 1996, 1998-2005, 2008, 2009-2023
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -24,7 +24,9 @@
 #ifndef SUDO_COMPAT_H
 #define SUDO_COMPAT_H
 
-#include <sys/types.h>	/* for gid_t, mode_t, size_t, ssize_t, uid_t */
+#include <sys/types.h>	/* for gid_t, mode_t, size_t, ssize_t, time_t, uid_t */
+#include <sys/stat.h>	/* to avoid problems with mismatched headers and libc */
+#include <unistd.h>	/* to avoid problems with mismatched headers and libc */
 #include <stdio.h>
 #if !defined(HAVE_VSNPRINTF) || !defined(HAVE_VASPRINTF) || \
     !defined(HAVE_VSYSLOG) || defined(PREFER_PORTABLE_SNPRINTF)
@@ -34,51 +36,6 @@
 /*
  * Macros and functions that may be missing on some operating systems.
  */
-
-#ifndef __GNUC_PREREQ__
-# ifdef __GNUC__
-#  define __GNUC_PREREQ__(ma, mi) \
-	((__GNUC__ > (ma)) || (__GNUC__ == (ma) && __GNUC_MINOR__ >= (mi)))
-# else
-#  define __GNUC_PREREQ__(ma, mi)	0
-# endif
-#endif
-
-/* Define away __attribute__ for non-gcc or old gcc */
-#if !defined(__attribute__) && !__GNUC_PREREQ__(2, 5)
-# define __attribute__(x)
-#endif
-
-/* For catching format string mismatches */
-#ifndef __printflike
-# if __GNUC_PREREQ__(3, 3)
-#  define __printflike(f, v) 	__attribute__((__format__ (__printf__, f, v))) __attribute__((__nonnull__ (f)))
-# elif __GNUC_PREREQ__(2, 7)
-#  define __printflike(f, v) 	__attribute__((__format__ (__printf__, f, v)))
-# else
-#  define __printflike(f, v)
-# endif
-#endif
-#ifndef __printf0like
-# if __GNUC_PREREQ__(2, 7)
-#  define __printf0like(f, v) 	__attribute__((__format__ (__printf__, f, v)))
-# else
-#  define __printf0like(f, v)
-# endif
-#endif
-#ifndef __format_arg
-# if __GNUC_PREREQ__(2, 7)
-#  define __format_arg(f) 	__attribute__((__format_arg__ (f)))
-# else
-#  define __format_arg(f)
-# endif
-#endif
-
-#ifdef HAVE_FALLTHROUGH_ATTRIBUTE
-# define FALLTHROUGH 	__attribute__((__fallthrough__))
-#else
-# define FALLTHROUGH 	do { } while (0)
-#endif
 
 /*
  * Given the pointer x to the member m of the struct s, return
@@ -91,8 +48,8 @@
 /*
  * Pre-C99 compilers may lack a va_copy macro.
  */
-#ifndef va_copy
-# ifdef __va_copy
+#ifndef HAVE_VA_COPY
+# ifdef HAVE___VA_COPY
 #  define va_copy(d, s) __va_copy(d, s)
 # else
 #  define va_copy(d, s) memcpy(&(d), &(s), sizeof(d));
@@ -134,6 +91,10 @@
 # endif
 #endif
 
+#if defined(HAVE_DECL_SSIZE_MAX) && !HAVE_DECL_SSIZE_MAX
+# define SSIZE_MAX	LONG_MAX
+#endif
+
 #if defined(HAVE_DECL_PATH_MAX) && !HAVE_DECL_PATH_MAX
 # if defined(HAVE_DECL__POSIX_PATH_MAX) && HAVE_DECL__POSIX_PATH_MAX
 #  define PATH_MAX		_POSIX_PATH_MAX
@@ -142,48 +103,12 @@
 # endif
 #endif
 
-/*
- * POSIX versions for those without...
- */
-#ifndef _S_IFMT
-# define _S_IFMT		S_IFMT
-#endif /* _S_IFMT */
-#ifndef _S_IFREG
-# define _S_IFREG		S_IFREG
-#endif /* _S_IFREG */
-#ifndef _S_IFDIR
-# define _S_IFDIR		S_IFDIR
-#endif /* _S_IFDIR */
-#ifndef _S_IFLNK
-# define _S_IFLNK		S_IFLNK
-#endif /* _S_IFLNK */
-#ifndef _S_IFIFO
-# define _S_IFIFO		S_IFIFO
-#endif /* _S_IFIFO */
-#ifndef S_ISREG
-# define S_ISREG(m)		(((m) & _S_IFMT) == _S_IFREG)
-#endif /* S_ISREG */
-#ifndef S_ISDIR
-# define S_ISDIR(m)		(((m) & _S_IFMT) == _S_IFDIR)
-#endif /* S_ISDIR */
-#ifndef S_ISLNK
-# define S_ISLNK(m)		(((m) & _S_IFMT) == _S_IFLNK)
-#endif /* S_ISLNK */
-#ifndef S_ISFIFO
-# define S_ISFIFO(m)		(((m) & _S_IFMT) == _S_IFIFO)
-#endif /* S_ISLNK */
-#ifndef S_ISTXT
-# define S_ISTXT		0001000
-#endif /* S_ISTXT */
-
-/*
- * ACCESSPERMS (00777) and ALLPERMS (07777) are handy BSDisms
- */
+/* ACCESSPERMS and ALLPERMS are handy BSDisms. */
 #ifndef ACCESSPERMS
-# define ACCESSPERMS	(S_IRWXU|S_IRWXG|S_IRWXO)
+# define ACCESSPERMS	00777
 #endif /* ACCESSPERMS */
 #ifndef ALLPERMS
-# define ALLPERMS	(S_ISUID|S_ISGID|S_ISTXT|S_IRWXU|S_IRWXG|S_IRWXO)
+# define ALLPERMS	07777
 #endif /* ALLPERMS */
 
 /* For futimens() and utimensat() emulation. */
@@ -280,10 +205,10 @@ extern int errno;
 #endif /* !HAVE_DECL_ERRNO */
 
 /* Not all systems define NSIG in signal.h */
-#if !defined(NSIG)
-# if defined(_NSIG)
+#if !defined(HAVE_DECL_NSIG) || !HAVE_DECL_NSIG
+# if defined(HAVE_DECL__NSIG) && HAVE_DECL__NSIG
 #  define NSIG _NSIG
-# elif defined(__NSIG)
+# elif defined(HAVE_DECL___NSIG) && HAVE_DECL___NSIG
 #  define NSIG __NSIG
 # else
 #  define NSIG 64
@@ -298,12 +223,6 @@ extern int errno;
 /* WCOREDUMP is not POSIX, this usually works (verified on AIX). */
 #ifndef WCOREDUMP
 # define WCOREDUMP(x)	((x) & 0x80)
-#endif
-
-/* Older systems may not support WCONTINUED */
-#if !defined(WCONTINUED) && !defined(WIFCONTINUED)
-# define WCONTINUED		0
-# define WIFCONTINUED(x)	0
 #endif
 
 /* W_EXITCODE is not POSIX but the encoding of wait status is. */
@@ -359,17 +278,23 @@ int getdomainname(char *, size_t);
 #endif
 
 /*
- * HP-UX 11.00 has broken pread/pwrite that can't handle a 64-bit off_t
- * on 32-bit machines.
+ * HP-UX 11.00 has broken pread/pwrite on 32-bit machines when
+ * _FILE_OFFSET_BITS == 64.  Use pread64/pwrite64 instead.
  */
 #if defined(__hpux) && !defined(__LP64__)
 # ifdef HAVE_PREAD64
 #  undef pread
 #  define pread(_a, _b, _c, _d) pread64((_a), (_b), (_c), (_d))
+#  if defined(HAVE_DECL_PREAD64) && !HAVE_DECL_PREAD64
+    ssize_t pread64(int fd, void *buf, size_t nbytes, off64_t offset);
+#  endif
 # endif
 # ifdef HAVE_PWRITE64
 #  undef pwrite
 #  define pwrite(_a, _b, _c, _d) pwrite64((_a), (_b), (_c), (_d))
+#  if defined(HAVE_DECL_PWRITE64) && !HAVE_DECL_PWRITE64
+    ssize_t pwrite64(int fd, const void *buf, size_t nbytes, off64_t offset);
+#  endif
 # endif
 #endif /* __hpux && !__LP64__ */
 
@@ -383,20 +308,17 @@ int getdomainname(char *, size_t);
 /*
  * Compatibility defines for OpenSSL 1.0.2 (not needed for 1.1.x)
  */
-#if defined(HAVE_OPENSSL)
+#if defined(HAVE_OPENSSL) && !defined(HAVE_WOLFSSL)
 # ifndef HAVE_X509_STORE_CTX_GET0_CERT
 #  define X509_STORE_CTX_get0_cert(x)   ((x)->cert)
 # endif
 # ifndef HAVE_ASN1_STRING_GET0_DATA
 #  define ASN1_STRING_get0_data(x)      ASN1_STRING_data(x)
 # endif
-# ifndef HAVE_TLS_CLIENT_METHOD
-#  define TLS_client_method()           SSLv23_client_method()
+# ifndef HAVE_TLS_METHOD
+#  define TLS_method()                  SSLv23_method()
 # endif
-# ifndef HAVE_TLS_SERVER_METHOD
-#  define TLS_server_method()           SSLv23_server_method()
-# endif
-#endif /* HAVE_OPENSSL */
+#endif /* HAVE_OPENSSL && !HAVE_WOLFSSL */
 
 /*
  * Functions "missing" from libc.
@@ -407,6 +329,7 @@ struct passwd;
 struct stat;
 struct timespec;
 struct termios;
+struct tm;
 
 #ifndef HAVE_CFMAKERAW
 sudo_dso_public void sudo_cfmakeraw(struct termios *term);
@@ -456,7 +379,25 @@ sudo_dso_public void sudo_setusershell(void);
 sudo_dso_public void sudo_endusershell(void);
 # undef endusershell
 # define endusershell() sudo_endusershell()
+#elif HAVE_DECL_GETUSERSHELL == 0
+/* Older Solaris has getusershell() et al but does not declare it. */
+char *getusershell(void);
+void setusershell(void);
+void endusershell(void);
 #endif /* HAVE_GETUSERSHELL */
+#ifndef HAVE_GMTIME_R
+sudo_dso_public struct tm *sudo_gmtime_r(const time_t *, struct tm *);
+# undef gmtime_r
+# define gmtime_r(_a, _b) sudo_gmtime_r((_a), (_b))
+#endif /* HAVE_GMTIME_R */
+#ifndef HAVE_LOCALTIME_R
+sudo_dso_public struct tm *sudo_localtime_r(const time_t *, struct tm *);
+# undef localtime_r
+# define localtime_r(_a, _b) sudo_localtime_r((_a), (_b))
+#endif /* HAVE_LOCALTIME_R */
+#ifndef HAVE_TIMEGM
+sudo_dso_public time_t sudo_timegm(struct tm *);
+#endif /* HAVE_TIMEGM */
 #ifndef HAVE_UTIMENSAT
 sudo_dso_public int sudo_utimensat(int fd, const char *file, const struct timespec *times, int flag);
 # undef utimensat
@@ -478,22 +419,22 @@ sudo_dso_public int sudo_futimens(int fd, const struct timespec *times);
 # define futimens(_a, _b) sudo_futimens((_a), (_b))
 #endif /* HAVE_FUTIMENS */
 #if !defined(HAVE_SNPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_snprintf(char *str, size_t n, char const *fmt, ...) __printflike(3, 4);
+sudo_dso_public int sudo_snprintf(char *str, size_t n, char const *fmt, ...) sudo_printflike(3, 4);
 # undef snprintf
 # define snprintf sudo_snprintf
 #endif /* HAVE_SNPRINTF */
 #if !defined(HAVE_VSNPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_vsnprintf(char *str, size_t n, const char *fmt, va_list ap) __printflike(3, 0);
+sudo_dso_public int sudo_vsnprintf(char *str, size_t n, const char *fmt, va_list ap) sudo_printflike(3, 0);
 # undef vsnprintf
 # define vsnprintf sudo_vsnprintf
 #endif /* HAVE_VSNPRINTF */
 #if !defined(HAVE_ASPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_asprintf(char **str, char const *fmt, ...) __printflike(2, 3);
+sudo_dso_public int sudo_asprintf(char **str, char const *fmt, ...) sudo_printflike(2, 3);
 # undef asprintf
 # define asprintf sudo_asprintf
 #endif /* HAVE_ASPRINTF */
 #if !defined(HAVE_VASPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_vasprintf(char **str, const char *fmt, va_list ap) __printflike(2, 0);
+sudo_dso_public int sudo_vasprintf(char **str, const char *fmt, va_list ap) sudo_printflike(2, 0);
 # undef vasprintf
 # define vasprintf sudo_vasprintf
 #endif /* HAVE_VASPRINTF */
@@ -517,19 +458,45 @@ sudo_dso_public size_t sudo_strnlen(const char *str, size_t maxlen);
 # undef strnlen
 # define strnlen(_a, _b) sudo_strnlen((_a), (_b))
 #endif /* HAVE_STRNLEN */
+#ifndef HAVE_FCHOWNAT
+sudo_dso_public int sudo_fchownat(int dfd, const char *path, uid_t uid, gid_t gid, int flag);
+# undef fchownat
+# define fchownat(_a, _b, _c, _d, _e) sudo_fchownat((_a), (_b), (_c), (_d), (_e))
+#endif /* HAVE_FCHOWNAT */
 #ifndef HAVE_MEMRCHR
 sudo_dso_public void *sudo_memrchr(const void *s, int c, size_t n);
 # undef memrchr
 # define memrchr(_a, _b, _c) sudo_memrchr((_a), (_b), (_c))
 #endif /* HAVE_MEMRCHR */
-#if !defined(HAVE_MKDTEMP) || !defined(HAVE_MKSTEMPS)
+#ifndef HAVE_MKDIRAT
+sudo_dso_public int sudo_mkdirat(int dfd, const char *path, mode_t mode);
+# undef mkdirat
+# define mkdirat(_a, _b, _c) sudo_mkdirat((_a), (_b), (_c))
+#endif /* HAVE_MKDIRAT */
+#if !defined(HAVE_MKDTEMPAT) || !defined(HAVE_MKOSTEMPSAT)
+# if defined(HAVE_MKDTEMPAT_NP) && defined(HAVE_MKOSTEMPSAT_NP)
+#  undef mkdtempat
+#  define mkdtempat mkdtempat_np
+#  undef mkostempsat
+#  define mkostempsat mkostempsat_np
+# else
 sudo_dso_public char *sudo_mkdtemp(char *path);
-# undef mkdtemp
-# define mkdtemp(_a) sudo_mkdtemp((_a))
+#  undef mkdtemp
+#  define mkdtemp(_a) sudo_mkdtemp((_a))
+sudo_dso_public char *sudo_mkdtempat(int dfd, char *path);
+#  undef mkdtempat
+#  define mkdtempat(_a, _b) sudo_mkdtempat((_a), (_b))
+sudo_dso_public int sudo_mkostempsat(int dfd, char *path, int slen, int flags);
+#  undef mkostempsat
+#  define mkostempsat(_a, _b, _c, _d) sudo_mkostempsat((_a), (_b), (_c), (_d))
+sudo_dso_public int sudo_mkstemp(char *path);
+#  undef mkstemp
+#  define mkstemp(_a) sudo_mkstemp((_a))
 sudo_dso_public int sudo_mkstemps(char *path, int slen);
-# undef mkstemps
-# define mkstemps(_a, _b) sudo_mkstemps((_a), (_b))
-#endif /* !HAVE_MKDTEMP || !HAVE_MKSTEMPS */
+#  undef mkstemps
+#  define mkstemps(_a, _b) sudo_mkstemps((_a), (_b))
+# endif /* HAVE_MKDTEMPAT_NP || HAVE_MKOSTEMPSAT_NP */
+#endif /* !HAVE_MKDTEMPAT || !HAVE_MKOSTEMPSAT */
 #ifndef HAVE_NANOSLEEP
 sudo_dso_public int sudo_nanosleep(const struct timespec *timeout, struct timespec *remainder);
 #undef nanosleep
@@ -585,11 +552,6 @@ sudo_dso_public void *sudo_reallocarray(void *ptr, size_t nmemb, size_t size);
 # undef reallocarray
 # define reallocarray(_a, _b, _c) sudo_reallocarray((_a), (_b), (_c))
 #endif /* HAVE_REALLOCARRAY */
-#ifndef HAVE_VSYSLOG
-sudo_dso_public void sudo_vsyslog(int pri, const char *fmt, va_list ap);
-# undef vsyslog
-# define vsyslog(_a, _b, _c) sudo_vsyslog((_a), (_b), (_c))
-#endif /* HAVE_VSYSLOG */
 #ifndef HAVE_DUP3
 sudo_dso_public int sudo_dup3(int oldd, int newd, int flags);
 # undef dup3
@@ -601,12 +563,12 @@ sudo_dso_public int sudo_pipe2(int fildes[2], int flags);
 # define pipe2(_a, _b) sudo_pipe2((_a), (_b))
 #endif /* HAVE_PIPE2 */
 #ifndef HAVE_PREAD
-sudo_dso_public int sudo_pread(int fd, void *buf, size_t nbytes, off_t offset);
+sudo_dso_public ssize_t sudo_pread(int fd, void *buf, size_t nbytes, off_t offset);
 # undef pread
 # define pread(_a, _b, _c, _d) sudo_pread((_a), (_b), (_c), (_d))
 #endif /* HAVE_PREAD */
 #ifndef HAVE_PWRITE
-sudo_dso_public int sudo_pwrite(int fd, const void *buf, size_t nbytes, off_t offset);
+sudo_dso_public ssize_t sudo_pwrite(int fd, const void *buf, size_t nbytes, off_t offset);
 # undef pwrite
 # define pwrite(_a, _b, _c, _d) sudo_pwrite((_a), (_b), (_c), (_d))
 #endif /* HAVE_PWRITE */

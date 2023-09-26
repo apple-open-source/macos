@@ -6,7 +6,25 @@
 	objectVersion = 45;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		2989558E28B94220007CDCA6 /* tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2989558F28B94220007CDCA6 /* Build configuration list for PBXAggregateTarget "tests" */;
+			buildPhases = (
+				296C2B9928BD82D40015CCF5 /* Copy BATS plist */,
+				2949B41028C2A1D100A4178F /* Run Script */,
+			);
+			dependencies = (
+				29C3E77A28CAAF4200FE15E2 /* PBXTargetDependency */,
+			);
+			name = tests;
+			productName = tests;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
+		293F318B28CB84ED007DAF13 /* echo.c in Sources */ = {isa = PBXBuildFile; fileRef = 293F318A28CB84ED007DAF13 /* echo.c */; };
+		2949B41128C81B5300A4178F /* awk.plist in Copy BATS plist */ = {isa = PBXBuildFile; fileRef = 2989558928B93CC6007CDCA6 /* awk.plist */; };
 		727082260FD476D400B533D9 /* b.c in Sources */ = {isa = PBXBuildFile; fileRef = 727082100FD476D400B533D9 /* b.c */; };
 		727082270FD476D400B533D9 /* lex.c in Sources */ = {isa = PBXBuildFile; fileRef = 727082130FD476D400B533D9 /* lex.c */; };
 		727082280FD476D400B533D9 /* lib.c in Sources */ = {isa = PBXBuildFile; fileRef = 727082140FD476D400B533D9 /* lib.c */; };
@@ -18,7 +36,41 @@
 		D34819EF25196A0C005F8150 /* awkgram.tab.c in Sources */ = {isa = PBXBuildFile; fileRef = D34819EE25196A0C005F8150 /* awkgram.tab.c */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		296C2B9728BD82830015CCF5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 727081F00FD4748300B533D9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2989558E28B94220007CDCA6;
+			remoteInfo = tests;
+		};
+		29C3E77928CAAF4200FE15E2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 727081F00FD4748300B533D9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 29C3E76628CAAE8B00FE15E2;
+			remoteInfo = awktestecho;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		296C2B9928BD82D40015CCF5 /* Copy BATS plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				2949B41128C81B5300A4178F /* awk.plist in Copy BATS plist */,
+			);
+			name = "Copy BATS plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		293F318A28CB84ED007DAF13 /* echo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = echo.c; path = src/testdir/echo.c; sourceTree = "<group>"; };
+		2989558928B93CC6007CDCA6 /* awk.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = awk.plist; sourceTree = "<group>"; };
+		29C3E77728CAAE8B00FE15E2 /* echo */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = echo; sourceTree = BUILT_PRODUCTS_DIR; };
 		727082020FD476AA00B533D9 /* awk */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = awk; sourceTree = BUILT_PRODUCTS_DIR; };
 		7270820D0FD476D400B533D9 /* awk.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = awk.1; sourceTree = "<group>"; };
 		7270820E0FD476D400B533D9 /* awk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = awk.h; sourceTree = "<group>"; };
@@ -51,9 +103,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2989558828B93C8B007CDCA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2989558928B93CC6007CDCA6 /* awk.plist */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
 		727081EE0FD4748300B533D9 = {
 			isa = PBXGroup;
 			children = (
+				293F318A28CB84ED007DAF13 /* echo.c */,
 				72B1564D0FD47AC000A17BD1 /* awk.plist */,
 				7270820A0FD476B000B533D9 /* src */,
 				727082030FD476AA00B533D9 /* Products */,
@@ -64,6 +125,7 @@
 			isa = PBXGroup;
 			children = (
 				727082020FD476AA00B533D9 /* awk */,
+				29C3E77728CAAE8B00FE15E2 /* echo */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -71,6 +133,7 @@
 		7270820A0FD476B000B533D9 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				2989558828B93C8B007CDCA6 /* tests */,
 				D34819EE25196A0C005F8150 /* awkgram.tab.c */,
 				D34819ED25196A0C005F8150 /* awkgram.tab.h */,
 				7270820D0FD476D400B533D9 /* awk.1 */,
@@ -96,6 +159,21 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		29C3E76628CAAE8B00FE15E2 /* echo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 29C3E77528CAAE8B00FE15E2 /* Build configuration list for PBXNativeTarget "echo" */;
+			buildPhases = (
+				29C3E76928CAAE8B00FE15E2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = echo;
+			productName = awk;
+			productReference = 29C3E77728CAAE8B00FE15E2 /* echo */;
+			productType = "com.apple.product-type.tool";
+		};
 		727082010FD476AA00B533D9 /* awk */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 727082070FD476AB00B533D9 /* Build configuration list for PBXNativeTarget "awk" */;
@@ -107,6 +185,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				296C2B9828BD82830015CCF5 /* PBXTargetDependency */,
 			);
 			name = awk;
 			productName = awk;
@@ -119,7 +198,13 @@
 		727081F00FD4748300B533D9 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 1400;
 				LastUpgradeCheck = 1300;
+				TargetAttributes = {
+					2989558E28B94220007CDCA6 = {
+						CreatedOnToolsVersion = 14.0;
+					};
+				};
 			};
 			buildConfigurationList = 727081F30FD4748300B533D9 /* Build configuration list for PBXProject "awk" */;
 			compatibilityVersion = "Xcode 2.4";
@@ -135,11 +220,31 @@
 			projectRoot = "";
 			targets = (
 				727082010FD476AA00B533D9 /* awk */,
+				2989558E28B94220007CDCA6 /* tests */,
+				29C3E76628CAAE8B00FE15E2 /* echo */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2949B41028C2A1D100A4178F /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -m 0755 -p ${DSTROOT}/AppleInternal/Tests/awk/src/tests\nmkdir -m 0755 -p ${DSTROOT}/AppleInternal/Tests/awk/src/testdir\nmkdir -m 0755 -p ${DSTROOT}/AppleInternal/Tests/awk/src/bugs-fixed\n\ncp -r $PROJECT_DIR/src/tests ${DSTROOT}/AppleInternal/Tests/awk/src\ncp -r $PROJECT_DIR/src/testdir ${DSTROOT}/AppleInternal/Tests/awk/src\ncp -- $PROJECT_DIR/src/bugs-fixed/*.awk ${DSTROOT}/AppleInternal/Tests/awk/src/bugs-fixed\ncp -- $PROJECT_DIR/src/bugs-fixed/*.in ${DSTROOT}/AppleInternal/Tests/awk/src/bugs-fixed\ncp -- $PROJECT_DIR/src/bugs-fixed/*.ok ${DSTROOT}/AppleInternal/Tests/awk/src/bugs-fixed\n\ncd ${DSTROOT}/AppleInternal/Tests/awk/src/testdir\nmv arnold-fixes.tar arnold-data # bypass B&I verification\nmv beebe.tar beebe-data # bypass B&I verification\n\n";
+		};
 		72B156590FD47B7C00A17BD1 /* Copy files and documentation */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -157,6 +262,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		29C3E76928CAAE8B00FE15E2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				293F318B28CB84ED007DAF13 /* echo.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		727081FF0FD476AA00B533D9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -175,7 +288,38 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		296C2B9828BD82830015CCF5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2989558E28B94220007CDCA6 /* tests */;
+			targetProxy = 296C2B9728BD82830015CCF5 /* PBXContainerItemProxy */;
+		};
+		29C3E77A28CAAF4200FE15E2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 29C3E76628CAAE8B00FE15E2 /* echo */;
+			targetProxy = 29C3E77928CAAF4200FE15E2 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		2989559028B94220007CDCA6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		29C3E77628CAAE8B00FE15E2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
+				INSTALL_PATH = /AppleInternal/Tests/awk/src/testdir;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		727081F20FD4748300B533D9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -204,6 +348,22 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2989558F28B94220007CDCA6 /* Build configuration list for PBXAggregateTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2989559028B94220007CDCA6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		29C3E77528CAAE8B00FE15E2 /* Build configuration list for PBXNativeTarget "echo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				29C3E77628CAAE8B00FE15E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		727081F30FD4748300B533D9 /* Build configuration list for PBXProject "awk" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

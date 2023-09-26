@@ -90,11 +90,21 @@
 #define MALLOC_UNUSED __attribute__((unused))
 #define MALLOC_NORETURN __attribute__((noreturn))
 #define MALLOC_COLD __attribute__((cold))
+#define MALLOC_NOESCAPE __attribute__((noescape))
 #define CHECK_MAGAZINE_PTR_LOCKED(szone, mag_ptr, fun) {}
 
 #define SCRIBBLE_BYTE 0xaa /* allocated scribble */
 #define SCRABBLE_BYTE 0x55 /* free()'d scribble */
 #define SCRUBBLE_BYTE 0xdd /* madvise(..., MADV_FREE) scriblle */
+
+#undef KiB
+#undef MiB
+#undef GiB
+#undef TiB
+#define KiB(x) ((uint64_t)(x) << 10)
+#define MiB(x) ((uint64_t)(x) << 20)
+#define GiB(x) ((uint64_t)(x) << 30)
+#define TiB(x) ((uint64_t)(x) << 40)
 
 #define NDEBUG 1
 #define trunc_page_quanta(x) trunc_page((x))

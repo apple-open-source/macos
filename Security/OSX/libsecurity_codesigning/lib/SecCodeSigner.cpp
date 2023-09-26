@@ -66,6 +66,7 @@ const CFStringRef kSecCodeSignerOmitAdhocFlag =	CFSTR("omit-adhoc-flag");
 const CFStringRef kSecCodeSignerLaunchConstraintSelf = CFSTR("lwcr-self");
 const CFStringRef kSecCodeSignerLaunchConstraintParent = CFSTR("lwcr-parent");
 const CFStringRef kSecCodeSignerLaunchConstraintResponsible = CFSTR("lwcr-responsible");
+const CFStringRef kSecCodeSignerLibraryConstraint = CFSTR("lwcr-library");
 
 // Keys for signature editing
 const CFStringRef kSecCodeSignerEditCpuType = 	CFSTR("edit-cpu-type");
@@ -103,8 +104,10 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 		| kSecCSSignNoV1
 		| kSecCSSignBundleRoot
 		| kSecCSSignStrictPreflight
-        | kSecCSSignGeneratePEH
-		| kSecCSSignGenerateEntitlementDER);
+		| kSecCSSignGeneratePEH
+		| kSecCSSignGenerateEntitlementDER
+		| kSecCSStripDisallowedXattrs
+		| kSecCSSingleThreadedSigning);
 	SecPointer<SecCodeSigner> signer = new SecCodeSigner(flags);
 	signer->parameters(parameters);
 	CodeSigning::Required(signerRef) = signer->handle();

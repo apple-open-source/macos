@@ -31,6 +31,7 @@
 #include "InteractionInformationRequest.h"
 #include "ShareableBitmap.h"
 #include <WebCore/Cursor.h>
+#include <WebCore/ElementAnimationContext.h>
 #include <WebCore/ElementContext.h>
 #include <WebCore/IntPoint.h>
 #include <WebCore/ScrollTypes.h>
@@ -72,6 +73,8 @@ struct InteractionInformationAtPosition {
     bool isImage { false };
     bool isAttachment { false };
     bool isAnimatedImage { false };
+    bool isAnimating { false };
+    bool canShowAnimationControls { false };
     bool isPausedVideo { false };
     bool isElement { false };
     bool isContentEditable { false };
@@ -114,6 +117,10 @@ struct InteractionInformationAtPosition {
 
     std::optional<WebCore::ElementContext> elementContext;
     std::optional<WebCore::ElementContext> hostImageOrVideoElementContext;
+
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+    Vector<WebCore::ElementAnimationContext> animationsAtPoint;
+#endif
 
     // Copy compatible optional bits forward (for example, if we have a InteractionInformationAtPosition
     // with snapshots in it, and perform another request for the same point without requesting the snapshots,

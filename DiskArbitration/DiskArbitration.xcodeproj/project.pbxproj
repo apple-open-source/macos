@@ -133,12 +133,12 @@
 		603C87E808EC8117004474CD /* DAServer.defs in Sources */ = {isa = PBXBuildFile; fileRef = 6D676E9D0406DCE100A87B01 /* DAServer.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		603C87E908EC8117004474CD /* DASession.c in Sources */ = {isa = PBXBuildFile; fileRef = 124AF311030AD9AD03A87B01 /* DASession.c */; };
 		603C87EA08EC8117004474CD /* DAStage.c in Sources */ = {isa = PBXBuildFile; fileRef = 125B1A7F039D119A03A87B01 /* DAStage.c */; };
-		603C87EB08EC8117004474CD /* DASupport.c in Sources */ = {isa = PBXBuildFile; fileRef = 12BA01D8038C2A5803A87B01 /* DASupport.c */; };
+		603C87EB08EC8117004474CD /* DASupport.m in Sources */ = {isa = PBXBuildFile; fileRef = 12BA01D8038C2A5803A87B01 /* DASupport.m */; };
 		603C87EC08EC8117004474CD /* DAThread.c in Sources */ = {isa = PBXBuildFile; fileRef = 6DFC226C04E2DCF700A87B01 /* DAThread.c */; };
 		603C87EF08EC8117004474CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 124AF5F0030ADDC203A87B01 /* CoreFoundation.framework */; };
 		603C87F008EC8117004474CD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 124AF319030ADD7603A87B01 /* IOKit.framework */; };
 		603C87F108EC8117004474CD /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D1811B80438DCEF00A87B01 /* Security.framework */; };
-		603C87F408EC8117004474CD /* diskarbitrationd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 12363823031AA75703A87B01 /* diskarbitrationd.8 */; platformFilters = (macos, ); };
+		603C87F408EC8117004474CD /* diskarbitrationd.8 in Copy Files */ = {isa = PBXBuildFile; fileRef = 12363823031AA75703A87B01 /* diskarbitrationd.8 */; platformFilters = (macos, ); };
 		603C881108EC8117004474CD /* DiskArbitration.h in Headers */ = {isa = PBXBuildFile; fileRef = 6DD021D50405174800A87B01 /* DiskArbitration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		603C881208EC8117004474CD /* DiskArbitrationPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 6D9EB482040530BF00A87B01 /* DiskArbitrationPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		603C881308EC8117004474CD /* DADisk.h in Headers */ = {isa = PBXBuildFile; fileRef = 6DE65E15041D2C2C00A87B01 /* DADisk.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -163,11 +163,15 @@
 		605A42361695074300959114 /* DADialog.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42331695074300959114 /* DADialog.m */; };
 		95005613268D087800C60718 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 95005611268D085A00C60718 /* libbsm.tbd */; };
 		957575D925D36E56002758FF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 957575D825D36E56002758FF /* Foundation.framework */; };
-		957575E125D36E9A002758FF /* DAUserFSMount.m in Sources */ = {isa = PBXBuildFile; fileRef = 957575E025D36E9A002758FF /* DAUserFSMount.m */; };
 		95AB0CE0267A784100682648 /* datest.m in Sources */ = {isa = PBXBuildFile; fileRef = 95AB0CDF267A784100682648 /* datest.m */; };
 		95AB0D2A267A821F00682648 /* datest.m in Sources */ = {isa = PBXBuildFile; fileRef = 95AB0CDF267A784100682648 /* datest.m */; };
 		95B2F4AC266ADD8B0051A87B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */; };
 		95C3007926851EB90016F757 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95AB0D2B2683D57C00682648 /* DiskArbitration.framework */; };
+		A407C29F2908897A00928858 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A407C29E2908897A00928858 /* FSKit.framework */; platformFilters = (ios, macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		DB0BFD1929DE382200CE569E /* DiskArbitration.plist in Copy Feature Flag plist */ = {isa = PBXBuildFile; fileRef = DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */; };
+		DB7355FC29C3E24800840238 /* DAUserFSMount.m in Sources */ = {isa = PBXBuildFile; fileRef = 957575E025D36E9A002758FF /* DAUserFSMount.m */; };
+		DB7355FF29C3E31400840238 /* FSKitdWatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = DB7355FD29C3E31400840238 /* FSKitdWatcher.h */; };
+		DB73560029C3E31400840238 /* FSKitdWatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = DB7355FE29C3E31400840238 /* FSKitdWatcher.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -257,14 +261,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		603C87F308EC8117004474CD /* CopyFiles */ = {
+		603C87F308EC8117004474CD /* Copy Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
-				603C87F408EC8117004474CD /* diskarbitrationd.8 in CopyFiles */,
+				603C87F408EC8117004474CD /* diskarbitrationd.8 in Copy Files */,
 			);
+			name = "Copy Files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		95AB0D1F267A78FE00682648 /* CopyFiles */ = {
@@ -274,6 +279,17 @@
 			dstSubfolderSpec = 0;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		DB0BFD1829DE37F400CE569E /* Copy Feature Flag plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/FeatureFlags/Domain;
+			dstSubfolderSpec = 0;
+			files = (
+				DB0BFD1929DE382200CE569E /* DiskArbitration.plist in Copy Feature Flag plist */,
+			);
+			name = "Copy Feature Flag plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -298,7 +314,7 @@
 		125B1A7E039D119A03A87B01 /* DAStage.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DAStage.h; path = diskarbitrationd/DAStage.h; sourceTree = "<group>"; };
 		125B1A7F039D119A03A87B01 /* DAStage.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DAStage.c; path = diskarbitrationd/DAStage.c; sourceTree = "<group>"; };
 		12BA01D7038C2A5803A87B01 /* DASupport.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DASupport.h; path = diskarbitrationd/DASupport.h; sourceTree = "<group>"; };
-		12BA01D8038C2A5803A87B01 /* DASupport.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DASupport.c; path = diskarbitrationd/DASupport.c; sourceTree = "<group>"; };
+		12BA01D8038C2A5803A87B01 /* DASupport.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.objc; fileEncoding = 30; name = DASupport.m; path = diskarbitrationd/DASupport.m; sourceTree = "<group>"; };
 		12D25931030A966A03A87B01 /* DAMain.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DAMain.h; path = diskarbitrationd/DAMain.h; sourceTree = "<group>"; };
 		12D25932030A966A03A87B01 /* DAMain.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DAMain.c; path = diskarbitrationd/DAMain.c; sourceTree = "<group>"; };
 		12E786250343571B03A87B01 /* DACommand.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DACommand.h; path = diskarbitrationd/DACommand.h; sourceTree = "<group>"; };
@@ -388,6 +404,10 @@
 		95AB0D21267A78FE00682648 /* datest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = datest; sourceTree = BUILT_PRODUCTS_DIR; };
 		95AB0D2B2683D57C00682648 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/DiskArbitration.framework; sourceTree = DEVELOPER_DIR; };
 		95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		A407C29E2908897A00928858 /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/Frameworks/FSKit.framework; sourceTree = DEVELOPER_DIR; };
+		DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = DiskArbitration.plist; path = diskarbitrationd/DiskArbitration.plist; sourceTree = "<group>"; };
+		DB7355FD29C3E31400840238 /* FSKitdWatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = FSKitdWatcher.h; path = diskarbitrationd/FSKitdWatcher.h; sourceTree = "<group>"; };
+		DB7355FE29C3E31400840238 /* FSKitdWatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = FSKitdWatcher.m; path = diskarbitrationd/FSKitdWatcher.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -414,6 +434,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A407C29F2908897A00928858 /* FSKit.framework in Frameworks */,
 				95005613268D087800C60718 /* libbsm.tbd in Frameworks */,
 				95B2F4AC266ADD8B0051A87B /* SystemConfiguration.framework in Frameworks */,
 				957575D925D36E56002758FF /* Foundation.framework in Frameworks */,
@@ -459,6 +480,7 @@
 		1236382F031ABDC703A87B01 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A407C29E2908897A00928858 /* FSKit.framework */,
 				9505A5F2271E11490003E6AA /* libFSInfo.a */,
 				9505A5F0271E0F240003E6AA /* libfs.a */,
 				95005611268D085A00C60718 /* libbsm.tbd */,
@@ -505,7 +527,6 @@
 		124AF904030AE17703A87B01 /* diskarbitrationd */ = {
 			isa = PBXGroup;
 			children = (
-				957575E025D36E9A002758FF /* DAUserFSMount.m */,
 				6D0B6E2903DC776600A87B01 /* fstab.c */,
 				6DA40B2303F8314600A87B01 /* vsdb.c */,
 				6DA40B2203F8314600A87B01 /* vsdb.h */,
@@ -547,10 +568,13 @@
 				124AF310030AD9AD03A87B01 /* DASession.h */,
 				125B1A7F039D119A03A87B01 /* DAStage.c */,
 				125B1A7E039D119A03A87B01 /* DAStage.h */,
-				12BA01D8038C2A5803A87B01 /* DASupport.c */,
+				12BA01D8038C2A5803A87B01 /* DASupport.m */,
 				12BA01D7038C2A5803A87B01 /* DASupport.h */,
 				6DFC226C04E2DCF700A87B01 /* DAThread.c */,
 				6DFC226B04E2DCF700A87B01 /* DAThread.h */,
+				957575E025D36E9A002758FF /* DAUserFSMount.m */,
+				DB7355FD29C3E31400840238 /* FSKitdWatcher.h */,
+				DB7355FE29C3E31400840238 /* FSKitdWatcher.m */,
 			);
 			name = diskarbitrationd;
 			sourceTree = "<group>";
@@ -563,6 +587,7 @@
 				12363823031AA75703A87B01 /* diskarbitrationd.8 */,
 				6D676E9D0406DCE100A87B01 /* DAServer.defs */,
 				6DC05AF6047D66D400A87B01 /* DAServer.defs.h */,
+				DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */,
 			);
 			name = diskarbitrationd;
 			sourceTree = "<group>";
@@ -733,6 +758,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DB7355FF29C3E31400840238 /* FSKitdWatcher.h in Headers */,
 				603C87C108EC8117004474CD /* vsdb.h in Headers */,
 				605A42301695070C00959114 /* DAAgent.h in Headers */,
 				603C87C208EC8117004474CD /* DABase.h in Headers */,
@@ -818,8 +844,9 @@
 				603C87C008EC8117004474CD /* Headers */,
 				603C87D608EC8117004474CD /* Sources */,
 				603C87ED08EC8117004474CD /* Frameworks */,
-				603C87F308EC8117004474CD /* CopyFiles */,
+				603C87F308EC8117004474CD /* Copy Files */,
 				9500560C268A876400C60718 /* ShellScript */,
+				DB0BFD1829DE37F400CE569E /* Copy Feature Flag plist */,
 			);
 			buildRules = (
 			);
@@ -1045,7 +1072,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				957575E125D36E9A002758FF /* DAUserFSMount.m in Sources */,
 				603C87D708EC8117004474CD /* fstab.c in Sources */,
 				603C87D808EC8117004474CD /* vsdb.c in Sources */,
 				605A422F1695070C00959114 /* DAAgent.c in Sources */,
@@ -1053,11 +1079,13 @@
 				603C87DA08EC8117004474CD /* DACallback.c in Sources */,
 				603C87DB08EC8117004474CD /* DACommand.c in Sources */,
 				603C87DC08EC8117004474CD /* DADialog.c in Sources */,
+				DB73560029C3E31400840238 /* FSKitdWatcher.m in Sources */,
 				603C87DD08EC8117004474CD /* DADisk.c in Sources */,
 				603C87DE08EC8117004474CD /* DADissenter.c in Sources */,
 				603C87DF08EC8117004474CD /* DAFileSystem.c in Sources */,
 				603C87E008EC8117004474CD /* DAInternal.c in Sources */,
 				603C87E108EC8117004474CD /* DALog.c in Sources */,
+				DB7355FC29C3E24800840238 /* DAUserFSMount.m in Sources */,
 				603C87E208EC8117004474CD /* DAMain.c in Sources */,
 				603C87E308EC8117004474CD /* DAMount.c in Sources */,
 				603C87E408EC8117004474CD /* DAPrivate.c in Sources */,
@@ -1068,7 +1096,7 @@
 				603C87E808EC8117004474CD /* DAServer.defs in Sources */,
 				603C87E908EC8117004474CD /* DASession.c in Sources */,
 				603C87EA08EC8117004474CD /* DAStage.c in Sources */,
-				603C87EB08EC8117004474CD /* DASupport.c in Sources */,
+				603C87EB08EC8117004474CD /* DASupport.m in Sources */,
 				603C87EC08EC8117004474CD /* DAThread.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1222,11 +1250,14 @@
 		603C87F808EC8117004474CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = diskarbitrationd/DAServer.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
+				ENABLE_MODULE_VERIFIER = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/libexec;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				NEW_SETTING = "";
 				"OTHER_LDFLAGS[sdk=appletvos*]" = "";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
@@ -1263,10 +1294,13 @@
 		603C87F908EC8117004474CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = diskarbitrationd/DAServer.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				ENABLE_MODULE_VERIFIER = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/libexec;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				NEW_SETTING = "";
 				"OTHER_LDFLAGS[sdk=appletvos*]" = "";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
@@ -1313,6 +1347,7 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_MODULE_VERIFIER = YES;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -1320,6 +1355,7 @@
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
 				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				PRODUCT_NAME = DiskArbitration;
 				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = (
@@ -1350,6 +1386,7 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_MODULE_VERIFIER = YES;
 				FRAMEWORK_VERSION = A;
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "";
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
@@ -1358,6 +1395,7 @@
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
 				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				PRODUCT_NAME = DiskArbitration;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = (
@@ -1413,13 +1451,16 @@
 		72BF5C062346A75200054F1E /* ReleaseCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = diskarbitrationd/DAServer.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				ENABLE_MODULE_VERIFIER = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					__DISKARBITRATIOND__,
 					__CODECOVERAGE__,
 				);
 				INSTALL_PATH = /usr/libexec;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				NEW_SETTING = "";
 				OTHER_CFLAGS = (
 					"-fcoverage-mapping",
@@ -1451,6 +1492,7 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_MODULE_VERIFIER = YES;
 				FRAMEWORK_VERSION = A;
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "";
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
@@ -1459,6 +1501,7 @@
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
 				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				PRODUCT_NAME = DiskArbitration;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = (
@@ -1515,14 +1558,17 @@
 		72BF5C0C2346A76800054F1E /* DebugCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = diskarbitrationd/DAServer.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
+				ENABLE_MODULE_VERIFIER = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					__DISKARBITRATIOND__,
 					__CODECOVERAGE__,
 				);
 				INSTALL_PATH = /usr/libexec;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				NEW_SETTING = "";
 				OTHER_CFLAGS = (
 					"-fcoverage-mapping",
@@ -1555,6 +1601,7 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_MODULE_VERIFIER = YES;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -1562,6 +1609,7 @@
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
 				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				PRODUCT_NAME = DiskArbitration;
 				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = (

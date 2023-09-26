@@ -68,7 +68,7 @@ void log_msg(const int priority, const char *fmt, ...)
 	(void)vsnprintf(debug_buffer, sizeof debug_buffer, fmt, argptr);
 	va_end(argptr);
 
-	os_log_with_type(OS_LOG_DEFAULT, os_log_type, "%s", debug_buffer);
+	os_log_with_type(OS_LOG_DEFAULT, os_log_type, LOG_STRING, debug_buffer);
 } /* log_msg */
 
 void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
@@ -90,7 +90,7 @@ void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
 		c += 3;
 	}
 
-	os_log(OS_LOG_DEFAULT, "%s", debug_buffer);
+	os_log(OS_LOG_DEFAULT, LOG_SENSIBLE_STRING, debug_buffer);
 } /* log_xxd */
 
 #else

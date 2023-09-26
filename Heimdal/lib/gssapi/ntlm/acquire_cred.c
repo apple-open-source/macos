@@ -50,15 +50,14 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 	krb5_data response_data;
 	ssize_t sret;
 #else /* !HAVE_KCM */
-	CFDictionaryRef attrs = NULL;
-	CFMutableDictionaryRef query = NULL;
+	CFDictionaryRef query = NULL;
 	CFArrayRef query_result = NULL;
 	CFIndex query_count = 0;
-	CFDictionaryRef query_entry = NULL;
 	CFStringRef user_cfstr = NULL;
 	CFStringRef domain_cfstr = NULL;
 	CFUUIDRef uuid_cfuuid = NULL;
 	CFUUIDBytes uuid_bytes;
+	HeimCredRef result = NULL;
 #endif /* HAVE_KCM */
 	OM_uint32 major = GSS_S_FAILURE;
 	ntlm_name cred;
@@ -118,9 +117,8 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 		domain_cfstr
 	};
 
-	attrs = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	heim_assert(attrs != NULL, "Failed to create dictionary");
-
+	query = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	heim_assert(query != NULL, "Failed to create dictionary");
 
 	query_result = HeimCredCopyQuery(query);
 
@@ -128,12 +126,14 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 		goto out;
 
 	query_count = CFArrayGetCount(query_result);
-	if (query_count == 0)
+	if (query_count == 0) {
 		goto out;
-	query_entry = CFArrayGetValueAtIndex(query_result, 0);
-	if (query_entry == NULL)
-		goto out;
-	uuid_cfuuid = CFDictionaryGetValue( query_entry, kHEIMAttrUUID);
+	}
+	result = (HeimCredRef) CFArrayGetValueAtIndex(query_result, 0);
+	if (result == NULL) {
+	    goto out;
+	}
+	uuid_cfuuid = HeimCredGetUUID(result);
 	if (uuid_cfuuid == NULL)
 		goto out;
 	uuid_bytes = CFUUIDGetUUIDBytes(uuid_cfuuid);
@@ -163,10 +163,10 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 		CFRelease(user_cfstr);
 	if (domain_cfstr)
 		CFRelease(domain_cfstr);
-	if (uuid_cfuuid)
-		CFRelease(uuid_cfuuid);
 	if (query)
 		CFRelease(query);
+	if (query_result)
+	    CFRelease(query_result);
 #endif /* HAVE_KCM */
     return major;
 }
@@ -387,8 +387,6 @@ _gss_ntlm_acquire_cred_ext(OM_uint32 * minor_status,
 		CFRelease(domain_cfstr);
 	if (ntlmhash_cfdata)
 		CFRelease(ntlmhash_cfdata);
-	if (uuid_cfuuid)
-		CFRelease(uuid_cfuuid);
 	if (attrs)
 		CFRelease(attrs);
 	if (cred)

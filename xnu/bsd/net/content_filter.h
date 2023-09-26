@@ -520,10 +520,14 @@ do { \
 } while (0)
 
 
+extern void cfil_register_m_tag(void);
+
 extern void cfil_init(void);
 
 extern boolean_t cfil_filter_present(void);
 extern boolean_t cfil_sock_connected_pending_verdict(struct socket *so);
+extern boolean_t cfil_sock_is_dead(struct socket *so);
+extern boolean_t cfil_sock_tcp_add_time_wait(struct socket *so);
 extern errno_t cfil_sock_attach(struct socket *so,
     struct sockaddr *local, struct sockaddr *remote, int dir);
 extern errno_t cfil_sock_detach(struct socket *so);

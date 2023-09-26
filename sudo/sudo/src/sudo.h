@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1993-1996, 1998-2005, 2007-2021
+ * Copyright (c) 1993-1996, 1998-2005, 2007-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -75,6 +75,38 @@
 #define MODE_NONINTERACTIVE	0x00800000
 #define MODE_LONG_LIST		0x01000000
 
+/* Indexes into sudo_settings[] args, must match parse_args.c. */
+#define ARG_BSDAUTH_TYPE	 0
+#define ARG_LOGIN_CLASS		 1
+#define ARG_PRESERVE_ENVIRONMENT 2
+#define ARG_RUNAS_GROUP		 3
+#define ARG_SET_HOME		 4
+#define ARG_USER_SHELL		 5
+#define ARG_LOGIN_SHELL		 6
+#define ARG_IGNORE_TICKET	 7
+#define ARG_UPDATE_TICKET	 8
+#define ARG_PROMPT		 9
+#define ARG_SELINUX_ROLE	10
+#define ARG_SELINUX_TYPE	11
+#define ARG_RUNAS_USER		12
+#define ARG_PROGNAME		13
+#define ARG_IMPLIED_SHELL	14
+#define ARG_PRESERVE_GROUPS	15
+#define ARG_NONINTERACTIVE	16
+#define ARG_SUDOEDIT		17
+#define ARG_CLOSEFROM		18
+#define ARG_NET_ADDRS		19
+#define ARG_MAX_GROUPS		20
+#define ARG_PLUGIN_DIR		21
+#define ARG_REMOTE_HOST		22
+#define ARG_TIMEOUT		23
+#define ARG_CHROOT		24
+#define ARG_CWD			25
+#define ARG_ASKPASS		26
+#define ARG_INTERCEPT_SETID	27
+#define ARG_INTERCEPT_PTRACE	28
+#define ARG_APPARMOR_PROFILE	29
+
 /*
  * Flags for tgetpass()
  */
@@ -118,26 +150,33 @@ struct user_details {
     int ts_cols;
 };
 
-#define CD_SET_UID		0x000001
-#define CD_SET_EUID		0x000002
-#define CD_SET_GID		0x000004
-#define CD_SET_EGID		0x000008
-#define CD_PRESERVE_GROUPS	0x000010
-#define CD_NOEXEC		0x000020
-#define CD_SET_PRIORITY		0x000040
-#define CD_SET_UMASK		0x000080
-#define CD_SET_TIMEOUT		0x000100
-#define CD_SUDOEDIT		0x000200
-#define CD_BACKGROUND		0x000400
-#define CD_RBAC_ENABLED		0x000800
-#define CD_USE_PTY		0x001000
-#define CD_SET_UTMP		0x002000
-#define CD_EXEC_BG		0x004000
-#define CD_SUDOEDIT_FOLLOW	0x008000
-#define CD_SUDOEDIT_CHECKDIR	0x010000
-#define CD_SET_GROUPS		0x020000
-#define CD_LOGIN_SHELL		0x040000
-#define CD_OVERRIDE_UMASK	0x080000
+#define CD_SET_UID		0x00000001
+#define CD_SET_EUID		0x00000002
+#define CD_SET_GID		0x00000004
+#define CD_SET_EGID		0x00000008
+#define CD_PRESERVE_GROUPS	0x00000010
+#define CD_INTERCEPT		0x00000020
+#define CD_NOEXEC		0x00000040
+#define CD_SET_PRIORITY		0x00000080
+#define CD_SET_UMASK		0x00000100
+#define CD_SET_TIMEOUT		0x00000200
+#define CD_SUDOEDIT		0x00000400
+#define CD_BACKGROUND		0x00000800
+#define CD_RBAC_ENABLED		0x00001000
+#define CD_USE_PTY		0x00002000
+#define CD_SET_UTMP		0x00004000
+#define CD_EXEC_BG		0x00008000
+#define CD_SUDOEDIT_FOLLOW	0x00010000
+#define CD_SUDOEDIT_CHECKDIR	0x00020000
+#define CD_SET_GROUPS		0x00040000
+#define CD_LOGIN_SHELL		0x00080000
+#define CD_OVERRIDE_UMASK	0x00100000
+#define CD_LOG_SUBCMDS		0x00200000
+#define CD_USE_PTRACE		0x00400000
+#define CD_FEXECVE		0x00800000
+#define CD_INTERCEPT_VERIFY	0x01000000
+#define CD_RBAC_SET_CWD		0x02000000
+#define CD_CWD_OPTIONAL		0x04000000
 
 struct preserved_fd {
     TAILQ_ENTRY(preserved_fd) entries;
@@ -150,12 +189,13 @@ TAILQ_HEAD(preserved_fd_list, preserved_fd);
 struct command_details {
     struct sudo_cred cred;
     mode_t umask;
+    int argc;
     int priority;
     int timeout;
     int closefrom;
     int flags;
     int execfd;
-    int cwd_optional;
+    int nfiles;
     struct preserved_fd_list preserved_fds;
     struct passwd *pw;
     const char *command;
@@ -165,6 +205,7 @@ struct command_details {
     const char *chroot;
     const char *selinux_role;
     const char *selinux_type;
+    const char *apparmor_profile;
     const char *utmp_user;
     const char *tty;
     char **argv;
@@ -221,10 +262,15 @@ int os_init_common(int argc, char *argv[], char *envp[]);
 bool gc_add(enum sudo_gc_types type, void *v);
 bool set_user_groups(struct command_details *details);
 struct sudo_plugin_event *sudo_plugin_event_alloc(void);
-void audit_reject(const char *plugin_name, unsigned int plugin_type,
+bool audit_accept(const char *plugin_name, unsigned int plugin_type,
+    char * const command_info[], char * const run_argv[],
+    char * const run_envp[]);
+bool audit_reject(const char *plugin_name, unsigned int plugin_type,
     const char *audit_msg, char * const command_info[]);
-void audit_error(const char *plugin_name, unsigned int plugin_type,
+bool audit_error(const char *plugin_name, unsigned int plugin_type,
     const char *audit_msg, char * const command_info[]);
+bool approval_check(char * const command_info[], char * const run_argv[],
+    char * const run_envp[]);
 extern const char *list_user;
 extern struct user_details user_details;
 extern int sudo_debug_instance;
@@ -233,18 +279,23 @@ extern int sudo_debug_instance;
 int sudo_edit(struct command_details *details);
 
 /* parse_args.c */
-void usage(void) __attribute__((__noreturn__));
+sudo_noreturn void usage(void);
 
 /* openbsd.c */
 int os_init_openbsd(int argc, char *argv[], char *envp[]);
 
 /* selinux.c */
+int selinux_audit_role_change(void);
+int selinux_getexeccon(const char *role, const char *type);
+int selinux_relabel_tty(const char *ttyn, int ttyfd);
 int selinux_restore_tty(void);
-int selinux_setup(const char *role, const char *type, const char *ttyn,
-    int ttyfd, bool label_tty);
-int selinux_setcon(void);
+int selinux_setexeccon(void);
 void selinux_execve(int fd, const char *path, char *const argv[],
-    char *envp[], bool noexec);
+    char *envp[], const char *rundir, int flags);
+
+/* apparmor.c */
+int apparmor_is_enabled(void);
+int apparmor_prepare(const char* new_profile);
 
 /* solaris.c */
 void set_project(struct passwd *);
@@ -289,11 +340,18 @@ void parse_preserved_fds(struct preserved_fd_list *pfds, const char *fdstr);
 int tcsetpgrp_nobg(int fd, pid_t pgrp_id);
 
 /* limits.c */
-void disable_coredump();
+void disable_coredump(void);
 void restore_limits(void);
 void restore_nproc(void);
+void set_policy_rlimits(void);
 void unlimit_nproc(void);
 void unlimit_sudo(void);
-int serialize_limits(char **info, size_t info_max);
+int serialize_rlimits(char **info, size_t info_max);
+bool parse_policy_rlimit(const char *str);
+
+/* exec_ptrace.c */
+void exec_ptrace_fix_flags(struct command_details *details);
+bool exec_ptrace_intercept_supported(void);
+bool exec_ptrace_subcmds_supported(void);
 
 #endif /* SUDO_SUDO_H */

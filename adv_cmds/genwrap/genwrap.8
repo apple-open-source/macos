@@ -1,0 +1,303 @@
+.\"
+.\"  Copyright (c) 2022 Apple Inc. All rights reserved.
+.\"
+.\"  @APPLE_LICENSE_HEADER_START@
+.\"
+.\"  "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+.\"  Reserved.  This file contains Original Code and/or Modifications of
+.\"  Original Code as defined in and that are subject to the Apple Public
+.\"  Source License Version 1.0 (the 'License').  You may not use this file
+.\"  except in compliance with the License.  Please obtain a copy of the
+.\"  License at http://www.apple.com/publicsource and read it before using
+.\"  this file.
+.\"
+.\"  The Original Code and all software distributed under the License are
+.\"  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\"  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\"  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\"  FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+.\"  License for the specific language governing rights and limitations
+.\"  under the License."
+.\"
+.\"  @APPLE_LICENSE_HEADER_END@
+.\"
+.Dd January 26, 2023
+.Dt GENWRAP 8
+.Os
+.Sh NAME
+.Nm genwrap
+.Nd generate parameterized program wrappers
+.Sh SYNOPSIS
+.Nm
+.Op Fl o Ar output
+.Ar spec
+.Sh DESCRIPTION
+The
+.Nm
+utility generates program wrappers, hereby referred to as
+.Dq shims ,
+from a specification.
+.Nm
+is primarily intended to be used for the following scenarios:
+.Bl -bullet -offset indent
+.It
+Adding a shim that reports analytics on program usage.
+.It
+Adding a shim that allows switching between multiple application implementations
+based on an environment variable.
+.It
+Adding a shim that may switch between multiple application implementations
+based on the arguments being used.
+.El
+.Pp
+.Ar spec
+should be a file written in the format specified later in
+.Sx SPECIFICATION FORMAT .
+.Pp
+The following options are available for
+.Nm :
+.Bl -tag -offset indent
+.It Fl o Ar output
+Switch the output file to
+.Ar output .
+The default is to write the shim to stdout, and stdout may also be specified
+by explicitly passing
+.Dq -
+for
+.Ar output .
+.El
+.Pp
+Note that
+.Nm
+only generates a C source file for the shim.
+.Nm
+does not directly offer the ability to build a binary from the shim.
+.Ss SPECIFICATION FORMAT
+.Nm
+uses a minimal custom language for generating shims.
+This language is best described as two primary functional blocks, the
+shim setting block and the application specification block.
+The shim setting block
+.Sy must
+appear before application specifications.
+Comments begin with a
+.Dq # ,
+and whitespace is generally irrelevant outside of quoted values.
+By convention, one line corresponds to exactly one directive.
+.Pp
+Listings in the rest of this section may be interpreted and written literally
+into a specification file.
+If a keyword appears in
+.Oo brackets Oc ,
+then the keyword is optional and the brackets should be omitted when writing the
+keyword.
+.Pp
+The following optional directives may be specified in the shim setting block:
+.Bl -tag -offset indent
+.It analytics Dq Ar identifier
+Report CoreAnalytics events with the specified
+.Ar identifier .
+CoreAnalytics is disabled if this directive is not in use.
+.It env Dq Ar variable
+Use the specified
+.Ar variable
+to switch specified application implementations based on the environment that
+the generated shim is run in.
+Values for the environment variable match the names specified later in the
+application specification block.
+.El
+.Pp
+Applications are defined after the shim setting block.
+At least one application must be defined.
+Every application must have a
+.Sy path
+set.
+.Pp
+All directives besides the
+.Sy application
+directives apply to the last specified
+.Sy application
+prior to the directive.
+By convention, all directives besides the
+.Sy application
+directives are indented by some consistent amount of whitespace to improve
+readability of the specification.
+.Pp
+The following directives may be specified in the application specification
+block:
+.Bl -tag -offset indent
+.It application Dq Ar name
+Defines an application with the specified
+.Ar name .
+The given
+.Ar name
+name typically corresponds to the name of the binary that this application block
+will represent, but its exact value is not significant.
+If the
+.Sy env
+directive is specified above, then the specified environment variable may be set
+to
+.Ar name
+to indicate that this application block's path should be used.
+.It default
+Optionally specifies that this application block is the default application.
+If no
+.Sy default
+directive is specified, then the resulting shim will use the first specified
+application as the default.
+.It argmode logonly
+Indicates that any flag directives specified should only be considered for
+logging purposes.
+If arguments are evaluated to determine which application to choose, one with
+.Ar logonly
+set will be considered acceptable by default.
+.It path Dq Ar path
+This directive is
+.Sy required
+for each specified
+.Sy application .
+The given
+.Ar path
+should be the path to the binary to be used if this application is selected.
+.Pp
+If a relative path is given, then it will be prefixed with the active developer
+directory as provided by
+.Xr xcode-select 1
+at runtime.
+.Pp
+If an absolute path is given, then it will be used as-is.
+.It flag Do Ar flag Dc Oo optional_arg | arg Oc
+Adds the given
+.Ar flag
+as a recognized flag by this application.
+If
+.Ar flag
+is a long flag, it must not have a short flag alias when used in this form.
+.Pp
+If
+.Sy optional_arg
+or
+.Sy arg
+are specified, then it is noted in the shim that this flag takes an argument.
+.It flag Do Ar longflag Dc Do Ar shortflag Dc Oo optional_arg | arg Oc
+This is equivalent to the above form, except that
+.Ar longflag
+explicitly has a
+.Ar shortflag
+alias.
+.El
+.Pp
+The
+.Sy flag
+directives are only necessary if argument-based switching is desired, rather
+than environment-based switching.
+Informing the shim of argument structure may also be used to limit reported
+analytics to avoid inadvertently including arguments.
+See
+.Sx ANALYTICS
+for more details.
+.Ss ANALYTICS
+.Nm
+may be used to generate shims that collect analytics on application usage.
+The details reported can be useful in understanding how applications are used
+in practice to inform relevant decisions.
+.Pp
+When analytics are enabled,
+.Nm
+shims report events with the following details:
+.Bl -tag -offset indent
+.It Sy name
+The name the wrapper was invoked as, i.e., argv[0].
+.It Sy chosen
+The name, provided in the
+.Sy application
+directive, of the specific application that was chosen to be invoked.
+.It Sy arguments
+The array of arguments passed to the wrapper.
+.El
+.Pp
+Note that, currently, all arguments passed to the wrapper are reported in these
+events.
+The specification grammar accepts a
+.Sy noargs
+keyword after the
+.Sy analytics
+, which may be used to omit flags' argument values as well as any
+non-option arguments to prevent an inadvertent information disclosure through,
+e.g., file names.
+.Sh FILES
+.Bl -tag -width indent
+.It Pa /usr/local/share/genwrap/wrapper-head.c
+The prologue for the shim that
+.Nm
+will write out, containing some include files and definitions that will later
+be used in the implementation.
+.It Pa /usr/local/share/genwrap/wrapper-tail.c
+The implementation of the shim that is written out at the end of the file.
+.It Pa /usr/local/share/genwrap/examples
+Directory containing examples that are ready for
+.Nm
+to be run against for demonstration.
+.El
+.Sh EXAMPLES
+Define a shim that may switch between
+.Xr make 1
+implementations based on the
+.Ev COMMAND_MAKE
+environment variable:
+.Bd -literal -offset indent
+env "COMMAND_MAKE"
+# Arbitrarily specified in alphabetical order.
+application "bmake"
+	# A minimal application specification only consists of a path.
+	path "usr/bin/bmake"
+application "gnumake"
+	default
+	# Note that both of these will be invoked out of developer tools,
+	# because they're relative paths.
+	path "usr/bin/gnumake"
+# usr/bin/bmake will be selected if the resulting shim is compiled and run in
+# an environment with COMMAND_MAKE="bmake", and usr/bin/gmake will be selected
+# if the resulting shim is run in an environment with COMMAND_MAKE="gnumake".
+.Ed
+.Pp
+Define a shim that may switch to another application if non-described flags are
+specified.
+The default application will be checked first, followed by every other defined
+application in the order that they're defined.
+.Bd -literal -offset indent
+# Collect analytics on this one primarily because we want to see how often
+# our shim ends up selecting the oldapp, along with what arguments are most
+# commonly being used when the shim is forced to switch to oldapp.
+analytics "com.example.newapp"
+env "COMMAND_APP"
+# If newapp is forced by setting COMMAND_APP=newapp in the environment when the
+# shim is ran, then we will simply execute it without checking any flags.  This
+# can be useful if support for a flag is added to /usr/bin/newapp but it is
+# being tested before recognizing it as valid in the shim.
+application "newapp"
+	path "/usr/bin/newapp"
+	# Supports -b, --bytes; that flag takes an argument.
+	flag "bytes" "b" arg
+	# Supports a --verbose flag that takes no argument.
+	flag "verbose"
+application "oldapp"
+	path "/usr/bin/oldapp"
+	# No flags directives here indicates that we do not need to check the
+	# specified flags to try and use this application, so if a flag that
+	# newapp does not support is specified then we will immediately fallback
+	# to oldapp.
+.Ed
+.Pp
+Other examples may be found in
+.Pa /usr/local/share/examples/genwrap .
+.Sh SEE ALSO
+.Xr analyticsd 1 ,
+.Xr xcode-select 1 ,
+.Xr analytics_tool 8
+.Sh BUGS
+The shims generated by
+.Nm
+cannot be used with argument-based switching when
+.Dq \&?
+is a valid flag.

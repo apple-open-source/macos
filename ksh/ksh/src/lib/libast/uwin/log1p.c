@@ -127,7 +127,7 @@ double x;
 	if(x!=x) return(x);	/* x is NaN */
 #endif	/* !defined(vax)&&!defined(tahoe) */
 
-	if(finite(x)) {
+	if(isfinite(x)) {
 	   if( x > negone ) {
 
 	   /* argument reduction */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017, 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017, 2022-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,13 +49,13 @@
 #include <EAP8021X/EAPTLSUtil.h>
 #include <EAP8021X/EAPCertificateUtil.h>
 #include <EAP8021X/EAPUtil.h>
-#include <Security/SecureTransport.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecIdentity.h>
-#include <Security/SecureTransportPriv.h>
 #include "myCFUtil.h"
 #include "printdata.h"
 #include "EAPLog.h"
+#include "EAPOLControlPrefs.h"
+#include "EAPTLSSession.h"
 
 /*
  * Declare these here to ensure that the compiler
@@ -84,27 +84,28 @@ typedef enum {
 } RequestType;
 
 typedef struct {
-    SSLContextRef		ssl_context;
-    memoryBuffer		read_buffer;
-    memoryBuffer		write_buffer;
-    int				last_write_size;
-    int				previous_identifier;
-    memoryIO			mem_io;
-    EAPClientState		plugin_state;
-    bool			cert_is_required;
-    CFArrayRef			certs;
-    int				mtu;
-    OSStatus			last_ssl_error;
-    EAPClientStatus		last_client_status;
-    OSStatus			trust_ssl_error;
-    EAPClientStatus		trust_status;
-    bool			trust_proceed;
-    bool			key_data_valid;
-    char			key_data[128];
-    bool			resume_sessions;
-    bool			server_auth_completed;
-    CFArrayRef			server_certs;
-    bool			session_was_resumed;
+    EAPTLSSessionContextRef 		tls_session_context;
+    memoryBuffer			read_buffer;
+    memoryBuffer			write_buffer;
+    int					last_write_size;
+    int					previous_identifier;
+    memoryIO				mem_io;
+    EAPClientState			plugin_state;
+    bool				cert_is_required;
+    CFArrayRef				certs;
+    int					mtu;
+    OSStatus				last_ssl_error;
+    EAPClientStatus			last_client_status;
+    OSStatus				trust_ssl_error;
+    EAPClientStatus			trust_status;
+    bool				trust_proceed;
+    bool				key_data_valid;
+    char				key_data[128];
+    bool				resume_sessions;
+    bool				server_auth_completed;
+    CFArrayRef				server_certs;
+    bool				session_was_resumed;
+    CFStringRef 			negotiated_tls_protocol_version;
 } EAPTLSPluginData, * EAPTLSPluginDataRef;
 
 enum {
@@ -116,19 +117,65 @@ enum {
 #define kEAPTLSClientLabel		"client EAP encryption"
 #define kEAPTLSClientLabelLength	(sizeof(kEAPTLSClientLabel) - 1)
 
+static OSStatus
+EAPTLSContextCreate(EAPClientPluginDataRef plugin)
+{
+    OSStatus 				status = errSecSuccess;
+    EAPTLSPluginDataRef			context = (EAPTLSPluginDataRef)plugin->private;
+    EAPTLSSessionContextRef 		eap_tls_session_context_ref = NULL;
+
+    if (context->cert_is_required && context->certs == NULL) {
+	status = EAPTLSCopyIdentityTrustChain(plugin->sec_identity,
+					      plugin->properties,
+					      &context->certs);
+	if (status != errSecSuccess) {
+	    EAPLOG_FL(LOG_NOTICE,
+		      "failed to find client cert/identity, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
+	    goto failed;
+	}
+    }
+    if (context->cert_is_required &&
+	(context->certs == NULL || CFArrayGetCount(context->certs) == 0)) {
+	return errSecParam;
+    }
+    eap_tls_session_context_ref = EAPTLSSessionCreateContext(plugin->properties, kEAPTypeTLS, &context->mem_io, context->certs, &status);
+    if (eap_tls_session_context_ref == NULL || status != errSecSuccess) {
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSSessionCreateContext failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
+	goto failed;
+    }
+    if (context->resume_sessions && plugin->unique_id != NULL) {
+	status = EAPTLSSessionSetPeerID(eap_tls_session_context_ref, plugin->unique_id, plugin->unique_id_length);
+	if (status != errSecSuccess) {
+	    EAPLOG_FL(LOG_NOTICE, "EAPTLSSessionSetPeerID failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
+	    goto failed;
+	}
+    }
+    context->tls_session_context = eap_tls_session_context_ref;
+    return status;
+
+failed:
+    if (eap_tls_session_context_ref != NULL) {
+	EAPTLSSessionFreeContext(eap_tls_session_context_ref);
+    }
+    return status;
+}
+
 static bool
 eaptls_compute_session_key(EAPTLSPluginDataRef context)
 {
-    OSStatus		status;
+    OSStatus status;
 
     context->key_data_valid = FALSE;
-    status = EAPTLSComputeKeyData(context->ssl_context, 
-				  kEAPTLSClientLabel, 
-				  kEAPTLSClientLabelLength,
-				  context->key_data,
-				  sizeof(context->key_data));
-    if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeSessionKey failed, %s (%ld)",
+    status = EAPTLSSessionComputeSessionKey(context->tls_session_context,
+					    kEAPTLSClientLabel,
+					    kEAPTLSClientLabelLength,
+					    context->key_data,
+					    sizeof(context->key_data));
+    if (status != errSecSuccess) {
+	EAPLOG_FL(LOG_NOTICE, "EAP-TLS session key computation failed, %s (%ld)",
 		  EAPSSLErrorString(status), (long)status);
 	return (FALSE);
     }
@@ -139,10 +186,8 @@ eaptls_compute_session_key(EAPTLSPluginDataRef context)
 static void
 eaptls_free_context(EAPTLSPluginDataRef context)
 {
-    if (context->ssl_context != NULL) {
-	CFRelease(context->ssl_context);
-	context->ssl_context = NULL;
-    }
+    EAPTLSSessionFreeContext(context->tls_session_context);
+    context->tls_session_context = NULL;
     my_CFRelease(&context->certs);
     my_CFRelease(&context->server_certs);
     memoryIOClearBuffers(&context->mem_io);
@@ -154,53 +199,26 @@ static OSStatus
 eaptls_start(EAPClientPluginDataRef plugin)
 {
     EAPTLSPluginDataRef	context = (EAPTLSPluginDataRef)plugin->private;
-    SSLContextRef	ssl_context = NULL;
-    OSStatus		status = noErr;
+    OSStatus		status = errSecSuccess;
 
-    if (context->ssl_context != NULL) {
-	CFRelease(context->ssl_context);
-	context->ssl_context = NULL;
-    }
+    EAPTLSSessionFreeContext(context->tls_session_context);
     my_CFRelease(&context->server_certs);
     memoryIOClearBuffers(&context->mem_io);
-    ssl_context = EAPTLSMemIOContextCreate(plugin->properties, FALSE, &context->mem_io, NULL,
-					   &status);
-    if (ssl_context == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s (%ld)",
-		  EAPSSLErrorString(status), (long)status);
-	goto failed;
-    }
-    if (context->resume_sessions && plugin->unique_id != NULL) {
-	status = SSLSetPeerID(ssl_context, plugin->unique_id,
-			      plugin->unique_id_length);
+    if (context->cert_is_required && context->certs == NULL) {
+	status = EAPTLSCopyIdentityTrustChain(plugin->sec_identity,
+					      plugin->properties,
+					      &context->certs);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE,
-		      "SSLSetPeerID failed, %s (%ld)",
+		      "failed to find client cert/identity, %s (%ld)",
 		      EAPSSLErrorString(status), (long)status);
-	    goto failed;
+	    return status;
 	}
     }
-    if (context->cert_is_required) {
-	if (context->certs == NULL) {
-	    status = EAPTLSCopyIdentityTrustChain(plugin->sec_identity,
-						  plugin->properties,
-						  &context->certs);
-	    if (status != noErr) {
-		EAPLOG_FL(LOG_NOTICE, 
-			  "failed to find client cert/identity, %s (%ld)",
-			  EAPSSLErrorString(status), (long)status);
-		goto failed;
-	    }
-	}
-	status = SSLSetCertificate(ssl_context, context->certs);
-	if (status != noErr) {
-	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLSetCertificate failed, %s (%ld)",
-		      EAPSSLErrorString(status), (long)status);
-	    goto failed;
-	}
+    status = EAPTLSContextCreate(plugin);
+    if (status != errSecSuccess) {
+	return status;
     }
-    context->ssl_context = ssl_context;
     context->plugin_state = kEAPClientStateAuthenticating;
     context->previous_identifier = BAD_IDENTIFIER;
     context->last_ssl_error = noErr;
@@ -211,12 +229,6 @@ eaptls_start(EAPClientPluginDataRef plugin)
     context->last_write_size = 0;
     context->session_was_resumed = FALSE;
     return (status);
- failed:
-    if (ssl_context != NULL) {
-	CFRelease(ssl_context);
-    }
-    return (status);
-
 }
 
 static EAPClientStatus
@@ -240,7 +252,6 @@ eaptls_init(EAPClientPluginDataRef plugin, CFArrayRef * required_props,
     memoryIOInit(&context->mem_io, &context->read_buffer,
 		 &context->write_buffer);
     //memoryIOSetDebug(&context->mem_io, TRUE);
-
     plugin->private = context;
     *error = 0;
     return (kEAPClientStatusOK);
@@ -276,15 +287,21 @@ EAPTLSPacketCreateAck(u_char identifier)
 
 static EAPPacketRef
 eaptls_verify_server(EAPClientPluginDataRef plugin,
-		     int identifier, EAPClientStatus * client_status)
+		     int identifier, Boolean revocation_check, EAPClientStatus * client_status)
 {
     EAPTLSPluginDataRef 	context = (EAPTLSPluginDataRef)plugin->private;
     EAPPacketRef		pkt = NULL;
     memoryBufferRef		write_buf = &context->write_buffer;
+    SecTrustRef 		sec_trust = NULL;
 
+    if (revocation_check) {
+	sec_trust = EAPTLSSessionGetSecTrust(context->tls_session_context);
+    }
     context->trust_status
 	= EAPTLSVerifyServerCertificateChain(plugin->properties, 
 					     context->server_certs,
+					     revocation_check,
+					     sec_trust,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
 	EAPLOG_FL(LOG_NOTICE, "server certificate not trusted status %d %d",
@@ -304,7 +321,7 @@ eaptls_verify_server(EAPClientPluginDataRef plugin,
 	*client_status = context->trust_status;
 	context->last_ssl_error = context->trust_ssl_error;
 	context->plugin_state = kEAPClientStateFailure;
-	SSLClose(context->ssl_context);
+	EAPTLSSessionClose(context->tls_session_context);
 	pkt = EAPTLSPacketCreate(kEAPCodeResponse,
 				 kEAPTypeTLS,
 				 identifier,
@@ -319,16 +336,18 @@ eaptls_verify_server(EAPClientPluginDataRef plugin,
 static void
 eaptls_set_session_was_resumed(EAPTLSPluginDataRef context)
 {
-    char		buf[MAX_SESSION_ID_LENGTH];
-    size_t		buf_len = sizeof(buf);
-    Boolean		resumed = FALSE;
-    OSStatus		status;
+    Boolean resumed = FALSE;
 
-    status = SSLGetResumableSessionInfo(context->ssl_context,
-					&resumed, buf, &buf_len);
-    if (status == noErr) {
-	context->session_was_resumed = resumed;
-    }
+    EAPTLSSessionGetSessionResumed(context->tls_session_context, &resumed);
+    context->session_was_resumed = resumed;
+    return;
+}
+
+static void
+eaptls_set_negotiated_tls_protocol_version(EAPTLSPluginDataRef context)
+{
+    context->negotiated_tls_protocol_version =
+	EAPTLSSessionGetNegotiatedTLSProtocolVersion(context->tls_session_context);
     return;
 }
 
@@ -340,17 +359,20 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
     EAPTLSPluginDataRef context = (EAPTLSPluginDataRef)plugin->private;
     EAPPacketRef	eaptls_out = NULL;
     OSStatus		status = noErr;
-    memoryBufferRef	write_buf = &context->write_buffer; 
+    memoryBufferRef	write_buf = &context->write_buffer;
+    Boolean 		revocation_check = FALSE;
 
     if (context->server_auth_completed && context->trust_proceed == FALSE) {
+	revocation_check = EAPTLSSessionIsRevocationStatusCheckRequired(context->tls_session_context);
+	EAPLOG_FL(LOG_INFO, "revocation status check %s required", revocation_check ? "is" : "is not");
 	eaptls_out
-	    = eaptls_verify_server(plugin, identifier, client_status);
+	    = eaptls_verify_server(plugin, identifier, revocation_check, client_status);
 	if (context->trust_proceed == FALSE) {
 	    goto done;
 	}
     }
 
-    status = SSLHandshake(context->ssl_context);
+    status = EAPTLSSessionHandshake(context->tls_session_context);
     if (status == errSSLServerAuthCompleted) {
 	if (context->server_auth_completed) {
 	    /* this should not happen */
@@ -359,23 +381,25 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
 	}
 	context->server_auth_completed = TRUE;
 	my_CFRelease(&context->server_certs);
-	(void)EAPSSLCopyPeerCertificates(context->ssl_context,
-					 &context->server_certs);
-	eaptls_out = eaptls_verify_server(plugin, identifier, client_status);
+	EAPTLSSessionCopyPeerCertificates(context->tls_session_context, &context->server_certs);
+	revocation_check = EAPTLSSessionIsRevocationStatusCheckRequired(context->tls_session_context);
+	EAPLOG_FL(LOG_INFO, "revocation status check %s required", revocation_check ? "is" : "is not");
+	eaptls_out = eaptls_verify_server(plugin, identifier, revocation_check, client_status);
 	if (context->trust_proceed == FALSE) {
 	    goto done;
 	}
 	/* handshake again to get past the AuthCompleted status */
-	status = SSLHandshake(context->ssl_context);
+	status = EAPTLSSessionHandshake(context->tls_session_context);
     }
     switch (status) {
     case noErr:
 	/* handshake complete */
 	if (context->trust_proceed == FALSE) {
 	    my_CFRelease(&context->server_certs);
-	    (void)EAPSSLCopyPeerCertificates(context->ssl_context,
-					     &context->server_certs);
-	    eaptls_out = eaptls_verify_server(plugin, identifier,
+	    (void)EAPTLSSessionCopyPeerCertificates(context->tls_session_context, &context->server_certs);
+	    revocation_check = EAPTLSSessionIsRevocationStatusCheckRequired(context->tls_session_context);
+	    EAPLOG_FL(LOG_INFO, "revocation status check %s required", revocation_check ? "is" : "is not");
+	    eaptls_out = eaptls_verify_server(plugin, identifier, revocation_check,
 					      client_status);
 	    if (context->trust_proceed == FALSE) {
 		/* this should not happen */
@@ -385,6 +409,7 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
 	}
 	eaptls_compute_session_key(context);
 	eaptls_set_session_was_resumed(context);
+	eaptls_set_negotiated_tls_protocol_version(context);
 	eaptls_out = EAPTLSPacketCreate(kEAPCodeResponse,
 					kEAPTypeTLS,
 					identifier,
@@ -397,11 +422,11 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
 		  EAPSSLErrorString(status), (long)status);
 	context->last_ssl_error = status;
 	my_CFRelease(&context->server_certs);
-	(void)EAPSSLCopyPeerCertificates(context->ssl_context,
-					 &context->server_certs);
+	(void)EAPTLSSessionCopyPeerCertificates(context->tls_session_context, &context->server_certs);
+
 	/* close_up_shop */
 	context->plugin_state = kEAPClientStateFailure;
-	SSLClose(context->ssl_context);
+	EAPTLSSessionClose(context->tls_session_context);
 	/* FALL THROUGH */
     case errSSLWouldBlock:
 	if (write_buf->data == NULL) {
@@ -452,15 +477,13 @@ eaptls_request(EAPClientPluginDataRef plugin,
 	       in_length, sizeof(*eaptls_in));
 	goto done;
     }
-    if (context->ssl_context != NULL) {
-	status = SSLGetSessionState(context->ssl_context, &ssl_state);
-	if (status != noErr) {
-	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s (%ld)",
-		      EAPSSLErrorString(status), (long)status);
-	    context->plugin_state = kEAPClientStateFailure;
-	    context->last_ssl_error = status;
-	    goto done;
-	}
+    status = EAPTLSSessionGetState(context->tls_session_context, &ssl_state);
+    if (status != noErr) {
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSSessionGetState failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
+	context->plugin_state = kEAPClientStateFailure;
+	context->last_ssl_error = status;
+	goto done;
     }
     in_data_ptr = eaptls_in->tls_data;
     tls_message_length = in_data_length = in_length - sizeof(EAPTLSPacket);
@@ -518,10 +541,10 @@ eaptls_request(EAPClientPluginDataRef plugin,
 	    context->plugin_state = kEAPClientStateFailure;
 	    goto done;
 	}
-	status = SSLHandshake(context->ssl_context);
+	status = EAPTLSSessionHandshake(context->tls_session_context);
 	if (status != errSSLWouldBlock) {
 	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLHandshake failed, %s (%d)",
+		      "EAPTLSSessionHandshake failed, %s (%d)",
 		      EAPSSLErrorString(status), (int)status);
 	    context->last_ssl_error = status;
 	    context->plugin_state = kEAPClientStateFailure;
@@ -755,7 +778,7 @@ eaptls_publish_props(EAPClientPluginDataRef plugin)
 			 context->session_was_resumed 
 			 ? kCFBooleanTrue
 			 : kCFBooleanFalse);
-    (void)SSLGetNegotiatedCipher(context->ssl_context, &cipher);
+    (void)EAPTLSSessionGetNegotiatedCipher(context->tls_session_context, &cipher);
     if (cipher != SSL_NULL_WITH_NULL_NULL) {
 	CFNumberRef	c;
 	int		tmp = cipher;
@@ -763,6 +786,10 @@ eaptls_publish_props(EAPClientPluginDataRef plugin)
 	c = CFNumberCreate(NULL, kCFNumberIntType, &tmp);
 	CFDictionarySetValue(dict, kEAPClientPropTLSNegotiatedCipher, c);
 	CFRelease(c);
+    }
+    if (context->negotiated_tls_protocol_version != NULL) {
+	CFDictionarySetValue(dict, kEAPClientPropTLSNegotiatedProtocolVersion,
+			     context->negotiated_tls_protocol_version);
     }
     if (context->last_client_status == kEAPClientStatusUserInputRequired
 	&& context->trust_proceed == FALSE) {

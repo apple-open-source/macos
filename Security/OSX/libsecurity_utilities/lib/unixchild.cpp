@@ -79,6 +79,7 @@ void Child::reset()
 	switch (mState) {
 	case alive:
 		assert(false);		// bad boy; can't do that
+		break;
 	case unborn:
 		break;				// s'okay
 	default:
@@ -147,6 +148,7 @@ void Child::wait()
 			break;
 		case unborn:
 			assert(false);		// don't do that
+                        break;
 		default:
 			break;
 		}
@@ -170,7 +172,7 @@ void Child::tryKill(int signal)
 			secinfo("unixchild", "%p (pid %d) has disappeared!", this, pid());
 			mState = invalid;
 			mChildren().erase(pid());
-			// fall through
+			[[fallthrough]];
 		default:
 			UnixError::throwMe();
 		}
@@ -332,11 +334,12 @@ void Child::fork()
 					delay *= 2;
 					continue;
 				}
-				// fall through
+				[[fallthrough]];
 			default:
 				UnixError::throwMe();
 			}
 			assert(false);	// unreached
+			break;
 
 		case 0:		// child
 			//@@@ bother to clean child map?

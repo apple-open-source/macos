@@ -4,15 +4,21 @@
 set -e
 
 OSV="$DSTROOT"/usr/local/OpenSourceVersions
-install -d -o root -g wheel -m 0755 "$OSV"
+install -m 0755 -d "$OSV"
 
-PLIST="$OSV"/shell_cmds.plist
-echo '<plist version="1.0">' > "$PLIST"
-echo '<array>' >> "$PLIST"
+tmplist=$(mktemp -t shell_cmds_osv_plist)
+trap 'rm "$tmplist"' EXIT
+
+echo '<plist version="1.0">' > "$tmplist"
+echo '<array>' >> "$tmplist"
 
 for plistpart in "$SRCROOT"/*/*.plist.part; do
-    cat "$plistpart" >> "$PLIST"
+    cat "$plistpart" >> "$tmplist"
 done
 
-echo '</array>' >> "$PLIST"
-echo '</plist>' >> "$PLIST"
+echo '</array>' >> "$tmplist"
+echo '</plist>' >> "$tmplist"
+
+plutil -lint "$tmplist"
+
+install -m 0644 "$tmplist" "$OSV"/shell_cmds.plist

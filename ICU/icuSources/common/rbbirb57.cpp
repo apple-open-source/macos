@@ -4,6 +4,11 @@
 //  Copyright (C) 2002-2011, International Business Machines Corporation and others.
 //  All Rights Reserved.
 //
+//*********************************************************************
+//  Legacy version from ICU 57, only for use by Apple RuleBasedTokenizer
+//  originally added per rdar://37249396 Add ICU 57 version of RBBI classes,
+//  urbtok57 interfaces for access via RBT, and better tests
+//*********************************************************************
 
 #include "unicode/utypes.h"
 
@@ -60,10 +65,10 @@ RBBIRuleBuilder57::RBBIRuleBuilder57(const UnicodeString   &rules,
     fSafeFwdTables      = NULL;
     fSafeRevTables      = NULL;
     fRuleStatusVals     = NULL;
-    fChainRules         = FALSE;
-    fLBCMNoChain        = FALSE;
-    fLookAheadHardBreak = FALSE;
-    fRINoChain          = FALSE;
+    fChainRules         = false;
+    fLBCMNoChain        = false;
+    fLookAheadHardBreak = false;
+    fRINoChain          = false;
     fUSetNodes          = NULL;
     fRuleStatusVals     = NULL;
     fScanner            = NULL;

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -46,6 +46,7 @@
 				B12C9C9C22A7CDE300B9F497 /* PBXTargetDependency */,
 				07747AA21DA8511D00ACE020 /* PBXTargetDependency */,
 				4D55945C153DC665009F2584 /* PBXTargetDependency */,
+				5939BB7E29A99A76002CA3D5 /* PBXTargetDependency */,
 			);
 			name = All_MacOSX;
 			productName = All_MacOSX;
@@ -72,6 +73,19 @@
 			);
 			name = quotaoff;
 			productName = quotaoff;
+		};
+		5939BB7229A9919B002CA3D5 /* tmp_cleaner */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 5939BB7329A9919B002CA3D5 /* Build configuration list for PBXAggregateTarget "tmp_cleaner" */;
+			buildPhases = (
+				5939BB7529A9919F002CA3D5 /* Install man8 */,
+				5939BB7729A991BB002CA3D5 /* Install LaunchDaemons */,
+				5939BB7A29A994AC002CA3D5 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = tmp_cleaner;
+			productName = tmp_cleaner;
 		};
 /* End PBXAggregateTarget section */
 
@@ -144,9 +158,11 @@
 		4D5594CE153DCB82009F2584 /* setclass.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4D5594CB153DCB72009F2584 /* setclass.8 */; };
 		4D5594E2153DCCAC009F2584 /* fuser.1 in Copy man1 */ = {isa = PBXBuildFile; fileRef = 4D5594E0153DCC92009F2584 /* fuser.1 */; };
 		4D5594E6153DCFFB009F2584 /* fstyp_ntfs.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4D5594A8153DCA19009F2584 /* fstyp_ntfs.8 */; };
-		785314FF227120BD00B25661 /* MediaKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 785314FE227120BD00B25661 /* MediaKit.framework */; };
+		5939BB7629A991A9002CA3D5 /* tmp_cleaner.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = 5939BB7029A99188002CA3D5 /* tmp_cleaner.8 */; };
+		5939BB7929A993FA002CA3D5 /* com.apple.tmp_cleaner.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = 5939BB7829A993E2002CA3D5 /* com.apple.tmp_cleaner.plist */; };
+		5939BB7C29A994F5002CA3D5 /* tmp_cleaner in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5939BB7B29A994E3002CA3D5 /* tmp_cleaner */; };
 		B10B90C6253C4D5D006545C2 /* vfslist.h in Headers */ = {isa = PBXBuildFile; fileRef = B10B90C5253C4D5D006545C2 /* vfslist.h */; };
-		B10B9130253C4EA2006545C2 /* mount_ramdisk.c in Sources */ = {isa = PBXBuildFile; fileRef = B10B912F253C4E91006545C2 /* mount_ramdisk.c */; };
+		B10B9130253C4EA2006545C2 /* mount_tmpfs.c in Sources */ = {isa = PBXBuildFile; fileRef = B10B912F253C4E91006545C2 /* mount_tmpfs.c */; };
 		B19B239C21C8DF660001F35C /* edt_fstab.c in Sources */ = {isa = PBXBuildFile; fileRef = B19B239A21C8DEF90001F35C /* edt_fstab.c */; };
 		B19B239D21C8DF6E0001F35C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041012091EE830061D05A /* IOKit.framework */; };
 		B19B239E21C8DF740001F35C /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041032091EE910061D05A /* APFS.framework */; };
@@ -156,6 +172,7 @@
 		B19B23A321C8DFCF0001F35C /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041032091EE910061D05A /* APFS.framework */; };
 		B19B23A421C8DFD50001F35C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041012091EE830061D05A /* IOKit.framework */; };
 		B19B23A521C8DFE10001F35C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041052091EE980061D05A /* CoreFoundation.framework */; };
+		B1EBE452298BF127006FF901 /* UserManagementLayout.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1EBE451298BF127006FF901 /* UserManagementLayout.framework */; platformFilters = (ios, tvos, watchos, ); settings = {ATTRIBUTES = (Required, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -305,6 +322,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4D5593E3153CEE4A009F2584;
 			remoteInfo = quotaon;
+		};
+		5939BB7D29A99A76002CA3D5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5939BB7229A9919B002CA3D5;
+			remoteInfo = tmp_cleaner;
 		};
 		B12C9C9122A7CDE300B9F497 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -590,6 +614,38 @@
 			name = "Copy man1";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		5939BB7529A9919F002CA3D5 /* Install man8 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				5939BB7629A991A9002CA3D5 /* tmp_cleaner.8 in Install man8 */,
+			);
+			name = "Install man8";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5939BB7729A991BB002CA3D5 /* Install LaunchDaemons */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				5939BB7929A993FA002CA3D5 /* com.apple.tmp_cleaner.plist in Install LaunchDaemons */,
+			);
+			name = "Install LaunchDaemons";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5939BB7A29A994AC002CA3D5 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/libexec;
+			dstSubfolderSpec = 0;
+			files = (
+				5939BB7C29A994F5002CA3D5 /* tmp_cleaner in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -694,13 +750,17 @@
 		4D5594D5153DCC66009F2584 /* fuser */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fuser; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D5594E0153DCC92009F2584 /* fuser.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = fuser.1; path = fuser.tproj/fuser.1; sourceTree = SOURCE_ROOT; };
 		4D5594E1153DCC92009F2584 /* fuser.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; name = fuser.pl; path = fuser.tproj/fuser.pl; sourceTree = SOURCE_ROOT; };
+		5939BB7029A99188002CA3D5 /* tmp_cleaner.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = tmp_cleaner.8; sourceTree = "<group>"; };
+		5939BB7829A993E2002CA3D5 /* com.apple.tmp_cleaner.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.tmp_cleaner.plist; sourceTree = "<group>"; };
+		5939BB7B29A994E3002CA3D5 /* tmp_cleaner */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = tmp_cleaner; sourceTree = "<group>"; };
 		785314FE227120BD00B25661 /* MediaKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaKit.framework; path = System/Library/PrivateFrameworks/MediaKit.framework; sourceTree = SDKROOT; };
 		785315012277BEA700B25661 /* mount.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = mount.entitlements; path = mount.tproj/mount.entitlements; sourceTree = SOURCE_ROOT; };
 		B10B90C5253C4D5D006545C2 /* vfslist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vfslist.h; path = disklib/vfslist.h; sourceTree = "<group>"; };
-		B10B912E253C4E91006545C2 /* mount_ramdisk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mount_ramdisk.h; path = mount.tproj/mount_ramdisk.h; sourceTree = SOURCE_ROOT; };
-		B10B912F253C4E91006545C2 /* mount_ramdisk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mount_ramdisk.c; path = mount.tproj/mount_ramdisk.c; sourceTree = SOURCE_ROOT; };
+		B10B912E253C4E91006545C2 /* mount_tmpfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mount_tmpfs.h; path = mount.tproj/mount_tmpfs.h; sourceTree = SOURCE_ROOT; };
+		B10B912F253C4E91006545C2 /* mount_tmpfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mount_tmpfs.c; path = mount.tproj/mount_tmpfs.c; sourceTree = SOURCE_ROOT; };
 		B19B239A21C8DEF90001F35C /* edt_fstab.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = edt_fstab.c; sourceTree = "<group>"; };
 		B19B239B21C8DEFA0001F35C /* edt_fstab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = edt_fstab.h; sourceTree = "<group>"; };
+		B1EBE451298BF127006FF901 /* UserManagementLayout.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserManagementLayout.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/PrivateFrameworks/UserManagementLayout.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -739,7 +799,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				785314FF227120BD00B25661 /* MediaKit.framework in Frameworks */,
+				B1EBE452298BF127006FF901 /* UserManagementLayout.framework in Frameworks */,
 				1A9041062091EE980061D05A /* CoreFoundation.framework in Frameworks */,
 				1A9041042091EE910061D05A /* APFS.framework in Frameworks */,
 				1A9041022091EE830061D05A /* IOKit.framework in Frameworks */,
@@ -881,6 +941,7 @@
 		1A9041002091EE820061D05A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B1EBE451298BF127006FF901 /* UserManagementLayout.framework */,
 				07AF95B323232837001E9266 /* Kernel.framework */,
 				07AF95B12323281D001E9266 /* System.framework */,
 				785314FE227120BD00B25661 /* MediaKit.framework */,
@@ -903,6 +964,7 @@
 		4D07DD29153CA616002B57CB = {
 			isa = PBXGroup;
 			children = (
+				5939BB6F29A99188002CA3D5 /* tmp_cleaner */,
 				B1DF3D3D21C27FE00099F594 /* edt_fstab */,
 				072AAAA32167CD68004ED4E2 /* mount_flags_dir */,
 				4D559466153DC808009F2584 /* dev_mkdb */,
@@ -1016,8 +1078,8 @@
 		4D559362153CE561009F2584 /* mount */ = {
 			isa = PBXGroup;
 			children = (
-				B10B912F253C4E91006545C2 /* mount_ramdisk.c */,
-				B10B912E253C4E91006545C2 /* mount_ramdisk.h */,
+				B10B912F253C4E91006545C2 /* mount_tmpfs.c */,
+				B10B912E253C4E91006545C2 /* mount_tmpfs.h */,
 				4D55936D153CE58E009F2584 /* pathnames.h */,
 				4D55936C153CE58E009F2584 /* mount.c */,
 				4D55936B153CE58E009F2584 /* mount.8 */,
@@ -1180,6 +1242,16 @@
 				4D5594E1153DCC92009F2584 /* fuser.pl */,
 			);
 			path = fuser;
+			sourceTree = "<group>";
+		};
+		5939BB6F29A99188002CA3D5 /* tmp_cleaner */ = {
+			isa = PBXGroup;
+			children = (
+				5939BB7829A993E2002CA3D5 /* com.apple.tmp_cleaner.plist */,
+				5939BB7029A99188002CA3D5 /* tmp_cleaner.8 */,
+				5939BB7B29A994E3002CA3D5 /* tmp_cleaner */,
+			);
+			path = tmp_cleaner;
 			sourceTree = "<group>";
 		};
 		B1DF3D3D21C27FE00099F594 /* edt_fstab */ = {
@@ -1582,6 +1654,9 @@
 						CreatedOnToolsVersion = 12.5;
 						ProvisioningStyle = Automatic;
 					};
+					5939BB7229A9919B002CA3D5 = {
+						CreatedOnToolsVersion = 15.0;
+					};
 				};
 			};
 			buildConfigurationList = 4D07DD2E153CA616002B57CB /* Build configuration list for PBXProject "diskdev_cmds" */;
@@ -1622,6 +1697,7 @@
 				4D55938D153CE7FD009F2584 /* umount */,
 				4D55944D153DC634009F2584 /* vsdbutil */,
 				33DE5A4425D34CC800360074 /* dirs_cleaner */,
+				5939BB7229A9919B002CA3D5 /* tmp_cleaner */,
 			);
 		};
 /* End PBXProject section */
@@ -1716,7 +1792,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B10B9130253C4EA2006545C2 /* mount_ramdisk.c in Sources */,
+				B10B9130253C4EA2006545C2 /* mount_tmpfs.c in Sources */,
 				B19B23A021C8DFA40001F35C /* edt_fstab.c in Sources */,
 				07CE4C1821906BB800BF11C0 /* mount.c in Sources */,
 				072AAAA62167CE8F004ED4E2 /* mount_flags.c in Sources */,
@@ -1961,6 +2037,11 @@
 			target = 4D5593E3153CEE4A009F2584 /* quotaon */;
 			targetProxy = 4D559519153DE1CB009F2584 /* PBXContainerItemProxy */;
 		};
+		5939BB7E29A99A76002CA3D5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5939BB7229A9919B002CA3D5 /* tmp_cleaner */;
+			targetProxy = 5939BB7D29A99A76002CA3D5 /* PBXContainerItemProxy */;
+		};
 		B12C9C9222A7CDE300B9F497 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D5593A5153CEA90009F2584 /* edquota */;
@@ -2098,7 +2179,10 @@
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wformat-nonliteral",
@@ -2123,7 +2207,11 @@
 				CODE_SIGN_ENTITLEMENTS = mount.tproj/mount.entitlements;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks",
+				);
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wformat-nonliteral",
@@ -2134,9 +2222,13 @@
 		4D559396153CE7FE009F2584 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wformat-nonliteral",
@@ -2358,6 +2450,14 @@
 			};
 			name = Release;
 		};
+		5939BB7429A9919B002CA3D5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -2565,6 +2665,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D559516153DE116009F2584 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5939BB7329A9919B002CA3D5 /* Build configuration list for PBXAggregateTarget "tmp_cleaner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5939BB7429A9919B002CA3D5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

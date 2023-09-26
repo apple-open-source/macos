@@ -183,7 +183,7 @@ KALLOC_HEAP_DECLARE(KHEAP_KT_VAR);
 	    .kh_name = (name), \
 	    .kh_heap_id = (heap_id), \
 	} }; \
-	STARTUP_ARG(ZALLOC, STARTUP_RANK_LAST, kheap_startup_init, var)
+	STARTUP_ARG(ZALLOC, STARTUP_RANK_MIDDLE, kheap_startup_init, var)
 
 
 /*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2012, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,6 +136,10 @@ EAPSecurityErrorString(OSStatus err)
 	return "errSecItemNotFound";
     case errSSLServerAuthCompleted:
 	return "errSSLServerAuthCompleted";
+#if TARGET_OS_IPHONE
+    case errSecParam:
+	return "errSecParam";
+#endif
 #if ! TARGET_OS_IPHONE
     case errSecReadOnly:
 	return "errSecReadOnly";

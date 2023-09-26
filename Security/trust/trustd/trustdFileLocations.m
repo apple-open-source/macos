@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2020-2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,10 +33,7 @@
 #include "OTATrustUtilities.h"
 #include "trustdFileLocations.h"
 #include "trustdVariants.h"
-
-#if TARGET_OS_OSX
 #include <membership.h>
-#endif
 
 #if !TARGET_OS_SIMULATOR && (TARGET_OS_IPHONE || TARGET_CPU_ARM64)
 #include <System/sys/content_protection.h>
@@ -59,6 +56,29 @@ bool SecOTAPKIIsSystemTrustd(void) {
 #endif // !NO_SERVER
     });
     return result;
+}
+
+static bool _SecGetUUIDForUID(uid_t uid, uuid_t uuid) {
+    int ret = mbr_uid_to_uuid(uid, uuid);
+    if (ret != 0) {
+        secerror("failed to get UUID for user(%d) - %d", uid, ret);
+        return false;
+    }
+    return true;
+}
+
+CFStringRef SecCopyUUIDStringForUID(uid_t uid) {
+    uuid_t uuid;
+    if (!_SecGetUUIDForUID(uid, uuid)) { return NULL; }
+    NSString *uuidStr = [[[NSUUID alloc] initWithUUIDBytes:uuid] UUIDString];
+    return (uuidStr) ? CFBridgingRetain(uuidStr) : NULL;
+}
+
+CFDataRef SecCopyUUIDDataForUID(uid_t uid) {
+    uuid_t uuid;
+    if (!_SecGetUUIDForUID(uid, uuid)) { return NULL; }
+    NSData *uuidData = [[NSData alloc] initWithBytes:uuid length:sizeof(uuid)];
+    return (uuidData) ? CFBridgingRetain(uuidData) : NULL;
 }
 
 /*
@@ -120,22 +140,16 @@ CFURLRef SecCopyURLForFileInPrivateTrustdDirectory(CFStringRef fileName)
 CFURLRef SecCopyURLForFileInPrivateUserTrustdDirectory(CFStringRef fileName)
 {
 #if TARGET_OS_OSX
-    uid_t euid = geteuid();
-    uuid_t currentUserUuid;
-    int ret = mbr_uid_to_uuid(euid, currentUserUuid);
-    if (ret != 0) {
-        secerror("failed to get UUID for user(%d) - %d", euid, ret);
-        return SecCopyURLForFileInPrivateTrustdDirectory(fileName);
-    }
-    NSUUID *userUuid = [[NSUUID alloc] initWithUUIDBytes:currentUserUuid];
-    NSString *directory = [NSString stringWithFormat:@"/%@",[userUuid UUIDString]];
+    CFStringRef uuidStr = SecCopyUUIDStringForUID(geteuid());
+    NSString *uuidString = (uuidStr) ? CFBridgingRelease(uuidStr) : nil;
+    NSString *directory = [NSString stringWithFormat:@"/%@",uuidString];
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         WithPathInPrivateTrustdDirectory((__bridge  CFStringRef)directory, ^(const char *path) {
             mode_t permissions = 0700;
             int mkpath_ret = mkpath_np(path, permissions);
             if (!(mkpath_ret == 0 || mkpath_ret ==  EEXIST)) {
-                secerror("could not create path: %s (%s)", path, strerror(ret));
+                secerror("could not create path: %s (%s)", path, strerror(mkpath_ret));
             }
             chmod(path, permissions);
         });
@@ -336,6 +350,7 @@ void FixTrustdFilePermissions(void)
                         }
                     }];
                 }
+                [connection invalidate];
             }
         }
         @catch(id anException) {

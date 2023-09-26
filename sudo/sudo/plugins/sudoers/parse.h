@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2000, 2004, 2007-2020
+ * Copyright (c) 1996, 1998-2000, 2004, 2007-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -24,10 +24,17 @@
 #include "sudo_queue.h"
 
 /* Characters that must be quoted in sudoers. */
-#define SUDOERS_QUOTED	":\\,=#\""
+#define SUDOERS_QUOTED		":,=#\""
+#define SUDOERS_QUOTED_CMD	":,= \t#"
+#define SUDOERS_QUOTED_ARG	":,=#"
 
 /* Returns true if string 's' contains meta characters. */
 #define has_meta(s)	(strpbrk(s, "\\?*[]") != NULL)
+
+/* Match by name, not inode, when fuzzing. */
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+# define SUDOERS_NAME_MATCH
+#endif
 
 #undef UNSPEC
 #define UNSPEC	-1
@@ -43,6 +50,7 @@
  */
 #define TAGS_INIT(t)	do {						       \
     (t)->follow = UNSPEC;						       \
+    (t)->intercept = UNSPEC;						       \
     (t)->log_input = UNSPEC;						       \
     (t)->log_output = UNSPEC;						       \
     (t)->noexec = UNSPEC;						       \
@@ -57,6 +65,8 @@
 #define TAGS_MERGE(t, t2) do {						       \
     if ((t2).follow != UNSPEC)						       \
 	(t).follow = (t2).follow;					       \
+    if ((t2).intercept != UNSPEC)					       \
+	(t).intercept = (t2).intercept;					       \
     if ((t2).log_input != UNSPEC)					       \
 	(t).log_input = (t2).log_input;					       \
     if ((t2).log_output != UNSPEC)					       \
@@ -75,10 +85,10 @@
  * Returns true if any tag are not UNSPEC, else false.
  */
 #define TAGS_SET(t)							       \
-    ((t).follow != UNSPEC || (t).log_input != UNSPEC ||			       \
-     (t).log_output != UNSPEC || (t).noexec != UNSPEC ||		       \
-     (t).nopasswd != UNSPEC || (t).send_mail != UNSPEC ||		       \
-     (t).setenv != UNSPEC)
+    ((t).follow != UNSPEC || (t).intercept != UNSPEC ||			       \
+     (t).log_input != UNSPEC || (t).log_output != UNSPEC ||		       \
+     (t).noexec != UNSPEC || (t).nopasswd != UNSPEC ||			       \
+     (t).send_mail != UNSPEC ||	(t).setenv != UNSPEC)
 
 /*
  * Returns true if the specified tag is not UNSPEC or IMPLIED, else false.
@@ -91,6 +101,7 @@
  */
 #define TAGS_CHANGED(ot, nt) \
     ((TAG_SET((nt).follow) && (nt).follow != (ot).follow) || \
+    (TAG_SET((nt).intercept) && (nt).intercept != (ot).intercept) || \
     (TAG_SET((nt).log_input) && (nt).log_input != (ot).log_input) || \
     (TAG_SET((nt).log_output) && (nt).log_output != (ot).log_output) || \
     (TAG_SET((nt).noexec) && (nt).noexec != (ot).noexec) || \
@@ -116,13 +127,14 @@ struct command_digest {
  * Possible values: true, false, IMPLIED, UNSPEC.
  */
 struct cmndtag {
-    signed int nopasswd: 3;
-    signed int noexec: 3;
-    signed int setenv: 3;
+    signed int follow: 3;
+    signed int intercept: 3;
     signed int log_input: 3;
     signed int log_output: 3;
+    signed int noexec: 3;
+    signed int nopasswd: 3;
     signed int send_mail: 3;
-    signed int follow: 3;
+    signed int setenv: 3;
 };
 
 /*
@@ -136,6 +148,9 @@ struct command_options {
     char *runchroot;			/* root directory */
 #ifdef HAVE_SELINUX
     char *role, *type;			/* SELinux role and type */
+#endif
+#ifdef HAVE_APPARMOR
+    char *apparmor_profile;		/* AppArmor profile */
 #endif
 #ifdef HAVE_PRIV_SET
     char *privs, *limitprivs;		/* Solaris privilege sets */
@@ -167,6 +182,7 @@ TAILQ_HEAD(privilege_list, privilege);
 TAILQ_HEAD(cmndspec_list, cmndspec);
 TAILQ_HEAD(command_digest_list, command_digest);
 STAILQ_HEAD(comment_list, sudoers_comment);
+TAILQ_HEAD(sudoers_parse_tree_list, sudoers_parse_tree);
 
 /*
  * Structure describing a user specification and list thereof.
@@ -220,6 +236,9 @@ struct cmndspec {
 #ifdef HAVE_SELINUX
     char *role, *type;			/* SELinux role and type */
 #endif
+#ifdef HAVE_APPARMOR
+    char *apparmor_profile;		/* AppArmor profile */
+#endif
 #ifdef HAVE_PRIV_SET
     char *privs, *limitprivs;		/* Solaris privilege sets */
 #endif
@@ -238,6 +257,11 @@ struct member {
 struct runascontainer {
     struct member *runasusers;
     struct member *runasgroups;
+};
+
+struct defaults_binding {
+    struct member_list members;
+    unsigned int refcnt;
 };
 
 struct sudoers_comment {
@@ -266,7 +290,7 @@ struct defaults {
     TAILQ_ENTRY(defaults) entries;
     char *var;				/* variable name */
     char *val;				/* variable value */
-    struct member_list *binding;	/* user/host/runas binding */
+    struct defaults_binding *binding;	/* user/host/runas binding */
     char *file;				/* file Defaults entry was in */
     short type;				/* DEFAULTS{,_USER,_RUNAS,_HOST} */
     char op;				/* true, false, '+', '-' */
@@ -279,10 +303,11 @@ struct defaults {
  * Parsed sudoers policy.
  */
 struct sudoers_parse_tree {
+    TAILQ_ENTRY(sudoers_parse_tree) entries;
     struct userspec_list userspecs;
     struct defaults_list defaults;
     struct rbtree *aliases;
-    const char *shost, *lhost;
+    char *shost, *lhost;
 };
 
 /*
@@ -292,7 +317,39 @@ struct cmnd_info {
     struct stat cmnd_stat;
     char *cmnd_path;
     int status;
+    bool intercepted;
 };
+
+/*
+ * The parser passes pointers to data structures that are not stored anywhere.
+ * We add them to the leak list at allocation time and remove them from
+ * the list when they are stored in another data structure.
+ * This makes it possible to free data on error that would otherwise be leaked.
+ */
+enum parser_leak_types {
+    LEAK_UNKNOWN,
+    LEAK_PRIVILEGE,
+    LEAK_CMNDSPEC,
+    LEAK_DEFAULTS,
+    LEAK_MEMBER,
+    LEAK_DIGEST,
+    LEAK_RUNAS,
+    LEAK_PTR
+};
+struct parser_leak_entry {
+    SLIST_ENTRY(parser_leak_entry) entries;
+    enum parser_leak_types type;
+    union {
+	struct command_digest *dig;
+	struct privilege *p;
+	struct cmndspec *cs;
+	struct defaults *d;
+	struct member *m;
+	struct runascontainer *rc;
+	void *ptr;
+    } u;
+};
+SLIST_HEAD(parser_leak_list, parser_leak_entry);
 
 /* alias.c */
 struct rbtree *alloc_aliases(void);
@@ -301,26 +358,34 @@ bool no_aliases(struct sudoers_parse_tree *parse_tree);
 bool alias_add(struct sudoers_parse_tree *parse_tree, char *name, int type, char *file, int line, int column, struct member *members);
 const char *alias_type_to_string(int alias_type);
 struct alias *alias_get(struct sudoers_parse_tree *parse_tree, const char *name, int type);
-struct alias *alias_remove(struct sudoers_parse_tree *parse_tree, char *name, int type);
+struct alias *alias_remove(struct sudoers_parse_tree *parse_tree, const char *name, int type);
 bool alias_find_used(struct sudoers_parse_tree *parse_tree, struct rbtree *used_aliases);
 void alias_apply(struct sudoers_parse_tree *parse_tree, int (*func)(struct sudoers_parse_tree *, struct alias *, void *), void *cookie);
 void alias_free(void *a);
 void alias_put(struct alias *a);
 
-/* gram.c */
+/* check_aliases.c */
+int check_aliases(struct sudoers_parse_tree *parse_tree, bool strict, bool quiet, int (*cb_unused)(struct sudoers_parse_tree *, struct alias *, void *));
+
+/* gram.y */
 extern struct sudoers_parse_tree parsed_policy;
+extern bool (*sudoers_error_hook)(const char *file, int line, int column, const char *fmt, va_list args);
 bool init_parser(const char *path, bool quiet, bool strict);
-struct member *new_member_all(char *name);
 void free_member(struct member *m);
 void free_members(struct member_list *members);
+void free_cmndspec(struct cmndspec *cs, struct cmndspec_list *csl);
+void free_cmndspecs(struct cmndspec_list *csl);
 void free_privilege(struct privilege *priv);
 void free_userspec(struct userspec *us);
 void free_userspecs(struct userspec_list *usl);
-void free_default(struct defaults *def, struct member_list **binding);
+void free_default(struct defaults *def);
 void free_defaults(struct defaults_list *defs);
-void init_parse_tree(struct sudoers_parse_tree *parse_tree, const char *lhost, const char *shost);
+void init_parse_tree(struct sudoers_parse_tree *parse_tree, char *lhost, char *shost);
 void free_parse_tree(struct sudoers_parse_tree *parse_tree);
 void reparent_parse_tree(struct sudoers_parse_tree *new_tree);
+bool parser_leak_add(enum parser_leak_types type, void *v);
+bool parser_leak_remove(enum parser_leak_types type, void *v);
+void parser_leak_init(void);
 
 /* match_addr.c */
 bool addr_matches(char *n);
@@ -352,18 +417,12 @@ struct gid_list *runas_getgroups(void);
 /* toke.c */
 void init_lexer(void);
 
-/* hexchar.c */
-int hexchar(const char *s);
-
 /* base64.c */
 size_t base64_decode(const char *str, unsigned char *dst, size_t dsize);
 size_t base64_encode(const unsigned char *in, size_t in_len, char *out, size_t out_len);
 
 /* timeout.c */
 int parse_timeout(const char *timestr);
-
-/* gmtoff.c */
-long get_gmtoff(time_t *clock);
 
 /* gentime.c */
 time_t parse_gentime(const char *expstr);

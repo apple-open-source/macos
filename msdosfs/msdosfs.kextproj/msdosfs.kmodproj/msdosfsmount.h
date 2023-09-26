@@ -138,16 +138,11 @@ typedef struct msdosfsmount {
 	 *                    haven't begun the flush).  This will be non-zero
 	 *                    even if the callback has been invoked, before we
 	 *                    start the flush.
-	 * pm_sync_incomplete keeps track of the number of callbacks that have
-	 *                    not completed yet (including callbacks not yet
-	 *                    invoked).  We cannot safely unmount until this
-	 *                    drops to zero.
 	 *
 	 * In both cases, we use counters, not flags, so that we can avoid
 	 * taking locks.
 	 */
-	SInt32		pm_sync_scheduled;
-	SInt32		pm_sync_incomplete;
+	SInt32			pm_sync_scheduled;
 	thread_call_t	pm_sync_timer;
 
     thread_t        pm_flush_thread;    /* Thread ID */

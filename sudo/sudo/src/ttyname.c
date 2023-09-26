@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2012-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2012-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -46,7 +46,7 @@
 #include <dirent.h>
 #if defined(HAVE_KINFO_PROC2_NETBSD) || defined (HAVE_KINFO_PROC_OPENBSD) || defined(HAVE_KINFO_PROC_44BSD)
 # include <sys/sysctl.h>
-#elif defined(HAVE_KINFO_PROC_FREEBSD)
+#elif defined(HAVE_KINFO_PROC_FREEBSD) || defined(HAVE_KINFO_PROC_DFLY)
 # include <sys/param.h>
 # include <sys/sysctl.h>
 # include <sys/user.h>
@@ -79,6 +79,11 @@
 # define SUDO_KERN_PROC		KERN_PROC
 # define sudo_kinfo_proc	kinfo_proc
 # define sudo_kp_tdev		ki_tdev
+# define sudo_kp_namelen	4
+#elif defined(HAVE_KINFO_PROC_DFLY)
+# define SUDO_KERN_PROC		KERN_PROC
+# define sudo_kinfo_proc	kinfo_proc
+# define sudo_kp_tdev		kp_tdev
 # define sudo_kp_namelen	4
 #elif defined(HAVE_KINFO_PROC_44BSD)
 # define SUDO_KERN_PROC		KERN_PROC
@@ -131,8 +136,8 @@ get_process_ttyname(char *name, size_t namelen)
 	    ret = sudo_ttyname_dev(ki_proc->sudo_kp_tdev, name, namelen);
 	    if (ret == NULL) {
 		sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-		    "unable to map device number %u to name",
-		    ki_proc->sudo_kp_tdev);
+		    "unable to map device number %lu to name",
+		    (unsigned long)ki_proc->sudo_kp_tdev);
 	    }
 	}
     } else {
@@ -174,6 +179,17 @@ get_process_ttyname(char *name, size_t namelen)
 		goto done;
 	    }
 	}
+    } else {
+	struct stat sb;
+	int i;
+
+	/* Missing /proc/pid/psinfo file. */
+	for (i = STDIN_FILENO; i <= STDERR_FILENO; i++) {
+	    if (isatty(i) && fstat(i, &sb) != -1) {
+		ret = sudo_ttyname_dev(sb.st_rdev, name, namelen);
+		goto done;
+	    }
+	}
     }
     errno = ENOENT;
 
@@ -196,6 +212,7 @@ get_process_ttyname(char *name, size_t namelen)
     char *cp, buf[1024];
     char *ret = NULL;
     int serrno = errno;
+    pid_t ppid = 0;
     ssize_t nread;
     int fd;
     debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL);
@@ -232,7 +249,8 @@ get_process_ttyname(char *name, size_t namelen)
 		while (*++ep != '\0') {
 		    if (*ep == ' ') {
 			*ep = '\0';
-			if (++field == 7) {
+			field++;
+			if (field == 7) {
 			    int tty_nr = sudo_strtonum(cp, INT_MIN, INT_MAX,
 				&errstr);
 			    if (errstr) {
@@ -253,9 +271,24 @@ get_process_ttyname(char *name, size_t namelen)
 			    }
 			    break;
 			}
+			if (field == 3) {
+			    ppid = sudo_strtonum(cp, INT_MIN, INT_MAX, NULL);
+			}
 			cp = ep + 1;
 		    }
 		}
+	    }
+	}
+    }
+    if (ppid == 0) {
+	struct stat sb;
+	int i;
+
+	/* No parent pid found, /proc/self/stat is missing or corrupt. */
+	for (i = STDIN_FILENO; i <= STDERR_FILENO; i++) {
+	    if (isatty(i) && fstat(i, &sb) != -1) {
+		ret = sudo_ttyname_dev(sb.st_rdev, name, namelen);
+		goto done;
 	    }
 	}
     }

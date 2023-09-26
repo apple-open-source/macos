@@ -8,7 +8,7 @@
 bool_t
 xdr_fhandle3(XDR *xdrs, fhandle3 *objp)
 {
-	if (!xdr_bytes(xdrs, (char **)&objp->fhandle3_val, (u_int *)&objp->fhandle3_len, FHSIZE3)) {
+	if (!xdr_bytes(xdrs, (uint8_t **)&objp->fhandle3_val, (u_int *)&objp->fhandle3_len, FHSIZE3)) {
 		return FALSE;
 	}
 	return TRUE;
@@ -47,7 +47,7 @@ xdr_mountres3_ok(XDR *xdrs, mountres3_ok *objp)
 	if (!xdr_fhandle3(xdrs, &objp->fhandle)) {
 		return FALSE;
 	}
-	if (!xdr_array(xdrs, (char **)&objp->auth_flavors.auth_flavors_val, (u_int *)&objp->auth_flavors.auth_flavors_len, ~0, sizeof(int), (xdrproc_t)xdr_int)) {
+	if (!xdr_array(xdrs, (void **)&objp->auth_flavors.auth_flavors_val, (u_int *)&objp->auth_flavors.auth_flavors_len, ~0, sizeof(int), (xdrproc_t)xdr_int)) {
 		return FALSE;
 	}
 	return TRUE;
@@ -74,7 +74,7 @@ xdr_mountres3(XDR *xdrs, mountres3 *objp)
 bool_t
 xdr_mountlist(XDR *xdrs, mountlist *objp)
 {
-	if (!xdr_pointer(xdrs, (char **)objp, sizeof(struct mountbody), (xdrproc_t)xdr_mountbody)) {
+	if (!xdr_pointer(xdrs, (void **)objp, sizeof(struct mountbody), (xdrproc_t)xdr_mountbody)) {
 		return FALSE;
 	}
 	return TRUE;
@@ -98,7 +98,7 @@ xdr_mountbody(XDR *xdrs, mountbody *objp)
 bool_t
 xdr_groups(XDR *xdrs, groups *objp)
 {
-	if (!xdr_pointer(xdrs, (char **)objp, sizeof(struct groupnode), (xdrproc_t)xdr_groupnode)) {
+	if (!xdr_pointer(xdrs, (void **)objp, sizeof(struct groupnode), (xdrproc_t)xdr_groupnode)) {
 		return FALSE;
 	}
 	return TRUE;
@@ -119,7 +119,7 @@ xdr_groupnode(XDR *xdrs, groupnode *objp)
 bool_t
 xdr_exports(XDR *xdrs, exports *objp)
 {
-	if (!xdr_pointer(xdrs, (char **)objp, sizeof(struct exportnode), (xdrproc_t)xdr_exportnode)) {
+	if (!xdr_pointer(xdrs, (void **)objp, sizeof(struct exportnode), (xdrproc_t)xdr_exportnode)) {
 		return FALSE;
 	}
 	return TRUE;

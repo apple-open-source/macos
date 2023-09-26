@@ -1,11 +1,11 @@
-//
-//  HIDConnection.m
-//  HID
-//
-//  Created by dekom on 9/16/18.
-//
+/*!
+ * HIDConnection.m
+ * HID
+ *
+ * Copyright © 2022 Apple Inc. All rights reserved.
+ */
 
-#import "HIDConnection.h"
+#import <HID/HIDConnection.h>
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDEventSystemConnection.h>
 

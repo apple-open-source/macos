@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2021 Igalia S.L.
+ * Copyright (C) 2023 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,6 +22,7 @@
 #include "AccessibilityObjectAtspi.h"
 
 #if USE(ATSPI)
+
 #include "AXObjectCache.h"
 #include "AccessibilityAtspi.h"
 #include "AccessibilityAtspiEnums.h"
@@ -31,6 +33,7 @@
 #include "RenderLayer.h"
 #include "RenderListItem.h"
 #include "RenderListMarker.h"
+#include "RenderStyleInlines.h"
 #include "SurrogatePairAwareTextIterator.h"
 #include "TextIterator.h"
 #include "VisibleUnits.h"
@@ -39,7 +42,7 @@
 
 namespace WebCore {
 
-AccessibilityObjectAtspi::TextGranularity AccessibilityObjectAtspi::atspiBoundaryToTextGranularity(uint32_t boundaryType)
+AccessibilityObjectAtspi::TextGranularity AccessibilityObjectAtspi::atspiBoundaryToTextGranularity(Atspi::TextBoundaryType boundaryType)
 {
     switch (boundaryType) {
     case Atspi::TextBoundaryType::CharBoundary:
@@ -60,7 +63,7 @@ AccessibilityObjectAtspi::TextGranularity AccessibilityObjectAtspi::atspiBoundar
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-AccessibilityObjectAtspi::TextGranularity AccessibilityObjectAtspi::atspiGranularityToTextGranularity(uint32_t boundaryType)
+AccessibilityObjectAtspi::TextGranularity AccessibilityObjectAtspi::atspiGranularityToTextGranularity(Atspi::TextGranularityType boundaryType)
 {
     switch (boundaryType) {
     case Atspi::TextGranularityType::CharGranularity:
@@ -88,7 +91,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_textFunctions = {
             uint32_t granularityType;
             g_variant_get(parameters, "(iu)", &offset, &granularityType);
             int start = 0, end = 0;
-            auto text = atspiObject->textAtOffset(offset, atspiGranularityToTextGranularity(granularityType), start, end);
+            auto text = atspiObject->textAtOffset(offset, atspiGranularityToTextGranularity(static_cast<Atspi::TextGranularityType>(granularityType)), start, end);
             g_dbus_method_invocation_return_value(invocation, g_variant_new("(sii)", text.isNull() ? "" : text.data(), start, end));
         } else if (!g_strcmp0(methodName, "GetText")) {
             int start, end;
@@ -106,7 +109,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_textFunctions = {
             uint32_t boundaryType;
             g_variant_get(parameters, "(iu)", &offset, &boundaryType);
             int start = 0, end = 0;
-            auto text = atspiObject->textAtOffset(offset, atspiBoundaryToTextGranularity(boundaryType), start, end);
+            auto text = atspiObject->textAtOffset(offset, atspiBoundaryToTextGranularity(static_cast<Atspi::TextBoundaryType>(boundaryType)), start, end);
             g_dbus_method_invocation_return_value(invocation, g_variant_new("(sii)", text.isNull() ? "" : text.data(), start, end));
         } else if (!g_strcmp0(methodName, "GetTextAfterOffset"))
             g_dbus_method_invocation_return_error_literal(invocation, G_DBUS_ERROR, G_DBUS_ERROR_NOT_SUPPORTED, "");
@@ -199,7 +202,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_textFunctions = {
             int start, end;
             uint32_t scrollType;
             g_variant_get(parameters, "(iiu)", &start, &end, &scrollType);
-            g_dbus_method_invocation_return_value(invocation, g_variant_new("(b)", atspiObject->scrollToMakeVisible(start, end, scrollType)));
+            g_dbus_method_invocation_return_value(invocation, g_variant_new("(b)", atspiObject->scrollToMakeVisible(start, end, static_cast<Atspi::ScrollType>(scrollType))));
         } else if (!g_strcmp0(methodName, "ScrollSubstringToPoint")) {
             int start, end, x, y;
             uint32_t coordinateType;
@@ -364,7 +367,7 @@ void AccessibilityObjectAtspi::textInserted(const String& insertedText, const Vi
     auto utf16Text = text();
     auto utf8Text = utf16Text.utf8();
     auto utf16Offset = adjustOutputOffset(m_coreObject->indexForVisiblePosition(position), m_hasListMarkerAtStart);
-    String maskedText = m_coreObject->isPasswordField() ? utf16Text.substring(utf16Offset - insertedText.length(), insertedText.length()) : String();
+    String maskedText = m_coreObject->isSecureField() ? utf16Text.substring(utf16Offset - insertedText.length(), insertedText.length()) : String();
     auto mapping = offsetMapping(utf16Text);
     auto offset = UTF16OffsetToUTF8(mapping, utf16Offset);
     auto utf8InsertedText = maskedText.isNull() ? insertedText.utf8() : maskedText.utf8();
@@ -553,7 +556,7 @@ IntRect AccessibilityObjectAtspi::boundsForRange(unsigned utf16Offset, unsigned 
     if (!m_coreObject)
         return { };
 
-    auto extents = m_coreObject->doAXBoundsForRange(PlainTextRange(utf16Offset, length));
+    auto extents = m_coreObject->doAXBoundsForRange(CharacterRange(utf16Offset, length));
 
     auto* frameView = m_coreObject->documentFrameView();
     if (!frameView)
@@ -701,7 +704,7 @@ void AccessibilityObjectAtspi::setSelectedRange(unsigned utf16Offset, unsigned l
     if (!m_coreObject)
         return;
 
-    auto range = m_coreObject->visiblePositionRangeForRange(PlainTextRange(utf16Offset, length));
+    auto range = m_coreObject->visiblePositionRangeForRange(CharacterRange(utf16Offset, length));
     m_coreObject->setSelectedVisiblePositionRange(range);
 }
 
@@ -781,7 +784,7 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
         }
 
         addAttributeIfNeeded("family-name"_s, style.fontCascade().firstFamily());
-        addAttributeIfNeeded("size"_s, makeString(std::round(style.computedFontPixelSize() * 72 / WebCore::screenDPI()), "pt"));
+        addAttributeIfNeeded("size"_s, makeString(std::round(style.computedFontSize() * 72 / WebCore::screenDPI()), "pt"));
         addAttributeIfNeeded("weight"_s, makeString(static_cast<float>(style.fontCascade().weight())));
         addAttributeIfNeeded("style"_s, style.fontCascade().italic() ? "italic"_s : "normal"_s);
         addAttributeIfNeeded("strikethrough"_s, style.textDecorationLine() & TextDecorationLine::LineThrough ? "true"_s : "false"_s);
@@ -936,7 +939,7 @@ void AccessibilityObjectAtspi::textAttributesChanged()
     AccessibilityAtspi::singleton().textAttributesChanged(*this);
 }
 
-bool AccessibilityObjectAtspi::scrollToMakeVisible(int startOffset, int endOffset, uint32_t scrollType) const
+bool AccessibilityObjectAtspi::scrollToMakeVisible(int startOffset, int endOffset, Atspi::ScrollType scrollType) const
 {
     auto utf16Text = text();
     auto utf8Text = utf16Text.utf8();
@@ -957,7 +960,7 @@ bool AccessibilityObjectAtspi::scrollToMakeVisible(int startOffset, int endOffse
     if (!m_coreObject->renderer())
         return true;
 
-    IntRect rect = m_coreObject->doAXBoundsForRange(PlainTextRange(utf16StartOffset, utf16EndOffset - utf16StartOffset));
+    IntRect rect = m_coreObject->doAXBoundsForRange(CharacterRange(utf16StartOffset, utf16EndOffset - utf16StartOffset));
 
     if (m_coreObject->isScrollView()) {
         if (auto* parent = m_coreObject->parentObject())
@@ -993,7 +996,7 @@ bool AccessibilityObjectAtspi::scrollToMakeVisible(int startOffset, int endOffse
         break;
     }
 
-    FrameView::scrollRectToVisible(rect, *m_coreObject->renderer(), false, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::Yes });
+    LocalFrameView::scrollRectToVisible(rect, *m_coreObject->renderer(), false, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::Yes });
     return true;
 }
 
@@ -1021,9 +1024,9 @@ bool AccessibilityObjectAtspi::scrollToPoint(int startOffset, int endOffset, Ats
             point = frameView->contentsToWindow(frameView->screenToContents(point));
     }
 
-    IntRect rect = m_coreObject->doAXBoundsForRange(PlainTextRange(utf16StartOffset, utf16EndOffset - utf16StartOffset));
+    IntRect rect = m_coreObject->doAXBoundsForRange(CharacterRange(utf16StartOffset, utf16EndOffset - utf16StartOffset));
     point.move(-rect.x(), -rect.y());
-    m_coreObject->scrollToGlobalPoint(point);
+    m_coreObject->scrollToGlobalPoint(WTFMove(point));
     return true;
 }
 

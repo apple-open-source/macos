@@ -2248,7 +2248,7 @@ ppdcSource::quotef(cups_file_t *fp,	// I - File to write to
 	    memcpy(tformat, bufformat, (size_t)(format - bufformat));
 	    tformat[format - bufformat] = '\0';
 
-	    bytes += cupsFilePrintf(fp, tformat, va_arg(ap, double));
+	    bytes += cupsFilePrintf(fp, fmtcheck(tformat, "%g"), va_arg(ap, double));
 	    break;
 
         case 'B' : // Integer formats
@@ -2267,13 +2267,13 @@ ppdcSource::quotef(cups_file_t *fp,	// I - File to write to
 
 #  ifdef HAVE_LONG_LONG
             if (size == 'L')
-	      bytes += cupsFilePrintf(fp, tformat, va_arg(ap, long long));
+	      bytes += cupsFilePrintf(fp, fmtcheck(tformat, "%lld"), va_arg(ap, long long));
 	    else
 #  endif /* HAVE_LONG_LONG */
             if (size == 'l')
-	      bytes += cupsFilePrintf(fp, tformat, va_arg(ap, long));
+	      bytes += cupsFilePrintf(fp, fmtcheck(tformat, "%ld"), va_arg(ap, long));
 	    else
-	      bytes += cupsFilePrintf(fp, tformat, va_arg(ap, int));
+	      bytes += cupsFilePrintf(fp, fmtcheck(tformat, "%d"), va_arg(ap, int));
 	    break;
 
 	case 'p' : // Pointer value
@@ -2283,7 +2283,7 @@ ppdcSource::quotef(cups_file_t *fp,	// I - File to write to
 	    memcpy(tformat, bufformat, (size_t)(format - bufformat));
 	    tformat[format - bufformat] = '\0';
 
-	    bytes += cupsFilePrintf(fp, tformat, va_arg(ap, void *));
+	    bytes += cupsFilePrintf(fp, fmtcheck(tformat, "%p"), va_arg(ap, void *));
 	    break;
 
         case 'c' : // Character or character array

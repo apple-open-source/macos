@@ -22,6 +22,7 @@
 #include "JSTestPluginInterface.h"
 
 #include "ActiveDOMObject.h"
+#include "Document.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
@@ -30,6 +31,7 @@
 #include "JSDOMGlobalObjectInlines.h"
 #include "JSDOMWrapperCache.h"
 #include "JSPluginElementFunctions.h"
+#include "Quirks.h"
 #include "ScriptExecutionContext.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
@@ -105,7 +107,7 @@ template<> void JSTestPluginInterfaceDOMConstructor::initializeProperties(VM& vm
 
 static const HashTableValue JSTestPluginInterfacePrototypeTableValues[] =
 {
-    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestPluginInterfaceConstructor, 0 } },
+    { "constructor"_s, static_cast<unsigned>(PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestPluginInterfaceConstructor, 0 } },
 };
 
 const ClassInfo JSTestPluginInterfacePrototype::s_info = { "TestPluginInterface"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestPluginInterfacePrototype) };
@@ -124,18 +126,13 @@ JSTestPluginInterface::JSTestPluginInterface(Structure* structure, JSDOMGlobalOb
 {
 }
 
-void JSTestPluginInterface::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestPluginInterface>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestPluginInterface>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestPluginInterface::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestPluginInterfacePrototype::create(vm, &globalObject, JSTestPluginInterfacePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestPluginInterfacePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestPluginInterfacePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestPluginInterface::prototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -154,8 +151,9 @@ void JSTestPluginInterface::destroy(JSC::JSCell* cell)
     thisObject->JSTestPluginInterface::~JSTestPluginInterface();
 }
 
-bool JSTestPluginInterface::getOwnPropertySlot(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyName propertyName, PropertySlot& slot)
+bool JSTestPluginInterface::legacyPlatformObjectGetOwnProperty(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyName propertyName, PropertySlot& slot, bool ignoreNamedProperties)
 {
+    UNUSED_PARAM(ignoreNamedProperties);
     auto* thisObject = jsCast<JSTestPluginInterface*>(object);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     if (pluginElementCustomGetOwnPropertySlot(thisObject, lexicalGlobalObject, propertyName, slot))
@@ -164,6 +162,12 @@ bool JSTestPluginInterface::getOwnPropertySlot(JSObject* object, JSGlobalObject*
     if (slot.isVMInquiry())
         return false;
     return JSObject::getOwnPropertySlot(object, lexicalGlobalObject, propertyName, slot);
+}
+
+bool JSTestPluginInterface::getOwnPropertySlot(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyName propertyName, PropertySlot& slot)
+{
+    bool ignoreNamedProperties = false;
+    return legacyPlatformObjectGetOwnProperty(object, lexicalGlobalObject, propertyName, slot, ignoreNamedProperties);
 }
 
 bool JSTestPluginInterface::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObject* lexicalGlobalObject, unsigned index, PropertySlot& slot)
@@ -187,6 +191,13 @@ bool JSTestPluginInterface::put(JSCell* cell, JSGlobalObject* lexicalGlobalObjec
 
     if (UNLIKELY(thisObject != putPropertySlot.thisValue()))
         return JSObject::put(thisObject, lexicalGlobalObject, propertyName, value, putPropertySlot);
+
+    // Temporary quirk for ungap/@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.
+    if (auto* document = dynamicDowncast<Document>(jsDynamicCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext())) {
+        if (UNLIKELY(document->quirks().needsConfigurableIndexedPropertiesQuirk()))
+            return JSObject::put(thisObject, lexicalGlobalObject, propertyName, value, putPropertySlot);
+    }
+
     auto throwScope = DECLARE_THROW_SCOPE(lexicalGlobalObject->vm());
 
     bool putResult = false;
@@ -201,6 +212,13 @@ bool JSTestPluginInterface::put(JSCell* cell, JSGlobalObject* lexicalGlobalObjec
 
 bool JSTestPluginInterface::putByIndex(JSCell* cell, JSGlobalObject* lexicalGlobalObject, unsigned index, JSValue value, bool shouldThrow)
 {
+
+    // Temporary quirk for ungap/@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.
+    if (auto* document = dynamicDowncast<Document>(jsDynamicCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext())) {
+        if (UNLIKELY(document->quirks().needsConfigurableIndexedPropertiesQuirk()))
+            return JSObject::putByIndex(cell, lexicalGlobalObject, index, value, shouldThrow);
+    }
+
     auto* thisObject = jsCast<JSTestPluginInterface*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
 
@@ -262,7 +280,7 @@ void JSTestPluginInterface::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
     auto* thisObject = jsCast<JSTestPluginInterface*>(cell);
     analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+        analyzer.setLabelForCell(cell, "url "_s + thisObject->scriptExecutionContext()->url().string());
     Base::analyzeHeap(cell, analyzer);
 }
 

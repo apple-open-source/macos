@@ -33,6 +33,6 @@ typedef struct				/**** Status buffer */
  */
 
 extern void		cupsdStatBufDelete(cupsd_statbuf_t *sb);
-extern cupsd_statbuf_t	*cupsdStatBufNew(int fd, const char *prefix, ...);
+extern cupsd_statbuf_t	*cupsdStatBufNew(int fd, const char *prefix);
 extern char		*cupsdStatBufUpdate(cupsd_statbuf_t *sb, int *loglevel,
 			                    char *line, int linelen);

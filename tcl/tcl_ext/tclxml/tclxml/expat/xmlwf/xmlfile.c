@@ -42,9 +42,7 @@ your version of this file under either the MPL or the GPL.
 #include <io.h>
 #endif
 
-#ifdef _POSIX_SOURCE
 #include <unistd.h>
-#endif
 
 #ifndef O_BINARY
 #ifdef _O_BINARY

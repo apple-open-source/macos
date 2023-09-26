@@ -404,6 +404,8 @@ class OctagonPairingTests: OctagonTestsBase {
 
         super.setUp()
 
+        enableSOSCompatibilityForTests()
+
         // The acceptor should have its own SOS state
         self.sosAdapterForAcceptor = CKKSMockSOSPresentAdapter(selfPeer: self.createSOSPeer(peerID: "sos-acceptor"),
                                                                trustedPeers: Set(),
@@ -537,7 +539,6 @@ class OctagonPairingTests: OctagonTestsBase {
     func setupOTCliquePair(withNumber count: String) -> (OTClique?, OTClique?) {
         let secondAcceptorData = OTConfigurationContext()
         secondAcceptorData.context = "secondAcceptor"
-        secondAcceptorData.dsid = "a-" + count
         secondAcceptorData.altDSID = "alt-a-" + count
 
         let acceptor = OTClique(contextData: secondAcceptorData)
@@ -545,7 +546,6 @@ class OctagonPairingTests: OctagonTestsBase {
 
         let secondInitiatorData = OTConfigurationContext()
         secondInitiatorData.context = "secondInitiator"
-        secondInitiatorData.dsid = "i-" + count
         secondInitiatorData.altDSID = "alt-i-" + count
 
         let initiator = OTClique(contextData: secondInitiatorData)

@@ -85,6 +85,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef __APPLE__
+#include <os/log.h>
+#endif
+
 #include "buf.h"
 #include "enc.h"
 
@@ -1143,6 +1147,15 @@ xmlDetectSAX2(xmlParserCtxtPtr ctxt) {
     if (ctxt == NULL) return;
     sax = ctxt->sax;
 #ifdef LIBXML_SAX1_ENABLED
+#ifdef __APPLE__
+    if ((sax) && (sax->initialized == XML_SAX2_MAGIC) &&
+        (((sax->startElementNs == NULL) && (sax->startElement != NULL)) ||
+            ((sax->endElementNs == NULL) && (sax->endElement != NULL))) &&
+        (ctxt->html == 0)) {
+        os_log_fault(OS_LOG_DEFAULT,
+            "XML SAX2 parser requested but SAX1 used due to startElement/endElement handlers--switch to startElementNs/endElementNs");
+    }
+#endif /* __APPLE__ */
     if ((sax) &&  (sax->initialized == XML_SAX2_MAGIC) &&
         ((sax->startElementNs != NULL) ||
          (sax->endElementNs != NULL) ||

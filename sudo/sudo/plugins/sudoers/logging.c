@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1994-1996, 1998-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 1994-1996, 1998-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -47,18 +47,28 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <syslog.h>
 #ifndef HAVE_GETADDRINFO
 # include "compat/getaddrinfo.h"
 #endif
 
 #include "sudoers.h"
-#include "log_client.h"
+#ifdef SUDOERS_LOG_CLIENT
+# include "log_client.h"
+# include "strlist.h"
+#endif
+
+struct parse_error {
+    STAILQ_ENTRY(parse_error) entries;
+    char *errstr;
+};
+STAILQ_HEAD(parse_error_list, parse_error);
+static struct parse_error_list parse_error_list =
+    STAILQ_HEAD_INITIALIZER(parse_error_list);
 
 static bool should_mail(int);
 static bool warned = false;
-
-extern struct policy_plugin sudoers_policy;	/* XXX */
 
 #ifdef SUDOERS_LOG_CLIENT
 /*
@@ -117,39 +127,55 @@ init_log_details(struct log_details *details, struct eventlog *evlog)
 }
 
 bool
-log_server_reject(struct eventlog *evlog, const char *message,
-    struct sudo_plugin_event * (*event_alloc)(void))
+log_server_reject(struct eventlog *evlog, const char *message)
 {
-    struct client_closure *client_closure;
-    struct log_details details;
     bool ret = false;
     debug_decl(log_server_reject, SUDOERS_DEBUG_LOGGING);
 
     if (SLIST_EMPTY(&def_log_servers))
 	debug_return_bool(true);
 
-    if (!init_log_details(&details, evlog))
-	debug_return_bool(false);
+    if (ISSET(sudo_mode, MODE_POLICY_INTERCEPTED)) {
+	/* Older servers don't support multiple commands per session. */
+	if (!client_closure->subcommands)
+	    debug_return_bool(true);
 
-    /* Open connection to log server, send hello and reject messages. */
-    client_closure = log_server_open(&details, &sudo_user.submit_time, false,
-	SEND_REJECT, message, event_alloc);
-    if (client_closure != NULL) {
-	client_closure_free(client_closure);
-	ret = true;
+	/* Use existing client closure. */
+        if (fmt_reject_message(client_closure, evlog)) {
+            if (client_closure->write_ev->add(client_closure->write_ev,
+                    &client_closure->log_details->server_timeout) == -1) {
+                sudo_warn("%s", U_("unable to add event to queue"));
+                goto done;
+            }
+            ret = true;
+        }
+    } else {
+	struct log_details details;
+
+	if (!init_log_details(&details, evlog))
+	    debug_return_bool(false);
+
+	/* Open connection to log server, send hello and reject messages. */
+	client_closure = log_server_open(&details, &sudo_user.submit_time,
+	    false, SEND_REJECT, message);
+	if (client_closure != NULL) {
+	    client_closure_free(client_closure);
+	    client_closure = NULL;
+	    ret = true;
+	}
+
+	/* Only the log_servers string list is dynamically allocated. */
+	str_list_free(details.log_servers);
     }
 
-    /* Only the log_servers string list is dynamically allocated. */
-    str_list_free(details.log_servers);
+done:
     debug_return_bool(ret);
 }
 
 bool
 log_server_alert(struct eventlog *evlog, struct timespec *now,
-    const char *message, const char *errstr,
-    struct sudo_plugin_event * (*event_alloc)(void))
+    const char *message, const char *errstr)
 {
-    struct client_closure *client_closure;
     struct log_details details;
     char *emessage = NULL;
     bool ret = false;
@@ -158,9 +184,6 @@ log_server_alert(struct eventlog *evlog, struct timespec *now,
     if (SLIST_EMPTY(&def_log_servers))
 	debug_return_bool(true);
 
-    if (!init_log_details(&details, evlog))
-	goto done;
-
     if (errstr != NULL) {
 	if (asprintf(&emessage, _("%s: %s"), message, errstr) == -1) {
 	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
@@ -168,32 +191,53 @@ log_server_alert(struct eventlog *evlog, struct timespec *now,
 	}
     }
 
-    /* Open connection to log server, send hello and alert messages. */
-    client_closure = log_server_open(&details, now, false,
-	SEND_ALERT, emessage ? emessage : message, event_alloc);
-    if (client_closure != NULL) {
-	client_closure_free(client_closure);
-	ret = true;
+    if (ISSET(sudo_mode, MODE_POLICY_INTERCEPTED)) {
+	/* Older servers don't support multiple commands per session. */
+	if (!client_closure->subcommands) {
+            ret = true;
+	    goto done;
+	}
+
+	/* Use existing client closure. */
+        if (fmt_reject_message(client_closure, evlog)) {
+            if (client_closure->write_ev->add(client_closure->write_ev,
+                    &client_closure->log_details->server_timeout) == -1) {
+                sudo_warn("%s", U_("unable to add event to queue"));
+                goto done;
+            }
+            ret = true;
+        }
+    } else {
+	if (!init_log_details(&details, evlog))
+	    goto done;
+
+	/* Open connection to log server, send hello and alert messages. */
+	client_closure = log_server_open(&details, now, false,
+	    SEND_ALERT, emessage ? emessage : message);
+	if (client_closure != NULL) {
+	    client_closure_free(client_closure);
+	    client_closure = NULL;
+	    ret = true;
+	}
+
+	/* Only the log_servers string list is dynamically allocated. */
+	str_list_free(details.log_servers);
     }
 
 done:
-    /* Only the log_servers string list is dynamically allocated. */
     free(emessage);
-    str_list_free(details.log_servers);
     debug_return_bool(ret);
 }
 #else
 bool
-log_server_reject(struct eventlog *evlog, const char *message,
-    struct sudo_plugin_event * (*event_alloc)(void))
+log_server_reject(struct eventlog *evlog, const char *message)
 {
     return true;
 }
 
 bool
 log_server_alert(struct eventlog *evlog, struct timespec *now,
-    const char *message, const char *errstr,
-    struct sudo_plugin_event * (*event_alloc)(void))
+    const char *message, const char *errstr)
 {
     return true;
 }
@@ -205,21 +249,23 @@ log_server_alert(struct eventlog *evlog, struct timespec *now,
 static bool
 log_reject(const char *message, bool logit, bool mailit)
 {
-    int evl_flags = 0;
+    const char *uuid_str = NULL;
     struct eventlog evlog;
-    bool ret = true;
+    int evl_flags = 0;
+    bool ret;
     debug_decl(log_reject, SUDOERS_DEBUG_LOGGING);
+
+    if (!ISSET(sudo_mode, MODE_POLICY_INTERCEPTED))
+	uuid_str = sudo_user.uuid_str;
 
     if (mailit) {
 	SET(evl_flags, EVLOG_MAIL);
 	if (!logit)
 	    SET(evl_flags, EVLOG_MAIL_ONLY);
     }
-    sudoers_to_eventlog(&evlog, NewArgv, env_get());
-    if (!eventlog_reject(&evlog, evl_flags, message, NULL, NULL))
-	ret = false;
-
-    if (!log_server_reject(&evlog, message, sudoers_policy.event_alloc))
+    sudoers_to_eventlog(&evlog, safe_cmnd, NewArgv, env_get(), uuid_str);
+    ret = eventlog_reject(&evlog, evl_flags, message, NULL, NULL);
+    if (!log_server_reject(&evlog, message))
 	ret = false;
 
     debug_return_bool(ret);
@@ -267,11 +313,10 @@ log_denial(int status, bool inform_user)
 
 	if (ISSET(status, FLAG_NO_USER)) {
 	    sudo_printf(SUDO_CONV_ERROR_MSG, _("%s is not in the sudoers "
-		"file.  This incident will be reported.\n"), user_name);
+		"file.\n"), user_name);
 	} else if (ISSET(status, FLAG_NO_HOST)) {
 	    sudo_printf(SUDO_CONV_ERROR_MSG, _("%s is not allowed to run sudo "
-		"on %s.  This incident will be reported.\n"),
-		user_name, user_srunhost);
+		"on %s.\n"), user_name, user_srunhost);
 	} else if (ISSET(status, FLAG_NO_CHECK)) {
 	    sudo_printf(SUDO_CONV_ERROR_MSG, _("Sorry, user %s may not run "
 		"sudo on %s.\n"), user_name, user_srunhost);
@@ -283,6 +328,10 @@ log_denial(int status, bool inform_user)
 		list_pw ? list_pw->pw_name : runas_pw ?
 		runas_pw->pw_name : user_name, runas_gr ? ":" : "",
 		runas_gr ? runas_gr->gr_name : "", user_host);
+	}
+	if (mailit) {
+	    sudo_printf(SUDO_CONV_ERROR_MSG, "%s",
+		_("This incident has been reported to the administrator.\n"));
 	}
 	sudoers_setlocale(oldlocale, NULL);
     }
@@ -299,12 +348,16 @@ log_failure(int status, int flags)
     debug_decl(log_failure, SUDOERS_DEBUG_LOGGING);
 
     /* The user doesn't always get to see the log message (path info). */
-    if (!ISSET(status, FLAG_NO_USER | FLAG_NO_HOST) && def_path_info &&
-	(flags == NOT_FOUND_DOT || flags == NOT_FOUND))
+    if (!ISSET(status, FLAG_NO_USER | FLAG_NO_HOST) && list_pw == NULL &&
+	    def_path_info && (flags == NOT_FOUND_DOT || flags == NOT_FOUND))
 	inform_user = false;
     ret = log_denial(status, inform_user);
 
     if (!inform_user) {
+	const char *cmnd = user_cmnd;
+	if (ISSET(sudo_mode, MODE_CHECK))
+	    cmnd = list_cmnd ? list_cmnd : NewArgv[1];
+
 	/*
 	 * We'd like to not leak path info at all here, but that can
 	 * *really* confuse the users.  To really close the leak we'd
@@ -313,9 +366,9 @@ log_failure(int status, int flags)
 	 * their path to just contain a single dir.
 	 */
 	if (flags == NOT_FOUND)
-	    sudo_warnx(U_("%s: command not found"), user_cmnd);
+	    sudo_warnx(U_("%s: command not found"), cmnd);
 	else if (flags == NOT_FOUND_DOT)
-	    sudo_warnx(U_("ignoring \"%s\" found in '.'\nUse \"sudo ./%s\" if this is the \"%s\" you wish to run."), user_cmnd, user_cmnd, user_cmnd);
+	    sudo_warnx(U_("ignoring \"%s\" found in '.'\nUse \"sudo ./%s\" if this is the \"%s\" you wish to run."), cmnd, cmnd, cmnd);
     }
 
     debug_return_bool(ret);
@@ -325,55 +378,90 @@ log_failure(int status, int flags)
  * Format an authentication failure message, using either
  * authfail_message from sudoers or a locale-specific message.
  */
-static int
-fmt_authfail_message(char **str, unsigned int tries)
+static char *
+fmt_authfail_message(unsigned int tries)
 {
-    char *src, *dst0, *dst, *dst_end;
-    size_t size;
-    int len;
+    char numbuf[(((sizeof(int) * 8) + 2) / 3) + 2];
+    char *dst, *dst_end, *ret = NULL;
+    const char *src;
+    size_t len;
     debug_decl(fmt_authfail_message, SUDOERS_DEBUG_LOGGING);
 
     if (def_authfail_message == NULL) {
-	debug_return_int(asprintf(str, ngettext("%u incorrect password attempt",
-	    "%u incorrect password attempts", tries), tries));
+	if (asprintf(&ret, ngettext("%u incorrect password attempt",
+		"%u incorrect password attempts", tries), tries) == -1)
+	    goto oom;
+	debug_return_ptr(ret);
     }
 
-    src = def_authfail_message;
-    size = strlen(src) + 33;
-    if ((dst0 = dst = malloc(size)) == NULL)
-	debug_return_int(-1);
-    dst_end = dst + size;
+    len = snprintf(numbuf, sizeof(numbuf), "%u", tries);
+    if (len >= sizeof(numbuf))
+	goto overflow;
 
-    /* Always leave space for the terminating NUL. */
-    while (*src != '\0' && dst + 1 < dst_end) {
+    src = def_authfail_message;
+    len = strlen(src) + 1;
+    while (*src != '\0') {
+	if (src[0] == '%') {
+	    switch (src[1]) {
+	    case '%':
+		len--;
+		src++;
+		break;
+	    case 'd':
+		len -= 2;
+		len += strlen(numbuf);
+		src++;
+		break;
+	    default:
+		/* pass through as-is */
+		break;
+	    }
+	}
+	src++;
+    }
+
+    if ((ret = malloc(len)) == NULL)
+	goto oom;
+    dst = ret;
+    dst_end = ret + len;
+
+    src = def_authfail_message;
+    while (*src != '\0') {
+	/* Always leave space for the terminating NUL. */
+	if (dst + 1 >= dst_end)
+	    goto overflow;
 	if (src[0] == '%') {
 	    switch (src[1]) {
 	    case '%':
 		src++;
 		break;
 	    case 'd':
-		len = snprintf(dst, dst_end - dst, "%u", tries);
-		if (len < 0 || len >= (int)(dst_end - dst))
-		    goto done;
+		len = strlcpy(dst, numbuf, dst_end - dst);
+		if (len >= (size_t)(dst_end - dst))
+		    goto overflow;
 		dst += len;
 		src += 2;
 		continue;
 	    default:
+		/* pass through as-is */
 		break;
 	    }
 	}
 	*dst++ = *src++;
     }
-done:
     *dst = '\0';
 
-    *str = dst0;
-#ifdef __clang_analyzer__
-    /* clang analyzer false positive */
-    if (__builtin_expect(dst < dst0, 0))
-	__builtin_trap();
-#endif
-    debug_return_int(dst - dst0);
+    debug_return_ptr(ret);
+
+oom:
+    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+    debug_return_ptr(NULL);
+
+overflow:
+    sudo_warnx(U_("internal error, %s overflow"), __func__);
+    free(ret);
+    errno = ERANGE;
+    debug_return_ptr(NULL);
 }
 
 /*
@@ -393,7 +481,7 @@ log_auth_failure(int status, unsigned int tries)
     audit_failure(NewArgv, "%s", N_("authentication failure"));
 
     /* If sudoers denied the command we'll log that separately. */
-    if (!ISSET(status, FLAG_BAD_PASSWORD|FLAG_NON_INTERACTIVE))
+    if (!ISSET(status, FLAG_BAD_PASSWORD|FLAG_NO_USER_INPUT))
 	logit = false;
 
     /*
@@ -421,9 +509,8 @@ log_auth_failure(int status, unsigned int tries)
 	sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
 
 	if (ISSET(status, FLAG_BAD_PASSWORD)) {
-	    if (fmt_authfail_message(&message, tries) == -1) {
-		sudo_warnx(U_("%s: %s"), __func__,
-		    U_("unable to allocate memory"));
+	    message = fmt_authfail_message(tries);
+	    if (message == NULL) {
 		ret = false;
 	    } else {
 		ret = log_reject(message, logit, mailit);
@@ -441,9 +528,8 @@ log_auth_failure(int status, unsigned int tries)
     sudoers_setlocale(SUDOERS_LOCALE_USER, &oldlocale);
 
     if (ISSET(status, FLAG_BAD_PASSWORD)) {
-	if (fmt_authfail_message(&message, tries) == -1) {
-	    sudo_warnx(U_("%s: %s"), __func__,
-		U_("unable to allocate memory"));
+	message = fmt_authfail_message(tries);
+	if (message == NULL) {
 	    ret = false;
 	} else {
 	    sudo_warnx("%s", message);
@@ -462,9 +548,8 @@ log_auth_failure(int status, unsigned int tries)
  * Log and potentially mail the allowed command.
  */
 bool
-log_allowed(void)
+log_allowed(struct eventlog *evlog)
 {
-    struct eventlog evlog;
     int oldlocale;
     int evl_flags = 0;
     bool mailit, ret = true;
@@ -477,18 +562,78 @@ log_allowed(void)
 	/* Log and mail messages should be in the sudoers locale. */
 	sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
 
-	sudoers_to_eventlog(&evlog, NewArgv, env_get());
 	if (mailit) {
 	    SET(evl_flags, EVLOG_MAIL);
 	    if (!def_log_allowed)
 		SET(evl_flags, EVLOG_MAIL_ONLY);
 	}
-	if (!eventlog_accept(&evlog, evl_flags, NULL, NULL))
+	if (!eventlog_accept(evlog, evl_flags, NULL, NULL))
 	    ret = false;
 
 	sudoers_setlocale(oldlocale, NULL);
     }
 
+    debug_return_bool(ret);
+}
+
+bool
+log_exit_status(int status)
+{
+    struct eventlog evlog;
+    int evl_flags = 0;
+    int exit_value = 0;
+    int oldlocale;
+    struct timespec run_time;
+    char sigbuf[SIG2STR_MAX];
+    char *signal_name = NULL;
+    bool dumped_core = false;
+    bool ret = true;
+    debug_decl(log_exit_status, SUDOERS_DEBUG_LOGGING);
+
+    if (def_log_exit_status || def_mail_always) {
+	if (sudo_gettime_real(&run_time) == -1) {
+	    sudo_warn("%s", U_("unable to get time of day"));
+	    ret = false;
+	    goto done;
+	}
+	sudo_timespecsub(&run_time, &sudo_user.submit_time, &run_time);
+
+        if (WIFEXITED(status)) {
+	    exit_value = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            int signo = WTERMSIG(status);
+            if (signo <= 0 || sig2str(signo, sigbuf) == -1)
+                (void)snprintf(sigbuf, sizeof(sigbuf), "%d", signo);
+	    signal_name = sigbuf;
+	    exit_value = signo | 128;
+	    dumped_core = WCOREDUMP(status);
+        } else {
+            sudo_warnx("invalid exit status 0x%x", status);
+	    ret = false;
+	    goto done;
+        }
+
+	/* Log and mail messages should be in the sudoers locale. */
+	sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
+
+	sudoers_to_eventlog(&evlog, saved_cmnd, saved_argv, env_get(),
+	    sudo_user.uuid_str);
+	if (def_mail_always) {
+	    SET(evl_flags, EVLOG_MAIL);
+	    if (!def_log_exit_status)
+		SET(evl_flags, EVLOG_MAIL_ONLY);
+	}
+	evlog.run_time = run_time;
+	evlog.exit_value = exit_value;
+	evlog.signal_name = signal_name;
+	evlog.dumped_core = dumped_core;
+	if (!eventlog_exit(&evlog, evl_flags))
+	    ret = false;
+
+	sudoers_setlocale(oldlocale, NULL);
+    }
+
+done:
     debug_return_bool(ret);
 }
 
@@ -555,11 +700,10 @@ vlog_warning(int flags, int errnum, const char *fmt, va_list ap)
 	    if (ISSET(flags, SLOG_NO_LOG))
 		SET(evl_flags, EVLOG_MAIL_ONLY);
 	}
-	sudoers_to_eventlog(&evlog, NewArgv, env_get());
+	sudoers_to_eventlog(&evlog, safe_cmnd, NewArgv, env_get(),
+	    sudo_user.uuid_str);
 	eventlog_alert(&evlog, evl_flags, &now, message, errstr);
-
-	log_server_alert(&evlog, &now, message, errstr,
-	    sudoers_policy.event_alloc);
+	log_server_alert(&evlog, &now, message, errstr);
     }
 
     /*
@@ -630,12 +774,127 @@ gai_log_warning(int flags, int errnum, const char *fmt, ...)
 }
 
 /*
+ * Send mail about accumulated parser errors.
+ * Frees the list of parse errors when done.
+ */
+bool
+mail_parse_errors(void)
+{
+    const int evl_flags = EVLOG_RAW;
+    struct parse_error *pe;
+    struct eventlog evlog;
+    char **errors = NULL;
+    struct timespec now;
+    bool ret = false;
+    size_t n;
+    debug_decl(mail_parse_errors, SUDOERS_DEBUG_LOGGING);
+
+    if (STAILQ_EMPTY(&parse_error_list))
+	debug_return_bool(true);
+
+    if (sudo_gettime_real(&now) == -1) {
+	sudo_warn("%s", U_("unable to get time of day"));
+	goto done;
+    }
+    sudoers_to_eventlog(&evlog, safe_cmnd, NewArgv, env_get(),
+	sudo_user.uuid_str);
+
+    /* Convert parse_error_list to a string vector. */
+    n = 0;
+    STAILQ_FOREACH(pe, &parse_error_list, entries) {
+	n++;
+    }
+    errors = reallocarray(NULL, n + 1, sizeof(char *));
+    if (errors == NULL) {
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	goto done;
+    }
+    n = 0;
+    STAILQ_FOREACH(pe, &parse_error_list, entries) {
+	errors[n++] = _(pe->errstr);
+    }
+    errors[n] = NULL;
+
+    ret = eventlog_mail(&evlog, evl_flags, &now, _("problem parsing sudoers"),
+	NULL, errors);
+
+done:
+    free(errors);
+    while ((pe = STAILQ_FIRST(&parse_error_list)) != NULL) {
+	STAILQ_REMOVE_HEAD(&parse_error_list, entries);
+	free(pe->errstr);
+	free(pe);
+    }
+    debug_return_bool(ret);
+}
+
+/*
+ * Log a parse error using log_warningx().
+ * Journals the message to be mailed after parsing is complete.
+ * Does not write the message to stderr.
+ */
+bool
+log_parse_error(const char *file, int line, int column, const char *fmt,
+    va_list args)
+{
+    const int flags = SLOG_RAW_MSG|SLOG_NO_STDERR;
+    char *tofree = NULL;
+    const char *errstr;
+    struct parse_error *pe;
+    bool ret;
+    debug_decl(log_parse_error, SUDOERS_DEBUG_LOGGING);
+
+    if (fmt == NULL) {
+	errstr = _("syntax error");
+    } else if (strcmp(fmt, "%s") == 0) {
+	/* Optimize common case, a single string. */
+	errstr = _(va_arg(args, char *));
+    } else {
+	if (vasprintf(&tofree, _(fmt), args) == -1)
+	    debug_return_bool(false);
+	errstr = tofree;
+    }
+
+    if (line > 0) {
+	ret = log_warningx(flags, N_("%s:%d:%d: %s"), file, line, column,
+	    errstr);
+    } else {
+	ret = log_warningx(flags, N_("%s: %s"), file, errstr);
+    }
+
+    /* Journal parse error for later mailing. */
+    pe = malloc(sizeof(*pe));
+    if (pe != NULL) {
+	int len;
+
+	if (line > 0) {
+	    len = asprintf(&pe->errstr, _("%s:%d:%d: %s"), file, line, column,
+		errstr);
+	} else {
+	    len = asprintf(&pe->errstr, _("%s: %s"), file, errstr);
+	}
+	if (len != -1) {
+	    STAILQ_INSERT_TAIL(&parse_error_list, pe, entries);
+	} else {
+	    free(pe);
+	}
+    }
+
+    free(tofree);
+
+    debug_return_bool(ret);
+}
+
+/*
  * Determine whether we should send mail based on "status" and defaults options.
  */
 static bool
 should_mail(int status)
 {
     debug_decl(should_mail, SUDOERS_DEBUG_LOGGING);
+
+    if (!def_mailto || !def_mailerpath || access(def_mailerpath, X_OK) == -1)
+	debug_return_bool(false);
 
     debug_return_bool(def_mail_always || ISSET(status, VALIDATE_ERROR) ||
 	(def_mail_all_cmnds && ISSET(sudo_mode, (MODE_RUN|MODE_EDIT))) ||
@@ -649,8 +908,8 @@ should_mail(int status)
  * The values in the resulting eventlog struct should not be freed.
  */
 void
-sudoers_to_eventlog(struct eventlog *evlog, char * const argv[],
-    char * const envp[])
+sudoers_to_eventlog(struct eventlog *evlog, const char *cmnd,
+    char * const argv[], char * const envp[], const char *uuid_str)
 {
     struct group *grp;
     debug_decl(sudoers_to_eventlog, SUDOERS_DEBUG_LOGGING);
@@ -662,7 +921,7 @@ sudoers_to_eventlog(struct eventlog *evlog, char * const argv[],
     memset(evlog, 0, sizeof(*evlog));
     evlog->iolog_file = sudo_user.iolog_file;
     evlog->iolog_path = sudo_user.iolog_path;
-    evlog->command = safe_cmnd ? safe_cmnd : (argv ? argv[0] : NULL);
+    evlog->command = cmnd ? (char *)cmnd : (argv ? argv[0] : NULL);
     evlog->cwd = user_cwd;
     if (def_runchroot != NULL && strcmp(def_runchroot, "*") != 0) {
 	evlog->runchroot = def_runchroot;
@@ -695,6 +954,23 @@ sudoers_to_eventlog(struct eventlog *evlog, char * const argv[],
 	evlog->runuid = (uid_t)-1;
 	evlog->runuser = sudo_user.runas_user;
     }
+    if (uuid_str == NULL) {
+	unsigned char uuid[16];
+
+	sudo_uuid_create(uuid);
+	if (sudo_uuid_to_string(uuid, evlog->uuid_str, sizeof(evlog->uuid_str)) == NULL)
+	    sudo_warnx("%s", U_("unable to generate UUID"));
+    } else {
+	strlcpy(evlog->uuid_str, uuid_str, sizeof(evlog->uuid_str));
+    }
+    if (ISSET(sudo_mode, MODE_POLICY_INTERCEPTED)) {
+	struct timespec now;
+	if (sudo_gettime_real(&now) == -1) {
+	    sudo_warn("%s", U_("unable to get time of day"));
+	} else {
+	    sudo_timespecsub(&now, &sudo_user.submit_time, &evlog->iolog_offset);
+	}
+    }
 
     debug_return;
 }
@@ -702,11 +978,11 @@ sudoers_to_eventlog(struct eventlog *evlog, char * const argv[],
 static FILE *
 sudoers_log_open(int type, const char *log_file)
 {
+    const char *omode;
     bool uid_changed;
     FILE *fp = NULL;
     mode_t oldmask;
     int fd, flags;
-    char *omode;
     debug_decl(sudoers_log_open, SUDOERS_DEBUG_LOGGING);
 
     switch (type) {
@@ -736,7 +1012,7 @@ sudoers_log_open(int type, const char *log_file)
 		if (!warned) {
 		    warned = true;
 		    log_warning(SLOG_SEND_MAIL|SLOG_NO_LOG,
-			N_("unable to open log file: %s"), log_file);
+			N_("unable to open log file %s"), log_file);
 		}
 		if (fd != -1)
 		    close(fd);
@@ -786,11 +1062,6 @@ void
 init_eventlog_config(void)
 {
     int logtype = 0;
-#ifdef NO_ROOT_MAILER
-    uid_t mailuid = user_uid;
-#else
-    uid_t mailuid = ROOT_UID;
-#endif
     debug_decl(init_eventlog_config, SUDOERS_DEBUG_LOGGING);
 
     if (def_syslog)
@@ -805,7 +1076,7 @@ init_eventlog_config(void)
     eventlog_set_syslog_alertpri(def_syslog_badpri);
     eventlog_set_syslog_maxlen(def_syslog_maxlen);
     eventlog_set_file_maxlen(def_loglinelen);
-    eventlog_set_mailuid(mailuid);
+    eventlog_set_mailuid(ROOT_UID);
     eventlog_set_omit_hostname(!def_log_host);
     eventlog_set_logpath(def_logfile);
     eventlog_set_time_fmt(def_log_year ? "%h %e %T %Y" : "%h %e %T");

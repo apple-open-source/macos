@@ -39,20 +39,22 @@ namespace WebKit {
 
 using namespace WebCore;
 
-UniqueRef<RemoteAudioSession> RemoteAudioSession::create(WebProcess& process)
+UniqueRef<RemoteAudioSession> RemoteAudioSession::create()
 {
-    return makeUniqueRef<RemoteAudioSession>(process);
+    return makeUniqueRef<RemoteAudioSession>();
 }
 
-RemoteAudioSession::RemoteAudioSession(WebProcess& process)
-    : m_process(process)
+RemoteAudioSession::RemoteAudioSession()
 {
+    addInterruptionObserver(*this);
 }
 
 RemoteAudioSession::~RemoteAudioSession()
 {
-    if (m_gpuProcessConnection)
-        m_gpuProcessConnection->messageReceiverMap().removeMessageReceiver(Messages::RemoteAudioSession::messageReceiverName());
+    if (auto gpuProcessConnection = m_gpuProcessConnection.get())
+        gpuProcessConnection->messageReceiverMap().removeMessageReceiver(Messages::RemoteAudioSession::messageReceiverName());
+
+    removeInterruptionObserver(*this);
 }
 
 void RemoteAudioSession::gpuProcessConnectionDidClose(GPUProcessConnection& connection)
@@ -60,20 +62,21 @@ void RemoteAudioSession::gpuProcessConnectionDidClose(GPUProcessConnection& conn
     ASSERT(m_gpuProcessConnection.get() == &connection);
     m_gpuProcessConnection = nullptr;
     connection.messageReceiverMap().removeMessageReceiver(Messages::RemoteAudioSession::messageReceiverName());
-    connection.removeClient(*this);
 }
 
 IPC::Connection& RemoteAudioSession::ensureConnection()
 {
-    if (!m_gpuProcessConnection) {
-        m_gpuProcessConnection = m_process.ensureGPUProcessConnection();
-        m_gpuProcessConnection->addClient(*this);
-        m_gpuProcessConnection->messageReceiverMap().addMessageReceiver(Messages::RemoteAudioSession::messageReceiverName(), *this);
+    auto gpuProcessConnection = m_gpuProcessConnection.get();
+    if (!gpuProcessConnection) {
+        gpuProcessConnection = &WebProcess::singleton().ensureGPUProcessConnection();
+        m_gpuProcessConnection = gpuProcessConnection;
+        gpuProcessConnection->addClient(*this);
+        gpuProcessConnection->messageReceiverMap().addMessageReceiver(Messages::RemoteAudioSession::messageReceiverName(), *this);
 
         auto sendResult = ensureConnection().sendSync(Messages::GPUConnectionToWebProcess::EnsureAudioSession(), { });
         std::tie(m_configuration) = sendResult.takeReplyOr(RemoteAudioSessionConfiguration { });
     }
-    return m_gpuProcessConnection->connection();
+    return gpuProcessConnection->connection();
 }
 
 const RemoteAudioSessionConfiguration& RemoteAudioSession::configuration() const
@@ -90,17 +93,18 @@ RemoteAudioSessionConfiguration& RemoteAudioSession::configuration()
     return *m_configuration;
 }
 
-void RemoteAudioSession::setCategory(CategoryType type, RouteSharingPolicy policy)
+void RemoteAudioSession::setCategory(CategoryType type, Mode mode, RouteSharingPolicy policy)
 {
 #if PLATFORM(COCOA)
-    if (type == m_category && policy == m_routeSharingPolicy && !m_isPlayingToBluetoothOverrideChanged)
+    if (type == m_category && mode == m_mode && policy == m_routeSharingPolicy && !m_isPlayingToBluetoothOverrideChanged)
         return;
 
     m_category = type;
+    m_mode = mode;
     m_routeSharingPolicy = policy;
     m_isPlayingToBluetoothOverrideChanged = false;
 
-    ensureConnection().send(Messages::RemoteAudioSessionProxy::SetCategory(type, policy), { });
+    ensureConnection().send(Messages::RemoteAudioSessionProxy::SetCategory(type, mode, policy), { });
 #else
     UNUSED_PARAM(type);
     UNUSED_PARAM(policy);
@@ -143,6 +147,11 @@ AudioSession::CategoryType RemoteAudioSession::category() const
     return m_category;
 }
 
+AudioSession::Mode RemoteAudioSession::mode() const
+{
+    return m_mode;
+}
+
 void RemoteAudioSession::configurationChanged(RemoteAudioSessionConfiguration&& configuration)
 {
     bool mutedStateChanged = !m_configuration || configuration.isMuted != (*m_configuration).isMuted;
@@ -164,6 +173,30 @@ void RemoteAudioSession::configurationChanged(RemoteAudioSessionConfiguration&& 
     });
     if (isActiveChanged)
         activeStateChanged();
+}
+
+void RemoteAudioSession::beginInterruptionRemote()
+{
+    removeInterruptionObserver(*this);
+    beginInterruption();
+    addInterruptionObserver(*this);
+}
+
+void RemoteAudioSession::endInterruptionRemote(MayResume mayResume)
+{
+    removeInterruptionObserver(*this);
+    endInterruption(mayResume);
+    addInterruptionObserver(*this);
+}
+
+void RemoteAudioSession::beginAudioSessionInterruption()
+{
+    ensureConnection().send(Messages::RemoteAudioSessionProxy::BeginInterruptionRemote(), { });
+}
+
+void RemoteAudioSession::endAudioSessionInterruption(MayResume mayResume)
+{
+    ensureConnection().send(Messages::RemoteAudioSessionProxy::EndInterruptionRemote(mayResume), { });
 }
 
 void RemoteAudioSession::beginInterruptionForTesting()

@@ -137,10 +137,11 @@ echo "    Password"
 dscl . -passwd /Users/$u foobar
 
 defaults delete /Library/Preferences/com.apple.Kerberos kcm
-defaults write /Library/Preferences/com.apple.Kerberos kcm -dict-add disable-ntlm-reflection-detection true
+defaults write /Library/Preferences/com.apple.Heimdal.GSSCred disable-ntlm-reflection-detection true
 
 killall -9 digest-service
 killall -9 kcm
+killall -9 GSSCred
 
 
 echo Starting kdc

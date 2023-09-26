@@ -310,6 +310,7 @@ nl{
         CI{"Republiek Ivoorkust"}
         CZ{"Tsjechische Republiek"}
         FK{"Falklandeilanden (Islas Malvinas)"}
+        NZ{"Aotearoa Nieuw-Zeeland"}
         SZ{"Swaziland"}
         TL{"Democratische Republiek Oost-Timor"}
     }

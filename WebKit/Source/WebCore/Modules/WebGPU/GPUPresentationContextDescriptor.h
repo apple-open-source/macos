@@ -25,18 +25,20 @@
 
 #pragma once
 
-#include <pal/graphics/WebGPU/WebGPUPresentationContextDescriptor.h>
+#include "GPUCompositorIntegration.h"
+#include "WebGPUPresentationContextDescriptor.h"
 
 namespace WebCore {
 
 struct GPUPresentationContextDescriptor {
-    PAL::WebGPU::PresentationContextDescriptor convertToBacking() const
+    WebGPU::PresentationContextDescriptor convertToBacking() const
     {
         return {
+            layout.backing(),
         };
     }
 
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=250955 Add integration with the compositor here.
+    GPUCompositorIntegration& layout;
 };
 
 }

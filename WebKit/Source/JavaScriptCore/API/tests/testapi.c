@@ -62,6 +62,7 @@
 #include "CustomGlobalObjectClassTest.h"
 #include "ExecutionTimeLimitTest.h"
 #include "FunctionOverridesTest.h"
+#include "FunctionToStringTests.h"
 #include "GlobalContextWithFinalizerTest.h"
 #include "JSONParseTest.h"
 #include "JSObjectGetProxyTargetTest.h"
@@ -552,11 +553,9 @@ static bool PropertyCatchalls_setProperty(JSContextRef context, JSObjectRef obje
 
     if (JSStringIsEqualToUTF8CString(propertyName, "x")) {
         static size_t count;
-        if (count++ < 5)
-            return false;
 
         // Swallow all .x sets after 4.
-        return true;
+        return count++ > 4;
     }
 
     if (JSStringIsEqualToUTF8CString(propertyName, "make_throw") || JSStringIsEqualToUTF8CString(propertyName, "0")) {
@@ -1294,7 +1293,7 @@ static void testCFStrings(void)
     JSStringRef jsCFIString = JSStringCreateWithCFString(cfString);
     JSValueRef jsCFString = JSValueMakeString(context, jsCFIString);
 
-    CFStringRef cfEmptyString = CFStringCreateWithCString(kCFAllocatorDefault, "", kCFStringEncodingUTF8);
+    CFStringRef cfEmptyString = CFSTR("");
 
     JSStringRef jsCFEmptyIString = JSStringCreateWithCFString(cfEmptyString);
     JSValueRef jsCFEmptyString = JSValueMakeString(context, jsCFEmptyIString);
@@ -1376,7 +1375,6 @@ static void testCFStrings(void)
     JSStringRelease(jsCFIStringWithCharacters);
     JSStringRelease(jsCFEmptyIStringWithCharacters);
     CFRelease(cfString);
-    CFRelease(cfEmptyString);
 
     JSGlobalContextRelease(context);
     context = oldContext;
@@ -2120,6 +2118,7 @@ int main(int argc, char* argv[])
     }
     failed |= testTypedArrayCAPI();
     failed |= testFunctionOverrides();
+    failed |= testFunctionToString();
     failed |= testGlobalContextWithFinalizer();
     failed |= testJSONParse();
     failed |= testJSObjectGetProxyTarget();

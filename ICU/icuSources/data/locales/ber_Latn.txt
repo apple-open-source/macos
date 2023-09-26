@@ -1,0 +1,16 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+ber_Latn{
+    AuxExemplarCharacters{
+        "[á à ă â å ä ã ā æ ç é è ĕ ê ë ē í ì ĭ î ï ī ñ ó ò ŏ ô ö ø ō œ ú ù ŭ û ü ū ÿ"
+        "]"
+    }
+    ExemplarCharacters{"[a b c č d ḍ e ɛ f g ǧ ɣ h ḥ i j k l m n o p q r ř ṛ s ṣ t ṭ u v w x y z ẓ]"}
+    ExemplarCharactersIndex{"[A B C Č D Ḍ E Ɛ F G Ǧ Ɣ H Ḥ I J K L M N O P Q R Ř Ṛ S Ṣ T Ṭ U V W X Y Z Ẓ]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
+    }
+}

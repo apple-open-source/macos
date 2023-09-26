@@ -25,23 +25,23 @@
 
 #pragma once
 
+#include "ASTBuilder.h"
 #include "ASTNode.h"
-
-#include <wtf/TypeCasts.h>
-#include <wtf/UniqueRefVector.h>
+#include <wtf/ReferenceWrapperVector.h>
 
 namespace WGSL::AST {
 
 class Statement : public Node {
-    WTF_MAKE_FAST_ALLOCATED;
-
+    WGSL_AST_BUILDER_NODE(Statement);
 public:
-    using List = UniqueRefVector<Statement>;
+    using Ref = std::reference_wrapper<Statement>;
+    using Ptr = Statement*;
+    using List = ReferenceWrapperVector<Statement>;
 
+protected:
     Statement(SourceSpan span)
         : Node(span)
-    {
-    }
+    { }
 };
 
 } // namespace WGSL::AST
@@ -50,10 +50,23 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WGSL::AST::Statement)
 static bool isType(const WGSL::AST::Node& node)
 {
     switch (node.kind()) {
-    case WGSL::AST::Node::Kind::AssignmentStatement:
-    case WGSL::AST::Node::Kind::CompoundStatement:
-    case WGSL::AST::Node::Kind::ReturnStatement:
-    case WGSL::AST::Node::Kind::VariableStatement:
+    case WGSL::AST::NodeKind::AssignmentStatement:
+    case WGSL::AST::NodeKind::BreakStatement:
+    case WGSL::AST::NodeKind::CallStatement:
+    case WGSL::AST::NodeKind::CompoundAssignmentStatement:
+    case WGSL::AST::NodeKind::CompoundStatement:
+    case WGSL::AST::NodeKind::ContinueStatement:
+    case WGSL::AST::NodeKind::DecrementIncrementStatement:
+    case WGSL::AST::NodeKind::DiscardStatement:
+    case WGSL::AST::NodeKind::ForStatement:
+    case WGSL::AST::NodeKind::IfStatement:
+    case WGSL::AST::NodeKind::LoopStatement:
+    case WGSL::AST::NodeKind::PhonyAssignmentStatement:
+    case WGSL::AST::NodeKind::ReturnStatement:
+    case WGSL::AST::NodeKind::StaticAssertStatement:
+    case WGSL::AST::NodeKind::SwitchStatement:
+    case WGSL::AST::NodeKind::VariableStatement:
+    case WGSL::AST::NodeKind::WhileStatement:
         return true;
     default:
         return false;

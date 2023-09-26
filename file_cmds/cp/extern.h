@@ -43,9 +43,10 @@ typedef struct {
 
 extern PATH_T to;
 extern int fflag, iflag, lflag, nflag, pflag, sflag, vflag;
-extern int unix2003_compat;
 #ifdef __APPLE__
+extern int unix2003_compat;
 extern int cflag;
+extern int Sflag;
 extern int Xflag;
 #endif /* __APPLE__ */
 extern volatile sig_atomic_t info;

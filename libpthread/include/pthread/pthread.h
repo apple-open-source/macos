@@ -193,7 +193,7 @@ __BEGIN_DECLS
 #endif
 
 /* <rdar://problem/25944576> */
-#define _PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT \
+#define _PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT() \
 	defined(SWIFT_CLASS_EXTRA) && (!defined(SWIFT_SDK_OVERLAY_PTHREAD_EPOCH) || (SWIFT_SDK_OVERLAY_PTHREAD_EPOCH < 1))
 
 #if __has_attribute(__swift_attr__)
@@ -334,7 +334,7 @@ __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_condattr_setpshared(pthread_condattr_t *, int);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
-#if !_PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT
+#if !_PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT()
 int pthread_create(pthread_t _Nullable * _Nonnull __restrict,
 		const pthread_attr_t * _Nullable __restrict,
 		void * _Nullable (* _Nonnull)(void * _Nullable),
@@ -343,7 +343,7 @@ int pthread_create(pthread_t _Nullable * _Nonnull __restrict,
 int pthread_create(pthread_t * __restrict,
 		const pthread_attr_t * _Nullable __restrict,
 		void *(* _Nonnull)(void *), void * _Nullable __restrict);
-#endif // _PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT
+#endif // _PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT()
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_detach(pthread_t);
@@ -560,7 +560,7 @@ int pthread_cond_timedwait_relative_np(pthread_cond_t *, pthread_mutex_t *,
 
 /* Like pthread_create(), but leaves the thread suspended */
 __API_AVAILABLE(macos(10.4), ios(2.0))
-#if !_PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT
+#if !_PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT()
 int pthread_create_suspended_np(
 		pthread_t _Nullable * _Nonnull, const pthread_attr_t * _Nullable,
 		void * _Nullable (* _Nonnull)(void * _Nullable), void * _Nullable);

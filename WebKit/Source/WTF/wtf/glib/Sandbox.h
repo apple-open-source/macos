@@ -24,7 +24,7 @@
 namespace WTF {
 
 WTF_EXPORT_PRIVATE bool isInsideFlatpak();
-WTF_EXPORT_PRIVATE bool isInsideDocker();
+WTF_EXPORT_PRIVATE bool isInsideUnsupportedContainer();
 WTF_EXPORT_PRIVATE bool isInsideSnap();
 WTF_EXPORT_PRIVATE bool shouldUsePortal();
 
@@ -34,7 +34,7 @@ WTF_EXPORT_PRIVATE void setSandboxedAccessibilityBusAddress(String&&);
 } // namespace WTF
 
 using WTF::isInsideFlatpak;
-using WTF::isInsideDocker;
+using WTF::isInsideUnsupportedContainer;
 using WTF::isInsideSnap;
 using WTF::shouldUsePortal;
 

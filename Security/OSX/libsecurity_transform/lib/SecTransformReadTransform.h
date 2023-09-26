@@ -24,11 +24,11 @@
 #ifndef _SEC_TRANSFORM_READ_TRANSFORM_H
 #define _SEC_TRANSFORM_READ_TRANSFORM_H
 
+#include <Security/SecTransform.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Security/SecTransform.h>
 
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED

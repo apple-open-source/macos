@@ -50,6 +50,9 @@ enum UDisplayContextType {
      * @stable ICU 58
      */
     UDISPCTX_TYPE_SUBSTITUTE_HANDLING = 3
+#if APPLE_ICU_CHANGES
+// rdar://11432373 f709732490.. Add UADISPCTX_LENGTH_SHORT and related constants for uldn_ funcs
+// rdar://18728389&18728593 ecaee861eb.. Merge ICU 54.1 changes from Import_ibm branch to master, adjust, add changes for rdar://18807372&18807396
 #ifndef U_HIDE_INTERNAL_API
     ,
     /**
@@ -59,6 +62,7 @@ enum UDisplayContextType {
      */
     UADISPCTX_TYPE_LENGTH = 32,
 #endif /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 };
 /**
 *  @stable ICU 51
@@ -150,6 +154,8 @@ enum UDisplayContext {
      * @stable ICU 54
      */
     UDISPCTX_LENGTH_SHORT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 1,
+#if APPLE_ICU_CHANGES
+// rdar://76655165 #214, Need core ability to produce a displayable locale with sizing options
     /**
      * [Apple-specific addition for rdar://76655165]
      * A possible setting for DISPLAY_LENGTH:
@@ -158,6 +164,7 @@ enum UDisplayContext {
      * @stable ICU 54
      */
     UDISPCTX_LENGTH_VARIANT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 2,
+#endif // APPLE_ICU_CHANGES
     /**
      * ================================
      * SUBSTITUTE_HANDLING can be set to one of UDISPCTX_SUBSTITUTE or
@@ -178,6 +185,9 @@ enum UDisplayContext {
      * @stable ICU 58
      */
     UDISPCTX_NO_SUBSTITUTE = (UDISPCTX_TYPE_SUBSTITUTE_HANDLING<<8) + 1
+#if APPLE_ICU_CHANGES
+// rdar://11432373 f709732490.. Add UADISPCTX_LENGTH_SHORT and related constants for uldn_ funcs
+// rdar://18728389&18728593 ecaee861eb.. Merge ICU 54.1 changes from Import_ibm branch to master, adjust, add changes for rdar://18807372&18807396
 #ifndef U_HIDE_INTERNAL_API
     ,
     /**
@@ -201,6 +211,7 @@ enum UDisplayContext {
      */
     UADISPCTX_LENGTH_SHORT = (UADISPCTX_TYPE_LENGTH<<8) + 1,
 #endif /* U_HIDE_INTERNAL_API */
+#endif // APPLE_ICU_CHANGES
 
 };
 /**

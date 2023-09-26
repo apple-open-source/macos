@@ -117,6 +117,7 @@ void CSPFullPluginSession::checkOperation(CSSM_CONTEXT_TYPE ctxType, CSSM_CONTEX
             if (ctxType == CSSM_ALGCLASS_SYMMETRIC ||
                 ctxType == CSSM_ALGCLASS_ASYMMETRIC)
                 return;
+            [[fallthrough]];
         default:					// plain match
             if (ctxType == opType)
                 return;

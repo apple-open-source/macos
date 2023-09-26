@@ -10,6 +10,7 @@
 #include <Security/Security.h>
 #include <Security/SecAsn1Coder.h>
 #include <Security/../PrivateHeaders/keyTemplates.h>
+#include <Security/SecBase64.h>
 #include <sys/stat.h>
 
 static CFStringRef kXSDHBegin = CFSTR("-----BEGIN DH PARAMETERS-----");
@@ -17,21 +18,31 @@ static CFStringRef kXSDHEnd = CFSTR("-----END DH PARAMETERS-----");
 
 static CFDataRef xsDHBase64Decode(CFStringRef str)
 {
-	CFDataRef decodedData = NULL;
-
-	// could write yet another base64 decoder but this is less typo-prone (although slower)
 	CFDataRef encodedData = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
-	if (encodedData != NULL) {
-		SecTransformRef decoder = SecDecodeTransformCreate(kSecBase64Encoding, NULL);
-		if (decoder != NULL) {
-			SecTransformSetAttribute(decoder, kSecTransformInputAttributeName, encodedData, NULL);
-			decodedData = SecTransformExecute(decoder, NULL);
-
-			CFRelease(decoder);
-		}
-
-		CFRelease(encodedData);
+	if (encodedData == NULL) {
+		return NULL;
 	}
+
+	const char *encodedDataPtr = (const char *)CFDataGetBytePtr(encodedData);
+	size_t encodedDataLen = (size_t)CFDataGetLength(encodedData);
+
+	size_t decodedDataLen = SecBase64Decode(encodedDataPtr, encodedDataLen, NULL, 0);
+	CFMutableDataRef decodedData = CFDataCreateMutable(NULL, decodedDataLen);
+	if (decodedData == NULL) {
+		goto out;
+	}
+
+	uint8_t *decodedDataPtr = CFDataGetMutableBytePtr(decodedData);
+
+	decodedDataLen = SecBase64Decode(encodedDataPtr, encodedDataLen, decodedDataPtr, decodedDataLen);
+	if (decodedDataLen == 0) {
+		CFRelease(decodedData);
+		decodedData = NULL;
+	}
+
+out:
+
+	CFRelease(encodedData);
 
 	return decodedData;
 }

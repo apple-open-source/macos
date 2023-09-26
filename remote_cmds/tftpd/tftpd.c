@@ -1084,6 +1084,7 @@ done:
 	}
 	(void) fclose(file);            /* close data file */
 
+	ap = (struct tftphdr *)ackbuf;
 	ap->th_opcode = htons((u_short)ACK);    /* send the "final" ack */
 	ap->th_block = htons((u_short)(block));
 	if (debug)

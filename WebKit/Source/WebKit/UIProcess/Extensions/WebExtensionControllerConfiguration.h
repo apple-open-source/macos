@@ -29,6 +29,7 @@
 
 #include "APIObject.h"
 #include <wtf/Forward.h>
+#include <wtf/Markable.h>
 #include <wtf/UUID.h>
 
 OBJC_CLASS _WKWebExtensionControllerConfiguration;
@@ -43,29 +44,28 @@ public:
 
     static Ref<WebExtensionControllerConfiguration> createDefault() { return adoptRef(*new WebExtensionControllerConfiguration(IsPersistent::Yes)); }
     static Ref<WebExtensionControllerConfiguration> createNonPersistent() { return adoptRef(*new WebExtensionControllerConfiguration(IsPersistent::No)); }
-    static Ref<WebExtensionControllerConfiguration> create(const UUID& identifier) { return adoptRef(*new WebExtensionControllerConfiguration(identifier)); }
+    static Ref<WebExtensionControllerConfiguration> create(const WTF::UUID& identifier) { return adoptRef(*new WebExtensionControllerConfiguration(identifier)); }
 
     Ref<WebExtensionControllerConfiguration> copy() const;
 
     explicit WebExtensionControllerConfiguration(IsPersistent);
-    explicit WebExtensionControllerConfiguration(const UUID&);
+    explicit WebExtensionControllerConfiguration(const WTF::UUID&);
 
-    std::optional<UUID> identifier() const { return m_identifier; }
+    std::optional<WTF::UUID> identifier() const { return m_identifier; }
 
     bool storageIsPersistent() const { return !m_storageDirectory.isEmpty(); }
     String storageDirectory() const { return m_storageDirectory; }
 
     bool operator==(const WebExtensionControllerConfiguration&) const;
-    bool operator!=(const WebExtensionControllerConfiguration& other) const { return !(this == &other); }
 
 #ifdef __OBJC__
     _WKWebExtensionControllerConfiguration *wrapper() const { return (_WKWebExtensionControllerConfiguration *)API::ObjectImpl<API::Object::Type::WebExtensionControllerConfiguration>::wrapper(); }
 #endif
 
 private:
-    static String createStorageDirectoryPath(std::optional<UUID> = std::nullopt);
+    static String createStorageDirectoryPath(std::optional<WTF::UUID> = std::nullopt);
 
-    std::optional<UUID> m_identifier;
+    Markable<WTF::UUID> m_identifier;
     String m_storageDirectory;
 };
 

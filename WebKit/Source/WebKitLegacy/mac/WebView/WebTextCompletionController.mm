@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
 #import "WebFrameInternal.h"
 #import "WebHTMLViewInternal.h"
 #import "WebView.h"
-#import <WebCore/Frame.h>
+#import <WebCore/LocalFrame.h>
 #import <WebCore/SimpleRange.h>
 
 @interface NSWindow (WebNSWindowDetails)
@@ -84,9 +84,9 @@ using namespace WebCore;
 {
     NSRect scrollFrame = NSMakeRect(0, 0, 100, 100);
     NSRect tableFrame = NSZeroRect;    
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     tableFrame.size = [NSScrollView contentSizeForFrameSize:scrollFrame.size hasHorizontalScroller:NO hasVerticalScroller:YES borderType:NSNoBorder];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     auto column = adoptNS([[NSTableColumn alloc] init]);
     [column setWidth:tableFrame.size.width];
     [column setEditable:NO];
@@ -127,9 +127,9 @@ using namespace WebCore;
 
     NSRect windowFrame;
     NSPoint wordStart = topLeft;
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     windowFrame.origin = [[_view window] convertBaseToScreen:[_htmlView convertPoint:wordStart toView:nil]];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     windowFrame.size.height = numberToShow * [_tableView rowHeight] + (numberToShow + 1) * [_tableView intercellSpacing].height;
     windowFrame.origin.y -= windowFrame.size.height;
     NSDictionary *attributes = @{ NSFontAttributeName: [NSFont systemFontOfSize:12.0f] };
@@ -144,9 +144,9 @@ using namespace WebCore;
     }
     windowFrame.size.width = 100;
     if (maxIndex >= 0) {
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         maxWidth = ceilf([NSScrollView frameSizeForContentSize:NSMakeSize(maxWidth, 100.0f) hasHorizontalScroller:NO hasVerticalScroller:YES borderType:NSNoBorder].width);
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
         maxWidth = ceilf([NSWindow frameRectForContentRect:NSMakeRect(0.0f, 0.0f, maxWidth, 100.0f) styleMask:NSWindowStyleMaskBorderless].size.width);
         maxWidth += 5.0f;
         windowFrame.size.width = std::max(maxWidth, windowFrame.size.width);
@@ -174,7 +174,7 @@ using namespace WebCore;
         // Get preceeding word stem
         WebFrame *frame = [_htmlView _frame];
         DOMRange *selection = kit(core(frame)->selection().selection().toNormalizedRange());
-        DOMRange *wholeWord = [frame _rangeByAlteringCurrentSelection:FrameSelection::AlterationExtend
+        DOMRange *wholeWord = [frame _rangeByAlteringCurrentSelection:FrameSelection::Alteration::Extend
             direction:SelectionDirection::Backward granularity:TextGranularity::WordGranularity];
         DOMRange *prefix = [wholeWord cloneRange];
         [prefix setEnd:[selection startContainer] offset:[selection startOffset]];

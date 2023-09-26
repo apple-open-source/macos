@@ -51,3 +51,5 @@ DOVIEWMACRO(LimitedPeersAllowed,    "LimitedPeersAllowed",  "limitedpeersallowed
 DOVIEWMACRO(MFi,                    "MFi",                  "mfi",                     CKKS, D,  , A,  ,  )
 DOVIEWMACRO(Mail,                   "Mail",                 "mail",                    CKKS, D,  , A,  ,  )
 DOVIEWMACRO(Contacts,               "Contacts",             "contacts",                CKKS, D,  , A,  ,  )
+DOVIEWMACRO(Photos,                 "Photos",               "photos",                  CKKS, D,  , A,  ,  )
+DOVIEWMACRO(Groups,                 "Groups",               "groups",                  CKKS, D,  , A,  ,  )

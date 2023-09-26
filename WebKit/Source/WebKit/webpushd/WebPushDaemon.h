@@ -34,12 +34,12 @@
 #include <WebCore/ExceptionData.h>
 #include <WebCore/PushSubscriptionData.h>
 #include <WebCore/Timer.h>
+#include <span>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/OSObjectPtr.h>
-#include <wtf/Span.h>
 #include <wtf/spi/darwin/XPCSPI.h>
 
 
@@ -48,7 +48,7 @@ enum class MessageLevel : uint8_t;
 }
 
 namespace WebCore {
-struct SecurityOriginData;
+class SecurityOriginData;
 }
 
 using WebKit::WebPushD::PushMessageForTesting;
@@ -100,7 +100,7 @@ private:
 
     CompletionHandler<void(EncodedMessage&&)> createReplySender(WebKit::WebPushD::MessageType, OSObjectPtr<xpc_object_t>&& request);
     void decodeAndHandleRawXPCMessage(WebKit::WebPushD::RawXPCMessageType, OSObjectPtr<xpc_object_t>&&);
-    void decodeAndHandleMessage(xpc_connection_t, WebKit::WebPushD::MessageType, Span<const uint8_t> encodedMessage, CompletionHandler<void(EncodedMessage&&)>&&);
+    void decodeAndHandleMessage(xpc_connection_t, WebKit::WebPushD::MessageType, std::span<const uint8_t> encodedMessage, CompletionHandler<void(EncodedMessage&&)>&&);
 
     bool canRegisterForNotifications(ClientConnection&);
 

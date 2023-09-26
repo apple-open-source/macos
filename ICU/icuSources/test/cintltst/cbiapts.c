@@ -1,7 +1,7 @@
 // © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
- * COPYRIGHT:
+ * COPYRIGHT: 
  * Copyright (c) 1997-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
@@ -24,6 +24,7 @@
 
 #if !UCONFIG_NO_BREAK_ITERATION
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include "unicode/uloc.h"
@@ -42,12 +43,10 @@
 } UPRV_BLOCK_MACRO_END
 
 #define TEST_ASSERT(expr) UPRV_BLOCK_MACRO_BEGIN { \
-    if ((expr)==FALSE) { \
+    if ((expr)==false) { \
         log_data_err("Test Failure at file %s, line %d (Are you missing data?)\n", __FILE__, __LINE__); \
     } \
 } UPRV_BLOCK_MACRO_END
-
-#define APPLE_ADDITIONS 1
 
 #if !UCONFIG_NO_FILE_IO
 static void TestBreakIteratorSafeClone(void);
@@ -61,9 +60,10 @@ static void TestBreakIteratorTailoring(void);
 static void TestBreakIteratorRefresh(void);
 static void TestBug11665(void);
 static void TestBreakIteratorSuppressions(void);
-#if APPLE_ADDITIONS
+#if APPLE_ICU_CHANGES
+// rdar://31001006 Add some initial tests for urbtok_xxx interfaces
 static void TestRuleBasedTokenizer(void);
-#endif
+#endif // APPLE_ICU_CHANGES
 
 void addBrkIterAPITest(TestNode** root);
 
@@ -84,9 +84,10 @@ void addBrkIterAPITest(TestNode** root)
 #if !UCONFIG_NO_FILTERED_BREAK_ITERATION
     addTest(root, &TestBreakIteratorSuppressions, "tstxtbd/cbiapts/TestBreakIteratorSuppressions");
 #endif
-#if APPLE_ADDITIONS
+#if APPLE_ICU_CHANGES
+    // rdar://31001006 Add some initial tests for urbtok_xxx interfaces
     addTest(root, &TestRuleBasedTokenizer, "tstxtbd/cbiapts/TestRuleBasedTokenizer");
-#endif
+#endif // APPLE_ICU_CHANGES
 }
 
 #define CLONETEST_ITERATOR_COUNT 2
@@ -283,15 +284,15 @@ static void TestBreakIteratorCAPI()
     pos=ubrk_previous(word);
     log_verbose("%d \n", pos);
 
-    if (ubrk_isBoundary(word, 2) != FALSE) {
-        log_err("error ubrk_isBoundary(word, 2) did not return FALSE\n");
+    if (ubrk_isBoundary(word, 2) != false) {
+        log_err("error ubrk_isBoundary(word, 2) did not return false\n");
     }
     pos=ubrk_current(word);
     if (pos != 4) {
         log_err("error ubrk_current() != 4 after ubrk_isBoundary(word, 2)\n");
     }
-    if (ubrk_isBoundary(word, 4) != TRUE) {
-        log_err("error ubrk_isBoundary(word, 4) did not return TRUE\n");
+    if (ubrk_isBoundary(word, 4) != true) {
+        log_err("error ubrk_isBoundary(word, 4) did not return true\n");
     }
 
 
@@ -715,7 +716,7 @@ static void TestBreakIteratorRules() {
                         pos2 = ubrk_next(bi2);
                         pos = ubrk_next(bi);
                     } while ((pos != UBRK_DONE || pos2 != UBRK_DONE) && maxCount-- > 0);
-
+                    
                     ubrk_close(bi2);
                 }
             }
@@ -910,7 +911,9 @@ static const int32_t kmTestOffs_kmFwd[] =  {  3, /*8,*/ 11, 17, 23, 31, /*33,*/ 
 static const int32_t kmTestOffs_kmRev[] =  { 43,  40,   /*33,*/ 31, 23, 17, 11, /*8,*/ 3,  0 };
 
 
-/* Korean keepAll vs Normal */
+#if APPLE_ICU_CHANGES
+// rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
+// Korean keepAll vs Normal
 static const UChar koTest[] = { /* 00 */ 0xBAA8, 0xB4E0, 0x0020, 0xC778, 0xB958, 0x0020, 0xAD6C, 0xC131, 0xC6D0, 0xC758,
                                 /* 10 */ 0x0020, 0xCC9C, 0xBD80, 0xC758, 0x0020, 0xC874, 0xC5C4, 0xC131, 0xACFC, 0x0020,
                                 /* 20 */ 0xB3D9, 0xB4F1, 0xD558, 0xACE0, 0x0020, 0xC591, 0xB3C4, 0xD560, 0x002E, 0x8BA1, 
@@ -921,11 +924,15 @@ static const int32_t koTestOffs_koKeepHngFwd[] =  {   3,  6, 11, 15, 20, 25, 29,
 static const int32_t koTestOffs_koKeepHngRev[] =  {  37, 36, 35, 34, 33, 32, 31, 30, 29, 25, 20, 15, 11,  6,  3,  0 };
 static const int32_t koTestOffs_koNormFwd[]    =  {  1,  3,  4,  6,  7,  8,  9, 11, 12, 13, 15, 16, 17, 18, 20, 21, 22, 23, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39 };
 static const int32_t koTestOffs_koNormRev[]    =  { 37, 36, 35, 34, 33, 32, 31, 30, 29, 27, 26, 25, 23, 22, 21, 20, 18, 17, 16, 15, 13, 12, 11,  9,  8,  7,  6,  4,  3,  1,  0 };
+#endif // APPLE_ICU_CHANGES
 
 typedef struct {
     const char * locale;
     UBreakIteratorType type;
+#if APPLE_ICU_CHANGES
+    // rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
     ULineWordOptions lineWordOpts;
+#endif // APPLE_ICU_CHANGES
     const UChar * test;
     const int32_t * offsFwd;
     const int32_t * offsRev;
@@ -933,6 +940,8 @@ typedef struct {
 } RBBITailoringTest;
 
 static const RBBITailoringTest tailoringTests[] = {
+#if APPLE_ICU_CHANGES
+    // rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
     { "en",                UBRK_CHARACTER, UBRK_LINEWORD_NORMAL,      thTest, thTestOffs_thFwd,        thTestOffs_thRev,        UPRV_LENGTHOF(thTestOffs_thFwd) },
     { "en_US_POSIX",       UBRK_CHARACTER, UBRK_LINEWORD_NORMAL,      thTest, thTestOffs_thFwd,        thTestOffs_thRev,        UPRV_LENGTHOF(thTestOffs_thFwd) },
     { "en",                UBRK_LINE,      UBRK_LINEWORD_NORMAL,      heTest, heTestOffs_heFwd,        heTestOffs_heRev,        UPRV_LENGTHOF(heTestOffs_heFwd) },
@@ -947,6 +956,16 @@ static const RBBITailoringTest tailoringTests[] = {
     { "ko",                UBRK_LINE,      UBRK_LINEWORD_KEEP_HANGUL, koTest, koTestOffs_koKeepHngFwd, koTestOffs_koKeepHngRev, UPRV_LENGTHOF(koTestOffs_koKeepHngFwd) },
     { "ko@lw=normal",      UBRK_LINE,      UBRK_LINEWORD_NORMAL,      koTest, koTestOffs_koNormFwd,    koTestOffs_koNormRev,    UPRV_LENGTHOF(koTestOffs_koNormFwd) },
     { NULL, 0, 0, NULL, NULL, 0 },
+#else
+    { "en", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
+    { "en_US_POSIX", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
+    { "en", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
+    { "he", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
+    { "en", UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, UPRV_LENGTHOF(fiTestOffs_enFwd) },
+    { "fi", UBRK_LINE,      fiTest, fiTestOffs_fiFwd, fiTestOffs_fiRev, UPRV_LENGTHOF(fiTestOffs_fiFwd) },
+    { "km", UBRK_WORD,      kmTest, kmTestOffs_kmFwd, kmTestOffs_kmRev, UPRV_LENGTHOF(kmTestOffs_kmFwd) },
+    { NULL, 0, NULL, NULL, NULL, 0 },
+#endif // APPLE_ICU_CHANGES
 };
 
 static void TestBreakIteratorTailoring(void) {
@@ -958,20 +977,23 @@ static void TestBreakIteratorTailoring(void) {
             int32_t offset, offsindx;
             UBool foundError;
 
+#if APPLE_ICU_CHANGES
+            // rdar://36667210 Add ubrk_setLineWordOpts to programmatically set @lw options, add lw=keep-hangul support via keyword or function
             if (testPtr->lineWordOpts != UBRK_LINEWORD_NORMAL) {
                 ubrk_setLineWordOpts(ubrkiter, testPtr->lineWordOpts);
             }
-            foundError = FALSE;
             ubrk_first(ubrkiter);
+#endif // APPLE_ICU_CHANGES
+            foundError = false;
             for (offsindx = 0; (offset = ubrk_next(ubrkiter)) != UBRK_DONE; ++offsindx) {
                 if (!foundError && offsindx >= testPtr->numOffsets) {
                     log_err("FAIL: locale %s, break type %d, ubrk_next expected UBRK_DONE, got %d\n",
                             testPtr->locale, testPtr->type, offset);
-                    foundError = TRUE;
+                    foundError = true;
                 } else if (!foundError && offset != testPtr->offsFwd[offsindx]) {
                     log_err("FAIL: locale %s, break type %d, ubrk_next expected %d, got %d\n",
                             testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx], offset);
-                    foundError = TRUE;
+                    foundError = true;
                 }
             }
             if (!foundError && offsindx < testPtr->numOffsets) {
@@ -979,17 +1001,20 @@ static void TestBreakIteratorTailoring(void) {
                         testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx]);
             }
 
-            foundError = FALSE;
+            foundError = false;
+#if APPLE_ICU_CHANGES
+            // rdar:/
             ubrk_last(ubrkiter);
+#endif // APPLE_ICU_CHANGES
             for (offsindx = 0; (offset = ubrk_previous(ubrkiter)) != UBRK_DONE; ++offsindx) {
                 if (!foundError && offsindx >= testPtr->numOffsets) {
                     log_err("FAIL: locale %s, break type %d, ubrk_previous expected UBRK_DONE, got %d\n",
                             testPtr->locale, testPtr->type, offset);
-                    foundError = TRUE;
+                    foundError = true;
                 } else if (!foundError && offset != testPtr->offsRev[offsindx]) {
                     log_err("FAIL: locale %s, break type %d, ubrk_previous expected %d, got %d\n",
                             testPtr->locale, testPtr->type, testPtr->offsRev[offsindx], offset);
-                    foundError = TRUE;
+                    foundError = true;
                 }
             }
             if (!foundError && offsindx < testPtr->numOffsets) {
@@ -1115,9 +1140,19 @@ static void TestBug11665(void) {
  */
 
 static const char testSentenceSuppressionsEn[]  = "Mr. Jones comes home. Dr. Smith Ph.D. is out. In the U.S.A. it is hot.";
+#if APPLE_ICU_CHANGES
+// rdar:/
 static const int32_t testSentSuppFwdOffsetsEn[] = { 22, 46, 70, -1 };         /* With suppressions */
+#else
+static const int32_t testSentSuppFwdOffsetsEn[] = { 22, 26, 46, 70, -1 };     /* With suppressions, currently not handling Dr. */
+#endif // APPLE_ICU_CHANGES
 static const int32_t testSentFwdOffsetsEn[]     = {  4, 22, 26, 46, 70, -1 }; /* Without suppressions */
+#if APPLE_ICU_CHANGES
+// rdar:/
 static const int32_t testSentSuppRevOffsetsEn[] = { 46, 22,  0, -1 };         /* With suppressions */
+#else
+static const int32_t testSentSuppRevOffsetsEn[] = { 46, 26, 22,  0, -1 };     /* With suppressions, currently not handling Dr.  */
+#endif // APPLE_ICU_CHANGES
 static const int32_t testSentRevOffsetsEn[]     = { 46, 26, 22,  4,  0, -1 }; /* Without suppressions */
 
 static const char testSentenceSuppressionsDe[]  = "Wenn ich schon h\\u00F6re zu Guttenberg kommt evtl. zur\\u00FCck.";
@@ -1133,6 +1168,8 @@ static const int32_t testSentFwdOffsetsEs[]     = { 52, 73, -1 };   /* Without s
 static const int32_t testSentSuppRevOffsetsEs[] = {  0, -1 };       /* With suppressions */
 static const int32_t testSentRevOffsetsEs[]     = { 52,  0, -1 };   /* Without suppressions */
 
+#if APPLE_ICU_CHANGES
+// rdar:/
 static const char testSentenceSuppressionsE1[]  = "Add or detract. The world will little note.";
 static const char testSentenceSuppressionsE1u[] = "ADD OR DETRACT. THE WORLD WILL LITTLE NOTE.";
 static const int32_t testSentFwdOffsetsE1[]     = { 16, 43, -1 };   /* Suppressions and case should make no difference */
@@ -1160,6 +1197,9 @@ static const int32_t testSentFwdOffsetsE3u[]    = { 18, 31, 46, 60, 68, 74, 80, 
 static const int32_t testSentRevOffsetsE3u[]    = { 80, 74, 68, 60, 46, 31, 18,  0, -1 }; /* Without suppressions */
 
 enum { kTextULenMax = 128, kTextBLenMax = 192 };
+#else
+enum { kTextULenMax = 128 };
+#endif // APPLE_ICU_CHANGES
 
 typedef struct {
     const char * locale;
@@ -1184,6 +1224,8 @@ static const TestBISuppressionsItem testBISuppressionsItems[] = {
     { "de",             testSentenceSuppressionsDe, testSentFwdOffsetsDe,     testSentRevOffsetsDe     },
     { "es@ss=standard", testSentenceSuppressionsEs, testSentSuppFwdOffsetsEs, testSentSuppRevOffsetsEs },
     { "es",             testSentenceSuppressionsEs, testSentFwdOffsetsEs,     testSentRevOffsetsEs     },
+#if APPLE_ICU_CHANGES
+    // rdar:/
     { "en",             testSentenceSuppressionsE1,  testSentFwdOffsetsE1,    testSentRevOffsetsE1     },
     { "en@ss=standard", testSentenceSuppressionsE1,  testSentFwdOffsetsE1,    testSentRevOffsetsE1     },
     { "en",             testSentenceSuppressionsE1u, testSentFwdOffsetsE1,    testSentRevOffsetsE1     },
@@ -1198,6 +1240,7 @@ static const TestBISuppressionsItem testBISuppressionsItems[] = {
     { "en",             testSentenceSuppressionsE3, testSentFwdOffsetsE3,     testSentRevOffsetsE3     },
     { "en@ss=standard", testSentenceSuppressionsE3u, testSentSuppFwdOffsetsE3, testSentSuppRevOffsetsE3 },
     { "en",             testSentenceSuppressionsE3u, testSentFwdOffsetsE3u,    testSentRevOffsetsE3u    },
+#endif // APPLE_ICU_CHANGES
     { NULL, NULL, NULL, NULL }
 };
 
@@ -1205,10 +1248,18 @@ static void TestBreakIteratorSuppressions(void) {
     const TestBISuppressionsItem * itemPtr;
 
     for (itemPtr = testBISuppressionsItems; itemPtr->locale != NULL; itemPtr++) {
+#if APPLE_ICU_CHANGES
+        // rdar:/
         UChar textU[kTextULenMax + 1];
         char  textB[kTextBLenMax];
+#else
+        UChar textU[kTextULenMax];
+#endif // APPLE_ICU_CHANGES
         int32_t textULen = u_unescape(itemPtr->text, textU, kTextULenMax);
+#if APPLE_ICU_CHANGES
+        // rdar:/
         textU[kTextULenMax] = 0; // ensure zero termination
+ #endif // APPLE_ICU_CHANGES
         UErrorCode status = U_ZERO_ERROR;
         UBreakIterator *bi = ubrk_open(UBRK_SENTENCE, itemPtr->locale, textU, textULen, &status);
         log_verbose("#%d: %s\n", (itemPtr-testBISuppressionsItems), itemPtr->locale);
@@ -1216,33 +1267,56 @@ static void TestBreakIteratorSuppressions(void) {
             int32_t offset, start;
             const int32_t * expOffsetPtr;
             const int32_t * expOffsetStart;
+#if APPLE_ICU_CHANGES
+            // rdar:/
             u_austrcpy(textB, textU);
+#endif // APPLE_ICU_CHANGES
 
             expOffsetStart = expOffsetPtr = itemPtr->expFwdOffsets;
             ubrk_first(bi);
             for (; (offset = ubrk_next(bi)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
                 if (offset != *expOffsetPtr) {
+#if APPLE_ICU_CHANGES
+                    // rdar:/
                     log_err("FAIL: ubrk_next loc \"%s\", expected %d, got %d, text \"%s\"\n",
                             itemPtr->locale, *expOffsetPtr, offset, textB);
+#else
+                    log_err("FAIL: ubrk_next loc \"%s\", expected %d, got %d\n", itemPtr->locale, *expOffsetPtr, offset);
+#endif // APPLE_ICU_CHANGES
                 }
             }
             if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
+#if APPLE_ICU_CHANGES
+                // rdar:/
                 log_err("FAIL: ubrk_next loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d, text \"%s\"\n",
                         itemPtr->locale, offset, *expOffsetPtr, textB);
+#else
+                log_err("FAIL: ubrk_next loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", itemPtr->locale, offset, *expOffsetPtr);
+#endif // APPLE_ICU_CHANGES
             }
 
             expOffsetStart = expOffsetPtr = itemPtr->expFwdOffsets;
             start = ubrk_first(bi) + 1;
             for (; (offset = ubrk_following(bi, start)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
                 if (offset != *expOffsetPtr) {
+#if APPLE_ICU_CHANGES
+                    // rdar:/
                     log_err("FAIL: ubrk_following(%d) loc \"%s\", expected %d, got %d, text \"%s\"\n",
                             start, itemPtr->locale, *expOffsetPtr, offset, textB);
+#else
+                    log_err("FAIL: ubrk_following(%d) loc \"%s\", expected %d, got %d\n", start, itemPtr->locale, *expOffsetPtr, offset);
+#endif // APPLE_ICU_CHANGES
                 }
                 start = *expOffsetPtr + 1;
             }
             if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
+#if APPLE_ICU_CHANGES
+                // rdar:/
                 log_err("FAIL: ubrk_following(%d) loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d, text \"%s\"\n",
                         start, itemPtr->locale, offset, *expOffsetPtr, textB);
+#else
+                log_err("FAIL: ubrk_following(%d) loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", start, itemPtr->locale, offset, *expOffsetPtr);
+#endif // APPLE_ICU_CHANGES
             }
 
             expOffsetStart = expOffsetPtr = itemPtr->expRevOffsets;
@@ -1253,40 +1327,73 @@ static void TestBreakIteratorSuppressions(void) {
             }
             for (; (offset = ubrk_previous(bi)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
                 if (offset != *expOffsetPtr) {
+#if APPLE_ICU_CHANGES
+                    // rdar:/
                     log_err("FAIL: ubrk_previous loc \"%s\", expected %d, got %d, text \"%s\"\n",
                             itemPtr->locale, *expOffsetPtr, offset, textB);
+#else
+                    log_err("FAIL: ubrk_previous loc \"%s\", expected %d, got %d\n", itemPtr->locale, *expOffsetPtr, offset);
+#endif // APPLE_ICU_CHANGES
                 } else {
                     log_verbose("[%d] @%d ubrk_previous()\n", (expOffsetPtr - expOffsetStart), offset);
                 }
             }
             if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
+#if APPLE_ICU_CHANGES
+                // rdar:/
                 log_err("FAIL: ubrk_previous loc \"%s\", expected UBRK_DONE & expOffset[%d] -1, got %d and %d, text \"%s\"\n",
                         itemPtr->locale, expOffsetPtr - expOffsetStart, offset, *expOffsetPtr, textB);
+#else
+                log_err("FAIL: ubrk_previous loc \"%s\", expected UBRK_DONE & expOffset[%d] -1, got %d and %d\n", itemPtr->locale,
+                        expOffsetPtr - expOffsetStart,
+                        offset, *expOffsetPtr);
+#endif // APPLE_ICU_CHANGES
             }
 
             expOffsetStart = expOffsetPtr = itemPtr->expRevOffsets;
             start = ubrk_last(bi) - 1;
             for (; (offset = ubrk_preceding(bi, start)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
                 if (offset != *expOffsetPtr) {
+#if APPLE_ICU_CHANGES
+                    // rdar:/
                     log_err("FAIL: ubrk_preceding(%d) loc \"%s\", expected %d, got %d, text \"%s\"\n",
                             start, itemPtr->locale, *expOffsetPtr, offset, textB);
+#else
+                    log_err("FAIL: ubrk_preceding(%d) loc \"%s\", expected %d, got %d\n", start, itemPtr->locale, *expOffsetPtr, offset);
+#endif // APPLE_ICU_CHANGES
                 }
                 start = *expOffsetPtr - 1;
             }
             if (start >=0 && (offset != UBRK_DONE || *expOffsetPtr >= 0)) {
+#if APPLE_ICU_CHANGES
+                // rdar:/
                 log_err("FAIL: ubrk_preceding loc(%d) \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d, text \"%s\"\n",
                         start, itemPtr->locale, offset, *expOffsetPtr, textB);
+#else
+                log_err("FAIL: ubrk_preceding loc(%d) \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", start, itemPtr->locale, offset, *expOffsetPtr);
+#endif // APPLE_ICU_CHANGES
             }
 
             ubrk_close(bi);
         } else {
+#if APPLE_ICU_CHANGES
+            // rdar:/
             log_data_err("FAIL: ubrk_open(UBRK_SENTENCE, \"%s\", ...) status %s (Are you missing data?)\n",
                     itemPtr->locale, u_errorName(status));
+#else
+            log_data_err("FAIL: ubrk_open(UBRK_SENTENCE, \"%s\", ...) status %s (Are you missing data?)\n", itemPtr->locale, u_errorName(status));
+#endif // APPLE_ICU_CHANGES
         }
     }
 }
 
-#if APPLE_ADDITIONS
+#if APPLE_ICU_CHANGES
+// first added per rdar://31001006 Add some initial tests for urbtok_xxx interfaces
+// updates per
+// rdar://31172826 Rewrite urbtok to use RBBI, not RBTok; drop RBTok, remove Apple mods for RBTok access to RBBI internals
+// rdar://35946337 Rewrite urbtok_tokenize & other urbtok_ interfaces to work with new RBBI but be fast enough
+// rdar://37249396 Add ICU 57 version of RBBI classes, urbtok57 interfaces for access via RBT, and better tests
+
 #include <stdio.h>
 #if U_PLATFORM_IS_DARWIN_BASED
 #include <unistd.h>
@@ -2314,7 +2421,7 @@ static void handleTokResults(const char* testItem, const char* tokClass, const c
     for (iToken = 0; !fail && iToken < getTokLen; iToken++) {
         if (  getTokens[iToken].location != expTokRes[iToken].token.location || getTokens[iToken].length != expTokRes[iToken].token.length ||
               getFlags[iToken] != expTokRes[iToken].flags ) {
-            fail = TRUE;
+            fail = true;
             mismatchAt = iToken;
         }
     }
@@ -2816,9 +2923,6 @@ static void TestRuleBasedTokenizer(void) {
     }
 }
 
-
-
-#endif
-
+#endif // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

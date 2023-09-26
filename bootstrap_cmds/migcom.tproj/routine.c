@@ -122,7 +122,9 @@ argAlloc(void)
     .argReplyPos = 0,
     .argByReferenceUser = FALSE,
     .argByReferenceServer = FALSE,
-    .argTempOnStack = FALSE
+    .argTempOnStack = FALSE,
+    .argInSegment = NULL,
+    .argOutSegment = NULL,
   };
   argument_t *new;
 
@@ -1544,6 +1546,16 @@ rtCheckVariable(routine_t *rt)
       arg->argRequestPos = parent->argRequestPos;
       arg->argReplyPos = parent->argReplyPos;
     }
+    
+    if (UseMachMsg2) {
+      /* Kernel processed data must have Request/Reply pos of 0 */
+      if (akCheck(arg->argKind, akbSendKPD)) {
+        assert(arg->argRequestPos == 0);
+      }
+      if (akCheck(arg->argKind, akbReturnKPD)) {
+        assert(arg->argReplyPos == 0);
+      }
+    }
     /*
      printf("Var %s Kind %x RequestPos %d\n", arg->argVarName, arg->argKind, arg->argRequestPos);
      printf("* Var %s Kind %x ReplyPos %d\n", arg->argVarName, arg->argKind, arg->argReplyPos);
@@ -1664,6 +1676,36 @@ rtAddSameCount(routine_t *rt)
     }
 }
 
+static void
+rtAddArgSegment(routine_t *rt)
+{
+  argument_t *arg;
+
+  for (arg = rt->rtArgs; arg != argNULL; arg = arg->argNext) {
+    ipc_type_t *it = arg->argType;
+    if (!UseMachMsg2) {
+      char *segIn = malloc(16);
+      if (!segIn)
+        fatal("Unable to allocate argInSegment");
+      sprintf(segIn, "In%dP", arg->argRequestPos);
+      arg->argInSegment = segIn;
+      arg->argOutSegment = "OutP";
+    } else if (IS_KERN_PROC_DATA(it) || 
+      (akIdent(arg->argKind) == akePoly &&
+      IS_KERN_PROC_DATA(arg->argParent->argType))) {
+      arg->argInSegment = "InKP";
+      arg->argOutSegment = "OutKP";
+    } else {
+      char *segIn = malloc(16);
+      if (!segIn)
+        fatal("Unable to allocate argInSegment");
+      sprintf(segIn, "In%dUP", arg->argRequestPos);
+      arg->argInSegment = segIn;
+      arg->argOutSegment = "OutUP";
+    }
+  }
+}
+
 void
 rtCheckRoutine(routine_t *rt)
 {
@@ -1777,6 +1819,8 @@ rtCheckRoutine(routine_t *rt)
     rtProcessUseSpecialReplyPort(rt);
 
   rt->rtNoReplyArgs = !rtCheckMask(rt->rtArgs, akbReturnSnd);
+
+  rtAddArgSegment(rt);
 
   if (UseEventLogger)
   /* some more info's are needed for Event logging/Stats */

@@ -17,6 +17,7 @@
 #include <IOKit/hid/IOHIDService.h>
 #include <IOKit/hid/IOHIDServiceFilterPlugIn.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
+#include <atomic>
 #include "IOHIDAcceleration.hpp"
 #include "CF.h"
 
@@ -51,7 +52,7 @@ private:
     CFUUIDRef                   _factoryID;
     UInt32                      _refCount;
     SInt32                      _matchScore;
- 
+
     static IOHIDServiceFilterPlugInInterface sIOHIDPointerScrollFilterFtbl;
     static HRESULT QueryInterface( void *self, REFIID iid, LPVOID *ppv );
     static ULONG AddRef( void *self );
@@ -77,9 +78,24 @@ private:
     void setupAcceleration ();
     void setupPointerAcceleration(double pointerAccelerationMultiplier);
     void setupScrollAcceleration(double scrollAccelerationMultiplier);
+
+    IOHIDAccelerationAlgorithm * createPointerTableAlgorithm(SInt32 resolution);
+    IOHIDAccelerationAlgorithm * createPointerParametricAlgorithm(SInt32 resolution);
+    IOHIDAccelerationAlgorithm * createPointerAlgorithm(SInt32 resolution);
+
+    IOHIDAccelerationAlgorithm * createScrollTableAlgorithm(size_t index, SInt32 resolution, SInt32 rate);
+    IOHIDAccelerationAlgorithm * createScrollParametricAlgorithm(size_t index, SInt32 resolution, SInt32 rate);
+    IOHIDAccelerationAlgorithm * createScrollAlgorithm(size_t index, SInt32 resolution, SInt32 rate);
+
+    CFStringRef getAccelerationAlgorithmString(IOHIDAccelerationAlgorithmType type) const;
+
+    void createAccelStatsTimer(void);
+    void startAccelStatsTimer(void);
   
     void accelerateChildrens(IOHIDEventRef event);
     void accelerateEvent(IOHIDEventRef event);
+
+    IOHIDEventRef filterPropertyEvent(IOHIDEventRef event);
   
     static CFStringRef          _cachedPropertyList[];
 
@@ -92,11 +108,15 @@ private:
 
     IOHIDServiceRef             _service;
     double                      _pointerAcceleration;
+    double                      _minPointerAcceleration;
     double                      _scrollAcceleration;
     double                      _scrollMomentumMult;
     boolean_t                   _leagacyShim;
     bool                        _pointerAccelerationSupported;
     bool                        _scrollAccelerationSupported;
+    bool                        _dropPropertyEvents;
+    dispatch_source_t           _statsTimer;
+    uint64_t                    _statsDelayMS;
   
     void serialize (CFMutableDictionaryRef dict) const;
   

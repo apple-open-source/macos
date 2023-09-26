@@ -30,7 +30,7 @@
 .\"
 .\"	@(#)grep.1	8.3 (Berkeley) 4/18/94
 .\"
-.Dd March 22, 2021
+.Dd November 10, 2021
 .Dt GREP 1
 .Os
 .Sh NAME
@@ -51,13 +51,13 @@
 .Op Fl abcdDEFGHhIiJLlMmnOopqRSsUVvwXxZz
 .Op Fl A Ar num
 .Op Fl B Ar num
-.Op Fl C Ns Op Ar num
+.Op Fl C Ar num
 .Op Fl e Ar pattern
 .Op Fl f Ar file
 .Op Fl Fl binary-files= Ns Ar value
 .Op Fl Fl color Ns Op Cm = Ns Ar when
 .Op Fl Fl colour Ns Op Cm = Ns Ar when
-.Op Fl Fl context Ns Op Cm = Ns Ar num
+.Op Fl Fl context= Ns Ar num
 .Op Fl Fl label
 .Op Fl Fl line-buffered
 .Op Fl Fl null
@@ -156,18 +156,15 @@ options.
 .It Fl b , Fl Fl byte-offset
 The offset in bytes of a matched pattern is
 displayed in front of the respective matched line.
-.It Fl C Ns Oo Ar num Oc , Fl Fl context Ns Oo = Ns Ar num Oc
+.It Fl C Ar num , Fl Fl context= Ns Ar num
 Print
 .Ar num
 lines of leading and trailing context surrounding each match.
-The default value of
-.Ar num
-is
-.Dq 2
-and is equivalent to
-.Dq Fl A Ar 2 Fl B Ar 2 .
-Note:
-no whitespace may be given between the option and its argument.
+See also the
+.Fl A
+and
+.Fl B
+options.
 .It Fl c , Fl Fl count
 Only a count of selected lines is written to standard output.
 .It Fl Fl colour= Ns Oo Ar when Oc , Fl Fl color= Ns Oo Ar when Oc
@@ -301,7 +298,7 @@ Print a brief help message.
 .It Fl I
 Ignore binary files.
 This option is equivalent to the
-.Dq Fl Fl binary-file= Ns Cm without-match
+.Dq Fl Fl binary-files= Ns Cm without-match
 option.
 .It Fl i , Fl Fl ignore-case
 Perform case insensitive matching.
@@ -573,11 +570,11 @@ Do the search recursively from the
 .Pa /usr/src/sys/arm
 directory
 .Pp
-.Dl $ grep -H -R FIXME --include=*.h /usr/src/sys/arm/
+.Dl $ grep -H -R FIXME --include="*.h" /usr/src/sys/arm/
 .It
 Same as above but show only the name of the matching file:
 .Pp
-.Dl $ grep -l -R FIXME --include=*.h /usr/src/sys/arm/
+.Dl $ grep -l -R FIXME --include="*.h" /usr/src/sys/arm/
 .It
 Show lines containing the text
 .Sq foo .
@@ -620,7 +617,7 @@ utility is compliant with the
 specification.
 .Pp
 The flags
-.Op Fl AaBbCDdGHhILmoPRSUVw
+.Op Fl AaBbCDdGHhILmopRSUVw
 are extensions to that specification, and the behaviour of the
 .Fl f
 flag when used with an empty pattern file is left undefined.

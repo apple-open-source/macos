@@ -34,11 +34,11 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
 #include "WebProcess.h"
-#include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/FrameLoaderClient.h>
 #include <WebCore/HTMLFrameOwnerElement.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameLoaderClient.h>
 #include <WebCore/Page.h>
 
 namespace WebKit {
@@ -259,7 +259,7 @@ void WebResourceLoadObserver::logScreenAPIAccessed(const Document& document, con
 #endif
 }
 
-void WebResourceLoadObserver::logSubresourceLoading(const Frame* frame, const ResourceRequest& newRequest, const ResourceResponse& redirectResponse, FetchDestinationIsScriptLike isScriptLike)
+void WebResourceLoadObserver::logSubresourceLoading(const LocalFrame* frame, const ResourceRequest& newRequest, const ResourceResponse& redirectResponse, FetchDestinationIsScriptLike isScriptLike)
 {
     if (isEphemeral())
         return;
@@ -276,7 +276,10 @@ void WebResourceLoadObserver::logSubresourceLoading(const Frame* frame, const Re
     bool isRedirect = is3xxRedirect(redirectResponse);
     const URL& redirectedFromURL = redirectResponse.url();
     const URL& targetURL = newRequest.url();
-    const URL& topFrameURL = frame ? frame->mainFrame().document()->url() : URL();
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(frame->mainFrame());
+    if (!localMainFrame)
+        return;
+    const URL& topFrameURL = frame ? localMainFrame->document()->url() : URL();
     
     auto targetHost = targetURL.host();
     auto topFrameHost = topFrameURL.host();
@@ -346,7 +349,7 @@ void WebResourceLoadObserver::logWebSocketLoading(const URL& targetURL, const UR
 void WebResourceLoadObserver::logUserInteractionWithReducedTimeResolution(const Document& document)
 {
     auto& url = document.url();
-    if (url.protocolIsAbout() || url.isLocalFile() || url.isEmpty())
+    if (url.protocolIsAbout() || url.protocolIsFile() || url.isEmpty())
         return;
 
     RegistrableDomain topFrameDomain { url };
@@ -365,10 +368,10 @@ void WebResourceLoadObserver::logUserInteractionWithReducedTimeResolution(const 
     }
 
     if (auto* frame = document.frame()) {
-        if (auto* opener = frame->loader().opener()) {
+        if (auto* opener = dynamicDowncast<LocalFrame>(frame->loader().opener())) {
             if (auto* openerDocument = opener->document()) {
                 if (auto* openerPage = openerDocument->page())
-                    requestStorageAccessUnderOpener(topFrameDomain, WebPage::fromCorePage(*openerPage), *openerDocument);
+                    requestStorageAccessUnderOpener(topFrameDomain, *WebPage::fromCorePage(*openerPage), *openerDocument);
             }
         }
     }

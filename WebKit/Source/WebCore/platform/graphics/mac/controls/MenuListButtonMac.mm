@@ -172,7 +172,7 @@ void MenuListButtonMac::draw(GraphicsContext& context, const FloatRoundedRect& b
     GraphicsContextStateSaver stateSaver(context);
 
     context.setFillColor(style.textColor);
-    context.setStrokeStyle(NoStroke);
+    context.setStrokeStyle(StrokeStyle::NoStroke);
 
     // Draw the top arrow
     Vector<FloatPoint> arrow1 = {
@@ -180,7 +180,7 @@ void MenuListButtonMac::draw(GraphicsContext& context, const FloatRoundedRect& b
         { leftEdge + arrowWidth, centerY - spaceBetweenArrows / 2.0f },
         { leftEdge + arrowWidth / 2.0f, centerY - spaceBetweenArrows / 2.0f - arrowHeight }
     };
-    context.fillPath(Path::polygonPathFromPoints(arrow1));
+    context.fillPath(Path(arrow1));
 
     // Draw the bottom arrow
     Vector<FloatPoint> arrow2 = {
@@ -188,7 +188,7 @@ void MenuListButtonMac::draw(GraphicsContext& context, const FloatRoundedRect& b
         { leftEdge + arrowWidth, centerY + spaceBetweenArrows / 2.0f },
         { leftEdge + arrowWidth / 2.0f, centerY + spaceBetweenArrows / 2.0f + arrowHeight }
     };
-    context.fillPath(Path::polygonPathFromPoints(arrow2));
+    context.fillPath(Path(arrow2));
 
     constexpr auto leftSeparatorColor = Color::black.colorWithAlphaByte(40);
     constexpr auto rightSeparatorColor = Color::white.colorWithAlphaByte(40);
@@ -203,7 +203,7 @@ void MenuListButtonMac::draw(GraphicsContext& context, const FloatRoundedRect& b
 
     // Draw the separator to the left of the arrows
     context.setStrokeThickness(1); // Deliberately ignores zoom since it looks nicer if it stays thin.
-    context.setStrokeStyle(SolidStroke);
+    context.setStrokeStyle(StrokeStyle::SolidStroke);
     context.setStrokeColor(leftSeparatorColor);
     context.drawLine(IntPoint(leftEdgeOfSeparator, bounds.y()), IntPoint(leftEdgeOfSeparator, bounds.maxY()));
 

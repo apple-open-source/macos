@@ -235,6 +235,7 @@ bool_t xdr_CSSM_CERTGROUP(XDR *xdrs, CSSM_CERTGROUP *objp)
     case CSSM_CERTGROUP_PARSED_CERT: // unimplemented -> there are no walkers for it
     case CSSM_CERTGROUP_CERT_PAIR:   // unimplemented -> there are no walkers for it
         assert(FALSE);
+        [[fallthrough]];
     default:
         return (FALSE);
     }

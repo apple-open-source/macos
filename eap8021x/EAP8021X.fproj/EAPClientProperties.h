@@ -160,8 +160,6 @@
 #define kEAPTLSTrustExceptionsDomainNetworkInterfaceName \
     	CFSTR("NetworkInterfaceName")
 
-#if TARGET_OS_OSX
-
 /*
  * kEAPClientPropSaveCredentialsOnSuccessfulAuthentication
  * - when set to TRUE and the authentication is successful,
@@ -175,8 +173,6 @@
  * - when set to TRUE, disables all UI prompts
  */
 #define kEAPClientPropDisableUserInteraction	CFSTR("DisableUserInteraction") /* boolean (false) */
-
-#endif /* TARGET_OS_OSX */
 
 #define kEAPClientPropTLSVerifyServerCertificate \
 	CFSTR("TLSVerifyServerCertificate") 		/* boolean (true) */
@@ -228,7 +224,7 @@
 #define kEAPTTLSInnerAuthenticationEAP		CFSTR("EAP")
 
 #define kEAPClientPropNewPassword		CFSTR("NewPassword")
-/* for TTLS, PEAP, EAP-FAST: */
+/* for TTLS, PEAP, EAP-FAST and EAP-TLS 1.3 : */
 #define kEAPClientPropOuterIdentity		CFSTR("OuterIdentity")
 
 /* for TLS: */
@@ -244,6 +240,7 @@
 #define kEAPTLSVersion1_0			CFSTR("1.0")
 #define kEAPTLSVersion1_1			CFSTR("1.1")
 #define kEAPTLSVersion1_2			CFSTR("1.2")
+#define kEAPTLSVersion1_3			CFSTR("1.3")
 
 /* for EAP-FAST */
 #define kEAPClientPropEAPFASTUsePAC		CFSTR("EAPFASTUsePAC") /* boolean (false) */
@@ -271,6 +268,8 @@
 	CFSTR("TLSSessionWasResumed")	/* boolean */
 #define kEAPClientPropTLSNegotiatedCipher \
 	CFSTR("TLSNegotiatedCipher")	/* integer (UInt32) */
+#define kEAPClientPropTLSNegotiatedProtocolVersion \
+	CFSTR("TLSNegotiatedProtocolVersion")	/* string (kEAPTLSVersion) */
 
 #define kEAPClientPropEAPFASTPACWasProvisioned	CFSTR("EAPFASTPACWasProvisioned") /* boolean */
 
@@ -311,5 +310,7 @@
 	CFSTR("TLSAllowTrustDecisions")		/* boolean (see above) */
 
 #endif /* TARGET_OS_IPHONE */
+
+#define EAP8021X_HAS_IPHONE_EAP_CONFIG_SUPPORT 1
 
 #endif /* _EAP8021X_EAPCLIENTPROPERTIES_H */

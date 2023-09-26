@@ -2231,7 +2231,7 @@ sysctl_set(const char *name, int val)
  * kIOPSTypeKey == kIOPSInternalBatteryType
  */
 static bool
-machineHasInternalBattery()
+machineHasInternalBattery(void)
 {
 	bool battery = false;
 	CFTypeRef psInfo = IOPSCopyPowerSourcesInfo();
@@ -2279,7 +2279,7 @@ machineHasInternalBattery()
  * N.B. Using the hardware model is legacy.
  */
 static int
-mobile_client()
+mobile_client(void)
 {
 	char model[128];
 	size_t len = sizeof(model);

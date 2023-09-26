@@ -1,7 +1,6 @@
-/*	$OpenBSD: tar.c,v 1.41 2006/03/04 20:24:55 otto Exp $	*/
-/*	$NetBSD: tar.c,v 1.5 1995/03/21 09:07:49 cgd Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Keith Muller.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,23 +33,22 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static const char sccsid[] = "@(#)tar.c	8.2 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] = "$OpenBSD: tar.c,v 1.41 2006/03/04 20:24:55 otto Exp $";
+static char sccsid[] = "@(#)tar.c	8.2 (Berkeley) 4/18/94";
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/param.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
+#ifdef __APPLE__
 #include <stdlib.h>
+#endif /* __APPLE__ */
 #include "pax.h"
 #include "extern.h"
 #include "tar.h"
@@ -59,26 +57,30 @@ __used static const char rcsid[] = "$OpenBSD: tar.c,v 1.41 2006/03/04 20:24:55 o
  * Routines for reading, writing and header identify of various versions of tar
  */
 
+#ifdef __APPLE__
 static size_t expandname(char *, size_t, char **, const char *, size_t);
+#endif /* __APPLE__ */
 static u_long tar_chksm(char *, int);
 static char *name_split(char *, int);
 static int ul_oct(u_long, char *, int, int);
-#ifndef LONG_OFF_T
 static int uqd_oct(u_quad_t, char *, int, int);
-#endif
 
+#ifdef __APPLE__
 static uid_t uid_nobody;
 static uid_t uid_warn;
 static gid_t gid_nobody;
 static gid_t gid_warn;
+#endif /* __APPLE__ */
 
 /*
  * Routines common to all versions of tar
  */
 
 static int tar_nodir;			/* do not write dirs under old tar */
+#ifdef __APPLE__
 char *gnu_name_string;			/* GNU ././@LongLink hackery name */
 char *gnu_link_string;			/* GNU ././@LongLink hackery link */
+#endif /* __APPLE__ */
 
 /*
  * tar_endwr()
@@ -118,7 +120,7 @@ tar_endrd(void)
  */
 
 int
-tar_trail(ARCHD *ignore, char *buf, int in_resync, int *cnt)
+tar_trail(char *buf, int in_resync, int *cnt)
 {
 	int i;
 
@@ -169,7 +171,7 @@ ul_oct(u_long val, char *str, int len, int term)
 	 * term selects the appropriate character(s) for the end of the string
 	 */
 	pt = str + len - 1;
-	switch (term) {
+	switch(term) {
 	case 3:
 		*pt-- = '\0';
 		break;
@@ -203,7 +205,6 @@ ul_oct(u_long val, char *str, int len, int term)
 	return(0);
 }
 
-#ifndef LONG_OFF_T
 /*
  * uqd_oct()
  *	convert an u_quad_t to an octal string. one of many oddball field
@@ -224,7 +225,7 @@ uqd_oct(u_quad_t val, char *str, int len, int term)
 	 * term selects the appropriate character(s) for the end of the string
 	 */
 	pt = str + len - 1;
-	switch (term) {
+	switch(term) {
 	case 3:
 		*pt-- = '\0';
 		break;
@@ -257,7 +258,6 @@ uqd_oct(u_quad_t val, char *str, int len, int term)
 		return(-1);
 	return(0);
 }
-#endif
 
 /*
  * tar_chksm()
@@ -304,7 +304,7 @@ tar_chksm(char *blk, int len)
 /*
  * tar_id()
  *	determine if a block given to us is a valid tar header (and not a USTAR
- *	header). We have to be on the lookout for those pesky blocks of	all
+ *	header). We have to be on the lookout for those pesky blocks of all
  *	zero's.
  * Return:
  *	0 if a tar header, -1 otherwise
@@ -334,7 +334,9 @@ tar_id(char *blk, int size)
 		return(-1);
 	if (asc_ul(hd->chksum,sizeof(hd->chksum),OCT) != tar_chksm(blk,BLKMULT))
 		return(-1);
-	force_one_volume = 1;
+#ifdef __APPLE__
+	Oflag = 1;
+#endif /* __APPLE__ */
 	return(0);
 }
 
@@ -393,30 +395,42 @@ tar_rd(ARCHD *arcn, char *buf)
 	 */
 	if (tar_id(buf, BLKMULT) < 0)
 		return(-1);
+#ifdef __APPLE__
 	memset(arcn, 0, sizeof(*arcn));
+#endif /* __APPLE__ */
 	arcn->org_name = arcn->name;
 	arcn->sb.st_nlink = 1;
+#ifndef __APPLE__
+	arcn->pat = NULL;
+#endif /* __APPLE__ */
 
 	/*
 	 * copy out the name and values in the stat buffer
 	 */
 	hd = (HD_TAR *)buf;
+#ifdef __APPLE__
 	if (hd->linkflag != LONGLINKTYPE && hd->linkflag != LONGNAMETYPE) {
 		arcn->nlen = expandname(arcn->name, sizeof(arcn->name),
 		    &gnu_name_string, hd->name, sizeof(hd->name));
 		arcn->ln_nlen = expandname(arcn->ln_name, sizeof(arcn->ln_name),
 		    &gnu_link_string, hd->linkname, sizeof(hd->linkname));
 	}
+#else
+	/*
+	 * old tar format specifies the name always be null-terminated,
+	 * but let's be robust to broken archives.
+	 * the same applies to handling links below.
+	 */
+	arcn->nlen = l_strncpy(arcn->name, hd->name,
+	    MIN(sizeof(hd->name), sizeof(arcn->name)) - 1);
+	arcn->name[arcn->nlen] = '\0';
+#endif /* __APPLE__ */
 	arcn->sb.st_mode = (mode_t)(asc_ul(hd->mode,sizeof(hd->mode),OCT) &
 	    0xfff);
 	arcn->sb.st_uid = (uid_t)asc_ul(hd->uid, sizeof(hd->uid), OCT);
 	arcn->sb.st_gid = (gid_t)asc_ul(hd->gid, sizeof(hd->gid), OCT);
-#ifdef LONG_OFF_T
-	arcn->sb.st_size = (off_t)asc_ul(hd->size, sizeof(hd->size), OCT);
-#else
 	arcn->sb.st_size = (off_t)asc_uqd(hd->size, sizeof(hd->size), OCT);
-#endif
-	arcn->sb.st_mtime = (time_t)asc_ul(hd->mtime, sizeof(hd->mtime), OCT);
+	arcn->sb.st_mtime = (time_t)asc_uqd(hd->mtime, sizeof(hd->mtime), OCT);
 	arcn->sb.st_ctime = arcn->sb.st_atime = arcn->sb.st_mtime;
 
 	/*
@@ -426,15 +440,19 @@ tar_rd(ARCHD *arcn, char *buf)
 	pt = &(arcn->name[arcn->nlen - 1]);
 	arcn->pad = 0;
 	arcn->skip = 0;
-	switch (hd->linkflag) {
+	switch(hd->linkflag) {
 	case SYMTYPE:
 		/*
 		 * symbolic link, need to get the link name and set the type in
 		 * the st_mode so -v printing will look correct.
 		 */
 		arcn->type = PAX_SLK;
+#ifndef __APPLE__
+		arcn->ln_nlen = l_strncpy(arcn->ln_name, hd->linkname,
+		    MIN(sizeof(hd->linkname), sizeof(arcn->ln_name)) - 1);
+		arcn->ln_name[arcn->ln_nlen] = '\0';
+#endif /* __APPLE__ */
 		arcn->sb.st_mode |= S_IFLNK;
-		arcn->ln_nlen = strlcpy(arcn->ln_name, hd->linkname, sizeof(arcn->ln_name));
 		break;
 	case LNKTYPE:
 		/*
@@ -443,7 +461,9 @@ tar_rd(ARCHD *arcn, char *buf)
 		 */
 		arcn->type = PAX_HLK;
 		arcn->sb.st_nlink = 2;
-		arcn->ln_nlen = strlcpy(arcn->ln_name, hd->linkname, sizeof(arcn->ln_name));
+		arcn->ln_nlen = l_strncpy(arcn->ln_name, hd->linkname,
+		    MIN(sizeof(hd->linkname), sizeof(arcn->ln_name)) - 1);
+		arcn->ln_name[arcn->ln_nlen] = '\0';
 
 		/*
 		 * no idea of what type this thing really points at, but
@@ -451,6 +471,7 @@ tar_rd(ARCHD *arcn, char *buf)
 		 */
 		arcn->sb.st_mode |= S_IFREG;
 		break;
+#ifdef __APPLE__
 	case LONGLINKTYPE:
 	case LONGNAMETYPE:
 		/*
@@ -462,6 +483,7 @@ tar_rd(ARCHD *arcn, char *buf)
 		arcn->pad = TAR_PAD(arcn->sb.st_size);
 		arcn->skip = arcn->sb.st_size;
 		break;
+#endif /* __APPLE__ */
 	case DIRTYPE:
 		/*
 		 * It is a directory, set the mode for -v printing
@@ -469,6 +491,8 @@ tar_rd(ARCHD *arcn, char *buf)
 		arcn->type = PAX_DIR;
 		arcn->sb.st_mode |= S_IFDIR;
 		arcn->sb.st_nlink = 2;
+		arcn->ln_name[0] = '\0';
+		arcn->ln_nlen = 0;
 		break;
 	case AREGTYPE:
 	case REGTYPE:
@@ -531,7 +555,7 @@ tar_wr(ARCHD *arcn)
 	/*
 	 * check for those file system types which tar cannot store
 	 */
-	switch (arcn->type) {
+	switch(arcn->type) {
 	case PAX_DIR:
 		/*
 		 * user asked that dirs not be written to the archive
@@ -555,9 +579,8 @@ tar_wr(ARCHD *arcn)
 	case PAX_SLK:
 	case PAX_HLK:
 	case PAX_HRG:
-		if (arcn->ln_nlen >= sizeof(hd->linkname)) {
-			paxwarn(1, "Link name too long for tar %s",
-			    arcn->ln_name);
+		if (arcn->ln_nlen >= (int)sizeof(hd->linkname)) {
+			paxwarn(1,"Link name too long for tar %s", arcn->ln_name);
 			return(1);
 		}
 		break;
@@ -573,7 +596,7 @@ tar_wr(ARCHD *arcn)
 	len = arcn->nlen;
 	if (arcn->type == PAX_DIR)
 		++len;
-	if (len >= sizeof(hd->name)) {
+	if (len >= (int)sizeof(hd->name)) {
 		paxwarn(1, "File name too long for tar %s", arcn->name);
 		return(1);
 	}
@@ -586,18 +609,27 @@ tar_wr(ARCHD *arcn)
 	 * (if any) to be added after the file data (0 for all other types,
 	 * as they only have a header).
 	 */
+#ifdef __APPLE__
 	memset(&hdblk, 0, sizeof(hdblk));
 	hd = (HD_TAR *)&hdblk;
 	strlcpy(hd->name,  arcn->name, sizeof(hd->name));
+#else
+	hd = &hdblk;
+	l_strncpy(hd->name, arcn->name, sizeof(hd->name) - 1);
+	hd->name[sizeof(hd->name) - 1] = '\0';
+#endif /* __APPLE__ */
 	arcn->pad = 0;
 
 	if (arcn->type == PAX_DIR) {
 		/*
 		 * directories are the same as files, except have a filename
-		 * that ends with a /, we add the slash here. No data follows
+		 * that ends with a /, we add the slash here. No data follows,
 		 * dirs, so no pad.
 		 */
 		hd->linkflag = AREGTYPE;
+#ifndef __APPLE__
+		memset(hd->linkname, 0, sizeof(hd->linkname));
+#endif /* __APPLE__ */
 		hd->name[len-1] = '/';
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 1))
 			goto out;
@@ -606,7 +638,12 @@ tar_wr(ARCHD *arcn)
 		 * no data follows this file, so no pad
 		 */
 		hd->linkflag = SYMTYPE;
+#ifdef __APPLE__
 		strlcpy(hd->linkname, arcn->ln_name, sizeof(hd->linkname));
+#else
+		l_strncpy(hd->linkname,arcn->ln_name, sizeof(hd->linkname) - 1);
+		hd->linkname[sizeof(hd->linkname) - 1] = '\0';
+#endif /* __APPLE__*/
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 1))
 			goto out;
 	} else if ((arcn->type == PAX_HLK) || (arcn->type == PAX_HRG)) {
@@ -614,7 +651,12 @@ tar_wr(ARCHD *arcn)
 		 * no data follows this file, so no pad
 		 */
 		hd->linkflag = LNKTYPE;
+#ifdef __APPLE__
 		strlcpy(hd->linkname, arcn->ln_name, sizeof(hd->linkname));
+#else
+		l_strncpy(hd->linkname,arcn->ln_name, sizeof(hd->linkname) - 1);
+		hd->linkname[sizeof(hd->linkname) - 1] = '\0';
+#endif /* __APPLE__*/
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 1))
 			goto out;
 	} else {
@@ -622,13 +664,11 @@ tar_wr(ARCHD *arcn)
 		 * data follows this file, so set the pad
 		 */
 		hd->linkflag = AREGTYPE;
-#		ifdef LONG_OFF_T
-		if (ul_oct((u_long)arcn->sb.st_size, hd->size,
-		    sizeof(hd->size), 1)) {
-#		else
+#ifndef __APPLE__
+		memset(hd->linkname, 0, sizeof(hd->linkname));
+#endif /* __APPLE__ */
 		if (uqd_oct((u_quad_t)arcn->sb.st_size, hd->size,
 		    sizeof(hd->size), 1)) {
-#		endif
 			paxwarn(1,"File is too large for tar %s", arcn->org_name);
 			return(1);
 		}
@@ -756,9 +796,10 @@ ustar_rd(ARCHD *arcn, char *buf)
 	 */
 	if (ustar_id(buf, BLKMULT) < 0)
 		return(-1);
-	memset(arcn, 0, sizeof(*arcn));
 	arcn->org_name = arcn->name;
 	arcn->sb.st_nlink = 1;
+	arcn->pat = NULL;
+	arcn->nlen = 0;
 	hd = (HD_USTAR *)buf;
 
 	/*
@@ -767,20 +808,30 @@ ustar_rd(ARCHD *arcn, char *buf)
 	 */
 	dest = arcn->name;
 	if (*(hd->prefix) != '\0') {
-		cnt = strlcpy(dest, hd->prefix, sizeof(arcn->name) - 1);
+		cnt = l_strncpy(dest, hd->prefix,
+		    MIN(sizeof(hd->prefix), sizeof(arcn->name) - 2));
 		dest += cnt;
 		*dest++ = '/';
 		cnt++;
-	} else {
-		cnt = 0;
 	}
 
+#ifdef __APPLE__
 	if (hd->typeflag != LONGLINKTYPE && hd->typeflag != LONGNAMETYPE) {
 		arcn->nlen = cnt + expandname(dest, sizeof(arcn->name) - cnt,
 		    &gnu_name_string, hd->name, sizeof(hd->name));
 		arcn->ln_nlen = expandname(arcn->ln_name, sizeof(arcn->ln_name),
 		    &gnu_link_string, hd->linkname, sizeof(hd->linkname));
 	}
+#endif /* __APPLE__ */
+
+	/*
+	 * ustar format specifies the name may be unterminated
+	 * if it fills the entire field.  this also applies to
+	 * the prefix and the linkname.
+	 */
+	arcn->nlen = cnt + l_strncpy(dest, hd->name,
+	    MIN(sizeof(hd->name), sizeof(arcn->name) - cnt - 1));
+	arcn->name[arcn->nlen] = '\0';
 
 	/*
 	 * follow the spec to the letter. we should only have mode bits, strip
@@ -788,12 +839,8 @@ ustar_rd(ARCHD *arcn, char *buf)
 	 */
 	arcn->sb.st_mode = (mode_t)(asc_ul(hd->mode, sizeof(hd->mode), OCT) &
 	    0xfff);
-#ifdef LONG_OFF_T
-	arcn->sb.st_size = (off_t)asc_ul(hd->size, sizeof(hd->size), OCT);
-#else
 	arcn->sb.st_size = (off_t)asc_uqd(hd->size, sizeof(hd->size), OCT);
-#endif
-	arcn->sb.st_mtime = (time_t)asc_ul(hd->mtime, sizeof(hd->mtime), OCT);
+	arcn->sb.st_mtime = (time_t)asc_uqd(hd->mtime, sizeof(hd->mtime), OCT);
 	arcn->sb.st_ctime = arcn->sb.st_atime = arcn->sb.st_mtime;
 
 	/*
@@ -812,6 +859,8 @@ ustar_rd(ARCHD *arcn, char *buf)
 	/*
 	 * set the defaults, these may be changed depending on the file type
 	 */
+	arcn->ln_name[0] = '\0';
+	arcn->ln_nlen = 0;
 	arcn->pad = 0;
 	arcn->skip = 0;
 	arcn->sb.st_rdev = (dev_t)0;
@@ -819,7 +868,7 @@ ustar_rd(ARCHD *arcn, char *buf)
 	/*
 	 * set the mode and PAX type according to the typeflag in the header
 	 */
-	switch (hd->typeflag) {
+	switch(hd->typeflag) {
 	case FIFOTYPE:
 		arcn->type = PAX_FIF;
 		arcn->sb.st_mode |= S_IFIFO;
@@ -866,7 +915,16 @@ ustar_rd(ARCHD *arcn, char *buf)
 			arcn->sb.st_mode |= S_IFREG;
 			arcn->sb.st_nlink = 2;
 		}
+#ifndef __APPLE__
+		/*
+		 * copy the link name
+		 */
+		arcn->ln_nlen = l_strncpy(arcn->ln_name, hd->linkname,
+		    MIN(sizeof(hd->linkname), sizeof(arcn->ln_name) - 1));
+		arcn->ln_name[arcn->ln_nlen] = '\0';
+#endif /* __APPLE__ */
 		break;
+#ifdef __APPLE__
 	case LONGLINKTYPE:
 	case LONGNAMETYPE:
 		/*
@@ -878,6 +936,7 @@ ustar_rd(ARCHD *arcn, char *buf)
 		arcn->pad = TAR_PAD(arcn->sb.st_size);
 		arcn->skip = arcn->sb.st_size;
 		break;
+#endif /* __APPLE__ */
 	case CONTTYPE:
 	case AREGTYPE:
 	case REGTYPE:
@@ -912,10 +971,14 @@ ustar_wr(ARCHD *arcn)
 {
 	HD_USTAR *hd;
 	char *pt;
+#ifdef __APPLE__
 	char hdblk[sizeof(HD_USTAR)];
 	mode_t mode12only;
 	int term_char=3;	/* orignal setting */
 	term_char=1;		/* To pass conformance tests 274, 301 */
+#else
+	HD_USTAR hdblk;
+#endif /* __APPLE__ */
 
 	/*
 	 * check for those file system types ustar cannot store
@@ -929,12 +992,15 @@ ustar_wr(ARCHD *arcn)
 	 * check the length of the linkname
 	 */
 	if (((arcn->type == PAX_SLK) || (arcn->type == PAX_HLK) ||
-	    (arcn->type == PAX_HRG)) && (arcn->ln_nlen > sizeof(hd->linkname))){
+	    (arcn->type == PAX_HRG)) &&
+	    (arcn->ln_nlen > (int)sizeof(hd->linkname))) {
 		paxwarn(1, "Link name too long for ustar %s", arcn->ln_name);
+#ifdef __APPLE__
 		/*
 		 * Conformance: test pax:285 wants error code to be non-zero, and
 		 * test tar:12 wants error code from pax to be 0
 		 */
+#endif /* __APPLE__ */
 		return(1);
 	}
 
@@ -946,17 +1012,22 @@ ustar_wr(ARCHD *arcn)
 		paxwarn(1, "File name too long for ustar %s", arcn->name);
 		return(1);
 	}
-
+#ifdef __APPLE__
 	/*
 	 * zero out the header so we don't have to worry about zero fill below
 	 */
 	memset(hdblk, 0, sizeof(hdblk));
 	hd = (HD_USTAR *)hdblk;
+#else
+	hd = &hdblk;
+#endif /* __APPLE__ */
 	arcn->pad = 0L;
 
+#ifdef __APPLE__
 	/* To pass conformance tests 274/301, always set these fields to "zero" */
 	ul_oct(0, hd->devmajor, sizeof(hd->devmajor), term_char);
 	ul_oct(0, hd->devminor, sizeof(hd->devminor), term_char);
+#endif /* __APPLE__*/
 
 	/*
 	 * split the name, or zero out the prefix
@@ -967,27 +1038,47 @@ ustar_wr(ARCHD *arcn)
 		 * occur, we remove the / and copy the first part to the prefix
 		 */
 		*pt = '\0';
+#ifdef __APPLE__
 		strlcpy(hd->prefix, arcn->name, sizeof(hd->prefix));
+#else
+		l_strncpy(hd->prefix, arcn->name, sizeof(hd->prefix));
+#endif /* __APPLE__ */
 		*pt++ = '/';
+#ifdef __APPLE__
 	}
+#else
+	} else
+		memset(hd->prefix, 0, sizeof(hd->prefix));
+#endif /* __APPLE__ */
 
 	/*
 	 * copy the name part. this may be the whole path or the part after
 	 * the prefix.  both the name and prefix may fill the entire field.
 	 */
+#ifdef __APPLE__
 	if (strlen(pt) == sizeof(hd->name)) {	/* must account for name just fits in buffer */
 		strncpy(hd->name, pt, sizeof(hd->name));
 	} else {
 		strlcpy(hd->name, pt, sizeof(hd->name));
 	}
+#else
+	l_strncpy(hd->name, pt, sizeof(hd->name));
+#endif /* __APPLE__ */
 
 	/*
 	 * set the fields in the header that are type dependent
 	 */
-	switch (arcn->type) {
+	switch(arcn->type) {
 	case PAX_DIR:
 		hd->typeflag = DIRTYPE;
+#ifndef __APPLE__
+		memset(hd->linkname, 0, sizeof(hd->linkname));
+		memset(hd->devmajor, 0, sizeof(hd->devmajor));
+		memset(hd->devminor, 0, sizeof(hd->devminor));
+		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
+#else
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), term_char))
+#endif /* __APPLE__ */
 			goto out;
 		break;
 	case PAX_CHR:
@@ -996,16 +1087,35 @@ ustar_wr(ARCHD *arcn)
 			hd->typeflag = CHRTYPE;
 		else
 			hd->typeflag = BLKTYPE;
+#ifndef __APPLE__
+		memset(hd->linkname, 0, sizeof(hd->linkname));
+#endif /* __APPLE__ */
 		if (ul_oct((u_long)MAJOR(arcn->sb.st_rdev), hd->devmajor,
+#ifdef __APPLE__
 		   sizeof(hd->devmajor), term_char) ||
+#else
+		   sizeof(hd->devmajor), 3) ||
+#endif /* __APPLE__ */
 		   ul_oct((u_long)MINOR(arcn->sb.st_rdev), hd->devminor,
+#ifdef __APPLE__
 		   sizeof(hd->devminor), term_char) ||
 		   ul_oct((u_long)0L, hd->size, sizeof(hd->size), term_char))
+#else
+		   sizeof(hd->devminor), 3) ||
+		   ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
+#endif /* __APPLE__ */
 			goto out;
 		break;
 	case PAX_FIF:
 		hd->typeflag = FIFOTYPE;
+#ifndef __APPLE__
+		memset(hd->linkname, 0, sizeof(hd->linkname));
+		memset(hd->devmajor, 0, sizeof(hd->devmajor));
+		memset(hd->devminor, 0, sizeof(hd->devminor));
+		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
+#else
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), term_char))
+#endif /* __APPLE__ */
 			goto out;
 		break;
 	case PAX_SLK:
@@ -1015,12 +1125,20 @@ ustar_wr(ARCHD *arcn)
 			hd->typeflag = SYMTYPE;
 		else
 			hd->typeflag = LNKTYPE;
+#ifdef __APPLE__
 		if (strlen(arcn->ln_name) == sizeof(hd->linkname)) {	/* must account for name just fits in buffer */
 			strncpy(hd->linkname, arcn->ln_name, sizeof(hd->linkname));
 		} else {
 			strlcpy(hd->linkname, arcn->ln_name, sizeof(hd->linkname));
 		}
 		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), term_char))
+#else
+		/* the link name may occupy the entire field in ustar */
+		l_strncpy(hd->linkname,arcn->ln_name, sizeof(hd->linkname));
+		memset(hd->devmajor, 0, sizeof(hd->devmajor));
+		memset(hd->devminor, 0, sizeof(hd->devminor));
+		if (ul_oct((u_long)0L, hd->size, sizeof(hd->size), 3))
+#endif /* __APPLE__ */
 			goto out;
 		break;
 	case PAX_REG:
@@ -1033,27 +1151,37 @@ ustar_wr(ARCHD *arcn)
 			hd->typeflag = CONTTYPE;
 		else
 			hd->typeflag = REGTYPE;
+#ifndef __APPLE__
+		memset(hd->linkname, 0, sizeof(hd->linkname));
+		memset(hd->devmajor, 0, sizeof(hd->devmajor));
+		memset(hd->devminor, 0, sizeof(hd->devminor));
+#endif /* __APPLE__ */
 		arcn->pad = TAR_PAD(arcn->sb.st_size);
-#		ifdef LONG_OFF_T
-		if (ul_oct((u_long)arcn->sb.st_size, hd->size,
-		    sizeof(hd->size), term_char)) {
-#		else
 		if (uqd_oct((u_quad_t)arcn->sb.st_size, hd->size,
+#ifdef __APPLE__
 		    sizeof(hd->size), term_char)) {
-#		endif
+#else
+		    sizeof(hd->size), 3)) {
+#endif /* __APPLE__*/
 			paxwarn(1,"File is too long for ustar %s",arcn->org_name);
 			return(1);
 		}
 		break;
 	}
 
+#ifdef __APPLE__
 	strncpy(hd->magic, TMAGIC, TMAGLEN);
 	strncpy(hd->version, TVERSION, TVERSLEN);
+#else
+	l_strncpy(hd->magic, TMAGIC, TMAGLEN);
+	l_strncpy(hd->version, TVERSION, TVERSLEN);
+#endif /* __APPLE__ */
 
 	/*
 	 * set the remaining fields. Some versions want all 16 bits of mode
 	 * we better humor them (they really do not meet spec though)....
 	 */
+#ifdef __APPLE__
 	if (ul_oct((u_long)arcn->sb.st_uid, hd->uid, sizeof(hd->uid), term_char)) {
 		if (uid_nobody == 0) {
 			if (uid_name("nobody", &uid_nobody) == -1)
@@ -1087,17 +1215,33 @@ ustar_wr(ARCHD *arcn)
 	mode12only = ((u_long)arcn->sb.st_mode) & 0x00000fff;
 	if (ul_oct((u_long)mode12only, hd->mode, sizeof(hd->mode), term_char) ||
 	    ul_oct((u_long)arcn->sb.st_mtime,hd->mtime,sizeof(hd->mtime),term_char))
+#else
+	if (ul_oct((u_long)arcn->sb.st_mode, hd->mode, sizeof(hd->mode), 3) ||
+	    ul_oct((u_long)arcn->sb.st_uid, hd->uid, sizeof(hd->uid), 3)  ||
+	    ul_oct((u_long)arcn->sb.st_gid, hd->gid, sizeof(hd->gid), 3) ||
+	    ul_oct((u_long)arcn->sb.st_mtime,hd->mtime,sizeof(hd->mtime),3))
+#endif /* __APPLE__ */
 		goto out;
+#ifdef __APPLE__
 	strncpy(hd->uname, name_uid(arcn->sb.st_uid, 0), sizeof(hd->uname));
 	strncpy(hd->gname, name_gid(arcn->sb.st_gid, 0), sizeof(hd->gname));
+#else
+	l_strncpy(hd->uname,name_uid(arcn->sb.st_uid, 0),sizeof(hd->uname));
+	l_strncpy(hd->gname,name_gid(arcn->sb.st_gid, 0),sizeof(hd->gname));
+#endif /* __APPLE__ */
 
 	/*
 	 * calculate and store the checksum write the header to the archive
 	 * return 0 tells the caller to now write the file data, 1 says no data
 	 * needs to be written
 	 */
+#ifdef __APPLE__
 	if (ul_oct(tar_chksm(hdblk, sizeof(HD_USTAR)), hd->chksum,
 	   sizeof(hd->chksum), term_char))
+#else
+	if (ul_oct(tar_chksm((char *)&hdblk, sizeof(HD_USTAR)), hd->chksum,
+	   sizeof(hd->chksum), 3))
+#endif /* __APPLE__ */
 		goto out;
 	if (wr_rdbuf((char *)&hdblk, sizeof(HD_USTAR)) < 0)
 		return(-1);
@@ -1108,7 +1252,7 @@ ustar_wr(ARCHD *arcn)
 	return(1);
 
     out:
-	/*
+    	/*
 	 * header field is out of range
 	 */
 	paxwarn(1, "Ustar header field is too small for %s", arcn->org_name);
@@ -1135,24 +1279,37 @@ name_split(char *name, int len)
 	/*
 	 * check to see if the file name is small enough to fit in the name
 	 * field. if so just return a pointer to the name.
-	 * The strings can fill the complete name and prefix fields
-	 * without a NUL terminator.
 	 */
 	if (len <= TNMSZ)
 		return(name);
+#ifdef __APPLE__
+	/*
+	 * The strings can fill the complete name and prefix fields
+	 * without a NUL terminator.
+	 */
 	if (len > (TPFSZ + TNMSZ + 1))
+#else
+	if (len > TPFSZ + TNMSZ)
+#endif /* __APPLE__ */
 		return(NULL);
 
 	/*
 	 * we start looking at the biggest sized piece that fits in the name
 	 * field. We walk forward looking for a slash to split at. The idea is
 	 * to find the biggest piece to fit in the name field (or the smallest
-	 * prefix we can find) (the -1 is correct the biggest piece would
-	 * include the slash between the two parts that gets thrown away)
+	 * prefix we can find)
+	 */
+#ifdef __APPLE__
+	/*
+	 * the -1 is correct the biggest piece would
+	 * include the slash between the two parts that gets thrown away
 	 */
 	start = name + len - TNMSZ - 1;
 	if ((*start == '/') && (start == name))
 		++start;	/* 101 byte paths with leading '/' are dinged otherwise */
+#else
+	start = name + len - TNMSZ;
+#endif /* __APPLE__ */
 	while ((*start != '\0') && (*start != '/'))
 		++start;
 
@@ -1179,6 +1336,7 @@ name_split(char *name, int len)
 	return(start);
 }
 
+#ifdef __APPLE__
 static size_t
 expandname(char *buf, size_t len, char **gnu_name, const char *name,
     size_t name_len)
@@ -1204,3 +1362,5 @@ expandname(char *buf, size_t len, char **gnu_name, const char *name,
 	}
 	return(nlen);
 }
+
+#endif /* __APPLE__ */

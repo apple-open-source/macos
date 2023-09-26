@@ -41,21 +41,22 @@
 namespace WebCore {
 class PlatformCALayer;
 class ThreadSafeImageBufferFlusher;
+class TiledBacking;
 }
 
 namespace WebKit {
 
 class RemoteLayerTreeContext;
-class RemoteLayerTreeDisplayRefreshMonitor;
 
 class RemoteLayerTreeDrawingArea : public DrawingArea, public WebCore::GraphicsLayerClient {
-    friend class RemoteLayerTreeDisplayRefreshMonitor;
 public:
     RemoteLayerTreeDrawingArea(WebPage&, const WebPageCreationParameters&);
     virtual ~RemoteLayerTreeDrawingArea();
 
     TransactionID nextTransactionID() const { return m_currentTransactionID.next(); }
     TransactionID lastCommittedTransactionID() const { return m_currentTransactionID; }
+
+    bool displayDidRefreshIsPending() const { return m_waitingForBackingStoreSwap; }
 
 protected:
     void updateRendering();
@@ -65,22 +66,23 @@ private:
     void setNeedsDisplay() override;
     void setNeedsDisplayInRect(const WebCore::IntRect&) override;
     void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override;
-    void updateGeometry(const WebCore::IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight& fencePort) override;
-    void adoptDisplayRefreshMonitorsFromDrawingArea(DrawingArea&) override;
+    void updateGeometry(const WebCore::IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight& fencePort, CompletionHandler<void()>&&) override;
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
-    void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
+    void setRootCompositingLayer(WebCore::Frame&, WebCore::GraphicsLayer*) override;
+    void addRootFrame(WebCore::FrameIdentifier) final;
     void triggerRenderingUpdate() override;
-    void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) override;
+    bool scheduleRenderingUpdate() final;
+    void renderingUpdateFramesPerSecondChanged() final;
+    void attachViewOverlayGraphicsLayer(WebCore::FrameIdentifier, WebCore::GraphicsLayer*) override;
 
-    void addTransactionCallbackID(CallbackID) override;
+    void dispatchAfterEnsuringDrawing(IPC::AsyncReplyID) final;
     virtual void willCommitLayerTree(RemoteLayerTreeTransaction&) { };
 
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) final;
-    void willDestroyDisplayRefreshMonitor(WebCore::DisplayRefreshMonitor*);
     void setPreferredFramesPerSecond(WebCore::FramesPerSecond);
 
-    bool shouldUseTiledBackingForFrameView(const WebCore::FrameView&) const override;
+    bool shouldUseTiledBackingForFrameView(const WebCore::LocalFrameView&) const override;
 
     void updatePreferences(const WebPreferencesStore&) override;
 
@@ -97,8 +99,8 @@ private:
     void setViewExposedRect(std::optional<WebCore::FloatRect>) override;
     std::optional<WebCore::FloatRect> viewExposedRect() const override { return m_viewExposedRect; }
 
-    void acceleratedAnimationDidStart(WebCore::GraphicsLayer::PlatformLayerID, const String& key, MonotonicTime startTime) override;
-    void acceleratedAnimationDidEnd(WebCore::GraphicsLayer::PlatformLayerID, const String& key) override;
+    void acceleratedAnimationDidStart(WebCore::PlatformLayerIdentifier, const String& key, MonotonicTime startTime) override;
+    void acceleratedAnimationDidEnd(WebCore::PlatformLayerIdentifier, const String& key) override;
 
     WebCore::FloatRect exposedContentRect() const override;
     void setExposedContentRect(const WebCore::FloatRect&) override;
@@ -107,9 +109,9 @@ private:
 
     void setDeviceScaleFactor(float) override;
 
-    void mainFrameContentSizeChanged(const WebCore::IntSize&) override;
+    void mainFrameContentSizeChanged(WebCore::FrameIdentifier, const WebCore::IntSize&) override;
 
-    void activityStateDidChange(OptionSet<WebCore::ActivityState::Flag> changed, ActivityStateChangeID, CompletionHandler<void()>&&) override;
+    void activityStateDidChange(OptionSet<WebCore::ActivityState> changed, ActivityStateChangeID, CompletionHandler<void()>&&) override;
 
     bool addMilestonesToDispatch(OptionSet<WebCore::LayoutMilestone>) override;
 
@@ -124,6 +126,10 @@ private:
     void tryMarkLayersVolatile(CompletionHandler<void(bool succeeded)>&&) final;
 
     void adoptLayersFromDrawingArea(DrawingArea&) final;
+
+    void setNextRenderingUpdateRequiresSynchronousImageDecoding() final;
+
+    void scheduleRenderingUpdateTimerFired();
 
     class BackingStoreFlusher : public ThreadSafeRefCounted<BackingStoreFlusher> {
     public:
@@ -143,14 +149,22 @@ private:
     };
 
     std::unique_ptr<RemoteLayerTreeContext> m_remoteLayerTreeContext;
-    Ref<WebCore::GraphicsLayer> m_rootLayer;
+    
+    struct RootLayerInfo {
+        Ref<WebCore::GraphicsLayer> layer;
+        RefPtr<WebCore::GraphicsLayer> contentLayer;
+        RefPtr<WebCore::GraphicsLayer> viewOverlayRootLayer;
+        WebCore::FrameIdentifier frameID;
+    };
+    RootLayerInfo* rootLayerInfoWithFrameIdentifier(WebCore::FrameIdentifier);
+
+    Vector<RootLayerInfo, 1> m_rootLayers;
 
     std::optional<WebCore::FloatRect> m_viewExposedRect;
 
     WebCore::Timer m_updateRenderingTimer;
     bool m_isRenderingSuspended { false };
     bool m_hasDeferredRenderingUpdate { false };
-    bool m_nextRenderingUpdateRequiresSynchronousImageDecoding { false };
     bool m_inUpdateRendering { false };
 
     bool m_waitingForBackingStoreSwap { false };
@@ -159,17 +173,16 @@ private:
     OSObjectPtr<dispatch_queue_t> m_commitQueue;
     RefPtr<BackingStoreFlusher> m_pendingBackingStoreFlusher;
 
-    HashSet<RemoteLayerTreeDisplayRefreshMonitor*> m_displayRefreshMonitors;
-    HashSet<RemoteLayerTreeDisplayRefreshMonitor*>* m_displayRefreshMonitorsToNotify { nullptr };
-
     TransactionID m_currentTransactionID;
-    Vector<RemoteLayerTreeTransaction::TransactionCallbackID> m_pendingCallbackIDs;
+    Vector<IPC::AsyncReplyID> m_pendingCallbackIDs;
     ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
 
     OptionSet<WebCore::LayoutMilestone> m_pendingNewlyReachedPaintingMilestones;
 
-    RefPtr<WebCore::GraphicsLayer> m_contentLayer;
-    RefPtr<WebCore::GraphicsLayer> m_viewOverlayRootLayer;
+    WebCore::Timer m_scheduleRenderingTimer;
+    std::optional<WebCore::FramesPerSecond> m_preferredFramesPerSecond;
+    Seconds m_preferredRenderingUpdateInterval;
+    bool m_isScheduled { false };
 };
 
 inline bool RemoteLayerTreeDrawingArea::addMilestonesToDispatch(OptionSet<WebCore::LayoutMilestone> paintMilestones)

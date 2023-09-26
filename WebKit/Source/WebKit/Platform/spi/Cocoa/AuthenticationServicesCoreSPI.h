@@ -135,10 +135,9 @@ typedef NS_ENUM(NSInteger, ASCSecurityKeyPublicKeyCredentialKind) {
 
 @interface ASCWebAuthenticationExtensionsClientInputs : NSObject <NSCopying, NSSecureCoding>
 
-- (instancetype)initWithAppID:(NSString * _Nullable)appID isGoogleLegacyAppIDSupport:(BOOL)isGoogleLegacyAppIDSupport NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithAppID:(NSString * _Nullable)appID NS_DESIGNATED_INITIALIZER;
 
 @property (nonatomic, nullable, copy) NSString *appID;
-@property (nonatomic) BOOL isGoogleLegacyAppIDSupport;
 
 @end
 
@@ -276,6 +275,10 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 @property (nonatomic) ASCredentialRequestStyle requestStyle;
 
 @property (nonatomic, nullable, copy) ASGlobalFrameIdentifier *globalFrameID;
+
+#if TARGET_OS_IOS
+@property (nonatomic, copy) NSString *windowSceneIdentifier;
+#endif
 @end
 
 @protocol ASCCredentialProtocol <NSObject, NSSecureCoding>

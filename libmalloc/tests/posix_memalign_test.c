@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
 
 static inline void*
 t_posix_memalign(size_t alignment, size_t size, bool scribble)
@@ -80,10 +80,14 @@ T_DECL(posix_memalign_allocate_size_0, "posix_memalign should return something t
 	free(ptr);
 }
 
-#if __LP64__ && TARGET_OS_OSX
+#if defined(__LP64__) && TARGET_OS_OSX
 T_DECL(posix_memalign_large, "posix_memalign all power of two alignments up to 64GB")
 {
-	for (size_t alignment = sizeof(void*); alignment <= UINT64_C(68719476736); alignment *= 2) {
+	uint64_t max_alignment = UINT64_C(68719476736);
+	if (getenv("MallocSecureAllocator")) {
+		max_alignment = 1024 * 1024; // TODO: support for larger alignments
+	}
+	for (size_t alignment = sizeof(void*); alignment <= max_alignment; alignment *= 2) {
 		// don't scribble - we don't want to actually touch that many pages, we just
 		// verify that the allocated pointer looks reasonable
 		void* ptr = t_posix_memalign(alignment, alignment, false);

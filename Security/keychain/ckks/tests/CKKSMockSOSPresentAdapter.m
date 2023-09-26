@@ -3,20 +3,20 @@
 
 @interface CKKSMockSOSPresentAdapter()
 @property CKKSListenerCollection* peerChangeListeners;
+@property bool isSOSEnabled;
 @end
 
 @implementation CKKSMockSOSPresentAdapter
 @synthesize essential = _essential;
-@synthesize sosEnabled = _sosEnabled;
 
 - (instancetype)initWithSelfPeer:(CKKSSOSSelfPeer*)selfPeer
-                    trustedPeers:(NSSet<CKKSSOSPeer*>*)trustedPeers
+                    trustedPeers:(NSSet<id<CKKSSOSPeerProtocol>>*)trustedPeers
                        essential:(BOOL)essential
 {
     if((self = [super init])) {
-        _sosEnabled = true;
         _essential = essential;
-
+        _isSOSEnabled = true;
+        
         _circleStatus = kSOSCCInCircle;
         _safariViewEnabled = YES;
 
@@ -39,6 +39,16 @@
     return self;
 }
 
+- (bool)sosEnabled
+{
+    return self.isSOSEnabled;
+}
+
+- (void)setSOSEnabled:(bool)isEnabled
+{
+    self.isSOSEnabled = isEnabled;
+}
+
 - (NSString*)providerID
 {
     return [NSString stringWithFormat:@"[CKKSMockSOSPresentAdapter: %@]", self.selfPeer.peerID];
@@ -46,7 +56,7 @@
 
 - (SOSCCStatus)circleStatus:(NSError * _Nullable __autoreleasing * _Nullable)error
 {
-    if(!self.sosEnabled || self.circleStatus == kSOSCCError) {
+    if(![self isSOSEnabled] || self.circleStatus == kSOSCCError) {
         if(error && self.circleStatus == kSOSCCError) {
             // I'm not at all sure that the second error here actually is any error in particular
             *error = self.circleStatusError ?: [NSError errorWithDomain:(__bridge NSString*)kSOSErrorDomain code:self.circleStatus userInfo:nil];
@@ -75,7 +85,7 @@
         return nil;
     }
 
-    if(self.sosEnabled && self.circleStatus == kSOSCCInCircle) {
+    if([self isSOSEnabled] && self.circleStatus == kSOSCCInCircle) {
         return self.selfPeer;
     } else {
         if(error) {
@@ -105,7 +115,7 @@
     }
 
     // TODO: I'm actually not entirely sure what SOS does if it's not in circle?
-    if(self.sosEnabled && self.circleStatus == kSOSCCInCircle) {
+    if([self isSOSEnabled] && self.circleStatus == kSOSCCInCircle) {
         if(self.excludeSelfPeerFromTrustSet) {
             return self.trustedPeers;
         } else {

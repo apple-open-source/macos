@@ -67,13 +67,6 @@ struct PythonContext py_ctx = {
 };
 
 
-int
-py_is_sudo_log_available(void)
-{
-    debug_decl(py_is_sudo_log_available, PYTHON_DEBUG_INTERNAL);
-    debug_return_int(py_ctx.sudo_log != &_sudo_printf_default);
-}
-
 char *
 py_join_str_list(PyObject *py_str_list, const char *separator)
 {
@@ -104,7 +97,7 @@ cleanup:
     debug_return_str(result);
 }
 
-char *
+static char *
 py_create_traceback_string(PyObject *py_traceback)
 {
     debug_decl(py_create_traceback_string, PYTHON_DEBUG_INTERNAL);
@@ -212,7 +205,7 @@ py_str_array_from_tuple(PyObject *py_tuple)
     Py_ssize_t tuple_size = PyTuple_Size(py_tuple);
 
     // we need an extra 0 at the end
-    char **result = calloc(Py_SSIZE2SIZE(tuple_size) + 1, sizeof(char*));
+    char **result = calloc(tuple_size + 1, sizeof(char *));
     if (result == NULL) {
         debug_return_ptr(NULL);
     }
@@ -238,11 +231,11 @@ py_str_array_from_tuple(PyObject *py_tuple)
 }
 
 PyObject *
-py_tuple_get(PyObject *py_tuple, Py_ssize_t index, PyTypeObject *expected_type)
+py_tuple_get(PyObject *py_tuple, Py_ssize_t idx, PyTypeObject *expected_type)
 {
     debug_decl(py_tuple_get, PYTHON_DEBUG_INTERNAL);
 
-    PyObject *py_item = PyTuple_GetItem(py_tuple, index);
+    PyObject *py_item = PyTuple_GetItem(py_tuple, idx);
     if (py_item == NULL) {
         debug_return_ptr(NULL);
     }
@@ -250,7 +243,7 @@ py_tuple_get(PyObject *py_tuple, Py_ssize_t index, PyTypeObject *expected_type)
     if (!PyObject_TypeCheck(py_item, expected_type)) {
         PyErr_Format(PyExc_ValueError, "Value error: tuple element %d should "
                                        "be a '%s' (but it is '%s')",
-                     index, expected_type->tp_name, Py_TYPENAME(py_item));
+                     idx, expected_type->tp_name, Py_TYPENAME(py_item));
         debug_return_ptr(NULL);
     }
 
@@ -295,10 +288,33 @@ py_create_string_rep(PyObject *py_object)
     if (py_string != NULL) {
         const char *bytes = PyUnicode_AsUTF8(py_string);
         if (bytes != NULL) {
-            result = strdup(bytes);
+	    /*
+	     * Convert from old format w/ numeric value to new without it.
+	     * Old: (<DEBUG.ERROR: 2>, 'ERROR level debug message')
+	     * New: (DEBUG.ERROR, 'ERROR level debug message')
+	     */
+	    if (bytes[0] == '(' && bytes[1] == '<') {
+		const char *colon = strchr(bytes + 2, ':');
+		if (colon != NULL && colon[1] == ' ') {
+		    const char *cp = colon + 2;
+		    while (isdigit((unsigned char)*cp))
+			cp++;
+		    if (cp[0] == '>' && (cp[1] == ',' || cp[1] == '\0')) {
+			bytes += 2;
+			if (asprintf(&result, "(%.*s%s", (int)(colon - bytes),
+				bytes, cp + 1) == -1) {
+			    result = NULL;
+			    goto done;
+			}
+		    }
+		}
+	    }
+	    if (result == NULL)
+		result = strdup(bytes);
         }
     }
 
+done:
     Py_XDECREF(py_string);
     debug_return_ptr(result);
 }
@@ -324,6 +340,10 @@ _py_debug_python_function(const char *class_name, const char *function_name, con
 		}
 	    }
             args_str = py_create_string_rep(py_args);
+	    if (args_str != NULL && strncmp(args_str, "RC.", 3) == 0) {
+		/* Strip leading RC. to match python 3.10 behavior. */
+		memmove(args_str, args_str + 3, strlen(args_str + 3) + 1);
+	    }
             if (py_args_sorted != NULL)
                 Py_DECREF(py_args_sorted);
         }

@@ -879,6 +879,7 @@ Reason QueryNewPassphrase::query()
             break;
         default:
             assert(false);
+            break;
     }
 
 	do

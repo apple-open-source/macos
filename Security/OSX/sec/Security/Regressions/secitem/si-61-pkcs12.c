@@ -37,21 +37,29 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <utilities/array_size.h>
 #include "shared_regressions.h"
 #include "si-61-pkcs12.h"
 
 #if TARGET_OS_OSX
-static void delete_identity(SecCertificateRef cert, SecKeyRef pkey) {
+static void delete_identity(SecCertificateRef cert, SecKeyRef pkey, Boolean useDPKC) {
     CFMutableDictionaryRef query = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks,
                                                              &kCFTypeDictionaryValueCallBacks);
     CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
     CFDictionaryAddValue(query, kSecValueRef, cert);
+    if (useDPKC) {
+        CFDictionaryAddValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+        CFDictionaryAddValue(query, kSecAttrSynchronizable, kCFBooleanTrue);
+    }
     SecItemDelete(query);
 
     CFDictionaryRemoveAllValues(query);
     CFDictionaryAddValue(query, kSecClass, kSecClassKey);
     CFDictionaryAddValue(query, kSecValueRef, pkey);
+    if (useDPKC) {
+        CFDictionaryAddValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+        CFDictionaryAddValue(query, kSecAttrSynchronizable, kCFBooleanTrue);
+    }
     SecItemDelete(query);
     CFReleaseNull(query);
 }
@@ -98,7 +106,7 @@ static void tests(void)
 #if TARGET_OS_OSX
     /* We need to delete the identity from the keychain because SecPKCS12Import imports to the
      * keychain on macOS. */
-    delete_identity(cert, pkey);
+    delete_identity(cert, pkey, FALSE);
 #endif
 
     CFReleaseNull(items);
@@ -128,7 +136,7 @@ static void tests(void)
     ok_status(SecIdentityCopyCertificate(identity, &cert), "get certificate");
 
 #if TARGET_OS_OSX
-    delete_identity(cert, pkey);
+    delete_identity(cert, pkey, FALSE);
 #endif
 
 
@@ -181,7 +189,7 @@ static void tests(void)
     ok(SecKeyVerifySignature(pubkey, kSecKeyAlgorithmECDSASignatureMessageX962SHA256, message, signature, NULL), "verify sig on something");
 
 #if TARGET_OS_OSX
-    delete_identity(cert, pkey);
+    delete_identity(cert, pkey, FALSE);
 #endif
 
     CFReleaseNull(pubkey);
@@ -227,7 +235,7 @@ static void tests(void)
 
 
 #if TARGET_OS_OSX
-    delete_identity(cert, pkey);
+    delete_identity(cert, pkey, FALSE);
 #endif
 
     CFReleaseNull(items);
@@ -259,12 +267,82 @@ static void test_cert_decode_error(void) {
 
 }
 
+#if TARGET_OS_OSX
+static void test_data_protection_kc(void)
+{
+    CFDataRef message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+        _user_one_p12, sizeof(_user_one_p12), kCFAllocatorNull);
+    CFArrayRef items = NULL;
+    CFStringRef password = CFSTR("user-one");
+    SecCertificateRef cert = NULL;
+    SecKeyRef pkey = NULL;
+
+    const void *keys[] = {
+        kSecImportExportPassphrase,
+        kSecUseDataProtectionKeychain,
+        kSecAttrSynchronizable
+    };
+    const void *values[] = {
+        password,
+        kCFBooleanTrue,
+        kCFBooleanTrue
+    };
+    CFDictionaryRef options = CFDictionaryCreate(NULL, keys, values,
+        array_size(keys), &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+
+    ok_status(SecPKCS12Import(message, options, &items), "import to data protection kc");
+    is(CFArrayGetCount(items), 1, "one identity");
+    CFDictionaryRef item = CFArrayGetValueAtIndex(items, 0);
+    SecIdentityRef identity = NULL;
+    ok(identity = (SecIdentityRef)CFDictionaryGetValue(item, kSecImportItemIdentity), "pull identity from imported data");
+
+    ok(CFGetTypeID(identity)==SecIdentityGetTypeID(),"this is a SecIdentityRef");
+    ok_status(SecIdentityCopyPrivateKey(identity, &pkey),"get private key");
+    ok_status(SecIdentityCopyCertificate(identity, &cert), "get certificate");
+
+    CFStringRef group = CFSTR("com.apple.security.regressions");
+    const void *identkeys[] = {
+        kSecClass,
+        kSecAttrAccessGroup,
+        kSecUseDataProtectionKeychain,
+        kSecAttrSynchronizable,
+        kSecReturnRef
+    };
+    const void *identvalues[] = {
+        kSecClassIdentity,
+        group,
+        kCFBooleanTrue,
+        kCFBooleanTrue,
+        kCFBooleanTrue
+    };
+    CFDictionaryRef query = CFDictionaryCreate(NULL, identkeys, identvalues,
+        array_size(identkeys), &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+
+    CFTypeRef result = NULL;
+    ok_status(SecItemCopyMatching(query, &result), "found identity");
+    ok(CFEqual(identity, result), "identity matches");
+
+    delete_identity(cert, pkey, TRUE);
+
+    CFReleaseNull(message);
+    CFReleaseNull(items);
+    CFReleaseNull(options);
+    CFReleaseNull(pkey);
+    CFReleaseNull(cert);
+
+}
+#endif /* TARGET_OS_OSX */
+
 int si_61_pkcs12(int argc, char *const *argv)
 {
 	plan_tests(33);
 
 	tests();
     test_cert_decode_error();
-
+#if TARGET_OS_OSX
+    test_data_protection_kc();
+#endif
 	return 0;
 }

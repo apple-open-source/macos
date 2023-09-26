@@ -377,9 +377,26 @@ _cupsConvertOptions(
     if (value)
       job_pages = atoi(value);
 
-    // Adjust for number-up
+    // Adjust for number-up (default is 1)
     if ((value = cupsGetOption("number-up", num_options, options)) != NULL)
-      number_up = atoi(value);
+    {
+      int intval = atoi(value);
+      switch (intval)
+      {
+	case 1 :
+	case 2 :
+	case 4 :
+	case 6 :
+	case 9 :
+	case 16 :
+	  number_up = intval;
+	  break;
+	default :
+	  DEBUG_printf(("Unsupported number-up value %d, using number-up=1.", intval));
+	  number_up = 1;
+	  break;
+      }
+    }
 
     job_pages = (job_pages + number_up - 1) / number_up;
 

@@ -192,7 +192,7 @@ static void SOSCircleRemoveWindowsPeers(SOSCircleRef circle) {
 static void SOSCircleRemovePeersNotInMidlist(SOSCircleRef circle) {
     __block SOSAuthKitHelpers *akh = nil;
 
-    if([SOSAuthKitHelpers accountIsHSA2]) {
+    if([SOSAuthKitHelpers accountIsCDPCapable]) {
         [SOSAuthKitHelpers activeMIDs:^(NSSet <SOSTrustedDeviceAttributes *> * _Nullable activeMIDs, NSError * _Nullable error) {
             akh = [[SOSAuthKitHelpers alloc] initWithActiveMIDS:activeMIDs];
         }];

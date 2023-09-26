@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,10 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <SystemConfiguration/SCPreferences.h>
 #include "symbol_scope.h"
+
+#if TARGET_OS_IPHONE
+typedef void AuthorizationExternalForm;
+#endif
 
 /*
  * EAPOLClientConfigurationInternal.h

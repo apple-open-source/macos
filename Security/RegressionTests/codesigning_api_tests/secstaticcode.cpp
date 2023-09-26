@@ -430,7 +430,7 @@ modifyBinaryPage(const char *path)
     for (Universal::Architectures::const_iterator arch = architectures.begin(); arch != architectures.end(); ++arch) {
         unique_ptr<MachO> slice(uv.architecture(*arch));
         // Skip ahead to about 3 pages into the slice to skip past the header.
-        size_t location = slice->offset() + (3 * 0x400);
+        size_t location = slice->offset() + (3 * 0x1000);
         INFO("modifying binary at offset: %lx", location);
         lseek(fd, location, SEEK_SET);
         const char *data = "ERROR";
@@ -493,21 +493,21 @@ CheckSingleResourceValidationAPI(void)
     }
 
     // Check that it can validate a specific sub-bundle directly.
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc"), kSecCSDefaultFlags, &error);
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Applications/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc"), kSecCSDefaultFlags, &error);
     if (status != errSecSuccess) {
         FAIL("Failed to succeed validation of nested code: %d", status);
         goto done;
     }
 
     // Check that it can validate a specific resource within a sub-bundle.
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Resources/WebContentProcess.nib"), kSecCSDefaultFlags, &error);
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Applications/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/Resources/en.lproj/Localizable.strings"), kSecCSDefaultFlags, &error);
     if (status != errSecSuccess) {
         FAIL("Failed to succeed validation of nested code: %d", status);
         goto done;
     }
 
     // Check it can validate the main executable file of a nested bundle.
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari"), kSecCSDefaultFlags, &error);
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Applications/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/MacOS/com.apple.Safari.SandboxBroker"), kSecCSDefaultFlags, &error);
     if (status != errSecSuccess) {
         FAIL("Failed to succeed validation for the main executable: %d", status);
         goto done;
@@ -531,7 +531,7 @@ CheckSingleResourceValidationAPI(void)
         FAIL("Failed to reject binary within an omission hole: %d", status);
         goto done;
     }
-    system("rm /Applications/Safari.app/Contents/.DS_Store");
+    system("rm /tmp/Safari.app/Contents/.DS_Store");
 
     // Verify that if a file is modified, the resource is no longer valid.
     system("echo 'hello' >> /tmp/Safari.app/Contents/Resources/BuiltInBookmarks_ca.plist");
@@ -543,43 +543,43 @@ CheckSingleResourceValidationAPI(void)
     system("cp /Applications/Safari.app/Contents/Resources/BuiltInBookmarks_ca.plist /tmp/Safari.app/Contents/Resources/BuiltInBookmarks_ca.plist");
 
     // Verify that if a nested bundle doesn't pass basic validation, its resources cannot be valid.
-    system("echo 'hello' >> /tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Info.plist");
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Resources/WebContentProcess.nib"), kSecCSDefaultFlags, &error);
+    system("echo 'hello' >> /tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/Info.plist");
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/Resources/en.lproj/Localizable.strings"), kSecCSDefaultFlags, &error);
     if (status != errSecCSInfoPlistFailed) {
         FAIL("Failed to succeed validation of nested code: %d", status);
         goto done;
     }
-    system("cp /Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Info.plist /tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Info.plist");
+    system("cp /Applications/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/Info.plist /tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/Info.plist");
 
     // Verify that if a nested bundle has its resource modified, its noticed during default validation.
-    modifyBinaryPage("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari");
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari"), kSecCSDefaultFlags, &error);
+    modifyBinaryPage("/tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/MacOS/com.apple.Safari.SandboxBroker");
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/MacOS/com.apple.Safari.SandboxBroker"), kSecCSDefaultFlags, &error);
     if (status != errSecCSSignatureFailed) {
         FAIL("Failed to detect tampering in main executable: %d", status);
         goto done;
     }
 
     // And confirm that validating it by the bundle itself behaves the same.
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc"), kSecCSDefaultFlags, &error);
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc"), kSecCSDefaultFlags, &error);
     if (status != errSecCSSignatureFailed) {
         FAIL("Failed to detect tampering in main executable (bundle): %d", status);
         goto done;
     }
 
     // Verify that if a nested bundle has its resource modified and the 'fast validation' flag is used, its not noticed during resource validation.
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari"), kSecCSFastExecutableValidation, &error);
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/MacOS/com.apple.Safari.SandboxBroker"), kSecCSFastExecutableValidation, &error);
     if (status != errSecSuccess) {
         FAIL("Failed to allow tampered executable with fast validation: %d", status);
         goto done;
     }
 
     // And confirm that validating it by the bundle itself behaves the same.
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc"), kSecCSFastExecutableValidation, &error);
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc"), kSecCSFastExecutableValidation, &error);
     if (status != errSecSuccess) {
         FAIL("Failed to allow tampered executable with fast validation (bundle): %d", status);
         goto done;
     }
-    system("cp /Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari /tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari");
+    system("cp /Applications/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/MacOS/com.apple.Safari.SandboxBroker.xpc /tmp/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/MacOS/com.apple.Safari.SandboxBroker.xpc");
 
     // Create new SecStaticCode object referencing a framework outside the ARV.
     url.take(CFURLCreateWithString(NULL, CFSTR("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework"), NULL));

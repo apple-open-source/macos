@@ -16,7 +16,7 @@
 #include "test_utils.h"
 #include "systemx.h"
 
-bool verify_times(const char *timename, struct timespec *expected, struct timespec *actual) {
+bool verify_times(const char *timename, const struct timespec *expected, const struct timespec *actual) {
 	bool equal = true;
 
 	if (expected->tv_sec != actual->tv_sec) {
@@ -148,18 +148,19 @@ bool verify_fd_xattr_contents(int orig_fd, int copy_fd) {
 	return equal;
 }
 
-bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect) {
+bool verify_st_flags(const struct stat *sb, uint32_t flags_to_check, uint32_t expected_flags) {
 	// Verify that sb's flags include flags_to_expect.
-	if (((sb->st_flags & flags_to_expect)) != flags_to_expect) {
-		printf("st_flags (%u) do not include expected flags (%u)\n",
-			sb->st_flags, flags_to_expect);
+	uint32_t actual_flags = (sb->st_flags & flags_to_check);
+	if (actual_flags != expected_flags) {
+		printf("st_flags (%#x & %#x) == %#x do not match expected flags (%#x)\n",
+			sb->st_flags, flags_to_check, actual_flags, expected_flags);
 		return false;
 	}
 
 	return true;
 }
 
-bool verify_st_ids_and_mode(struct stat *expected, struct stat *actual) {
+bool verify_st_ids_and_mode(const struct stat *expected, const struct stat *actual) {
 	// verify that UID, GID, and perms are as expected
 	bool equal = true;
 
@@ -228,7 +229,7 @@ bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos
 
 	// Read the contents into our temporary buffers, and call memcmp().
 	errno = 0;
-	ssize_t pread_res = pread(orig_fd, orig_contents, length, 0);
+	ssize_t pread_res = pread(orig_fd, orig_contents, length, orig_pos);
 	assert_with_errno(pread_res == (off_t) length);
 	assert_with_errno(pread(copy_fd, copy_contents, length, copy_pos) >= 0);
 	equal = (memcmp(orig_contents, copy_contents, length) == 0);
@@ -262,7 +263,7 @@ bool verify_copy_contents(const char *orig_name, const char *copy_name) {
 	return !rc;
 }
 
-bool verify_copy_sizes(struct stat *orig_sb, struct stat *copy_sb, copyfile_state_t cpf_state,
+bool verify_copy_sizes(const struct stat *orig_sb, const struct stat *copy_sb, copyfile_state_t cpf_state,
 					   bool do_sparse, off_t src_start) {
 	off_t cpf_bytes_copied, blocks_offset;
 	bool result = true;
@@ -312,10 +313,7 @@ void write_compressible_data(int fd) {
 	char dbuf[4096];
 
 	// write some easily compressible data
-	memset(dbuf + 0*(sizeof(dbuf)/4), 'A', sizeof(dbuf)/4);
-	memset(dbuf + 1*(sizeof(dbuf)/4), 'B', sizeof(dbuf)/4);
-	memset(dbuf + 2*(sizeof(dbuf)/4), 'C', sizeof(dbuf)/4);
-	memset(dbuf + 3*(sizeof(dbuf)/4), 'D', sizeof(dbuf)/4);
+	memset_pattern4(dbuf, "ABCD", sizeof(dbuf));
 	for (int idx = 0; idx < 32; idx++) {
 		check_io(write(fd, dbuf, sizeof(dbuf)), sizeof(dbuf));
 	}
@@ -330,7 +328,12 @@ void create_test_file_name(const char *dir, const char *postfix, int id, char *s
 	assert_with_errno(snprintf(string_out, BSIZE_B, "%s/testfile-%d.%s", dir, id, postfix) > 0);
 }
 
-void disk_image_create(const char *fstype, size_t size_in_mb) {
+#if TARGET_OS_OSX
+
+// We only support one disk image mounted at a time,
+// but it can be at any path.
+// This is macOS only as hdiutil is not meaningful on iOS.
+void disk_image_create(const char *fstype, const char *mount_path, size_t size_in_mb) {
 	char size[BSIZE_B];
 
 	// Set up good default values.
@@ -340,28 +343,32 @@ void disk_image_create(const char *fstype, size_t size_in_mb) {
 	if (size_in_mb > MAX_DISK_IMAGE_SIZE_MB) {
 		size_in_mb = MAX_DISK_IMAGE_SIZE_MB;
 	}
-	assert_with_errno(snprintf(size, BSIZE_B, "%zum", size_in_mb) >= 3);
+	assert_with_errno(snprintf(size, BSIZE_B, "%zum", size_in_mb) >= 2);
 
 	// Unmount and remove the sparseimage if it already exists.
-	disk_image_destroy(true);
-	if (removefile(DISK_IMAGE_PATH, NULL, REMOVEFILE_RECURSIVE) < 0) {
-		assert_with_errno(errno == ENOENT);
-	}
+	disk_image_destroy(mount_path, true);
 
 	// Make the disk image.
 	assert_no_err(systemx(HDIUTIL_PATH, SYSTEMX_QUIET, "create", "-fs", fstype,
-						  "-size", size, "-type", "SPARSE", "-volname", "apfs_sparse",
+						  "-size", size, "-type", "SPARSE", "-volname", "copyfile_test",
 						  DISK_IMAGE_PATH, NULL));
 
 	// Attach the disk image.
-	assert_no_err(systemx(HDIUTIL_PATH, SYSTEMX_QUIET, "attach", DISK_IMAGE_PATH, NULL));
+	assert_no_err(systemx(HDIUTIL_PATH, SYSTEMX_QUIET, "attach", DISK_IMAGE_PATH,
+		"-mountpoint", mount_path, NULL));
 }
 
-void disk_image_destroy(bool allow_failure) {
+void disk_image_destroy(const char *mount_path, bool allow_failure) {
 	// If the caller allows, ignore any failures (also silence stderr).
 	if (allow_failure) {
-		systemx(HDIUTIL_PATH, "eject", MOUNT_PATH, SYSTEMX_QUIET, SYSTEMX_QUIET_STDERR, NULL);
+		systemx(HDIUTIL_PATH, "eject", mount_path, SYSTEMX_QUIET, SYSTEMX_QUIET_STDERR, NULL);
 	} else {
-		assert_no_err(systemx(HDIUTIL_PATH, "eject", MOUNT_PATH, SYSTEMX_QUIET, NULL));
+		assert_no_err(systemx(HDIUTIL_PATH, "eject", mount_path, SYSTEMX_QUIET, NULL));
+	}
+
+	if ((removefile(DISK_IMAGE_PATH, NULL, REMOVEFILE_RECURSIVE)) && !allow_failure) {
+		assert_with_errno(errno == ENOENT);
 	}
 }
+
+#endif

@@ -12,6 +12,12 @@ include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common
 ifneq ($(PLATFORM),MacOSX)
 EXCLUDED_SOURCES += locale.c
 EXCLUDED_SOURCES += os_boot_mode.c
+else
+# All of FreeBSD's libc tests are going to be ATF tests, and ATF isn't currently
+# available outside of macOS.  We'll exclude them from the build and also not
+# include them in the testing .plist until we have some non-ATF test to add to
+# it.
+BATS_PLISTS += $(SRCROOT)/FreeBSD/freebsd.plist
 endif
 
 FRAMEWORK_CFLAGS := $(patsubst %,-iframework %,$(SYSTEM_FRAMEWORK_SEARCH_PATHS))
@@ -27,6 +33,7 @@ ASAN_DYLIB_PATH := /usr/appleinternal/lib/sanitizers/
 
 OTHER_LDFLAGS := -umbrella System -L/usr/lib/system -lsystem_collections
 
+abort_tests: OTHER_CFLAGS += -fstack-check
 strtod: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
 strtof: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
 strtold: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas

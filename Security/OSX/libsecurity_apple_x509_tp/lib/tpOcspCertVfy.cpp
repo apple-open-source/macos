@@ -469,7 +469,7 @@ OcspRespStatus tpVerifyOcspResp(
 		switch(issuerStat) {
 			case OIS_BadSig:
 				foundBadIssuer = true;
-				/* drop thru */
+				[[fallthrough]];
 			case OIS_No:
 				if(responderInfo != NULL) {
 					/* can't use it - should this be an immediate error? */

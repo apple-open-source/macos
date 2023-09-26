@@ -125,12 +125,11 @@ int     test_request(LOCKD_MSG *);
 void    show(LOCKD_MSG *);
 int     unlock_request(LOCKD_MSG *);
 
-#define d_calls (config.verbose > 1)
-#define d_args (config.verbose > 2)
+#define d_calls (l_config.verbose > 1)
+#define d_args (l_config.verbose > 2)
 
 static const char *
-from_addr(saddr)
-struct sockaddr *saddr;
+from_addr(struct sockaddr *saddr)
 {
 	static char inet_buf[INET6_ADDRSTRLEN];
 
@@ -174,7 +173,7 @@ shutdown_timer(void)
 {
 	if (!shutdown_time_client || !shutdown_time_server) {
 		/* don't shut down yet, something's still running */
-		if (config.verbose) {
+		if (l_config.verbose) {
 			int mounts, servers, maxservers;
 			get_client_and_server_state(&mounts, &servers, &maxservers);
 			syslog(LOG_DEBUG, "shutdown_timer: %ld %ld, mounts %d servers %d %d\n",
@@ -321,13 +320,13 @@ svc_lockd_shutdown(mach_port_t mp __attribute__((unused)))
 
 	if ((!servers || !maxservers) && !shutdown_time_server) {
 		/* nfsd is no longer running, set server shutdown time */
-		syslog(LOG_DEBUG, "lockd_shutdown: server, delay %d", config.shutdown_delay_server);
-		shutdown_time_server = now.tv_sec + config.shutdown_delay_server;
+		syslog(LOG_DEBUG, "lockd_shutdown: server, delay %d", l_config.shutdown_delay_server);
+		shutdown_time_server = now.tv_sec + l_config.shutdown_delay_server;
 	}
 	if (!mounts && !shutdown_time_client) {
 		/* must have just unmounted last mount, set client shutdown time */
-		syslog(LOG_DEBUG, "lockd_shutdown: client, delay %d", config.shutdown_delay_client);
-		shutdown_time_client = now.tv_sec + config.shutdown_delay_client;
+		syslog(LOG_DEBUG, "lockd_shutdown: client, delay %d", l_config.shutdown_delay_client);
+		shutdown_time_client = now.tv_sec + l_config.shutdown_delay_client;
 	}
 
 	if (!shutdown_time_client || !shutdown_time_server) {
@@ -419,13 +418,13 @@ client_mach_request(void)
 
 	if (!servers || !maxservers) {
 		/* nfsd is not running, set server shutdown time */
-		shutdown_time_server = now.tv_sec + config.shutdown_delay_server;
+		shutdown_time_server = now.tv_sec + l_config.shutdown_delay_server;
 	} else {
 		shutdown_time_server = 0;
 	}
 	if (!mounts) {
 		/* no NFS mounts, set client shutdown time */
-		shutdown_time_client = now.tv_sec + config.shutdown_delay_client;
+		shutdown_time_client = now.tv_sec + l_config.shutdown_delay_client;
 	} else {
 		shutdown_time_client = 0;
 	}
@@ -456,9 +455,7 @@ client_mach_request(void)
 }
 
 void
-set_auth(cl, xucred)
-CLIENT *cl;
-struct xucred *xucred;
+set_auth(CLIENT *cl, struct xucred *xucred)
 {
 	if (cl->cl_auth != NULL) {
 		cl->cl_auth->ah_ops->ah_destroy(cl->cl_auth);

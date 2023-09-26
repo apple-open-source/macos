@@ -1139,8 +1139,8 @@ static SSLProtocol SSLProtocolVersionToProtocol(SSLProtocolVersion version)
 		case tls_protocol_version_DTLS_1_0:  return kDTLSProtocol1;
 		default:
 			sslErrorLog("SSLProtocolVersionToProtocol: bad prot (%04x)\n",
-                        version);
-            /* DROPTHROUGH */
+			version);
+			[[fallthrough]];
 		case tls_protocol_version_Undertermined:  return kSSLProtocolUnknown;
 	}
 }

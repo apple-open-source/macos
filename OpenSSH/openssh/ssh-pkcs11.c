@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-pkcs11.c,v 1.55 2021/11/18 21:11:01 djm Exp $ */
+/* $OpenBSD: ssh-pkcs11.c,v 1.56 2023/03/08 05:33:53 tb Exp $ */
 /*
  * Copyright (c) 2010 Markus Friedl.  All rights reserved.
  * Copyright (c) 2014 Pedro Martelletto. All rights reserved.
@@ -528,7 +528,7 @@ ecdsa_do_sign(const unsigned char *dgst, int dgst_len, const BIGNUM *inv,
 	BIGNUM			*r = NULL, *s = NULL;
 
 	if ((k11 = EC_KEY_get_ex_data(ec, ec_key_idx)) == NULL) {
-		ossl_error("EC_KEY_get_key_method_data failed for ec");
+		ossl_error("EC_KEY_get_ex_data failed for ec");
 		return (NULL);
 	}
 
@@ -550,7 +550,7 @@ ecdsa_do_sign(const unsigned char *dgst, int dgst_len, const BIGNUM *inv,
 		goto done;
 	}
 	if (siglen < 64 || siglen > 132 || siglen % 2) {
-		ossl_error("d2i_ECDSA_SIG failed");
+		error_f("bad signature length: %lu", (u_long)siglen);
 		goto done;
 	}
 	bnlen = siglen/2;
@@ -560,7 +560,7 @@ ecdsa_do_sign(const unsigned char *dgst, int dgst_len, const BIGNUM *inv,
 	}
 	if ((r = BN_bin2bn(sig, bnlen, NULL)) == NULL ||
 	    (s = BN_bin2bn(sig+bnlen, bnlen, NULL)) == NULL) {
-		ossl_error("d2i_ECDSA_SIG failed");
+		ossl_error("BN_bin2bn failed");
 		ECDSA_SIG_free(ret);
 		ret = NULL;
 		goto done;
@@ -1505,55 +1505,6 @@ pkcs11_ecdsa_generate_private_key(struct pkcs11_provider *p, CK_ULONG slotidx,
 }
 #endif /* WITH_PKCS11_KEYGEN */
 
-#ifdef __APPLE_CLEAR_LV__
-/*
- * <rdar://problem/65693657> [sshd] Adopt com.apple.private.security.clear-library-validation
- * Attempt to dynamically load a module. Disable LV on the process if necessary.
- * NB: Code is based on OpenPAM's openpam_dlopen().
- */
-
-static void *
-pkcs11_dlopen(const char *path, int mode)
-{
-	/* Fast path: dyld shared cache. */
-	if (_dyld_shared_cache_contains_path(path))
-		return dlopen(path, mode);
-
-	/* Slow path: check file on disk. */
-	if (faccessat(AT_FDCWD, path, R_OK, AT_EACCESS) != 0)
-		return NULL;
-
-	void *dlh = dlopen(path, mode);
-	if (dlh != NULL)
-		return dlh;
-
-	/*
-	 * The module exists and is readable, but failed to load.
-	 * If library validation is enabled, try disabling it and then try again.
-	 */
-	int   csflags = 0;
-	pid_t pid     = getpid();
-	csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
-	if ((csflags & (CS_FORCED_LV | CS_REQUIRE_LV)) == 0)
-		return NULL;
-
-	int rv = csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0);
-	if (rv != 0) {
-		error("csops(CS_OPS_CLEAR_LV) failed: %d", rv);
-		return NULL;
-	}
-
-	dlh = dlopen(path, mode);
-	if (dlh == NULL) {
-		/* Failed to load even with LV disabled: re-enable LV. */
-		csflags = CS_REQUIRE_LV;
-		csops(pid, CS_OPS_SET_STATUS, &csflags, sizeof(csflags));
-	}
-
-	return dlh;
-}
-#endif /* __APPLE_CLEAR_LV__ */
-
 /*
  * register a new provider, fails if provider already exists. if
  * keyp is provided, fetch keys.
@@ -1588,17 +1539,16 @@ pkcs11_register_provider(char *provider_id, char *pin,
 	}
 	/* open shared pkcs11-library */
 #ifdef __APPLE_CLEAR_LV__
-	if ((handle = pkcs11_dlopen(provider_id, RTLD_NOW)) == NULL) {
+	extern void *dlopen_lv(char *, int);
+	if ((handle = dlopen_lv(provider_id, RTLD_NOW)) == NULL) {
 #else
 	if ((handle = dlopen(provider_id, RTLD_NOW)) == NULL) {
 #endif
 		error("dlopen %s failed: %s", provider_id, dlerror());
 		goto fail;
 	}
-	if ((getfunctionlist = dlsym(handle, "C_GetFunctionList")) == NULL) {
-		error("dlsym(C_GetFunctionList) failed: %s", dlerror());
-		goto fail;
-	}
+	if ((getfunctionlist = dlsym(handle, "C_GetFunctionList")) == NULL)
+		fatal("dlsym(C_GetFunctionList) failed: %s", dlerror());
 	p = xcalloc(1, sizeof(*p));
 	p->name = xstrdup(provider_id);
 	p->handle = handle;

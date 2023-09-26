@@ -49,6 +49,8 @@ int exp_stdout_is_tty;
 #define tty_current exp_tty_current
 #define tty_cooked exp_tty_cooked
 
+int exp_tty_cooked_echo(Tcl_Interp *interp, exp_tty *tty_old, int *was_raw, int *was_echo);
+
 int
 exp_israw(void)
 {

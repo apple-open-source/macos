@@ -34,7 +34,7 @@
 
 #include "Decimal.h"
 #include "DocumentInlines.h"
-#include "ElementChildIterator.h"
+#include "ElementChildIteratorInlines.h"
 #include "ElementRareData.h"
 #include "EventNames.h"
 #include "HTMLCollection.h"
@@ -43,6 +43,7 @@
 #include "InputTypeNames.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
+#include "NodeName.h"
 #include "PlatformMouseEvent.h"
 #include "RenderSlider.h"
 #include "ScopedEventQueue.h"
@@ -157,7 +158,7 @@ void RangeInputType::handleTouchEvent(TouchEvent& event)
 
 #if PLATFORM(IOS_FAMILY)
     typedSliderThumbElement().handleTouchEvent(event);
-#elif ENABLE(TOUCH_SLIDER)
+#else
 
     if (element()->isDisabledFormControl())
         return;
@@ -172,12 +173,10 @@ void RangeInputType::handleTouchEvent(TouchEvent& event)
         typedSliderThumbElement().setPositionFromPoint(touches->item(0)->absoluteLocation());
         event.setDefaultHandled();
     }
-#else
-    UNUSED_PARAM(event);
 #endif
 }
 
-#if ENABLE(TOUCH_SLIDER)
+#if !PLATFORM(IOS_FAMILY)
 bool RangeInputType::hasTouchEventHandler() const
 {
     return true;
@@ -329,7 +328,10 @@ bool RangeInputType::accessKeyAction(bool sendMouseEvents)
 
 void RangeInputType::attributeChanged(const QualifiedName& name)
 {
-    if (name == maxAttr || name == minAttr || name == valueAttr) {
+    switch (name.nodeName()) {
+    case AttributeNames::maxAttr:
+    case AttributeNames::minAttr:
+    case AttributeNames::valueAttr:
         // Sanitize the value.
         if (auto* element = this->element()) {
             if (element->hasDirtyValue())
@@ -337,6 +339,9 @@ void RangeInputType::attributeChanged(const QualifiedName& name)
         }
         if (hasCreatedShadowSubtree())
             typedSliderThumbElement().setPositionFromValue();
+        break;
+    default:
+        break;
     }
     InputType::attributeChanged(name);
 }

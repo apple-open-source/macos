@@ -35,12 +35,17 @@
 
 #include "gssdigest.h"
 #include <gssapi_spi.h>
+#include "heimcred.h"
+#include "heimbase.h"
+#include "scram.h"
+#import <Security/SecCFAllocator.h>
 
 OM_uint32
 _gss_scram_have_cred(OM_uint32 *minor,
 		     const char *name,
 		     gss_cred_id_t *rcred)
 {
+#ifdef HAVE_KCM
     krb5_context context;
     krb5_error_code ret;
     krb5_storage *request = NULL, *response;
@@ -52,6 +57,7 @@ _gss_scram_have_cred(OM_uint32 *minor,
 	*minor = ret;
 	return GSS_S_FAILURE;
     }
+
 
     ret = krb5_kcm_storage_request(context, KCM_OP_HAVE_SCRAM_CRED, &request);
     if (ret)
@@ -72,6 +78,7 @@ _gss_scram_have_cred(OM_uint32 *minor,
 	if (*rcred == NULL)
 	    ret = ENOMEM;
     }
+
  out:
     if (request)
 	krb5_storage_free(request);
@@ -83,6 +90,97 @@ _gss_scram_have_cred(OM_uint32 *minor,
 	major = GSS_S_COMPLETE;
 
     return major;
+#else
+    krb5_error_code ret = KRB5_CC_IO;
+    OM_uint32 major = GSS_S_FAILURE;
+    krb5_uuid uuid = { 0 };
+    scram_cred cred = NULL;
+
+    CFDictionaryRef query = NULL;
+    CFArrayRef query_result = NULL;
+    CFIndex query_count = 0;
+    CFStringRef user_cfstr = NULL;
+    CFUUIDRef uuid_cfuuid = NULL;
+    CFUUIDBytes uuid_bytes;
+
+    HeimCredRef result = NULL;
+
+    user_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
+    if (user_cfstr == NULL)
+	    goto out;
+
+
+    const void *add_keys[] = {
+    (void *)kHEIMObjectType,
+	    kHEIMAttrType,
+	    kHEIMAttrSCRAMUsername
+    };
+    const void *add_values[] = {
+    (void *)kHEIMObjectSCRAM,
+	    kHEIMTypeSCRAM,
+	    user_cfstr
+    };
+
+    query = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    heim_assert(query != NULL, "Failed to create dictionary");
+
+    query_result = HeimCredCopyQuery(query);
+
+    if (query_result == NULL) {
+	goto out;
+    }
+
+    query_count = CFArrayGetCount(query_result);
+    if (query_count == 0) {
+	goto out;
+    }
+
+    result = (HeimCredRef) CFArrayGetValueAtIndex(query_result, 0);
+    if (result == NULL) {
+	goto out;
+    }
+
+    uuid_cfuuid = HeimCredGetUUID(result);
+    if (uuid_cfuuid == NULL)
+	    goto out;
+    uuid_bytes = CFUUIDGetUUIDBytes(uuid_cfuuid);
+    memcpy(&uuid, &uuid_bytes, sizeof (uuid));
+    uuid_string_t uuid_cstr;
+    uuid_unparse(uuid, uuid_cstr);
+    _gss_mg_log(1, "_gss_scram_have_cred UUID(%s)", uuid_cstr);
+
+    if (rcred) {
+	cred = calloc(1, sizeof(*cred));
+	cred->name = strdup(name);
+	memcpy(cred->uuid, uuid, sizeof(cred->uuid));
+	*rcred = (gss_cred_id_t)cred;
+	if (*rcred == NULL) {
+	    ret = ENOMEM;
+	} else {
+	    ret = 0;
+	}
+    } else {
+	ret = 0;
+    }
+out:
+    if (ret) {
+	*minor = ret;
+	major = GSS_S_FAILURE;
+    } else
+	major = GSS_S_COMPLETE;
+
+    if (user_cfstr) {
+	CFRelease(user_cfstr);
+    }
+    if (query) {
+	CFRelease(query);
+    }
+    if (query_result) {
+	CFRelease(query_result);
+    }
+
+    return major;
+#endif
 }
 
 OM_uint32
@@ -130,6 +228,7 @@ _gss_scram_acquire_cred_ext(OM_uint32 * minor_status,
 			    gss_cred_usage_t cred_usage,
 			    gss_cred_id_t * output_cred_handle)
 {
+#ifdef HAVE_KCM
     char *name = (char *) desired_name;
     krb5_storage *request, *response;
     gss_buffer_t credential_buffer;
@@ -202,4 +301,103 @@ _gss_scram_acquire_cred_ext(OM_uint32 * minor_status,
     if (minor_status)
 	*minor_status = ret;
     return GSS_S_FAILURE;
+#else
+
+    char *name = (char *) desired_name;
+    CFStringRef user_cfstr = NULL;
+    CFStringRef password_cfstring = NULL;
+    CFDataRef password_cfdata = NULL;
+    CFDictionaryRef attrs = NULL;
+    HeimCredRef cred = NULL;
+    CFErrorRef cferr = NULL;
+    CFUUIDRef uuid_cfuuid = NULL;
+    CFUUIDBytes uuid_bytes;
+    scram_cred scramCred = NULL;
+
+    gss_buffer_t credential_buffer;
+    krb5_error_code ret = 0;
+
+    *output_cred_handle = GSS_C_NO_CREDENTIAL;
+
+    if (!gss_oid_equal(credential_type, GSS_C_CRED_PASSWORD))
+	return GSS_S_FAILURE;
+
+    if (name == NULL)
+	return GSS_S_FAILURE;
+
+    if (credential_data == NULL)
+	return GSS_S_FAILURE;
+
+    user_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
+    if (user_cfstr == NULL)
+	goto fail;
+
+    credential_buffer = (gss_buffer_t)credential_data;
+    password_cfstring = CFStringCreateWithBytes(SecCFAllocatorZeroize(), credential_buffer->value, credential_buffer->length, kCFStringEncodingUTF8, false);
+
+    password_cfdata = CFStringCreateExternalRepresentation(SecCFAllocatorZeroize(), password_cfstring, kCFStringEncodingUTF8, 0);
+
+    CFRELEASE_NULL(password_cfstring);
+
+    const void *add_keys[] = {
+    (void *)kHEIMObjectType,
+	kHEIMAttrType,
+	kHEIMAttrSCRAMUsername,
+	kHEIMAttrData
+    };
+    const void *add_values[] = {
+	(void *)kHEIMObjectSCRAM,
+	kHEIMTypeSCRAM,
+	user_cfstr,
+	password_cfdata
+    };
+
+    attrs = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    heim_assert(attrs != NULL, "Failed to create dictionary");
+
+    cred = HeimCredCreate(attrs, &cferr);
+    if (cred == NULL) {
+	goto fail;
+    }
+    uuid_cfuuid = HeimCredGetUUID(cred);
+    if (uuid_cfuuid == NULL) {
+	goto fail;
+    }
+
+    scramCred = calloc(1, sizeof(*scramCred));
+
+    uuid_bytes = CFUUIDGetUUIDBytes(uuid_cfuuid);
+    memcpy(&scramCred->uuid, &uuid_bytes, sizeof (scramCred->uuid));
+    uuid_string_t uuid_cstr;
+    uuid_unparse(scramCred->uuid, uuid_cstr);
+    _gss_mg_log(1, "_gss_scram_acquire_cred_ext name(%s) UUID(%s)", name, uuid_cstr);
+
+    scramCred->name = strdup(name);
+
+    *output_cred_handle = (gss_cred_id_t)scramCred;
+
+    CFRELEASE_NULL(user_cfstr);
+    CFRELEASE_NULL(password_cfstring);
+    CFRELEASE_NULL(password_cfdata);
+    CFRELEASE_NULL(attrs);
+    CFRELEASE_NULL(cred);
+    CFRELEASE_NULL(cferr);
+    CFRELEASE_NULL(uuid_cfuuid);
+
+    return GSS_S_COMPLETE;
+
+ fail:
+    CFRELEASE_NULL(user_cfstr);
+    CFRELEASE_NULL(password_cfstring);
+    CFRELEASE_NULL(password_cfdata);
+    CFRELEASE_NULL(attrs);
+    CFRELEASE_NULL(cred);
+    CFRELEASE_NULL(cferr);
+    CFRELEASE_NULL(uuid_cfuuid);
+
+    if (minor_status)
+	*minor_status = ret;
+    return GSS_S_FAILURE;
+
+#endif
 }

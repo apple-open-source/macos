@@ -400,6 +400,12 @@ main(int ac, char **av)
 		if (sysctl(mib, 2, &argmax, &syssize, NULL, 0) == -1)
 			continue;
 
+		/*
+		 * Extra word for argc, we still have room for the full ARGMAX
+		 * after it.
+		 */
+		argmax += sizeof(int);
+
 		procargs = malloc(argmax);
 		if (procargs == NULL)
 			continue;
@@ -414,7 +420,8 @@ main(int ac, char **av)
 			continue;
 		}
 
-		for (cp = procargs; cp < &procargs[syssize]; cp++) {
+		for (cp = procargs + sizeof(int); cp < &procargs[syssize];
+		    cp++) {
 			if (*cp == '\0') {
 				break;
 			}

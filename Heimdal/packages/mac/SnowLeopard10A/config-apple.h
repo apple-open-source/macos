@@ -35,7 +35,7 @@
 #define HAVE_CCDIGESTCREATE 1
 
 #define HEIM_KRB5_DES3 1
-#define HEIM_KRB5_ARCFOUR 1
+#define HEIM_KRB5_ARCFOUR 0
 
 #ifdef __APPLE_TARGET_EMBEDDED__
 
@@ -53,7 +53,6 @@
 #define XCACHE_IS_API_CACHE 1
 #define KRB5_DEFAULT_CCTYPE (&krb5_xcc_api_ops)
 
-#define HAVE_KCM 1
 #define HAVE_XCC 1
 #define HAVE_OPENDIRECTORY 1
 #define HAVE_CDSA 1
@@ -61,6 +60,10 @@
 
 #define ENABLE_NTLM 1
 #define ENABLE_SCRAM 1
+
+#ifndef HAVE_KCM
+#define ENABLE_KCM_COMPAT 1
+#endif
 
 #define HEIM_KS_P11 1
 

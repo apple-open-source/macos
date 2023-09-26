@@ -287,8 +287,10 @@
 #include <errno.h>
 #include <fenv.h>
 #include <float.h>
+#if !defined(ENABLE_LOCALE_SUPPORT) || ENABLE_LOCALE_SUPPORT
 #include <langinfo.h>
 #include <locale.h>
+#endif
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -361,12 +363,20 @@
 // ================================================================
 // How to get locale-specific decimal point character
 
-#if defined(__linux__)
-#define locale_decimal_point(loc) \
+// Enable locale support by default
+#ifndef ENABLE_LOCALE_SUPPORT
+ #define ENABLE_LOCALE_SUPPORT 1
+#endif
+
+#if !ENABLE_LOCALE_SUPPORT
+ #define locale_decimal_point(loc) ((const unsigned char *)("."))
+#elif defined(__linux__)
+ #define locale_decimal_point(loc) \
   ((const unsigned char *)((loc) == LC_GLOBAL_LOCALE ? nl_langinfo(RADIXCHAR) : nl_langinfo_l(RADIXCHAR, (loc))))
 #elif defined(__APPLE__)
-#define locale_decimal_point(loc) ((const unsigned char *)(localeconv_l((loc))->decimal_point))
+ #define locale_decimal_point(loc) ((const unsigned char *)(localeconv_l((loc))->decimal_point))
 #else
+ #error Need definition for locale_decimal_point for this platform
 #endif
 
 
@@ -3557,7 +3567,7 @@ float strtof(const char * restrict nptr,
 }
 #endif
 
-#if ENABLE_BINARY32_SUPPORT && FLOAT_IS_BINARY32
+#if ENABLE_BINARY32_SUPPORT && FLOAT_IS_BINARY32 && ENABLE_LOCALE_SUPPORT
 // ISO C17 `strtof_l` API
 float strtof_l(const char * restrict nptr,
                      char ** restrict endptr,
@@ -3601,7 +3611,7 @@ double strtod(const char * restrict nptr,
 }
 #endif
 
-#if ENABLE_BINARY64_SUPPORT && DOUBLE_IS_BINARY64
+#if ENABLE_BINARY64_SUPPORT && DOUBLE_IS_BINARY64 && ENABLE_LOCALE_SUPPORT
 // ISO C17 `strtod_l` API
 double strtod_l(const char * restrict nptr,
                      char ** restrict endptr,
@@ -3622,7 +3632,7 @@ long double strtold(const char * restrict nptr,
 }
 #endif
 
-#if ENABLE_BINARY64_SUPPORT && LONG_DOUBLE_IS_BINARY64
+#if ENABLE_BINARY64_SUPPORT && LONG_DOUBLE_IS_BINARY64 && ENABLE_LOCALE_SUPPORT
 // ISO C17 `strtold_l` API
 long double strtold_l(const char * restrict nptr,
                            char ** restrict endptr,
@@ -3636,7 +3646,7 @@ long double strtold_l(const char * restrict nptr,
 // ================================================================
 // Wrappers for Float80
 
-#if ENABLE_FLOAT80_SUPPORT
+#if ENABLE_FLOAT80_SUPPORT && ENABLE_LOCALE_SUPPORT
 // Non-standard but helpful for testing.
 void strtoencf80_l(unsigned char *restrict encptr,
                         const char * restrict nptr,
@@ -3666,7 +3676,7 @@ long double strtold(const char * restrict nptr,
 }
 #endif
 
-#if ENABLE_FLOAT80_SUPPORT && LONG_DOUBLE_IS_FLOAT80
+#if ENABLE_FLOAT80_SUPPORT && LONG_DOUBLE_IS_FLOAT80 && ENABLE_LOCALE_SUPPORT
 // ISO C17 `strtold` API
 long double strtold_l(const char * restrict nptr,
                            char ** restrict endptr,
@@ -3700,7 +3710,7 @@ long double strtold(const char * restrict nptr,
 }
 #endif
 
-#if ENABLE_BINARY128_SUPPORT && LONG_DOUBLE_IS_BINARY128
+#if ENABLE_BINARY128_SUPPORT && LONG_DOUBLE_IS_BINARY128 && ENABLE_LOCALE_SUPPORT
 // ISO C17 `strtold_l` API
 long double strtold_l(const char * restrict nptr,
                            char ** restrict endptr,

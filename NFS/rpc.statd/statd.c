@@ -90,15 +90,15 @@ int statd_server = 0;           /* are we the statd server (not notify, list...)
 int notify_only = 0;            /* just send SM_NOTIFY messages */
 int list_only = 0;              /* just list status database entries */
 
-int udpport, tcpport;
-int udp6port, tcp6port;
+int statudpport, stattcpport;
+int statudp6port, stattcp6port;
 
 int statudpsock, stattcpsock;
 int statudp6sock, stattcp6sock;
 
-struct pidfh *pfh = NULL;
+struct pidfh *statpfh = NULL;
 
-const struct nfs_conf_statd config_defaults =
+const struct nfs_conf_statd s_config_defaults =
 {
 	0,                      /* port */
 	0,                      /* send_using_tcp */
@@ -107,18 +107,18 @@ const struct nfs_conf_statd config_defaults =
 	1,                      /* udp */
 	0,                      /* verbose */
 };
-struct nfs_conf_statd config;
+struct nfs_conf_statd statd_config;
 
-int log_to_stderr = 0;
+static int log_to_stderr = 0;
 
 extern void sm_prog_1(struct svc_req * rqstp, SVCXPRT * transp);
 static void handle_sigchld(int sig);
 static void cleanup(int sig);
 static void usage(void);
-static int config_read(struct nfs_conf_statd * conf);
+static int config_read(struct nfs_conf_statd * conf, const char *conf_path);
 
 int
-main(int argc, char **argv)
+statd_imp(int argc, char **argv, const char *conf_path)
 {
 	SVCXPRT *transp = NULL;
 	struct sigaction sa;
@@ -131,13 +131,13 @@ main(int argc, char **argv)
 	char *unnotify_host = NULL;     /* host to "unnotify" */
 	int rv, need_notify;
 
-	config = config_defaults;
-	config_read(&config);
+	statd_config = s_config_defaults;
+	config_read(&statd_config, conf_path);
 
 	while ((c = getopt(argc, argv, "dnlLN:")) != EOF) {
 		switch (c) {
 		case 'd':
-			config.verbose = INT_MAX;
+			statd_config.verbose = INT_MAX;
 			break;
 		case 'n':
 			if (list_only || unnotify_host) {
@@ -191,7 +191,7 @@ main(int argc, char **argv)
 	signal(SIGQUIT, cleanup);
 
 	openlog("rpc.statd", LOG_PID | LOG_CONS, LOG_DAEMON);
-	config.verbose = MAX(config.verbose, 0); // Make sure verbose contains positive value
+	statd_config.verbose = MAX(statd_config.verbose, 0); // Make sure verbose contains positive value
 	setlogmask(LOG_UPTO(LOG_LEVEL));
 
 	if (notify_only) {
@@ -205,8 +205,8 @@ main(int argc, char **argv)
 	log(LOG_INFO, "statd starting");
 
 	/* claim PID file */
-	pfh = pidfile_open(_PATH_STATD_PID, 0644, &pid);
-	if (pfh == NULL) {
+	statpfh = pidfile_open(_PATH_STATD_PID, 0644, &pid);
+	if (statpfh == NULL) {
 		log(LOG_ERR, "can't open statd pidfile: %s (%d)", strerror(errno), errno);
 		if (errno == EEXIST) {
 			log(LOG_ERR, "statd already running, pid: %d", pid);
@@ -214,7 +214,7 @@ main(int argc, char **argv)
 		}
 		exit(2);
 	}
-	if (pidfile_write(pfh) == -1) {
+	if (pidfile_write(statpfh) == -1) {
 		log(LOG_WARNING, "can't write to statd pidfile: %s (%d)", strerror(errno), errno);
 	}
 
@@ -237,7 +237,7 @@ main(int argc, char **argv)
 
 	rpcb_unset(NULL, SM_PROG, SM_VERS);
 
-	if (config.udp) {
+	if (statd_config.udp) {
 		/* IPv4 */
 		if ((statudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_ERR, "can't create UDP IPv4 socket: %s (%d)", strerror(errno), errno);
@@ -245,7 +245,7 @@ main(int argc, char **argv)
 		if (statudpsock >= 0) {
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
-			sin->sin_port = htons(config.port);
+			sin->sin_port = htons(statd_config.port);
 			sin->sin_len = sizeof(*sin);
 			if (bindresvport_sa(statudpsock, (struct sockaddr *)sin) < 0) {
 				/* socket may still be lingering from previous incarnation */
@@ -265,7 +265,7 @@ main(int argc, char **argv)
 				close(statudpsock);
 				statudpsock = -1;
 			} else {
-				udpport = ntohs(sin->sin_port);
+				statudpport = ntohs(sin->sin_port);
 			}
 		}
 		if ((statudpsock >= 0) && ((transp = svcudp_create(statudpsock)) == NULL)) {
@@ -290,7 +290,7 @@ main(int argc, char **argv)
 			}
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
-			sin6->sin6_port = htons(config.port);
+			sin6->sin6_port = htons(statd_config.port);
 			sin6->sin6_len = sizeof(*sin6);
 			if (bindresvport_sa(statudp6sock, (struct sockaddr *)sin6) < 0) {
 				/* socket may still be lingering from previous incarnation */
@@ -310,7 +310,7 @@ main(int argc, char **argv)
 				close(statudp6sock);
 				statudp6sock = -1;
 			} else {
-				udp6port = ntohs(sin6->sin6_port);
+				statudp6port = ntohs(sin6->sin6_port);
 			}
 		}
 		if ((statudp6sock >= 0) && ((transp = svcudp_create(statudp6sock)) == NULL)) {
@@ -326,7 +326,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	if (config.tcp) {
+	if (statd_config.tcp) {
 		/* IPv4 */
 		if ((stattcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			log(LOG_ERR, "can't create TCP IPv4 socket: %s (%d)", strerror(errno), errno);
@@ -337,7 +337,7 @@ main(int argc, char **argv)
 			}
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
-			sin->sin_port = htons(config.port);
+			sin->sin_port = htons(statd_config.port);
 			sin->sin_len = sizeof(*sin);
 			if (bindresvport_sa(stattcpsock, (struct sockaddr *)sin) < 0) {
 				log(LOG_ERR, "can't bind TCP IPv4 addr: %s (%d)", strerror(errno), errno);
@@ -352,7 +352,7 @@ main(int argc, char **argv)
 				close(stattcpsock);
 				stattcpsock = -1;
 			} else {
-				tcpport = ntohs(sin->sin_port);
+				stattcpport = ntohs(sin->sin_port);
 			}
 		}
 		if ((stattcpsock >= 0) && ((transp = svctcp_create(stattcpsock, 0, 0)) == NULL)) {
@@ -378,7 +378,7 @@ main(int argc, char **argv)
 			setsockopt(stattcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
-			sin6->sin6_port = htons(config.port);
+			sin6->sin6_port = htons(statd_config.port);
 			sin6->sin6_len = sizeof(*sin6);
 			if (bindresvport_sa(stattcp6sock, (struct sockaddr *)sin6) < 0) {
 				log(LOG_ERR, "can't bind TCP IPv6 addr: %s (%d)", strerror(errno), errno);
@@ -393,7 +393,7 @@ main(int argc, char **argv)
 				close(stattcp6sock);
 				stattcp6sock = -1;
 			} else {
-				tcp6port = ntohs(sin6->sin6_port);
+				stattcp6port = ntohs(sin6->sin6_port);
 			}
 		}
 		if ((stattcp6sock >= 0) && ((transp = svctcp_create(stattcp6sock, 0, 0)) == NULL)) {
@@ -453,12 +453,12 @@ get_statd_pid(void)
 	struct flock lock;
 
 	if ((fd = open(_PATH_STATD_PID, O_RDONLY)) < 0) {
-		DEBUG(9, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
+		STATD_DEBUG(9, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
 		return 0;
 	}
 	len = sizeof(pidbuf) - 1;
 	if ((len = read(fd, pidbuf, len)) < 0) {
-		DEBUG(9, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
+		STATD_DEBUG(9, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
 		return 0;
 	}
 	/* parse PID */
@@ -474,7 +474,7 @@ get_statd_pid(void)
 	pid = (pid_t) tmp;
 
 	if (!len || (pid < 1)) {
-		DEBUG(1, "%s: bogus pid: %s", _PATH_STATD_PID, pidbuf);
+		STATD_DEBUG(1, "%s: bogus pid: %s", _PATH_STATD_PID, pidbuf);
 		return 0;
 	}
 	/* check for lock on file by PID */
@@ -485,10 +485,10 @@ get_statd_pid(void)
 	rv = fcntl(fd, F_GETLK, &lock);
 	close(fd);
 	if (rv != 0) {
-		DEBUG(1, "%s: fcntl: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
+		STATD_DEBUG(1, "%s: fcntl: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
 		return 0;
 	} else if (lock.l_type == F_UNLCK) {
-		DEBUG(8, "%s: not locked\n", _PATH_STATD_PID);
+		STATD_DEBUG(8, "%s: not locked\n", _PATH_STATD_PID);
 		return 0;
 	}
 	return pid;
@@ -507,12 +507,12 @@ get_statd_notify_pid(void)
 	struct flock lock;
 
 	if ((fd = open(_PATH_STATD_NOTIFY_PID, O_RDONLY)) < 0) {
-		DEBUG(9, "%s: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
+		STATD_DEBUG(9, "%s: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
 		return 0;
 	}
 	len = sizeof(pidbuf) - 1;
 	if ((len = read(fd, pidbuf, len)) < 0) {
-		DEBUG(9, "%s: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
+		STATD_DEBUG(9, "%s: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
 		close(fd);
 		return 0;
 	}
@@ -520,7 +520,7 @@ get_statd_notify_pid(void)
 	pidbuf[len] = '\0';
 	pid = (pid_t) strtol(pidbuf, &pidend, 10);
 	if (!len || (pid < 1)) {
-		DEBUG(1, "%s: bogus pid: %s", _PATH_STATD_NOTIFY_PID, pidbuf);
+		STATD_DEBUG(1, "%s: bogus pid: %s", _PATH_STATD_NOTIFY_PID, pidbuf);
 		close(fd);
 		return 0;
 	}
@@ -532,10 +532,10 @@ get_statd_notify_pid(void)
 	rv = fcntl(fd, F_GETLK, &lock);
 	close(fd);
 	if (rv != 0) {
-		DEBUG(1, "%s: fcntl: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
+		STATD_DEBUG(1, "%s: fcntl: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
 		return 0;
 	} else if (lock.l_type == F_UNLCK) {
-		DEBUG(8, "%s: not locked\n", _PATH_STATD_NOTIFY_PID);
+		STATD_DEBUG(8, "%s: not locked\n", _PATH_STATD_NOTIFY_PID);
 		return 0;
 	}
 	return pid;
@@ -561,7 +561,7 @@ handle_sigchld(int sig __unused)
 	if (!pid) {
 		log(LOG_ERR, "Phantom SIGCHLD??");
 	} else if (status == 0) {
-		DEBUG(2, "Child %d exited OK", pid);
+		STATD_DEBUG(2, "Child %d exited OK", pid);
 	} else {
 		log(LOG_ERR, "Child %d failed with status %d", pid, WEXITSTATUS(status));
 	}
@@ -584,7 +584,7 @@ cleanup(int sig)
 		alarm(1); /* XXX 5028243 in case rpcb_unset() gets hung up during shutdown */
 		rpcb_unset(NULL, SM_PROG, SM_VERS);
 	}
-	pidfile_remove(pfh);
+	pidfile_remove(statpfh);
 	exit((sig == SIGTERM) ? 0 : 1);
 }
 
@@ -593,7 +593,7 @@ cleanup(int sig)
  * read the statd values from nfs.conf
  */
 static int
-config_read(struct nfs_conf_statd * conf)
+config_read(struct nfs_conf_statd * conf, const char *conf_path)
 {
 	FILE *f;
 	size_t len, linenum = 0;
@@ -601,9 +601,13 @@ config_read(struct nfs_conf_statd * conf)
 	int val;
 	long tmp;
 
-	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
+	if (conf_path == NULL) {
+		conf_path = _PATH_NFS_CONF;
+	}
+
+	if (!(f = fopen(conf_path, "r"))) {
 		if (errno != ENOENT) {
-			log(LOG_WARNING, "%s", _PATH_NFS_CONF);
+			log(LOG_WARNING, "%s", conf_path);
 		}
 		return 1;
 	}
@@ -637,11 +641,11 @@ config_read(struct nfs_conf_statd * conf)
 
 		/* all statd keys start with "nfs.statd." */
 		if (strncmp(key, "nfs.statd.", 10)) {
-			DEBUG(4, "%4ld %s=%s\n", linenum, key, value ? value : "");
+			STATD_DEBUG(4, "%4ld %s=%s\n", linenum, key, value ? value : "");
 			continue;
 		}
 		tmp = !value ? 1 : strtol(value, NULL, 0);
-		DEBUG(1, "%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", tmp);
+		STATD_DEBUG(1, "%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", tmp);
 
 		if (tmp > INT32_MAX) {
 			tmp = INT32_MAX;
@@ -666,7 +670,7 @@ config_read(struct nfs_conf_statd * conf)
 		} else if (!strcmp(key, "nfs.statd.verbose")) {
 			conf->verbose = val;
 		} else {
-			DEBUG(2, "ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
+			STATD_DEBUG(2, "ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
 		}
 	}
 
@@ -790,7 +794,7 @@ statd_notify_start(void)
  * our own little logging function...
  */
 void
-SYSLOG(int pri, const char *fmt, ...)
+STATD_SYSLOG(int pri, const char *fmt, ...)
 {
 	va_list ap;
 

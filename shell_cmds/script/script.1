@@ -9,7 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -28,7 +28,7 @@
 .\"	@(#)script.1	8.1 (Berkeley) 6/6/93
 .\" $FreeBSD$
 .\"
-.Dd December 4, 2013
+.Dd October 26, 2022
 .Dt SCRIPT 1
 .Os
 .Sh NAME
@@ -36,10 +36,14 @@
 .Nd make typescript of terminal session
 .Sh SYNOPSIS
 .Nm
-.Op Fl adkpqr
-.Op Fl F Ar pipe
+.Op Fl aeFkqr
 .Op Fl t Ar time
 .Op Ar file Op Ar command ...
+.Nm
+.Fl p
+.Op Fl deq
+.Op Fl T Ar fmt
+.Op Ar file
 .Sh DESCRIPTION
 The
 .Nm
@@ -66,7 +70,7 @@ will run the specified command with an optional argument vector
 instead of an interactive shell.
 .Pp
 The following options are available:
-.Bl -tag -width indent
+.Bl -tag -width "-t time"
 .It Fl a
 Append the output to
 .Ar file
@@ -77,7 +81,13 @@ retaining the prior contents.
 When playing back a session with the
 .Fl p
 flag, do not sleep between records when playing back a timestamped session.
-.It Fl F Ar pipe
+.It Fl e
+Accepted for compatibility with
+.Em util-linux
+.Nm .
+The child command exit status is always the exit status of
+.Nm .
+.It Fl F
 Immediately flush output after each write.
 This will allow a user to create a named pipe using
 .Xr mkfifo 1
@@ -109,6 +119,21 @@ causes
 to flush after every character I/O event.
 The default interval is
 30 seconds.
+.It Fl T Ar fmt
+Implies
+.Fl p ,
+but just reports the time-stamp of each output.
+This is very useful for assessing the timing of events.
+.Pp
+If
+.Ar fmt
+does not contain any
+.Ql %
+characters, it indicates the default format:
+.Ql %n@ %s [%Y-%m-%d %T]%n ,
+which is useful for both tools and humans to read, should be used.
+Note that time-stamps will only be output when different from the
+previous one.
 .El
 .Pp
 The script ends when the forked shell (or command) exits (a
@@ -137,7 +162,7 @@ The results are meant to emulate a hardcopy terminal, not an addressable one.
 .Sh ENVIRONMENT
 The following environment variables are utilized by
 .Nm :
-.Bl -tag -width SHELL
+.Bl -tag -width SCRIPT
 .It Ev SCRIPT
 The
 .Ev SCRIPT
@@ -163,14 +188,76 @@ is not set, the Bourne shell
 is assumed.
 .Pq Most shells set this variable automatically .
 .El
+.Sh EXAMPLES
+Record a simple
+.Xr csh 1
+session with no additional details like input, output, and timestamping:
+.Bd -literal -offset indent
+$ SHELL=/bin/csh script
+Script started, output file is typescript
+% date
+Tue Jan  5 15:08:10 UTC 2021
+% exit
+exit
+
+Script done, output file is typescript
+.Ed
+.Pp
+Now, replay the session recorded in the previous example:
+.Bd -literal -offset indent
+$ cat ./typescript
+Script started on Tue Jan  5 15:08:08 2021
+% date
+Tue Jan  5 15:08:10 UTC 2021
+% exit
+exit
+
+Script done on Tue Jan  5 15:08:13 2021
+.Ed
+.Pp
+Record a
+.Xr csh 1
+session, but this time with additional details like timestamping:
+.Bd -literal -offset indent
+$ SHELL=/bin/csh script -r
+Script started, output file is typescript
+% date
+Tue Jan  5 15:17:11 UTC 2021
+% exit
+exit
+
+Script done, output file is typescript
+.Ed
+.Pp
+In order to replay a sessions recorded with the
+.Fl r
+flag, it is necessary to specify
+.Fl p
+.Po
+.Xr cat 1
+will not work because of all the aditional information stored in the session file
+.Pc .
+Also, let us use
+.Fl d
+to print the whole session at once:
+.Bd -literal -offset indent
+$ script -dp ./typescript
+Script started on Tue Jan  5 15:17:09 2021
+% date
+Tue Jan  5 15:17:11 UTC 2021
+% exit
+exit
+
+Script done on Tue Jan  5 15:17:14 2021
+.Ed
 .Sh SEE ALSO
 .Xr csh 1
+.Po
+for the
+.Em history
+mechanism
+.Pc
 .\".Xr filemon 4
-.\".Po
-.\"for the
-.\".Em history
-.\"mechanism
-.\".Pc .
 .Sh HISTORY
 The
 .Nm

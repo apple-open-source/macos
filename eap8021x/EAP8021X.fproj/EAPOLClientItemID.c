@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2019, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,8 +45,10 @@
 #include <CoreFoundation/CFString.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentityPriv.h>
+#if ! TARGET_OS_IPHONE
 #include <Security/SecTrustedApplication.h>
 #include <Security/SecTrustedApplicationPriv.h>
+#endif /* ! TARGET_OS_IPHONE */
 #include <SystemConfiguration/SCValidation.h>
 #include <pthread.h>
 #include <mach/mach_init.h>
@@ -57,10 +59,731 @@
 #include "EAPSecurity.h"
 #include "EAPKeychainUtil.h"
 #include "EAPKeychainUtilInternal.h"
+#if ! TARGET_OS_IPHONE
 #include "eapolcfg_auth.h"
+#endif /* ! TARGET_OS_IPHONE */
 #include "symbol_scope.h"
 #include "myCFUtil.h"
 #include "EAPLog.h"
+
+/**
+ ** EAPOLClientItemIDCopyUniqueString
+ ** - get the unique string for the itemID
+ **/
+
+/* for password/name Item */
+#define WLAN_SSID_STR	"wlan.ssid"
+#define WLAN_DOMAIN_STR	"wlan.domain"
+#define PROFILEID_STR	"profileid"
+#define DEFAULT_STR	"default"
+
+STATIC const char	kItemDescription[] = "802.1X Password";
+STATIC int		kItemDescriptionLength = sizeof(kItemDescription) - 1;
+
+#define EAP_PREFIX_STR	"com.apple.network.eap.%s.%s.%s"
+
+INLINE CFStringRef
+create_item_format(const char * domain, const char * type, const char * unique,
+		   CFStringRef value)
+{
+    CFStringRef		str;
+
+    if (value != NULL) {
+	str = CFStringCreateWithFormat(NULL, NULL,
+				       CFSTR(EAP_PREFIX_STR ".%@"),
+				       domain, type, unique, value);
+    }
+    else {
+	str = CFStringCreateWithFormat(NULL, NULL,
+				       CFSTR(EAP_PREFIX_STR),
+				       domain, type, unique);
+    }
+    return (str);
+}
+
+STATIC CFStringRef
+EAPOLClientItemIDCopyUniqueString(EAPOLClientItemIDRef itemID,
+				  EAPOLClientDomain domain, bool is_item)
+{
+    const char *	domain_str;
+    CFStringRef		result = NULL;
+    CFStringRef		profileID;
+    CFDataRef		ssid;
+    CFStringRef		ssid_str;
+    const char *	type_str;
+
+    type_str = is_item ? "item" : "identity";
+    domain_str = (domain == kEAPOLClientDomainSystem) ? "system" : "user";
+    switch (itemID->type) {
+    case kEAPOLClientItemIDTypeWLANSSID:
+	ssid_str = my_CFStringCreateWithData(itemID->u.ssid);
+	result = create_item_format(domain_str, type_str, WLAN_SSID_STR,
+				    ssid_str);
+	if (ssid_str != NULL) {
+	    CFRelease(ssid_str);
+	}
+	break;
+    case kEAPOLClientItemIDTypeWLANDomain:
+	result = create_item_format(domain_str, type_str,
+				    WLAN_DOMAIN_STR, itemID->u.domain);
+	break;
+    case kEAPOLClientItemIDTypeProfileID:
+	result = create_item_format(domain_str, type_str, PROFILEID_STR,
+				    itemID->u.profileID);
+	break;
+    case kEAPOLClientItemIDTypeProfile:
+	ssid = EAPOLClientProfileGetWLANSSIDAndSecurityType(itemID->u.profile,
+							    NULL);
+	if (ssid != NULL) {
+	    ssid_str = my_CFStringCreateWithData(ssid);
+	    result = create_item_format(domain_str, type_str, WLAN_SSID_STR,
+					ssid_str);
+	    if (ssid_str != NULL) {
+		CFRelease(ssid_str);
+	    }
+	}
+	else {
+	    CFStringRef		wlan_domain;
+
+	    wlan_domain = EAPOLClientProfileGetWLANDomain(itemID->u.profile);
+	    if (wlan_domain != NULL) {
+		result = create_item_format(domain_str, type_str,
+					    WLAN_DOMAIN_STR, wlan_domain);
+	    }
+	    else {
+		profileID = EAPOLClientProfileGetID(itemID->u.profile);
+		result = create_item_format(domain_str, type_str, PROFILEID_STR,
+					    profileID);
+	    }
+	}
+	break;
+    case kEAPOLClientItemIDTypeDefault:
+	result = create_item_format(domain_str, type_str, DEFAULT_STR, NULL);
+	break;
+    default:
+	break;
+    }
+    return (result);
+}
+
+/**
+ ** CF object glue code
+ **/
+STATIC CFStringRef	__EAPOLClientItemIDCopyDebugDesc(CFTypeRef cf);
+STATIC void		__EAPOLClientItemIDDeallocate(CFTypeRef cf);
+STATIC Boolean		__EAPOLClientItemIDEqual(CFTypeRef cf1, CFTypeRef cf2);
+STATIC CFHashCode	__EAPOLClientItemIDHash(CFTypeRef cf);
+
+STATIC CFTypeID __kEAPOLClientItemIDTypeID = _kCFRuntimeNotATypeID;
+
+STATIC const CFRuntimeClass __EAPOLClientItemIDClass = {
+    0,					/* version */
+    "EAPOLClientItemID",		/* className */
+    NULL,				/* init */
+    NULL,				/* copy */
+    __EAPOLClientItemIDDeallocate,	/* deallocate */
+    __EAPOLClientItemIDEqual,		/* equal */
+    __EAPOLClientItemIDHash,		/* hash */
+    NULL,				/* copyFormattingDesc */
+    __EAPOLClientItemIDCopyDebugDesc	/* copyDebugDesc */
+};
+
+STATIC CFStringRef
+__EAPOLClientItemIDCopyDebugDesc(CFTypeRef cf)
+{
+    CFAllocatorRef		allocator = CFGetAllocator(cf);
+    EAPOLClientItemIDRef	itemID = (EAPOLClientItemIDRef)cf;
+    CFStringRef			profileID;
+    CFMutableStringRef		result;
+    CFStringRef			ssid_str;
+
+    result = CFStringCreateMutable(allocator, 0);
+    CFStringAppendFormat(result, NULL,
+			 CFSTR("<EAPOLClientItemID %p [%p]> {"), cf, allocator);
+    switch (itemID->type) {
+    case kEAPOLClientItemIDTypeWLANSSID:
+	ssid_str = my_CFStringCreateWithData(itemID->u.ssid);
+	CFStringAppendFormat(result, NULL, CFSTR("WLAN SSID = %@"),
+			     ssid_str);
+	CFRelease(ssid_str);
+	break;
+    case kEAPOLClientItemIDTypeWLANDomain:
+	CFStringAppendFormat(result, NULL, CFSTR("WLAN domain = %@"),
+			     itemID->u.domain);
+	break;
+    case kEAPOLClientItemIDTypeProfileID:
+	CFStringAppendFormat(result, NULL, CFSTR("ProfileID = %@"),
+			     itemID->u.profileID);
+	break;
+    case kEAPOLClientItemIDTypeProfile:
+	profileID = EAPOLClientProfileGetID(itemID->u.profile);
+	CFStringAppendFormat(result, NULL, CFSTR("Profile = %@"),
+			     profileID);
+	break;
+    case kEAPOLClientItemIDTypeDefault:
+	CFStringAppend(result, CFSTR("Default"));
+	break;
+    default:
+	break;
+    }
+    CFStringAppend(result, CFSTR("}"));
+    return result;
+}
+
+
+STATIC void
+__EAPOLClientItemIDDeallocate(CFTypeRef cf)
+{
+    EAPOLClientItemIDRef itemID	= (EAPOLClientItemIDRef)cf;
+
+    switch (itemID->type) {
+    case kEAPOLClientItemIDTypeWLANSSID:
+	CFRelease(itemID->u.ssid);
+	break;
+    case kEAPOLClientItemIDTypeWLANDomain:
+	CFRelease(itemID->u.domain);
+	break;
+    case kEAPOLClientItemIDTypeProfileID:
+	CFRelease(itemID->u.profileID);
+	break;
+    case kEAPOLClientItemIDTypeProfile:
+	CFRelease(itemID->u.profile);
+	break;
+    default:
+	break;
+    }
+    return;
+}
+
+STATIC Boolean
+__EAPOLClientItemIDEqual(CFTypeRef cf1, CFTypeRef cf2)
+{
+    EAPOLClientItemIDRef 	id1 = (EAPOLClientItemIDRef)cf1;
+    EAPOLClientItemIDRef	id2 = (EAPOLClientItemIDRef)cf2;
+
+    if (id1->type != id2->type) {
+	return (FALSE);
+    }
+    return (CFEqual(id1->u.ptr, id2->u.ptr));
+}
+
+STATIC CFHashCode
+__EAPOLClientItemIDHash(CFTypeRef cf)
+{
+    EAPOLClientItemIDRef 	itemID = (EAPOLClientItemIDRef)cf;
+
+    return (CFHash(itemID->u.ptr));
+}
+
+STATIC void
+__EAPOLClientItemIDInitialize(void)
+{
+    /* initialize runtime */
+    __kEAPOLClientItemIDTypeID
+	= _CFRuntimeRegisterClass(&__EAPOLClientItemIDClass);
+    return;
+}
+
+STATIC void
+__EAPOLClientItemIDRegisterClass(void)
+{
+    STATIC pthread_once_t	initialized = PTHREAD_ONCE_INIT;
+
+    pthread_once(&initialized, __EAPOLClientItemIDInitialize);
+    return;
+}
+
+
+STATIC EAPOLClientItemIDRef
+__EAPOLClientItemIDAllocate(CFAllocatorRef allocator)
+{
+    EAPOLClientItemIDRef	itemID;
+
+    __EAPOLClientItemIDRegisterClass();
+
+    itemID = (EAPOLClientItemIDRef)
+	_CFRuntimeCreateInstance(allocator,
+				 __kEAPOLClientItemIDTypeID,
+				 sizeof(*itemID) - sizeof(CFRuntimeBase),
+				 NULL);
+    return (itemID);
+}
+
+CFTypeID
+EAPOLClientItemIDGetTypeID(void)
+{
+    __EAPOLClientItemIDRegisterClass();
+    return (__kEAPOLClientItemIDTypeID);
+}
+
+/*
+ * Function: EAPOLClientItemIDCreateWithProfileID
+ *
+ * Purpose:
+ *   Create an EAPOLClientItemID instance based on the supplied profileID
+ */
+EAPOLClientItemIDRef
+EAPOLClientItemIDCreateWithProfileID(CFStringRef profileID)
+{
+    EAPOLClientItemIDRef	itemID;
+
+    itemID = __EAPOLClientItemIDAllocate(CFGetAllocator(profileID));
+    if (itemID == NULL) {
+	return (NULL);
+    }
+    itemID->type = kEAPOLClientItemIDTypeProfileID;
+    itemID->u.profileID = CFRetain(profileID);
+    return (itemID);
+}
+
+/*
+ * Function: EAPOLClientItemIDCreateWithWLANSSID
+ *
+ * Purpose:
+ *   Create an EAPOLClientItemID instance based on the supplied WLAN SSID.
+ */
+EAPOLClientItemIDRef
+EAPOLClientItemIDCreateWithWLANSSID(CFDataRef ssid)
+{
+    EAPOLClientItemIDRef	itemID;
+
+    itemID = __EAPOLClientItemIDAllocate(CFGetAllocator(ssid));
+    if (itemID == NULL) {
+	return (NULL);
+    }
+    itemID->type = kEAPOLClientItemIDTypeWLANSSID;
+    itemID->u.ssid = CFRetain(ssid);
+    return (itemID);
+}
+
+/*
+ * Function: EAPOLClientItemIDCreateWithWLANDomain
+ *
+ * Purpose:
+ *   Create an EAPOLClientItemID instance based on the supplied WLAN
+ *   Hotspot 2.0 domain name.
+ */
+EAPOLClientItemIDRef
+EAPOLClientItemIDCreateWithWLANDomain(CFStringRef domain)
+{
+    EAPOLClientItemIDRef	itemID;
+
+    itemID = __EAPOLClientItemIDAllocate(CFGetAllocator(domain));
+    if (itemID == NULL) {
+	return (NULL);
+    }
+    itemID->type = kEAPOLClientItemIDTypeWLANDomain;
+    itemID->u.domain = CFRetain(domain);
+    return (itemID);
+}
+
+/*
+ * Function: EAPOLClientItemIDCreateWithProfile
+ *
+ * Purpose:
+ *   Create an EAPOLClientItemID instance based on the supplied
+ *   EAPOLClientProfileRef.
+ */
+EAPOLClientItemIDRef
+EAPOLClientItemIDCreateWithProfile(EAPOLClientProfileRef profile)
+{
+    EAPOLClientItemIDRef	itemID;
+
+    itemID = __EAPOLClientItemIDAllocate(CFGetAllocator(profile));
+    if (itemID == NULL) {
+	return (NULL);
+    }
+    itemID->type = kEAPOLClientItemIDTypeProfile;
+    CFRetain(profile);
+    itemID->u.profile = profile;
+    return (itemID);
+}
+
+/*
+ * Function: EAPOLClientItemIDCreateDefault
+ *
+ * Purpose:
+ *   Create an EAPOLClientItemID instance that indicates that the default
+ *   authentication parameters and default keychain items are to be used.
+ */
+EAPOLClientItemIDRef
+EAPOLClientItemIDCreateDefault(void)
+{
+    EAPOLClientItemIDRef	itemID;
+
+    itemID = __EAPOLClientItemIDAllocate(NULL);
+    if (itemID == NULL) {
+	return (NULL);
+    }
+    itemID->type = kEAPOLClientItemIDTypeDefault;
+    return (itemID);
+}
+
+/**
+ ** Private functions
+ **/
+
+CFStringRef
+EAPOLClientItemIDGetProfileID(EAPOLClientItemIDRef itemID)
+{
+    switch (itemID->type) {
+    case kEAPOLClientItemIDTypeProfileID:
+	return (itemID->u.profileID);
+    case kEAPOLClientItemIDTypeProfile:
+	return (EAPOLClientProfileGetID(itemID->u.profile));
+    default:
+	break;
+    }
+    return (NULL);
+}
+
+CFDataRef
+EAPOLClientItemIDGetWLANSSID(EAPOLClientItemIDRef itemID)
+{
+    switch (itemID->type) {
+    case kEAPOLClientItemIDTypeWLANSSID:
+	return (itemID->u.ssid);
+    case kEAPOLClientItemIDTypeProfile:
+	return (EAPOLClientProfileGetWLANSSIDAndSecurityType(itemID->u.profile,
+							     NULL));
+    default:
+	break;
+    }
+    return (NULL);
+}
+
+EAPOLClientProfileRef
+EAPOLClientItemIDGetProfile(EAPOLClientItemIDRef itemID)
+{
+    switch (itemID->type) {
+    case kEAPOLClientItemIDTypeProfile:
+	return (itemID->u.profile);
+    default:
+	break;
+    }
+    return (NULL);
+}
+
+#define kItemProfileID		CFSTR("ProfileID")
+#define kItemDomain		CFSTR("Domain")
+#define kItemSSID		CFSTR("SSID")
+#define kItemDefault		CFSTR("Default")
+
+CFDictionaryRef
+EAPOLClientItemIDCopyDictionary(EAPOLClientItemIDRef itemID)
+{
+    const void *	key;
+    CFStringRef		profileID;
+    const void *	value;
+
+    profileID = EAPOLClientItemIDGetProfileID(itemID);
+    if (profileID != NULL) {
+	key = (const void *)kItemProfileID;
+	value = (const void *)profileID;
+    }
+    else {
+	CFDataRef		ssid = EAPOLClientItemIDGetWLANSSID(itemID);
+
+	if (ssid != NULL) {
+	    key = (const void *)kItemSSID;
+	    value = (const void *)ssid;
+	}
+	else {
+	    switch (itemID->type) {
+	    case kEAPOLClientItemIDTypeWLANDomain:
+		key = (const void *)kItemDomain;
+		value = (const void *)itemID->u.domain;
+		break;
+	    case kEAPOLClientItemIDTypeDefault:
+		key = (const void *)kItemDefault;
+		value = (const void *)kCFBooleanTrue;
+		break;
+	    default:
+		return (NULL);
+	    }
+	}
+    }
+    return (CFDictionaryCreate(NULL, &key, &value, 1,
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks));
+}
+
+EAPOLClientItemIDRef
+EAPOLClientItemIDCreateWithDictionary(EAPOLClientConfigurationRef cfg,
+				      CFDictionaryRef dict)
+{
+    CFStringRef			domain;
+    EAPOLClientProfileRef	profile;
+    CFStringRef			profileID;
+    CFDataRef			ssid;
+
+    if (isA_CFDictionary(dict) == NULL) {
+	return (NULL);
+    }
+    profileID = CFDictionaryGetValue(dict, kItemProfileID);
+    if (isA_CFString(profileID) != NULL) {
+	if (cfg != NULL) {
+	    profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
+	    if (profile != NULL) {
+		return (EAPOLClientItemIDCreateWithProfile(profile));
+	    }
+	}
+	return (EAPOLClientItemIDCreateWithProfileID(profileID));
+    }
+    ssid = CFDictionaryGetValue(dict, kItemSSID);
+    if (isA_CFData(ssid) != NULL) {
+	if (cfg != NULL) {
+	    profile = EAPOLClientConfigurationGetProfileWithWLANSSID(cfg, ssid);
+	    if (profile != NULL) {
+		return (EAPOLClientItemIDCreateWithProfile(profile));
+	    }
+	}
+	return (EAPOLClientItemIDCreateWithWLANSSID(ssid));
+    }
+    domain = CFDictionaryGetValue(dict, kItemDomain);
+    if (isA_CFString(domain) != NULL) {
+	if (cfg != NULL) {
+	    profile
+		= EAPOLClientConfigurationGetProfileWithWLANDomain(cfg,
+								   domain);
+	    if (profile != NULL) {
+		return (EAPOLClientItemIDCreateWithProfile(profile));
+	    }
+	}
+	return (EAPOLClientItemIDCreateWithWLANDomain(domain));
+    }
+    if (CFDictionaryGetValue(dict, kItemDefault) != NULL) {
+	return (EAPOLClientItemIDCreateDefault());
+    }
+    return (NULL);
+}
+
+#pragma mark - Credentials Getter/Setter for embedded platforms
+
+#if TARGET_OS_IPHONE
+
+SecIdentityRef
+EAPOLClientItemIDCopyIdentity(EAPOLClientItemIDRef itemID, EAPOLClientDomain domain)
+{
+    CFStringRef 	unique_string = NULL;
+    CFDataRef 		id_ref = NULL;
+    SecIdentityRef 	identity = NULL;
+    OSStatus 		status = errSecSuccess;
+
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, FALSE);
+    EAPLOG(LOG_DEBUG, "looking for identity reference for [%@]", unique_string);
+
+    status = EAPKeychainCopyIdentityReference(unique_string, &id_ref);
+    if (status != errSecSuccess) {
+	EAPLOG(LOG_NOTICE, "EAPKeychainCopyIdentityReference() failed %s (%d)",
+	       EAPSecurityErrorString(status), (int)status);
+	goto done;
+    }
+    if (id_ref == NULL) {
+	EAPLOG(LOG_NOTICE, "EAPKeychainCopyIdentityReference() returned NULL");
+	goto done;
+    }
+    status = EAPSecIdentityHandleCreateSecIdentity(id_ref, &identity);
+    if (status != errSecSuccess) {
+	EAPLOG(LOG_NOTICE, "EAPSecIdentityHandleCreateSecIdentity() failed %s (%d)",
+	       EAPSecurityErrorString(status), (int)status);
+    }
+done:
+    my_CFRelease(&unique_string);
+    my_CFRelease(&id_ref);
+    return identity;
+}
+
+Boolean
+EAPOLClientItemIDSetIdentity(EAPOLClientItemIDRef itemID,
+			     EAPOLClientDomain domain,
+			     SecIdentityRef identity)
+{
+    CFStringRef 		unique_string = NULL;
+    EAPSecIdentityHandleRef 	new_id_ref = NULL;
+    OSStatus 			status = errSecSuccess;
+    Boolean 			ret = FALSE;
+    CFDataRef 			current_id_ref = NULL;
+    Boolean 			do_update = FALSE;
+
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, FALSE);
+    EAPLOG(LOG_DEBUG, "%s identity reference for key : [%@]",
+	   identity == NULL ? "deleting" : "adding/updating",
+	   unique_string);
+
+    /* check if the item already exists in the Keychain */
+    status = EAPKeychainCopyIdentityReference(unique_string, &current_id_ref);
+    if (status == errSecItemNotFound && identity == NULL) {
+	/* there is nothing to do in this case */
+	ret = TRUE;
+	goto done;
+    }
+    status = errSecSuccess;
+    if (current_id_ref != NULL) {
+	Boolean matched = FALSE;
+
+	if (identity == NULL) {
+	    /* delete identity reference from the Keychain */
+	    status = EAPKeychainSetIdentityReference(unique_string, NULL, FALSE);
+	    if (status != errSecSuccess) {
+		EAPLOG(LOG_ERR,
+		       "failed to delete identity reference, %s (%d)",
+		       EAPSecurityErrorString(status), (int)status);
+	    }
+	    ret = (status == errSecSuccess);
+	    goto done;
+	}
+	/* check if new identity and existing identity match */
+	status = EAPSecIdentityCompareIdentityHandle(identity, current_id_ref, &matched);
+	if (status == errSecSuccess && matched == TRUE) {
+	    /* this means there is no update in the identity */
+	    ret = TRUE;
+	    goto done;
+	}
+	do_update = TRUE;
+    }
+    new_id_ref = EAPSecIdentityHandleCreate(identity);
+    if (new_id_ref == NULL) {
+	EAPLOG(LOG_NOTICE, "EAPSecIdentityHandleCreate() returned NULL");
+	goto done;
+    }
+    status = EAPKeychainSetIdentityReference(unique_string, new_id_ref, do_update);
+    if (status != errSecSuccess) {
+	EAPLOG(LOG_ERR,
+	       "failed to add/update identity reference in the Keychain, %s (%d)",
+	       EAPSecurityErrorString(status), (int)status);
+	goto done;
+    }
+    ret = TRUE;
+
+done:
+    my_CFRelease(&current_id_ref);
+    my_CFRelease(&new_id_ref);
+    my_CFRelease(&unique_string);
+    return ret;
+}
+
+Boolean
+EAPOLClientItemIDCopyPasswordItem(EAPOLClientItemIDRef itemID,
+				  EAPOLClientDomain domain,
+				  CFDataRef * username_p,
+				  CFDataRef * password_p)
+{
+    CFStringRef 		unique_string = NULL;
+    OSStatus 			status = errSecSuccess;
+    Boolean 			ret = FALSE;
+
+    if (username_p == NULL && password_p == NULL) {
+	return FALSE;
+    }
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, TRUE);
+    if (unique_string == NULL) {
+	goto done;
+    }
+    EAPLOG(LOG_DEBUG, "searching username/password for [%@]", unique_string);
+    status = EAPKeychainCopyPasswordItem(unique_string, username_p, password_p);
+    if (status != errSecSuccess) {
+	EAPLOG(LOG_ERR,
+	       "failed to copy username/password from the Keychain, %s (%d)",
+	       EAPSecurityErrorString(status), (int)status);
+    }
+    ret = (status == errSecSuccess);
+done:
+    my_CFRelease(&unique_string);
+    return ret;
+}
+
+Boolean
+EAPOLClientItemIDRemovePasswordItem(EAPOLClientItemIDRef itemID,
+				    EAPOLClientDomain domain)
+{
+    OSStatus 			status = errSecSuccess;
+    CFStringRef 		unique_string = NULL;
+    Boolean 			ret = FALSE;
+
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, TRUE);
+    if (unique_string == NULL) {
+	goto done;
+    }
+    EAPLOG(LOG_DEBUG, "removing username/password for [%@]", unique_string);
+    status = EAPKeychainRemovePasswordItem(unique_string);
+    if (status != errSecSuccess) {
+	EAPLOG(LOG_ERR,
+	       "failed to remove username/password from the Keychain, %s (%d)",
+	       EAPSecurityErrorString(status), (int)status);
+	goto done;
+    }
+    ret = (status == errSecSuccess);
+done:
+    my_CFRelease(&unique_string);
+    return ret;
+}
+
+Boolean
+EAPOLClientItemIDSetPasswordItem(EAPOLClientItemIDRef itemID,
+				 EAPOLClientDomain domain,
+				 CFDataRef name, CFDataRef password)
+{
+    OSStatus 		status = errSecSuccess;
+    CFStringRef 	unique_string = NULL;
+    CFDataRef 		current_account = NULL;
+    CFDataRef 		current_password = NULL;
+    Boolean 		ret = FALSE;
+    Boolean 		names_matched = FALSE;
+    Boolean 		passwords_matched = FALSE;
+    Boolean 		update_name = FALSE;
+    Boolean 		update_password = FALSE;
+
+    if (name == NULL || password == NULL) {
+	return FALSE;
+    }
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, TRUE);
+    if (unique_string == NULL) {
+	goto done;
+    }
+    EAPLOG(LOG_DEBUG, "adding/updating username/password for [%@]", unique_string);
+    EAPKeychainCopyPasswordItem(unique_string, &current_account, &current_password);
+    if (current_account != NULL) {
+	/* account exists */
+	if (CFDataGetLength(current_account) == CFDataGetLength(name) &&
+	    (memcmp(CFDataGetBytePtr(current_account), CFDataGetBytePtr(name),
+		       CFDataGetLength(current_account)) == 0)) {
+	    /* account names match */
+	    names_matched = TRUE;
+	} else {
+	    update_name = TRUE;
+	}
+	if (current_password == NULL) {
+	    /* this must not happen */
+	    EAPLOG(LOG_ERR, "failed to find current password for [%@]", unique_string);
+	} else {
+	    if (CFDataGetLength(current_password) == CFDataGetLength(password) &&
+		(memcmp(CFDataGetBytePtr(current_password), CFDataGetBytePtr(name),
+			   CFDataGetLength(current_account)) == 0)) {
+		/* account names match */
+		names_matched = TRUE;
+	    } else {
+		update_password = TRUE;
+	    }
+	}
+    }
+    if (names_matched == TRUE && passwords_matched == TRUE) {
+	/* there is nothing to do here */
+	ret = TRUE;
+	goto done;
+    }
+    status = EAPKeychainSetPasswordItem(unique_string, name, password, (update_name || update_password));
+    ret = (status == errSecSuccess);
+done:
+    my_CFRelease(&current_account);
+    my_CFRelease(&current_password);
+    my_CFRelease(&unique_string);
+    return ret;
+}
+
+#else /* TARGET_OS_IPHONE */
+
+#pragma mark - Credentials Getter/Setter for macOS
 
 /**
  ** Utility functions
@@ -490,363 +1213,8 @@ authEAPOLClientItemIDCopyPasswordItem(EAPOLClientItemIDRef itemID,
 }
 
 /**
- ** EAPOLClientItemIDCopyUniqueString
- ** - get the unique string for the itemID
- **/
-
-/* for password/name Item */
-#define WLAN_SSID_STR	"wlan.ssid"
-#define WLAN_DOMAIN_STR	"wlan.domain"
-#define PROFILEID_STR	"profileid"
-#define DEFAULT_STR	"default"
-
-STATIC const char	kItemDescription[] = "802.1X Password";
-STATIC int		kItemDescriptionLength = sizeof(kItemDescription) - 1;
-
-#define EAP_PREFIX_STR	"com.apple.network.eap.%s.%s.%s"
-
-INLINE CFStringRef
-create_item_format(const char * domain, const char * type, const char * unique,
-		   CFStringRef value)
-{
-    CFStringRef		str;
-
-    if (value != NULL) {
-	str = CFStringCreateWithFormat(NULL, NULL, 
-				       CFSTR(EAP_PREFIX_STR ".%@"),
-				       domain, type, unique, value);
-    }
-    else {
-	str = CFStringCreateWithFormat(NULL, NULL, 
-				       CFSTR(EAP_PREFIX_STR),
-				       domain, type, unique);
-    }
-    return (str);
-}
-
-STATIC CFStringRef
-EAPOLClientItemIDCopyUniqueString(EAPOLClientItemIDRef itemID,
-				  EAPOLClientDomain domain, bool is_item)
-{
-    const char *	domain_str;
-    CFStringRef		result = NULL;
-    CFStringRef		profileID;
-    CFDataRef		ssid;
-    CFStringRef		ssid_str;
-    const char *	type_str;
-
-    type_str = is_item ? "item" : "identity";
-    domain_str = (domain == kEAPOLClientDomainSystem) ? "system" : "user";
-    switch (itemID->type) {
-    case kEAPOLClientItemIDTypeWLANSSID:
-	ssid_str = my_CFStringCreateWithData(itemID->u.ssid);
-	result = create_item_format(domain_str, type_str, WLAN_SSID_STR,
-				    ssid_str);
-	if (ssid_str != NULL) {
-	    CFRelease(ssid_str);
-	}
-	break;
-    case kEAPOLClientItemIDTypeWLANDomain:
-	result = create_item_format(domain_str, type_str,
-				    WLAN_DOMAIN_STR, itemID->u.domain);
-	break;
-    case kEAPOLClientItemIDTypeProfileID:
-	result = create_item_format(domain_str, type_str, PROFILEID_STR,
-				    itemID->u.profileID);
-	break;
-    case kEAPOLClientItemIDTypeProfile:
-	ssid = EAPOLClientProfileGetWLANSSIDAndSecurityType(itemID->u.profile,
-							    NULL);
-	if (ssid != NULL) {
-	    ssid_str = my_CFStringCreateWithData(ssid);
-	    result = create_item_format(domain_str, type_str, WLAN_SSID_STR,
-					ssid_str);
-	    if (ssid_str != NULL) {
-		CFRelease(ssid_str);
-	    }
-	}
-	else {
-	    CFStringRef		wlan_domain;
-
-	    wlan_domain = EAPOLClientProfileGetWLANDomain(itemID->u.profile);
-	    if (wlan_domain != NULL) {
-		result = create_item_format(domain_str, type_str,
-					    WLAN_DOMAIN_STR, wlan_domain);
-	    }
-	    else {
-		profileID = EAPOLClientProfileGetID(itemID->u.profile);
-		result = create_item_format(domain_str, type_str, PROFILEID_STR,
-					    profileID);
-	    }
-	}
-	break;
-    case kEAPOLClientItemIDTypeDefault:
-	result = create_item_format(domain_str, type_str, DEFAULT_STR, NULL);
-	break;
-    default:
-	break;
-    }
-    return (result);
-}
-
-/**
- ** CF object glue code
- **/
-STATIC CFStringRef	__EAPOLClientItemIDCopyDebugDesc(CFTypeRef cf);
-STATIC void		__EAPOLClientItemIDDeallocate(CFTypeRef cf);
-STATIC Boolean		__EAPOLClientItemIDEqual(CFTypeRef cf1, CFTypeRef cf2);
-STATIC CFHashCode	__EAPOLClientItemIDHash(CFTypeRef cf);
-
-STATIC CFTypeID __kEAPOLClientItemIDTypeID = _kCFRuntimeNotATypeID;
-
-STATIC const CFRuntimeClass __EAPOLClientItemIDClass = {
-    0,					/* version */
-    "EAPOLClientItemID",		/* className */
-    NULL,				/* init */
-    NULL,				/* copy */
-    __EAPOLClientItemIDDeallocate,	/* deallocate */
-    __EAPOLClientItemIDEqual,		/* equal */
-    __EAPOLClientItemIDHash,		/* hash */
-    NULL,				/* copyFormattingDesc */
-    __EAPOLClientItemIDCopyDebugDesc	/* copyDebugDesc */
-};
-
-STATIC CFStringRef
-__EAPOLClientItemIDCopyDebugDesc(CFTypeRef cf)
-{
-    CFAllocatorRef		allocator = CFGetAllocator(cf);
-    EAPOLClientItemIDRef	itemID = (EAPOLClientItemIDRef)cf;
-    CFStringRef			profileID;
-    CFMutableStringRef		result;
-    CFStringRef			ssid_str;
-
-    result = CFStringCreateMutable(allocator, 0);
-    CFStringAppendFormat(result, NULL, 
-			 CFSTR("<EAPOLClientItemID %p [%p]> {"), cf, allocator);
-    switch (itemID->type) {
-    case kEAPOLClientItemIDTypeWLANSSID:
-	ssid_str = my_CFStringCreateWithData(itemID->u.ssid);
-	CFStringAppendFormat(result, NULL, CFSTR("WLAN SSID = %@"),
-			     ssid_str);
-	CFRelease(ssid_str);
-	break;
-    case kEAPOLClientItemIDTypeWLANDomain:
-	CFStringAppendFormat(result, NULL, CFSTR("WLAN domain = %@"),
-			     itemID->u.domain);
-	break;
-    case kEAPOLClientItemIDTypeProfileID:
-	CFStringAppendFormat(result, NULL, CFSTR("ProfileID = %@"),
-			     itemID->u.profileID);
-	break;
-    case kEAPOLClientItemIDTypeProfile:
-	profileID = EAPOLClientProfileGetID(itemID->u.profile);
-	CFStringAppendFormat(result, NULL, CFSTR("Profile = %@"),
-			     profileID);
-	break;
-    case kEAPOLClientItemIDTypeDefault:
-	CFStringAppend(result, CFSTR("Default"));
-	break;
-    default:
-	break;
-    }
-    CFStringAppend(result, CFSTR("}"));
-    return result;
-}
-
-
-STATIC void
-__EAPOLClientItemIDDeallocate(CFTypeRef cf)
-{
-    EAPOLClientItemIDRef itemID	= (EAPOLClientItemIDRef)cf;
-
-    switch (itemID->type) {
-    case kEAPOLClientItemIDTypeWLANSSID:
-	CFRelease(itemID->u.ssid);
-	break;
-    case kEAPOLClientItemIDTypeWLANDomain:
-	CFRelease(itemID->u.domain);
-	break;
-    case kEAPOLClientItemIDTypeProfileID:
-	CFRelease(itemID->u.profileID);
-	break;
-    case kEAPOLClientItemIDTypeProfile:
-	CFRelease(itemID->u.profile);
-	break;
-    default:
-	break;
-    }
-    return;
-}
-
-
-STATIC Boolean
-__EAPOLClientItemIDEqual(CFTypeRef cf1, CFTypeRef cf2)
-{
-    EAPOLClientItemIDRef 	id1 = (EAPOLClientItemIDRef)cf1;
-    EAPOLClientItemIDRef	id2 = (EAPOLClientItemIDRef)cf2;
-
-    if (id1->type != id2->type) {
-	return (FALSE);
-    }
-    return (CFEqual(id1->u.ptr, id2->u.ptr));
-}
-
-STATIC CFHashCode
-__EAPOLClientItemIDHash(CFTypeRef cf)
-{
-    EAPOLClientItemIDRef 	itemID = (EAPOLClientItemIDRef)cf;
-
-    return (CFHash(itemID->u.ptr));
-}
-
-
-STATIC void
-__EAPOLClientItemIDInitialize(void)
-{
-    /* initialize runtime */
-    __kEAPOLClientItemIDTypeID 
-	= _CFRuntimeRegisterClass(&__EAPOLClientItemIDClass);
-    return;
-}
-
-STATIC void
-__EAPOLClientItemIDRegisterClass(void)
-{
-    STATIC pthread_once_t	initialized = PTHREAD_ONCE_INIT;
-
-    pthread_once(&initialized, __EAPOLClientItemIDInitialize);
-    return;
-}
-
-
-STATIC EAPOLClientItemIDRef
-__EAPOLClientItemIDAllocate(CFAllocatorRef allocator)
-{
-    EAPOLClientItemIDRef	itemID;
-
-    __EAPOLClientItemIDRegisterClass();
-
-    itemID = (EAPOLClientItemIDRef)
-	_CFRuntimeCreateInstance(allocator,
-				 __kEAPOLClientItemIDTypeID,
-				 sizeof(*itemID) - sizeof(CFRuntimeBase),
-				 NULL);
-    return (itemID);
-}
-
-/**
  ** EAPOLClientItemID APIs
  **/
-
-CFTypeID
-EAPOLClientItemIDGetTypeID(void)
-{
-    __EAPOLClientItemIDRegisterClass();
-    return (__kEAPOLClientItemIDTypeID);
-}
-
-/*
- * Function: EAPOLClientItemIDCreateWithProfileID
- *
- * Purpose:
- *   Create an EAPOLClientItemID instance based on the supplied profileID
- */
-EAPOLClientItemIDRef
-EAPOLClientItemIDCreateWithProfileID(CFStringRef profileID)
-{
-    EAPOLClientItemIDRef	itemID;
-
-    itemID = __EAPOLClientItemIDAllocate(CFGetAllocator(profileID));
-    if (itemID == NULL) {
-	return (NULL);
-    }
-    itemID->type = kEAPOLClientItemIDTypeProfileID;
-    itemID->u.profileID = CFRetain(profileID);
-    return (itemID);
-}
-
-/*
- * Function: EAPOLClientItemIDCreateWithWLANSSID
- *
- * Purpose:
- *   Create an EAPOLClientItemID instance based on the supplied WLAN SSID.
- */
-EAPOLClientItemIDRef
-EAPOLClientItemIDCreateWithWLANSSID(CFDataRef ssid)
-{
-    EAPOLClientItemIDRef	itemID;
-
-    itemID = __EAPOLClientItemIDAllocate(CFGetAllocator(ssid));
-    if (itemID == NULL) {
-	return (NULL);
-    }
-    itemID->type = kEAPOLClientItemIDTypeWLANSSID;
-    itemID->u.ssid = CFRetain(ssid);
-    return (itemID);
-}
-
-/*
- * Function: EAPOLClientItemIDCreateWithWLANDomain
- *
- * Purpose:
- *   Create an EAPOLClientItemID instance based on the supplied WLAN 
- *   Hotspot 2.0 domain name.
- */
-EAPOLClientItemIDRef
-EAPOLClientItemIDCreateWithWLANDomain(CFStringRef domain)
-{
-    EAPOLClientItemIDRef	itemID;
-
-    itemID = __EAPOLClientItemIDAllocate(CFGetAllocator(domain));
-    if (itemID == NULL) {
-	return (NULL);
-    }
-    itemID->type = kEAPOLClientItemIDTypeWLANDomain;
-    itemID->u.domain = CFRetain(domain);
-    return (itemID);
-}
-
-/*
- * Function: EAPOLClientItemIDCreateWithProfile
- *
- * Purpose:
- *   Create an EAPOLClientItemID instance based on the supplied
- *   EAPOLClientProfileRef.
- */
-EAPOLClientItemIDRef
-EAPOLClientItemIDCreateWithProfile(EAPOLClientProfileRef profile)
-{
-    EAPOLClientItemIDRef	itemID;
-
-    itemID = __EAPOLClientItemIDAllocate(CFGetAllocator(profile));
-    if (itemID == NULL) {
-	return (NULL);
-    }
-    itemID->type = kEAPOLClientItemIDTypeProfile;
-    CFRetain(profile);
-    itemID->u.profile = profile;
-    return (itemID);
-}
-
-/*
- * Function: EAPOLClientItemIDCreateDefault
- *
- * Purpose:
- *   Create an EAPOLClientItemID instance that indicates that the default
- *   authentication parameters and default keychain items are to be used.
- */
-EAPOLClientItemIDRef
-EAPOLClientItemIDCreateDefault(void)
-{
-    EAPOLClientItemIDRef	itemID;
-
-    itemID = __EAPOLClientItemIDAllocate(NULL);
-    if (itemID == NULL) {
-	return (NULL);
-    }
-    itemID->type = kEAPOLClientItemIDTypeDefault;
-    return (itemID);
-}
 
 /*
  * Function: EAPOLClientItemIDCopyPasswordItem
@@ -1268,146 +1636,6 @@ EAPOLClientItemIDSetIdentity(EAPOLClientItemIDRef itemID,
     return (status == noErr);
 }
 
-/**
- ** Private functions
- **/
-
-
-CFStringRef
-EAPOLClientItemIDGetProfileID(EAPOLClientItemIDRef itemID)
-{
-    switch (itemID->type) {
-    case kEAPOLClientItemIDTypeProfileID:
-	return (itemID->u.profileID);
-    case kEAPOLClientItemIDTypeProfile:
-	return (EAPOLClientProfileGetID(itemID->u.profile));
-    default:
-	break;
-    }
-    return (NULL);
-}
-
-CFDataRef
-EAPOLClientItemIDGetWLANSSID(EAPOLClientItemIDRef itemID)
-{
-    switch (itemID->type) {
-    case kEAPOLClientItemIDTypeWLANSSID:
-	return (itemID->u.ssid);
-    case kEAPOLClientItemIDTypeProfile:
-	return (EAPOLClientProfileGetWLANSSIDAndSecurityType(itemID->u.profile,
-							     NULL));
-    default:
-	break;
-    }
-    return (NULL);
-}
-
-EAPOLClientProfileRef
-EAPOLClientItemIDGetProfile(EAPOLClientItemIDRef itemID)
-{
-    switch (itemID->type) {
-    case kEAPOLClientItemIDTypeProfile:
-	return (itemID->u.profile);
-    default:
-	break;
-    }
-    return (NULL);
-}
-
-#define kItemProfileID		CFSTR("ProfileID")
-#define kItemDomain		CFSTR("Domain")
-#define kItemSSID		CFSTR("SSID")
-#define kItemDefault		CFSTR("Default")
-
-CFDictionaryRef
-EAPOLClientItemIDCopyDictionary(EAPOLClientItemIDRef itemID)
-{
-    const void *	key;
-    CFStringRef		profileID;
-    const void *	value;
-
-    profileID = EAPOLClientItemIDGetProfileID(itemID);
-    if (profileID != NULL) {
-	key = (const void *)kItemProfileID;
-	value = (const void *)profileID;
-    }
-    else {
-	CFDataRef		ssid = EAPOLClientItemIDGetWLANSSID(itemID);
-
-	if (ssid != NULL) {
-	    key = (const void *)kItemSSID;
-	    value = (const void *)ssid;
-	}
-	else {
-	    switch (itemID->type) {
-	    case kEAPOLClientItemIDTypeWLANDomain:
-		key = (const void *)kItemDomain;
-		value = (const void *)itemID->u.domain;
-		break;
-	    case kEAPOLClientItemIDTypeDefault:
-		key = (const void *)kItemDefault;
-		value = (const void *)kCFBooleanTrue;
-		break;
-	    default:
-		return (NULL);
-	    }
-	}
-    }
-    return (CFDictionaryCreate(NULL, &key, &value, 1,
-			       &kCFTypeDictionaryKeyCallBacks,
-			       &kCFTypeDictionaryValueCallBacks));
-}
-
-EAPOLClientItemIDRef
-EAPOLClientItemIDCreateWithDictionary(EAPOLClientConfigurationRef cfg,
-				      CFDictionaryRef dict)
-{
-    CFStringRef			domain;
-    EAPOLClientProfileRef	profile;
-    CFStringRef			profileID;
-    CFDataRef			ssid;
-
-    if (isA_CFDictionary(dict) == NULL) {
-	return (NULL);
-    }
-    profileID = CFDictionaryGetValue(dict, kItemProfileID);
-    if (isA_CFString(profileID) != NULL) {
-	if (cfg != NULL) {
-	    profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
-	    if (profile != NULL) {
-		return (EAPOLClientItemIDCreateWithProfile(profile));
-	    }
-	}
-	return (EAPOLClientItemIDCreateWithProfileID(profileID));
-    }
-    ssid = CFDictionaryGetValue(dict, kItemSSID);
-    if (isA_CFData(ssid) != NULL) {
-	if (cfg != NULL) {
-	    profile = EAPOLClientConfigurationGetProfileWithWLANSSID(cfg, ssid);
-	    if (profile != NULL) {
-		return (EAPOLClientItemIDCreateWithProfile(profile));
-	    }
-	}
-	return (EAPOLClientItemIDCreateWithWLANSSID(ssid));
-    }
-    domain = CFDictionaryGetValue(dict, kItemDomain);
-    if (isA_CFString(domain) != NULL) {
-	if (cfg != NULL) {
-	    profile 
-		= EAPOLClientConfigurationGetProfileWithWLANDomain(cfg,
-								   domain);
-	    if (profile != NULL) {
-		return (EAPOLClientItemIDCreateWithProfile(profile));
-	    }
-	}
-	return (EAPOLClientItemIDCreateWithWLANDomain(domain));
-    }
-    if (CFDictionaryGetValue(dict, kItemDefault) != NULL) {
-	return (EAPOLClientItemIDCreateDefault());
-    }
-    return (NULL);
-}
- 
 PRIVATE_EXTERN AuthorizationExternalForm *
 EAPOLClientItemIDGetAuthorizationExternalForm(EAPOLClientItemIDRef itemID)
 {
@@ -1424,3 +1652,5 @@ EAPOLClientItemIDGetAuthorizationExternalForm(EAPOLClientItemIDRef itemID)
     }
     return (EAPOLClientConfigurationGetAuthorizationExternalForm(cfg));
 }
+
+#endif /* TARGET_OS_IPHONE */

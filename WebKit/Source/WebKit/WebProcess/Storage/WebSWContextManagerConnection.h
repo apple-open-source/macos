@@ -37,6 +37,7 @@
 #include "WebPageProxyIdentifier.h"
 #include "WebPreferencesStore.h"
 #include "WorkQueueMessageReceiver.h"
+#include <WebCore/BackgroundFetchFailureReason.h>
 #include <WebCore/SWContextManager.h>
 #include <WebCore/ServiceWorkerClientData.h>
 #include <WebCore/ServiceWorkerTypes.h>
@@ -68,8 +69,8 @@ public:
 
     WebCore::PageIdentifier pageIdentifier() const final { return m_pageID; }
 
-    void ref() const final { IPC::WorkQueueMessageReceiver::ref(); }
-    void deref() const final { IPC::WorkQueueMessageReceiver ::deref(); }
+    void ref() const final { return IPC::WorkQueueMessageReceiver::ref(); }
+    void deref() const final { return IPC::WorkQueueMessageReceiver::deref(); }
 
 private:
     WebSWContextManagerConnection(Ref<IPC::Connection>&&, WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, RemoteWorkerInitializationData&&);
@@ -93,6 +94,7 @@ private:
     void setAsInspected(WebCore::ServiceWorkerIdentifier, bool) final;
     void openWindow(WebCore::ServiceWorkerIdentifier, const URL&, OpenWindowCallback&&) final;
     void stop() final;
+    void reportConsoleMessage(WebCore::ServiceWorkerIdentifier, MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier) final;
 
     // IPC messages.
     void updatePreferencesStore(WebPreferencesStore&&);
@@ -108,6 +110,8 @@ private:
     void fireActivateEvent(WebCore::ServiceWorkerIdentifier);
     void firePushEvent(WebCore::ServiceWorkerIdentifier, const std::optional<IPC::DataReference>&, CompletionHandler<void(bool)>&&);
     void fireNotificationEvent(WebCore::ServiceWorkerIdentifier, WebCore::NotificationData&&, WebCore::NotificationEventType, CompletionHandler<void(bool)>&&);
+    void fireBackgroundFetchEvent(WebCore::ServiceWorkerIdentifier, WebCore::BackgroundFetchInformation&&, CompletionHandler<void(bool)>&&);
+    void fireBackgroundFetchClickEvent(WebCore::ServiceWorkerIdentifier, WebCore::BackgroundFetchInformation&&, CompletionHandler<void(bool)>&&);
     void terminateWorker(WebCore::ServiceWorkerIdentifier);
 #if ENABLE(SHAREABLE_RESOURCE) && PLATFORM(COCOA)
     void didSaveScriptsToDisk(WebCore::ServiceWorkerIdentifier, WebCore::ScriptBuffer&&, HashMap<URL, WebCore::ScriptBuffer>&& importedScripts);

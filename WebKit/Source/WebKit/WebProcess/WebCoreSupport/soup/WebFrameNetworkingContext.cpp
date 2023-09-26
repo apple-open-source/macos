@@ -27,6 +27,7 @@
 #include "config.h"
 #include "WebFrameNetworkingContext.h"
 
+#include "MessageSenderInlines.h"
 #include "NetworkSession.h"
 #include "NetworkSessionCreationParameters.h"
 #include "WebFrame.h"
@@ -45,16 +46,16 @@ void WebFrameNetworkingContext::ensureWebsiteDataStoreSession(const WebsiteDataS
 }
 
 WebFrameNetworkingContext::WebFrameNetworkingContext(WebFrame* frame)
-    : FrameNetworkingContext(frame->coreFrame())
+    : FrameNetworkingContext(frame->coreLocalFrame())
 {
 }
 
-WebFrameLoaderClient* WebFrameNetworkingContext::webFrameLoaderClient() const
+WebLocalFrameLoaderClient* WebFrameNetworkingContext::webFrameLoaderClient() const
 {
     if (!frame())
         return nullptr;
 
-    return toWebFrameLoaderClient(frame()->loader().client());
+    return toWebLocalFrameLoaderClient(frame()->loader().client());
 }
 
 }

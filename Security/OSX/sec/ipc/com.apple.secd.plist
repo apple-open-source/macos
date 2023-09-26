@@ -4,14 +4,12 @@
 <dict>
 	<key>EnablePressuredExit</key>
 	<true/>
-	<key>EnableTransactions</key>
-	<true/>
 	<key>LimitLoadToSessionType</key>
 	<array>
 		<string>Background</string>
 		<string>CryptexContainer</string>
 	</array>
-	<key>POSIXSpawnType</key>
+	<key>ProcessType</key>
 	<string>Interactive</string>
 	<key>Label</key>
 	<string>com.apple.secd</string>
@@ -32,6 +30,8 @@
 		<key>com.apple.securityd.sos</key>
 		<true/>
 		<key>com.apple.security.escrow-update</key>
+		<true/>
+		<key>com.apple.security.kcsharing</key>
 		<true/>
 	</dict>
 	<key>ProgramArguments</key>

@@ -74,6 +74,7 @@ __FBSDID("$FreeBSD$");
 #include <fcntl.h>
 #include <inttypes.h>
 #include <locale.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -101,11 +102,15 @@ char	fill_char;		/* Character to fill with if defined */
 size_t	speed = 0;		/* maximum speed, in bytes per second */
 volatile sig_atomic_t need_summary;
 volatile sig_atomic_t need_progress;
+volatile sig_atomic_t kill_signal;
 
 int
 main(int argc __unused, char *argv[])
 {
 	struct itimerval itv = { { 1, 0 }, { 1, 0 } }; /* SIGALARM every second, if needed */
+
+	(void)siginterrupt(SIGINT, 1);
+	(void)signal(SIGINT, terminate);
 
 	(void)setlocale(LC_CTYPE, "");
 	jcl(argv);
@@ -122,7 +127,6 @@ main(int argc __unused, char *argv[])
 		(void)signal(SIGALRM, sigalarm_handler);
 		setitimer(ITIMER_REAL, &itv, NULL);
 	}
-	(void)signal(SIGINT, terminate);
 
 	atexit(summary);
 
@@ -170,7 +174,9 @@ setup(void)
 		if (ddflags & C_IDIRECT)
 			iflags |= O_DIRECT;
 #endif
+		check_terminate();
 		in.fd = open(in.name, O_RDONLY | iflags, 0);
+		check_terminate();
 		if (in.fd == -1)
 			err(1, "%s", in.name);
 #ifdef __APPLE__
@@ -217,7 +223,9 @@ setup(void)
 		if (ddflags & C_ODIRECT)
 			oflags |= O_DIRECT;
 #endif
+		check_terminate();
 		out.fd = open(out.name, O_RDWR | oflags, DEFFILEMODE);
+		check_terminate();
 		/*
 		 * May not have read access, so try again with write only.
 		 * Without read we may have a problem if output also does
@@ -225,6 +233,7 @@ setup(void)
 		 */
 		if (out.fd == -1) {
 			out.fd = open(out.name, O_WRONLY | oflags, DEFFILEMODE);
+			check_terminate();
 			out.flags |= NOREAD;
 #ifndef __APPLE__
 			cap_rights_clear(&rights, CAP_READ);
@@ -460,7 +469,9 @@ dd_in(void)
 
 		in.dbrcnt = 0;
 fill:
+		check_terminate();
 		n = read(in.fd, in.dbp + in.dbrcnt, in.dbsz - in.dbrcnt);
+		check_terminate();
 
 		/* EOF */
 		if (n == 0 && in.dbrcnt == 0)
@@ -643,7 +654,9 @@ dd_out(int force)
 					pending = 0;
 				}
 				if (cnt) {
+					check_terminate();
 					nw = write(out.fd, outp, cnt);
+					check_terminate();
 					out.seek_offset = 0;
 				} else {
 					return;

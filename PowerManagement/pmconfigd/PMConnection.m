@@ -288,6 +288,7 @@ static void setSystemSleepStateTracking(IOPMCapabilityBits);
 
 static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms);
 
+
 /* Hide SleepServices code for public OS seeds. 
  * We plan to re-enable this code for shipment.
  * ETB 1/24/12
@@ -841,7 +842,7 @@ kern_return_t _io_pm_connection_acknowledge_event
 
         if (requestDate) {
             if ((kACPowered == _getPowerSource())
-                || (getTCPKeepAliveState(NULL, 0) == kActive))
+                || (getTCPKeepAliveState(NULL, 0, false) == kActive))
             {
                 foundResponse->maintenanceRequested = CFDateGetAbsoluteTime(requestDate);
             }
@@ -861,15 +862,10 @@ kern_return_t _io_pm_connection_acknowledge_event
              *
              * kIOPMAckWakeDate
              * kIOPMAckNetworkMaintenanceWakeDate
-             * kIOPMAckSUWakeDate
              */
             requestDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAckWakeDate));
             if (!requestDate) {
                 requestDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAckNetworkMaintenanceWakeDate));
-            }
-
-            if (!requestDate) {
-                requestDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAckSUWakeDate));
             }
 
             if (requestDate
@@ -877,6 +873,17 @@ kern_return_t _io_pm_connection_acknowledge_event
             {
                 foundResponse->maintenanceRequested = CFDateGetAbsoluteTime(requestDate);
             }
+
+            /*
+             * Caller requests a maintenance wake. These schedule on AC and Battery.
+             * kIOPMAckSUWakeDate
+             */
+            if (!requestDate) {
+                requestDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAckSUWakeDate));
+                if (requestDate) {
+                    foundResponse->maintenanceRequested = CFDateGetAbsoluteTime(requestDate);                }
+            }
+
         }
 
         /* kIOPMAckBackgroundTaskWakeDate
@@ -1410,6 +1417,7 @@ void cancelDarkWakeCapabilitiesTimer(void)
 }
 
 
+
 #if LOG_SLEEPSERVICES
 
 /*****************************************************************************/
@@ -1847,7 +1855,7 @@ static void handleLastCallMsg(void *messageData, CFStringRef sleepReason)
     bool sys_active = false;
     bool pending_wakes = false;
 
-    tcpka_active = ((getTCPKeepAliveState(NULL, 0) == kActive) && checkForActivesByType(kInteractivePushServiceType));
+    tcpka_active = ((getTCPKeepAliveState(NULL, 0, false) == kActive) && checkForActivesByType(kInteractivePushServiceType));
 
     sys_active = checkForActivesByType(kDeclareSystemActivityType);
     pending_wakes = (CFStringCompare(sleepReason, CFSTR(kIOPMIdleSleepKey), 0) == kCFCompareEqualTo) &&
@@ -3373,6 +3381,7 @@ static bool checkResponses_ScheduleWakeEvents(PMResponseWrangler *wrangler)
         reqCnt++;
 
     }
+
 
 
     // Disable all dark wake requests if system is going to standby and kIOPMDestroyFVKeyOnStandbyKey

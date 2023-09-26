@@ -186,10 +186,20 @@ class IOTimeSyncEthernetInterfaceAdapter;
 class __exported APPLE_KEXT_DEPRECATE IOEthernetController : public IONetworkController
 {
     OSDeclareAbstractStructors( IOEthernetController )
-
+    
+public:
+    struct IOEthernetAVBPacket;
+    
 protected:
-	struct IOECTSCallbackEntry;
-	
+    struct IOECTSCallbackEntry;
+    
+    struct IOEthernetAVBPacketPoolEntry
+    {
+        IOEthernetAVBPacket *packet;
+        IOEthernetAVBPacketPoolEntry *next;
+        bool inUse;
+    };
+    
     struct ExpansionData {
 		IOEthernetControllerAVBTimeSyncSupport fTimeSyncSupport;
 		bool fRealtimeMulticastAllowed;
@@ -230,6 +240,12 @@ protected:
 		uint64_t fTimeSyncCallbackTimeoutTime;
 		
 		bool fgPTPPresent;
+        
+        size_t fRealtimePoolSize;
+        IOEthernetAVBPacketPoolEntry *fRealtimePoolList;
+        IOEthernetAVBPacketPoolEntry *fRealtimePoolHead;
+        IOEthernetAVBPacketPoolEntry *fRealtimePoolTail;
+        IOLock *fRealtimePoolLock;
 	};
 	
 	/*! @var reserved
@@ -687,8 +703,6 @@ protected:
 public:
 #define kMaxIOEthernetReltimeEntries	4
 	
-	struct IOEthernetAVBPacket;
-	
     /*! @typedef avb_packet_callback_t
      @abstract Callback function for handling received realtime or TimeSync packets
      @discussion Prototype for the callback function provided to the setRealtimeReceiveQueuePacketHandler(),
@@ -759,10 +773,18 @@ public:
 	 */
 	IOEthernetAVBPacket *allocateAVBPacket(bool fromRealtimePool);
 	
-	
+protected:
+    /*! @function createRealtimeAVBPacketPool
+        @abstract Create the realtime AVB packet pool.
+        @discussion Create the pool of packets to be used by allocateAVBPacket() when fromRealtimePool is true.
+        @param poolSize    The number of packets to allocate in the pool.
+        @result IOReturn indicating success or reason for failure.
+     */
+    IOReturn createRealtimeAVBPacketPool(size_t poolSize);
+    
 private:
 	static void allocatedAVBPacketCompletion(void *context, IOEthernetAVBPacket *packet);
-	void realtimePoolAVBPacketCompletion(IOEthernetAVBPacket *packet);
+    static void realtimePoolAVBPacketCompletion(void *context, IOEthernetAVBPacket *packet);
 	
 	
 #pragma mark Realtime Transmit

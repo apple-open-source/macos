@@ -130,8 +130,6 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
                                                        completion: @escaping (Swift.Result<ResponseType, Swift.Error>) -> Swift.Void) {
         let op = operationCreator()
 
-        op.configuration.discretionaryNetworkBehavior = .nonDiscretionary
-        op.configuration.automaticallyRetryNetworkFailures = false
         op.configuration.isCloudKitSupportOperation = true
         op.configuration.setApplicationBundleIdentifierOverride(CuttlefishPushTopicBundleIdentifier)
 
@@ -233,13 +231,6 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
       completion: @escaping (Swift.Result<FetchPolicyDocumentsResponse, Swift.Error>) -> Swift.Void) {
         retry(functionName: #function, operationCreator: {
             return CuttlefishAPI.FetchPolicyDocumentsOperation(request: request)
-        }, completion: completion)
-    }
-    public func validatePeers(
-      _ request: ValidatePeersRequest,
-      completion: @escaping (Swift.Result<ValidatePeersResponse, Swift.Error>) -> Swift.Void) {
-        retry(functionName: #function, operationCreator: {
-            return CuttlefishAPI.ValidatePeersOperation(request: request)
         }, completion: completion)
     }
     public func reportHealth(
@@ -437,7 +428,7 @@ class ContainerMap {
 
     static func urlForPersistentStore(name: ContainerName) -> URL {
         let filename = name.container + "-" + name.context + ".TrustedPeersHelper.db"
-        return SecCopyURLForFileInKeychainDirectory(filename as CFString) as URL
+        return SecCopyURLForFileInUserScopedKeychainDirectory(filename as CFString) as URL
     }
 
     // To be called via test only

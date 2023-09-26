@@ -38,7 +38,7 @@ class GraphicsContext;
 namespace WebKit {
 
 class ShareableBitmap;
-class UpdateInfo;
+struct UpdateInfo;
 
 class DrawingAreaCoordinatedGraphics final : public DrawingArea {
 public:
@@ -57,8 +57,8 @@ private:
     bool layerTreeStateIsFrozen() const override { return m_layerTreeStateIsFrozen; }
 
     void updatePreferences(const WebPreferencesStore&) override;
-    void enablePainting() override;
-    void mainFrameContentSizeChanged(const WebCore::IntSize&) override;
+    void mainFrameContentSizeChanged(WebCore::FrameIdentifier, const WebCore::IntSize&) override;
+    void sendEnterAcceleratedCompositingModeIfNeeded() override;
 
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     void deviceOrPageScaleFactorChanged() override;
@@ -66,9 +66,11 @@ private:
 #endif
 
     bool supportsAsyncScrolling() const override;
+    void registerScrollingTree() override;
+    void unregisterScrollingTree() override;
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
-    void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
+    void setRootCompositingLayer(WebCore::Frame&, WebCore::GraphicsLayer*) override;
     void triggerRenderingUpdate() override;
 
 #if USE(COORDINATED_GRAPHICS) || USE(GRAPHICS_LAYER_TEXTURE_MAPPER)
@@ -77,20 +79,19 @@ private:
     
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) override;
 
-    void activityStateDidChange(OptionSet<WebCore::ActivityState::Flag>, ActivityStateChangeID, CompletionHandler<void()>&&) override;
-    void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) override;
+    void activityStateDidChange(OptionSet<WebCore::ActivityState>, ActivityStateChangeID, CompletionHandler<void()>&&) override;
+    void attachViewOverlayGraphicsLayer(WebCore::FrameIdentifier, WebCore::GraphicsLayer*) override;
 
     // IPC message handlers.
-    void updateBackingStoreState(uint64_t backingStoreStateID, bool respondImmediately, float deviceScaleFactor, const WebCore::IntSize&, const WebCore::IntSize& scrollOffset) override;
+    void updateGeometry(const WebCore::IntSize&, CompletionHandler<void()>&&) override;
     void targetRefreshRateDidChange(unsigned rate) override;
     void displayDidRefresh() override;
+    void setDeviceScaleFactor(float) override;
 
 #if PLATFORM(GTK)
     void adjustTransientZoom(double scale, WebCore::FloatPoint origin) override;
     void commitTransientZoom(double scale, WebCore::FloatPoint origin) override;
 #endif
-
-    void sendDidUpdateBackingStoreState();
 
     void exitAcceleratedCompositingModeSoon();
     bool exitAcceleratedCompositingModePending() const { return m_exitCompositingTimer.isActive(); }
@@ -107,17 +108,8 @@ private:
     void display();
     void display(UpdateInfo&);
 
-    uint64_t m_backingStoreStateID { 0 };
-
-    // Whether painting is enabled. If painting is disabled, any calls to setNeedsDisplay and scroll are ignored.
-    bool m_isPaintingEnabled { false };
-
-    // Whether we're currently processing an UpdateBackingStoreState message.
-    bool m_inUpdateBackingStoreState { false };
-
-    // When true, we should send an UpdateBackingStoreState message instead of any other messages
-    // we normally send to the UI process.
-    bool m_shouldSendDidUpdateBackingStoreState { false };
+    // Whether we're currently processing an UpdateGeometry message.
+    bool m_inUpdateGeometry { false };
 
     // True between sending the 'enter compositing' messages, and the 'exit compositing' message.
     bool m_compositingAccordingToProxyMessages { false };
@@ -146,14 +138,14 @@ private:
     WebCore::IntRect m_scrollRect;
     WebCore::IntSize m_scrollOffset;
 
-    // Whether we're waiting for a DidUpdate message. Used for throttling paints so that the 
+    // Whether we're waiting for a DidUpdate message. Used for throttling paints so that the
     // web process won't paint more frequent than the UI process can handle.
     bool m_isWaitingForDidUpdate { false };
     bool m_scheduledWhileWaitingForDidUpdate { false };
 
     bool m_alwaysUseCompositing { false };
     bool m_supportsAsyncScrolling { true };
-    bool m_forceRepaintAfterBackingStoreStateUpdate { false };
+    bool m_shouldSendEnterAcceleratedCompositingMode { false };
 
     RunLoop::Timer m_displayTimer;
 

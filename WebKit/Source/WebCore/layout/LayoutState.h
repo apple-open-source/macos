@@ -28,18 +28,19 @@
 #include "LayoutElementBox.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
-#include <wtf/IsoMalloc.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
+class Document;
+
 namespace Layout {
 
 class BlockFormattingState;
+class BoxGeometry;
 class FlexFormattingState;
 class FormattingContext;
 class FormattingState;
-class BoxGeometry;
 class InlineFormattingState;
 class TableFormattingState;
 
@@ -98,7 +99,6 @@ public:
 
     void setViewportSize(const LayoutSize&);
     LayoutSize viewportSize() const;
-    bool shouldIgnoreTrailingLetterSpacing() const;
     bool shouldNotSynthesizeInlineBlockBaseline() const;
 
 private:

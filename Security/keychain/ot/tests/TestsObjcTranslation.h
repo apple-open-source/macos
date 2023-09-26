@@ -79,6 +79,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (OTAccountSettings* _Nullable)fetchAccountWideSettingsWithForceFetch:(bool)forceFetch
                                                          configuration:(OTConfigurationContext*)configurationContext
                                                                  error:(NSError**)error;
++ (OTAccountSettings* _Nullable)fetchAccountWideSettingsDefaultWithForceFetch:(bool)forceFetch
+                                                         configuration:(OTConfigurationContext*)configurationContext
+                                                                 error:(NSError**)error;
 
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error;
 
@@ -96,6 +99,13 @@ NS_ASSUME_NONNULL_BEGIN
                                error:(NSError**)error;
 
 - (bool)preflightRecoveryKey:(OTConfigurationContext*)context recoveryKey:(NSString*)recoveryKey error:(NSError**)error;
+
++ (bool)setRecoveryKeyWithContext:(OTConfigurationContext*)ctx
+                      recoveryKey:(NSString*)recoveryKey
+                            error:(NSError**)error;
+
++ (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

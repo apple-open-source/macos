@@ -69,8 +69,8 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 @property (nullable) NSString* octagonPeerID;
 @property CKKSCondition* octagonInformationInitialized;
 
-@property CKKSAccountStatus hsa2iCloudAccountStatus;
-@property CKKSCondition* hsa2iCloudAccountInitialized;
+@property CKKSAccountStatus cdpCapableiCloudAccountStatus;
+@property CKKSCondition* cdpCapableiCloudAccountInitialized;
 @end
 
 @implementation CKKSAccountStateTracker
@@ -99,17 +99,17 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
         _octagonInformationInitialized = [[CKKSCondition alloc] init];
 
-        _hsa2iCloudAccountStatus = CKKSAccountStatusUnknown;
-        _hsa2iCloudAccountInitialized = [[CKKSCondition alloc] init];
+        _cdpCapableiCloudAccountStatus = CKKSAccountStatusUnknown;
+        _cdpCapableiCloudAccountInitialized = [[CKKSCondition alloc] init];
 
         id<CKKSNSNotificationCenter> notificationCenter = [self.nsnotificationCenterClass defaultCenter];
         ckksinfo_global("ckksaccount", "Registering with notification center %@", notificationCenter);
         [notificationCenter addObserver:self selector:@selector(notifyCKAccountStatusChange:) name:CKAccountChangedNotification object:NULL];
 
         WEAKIFY(self);
-
+        
         // If this is a live server, register with notify
-        if([OTClique platformSupportsSOS] && !SecCKKSTestsEnabled()) {
+        if(SOSCompatibilityModeGetCachedStatus() && !SecCKKSTestsEnabled()) {
             int token = 0;
             notify_register_dispatch(kSOSCCCircleChangedNotification, &token, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(int t) {
                 STRONGIFY(self);
@@ -128,7 +128,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
                 }
             });
         }
-
+        
         _fetchCKAccountStatusScheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"ckstatus-refetch"
                                                                           initialDelay:5 * NSEC_PER_SEC
                                                                     exponentialBackoff:1.1
@@ -159,10 +159,10 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 }
 
 -(NSString*)descriptionInternal: (NSString*) selfString {
-    return [NSString stringWithFormat:@"<%@: %@, hsa2: %@>",
+    return [NSString stringWithFormat:@"<%@: %@, cdp capable: %@>",
             selfString,
             self.currentCKAccountInfo,
-            CKKSAccountStatusToString(self.hsa2iCloudAccountStatus)];
+            CKKSAccountStatusToString(self.cdpCapableiCloudAccountStatus)];
 }
 
 -(NSString*)description {
@@ -566,20 +566,20 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 }
 
 
-- (void)setHSA2iCloudAccountStatus:(CKKSAccountStatus)status
+- (void)setCDPCapableiCloudAccountStatus:(CKKSAccountStatus)status
 {
-    self.hsa2iCloudAccountStatus = status;
+    self.cdpCapableiCloudAccountStatus = status;
     if(status == CKKSAccountStatusUnknown) {
-        self.hsa2iCloudAccountInitialized = [[CKKSCondition alloc] initToChain:self.hsa2iCloudAccountInitialized];
+        self.cdpCapableiCloudAccountInitialized = [[CKKSCondition alloc] initToChain:self.cdpCapableiCloudAccountInitialized];
     } else {
-        [self.hsa2iCloudAccountInitialized fulfill];
+        [self.cdpCapableiCloudAccountInitialized fulfill];
     }
 }
 
 @end
 
 @implementation SOSAccountStatus
-- (instancetype)init:(SOSCCStatus)status error:(NSError*)error
+- (instancetype)init:(SOSCCStatus)status error:(NSError* _Nullable)error
 {
     if((self = [super init])) {
         _status = status;

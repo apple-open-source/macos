@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2023 Igalia S.L. All rights reserved.
+ * Copyright (C) 2023 ChangSeok Oh <changseok@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +42,7 @@ class GstSpeechSynthesisWrapper {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(GstSpeechSynthesisWrapper);
 public:
-    explicit GstSpeechSynthesisWrapper(Ref<PlatformSpeechSynthesizer>);
+    explicit GstSpeechSynthesisWrapper(const PlatformSpeechSynthesizer&);
     ~GstSpeechSynthesisWrapper();
 
     void pause();
@@ -54,12 +55,14 @@ private:
     bool handleMessage(GstMessage*);
 
     RefPtr<PlatformSpeechSynthesisUtterance> m_utterance;
-    Ref<PlatformSpeechSynthesizer> m_platformSynthesizer;
+    const PlatformSpeechSynthesizer& m_platformSynthesizer;
     GRefPtr<GstElement> m_pipeline;
     GRefPtr<GstElement> m_src;
+    GRefPtr<GstElement> m_volumeElement;
+    GRefPtr<GstElement> m_pitchElement;
 };
 
-GstSpeechSynthesisWrapper::GstSpeechSynthesisWrapper(Ref<PlatformSpeechSynthesizer> synthesizer)
+GstSpeechSynthesisWrapper::GstSpeechSynthesisWrapper(const PlatformSpeechSynthesizer& synthesizer)
     : m_platformSynthesizer(synthesizer)
 {
     ensureGStreamerInitialized();
@@ -95,8 +98,26 @@ GstSpeechSynthesisWrapper::GstSpeechSynthesisWrapper(Ref<PlatformSpeechSynthesiz
         }
     }
 
-    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_src.get(), audioSink.get(), nullptr);
-    gst_element_link_pads_full(m_src.get(), "src", audioSink.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    m_volumeElement = makeGStreamerElement("volume", nullptr);
+    m_pitchElement = makeGStreamerElement("pitch", nullptr);
+    if (!m_pitchElement)
+        WTFLogAlways("The pitch GStreamer plugin is unavailable. The pitch property of Speech Synthesis is ignored.");
+
+    GRefPtr<GstElement> audioConvert = makeGStreamerElement("audioconvert", nullptr);
+    GRefPtr<GstElement> audioResample = makeGStreamerElement("audioresample", nullptr);
+    if (m_pitchElement)
+        gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_src.get(), m_volumeElement.get(), audioConvert.get(), audioResample.get(), m_pitchElement.get(), audioSink.get(), nullptr);
+    else
+        gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_src.get(), m_volumeElement.get(), audioConvert.get(), audioResample.get(), audioSink.get(), nullptr);
+
+    gst_element_link_pads_full(m_src.get(), "src", m_volumeElement.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_element_link_pads_full(m_volumeElement.get(), "src", audioConvert.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_element_link_pads_full(audioConvert.get(), "src", audioResample.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    if (m_pitchElement) {
+        gst_element_link_pads_full(audioResample.get(), "src", m_pitchElement.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+        gst_element_link_pads_full(m_pitchElement.get(), "src", audioSink.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    } else
+        gst_element_link_pads_full(audioResample.get(), "src", audioSink.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
 }
 
 GstSpeechSynthesisWrapper::~GstSpeechSynthesisWrapper()
@@ -113,7 +134,7 @@ void GstSpeechSynthesisWrapper::pause()
     webkitGstSetElementStateSynchronously(m_pipeline.get(), GST_STATE_PAUSED, [this](GstMessage* message) -> bool {
         return handleMessage(message);
     });
-    m_platformSynthesizer->client().didPauseSpeaking(*m_utterance);
+    m_platformSynthesizer.client().didPauseSpeaking(*m_utterance);
 }
 
 void GstSpeechSynthesisWrapper::resume()
@@ -124,7 +145,7 @@ void GstSpeechSynthesisWrapper::resume()
     webkitGstSetElementStateSynchronously(m_pipeline.get(), GST_STATE_PLAYING, [this](GstMessage* message) -> bool {
         return handleMessage(message);
     });
-    m_platformSynthesizer->client().didResumeSpeaking(*m_utterance);
+    m_platformSynthesizer.client().didResumeSpeaking(*m_utterance);
 }
 
 void GstSpeechSynthesisWrapper::speakUtterance(RefPtr<PlatformSpeechSynthesisUtterance>&& utterance)
@@ -136,11 +157,22 @@ void GstSpeechSynthesisWrapper::speakUtterance(RefPtr<PlatformSpeechSynthesisUtt
 
     m_utterance = WTFMove(utterance);
     webKitFliteSrcSetUtterance(WEBKIT_FLITE_SRC(m_src.get()), m_utterance->voice(), m_utterance->text());
+
+    // The pitch element does not handle the rate bigger than 1.0. We control
+    // the rate with a seek event instead.
+    gst_element_seek(m_src.get(), m_utterance->rate(),
+        GST_FORMAT_TIME, static_cast<GstSeekFlags>(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE),
+        GST_SEEK_TYPE_SET, toGstClockTime(MediaTime::zeroTime()),
+        GST_SEEK_TYPE_SET, toGstClockTime(MediaTime::invalidTime()));
+    if (m_pitchElement)
+        g_object_set(m_pitchElement.get(), "pitch", m_utterance->pitch(), nullptr);
+    g_object_set(m_volumeElement.get(), "volume", static_cast<double>(m_utterance->volume()), nullptr);
+
     webkitGstSetElementStateSynchronously(m_pipeline.get(), GST_STATE_PLAYING, [this](GstMessage* message) -> bool {
         return handleMessage(message);
     });
 
-    m_platformSynthesizer->client().didStartSpeaking(*m_utterance);
+    m_platformSynthesizer.client().didStartSpeaking(*m_utterance);
 }
 
 void GstSpeechSynthesisWrapper::cancel()
@@ -151,7 +183,7 @@ void GstSpeechSynthesisWrapper::cancel()
     webkitGstSetElementStateSynchronously(m_pipeline.get(), GST_STATE_READY, [this](GstMessage* message) -> bool {
         return handleMessage(message);
     });
-    m_platformSynthesizer->client().didFinishSpeaking(*m_utterance);
+    m_platformSynthesizer.client().didFinishSpeaking(*m_utterance);
 }
 
 void GstSpeechSynthesisWrapper::resetState()
@@ -209,9 +241,9 @@ void PlatformSpeechSynthesizer::resume()
 void PlatformSpeechSynthesizer::speak(RefPtr<PlatformSpeechSynthesisUtterance>&& utterance)
 {
     if (!m_platformSpeechWrapper)
-        m_platformSpeechWrapper = makeUnique<GstSpeechSynthesisWrapper>(adoptRef(*this));
+        m_platformSpeechWrapper = makeUnique<GstSpeechSynthesisWrapper>(*this);
 
-    m_platformSpeechWrapper->speakUtterance(utterance.get());
+    m_platformSpeechWrapper->speakUtterance(WTFMove(utterance));
 }
 
 void PlatformSpeechSynthesizer::cancel()

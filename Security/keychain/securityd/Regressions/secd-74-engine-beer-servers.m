@@ -88,6 +88,7 @@ int secd_74_engine_beer_servers(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(kTestTestCount);
+    enableSOSCompatibilityForTests();
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     beer_servers();

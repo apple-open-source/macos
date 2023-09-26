@@ -180,6 +180,7 @@ typedef SFAnalyticsMetricsHookActions(^SFAnalyticsMetricsHook)(NSString* eventNa
 // Things below are for unit testing
 
 - (void)removeState;    // removes DB object and any samplers
+- (void)removeStateAndUnlinkFile:(BOOL)unlinkFile;
 
 @end
 

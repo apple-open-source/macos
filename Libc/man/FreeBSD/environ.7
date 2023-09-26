@@ -94,7 +94,15 @@ Overrides the values of
 and
 .Ev LANG .
 .It Ev LC_COLLATE
-Locale to be used for ordering of strings.
+.\" Locale to be used for ordering of strings.
+Locale to be used for ordering of characters.
+Note that this may also affect character ranges in
+.Xr regex 3 ,
+e.g.,
+.Dq [A-Z]
+may include characters that
+.Dq [[:upper:]]
+would not, depending on how the specified locale orders characters.
 .It Ev LC_CTYPE
 Locale to be used for character classification
 (letter, space, digit, etc.) and for interpreting byte sequences as

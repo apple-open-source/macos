@@ -39,10 +39,26 @@ enum {
     kIOHIDTransactionStatePending,
 };
 
+#define kIOHIDElementReportFlagsOffset 24
+
+#define kIOHIDFlagBitMask 0x01FF
+
 enum {
-    kIOHIDElementVariableSizeElement    = 0x1,
-    kIOHIDElementVariableSizeReport     = 0x2
+    kIOHIDElementVariableSizeElement    = 0x1 << kIOHIDElementReportFlagsOffset,
+    kIOHIDElementVariableSizeReport     = 0x2 << kIOHIDElementReportFlagsOffset,
+    kIOHIDElementInterruptReportHandler = 0x4 << kIOHIDElementReportFlagsOffset,
+    kIOHIDElementTickleActivity         = 0x8 << kIOHIDElementReportFlagsOffset,
 };
+
+typedef struct _IOHIDElementPrivateCalibrationData {
+    SInt32     satMin;
+    SInt32     satMax;
+    SInt32     dzMin;
+    SInt32     dzMax;
+    SInt32     min;
+    SInt32     max;
+    IOFixed    gran;
+} IOHIDElementPrivateCalibrationData;
 
 //===========================================================================
 // An object that describes a single HID element.
@@ -55,39 +71,11 @@ class IOHIDElementPrivate: public IOHIDElement
 
 protected:
     IOHIDElementContainer   *_owner;
-    IOHIDElementType        _type;
-    IOHIDElementCookie      _cookie;
     IOHIDElementPrivate    *_nextReportHandler;
     IOHIDElementValue      *_elementValue;
-    void                   *_elementValueLocation;
     IOHIDElementPrivate    *_parent;
     OSArray                *_childArray;
     OSArray                *_queueArray;
-    UInt32                  _flags;
-    IOHIDElementCollectionType  _collectionType;
-
-    UInt32                  _reportSize;
-    UInt32                  _reportCount;
-    UInt32                  _rawReportCount;
-    UInt32                  _reportStartBit;
-    UInt32                  _reportBits;
-    UInt32                  _reportID;
-
-    UInt32                  _usagePage;
-    UInt32                  _usageMin;
-    UInt32                  _usageMax;
-    UInt32                  _rangeIndex;
-
-    UInt32                  _logicalMin;
-    UInt32                  _logicalMax;
-    UInt32                  _physicalMin;
-    UInt32                  _physicalMax;
-    
-    UInt32                  _unitExponent;
-    UInt32                  _units;
-    
-    UInt32                  _transactionState;
-    
     OSData                 *_dataValue;
     
     IOHIDElementPrivate    *_duplicateReportHandler;
@@ -98,27 +86,40 @@ protected:
     OSArray                *_arrayItems;
     OSArray                *_duplicateElements;
     UInt32                 *_oldArraySelectors;
-    
-    bool                    _isInterruptReportHandler;
-    
-    bool                    _shouldTickleActivity;
-  
-    
-    UInt8                   _variableSize;
-    
+
+    IOHIDElementPrivateCalibrationData *_calibration;
+
+    UInt32                  _flags;
+    UInt32                  _reportSize;
+    UInt32                  _reportCount;
+    UInt32                  _rawReportCount;
+    UInt32                  _reportStartBit;
     UInt32                  _currentReportSizeBits;
-  
-    struct {
-        SInt32     satMin;
-        SInt32     satMax;
-        SInt32     dzMin;
-        SInt32     dzMax;
-        SInt32     min;
-        SInt32     max;
-        IOFixed    gran;
-    } _calibration;
+    UInt32                  _reportBits;
+
+    UInt32                  _usage;
+
+    UInt32                  _logicalMin;
+    UInt32                  _logicalMax;
+    UInt32                  _physicalMin;
+    UInt32                  _physicalMax;
     
+    UInt32                  _units;
     UInt32                  _previousValue;
+
+    IOHIDElementCookie      _cookie;
+
+    IOHIDElementType            _type;
+    IOHIDElementCollectionType  _collectionType;
+    
+    UInt16                  _usagePage;
+    UInt16                  _usageMin;
+    UInt16                  _usageMax;
+
+    UInt8                   _unitExponent;
+    UInt8                   _transactionState;
+
+    UInt8                   _reportID;    
     
     virtual bool init( IOHIDElementContainer * owner, IOHIDElementType type );
 
@@ -227,7 +228,7 @@ public:
     virtual UInt32 setReportSize( UInt32 numberOfBits );
     
     inline bool shouldTickleActivity() const
-    { return _shouldTickleActivity; }
+    { return _flags & kIOHIDElementTickleActivity; }
 
     virtual bool addEventQueue( IOHIDEventQueue * queue );
     virtual bool removeEventQueue( IOHIDEventQueue * queue );
@@ -237,7 +238,7 @@ public:
     { return _nextReportHandler; }
 
     inline UInt32 getRangeIndex() const
-    { return _rangeIndex; }
+    { return _usage - _usageMin; }
     
     inline IOHIDElementValue * getElementValue() const
     { return _elementValue;}
@@ -295,13 +296,14 @@ public:
     virtual OSCollection *copyCollection(OSDictionary * cycleDict = 0) APPLE_KEXT_OVERRIDE;
   
     virtual boolean_t                       isVariableSize() APPLE_KEXT_OVERRIDE
-    {  return _variableSize & kIOHIDElementVariableSizeElement; }
+    {  return _flags & kIOHIDElementVariableSizeElement; }
     
-    void setVariableSizeInfo            (UInt8 variableSize)
-    { _variableSize = variableSize; }
+    void setVariableSizeInfo(UInt32 variableSize)
+    { _flags = (((variableSize & (kIOHIDElementVariableSizeElement | kIOHIDElementVariableSizeReport))) |
+                        (_flags & ~(kIOHIDElementVariableSizeElement | kIOHIDElementVariableSizeReport))); }
 
-    UInt8 getVariableSizeInfo           ()
-    { return _variableSize;}
+    UInt32 getVariableSizeInfo() const
+    { return (_flags & (kIOHIDElementVariableSizeElement | kIOHIDElementVariableSizeReport));}
 
     bool isValidUserElement() const
     { return _duplicateReportHandler ? _duplicateReportHandler == this : true; }

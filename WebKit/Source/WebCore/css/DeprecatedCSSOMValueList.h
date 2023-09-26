@@ -32,7 +32,7 @@ namespace WebCore {
     
 class DeprecatedCSSOMValueList : public DeprecatedCSSOMValue {
 public:
-    static Ref<DeprecatedCSSOMValueList> create(const CSSValueList& values, CSSStyleDeclaration& owner)
+    static Ref<DeprecatedCSSOMValueList> create(const CSSValueContainingVector& values, CSSStyleDeclaration& owner)
     {
         return adoptRef(*new DeprecatedCSSOMValueList(values, owner));
     }
@@ -41,11 +41,12 @@ public:
 
     size_t length() const { return m_values.size(); }
     DeprecatedCSSOMValue* item(size_t index) { return index < m_values.size() ? m_values[index].ptr() : nullptr; }
+    bool isSupportedPropertyIndex(unsigned index) const { return index < m_values.size(); }
 
 private:
-    DeprecatedCSSOMValueList(const CSSValueList& values, CSSStyleDeclaration& owner)
+    DeprecatedCSSOMValueList(const CSSValueContainingVector& values, CSSStyleDeclaration& owner)
         : DeprecatedCSSOMValue(ClassType::List, owner)
-        , m_values(WTF::map(values, [&](auto& value) { return value->createDeprecatedCSSOMWrapper(owner); }))
+        , m_values(WTF::map(values, [&](auto& value) { return value.createDeprecatedCSSOMWrapper(owner); }))
     {
         m_valueSeparator = values.separator();
     }

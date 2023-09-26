@@ -24,9 +24,11 @@
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/Document.h>
 #include <WebCore/ElementInlines.h>
-#include <WebCore/Frame.h>
-#include <WebCore/FrameView.h>
+#include <WebCore/EventHandler.h>
 #include <WebCore/HitTestResult.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameView.h>
+#include <WebCore/NavigationAction.h>
 #include <WebCore/Node.h>
 #include <WebCore/RenderImage.h>
 #include <WebCore/SharedBuffer.h>
@@ -110,7 +112,7 @@ WebHitTestResultData::WebHitTestResultData(const HitTestResult& hitTestResult, b
     }
 }
 
-WebHitTestResultData::WebHitTestResultData(const String& absoluteImageURL, const String& absolutePDFURL, const String& absoluteLinkURL, const String& absoluteMediaURL, const String& linkLabel, const String& linkTitle, const String& linkSuggestedFilename, bool isContentEditable, const WebCore::IntRect& elementBoundingBox, const WebKit::WebHitTestResultData::IsScrollbar& isScrollbar, bool isSelected, bool isTextNode, bool isOverTextInsideFormControlElement, bool isDownloadableMedia, const String& lookupText, const String& toolTipText, const String& imageText, const std::optional<WebKit::SharedMemory::Handle>& imageHandle, const RefPtr<WebKit::ShareableBitmap>& imageBitmap, const String& sourceImageMIMEType,
+WebHitTestResultData::WebHitTestResultData(const String& absoluteImageURL, const String& absolutePDFURL, const String& absoluteLinkURL, const String& absoluteMediaURL, const String& linkLabel, const String& linkTitle, const String& linkSuggestedFilename, bool isContentEditable, const WebCore::IntRect& elementBoundingBox, const WebKit::WebHitTestResultData::IsScrollbar& isScrollbar, bool isSelected, bool isTextNode, bool isOverTextInsideFormControlElement, bool isDownloadableMedia, const String& lookupText, const String& toolTipText, const String& imageText, std::optional<WebKit::SharedMemory::Handle>&& imageHandle, const RefPtr<WebKit::ShareableBitmap>& imageBitmap, const String& sourceImageMIMEType,
 #if PLATFORM(MAC)
     const WebHitTestResultPlatformData& platformData,
 #endif
@@ -141,7 +143,7 @@ WebHitTestResultData::WebHitTestResultData(const String& absoluteImageURL, const
         , linkTextIndicator(linkTextIndicator)
 {
     if (imageHandle && !imageHandle->isNull())
-        imageSharedMemory = WebKit::SharedMemory::map(*imageHandle, WebKit::SharedMemory::Protection::ReadOnly);
+        imageSharedMemory = WebKit::SharedMemory::map(WTFMove(*imageHandle), WebKit::SharedMemory::Protection::ReadOnly);
 }
 
 WebHitTestResultData::~WebHitTestResultData()
@@ -154,15 +156,15 @@ IntRect WebHitTestResultData::elementBoundingBoxInWindowCoordinates(const WebCor
     if (!node)
         return IntRect();
 
-    Frame* frame = node->document().frame();
+    auto* frame = node->document().frame();
     if (!frame)
         return IntRect();
 
-    FrameView* view = frame->view();
+    auto* view = frame->view();
     if (!view)
         return IntRect();
 
-    RenderObject* renderer = node->renderer();
+    auto* renderer = node->renderer();
     if (!renderer)
         return IntRect();
 
@@ -178,5 +180,22 @@ std::optional<WebKit::SharedMemory::Handle> WebHitTestResultData::getImageShared
     }
     return imageHandle;
 }
+
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+std::optional<WebKit::WebHitTestResultData> WebHitTestResultData::fromNavigationActionAndLocalFrame(const NavigationAction& navigationAction, WebCore::LocalFrame* coreFrame)
+{
+    if (!coreFrame)
+        return std::nullopt;
+
+    auto mouseEventData = navigationAction.mouseEventData();
+    if (!mouseEventData)
+        return std::nullopt;
+
+    constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
+    HitTestResult hitTestResult = coreFrame->eventHandler().hitTestResultAtPoint(mouseEventData->absoluteLocation, hitType);
+
+    return WebKit::WebHitTestResultData(hitTestResult, false);
+}
+#endif
 
 } // WebKit

@@ -319,6 +319,11 @@ std::string DiskRep::explicitIdentifier()
 void DiskRep::registerStapledTicket()
 { /* do nothing */ }
 
+CFDataRef DiskRep::copyStapledTicket()
+{
+	return NULL;
+}
+
 
 //
 // Writers

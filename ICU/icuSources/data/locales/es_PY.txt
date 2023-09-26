@@ -21,8 +21,8 @@ es_PY{
                 "p. m.",
             }
             AmPmMarkersAbbr{
-                "a. m.",
-                "p. m.",
+                "a. m.",
+                "p. m.",
             }
             dayNames{
                 format{
@@ -50,12 +50,10 @@ es_PY{
             }
             dayPeriod{
                 stand-alone{
-                    abbreviated{
-                        am{"a. m."}
-                        pm{"p. m."}
-                    }
                     narrow{
+                        am{"a. m."}
                         noon{"m."}
+                        pm{"p. m."}
                     }
                     wide{
                         am{"a. m."}
@@ -69,13 +67,13 @@ es_PY{
                     d{"d/M 'al' d/M"}
                 }
                 h{
-                    a{"h a 'a' h a"}
-                    h{"h 'a' h a"}
+                    a{"h a 'a' h a"}
+                    h{"h 'a' h a"}
                 }
                 hm{
-                    a{"h:mm a 'a' h:mm a"}
-                    h{"h:mm 'a' h:mm a"}
-                    m{"h:mm 'a' h:mm a"}
+                    a{"h:mm a 'a' h:mm a"}
+                    h{"h:mm 'a' h:mm a"}
+                    m{"h:mm 'a' h:mm a"}
                 }
                 yMMM{
                     M{"MMM 'a' MMM y"}
@@ -180,10 +178,7 @@ es_PY{
     }
     listPattern{
         unit-short{
-            2{"{0} y {1}"}
             end{"{0} y {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
     }
 }

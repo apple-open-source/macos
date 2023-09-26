@@ -245,7 +245,12 @@ Otherwise,
 can be attached independently to each
 .Ar field
 argument of the key specifications.
-.Fl b .
+Note that sort keys specified with the
+.Fl k
+option may have a variable number of leading whitespace characters that will
+affect the result, as described below in the
+.Fl t
+option description.
 .It Xo
 .Fl k Ar field1 Ns Op , Ns Ar field2 ,
 .Fl Fl key Ns = Ns Ar field1 Ns Op , Ns Ar field2

@@ -201,8 +201,6 @@
 - (void)testTrustStoreRemoveAll {
 #if TARGET_OS_BRIDGE
     XCTSkip();
-#elif TARGET_OS_OSX
-    XCTAssertEqual(errSecReadOnly, SecTrustStoreRemoveAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser)));
 #else
     XCTAssertEqual(errSecSuccess, SecTrustStoreRemoveAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser)));
 #endif

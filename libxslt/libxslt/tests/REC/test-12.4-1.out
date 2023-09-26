@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<result>
+  <document>id1</document>
+  <element>id2</element>
+  <attribute>id3</attribute>
+  <namespace>id2ns</namespace>
+  <namespace>id2nsC3A4C3B6C3BC</namespace>
+  <text>id4</text>
+  <comment>id5</comment>
+  <processing-instruction>id6</processing-instruction>
+</result>

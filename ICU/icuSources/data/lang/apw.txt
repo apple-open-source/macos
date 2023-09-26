@@ -6,7 +6,7 @@ apw{
         apw{"Nṉee biyátiʼ"}
         apw_Latn{"Nṉee biyátiʼ"}
     }
-	Scripts{
-		Latn{"Latin"}
-	}
+    Scripts{
+        Latn{"Latin"}
+    }
 }

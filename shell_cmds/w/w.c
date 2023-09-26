@@ -708,55 +708,62 @@ this_is_uptime(const char *s)
 static void
 w_getargv(void)
 {
-	int mib[3], argmax;
+	int mib[3], argc, c;
 	size_t size;
 	char *procargs, *sp, *np, *cp;
 
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_ARGMAX;
-
-	size = sizeof(argmax);
-	if (sysctl(mib, 2, &argmax, &size, NULL, 0) == -1) {
-		goto ERROR;
-	}
-
-	procargs = malloc(argmax);
+	procargs = malloc(size = 4096);
 	if (procargs == NULL) {
 		goto ERROR;
 	}
 
 	mib[0] = CTL_KERN;
-	mib[1] = KERN_PROCARGS;
+	mib[1] = KERN_PROCARGS2;
 	mib[2] = KI_PROC(ep)->p_pid;
 
-	size = (size_t)argmax;
-	if (sysctl(mib, 3, procargs, &size, NULL, 0) == -1) {
-		goto ERROR_FREE;
-	}
-
-	for (cp = procargs; cp < &procargs[size]; cp++) {
-		if (*cp == '\0') {
-			break;
+	while (sysctl(mib, 3, procargs, &size, NULL, 0) == -1) {
+		if (errno != ENOMEM) {
+			goto ERROR_FREE;
+		}
+		procargs = reallocf(procargs, size *= 2);
+		if (procargs == NULL) {
+			goto ERROR_FREE;
 		}
 	}
-	if (cp == &procargs[size]) {
+
+	/* get argc */
+	if (size < sizeof(argc)) {
+		goto ERROR_FREE;
+	}
+	memcpy(&argc, procargs, sizeof(argc));
+
+	/* skip binary path and padding */
+	cp = procargs + sizeof(argc);
+	while (cp < procargs + size && *cp != '\0') {
+		cp++;
+	}
+	while (cp < procargs + size && *cp == '\0') {
+		cp++;
+	}
+	if (cp == procargs + size) {
 		goto ERROR_FREE;
 	}
 
+	/* iterate over arguments, replacing intervening NULs with blanks */
 	sp = cp;
-
-	for (np = NULL; cp < &procargs[size]; cp++) {
+	for (c = 0, np = NULL; c < argc && cp < procargs + size; cp++) {
 		if (*cp == '\0') {
 			if (np != NULL) {
 				*np = ' ';
 			}
 			np = cp;
-		} else if (*cp == '=') {
-			break;
+			c++;
 		}
 	}
 
-	for (np = sp; (np < &procargs[size]) && (*np == ' '); np++);
+	/* trim leading blanks */
+	for (np = sp; np < procargs + size && *np == ' '; np++)
+		/* nothing */ ;
 
 	ep->args = strdup(np);
 	free(procargs);

@@ -431,7 +431,7 @@ old_good:;
 			int zero = 0;
 			CFNumberRef cfzero = CFNumberCreate(NULL, kCFNumberIntType, &zero);
 			time_t tmptime = time(NULL);
-			CFNumberRef passModDate = CFNumberCreate(NULL, kCFNumberLongLongType, (long long)&tmptime);
+			CFNumberRef passModDate = CFNumberCreate(NULL, kCFNumberLongLongType, &tmptime);
 			CFStringRef cfpass = CFStringCreateWithCString(NULL, tmppass, kCFStringEncodingUTF8);
 
 			CFDictionarySetValue(fakeupdates, kAPAttributeFailedAuthentications, cfzero);

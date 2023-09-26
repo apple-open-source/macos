@@ -27,6 +27,7 @@
 
 namespace WebCore {
 
+class CSSCounterStyle;
 class CounterNode;
 
 class RenderCounter final : public RenderText {
@@ -49,21 +50,14 @@ private:
     ASCIILiteral renderName() const override;
     bool isCounter() const override;
     String originalText() const override;
+    
+    RefPtr<CSSCounterStyle> counterStyle() const;
 
     CounterContent m_counter;
-    CounterNode* m_counterNode { nullptr };
+    CheckedPtr<CounterNode> m_counterNode;
     RenderCounter* m_nextForSameCounter { nullptr };
     friend class CounterNode;
 };
-
-
-inline void RenderCounter::rendererStyleChanged(RenderElement& renderer, const RenderStyle* oldStyle, const RenderStyle& newStyle)
-{
-    if ((!oldStyle || !oldStyle->counterDirectives()) && !newStyle.counterDirectives())
-        return;
-
-    rendererStyleChangedSlowCase(renderer, oldStyle, newStyle);
-}
 
 } // namespace WebCore
 

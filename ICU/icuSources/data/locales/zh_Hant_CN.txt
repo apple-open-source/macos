@@ -1,80 +1,8 @@
-// © 2016 and later: Unicode, Inc. and others.
+﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 zh_Hant_CN{
     calendar{
-        chinese{
-            DateTimePatterns{
-                "zzzz HH:mm:ss",
-                "z HH:mm:ss",
-                "HH:mm:ss",
-                "HH:mm",
-                {
-                    "rU年MMMd EEEE",
-                    "d=hanidays",
-                }
-                {
-                    "rU年MMMd",
-                    "d=hanidays",
-                }
-                {
-                    "r年MMMd",
-                    "d=hanidays",
-                }
-                "r/M/d",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            DateTimeSkeletons{
-                "Hmmsszzzz",
-                "Hmmssz",
-                "Hmmss",
-                "Hmm",
-                {
-                    "rMMMEEEEd",
-                    "d=hanidays",
-                }
-                {
-                    "rMMMd",
-                    "d=hanidays",
-                }
-                {
-                    "rMMMd",
-                    "d=hanidays",
-                }
-                "rMd",
-            }
-        }
-        generic{
-            DateTimePatterns{
-                "zzzz HH:mm:ss",
-                "z HH:mm:ss",
-                "HH:mm:ss",
-                "HH:mm",
-                "G y年M月d日 EEEE",
-                "G y年M月d日",
-                "G y年M月d日",
-                "G y/M/d",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            DateTimeSkeletons{
-                "Hmmsszzzz",
-                "Hmmssz",
-                "Hmmss",
-                "Hmm",
-                "GyMEEEEd",
-                "GyMd",
-                "GyMd",
-                "GyMd",
-            }
-        }
         gregorian{
             DateTimePatterns{
                 "zzzz HH:mm:ss",
@@ -92,10 +20,10 @@ zh_Hant_CN{
                 "{1} {0}",
             }
             DateTimeSkeletons{
-                "Hmmsszzzz",
-                "Hmmssz",
-                "Hmmss",
-                "Hmm",
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
                 "yMEEEEd",
                 "yMd",
                 "yMd",

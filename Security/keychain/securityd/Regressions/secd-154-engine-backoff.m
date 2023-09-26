@@ -277,6 +277,7 @@ int secd_154_engine_backoff(int argc, char *const *argv)
 {
 #if SOS_ENABLED
     plan_tests(kTestTestCount);
+    enableSOSCompatibilityForTests();
     tests();
 #else
     plan_tests(0);

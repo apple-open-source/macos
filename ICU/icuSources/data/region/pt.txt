@@ -309,6 +309,7 @@ pt{
         CI{"Costa do Marfim"}
         CZ{"República Tcheca"}
         FK{"Ilhas Malvinas (Ilhas Falkland)"}
+        NZ{"Aotearoa da Nova Zelândia"}
         SZ{"Suazilândia"}
         TL{"República Democrática de Timor-Leste"}
     }
