@@ -118,6 +118,7 @@ public enum ContainerError: Error {
     case custodianRecoveryKeyMalformed
     case operationNotImplemented
     case cannotDetermineTrustedPeerCount
+    case custodianRecoveryKeyUUIDExists
 }
 
 extension ContainerError: LocalizedError {
@@ -233,6 +234,8 @@ extension ContainerError: LocalizedError {
             return "Operation not implemented"
         case .cannotDetermineTrustedPeerCount:
             return "peer count could not be determined"
+        case .custodianRecoveryKeyUUIDExists:
+            return "custodian recovery key UUID already exists"
         }
     }
 }
@@ -356,6 +359,8 @@ extension ContainerError: CustomNSError {
             return 56
         case .cannotDetermineTrustedPeerCount:
             return 57
+        case .custodianRecoveryKeyUUIDExists:
+            return 58
         }
     }
 
@@ -1800,8 +1805,8 @@ class Container: NSObject, ConfiguredCloudKit {
             }
 
             guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
-                logger.info("Custodian Recovery Key is not enrolled")
-                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                logger.info("Custodian Recovery Key is not trusted")
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
                 return
             }
 
@@ -2426,6 +2431,12 @@ class Container: NSObject, ConfiguredCloudKit {
         logger.info("beginning a createCustodianRecoveryKey")
 
         self.moc.performAndWait {
+            guard self.model.findCustodianRecoveryKey(with: uuid) == nil else {
+                logger.error("CRK UUID \(uuid) already exists")
+                reply(nil, nil, ContainerError.custodianRecoveryKeyUUIDExists)
+                return
+            }
+
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 logger.info("no prepared identity, cannot create custodian recovery key")
                 reply(nil, nil, ContainerError.noPreparedIdentity)
@@ -2970,8 +2981,8 @@ class Container: NSObject, ConfiguredCloudKit {
                 }
 
                 guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
-                    logger.info("Custodian Recovery Key is not enrolled")
-                    reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    logger.info("Custodian Recovery Key is not trusted")
+                    reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                     return
                 }
 
@@ -3090,8 +3101,8 @@ class Container: NSObject, ConfiguredCloudKit {
                 }
 
                 guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
-                    logger.info("Custodian Recovery Key is not enrolled")
-                    reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    logger.info("Custodian Recovery Key is not trusted")
+                    reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
                     return
                 }
 
@@ -4426,13 +4437,13 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func requestHealthCheck(requiresEscrowCheck: Bool, repair: Bool, knownFederations: [String], reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
+    func requestHealthCheck(requiresEscrowCheck: Bool, repair: Bool, knownFederations: [String], reply: @escaping (TrustedPeersHelperHealthCheckResult?, Error?) -> Void) {
         let sem = self.grabSemaphore()
-        let reply: (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void = {
-            let logType: OSLogType = $5 == nil ? .info : .error
-            logger.log(level: logType, "health check complete: \(traceError($5), privacy: .public)")
+        let reply: (TrustedPeersHelperHealthCheckResult?, Error?) -> Void = {
+            let logType: OSLogType = $1 == nil ? .info : .error
+            logger.log(level: logType, "health check complete: \(traceError($1), privacy: .public)")
             sem.release()
-            reply($0, $1, $2, $3, $4, $5)
+            reply($0, $1)
         }
 
         logger.info("requestHealthCheck requiring escrow check: \(requiresEscrowCheck), \(repair), knownFederations: \(knownFederations, privacy: .public)")
@@ -4441,7 +4452,7 @@ class Container: NSObject, ConfiguredCloudKit {
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 // No identity, nothing to do
                 logger.info("requestHealthCheck: No identity.")
-                reply(false, false, false, false, nil, ContainerError.noPreparedIdentity)
+                reply(nil, ContainerError.noPreparedIdentity)
                 return
             }
             let request = GetRepairActionRequest.with {
@@ -4486,9 +4497,29 @@ class Container: NSObject, ConfiguredCloudKit {
                         }
                     }
 
-                    reply(postRepairAccount, postRepairEscrow, resetOctagon, leaveTrust, moveRequest, nil)
+                    let response = TrustedPeersHelperHealthCheckResult(postRepairCFU: postRepairAccount,
+                                                                       postEscrowCFU: postRepairEscrow,
+                                                                        resetOctagon: resetOctagon,
+                                                                          leaveTrust: leaveTrust,
+                                                                         moveRequest: moveRequest,
+                                                                  totalEscrowRecords: response.totalEscrowRecords,
+                                                            collectableEscrowRecords: response.collectableEscrowRecords,
+                                                              collectedEscrowRecords: response.collectedEscrowRecords,
+                                                escrowRecordGarbageCollectionEnabled: response.escrowRecordGarbageCollectionEnabled,
+                                                                      totalTlkShares: response.totalTlkShares,
+                                                                collectableTlkShares: response.collectableTlkShares,
+                                                                  collectedTlkShares: response.collectedTlkShares,
+                                                    tlkShareGarbageCollectionEnabled: response.tlkShareGarbageCollectionEnabled,
+                                                                          totalPeers: response.totalPeers,
+                                                                        trustedPeers: response.trustedPeers,
+                                                                    superfluousPeers: response.superfluousPeers,
+                                                                      peersCleanedup: response.peersCleanedup,
+                                                      superfluousPeersCleanupEnabled: response.superfluousPeersCleanupEnabled
+                                                                         )
+                    reply(response, nil)
+                    return
                 case .failure(let error):
-                    reply(false, false, false, false, nil, error)
+                    reply(nil, error)
                     return
                 }
             }
@@ -4529,7 +4560,7 @@ class Container: NSObject, ConfiguredCloudKit {
         }
         logger.info("beginning a fetchTrustedPeersCount")
 
-        self.fetchAndPersistChanges { fetchError in
+        self.fetchAndPersistChangesIfNeeded { fetchError in
             guard fetchError == nil else {
                 reply(nil, fetchError)
                 return
@@ -4541,6 +4572,29 @@ class Container: NSObject, ConfiguredCloudKit {
                 } else {
                     reply(nil, ContainerError.cannotDetermineTrustedPeerCount)
                 }
+                return
+            }
+        }
+    }
+
+    func octagonContainsDistrustedRecoveryKeys(reply: @escaping (Bool, Error?) -> Void) {
+        let reply: (Bool, Error?) -> Void = {
+            let logType: OSLogType = $1 == nil ? .info : .error
+            logger.log(level: logType, "octagon contains distrusted recovery keys complete: \(String(reflecting: $0), privacy: .public) \(traceError($1), privacy: .public)")
+            reply($0, $1)
+        }
+        logger.info("beginning a octagonContainsDistrustedRecoveryKeys")
+
+        self.fetchAndPersistChangesIfNeeded { fetchError in
+            guard fetchError == nil else {
+                reply(false, fetchError)
+                return
+            }
+
+            self.moc.performAndWait {
+               let containsDistrusted = self.model.doesOctagonContainsDistrustedRecoveryKeys()
+                logger.info("distrusted recovery keys exist: \(containsDistrusted)")
+                reply(containsDistrusted, nil)
                 return
             }
         }
@@ -5272,6 +5326,7 @@ class Container: NSObject, ConfiguredCloudKit {
                           nil)
                     return
                 }
+                let oldDynamicInfo = currentSelfInModel.dynamicInfo
 
                 // We need to try to have all policy versions that our peers claim to behave
                 let allPolicyVersions = self.model.allPolicyVersions()
@@ -5354,7 +5409,20 @@ class Container: NSObject, ConfiguredCloudKit {
                                   syncingPolicy,
                                   nil)
                             return
-                            }
+                        }
+
+                        let oldExcluded = Set(oldDynamicInfo?.excludedPeerIDs ?? [])
+                        let newExcluded = Set(dynamicInfo.excludedPeerIDs)
+                        let crkPeerIDs = self.model.allCustodianRecoveryKeys().map { $0.peerID }
+                        let additions = newExcluded.subtracting(oldExcluded)
+                        let newDistrustedCRKs = additions.intersection(crkPeerIDs)
+                        if !newDistrustedCRKs.isEmpty {
+                            logger.warning("Found CRKs that are being distrusted: \(newDistrustedCRKs)")
+                            let ttr = SecTapToRadar(tapToRadar: "Recovery Contact or Legacy Contact just removed from another device",
+                                                    description: "Please TTR unless you just removed a recovery or legacy contact",
+                                                    radar: "115183035")
+                            ttr.trigger()
+                        }
 
                         // Check if we change that should trigger a notification that should trigger TLKShare updates
                         let havePeerChanges = peerChanges || self.haveTrustMemberChanges(newDynamicInfo: dynamicInfo, oldDynamicInfo: peer?.dynamicInfo)
@@ -5924,6 +5992,13 @@ class Container: NSObject, ConfiguredCloudKit {
                     reply(false, ContainerError.failedToGetPeerViews)
                     return
                 }
+                
+                if self.model.isRecoveryKeyEnrolled() == false {
+                    logger.info("recovery key is not registered, nothing to remove.")
+                    reply(true, nil)
+                    return
+                }
+                
                 guard let currentRecoveryKeyPeer = try? RecoveryKey.asPeer(recoveryKeys: TPRecoveryKeyPair(stableInfo: stableInfo), viewList: peerViews) else {
                     logger.info("cannot create recovery key peer")
                     reply(false, ContainerError.cannotCreateRecoveryKeyPeer)

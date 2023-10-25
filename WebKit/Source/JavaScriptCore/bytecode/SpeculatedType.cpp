@@ -519,8 +519,12 @@ SpeculatedType speculationFromClassInfoInheritance(const ClassInfo* classInfo)
     if (classInfo->isSubClassOf(JSArray::info()))
         return SpecArray | SpecDerivedArray;
 
+    static_assert(std::is_final_v<JSBoundFunction>);
+    if (classInfo == JSBoundFunction::info())
+        return SpecFunctionWithNonDefaultHasInstance;
+
     if (classInfo->isSubClassOf(JSFunction::info()))
-        return SpecFunction;
+        return SpecFunctionWithDefaultHasInstance;
 
     if (classInfo->isSubClassOf(JSPromise::info()))
         return SpecPromiseObject;
@@ -538,20 +542,92 @@ SpeculatedType speculationFromClassInfoInheritance(const ClassInfo* classInfo)
     return SpecCellOther;
 }
 
-using SpeculationMapping = std::array<SpeculatedType, static_cast<unsigned>(UINT8_MAX) + 1>;
-static constexpr SpeculationMapping speculatedTypeMapping = ([]() -> SpeculationMapping {
-    SpeculationMapping result { };
-    result.fill(SpecObjectOther);
-#define JSC_DEFINE_JS_TYPE(type, speculatedType) result[type] = speculatedType;
-    FOR_EACH_JS_TYPE(JSC_DEFINE_JS_TYPE)
-#undef JSC_DEFINE_JS_TYPE
-    return result;
-})();
-
 SpeculatedType speculationFromStructure(Structure* structure)
 {
+    SpeculatedType filteredResult = SpecNone;
     JSType type = structure->typeInfo().type();
-    return speculatedTypeMapping[type];
+    switch (type) {
+    case StringType:
+        filteredResult = SpecString;
+        break;
+    case SymbolType:
+        filteredResult = SpecSymbol;
+        break;
+    case HeapBigIntType:
+        filteredResult = SpecHeapBigInt;
+        break;
+    case FinalObjectType:
+        filteredResult = SpecFinalObject;
+        break;
+    case DirectArgumentsType:
+        filteredResult = SpecDirectArguments;
+        break;
+    case ScopedArgumentsType:
+        filteredResult = SpecScopedArguments;
+        break;
+    case RegExpObjectType:
+        filteredResult = SpecRegExpObject;
+        break;
+    case JSDateType:
+        filteredResult = SpecDateObject;
+        break;
+    case JSMapType:
+        filteredResult = SpecMapObject;
+        break;
+    case JSSetType:
+        filteredResult = SpecSetObject;
+        break;
+    case JSWeakMapType:
+        filteredResult = SpecWeakMapObject;
+        break;
+    case JSWeakSetType:
+        filteredResult = SpecWeakSetObject;
+        break;
+    case ProxyObjectType:
+        filteredResult = SpecProxyObject;
+        break;
+    case DataViewType:
+        filteredResult = SpecDataViewObject;
+        break;
+    case DerivedArrayType:
+        filteredResult = SpecDerivedArray;
+        break;
+    case ArrayType:
+        filteredResult = SpecArray;
+        break;
+    case StringObjectType:
+        filteredResult = SpecStringObject;
+        break;
+    // We do not want to accept String.prototype in StringObjectUse, so that we do not include it as SpecStringObject.
+    case DerivedStringObjectType:
+        filteredResult = SpecObjectOther;
+        break;
+    case JSPromiseType:
+        filteredResult = SpecPromiseObject;
+        break;
+    case JSFunctionType:
+        static_assert(std::is_final_v<JSBoundFunction>);
+        if (structure->classInfoForCells() == JSBoundFunction::info())
+            filteredResult = SpecFunctionWithNonDefaultHasInstance;
+        else
+            filteredResult = SpecFunctionWithDefaultHasInstance;
+        break;
+
+#define JSC_TYPED_ARRAY_CHECK(type) \
+    case type##ArrayType: \
+        filteredResult = Spec ## type ## Array; \
+        break;
+    FOR_EACH_TYPED_ARRAY_TYPE_EXCLUDING_DATA_VIEW(JSC_TYPED_ARRAY_CHECK)
+#undef JSC_TYPED_ARRAY_CHECK
+
+    default:
+        if (!isObjectType(type))
+            return SpecCellOther;
+        return speculationFromClassInfoInheritance(structure->classInfoForCells());
+    }
+    ASSERT(filteredResult);
+    ASSERT(isSubtypeSpeculation(filteredResult, speculationFromClassInfoInheritance(structure->classInfoForCells())));
+    return filteredResult;
 }
 
 SpeculatedType speculationFromCell(JSCell* cell)
@@ -561,7 +637,6 @@ SpeculatedType speculationFromCell(JSCell* cell)
         ASSERT_NOT_REACHED();
         return SpecNone;
     }
-
     if (cell->isString()) {
         JSString* string = jsCast<JSString*>(cell);
         if (const StringImpl* impl = string->tryGetValueImpl()) {
@@ -574,9 +649,19 @@ SpeculatedType speculationFromCell(JSCell* cell)
         }
         return SpecString;
     }
-
-    JSType type = cell->type();
-    return speculatedTypeMapping[type];
+    // FIXME: rdar://69036888: undo this when no longer needed.
+    auto* structure = cell->structureID().tryDecode();
+    if (UNLIKELY(!Integrity::isSanePointer(structure))) {
+        ASSERT_NOT_REACHED();
+        return SpecNone;
+    }
+#if !USE(SYSTEM_MALLOC)
+    if (UNLIKELY(Gigacage::contains(structure))) {
+        ASSERT_NOT_REACHED();
+        return SpecNone;
+    }
+#endif
+    return speculationFromStructure(structure);
 }
 
 SpeculatedType speculationFromValue(JSValue value)

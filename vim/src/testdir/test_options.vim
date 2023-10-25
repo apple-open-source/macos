@@ -374,9 +374,15 @@ func Test_set_completion()
   call assert_equal('"set filetype=sshdconfig', @:)
   call feedkeys(":set filetype=a\<C-A>\<C-B>\"\<CR>", 'xt')
   call assert_equal('"set filetype=' .. getcompletion('a*', 'filetype')->join(), @:)
+
+  " Expand values for 'syntax'
+  call feedkeys(":set syntax=sshdconfi\<Tab>\<C-B>\"\<CR>", 'xt')
+  call assert_equal('"set syntax=sshdconfig', @:)
+  call feedkeys(":set syntax=a\<C-A>\<C-B>\"\<CR>", 'xt')
+  call assert_equal('"set syntax=' .. getcompletion('a*', 'syntax')->join(), @:)
 endfunc
 
-func Test_set_errors()
+func Test_set_option_errors()
   call assert_fails('set scroll=-1', 'E49:')
   call assert_fails('set backupcopy=', 'E474:')
   call assert_fails('set regexpengine=3', 'E474:')
@@ -478,7 +484,7 @@ func Test_set_errors()
   if has('python') || has('python3')
     call assert_fails('set pyxversion=6', 'E474:')
   endif
-  call assert_fails("let &tabstop='ab'", 'E521:')
+  call assert_fails("let &tabstop='ab'", ['E521:', 'E521:'])
   call assert_fails('set spellcapcheck=%\\(', 'E54:')
   call assert_fails('set sessionoptions=curdir,sesdir', 'E474:')
   call assert_fails('set foldmarker={{{,', 'E474:')
@@ -502,6 +508,12 @@ func Test_set_errors()
   call assert_fails('set t_#-&', 'E522:')
   call assert_fails('let &formatoptions = "?"', 'E539:')
   call assert_fails('call setbufvar("", "&formatoptions", "?")', 'E539:')
+  call assert_fails('call setwinvar(0, "&scrolloff", [])', ['E745:', 'E745:'])
+  call assert_fails('call setwinvar(0, "&list", [])', ['E745:', 'E745:'])
+  call assert_fails('call setwinvar(0, "&listchars", [])', ['E730:', 'E730:'])
+  call assert_fails('call setwinvar(0, "&nosuchoption", 0)', ['E355:', 'E355:'])
+  call assert_fails('call setwinvar(0, "&nosuchoption", "")', ['E355:', 'E355:'])
+  call assert_fails('call setwinvar(0, "&nosuchoption", [])', ['E355:', 'E355:'])
 endfunc
 
 func Test_set_encoding()
@@ -948,12 +960,16 @@ func Test_local_scrolloff()
   wincmd w
   call assert_equal(5, &so)
   wincmd w
+  call assert_equal(3, &so)
   setlocal so<
   call assert_equal(5, &so)
+  setglob so=8
+  call assert_equal(8, &so)
+  call assert_equal(-1, &l:so)
   setlocal so=0
   call assert_equal(0, &so)
   setlocal so=-1
-  call assert_equal(5, &so)
+  call assert_equal(8, &so)
 
   call assert_equal(7, &siso)
   setlocal siso=3
@@ -961,12 +977,16 @@ func Test_local_scrolloff()
   wincmd w
   call assert_equal(7, &siso)
   wincmd w
+  call assert_equal(3, &siso)
   setlocal siso<
   call assert_equal(7, &siso)
+  setglob siso=4
+  call assert_equal(4, &siso)
+  call assert_equal(-1, &l:siso)
   setlocal siso=0
   call assert_equal(0, &siso)
   setlocal siso=-1
-  call assert_equal(7, &siso)
+  call assert_equal(4, &siso)
 
   close
   set so&
@@ -1673,6 +1693,172 @@ func Test_string_option_revert_on_failure()
     exe $"let &{opt[0]} = save_opt"
   endfor
   bw!
+endfunc
+
+func Test_set_option_window_global_local()
+  new Xbuffer1
+  let [ _gso, _lso ] = [ &g:scrolloff, &l:scrolloff ]
+  setlocal scrolloff=2
+  setglobal scrolloff=3
+  setl modified
+  " A new buffer has its own window-local options
+  hide enew
+  call assert_equal(-1, &l:scrolloff)
+  call assert_equal(3, &g:scrolloff)
+  " A new window opened with its own buffer-local options
+  new
+  call assert_equal(-1, &l:scrolloff)
+  call assert_equal(3, &g:scrolloff)
+  " Re-open Xbuffer1 and it should use
+  " the previous set window-local options
+  b Xbuffer1
+  call assert_equal(2, &l:scrolloff)
+  call assert_equal(3, &g:scrolloff)
+  bw!
+  bw!
+  let &g:scrolloff =  _gso
+endfunc
+
+func GetGlobalLocalWindowOptions()
+  new
+  sil! r $VIMRUNTIME/doc/options.txt
+  " Filter for global or local to window
+  v/^'.*'.*\n.*global or local to window |global-local/d
+  " get option value and type
+  sil %s/^'\([^']*\)'.*'\s\+\(\w\+\)\s\+(default \%(\(".*"\|\d\+\|empty\)\).*/\1 \2 \3/g
+  sil %s/empty/""/g
+  " split the result
+  let result=getline(1,'$')->map({_, val -> split(val, ' ')})
+  bw!
+  return result
+endfunc
+
+func Test_set_option_window_global_local_all()
+  new Xbuffer2
+
+  let optionlist = GetGlobalLocalWindowOptions()
+  for [opt, type, default] in optionlist
+    let _old = eval('&g:' .. opt)
+    if type == 'string'
+      if opt == 'fillchars'
+        exe 'setl ' .. opt .. '=vert:+'
+        exe 'setg ' .. opt .. '=vert:+,fold:+'
+      elseif opt == 'listchars'
+        exe 'setl ' .. opt .. '=tab:>>'
+        exe 'setg ' .. opt .. '=tab:++'
+      elseif opt == 'virtualedit'
+        exe 'setl ' .. opt .. '=all'
+        exe 'setg ' .. opt .. '=block'
+      else
+        exe 'setl ' .. opt .. '=Local'
+        exe 'setg ' .. opt .. '=Global'
+      endif
+    elseif type == 'number'
+      exe 'setl ' .. opt .. '=5'
+      exe 'setg ' .. opt .. '=10'
+    endif
+    setl modified
+    hide enew
+    if type == 'string'
+      call assert_equal('', eval('&l:' .. opt))
+      if opt == 'fillchars'
+        call assert_equal('vert:+,fold:+', eval('&g:' .. opt), 'option:' .. opt)
+      elseif opt == 'listchars'
+        call assert_equal('tab:++', eval('&g:' .. opt), 'option:' .. opt)
+      elseif opt == 'virtualedit'
+        call assert_equal('block', eval('&g:' .. opt), 'option:' .. opt)
+      else
+        call assert_equal('Global', eval('&g:' .. opt), 'option:' .. opt)
+      endif
+    elseif type == 'number'
+      call assert_equal(-1, eval('&l:' .. opt), 'option:' .. opt)
+      call assert_equal(10, eval('&g:' .. opt), 'option:' .. opt)
+    endif
+    bw!
+    exe 'let &g:' .. opt .. '=' .. default
+  endfor
+  bw!
+endfunc
+
+func Test_paste_depending_options()
+  " setting the paste option, resets all dependent options
+  " and will be reported correctly using :verbose set <option>?
+  let lines =<< trim [CODE]
+    " set paste test
+    set autoindent
+    set expandtab
+    " disabled, because depends on compiled feature set
+    " set hkmap
+    " set revins
+    " set varsofttabstop=8,32,8
+    set ruler
+    set showmatch
+    set smarttab
+    set softtabstop=4
+    set textwidth=80
+    set wrapmargin=10
+
+    source Xvimrc_paste2
+
+    redir > Xoutput_paste
+    verbose set expandtab?
+    verbose setg expandtab?
+    verbose setl expandtab?
+    redir END
+
+    qall!
+  [CODE]
+
+  call writefile(lines, 'Xvimrc_paste', 'D')
+  call writefile(['set paste'], 'Xvimrc_paste2', 'D')
+  if !RunVim([], lines, '--clean')
+    return
+  endif
+
+  let result = readfile('Xoutput_paste')->filter('!empty(v:val)')
+  call assert_equal('noexpandtab', result[0])
+  call assert_match("^\tLast set from .*Xvimrc_paste2 line 1$", result[1])
+  call assert_equal('noexpandtab', result[2])
+  call assert_match("^\tLast set from .*Xvimrc_paste2 line 1$", result[3])
+  call assert_equal('noexpandtab', result[4])
+  call assert_match("^\tLast set from .*Xvimrc_paste2 line 1$", result[5])
+
+  call delete('Xoutput_paste')
+endfunc
+
+func Test_binary_depending_options()
+  " setting the paste option, resets all dependent options
+  " and will be reported correctly using :verbose set <option>?
+  let lines =<< trim [CODE]
+    " set binary test
+    set expandtab
+
+    source Xvimrc_bin2
+
+    redir > Xoutput_bin
+    verbose set expandtab?
+    verbose setg expandtab?
+    verbose setl expandtab?
+    redir END
+
+    qall!
+  [CODE]
+
+  call writefile(lines, 'Xvimrc_bin', 'D')
+  call writefile(['set binary'], 'Xvimrc_bin2', 'D')
+  if !RunVim([], lines, '--clean')
+    return
+  endif
+
+  let result = readfile('Xoutput_bin')->filter('!empty(v:val)')
+  call assert_equal('noexpandtab', result[0])
+  call assert_match("^\tLast set from .*Xvimrc_bin2 line 1$", result[1])
+  call assert_equal('noexpandtab', result[2])
+  call assert_match("^\tLast set from .*Xvimrc_bin2 line 1$", result[3])
+  call assert_equal('noexpandtab', result[4])
+  call assert_match("^\tLast set from .*Xvimrc_bin2 line 1$", result[5])
+
+  call delete('Xoutput_bin')
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

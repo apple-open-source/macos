@@ -86,12 +86,23 @@ one_function_arg(
 	return arg;
     }
 
-    // Vim9 script: cannot use script var name for argument. In function: also
-    // check local vars and arguments.
-    if (!skip && argtypes != NULL && check_defined(arg, p - arg,
-			       evalarg == NULL ? NULL : evalarg->eval_cctx,
+    // Extra checks in Vim9 script.
+    if (!skip && argtypes != NULL)
+    {
+	int c = *p;
+	*p = NUL;
+	int r = check_reserved_name(arg, FALSE);
+	*p = c;
+	if (r == FAIL)
+	    return arg;
+
+	// Cannot use script var name for argument. In function: also check
+	// local vars and arguments.
+	if (check_defined(arg, p - arg,
+				   evalarg == NULL ? NULL : evalarg->eval_cctx,
 			       eap == NULL ? NULL : eap->cstack, TRUE) == FAIL)
-	return arg;
+	    return arg;
+    }
 
     if (newargs != NULL && ga_grow(newargs, 1) == FAIL)
 	return arg;
@@ -1868,7 +1879,7 @@ get_func_arguments(
 	    argp = skipwhite(argp);
 	if (*argp != ',')
 	    break;
-	if (vim9script && !IS_WHITE_OR_NUL(argp[1]))
+	if (vim9script && !IS_WHITE_NL_OR_NUL(argp[1]))
 	{
 	    if (evaluate)
 		semsg(_(e_white_space_required_after_str_str), ",", argp);
@@ -3048,7 +3059,8 @@ call_user_func(
     // Invoke functions added with ":defer".
     handle_defer_one(current_funccal);
 
-    --RedrawingDisabled;
+    if (RedrawingDisabled > 0)
+	--RedrawingDisabled;
 
     // when the function was aborted because of an error, return -1
     if ((did_emsg && (fp->uf_flags & FC_ABORT)) || rettv->v_type == VAR_UNKNOWN)
@@ -3246,7 +3258,7 @@ save_funccal(funccal_entry_T *entry)
 restore_funccal(void)
 {
     if (funccal_stack == NULL)
-	iemsg("INTERNAL: restore_funccal()");
+	internal_error("restore_funccal()");
     else
     {
 	current_funccal = funccal_stack->top_funccal;
@@ -3596,6 +3608,34 @@ user_func_error(funcerror_T error, char_u *name, int found_var)
 }
 
 /*
+ * Check the argument types "argvars[argcount]" for "name" using the
+ * information in "funcexe".  When "base_included" then "funcexe->fe_basetv"
+ * is already included in "argvars[]".
+ * Will do nothing if "funcexe->fe_check_type" is NULL or
+ * "funcexe->fe_evaluate" is FALSE;
+ * Returns an FCERR_ value.
+ */
+    static funcerror_T
+may_check_argument_types(
+	funcexe_T   *funcexe,
+	typval_T    *argvars,
+	int	    argcount,
+	int	    base_included,
+	char_u	    *name)
+{
+    if (funcexe->fe_check_type != NULL && funcexe->fe_evaluate)
+    {
+	// Check that the argument types are OK for the types of the funcref.
+	if (check_argument_types(funcexe->fe_check_type,
+			  argvars, argcount,
+			  base_included ? NULL : funcexe->fe_basetv,
+			  name) == FAIL)
+	    return FCERR_OTHER;
+    }
+    return FCERR_NONE;
+}
+
+/*
  * Call a function with its resolved parameters
  *
  * Return FAIL when the function can't be called,  OK otherwise.
@@ -3636,6 +3676,9 @@ call_func(
 
     if (partial != NULL)
 	fp = partial->pt_func;
+    if (fp == NULL)
+	fp = funcexe->fe_ufunc;
+
     if (fp == NULL)
     {
 	// Make a copy of the name, if it comes from a funcref variable it
@@ -3691,15 +3734,10 @@ call_func(
 	}
     }
 
-    if (error == FCERR_NONE && funcexe->fe_check_type != NULL
-						       && funcexe->fe_evaluate)
-    {
-	// Check that the argument types are OK for the types of the funcref.
-	if (check_argument_types(funcexe->fe_check_type,
-					 argvars, argcount, funcexe->fe_basetv,
-				     (name != NULL) ? name : funcname) == FAIL)
-	    error = FCERR_OTHER;
-    }
+    if (error == FCERR_NONE)
+	// check the argument types if possible
+	error = may_check_argument_types(funcexe, argvars, argcount, FALSE,
+					     (name != NULL) ? name : funcname);
 
     if (error == FCERR_NONE && funcexe->fe_evaluate)
     {
@@ -3761,10 +3799,20 @@ call_func(
 		error = FCERR_DELETED;
 	    else if (fp != NULL)
 	    {
+		int need_arg_check = FALSE;
+		if (funcexe->fe_check_type == NULL)
+		{
+		    funcexe->fe_check_type = fp->uf_func_type;
+		    need_arg_check = TRUE;
+		}
+
 		if (funcexe->fe_argv_func != NULL)
+		{
 		    // postponed filling in the arguments, do it now
 		    argcount = funcexe->fe_argv_func(argcount, argvars,
-					       argv_clear, fp);
+							       argv_clear, fp);
+		    need_arg_check = TRUE;
+		}
 
 		if (funcexe->fe_basetv != NULL)
 		{
@@ -3774,9 +3822,16 @@ call_func(
 		    argcount++;
 		    argvars = argv;
 		    argv_base = 1;
+		    need_arg_check = TRUE;
 		}
 
-		error = call_user_func_check(fp, argcount, argvars, rettv,
+		// Check the argument types now that the function type and all
+		// argument values are known, if not done above.
+		if (need_arg_check)
+		    error = may_check_argument_types(funcexe, argvars, argcount,
+				       TRUE, (name != NULL) ? name : funcname);
+		if (error == FCERR_NONE || error == FCERR_UNKNOWN)
+		    error = call_user_func_check(fp, argcount, argvars, rettv,
 							    funcexe, selfdict);
 	    }
 	}
@@ -4120,8 +4175,10 @@ trans_function_name_ext(
 
     if (lv.ll_ufunc != NULL)
     {
-	*ufunc = lv.ll_ufunc;
+	if (ufunc != NULL)
+	    *ufunc = lv.ll_ufunc;
 	name = vim_strsave(lv.ll_ufunc->uf_name);
+	*pp = end;
 	goto theend;
     }
 
@@ -4312,10 +4369,14 @@ trans_function_name_ext(
 		lead += (int)STRLEN(sid_buf);
 	}
     }
+    // The function name must start with an upper case letter (unless it is a
+    // Vim9 class new() function or a Vim9 class private method)
     else if (!(flags & TFN_INT)
 	    && (builtin_function(lv.ll_name, len)
 				   || (vim9script && *lv.ll_name == '_'))
-	    && !((flags & TFN_IN_CLASS) && STRNCMP(lv.ll_name, "new", 3) == 0))
+	    && !((flags & TFN_IN_CLASS)
+		&& (STRNCMP(lv.ll_name, "new", 3) == 0
+		    || (*lv.ll_name == '_'))))
     {
 	semsg(_(vim9script ? e_function_name_must_start_with_capital_str
 			   : e_function_name_must_start_with_capital_or_s_str),
@@ -4960,6 +5021,7 @@ define_function(
     // Do not define the function when getting the body fails and when
     // skipping.
     if (((class_flags & CF_INTERFACE) == 0
+		&& (class_flags & CF_ABSTRACT_METHOD) == 0
 		&& get_function_body(eap, &newlines, line_arg, lines_to_free)
 								       == FAIL)
 	    || eap->skip)
@@ -5610,8 +5672,8 @@ copy_function(ufunc_T *fp)
     //    type_T	**uf_arg_types;
     //    type_T	*uf_ret_type;
 
-    ufunc->uf_type_list.ga_len = 0;
-    ufunc->uf_type_list.ga_data = NULL;
+    // make uf_type_list empty
+    ga_init(&ufunc->uf_type_list);
 
     // TODO:   partial_T	*uf_partial;
 
@@ -5874,7 +5936,7 @@ ex_call_inner(
 	char_u	    *name,
 	char_u	    **arg,
 	char_u	    *startarg,
-	funcexe_T  *funcexe_init,
+	funcexe_T   *funcexe_init,
 	evalarg_T   *evalarg)
 {
     linenr_T	lnum;
@@ -6163,6 +6225,7 @@ ex_call(exarg_T *eap)
     int		len;
     int		failed = FALSE;
     funcdict_T	fudi;
+    ufunc_T	*ufunc = NULL;
     partial_T	*partial = NULL;
     evalarg_T	evalarg;
     type_T	*type = NULL;
@@ -6186,7 +6249,7 @@ ex_call(exarg_T *eap)
     }
 
     tofree = trans_function_name_ext(&arg, NULL, FALSE, TFN_INT,
-			     &fudi, &partial, vim9script ? &type : NULL, NULL);
+			   &fudi, &partial, vim9script ? &type : NULL, &ufunc);
     if (fudi.fd_newkey != NULL)
     {
 	// Still need to give an error message for missing key.
@@ -6234,6 +6297,7 @@ ex_call(exarg_T *eap)
 
 	CLEAR_FIELD(funcexe);
 	funcexe.fe_check_type = type;
+	funcexe.fe_ufunc = ufunc;
 	funcexe.fe_partial = partial;
 	funcexe.fe_selfdict = fudi.fd_dict;
 	funcexe.fe_firstline = eap->line1;

@@ -31,6 +31,8 @@
 
 #include <Security/OTClique+Private.h>
 
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
+
 static NSString * fetch_pet(NSString * appleID, NSString * dsid)
 {
     if(!appleID && !dsid) {
@@ -757,6 +759,7 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 - (int)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
             repair:(BOOL)repair
+              json:(BOOL)json
 {
 #if OCTAGON
     __block int ret = 1;
@@ -764,11 +767,23 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [self.control healthCheck:arguments
         skipRateLimitingCheck:skipRateLimitingCheck
                        repair:repair
-                        reply:^(NSError* _Nullable error) {
+                        reply:^(TrustedPeersHelperHealthCheckResult* _Nullable results, NSError* _Nullable error) {
         if(error) {
-            fprintf(stderr, "Error checking health: %s\n", [[error description] UTF8String]);
+            if(json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error checking health: %s\n", [[error description] UTF8String]);
+            }
         } else {
-            printf("Checking Octagon Health completed.\n");
+            if (results != nil) {
+                NSDictionary *d = [results dictionaryRepresentation];
+                if (json) {
+                    print_json(d);
+                } else {
+                    printf("Checking Octagon Health completed.\n");
+                    printf("%s\n", [[d description] UTF8String]);
+                }
+            }
             ret = 0;
         }
     }];

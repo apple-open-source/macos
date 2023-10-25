@@ -92,6 +92,9 @@ typedef enum {
 - (GSKeyboardRef)_hardwareKeyboard;
 @end
 
+static const UIUserInterfaceIdiom UIUserInterfaceIdiomWatch = (UIUserInterfaceIdiom)4;
+static const UIUserInterfaceIdiom UIUserInterfaceIdiomVision = (UIUserInterfaceIdiom)6;
+
 @interface UIColor ()
 
 + (UIColor *)systemBlueColor;
@@ -185,7 +188,6 @@ typedef NS_ENUM(NSInteger, _UIDataOwner) {
 #endif // USE(APPLE_INTERNAL_SDK)
 
 @interface UIColor (IPI)
-+ (UIColor *)keyboardFocusIndicatorColor;
 + (UIColor *)tableCellDefaultSelectionTintColor;
 @end
 

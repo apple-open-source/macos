@@ -207,11 +207,19 @@ IOPCIDevice::MemoryRead64(uint8_t   memoryIndex,
                           uint64_t  offset,
                           uint64_t* readData)
 {
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
+    if(memoryIndex >= ivars->numDeviceMemoryMappings)
+    {
+        *readData = static_cast<uint64_t>(-1);
+        return;
+    }
+
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
-    *readData = *reinterpret_cast<volatile uint64_t*>(deviceMemory->GetAddress() + offset);
-#else
-    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit | memoryIndex,
+
+    if(deviceMemory)
+    {
+        *readData = *reinterpret_cast<volatile uint64_t*>(deviceMemory->GetAddress() + offset);
+    }
+    else if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit | memoryIndex,
                      offset,
                      0,
                      readData,
@@ -220,23 +228,32 @@ IOPCIDevice::MemoryRead64(uint8_t   memoryIndex,
     {
         *readData = static_cast<uint64_t>(-1);
     }
-#endif
 }
+
+#if TARGET_CPU_X86 || TARGET_CPU_X86_64
+// Assume if the memory index is in range, but doesn't have a mapping, that it's for I/O Space
+#define MEMORY_READ_OPERATION kPCIDriverKitMemoryAccessOperationIORead
+#else
+#define MEMORY_READ_OPERATION kPCIDriverKitMemoryAccessOperationDeviceRead
+#endif
 
 void
 IOPCIDevice::MemoryRead32(uint8_t   memoryIndex,
                           uint64_t  offset,
                           uint32_t* readData)
 {
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
+    if(memoryIndex >= ivars->numDeviceMemoryMappings)
+    {
+        *readData = static_cast<uint64_t>(-1);
+        return;
+    }
+
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
 
-    if(   (deviceMemory == NULL)
-       && (memoryIndex < ivars->numDeviceMemoryMappings))
+    if(deviceMemory == NULL)
     {
         uint64_t bounceData;
-        // Assume if the memory index is in range, but doesn't have a mapping, that it's for I/O Space
-        if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationIORead | kPCIDriverKitMemoryAccessOperation32Bit | memoryIndex,
+        if(_MemoryAccess(MEMORY_READ_OPERATION | kPCIDriverKitMemoryAccessOperation32Bit | memoryIndex,
                          offset,
                          0,
                          &bounceData,
@@ -254,22 +271,6 @@ IOPCIDevice::MemoryRead32(uint8_t   memoryIndex,
     {
         *readData = *reinterpret_cast<volatile uint32_t*>(deviceMemory->GetAddress() + offset);
     }
-#else
-    uint64_t bounceData;
-    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation32Bit | memoryIndex,
-                     offset,
-                     0,
-                     &bounceData,
-                     ivars->deviceClient,
-                     0) != kIOReturnSuccess)
-    {
-        *readData = static_cast<uint32_t>(-1);
-    }
-    else
-    {
-        *readData = static_cast<uint32_t>(bounceData);
-    }
-#endif
 }
 
 void
@@ -277,15 +278,18 @@ IOPCIDevice::MemoryRead16(uint8_t   memoryIndex,
                           uint64_t  offset,
                           uint16_t* readData)
 {
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
+    if(memoryIndex >= ivars->numDeviceMemoryMappings)
+    {
+        *readData = static_cast<uint64_t>(-1);
+        return;
+    }
+
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
 
-    if(   (deviceMemory == NULL)
-       && (memoryIndex < ivars->numDeviceMemoryMappings))
+    if(deviceMemory == NULL)
     {
         uint64_t bounceData;
-        // Assume if the memory index is in range, but doesn't have a mapping, that it's for I/O Space
-        if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationIORead | kPCIDriverKitMemoryAccessOperation16Bit | memoryIndex,
+        if(_MemoryAccess(MEMORY_READ_OPERATION | kPCIDriverKitMemoryAccessOperation16Bit | memoryIndex,
                          offset,
                          0,
                          &bounceData,
@@ -303,22 +307,6 @@ IOPCIDevice::MemoryRead16(uint8_t   memoryIndex,
     {
         *readData = *reinterpret_cast<volatile uint16_t*>(deviceMemory->GetAddress() + offset);
     }
-#else
-    uint64_t bounceData;
-    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation16Bit | memoryIndex,
-                     offset,
-                     0,
-                     &bounceData,
-                     ivars->deviceClient,
-                     0) != kIOReturnSuccess)
-    {
-        *readData = static_cast<uint16_t>(-1);
-    }
-    else
-    {
-        *readData = static_cast<uint16_t>(bounceData);
-    }
-#endif
 }
 
 void
@@ -326,15 +314,18 @@ IOPCIDevice::MemoryRead8(uint8_t  memoryIndex,
                          uint64_t offset,
                          uint8_t* readData)
 {
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
+    if(memoryIndex >= ivars->numDeviceMemoryMappings)
+    {
+        *readData = static_cast<uint64_t>(-1);
+        return;
+    }
+
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
 
-    if(   (deviceMemory == NULL)
-       && (memoryIndex < ivars->numDeviceMemoryMappings))
+    if(deviceMemory == NULL)
     {
         uint64_t bounceData;
-        // Assume if the memory index is in range, but doesn't have a mapping, that it's for I/O Space
-        if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationIORead | kPCIDriverKitMemoryAccessOperation8Bit | memoryIndex,
+        if(_MemoryAccess(MEMORY_READ_OPERATION | kPCIDriverKitMemoryAccessOperation8Bit | memoryIndex,
                          offset,
                          0,
                          &bounceData,
@@ -352,22 +343,6 @@ IOPCIDevice::MemoryRead8(uint8_t  memoryIndex,
     {
         *readData = *reinterpret_cast<volatile uint8_t*>(deviceMemory->GetAddress() + offset);
     }
-#else
-    uint64_t bounceData;
-    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation8Bit | memoryIndex,
-                     offset,
-                     0,
-                     &bounceData,
-                     ivars->deviceClient,
-                     0) != kIOReturnSuccess)
-    {
-        *readData = static_cast<uint8_t>(-1);
-    }
-    else
-    {
-        *readData = static_cast<uint8_t>(bounceData);
-    }
-#endif
 }
 
 void
@@ -375,24 +350,16 @@ IOPCIDevice::MemoryWrite64(uint8_t  memoryIndex,
                            uint64_t offset,
                            uint64_t data)
 {
-    IOMemoryMap*       deviceMemory  = ivars->deviceMemoryMappings[memoryIndex];
-    volatile uint64_t* memoryAddress = reinterpret_cast<volatile uint64_t*>(deviceMemory->GetAddress() + offset);
-    *memoryAddress = data;
-}
+    if(memoryIndex >= ivars->numDeviceMemoryMappings)
+    {
+        return;
+    }
 
-void
-IOPCIDevice::MemoryWrite32(uint8_t  memoryIndex,
-                           uint64_t offset,
-                           uint32_t data)
-{
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
 
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
-    if(   (deviceMemory == NULL)
-       && (memoryIndex < ivars->numDeviceMemoryMappings))
+    if(deviceMemory == NULL)
     {
-        // Assume if the memory index is in range, but doesn't have a mapping, that it's for I/O Space
-        _MemoryAccess(kPCIDriverKitMemoryAccessOperationIOWrite | kPCIDriverKitMemoryAccessOperation32Bit | memoryIndex,
+        _MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation64Bit | memoryIndex,
                       offset,
                       data,
                       NULL,
@@ -400,7 +367,41 @@ IOPCIDevice::MemoryWrite32(uint8_t  memoryIndex,
                       0);
     }
     else
+    {
+        volatile uint64_t* memoryAddress = reinterpret_cast<volatile uint64_t*>(deviceMemory->GetAddress() + offset);
+        *memoryAddress = data;
+    }
+}
+
+#if TARGET_CPU_X86 || TARGET_CPU_X86_64
+// Assume if the memory index is in range, but doesn't have a mapping, that it's for I/O Space
+#define MEMORY_WRITE_OPERATION kPCIDriverKitMemoryAccessOperationIOWrite
+#else
+#define MEMORY_WRITE_OPERATION kPCIDriverKitMemoryAccessOperationDeviceWrite
 #endif
+
+void
+IOPCIDevice::MemoryWrite32(uint8_t  memoryIndex,
+                           uint64_t offset,
+                           uint32_t data)
+{
+    if(memoryIndex >= ivars->numDeviceMemoryMappings)
+    {
+        return;
+    }
+
+    IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
+
+    if(deviceMemory == NULL)
+    {
+        _MemoryAccess(MEMORY_WRITE_OPERATION | kPCIDriverKitMemoryAccessOperation32Bit | memoryIndex,
+                      offset,
+                      data,
+                      NULL,
+                      ivars->deviceClient,
+                      0);
+    }
+    else
     {
         volatile uint32_t* memoryAddress = reinterpret_cast<volatile uint32_t*>(deviceMemory->GetAddress() + offset);
         *memoryAddress = data;
@@ -412,14 +413,16 @@ IOPCIDevice::MemoryWrite16(uint8_t  memoryIndex,
                            uint64_t offset,
                            uint16_t data)
 {
+    if(memoryIndex >= ivars->numDeviceMemoryMappings)
+    {
+        return;
+    }
+
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
 
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
-    if(   (deviceMemory == NULL)
-       && (memoryIndex < ivars->numDeviceMemoryMappings))
+    if(deviceMemory == NULL)
     {
-        // Assume if the memory index is in range, but doesn't have a mapping, that it's for I/O Space
-        _MemoryAccess(kPCIDriverKitMemoryAccessOperationIOWrite | kPCIDriverKitMemoryAccessOperation16Bit | memoryIndex,
+        _MemoryAccess(MEMORY_WRITE_OPERATION | kPCIDriverKitMemoryAccessOperation16Bit | memoryIndex,
                       offset,
                       data,
                       NULL,
@@ -427,7 +430,6 @@ IOPCIDevice::MemoryWrite16(uint8_t  memoryIndex,
                       0);
     }
     else
-#endif
     {
         volatile uint16_t* memoryAddress = reinterpret_cast<volatile uint16_t*>(deviceMemory->GetAddress() + offset);
         *memoryAddress = data;
@@ -439,13 +441,16 @@ IOPCIDevice::MemoryWrite8(uint8_t  memoryIndex,
                           uint64_t offset,
                           uint8_t  data)
 {
-    IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
-    if(   (deviceMemory == NULL)
-       && (memoryIndex < ivars->numDeviceMemoryMappings))
+    if(memoryIndex >= ivars->numDeviceMemoryMappings)
     {
-        // Assume if the memory index is in range, but doesn't have a mapping, that it's for I/O Space
-        _MemoryAccess(kPCIDriverKitMemoryAccessOperationIOWrite | kPCIDriverKitMemoryAccessOperation8Bit | memoryIndex,
+        return;
+    }
+
+    IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
+
+    if(deviceMemory == NULL)
+    {
+        _MemoryAccess(MEMORY_WRITE_OPERATION | kPCIDriverKitMemoryAccessOperation8Bit | memoryIndex,
                       offset,
                       data,
                       NULL,
@@ -453,7 +458,6 @@ IOPCIDevice::MemoryWrite8(uint8_t  memoryIndex,
                       0);
     }
     else
-#endif
     {
         volatile uint8_t* memoryAddress = reinterpret_cast<volatile uint8_t*>(deviceMemory->GetAddress() + offset);
         *memoryAddress = data;

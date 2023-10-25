@@ -2936,6 +2936,22 @@ IMPL(IOPCIDevice, _CopyDeviceMemoryWithIndex)
         return kIOReturnBadArgument;
     }
 
+#if TARGET_CPU_ARM || TARGET_CPU_ARM64
+    if (reserved->offloadEngineMMIODisable == 0)
+    {
+        DLOG("IOPCIDevice::%s: offload engine requires using _MemoryAccess()\n", __FUNCTION__);
+        return kIOReturnError;
+    }
+#endif
+
+    if (getProperty("no-user-memory-mapping"))
+    {
+#if TARGET_CPU_X86 || TARGET_CPU_X86_64
+		panic("no-user-memory-mapping unsupported on x86");
+#endif
+        DLOG("IOPCIDevice::%s: no-user-memory-mapping property prevents copying device memory\n", __FUNCTION__);
+        return kIOReturnError;
+    }
 
     IOReturn result                       = kIOReturnUnsupported;
     IOMemoryDescriptor * memoryDescriptor = reserved->deviceMemory[memoryIndex];

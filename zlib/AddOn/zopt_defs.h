@@ -21,6 +21,8 @@ typedef __attribute__((__ext_vector_type__(16))) uint8_t vector_uchar16;
 typedef __attribute__((__ext_vector_type__(16),__aligned__(1))) uint8_t packed_uchar16;
 typedef __attribute__((__ext_vector_type__(8),__aligned__(2))) unsigned short packed_ushort8;
 typedef __attribute__((__aligned__(1))) uint64_t packed_uint64_t;
+typedef __attribute__((__aligned__(1))) uint32_t packed_uint32_t;
+typedef __attribute__((__aligned__(1))) uint16_t packed_uint16_t;
 
 // Build Huffman tables. Return 0 on success, 1 on error.
 int inffast_tables(z_streamp strm);
@@ -29,7 +31,7 @@ int inffast_tables(z_streamp strm);
 #undef  INFLATE_MIN_INPUT
 #define INFLATE_MIN_INPUT ((15+15+(15+5)+(15+13)+64+64)/8) // Be safe, use generous upper bound
 #undef  INFLATE_MIN_OUTPUT
-#define INFLATE_MIN_OUTPUT (2+258+63) // 2 literals, match + overshoot
+#define INFLATE_MIN_OUTPUT (2+258+63) // 2 literals, match + excess
 
 /*
  zlib defaults to 9 lenbits and 6 distbits.  Thus, zlib reserves ENOUGH (=1444)

@@ -104,5 +104,6 @@ bool SOSBSKBIsGoodBackupPublic(CFDataRef publicKey, CFErrorRef *error);
 CFDataRef SOSBSKBCopyRecoveryKey(SOSBackupSliceKeyBagRef bskb);
 bool SOSBSKBHasRecoveryKey(SOSBackupSliceKeyBagRef bskb);
 bool SOSBSKBHasThisRecoveryKey(SOSBackupSliceKeyBagRef bskb, CFDataRef backupKey);
+void SOSBSKBRemoveRecoveryKey(SOSBackupSliceKeyBagRef bskb);
 
 #endif /* defined(_sec_SOSBackupSliceKeyBag_) */

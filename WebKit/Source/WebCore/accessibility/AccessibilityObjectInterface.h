@@ -770,6 +770,8 @@ enum class AccessibilityVisiblePositionForBounds {
 enum class AccessibilityMathScriptObjectType { Subscript, Superscript };
 enum class AccessibilityMathMultiscriptObjectType { PreSubscript, PreSuperscript, PostSubscript, PostSuperscript };
 
+enum class CompositionState : uint8_t { Started, InProgress, Ended };
+
 // Relationships between AX objects.
 enum class AXRelationType : uint8_t {
     None,
@@ -2017,5 +2019,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, AccessibilitySearchKey);
 WTF::TextStream& operator<<(WTF::TextStream&, const AccessibilitySearchCriteria&);
 WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityObjectInclusion);
 WTF::TextStream& operator<<(WTF::TextStream&, const AXCoreObject&);
+WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityTextSource);
 
 } // namespace WebCore

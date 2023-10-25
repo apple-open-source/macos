@@ -89,12 +89,25 @@ _citrus_mapper_none_mapper_uninit(struct _citrus_mapper *cm __unused)
 
 static int
 /*ARGSUSED*/
+#ifdef __APPLE__
+_citrus_mapper_none_mapper_convert(struct _citrus_mapper * __restrict cm __unused,
+    _citrus_index_t * __restrict dst, _citrus_index_t * __restrict src,
+    int * __restrict cnt, void * __restrict ps __unused)
+#else
 _citrus_mapper_none_mapper_convert(struct _citrus_mapper * __restrict cm __unused,
     _citrus_index_t * __restrict dst, _citrus_index_t src,
     void * __restrict ps __unused)
+#endif
 {
 
+#ifdef __APPLE__
+	for (int i = 0; i < *cnt; i++) {
+		dst[i] = src[i];
+	}
+#else
 	*dst = src;
+#endif
+
 	return (_CITRUS_MAPPER_CONVERT_SUCCESS);
 }
 

@@ -136,7 +136,7 @@ generate_CONSTRUCT(cctx_T *cctx, class_T *cl)
  * index.
  */
     int
-generate_GET_OBJ_MEMBER(cctx_T *cctx, int idx, type_T *type)
+generate_GET_OBJ_MEMBER(cctx_T *cctx, int idx, type_T *type, int is_static)
 {
     RETURN_OK_IF_SKIP(cctx);
 
@@ -145,7 +145,9 @@ generate_GET_OBJ_MEMBER(cctx_T *cctx, int idx, type_T *type)
     if (isn == NULL)
 	return FAIL;
 
-    isn->isn_arg.number = idx;
+    isn->isn_arg.classmember.cm_class = NULL;
+    isn->isn_arg.classmember.cm_idx = idx;
+    isn->isn_arg.classmember.cm_static = is_static;
     return push_type_stack2(cctx, type, &t_any);
 }
 
@@ -154,7 +156,8 @@ generate_GET_OBJ_MEMBER(cctx_T *cctx, int idx, type_T *type)
  * by index.
  */
     int
-generate_GET_ITF_MEMBER(cctx_T *cctx, class_T *itf, int idx, type_T *type)
+generate_GET_ITF_MEMBER(cctx_T *cctx, class_T *itf, int idx, type_T *type,
+								int is_static)
 {
     RETURN_OK_IF_SKIP(cctx);
 
@@ -166,6 +169,7 @@ generate_GET_ITF_MEMBER(cctx_T *cctx, class_T *itf, int idx, type_T *type)
     isn->isn_arg.classmember.cm_class = itf;
     ++itf->class_refcount;
     isn->isn_arg.classmember.cm_idx = idx;
+    isn->isn_arg.classmember.cm_static = is_static;
     return push_type_stack2(cctx, type, &t_any);
 }
 
@@ -662,11 +666,11 @@ generate_SETTYPE(
 /*
  * Generate an ISN_PUSHOBJ instruction.  Object is always NULL.
  */
-    static int
+    int
 generate_PUSHOBJ(cctx_T *cctx)
 {
     RETURN_OK_IF_SKIP(cctx);
-    if (generate_instr_type(cctx, ISN_PUSHOBJ, &t_any) == NULL)
+    if (generate_instr_type(cctx, ISN_PUSHOBJ, &t_object) == NULL)
 	return FAIL;
     return OK;
 }
@@ -1780,6 +1784,7 @@ generate_CALL(
 	ufunc_T	    *ufunc,
 	class_T	    *cl,
 	int	    mi,
+	type_T	    *mtype,	// method type
 	int	    pushed_argcount)
 {
     isn_T	*isn;
@@ -1805,6 +1810,8 @@ generate_CALL(
     {
 	int		i;
 	compiletype_T	compile_type;
+	int		class_constructor = (mtype->tt_type == VAR_CLASS
+				    && STRNCMP(ufunc->uf_name, "new", 3) == 0);
 
 	for (i = 0; i < argcount; ++i)
 	{
@@ -1823,6 +1830,20 @@ generate_CALL(
 		if (ufunc->uf_arg_types == NULL)
 		    continue;
 		expected = ufunc->uf_arg_types[i];
+
+		// When the method is a class constructor and the formal
+		// argument is an object member, the type check is performed on
+		// the object member type.
+		if (class_constructor && expected->tt_type == VAR_ANY)
+		{
+		    class_T *clp = mtype->tt_class;
+		    char_u  *aname = ((char_u **)ufunc->uf_args.ga_data)[i];
+		    int	    m_idx;
+		    ocmember_T *m = object_member_lookup(clp, aname, 0,
+									&m_idx);
+		    if (m != NULL)
+			expected = m->ocm_type;
+		}
 	    }
 	    else if (ufunc->uf_va_type == NULL
 					   || ufunc->uf_va_type == &t_list_any)
@@ -1879,6 +1900,10 @@ generate_CALL(
 
     // drop the argument types
     cctx->ctx_type_stack.ga_len -= argcount;
+
+    // For an object or class method call, drop the object/class type
+    if (ufunc->uf_class != NULL)
+	cctx->ctx_type_stack.ga_len--;
 
     // add return type
     return push_type_stack(cctx, ufunc->uf_ret_type);

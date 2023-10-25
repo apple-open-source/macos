@@ -252,12 +252,14 @@ eval_expr_get_funccal(typval_T *expr, typval_T *rettv)
 /*
  * Evaluate an expression, which can be a function, partial or string.
  * Pass arguments "argv[argc]".
+ * If "want_func" is TRUE treat a string as a function name, not an expression.
  * "fc_arg" is from eval_expr_get_funccal() or NULL;
  * Return the result in "rettv" and OK or FAIL.
  */
     int
 eval_expr_typval(
 	typval_T    *expr,
+	int	    want_func,
 	typval_T    *argv,
 	int	    argc,
 	funccall_T  *fc_arg,
@@ -267,17 +269,7 @@ eval_expr_typval(
     char_u	buf[NUMBUFLEN];
     funcexe_T	funcexe;
 
-    if (expr->v_type == VAR_FUNC)
-    {
-	s = expr->vval.v_string;
-	if (s == NULL || *s == NUL)
-	    return FAIL;
-	CLEAR_FIELD(funcexe);
-	funcexe.fe_evaluate = TRUE;
-	if (call_func(s, -1, rettv, argc, argv, &funcexe) == FAIL)
-	    return FAIL;
-    }
-    else if (expr->v_type == VAR_PARTIAL)
+    if (expr->v_type == VAR_PARTIAL)
     {
 	partial_T   *partial = expr->vval.v_partial;
 
@@ -318,6 +310,18 @@ eval_expr_typval(
     {
 	return exe_typval_instr(expr, rettv);
     }
+    else if (expr->v_type == VAR_FUNC || want_func)
+    {
+	s = expr->v_type == VAR_FUNC
+		? expr->vval.v_string
+		: tv_get_string_buf_chk_strict(expr, buf, in_vim9script());
+	if (s == NULL || *s == NUL)
+	    return FAIL;
+	CLEAR_FIELD(funcexe);
+	funcexe.fe_evaluate = TRUE;
+	if (call_func(s, -1, rettv, argc, argv, &funcexe) == FAIL)
+	    return FAIL;
+    }
     else
     {
 	s = tv_get_string_buf_chk_strict(expr, buf, in_vim9script());
@@ -346,7 +350,7 @@ eval_expr_to_bool(typval_T *expr, int *error)
     typval_T	rettv;
     int		res;
 
-    if (eval_expr_typval(expr, NULL, 0, NULL, &rettv) == FAIL)
+    if (eval_expr_typval(expr, FALSE, NULL, 0, NULL, &rettv) == FAIL)
     {
 	*error = TRUE;
 	return FALSE;
@@ -570,8 +574,7 @@ skip_expr_concatenate(
 
 /*
  * Convert "tv" to a string.
- * When "convert" is TRUE convert a List into a sequence of lines and convert
- * a Float to a String.
+ * When "convert" is TRUE convert a List into a sequence of lines.
  * Returns an allocated string (NULL when out of memory).
  */
     char_u *
@@ -579,7 +582,6 @@ typval2string(typval_T *tv, int convert)
 {
     garray_T	ga;
     char_u	*retval;
-    char_u	numbuf[NUMBUFLEN];
 
     if (convert && tv->v_type == VAR_LIST)
     {
@@ -593,11 +595,6 @@ typval2string(typval_T *tv, int convert)
 	ga_append(&ga, NUL);
 	retval = (char_u *)ga.ga_data;
     }
-    else if (convert && tv->v_type == VAR_FLOAT)
-    {
-	vim_snprintf((char *)numbuf, NUMBUFLEN, "%g", tv->vval.v_float);
-	retval = vim_strsave(numbuf);
-    }
     else
 	retval = vim_strsave(tv_get_string(tv));
     return retval;
@@ -606,8 +603,7 @@ typval2string(typval_T *tv, int convert)
 /*
  * Top level evaluation function, returning a string.  Does not handle line
  * breaks.
- * When "convert" is TRUE convert a List into a sequence of lines and convert
- * a Float to a String.
+ * When "convert" is TRUE convert a List into a sequence of lines.
  * Return pointer to allocated memory, or NULL for failure.
  */
     char_u *
@@ -1029,7 +1025,7 @@ get_lval(
     int		len;
     hashtab_T	*ht = NULL;
     int		quiet = flags & GLV_QUIET;
-    int		writing;
+    int		writing = 0;
     int		vim9script = in_vim9script();
 
     // Clear everything in "lp".
@@ -1183,6 +1179,14 @@ get_lval(
 	if (v == NULL)
 	    return NULL;
 	lp->ll_tv = &v->di_tv;
+    }
+    if (vim9script && writing && lp->ll_tv->v_type == VAR_CLASS
+	    && (lp->ll_tv->vval.v_class->class_flags & CLASS_INTERFACE) != 0)
+    {
+	if (!quiet)
+	    semsg(_(e_interface_static_direct_access_str),
+			    lp->ll_tv->vval.v_class->class_name, lp->ll_name);
+	return NULL;
     }
 
     if (vim9script && (flags & GLV_NO_DECL) == 0)
@@ -1536,71 +1540,57 @@ get_lval(
 		    // round 1: class functions (skipped for an object)
 		    // round 2: object methods
 		    for (int round = v_type == VAR_OBJECT ? 2 : 1;
-							   round <= 2; ++round)
+							round <= 2; ++round)
 		    {
-			int count = round == 1
-					    ? cl->class_class_function_count
-					    : cl->class_obj_method_count;
-			ufunc_T **funcs = round == 1
-					    ? cl->class_class_functions
-					    : cl->class_obj_methods;
-			for (int i = 0; i < count; ++i)
+			int	m_idx;
+			ufunc_T	*fp;
+
+			fp = method_lookup(cl,
+				round == 1 ? VAR_CLASS : VAR_OBJECT,
+				key, p - key, &m_idx);
+			if (fp != NULL)
 			{
-			    ufunc_T *fp = funcs[i];
-			    char_u *ufname = (char_u *)fp->uf_name;
-			    if (STRNCMP(ufname, key, p - key) == 0
-						     && ufname[p - key] == NUL)
-			    {
-				lp->ll_ufunc = fp;
-				lp->ll_valtype = fp->uf_func_type;
-				round = 3;
-				break;
-			    }
+			    lp->ll_ufunc = fp;
+			    lp->ll_valtype = fp->uf_func_type;
+			    break;
 			}
 		    }
 		}
 
 		if (lp->ll_valtype == NULL)
 		{
-		    int count = v_type == VAR_OBJECT
-					    ? cl->class_obj_member_count
-					    : cl->class_class_member_count;
-		    ocmember_T *members = v_type == VAR_OBJECT
-					    ? cl->class_obj_members
-					    : cl->class_class_members;
-		    for (int i = 0; i < count; ++i)
+		    int		m_idx;
+		    ocmember_T	*om;
+
+		    om = member_lookup(cl, v_type, key, p - key, &m_idx);
+		    if (om != NULL)
 		    {
-			ocmember_T *om = members + i;
-			if (STRNCMP(om->ocm_name, key, p - key) == 0
-					       && om->ocm_name[p - key] == NUL)
+			switch (om->ocm_access)
 			{
-			    switch (om->ocm_access)
-			    {
-				case VIM_ACCESS_PRIVATE:
-					semsg(_(e_cannot_access_private_member_str),
-								 om->ocm_name);
-					return NULL;
-				case VIM_ACCESS_READ:
-					if ((flags & GLV_READ_ONLY) == 0)
-					{
-					    semsg(_(e_member_is_not_writable_str),
-								 om->ocm_name);
-					    return NULL;
-					}
-					break;
-				case VIM_ACCESS_ALL:
-					break;
-			    }
-
-			    lp->ll_valtype = om->ocm_type;
-
-			    if (v_type == VAR_OBJECT)
-				lp->ll_tv = ((typval_T *)(
-					    lp->ll_tv->vval.v_object + 1)) + i;
-			    else
-				lp->ll_tv = &cl->class_members_tv[i];
-			    break;
+			    case VIM_ACCESS_PRIVATE:
+				semsg(_(e_cannot_access_private_member_str),
+					om->ocm_name);
+				return NULL;
+			    case VIM_ACCESS_READ:
+				if ((flags & GLV_READ_ONLY) == 0)
+				{
+				    semsg(_(e_member_is_not_writable_str),
+					    om->ocm_name);
+				    return NULL;
+				}
+				break;
+			    case VIM_ACCESS_ALL:
+				break;
 			}
+
+			lp->ll_valtype = om->ocm_type;
+
+			if (v_type == VAR_OBJECT)
+			    lp->ll_tv = ((typval_T *)(
+					lp->ll_tv->vval.v_object + 1)) + m_idx;
+			else
+			    lp->ll_tv = &cl->class_members_tv[m_idx];
+			break;
 		    }
 		}
 
@@ -1654,7 +1644,7 @@ set_var_lval(
     {
 	cc = *endp;
 	*endp = NUL;
-	if (in_vim9script() && check_reserved_name(lp->ll_name, NULL) == FAIL)
+	if (in_vim9script() && check_reserved_name(lp->ll_name, FALSE) == FAIL)
 	    return;
 
 	if (lp->ll_blob != NULL)
@@ -3863,7 +3853,6 @@ eval8(
 		{
 		    where_T where = WHERE_INIT;
 
-		    where.wt_variable = TRUE;
 		    res = check_type(want_type, actual, TRUE, where);
 		}
 	    }
@@ -5310,6 +5299,8 @@ garbage_collect(int testing)
     abort = abort || set_ref_in_popups(copyID);
 #endif
 
+    abort = abort || set_ref_in_classes(copyID);
+
     if (!abort)
     {
 	/*
@@ -5357,6 +5348,9 @@ free_unref_items(int copyID)
 
     // Go through the list of objects and free items without this copyID.
     did_free |= object_free_nonref(copyID);
+
+    // Go through the list of classes and free items without this copyID.
+    did_free |= class_free_nonref(copyID);
 
 #ifdef FEAT_JOB_CHANNEL
     // Go through the list of jobs and free items without the copyID. This
@@ -5712,7 +5706,7 @@ set_ref_in_item_channel(
  * Mark the class "cl" with "copyID".
  * Also see set_ref_in_item().
  */
-    static int
+    int
 set_ref_in_item_class(
     class_T		*cl,
     int			copyID,
@@ -5721,15 +5715,19 @@ set_ref_in_item_class(
 {
     int abort = FALSE;
 
-    if (cl == NULL || cl->class_copyID == copyID
-				|| (cl->class_flags & CLASS_INTERFACE) != 0)
+    if (cl == NULL || cl->class_copyID == copyID)
 	return FALSE;
 
     cl->class_copyID = copyID;
-    for (int i = 0; !abort && i < cl->class_class_member_count; ++i)
-	abort = abort || set_ref_in_item(
-		&cl->class_members_tv[i],
-		copyID, ht_stack, list_stack);
+    if (cl->class_members_tv != NULL)
+    {
+	// The "class_members_tv" table is allocated only for regular classes
+	// and not for interfaces.
+	for (int i = 0; !abort && i < cl->class_class_member_count; ++i)
+	    abort = abort || set_ref_in_item(
+		    &cl->class_members_tv[i],
+		    copyID, ht_stack, list_stack);
+    }
 
     for (int i = 0; !abort && i < cl->class_class_function_count; ++i)
 	abort = abort || set_ref_in_func(NULL,
@@ -6322,6 +6320,10 @@ var2fpos(
 
     if (name[0] == 'w' && dollar_lnum)
     {
+	// the "w_valid" flags are not reset when moving the cursor, but they
+	// do matter for update_topline() and validate_botline().
+	check_cursor_moved(curwin);
+
 	pos.col = 0;
 	if (name[1] == '0')		// "w0": first visible line
 	{

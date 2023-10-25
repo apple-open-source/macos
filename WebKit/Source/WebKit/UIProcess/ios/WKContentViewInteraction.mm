@@ -47,7 +47,7 @@
 #import "TextInputSPI.h"
 #import "TextRecognitionUpdateResult.h"
 #import "UIKitSPI.h"
-#import "UserInterfaceIdiom.h"
+#import "UIKitUtilities.h"
 #import "WKActionSheetAssistant.h"
 #import "WKContextMenuElementInfoInternal.h"
 #import "WKContextMenuElementInfoPrivate.h"
@@ -145,6 +145,7 @@
 #import <pal/spi/ios/BarcodeSupportSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <pal/spi/ios/ManagedConfigurationSPI.h>
+#import <pal/system/ios/UserInterfaceIdiom.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CallbackAggregator.h>
@@ -533,7 +534,7 @@ constexpr double fasterTapSignificantZoomThreshold = 0.8;
         [[_contentView formAccessoryView] showAutoFillButtonWithTitle:title];
     else
         [[_contentView formAccessoryView] hideAutoFillButton];
-    if (!WebKit::currentUserInterfaceIdiomIsSmallScreen())
+    if (!PAL::currentUserInterfaceIdiomIsSmallScreen())
         [_contentView reloadInputViews];
 }
 
@@ -1638,7 +1639,7 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
                 if (_focusRequiresStrongPasswordAssistance)
                     return true;
 
-                if (WebKit::currentUserInterfaceIdiomIsSmallScreen())
+                if (PAL::currentUserInterfaceIdiomIsSmallScreen())
                     return true;
             }
 
@@ -2359,7 +2360,7 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
         if (self._shouldUseContextMenusForFormControls)
             return NO;
 #endif
-        return WebKit::currentUserInterfaceIdiomIsSmallScreen();
+        return PAL::currentUserInterfaceIdiomIsSmallScreen();
     }
     default:
         return YES;
@@ -2451,7 +2452,7 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
         fontSize:_focusedElementInformation.nodeFontSize
         minimumScale:_focusedElementInformation.minimumScaleFactor
         maximumScale:_focusedElementInformation.maximumScaleFactorIgnoringAlwaysScalable
-        allowScaling:_focusedElementInformation.allowsUserScalingIgnoringAlwaysScalable && WebKit::currentUserInterfaceIdiomIsSmallScreen()
+        allowScaling:_focusedElementInformation.allowsUserScalingIgnoringAlwaysScalable && PAL::currentUserInterfaceIdiomIsSmallScreen()
         forceScroll:[self requiresAccessoryView]];
 }
 
@@ -3553,7 +3554,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
         if (self._shouldUseContextMenusForFormControls)
             return NO;
 #endif
-        return WebKit::currentUserInterfaceIdiomIsSmallScreen();
+        return PAL::currentUserInterfaceIdiomIsSmallScreen();
     }
     case WebKit::InputType::Text:
     case WebKit::InputType::Password:
@@ -3566,7 +3567,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     case WebKit::InputType::ContentEditable:
     case WebKit::InputType::TextArea:
     case WebKit::InputType::Week:
-        return WebKit::currentUserInterfaceIdiomIsSmallScreen();
+        return PAL::currentUserInterfaceIdiomIsSmallScreen();
     }
 }
 
@@ -4215,9 +4216,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)_keyboardDidRequestDismissal:(NSNotification *)notification
 {
-    if (![self isFirstResponder])
-        return;
-    _keyboardDidRequestDismissal = YES;
+    if (_isEditable && [self isFirstResponder])
+        _keyboardDidRequestDismissal = YES;
 }
 
 - (void)copyForWebView:(id)sender
@@ -5473,7 +5473,7 @@ static void logTextInteractionAssistantSelectionChange(const char* methodName, U
     [accessoryView setNextEnabled:_focusedElementInformation.hasNextNode];
     [accessoryView setPreviousEnabled:_focusedElementInformation.hasPreviousNode];
 
-    if (!WebKit::currentUserInterfaceIdiomIsSmallScreen()) {
+    if (!PAL::currentUserInterfaceIdiomIsSmallScreen()) {
         [accessoryView setClearVisible:NO];
         return;
     }
@@ -6327,6 +6327,9 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
             break;
         }
     }
+
+    if ([privateTraits respondsToSelector:@selector(setLearnsCorrections:)] && _focusedElementInformation.hasEverBeenPasswordField)
+        privateTraits.learnsCorrections = NO;
 
     if ([privateTraits respondsToSelector:@selector(setShortcutConversionType:)])
         privateTraits.shortcutConversionType = _focusedElementInformation.elementType == WebKit::InputType::Password ? UITextShortcutConversionTypeNo : UITextShortcutConversionTypeDefault;
@@ -8552,6 +8555,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         completion(nil, nil);
 }
 
+- (NSArray<UIMenuElement *> *)additionalMediaControlsContextMenuItemsForActionSheetAssistant:(WKActionSheetAssistant *)assistant
+{
+#if PLATFORM(VISION)
+    if (self.webView.fullscreenState == WKFullscreenStateInFullscreen)
+        return @[ [self.webView fullScreenWindowSceneDimmingAction] ];
+#endif
+    return @[ ];
+}
+
 #if USE(UICONTEXTMENU)
 
 - (UITargetedPreview *)createTargetedContextMenuHintForActionSheetAssistant:(WKActionSheetAssistant *)assistant
@@ -8610,7 +8622,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (BOOL)_shouldUseLegacySelectPopoverDismissalBehavior
 {
-    if (WebKit::currentUserInterfaceIdiomIsSmallScreen())
+    if (PAL::currentUserInterfaceIdiomIsSmallScreen())
         return NO;
 
     if (_focusedElementInformation.elementType != WebKit::InputType::Select)
@@ -8649,26 +8661,8 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
 
 - (WebCore::DataOwnerType)_dataOwnerForPasteboard:(WebKit::PasteboardAccessIntent)intent
 {
-    auto specifiedType = [&] {
-        if (intent == WebKit::PasteboardAccessIntent::Read)
-            return coreDataOwnerType(self._dataOwnerForPaste);
-
-        if (intent == WebKit::PasteboardAccessIntent::Write)
-            return coreDataOwnerType(self._dataOwnerForCopy);
-
-        ASSERT_NOT_REACHED();
-        return WebCore::DataOwnerType::Undefined;
-    }();
-
-    if (specifiedType != WebCore::DataOwnerType::Undefined)
-        return specifiedType;
-
-#if !PLATFORM(MACCATALYST)
-    if ([[PAL::getMCProfileConnectionClass() sharedConnection] isURLManaged:[_webView URL]])
-        return WebCore::DataOwnerType::Enterprise;
-#endif
-
-    return WebCore::DataOwnerType::Undefined;
+    auto clientSuppliedDataOwner = intent == WebKit::PasteboardAccessIntent::Read ? self._dataOwnerForPaste : self._dataOwnerForCopy;
+    return coreDataOwnerType([_webView _effectiveDataOwner:clientSuppliedDataOwner]);
 }
 
 - (RetainPtr<WKTargetedPreviewContainer>)_createPreviewContainerWithLayerName:(NSString *)layerName
@@ -9533,6 +9527,7 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
 
     if (_positionInformation.isLink && _positionInformation.linkIndicator.contentImage) {
         auto indicator = _positionInformation.linkIndicator;
+        _positionInformationLinkIndicator = indicator;
         auto textIndicatorImage = uiImageForImage(indicator.contentImage.get());
         targetedPreview = createTargetedPreview(textIndicatorImage.get(), self, self.containerForContextMenuHintPreviews, indicator.textBoundingRectInRootViewCoordinates, indicator.textRectsInBoundingRectCoordinates, cocoaColor(indicator.estimatedBackgroundColor).get());
     } else if ((_positionInformation.isAttachment || _positionInformation.isImage) && _positionInformation.image) {
@@ -9857,7 +9852,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
         if (overriddenPreview)
             return overriddenPreview;
     }
-    return _dragDropInteractionState.previewForDragItem(item, self, self.containerForDragPreviews);
+    return _dragDropInteractionState.previewForDragItem(item, self, self.containerForDragPreviews, std::exchange(_positionInformationLinkIndicator, { }));
 }
 
 - (void)dragInteraction:(UIDragInteraction *)interaction willAnimateLiftWithAnimator:(id <UIDragAnimating>)animator session:(id <UIDragSession>)session
@@ -9928,7 +9923,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
         if (overriddenPreview)
             return overriddenPreview;
     }
-    return _dragDropInteractionState.previewForDragItem(item, self, self.unscaledView);
+    return _dragDropInteractionState.previewForDragItem(item, self, self.unscaledView, std::nullopt);
 }
 
 - (BOOL)_dragInteraction:(UIDragInteraction *)interaction item:(UIDragItem *)item shouldDelaySetDownAnimationWithCompletion:(void(^)(void))completion
@@ -10107,7 +10102,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
         return nil;
 
     UIView *textEffectsWindow = self.textEffectsWindow;
-    auto caretRectInWindowCoordinates = [self convertRect:caretRect toView:textEffectsWindow];
+    auto caretRectInWindowCoordinates = [self convertRect:caretRect toCoordinateSpace:textEffectsWindow];
     auto caretCenterInWindowCoordinates = CGPointMake(CGRectGetMidX(caretRectInWindowCoordinates), CGRectGetMidY(caretRectInWindowCoordinates));
     auto targetPreviewCenterInWindowCoordinates = CGPointMake(caretCenterInWindowCoordinates.x + defaultPreview.size.width / 2, caretCenterInWindowCoordinates.y + defaultPreview.size.height / 2);
     auto target = adoptNS([[UIDragPreviewTarget alloc] initWithContainer:textEffectsWindow center:targetPreviewCenterInWindowCoordinates transform:CGAffineTransformIdentity]);
@@ -10745,8 +10740,13 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 - (void)_writePromisedAttachmentToPasteboard:(WebCore::PromisedAttachmentInfo&&)info
 {
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
-    if (auto item = createItemProvider(*_page, WTFMove(info)))
+    auto item = createItemProvider(*_page, WTFMove(info));
+    if (!item)
+        return;
+
+    [UIPasteboard _performAsDataOwner:[_webView _effectiveDataOwner:self._dataOwnerForCopy] block:^{
         UIPasteboard.generalPasteboard.itemProviders = @[ item.get() ];
+    }];
 #else
     UNUSED_PARAM(info);
 #endif
@@ -10842,6 +10842,26 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #if HAVE(UIFINDINTERACTION)
 
+- (void)find:(id)sender
+{
+    [self.webView find:sender];
+}
+
+- (void)findAndReplace:(id)sender
+{
+    [self.webView findAndReplace:sender];
+}
+
+- (void)findNext:(id)sender
+{
+    [self.webView findNext:sender];
+}
+
+- (void)findPrevious:(id)sender
+{
+    [self.webView findPrevious:sender];
+}
+
 - (void)useSelectionForFindForWebView:(id)sender
 {
     if (!_page->hasSelectedRange())
@@ -10929,12 +10949,13 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 - (void)didBeginTextSearchOperation
 {
+    [self.webView _showFindOverlay];
     _page->didBeginTextSearchOperation();
 }
 
 - (void)didEndTextSearchOperation
 {
-    _page->didEndTextSearchOperation();
+    [self.webView _hideFindOverlay];
 }
 
 - (BOOL)supportsTextReplacement
@@ -11720,7 +11741,10 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 
 - (BOOL)_shouldAvoidSecurityHeuristicScoreUpdates
 {
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    // FIXME: The whole security heuristic thing should be a USE/HAVE.
+#if PLATFORM(VISION)
+    return YES;
+#elif ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     return [_imageAnalysisInteraction hasActiveTextSelection];
 #else
     return NO;

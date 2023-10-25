@@ -71,7 +71,7 @@ header: "RemoteLayerTreeTransaction.h"
     ScrollingNodeIDChanged
     VideoGravityChanged
 #if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
-    CoverageRectChanged
+    VisibleRectChanged
 #endif
 };
 #endif
@@ -87,4 +87,5 @@ header: "RemoteScrollingUIState.h"
 [OptionSet] enum class WebKit::RemoteScrollingUIStateChanges : uint8_t {
     ScrollSnapNodes
     UserScrollNodes
+    RubberbandingNodes
 };

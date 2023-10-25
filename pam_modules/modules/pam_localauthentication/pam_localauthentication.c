@@ -41,15 +41,17 @@
 #include <security/pam_appl.h>
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(LA)
 #define PAM_LOG PAM_LOG_LA()
+#endif
 
 #define CONTINUITY_UNLOCK_PARAM "continuityunlock"
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-    os_log_debug(PAM_LOG, "pam_sm_authenticate");
+    _LOG_DEBUG("pam_sm_authenticate");
 
     int retval = PAM_AUTH_ERR;
     int tmpval = 0;
@@ -76,7 +78,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     char *buffer = malloc(bufsize);
     if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS || !user ||
         getpwnam_r(user, &pwdbuf, buffer, bufsize, &pwd) != 0 || !pwd) {
-        os_log_error(PAM_LOG, "unable to obtain the username.");
+        _LOG_ERROR("unable to obtain the username.");
         retval = PAM_AUTHINFO_UNAVAIL;
         goto cleanup;
     }
@@ -84,14 +86,14 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     /* get the externalized context */
     tmpval = pam_get_data(pamh, isContinuityUnlock ? "token_lacont" : "token_la", (void *)&externalized_context);
     if (tmpval != PAM_SUCCESS) {
-        os_log_error(PAM_LOG, "error obtaining the token: %d", tmpval);
+        _LOG_ERROR("error obtaining the token: %d", tmpval);
         retval = PAM_AUTHINFO_UNAVAIL;
         goto cleanup;
     }
 
     /* check that the externalized context is valid */
     if (!*externalized_context) {
-        os_log_error(PAM_LOG, "invalid token");
+        _LOG_ERROR("invalid token");
         retval = PAM_AUTHTOK_ERR;
         goto cleanup;
     }
@@ -99,7 +101,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     /* create a new LA context from the externalized context */
     context = LACreateNewContextWithACMContext(*externalized_context, &error);
     if (!context) {
-        os_log_error(PAM_LOG, "context creation failed: %ld", CFErrorGetCode(error));
+        _LOG_ERROR("context creation failed: %ld", CFErrorGetCode(error));
         retval = PAM_AUTHTOK_ERR;
         goto cleanup;
     }
@@ -117,14 +119,14 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     /* evaluate policy */
     int policy = isContinuityUnlock ? kLAPolicyContinuityUnlock : kLAPolicyDeviceOwnerAuthenticationWithBiometrics;
     if (!LAEvaluatePolicy(context, policy, options, &error)) {
-        os_log_error(PAM_LOG, "policy %d evaluation failed: %ld", policy, CFErrorGetCode(error));
+        _LOG_ERROR("policy %d evaluation failed: %ld", policy, CFErrorGetCode(error));
         retval = PAM_AUTH_ERR;
         goto cleanup;
     }
 
     /* verify that M8 is not spoofed */
     if (!isContinuityUnlock && !LAVerifySEP(pwd->pw_uid, &error)) {
-        os_log_error(PAM_LOG, "LAVerifySEP failed: %ld", CFErrorGetCode(error));
+        _LOG_ERROR("LAVerifySEP failed: %ld", CFErrorGetCode(error));
         retval = PAM_AUTH_ERR;
         goto cleanup;
     }
@@ -157,7 +159,7 @@ cleanup:
         free(buffer);
     }
     
-    os_log(PAM_LOG, "pam_sm_authenticate(cont:%d) returned %d", isContinuityUnlock, retval);
+    _LOG_DEFAULT("pam_sm_authenticate(cont:%d) returned %d", isContinuityUnlock, retval);
     return retval;
 }
 
@@ -165,7 +167,7 @@ cleanup:
 PAM_EXTERN int
 pam_sm_setcred(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-    os_log_debug(PAM_LOG, "pam_sm_setcred");
+    _LOG_DEBUG("pam_sm_setcred");
 
     return PAM_SUCCESS;
 }
@@ -174,7 +176,7 @@ pam_sm_setcred(pam_handle_t * pamh, int flags, int argc, const char **argv)
 PAM_EXTERN int
 pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-    os_log_debug(PAM_LOG, "pam_sm_acct_mgmt");
+    _LOG_DEBUG("pam_sm_acct_mgmt");
 
     return PAM_SUCCESS;
 }

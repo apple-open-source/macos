@@ -312,6 +312,10 @@ typedef struct
     char_u	*wo_scl;
 # define w_p_scl w_onebuf_opt.wo_scl	// 'signcolumn'
 #endif
+    long	wo_siso;
+# define w_p_siso w_onebuf_opt.wo_siso	// 'sidescrolloff' local value
+    long	wo_so;
+# define w_p_so w_onebuf_opt.wo_so	// 'scrolloff' local value
 #ifdef FEAT_TERMINAL
     char_u	*wo_twk;
 # define w_p_twk w_onebuf_opt.wo_twk	// 'termwinkey'
@@ -605,6 +609,7 @@ typedef struct expand
     int		xp_numfiles;		// number of files found by
 					// file name completion
     int		xp_col;			// cursor position in line
+    int		xp_selected;		// selected index in completion
     char_u	**xp_files;		// list of files
     char_u	*xp_line;		// text being completed
 #define EXPAND_BUF_LEN 256
@@ -691,6 +696,12 @@ typedef struct
     int		cmod_did_esilent;	// incremented when emsg_silent is
 } cmdmod_T;
 
+typedef enum {
+    MF_DIRTY_NO = 0,		// no dirty blocks
+    MF_DIRTY_YES,		// there are dirty blocks
+    MF_DIRTY_YES_NOSYNC,	// there are dirty blocks, do not sync yet
+} mfdirty_T;
+
 #define MF_SEED_LEN	8
 
 struct memfile
@@ -712,7 +723,7 @@ struct memfile
     blocknr_T	mf_neg_count;		// number of negative blocks numbers
     blocknr_T	mf_infile_count;	// number of pages in the file
     unsigned	mf_page_size;		// number of bytes in a page
-    int		mf_dirty;		// TRUE if there are dirty blocks
+    mfdirty_T	mf_dirty;
 #ifdef FEAT_CRYPT
     buf_T	*mf_buffer;		// buffer this memfile is for
     char_u	mf_seed[MF_SEED_LEN];	// seed for encryption
@@ -816,6 +827,8 @@ typedef struct textprop_S
     int		tp_id;		// identifier
     int		tp_type;	// property type
     int		tp_flags;	// TP_FLAG_ values
+    int		tp_padleft;	// left padding between text line and virtual
+				// text
 } textprop_T;
 
 #define TP_FLAG_CONT_NEXT	0x1	// property continues in next line
@@ -1476,8 +1489,8 @@ typedef struct {
 #define TTFLAG_SUPER	    0x40    // object from "super".
 
 typedef enum {
-    VIM_ACCESS_PRIVATE,	// read/write only inside th class
-    VIM_ACCESS_READ,	// read everywhere, write only inside th class
+    VIM_ACCESS_PRIVATE,	// read/write only inside the class
+    VIM_ACCESS_READ,	// read everywhere, write only inside the class
     VIM_ACCESS_ALL	// read/write everywhere
 } omacc_T;
 
@@ -1502,6 +1515,7 @@ struct itf2class_S {
 
 #define CLASS_INTERFACE	    1
 #define CLASS_EXTENDED	    2	    // another class extends this one
+#define CLASS_ABSTRACT	    4	    // abstract class
 
 // "class_T": used for v_class of typval of VAR_CLASS
 // Also used for an interface (class_flags has CLASS_INTERFACE).
@@ -1512,6 +1526,8 @@ struct class_S
 
     int		class_refcount;
     int		class_copyID;		// used by garbage collection
+    class_T	*class_next_used;	// for list headed by "first_class"
+    class_T	*class_prev_used;	// for list headed by "first_class"
 
     class_T	*class_extends;		// parent class or NULL
 
@@ -1810,6 +1826,7 @@ struct ufunc_S
 # ifdef FEAT_PROFILE
     int		uf_profiling;	// TRUE when func is being profiled
     int		uf_prof_initialized;
+    hash_T	uf_hash;	// hash for uf_name when profiling
     // profiling the function as a whole
     int		uf_tm_count;	// nr of calls
     proftime_T	uf_tm_total;	// time spent in function + children
@@ -1859,6 +1876,7 @@ struct ufunc_S
 
 #define FC_OBJECT   0x4000	// object method
 #define FC_NEW	    0x8000	// constructor
+#define FC_ABSTRACT 0x10000	// abstract method
 
 #define MAX_FUNC_ARGS	20	// maximum number of function arguments
 #define VAR_SHORT_LEN	20	// short variable name length
@@ -2178,7 +2196,9 @@ typedef struct {
     linenr_T	fe_lastline;	// last line of range
     int		*fe_doesrange;	// if not NULL: return: function handled range
     int		fe_evaluate;	// actually evaluate expressions
-    partial_T	*fe_partial;	// for extra arguments
+    ufunc_T	*fe_ufunc;	// function to be called, when NULL lookup by
+				// name
+    partial_T	*fe_partial;	// for "dict" and extra arguments
     dict_T	*fe_selfdict;	// Dictionary for "self"
     object_T	*fe_object;	// object, e.g. for "this.Func()"
     typval_T	*fe_basetv;	// base for base->method()
@@ -3765,6 +3785,7 @@ struct window_S
     int		w_vsep_width;	    // Number of separator columns (0 or 1).
 
     pos_save_T	w_save_cursor;	    // backup of cursor pos and topline
+    int		w_do_win_fix_cursor;// if TRUE cursor may be invalid
 
 #ifdef FEAT_PROP_POPUP
     int		w_popup_flags;	    // POPF_ values
@@ -3969,8 +3990,6 @@ struct window_S
     int		*w_p_cc_cols;	    // array of columns to highlight or NULL
     char_u	w_p_culopt_flags;   // flags for cursorline highlighting
 #endif
-    long	w_p_siso;	    // 'sidescrolloff' local value
-    long	w_p_so;		    // 'scrolloff' local value
 
 #ifdef FEAT_LINEBREAK
     int		w_briopt_min;	    // minimum width for breakindent
@@ -4754,14 +4773,22 @@ typedef enum {
     MAGIC_ALL = 4		// "\v" very magic
 } magic_T;
 
+typedef enum {
+    WT_UNKNOWN = 0,	// Unknown or unspecified location
+    WT_ARGUMENT,
+    WT_VARIABLE,
+    WT_MEMBER,
+    WT_METHOD,
+} wherekind_T;
+
 // Struct used to pass to error messages about where the error happened.
 typedef struct {
-    char    *wt_func_name;  // function name or NULL
-    char    wt_index;	    // argument or variable index, 0 means unknown
-    char    wt_variable;    // "variable" when TRUE, "argument" otherwise
+    char	*wt_func_name;  // function name or NULL
+    char	wt_index;	// argument or variable index, 0 means unknown
+    wherekind_T	wt_kind;	// "variable" when TRUE, "argument" otherwise
 } where_T;
 
-#define WHERE_INIT {NULL, 0, 0}
+#define WHERE_INIT {NULL, 0, WT_UNKNOWN}
 
 // Struct passed to get_v_event() and restore_v_event().
 typedef struct {
@@ -4795,21 +4822,22 @@ typedef struct {
 // Argument for lbr_chartabsize().
 typedef struct {
     win_T	*cts_win;
-    char_u	*cts_line;	    // start of the line
-    char_u	*cts_ptr;	    // current position in line
+    char_u	*cts_line;		// start of the line
+    char_u	*cts_ptr;		// current position in line
 #ifdef FEAT_PROP_POPUP
     int		cts_text_prop_count;	// number of text props; when zero
 					// cts_text_props is not used
     textprop_T	*cts_text_props;	// text props (allocated)
-    char	cts_has_prop_with_text; // TRUE if a property inserts text
-    int		cts_cur_text_width;     // width of current inserted text
+    char	cts_has_prop_with_text;	// TRUE if a property inserts text
+    int		cts_cur_text_width;	// width of current inserted text
     int		cts_prop_lines;		// nr of properties above or below
     int		cts_first_char;		// width text props above the line
     int		cts_with_trailing;	// include size of trailing props with
 					// last character
     int		cts_start_incl;		// prop has true "start_incl" arg
 #endif
-    int		cts_vcol;	    // virtual column at current position
+    int		cts_vcol;		// virtual column at current position
+    int		cts_max_head_vcol;	// see win_lbr_chartabsize()
 } chartabsize_T;
 
 /*
@@ -4865,3 +4893,18 @@ typedef struct
     // message (when it is not NULL).
     char	*os_errbuf;
 } optset_T;
+
+/*
+ * Spell checking variables passed from win_update() to win_line().
+ */
+typedef struct {
+    int		spv_has_spell;	    // drawn window has spell checking
+#ifdef FEAT_SPELL
+    int		spv_unchanged;	    // not updating for changed text
+    int		spv_checked_col;    // column in "checked_lnum" up to
+				    // which there are no spell errors
+    linenr_T	spv_checked_lnum;   // line number for "checked_col"
+    int		spv_cap_col;	    // column to check for Cap word
+    linenr_T	spv_capcol_lnum;    // line number for "cap_col"
+#endif
+} spellvars_T;

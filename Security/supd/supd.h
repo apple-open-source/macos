@@ -57,6 +57,8 @@
 
 /// Calls the given block with the underlying store.
 ///
+/// It will open and close the store each time it's used.
+///
 /// Safety: The block must not re-entrantly call `-withStore:` on this client
 /// (this will deadlock), and must not retain the store after returning (this
 /// isn't thread-safe).

@@ -17,7 +17,7 @@
  * ScreenLines[off]  Contains a copy of the whole screen, as it is currently
  *		     displayed (excluding text written by external commands).
  * ScreenAttrs[off]  Contains the associated attributes.
- * ScreenCols[off]   Contains the byte offset in the line. -1 means not
+ * ScreenCols[off]   Contains the virtual columns in the line. -1 means not
  *		     available (below last line), MAXCOL means after the end
  *		     of the line.
  *
@@ -743,7 +743,7 @@ screen_line(
 
 	ScreenCols[off_to] = ScreenCols[off_from];
 	if (char_cells == 2)
-	    ScreenCols[off_to + 1] = ScreenCols[off_from];
+	    ScreenCols[off_to + 1] = ScreenCols[off_from + 1];
 
 	off_to += char_cells;
 	off_from += char_cells;
@@ -1199,8 +1199,9 @@ screen_putchar(int c, int row, int col, int attr)
 }
 
 /*
- * Get a single character directly from ScreenLines into "bytes[]".
- * Also return its attribute in *attrp;
+ * Get a single character directly from ScreenLines into "bytes", which must
+ * have a size of "MB_MAXBYTES + 1".
+ * If "attrp" is not NULL, return the character's attribute in "*attrp".
  */
     void
 screen_getbytes(int row, int col, char_u *bytes, int *attrp)
@@ -1212,7 +1213,8 @@ screen_getbytes(int row, int col, char_u *bytes, int *attrp)
 	return;
 
     off = LineOffset[row] + col;
-    *attrp = ScreenAttrs[off];
+    if (attrp != NULL)
+	*attrp = ScreenAttrs[off];
     bytes[0] = ScreenLines[off];
     bytes[1] = NUL;
 
@@ -2696,7 +2698,8 @@ give_up:
 #endif
 
     entered = FALSE;
-    --RedrawingDisabled;
+    if (RedrawingDisabled > 0)
+	--RedrawingDisabled;
 
     /*
      * Do not apply autocommands more than 3 times to avoid an endless loop
@@ -4496,7 +4499,7 @@ redrawing(void)
 	return 0;
     else
 #endif
-	return ((!RedrawingDisabled
+	return ((RedrawingDisabled == 0
 #ifdef FEAT_EVAL
 		    || ignore_redraw_flag_for_testing
 #endif
@@ -4524,7 +4527,7 @@ messaging(void)
     void
 comp_col(void)
 {
-    int last_has_status = (p_ls == 2 || (p_ls == 1 && !ONE_WINDOW));
+    int last_has_status = last_stl_height(FALSE) > 0;
 
     sc_col = 0;
     ru_col = 0;

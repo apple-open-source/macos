@@ -351,6 +351,26 @@ eaptls_set_negotiated_tls_protocol_version(EAPTLSPluginDataRef context)
     return;
 }
 
+static void
+eaptls_update_tls_session_data(EAPTLSPluginDataRef context)
+{
+    if (context->key_data_valid) {
+	return;
+    }
+    eaptls_set_session_was_resumed(context);
+    eaptls_compute_session_key(context);
+    eaptls_set_negotiated_tls_protocol_version(context);
+    if (context->key_data_valid && context->trust_proceed == FALSE) {
+	/* if key material is computed and session was resumed it means
+	 * trust evaluation of server certificate chain was skipped.
+	 */
+	context->server_auth_completed = context->trust_proceed = context->session_was_resumed;
+    }
+    if (context->trust_proceed && context->server_certs == NULL) {
+	(void)EAPTLSSessionCopyPeerCertificates(context->tls_session_context, &context->server_certs);
+    }
+}
+
 static EAPPacketRef
 eaptls_handshake(EAPClientPluginDataRef plugin,
 		 int identifier, EAPClientStatus * client_status)
@@ -391,6 +411,7 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
 	/* handshake again to get past the AuthCompleted status */
 	status = EAPTLSSessionHandshake(context->tls_session_context);
     }
+    eaptls_update_tls_session_data(context);
     switch (status) {
     case noErr:
 	/* handshake complete */
@@ -407,9 +428,6 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
 		break;
 	    }
 	}
-	eaptls_compute_session_key(context);
-	eaptls_set_session_was_resumed(context);
-	eaptls_set_negotiated_tls_protocol_version(context);
 	eaptls_out = EAPTLSPacketCreate(kEAPCodeResponse,
 					kEAPTypeTLS,
 					identifier,
@@ -649,6 +667,7 @@ eaptls_process(EAPClientPluginDataRef plugin,
 	*out_pkt_p = eaptls_request(plugin, in_pkt, client_status);
 	break;
     case kEAPCodeSuccess:
+	eaptls_update_tls_session_data(context);
 	/* accept EAP-Success only if key material is computed */
 	if (context->key_data_valid) {
 	    context->plugin_state = kEAPClientStateSuccess;
@@ -756,24 +775,23 @@ eaptls_require_props(EAPClientPluginDataRef plugin)
 static CFDictionaryRef
 eaptls_publish_props(EAPClientPluginDataRef plugin)
 {
-    CFArrayRef			cert_list;
+    CFArrayRef			cert_list = NULL;
     SSLCipherSuite		cipher = SSL_NULL_WITH_NULL_NULL;
     EAPTLSPluginDataRef		context = (EAPTLSPluginDataRef)plugin->private;
     CFMutableDictionaryRef	dict;
 
-    if (context->server_certs == NULL) {
-	return (NULL);
+    if (context->server_certs != NULL) {
+	cert_list = EAPSecCertificateArrayCreateCFDataArray(context->server_certs);
     }
-    cert_list = EAPSecCertificateArrayCreateCFDataArray(context->server_certs);
-    if (cert_list == NULL) {
-	return (NULL);
-    }
+
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(dict, kEAPClientPropTLSServerCertificateChain,
-			 cert_list);
-    my_CFRelease(&cert_list);
+    if (cert_list != NULL) {
+	CFDictionarySetValue(dict, kEAPClientPropTLSServerCertificateChain,
+			     cert_list);
+	my_CFRelease(&cert_list);
+    }
     CFDictionarySetValue(dict, kEAPClientPropTLSSessionWasResumed,
 			 context->session_was_resumed 
 			 ? kCFBooleanTrue

@@ -997,7 +997,7 @@ bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
 
     ac_data = SecAccessControlCopyData(ac);
     if (!itemInAccessGroup(*item, accessGroups)) {
-        secerror("items accessGroup '%@' not in %@",
+        secerror("item's accessGroup '%@' not in %@",
                  CFDictionaryGetValue(*item, kSecAttrAccessGroup),
                  accessGroups);
         // We likely don't want to surface it to clients like this, but this is most accurate

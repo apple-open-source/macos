@@ -538,7 +538,9 @@ main(int argc, char * const argv[])
 		/* register for watchdog monitoring */
 		if (wd_endpoint_register != NULL) { /* "weak_import" */
 			wd_endpoint_register(CONFIGD_WATCHDOG);
+#if !(TARGET_OS_WATCH || TARGET_OS_IOS)
 			wd_endpoint_add_queue(dispatch_get_main_queue());
+#endif // !(TARGET_OS_WATCH || TARGET_OS_IOS)
 			wd_endpoint_add_queue(server_queue());
 			wd_endpoint_activate();
 		}

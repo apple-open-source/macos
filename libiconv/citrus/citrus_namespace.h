@@ -219,6 +219,10 @@
 #define _stdenc_init_state	_citrus_stdenc_init_state
 #define _stdenc_mbtocs		_citrus_stdenc_mbtocs
 #define _stdenc_cstomb		_citrus_stdenc_cstomb
+#ifdef __APPLE__
+#define _stdenc_mbtocsn		_citrus_stdenc_mbtocsn
+#define _stdenc_cstombn		_citrus_stdenc_cstombn
+#endif
 #define _stdenc_mbtowc		_citrus_stdenc_mbtowc
 #define _stdenc_wctomb		_citrus_stdenc_wctomb
 #define _stdenc_put_state_reset	_citrus_stdenc_put_state_reset

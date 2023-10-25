@@ -127,12 +127,12 @@ public:
     bool hasVideo() const final { return false; }
     bool hasAudio() const final { return false; }
 
-    void setPageIsVisible(bool) final { }
+    void setPageIsVisible(bool, String&&) final { }
 
     double durationDouble() const final { return 0; }
 
     double currentTimeDouble() const final { return 0; }
-    void seekDouble(double) final { }
+    void seekToTarget(const SeekTarget&) final { }
     bool seeking() const final { return false; }
 
     void setRateDouble(double) final { }
@@ -632,6 +632,8 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
                 m_private->setVisibleInViewport(m_visibleInViewport);
             if (m_isGatheringVideoFrameMetadata)
                 m_private->startVideoFrameMetadataGathering();
+            if (m_processIdentity)
+                m_private->setResourceOwner(m_processIdentity);
             m_private->prepareForPlayback(m_privateBrowsing, m_preload, m_preservesPitch, m_shouldPrepareToRender);
         }
     }
@@ -794,14 +796,14 @@ MediaTime MediaPlayer::getStartDate() const
     return m_private->getStartDate();
 }
 
-void MediaPlayer::seekWithTolerance(const MediaTime& time, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance)
+void MediaPlayer::seekToTarget(const SeekTarget& target)
 {
-    m_private->seekWithTolerance(time, negativeTolerance, positiveTolerance);
+    m_private->seekToTarget(target);
 }
 
-void MediaPlayer::seek(const MediaTime& time)
+void MediaPlayer::seekToTime(const MediaTime& time)
 {
-    m_private->seek(time);
+    seekToTarget(SeekTarget { time });
 }
 
 void MediaPlayer::seekWhenPossible(const MediaTime& time)
@@ -809,7 +811,12 @@ void MediaPlayer::seekWhenPossible(const MediaTime& time)
     if (m_private->readyState() < MediaPlayer::ReadyState::HaveMetadata)
         m_pendingSeekRequest = time;
     else
-        seek(time);
+        seekToTime(time);
+}
+
+void MediaPlayer::seeked(const MediaTime& time)
+{
+    client().mediaPlayerSeeked(time);
 }
 
 bool MediaPlayer::paused() const
@@ -919,6 +926,11 @@ bool MediaPlayer::isVideoFullscreenStandby() const
 FloatSize MediaPlayer::videoInlineSize() const
 {
     return client().mediaPlayerVideoInlineSize();
+}
+
+void MediaPlayer::videoInlineSizeDidChange(const FloatSize& size)
+{
+    client().mediaPlayerVideoInlineSizeDidChange(size);
 }
 
 void MediaPlayer::setVideoInlineSizeFenced(const FloatSize& size, const WTF::MachSendRight& fence)
@@ -1082,10 +1094,10 @@ void MediaPlayer::setPresentationSize(const IntSize& size)
     m_private->setPresentationSize(size);
 }
 
-void MediaPlayer::setPageIsVisible(bool visible)
+void MediaPlayer::setPageIsVisible(bool visible, String&& sceneIdentifier)
 {
     m_pageIsVisible = visible;
-    m_private->setPageIsVisible(visible);
+    m_private->setPageIsVisible(visible, WTFMove(sceneIdentifier));
 }
 
 void MediaPlayer::setVisibleForCanvas(bool visible)
@@ -1104,6 +1116,12 @@ void MediaPlayer::setVisibleInViewport(bool visible)
 
     m_visibleInViewport = visible;
     m_private->setVisibleInViewport(visible);
+}
+
+void MediaPlayer::setResourceOwner(const ProcessIdentity& processIdentity)
+{
+    m_processIdentity = processIdentity;
+    m_private->setResourceOwner(processIdentity);
 }
 
 MediaPlayer::Preload MediaPlayer::preload() const
@@ -1177,10 +1195,10 @@ MediaPlayer::SupportsType MediaPlayer::supportsType(const MediaEngineSupportPara
     return engine->supportsTypeAndCodecs(parameters);
 }
 
-void MediaPlayer::getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types)
+void MediaPlayer::getSupportedTypes(HashSet<String>& types)
 {
     for (auto& engine : installedMediaEngines()) {
-        HashSet<String, ASCIICaseInsensitiveHash> engineTypes;
+        HashSet<String> engineTypes;
         engine->getSupportedTypes(engineTypes);
         types.add(engineTypes.begin(), engineTypes.end());
     }
@@ -1410,7 +1428,7 @@ void MediaPlayer::readyStateChanged()
 {
     client().mediaPlayerReadyStateChanged();
     if (m_pendingSeekRequest && m_private->readyState() == MediaPlayer::ReadyState::HaveMetadata)
-        seek(*std::exchange(m_pendingSeekRequest, std::nullopt));
+        seekToTime(*std::exchange(m_pendingSeekRequest, std::nullopt));
 }
 
 void MediaPlayer::volumeChanged(double newVolume)
@@ -2003,6 +2021,17 @@ String convertEnumerationToString(MediaPlayer::BufferingPolicy enumerationValue)
 String MediaPlayer::lastErrorMessage() const
 {
     return m_lastErrorMessage;
+}
+
+String SeekTarget::toString() const
+{
+    StringBuilder builder;
+    builder.append("[");
+    builder.append(WTF::LogArgument<MediaTime>::toString(time));
+    builder.append(WTF::LogArgument<MediaTime>::toString(negativeThreshold));
+    builder.append(WTF::LogArgument<MediaTime>::toString(positiveThreshold));
+    builder.append("]");
+    return builder.toString();
 }
 
 }

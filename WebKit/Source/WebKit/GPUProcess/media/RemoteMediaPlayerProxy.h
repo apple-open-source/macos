@@ -147,8 +147,7 @@ public:
     void play();
     void pause();
 
-    void seek(const MediaTime&);
-    void seekWithTolerance(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance);
+    void seekToTarget(const WebCore::SeekTarget&);
 
     void setVolume(double);
     void setMuted(bool);
@@ -158,7 +157,7 @@ public:
     void setPreservesPitch(bool);
     void setPitchCorrectionAlgorithm(WebCore::MediaPlayer::PitchCorrectionAlgorithm);
 
-    void setPageIsVisible(bool);
+    void setPageIsVisible(bool, String&& sceneIdentifier);
     void setShouldMaintainAspectRatio(bool);
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     void setVideoFullscreenGravity(WebCore::MediaPlayerEnums::VideoGravity);
@@ -239,6 +238,7 @@ private:
     void mediaPlayerReadyStateChanged() final;
     void mediaPlayerVolumeChanged() final;
     void mediaPlayerMuteChanged() final;
+    void mediaPlayerSeeked(const MediaTime&) final;
     void mediaPlayerTimeChanged() final;
     void mediaPlayerDurationChanged() final;
     void mediaPlayerSizeChanged() final;
@@ -422,5 +422,14 @@ private:
 };
 
 } // namespace WebKit
+
+namespace IPC {
+
+// default CompletionHandler value should the process crash.
+template<> struct AsyncReplyError<WTF::MediaTime> {
+    static WTF::MediaTime create() { return WTF::MediaTime::invalidTime(); };
+};
+
+} // namespace IPC
 
 #endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

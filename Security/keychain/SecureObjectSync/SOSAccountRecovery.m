@@ -131,6 +131,7 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
             CFSetAddValue(peerInfoIDs, SOSPeerInfoGetPeerID(peer));
         });
         SOSRingSetPeerIDs(existing, peerInfoIDs);
+        CFReleaseNull(peerInfoIDs);
         if(rkbg) {
             if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, rkbg, &cfError)) {
                 result = true;

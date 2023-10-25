@@ -469,6 +469,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/DetachedRTCDataChannel.h
     Modules/mediastream/DoubleRange.h
     Modules/mediastream/LongRange.h
+    Modules/mediastream/MediaAccessDenialReason.h
     Modules/mediastream/MediaDeviceHashSalts.h
     Modules/mediastream/MediaStreamTrack.h
     Modules/mediastream/MediaTrackCapabilities.h
@@ -1691,7 +1692,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/RemoteCommandListener.h
     platform/RuntimeApplicationChecks.h
     platform/ScreenOrientationManager.h
-    platform/ScreenOrientationProvider.h
     platform/ScreenProperties.h
     platform/ScriptExecutionContextIdentifier.h
     platform/ScrollAlignment.h

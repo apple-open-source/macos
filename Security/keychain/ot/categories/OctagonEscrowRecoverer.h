@@ -11,6 +11,9 @@
 - (bool)isRecoveryKeySet:(NSError * __autoreleasing *)error;
 - (bool)restoreKeychainWithBackupPassword:(NSData *)password
                                     error:(NSError * __autoreleasing *)error;
+- (bool)verifyRecoveryKey:(NSString*)recoveryKey
+                    error:(NSError * __autoreleasing *)error;
+- (bool)removeRecoveryKeyFromBackup:(NSError * __autoreleasing *)error;
 @end
 
 #endif /* OctagonEscrowRecoverer_h */

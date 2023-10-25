@@ -29,9 +29,9 @@ gen/FreeBSD/ttyslot.c	freebsd	lib/libc/gen/ttyslot.c	898928e8d0a0bab201c1ef232e0
 gen/FreeBSD/unvis.c	freebsd-src	contrib/libc-vis/unvis.c	303477d3253007bb5732deed2daea86b2cbd9aa8
 gen/FreeBSD/unvis.3	freebsd-src	contrib/libc-vis/unvis.3	303477d3253007bb5732deed2daea86b2cbd9aa8
 gen/FreeBSD/usleep.3	freebsd	lib/libc/gen/usleep.3	5b882020081a138285227631c46a406c08e17bc8
-gen/FreeBSD/vis.c	freebsd-src	contrib/libc-vis/unvis.c	303477d3253007bb5732deed2daea86b2cbd9aa8
-gen/FreeBSD/vis.3	freebsd-src	contrib/libc-vis/unvis.3	303477d3253007bb5732deed2daea86b2cbd9aa8
-gen/FreeBSD/vis.h	freebsd-src	contrib/libc-vis/unvis.3	303477d3253007bb5732deed2daea86b2cbd9aa8
+gen/FreeBSD/vis.c	freebsd-src	contrib/libc-vis/vis.c	2f489a509e615c46be6f7c6aa7cea161f50f18af
+gen/FreeBSD/vis.3	freebsd-src	contrib/libc-vis/vis.3	303477d3253007bb5732deed2daea86b2cbd9aa8
+gen/FreeBSD/vis.h	freebsd-src	contrib/libc-vis/vis.h	303477d3253007bb5732deed2daea86b2cbd9aa8
 gen/NetBSD/rbtree.3	netbsd	share/man/man3/rbtree.3	a6d78d4a28be21d6006d3c609f31967c0e536779
 gen/directory.3	freebsd	lib/libc/gen/directory.3	7cbaa4254c0f10f7c00014ce9591ca60abfa57fb
 gen/fts.c	openbsd	gen/fts.c	9936a0e983044822375a0d5cdebec20c3623866c
@@ -96,7 +96,7 @@ tests/netbsd_glob.c	freebsd	contrib/netbsd-tests/lib/libc/gen/t_glob.c	ececcb3d9
 tests/netbsd_printf.c	freebsd	contrib/netbsd-tests/lib/libc/stdio/t_printf.c	6ea6500b7eba4165c351cbbfcdec7f2fe776f8ac
 tests/netbsd_stat.c	freebsd	contrib/netbsd-tests/lib/libc/sys/t_stat.c	6f5b3c1fa3e9554a26cbf6401366ff8b0f0506fe
 tests/netbsd_strptime.c	freebsd	contrib/netbsd-tests/lib/libc/time/t_strptime.c	52d53d171566c2cd975d2db86a291e516d34d9fe
-tests/netbsd_vis.c	freebsd	contrib/netbsd-tests/lib/libc/gen/t_vis.c	52d53d171566c2cd975d2db86a291e516d34d9fe
+tests/netbsd_vis.c	freebsd-src	contrib/netbsd-tests/lib/libc/gen/t_vis.c	2f489a509e615c46be6f7c6aa7cea161f50f18af
 gen/FreeBSD/closedir.c	freebsd	lib/libc/gen/closedir.c	b717fb9f083afdfbc50a14ced6ddc971ca583f02
 gen/FreeBSD/opendir.c	freebsd	lib/libc/gen/opendir.c	6e91d78151e10ed31c475cafe6a1e1f11950c1d9
 gen/FreeBSD/readdir.c	freebsd	lib/libc/gen/readdir.c	74c1506b3359ee725c9031331908b717460830dc

@@ -489,7 +489,6 @@ public:
 
 protected:
     WebGLRenderingContextBase(CanvasBase&, WebGLContextAttributes);
-    WebGLRenderingContextBase(CanvasBase&, Ref<GraphicsContextGL>&&, WebGLContextAttributes);
 
     friend class EXTDisjointTimerQuery;
     friend class EXTDisjointTimerQueryWebGL2;
@@ -520,9 +519,9 @@ protected:
     // Implementation helpers.
     friend class InspectorScopedShaderProgramHighlight;
 
-    virtual void initializeNewContext();
+    void initializeNewContext(Ref<GraphicsContextGL>);
+    virtual void initializeContextState();
     virtual void initializeVertexArrayObjects() = 0;
-    void setupFlags();
 
     // ActiveDOMObject
     void stop() override;
@@ -534,7 +533,6 @@ protected:
     void addContextObject(WebGLContextObject&);
     void detachAndRemoveAllObjects();
 
-    void setGraphicsContextGL(Ref<GraphicsContextGL>&&);
     void destroyGraphicsContextGL();
 
     enum CallerType {
@@ -550,10 +548,6 @@ protected:
     void addActivityStateChangeObserverIfNecessary();
     void removeActivityStateChangeObserver();
 
-    // Query whether it is built on top of compliant GLES2 implementation.
-    bool isGLES2Compliant() { return m_isGLES2Compliant; }
-    // Query if the GL implementation is NPOT strict.
-    bool isGLES2NPOTStrict() { return m_isGLES2NPOTStrict; }
     // Query if depth_stencil buffer is supported.
     bool isDepthStencilSupported() { return m_isDepthStencilSupported; }
 
@@ -718,9 +712,7 @@ protected:
     bool m_rasterizerDiscardEnabled { false };
 
     bool m_isGLES2Compliant;
-    bool m_isGLES2NPOTStrict;
     bool m_isDepthStencilSupported;
-    bool m_isRobustnessEXTSupported;
 
     bool m_synthesizedErrorsToConsole { true };
     int m_numGLErrorsToConsoleAllowed;

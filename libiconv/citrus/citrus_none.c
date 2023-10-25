@@ -75,6 +75,7 @@ _citrus_NONE_stdenc_uninit(struct _citrus_stdenc *ce __unused)
 
 }
 
+#ifndef __APPLE__
 static int
 _citrus_NONE_stdenc_init_state(struct _citrus_stdenc * __restrict ce __unused,
     void * __restrict ps __unused)
@@ -82,6 +83,7 @@ _citrus_NONE_stdenc_init_state(struct _citrus_stdenc * __restrict ce __unused,
 
 	return (0);
 }
+#endif
 
 static int
 _citrus_NONE_stdenc_mbtocs(struct _citrus_stdenc * __restrict ce __unused,

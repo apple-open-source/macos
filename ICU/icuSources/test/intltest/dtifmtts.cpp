@@ -1170,14 +1170,14 @@ void DateIntervalFormatTest::testFormat() {
         "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "GyMMMd", "Jan 5, 64 Sh\\u014Dwa\\u2009\\u2013\\u2009Jan 15, 1 Heisei",
 
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://49623848 y->yyyy in intervalFormat skeletons used for japanese calendar
         "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yMMMd", "Jan 5, 64 Sh\\u014Dwa\\u2009\\u2013\\u2009Jan 15, 1 Heisei",
 
 #endif  // APPLE_ICU_CHANGES
         "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "GGGGGyMd", "1/5/64 S\\u2009\\u2013\\u20091/15/1 H",
  
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://49623848 y->yyyy in intervalFormat skeletons used for japanese calendar
         "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yMd", "1/5/64 S\\u2009\\u2013\\u20091/15/1 H",
 
         "en-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yyMd", "1/5/64 S\\u2009\\u2013\\u20091/15/1 H",
@@ -1195,21 +1195,21 @@ void DateIntervalFormatTest::testFormat() {
         "ja-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "GyMMMd", "\\u662D\\u548C64\\u5E741\\u67085\\u65E5\\uFF5E\\u5E73\\u6210\\u5143\\u5E741\\u670815\\u65E5",
 
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://49623848 y->yyyy in intervalFormat skeletons used for japanese calendar
         "ja-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yMMMd", "\\u662D\\u548C64\\u5E741\\u67085\\u65E5\\uFF5E\\u5E73\\u6210\\u5143\\u5E741\\u670815\\u65E5",
 
 #endif  // APPLE_ICU_CHANGES
         "ja-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "GGGGGyMd", "S64/01/05\\uFF5EH1/01/15",
 
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://49623848 y->yyyy in intervalFormat skeletons used for japanese calendar
         "ja-u-ca-japanese", "S 64 01 05 09:00:00", "H 1 01 15 09:00:00",  "yyMMdd", "S64/01/05\\uFF5EH1/01/15",
 
 #endif  // APPLE_ICU_CHANGES
         "ja-u-ca-japanese", "H 31 04 15 09:00:00", JP_ERA_2019_NARROW " 1 05 15 09:00:00", "GGGGGyMd", "H31/04/15\\uFF5E" JP_ERA_2019_NARROW "1/05/15",
 
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://49623848 y->yyyy in intervalFormat skeletons used for japanese calendar
         "ja-u-ca-japanese", "H 31 04 15 09:00:00", JP_ERA_2019_NARROW " 1 05 15 09:00:00", "yyMMdd", "H31/04/15\\uFF5E" JP_ERA_2019_NARROW "1/05/15",
 
         "ar@calendar=islamic", "1438 10 10 10:10:10", "1438 10 20 10:10:10", "MMMd", "\\u0661\\u0660\\u2013\\u0662\\u0660 \\u0634\\u0648\\u0627\\u0644",

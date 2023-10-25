@@ -17,7 +17,7 @@ compiler zig_build
 " Match Zig builtin fns
 setlocal iskeyword+=@-@
 
-" Recomended code style, no tabs and 4-space indentation
+" Recommended code style, no tabs and 4-space indentation
 setlocal expandtab
 setlocal tabstop=8
 setlocal softtabstop=4
@@ -39,13 +39,18 @@ endif
 
 let &l:define='\v(<fn>|<const>|<var>|^\s*\#\s*define)'
 
-if !exists('g:zig_std_dir') && exists('*json_decode') && executable('zig')
+" Safety check: don't execute zig from current directory
+if !exists('g:zig_std_dir') && exists('*json_decode') &&
+    \  executable('zig') && get(g:, 'zig_exec', get(g:, 'plugin_exec', 0))
+    \ && (fnamemodify(exepath("zig"), ":p:h") != s:tmp_cwd
+    \ || (index(split($PATH,has("win32")? ';' : ':'), s:tmp_cwd) != -1 && s:tmp_cwd != '.'))
     silent let s:env = system('zig env')
     if v:shell_error == 0
         let g:zig_std_dir = json_decode(s:env)['std_dir']
     endif
     unlet! s:env
 endif
+unlet! s:tmp_cwd
 
 if exists('g:zig_std_dir')
     let &l:path = &l:path . ',' . g:zig_std_dir

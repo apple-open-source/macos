@@ -463,11 +463,34 @@ _citrus_mapper_std_mapper_init_state(void)
 
 static int
 /*ARGSUSED*/
+#ifdef __APPLE__
+_citrus_mapper_std_mapper_convert(struct _citrus_mapper * __restrict cm,
+    _index_t * __restrict dst, _index_t * __restrict src, int * __restrict cnt,
+    void * __restrict ps)
+#else
 _citrus_mapper_std_mapper_convert(struct _citrus_mapper * __restrict cm,
     _index_t * __restrict dst, _index_t src, void * __restrict ps)
+#endif
 {
 	struct _citrus_mapper_std *ms;
 
 	ms = cm->cm_closure;
+#ifdef __APPLE__
+	for (int ret, i = 0; i < *cnt; i++) {
+		/*
+		 * _citrus_mapper_std_convert_t could be altered to understand
+		 * arrays of input/output indices, but we're just shooting for
+		 * the easy gains at the moment.
+		 */
+		ret = ((*ms->ms_convert)(ms, &dst[i], src[i], ps));
+		if (ret != _MAPPER_CONVERT_SUCCESS) {
+			*cnt = i;
+			return (ret);
+		}
+	}
+
+	return (_MAPPER_CONVERT_SUCCESS);
+#else
 	return ((*ms->ms_convert)(ms, dst, src, ps));
+#endif
 }

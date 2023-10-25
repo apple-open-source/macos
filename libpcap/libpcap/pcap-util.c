@@ -456,3 +456,28 @@ pcap_ng_init_section_info(pcap_t *p)
 	pcap_clear_proc_infos(p);
 }
 
+void
+pcap_darwin_cleanup(pcap_t *p)
+{
+	pcap_ng_init_section_info(p);
+
+	if (p->saved_data_buffer != NULL) {
+		free(p->saved_data_buffer);
+		p->saved_data_buffer = NULL;
+	}
+
+	if (p->send_bpfhdr_array != NULL) {
+		free(p->send_bpfhdr_array);
+		p->send_bpfhdr_array = NULL;
+	}
+	if (p->send_iovec_array != NULL) {
+		free(p->send_iovec_array);
+		p->send_iovec_array = NULL;
+	}
+	p->send_bpfhdr_count = 0;
+
+	if (p->filter_str != NULL) {
+		free(p->filter_str);
+		p->filter_str = NULL;
+	}
+}

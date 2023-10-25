@@ -633,7 +633,8 @@ class OctagonResetTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+            XCTAssertNotNil(response, "results should not be nil")
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }

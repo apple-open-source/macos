@@ -25,7 +25,7 @@ func Test_equal()
   call assert_fails('echo base.method > instance.method')
   call assert_equal(0, test_null_function() == function('min'))
   call assert_equal(1, test_null_function() == test_null_function())
-  call assert_fails('eval 10 == test_unknown()', 'E685:')
+  call assert_fails('eval 10 == test_unknown()', ['E340:', 'E685:'])
 endfunc
 
 func Test_version()
@@ -291,6 +291,8 @@ func Test_printf_misc()
   let lines =<< trim END
       call assert_equal('123', printf('123'))
 
+      call assert_equal('', printf('%'))
+      call assert_equal('', printf('%.0d', 0))
       call assert_equal('123', printf('%d', 123))
       call assert_equal('123', printf('%i', 123))
       call assert_equal('123', printf('%D', 123))

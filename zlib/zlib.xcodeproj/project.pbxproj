@@ -17,6 +17,7 @@
 				EF6323E0202B6A7C003EC772 /* PBXTargetDependency */,
 				EF632434202B9D72003EC772 /* PBXTargetDependency */,
 				EF6323F4202B6B55003EC772 /* PBXTargetDependency */,
+				C392B3502AAFE4540012F1E8 /* PBXTargetDependency */,
 			);
 			name = all;
 			productName = all;
@@ -100,6 +101,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		C392B34F2AAFE4540012F1E8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C3BAE89428BD82C200602CEB;
+			remoteInfo = t_zlib_verify;
+		};
 		C3BAE89628BD82C200602CEB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -661,6 +669,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		C392B3502AAFE4540012F1E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C3BAE89428BD82C200602CEB /* t_zlib_verify */;
+			targetProxy = C392B34F2AAFE4540012F1E8 /* PBXContainerItemProxy */;
+		};
 		C3BAE89528BD82C200602CEB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EF6323DB202B6A67003EC772 /* libz_static */;

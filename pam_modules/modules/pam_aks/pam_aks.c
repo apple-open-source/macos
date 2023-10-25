@@ -42,15 +42,17 @@
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(aks)
 #define PAM_LOG PAM_LOG_aks()
+#endif
 
 extern char **environ;
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-    os_log_debug(PAM_LOG, "pam_sm_authenticate");
+    _LOG_DEBUG("pam_sm_authenticate");
     
     int retval = PAM_AUTH_ERR;
 
@@ -62,7 +64,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     /* get information about user to authenticate for */
     if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS || !user ||
         getpwnam_r(user, &pwdbuf, buffer, sizeof(buffer), &pwd) != 0 || !pwd) {
-        os_log_error(PAM_LOG, "unable to obtain the username.");
+        _LOG_ERROR("unable to obtain the username.");
         retval = PAM_AUTHINFO_UNAVAIL;
         goto cleanup;
     }
@@ -70,7 +72,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
 	int status = proc_pidpath(getpid(), pathbuf, sizeof(pathbuf));
 	if (status <= 0) {
-		os_log_error(PAM_LOG, "unable to get the path.");
+		_LOG_ERROR("unable to get the path.");
 		goto cleanup;
 	}
 
@@ -79,21 +81,24 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	char *args[] = {pathbuf, buffer, NULL};
 	status = posix_spawn(&spawn_pid, "/System/Library/Frameworks/LocalAuthentication.framework/Support/lastatus", NULL, NULL, args, environ);
 	if (status == 0) {
-		os_log_debug(PAM_LOG, "helper pid %d", spawn_pid);
+		_LOG_DEBUG("helper pid %d", spawn_pid);
 		if (waitpid(spawn_pid, &status, 0) != -1) {
-            os_log_with_type(PAM_LOG, status == 0 ? OS_LOG_TYPE_DEBUG : OS_LOG_TYPE_DEFAULT,
-                             "helper return value %d", status);
+            if (status == 0) {
+                _LOG_DEBUG("helper return value %d", status);
+            } else {
+                _LOG_DEFAULT("helper return value %d", status);
+            }
 			if (status == 0)
 				retval = PAM_SUCCESS;
 		} else {
-			os_log_error(PAM_LOG, "wait failed %d", status);
+			_LOG_ERROR("wait failed %d", status);
 		}
 	} else {
-        os_log_error(PAM_LOG, "launch failed %d", status);
+        _LOG_ERROR("launch failed %d", status);
 	}
 
 cleanup:
-    os_log(PAM_LOG, "pam_sm_authenticate for %s[%d] returned %d", user, pwd ? pwd->pw_uid : -1, retval);
+    _LOG_DEFAULT("pam_sm_authenticate for %s[%d] returned %d", user, pwd ? pwd->pw_uid : -1, retval);
     return retval;
 }
 
@@ -101,7 +106,7 @@ cleanup:
 PAM_EXTERN int 
 pam_sm_setcred(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-    os_log_debug(PAM_LOG, "pam_sm_setcred");
+    _LOG_DEBUG("pam_sm_setcred");
 	return PAM_SUCCESS;
 }
 
@@ -109,6 +114,6 @@ pam_sm_setcred(pam_handle_t * pamh, int flags, int argc, const char **argv)
 PAM_EXTERN int 
 pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-    os_log_debug(PAM_LOG, "pam_sm_acct_mgmt");
+    _LOG_DEBUG("pam_sm_acct_mgmt");
     return PAM_SUCCESS;
 }

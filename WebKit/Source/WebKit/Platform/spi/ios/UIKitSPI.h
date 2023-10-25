@@ -159,6 +159,10 @@
 #import <UIKit/_UIInvalidatable.h>
 #endif
 
+#if PLATFORM(VISION)
+#import <UIKit/UIView+SpatialComputing.h>
+#endif
+
 // FIXME: STAGING for rdar://75546704 Remove later.
 #define UIWKSelectionFlipped 2
 
@@ -283,8 +287,6 @@ typedef NS_ENUM(NSInteger, _UIDatePickerOverlayAnchor) {
 - (void)setOrientation:(UIDeviceOrientation)orientation animated:(BOOL)animated;
 @property (nonatomic, readonly, retain) NSString *buildVersion;
 @end
-
-static const UIUserInterfaceIdiom UIUserInterfaceIdiomWatch = (UIUserInterfaceIdiom)4;
 
 typedef enum {
     kUIKeyboardInputRepeat                 = 1 << 0,
@@ -627,7 +629,8 @@ typedef enum {
 @property (nonatomic, retain) UIColor *insertionPointColor;
 @property (nonatomic, retain) UIColor *selectionBarColor;
 @property (nonatomic, retain) UIColor *selectionHighlightColor;
-@property (nonatomic, readwrite) BOOL isSingleLineDocument;
+@property (nonatomic) BOOL isSingleLineDocument;
+@property (nonatomic) BOOL learnsCorrections;
 @end
 
 @protocol UITextInputDelegatePrivate
@@ -780,6 +783,20 @@ typedef NS_ENUM (NSInteger, _UIBackdropMaskViewFlags) {
 @protocol UISelectionInteractionAssistant
 - (void)showSelectionCommands;
 @end
+
+#if PLATFORM(VISION)
+
+typedef NS_ENUM(NSInteger, _UIPlatterGroundingShadowVisibility) {
+    _UIPlatterGroundingShadowVisibilityAutomatic = 0,
+    _UIPlatterGroundingShadowVisibilityVisible = 1,
+    _UIPlatterGroundingShadowVisibilityHidden = 2
+};
+
+@interface UIView (SpatialComputing)
+@property (nonatomic, setter=_setPreferredGroundingShadowVisibility:) _UIPlatterGroundingShadowVisibility _preferredGroundingShadowVisibility;
+@end
+
+#endif
 
 typedef NS_ENUM(NSInteger, UIWKSelectionTouch) {
     UIWKSelectionTouchStarted = 0,
@@ -1448,6 +1465,7 @@ typedef NS_ENUM(NSUInteger, UIMenuOptionsPrivate) {
 @property (nonatomic, readonly, getter=_isInLiveResize) BOOL _inLiveResize;
 @end
 
+extern NSNotificationName const _UIWindowSceneDidBeginLiveResizeNotification;
 extern NSNotificationName const _UIWindowSceneDidEndLiveResizeNotification;
 
 #endif // HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
@@ -1519,7 +1537,7 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 - (void)translate:(NSString *)text fromRect:(CGRect)presentationRect;
 @end
 
- @interface UIColor (IPI)
+@interface UIColor (IPI)
 + (UIColor *)insertionPointColor;
 @end
 

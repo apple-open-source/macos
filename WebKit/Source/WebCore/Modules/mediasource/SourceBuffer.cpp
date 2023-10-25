@@ -449,6 +449,13 @@ void SourceBuffer::removedFromMediaSource()
     m_source = nullptr;
 }
 
+void SourceBuffer::computeSeekTime(const SeekTarget& target, CompletionHandler<void(const MediaTime&)>&& completionHandler)
+
+{
+    ALWAYS_LOG(LOGIDENTIFIER, target);
+    m_private->computeSeekTime(target, WTFMove(completionHandler));
+}
+
 void SourceBuffer::seekToTime(const MediaTime& time)
 {
     ALWAYS_LOG(LOGIDENTIFIER, time);

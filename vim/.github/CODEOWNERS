@@ -18,6 +18,7 @@ runtime/autoload/netrwFileHandlers.vim	@cecamp
 runtime/autoload/netrwSettings.vim	@cecamp
 runtime/autoload/php.vim		@david-szabo97
 runtime/autoload/rubycomplete.vim	@segfault @dkearns
+runtime/autoload/rust.vim		@lilyball
 runtime/autoload/tar.vim		@cecamp
 runtime/autoload/vimball.vim		@cecamp
 runtime/autoload/xmlformat.vim		@chrisbra
@@ -132,6 +133,7 @@ runtime/ftplugin/eruby.vim		@tpope @dkearns
 runtime/ftplugin/expect.vim		@dkearns
 runtime/ftplugin/fennel.vim		@gpanders
 runtime/ftplugin/fetchmail.vim		@dkearns
+runtime/ftplugin/forth.vim		@jkotlinski
 runtime/ftplugin/fpcmake.vim		@dkearns
 runtime/ftplugin/freebasic.vim		@dkearns
 runtime/ftplugin/fstab.vim		@rid9
@@ -150,11 +152,14 @@ runtime/ftplugin/go.vim			@dbarnett
 runtime/ftplugin/gprof.vim		@dpelle
 runtime/ftplugin/haml.vim		@tpope
 runtime/ftplugin/hare.vim		@rsaihe
+runtime/ftplugin/heex.vim		@cvincent
 runtime/ftplugin/hgcommit.vim		@k-takata
+runtime/ftplugin/hog.vim		@wtfbbqhax
 runtime/ftplugin/html.vim		@dkearns
 runtime/ftplugin/i3config.vim		@hiqua
 runtime/ftplugin/icon.vim		@dkearns
 runtime/ftplugin/indent.vim		@dkearns
+runtime/ftplugin/ishd.vim		@dkearns
 runtime/ftplugin/j.vim			@glts
 runtime/ftplugin/javascript.vim		@dkearns
 runtime/ftplugin/javascriptreact.vim	@dkearns
@@ -180,13 +185,16 @@ runtime/ftplugin/pascal.vim		@dkearns
 runtime/ftplugin/pbtxt.vim		@lakshayg
 runtime/ftplugin/pdf.vim		@tpope
 runtime/ftplugin/perl.vim		@petdance @dkearns
+runtime/ftplugin/php.vim		@dkearns
 runtime/ftplugin/pod.vim		@petdance @dkearns
 runtime/ftplugin/poefilter.vim		@ObserverOfTime
 runtime/ftplugin/postscr.vim		@mrdubya
 runtime/ftplugin/ps1.vim		@heaths
 runtime/ftplugin/ps1xml.vim		@heaths
+runtime/ftplugin/pymanifest.vim		@ObserverOfTime
 runtime/ftplugin/python.vim		@tpict
 runtime/ftplugin/qb64.vim		@dkearns
+runtime/ftplugin/qml.vim        @ChaseKnowlden
 runtime/ftplugin/r.vim			@jalvesaq
 runtime/ftplugin/racket.vim		@benknoble
 runtime/ftplugin/readline.vim		@dkearns
@@ -197,11 +205,14 @@ runtime/ftplugin/routeros.vim		@zainin
 runtime/ftplugin/rrst.vim		@jalvesaq
 runtime/ftplugin/rst.vim		@marshallward
 runtime/ftplugin/ruby.vim		@tpope @dkearns
+runtime/ftplugin/rust.vim		@lilyball
 runtime/ftplugin/sass.vim		@tpope
 runtime/ftplugin/scala.vim		@derekwyatt
 runtime/ftplugin/scss.vim		@tpope
 runtime/ftplugin/sdoc.vim		@gpanders
+runtime/ftplugin/sed.vim		@dkearns
 runtime/ftplugin/sh.vim			@dkearns
+runtime/ftplugin/solidity.vim		@cothi
 runtime/ftplugin/solution.vim		@dkearns
 runtime/ftplugin/spec.vim		@ignatenkobrain
 runtime/ftplugin/ssa.vim		@ObserverOfTime
@@ -215,6 +226,7 @@ runtime/ftplugin/toml.vim		@averms
 runtime/ftplugin/tt2html.vim		@petdance
 runtime/ftplugin/typescript.vim		@dkearns
 runtime/ftplugin/typescriptreact.vim	@dkearns
+runtime/ftplugin/unison.vim		@chuwy
 runtime/ftplugin/vdf.vim		@ObserverOfTime
 runtime/ftplugin/wast.vim		@rhysd
 runtime/ftplugin/wget.vim		@dkearns
@@ -251,6 +263,7 @@ runtime/indent/go.vim			@dbarnett
 runtime/indent/gyp.vim			@ObserverOfTime
 runtime/indent/haml.vim			@tpope
 runtime/indent/hare.vim			@rsaihe
+runtime/indent/hog.vim			@wtfbbqhax
 runtime/indent/idlang.vim		@dkearns
 runtime/indent/j.vim			@glts
 runtime/indent/java.vim			@xuhdev
@@ -258,9 +271,11 @@ runtime/indent/javascript.vim		@bounceme
 runtime/indent/json.vim			@elzr
 runtime/indent/jsonc.vim		@izhakjakov
 runtime/indent/julia.vim		@carlobaldassi
+runtime/indent/krl.vim			@KnoP-01
 runtime/indent/ld.vim			@dkearns
 runtime/indent/less.vim			@genoma
 runtime/indent/liquid.vim		@tpope
+runtime/indent/lua.vim			@marcuscf
 runtime/indent/make.vim			@dkearns
 runtime/indent/meson.vim		@Liambeguin
 runtime/indent/mma.vim			@dkearns
@@ -273,8 +288,10 @@ runtime/indent/postscr.vim		@mrdubya
 runtime/indent/prolog.vim		@dkearns
 runtime/indent/ps1.vim			@heaths
 runtime/indent/qb64.vim			@dkearns
+runtime/indent/qml.vim          @ChaseKnowlden
 runtime/indent/r.vim			@jalvesaq
 runtime/indent/racket.vim		@benknoble
+runtime/indent/rapid.vim		@KnoP-01
 runtime/indent/readline.vim		@dkearns
 runtime/indent/rhelp.vim		@jalvesaq
 runtime/indent/rmd.vim			@jalvesaq
@@ -285,6 +302,7 @@ runtime/indent/sass.vim			@tpope
 runtime/indent/scala.vim		@derekwyatt
 runtime/indent/scss.vim			@tpope
 runtime/indent/sh.vim			@chrisbra
+runtime/indent/solidity.vim		@cothi
 runtime/indent/systemverilog.vim	@Kocha
 runtime/indent/tcl.vim			@dkearns
 runtime/indent/tcsh.vim			@dkearns
@@ -368,6 +386,7 @@ runtime/syntax/gitolite.vim		@sitaramc
 runtime/syntax/gitrebase.vim		@tpope
 runtime/syntax/go.vim			@bhcleek
 runtime/syntax/godoc.vim		@dbarnett
+runtime/syntax/gp.vim			@KBelabas
 runtime/syntax/gprof.vim		@dpelle
 runtime/syntax/groff.vim		@jmarshall
 runtime/syntax/gyp.vim			@ObserverOfTime
@@ -376,6 +395,7 @@ runtime/syntax/hare.vim			@rsaihe
 runtime/syntax/haskell.vim		@coot
 runtime/syntax/hgcommit.vim		@k-takata
 runtime/syntax/hitest.vim		@lacygoill
+runtime/syntax/hog.vim			@wtfbbqhax
 runtime/syntax/hollywood.vim		@sodero
 runtime/syntax/html.vim			@dkearns
 runtime/syntax/i3config.vim		@hiqua
@@ -388,10 +408,12 @@ runtime/syntax/javascript.vim		@fleiner
 runtime/syntax/jsonc.vim		@izhakjakov
 runtime/syntax/julia.vim		@carlobaldassi
 runtime/syntax/kconfig.vim		@chrisbra
+runtime/syntax/krl.vim			@KnoP-01
 runtime/syntax/less.vim			@genoma
 runtime/syntax/lex.vim			@cecamp
 runtime/syntax/liquid.vim		@tpope
 runtime/syntax/lisp.vim			@cecamp
+runtime/syntax/lua.vim			@marcuscf
 runtime/syntax/lyrics.vim		@ObserverOfTime
 runtime/syntax/lynx.vim			@dkearns
 runtime/syntax/m3build.vim		@dkearns
@@ -426,10 +448,13 @@ runtime/syntax/prolog.vim		@XVilka
 runtime/syntax/ps1.vim			@heaths
 runtime/syntax/ps1xml.vim		@heaths
 runtime/syntax/psl.vim			@danielkho
+runtime/syntax/pymanifest.vim		@ObserverOfTime
 runtime/syntax/qb64.vim			@dkearns
+runtime/syntax/qml.vim          @ChaseKnowlden
 runtime/syntax/r.vim			@jalvesaq
 runtime/syntax/racket.vim		@benknoble
 runtime/syntax/raml.vim			@in3d
+runtime/syntax/rapid.vim		@KnoP-01
 runtime/syntax/ratpoison.vim		@trapd00r
 runtime/syntax/rc.vim			@chrisbra
 runtime/syntax/rcs.vim			@hdima
@@ -450,6 +475,7 @@ runtime/syntax/sdoc.vim			@gpanders
 runtime/syntax/sed.vim			@dkearns
 runtime/syntax/sh.vim			@cecamp
 runtime/syntax/sm.vim			@cecamp
+runtime/syntax/solidity.vim		@cothi
 runtime/syntax/spec.vim			@ignatenkobrain
 runtime/syntax/sqloracle.vim		@chrisbra
 runtime/syntax/squirrel.vim		@zenmatic
@@ -475,6 +501,7 @@ runtime/syntax/tt2js.vim		@petdance
 runtime/syntax/typescript.vim		@HerringtonDarkholme
 runtime/syntax/typescriptcommon.vim	@HerringtonDarkholme
 runtime/syntax/typescriptreact.vim	@HerringtonDarkholme
+runtime/syntax/unison.vim		@chuwy
 runtime/syntax/vdf.vim			@ObserverOfTime
 runtime/syntax/vim.vim			@cecamp
 runtime/syntax/vroom.vim		@dbarnett
@@ -489,6 +516,7 @@ runtime/syntax/xs.vim			@petdance
 runtime/syntax/xslt.vim			@Boobies
 runtime/syntax/xxd.vim			@cecamp
 runtime/syntax/yacc.vim			@cecamp
+runtime/syntax/zserio.vim		@dpelle
 runtime/syntax/zsh.vim			@chrisbra
 runtime/tutor/tutor.eo			@dpelle
 runtime/tutor/tutor.eo.utf-8		@dpelle

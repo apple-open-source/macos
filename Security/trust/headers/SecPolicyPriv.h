@@ -1108,7 +1108,7 @@ SecPolicyRef SecPolicyCreateTestApplePPQSigning(void);
 
 /*!
  @function SecPolicyCreateAppleIDSService
- @abstract Ensure we're appropriately pinned to the IDS service (SSL + Apple restrictions)
+ @abstract Verify the IDS Configuration Bag signing cert
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
     * The chain is anchored to any of the Apple Root CAs.
@@ -1118,7 +1118,7 @@ SecPolicyRef SecPolicyCreateTestApplePPQSigning(void);
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
       extension.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via any available method.
+    * Revocation is NOT checked.
  @result A policy object. The caller is responsible for calling CFRelease
      on this when it is no longer needed.
  */

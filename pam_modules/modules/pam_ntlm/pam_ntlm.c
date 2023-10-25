@@ -29,16 +29,12 @@
 #include "Common.h"
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(NTLM)
 #define PAM_LOG PAM_LOG_NTLM()
+#endif
 
 #define PAM_OPT_DEBUG		"debug"
-
-#define	PAM_LOG_DEBUG(...) \
-	os_log_debug(PAM_LOG, __VA_ARGS__)
-
-#define	PAM_VERBOSE_ERROR(...) \
-    os_log_error(PAM_LOG, __VA_ARGS__)
 
 static const char *password_key = "NTLMPWD";
 
@@ -54,7 +50,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 	int retval;
 	const char *password;
 
-    PAM_LOG_DEBUG("pam_sm_authenticate: ntlm");
+    _LOG_DEBUG("pam_sm_authenticate: ntlm");
 
 	/* get password */
 	retval = pam_get_authtok(pamh, PAM_AUTHTOK, &password, NULL);
@@ -75,10 +71,8 @@ ac_complete(void *ctx, OM_uint32 major, gss_status_id_t status,
     OM_uint32 junk;
     gss_release_cred(&junk, &cred);
     gss_release_oid_set(&junk, &oids);
-    PAM_LOG_DEBUG("ac_complete returned: %d for %d", major, geteuid());
+    _LOG_DEBUG("ac_complete returned: %d for %d", major, geteuid());
 }
-
-
 
 PAM_EXTERN int
 pam_sm_setcred(pam_handle_t *pamh, int flags,
@@ -96,26 +90,26 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 	CFArrayRef array = NULL;
 	CFIndex i, count;
 
-    PAM_LOG_DEBUG("pam_sm_setcred: ntlm");
+    _LOG_DEBUG("pam_sm_setcred: ntlm");
 
 	memset(&identity, 0, sizeof(identity));
 
 	/* Get username */
 	retval = pam_get_item(pamh, PAM_USER, (const void **)&user);
 	if (retval != PAM_SUCCESS) {
-        PAM_VERBOSE_ERROR("pam_sm_setcred: ntlm user can't be found");
+        _LOG_ERROR("pam_sm_setcred: ntlm user can't be found");
 		goto cleanup;
 	}
 
 	if (getpwnam_r(user, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) != 0 || pwd == NULL) {
-        PAM_VERBOSE_ERROR("pam_sm_setcred: ntlm user %s doesn't exists", user);
+        _LOG_ERROR("pam_sm_setcred: ntlm user %s doesn't exists", user);
 		retval = PAM_USER_UNKNOWN;
 		goto cleanup;
 	}
 
 	password = pam_getenv(pamh, password_key);
 	if (password == NULL) {
-        PAM_VERBOSE_ERROR("pam_sm_setcred: ntlm user %s doesn't have a password", user);
+        _LOG_ERROR("pam_sm_setcred: ntlm user %s doesn't have a password", user);
 		retval = PAM_IGNORE;
 		goto cleanup;
 	}
@@ -128,7 +122,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 
 	array = ODRecordCopyValues(record, kODAttributeTypeAuthenticationAuthority, NULL);
 	if (array == NULL) {
-        PAM_VERBOSE_ERROR("pam_sm_setcred: ntlm user %s doesn't have auth authority", user);
+        _LOG_ERROR("pam_sm_setcred: ntlm user %s doesn't have auth authority", user);
 		retval = PAM_IGNORE;
 		goto cleanup;
 	}
@@ -163,7 +157,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 	}
 
 	if (identity.realm == NULL) {
-        PAM_LOG_DEBUG("pam_sm_setcred: no domain found skipping");
+        _LOG_DEBUG("pam_sm_setcred: no domain found skipping");
 		retval = PAM_IGNORE;
 		goto cleanup;
 	}
@@ -194,7 +188,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		setegid(egid);
 	}
 
-	PAM_LOG_DEBUG("pam_sm_setcred: ntlm done, used domain: %s", identity.realm);
+	_LOG_DEBUG("pam_sm_setcred: ntlm done, used domain: %s", identity.realm);
 
 cleanup:
 	if (record)

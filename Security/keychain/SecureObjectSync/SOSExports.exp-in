@@ -227,6 +227,7 @@ _bskbRkbgPrefix
 
 _SOSBSKBHasRecoveryKey
 _SOSBSKBHasThisRecoveryKey
+_SOSBSKBRemoveRecoveryKey
 
  //
  // View SPI
@@ -612,3 +613,4 @@ __SOSControlSetupInterface
 
 _SOSCreateRandomDateBetweenNowPlus
 _SOSCCSetSOSDisabledError
+_SOSCCPushResetCircle

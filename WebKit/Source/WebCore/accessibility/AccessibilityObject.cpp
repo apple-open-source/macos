@@ -622,7 +622,9 @@ void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, De
     if (displayContentsParent && displayContentsParent != this) {
         // Make sure the display:contents parent object knows it has a child it needs to add.
         displayContentsParent->setNeedsToUpdateChildren();
-        return;
+        // Don't exit early for certain table components, as they rely on inserting children for which they are not the rightful parent to behave correctly.
+        if (!isTableColumn() && roleValue() != AccessibilityRole::TableHeaderContainer)
+            return;
     }
 
     auto thisAncestorFlags = computeAncestorFlags();
@@ -3361,11 +3363,12 @@ bool AccessibilityObject::supportsExpanded() const
         return true;
 
     switch (roleValue()) {
+    case AccessibilityRole::Details:
+        return true;
     case AccessibilityRole::Button:
     case AccessibilityRole::CheckBox:
     case AccessibilityRole::ColumnHeader:
     case AccessibilityRole::ComboBox:
-    case AccessibilityRole::Details:
     case AccessibilityRole::DisclosureTriangle:
     case AccessibilityRole::GridCell:
     case AccessibilityRole::Link:

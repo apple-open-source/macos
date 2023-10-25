@@ -61,9 +61,15 @@ _CITRUS_MAPPER_DEF_OPS(mapper_serial);
 	_citrus_mapper_serial_mapper_uninit
 #define _citrus_mapper_parallel_mapper_init_state	\
 	_citrus_mapper_serial_mapper_init_state
+#ifdef __APPLE__
+static int	_citrus_mapper_parallel_mapper_convert(
+		    struct _citrus_mapper * __restrict, _index_t * __restrict,
+		    _index_t * __restrict, int * __restrict, void * __restrict);
+#else
 static int	_citrus_mapper_parallel_mapper_convert(
 		    struct _citrus_mapper * __restrict, _index_t * __restrict,
 		    _index_t, void * __restrict);
+#endif
 _CITRUS_MAPPER_DEF_OPS(mapper_parallel);
 #undef _citrus_mapper_parallel_mapper_init
 #undef _citrus_mapper_parallel_mapper_uninit
@@ -201,34 +207,123 @@ _citrus_mapper_serial_mapper_uninit(struct _citrus_mapper *cm)
 
 static int
 /*ARGSUSED*/
+#ifdef __APPLE__
+_citrus_mapper_serial_mapper_convert(struct _citrus_mapper * __restrict cm,
+    _index_t * __restrict dst, _index_t * __restrict src,
+    int * __restrict cnt, void * __restrict ps __unused)
+#else
+
 _citrus_mapper_serial_mapper_convert(struct _citrus_mapper * __restrict cm,
     _index_t * __restrict dst, _index_t src, void * __restrict ps __unused)
+#endif
 {
 	struct _citrus_mapper_serial *sr;
 	struct maplink *ml;
 	int ret;
+#ifdef __APPLE__
+	int incnt = *cnt;
+#endif
 
 	sr = cm->cm_closure;
 	STAILQ_FOREACH(ml, &sr->sr_mappers, ml_entry) {
+#ifdef __APPLE__
+		ret = _mapper_convert(ml->ml_mapper, &src[0], &src[0], cnt,
+		    NULL);
+#else
 		ret = _mapper_convert(ml->ml_mapper, &src, src, NULL);
-		if (ret != _MAPPER_CONVERT_SUCCESS)
+#endif
+		if (ret != _MAPPER_CONVERT_SUCCESS) {
+#ifdef __APPLE__
+			assert(*cnt < incnt);
+
+			/*
+			 * We let the underlying mo_convert() implementation
+			 * update *cnt.  Each iteration of this loop is expected
+			 * to succeed for the entire *cnt; if it doesn't, we
+			 * can just leave *cnt to whatever the first failure
+			 * set it at and output all of the dst csindexes up to
+			 * that point.
+			 */
+			for (int i = 0; i < *cnt; i++) {
+				dst[i] = src[i];
+			}
+#endif
 			return (ret);
+		}
+#ifdef __APPLE__
+		else {
+			assert(*cnt == incnt);
+		}
+#endif
 	}
+#ifdef __APPLE__
+	for (int i = 0; i < *cnt; i++) {
+		dst[i] = src[i];
+	}
+#else
 	*dst = src;
+#endif
 	return (_MAPPER_CONVERT_SUCCESS);
 }
 
 static int
 /*ARGSUSED*/
+#ifdef __APPLE__
+_citrus_mapper_parallel_mapper_convert(struct _citrus_mapper * __restrict cm,
+    _index_t * __restrict dst, _index_t * __restrict src, int * __restrict cnt,
+    void * __restrict ps __unused)
+#else
 _citrus_mapper_parallel_mapper_convert(struct _citrus_mapper * __restrict cm,
     _index_t * __restrict dst, _index_t src, void * __restrict ps __unused)
+#endif
 {
 	struct _citrus_mapper_serial *sr;
 	struct maplink *ml;
 	_index_t tmp;
 	int ret;
+#ifdef __APPLE__
+	int i, incnt, tmpcnt;
+#endif
 
 	sr = cm->cm_closure;
+#ifdef __APPLE__
+	incnt = *cnt;
+	for (i = 0; i < incnt; i++) {
+		STAILQ_FOREACH(ml, &sr->sr_mappers, ml_entry) {
+			/*
+			 * Parallel mapper takes a penalty because we don't want
+			 * to assume we can keep the # indices constant between
+			 * the mapper module and iconv_std.  We would need to
+			 * complicate this a bit to allow for a mismatch, so we
+			 * just revert to converting one index at a time.
+			 */
+			tmpcnt = 1;
+			ret = _mapper_convert(ml->ml_mapper, &tmp, &src[i],
+			     &tmpcnt, NULL);
+			if (ret == _MAPPER_CONVERT_SUCCESS) {
+				dst[i] = tmp;
+
+				goto next;
+			} else if (ret == _MAPPER_CONVERT_ILSEQ) {
+				*cnt = i;
+				return (_MAPPER_CONVERT_ILSEQ);
+			}
+		}
+
+		/*
+		 * If we exhausted all of the mapper entries, we must stop now
+		 * and report the short *cnt + ENOENT.
+		 */
+		goto out;
+next:
+		continue;
+	}
+
+out:
+	*cnt = i;
+	if (i == incnt)
+		return (_MAPPER_CONVERT_SUCCESS);
+#else
 	STAILQ_FOREACH(ml, &sr->sr_mappers, ml_entry) {
 		ret = _mapper_convert(ml->ml_mapper, &tmp, src, NULL);
 		if (ret == _MAPPER_CONVERT_SUCCESS) {
@@ -237,6 +332,7 @@ _citrus_mapper_parallel_mapper_convert(struct _citrus_mapper * __restrict cm,
 		} else if (ret == _MAPPER_CONVERT_ILSEQ)
 			return (_MAPPER_CONVERT_ILSEQ);
 	}
+#endif
 	return (_MAPPER_CONVERT_NONIDENTICAL);
 }
 

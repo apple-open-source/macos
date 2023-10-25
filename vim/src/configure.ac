@@ -1,10 +1,9 @@
 dnl configure.ac: autoconf script for Vim
 
-dnl Process this file with autoconf 2.69 to produce "configure".
-dnl This should also work with other versions of autoconf, but 2.70 and later
-dnl generate lots of hard to fix "obsolete" warnings.
+dnl Process this file with autoconf 2.71 to produce "configure".
 
-AC_INIT(vim.h)
+AC_INIT
+AC_CONFIG_SRCDIR([vim.h])
 AC_CONFIG_HEADERS(auto/config.h:config.h.in)
 
 dnl Being able to run configure means the system is Unix (compatible).
@@ -12,11 +11,10 @@ AC_DEFINE(UNIX)
 AC_PROG_MAKE_SET
 
 dnl Checks for programs.
-AC_PROG_CC_C99		dnl required by almost everything
+AC_PROG_CC		dnl required by almost everything
 AC_PROG_CPP		dnl required by header file checks
-AC_PROGRAM_EGREP	dnl required by AC_EGREP_CPP
+AC_PROG_EGREP		dnl required by AC_EGREP_CPP
 AC_PROG_FGREP		dnl finds working grep -F
-AC_ISC_POSIX		dnl required by AC_C_CROSS
 AC_PROG_AWK		dnl required for "make html" in ../doc
 
 dnl Don't strip if we don't have it
@@ -25,9 +23,6 @@ AC_CHECK_PROG(STRIP, strip, strip, :)
 dnl Check for extension of executables
 AC_EXEEXT
 
-dnl Check for standard headers.  We don't use this in Vim but other stuff
-dnl in autoconf needs it, where it uses STDC_HEADERS.
-AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
 dnl Check that the C99 features that Vim uses are supported:
@@ -638,7 +633,7 @@ if test "$enable_luainterp" = "yes" -o "$enable_luainterp" = "dynamic"; then
       if test "X$vi_cv_path_luajit" != "X"; then
 	dnl -- find LuaJIT version
 	AC_CACHE_CHECK(LuaJIT version, vi_cv_version_luajit,
-	[ vi_cv_version_luajit=`${vi_cv_path_luajit} -v 2>&1 | sed 's/LuaJIT \([[0-9.]]*\)\.[[0-9]]\(-[[a-z0-9]]*\)* .*/\1/'` ])
+       [ vi_cv_version_luajit=`${vi_cv_path_luajit} -v 2>&1 | sed 's/LuaJIT \([[0-9.]]*\)\.[[0-9]]\(-*[[a-z0-9]]*\)* .*/\1/'` ])
 	AC_CACHE_CHECK(Lua version of LuaJIT, vi_cv_version_lua_luajit,
 	[ vi_cv_version_lua_luajit=`${vi_cv_path_luajit} -e "print(_VERSION)" | sed 's/.* //'` ])
 	vi_cv_path_lua="$vi_cv_path_luajit"
@@ -1218,6 +1213,7 @@ if test "$enable_perlinterp" = "yes" -o "$enable_perlinterp" = "dynamic"; then
     if test "$perl_ok" = "yes" -a "X$libperl" != "X"; then
       AC_DEFINE(DYNAMIC_PERL)
       PERL_CFLAGS="-DDYNAMIC_PERL_DLL=\\\"$libperl\\\" $PERL_CFLAGS"
+      PERL_LIBS=""
     fi
   fi
 
@@ -1503,6 +1499,23 @@ if test "$enable_python3interp" = "yes" -o "$enable_python3interp" = "dynamic"; 
     then
       AC_MSG_RESULT(yep)
 
+      dnl -- get the stable ABI version if passed in
+      AC_MSG_CHECKING(--with-python3-stable-abi argument)
+      AC_SUBST(vi_cv_var_python3_stable_abi)
+      AC_ARG_WITH(python3-stable-abi, [  --with-python3-stable-abi=VERSION  stable ABI version to target (e.g. 3.8)],
+        vi_cv_var_python3_stable_abi="$withval"; AC_MSG_RESULT($vi_cv_var_python3_stable_abi),
+        AC_MSG_RESULT(no))
+      if test "X$vi_cv_var_python3_stable_abi" != "X"; then
+        AC_CACHE_VAL(vi_cv_var_python3_stable_abi_hex,
+        [
+         vi_cv_var_python3_stable_abi_hex=`
+         ${vi_cv_path_python3} -c \
+         "major_minor='${vi_cv_var_python3_stable_abi}'.split('.'); print('0x{0:X}'.format( (int(major_minor.__getitem__(0))<<24) + (int(major_minor.__getitem__(1))<<16) ))"` ])
+        if test "X$vi_cv_var_python3_stable_abi_hex" == "X"; then
+          AC_MSG_ERROR([can't parse Python 3 stable ABI version. It should be "<major>.<minor>"])
+        fi
+      fi
+
       dnl -- get abiflags for python 3.2 or higher (PEP 3149)
       AC_CACHE_CHECK(Python's abiflags,vi_cv_var_python3_abiflags,
       [
@@ -1525,6 +1538,18 @@ if test "$enable_python3interp" = "yes" -o "$enable_python3interp" = "dynamic"; 
       [ vi_cv_path_python3_epfx=`
        ${vi_cv_path_python3} -c \
        "import sys; print(sys.exec_prefix)"` ])
+
+      dnl -- python3's include path
+      AC_CACHE_CHECK(Python's include path,vi_cv_path_python3_include,
+      [ vi_cv_path_python3_include=`
+       ${vi_cv_path_python3} -c \
+       "import sysconfig; print(sysconfig.get_path(\"include\"))"` ])
+
+      dnl -- python3's platform include path
+      AC_CACHE_CHECK(Python's include path,vi_cv_path_python3_platinclude,
+      [ vi_cv_path_python3_platinclude=`
+       ${vi_cv_path_python3} -c \
+       "import sysconfig; print(sysconfig.get_path(\"platinclude\"))"` ])
 
       dnl -- python3's internal library path
 
@@ -1604,15 +1629,18 @@ eof
 	])
 
         PYTHON3_LIBS="${vi_cv_path_python3_plibs}"
-        if test "${vi_cv_path_python3_pfx}" = "${vi_cv_path_python3_epfx}"; then
-          PYTHON3_CFLAGS="-I${vi_cv_path_python3_pfx}/include/python${vi_cv_var_python3_version}${vi_cv_var_python3_abiflags}"
+        if test "${vi_cv_path_python3_include}" = "${vi_cv_path_python3_platinclude}"; then
+          PYTHON3_CFLAGS="-I${vi_cv_path_python3_include}"
         else
-          PYTHON3_CFLAGS="-I${vi_cv_path_python3_pfx}/include/python${vi_cv_var_python3_version}${vi_cv_var_python3_abiflags} -I${vi_cv_path_python3_epfx}/include/python${vi_cv_var_python3_version}${vi_cv_var_python3_abiflags}"
+          PYTHON3_CFLAGS="-I${vi_cv_path_python3_include} -I${vi_cv_path_python3_platinclude}"
         fi
-	if test "X$have_python3_config_dir" = "X1" -a "$enable_python3interp" = "dynamic"; then
-	  dnl Define PYTHON3_HOME if --with-python-config-dir was used
-	  PYTHON3_CFLAGS="${PYTHON3_CFLAGS}  -DPYTHON3_HOME='L\"${vi_cv_path_python3_pfx}\"'"
-	fi
+        if test "X$have_python3_config_dir" = "X1" -a "$enable_python3interp" = "dynamic"; then
+          dnl Define PYTHON3_HOME if --with-python-config-dir was used
+          PYTHON3_CFLAGS="${PYTHON3_CFLAGS}  -DPYTHON3_HOME='L\"${vi_cv_path_python3_pfx}\"'"
+        fi
+        if test "X$vi_cv_var_python3_stable_abi_hex" != "X"; then
+          PYTHON3_CFLAGS="${PYTHON3_CFLAGS} -DPy_LIMITED_API=${vi_cv_var_python3_stable_abi_hex}"
+        fi
         PYTHON3_SRC="if_python3.c"
         PYTHON3_OBJ="objects/if_python3.o"
 
@@ -1693,6 +1721,9 @@ dnl with dlopen(), dlsym(), dlclose()
 if test "$python_ok" = yes && test "$python3_ok" = yes; then
   AC_DEFINE(DYNAMIC_PYTHON)
   AC_DEFINE(DYNAMIC_PYTHON3)
+  if test "X$vi_cv_var_python3_stable_abi_hex" != "X"; then
+    AC_DEFINE(DYNAMIC_PYTHON3_STABLE_ABI)
+  fi
   AC_MSG_CHECKING(whether we can do without RTLD_GLOBAL for Python)
   cflags_save=$CFLAGS
   CFLAGS="$CFLAGS $PYTHON_CFLAGS"
@@ -1816,6 +1847,9 @@ elif test "$python_ok" = yes; then
   fi
 elif test "$python3_ok" = yes && test "$enable_python3interp" = "dynamic"; then
   AC_DEFINE(DYNAMIC_PYTHON3)
+  if test "X$vi_cv_var_python3_stable_abi_hex" != "X"; then
+    AC_DEFINE(DYNAMIC_PYTHON3_STABLE_ABI)
+  fi
   PYTHON3_SRC="if_python3.c"
   PYTHON3_OBJ="objects/if_python3.o"
   PYTHON3_CFLAGS="$PYTHON3_CFLAGS -DDYNAMIC_PYTHON3_DLL=\\\"${vi_cv_dll_name_python3}\\\""
@@ -2416,25 +2450,8 @@ else
 
     LDFLAGS="$ac_save_LDFLAGS"
 
-    AC_MSG_CHECKING(size of wchar_t is 2 bytes)
-    AC_CACHE_VAL(ac_cv_small_wchar_t,
-	[AC_RUN_IFELSE([AC_LANG_SOURCE([
-#include <X11/Xlib.h>
-#if STDC_HEADERS
-# include <stdlib.h>
-# include <stddef.h>
-#endif
-		int main()
-		{
-		  if (sizeof(wchar_t) <= 2)
-		    exit(1);
-		  exit(0);
-		}])],
-		ac_cv_small_wchar_t="no",
-		ac_cv_small_wchar_t="yes",
-		AC_MSG_ERROR(failed to compile test program))])
-    AC_MSG_RESULT($ac_cv_small_wchar_t)
-    if test "x$ac_cv_small_wchar_t" = "xyes" ; then
+    AC_CHECK_SIZEOF([wchar_t])
+    if test "$ac_cv_sizeof_wchar_t" -le 2; then
       AC_DEFINE(SMALL_WCHAR_T)
     fi
 
@@ -3345,7 +3362,8 @@ AC_TYPE_SIZE_T
 AC_TYPE_UID_T
 AC_TYPE_UINT32_T
 
-AC_HEADER_TIME
+AC_CHECK_HEADERS_ONCE([sys/time.h])
+
 AC_CHECK_TYPE(ino_t, long)
 AC_CHECK_TYPE(dev_t, unsigned)
 AC_C_BIGENDIAN(,,,)
@@ -3595,8 +3613,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
 	  AC_MSG_RESULT(yes)
 			AC_DEFINE(SYS_SELECT_WITH_SYS_TIME),
 	  AC_MSG_RESULT(no))
-
-dnl AC_DECL_SYS_SIGLIST
 
 dnl Checks for pty.c (copied from screen) ==========================
 AC_MSG_CHECKING(for /dev/ptc)

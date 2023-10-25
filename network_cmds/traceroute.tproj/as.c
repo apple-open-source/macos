@@ -137,23 +137,23 @@ as_setup(server)
 	return (asn);
 }
 
-int
-as_lookup(_asn, addr)
-	void *_asn;
-	struct in_addr *addr;
+unsigned int
+as_lookup(void *_asn, char *addr, sa_family_t family)
 {
 	struct aslookup *asn = _asn;
 	char buf[1024];
-	int as, rc, dlen;
+	unsigned int as;
+	int rc, dlen, plen;
 
-	as = rc = dlen = 0;
-	(void)fprintf(asn->as_f, "!r%s/32,l\n", inet_ntoa(*addr));
+	as = 0;
+	rc = dlen = 0;
+	plen = (family == AF_INET6) ? 128 : 32;
+	(void)fprintf(asn->as_f, "!r%s/%d,l\n", addr, plen);
 	(void)fflush(asn->as_f);
 
 #ifdef AS_DEBUG_FILE
 	if (asn->as_debug) {
-		(void)fprintf(asn->as_debug, ">> !r%s/32,l\n",
-		     inet_ntoa(*addr));
+		(void)fprintf(asn->as_debug, ">> !r%s/%d,l\n", addr, plen);
 		(void)fflush(asn->as_debug);
 	}
 #endif /* AS_DEBUG_FILE */
@@ -209,7 +209,7 @@ as_lookup(_asn, addr)
 
 		/* origin line is the interesting bit */
 		if (as == 0 && strncasecmp(buf, "origin:", 7) == 0) {
-			sscanf(buf + 7, " AS%d", &as);
+			sscanf(buf + 7, " AS%u", &as);
 #ifdef AS_DEBUG_FILE
 			if (asn->as_debug) {
 				(void)fprintf(asn->as_debug, "as: %d\n", as);

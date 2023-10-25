@@ -106,8 +106,11 @@ See remaining rules for examples.
 			<array>
 				<string>is-root</string>
 				<string>is-admin</string>
+				<string>entitled</string>
 				<string>default</string>
 			</array>
+			<key>version</key>
+			<integer>1</integer>
 		</dict>
 		<key>com.apple.DiskManagement.reserveKEK</key>
 		<dict>
@@ -1880,7 +1883,30 @@ See remaining rules for examples.
 		<key>timeout</key>
 		<integer>0</integer>
 	</dict>
-		<key>com.apple.backgroundtaskmanagement.manage-daemons</key>
+    <key>com.apple.auth.admin</key>
+    <dict>
+        <key>authenticate-user</key>
+        <true/>
+        <key>class</key>
+        <string>user</string>
+        <key>allow-root</key>
+        <false/>
+        <key>comment</key>
+        <string>Authenticate as an admin user.</string>
+        <key>group</key>
+        <string>admin</string>
+        <key>password-only</key>
+        <false/>
+        <key>shared</key>
+        <false/>
+        <key>session-owner</key>
+        <false/>
+        <key>timeout</key>
+        <integer>300</integer>
+        <key>version</key>
+        <integer>0</integer>
+    </dict>
+    <key>com.apple.backgroundtaskmanagement.manage-daemons</key>
 		<dict>
 			<key>allow-root</key>
 			<true/>

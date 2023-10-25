@@ -47,6 +47,8 @@ NS_ASSUME_NONNULL_BEGIN
 @class OTSecureElementPeerIdentity;
 @class OTAccountMetadataClassC;
 
+@class TrustedPeersHelperHealthCheckResult;
+
 @interface OTControlArguments : NSObject <NSSecureCoding>
 @property (strong) NSString* contextID;
 @property (strong) NSString* containerName;
@@ -261,7 +263,7 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
-              reply:(void (^)(NSError *_Nullable error))reply;
+reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply;
@@ -371,6 +373,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
 - (void)totalTrustedPeers:(OTControlArguments*)arguments
                     reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply;
+
+- (void)areRecoveryKeysDistrusted:(OTControlArguments*)arguments
+                            reply:(void (^)(BOOL distrustedRecoveryKeysExist, NSError* _Nullable error))reply;
 @end
 
 NS_ASSUME_NONNULL_END

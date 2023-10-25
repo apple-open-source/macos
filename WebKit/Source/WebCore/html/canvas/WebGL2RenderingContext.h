@@ -46,7 +46,6 @@ class WebGL2RenderingContext final : public WebGLRenderingContextBase {
     WTF_MAKE_ISO_ALLOCATED(WebGL2RenderingContext);
 public:
     static std::unique_ptr<WebGL2RenderingContext> create(CanvasBase&, GraphicsContextGLAttributes);
-    static std::unique_ptr<WebGL2RenderingContext> create(CanvasBase&, Ref<GraphicsContextGL>&&, GraphicsContextGLAttributes);
 
     ~WebGL2RenderingContext();
 
@@ -273,12 +272,11 @@ public:
     bool isTransformFeedbackActiveAndNotPaused();
 
 private:
-    WebGL2RenderingContext(CanvasBase&, GraphicsContextGLAttributes);
-    WebGL2RenderingContext(CanvasBase&, Ref<GraphicsContextGL>&&, GraphicsContextGLAttributes);
+    using WebGLRenderingContextBase::WebGLRenderingContextBase;
 
     bool isWebGL2() const final { return true; }
 
-    void initializeNewContext() final;
+    void initializeContextState() final;
 
     RefPtr<ArrayBufferView> arrayBufferViewSliceFactory(const char* const functionName, const ArrayBufferView& data, unsigned startByte, unsigned bytelength);
     RefPtr<ArrayBufferView> sliceArrayBufferView(const char* const functionName, const ArrayBufferView& data, GCGLuint srcOffset, GCGLuint length);

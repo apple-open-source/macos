@@ -365,11 +365,11 @@ man_display_page() {
 	if [ -n "$use_width" ]; then
 		mandoc_args="-O width=${use_width}"
 	fi
-	testline="mandoc -Tlint -Wunsupp >/dev/null 2>&1"
+	testline="$MANDOC -Tlint -Wunsupp >/dev/null 2>&1"
 	if [ -n "$tflag" ]; then
-		pipeline="mandoc -Tps $mandoc_args"
+		pipeline="$MANDOC -Tps $mandoc_args"
 	else
-		pipeline="mandoc $mandoc_args | $MANPAGER"
+		pipeline="$MANDOC $mandoc_args | $MANPAGER"
 	fi
 
 #ifdef __APPLE__
@@ -377,10 +377,14 @@ man_display_page() {
 #else
 #	if ! eval "$cattool $manpage | $testline" ;then
 #endif
-		if which -s groff; then
 #ifdef __APPLE__
+		# We don't provide defaults for these, so if one of them is set
+		# then we can likely go forth.
+		if [ -n "$NROFF" -o -n "$TROFF" ]; then
 			man_display_page_groff $path
+			return
 #else
+#		if which -s groff; then
 #			man_display_page_groff
 #endif
 		else
@@ -434,6 +438,30 @@ man_display_page_groff() {
 
 #ifdef __APPLE__
 	path=$1
+#endif
+
+#ifdef __APPLE__
+	# rdar://problem/113400634 -  Naive path checking; all of the tools we
+	# use need to be fully-specified in man.conf.
+	local _toolpath
+	for tool in EQN NROFF PIC TBL TROFF REFER VGRIND; do
+		eval "_toolpath=\${${tool}}"
+		if [ -n "$_toolpath" ]; then
+			case "$_toolpath" in
+			/*)
+				;;
+			*)
+				1>&2 echo "${tool} must be an absolute path (currently: ${_toolpath})"
+				ret=1
+				return
+				;;
+			esac
+		elif [ "$tool" != "VGRIND" ]; then
+			1>&2 echo "$tool must be set to render groff manpages"
+			ret=1
+			return
+		fi
+	done
 #endif
 
 	# So, we really do need to parse the manpage. First, figure out the
@@ -712,6 +740,10 @@ man_parse_args() {
 	# spaces.  Sidestep it entirely by instead shuffling the remainder of
 	# our args over into a newline-delimited $pages, which we can then
 	# process through with read.
+	if [ $# -lt 1 ]; then
+		return
+	fi
+
 	nl=$'\n'
 	for i in $(seq 1 $#); do
 		eval page=\"\${${i}}\"
@@ -944,7 +976,7 @@ parse_file() {
 xcode_path() {
 	local mpath xmanpaths
 
-	xmanpaths=$(xcode-select --show-manpaths 2>/dev/null)
+	xmanpaths=$($XCSELECT --show-manpaths 2>/dev/null)
 	if [ -n "$xmanpaths" ]; then
 		for mpath in $xmanpaths; do
 			add_to_manpath "$mpath"
@@ -1047,7 +1079,7 @@ search_whatis() {
 
 #ifdef __APPLE__
 	if [ -n "$MANSECT" ]; then
-		sectfilter="grep -E "
+		sectfilter="$GREP -E "
 		IFS=:
 		for sect in $MANSECT; do
 			sectfilter="${sectfilter} -e '\\(${sect}\\).*[[:space:]]-[[:space:]]'"
@@ -1055,7 +1087,7 @@ search_whatis() {
 		unset IFS
 		sectfilter="${sectfilter}"
 	else
-		sectfilter="cat"
+		sectfilter="$CAT"
 	fi
 
 	decho "${sectfilter}"
@@ -1070,8 +1102,8 @@ search_whatis() {
 		# Apple systems frequently won't have any directories in manpath
 		# with a whatis database.
 		if [ -n "$wlist" ]; then
-			out=$(grep -Ehi $opt -- "$key" $wlist | eval ${sectfilter} | \
-			    sed -e 's/\\n/\\\\n/g')
+			out=$($GREP -Ehi $opt -- "$key" $wlist | eval ${sectfilter} | \
+			    $SED -e 's/\\n/\\\\n/g')
 			if [ -n "$out" ]; then
 				good="$good\n$out"
 				found=1
@@ -1090,8 +1122,8 @@ search_whatis() {
 #ifdef __APPLE__
 		for path in $localwlist; do
 			out=$(/usr/libexec/makewhatis.local "-o /dev/fd/1" \
-			    $path | grep -Ehi $opt -- "$key" | eval ${sectfilter} | \
-			    sed -e 's/\\n/\\\\n/g')
+			    $path | $GREP -Ehi $opt -- "$key" | eval ${sectfilter} | \
+			    $SED -e 's/\\n/\\\\n/g')
 			if [ -n "$out" ]; then
 				good="$good\\n$out"
 				found=1
@@ -1151,12 +1183,12 @@ setup_pager() {
 	# Setup pager.
 	if [ -z "$MANPAGER" ]; then
 		if [ -n "$MANCOLOR" ]; then
-			MANPAGER="less -sR"
+			MANPAGER="$LESS_CMD -sR"
 		else
 			if [ -n "$PAGER" ]; then
 				MANPAGER="$PAGER"
 			else
-				MANPAGER="less -s"
+				MANPAGER="$LESS_CMD -s"
 			fi
 		fi
 	fi
@@ -1164,12 +1196,12 @@ setup_pager() {
 	# whatis/apropos have historically used more(1) on Apple systems,
 	if [ -z "$WHATISPAGER" ]; then
 		if [ -n "$MANCOLOR" ]; then
-			WHATISPAGER="more -ER"
+			WHATISPAGER="$MORE_CMD -ER"
 		else
 			if [ -n "$PAGER" ]; then
 				WHATISPAGER="$PAGER"
 			else
-				WHATISPAGER="more -E"
+				WHATISPAGER="$MORE_CMD -E"
 			fi
 		fi
 	fi
@@ -1284,15 +1316,33 @@ do_whatis() {
 	search_whatis whatis "$@"
 }
 
-# User's PATH setting decides on the groff-suite to pick up.
-EQN=eqn
-NROFF='groff -S -P-h -Wall -mtty-char -man'
-PIC=pic
-REFER=refer
-TBL=tbl
-TROFF='groff -S -man'
-VGRIND=vgrind
+#ifndef __APPLE__
+# Apple systems require absolute paths for the groff-suite specified in
+# /etc/man.conf.
 
+# User's PATH setting decides on the groff-suite to pick up.
+#EQN=eqn
+#NROFF='groff -S -P-h -Wall -mtty-char -man'
+#PIC=pic
+#REFER=refer
+#TBL=tbl
+#TROFF='groff -S -man'
+#VGRIND=vgrind
+#endif
+
+#ifdef __APPLE__
+# rdar://problem/113400634 - avoid PATH searches where possible
+CAT=/bin/cat
+GREP=/usr/bin/grep
+MANDOC=/usr/bin/mandoc
+SED=/usr/bin/sed
+XCSELECT=/usr/bin/xcode-select
+
+# These ones are special because they use LESS and MORE environment variables to
+# provide some default options.
+LESS_CMD=/usr/bin/less
+MORE_CMD=/usr/bin/more
+#endif
 LOCALE=/usr/bin/locale
 STTY=/bin/stty
 SYSCTL=/sbin/sysctl

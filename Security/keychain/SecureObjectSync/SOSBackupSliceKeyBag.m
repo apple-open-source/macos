@@ -742,6 +742,38 @@ CFDataRef SOSBSKBCopyRecoveryKey(SOSBackupSliceKeyBagRef bskb) {
     return result;
 }
 
+void SOSBSKBRemoveRecoveryKey(SOSBackupSliceKeyBagRef bskb) {
+    if (!bskb){
+        secerror("bskb-backup: caller passed a nil backup slice keybag");
+        return;
+    }
+
+    CFMutableDictionaryRef copy_of_wrapped_keys = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+
+    CFDictionaryForEach(bskb->wrapped_keys, ^(const void *key, const void *value) {
+        CFStringRef kpkid = asString(key, NULL);
+        CFDataRef keyData = asData(value, NULL);
+        if(kpkid && keyData && SOSKeyedPubKeyIdentifierIsPrefixed(kpkid)) {
+            CFStringRef idPrefix = SOSKeyedPubKeyIdentifierCopyPrefix(kpkid);
+            if(!CFEqualSafe(idPrefix, bskbRkbgPrefix)) {
+                CFDictionaryAddValue(copy_of_wrapped_keys, kpkid, keyData);
+            } else {
+                secnotice("bskb-backup", "skipping recovery key entry");
+            }
+            CFReleaseNull(idPrefix);
+        } else {
+            CFDictionaryAddValue(copy_of_wrapped_keys, kpkid, keyData);
+            secnotice("bskb-backup", "adding: %@:%@", kpkid, keyData);
+        }
+    });
+
+    CFReleaseNull(bskb->wrapped_keys);
+
+    bskb->wrapped_keys = CFRetainSafe(copy_of_wrapped_keys);
+
+    CFReleaseNull(copy_of_wrapped_keys);
+}
+
 bool SOSBSKBHasRecoveryKey(SOSBackupSliceKeyBagRef bskb) {
     if(!bskb) return false;
     if(SOSBSKBHasPrefixedKey(bskb, bskbRkbgPrefix)) {

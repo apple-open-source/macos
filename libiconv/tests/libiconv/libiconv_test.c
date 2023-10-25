@@ -517,6 +517,98 @@ ATF_TC_BODY(test_eilseq_out, tc)
 	iconv_close(cd);
 }
 
+ATF_TC_WITHOUT_HEAD(test_eilseq_out_all);
+ATF_TC_BODY(test_eilseq_out_all, tc)
+{
+	struct enclist encl;
+	struct enc *n1;
+	char str[] = "\xc2\xff\xff\xff";
+	iconv_t cd;
+	char *inptr, *outbuf, *outptr;
+	size_t insz, outbufsz, outsz, res;
+
+	outbufsz = sizeof(str) * MB_LEN_MAX;
+	outbuf = malloc(outbufsz + 1);
+	ATF_REQUIRE(outbuf != NULL);
+
+	memset(&encl, '\0', sizeof(encl));
+	LIST_INIT(&encl.head);
+
+	iconvlist(&test_open_all_collect_encodings, &encl);
+
+	/* Test each one against all of the others. */
+	LIST_FOREACH(n1, &encl.head, entries) {
+		errno = 0;
+		cd = iconv_open(n1->name, "UCS-4LE");
+		if (cd == (iconv_t)-1) {
+			/*
+			 * We should audit
+			 */
+			continue;
+		}
+
+		inptr = &str[0];
+		outptr = &outbuf[0];
+		insz = sizeof(str) - 1;
+		outsz = outbufsz;
+		res = iconv(cd, &inptr, &insz, &outptr, &outsz);
+
+		/*
+		 * This should either succeed, yield 1 invalid character, or
+		 * error.
+		 *
+		 * In testing, an assertion was hit in some scenarios.
+		 */
+		ATF_REQUIRE((ssize_t)res == -1 || res <= 1);
+		if ((ssize_t)res == -1) {
+			/*
+			 * We really just want ENOENT for all of the encodings
+			 * that don't have a designated invalid character to
+			 * replace the invalid character with, but some will use
+			 * citrus_none with a character that's way out of range;
+			 * these are likely bogus in some fashion, but for now
+			 * we'll just accept it.
+			 *
+			 * In testing, EINVAL was observed in some scenarios.
+			 */
+			ATF_REQUIRE(errno == ENOENT || errno == EILSEQ);
+		}
+
+		ATF_REQUIRE(iconv_close(cd) == 0);
+	}
+}
+
+/*
+ * rdar://problem/115429361 - gettext and others broken because this libiconv
+ * defaults to transliteration (euro symbol -> "EUR")
+ */
+ATF_TC_WITHOUT_HEAD(test_autoconf);
+ATF_TC_BODY(test_autoconf, tc)
+{
+	iconv_t cd;
+	char str[] = "\xe2\x82\xac";
+	char *inbuf = str, outbuf[20], *outptr = outbuf;
+	size_t insz, outsz, res;
+
+	insz = sizeof(str) - 1;
+	outsz = sizeof(outbuf) - 1;
+
+	errno = 0;
+	cd = iconv_open("ISO-8859-1", "UTF-8");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+	ATF_REQUIRE(errno == 0);
+
+	/*
+	 * XXX with //TRANSLIT, we'll want to verify that the same conversion
+	 * works but returns 1.
+	 */
+	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res == (size_t)(iconv_t)-1);
+	ATF_REQUIRE(errno == EILSEQ);
+
+	iconv_close(cd);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 
@@ -533,6 +625,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, test_utf8mac_midshort);
 	ATF_TP_ADD_TC(tp, test_open_all);
 	ATF_TP_ADD_TC(tp, test_eilseq_out);
+	ATF_TP_ADD_TC(tp, test_eilseq_out_all);
+	ATF_TP_ADD_TC(tp, test_autoconf);
 	return (atf_no_error());
 }
 

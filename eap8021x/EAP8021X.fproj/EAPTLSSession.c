@@ -42,6 +42,7 @@
 #include "printdata.h"
 #include "EAPLog.h"
 #include "EAPOLControlPrefs.h"
+#include "EAPSecurity.h"
 #include "EAPTLSSession.h"
 
 struct __EAPTLSSessionContext
@@ -261,6 +262,7 @@ EAPTLSSessionHandshake(EAPTLSSessionContextRef session_context)
     } else if (session_context->secure_transport_context != NULL) {
 	status = SSLHandshake(session_context->secure_transport_context);
     }
+    EAPLOG_FL(LOG_DEBUG, "received handshake status [%s]:[%d]", EAPSecurityErrorString(status), (int)status);
     return status;
 }
 

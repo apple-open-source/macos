@@ -42,6 +42,10 @@
 #include "cstring.h"
 #include "putilimp.h"
 #include "uassert.h"
+#if APPLE_ICU_CHANGES
+// rdar://112745117 (SEED: NSNumberFormatter not rounding correctly using roundingIncrement & usesSignificantDigits)
+#include <math.h>
+#endif // APPLE_ICU_CHANGES
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,6 +110,7 @@ static void TestCurrencySymbol(void);   // rdar://79879611
 static void TestChangingRuleset(void);  // rdar://106781569
 static void TestRgSubtag(void); // rdar://107276400
 static void TestThousandsSeparator(void); // rdar://108506710
+static void TestSigDigVsRounding(void); // rdar://112745117
 #endif  // APPLE_ICU_CHANGES
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/cnumtst/" #x)
@@ -173,6 +178,7 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestCurrencySymbol);   // rdar://79879611
     TESTCASE(TestRgSubtag); // rdar://107276400
     TESTCASE(TestThousandsSeparator); // rdar://108506710
+    TESTCASE(TestSigDigVsRounding); // rdar://112745117
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -3704,7 +3710,7 @@ static const SetMaxFracAndRoundIncrItem maxFracAndRoundIncrItems[] = {
     { "29 en_US DEC 1/3/3/0.0075", "en_US", UNUM_DECIMAL,  1,  3,  3, 0.0075, u"#,##0.0075", 0.004, u"0.0075" }, // use incr
     { "2A en_US DEC 1/3/3/0.0075", "en_US", UNUM_DECIMAL,  1,  3,  3, 0.0075, u"#,##0.0075", 0.019, u"0.0225" }, // use incr
 
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://
     // Additions for rdar://51452216
     { "30 en_US DEC 1/0/1/0.01",   "en_US", UNUM_DECIMAL,  1,  1,  3, 0.001,   u"#,##0.001", 1.23456789, u"1.235" },
@@ -3782,7 +3788,12 @@ static void TestSetMaxFracAndRoundIncr(void) {
         double roundIncr = unum_getDoubleAttribute(unf, UNUM_ROUNDING_INCREMENT);
         // If incrementRounding is not used, roundIncr is set to 0.0
         double expRoundIncr = (roundIncrUsed)? itemPtr->roundIncr: 0.0;
+#if APPLE_ICU_CHANGES
+// rdar://112745117 (SEED: NSNumberFormatter not rounding correctly using roundingIncrement & usesSignificantDigits)
+        if (fabs(roundIncr - expRoundIncr) >= 0.001) {
+#else
         if (roundIncr != expRoundIncr) {
+#endif // APPLE_ICU_CHANGES
             log_err("test %s: unum_getDoubleAttribute UNUM_ROUNDING_INCREMENT, expected %f, got %f\n",
                     itemPtr->descrip, expRoundIncr, roundIncr);
         }
@@ -4375,7 +4386,7 @@ static void TestFormatPrecision(void) {
 
 // rdar://52538227
 static void TestSetSigDigAndRoundIncr(void) {
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
     UErrorCode status = U_ZERO_ERROR;
     UNumberFormat* unum = unum_open(UNUM_PATTERN_DECIMAL, u"#", 1, "en_US", NULL, &status);
     if ( U_FAILURE(status) ) {
@@ -4414,7 +4425,7 @@ static void TestSetSigDigAndRoundIncr(void) {
         }
         unum_close(unum);
     }
-#endif  // 0 && APPLE_ICU_CHANGES
+#endif  // APPLE_ICU_CHANGES
 }
 
 // rdar://46755430
@@ -5447,6 +5458,27 @@ static void TestThousandsSeparator(void) {
     // finally set the default locale back to what it was
     uloc_setDefault(oldDefaultLocale, &locErr);
 }
+
+// rdar://112745117
+static void TestSigDigVsRounding(void) {
+    UErrorCode err = U_ZERO_ERROR;
+    UChar result[200];
+    
+    UNumberFormat* nf = unum_open(UNUM_PATTERN_DECIMAL, NULL, 0, "en_US", NULL, &err);
+    unum_setAttribute(nf, UNUM_MAX_FRACTION_DIGITS, 0);
+    unum_setAttribute(nf, UNUM_SIGNIFICANT_DIGITS_USED, 1);
+    unum_setAttribute(nf, UNUM_MIN_SIGNIFICANT_DIGITS, 0);
+    unum_setAttribute(nf, UNUM_MAX_SIGNIFICANT_DIGITS, 5);
+    unum_setAttribute(nf, UNUM_ROUNDING_MODE, UNUM_ROUND_HALFUP);
+    unum_setDoubleAttribute(nf, UNUM_ROUNDING_INCREMENT, 0.01);
+    
+    unum_formatDouble(nf, 14.54, result, 200, NULL, &err);
+    
+    assertUEquals("Wrong result", u"14.54", result);
+    
+    unum_close(nf);
+}
+
 
 #endif  // APPLE_ICU_CHANGES
 

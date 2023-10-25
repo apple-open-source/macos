@@ -1122,10 +1122,11 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementRestoreKeychain, &error)) {
                         xpc_object_t xpc_recovery_object = NULL;
                         CFDataRef recovery = SOSCCCopyRecoveryPublicKey(&error);
-                        if(recovery)
+                        if(recovery) {
                             xpc_recovery_object = _CFXPCCreateXPCObjectFromCFObject(recovery);
-
-                        xpc_dictionary_set_value(replyMessage, kSecXPCKeyResult, xpc_recovery_object);
+                            xpc_dictionary_set_value(replyMessage, kSecXPCKeyResult, xpc_recovery_object);
+                            xpc_release(xpc_recovery_object);
+                        }
                         CFReleaseNull(recovery);
                     }
                 }
@@ -1470,6 +1471,14 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 {
                     xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult,
                                             SOSCCFetchCompatibilityModeCachedValue_Server(&error));
+                    break;
+                }
+            case kSecXPCOpPushResetCircle:
+                {
+                    if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
+                        xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult,
+                                                SOSCCPushResetCircle_Server(&error));
+                    }
                     break;
                 }
 #endif /* !SECUREOBJECTSYNC */

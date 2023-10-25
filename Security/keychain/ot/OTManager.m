@@ -29,6 +29,7 @@
 #import <Foundation/NSXPCConnection_Private.h>
 
 #import <os/feature_private.h>
+#import "utilities/debugging.h"
 
 #if OCTAGON
 #import <TargetConditionals.h>
@@ -525,25 +526,27 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     secnotice("octagon", "signing out of octagon trust: %@", arguments);
 
-    __block BOOL foundContext = NO;
-
+    BOOL foundContext = NO;
+    __block NSArray* allContexts;
     dispatch_sync(self.queue, ^{
-        // We want to sign out of every context with this altDSID, while ignoring the persona.
-        for(OTCuttlefishContext* context in self.contexts.allValues) {
-            if([arguments.altDSID isEqualToString:context.activeAccount.altDSID]) {
-                secnotice("octagon", "signing out of octagon trust for context: %@", context);
-                foundContext = YES;
-
-                SFAnalyticsActivityTracker *tracker = [[self.loggerClass logger] startLogSystemMetricsForActivityNamed:OctagonActivityAccountNotAvailable];
-                NSError* error = nil;
-                [context accountNoLongerAvailable:&error];
-                if(error) {
-                    secnotice("octagon", "signing out failed: %@", error);
-                }
-                [tracker stopWithEvent:OctagonEventSignOut result:error];
-            }
-        }
+        allContexts = self.contexts.allValues;
     });
+
+    // We want to sign out of every context with this altDSID, while ignoring the persona.
+    for(OTCuttlefishContext* context in allContexts) {
+        if([arguments.altDSID isEqualToString:context.activeAccount.altDSID]) {
+            secnotice("octagon", "signing out of octagon trust for context: %@", context);
+            foundContext = YES;
+
+            SFAnalyticsActivityTracker *tracker = [[self.loggerClass logger] startLogSystemMetricsForActivityNamed:OctagonActivityAccountNotAvailable];
+            NSError* error = nil;
+            [context accountNoLongerAvailable:&error];
+            if(error) {
+                secnotice("octagon", "signing out failed: %@", error);
+            }
+            [tracker stopWithEvent:OctagonEventSignOut result:error];
+        }
+    }
 
     if(!foundContext) {
         secnotice("octagon", "Failed to find a context to sign out.");
@@ -2037,6 +2040,13 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         return;
     }
 
+    if (os_feature_enabled(Security, TTROnCRKRemoval)) {
+        SecTapToRadar *ttr = [[SecTapToRadar alloc] initTapToRadar:@"Custodian key removal"
+                                                       description:@"Please TTR unless you were just removing a recovery contact"
+                                                             radar:@"114829039"];
+        [ttr trigger];
+    }
+
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcRemoveCustodianRecoveryKeyWithUUID:uuid reply:^(NSError *_Nullable error) {
@@ -2259,6 +2269,13 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         return;
     }
 
+    if (os_feature_enabled(Security, TTROnCRKRemoval)) {
+        SecTapToRadar *ttr = [[SecTapToRadar alloc] initTapToRadar:@"Inheritance key removal"
+                                                       description:@"Please TTR unless you were just removing a legacy contact"
+                                                             radar:@"114829039"];
+        [ttr trigger];
+    }
+
     [cfshContext startOctagonStateMachine];
 
     [cfshContext rpcRemoveInheritanceKeyWithUUID:uuid reply:^(NSError *_Nullable error) {
@@ -2300,7 +2317,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [self healthCheck:[[OTControlArguments alloc] init]
 skipRateLimitingCheck:NO
                repair:NO
-                reply:^(NSError * _Nullable error) {
+                reply:^(TrustedPeersHelperHealthCheckResult *_Nullable, NSError * _Nullable error) {
         if(error) {
             secerror("octagon: error attempting to check octagon health: %@", error);
         } else {
@@ -2309,17 +2326,17 @@ skipRateLimitingCheck:NO
     }];
 }
 
-- (void)healthCheck:(OTControlArguments*)arguments
+-   (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
-             repair:(BOOL)repair
-              reply:(void (^)(NSError *_Nullable error))reply
+               repair:(BOOL)repair
+                reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply
 {
     NSError* clientError = nil;
     OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
                                                            error:&clientError];
     if(cfshContext == nil || clientError != nil) {
         secnotice("octagon", "Rejecting a healthCheck RPC for arguments (%@): %@", arguments, clientError);
-        reply(clientError);
+        reply(nil, clientError);
         return;
     }
 
@@ -2327,13 +2344,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
     [cfshContext notifyContainerChange:nil];
 
-    [cfshContext checkOctagonHealth:skipRateLimitingCheck repair:repair reply:^(NSError *error) {
-        if(error) {
-            reply(error);
-        } else {
-            reply(nil);
-        }
-    }];
+    [cfshContext checkOctagonHealth:skipRateLimitingCheck repair:repair reply:reply];
 }
 
 - (void)setSOSEnabledForPlatformFlag:(bool) value
@@ -2862,6 +2873,21 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     
     [cfshContext getAccountMetadataWithReply:reply];
 }
+    
+- (void)areRecoveryKeysDistrusted:(OTControlArguments *)arguments
+                            reply:(void (^)(BOOL, NSError * _Nullable))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a areRecoveryKeysDistrusted RPC for arguments (%@): %@", arguments, clientError);
+        reply(nil, clientError);
+        return;
+    }
+    
+    [cfshContext areRecoveryKeysDistrusted:reply];
+}    
 
 + (CKContainer*)makeCKContainer:(NSString*)containerName
 {

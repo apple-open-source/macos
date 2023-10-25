@@ -2460,8 +2460,18 @@ create_filesystem_object(struct archive_write_disk *a)
 		/* FALLTHROUGH */
 	case AE_IFREG:
 		a->tmpname = NULL;
+#ifdef __APPLE__
+		if (a->flags & ARCHIVE_EXTRACT_SECURE_SYMLINKS) {
+			a->fd = open(a->name,
+				O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC | O_NOFOLLOW_ANY, mode);
+		} else {
+			a->fd = open(a->name,
+				O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC, mode);
+		}
+#else
 		a->fd = open(a->name,
 		    O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC, mode);
+#endif
 		__archive_ensure_cloexec_flag(a->fd);
 		r = (a->fd < 0);
 		break;

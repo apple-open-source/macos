@@ -74,6 +74,10 @@
 #include <string.h>
 #include <wchar.h>
 
+#ifdef __APPLE__
+#define _ENCODING_HAVE_MBTOCSN		1
+#endif
+
 #include "citrus_namespace.h"
 #include "citrus_types.h"
 #include "citrus_module.h"
@@ -150,6 +154,7 @@ _UTF8_surrogate(wchar_t wc)
 	return (wc >= 0xd800 && wc <= 0xdfff);
 }
 
+#ifndef __APPLE__
 static __inline void
 /*ARGSUSED*/
 _citrus_UTF8_init_state(_UTF8EncodingInfo *ei __unused, _UTF8State *s)
@@ -157,6 +162,7 @@ _citrus_UTF8_init_state(_UTF8EncodingInfo *ei __unused, _UTF8State *s)
 
 	s->chlen = 0;
 }
+#endif
 
 #if 0
 static __inline void
@@ -190,7 +196,12 @@ _citrus_UTF8_mbrtowc_priv(_UTF8EncodingInfo *ei, wchar_t *pwc, char **s,
 	s0 = *s;
 
 	if (s0 == NULL) {
+#ifdef __APPLE__
+		(void)ei;
+		memset(psenc, 0, sizeof(*psenc));
+#else
 		_citrus_UTF8_init_state(ei, psenc);
+#endif
 		*nresult = 0; /* state independent */
 		return (0);
 	}

@@ -122,6 +122,7 @@ empty_pattern_magic(char_u *p, size_t len, magic_T magic_val)
 typedef struct {
     colnr_T	vs_curswant;
     colnr_T	vs_leftcol;
+    colnr_T	vs_skipcol;
     linenr_T	vs_topline;
 # ifdef FEAT_DIFF
     int		vs_topfill;
@@ -135,6 +136,7 @@ save_viewstate(viewstate_T *vs)
 {
     vs->vs_curswant = curwin->w_curswant;
     vs->vs_leftcol = curwin->w_leftcol;
+    vs->vs_skipcol = curwin->w_skipcol;
     vs->vs_topline = curwin->w_topline;
 # ifdef FEAT_DIFF
     vs->vs_topfill = curwin->w_topfill;
@@ -148,6 +150,7 @@ restore_viewstate(viewstate_T *vs)
 {
     curwin->w_curswant = vs->vs_curswant;
     curwin->w_leftcol = vs->vs_leftcol;
+    curwin->w_skipcol = vs->vs_skipcol;
     curwin->w_topline = vs->vs_topline;
 # ifdef FEAT_DIFF
     curwin->w_topfill = vs->vs_topfill;
@@ -1221,7 +1224,12 @@ cmdline_insert_reg(int *gotesc UNUSED)
 #endif
     if (c != ESC)	    // use ESC to cancel inserting register
     {
-	literally = i == Ctrl_R;
+	literally = i == Ctrl_R
+#ifdef FEAT_CLIPBOARD
+			|| (clip_star.available && c == '*')
+			|| (clip_plus.available && c == '+')
+#endif
+			;
 	cmdline_paste(c, literally, FALSE);
 
 #ifdef FEAT_EVAL
@@ -4144,6 +4152,7 @@ get_cmdline_str(void)
 get_cmdline_completion(void)
 {
     cmdline_info_T *p;
+    char_u	*buffer;
 
     if (cmdline_star > 0)
 	return NULL;
@@ -4157,10 +4166,19 @@ get_cmdline_completion(void)
 	return NULL;
 
     char_u *cmd_compl = cmdcomplete_type_to_str(p->xpc->xp_context);
-    if (cmd_compl != NULL)
-	return vim_strsave(cmd_compl);
+    if (cmd_compl == NULL)
+	return NULL;
 
-    return NULL;
+    if (p->xpc->xp_context == EXPAND_USER_LIST || p->xpc->xp_context == EXPAND_USER_DEFINED)
+    {
+	buffer = alloc(STRLEN(cmd_compl) + STRLEN(p->xpc->xp_arg) + 2);
+	if (buffer == NULL)
+	    return NULL;
+	sprintf((char *)buffer, "%s,%s", cmd_compl, p->xpc->xp_arg);
+	return buffer;
+    }
+
+    return vim_strsave(cmd_compl);
 }
 
 /*
@@ -4486,8 +4504,12 @@ open_cmdwin(void)
     {
 	if (p_wc == TAB)
 	{
+	    // Make Tab start command-line completion: CTRL-X CTRL-V
 	    add_map((char_u *)"<buffer> <Tab> <C-X><C-V>", MODE_INSERT, TRUE);
 	    add_map((char_u *)"<buffer> <Tab> a<C-X><C-V>", MODE_NORMAL, TRUE);
+
+	    // Make S-Tab work like CTRL-P in command-line completion
+	    add_map((char_u *)"<buffer> <S-Tab> <C-P>", MODE_INSERT, TRUE);
 	}
 	set_option_value_give_err((char_u *)"ft",
 					       0L, (char_u *)"vim", OPT_LOCAL);
@@ -4541,7 +4563,7 @@ open_cmdwin(void)
     if (restart_edit != 0)	// autocmd with ":startinsert"
 	stuffcharReadbuff(K_NOP);
 
-    i = RedrawingDisabled;
+    int save_RedrawingDisabled = RedrawingDisabled;
     RedrawingDisabled = 0;
 
     /*
@@ -4549,7 +4571,7 @@ open_cmdwin(void)
      */
     main_loop(TRUE, FALSE);
 
-    RedrawingDisabled = i;
+    RedrawingDisabled = save_RedrawingDisabled;
 
 # ifdef FEAT_FOLDING
     save_KeyTyped = KeyTyped;
@@ -4600,11 +4622,6 @@ open_cmdwin(void)
 		stuffReadbuff((char_u *)p);
 		stuffcharReadbuff(CAR);
 	    }
-	}
-	else if (cmdwin_result == K_XF2)	// :qa typed
-	{
-	    ccline.cmdbuff = vim_strsave((char_u *)"qa");
-	    cmdwin_result = CAR;
 	}
 	else if (cmdwin_result == Ctrl_C)
 	{

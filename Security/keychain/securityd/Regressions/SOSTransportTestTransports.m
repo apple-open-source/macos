@@ -322,11 +322,11 @@ SOSAccount* SOSTransportCircleTestGetAccount(SOSCircleStorageTransportTest* tran
 }
 -(CFStringRef) SOSTransportMessageGetCircleName
 {
-    return (__bridge CFStringRef)circleName;
+    return (__bridge CFStringRef)self.circleName;
 }
 -(CFTypeRef) SOSTransportMessageGetEngine
 {
-    return engine;
+    return self.engine;
 }
 -(SOSAccount*) SOSTransportMessageGetAccount
 {
@@ -446,7 +446,7 @@ static bool sendToPeer(SOSMessageKVSTest* transport, CFStringRef circleName, CFS
                 bool ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount], (SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peerID, NULL, &sentCallback, error);
                 if (message_to_send)    {
                     CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, peerID, message_to_send, NULL);
-                    CFDictionarySetValue(SOSTransportMessageKVSTestGetChanges((SOSMessageKVSTest*)transport), (__bridge CFStringRef)self->circleName, peer_dict);
+                    CFDictionarySetValue(SOSTransportMessageKVSTestGetChanges((SOSMessageKVSTest*)transport), (__bridge CFStringRef)self.circleName, peer_dict);
                     SOSEngineMessageCallCallback(sentCallback, ok);
                     CFReleaseSafe(peer_dict);
                 }
@@ -467,7 +467,7 @@ static bool sendToPeer(SOSMessageKVSTest* transport, CFStringRef circleName, CFS
         if (isString(key) && isData(value)) {
             CFStringRef peerID = (CFStringRef) key;
             CFDataRef message = (CFDataRef) value;
-            bool rx = sendToPeer((SOSMessageKVSTest*)transport, (__bridge CFStringRef)transport->circleName, peerID, message, error);
+            bool rx = sendToPeer((SOSMessageKVSTest*)transport, (__bridge CFStringRef)transport.circleName, peerID, message, error);
             result &= rx;
         }
     });

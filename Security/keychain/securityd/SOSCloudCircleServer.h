@@ -154,6 +154,7 @@ CFDataRef SOSCCCopyCircleJoiningBlob_Server(SOSPeerInfoRef applicant, CFErrorRef
 bool SOSCCJoinWithCircleJoiningBlob_Server(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error);
 CFDataRef SOSCCCopyInitialSyncData_Server(uint32_t flags, CFErrorRef *error);
 bool SOSCCCleanupKVSKeys_Server(CFErrorRef *error);
+bool SOSCCPushResetCircle_Server(CFErrorRef* error);
 
 bool SOSCCAccountHasPublicKey_Server(CFErrorRef *error);
 

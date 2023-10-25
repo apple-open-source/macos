@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -33,6 +33,11 @@
 #include <pcap/pcap.h>
 #include <uuid/uuid.h>
 #include <os/availability.h>
+
+#ifndef __PCAPNG_BLOCK_T__
+#define __PCAPNG_BLOCK_T__
+typedef struct pcapng_block * pcapng_block_t;
+#endif /* __PCAPNG_BLOCK_T__ */
 
 #ifdef __cplusplus
 extern "C" {
@@ -220,6 +225,42 @@ extern int pcap_get_compression_stats(pcap_t *, void *, size_t);
  */
 SPI_AVAILABLE(macos(10.8), ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 extern int pcap_set_want_pktap(pcap_t *, int);
+
+/*
+ * Settings to be able to write more than the interface MTU
+ */
+#define HAS_PCAP_MAX_WRITE_SIZE 1
+
+SPI_AVAILABLE(macos(14.1), ios(17.1), tvos(17.1), watchos(10.1), bridgeos(8.1))
+extern int pcap_set_max_write_size(pcap_t *, u_int);
+
+SPI_AVAILABLE(macos(14.1), ios(17.1), tvos(17.1), watchos(10.1), bridgeos(8.1))
+extern int pcap_get_max_write_size(pcap_t *, u_int *);
+
+/*
+ * Settings to be able to write more than the interface MTU
+ */
+#define HAS_PCAP_SEND_MULTIPLE 1
+
+struct pcap_pkt_hdr_priv {
+	bpf_u_int32       pcap_priv_hdr_len;      /* length of this structure (allows for extension) */
+	bpf_u_int32       pcap_priv_flags;        /* none currently defined, pass 0 */
+	bpf_u_int32       pcap_priv_len;          /* length of this packet data in the iovecs */
+	bpf_u_int32       pcap_priv_iov_count;    /* number of elements in pcap_priv_iov */
+	struct iovec      *pcap_priv_iov_array;	/* scatter gather array of the data */
+};
+
+SPI_AVAILABLE(macos(14.1), ios(17.1), tvos(17.1), watchos(10.1), bridgeos(8.1))
+extern int pcap_set_send_multiple(pcap_t *, int);
+
+SPI_AVAILABLE(macos(14.1), ios(17.1), tvos(17.1), watchos(10.1), bridgeos(8.1))
+extern int pcap_get_send_multiple(pcap_t *, int *);
+
+/*
+ * Returns the number of packet sent or PCAP_ERROR
+ */
+SPI_AVAILABLE(macos(14.1), ios(17.1), tvos(17.1), watchos(10.1), bridgeos(8.1))
+extern int pcap_sendpacket_multiple(pcap_t *pcap, const u_int count, const struct pcap_pkt_hdr_priv *pcap_pkt_array);
 
 #ifdef __cplusplus
 }

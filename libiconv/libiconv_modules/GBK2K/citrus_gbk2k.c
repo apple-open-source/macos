@@ -73,6 +73,7 @@ typedef struct {
 #define _ENCODING_IS_STATE_DEPENDENT	0
 #define _STATE_NEEDS_EXPLICIT_INIT(_ps_)	0
 
+#ifndef __APPLE__
 static __inline void
 /*ARGSUSED*/
 _citrus_GBK2K_init_state(_GBK2KEncodingInfo * __restrict ei __unused,
@@ -81,6 +82,7 @@ _citrus_GBK2K_init_state(_GBK2KEncodingInfo * __restrict ei __unused,
 
 	memset(s, 0, sizeof(*s));
 }
+#endif
 
 #if 0
 static __inline void

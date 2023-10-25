@@ -2263,6 +2263,51 @@ static void SOSAccountRemoveKVSKeys(SOSAccount* account, NSArray* keysToRemove, 
     CFReleaseNull(uuid);
 }
 
+void SOSAccountWriteEmptyCircleToKVS(SOSAccount* account)
+{
+    NSMutableDictionary *resetCircle = [NSMutableDictionary dictionary];
+    CFStringRef circleName = SOSCircleGetName(account.trust.trustedCircle);
+    
+    CFErrorRef createError = NULL;
+    NSString* circleKey = CFBridgingRelease(SOSCircleKeyCreateWithName(circleName, &createError));
+
+    if (!circleKey || createError) {
+        secerror("SOSAccountWriteEmptyCircleToKVS failed to create circle key: %@", createError);
+        CFReleaseNull(createError);
+        return;
+    }
+
+    CFErrorRef createCircleError = NULL;
+    SOSCircleRef newResetCircle = SOSCircleCreate(kCFAllocatorDefault, circleName, &createCircleError);
+    if (!newResetCircle || createCircleError) {
+        secerror("SOSAccountWriteEmptyCircleToKVS failed to create circle key: %@", createCircleError);
+        CFReleaseNull(createCircleError);
+        CFReleaseNull(newResetCircle);
+        return;
+    }
+
+    CFDataRef circle_data = SOSCircleCopyEncodedData(newResetCircle, kCFAllocatorDefault, NULL);
+
+    CFReleaseNull(newResetCircle);
+
+    resetCircle[circleKey] = CFBridgingRelease(circle_data);
+
+    dispatch_semaphore_t waitSemaphore = dispatch_semaphore_create(0);
+    dispatch_time_t finishTime = dispatch_time(DISPATCH_TIME_NOW, maxTimeToWaitInSeconds);
+    dispatch_queue_t processQueue = dispatch_get_global_queue(SOS_ACCOUNT_PRIORITY, 0);
+
+    CloudKeychainReplyBlock replyBlock = ^ (CFDictionaryRef returnedValues, CFErrorRef error){
+        if (error){
+            secerror("SOSCloudKeychainPutObjectsInCloud returned error: %@", error);
+        }
+        dispatch_semaphore_signal(waitSemaphore);
+    };
+
+    SOSCloudKeychainPutObjectsInCloud((__bridge CFDictionaryRef)(resetCircle), processQueue, replyBlock);
+    dispatch_semaphore_wait(waitSemaphore, finishTime);
+}
+
+
 static void SOSAccountWriteLastCleanupTimestampToKVS(SOSAccount* account)
 {
     NSDate *now = [NSDate date];

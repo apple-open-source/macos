@@ -74,6 +74,7 @@ typedef struct {
 #define _ENCODING_IS_STATE_DEPENDENT		0
 #define _STATE_NEEDS_EXPLICIT_INIT(_ps_)	0
 
+#ifndef __APPLE__
 static __inline void
 /*ARGSUSED*/
 _citrus_DECHanyu_init_state(_DECHanyuEncodingInfo * __restrict ei __unused,
@@ -82,6 +83,7 @@ _citrus_DECHanyu_init_state(_DECHanyuEncodingInfo * __restrict ei __unused,
 
 	psenc->chlen = 0;
 }
+#endif
 
 #if 0
 static __inline void
@@ -178,7 +180,12 @@ _citrus_DECHanyu_mbrtowc_priv(_DECHanyuEncodingInfo * __restrict ei,
 	int ch;
 
 	if (*s == NULL) {
+#ifdef __APPLE__
+		(void)ei;
+		memset(psenc, 0, sizeof(*psenc));
+#else
 		_citrus_DECHanyu_init_state(ei, psenc);
+#endif
 		*nresult = _ENCODING_IS_STATE_DEPENDENT;
 		return (0);
 	}

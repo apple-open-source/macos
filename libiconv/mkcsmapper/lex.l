@@ -86,6 +86,7 @@ int linenumber = 1;
 "DST_ILSEQ"	{ return (R_DST_ILSEQ); }
 "DST_UNIT_BITS"	{ return (R_DST_UNIT_BITS); }
 "BEGIN_MAP"	{ return (R_BEGIN_MAP); }
+"TRANSLIT"	{ return (R_TRANSLIT); }
 "END_MAP"	{ return (R_END_MAP); }
 "INVALID"	{ return (R_INVALID); }
 "ILSEQ"		{ return (R_ILSEQ); }

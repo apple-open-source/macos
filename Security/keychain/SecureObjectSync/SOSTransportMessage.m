@@ -23,29 +23,31 @@ static const CFStringRef kSecAccessGroupCKKS                 = CFSTR("com.apple.
 
 @implementation SOSMessage
 
-@synthesize engine = engine;
-@synthesize account = account;
-@synthesize circleName = circleName;
-
 -(id) initWithAccount:(SOSAccount*)acct andName:(NSString*)name
 {
     if ((self = [super init])) {
-        SOSEngineRef e = SOSDataSourceFactoryGetEngineForDataSourceName(acct.factory, (__bridge CFStringRef)name, NULL);
-        engine = e;
-        account = acct;
-        circleName = [[NSString alloc]initWithString:name];
+        _engine = CFRetainSafe(SOSDataSourceFactoryGetEngineForDataSourceName(acct.factory, (__bridge CFStringRef)name, NULL));
+        _account = acct;
+        _circleName = [[NSString alloc]initWithString:name];
     }
     return self;
 }
 
+- (void)dealloc {
+    CFReleaseNull(_engine);
+}
+
 -(CFTypeRef) SOSTransportMessageGetEngine
 {
-    return engine;
+    if (self.engine == NULL) {
+        self.engine = CFRetainSafe(SOSDataSourceFactoryGetEngineForDataSourceName(self.account.factory, (__bridge CFStringRef)self.circleName, NULL));
+    }
+    return self.engine;
 }
 
 -(CFStringRef) SOSTransportMessageGetCircleName
 {
-    return (__bridge CFStringRef)(circleName);
+    return (__bridge CFStringRef)(self.circleName);
 }
 
 -(CFIndex) SOSTransportMessageGetTransportType
@@ -55,7 +57,7 @@ static const CFStringRef kSecAccessGroupCKKS                 = CFSTR("com.apple.
 
 -(SOSAccount*) SOSTransportMessageGetAccount
 {
-    return account;
+    return self.account;
 }
 
 -(bool) SOSTransportMessageSendMessages:(SOSMessage*) transport pm:(CFDictionaryRef) peer_messages err:(CFErrorRef *)error

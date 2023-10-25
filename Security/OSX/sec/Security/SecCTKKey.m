@@ -630,7 +630,7 @@ CFDataRef SecKeyCreateAttestation(SecKeyRef keyRef, SecKeyRef toAttestKeyRef, CF
     }
 
     NSError *err;
-#if 0 // Once CTK change with this method arrives in SDK, we should switch to this more sane code.
+#if 0 // Once CTK change with this method arrives in SDK, we should switch to this more concise code.
     NSData *attestation = [key.tokenObject attestKeyObject:keyToAttest.tokenObject nonce:key.sessionParameters[(__bridge id)kSecKeyParameterSETokenAttestationNonce] error:&err];
 #else
     NSMutableDictionary *parameters = @{

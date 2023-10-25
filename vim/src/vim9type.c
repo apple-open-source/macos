@@ -426,7 +426,7 @@ typval2type_int(typval_T *tv, int copyID, garray_T *type_gap, int flags)
 	if (tv->vval.v_number == VVAL_NONE)
 	    return &t_none;
 	if (tv->vval.v_number == VVAL_TRUE
-		|| tv->vval.v_number == VVAL_TRUE)
+		|| tv->vval.v_number == VVAL_FALSE)
 	    return &t_bool;
 	return &t_unknown;
     }
@@ -678,7 +678,11 @@ check_typval_arg_type(
 {
     where_T	where = WHERE_INIT;
 
-    where.wt_index = arg_idx;
+    if (arg_idx > 0)
+    {
+	where.wt_index = arg_idx;
+	where.wt_kind = WT_ARGUMENT;
+    }
     where.wt_func_name = func_name;
     return check_typval_type(expected, actual_tv, where);
 }
@@ -718,7 +722,7 @@ check_typval_type(type_T *expected, typval_T *actual_tv, where_T where)
 	{
 	    // If a type check is needed that means assigning "any" or
 	    // "unknown" to a more specific type, which fails here.
-	    // Execpt when it looks like a lambda, since they have an
+	    // Except when it looks like a lambda, since they have an
 	    // incomplete type.
 	    type_mismatch_where(expected, actual_type, where);
 	    res = FAIL;
@@ -733,7 +737,11 @@ arg_type_mismatch(type_T *expected, type_T *actual, int arg_idx)
 {
     where_T	where = WHERE_INIT;
 
-    where.wt_index = arg_idx;
+    if (arg_idx > 0)
+    {
+	where.wt_index = arg_idx;
+	where.wt_kind = WT_ARGUMENT;
+    }
     type_mismatch_where(expected, actual, where);
 }
 
@@ -744,25 +752,42 @@ type_mismatch_where(type_T *expected, type_T *actual, where_T where)
     char *typename1 = type_name(expected, &tofree1);
     char *typename2 = type_name(actual, &tofree2);
 
-    if (where.wt_index > 0)
+    switch (where.wt_kind)
     {
-	if (where.wt_func_name == NULL)
-	    semsg(_(where.wt_variable
-			 ? e_variable_nr_type_mismatch_expected_str_but_got_str
-		       : e_argument_nr_type_mismatch_expected_str_but_got_str),
-					 where.wt_index, typename1, typename2);
-	else
-	    semsg(_(where.wt_variable
-		  ? e_variable_nr_type_mismatch_expected_str_but_got_str_in_str
-		: e_argument_nr_type_mismatch_expected_str_but_got_str_in_str),
-		     where.wt_index, typename1, typename2, where.wt_func_name);
+	case WT_MEMBER:
+	    semsg(_(e_member_str_type_mismatch_expected_str_but_got_str),
+		    where.wt_func_name, typename1, typename2);
+	    break;
+	case WT_METHOD:
+	    semsg(_(e_method_str_type_mismatch_expected_str_but_got_str),
+		    where.wt_func_name, typename1, typename2);
+	    break;
+	case WT_VARIABLE:
+	    if (where.wt_func_name == NULL)
+		semsg(_(e_variable_nr_type_mismatch_expected_str_but_got_str),
+			where.wt_index, typename1, typename2);
+	    else
+		semsg(_(e_variable_nr_type_mismatch_expected_str_but_got_str_in_str),
+			where.wt_index, typename1, typename2, where.wt_func_name);
+	    break;
+	case WT_ARGUMENT:
+	    if (where.wt_func_name == NULL)
+		semsg(_(e_argument_nr_type_mismatch_expected_str_but_got_str),
+			where.wt_index, typename1, typename2);
+	    else
+		semsg(_(e_argument_nr_type_mismatch_expected_str_but_got_str_in_str),
+			where.wt_index, typename1, typename2, where.wt_func_name);
+	    break;
+	case WT_UNKNOWN:
+	    if (where.wt_func_name == NULL)
+		semsg(_(e_type_mismatch_expected_str_but_got_str),
+			typename1, typename2);
+	    else
+		semsg(_(e_type_mismatch_expected_str_but_got_str_in_str),
+			typename1, typename2, where.wt_func_name);
+	    break;
     }
-    else if (where.wt_func_name == NULL)
-	semsg(_(e_type_mismatch_expected_str_but_got_str),
-							 typename1, typename2);
-    else
-	semsg(_(e_type_mismatch_expected_str_but_got_str_in_str),
-				     typename1, typename2, where.wt_func_name);
+
     vim_free(tofree1);
     vim_free(tofree2);
 }
@@ -882,21 +907,10 @@ check_type_maybe(
 		return MAYBE;	// use runtime type check
 	    if (actual->tt_type != VAR_OBJECT)
 		return FAIL;	// don't use tt_class
+	    if (actual->tt_class == NULL)
+		return OK;	// A null object matches
 
-	    // check the class, base class or an implemented interface matches
-	    class_T *cl;
-	    for (cl = actual->tt_class; cl != NULL; cl = cl->class_extends)
-	    {
-		if (expected->tt_class == cl)
-		    break;
-		int i;
-		for (i = cl->class_interface_count - 1; i >= 0; --i)
-		    if (expected->tt_class == cl->class_interfaces_cl[i])
-			break;
-		if (i >= 0)
-		    break;
-	    }
-	    if (cl == NULL)
+	    if (class_instance_of(actual->tt_class, expected->tt_class) == FALSE)
 		ret = FAIL;
 	}
 
@@ -970,7 +984,10 @@ check_argument_types(
 	}
 	else
 	    expected = type->tt_args[i];
-	if (check_typval_arg_type(expected, tv, NULL, i + 1) == FAIL)
+
+	// check the type, unless the value is v:none
+	if ((tv->v_type != VAR_SPECIAL || tv->vval.v_number != VVAL_NONE)
+		   && check_typval_arg_type(expected, tv, NULL, i + 1) == FAIL)
 	    return FAIL;
     }
     return OK;

@@ -595,10 +595,10 @@
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
-              reply:(void (^)(NSError *_Nullable error))reply
+              reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
-        reply(error);
+        reply(nil, error);
     }] healthCheck:arguments skipRateLimitingCheck:skipRateLimitingCheck repair:repair reply:reply];
 }
 
@@ -848,6 +848,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection: ^(NSError* error) {
         reply(nil, error);
     }] totalTrustedPeers:arguments reply:reply];
+}
+
+- (void)areRecoveryKeysDistrusted:(OTControlArguments*)arguments
+                            reply:(void (^)(BOOL distrustedRecoveryKeysExist, NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(NO, error);
+    }] areRecoveryKeysDistrusted:arguments reply:reply];
 }
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {

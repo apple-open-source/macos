@@ -44,6 +44,10 @@
 #include <string.h>
 #include <wchar.h>
 
+#ifdef __APPLE__
+#define _ENCODING_HAVE_MBTOCSN		1
+#endif
+
 #include "citrus_namespace.h"
 #include "citrus_types.h"
 #include "citrus_module.h"
@@ -92,6 +96,7 @@ typedef struct {
 #define _STATE_NEEDS_EXPLICIT_INIT(_ps_)	0
 
 
+#ifndef __APPLE__
 static __inline void
 /*ARGSUSED*/
 _citrus_UTF1632_init_state(_UTF1632EncodingInfo *ei __unused,
@@ -100,6 +105,7 @@ _citrus_UTF1632_init_state(_UTF1632EncodingInfo *ei __unused,
 
 	memset(s, 0, sizeof(*s));
 }
+#endif
 
 static int
 _citrus_UTF1632_mbrtowc_priv(_UTF1632EncodingInfo *ei, wchar_t *pwc,
@@ -113,7 +119,11 @@ _citrus_UTF1632_mbrtowc_priv(_UTF1632EncodingInfo *ei, wchar_t *pwc,
 	s0 = *s;
 
 	if (s0 == NULL) {
+#ifdef __APPLE__
+		memset(psenc, 0, sizeof(*psenc));
+#else
 		_citrus_UTF1632_init_state(ei, psenc);
+#endif
 		*nresult = 0; /* state independent */
 		return (0);
 	}

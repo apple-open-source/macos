@@ -1,8 +1,9 @@
 " Vim support file to define the syntax selection menu
 " This file is normally sourced from menu.vim.
 "
-" Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2022 Oct 04
+" Maintainer:	The Vim Project <https://github.com/vim/vim>
+" Last Change:	2023 Aug 10
+" Former Maintainer:	Bram Moolenaar <Bram@vim.org>
 
 " Define the SetSyn function, used for the Syntax menu entries.
 " Set 'filetype' and also 'syntax' if it is manually selected.
@@ -644,6 +645,7 @@ an 50.170.390 &Syntax.WXYZ.XFree86\ Config :cal SetSyn("xf86conf")<CR>
 an 50.170.410 &Syntax.WXYZ.YAML :cal SetSyn("yaml")<CR>
 an 50.170.420 &Syntax.WXYZ.Yacc :cal SetSyn("yacc")<CR>
 an 50.170.440 &Syntax.WXYZ.Zimbu :cal SetSyn("zimbu")<CR>
+an 50.170.440 &Syntax.WXYZ.Zserio:cal SetSyn("zserio")<CR>
 
 " The End Of The Syntax Menu
 

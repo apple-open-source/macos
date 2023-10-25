@@ -691,16 +691,15 @@ win_redr_status_matches(
 
 /*
  * Get the next or prev cmdline completion match. The index of the match is set
- * in "p_findex"
+ * in "xp->xp_selected"
  */
     static char_u *
 get_next_or_prev_match(
 	int		mode,
 	expand_T	*xp,
-	int		*p_findex,
 	char_u		*orig_save)
 {
-    int findex = *p_findex;
+    int findex = xp->xp_selected;
     int ht;
 
     if (xp->xp_numfiles <= 0)
@@ -778,7 +777,7 @@ get_next_or_prev_match(
     else if (p_wmnu)
 	win_redr_status_matches(xp, xp->xp_numfiles, xp->xp_files,
 		findex, cmd_showtail);
-    *p_findex = findex;
+    xp->xp_selected = findex;
 
     if (findex == -1)
 	return vim_strsave(orig_save);
@@ -957,7 +956,6 @@ ExpandOne(
     int		mode)
 {
     char_u	*ss = NULL;
-    static int	findex;
     static char_u *orig_save = NULL;	// kept value of orig
     int		orig_saved = FALSE;
     int		i;
@@ -966,13 +964,14 @@ ExpandOne(
     // first handle the case of using an old match
     if (mode == WILD_NEXT || mode == WILD_PREV
 	    || mode == WILD_PAGEUP || mode == WILD_PAGEDOWN)
-	return get_next_or_prev_match(mode, xp, &findex, orig_save);
+	return get_next_or_prev_match(mode, xp, orig_save);
 
     if (mode == WILD_CANCEL)
 	ss = vim_strsave(orig_save ? orig_save : (char_u *)"");
     else if (mode == WILD_APPLY)
-	ss = vim_strsave(findex == -1 ? (orig_save ?
-		    orig_save : (char_u *)"") : xp->xp_files[findex]);
+	ss = vim_strsave(xp->xp_selected == -1
+			    ? (orig_save ? orig_save : (char_u *)"")
+			    : xp->xp_files[xp->xp_selected]);
 
     // free old names
     if (xp->xp_numfiles != -1 && mode != WILD_ALL && mode != WILD_LONGEST)
@@ -985,7 +984,7 @@ ExpandOne(
 	if (compl_match_array != NULL)
 	    cmdline_pum_remove();
     }
-    findex = 0;
+    xp->xp_selected = 0;
 
     if (mode == WILD_FREE)	// only release file name
 	return NULL;
@@ -1003,7 +1002,7 @@ ExpandOne(
     if (mode == WILD_LONGEST && xp->xp_numfiles > 0)
     {
 	ss = find_longest_match(xp, options);
-	findex = -1;			    // next p_wc gets first one
+	xp->xp_selected = -1;			// next p_wc gets first one
     }
 
     // Concatenate all matching names.  Unless interrupted, this can be slow
@@ -3937,14 +3936,12 @@ wildmenu_process_key(cmdline_info_T *cclp, int key, expand_T *xp)
 wildmenu_cleanup(cmdline_info_T *cclp UNUSED)
 {
     int skt = KeyTyped;
-#ifdef FEAT_EVAL
-    int old_RedrawingDisabled = RedrawingDisabled;
-#endif
 
     if (!p_wmnu || wild_menu_showing == 0)
 	return;
 
 #ifdef FEAT_EVAL
+    int save_RedrawingDisabled = RedrawingDisabled;
     if (cclp->input_fn)
 	RedrawingDisabled = 0;
 #endif
@@ -3974,7 +3971,7 @@ wildmenu_cleanup(cmdline_info_T *cclp UNUSED)
     wild_menu_showing = 0;
 #ifdef FEAT_EVAL
     if (cclp->input_fn)
-	RedrawingDisabled = old_RedrawingDisabled;
+	RedrawingDisabled = save_RedrawingDisabled;
 #endif
 }
 
@@ -4016,20 +4013,46 @@ f_getcompletion(typval_T *argvars, typval_T *rettv)
     ExpandInit(&xpc);
     if (STRCMP(type, "cmdline") == 0)
     {
-	set_one_cmd_context(&xpc, pat);
+	int cmdline_len = (int)STRLEN(pat);
+	set_cmd_context(&xpc, pat, cmdline_len, cmdline_len, FALSE);
 	xpc.xp_pattern_len = (int)STRLEN(xpc.xp_pattern);
-	xpc.xp_col = (int)STRLEN(pat);
+	xpc.xp_col = cmdline_len;
     }
     else
     {
 	xpc.xp_pattern = pat;
 	xpc.xp_pattern_len = (int)STRLEN(xpc.xp_pattern);
+	xpc.xp_line = pat;
 
 	xpc.xp_context = cmdcomplete_str_to_type(type);
 	if (xpc.xp_context == EXPAND_NOTHING)
 	{
 	    semsg(_(e_invalid_argument_str), type);
 	    return;
+	}
+
+	if (xpc.xp_context == EXPAND_USER_DEFINED)
+	{
+	    // Must be "custom,funcname" pattern
+	    if (STRNCMP(type, "custom,", 7) != 0)
+	    {
+		semsg(_(e_invalid_argument_str), type);
+		return;
+	    }
+
+	    xpc.xp_arg = type + 7;
+	}
+
+	if (xpc.xp_context == EXPAND_USER_LIST)
+	{
+	    // Must be "customlist,funcname" pattern
+	    if (STRNCMP(type, "customlist,", 11) != 0)
+	    {
+		semsg(_(e_invalid_argument_str), type);
+		return;
+	    }
+
+	    xpc.xp_arg = type + 11;
 	}
 
 # if defined(FEAT_MENU)

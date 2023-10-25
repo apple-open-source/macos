@@ -53,7 +53,7 @@ OS_ASSUME_PTR_ABI_SINGLE_BEGIN
 #define __OS_COMPILETIME_ASSERT__(e) __extension__({ \
 	_Pragma("clang diagnostic push") \
 	_Pragma("clang diagnostic ignored \"-Wvla\"") \
-	char __compile_time_assert__[(e) ? 1 : -1];	\
+	__attribute__((uninitialized)) char __compile_time_assert__[(e) ? 1 : -1];	\
 	(void)__compile_time_assert__; \
 	_Pragma("clang diagnostic pop") \
 })

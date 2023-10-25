@@ -7,10 +7,8 @@
 @class SOSMessage;
 
 @interface SOSMessageKVS : SOSMessage
-{
-    CFMutableDictionaryRef pending_changes;
-}
-@property (atomic) CFMutableDictionaryRef pending_changes;
+
+@property (nonatomic) CFMutableDictionaryRef pending_changes;
 
 -(CFIndex) SOSTransportMessageGetTransportType;
 -(CFStringRef) SOSTransportMessageGetCircleName;

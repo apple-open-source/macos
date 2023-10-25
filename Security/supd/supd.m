@@ -310,7 +310,6 @@ _anyValueFromDictionary(NSDictionary *dictionary)
        requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
        requireiCloudAnalytics:(BOOL)requireiCloudAnalytics NS_DESIGNATED_INITIALIZER;
 
-@property (readwrite, nonatomic) BOOL isStoreOpen;
 @property (readonly, nonatomic, nullable) SFAnalyticsSQLiteStore *store;
 @property (readonly, nonatomic) dispatch_queue_t queue;
 
@@ -441,7 +440,6 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
        requireiCloudAnalytics:(BOOL)requireiCloudAnalytics
 {
     if (self = [super init]) {
-        _isStoreOpen = NO;
         _store = store;
         _queue = queue;
         _name = name;
@@ -454,22 +452,20 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
 - (void)withStore:(void (^ NS_NOESCAPE)(SFAnalyticsSQLiteStore *store))block
 {
     dispatch_sync(self.queue, ^{
-        if (self.isStoreOpen) {
-            block(self.store);
-            return;
-        }
         NSError *error;
-        self.isStoreOpen = [self.store openWithError:&error];
-        if (!self.isStoreOpen && !(error && error.code == SQLITE_AUTH)) {
+        BOOL didStoreOpen = [self.store openWithError:&error];
+        if (!didStoreOpen && !(error && error.code == SQLITE_AUTH)) {
             // If opening the store fails, we'll log an error, but still call
             // the block. Attempting to use the store will likely fail, but we
             // don't want to leave the caller hanging.
             secerror("SFAnalytics: could not open db at init, will try again later. Error: %@", error);
         }
         block(self.store);
+        if (didStoreOpen) {
+            [self.store close];
+        }
     });
 }
-
 @end
 
 @interface SFAnalyticsTopic ()

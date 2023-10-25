@@ -267,6 +267,7 @@ enum SecXPCOperation {
     kSecXPCOpSetSOSCompatibilityMode,
     kSecXPCOpFetchCompatibilityMode,
     kSecXPCOpFetchCompatibilityModeCachedValue,
+    kSecXPCOpPushResetCircle,
     /* after this is free for all */
     kSecXPCOpWhoAmI,
     kSecXPCOpTransmogrifyToSyncBubble,
@@ -440,6 +441,7 @@ struct securityd {
     bool (*soscc_SOSCCSetCompatibilityMode)(bool compatibilityMode, CFErrorRef* error);
     bool (*soscc_SOSCCFetchCompatibilityMode)(CFErrorRef* error);
     bool (*soscc_SOSCCFetchCompatibilityModeCachedValue)(CFErrorRef* error);
+    bool (*soscc_SOSCCPushResetCircle)(CFErrorRef* error);
     CFTypeRef (*soscc_status)(void);
     bool (*sec_fill_security_client_muser)(SecurityClient *client);
     /* otherstuff */

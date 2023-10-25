@@ -27,6 +27,7 @@ enum OTPairingErrorType {
     OTPairingErrorTypeAlreadyIn = 5,
     OTPairingErrorTypeBusy = 6,
     OTPairingErrorTypeKCPairing = 7,
+    OTPairingErrorTypeSessionTimeout = 8,
 };
 
 enum {
@@ -34,7 +35,7 @@ enum {
 };
 
 #define OTPairingXPCActivityIdentifier  "com.apple.security.otpaird.pairing"
-#define OTPairingXPCActivityInterval    XPC_ACTIVITY_INTERVAL_1_HOUR
+#define OTPairingXPCActivityInterval    XPC_ACTIVITY_INTERVAL_15_MIN
 
 #define OTPairingXPCActivityPoke        "com.apple.security.otpaird.poke"
 

@@ -123,8 +123,8 @@ static const DateIntervalFormatTestItem testItems[] = {
     { "en",    "jm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 1.0*_HOUR,  u"10:30\u2009\u2013\u200911:30\u202FAM" },
     { "en",    "jm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 12.0*_HOUR, u"10:30\u202FAM\u2009\u2013\u200910:30\u202FPM" },
     { "it",    "yMMMMd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 15.0*_DAY,  u"2\u201317 marzo 2011" },
-    { "en_SA", "MMMd",      CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   u"18\u2009\u2013\u200924 Shwl." },
-    { "en@calendar=islamic-umalqura", "MMMd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800, Date201009270800 + 6.0*_DAY, u"Shwl. 18\u2009\u2013\u200924" },
+    { "en_SA", "MMMd",      CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 6.0*_DAY,   u"18\u2009\u2013\u200924 Shwl." }, // rdar://77151664 #233 better root abbrev months for Islamic calendar
+    { "en@calendar=islamic-umalqura", "MMMd", CAP_NONE, MIN_NONE, tzUSPacific, Date201009270800, Date201009270800 + 6.0*_DAY, u"Shwl. 18\u2009\u2013\u200924" }, // rdar://77151664 #233 better root abbrev months for Islamic calendar
     { "fr",    "E",         CAP_NONE,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"mer.\u2009\u2013\u2009sam." },
     { "fr",    "E",         CAP_BEGIN, MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"Mer.\u2009\u2013\u2009sam." },
     { "fr",    "E",         CAP_MENU,  MIN_NONE,   tzUSPacific, Date201103021030,              Date201103021030 + 3.0*_DAY,   u"mer.\u2009\u2013\u2009sam." },

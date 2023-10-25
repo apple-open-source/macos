@@ -470,6 +470,9 @@ protected:
 	// findDeviceByXXX retains the returned IOPCIDevice object
 	IOPCIDevice *findDeviceByBDF(IOPCIAddressSpace space);
 	IOPCIDevice *findDeviceByMemAddress(IOPhysicalAddress address);
+
+private:
+    void waitForDartToQuiesce(IOPCIDevice *nub);
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

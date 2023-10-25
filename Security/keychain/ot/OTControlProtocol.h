@@ -45,6 +45,8 @@ NS_ASSUME_NONNULL_BEGIN
 @class OTControlArguments;
 @class OTAccountMetadataClassC;
 
+@class TrustedPeersHelperHealthCheckResult;
+
 @protocol OTControlProtocol
 
 // The altDSID must be filled in for these three. Otherwise, they will error.
@@ -197,10 +199,10 @@ NS_ASSUME_NONNULL_BEGIN
                        uuid:(NSUUID *)uuid
                       reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
-- (void)healthCheck:(OTControlArguments*)arguments
+-   (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
-             repair:(BOOL)repair
-              reply:(void (^)(NSError *_Nullable error))reply;
+               repair:(BOOL)repair
+                reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply;
@@ -309,6 +311,8 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 - (void)totalTrustedPeers:(OTControlArguments*)arguments
                     reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply;
 
+- (void)areRecoveryKeysDistrusted:(OTControlArguments*)arguments
+                            reply:(void (^)(BOOL distrustedRecoveryKeysExist, NSError* _Nullable error))reply;
 @end
 
 NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface);

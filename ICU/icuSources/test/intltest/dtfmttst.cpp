@@ -4400,7 +4400,7 @@ void DateFormatTest::TestNonGregoFmtParse()
     };
     const CalAndFmtTestItem cafti_en_islamic_cust[] = {
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://77151664 #233 better root abbrev months for Islamic calendar
         {  0, 1384,  0,  1, 12, 0, UnicodeString("1 Mhrm. 1384 AH, 1964") },
         {  0, 1436,  0,  1, 12, 0, UnicodeString("1 Mhrm. 1436 AH, 2014") },
         {  0, 1487,  0,  1, 12, 0, UnicodeString("1 Mhrm. 1487 AH, 2064") },

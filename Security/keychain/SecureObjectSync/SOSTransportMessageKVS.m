@@ -9,51 +9,53 @@
 
 @implementation SOSMessageKVS
 
-@synthesize pending_changes = pending_changes;
-
 -(id) initWithAccount:(SOSAccount*)acct andName:(NSString*)name
 {
     if ((self = [super init])) {
-        account = acct;
-        circleName = [[NSString alloc]initWithString:name];
-        SOSEngineRef e = SOSDataSourceFactoryGetEngineForDataSourceName(acct.factory, (__bridge CFStringRef)(circleName), NULL);
-        engine = e;
-        pending_changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+        self.account = acct;
+        self.circleName = [[NSString alloc]initWithString:name];
+        self.engine = CFRetainSafe(SOSDataSourceFactoryGetEngineForDataSourceName(acct.factory, (__bridge CFStringRef)(self.circleName), NULL));
+
+        _pending_changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
         SOSRegisterTransportMessage((SOSMessage*)self);
     }
     
     return self;
 }
 
--(void)dealloc
+- (void)dealloc
 {
-    if(self) {
-        CFReleaseNull(self->pending_changes);
-    }
+    CFReleaseNull(_pending_changes);
 }
 
 -(CFIndex) SOSTransportMessageGetTransportType
 {
     return kKVS;
 }
+
 -(CFStringRef) SOSTransportMessageGetCircleName
 {
-    return (__bridge CFStringRef)circleName;
+    return (__bridge CFStringRef)self.circleName;
 }
+
 -(CFTypeRef) SOSTransportMessageGetEngine
 {
-    return engine;
+    if (self.engine == NULL) {
+        self.engine = CFRetainSafe(SOSDataSourceFactoryGetEngineForDataSourceName(self.account.factory, (__bridge CFStringRef)self.circleName, NULL));
+    }
+    return self.engine;
 }
+
 -(SOSAccount*) SOSTransportMessageGetAccount
 {
-    return account;
+    return self.account;
 }
 
 -(bool) SOSTransportMessageKVSAppendKeyInterest:(SOSMessageKVS*) transport ak:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef) afterFirstUnlockKeys
                                        unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)localError
 {
-    require_quiet(engine, fail);
-    
+    require_quiet(self.engine, fail);
+
     CFArrayRef peerInfos = SOSAccountCopyPeersToListenTo( [self SOSTransportMessageGetAccount], localError);
     
     if(peerInfos){

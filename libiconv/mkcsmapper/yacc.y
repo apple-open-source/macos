@@ -66,6 +66,9 @@ static linear_zone_t	 rowcol[_CITRUS_MAPPER_STD_ROWCOL_MAX];
 static char		*map_name;
 static char		*output = NULL;
 static void		*table = NULL;
+#ifdef __APPLE__
+static void		*translit_table = NULL;
+#endif
 static size_t		 rowcol_len = 0;
 static size_t		 table_size;
 static u_int32_t	 done_flag = 0;
@@ -83,6 +86,10 @@ static void		 (*putfunc)(void *, size_t, u_int32_t) = NULL;
 #define DF_DST_UNIT_BITS	0x00000020
 #define DF_OOB_MODE		0x00000040
 
+#ifdef __APPLE__
+#define MF_TRANSLIT		0x00000001
+#endif
+
 static void	dump_file(void);
 static void	setup_map(void);
 static void	set_type(int);
@@ -93,7 +100,11 @@ static void	set_dst_ilseq(u_int32_t);
 static void	set_dst_unit_bits(u_int32_t);
 static void	set_oob_mode(u_int32_t);
 static int	check_src(u_int32_t, u_int32_t);
+#ifdef __APPLE__
+static void	store(const linear_zone_t *, u_int32_t, int, u_int32_t);
+#else
 static void	store(const linear_zone_t *, u_int32_t, int);
+#endif
 static void	put8(void *, size_t, u_int32_t);
 static void	put16(void *, size_t, u_int32_t);
 static void	put32(void *, size_t, u_int32_t);
@@ -109,14 +120,14 @@ static void	set_src(linear_zone_t *, u_int32_t, u_int32_t);
 
 %token			R_TYPE R_NAME R_SRC_ZONE R_DST_UNIT_BITS
 %token			R_DST_INVALID R_DST_ILSEQ
-%token			R_BEGIN_MAP R_END_MAP R_INVALID R_ROWCOL
+%token			R_BEGIN_MAP R_TRANSLIT R_END_MAP R_INVALID R_ROWCOL
 %token			R_ILSEQ R_OOB_MODE
 %token			R_LN
 %token <i_value>	L_IMM
 %token <s_value>	L_STRING
 
 %type <lz_value>	src
-%type <i_value>		dst types oob_mode_sel zone
+%type <i_value>		dst flags flag types oob_mode_sel zone
 
 %%
 
@@ -164,9 +175,25 @@ map_elems	: /* empty */
 		| map_elems map_elem lns
 
 map_elem	: src '=' dst
-		{ store(&$1, $3, 0); }
+		{ store(&$1, $3, 0, 0); }
 		| src '=' L_IMM '-'
-		{ store(&$1, $3, 1); }
+		{ store(&$1, $3, 1, 0); }
+		| src '=' dst '/' flags
+		{ store(&$1, $3, 0, $5); }
+		| src '=' L_IMM '-' '/' flags
+		{ store(&$1, $3, 1, $6); }
+flags		: flag
+		{
+			$$ = $1;
+		}
+		| flags '|' flag
+		{
+			$$ = $1 | $3;
+		}
+flag		: R_TRANSLIT
+		{
+			$$ = MF_TRANSLIT;
+		}
 dst		: L_IMM
 		{
 			$$ = $1;
@@ -239,12 +266,19 @@ put32(void *ptr, size_t ofs, u_int32_t val)
 	memcpy((u_int32_t *)ptr + ofs, &oval, 4);
 }
 
+#ifdef __APPLE__
+static void *
+#else
 static void
+#endif
 alloc_table(void)
 {
 	linear_zone_t *p;
 	size_t i;
 	uint32_t val = 0;
+#ifdef __APPLE__
+	void *newtable;
+#endif
 
 	i = rowcol_len;
 	p = &rowcol[--i];
@@ -253,8 +287,13 @@ alloc_table(void)
 		p = &rowcol[--i];
 		table_size *= p->width;
 	}
+#ifdef __APPLE__
+	newtable = (void *)malloc(table_size * dst_unit_bits / 8);
+	if (newtable == NULL) {
+#else
 	table = (void *)malloc(table_size * dst_unit_bits / 8);
 	if (table == NULL) {
+#endif
 		perror("malloc");
 		exit(1);
 	}
@@ -270,7 +309,15 @@ alloc_table(void)
 		break;
 	}
 	for (i = 0; i < table_size; i++)
+#ifdef __APPLE__
+		(*putfunc)(newtable, i, val);
+#else
 		(*putfunc)(table, i, val);
+#endif
+
+#ifdef __APPLE__
+	return (newtable);
+#endif
 }
 
 static void
@@ -293,7 +340,11 @@ setup_map(void)
 	if ((done_flag & DF_OOB_MODE) == 0)
 		oob_mode = _CITRUS_MAPPER_STD_OOB_NONIDENTICAL;
 
+#ifdef __APPLE__
+	table = alloc_table();
+#else
 	alloc_table();
+#endif
 }
 
 static void
@@ -393,6 +444,14 @@ dump_file(void)
 	_region_init(&data, table, table_size*dst_unit_bits/8);
 	CHKERR(ret, _db_factory_add_by_s,
 	    (df, _CITRUS_MAPPER_STD_SYM_TABLE, &data, 1));
+
+#ifdef __APPLE__
+	if (translit_table != NULL) {
+		_region_init(&data, translit_table, table_size*dst_unit_bits/8);
+		CHKERR(ret, _db_factory_add_by_s,
+		    (df, _CITRUS_MAPPER_STD_SYM_TRANSLIT_TABLE, &data, 1));
+	}
+#endif
 
 	/*
 	 * dump database to file
@@ -582,11 +641,18 @@ check_src(u_int32_t begin, u_int32_t end)
 }
 
 static void
+#ifdef __APPLE__
+store(const linear_zone_t *lz, u_int32_t dst, int inc, u_int32_t flags)
+#else
 store(const linear_zone_t *lz, u_int32_t dst, int inc)
+#endif
 {
 	linear_zone_t *p;
 	size_t i, ofs;
 	u_int32_t n;
+#ifdef __APPLE__
+	void *storetable;
+#endif
 
 	ofs = 0;
 	for (i = rowcol_len * rowcol_bits, p = &rowcol[0]; i > 0; ++p) {
@@ -594,9 +660,28 @@ store(const linear_zone_t *lz, u_int32_t dst, int inc)
 		n = ((lz->begin >> i) & rowcol_mask) - p->begin;
 		ofs = (ofs * p->width) + n;
 	}
+#ifdef __APPLE__
+	if ((flags & MF_TRANSLIT) != 0) {
+		/*
+		 * We do a lazy-allocation of the transliteration table in case
+		 * we end up not needing it; no point wasting the memory, and
+		 * we'll also omit it from the final file.
+		 */
+		if (translit_table == NULL)
+			translit_table = alloc_table();
+
+		storetable = translit_table;
+	} else {
+		storetable = table;
+	}
+#endif
 	n = lz->width;
 	while (n-- > 0) {
+#ifdef __APPLE__
+		(*putfunc)(storetable, ofs++, dst);
+#else
 		(*putfunc)(table, ofs++, dst);
+#endif
 		if (inc)
 			dst++;
 	}

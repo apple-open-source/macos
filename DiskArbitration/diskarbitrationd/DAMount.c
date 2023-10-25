@@ -180,6 +180,11 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 #endif
         {
             DALogInfo( "mounted disk, id = %@, ongoing.", context->disk );
+            
+            if ( context->mountpoint)
+            {
+                CFArrayAppendValue( gDAMountPointList, context->mountpoint );
+            }
             CFStringRef preferredMountMethod = NULL;
 #if TARGET_OS_OSX
             preferredMountMethod = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountMethodkey );
@@ -189,6 +194,7 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
                 preferredMountMethod = CFSTR("UserFS");
             }
 #endif
+            
             DAFileSystemMountWithArguments( DADiskGetFileSystem( context->disk ),
                                             context->devicePath,
                                             DADiskGetDescription( context->disk, kDADiskDescriptionVolumeNameKey ),
@@ -213,9 +219,13 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
     /*
      * Process the mount command's completion.
      */
-
+    
     __DAMountCallbackContext * context = parameter;
-
+    
+    if ( context->mountpoint )
+    {
+        ___CFArrayRemoveValue( gDAMountPointList, context->mountpoint );
+    }
 
     if ( status )
     {
@@ -498,7 +508,10 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                         mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
                         if ( mountpoint )
                         {
-                            DAMountRemoveMountPoint( mountpoint );
+                            if ( ___CFArrayContainsValue(gDAMountPointList, mountpoint) == FALSE )
+                            {
+                                DAMountRemoveMountPoint( mountpoint );
+                            }
                             CFRelease ( mountpoint );
                             mountpoint = NULL;
                         }

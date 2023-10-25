@@ -52,7 +52,6 @@
 #import "TextCheckingControllerProxy.h"
 #import "UIKitSPI.h"
 #import "UserData.h"
-#import "UserInterfaceIdiom.h"
 #import "ViewGestureGeometryCollector.h"
 #import "VisibleContentRectUpdateInfo.h"
 #import "WKAccessibilityWebPageObjectIOS.h"
@@ -156,6 +155,7 @@
 #import <WebCore/UserGestureIndicator.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WebEvent.h>
+#import <pal/system/ios/UserInterfaceIdiom.h>
 #import <wtf/MathExtras.h>
 #import <wtf/MemoryPressureHandler.h>
 #import <wtf/Scope.h>
@@ -3670,6 +3670,7 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformation()
         information.autocapitalizeType = element.autocapitalizeType();
         information.isAutocorrect = element.shouldAutocorrect();
         information.placeholder = element.attributeWithoutSynchronization(HTMLNames::placeholderAttr);
+        information.hasEverBeenPasswordField = element.hasEverBeenPasswordField();
         if (element.isPasswordField())
             information.elementType = InputType::Password;
         else if (element.isSearchField())
@@ -4946,12 +4947,27 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest reques
         }
     }
 
-    auto makeString = [] (const VisiblePosition& start, const VisiblePosition& end) -> AttributedString {
+    auto isTextObscured = [] (const VisiblePosition& visiblePosition) {
+        if (RefPtr textControl = enclosingTextFormControl(visiblePosition.deepEquivalent())) {
+            if (auto* input = dynamicDowncast<HTMLInputElement>(textControl.get())) {
+                if (input->isAutoFilledAndObscured())
+                    return true;
+            }
+        }
+        return false;
+    };
+
+    auto makeString = [&isTextObscured] (const VisiblePosition& start, const VisiblePosition& end) -> AttributedString {
         auto range = makeSimpleRange(start, end);
         if (!range || range->collapsed())
             return { };
         // FIXME: This should return editing-offset-compatible attributed strings if that option is requested.
-        return WebCore::AttributedString::fromNSAttributedString(adoptNS([[NSAttributedString alloc] initWithString:WebCore::plainTextReplacingNoBreakSpace(*range, TextIteratorBehavior::EmitsOriginalText)]));
+
+        auto isObscured = isTextObscured(start);
+        TextIteratorBehaviors textBehaviors = { };
+        if (!isObscured)
+            textBehaviors = TextIteratorBehavior::EmitsOriginalText;
+        return WebCore::AttributedString::fromNSAttributedString(adoptNS([[NSAttributedString alloc] initWithString:WebCore::plainTextReplacingNoBreakSpace(*range, textBehaviors)]));
     };
 
     DocumentEditingContext context;
@@ -5195,13 +5211,14 @@ void WebPage::animationDidFinishForElement(const WebCore::Element& animatedEleme
 
 FloatSize WebPage::screenSizeForFingerprintingProtections(const LocalFrame&, FloatSize defaultSize) const
 {
-    if (!currentUserInterfaceIdiomIsSmallScreen())
+    if (!PAL::currentUserInterfaceIdiomIsSmallScreen())
         return m_viewportConfiguration.minimumLayoutSize();
 
     static constexpr std::array fixedSizes {
-        FloatSize { 320,  568 },
-        FloatSize { 375,  667 },
-        FloatSize { 414,  736 },
+        FloatSize { 320, 568 },
+        FloatSize { 375, 667 },
+        FloatSize { 390, 844 },
+        FloatSize { 414, 896 },
     };
 
     for (auto fixedSize : fixedSizes) {

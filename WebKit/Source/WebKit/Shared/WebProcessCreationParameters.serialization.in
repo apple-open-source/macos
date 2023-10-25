@@ -153,6 +153,10 @@ struct WebKit::WebProcessCreationParameters {
     Vector<WebKit::SandboxExtension::Handle> dynamicIOKitExtensionHandles;
 #endif
 
+#if PLATFORM(VISION)
+    Vector<WebKit::SandboxExtension::Handle> metalCacheDirectoryExtensionHandles;
+#endif
+
 #if PLATFORM(COCOA)
     bool systemHasBattery;
     bool systemHasAC;
@@ -160,7 +164,7 @@ struct WebKit::WebProcessCreationParameters {
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    WebKit::UserInterfaceIdiom currentUserInterfaceIdiom;
+    PAL::UserInterfaceIdiom currentUserInterfaceIdiom;
     bool supportsPictureInPicture;
     WebCore::RenderThemeIOS::CSSValueToSystemColorMap cssValueToSystemColorMap;
     WebCore::Color focusRingColor;

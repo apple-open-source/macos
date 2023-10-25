@@ -1,4 +1,4 @@
-*filetype.txt*  For Vim version 9.0.  Last change: 2023 Feb 15
+*filetype.txt*  For Vim version 9.0.  Last change: 2023 Sep 06
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -146,6 +146,7 @@ variables can be used to overrule the filetype used for certain extensions:
 	*.cls		g:filetype_cls
 	*.csh		g:filetype_csh	|ft-csh-syntax|
 	*.dat		g:filetype_dat
+	*.f		g:filetype_f	|ft-forth-syntax|
 	*.frm		g:filetype_frm	|ft-form-syntax|
 	*.fs		g:filetype_fs	|ft-forth-syntax|
 	*.i		g:filetype_i	|ft-progress-syntax|
@@ -394,7 +395,7 @@ ways to change this:
    You must create a new filetype plugin in a directory early in
    'runtimepath'.  For Unix, for example you could use this file: >
 	vim ~/.vim/ftplugin/fortran.vim
-<  You can set those settings and mappings that you would like to add.  Note
+<   You can set those settings and mappings that you would like to add.  Note
    that the global plugin will be loaded after this, it may overrule the
    settings that you do here.  If this is the case, you need to use one of the
    following two methods.
@@ -403,7 +404,7 @@ ways to change this:
    You must put the copy in a directory early in 'runtimepath'.  For Unix, for
    example, you could do this: >
 	cp $VIMRUNTIME/ftplugin/fortran.vim ~/.vim/ftplugin/fortran.vim
-<  Then you can edit the copied file to your liking.  Since the b:did_ftplugin
+<   Then you can edit the copied file to your liking.  Since the b:did_ftplugin
    variable will be set, the global plugin will not be loaded.
    A disadvantage of this method is that when the distributed plugin gets
    improved, you will have to copy and modify it again.
@@ -412,17 +413,30 @@ ways to change this:
    You must create a new filetype plugin in a directory from the end of
    'runtimepath'.  For Unix, for example, you could use this file: >
 	vim ~/.vim/after/ftplugin/fortran.vim
-<  In this file you can change just those settings that you want to change.
+<   In this file you can change just those settings that you want to change.
 
 ==============================================================================
 3.  Docs for the default filetype plugins.		*ftplugin-docs*
 
 
+					*plugin_exec* *g:plugin_exec*
+Enable executing of external commands.  This was done historically for e.g.
+the perl filetype plugin (and a few others) to set the search path.
+Disabled by default for security reasons: >
+	:let g:plugin_exec = 1
+It is also possible to enable this only for certain filetypes: >
+	:let g:<filetype>_exec = 1
+So to enable this only for ruby, set the following variable: >
+	:let g:ruby_exec = 1
+
+If both, the global `plugin_exec` and the `<filetype>_exec` specific variable
+are set, the filetpe specific variable should have precedent.
+
 AWK							*ft-awk-plugin*
 
 Support for features specific to GNU Awk, like @include, can be enabled by
 setting: >
-	let g:awk_is_gawk = 1
+	:let g:awk_is_gawk = 1
 
 
 CHANGELOG						*ft-changelog-plugin*
@@ -660,8 +674,8 @@ page in a Vim window: >
 
 MANPAGER				      *manpager.vim*
 
-The |:Man| command allows you to turn Vim into a manpager (that syntax highlights
-manpages and follows linked manpages on hitting CTRL-]).
+The |:Man| command allows you to turn Vim into a manpager (that syntax
+highlights manpages and follows linked manpages on hitting CTRL-]).
 
 For bash,zsh,ksh or dash, add to the config file (.bashrc,.zshrc, ...)
 

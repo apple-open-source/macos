@@ -4999,7 +4999,7 @@ nfs_request_async(
 {
 	struct nfsreq *req;
 	struct nfsmount *nmp;
-	int error, sent;
+	int error, sent, release = 0;
 
 	error = nfs_request_create(np, mp, nmrest, procnum, thd, cred, reqp);
 	req = *reqp;
@@ -5068,11 +5068,14 @@ nfs_request_async(
 		}
 	}
 	if (error || req->r_callback.rcb_func) {
-		nfs_request_rele(req);
+		release = 1;
 	}
 
 out_return:
 	NFS_KDBG_EXIT(NFSDBG_OP_REQ_ASYNC, (req ? R_XID32(req->r_xid) : 0), np, procnum, error);
+	if (release) {
+		nfs_request_rele(req);
+	}
 	return error;
 }
 
@@ -5086,7 +5089,7 @@ nfs_request_async_finish(
 	u_int64_t *xidp,
 	int *status)
 {
-	int error = 0, asyncio = req->r_callback.rcb_func ? 1 : 0;
+	int error = 0, release = 0, asyncio = req->r_callback.rcb_func ? 1 : 0;
 	struct nfsmount *nmp;
 
 	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_ASYNC_FINISH, req, R_XID32(req->r_xid), req->r_np, req->r_procnum);
@@ -5162,10 +5165,13 @@ nfs_request_async_finish(
 		*xidp = req->r_xid;
 	}
 
-	nfs_request_rele(req);
+	release = 1;
 
 out_return:
 	NFS_KDBG_EXIT(NFSDBG_OP_REQ_ASYNC_FINISH, R_XID32(req->r_xid), req->r_np, req->r_procnum, error);
+	if (release) {
+		nfs_request_rele(req);
+	}
 	return error;
 }
 

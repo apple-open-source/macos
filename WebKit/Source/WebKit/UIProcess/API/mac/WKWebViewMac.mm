@@ -1211,6 +1211,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
 }
 
+- (void)_holdWindowResizeSnapshotWithReason:(NSString *)reason
+{
+#if HAVE(NSWINDOW_SNAPSHOT_READINESS_HANDLER)
+    if (!self.window || ![self.window respondsToSelector:@selector(_holdResizeSnapshotWithReason:)])
+        return;
+
+    _windowSnapshotReadinessHandler = makeBlockPtr([self.window _holdResizeSnapshotWithReason:reason]);
+#endif
+}
+
 #if ENABLE(DRAG_SUPPORT)
 
 - (WKDragDestinationAction)_web_dragDestinationActionForDraggingInfo:(id <NSDraggingInfo>)draggingInfo

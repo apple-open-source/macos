@@ -87,9 +87,9 @@ int
 __sflush(FILE *fp)
 {
 	unsigned char *p;
-	int n, t;
+	int f, n, t;
 
-	t = fp->_flags;
+	f = fp->_flags;
 
 	if ((p = fp->_bf._base) == NULL)
 		return (0);
@@ -99,7 +99,7 @@ __sflush(FILE *fp)
 	 * position indicator with the underlying seek function.  Use a dumb fseek
 	 * for this (don't attempt to preserve the buffers).
 	 */
-	if ((t & __SRD) != 0) {
+	if ((f & __SRD) != 0) {
 		if (fp->_seek == NULL) {
 			/*
 			 * No way to seek this file -- just return "success."
@@ -135,7 +135,7 @@ __sflush(FILE *fp)
 		return (0);
 	}
 
-	if ((t & __SWR) != 0) {
+	if ((f & __SWR) != 0) {
 		n = fp->_p - p;		/* write this much */
 
 		/*
@@ -143,21 +143,17 @@ __sflush(FILE *fp)
 		 * exchange buffering (via setvbuf) in user write function.
 		 */
 		fp->_p = p;
-		fp->_w = t & (__SLBF|__SNBF) ? 0 : fp->_bf._size;
+		fp->_w = f & (__SLBF|__SNBF) ? 0 : fp->_bf._size;
 
 		for (; n > 0; n -= t, p += t) {
 			t = _swrite(fp, (char *)p, n);
 			if (t <= 0) {
-				/* 5340694: reset _p and _w on EAGAIN */
-				if (t < 0 && errno == EAGAIN) {
-					if (p > fp->_p) {
-						/* some was written */
-						memmove(fp->_p, p, n);
-						fp->_p += n;
-						if (!(fp->_flags & (__SLBF|__SNBF)))
-							fp->_w -= n;
-					}
-				}
+				if (p > fp->_p)
+					/* some was written */
+					memmove(fp->_p, p, n);
+				fp->_p += n;
+				if ((fp->_flags & __SNBF) == 0)
+					fp->_w -= n;
 				fp->_flags |= __SERR;
 				return (EOF);
 			}

@@ -111,6 +111,7 @@
 @property (nonatomic) NSData* entropy;
 @property (nonatomic) BOOL failRecoveryKeySet;
 @property (nonatomic) BOOL failSecureBackupRestore;
+@property (nonatomic) BOOL failRemoveRecoveryKey;
 
 @end
 
@@ -122,6 +123,7 @@
         self.entropy = e;
         self.failRecoveryKeySet = NO;
         self.failSecureBackupRestore = NO;
+        self.failRemoveRecoveryKey = NO;
     }
     return self;
 }
@@ -181,6 +183,27 @@
     return nil;
 }
 
+- (bool)verifyRecoveryKey:(NSString *)recoveryKey error:(NSError *__autoreleasing *)error { 
+    if (self.failSecureBackupRestore) {
+        if (error != nil) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecoveryKeyMalformed description:@"Restore SecureBackup failed, invalid recovery key"];
+        }
+        return false;
+    }
+    return true;
+}
+
+- (bool)removeRecoveryKeyFromBackup:(NSError *__autoreleasing *)error {
+    if (self.failRemoveRecoveryKey) {
+        if (error != nil) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNoRecoveryKeyRegistered description:@"Restore SecureBackup failed to remove the Recovery Key"];
+        }
+        return false;
+    }
+    
+    return true;
+}
+
 - (void)setExpectRecoveryKeySetFail:(BOOL)shouldFail
 {
     self.failRecoveryKeySet = shouldFail;
@@ -189,6 +212,11 @@
 - (void)setExpectSecureBackupRestoreFail:(BOOL)shouldFail
 {
     self.failSecureBackupRestore = shouldFail;
+}
+
+- (void)setExpectSecureBackupRestoreFailToRemoveRecoveryKey:(BOOL)shouldFail
+{
+    self.failRemoveRecoveryKey = shouldFail;
 }
 
 @end

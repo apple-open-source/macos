@@ -103,6 +103,7 @@ public:
     void readyStateChanged(RemoteMediaPlayerState&&);
     void volumeChanged(double);
     void muteChanged(bool);
+    void seeked(const MediaTime&);
     void timeChanged(RemoteMediaPlayerState&&);
     void durationChanged(RemoteMediaPlayerState&&);
     void rateChanged(double);
@@ -115,7 +116,7 @@ public:
     void renderingModeChanged();
 #if PLATFORM(COCOA)
     void layerHostingContextIdChanged(std::optional<WebKit::LayerHostingContextID>&&, const WebCore::IntSize&);
-    WebCore::FloatSize videoInlineSize() const final { return m_videoInlineSize; }
+    WebCore::FloatSize videoInlineSize() const final;
     void setVideoInlineSizeFenced(const WebCore::FloatSize&, const WTF::MachSendRight&) final;
 #endif
 
@@ -255,17 +256,15 @@ private:
     bool hasVideo() const final;
     bool hasAudio() const final;
 
-    void setPageIsVisible(bool) final;
+    void setPageIsVisible(bool, String&& sceneIdentifier) final;
 
     MediaTime durationMediaTime() const final;
     MediaTime currentMediaTime() const final;
 
     MediaTime getStartDate() const final;
 
-    void seek(const MediaTime&) final;
-    void seekWithTolerance(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance) final;
-
-    bool seeking() const final { return m_seeking; }
+    void seekToTarget(const WebCore::SeekTarget&) final;
+    bool seeking() const final;
 
     MediaTime startTime() const final;
 
@@ -484,7 +483,6 @@ private:
 
     Vector<LayerHostingContextIDCallback> m_layerHostingContextIDRequests;
     LayerHostingContextID m_layerHostingContextID { 0 };
-    WebCore::FloatSize m_videoInlineSize;
     std::optional<WebCore::VideoFrameMetadata> m_videoFrameMetadata;
     bool m_isGatheringVideoFrameMetadata { false };
 #if PLATFORM(COCOA) && !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)

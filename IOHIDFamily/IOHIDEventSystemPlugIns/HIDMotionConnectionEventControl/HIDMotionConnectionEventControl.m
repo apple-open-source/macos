@@ -211,7 +211,7 @@ exit:
     HIDEventService * service = [sender isKindOfClass:[HIDEventService class]] ?  (HIDEventService *) sender : nil;
  
 
-    require (kMAAppInUseStatusImmersive != _status, exit);
+    require (kMAAppInUseStatusImmersive != _status && kMAAppInUseStatusImmersiveDefocused != _status , exit);
     
     // Filter only built-in services.
     require_quiet([event integerValueForField:kIOHIDEventFieldIsBuiltIn], exit);
@@ -298,6 +298,8 @@ exit:
             return @"ForegroundActive";
         case kMAAppInUseStatusImmersive:
             return @"Immersive";
+        case kMAAppInUseStatusImmersiveDefocused:
+            return @"ImmersiveDefocused";
     }
     return @"Unknown";
 }

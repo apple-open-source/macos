@@ -24,6 +24,10 @@
 #if !UCONFIG_NO_FORMATTING
 
 #include <stdbool.h>
+#if APPLE_ICU_CHANGES
+// rdar://112745117 (SEED: NSNumberFormatter not rounding correctly using roundingIncrement & usesSignificantDigits)
+#include <math.h>
+#endif // APPLE_ICU_CHANGES
 
 #include "unicode/ucurr.h"
 #include "unicode/uloc.h"
@@ -629,7 +633,13 @@ static void TestDoubleAttribute(void)
         {
             dvalue = mydata[i];
             unum_setDoubleAttribute(def, attr, dvalue);
+#if APPLE_ICU_CHANGES
+// rdar://112745117 (SEED: NSNumberFormatter not rounding correctly using roundingIncrement & usesSignificantDigits)
+            double actual = unum_getDoubleAttribute(def,attr);
+            if(fabs(mydata[i] - actual) >= 0.05)
+#else
             if(unum_getDoubleAttribute(def,attr)!=mydata[i])
+#endif // APPLE_ICU_CHANGES
                 log_err("Fail: error in setting and getting double attributes for UNUM_ROUNDING_INCREMENT\n");
             else
                 log_verbose("Pass: setting and getting double attributes for UNUM_ROUNDING_INCREMENT works fine\n");

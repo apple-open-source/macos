@@ -92,7 +92,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     int32_t minSig = properties.minimumSignificantDigits;
     int32_t maxSig = properties.maximumSignificantDigits;
     double roundingIncrement = properties.roundingIncrement;
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
     bool didAdjustRoundIncr = false;
 #endif  // APPLE_ICU_CHANGES
@@ -135,7 +135,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     if (!properties.currencyUsage.isNull()) {
         precision = Precision::constructCurrency(currencyUsage).withCurrency(currency);
     } else if (roundingIncrement != 0.0) {
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
         double roundingIncrAdj = roundingIncrement;
@@ -154,7 +154,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
                                                                                   ? kMaxIntFracSig : maxSig;
                 precision = Precision::constructIncrementSignificant(roundingIncrAdj, minSig, maxSig); // Apple rdar://52538227
             } else {
-                precision = Precision::constructIncrement(roundingIncrAdj, minFrac);
+                precision = Precision::increment(roundingIncrAdj).withMinFraction(minFrac); // Apple rdar://112745117
             }
         }
 #else
@@ -325,7 +325,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         } else if (rounding_.fType == Precision::PrecisionType::RND_INCREMENT
                 || rounding_.fType == Precision::PrecisionType::RND_INCREMENT_ONE
                 || rounding_.fType == Precision::PrecisionType::RND_INCREMENT_FIVE) {
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
             increment_ = (didAdjustRoundIncr)? roundingIncrement: rounding_.fUnion.increment.fIncrement;
 #endif  // APPLE_ICU_CHANGES
@@ -340,7 +340,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         } else if (rounding_.fType == Precision::PrecisionType::RND_SIGNIFICANT) {
             minSig_ = rounding_.fUnion.fracSig.fMinSig;
             maxSig_ = rounding_.fUnion.fracSig.fMaxSig;
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
         } else if (rounding_.fType == Precision::PrecisionType::RND_INCREMENT_SIGNIFICANT) { // Apple rdar://52538227
             increment_ = (didAdjustRoundIncr)? roundingIncrement: rounding_.fUnion.incrSig.fIncrement; // rdar://51452216

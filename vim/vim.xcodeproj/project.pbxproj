@@ -5451,6 +5451,7 @@
 				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = (
 					"$(inherited)",
 					HAVE_TIMER_CREATE,
+					HAVE_CLOCK_GETTIME,
 					MACOS_X_DARWIN,
 				);
 				INSTALL_PATH = /usr/bin;

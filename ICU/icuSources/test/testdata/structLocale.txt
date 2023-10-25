@@ -21,7 +21,8 @@
 // rdar://80374611 #259 Add to LANGUAGES[]: otk, oui (for Old Turkish)
 // rdar://82409455 #270 integrate OSS ICU 70rc and CLDR 40 beta to Apple ICU
 // rdar://89394823 #286 add locales for apw,sm; add loc names for apw; fix dz autonym
-// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm	
+// rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm
+// rdar://49623848 c4215a3e0.. y->yyyy in intervalFormat skeletons used for japanese calendar
 // rdar:// contextTransforms for territory
 
 structLocale:table(nofallback){

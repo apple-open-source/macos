@@ -332,6 +332,62 @@ script_var_exists(char_u *name, size_t len, cctx_T *cctx, cstack_T *cstack)
 }
 
 /*
+ * If "name[len]" is a class method in cctx->ctx_ufunc->uf_class return the
+ * class method index.
+ * If "cl_ret" is not NULL set it to the class.
+ * Otherwise return -1.
+ */
+    int
+cctx_class_method_idx(
+    cctx_T  *cctx,
+    char_u  *name,
+    size_t  len,
+    class_T **cl_ret)
+{
+    if (cctx == NULL || cctx->ctx_ufunc == NULL
+	    || cctx->ctx_ufunc->uf_class == NULL)
+	return -1;
+
+    class_T *cl = cctx->ctx_ufunc->uf_class;
+    int m_idx = class_method_idx(cl, name, len);
+    if (m_idx >= 0)
+    {
+	if (cl_ret != NULL)
+	    *cl_ret = cl;
+    }
+
+    return m_idx;
+}
+
+/*
+ * If "name[len]" is a class member in cctx->ctx_ufunc->uf_class return the
+ * class member variable index.
+ * If "cl_ret" is not NULL set it to the class.
+ * Otherwise return -1;
+ */
+    int
+cctx_class_member_idx(
+    cctx_T  *cctx,
+    char_u  *name,
+    size_t  len,
+    class_T **cl_ret)
+{
+    if (cctx == NULL || cctx->ctx_ufunc == NULL
+	    || cctx->ctx_ufunc->uf_class == NULL)
+	return -1;
+
+    class_T *cl = cctx->ctx_ufunc->uf_class;
+    int m_idx = class_member_idx(cl, name, len);
+    if (m_idx >= 0)
+    {
+	if (cl_ret != NULL)
+	    *cl_ret = cl;
+    }
+
+    return m_idx;
+}
+
+/*
  * Return TRUE if "name" is a local variable, argument, script variable or
  * imported.  Also if "name" is "this" and in a class method.
  */
@@ -346,7 +402,7 @@ variable_exists(char_u *name, size_t len, cctx_T *cctx)
 			&& (cctx->ctx_ufunc->uf_flags & (FC_OBJECT|FC_NEW))
 			&& STRNCMP(name, "this", 4) == 0)))
 	    || script_var_exists(name, len, cctx, NULL) == OK
-	    || class_member_index(name, len, NULL, cctx) >= 0
+	    || cctx_class_member_idx(cctx, name, len, NULL) >= 0
 	    || find_imported(name, len, FALSE) != NULL;
 }
 
@@ -393,7 +449,7 @@ check_defined(
 	return FAIL;
     }
 
-    if (class_member_index(p, len, NULL, cctx) >= 0)
+    if (cctx_class_member_idx(cctx, p, len, NULL) >= 0)
     {
 	if (is_arg)
 	    semsg(_(e_argument_already_declared_in_class_str), p);
@@ -496,7 +552,7 @@ need_type_where(
     if (!actual_is_const && ret == MAYBE && use_typecheck(actual, expected))
     {
 	generate_TYPECHECK(cctx, expected, number_ok, offset,
-					    where.wt_variable, where.wt_index);
+		where.wt_kind == WT_VARIABLE, where.wt_index);
 	return OK;
     }
 
@@ -518,7 +574,11 @@ need_type(
 {
     where_T where = WHERE_INIT;
 
-    where.wt_index = arg_idx;
+    if (arg_idx > 0)
+    {
+	where.wt_index = arg_idx;
+	where.wt_kind = WT_ARGUMENT;
+    }
     return need_type_where(actual, expected, number_ok, offset, where,
 						cctx, silent, actual_is_const);
 }
@@ -1580,7 +1640,8 @@ compile_lhs(
 	else
 	{
 	    // No specific kind of variable recognized, just a name.
-	    if (check_reserved_name(lhs->lhs_name, cctx) == FAIL)
+	    if (check_reserved_name(lhs->lhs_name, lhs->lhs_has_index
+						&& *var_end == '.') == FAIL)
 		return FAIL;
 
 	    if (lookup_local(var_start, lhs->lhs_varlen,
@@ -1612,8 +1673,8 @@ compile_lhs(
 		    return FAIL;
 		}
 	    }
-	    else if ((lhs->lhs_classmember_idx = class_member_index(
-				 var_start, lhs->lhs_varlen, NULL, cctx)) >= 0)
+	    else if ((lhs->lhs_classmember_idx = cctx_class_member_idx(
+			    cctx, var_start, lhs->lhs_varlen, NULL)) >= 0)
 	    {
 		if (is_decl)
 		{
@@ -1860,11 +1921,32 @@ compile_lhs(
 	else if (use_class)
 	{
 	    // for an object or class member get the type of the member
-	    class_T *cl = lhs->lhs_type->tt_class;
-	    lhs->lhs_member_type = class_member_type(cl, after + 1,
-					   lhs->lhs_end, &lhs->lhs_member_idx);
+	    class_T	*cl = lhs->lhs_type->tt_class;
+	    ocmember_T	*m;
+
+	    lhs->lhs_member_type = class_member_type(cl,
+					lhs->lhs_type->tt_type == VAR_OBJECT,
+					after + 1, lhs->lhs_end,
+					&lhs->lhs_member_idx, &m);
 	    if (lhs->lhs_member_idx < 0)
 		return FAIL;
+	    if ((cl->class_flags & CLASS_INTERFACE) != 0
+					&& lhs->lhs_type->tt_type == VAR_CLASS)
+	    {
+		semsg(_(e_interface_static_direct_access_str),
+						cl->class_name, m->ocm_name);
+		return FAIL;
+	    }
+	    // If it is private member variable, then accessing it outside the
+	    // class is not allowed.
+	    if ((m->ocm_access != VIM_ACCESS_ALL) && !inside_class(cctx, cl))
+	    {
+		char *msg = (m->ocm_access == VIM_ACCESS_PRIVATE)
+				? e_cannot_access_private_member_str
+				: e_cannot_change_readonly_variable_str;
+		semsg(_(msg), m->ocm_name);
+		return FAIL;
+	    }
 	}
 	else
 	{
@@ -2070,11 +2152,12 @@ compile_load_lhs_with_index(lhs_T *lhs, char_u *var_start, cctx_T *cctx)
 	// Also for "obj.value".
        char_u *dot = vim_strchr(var_start, '.');
        if (dot == NULL)
-           return FAIL;
+	   return FAIL;
 
-	class_T *cl = lhs->lhs_type->tt_class;
-	type_T *type = class_member_type(cl, dot + 1,
-					   lhs->lhs_end, &lhs->lhs_member_idx);
+	class_T	*cl = lhs->lhs_type->tt_class;
+	type_T	*type = class_member_type(cl, TRUE, dot + 1,
+					   lhs->lhs_end, &lhs->lhs_member_idx,
+					   NULL);
 	if (lhs->lhs_member_idx < 0)
 	    return FAIL;
 
@@ -2091,8 +2174,9 @@ compile_load_lhs_with_index(lhs_T *lhs, char_u *var_start, cctx_T *cctx)
 		return FAIL;
 	}
 	if (cl->class_flags & CLASS_INTERFACE)
-	    return generate_GET_ITF_MEMBER(cctx, cl, lhs->lhs_member_idx, type);
-	return generate_GET_OBJ_MEMBER(cctx, lhs->lhs_member_idx, type);
+	    return generate_GET_ITF_MEMBER(cctx, cl, lhs->lhs_member_idx, type,
+									FALSE);
+	return generate_GET_OBJ_MEMBER(cctx, lhs->lhs_member_idx, type, FALSE);
     }
 
     compile_load_lhs(lhs, var_start, NULL, cctx);
@@ -2294,6 +2378,9 @@ push_default_value(
 	case VAR_CHANNEL:
 	    r = generate_PUSHCHANNEL(cctx);
 	    break;
+	case VAR_OBJECT:
+	    r = generate_PUSHOBJ(cctx);
+	    break;
 	case VAR_NUMBER:
 	case VAR_UNKNOWN:
 	case VAR_ANY:
@@ -2301,7 +2388,6 @@ push_default_value(
 	case VAR_VOID:
 	case VAR_INSTR:
 	case VAR_CLASS:
-	case VAR_OBJECT:
 	case VAR_SPECIAL:  // cannot happen
 	    // This is skipped for local variables, they are always
 	    // initialized to zero.  But in a "for" or "while" loop
@@ -2635,8 +2721,11 @@ compile_assignment(
 			// Without operator check type here, otherwise below.
 			// Use the line number of the assignment.
 			SOURCING_LNUM = start_lnum;
-			where.wt_index = var_count > 0 ? var_idx + 1 : 0;
-			where.wt_variable = var_count > 0;
+			if (var_count > 0)
+			{
+			    where.wt_index = var_idx + 1;
+			    where.wt_kind = WT_VARIABLE;
+			}
 			// If assigning to a list or dict member, use the
 			// member type.  Not for "list[:] =".
 			if (lhs.lhs_has_index
@@ -2957,7 +3046,8 @@ get_compile_type(ufunc_T *ufunc)
 #ifdef FEAT_PROFILE
     if (do_profiling == PROF_YES)
     {
-	if (!ufunc->uf_profiling && has_profiling(FALSE, ufunc->uf_name, NULL))
+	if (!ufunc->uf_profiling && has_profiling(FALSE, ufunc->uf_name, NULL,
+							    &ufunc->uf_hash))
 	    func_do_profile(ufunc);
 	if (ufunc->uf_profiling)
 	    return CT_PROFILE;
@@ -3142,6 +3232,19 @@ compile_def_function(
 			semsg(_(e_trailing_characters_str), expr);
 			goto erret;
 		    }
+
+		    type_T	*type = get_type_on_stack(&cctx, 0);
+		    if (m->ocm_type->tt_type != type->tt_type)
+		    {
+			// The type of the member initialization expression is
+			// determined at run time.  Add a runtime type check.
+			where_T	where = WHERE_INIT;
+			where.wt_kind = WT_MEMBER;
+			where.wt_func_name = (char *)m->ocm_name;
+			if (need_type_where(type, m->ocm_type, FALSE, -1,
+				    where, &cctx, FALSE, FALSE) == FAIL)
+			    goto erret;
+		    }
 		}
 		else
 		    push_default_value(&cctx, m->ocm_type->tt_type,
@@ -3192,6 +3295,7 @@ compile_def_function(
 	    // specified type.
 	    val_type = get_type_on_stack(&cctx, 0);
 	    where.wt_index = arg_idx + 1;
+	    where.wt_kind = WT_ARGUMENT;
 	    if (ufunc->uf_arg_types[arg_idx] == &t_unknown)
 	    {
 		did_set_arg_type = TRUE;
@@ -3485,7 +3589,7 @@ compile_def_function(
 	    }
 	}
 
-	if (cctx.ctx_had_return
+	if ((cctx.ctx_had_return || cctx.ctx_had_throw)
 		&& ea.cmdidx != CMD_elseif
 		&& ea.cmdidx != CMD_else
 		&& ea.cmdidx != CMD_endif
@@ -3493,11 +3597,14 @@ compile_def_function(
 		&& ea.cmdidx != CMD_endwhile
 		&& ea.cmdidx != CMD_catch
 		&& ea.cmdidx != CMD_finally
-		&& ea.cmdidx != CMD_endtry)
+		&& ea.cmdidx != CMD_endtry
+		&& !ignore_unreachable_code_for_testing)
 	{
-	    emsg(_(e_unreachable_code_after_return));
+	    semsg(_(e_unreachable_code_after_str),
+				     cctx.ctx_had_return ? "return" : "throw");
 	    goto erret;
 	}
+	cctx.ctx_had_throw = FALSE;
 
 	p = skipwhite(p);
 	if (ea.cmdidx != CMD_SIZE
@@ -3611,6 +3718,7 @@ compile_def_function(
 		    break;
 	    case CMD_throw:
 		    line = compile_throw(p, &cctx);
+		    cctx.ctx_had_throw = TRUE;
 		    break;
 
 	    case CMD_eval:
@@ -3763,7 +3871,9 @@ nextline:
 	goto erret;
     }
 
-    if (!cctx.ctx_had_return)
+    // TODO: if a function ends in "throw" but there was a return elsewhere we
+    // should not assume the return type is "void".
+    if (!cctx.ctx_had_return && !cctx.ctx_had_throw)
     {
 	if (ufunc->uf_ret_type->tt_type == VAR_UNKNOWN)
 	    ufunc->uf_ret_type = &t_void;

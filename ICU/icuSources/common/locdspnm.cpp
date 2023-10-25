@@ -634,7 +634,7 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
   UBool hasVariant = uprv_strlen(variant) > 0;
 
 #if APPLE_ICU_CHANGES
-// rdar://50750364 Add and always use dialect names for zh and yue to match overriding in InternationalSupport
+// rdar://50750364 Add and always use dialect names for zh and yue
 // rdar://50687287 add names for ks/pa/ur_Arab that use script Naskh, force their use, remove redundant parens
   // For stylistic reasons, always load dialect names for `zh` and `yue`. <rdar://50750364>
   // `ks`, 'pa`, `ur`: <rdar://50687287>;

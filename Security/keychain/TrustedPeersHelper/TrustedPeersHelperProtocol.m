@@ -1,4 +1,3 @@
-
 #import <Foundation/Foundation.h>
 
 #if OCTAGON
@@ -27,7 +26,8 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         NSSet* arrayOfStrings = [NSSet setWithArray:@[[NSArray class], [NSString class]]];
         NSSet* trustedPeersHelperPeerState = [NSSet setWithObject:[TrustedPeersHelperPeerState class]];
 
-        NSSet* trustedPeersHelperCustodianRecoveryKey= [NSSet setWithObject:[TrustedPeersHelperCustodianRecoveryKey class]];
+        NSSet* trustedPeersHelperCustodianRecoveryKey = [NSSet setWithObject:[TrustedPeersHelperCustodianRecoveryKey class]];
+        NSSet* trustedPeersHelperHealthCheckResult = [NSSet setWithObject:[TrustedPeersHelperHealthCheckResult class]];
 
         NSSet* arrayOfTrustedPeersHelperPeer = [NSSet setWithArray:@[[NSArray class], [TrustedPeersHelperPeer class]]];
         NSSet* arrayOfSettings = [NSSet setWithArray:@[[NSArray class], [NSDictionary class], [NSString class], [TPPBPeerStableInfoSetting class]]];
@@ -75,7 +75,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(reportHealthWithSpecificUser:stateMachineState:trustState:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(pushHealthInquiryWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:knownFederations:reply:) argumentIndex:5 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:knownFederations:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(getSupportAppInfoWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(resetAccountCDPContentsWithSpecificUser:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeEscrowCacheWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
@@ -212,6 +212,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                                            tlkShares:
                                                                                            reply:) argumentIndex:1 ofReply:NO];
         [interface setClasses:trustedPeersHelperCustodianRecoveryKey forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:trustedPeersHelperHealthCheckResult forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:knownFederations:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:trustedPeersHelperPeerState forSelector:@selector(updateWithSpecificUser:
                                                                                 forceRefetch:
                                                                                 deviceName:
@@ -537,4 +538,3 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     [coder encodeObject:self.tlkRecoveryErrors forKey:@"errors"];
 }
 @end
-

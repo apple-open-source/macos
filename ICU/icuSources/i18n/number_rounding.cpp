@@ -299,7 +299,7 @@ Precision Precision::constructSignificant(int32_t minSig, int32_t maxSig) {
     return {RND_SIGNIFICANT, union_};
 }
 
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
 // rdar://70367682 #163 dab0491810.. Integrate open-source ICU 68.2 into Apple ICU sources
 Precision Precision::constructIncrementSignificant(double increment, int32_t minSig, int32_t maxSig) { // Apple rdar://52538227
@@ -544,7 +544,7 @@ void RoundingImpl::apply(impl::DecimalQuantity &value, UErrorCode& status) const
             // Call .withCurrency() before .apply()!
             UPRV_UNREACHABLE_EXIT;
 
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
 // rdar://57899428 #48 ce5040ead2.. Integrate open-source ICU 66 preview + Apple locale adds
 // rdar://97937093 #nn sub-TLF: Integrate ICU 72

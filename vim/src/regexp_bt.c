@@ -1387,7 +1387,7 @@ regatom(int *flagp)
 	if (one_exactly)
 	    EMSG_ONE_RET_NULL;
 	// Supposed to be caught earlier.
-	IEMSG_RET_NULL(_(e_internal_error_in_regexp));
+	IEMSG_RET_NULL(e_internal_error_in_regexp);
 	// NOTREACHED
 
       case Magic('='):
@@ -2488,7 +2488,7 @@ bt_regcomp(char_u *expr, int re_flags)
     int		flags;
 
     if (expr == NULL)
-	IEMSG_RET_NULL(_(e_null_argument));
+	IEMSG_RET_NULL(e_null_argument);
 
     init_class_tab();
 
@@ -3114,7 +3114,7 @@ do_class:
 	break;
 
       default:			// Oh dear.  Called inappropriately.
-	iemsg(_(e_corrupted_regexp_program));
+	iemsg(e_corrupted_regexp_program);
 #ifdef DEBUG
 	printf("Called regrepeat with op code %d\n", OP(p));
 #endif
@@ -4338,7 +4338,7 @@ regmatch(
 	    break;
 
 	  default:
-	    iemsg(_(e_corrupted_regexp_program));
+	    iemsg(e_corrupted_regexp_program);
 #ifdef DEBUG
 	    printf("Illegal op code %d\n", op);
 #endif
@@ -4751,7 +4751,7 @@ regmatch(
 	{
 	    // We get here only if there's trouble -- normally "case END" is
 	    // the terminating point.
-	    iemsg(_(e_corrupted_regexp_program));
+	    iemsg(e_corrupted_regexp_program);
 #ifdef DEBUG
 	    printf("Premature EOL\n");
 #endif
@@ -4900,7 +4900,7 @@ bt_regexec_both(
     // Be paranoid...
     if (prog == NULL || line == NULL)
     {
-	iemsg(_(e_null_argument));
+	iemsg(e_null_argument);
 	goto theend;
     }
 

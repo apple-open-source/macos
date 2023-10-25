@@ -41,6 +41,12 @@ PREBINDING = NO;
 WARNING_CFLAGS = -Wall -Wextra -Wchar-subscripts -Wextra-tokens -Wformat=2 -Wmissing-format-attribute -Winit-self -Wmissing-noreturn -Wpacked -Wpointer-arith -Wredundant-decls -Wundef -Wwrite-strings $(SECURITY_WARNING_CFLAGS) -Wno-cast-qual -Wno-documentation -Wno-shorten-64-to-32;
 SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=format-security -Werror=memset-transposed-args -Werror=return-stack-address -Werror=shadow -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
 
+OTHER_CFLAGS = $(inherited) $(OTHER_CFLAGS_LIBFUZZER_$(ENABLE_LIBFUZZER));
+OTHER_CFLAGS_LIBFUZZER_YES = -g -fno-omit-frame-pointer -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -fsanitize-coverage=inline-8bit-counters,trace-cmp;
+
+OTHER_LDFLAGS = $(inherited) $(OTHER_LDFLAGS_LIBFUZZER_$(ENABLE_LIBFUZZER));
+OTHER_LDFLAGS_LIBFUZZER_YES = -fsanitize-coverage=inline-8bit-counters,trace-cmp;
+
 CLANG_TRIVIAL_AUTO_VAR_INIT[sdk=iphone*]=zero;
 
 STRIP_INSTALLED_PRODUCT = YES;

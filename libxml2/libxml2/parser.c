@@ -4592,8 +4592,7 @@ get_more:
                     line = ctxt->input->line;
                     col = ctxt->input->col;
 		}
-                /* something really bad happened in the SAX callback */
-                if (ctxt->instate != XML_PARSER_CONTENT)
+                if (ctxt->instate == XML_PARSER_EOF)
                     return;
 	    }
 	    ctxt->input->cur = in;
@@ -7279,8 +7278,8 @@ xmlParseReference(xmlParserCtxtPtr ctxt) {
         ent->checked = diff * 2;
 	if ((ent->content != NULL) && (xmlStrchr(ent->content, '<')))
 	    ent->checked |= 1;
-	if (ret == XML_ERR_ENTITY_LOOP) {
-	    xmlFatalErr(ctxt, XML_ERR_ENTITY_LOOP, NULL);
+	if (ret == XML_ERR_ENTITY_LOOP || ret == XML_ERR_USER_STOP) {
+	    xmlFatalErr(ctxt, ret, NULL);
             xmlHaltParser(ctxt);
 	    xmlFreeNodeList(list);
 	    return;

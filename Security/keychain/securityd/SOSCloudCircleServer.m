@@ -2479,6 +2479,23 @@ bool SOSCCIsSOSTrustAndSyncingEnabled_Server(void)
     return isEnabled;
 }
 
+bool SOSCCPushResetCircle_Server(CFErrorRef* error)
+{
+    CFErrorRef localError = NULL;
+     do_with_account_while_unlocked(&localError, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
+         SOSAccountWriteEmptyCircleToKVS(txn.account);
+         return true;
+    });
+
+    if (localError) {
+        secerror("SOSCCPushResetCircle_Server: error writing reset circle to kvs: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+    }
+    return true;
+}
+
 void SOSCCResetOTRNegotiation_Server(CFStringRef peerid)
 {
     CFErrorRef localError = NULL;

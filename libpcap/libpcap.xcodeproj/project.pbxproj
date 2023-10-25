@@ -116,6 +116,8 @@
 		727B12FB1628C06F0039A877 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
 		729DE1E416CB05F700195247 /* pcap-darwin.c in Sources */ = {isa = PBXBuildFile; fileRef = 729DE1E316CB05F700195247 /* pcap-darwin.c */; };
 		729DE1E516CB05F700195247 /* pcap-darwin.c in Sources */ = {isa = PBXBuildFile; fileRef = 729DE1E316CB05F700195247 /* pcap-darwin.c */; };
+		729EF9692AA40032000C4DF8 /* send_multiple_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 729EF9682AA40032000C4DF8 /* send_multiple_test.c */; };
+		729EF96D2AA403AA000C4DF8 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
 		72A13B1B29835FBD00BC001D /* pcap-apple-stubs.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A13B1A29835FBD00BC001D /* pcap-apple-stubs.c */; };
 		72B903661CE00DB2008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
 		72B903691CE00EA9008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
@@ -321,6 +323,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 727B12F11628BF800039A877;
 			remoteInfo = ngdumptest;
+		};
+		729EF96E2AA403BF000C4DF8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7244CBDC1624FBE400141ECF;
+			remoteInfo = libpcap_static;
 		};
 		72B903731CE00F24008DB2D2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -561,6 +570,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		729EF9642AA40032000C4DF8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		72B9035C1CE00CEC008DB2D2 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -634,11 +652,9 @@
 		725D580A23452FBD0023A8CB /* opentest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = opentest.c; path = libpcap/testprogs/opentest.c; sourceTree = SOURCE_ROOT; };
 		725D5819234530040023A8CB /* can_set_rfmon_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = can_set_rfmon_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		725D582B234531AF0023A8CB /* threadsignaltest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = threadsignaltest; sourceTree = BUILT_PRODUCTS_DIR; };
-		725D582D234531AF0023A8CB /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		725D5832234531D10023A8CB /* nonblocktest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nonblocktest.c; sourceTree = "<group>"; };
 		725D5833234531D10023A8CB /* offlinereadtest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = offlinereadtest.c; sourceTree = "<group>"; };
 		725D583A234531FC0023A8CB /* valgrindtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = valgrindtest; sourceTree = BUILT_PRODUCTS_DIR; };
-		725D583C234531FC0023A8CB /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		725D584D234535730023A8CB /* pcap_get_required_select_timeout.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_get_required_select_timeout.3pcap; path = libpcap/pcap_get_required_select_timeout.3pcap; sourceTree = "<group>"; };
 		725D584F234535AB0023A8CB /* pcap_set_protocol_linux.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_protocol_linux.3pcap; path = libpcap/pcap_set_protocol_linux.3pcap; sourceTree = "<group>"; };
 		72717797234C0C8E000D8DF1 /* funcattrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = funcattrs.h; path = libpcap/pcap/funcattrs.h; sourceTree = "<group>"; };
@@ -653,6 +669,8 @@
 		727B12F21628BF800039A877 /* ngdumptest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ngdumptest; sourceTree = BUILT_PRODUCTS_DIR; };
 		72995B1A2723434200E8A1A5 /* pcap_init.3pcap */ = {isa = PBXFileReference; lastKnownFileType = text; name = pcap_init.3pcap; path = libpcap/pcap_init.3pcap; sourceTree = "<group>"; };
 		729DE1E316CB05F700195247 /* pcap-darwin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "pcap-darwin.c"; path = "libpcap/pcap-darwin.c"; sourceTree = "<group>"; };
+		729EF9662AA40032000C4DF8 /* send_multiple_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = send_multiple_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		729EF9682AA40032000C4DF8 /* send_multiple_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = send_multiple_test.c; sourceTree = "<group>"; };
 		72A13B1A29835FBD00BC001D /* pcap-apple-stubs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "pcap-apple-stubs.c"; path = "libpcap/pcap-apple-stubs.c"; sourceTree = "<group>"; };
 		72B9035E1CE00CEC008DB2D2 /* capturetest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = capturetest; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B903751CE0145A008DB2D2 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = libpcap/config.h; sourceTree = "<group>"; };
@@ -884,6 +902,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		729EF9632AA40032000C4DF8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729EF96D2AA403AA000C4DF8 /* libpcap_static.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		72B9035B1CE00CEC008DB2D2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -921,9 +947,6 @@
 				72D13B1816BDF7D2009B01B1 /* tests */,
 				FCDE36981036827700CC3DD8 /* Documentation */,
 				72B9039A1CE01BD7008DB2D2 /* Resources */,
-				725D582C234531AF0023A8CB /* threadsignaltest */,
-				725D583B234531FC0023A8CB /* valgrindtest */,
-				7272CC0F27F25F9B00E17683 /* print_libpcap_version */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				721463AD1F6898CF00D74814 /* Frameworks */,
 			);
@@ -986,6 +1009,7 @@
 				723D11E927233E3300F3C42A /* findalldevstest-perf */,
 				723D11F627233E8C00F3C42A /* writecaptest */,
 				7272CC0E27F25F9B00E17683 /* print_libpcap_version */,
+				729EF9662AA40032000C4DF8 /* send_multiple_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1017,27 +1041,12 @@
 			path = libpcap/tests;
 			sourceTree = "<group>";
 		};
-		725D582C234531AF0023A8CB /* threadsignaltest */ = {
+		729EF9672AA40032000C4DF8 /* send_multiple_test */ = {
 			isa = PBXGroup;
 			children = (
-				725D582D234531AF0023A8CB /* main.c */,
+				729EF9682AA40032000C4DF8 /* send_multiple_test.c */,
 			);
-			path = threadsignaltest;
-			sourceTree = "<group>";
-		};
-		725D583B234531FC0023A8CB /* valgrindtest */ = {
-			isa = PBXGroup;
-			children = (
-				725D583C234531FC0023A8CB /* main.c */,
-			);
-			path = valgrindtest;
-			sourceTree = "<group>";
-		};
-		7272CC0F27F25F9B00E17683 /* print_libpcap_version */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = print_libpcap_version;
+			path = send_multiple_test;
 			sourceTree = "<group>";
 		};
 		72B9039A1CE01BD7008DB2D2 /* Resources */ = {
@@ -1065,6 +1074,7 @@
 				72C5297E202543BF005DB7E4 /* ngdumppktap */,
 				72D13B1C16BDF7D2009B01B1 /* ngdumptest */,
 				72D13B1F16BDF7D2009B01B1 /* ngofflinereadtest */,
+				729EF9672AA40032000C4DF8 /* send_multiple_test */,
 			);
 			name = tests;
 			path = libpcap/tests;
@@ -1547,6 +1557,24 @@
 			productReference = 727B12F21628BF800039A877 /* ngdumptest */;
 			productType = "com.apple.product-type.tool";
 		};
+		729EF9652AA40032000C4DF8 /* send_multiple_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 729EF96C2AA40032000C4DF8 /* Build configuration list for PBXNativeTarget "send_multiple_test" */;
+			buildPhases = (
+				729EF9622AA40032000C4DF8 /* Sources */,
+				729EF9632AA40032000C4DF8 /* Frameworks */,
+				729EF9642AA40032000C4DF8 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				729EF96F2AA403BF000C4DF8 /* PBXTargetDependency */,
+			);
+			name = send_multiple_test;
+			productName = send_multiple_test;
+			productReference = 729EF9662AA40032000C4DF8 /* send_multiple_test */;
+			productType = "com.apple.product-type.tool";
+		};
 		72B9035D1CE00CEC008DB2D2 /* capturetest */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 72B903621CE00CEC008DB2D2 /* Build configuration list for PBXNativeTarget "capturetest" */;
@@ -1649,6 +1677,9 @@
 					7272CC0D27F25F9B00E17683 = {
 						CreatedOnToolsVersion = 14.0;
 					};
+					729EF9652AA40032000C4DF8 = {
+						CreatedOnToolsVersion = 15.0;
+					};
 					72B9035D1CE00CEC008DB2D2 = {
 						CreatedOnToolsVersion = 7.1;
 					};
@@ -1692,6 +1723,7 @@
 				7272CC0D27F25F9B00E17683 /* print_libpcap_version */,
 				72441EC815D3234A007A9F70 /* reactivatetest */,
 				72441ED515D32357007A9F70 /* selpolltest */,
+				729EF9652AA40032000C4DF8 /* send_multiple_test */,
 				725D582A234531AF0023A8CB /* threadsignaltest */,
 				725D5839234531FC0023A8CB /* valgrindtest */,
 				723D11ED27233E8C00F3C42A /* writecaptest */,
@@ -1872,6 +1904,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		729EF9622AA40032000C4DF8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729EF9692AA40032000C4DF8 /* send_multiple_test.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		72B9035A1CE00CEC008DB2D2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1993,6 +2033,11 @@
 			isa = PBXTargetDependency;
 			target = 727B12F11628BF800039A877 /* ngdumptest */;
 			targetProxy = 727B12FC1628C6240039A877 /* PBXContainerItemProxy */;
+		};
+		729EF96F2AA403BF000C4DF8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7244CBDC1624FBE400141ECF /* libpcap_static */;
+			targetProxy = 729EF96E2AA403BF000C4DF8 /* PBXContainerItemProxy */;
 		};
 		72B903741CE00F24008DB2D2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2963,6 +3008,79 @@
 			};
 			name = Debug;
 		};
+		729EF96A2AA40032000C4DF8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				HEADER_SEARCH_PATHS = (
+					libpcap,
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
+		729EF96B2AA40032000C4DF8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				HEADER_SEARCH_PATHS = (
+					libpcap,
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Debug;
+		};
 		72B903631CE00CEC008DB2D2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3356,6 +3474,15 @@
 			buildConfigurations = (
 				727B12F91628BF800039A877 /* Release */,
 				727B12FA1628BF800039A877 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		729EF96C2AA40032000C4DF8 /* Build configuration list for PBXNativeTarget "send_multiple_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				729EF96A2AA40032000C4DF8 /* Release */,
+				729EF96B2AA40032000C4DF8 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -224,7 +224,7 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
 
     func testRecoveryKeyCleanupAfterRemoval() throws {
         try self.skipOnRecoveryKeyNotSupported()
-        
+
         let initiatorContextID = "initiator-context-id"
         let clique = try self.getTwoPeersInCircle(contextID: initiatorContextID)
         XCTAssertNotNil(clique, "clique should not be nil")
@@ -343,8 +343,9 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         self.wait(for: [removeExpectation], timeout: 10)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
             XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(response, "response should not be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)

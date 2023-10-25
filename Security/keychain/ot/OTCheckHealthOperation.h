@@ -32,6 +32,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class TrustedPeersHelperHealthCheckResult;
+
 @interface OTCheckHealthOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 @property OctagonState* nextState;
 
@@ -42,17 +44,16 @@ NS_ASSUME_NONNULL_BEGIN
                           errorState:(OctagonState*)errorState
                           deviceInfo:(nonnull OTDeviceInformation *)deviceInfo
                 skipRateLimitedCheck:(BOOL)skipRateLimitedCheck
+             reportRateLimitingError:(BOOL)reportRateLimitingError
                               repair:(BOOL)repair;
 
 @property OTDeviceInformation* deviceInfo;
 
-@property BOOL skipRateLimitingCheck;
-@property BOOL repair;
-@property BOOL postRepairCFU;
-@property BOOL postEscrowCFU;
-@property BOOL resetOctagon;
-@property BOOL leaveTrust;
-@property OTEscrowMoveRequestContext* moveRequest;
+@property (readonly) BOOL skipRateLimitingCheck;
+@property (readonly) BOOL reportRateLimitingError;
+@property (readonly) BOOL repair;
+
+@property (nullable) TrustedPeersHelperHealthCheckResult* results;
 
 @end
 

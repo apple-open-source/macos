@@ -2,6 +2,7 @@
 " Language:         Rust
 " Author:           Chris Morgan <me@chrismorgan.info>
 " Last Change:      2017 Jun 13
+"                   2023 Aug 28 by Vim Project (undo_indent)
 " For bugs, patches and license go to https://github.com/rust-lang/rust.vim
 
 " Only load this indent file when no other was loaded.
@@ -23,6 +24,8 @@ setlocal autoindent	" indentexpr isn't much help otherwise
 setlocal indentkeys=0{,0},!^F,o,O,0[,0]
 
 setlocal indentexpr=GetRustIndent(v:lnum)
+
+let b:undo_indent = "setlocal cindent< cinoptions< cinkeys< cinwords< lisp< autoindent< indentkeys< indentexpr<"
 
 " Only define the function once.
 if exists("*GetRustIndent")
@@ -130,6 +133,22 @@ function GetRustIndent(lnum)
 	if prevline[len(prevline) - 1] == ","
 				\ && prevline =~# '^\s*where\s'
 		return indent(prevlinenum) + 6
+	endif
+
+	"match newline after struct with generic bound like
+	"struct SomeThing<T>
+	"| <-- newline indent should same as prevline
+	if prevline[len(prevline) - 1] == ">"
+				\ && prevline =~# "\s*struct.*>$"
+		return indent(prevlinenum)
+	endif
+
+	"match newline after where like:
+	"struct SomeThing<T>
+	"where
+	"     T: Display,
+	if prevline =~# '^\s*where$'
+		return indent(prevlinenum) + 4
 	endif
 
 	if prevline[len(prevline) - 1] == ","

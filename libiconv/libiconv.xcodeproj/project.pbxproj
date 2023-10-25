@@ -15,6 +15,7 @@
 			);
 			dependencies = (
 				2A36356028AB695200D47F6C /* PBXTargetDependency */,
+				2A0C0BF02A59113A005B6BED /* PBXTargetDependency */,
 			);
 			name = tests;
 			productName = tests;
@@ -92,6 +93,8 @@
 /* Begin PBXBuildFile section */
 		2A057D6D272BB04500512A53 /* libcharset.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A057D6C272BB04500512A53 /* libcharset.c */; };
 		2A057D6F272BB15E00512A53 /* localcharset.h in Headers */ = {isa = PBXBuildFile; fileRef = 2A057D6E272BB15E00512A53 /* localcharset.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		2A0C0BE62A58A107005B6BED /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A17DEB62835F6B900F79BDB /* libiconv.tbd */; };
+		2A0C0BEE2A58A16E005B6BED /* mbopt_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A0C0BEB2A58A132005B6BED /* mbopt_test.c */; };
 		2A162F7927AC3EE3004E0F71 /* libiconv.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5976ACFC1007D6A5000AD30B /* libiconv.2.dylib */; };
 		2A162F7F27AC3F70004E0F71 /* citrus_utf8mac.h in Headers */ = {isa = PBXBuildFile; fileRef = 2A162F7D27AC3F70004E0F71 /* citrus_utf8mac.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		2A162F8027AC3F70004E0F71 /* citrus_utf8mac.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A162F7E27AC3F70004E0F71 /* citrus_utf8mac.c */; };
@@ -255,6 +258,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2A057D65272BAFEF00512A53;
 			remoteInfo = charset;
+		};
+		2A0C0BEF2A59113A005B6BED /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5976A9801007BEBD000AD30B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A0C0BE22A58A107005B6BED;
+			remoteInfo = mbopt_test;
 		};
 		2A162F8127AC4613004E0F71 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -490,6 +500,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2A0C0BE72A58A107005B6BED /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		2A17DEAD2835F68400F79BDB /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -597,6 +616,8 @@
 		2A057D6E272BB15E00512A53 /* localcharset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = localcharset.h; path = libcharset/localcharset.h; sourceTree = "<group>"; };
 		2A0609CD27A8CD2D00116170 /* libiconv.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libiconv.plist; sourceTree = "<group>"; };
 		2A0609CE27A8CD3200116170 /* libiconv.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = libiconv.txt; sourceTree = "<group>"; };
+		2A0C0BEA2A58A107005B6BED /* mbopt_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mbopt_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A0C0BEB2A58A132005B6BED /* mbopt_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mbopt_test.c; path = tests/libiconv/mbopt_test.c; sourceTree = "<group>"; };
 		2A162F7C27AC3EE3004E0F71 /* libUTF8MAC.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libUTF8MAC.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A162F7D27AC3F70004E0F71 /* citrus_utf8mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = citrus_utf8mac.h; path = UTF8MAC/citrus_utf8mac.h; sourceTree = "<group>"; };
 		2A162F7E27AC3F70004E0F71 /* citrus_utf8mac.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = citrus_utf8mac.c; path = UTF8MAC/citrus_utf8mac.c; sourceTree = "<group>"; };
@@ -780,6 +801,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A0C0BE52A58A107005B6BED /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A0C0BE62A58A107005B6BED /* libiconv.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1056,6 +1085,7 @@
 			isa = PBXGroup;
 			children = (
 				2A17DEA92835F65800F79BDB /* libiconv_test.c */,
+				2A0C0BEB2A58A132005B6BED /* mbopt_test.c */,
 			);
 			name = libiconv;
 			sourceTree = "<group>";
@@ -1134,6 +1164,7 @@
 				2A162F7C27AC3EE3004E0F71 /* libUTF8MAC.dylib */,
 				2A17DEAF2835F68400F79BDB /* libiconv_test */,
 				2A8764592929C83F00D9D285 /* libDECKanji.dylib */,
+				2A0C0BEA2A58A107005B6BED /* mbopt_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1755,6 +1786,23 @@
 			productReference = 2A057D66272BAFEF00512A53 /* libcharset.1.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		2A0C0BE22A58A107005B6BED /* mbopt_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A0C0BE82A58A107005B6BED /* Build configuration list for PBXNativeTarget "mbopt_test" */;
+			buildPhases = (
+				2A0C0BE32A58A107005B6BED /* Sources */,
+				2A0C0BE52A58A107005B6BED /* Frameworks */,
+				2A0C0BE72A58A107005B6BED /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = mbopt_test;
+			productName = libiconv_test;
+			productReference = 2A0C0BEA2A58A107005B6BED /* mbopt_test */;
+			productType = "com.apple.product-type.tool";
+		};
 		2A162F7327AC3EE3004E0F71 /* UTF8MAC */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2A162F7A27AC3EE3004E0F71 /* Build configuration list for PBXNativeTarget "UTF8MAC" */;
@@ -2374,6 +2422,7 @@
 				5976AD021007D6B9000AD30B /* iconv */,
 				3F8E80E816A720070006DBE5 /* libiconv_executables */,
 				2A17DEAE2835F68400F79BDB /* libiconv_test */,
+				2A0C0BE22A58A107005B6BED /* mbopt_test */,
 				A9D56F162677882E00276732 /* mkesdb */,
 				A971983226778C110095A589 /* mkcsmapper */,
 				A971985226778F3D0095A589 /* iconv_modules */,
@@ -2470,6 +2519,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				2A057D6D272BB04500512A53 /* libcharset.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A0C0BE32A58A107005B6BED /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A0C0BEE2A58A16E005B6BED /* mbopt_test.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2757,6 +2814,11 @@
 			target = 2A057D65272BAFEF00512A53 /* charset */;
 			targetProxy = 2A057D69272BAFFF00512A53 /* PBXContainerItemProxy */;
 		};
+		2A0C0BF02A59113A005B6BED /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A0C0BE22A58A107005B6BED /* mbopt_test */;
+			targetProxy = 2A0C0BEF2A59113A005B6BED /* PBXContainerItemProxy */;
+		};
 		2A162F8227AC4613004E0F71 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2A162F7327AC3EE3004E0F71 /* UTF8MAC */;
@@ -2986,6 +3048,60 @@
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
 				SDKROOT = macosx;
 				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		2A0C0BE92A58A107005B6BED /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/Tests/libiconv/libiconv;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				"OTHER_LDFLAGS[sdk=macosx*]" = "-latf-c";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -3278,7 +3394,6 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = libiconv;
 				PRODUCT_NAME = iconv.2;
-				SDKROOT = macosx.internal;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
 			};
@@ -4641,6 +4756,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2A057D67272BAFEF00512A53 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A0C0BE82A58A107005B6BED /* Build configuration list for PBXNativeTarget "mbopt_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A0C0BE92A58A107005B6BED /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

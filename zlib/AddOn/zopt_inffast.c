@@ -53,6 +53,7 @@ void ZLIB_INTERNAL inflate_fast(z_streamp strm, unsigned start) /* inflate()'s s
   struct inflate_state* state;      // Internal state
   
   const unsigned char* src_buffer;  // Payload
+  const unsigned char* src_begin;   // Start of payload
   const unsigned char* src_safe;    // Payload, safe for fast loop
   const unsigned char* src_end;     // End of payload
   
@@ -84,6 +85,7 @@ void ZLIB_INTERNAL inflate_fast(z_streamp strm, unsigned start) /* inflate()'s s
   dst_end    = dst_buffer + strm->avail_out;
   src_safe   = src_end - INFLATE_MIN_INPUT;
   dst_safe   = dst_end - INFLATE_MIN_OUTPUT;
+  src_begin  = strm->next_in;
   dst_begin  = dst_end - start;
   
   // Setup window
@@ -202,7 +204,7 @@ void ZLIB_INTERNAL inflate_fast(z_streamp strm, unsigned start) /* inflate()'s s
           // Match starts in [0, win_top)?
           if ((int32_t)match_pos >= 0)
           {
-            // Some output needed?
+            // Some output needed? (wrap around)
             if (unlikely(match_pos + length > win_top)) goto match_copy_edge_cases;
           }else
           {
@@ -218,12 +220,15 @@ void ZLIB_INTERNAL inflate_fast(z_streamp strm, unsigned start) /* inflate()'s s
             }
           }
           
-          // Unsafe or wrap around?
-          if (unlikely(match_pos + length + 63 > win_size)) goto match_copy_edge_cases;
-
-          // Use simple copy
-          dst_buffer = inflate_copy_fast(dst_buffer, window + match_pos, length);
-          goto match_copy_done;
+          // Use faster match copy?
+          if (likely(match_pos >= 15) &&                  // Left excess for MATCH available
+              likely(match_pos + length <= win_size) &&   // No wrapping around
+              likely(dst_available >= 16))                // Left excess for DST available - rdar://115798989
+          {
+            inflate_copy_without_overlap(dst_buffer, window + match_pos, length);
+            dst_buffer += length;
+            goto match_copy_done;
+          }
           
           //----------------------------------------------------------------------
           // This loop covers edge cases, where we start within WINDOW
@@ -241,12 +246,23 @@ void ZLIB_INTERNAL inflate_fast(z_streamp strm, unsigned start) /* inflate()'s s
           }
         }
 
-        // Copy from DST_BUFFER (handle overlapping copies)
-        dst_buffer = (length <= distance ?
-                      inflate_copy_fast(dst_buffer, dst_buffer - distance, length) :
-                      (distance < 16 ?
-                       inflate_copy_with_overlap_small(dst_buffer, distance, length) :
-                       inflate_copy_with_overlap_large(dst_buffer, distance, length)));
+        // Copy from DST_BUFFER - Left excess for MATCH/DST available?
+        if (likely(distance + 16 <= dst_available))
+        {
+          // No overlap
+          if (likely(distance >= length + 15))
+          {
+            inflate_copy_without_overlap(dst_buffer, dst_buffer - distance, length);
+            dst_buffer += length;
+          }else
+          {
+            inflate_copy_with_overlap(dst_buffer, distance, length);
+            dst_buffer += length;
+          }
+        }else
+        {
+          for(; length--; dst_buffer++) *dst_buffer = *(dst_buffer - distance);
+        }
         
       match_copy_done:
         // Safe to continue?
@@ -292,6 +308,10 @@ void ZLIB_INTERNAL inflate_fast(z_streamp strm, unsigned start) /* inflate()'s s
   // Return unused bytes/bits
   src_buffer -= n_bits >> 3; // Bytes
   n_bits &= 7;
+  
+  // Do not give back more than we ever had?
+  while (src_begin > src_buffer) { src_buffer++; n_bits += 8; }
+  
   state->bits = n_bits;
   state->hold = (uint32_t)bits & ~(-1 << n_bits);
 

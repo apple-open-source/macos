@@ -5,7 +5,9 @@ SANITIZE ?= 0
 
 # OSX build options
 OSX_SDK ?= macosx.internal
-OSX_ARCHS ?= x86_64 x86_64h arm64e
+OSX_ARCHS ?= x86_64 arm64e
+OSX_DSTROOT := /tmp/zlib-osx.dst
+OSX_LOG     := /tmp/compression-osx.log
 
 # IOS build options
 IOS_SDK ?= iphoneos.internal
@@ -28,6 +30,7 @@ LOG_EXT := > ./build/log.txt 2>&1 || ( cat ./build/log.txt && exit 1 )
 ARCH_DATE := $(shell date +"%Y%m%d")
 ARCH_FILE := $(HOME)/BNNS-$(ARCH_DATE).tgz
 
+# Color option printing
 define PRINT_OPT
    @echo "\033[1;34m$(1)\033[0m = $(2)"
 endef
@@ -40,8 +43,24 @@ tests: clean osx
 	./build/Release/t_zlib_verify -t -e 0 -d 10 -f /Volumes/Data/Sets/CanterburyCorpus/*
 
 osx:
-	@[ -d ./build ] || mkdir -p ./build
-	xcodebuild -sdk $(OSX_SDK) -configuration $(CONFIG) -target all ARCHS="$(OSX_ARCHS)" $(SANITIZER_OPT) $(LOG_EXT)
+	$(call PRINT_OPT,CONFIG   ,$(CONFIG))
+	$(call PRINT_OPT,OSX_SDK  ,$(OSX_SDK))
+	$(call PRINT_OPT,OSX_ARCHS,$(OSX_ARCHS))
+	$(call PRINT_OPT,SANITIZE ,$(SANITIZE))
+	@/bin/rm -rf $(OSX_DSTROOT)
+	xcodebuild -sdk $(OSX_SDK) -configuration $(CONFIG) -target all ARCHS="$(OSX_ARCHS)" DSTROOT=$(OSX_DSTROOT) $(SANITIZER_OPT) install > $(OSX_LOG) 2>&1 || cat $(OSX_LOG)
+
+osx-install: osx
+	./scripts/t_install_roots.pl -d $(OSX_DSTROOT) -s $(OSX_SDK)
+	./scripts/t_install_roots.pl -d $(OSX_DSTROOT) -s $(OSX_SDK) -r
+
+# Run: make osx-test SANITIZE=1
+osx-test: osx
+	sudo ./scripts/t_zlib_torture.sh $(OSX_DSTROOT) /Volumes/Data/Work/CompressionTests.git/SilesiaCorpus
+	sudo ./scripts/t_zlib_torture.sh $(OSX_DSTROOT) /Volumes/Data/Work/CompressionTests.git/CanterburyCorpus
+	sudo ./scripts/t_zlib_torture.sh $(OSX_DSTROOT) /Volumes/Data/Work/CompressionTests.git/CalgaryCorpus
+	sudo ./scripts/t_zlib_torture.sh $(OSX_DSTROOT) /bin
+
 ios:
 	@[ -d ./build ] || mkdir -p ./build
 	xcodebuild -sdk $(IOS_SDK) -configuration $(CONFIG) -target all ARCHS="$(IOS_ARCHS)" $(SANITIZER_OPT) $(LOG_EXT)
@@ -54,4 +73,4 @@ buildit-archive: clean
 	@cd /tmp/$(BUILDIT_RECORD_NAME).roots/BuildRecords && find . -type f -ls | egrep '\/(SDKContent)?Root\/'
 
 clean:
-	/bin/rm -rf ./build /tmp/zlib.dst
+	/bin/rm -rf ./build /tmp/zlib.dst $(OSX_DSTROOT)

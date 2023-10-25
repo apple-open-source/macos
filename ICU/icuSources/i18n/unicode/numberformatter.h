@@ -717,7 +717,7 @@ class U_I18N_API Precision : public UMemory {
         RND_INCREMENT_FIVE,
 
         RND_CURRENCY,
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
         RND_INCREMENT_SIGNIFICANT,
 #endif  // APPLE_ICU_CHANGES
@@ -756,7 +756,7 @@ class U_I18N_API Precision : public UMemory {
             /** @internal (private) */
             impl::digits_t fMinFrac;
         } increment;
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
         /** @internal */
         struct IncrementSignificantSettings {
@@ -776,7 +776,7 @@ class U_I18N_API Precision : public UMemory {
 
     typedef PrecisionUnion::FractionSignificantSettings FractionSignificantSettings;
     typedef PrecisionUnion::IncrementSettings IncrementSettings;
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
     typedef PrecisionUnion::IncrementSignificantSettings IncrementSignificantSettings;
 #endif  // APPLE_ICU_CHANGES
@@ -809,7 +809,7 @@ class U_I18N_API Precision : public UMemory {
 
     static Precision constructSignificant(int32_t minSig, int32_t maxSig);
 
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
     static Precision constructIncrementSignificant(double increment, int32_t minSig, int32_t maxSig); // Apple
 #endif  // APPLE_ICU_CHANGES

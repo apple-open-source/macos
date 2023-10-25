@@ -32,6 +32,7 @@
 #include "AuthenticatorManager.h"
 #include "DataReference.h"
 #include "DownloadProxyMap.h"
+#include "GoToBackForwardItemParameters.h"
 #include "LoadParameters.h"
 #include "Logging.h"
 #include "NetworkProcessConnectionInfo.h"
@@ -555,6 +556,28 @@ bool WebProcessProxy::shouldSendPendingMessage(const PendingMessage& message)
         } else
             ASSERT_NOT_REACHED();
         return false;
+    } else if (message.encoder->messageName() == IPC::MessageName::WebPage_GoToBackForwardItemWaitingForProcessLaunch) {
+        auto buffer = message.encoder->buffer();
+        auto bufferSize = message.encoder->bufferSize();
+        auto decoder = IPC::Decoder::create(buffer, bufferSize, { });
+        ASSERT(decoder);
+        if (!decoder)
+            return false;
+
+        std::optional<GoToBackForwardItemParameters> parameters;
+        *decoder >> parameters;
+        if (!parameters)
+            return false;
+        WebPageProxyIdentifier pageID;
+        if (!decoder->decode(pageID))
+            return false;
+
+        if (auto page = WebProcessProxy::webPage(pageID)) {
+            if (auto* item = WebBackForwardListItem::itemForID(parameters->backForwardItemID))
+                page->maybeInitializeSandboxExtensionHandle(static_cast<WebProcessProxy&>(*this), URL { item->url() }, item->resourceDirectoryURL(), parameters->sandboxExtensionHandle);
+        }
+        send(Messages::WebPage::GoToBackForwardItem(*parameters), decoder->destinationID());
+        return false;
     }
     return true;
 }
@@ -738,7 +761,7 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
 
     if (beginsUsingDataStore == BeginsUsingDataStore::Yes) {
         RELEASE_ASSERT(m_processPool);
-        m_processPool->pageBeginUsingWebsiteDataStore(webPage.identifier(), webPage.websiteDataStore());
+        m_processPool->pageBeginUsingWebsiteDataStore(webPage, webPage.websiteDataStore());
     }
 
 #if PLATFORM(MAC) && USE(RUNNINGBOARD)
@@ -788,7 +811,7 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, EndsUsingDataStore en
     reportProcessDisassociatedWithPageIfNecessary(webPage.identifier());
 
     if (endsUsingDataStore == EndsUsingDataStore::Yes)
-        m_processPool->pageEndUsingWebsiteDataStore(webPage.identifier(), webPage.websiteDataStore());
+        m_processPool->pageEndUsingWebsiteDataStore(webPage, webPage.websiteDataStore());
 
     removeVisitedLinkStoreUser(webPage.visitedLinkStore(), webPage.identifier());
     updateRegistrationWithDataStore();
@@ -2124,7 +2147,7 @@ void WebProcessProxy::createSpeechRecognitionServer(SpeechRecognitionServerIdent
 
 #if ENABLE(MEDIA_STREAM)
     auto createRealtimeMediaSource = [weakPage = WeakPtr { targetPage }]() {
-        return weakPage ? weakPage->createRealtimeMediaSourceForSpeechRecognition() : CaptureSourceOrError { "Page is invalid"_s };
+        return weakPage ? weakPage->createRealtimeMediaSourceForSpeechRecognition() : CaptureSourceOrError { { "Page is invalid"_s, WebCore::MediaAccessDenialReason::InvalidAccess } };
     };
     speechRecognitionServer = makeUnique<SpeechRecognitionServer>(*connection(), identifier, WTFMove(permissionChecker), WTFMove(checkIfMockCaptureDevicesEnabled), WTFMove(createRealtimeMediaSource));
 #else

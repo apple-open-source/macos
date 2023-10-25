@@ -28,28 +28,6 @@
 
 #include <stdbool.h>
 
-#ifndef PTH_FLAG_REXMIT
-#define	PTH_FLAG_REXMIT		0x00008000 /* Packet is a retransmission */
-#endif /* PTH_FLAG_REXMIT */
-
-#ifndef PTH_FLAG_KEEP_ALIVE
-#define	PTH_FLAG_KEEP_ALIVE	0x00010000 /* Is keep alive packet */
-#endif /* PTH_FLAG_KEEP_ALIVE */
-
-#ifndef PTH_FLAG_SOCKET
-#define	PTH_FLAG_SOCKET		0x00020000 /* Packet on a Socket */
-#endif /* PTH_FLAG_SOCKET */
-
-#ifndef PTH_FLAG_NEXUS_CHAN
-#define	PTH_FLAG_NEXUS_CHAN	0x00040000 /* Packet on a nexus channel */
-#endif /* PTH_FLAG_NEXUS_CHAN */
-
-#ifndef PTH_FLAG_V2_HDR
-#define PTH_FLAG_V2_HDR		0x00080000 /* Version 2 of pktap */
-#endif /* PTH_FLAG_V2_HDR */
-
-
 pcap_t *pktap_create(const char *device, char *ebuf, int *is_ours);
-
 
 #endif /* pcap_pktap_h */

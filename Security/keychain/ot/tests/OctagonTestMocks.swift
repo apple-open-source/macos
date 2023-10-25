@@ -2,16 +2,19 @@
 import Foundation
 
 class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
+    
     let bottleID: String?
     let entropy: Data?
     var recoveryKey: String?
     var kvsError: NSError?
+    var sbdError: NSError?
 
     init(bottleID: String?, entropy: Data?) {
         self.bottleID = bottleID
         self.entropy = entropy
         self.recoveryKey = nil
         self.kvsError = nil
+        self.sbdError = nil
 
         super.init()
     }
@@ -67,8 +70,33 @@ class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
         return RK == self.recoveryKey ? true : false
     }
 
+    func verifyRecoveryKey(_ recoveryKey: String!, error: NSErrorPointer) -> Bool {
+        if self.kvsError != nil {
+            error!.pointee = self.kvsError
+            return false
+        }
+        let result = (recoveryKey == self.recoveryKey ? true : false)
+        if result == false {
+            error!.pointee = NSError(domain: OctagonErrorDomain, code: OctagonError.recoveryKeyIncorrect.rawValue, userInfo: [NSLocalizedDescriptionKey : "Recovery key is incorrect"])
+        }
+        return result;
+    }
+
+    func removeRecoveryKey(fromBackup error: NSErrorPointer) -> Bool {
+        if self.sbdError != nil {
+            error!.pointee = self.sbdError
+            return false
+        }
+        self.recoveryKey = nil
+        return true
+    }
+
     func setExpectKVSError(_ error: NSError) {
         self.kvsError = error
+    }
+
+    func setExpectSBDError(_ error: NSError) {
+        self.sbdError = error
     }
 
     @objc

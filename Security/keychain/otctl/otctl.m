@@ -383,7 +383,7 @@ int main(int argc, char** argv)
             } else {
                 skip = NO;
             }
-            return [ctl healthCheck:arguments skipRateLimitingCheck:skip repair:repair];
+            return [ctl healthCheck:arguments skipRateLimitingCheck:skip repair:repair json:json];
         }
         if(tlkRecoverability) {
             return [ctl tlkRecoverability:arguments];

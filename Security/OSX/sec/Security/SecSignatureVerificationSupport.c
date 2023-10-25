@@ -162,6 +162,9 @@ bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const DERAlgorithmId *
         signature = SecRecreateSignatureWithDERAlgorithmId(publicKey, sigAlgId, signatureStart, signatureSize);
         require_quiet(signature, fail);
 
+        if (error) {
+            CFReleaseNull(*error);
+        }
         result = SecKeyVerifySignature(publicKey, alg, data, signature, error);
     }
 

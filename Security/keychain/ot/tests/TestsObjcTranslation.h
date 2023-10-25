@@ -80,8 +80,8 @@ NS_ASSUME_NONNULL_BEGIN
                                                          configuration:(OTConfigurationContext*)configurationContext
                                                                  error:(NSError**)error;
 + (OTAccountSettings* _Nullable)fetchAccountWideSettingsDefaultWithForceFetch:(bool)forceFetch
-                                                         configuration:(OTConfigurationContext*)configurationContext
-                                                                 error:(NSError**)error;
+                                                                configuration:(OTConfigurationContext*)configurationContext
+                                                                        error:(NSError**)error;
 
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error;
 
@@ -105,6 +105,8 @@ NS_ASSUME_NONNULL_BEGIN
                             error:(NSError**)error;
 
 + (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
+
++ (BOOL)areRecoveryKeysDistrusted:(OTConfigurationContext*)ctx error:(NSError* __autoreleasing *)error __attribute__((swift_error(nonnull_error)));
 
 @end
 

@@ -40,6 +40,9 @@
 #include <errno.h>
 #include <limits.h>
 #include <paths.h>
+#ifdef __APPLE__
+#include <stdbool.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -360,10 +363,17 @@ quit:
 	return (ret);
 }
 
+#ifdef __APPLE__
+int
+_citrus_csmapper_open(struct _citrus_csmapper * __restrict * __restrict rcsm,
+    const char * __restrict src, const char * __restrict dst, uint32_t flags,
+    unsigned long *rnorm, bool *idmap)
+#else
 int
 _citrus_csmapper_open(struct _citrus_csmapper * __restrict * __restrict rcsm,
     const char * __restrict src, const char * __restrict dst, uint32_t flags,
     unsigned long *rnorm)
+#endif
 {
 	const char *realsrc, *realdst;
 	char buf1[PATH_MAX], buf2[PATH_MAX], key[PATH_MAX], pivot[PATH_MAX];
@@ -384,9 +394,16 @@ _citrus_csmapper_open(struct _citrus_csmapper * __restrict * __restrict rcsm,
 		ret = get_none(maparea, rcsm);
 		if (ret == 0 && rnorm != NULL)
 			*rnorm = 0;
+#ifdef __APPLE__
+		if (ret == 0)
+			*idmap = true;
+#endif
 		return (ret);
 	}
 
+#ifdef __APPLE__
+	*idmap = false;
+#endif
 	snprintf(key, sizeof(key), "%s/%s", realsrc, realdst);
 
 	ret = _mapper_open(maparea, rcsm, key);

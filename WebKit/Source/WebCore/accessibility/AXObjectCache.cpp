@@ -1683,12 +1683,17 @@ void AXObjectCache::onValidityChange(Element& element)
     postNotification(get(&element), nullptr, AXInvalidStatusChanged);
 }
 
-void AXObjectCache::onTextCompositionChange(Node& node, CompositionState compositionState, bool valueChanged)
+void AXObjectCache::onTextCompositionChange(Node& node, CompositionState compositionState, bool valueChanged, const String& text, size_t position, bool handlingAcceptedCandidate)
 {
 #if HAVE(INLINE_PREDICTIONS)
     auto* object = getOrCreate(&node);
     if (!object)
         return;
+
+#if PLATFORM(IOS_FAMILY)
+    if (valueChanged)
+        object->setLastPresentedTextPrediction(node, compositionState, text, position, handlingAcceptedCandidate);
+#endif
 
     if (auto* observableObject = object->observableObject())
         object = observableObject;
@@ -1710,6 +1715,12 @@ void AXObjectCache::onTextCompositionChange(Node& node, CompositionState composi
     UNUSED_PARAM(compositionState);
     UNUSED_PARAM(valueChanged);
 #endif // HAVE(INLINE_PREDICTIONS)
+
+#if !PLATFORM(IOS_FAMILY) || !HAVE(INLINE_PREDICTIONS)
+    UNUSED_PARAM(text);
+    UNUSED_PARAM(position);
+    UNUSED_PARAM(handlingAcceptedCandidate);
+#endif
 }
 
 #ifndef NDEBUG
@@ -2153,7 +2164,7 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     if (!element.document().frame()->selection().isFocusedAndActive())
         return;
 
-    auto* object = getOrCreate(&element);
+    RefPtr object = getOrCreate(&element);
     if (!object)
         return;
 
@@ -2165,13 +2176,13 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     if (element.document().focusedElement() != &element)
         return;
 
-    auto* activeDescendant = object->activeDescendant();
+    RefPtr activeDescendant = object->activeDescendant();
     if (!activeDescendant) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (object->shouldFocusActiveDescendant()
             && !oldValue.isEmpty() && newValue.isEmpty()) {
             // The focused object just lost its active descendant, so set the IsolatedTree focused object back to it.
-            setIsolatedTreeFocusedObject(object);
+            setIsolatedTreeFocusedObject(object.get());
         }
 #else
         UNUSED_PARAM(oldValue);
@@ -2181,10 +2192,10 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     }
 
     // Handle active-descendant changes when the target allows for it, or the controlled object allows for it.
-    AccessibilityObject* target = nullptr;
+    RefPtr<AccessibilityObject> target { nullptr };
     if (object->shouldFocusActiveDescendant()) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-        setIsolatedTreeFocusedObject(activeDescendant);
+        setIsolatedTreeFocusedObject(activeDescendant.get());
 #endif
         target = object;
     } else if (object->isComboBox()) {
@@ -2209,17 +2220,17 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     if (target) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (target != object)
-            updateIsolatedTree(target, AXNotification::AXActiveDescendantChanged);
+            updateIsolatedTree(target.get(), AXNotification::AXActiveDescendantChanged);
 #endif
 
-        postPlatformNotification(target, AXNotification::AXActiveDescendantChanged);
+        postPlatformNotification(target.get(), AXNotification::AXActiveDescendantChanged);
 
         // Table cell active descendant changes should trigger selected cell changes.
         if (target->isTable() && activeDescendant->isExposedTableCell()) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-            updateIsolatedTree(target, AXNotification::AXSelectedCellsChanged);
+            updateIsolatedTree(target.get(), AXNotification::AXSelectedCellsChanged);
 #endif
-            postPlatformNotification(target, AXSelectedCellsChanged);
+            postPlatformNotification(target.get(), AXSelectedCellsChanged);
         }
     }
 }
@@ -2289,7 +2300,10 @@ void AXObjectCache::deferAttributeChangeIfNeeded(Element* element, const Qualifi
         AXLOG(makeString("Deferring handling of attribute ", attrName.localName().string(), " for element ", element->debugDescription()));
         return;
     }
-    handleAttributeChange(element, attrName, oldValue, newValue);
+    RefPtr protectedElement { element };
+    handleAttributeChange(protectedElement.get(), attrName, oldValue, newValue);
+    if (attrName == idAttr)
+        relationsNeedUpdate(true);
 }
 
 bool AXObjectCache::shouldProcessAttributeChange(Element* element, const QualifiedName& attrName)
@@ -2365,7 +2379,6 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
     else if (attrName == hrefAttr)
         updateIsolatedTree(get(element), AXURLChanged);
     else if (attrName == idAttr) {
-        relationsNeedUpdate(true);
 #if !LOG_DISABLED
         updateIsolatedTree(get(element), AXIdAttributeChanged);
 #endif
@@ -3805,9 +3818,12 @@ void AXObjectCache::performDeferredCacheUpdate()
     m_deferredRecomputeTableIsExposedList.clear();
 
     AXLOGDeferredCollection("NodeAddedOrRemovedList"_s, m_deferredNodeAddedOrRemovedList);
-    for (auto& nodeChild : m_deferredNodeAddedOrRemovedList) {
-        handleMenuOpened(&nodeChild);
-        handleLiveRegionCreated(&nodeChild);
+    auto nodeAddedOrRemovedList = copyToVector(m_deferredNodeAddedOrRemovedList);
+    for (auto& weakNode : nodeAddedOrRemovedList) {
+        if (RefPtr node = weakNode.get()) {
+            handleMenuOpened(node.get());
+            handleLiveRegionCreated(node.get());
+        }
     }
     m_deferredNodeAddedOrRemovedList.clear();
 
@@ -3821,8 +3837,11 @@ void AXObjectCache::performDeferredCacheUpdate()
     m_deferredRecomputeTableCellSlotsList.clear();
 
     AXLOGDeferredCollection("TextChangedList"_s, m_deferredTextChangedList);
-    for (auto& node : m_deferredTextChangedList)
-        handleTextChanged(getOrCreate(&node));
+    auto textChangedList = copyToVector(m_deferredTextChangedList);
+    for (auto& weakNode : textChangedList) {
+        if (RefPtr node = weakNode.get())
+            handleTextChanged(getOrCreate(node.get()));
+    }
     m_deferredTextChangedList.clear();
 
     AXLOGDeferredCollection("RecomputeIsIgnoredList"_s, m_deferredRecomputeIsIgnoredList);
@@ -3846,9 +3865,15 @@ void AXObjectCache::performDeferredCacheUpdate()
     m_deferredTextFormControlValue.clear();
 
     AXLOGDeferredCollection("AttributeChange"_s, m_deferredAttributeChange);
-    for (const auto& attributeChange : m_deferredAttributeChange)
+    bool idAttributeChanged = false;
+    for (const auto& attributeChange : m_deferredAttributeChange) {
         handleAttributeChange(attributeChange.element.get(), attributeChange.attrName, attributeChange.oldValue, attributeChange.newValue);
+        if (attributeChange.attrName == idAttr)
+            idAttributeChanged = true;
+    }
     m_deferredAttributeChange.clear();
+    if (idAttributeChanged)
+        relationsNeedUpdate(true);
 
     if (m_deferredFocusedNodeChange) {
         AXLOG(makeString(

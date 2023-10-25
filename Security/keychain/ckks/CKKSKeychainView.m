@@ -2290,8 +2290,10 @@
 - (CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*)findKeySets:(BOOL)refetchBeforeReturningKeySet
 {
     if(refetchBeforeReturningKeySet) {
-        [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseKeySetFetchRequest];
-        [self.stateMachine handleFlag:CKKSFlagFetchRequested];
+        dispatch_sync(self.queue, ^{
+            [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseKeySetFetchRequest];
+            [self.stateMachine _onqueueHandleFlag:CKKSFlagFetchRequested];
+        });
     }
 
     __block CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* keysetOp = nil;
@@ -2532,8 +2534,10 @@
     [watcher timeout:300*NSEC_PER_SEC];
     [self.stateMachine registerStateTransitionWatcher:watcher];
 
-    [self.operationDependencies.currentFetchReasons addObject:why];
-    [self.stateMachine handleFlag:CKKSFlagFetchRequested];
+    dispatch_sync(self.queue, ^{
+        [self.operationDependencies.currentFetchReasons addObject:why];
+        [self.stateMachine _onqueueHandleFlag:CKKSFlagFetchRequested];
+    });
 
     CKKSResultOperation* resultOp = [CKKSResultOperation named:@"check-keys" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
         NSError* resultError = watcher.result.error;
@@ -2613,9 +2617,11 @@
     [watcher timeout:300*NSEC_PER_SEC];
     [self.stateMachine registerStateTransitionWatcher:watcher];
 
-    [self.operationDependencies.currentFetchReasons addObject:why];
-    [self.stateMachine handleFlag:CKKSFlagFetchRequested];
-
+    dispatch_sync(self.queue, ^{
+        [self.operationDependencies.currentFetchReasons addObject:why];
+        [self.stateMachine _onqueueHandleFlag:CKKSFlagFetchRequested];
+    });
+    
     // But if, after all of that, the views of interest are not in a good state, we should error
     WEAKIFY(self);
 

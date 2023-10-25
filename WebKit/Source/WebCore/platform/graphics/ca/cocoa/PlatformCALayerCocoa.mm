@@ -558,10 +558,13 @@ RefPtr<PlatformCAAnimation> PlatformCALayerCocoa::animationForKey(const String& 
     return PlatformCAAnimationCocoa::create(propertyAnimation);
 }
 
-void PlatformCALayerCocoa::setMask(PlatformCALayer* layer)
+void PlatformCALayerCocoa::setMaskLayer(RefPtr<WebCore::PlatformCALayer>&& layer)
 {
+    auto* caLayer = layer ? layer->platformLayer() : nil;
+    PlatformCALayer::setMaskLayer(WTFMove(layer));
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [m_layer setMask:layer ? layer->platformLayer() : nil];
+    [m_layer setMask:caLayer];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -696,7 +699,7 @@ bool PlatformCALayerCocoa::backingStoreAttached() const
 }
 
 #if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
-void PlatformCALayerCocoa::setCoverageRect(const FloatRect&)
+void PlatformCALayerCocoa::setVisibleRect(const FloatRect&)
 {
 }
 #endif
@@ -1061,11 +1064,7 @@ void PlatformCALayerCocoa::updateCustomAppearance(GraphicsLayer::CustomAppearanc
 #if HAVE(RUBBER_BANDING)
     switch (appearance) {
     case GraphicsLayer::CustomAppearance::None:
-        ScrollbarThemeMac::removeOverhangAreaBackground(platformLayer());
         ScrollbarThemeMac::removeOverhangAreaShadow(platformLayer());
-        break;
-    case GraphicsLayer::CustomAppearance::ScrollingOverhang:
-        ScrollbarThemeMac::setUpOverhangAreaBackground(platformLayer());
         break;
     case GraphicsLayer::CustomAppearance::ScrollingShadow:
         ScrollbarThemeMac::setUpOverhangAreaShadow(platformLayer());

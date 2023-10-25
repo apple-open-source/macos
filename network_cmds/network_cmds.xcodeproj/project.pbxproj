@@ -102,6 +102,10 @@
 
 /* Begin PBXBuildFile section */
 		01560DFD241969D3001AA29A /* vsock.c in Sources */ = {isa = PBXBuildFile; fileRef = 01560DFC241969D3001AA29A /* vsock.c */; };
+		036B351F28D3D58600D1BCBB /* as.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E50EE86FA700AFED1B /* as.c */; };
+		036B352028D3D58600D1BCBB /* findsaddr-socket.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E70EE86FA700AFED1B /* findsaddr-socket.c */; };
+		036B352128D3D58600D1BCBB /* ifaddrlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120EA0EE86FA700AFED1B /* ifaddrlist.c */; };
+		036B352228D3D58600D1BCBB /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120F30EE86FA700AFED1B /* version.c */; };
 		03EB2F9A120A1DDA0007C1A0 /* ip6addrctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D2B04E41208C12F0004A3F3 /* ip6addrctl.8 */; };
 		4D2B04F81208C21B0004A3F3 /* ip6addrctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D2B04E51208C12F0004A3F3 /* ip6addrctl.c */; };
 		565825A5133921A3003E5FA5 /* mnc_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 565825971339217B003E5FA5 /* mnc_main.c */; };
@@ -2895,6 +2899,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				036B351F28D3D58600D1BCBB /* as.c in Sources */,
+				036B352028D3D58600D1BCBB /* findsaddr-socket.c in Sources */,
+				036B352128D3D58600D1BCBB /* ifaddrlist.c in Sources */,
+				036B352228D3D58600D1BCBB /* version.c in Sources */,
 				7294F12E0EE8BD2F0052EC88 /* traceroute6.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3333,7 +3341,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
 			};
@@ -3357,7 +3365,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
 				ZERO_LINK = NO;
@@ -3369,7 +3377,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = kdumpd;
 			};
@@ -3388,7 +3396,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
 			};
@@ -3406,7 +3414,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
 			};
@@ -3421,7 +3429,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
 			};
@@ -3436,7 +3444,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
 			};
@@ -3451,7 +3459,7 @@
 					"$(inherited)",
 					"TFTP_DIR=\\\"/tftpboot\\\"",
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rarpd;
 			};
@@ -3469,7 +3477,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
 			};
@@ -3489,7 +3497,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
 				USE_HEADERMAP = NO;
@@ -3516,7 +3524,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
 				WARNING_CFLAGS = (
@@ -3529,7 +3537,7 @@
 		03B2DBF5100BE71D005349BC /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = spray;
 			};
@@ -3538,7 +3546,7 @@
 		03B2DBF6100BE71D005349BC /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALTERNATE_MODE = 04555;
+				ALTERNATE_MODE = 4555;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-management-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -3549,7 +3557,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 04555;
+				INSTALL_MODE_FLAG = 4555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
 			};
@@ -3569,7 +3577,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 04555;
+				INSTALL_MODE_FLAG = 4555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
 			};
@@ -3578,12 +3586,12 @@
 		4D2B04F51208C2050004A3F3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALTERNATE_MODE = 0555;
+				ALTERNATE_MODE = 555;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = ip6addrctl;
@@ -3667,7 +3675,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = mtest;
@@ -3683,7 +3691,7 @@
 				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = mtest;
@@ -3699,7 +3707,7 @@
 				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = mtest;
@@ -3729,7 +3737,7 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				HEADER_SEARCH_PATHS = /usr/local/libressl/include;
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -3765,7 +3773,7 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				HEADER_SEARCH_PATHS = /usr/local/libressl/include;
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -3801,7 +3809,7 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				HEADER_SEARCH_PATHS = /usr/local/libressl/include;
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -3936,7 +3944,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
 			};
@@ -3954,7 +3962,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
 			};
@@ -3975,7 +3983,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
 			};
@@ -3990,7 +3998,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
 			};
@@ -4005,7 +4013,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
 			};
@@ -4020,7 +4028,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
 			};
@@ -4035,7 +4043,7 @@
 					"$(inherited)",
 					"TFTP_DIR=\\\"/tftpboot\\\"",
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rarpd;
 			};
@@ -4050,7 +4058,7 @@
 					"$(inherited)",
 					"TFTP_DIR=\\\"/tftpboot\\\"",
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rarpd;
 			};
@@ -4068,7 +4076,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
 			};
@@ -4086,7 +4094,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
 			};
@@ -4106,7 +4114,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
 				USE_HEADERMAP = NO;
@@ -4132,7 +4140,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
 				USE_HEADERMAP = NO;
@@ -4159,7 +4167,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
 				WARNING_CFLAGS = (
@@ -4184,7 +4192,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
 				WARNING_CFLAGS = (
@@ -4197,7 +4205,7 @@
 		7216D3A90EE8A3BB00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = spray;
 			};
@@ -4206,7 +4214,7 @@
 		7216D3AA0EE8A3BB00AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = spray;
 			};
@@ -4339,7 +4347,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4356,7 +4364,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4373,7 +4381,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4386,7 +4394,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -4398,7 +4406,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -4410,7 +4418,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = "Ignore Me";
@@ -4483,7 +4491,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = kdumpd;
 			};
@@ -4494,7 +4502,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = kdumpd;
 			};
@@ -4513,7 +4521,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
 			};
@@ -4532,7 +4540,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
 			};
@@ -4565,7 +4573,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
 			};
@@ -4578,7 +4586,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
 			};
@@ -4621,7 +4629,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
 			};
@@ -4645,7 +4653,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
 				ZERO_LINK = NO;
@@ -4856,7 +4864,7 @@
 		7294F0FB0EE8BB460052EC88 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALTERNATE_MODE = 04555;
+				ALTERNATE_MODE = 4555;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-management-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -4867,7 +4875,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 04555;
+				INSTALL_MODE_FLAG = 4555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
 			};
@@ -4876,7 +4884,7 @@
 		7294F0FC0EE8BB460052EC88 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALTERNATE_MODE = 04555;
+				ALTERNATE_MODE = 4555;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-management-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -4887,7 +4895,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 04555;
+				INSTALL_MODE_FLAG = 4555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
 			};
@@ -4907,7 +4915,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 04555;
+				INSTALL_MODE_FLAG = 4555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
 			};
@@ -4927,7 +4935,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 04555;
+				INSTALL_MODE_FLAG = 4555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
 			};
@@ -4999,7 +5007,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -5032,7 +5040,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -5065,7 +5073,7 @@
 					"$(inherited)",
 					/System/Library/Frameworks/System.framework/PrivateHeaders,
 				);
-				INSTALL_MODE_FLAG = 0555;
+				INSTALL_MODE_FLAG = 555;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

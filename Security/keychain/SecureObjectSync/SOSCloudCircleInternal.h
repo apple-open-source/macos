@@ -105,6 +105,8 @@ void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(C
 
 bool SOSCCSetSOSDisabledError(CFErrorRef *error);
 
+bool SOSCCPushResetCircle(CFErrorRef *error);
+
 __END_DECLS
 
 #endif

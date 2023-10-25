@@ -85,6 +85,8 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorNoRecoveryKeyRegistered                         = 64,
     OctagonErrorRecoverWithRecoveryKeyNotSupported              = 65,
     OctagonErrorSecureBackupRestoreUsingRecoveryKeyFailed       = 66,
+    OctagonErrorRecoveryKeyIncorrect                            = 67,
+    OctagonErrorBadAuthKitResponse                              = 68,
 };
 
 /* used for defaults writes */

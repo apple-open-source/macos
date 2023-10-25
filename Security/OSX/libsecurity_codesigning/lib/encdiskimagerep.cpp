@@ -411,7 +411,7 @@ void EncDiskImageRep::Writer::flush()
 		rep->mAuthTable.addEntry(kSignatureAuthMechanism, mSigningData->data(), mSigningData->length());
 	}
 
-	// Sanity check that this auth table would not put us into the data section.
+	// Verify that this auth table would not put us into the data section.
 	uint64_t endOfAuthData = rep->mAuthTable.findFirstEmptyDataOffset();
 	uint64_t startOfDiskData = n2h(rep->mHeader.dataForkStartOffset);
 	int64_t bytesAfterAuthData = startOfDiskData - endOfAuthData;

@@ -11,8 +11,10 @@
 #include "scmatch_evaluation.h"
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(SCMatch)
 #define PAM_LOG PAM_LOG_SCMatch()
+#endif
 
 CFDataRef copyRandomData(size_t size)
 {
@@ -84,7 +86,8 @@ OSStatus validateCertificate(SecCertificateRef certificate, SecKeychainRef keych
     }
     
 cleanup:
-    os_log_debug(PAM_LOG, "validateCertificate completed with: %d", (int)result);
+    
+    _LOG_DEBUG("validateCertificate completed with: %d", (int)result);
     CFReleaseSafe(commonName);
     CFReleaseSafe(policy);
     CFReleaseSafe(certificates);

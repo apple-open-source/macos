@@ -99,7 +99,9 @@ _citrus_stdenc_open(struct _citrus_stdenc * __restrict * __restrict rce,
 	/* validation check */
 	if (ce->ce_ops->eo_init == NULL ||
 	    ce->ce_ops->eo_uninit == NULL ||
+#ifndef __APPLE__
 	    ce->ce_ops->eo_init_state == NULL ||
+#endif
 	    ce->ce_ops->eo_mbtocs == NULL ||
 	    ce->ce_ops->eo_cstomb == NULL ||
 	    ce->ce_ops->eo_mbtowc == NULL ||

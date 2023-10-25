@@ -121,6 +121,8 @@ Invalidator::RuleInformation Invalidator::collectRuleInformation()
             information.hasSlottedPseudoElementRules = true;
         if (!ruleSet->hostPseudoClassRules().isEmpty())
             information.hasHostPseudoClassRules = true;
+        if (ruleSet->hasHostPseudoClassRulesMatchingInShadowTree())
+            information.hasHostPseudoClassRulesMatchingInShadowTree = true;
         if (ruleSet->hasShadowPseudoElementRules())
             information.hasShadowPseudoElementRules = true;
 #if ENABLE(VIDEO)
@@ -330,7 +332,8 @@ void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement
     case MatchElement::HasSibling: {
         if (auto* sibling = element.previousElementSibling()) {
             SelectorMatchingState selectorMatchingState;
-            selectorMatchingState.selectorFilter.pushParentInitializingIfNeeded(*element.parentElement());
+            if (RefPtr parent = element.parentElement())
+                selectorMatchingState.selectorFilter.pushParentInitializingIfNeeded(*parent);
 
             for (; sibling; sibling = sibling->previousElementSibling())
                 invalidateIfNeeded(*sibling, &selectorMatchingState);
@@ -360,6 +363,12 @@ void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement
     }
     case MatchElement::Host:
         invalidateInShadowTreeIfNeeded(element);
+        break;
+    case MatchElement::HostChild:
+        if (auto* host = element.shadowHost()) {
+            for (auto& hostChild : childrenOfType<Element>(*host))
+                invalidateIfNeeded(hostChild, nullptr);
+        }
         break;
     }
 }
@@ -404,6 +413,13 @@ void Invalidator::invalidateInShadowTreeIfNeeded(Element& element)
 
     if (m_ruleInformation.hasShadowPseudoElementRules)
         invalidateShadowPseudoElements(*shadowRoot);
+
+    if (m_ruleInformation.hasHostPseudoClassRulesMatchingInShadowTree) {
+        for (auto& child : childrenOfType<Element>(*shadowRoot)) {
+            SelectorMatchingState selectorMatchingState;
+            invalidateStyleForTree(child, &selectorMatchingState);
+        }
+    }
 
 #if ENABLE(VIDEO)
     if (m_ruleInformation.hasCuePseudoElementRules && element.isMediaElement())

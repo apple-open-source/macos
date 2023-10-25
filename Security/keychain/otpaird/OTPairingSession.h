@@ -13,14 +13,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) KCPairingChannel *channel;
 @property (readwrite) NSString *sentMessageIdentifier;
 
-@property OTPairingCompletionHandler completionHandler;
-
 #if !TARGET_OS_SIMULATOR
 @property (readwrite, nullable) MKBAssertionRef lockAssertion;
 #endif /* !TARGET_OS_SIMULATOR */
 
 - (instancetype)initAsInitiator:(bool)initiator deviceInfo:(OTDeviceInformationActualAdapter *)deviceInfo identifier:(nullable NSString *)identifier;
 - (instancetype)init NS_UNAVAILABLE;
+
+- (void)addCompletionHandler:(OTPairingCompletionHandler)completionHandler;
+
+- (void)didCompleteWithSuccess:(bool)success error:(NSError *)error;
 
 @end
 

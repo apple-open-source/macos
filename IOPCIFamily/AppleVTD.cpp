@@ -51,7 +51,7 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 #define kLargeThresh	(128)
 #define kLargeThresh2	(32)
 #define kVPages  		(1<<25)
-#define kBPagesLog2 	(18)
+#define kBPagesLog2 	(19)
 #define kBPagesSafe		((1<<kBPagesLog2)-(1<<(kBPagesLog2 - 2)))      /* 3/4 */
 #define kBPagesReserve	((1<<kBPagesLog2)-(1<<(kBPagesLog2 - 3)))      /* 7/8 */
 #define kRPages  		(1<<20)
@@ -1272,10 +1272,17 @@ AppleVTD::space_free(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 void 
 AppleVTD::space_alloc_fixed(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size, bool fault)
 {
-	vtd_balloc_fixed(bf, addr, size);
+	if (bf->block)
+	{
+		BLOCK(bf->block);
+		vtd_balloc_fixed(bf, addr, size);
+		BUNLOCK(bf->block);
+	}
+	IOLockLock(bf->rlock);
 	vtd_rballoc_fixed(bf, addr, size);
 	if (fault)
 		vtd_space_fault(bf, addr, size);
+	IOLockUnlock(bf->rlock);
 }
 
 static page_entry_t __unused

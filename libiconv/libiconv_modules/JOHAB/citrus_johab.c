@@ -73,6 +73,7 @@ typedef struct {
 #define _STATE_NEEDS_EXPLICIT_INIT(_ps_)	0
 
 
+#ifndef __APPLE__
 static __inline void
 /*ARGSUSED*/
 _citrus_JOHAB_init_state(_JOHABEncodingInfo * __restrict ei __unused,
@@ -81,6 +82,7 @@ _citrus_JOHAB_init_state(_JOHABEncodingInfo * __restrict ei __unused,
 
 	psenc->chlen = 0;
 }
+#endif
 
 #if 0
 static __inline void
@@ -154,7 +156,12 @@ _citrus_JOHAB_mbrtowc_priv(_JOHABEncodingInfo * __restrict ei,
 	int l, t;
 
 	if (*s == NULL) {
+#ifdef __APPLE__
+		(void)ei;
+		memset(psenc, 0, sizeof(*psenc));
+#else
 		_citrus_JOHAB_init_state(ei, psenc);
+#endif
 		*nresult = _ENCODING_IS_STATE_DEPENDENT;
 		return (0);
 	}

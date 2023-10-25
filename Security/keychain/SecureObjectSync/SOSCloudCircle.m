@@ -1767,6 +1767,19 @@ bool SOSCCIsSOSTrustAndSyncingEnabledCachedValue(void)
     
     return isEnabled;
 }
+
+bool SOSCCPushResetCircle(CFErrorRef *error) {
+    secnotice("push-reset-circle-to-kvs", "enter SOSCCPushResetCircle");
+    sec_trace_enter_api(NULL);
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_SOSCCPushResetCircle, error);
+
+        return simple_bool_error_request(kSecXPCOpPushResetCircle, error);
+    }, NULL)
+
+    return false;
+}
+
 /*
  * SecSOSStatus interfaces
  */

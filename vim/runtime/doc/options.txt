@@ -1,4 +1,4 @@
-*options.txt*	For Vim version 9.0.  Last change: 2023 Apr 12
+*options.txt*	For Vim version 9.0.  Last change: 2023 Jun 02
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -252,6 +252,8 @@ opt+=val" the expansion is done before the adding or removing.
 
 Handling of local options			*local-options*
 
+Note: The following also applies to |global-local| options.
+
 Some of the options only apply to a window or buffer.  Each window or buffer
 has its own copy of this option, thus each can have its own value.  This
 allows you to set 'list' in one window but not in another.  And set
@@ -300,6 +302,30 @@ You will get back the 'list' value as it was the last time you edited "one".
 The options local to a window are remembered for each buffer.  This also
 happens when the buffer is not loaded, but they are lost when the buffer is
 wiped out |:bwipe|.
+
+Special local window options			*special-local-window-option*
+
+The following local window options won't be copied over when new windows are
+created, thus they behave slightly differently:
+
+	Option		Reason	~
+	'previewwindow'	there can only be a single one
+	'scroll'	specific to existing window
+	'winfixheight'	specific to existing window
+	'winfixwidth'	specific to existing window
+
+Special local buffer options			*special-local-buffer-option*
+
+The following local buffer options won't be copied over when new buffers are
+created, thus they behave slightly differently:
+
+	Option		Reason	~
+	'filetype'	explicitly set by autocommands
+	'syntax'	explicitly set by autocommands
+	'bufhidden'	denote |special-buffers|
+	'buftype'	denote |special-buffers|
+	'readonly'	will be detected automatically
+	'modified'	will be detected automatically
 
 							*:setl* *:setlocal*
 :setl[ocal][!] ...	Like ":set" but set only the value local to the
@@ -373,7 +399,6 @@ used.  Thus it does the same as: >
 	:setlocal path=
 Note: In the future more global options can be made |global-local|.  Using
 ":setlocal" on a global option might work differently then.
-
 
 						*option-value-function*
 Some options ('completefunc', 'imactivatefunc', 'imstatusfunc', 'omnifunc',
@@ -925,6 +950,9 @@ A jump table for the options with a short description can be found at |Q_op|.
 	'autowriteall' for that.
 	Some buffers will not be written, specifically when 'buftype' is
 	"nowrite", "nofile", "terminal" or "prompt".
+	USE WITH CARE: If you make temporary changes to a buffer that you
+	don't want to be saved this option may cause it to be saved anyway.
+	Renaming the buffer with ":file {name}" may help avoid this.
 
 			 *'autowriteall'* *'awa'* *'noautowriteall'* *'noawa'*
 'autowriteall' 'awa'	boolean	(default off)
@@ -1446,7 +1474,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 						*'bufhidden'* *'bh'*
 'bufhidden' 'bh'	string (default: "")
-			local to buffer
+			local to buffer  |special-local-buffer-option|
 	This option specifies what happens when a buffer is no longer
 	displayed in a window:
 	  <empty>	follow the global 'hidden' option
@@ -1478,7 +1506,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 						*'buftype'* *'bt'* *E382*
 'buftype' 'bt'		string (default: "")
-			local to buffer
+			local to buffer  |special-local-buffer-option|
 	The value of this option specifies the type of a buffer:
 	  <empty>	normal buffer
 	  nofile	buffer which is not related to a file and will not be
@@ -1810,7 +1838,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 	The screen column can be an absolute number, or a number preceded with
 	'+' or '-', which is added to or subtracted from 'textwidth'. >
 
-		:set cc=+1  " highlight column after 'textwidth'
+		:set cc=+1	  " highlight column after 'textwidth'
 		:set cc=+1,+2,+3  " highlight three columns after 'textwidth'
 		:hi ColorColumn ctermbg=lightgrey guibg=lightgrey
 <
@@ -3384,7 +3412,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 					*'filetype'* *'ft'*
 'filetype' 'ft'		string (default: "")
-			local to buffer
+			local to buffer  |special-local-buffer-option|
 	When this option is set, the FileType autocommand event is triggered.
 	All autocommands that match with the value of this option will be
 	executed.  Thus the value of 'filetype' is used in place of the file
@@ -5541,7 +5569,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 				*'modified'* *'mod'* *'nomodified'* *'nomod'*
 'modified' 'mod'	boolean	(default off)
-			local to buffer
+			local to buffer  |special-local-buffer-option|
 	When on, the buffer is considered to be modified.  This option is set
 	when:
 	1. A change was made to the text since it was last written.  Using the
@@ -6112,7 +6140,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 					*'previewwindow'* *'nopreviewwindow'*
 					*'pvw'* *'nopvw'* *E590*
 'previewwindow' 'pvw'	boolean (default off)
-			local to window
+			local to window  |special-local-window-option|
 			{not available when compiled without the |+quickfix|
 			feature}
 	Identifies the preview window.  Only one window can have this option
@@ -6307,7 +6335,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 				   *'readonly'* *'ro'* *'noreadonly'* *'noro'*
 'readonly' 'ro'		boolean	(default off)
-			local to buffer
+			local to buffer  |special-local-buffer-option|
 	If on, writes fail unless you use a '!'.  Protects you from
 	accidentally overwriting a file.  Default on when Vim is started
 	in read-only mode ("vim -R") or when the executable is called "view".
@@ -6686,7 +6714,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 						*'scroll'* *'scr'*
 'scroll' 'scr'		number	(default: half the window height)
-			local to window
+			local to window  |special-local-window-option|
 	Number of lines to scroll with CTRL-U and CTRL-D commands.  Will be
 	set to half the number of lines in the window when the window size
 	changes.  This may happen when enabling the |status-line| or
@@ -7111,7 +7139,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 			local to buffer
 	Number of spaces to use for each step of (auto)indent.  Used for
 	|'cindent'|, |>>|, |<<|, etc.
-	When zero the 'ts' value will be used.  Use the |shiftwidth()|
+	When zero the 'tabstop' value will be used.  Use the |shiftwidth()|
 	function to get the effective shiftwidth value.
 
 						*'shortmess'* *'shm'*
@@ -7410,6 +7438,8 @@ A jump table for the options with a short description can be found at |Q_op|.
 	line in the window wraps part of it may not be visible, as if it is
 	above the window. "<<<" is displayed at the start of the first line,
 	highlighted with |hl-NonText|.
+	You may also want to add "lastline" to the 'display' option to show as
+	much of the last line as possible.
 	NOTE: only partly implemented, currently works with CTRL-E, CTRL-Y
 	and scrolling with the mouse.
 
@@ -7907,16 +7937,18 @@ A jump table for the options with a short description can be found at |Q_op|.
 'switchbuf' 'swb'	string	(default "")
 			global
 	This option controls the behavior when switching between buffers.
-	Mostly for |quickfix| commands some values are also used for other
-	commands, as mentioned below.
+	This option is checked, when
+	- jumping to errors with the |quickfix| commands (|:cc|, |:cn|, |:cp|,
+	  etc.)
+	- jumping to a tag using the |:stag| command.
+	- opening a file using the |CTRL-W_f| or |CTRL-W_F| command.
+	- jumping to a buffer using a buffer split command (e.g.  |:sbuffer|,
+	  |:sbnext|, or |:sbrewind|).
 	Possible values (comma-separated list):
-	   useopen	If included, jump to the first open window that
-			contains the specified buffer (if there is one).
-			Otherwise: Do not examine other windows.
-			This setting is checked with |quickfix| commands, when
-			jumping to errors (":cc", ":cn", "cp", etc.).  It is
-			also used in all buffer related split commands, for
-			example ":sbuffer", ":sbnext", or ":sbrewind".
+	   useopen	If included, jump to the first open window in the
+			current tab page that contains the specified buffer
+			(if there is one).  Otherwise: Do not examine other
+			windows.
 	   usetab	Like "useopen", but also consider windows in other tab
 			pages.
 	   split	If included, split the current window before loading
@@ -7944,7 +7976,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 						*'syntax'* *'syn'*
 'syntax' 'syn'		string	(default empty)
-			local to buffer
+			local to buffer  |special-local-buffer-option|
 			{not available when compiled without the |+syntax|
 			feature}
 	When this option is set, the syntax with this name is loaded, unless
@@ -8018,13 +8050,25 @@ A jump table for the options with a short description can be found at |Q_op|.
 	   (or 3 or whatever you prefer) and use 'noexpandtab'.  Then Vim
 	   will use a mix of tabs and spaces, but typing <Tab> and <BS> will
 	   behave like a tab appears every 4 (or 3) characters.
-	2. Set 'tabstop' and 'shiftwidth' to whatever you prefer and use
+	   This is the recommended way, the file will look the same with other
+	   tools and when listing it in a terminal.
+	2. Set 'softtabstop' and 'shiftwidth' to whatever you prefer and use
+	   'expandtab'.  This way you will always insert spaces.  The
+	   formatting will never be messed up when 'tabstop' is changed (leave
+	   it at 8 just in case).  The file will be a bit larger.
+	   You do need to check if no Tabs exist in the file.  You can get rid
+	   of them by first setting 'expandtab' and using `%retab!`, making
+	   sure the value of 'tabstop' is set correctly.
+	3. Set 'tabstop' and 'shiftwidth' to whatever you prefer and use
 	   'expandtab'.  This way you will always insert spaces.  The
 	   formatting will never be messed up when 'tabstop' is changed.
-	3. Set 'tabstop' and 'shiftwidth' to whatever you prefer and use a
+	   You do need to check if no Tabs exist in the file, just like in the
+	   item just above.
+	4. Set 'tabstop' and 'shiftwidth' to whatever you prefer and use a
 	   |modeline| to set these values when editing the file again.  Only
-	   works when using Vim to edit the file.
-	4. Always set 'tabstop' and 'shiftwidth' to the same value, and
+	   works when using Vim to edit the file, other tools assume a tabstop
+	   is worth 8 spaces.
+	5. Always set 'tabstop' and 'shiftwidth' to the same value, and
 	   'noexpandtab'.  This should then work (for initial indents only)
 	   for any tabstop setting that people use.  It might be nice to have
 	   tabs after the first non-blank inserted as spaces if you do this
@@ -8872,11 +8916,11 @@ A jump table for the options with a short description can be found at |Q_op|.
 	displayed when 'verbosefile' is set.
 
 						*'viewdir'* *'vdir'*
-'viewdir' 'vdir'	string	(default for Amiga and Win32:
-							 "$VIM/vimfiles/view",
-				 for Unix: "~/.vim/view",
-				 for macOS: "$VIM:vimfiles:view"
-				 for VMS: "sys$login:vimfiles/view")
+'viewdir' 'vdir'	string	(default for Amiga "home:vimfiles/view",
+					 for Win32: "$HOME/vimfiles/view",
+					 for Unix: "$HOME/.vim/view",
+					 for macOS: "$VIM/vimfiles/view"
+					 for VMS: "sys$login:vimfiles/view")
 			global
 			{not available when compiled without the |+mksession|
 			feature}
@@ -9380,7 +9424,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 			*'winfixheight'* *'wfh'* *'nowinfixheight'* *'nowfh'*
 'winfixheight' 'wfh'	boolean	(default off)
-			local to window
+			local to window  |special-local-window-option|
 	Keep the window height when windows are opened or closed and
 	'equalalways' is set.  Also for |CTRL-W_=|.  Set by default for the
 	|preview-window| and |quickfix-window|.
@@ -9388,7 +9432,7 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 			*'winfixwidth'* *'wfw'* *'nowinfixwidth'* *'nowfw'*
 'winfixwidth' 'wfw'	boolean	(default off)
-			local to window
+			local to window  |special-local-window-option|
 	Keep the window width when windows are opened or closed and
 	'equalalways' is set.  Also for |CTRL-W_=|.
 	The width may be changed anyway when running out of room.

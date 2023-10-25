@@ -40,7 +40,7 @@
 .Sh SYNOPSIS
 .Nm
 .Bk -words
-.Op Fl dEIlnNrvU
+.Op Fl adEIlnNrTUv
 .Ek
 .Bk -words
 .Op Fl f Ar firsthop
@@ -59,6 +59,9 @@
 .Ek
 .Bk -words
 .Op Fl s Ar src
+.Ek
+.Bk -words
+.Op Fl t Ar tclass
 .Ek
 .Bk -words
 .Op Fl w Ar waittime
@@ -84,6 +87,10 @@ after the destination host name.
 .Pp
 Other options are:
 .Bl -tag -width Ds
+.It Fl a
+Turn on AS# lookups for each hop encountered.
+.It Fl A Ar as_server
+Turn on AS# lookups and use the given server instead of the default.
 .It Fl d
 Debug mode.
 .It Fl E
@@ -136,6 +143,15 @@ that has no route through it
 .It Fl s Ar src
 .Ar Src
 specifies the source IPv6 address to be used.
+.It Fl t Ar tclass
+.Ar tclass
+specifies the
+.Em traffic class
+used when sending probe packets.
+The value must be a decimal integer in the range 0 to 255.
+The default is 0.
+.It Fl T
+Use TCP segments for the probes.
 .It Fl U
 Use UDP datagrams for the probes.
 This is the default.

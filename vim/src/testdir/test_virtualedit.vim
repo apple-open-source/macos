@@ -236,7 +236,7 @@ func Test_ve_completion()
   set virtualedit=
 endfunc
 
-" Using "C" then then <CR> moves the last remaining character to the next
+" Using "C" then <CR> moves the last remaining character to the next
 " line.  (Mary Ellen Foster)
 func Test_ve_del_to_eol()
   new
@@ -586,6 +586,12 @@ func Test_virtualedit_mouse()
   call test_setmouse(1, 9)
   call feedkeys("\<LeftMouse>", "xt")
   call assert_equal([0, 1, 6, 0, 9], getcurpos())
+  call test_setmouse(1, 12)
+  call feedkeys("\<LeftMouse>", "xt")
+  call assert_equal([0, 1, 9, 0, 12], getcurpos())
+  call test_setmouse(1, 13)
+  call feedkeys("\<LeftMouse>", "xt")
+  call assert_equal([0, 1, 10, 0, 13], getcurpos())
   call test_setmouse(1, 15)
   call feedkeys("\<LeftMouse>", "xt")
   call assert_equal([0, 1, 10, 2, 15], getcurpos())

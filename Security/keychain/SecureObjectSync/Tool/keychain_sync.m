@@ -483,6 +483,7 @@ keychain_sync(int argc, char * const *argv)
         ENABLE_SOS_COMPATIBILITY,
         DISABLE_SOS_COMPATIBILITY,
         FETCH_SOS_COMPATIBILITY,
+        PUSH_RESET_CIRCLE
     };
     int action = -1;
     const struct option longopts[] = {
@@ -490,6 +491,7 @@ keychain_sync(int argc, char * const *argv)
         { "enable-sos-compatibility",   no_argument,    &action,    ENABLE_SOS_COMPATIBILITY, },
         { "disable-sos-compatibility",  no_argument,    &action,    DISABLE_SOS_COMPATIBILITY, },
         { "fetch-sos-compatibility",    no_argument,    &action,    FETCH_SOS_COMPATIBILITY, },
+        { "push-reset-circle",          no_argument,    &action,    PUSH_RESET_CIRCLE, },
         { NULL,             0,                  NULL,       0, },
     };
     int ch, result = 0;
@@ -674,6 +676,13 @@ keychain_sync(int argc, char * const *argv)
                     printmsg(CFSTR("Fetched SOS Compatibility mode. SOS compatibility mode is: %@\n"), result ? @"enabled" : @"disabled");
                     if (error){
                         printerr(CFSTR("Fetching SOS Compatibilty mode error: %@\n"), error);
+                        hadError = true;
+                    }
+                } else if (action == PUSH_RESET_CIRCLE) {
+                    bool result = SOSCCPushResetCircle(&error);
+                    printmsg(CFSTR("Pushed reset circle to KVS: %@\n"), result ? @"success" : @"failed");
+                    if (error){
+                        printerr(CFSTR("Pushing reset circle ran into an error: %@\n"), error);
                         hadError = true;
                     }
                 } else {

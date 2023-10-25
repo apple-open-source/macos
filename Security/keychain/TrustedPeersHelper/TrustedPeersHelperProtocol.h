@@ -128,6 +128,48 @@ NS_ASSUME_NONNULL_BEGIN
                          tlkRecoveryErrors:(NSDictionary<NSString*, NSArray<NSError*>*>*)tlkRecoveryErrors;
 @end
 
+@interface TrustedPeersHelperHealthCheckResult: NSObject<NSSecureCoding>
+@property bool postRepairCFU;
+@property bool postEscrowCFU;
+@property bool resetOctagon;
+@property bool leaveTrust;
+@property (nullable) OTEscrowMoveRequestContext* moveRequest;
+@property uint64_t totalEscrowRecords;
+@property uint64_t collectableEscrowRecords;
+@property uint64_t collectedEscrowRecords;
+@property bool escrowRecordGarbageCollectionEnabled;
+@property uint64_t totalTlkShares;
+@property uint64_t collectableTlkShares;
+@property uint64_t collectedTlkShares;
+@property bool tlkShareGarbageCollectionEnabled;
+@property uint64_t totalPeers;
+@property uint64_t trustedPeers;
+@property uint64_t superfluousPeers;
+@property uint64_t peersCleanedup;
+@property bool superfluousPeersCleanupEnabled;
+
+- (instancetype)initWithPostRepairCFU:(bool)postRepairCFU
+                        postEscrowCFU:(bool)postEscrowCFU
+                         resetOctagon:(bool)resetOctagon
+                           leaveTrust:(bool)leaveTrust
+                          moveRequest:(OTEscrowMoveRequestContext* _Nullable)moveRequest
+                   totalEscrowRecords:(uint64_t)totalEscrowRecords
+             collectableEscrowRecords:(uint64_t)collectableEscrowRecords
+               collectedEscrowRecords:(uint64_t)collectedEscrowRecords
+ escrowRecordGarbageCollectionEnabled:(bool)escrowRecordGarbageCollectionEnabled
+                       totalTlkShares:(uint64_t)totalTlkShares
+                 collectableTlkShares:(uint64_t)collectableTlkShares
+                   collectedTlkShares:(uint64_t)collectedTlkShares
+     tlkShareGarbageCollectionEnabled:(bool)tlkShareGarbageCollectionEnabled
+                           totalPeers:(uint64_t)totalPeers
+                         trustedPeers:(uint64_t)trustedPeers
+                     superfluousPeers:(uint64_t)superfluousPeers
+                       peersCleanedup:(uint64_t)peersCleanedup
+       superfluousPeersCleanupEnabled:(bool)superfluousPeersCleanupEnabled;
+
+- (NSDictionary*)dictionaryRepresentation;
+@end
+
 // This protocol describes the interface of the TrustedPeersHelper XPC service.
 @protocol TrustedPeersHelperProtocol
 
@@ -476,7 +518,7 @@ NS_ASSUME_NONNULL_BEGIN
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck
                                     repair:(BOOL)repair
                           knownFederations:(NSArray<NSString *> *)knownFederations
-                                     reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext* _Nullable moveRequest, NSError* _Nullable error))reply;
+                                     reply:(void (^)(TrustedPeersHelperHealthCheckResult* _Nullable result, NSError* _Nullable error))reply;
 
 - (void)getSupportAppInfoWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                     reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply;
@@ -517,6 +559,9 @@ notifyIdMS:(bool)notifyIdMS
 - (void)fetchTrustedPeerCountWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                         reply:(void (^)(NSNumber* _Nullable count,
                                                         NSError* _Nullable error))reply;
+
+- (void)octagonContainsDistrustedRecoveryKeysWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                                        reply:(void (^)(BOOL containsDistrusted, NSError* _Nullable error))reply;
 @end
 
 /*

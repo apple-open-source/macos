@@ -7,15 +7,13 @@ use File::Temp;
 
 our $opt_d = '.';
 our $opt_h = 0;
-our $opt_s = 0;
 our $opt_b = '.';
 
 getopts('hvsd:a:r:b:');
 
 if ($opt_h) {
-  print STDERR "Usage: t_compression_all.pl [-h] [-v] [-s] [-d dataDir] [-a algorithm] [-r dstroot]\n";
+  print STDERR "Usage: t_zlib_all.pl [-h] [-d dataDir] [-b tester]\n";
   print STDERR "-h       print usage and quit\n";
-  print STDERR "-s       run *_static variants of the test tools\n";
   print STDERR "-d       directory providing test files\n";
   print STDERR "-b       path to tester\n";
 

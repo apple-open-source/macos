@@ -44,8 +44,10 @@
 #include <security/openpam.h>
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(uwtmp)
 #define PAM_LOG PAM_LOG_uwtmp()
+#endif
 
 #define DATA_NAME "pam_uwtmp.utmpx"
 
@@ -67,7 +69,7 @@ populate_struct(pam_handle_t *pamh, struct utmpx *u, int populate)
 		return PAM_SYSTEM_ERR;
 
 	if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_USER, (const void **)&user))) {
-		os_log_debug(PAM_LOG, "Unable to obtain the username.");
+		_LOG_ERROR("Unable to obtain the username.");
 		return status;
 	}
 	if (NULL != user)
@@ -75,17 +77,17 @@ populate_struct(pam_handle_t *pamh, struct utmpx *u, int populate)
 
 	if (populate) {
 		if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_TTY, (const void **)&tty))) {
-			os_log_debug(PAM_LOG, "Unable to obtain the tty.");
+            _LOG_ERROR("Unable to obtain the tty.");
 			return status;
 		}
 		if (NULL == tty) {
-			os_log_debug(PAM_LOG, "The tty is NULL.");
+            _LOG_ERROR("The tty is NULL.");
 			return PAM_IGNORE;
 		} else
 			strlcpy(u->ut_line, tty, sizeof(u->ut_line));
 
 		if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_RHOST, (const void **)&remhost))) {
-			os_log_debug(PAM_LOG, "Unable to obtain the rhost.");
+            _LOG_ERROR("Unable to obtain the rhost.");
 			return status;
 		}
 		if (NULL != remhost)
@@ -108,7 +110,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	char *tty;
 
 	if( (pam_data = calloc(1, sizeof(*pam_data))) == NULL ) {
-		os_log_error(PAM_LOG, "Memory allocation error.");
+		_LOG_ERROR("Memory allocation error.");
 		return PAM_BUF_ERR;
 	}
 
@@ -123,7 +125,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	if (t) {
 		// YES: backup existing utmpx entry + update
-		os_log_debug(PAM_LOG, "Updating existing entry for %s", u->ut_line);
+		_LOG_DEBUG("Updating existing entry for %s", u->ut_line);
 		memcpy(&pam_data->utmpx,  t, sizeof(*t));
 		memcpy(&pam_data->backup, t, sizeof(*t));
 		pam_data->restore = 1;
@@ -132,7 +134,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			goto err;
 	} else {
 		// NO: create new utmpx entry
-		os_log_debug(PAM_LOG, "New entry for %s", tty ?: "-");
+		_LOG_DEBUG("New entry for %s", tty ?: "-");
 		if (PAM_SUCCESS != (status = populate_struct(pamh, u, 1)))
 			goto err;
 
@@ -140,13 +142,13 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	if (PAM_SUCCESS != (status = pam_set_data(pamh, DATA_NAME, pam_data, openpam_free_data))) {
-		os_log_error(PAM_LOG, "There was an error setting data in the context.");
+		_LOG_ERROR("There was an error setting data in the context.");
 		goto err;
 	}
 	pam_data = NULL;
 
 	if( pututxline(u) == NULL ) {
-		os_log_error(PAM_LOG, "Unable to write the utmp record.");
+		_LOG_ERROR("Unable to write the utmp record.");
 		status = PAM_SYSTEM_ERR;
 		goto err;
 	}
@@ -169,12 +171,12 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	status = pam_get_data(pamh, DATA_NAME, (const void **)&pam_data);
 	if( status != PAM_SUCCESS ) {
-		os_log_debug(PAM_LOG, "Unable to obtain the tmp record from the context.");
+		_LOG_DEBUG("Unable to obtain the tmp record from the context.");
 	}
 
 	if (NULL == pam_data) {
 		if( (u = calloc(1, sizeof(*u))) == NULL ) {
-			os_log_error(PAM_LOG, "Memory allocation error.");
+			_LOG_ERROR("Memory allocation error.");
 			return PAM_BUF_ERR;
 		}
 		free_u = 1;
@@ -187,14 +189,14 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	if (pam_data != NULL && pam_data->restore) {
 		u = &pam_data->backup;
-		os_log_debug(PAM_LOG, "Restoring previous entry for %s", u->ut_line);
+		_LOG_DEBUG("Restoring previous entry for %s", u->ut_line);
 	} else {
-		os_log_debug(PAM_LOG, "Dead process");
+		_LOG_VERBOSE("Dead process");
 		u->ut_type = UTMPX_AUTOFILL_MASK | DEAD_PROCESS;
 	}
 
 	if( pututxline(u) == NULL ) {
-		os_log_error(PAM_LOG, "Unable to write the utmp record.");
+		_LOG_ERROR("Unable to write the utmp record.");
 		status = PAM_SYSTEM_ERR;
 		goto fin;
 	}

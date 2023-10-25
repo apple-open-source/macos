@@ -403,7 +403,10 @@ void pcap_ng_dump(u_char *, const struct pcap_pkthdr *, const u_char *);
  * read and write pcap-ng blocks by hidding most of the detail 
  * of the block format
  */
+#ifndef __PCAPNG_BLOCK_T__
+#define __PCAPNG_BLOCK_T__
 typedef struct pcapng_block * pcapng_block_t;
+#endif /* __PCAPNG_BLOCK_T__ */
 
 /*
  * Allocate an internalized pcap-ng block data structure.

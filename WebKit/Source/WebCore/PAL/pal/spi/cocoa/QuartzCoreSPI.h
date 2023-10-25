@@ -50,15 +50,12 @@
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+#import <QuartzCore/CADisplay.h>
 #import <QuartzCore/CADisplayLinkPrivate.h>
 #endif
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
 #import <QuartzCore/CAFenceHandle.h>
-#endif
-
-#if PLATFORM(VISION)
-#import <QuartzCore/CARemoteEffectPrivate.h>
 #endif
 
 #endif // __OBJC__
@@ -69,8 +66,12 @@
 typedef struct _CARenderContext CARenderContext;
 
 #if PLATFORM(IOS_FAMILY)
+@interface CADisplay : NSObject
+@end
+
 @interface CADisplayLink ()
 @property (readonly, nonatomic) CFTimeInterval maximumRefreshRate;
+@property (readonly, nonatomic) CADisplay *display;
 @end
 #endif
 
@@ -146,6 +147,7 @@ typedef struct _CARenderContext CARenderContext;
 - (void)removePresentationModifier:(CAPresentationModifier *)modifier;
 @property BOOL allowsGroupBlending;
 @property BOOL allowsHitTesting;
+@property BOOL hitTestsContentsAlphaChannel;
 @property BOOL canDrawConcurrently;
 @property BOOL contentsOpaque;
 @property BOOL hitTestsAsOpaque;
@@ -157,10 +159,6 @@ typedef struct _CARenderContext CARenderContext;
 @property (getter=isSeparated) BOOL separated;
 #endif
 @property BOOL toneMapToStandardDynamicRange;
-#if PLATFORM(VISION)
-@property (nonatomic) CGFloat sizeMultiplier;
-@property (nonatomic, copy) void (^effectGroupConfigurator)(CARemoteEffectGroup *group);
-#endif
 @end
 
 #if ENABLE(FILTERS_LEVEL_2)

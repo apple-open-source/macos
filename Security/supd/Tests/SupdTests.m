@@ -422,7 +422,6 @@ static NSInteger _reporterWrites;
 }
 
 + (void)tearDown {
-    NSLog(@"put breakpoint here");
 }
 
 // MARK: Actual tests

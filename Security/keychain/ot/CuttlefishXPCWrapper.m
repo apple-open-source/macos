@@ -987,7 +987,7 @@ enum {NUM_RETRIES = 5};
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck
                                     repair:(BOOL)repair
                           knownFederations:(NSArray<NSString *> *)knownFederations
-                                     reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext *moveRequest, NSError* _Nullable))reply
+                                     reply:(void (^)(TrustedPeersHelperHealthCheckResult* _Nullable result, NSError* _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -999,7 +999,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
-                        reply(NO, NO, NO, NO, nil, error);
+                        reply(nil, error);
                     }
                     ++i;
         }] requestHealthCheckWithSpecificUser:specificUser requiresEscrowCheck:requiresEscrowCheck repair:repair knownFederations:knownFederations reply:reply];
@@ -1313,6 +1313,24 @@ notifyIdMS:(bool)notifyIdMS
             }
             ++i;
         }] fetchTrustedPeerCountWithSpecificUser:specificUser reply:reply];
+    } while (retry);
+}
+
+- (void)octagonContainsDistrustedRecoveryKeysWithSpecificUser:(TPSpecificUser * _Nullable)specificUser reply:(nonnull void (^)(BOOL, NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC %s, (%d, %@)", __func__, i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
+                reply(nil, error);
+            }
+            ++i;
+        }] octagonContainsDistrustedRecoveryKeysWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 

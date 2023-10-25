@@ -37,12 +37,69 @@
 
 #include "citrus_module.h"
 
+#ifdef __APPLE__
+#ifndef _ENCODING_HAVE_MBTOCSN
+#define _ENCODING_HAVE_MBTOCSN 0
+#endif
+
+#ifndef _ENCODING_NEED_INIT_STATE
+#define	_ENCODING_NEED_INIT_STATE	0
+#endif
+#else /* !__APPLE__ */
+#define _ENCODING_HAVE_MBTOCSN 0
+#define	_ENCODING_NEED_INIT_STATE	1
+#endif /* __APPLE__ */
+
 #define _CITRUS_STDENC_GETOPS_FUNC_BASE(n)			\
    int n(struct _citrus_stdenc_ops *, size_t)
 #define _CITRUS_STDENC_GETOPS_FUNC(_e_)					\
    _CITRUS_STDENC_GETOPS_FUNC_BASE(_citrus_##_e_##_stdenc_getops)
 typedef _CITRUS_STDENC_GETOPS_FUNC_BASE((*_citrus_stdenc_getops_t));
 
+#if _ENCODING_HAVE_MBTOCSN
+#define	_ENCODING_STDENC_MBTOCSN(_e_)	\
+    &_citrus_##_e_##_stdenc_mbtocsn
+#define	_CITRUS_STDENC_DECL_MBTOCSN(_e_)				\
+static int	 _citrus_##_e_##_stdenc_mbtocsn				\
+		    (struct _citrus_stdenc * __restrict,		\
+		    _citrus_csid_t * __restrict,			\
+		    _citrus_index_t * __restrict,			\
+		    unsigned short * __restrict,			\
+		    int * __restrict,					\
+		    char ** __restrict, size_t,				\
+		    void * __restrict, size_t * __restrict,		\
+		    struct iconv_hooks *)
+
+#define	_ENCODING_STDENC_CSTOMBN(_e_)	\
+    &_citrus_##_e_##_stdenc_cstombn
+#define	_CITRUS_STDENC_DECL_CSTOMBN(_e_)				\
+static int	 _citrus_##_e_##_stdenc_cstombn				\
+		    (struct _citrus_stdenc * __restrict,		\
+		    char * __restrict, size_t,				\
+		    _citrus_csid_t * __restrict,			\
+		    _citrus_index_t * __restrict,			\
+		    int * __restrict cnt,				\
+		    void * __restrict, size_t * __restrict,		\
+		    struct iconv_hooks *)
+#else
+#define _ENCODING_STDENC_MBTOCSN(_e_)		NULL
+#define _CITRUS_STDENC_DECL_MBTOCSN(_e_)
+
+#define _ENCODING_STDENC_CSTOMBN(_e_)		NULL
+#define	_CITRUS_STDENC_DECL_CSTOMBN(_e_)
+#endif
+
+#if _ENCODING_NEED_INIT_STATE
+#define	_ENCODING_STDENC_INIT_STATE(_e_)	\
+    &_citrus_##_e_##_stdenc_init_state
+#define	_CITRUS_STDENC_DECL_INIT_STATE(_e_)				\
+static int	 _citrus_##_e_##_stdenc_init_state			\
+		    (struct _citrus_stdenc * __restrict,		\
+		    void * __restrict)
+#else
+#define _ENCODING_STDENC_INIT_STATE(_e_)	NULL
+#define	_CITRUS_STDENC_DECL_INIT_STATE(_e_)
+#endif
 
 #define _CITRUS_STDENC_DECLS(_e_)					\
 static int	 _citrus_##_e_##_stdenc_init				\
@@ -50,9 +107,7 @@ static int	 _citrus_##_e_##_stdenc_init				\
 		    const void * __restrict, size_t,			\
 		    struct _citrus_stdenc_traits * __restrict);		\
 static void	 _citrus_##_e_##_stdenc_uninit(struct _citrus_stdenc *);\
-static int	 _citrus_##_e_##_stdenc_init_state			\
-		    (struct _citrus_stdenc * __restrict,		\
-		    void * __restrict);					\
+_CITRUS_STDENC_DECL_INIT_STATE(_e_);					\
 static int	 _citrus_##_e_##_stdenc_mbtocs				\
 		    (struct _citrus_stdenc * __restrict,		\
 		    _citrus_csid_t * __restrict,			\
@@ -60,11 +115,13 @@ static int	 _citrus_##_e_##_stdenc_mbtocs				\
 		    char ** __restrict, size_t,				\
 		    void * __restrict, size_t * __restrict,		\
 		    struct iconv_hooks *);				\
+_CITRUS_STDENC_DECL_MBTOCSN(_e_);					\
 static int	 _citrus_##_e_##_stdenc_cstomb				\
 		    (struct _citrus_stdenc * __restrict,		\
 		    char * __restrict, size_t, _citrus_csid_t,		\
 		    _citrus_index_t, void * __restrict,			\
 		    size_t * __restrict, struct iconv_hooks *);		\
+_CITRUS_STDENC_DECL_CSTOMBN(_e_);					\
 static int	 _citrus_##_e_##_stdenc_mbtowc				\
 		    (struct _citrus_stdenc * __restrict,		\
 		    _citrus_wc_t * __restrict,				\
@@ -90,13 +147,15 @@ extern struct _citrus_stdenc_ops _citrus_##_e_##_stdenc_ops;		\
 struct _citrus_stdenc_ops _citrus_##_e_##_stdenc_ops = {		\
 	/* eo_init */		&_citrus_##_e_##_stdenc_init,		\
 	/* eo_uninit */		&_citrus_##_e_##_stdenc_uninit,		\
-	/* eo_init_state */	&_citrus_##_e_##_stdenc_init_state,	\
+	/* eo_init_state */	_ENCODING_STDENC_INIT_STATE(_e_),	\
 	/* eo_mbtocs */		&_citrus_##_e_##_stdenc_mbtocs,		\
 	/* eo_cstomb */		&_citrus_##_e_##_stdenc_cstomb,		\
 	/* eo_mbtowc */		&_citrus_##_e_##_stdenc_mbtowc,		\
 	/* eo_wctomb */		&_citrus_##_e_##_stdenc_wctomb,		\
 	/* eo_put_state_reset */&_citrus_##_e_##_stdenc_put_state_reset,\
-	/* eo_get_state_desc */	&_citrus_##_e_##_stdenc_get_state_desc	\
+	/* eo_get_state_desc */	&_citrus_##_e_##_stdenc_get_state_desc,	\
+	/* eo_mbtocsn */	_ENCODING_STDENC_MBTOCSN(_e_),		\
+	/* eo_cstombn */	_ENCODING_STDENC_CSTOMBN(_e_),		\
 }
 
 typedef int (*_citrus_stdenc_init_t)
@@ -115,6 +174,20 @@ typedef int (*_citrus_stdenc_cstomb_t)
     (struct _citrus_stdenc *__restrict, char * __restrict, size_t,
     _citrus_csid_t, _citrus_index_t, void * __restrict,
     size_t * __restrict, struct iconv_hooks *);
+#ifdef __APPLE__
+typedef int (*_citrus_stdenc_mbtocsn_t)
+    (struct _citrus_stdenc * __restrict,
+    _citrus_csid_t * __restrict, _citrus_index_t * __restrict,
+    unsigned short * __restrict, int * __restrict,
+    char ** __restrict, size_t,
+    void * __restrict, size_t * __restrict,
+    struct iconv_hooks *);
+typedef int (*_citrus_stdenc_cstombn_t)
+    (struct _citrus_stdenc *__restrict, char * __restrict, size_t,
+    _citrus_csid_t * __restrict, _citrus_index_t * __restrict,
+    int * __restrict, void * __restrict, size_t * __restrict,
+    struct iconv_hooks *);
+#endif
 typedef int (*_citrus_stdenc_mbtowc_t)
     (struct _citrus_stdenc * __restrict,
     _citrus_wc_t * __restrict,
@@ -143,6 +216,11 @@ struct _citrus_stdenc_ops {
 	_citrus_stdenc_put_state_reset_t eo_put_state_reset;
 	/* version 0x00000002 */
 	_citrus_stdenc_get_state_desc_t	eo_get_state_desc;
+#ifdef __APPLE__
+	/* version ... */
+	_citrus_stdenc_mbtocsn_t	eo_mbtocsn;
+	_citrus_stdenc_cstombn_t	eo_cstombn;
+#endif
 };
 
 struct _citrus_stdenc_traits {

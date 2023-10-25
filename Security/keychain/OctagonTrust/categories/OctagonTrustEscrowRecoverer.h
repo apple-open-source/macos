@@ -27,6 +27,10 @@
 - (NSError*)backupWithInfo:(NSDictionary*)info;
 - (NSError*)backupForRecoveryKeyWithInfo:(NSDictionary*)info;
 
+- (bool)verifyRecoveryKey:(NSString*)recoveryKey
+                    error:(NSError * __autoreleasing *)error;
+
+- (bool)removeRecoveryKeyFromBackup:(NSError * __autoreleasing *)error;
 @end
 
 #endif /* OctagonTrustEscrowRecoverer_h */

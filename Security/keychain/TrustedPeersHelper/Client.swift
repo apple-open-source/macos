@@ -856,16 +856,16 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func requestHealthCheck(with user: TPSpecificUser?, requiresEscrowCheck: Bool, repair: Bool, knownFederations: [String], reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
+    func requestHealthCheck(with user: TPSpecificUser?, requiresEscrowCheck: Bool, repair: Bool, knownFederations: [String], reply: @escaping (TrustedPeersHelperHealthCheckResult?, Error?) -> Void) {
         do {
             logger.info("Health Check! requiring escrow check? \(requiresEscrowCheck), \(repair) for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck, repair: repair, knownFederations: knownFederations) { postRepair, postEscrow, postReset, leaveTrust, moveRequest, error in
-                reply(postRepair, postEscrow, postReset, leaveTrust, moveRequest, error?.sanitizeForClientXPC())
+            container.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck, repair: repair, knownFederations: knownFederations) { result, error in
+                reply(result, error?.sanitizeForClientXPC())
             }
         } catch {
             logger.error("Health Check! failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
-            reply(false, false, false, false, nil, error.sanitizeForClientXPC())
+            reply(nil, error.sanitizeForClientXPC())
         }
     }
 
@@ -985,11 +985,24 @@ class Client: TrustedPeersHelperProtocol {
         do {
             logger.info("fetchTrustedPeerCount for \(String(describing: specificUser), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: specificUser)
-            container.fetchTrustedPeersCount() { count, countError in
+            container.fetchTrustedPeersCount { count, countError in
                 reply(count, countError?.sanitizeForClientXPC())
             }
         } catch {
             logger.error("fetchTrustedPeerCount failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func octagonContainsDistrustedRecoveryKeys(with specificUser: TPSpecificUser?, reply: @escaping (Bool, Error?) -> Void) {
+        do {
+            logger.info("octagonContainsDistrustedRecoveryKeys for \(String(describing: specificUser), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.octagonContainsDistrustedRecoveryKeys { containsDistrusted, countError in
+                reply(containsDistrusted, countError?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("octagonContainsDistrustedRecoveryKeys failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, error.sanitizeForClientXPC())
         }
     }

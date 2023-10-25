@@ -32,6 +32,10 @@
 #ifndef _CITRUS_CSMAPPER_H_
 #define _CITRUS_CSMAPPER_H_
 
+#ifdef __APPLE__
+#include <stdbool.h>
+#endif
+
 #define _citrus_csmapper		_citrus_mapper
 #define _citrus_csmapper_close		_citrus_mapper_close
 #define _citrus_csmapper_convert	_citrus_mapper_convert
@@ -44,10 +48,14 @@
 __BEGIN_DECLS
 #ifdef __APPLE__
 struct _citrus_csmapper;
-#endif
+int	 _citrus_csmapper_open(struct _citrus_csmapper *__restrict *__restrict,
+	    const char *__restrict, const char *__restrict, uint32_t,
+	    unsigned long *, bool *);
+#else
 int	 _citrus_csmapper_open(struct _citrus_csmapper *__restrict *__restrict,
 	    const char *__restrict, const char *__restrict, uint32_t,
 	    unsigned long *);
+#endif
 __END_DECLS
 
 #endif

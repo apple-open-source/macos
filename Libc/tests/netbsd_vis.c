@@ -142,3 +142,53 @@ T_DECL(strunvis_hex, "strunvis(3) \\Xxx")
 			T_ASSERT_EQ(memcmp(ed[i].d, uv, (unsigned long)ed[i].error), 0, NULL);
 	}
 }
+
+#define	STRVIS_OVERFLOW_MARKER	0xff	/* Arbitrary */
+
+#if TARGET_OS_OSX
+T_DECL(strvis_overflow_mb, "Test strvis(3) multi-byte overflow")
+{
+	const char src[] = "\xf0\x9f\xa5\x91";
+	/* Extra byte to detect overflow */
+	char dst[sizeof(src) + 1];
+	int n;
+
+	setlocale(LC_CTYPE, "en_US.UTF-8");
+
+	/* Arbitrary */
+	memset(dst, STRVIS_OVERFLOW_MARKER, sizeof(dst));
+
+	/*
+	 * If we only provide four bytes of buffer, we shouldn't be able encode
+	 * a full 4-byte sequence.
+	 */
+	n = strnvis(dst, 4, src, VIS_SAFE);
+	T_ASSERT_EQ_CHAR((unsigned char)dst[4], STRVIS_OVERFLOW_MARKER, NULL);
+	T_ASSERT_EQ(n, -1, NULL);
+
+	n = strnvis(dst, sizeof(src), src, VIS_SAFE);
+	T_ASSERT_EQ(n, sizeof(src) - 1, NULL);
+}
+#endif
+
+T_DECL(strvis_overflow_c, "Test strvis(3) C locale overflow")
+{
+	const char src[] = "AAAA";
+	/* Extra byte to detect overflow */
+	char dst[sizeof(src) + 1];
+	int n;
+
+	/* Arbitrary */
+	memset(dst, STRVIS_OVERFLOW_MARKER, sizeof(dst));
+
+	/*
+	 * If we only provide four bytes of buffer, we shouldn't be able encode
+	 * 4 bytes of input.
+	 */
+	n = strnvis(dst, 4, src, VIS_SAFE | VIS_NOLOCALE);
+	T_ASSERT_EQ_CHAR((unsigned char)dst[4], STRVIS_OVERFLOW_MARKER, NULL);
+	T_ASSERT_EQ(n, -1, NULL);
+
+	n = strnvis(dst, sizeof(src), src, VIS_SAFE | VIS_NOLOCALE);
+	T_ASSERT_EQ(n, sizeof(src) - 1, NULL);
+}

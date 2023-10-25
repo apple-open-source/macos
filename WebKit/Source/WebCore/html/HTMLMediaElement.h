@@ -644,7 +644,6 @@ public:
     WEBCORE_EXPORT LayerHostingContextID layerHostingContextID();
     WEBCORE_EXPORT WebCore::FloatSize naturalSize();
 
-    FloatSize mediaPlayerVideoInlineSize() const override { return videoInlineSize(); }
     WEBCORE_EXPORT WebCore::FloatSize videoInlineSize() const;
     void setVideoInlineSizeFenced(const FloatSize&, const WTF::MachSendRight&);
     void updateMediaState();
@@ -824,6 +823,9 @@ private:
 
     bool mediaPlayerShouldDisableHDR() const final { return shouldDisableHDR(); }
 
+    FloatSize mediaPlayerVideoInlineSize() const final { return videoInlineSize(); }
+    void mediaPlayerVideoInlineSizeDidChange(const FloatSize& size) final { m_videoInlineSize = size; }
+
     void pendingActionTimerFired();
     void progressEventTimerFired();
     void playbackProgressTimerFired();
@@ -837,7 +839,7 @@ private:
 
     void seek(const MediaTime&);
     void seekInternal(const MediaTime&);
-    void seekWithTolerance(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance, bool fromDOM);
+    void seekWithTolerance(const SeekTarget&, bool fromDOM);
     void finishSeek();
     void clearSeeking();
     void addPlayedRange(const MediaTime& start, const MediaTime& end);
@@ -945,7 +947,7 @@ private:
     bool isLiveStream() const override { return movieLoadType() == MovieLoadType::LiveStream; }
 
     void updateSleepDisabling();
-    enum class SleepType { None, Display, System };
+    enum class SleepType : uint8_t { None, Display, System };
     SleepType shouldDisableSleep() const;
 
     DOMWrapperWorld& ensureIsolatedWorld();
@@ -1080,17 +1082,13 @@ private:
 
     struct PendingSeek {
         WTF_MAKE_STRUCT_FAST_ALLOCATED;
-        PendingSeek(const MediaTime& now, const MediaTime& targetTime, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance)
+        PendingSeek(const MediaTime& now, const SeekTarget& inTarget)
             : now(now)
-            , targetTime(targetTime)
-            , negativeTolerance(negativeTolerance)
-            , positiveTolerance(positiveTolerance)
+            , target(inTarget)
         {
         }
         MediaTime now;
-        MediaTime targetTime;
-        MediaTime negativeTolerance;
-        MediaTime positiveTolerance;
+        SeekTarget target;
     };
     std::unique_ptr<PendingSeek> m_pendingSeek;
     SeekType m_pendingSeekType { NoSeek };

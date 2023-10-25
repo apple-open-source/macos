@@ -7,8 +7,12 @@
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
 
 #import <AppleAccount/AppleAccount.h>
+
 #import <AppleAccount/AppleAccount_Private.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #import <AppleAccount/ACAccount+AppleAccount.h>
+#pragma clang diagnostic pop
 
 NS_ASSUME_NONNULL_BEGIN
 

@@ -283,7 +283,7 @@ int authd_02_basicauthorization(int argc, char *const *argv)
 
 int authd_03_uiauthorization(int argc, char *const *argv)
 {
-	plan_tests(3);
+	plan_tests(4);
     if (!_getCredentials()) {
         fail("Not able to read credentials for current user!");
     }
@@ -328,12 +328,16 @@ int authd_03_uiauthorization(int argc, char *const *argv)
     }
 	AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
 
+    status = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &authorizationRef);
+    ok(status == errAuthorizationSuccess, "AuthorizationRef create");
+    
 	AuthorizationCopyRightsAsync(authorizationRef, &myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed, allowBlock);
     sleep(3); // give some time to SecurityAgent to appear
     _runRaft(raftFillValid);
     if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * SA_TIMEOUT)) != 0) {
         fail("Async authorization");
-    }	AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
+    }
+    AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
 
 	return 0;
 }

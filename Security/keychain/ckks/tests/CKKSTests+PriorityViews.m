@@ -117,6 +117,8 @@
     sleep(1);
     XCTAssertFalse(waitForPriorityView.finished, "rpcWaitForPriorityViewProcessing should not have finished");
 
+    // Pause the state machine before it restarts priority views, to examine view states
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateExpandToHandleAllViews];
     [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateBeginFetch];
 
     [waitForPriorityView waitUntilFinished];
@@ -125,6 +127,9 @@
     XCTAssertEqual([self.homeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Home should enter key state ready");
     XCTAssertEqual([self.limitedView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "LimitedPeersAllowed should enter key state ready");
     XCTAssertNotEqual([self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:1 * NSEC_PER_SEC], 0, "Manatee should not be in key state ready");
+
+    // Now that we've inspected each view, release processing the rest of the keychain
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateExpandToHandleAllViews];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -158,6 +163,10 @@
     [self waitForKeyHierarchyReadinesses];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    XCTAssertEqual([self.homeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Home should enter key state ready");
+    XCTAssertEqual([self.limitedView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "LimitedPeersAllowed should enter key state ready");
+    XCTAssertEqual([self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Manatee should be in key state ready");
 
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 

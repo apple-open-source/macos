@@ -459,15 +459,7 @@ static int invocationCount = 0;
 
 + (BOOL)isRecoveryKeySet:(OTConfigurationContext*)ctx error:(NSError**)error
 {
-    NSError* localError = nil;
-    BOOL result = [OTClique isRecoveryKeySet:ctx error:&localError];
-    if (error) {
-        if (result == NO && localError == nil) {
-            localError = [NSError errorWithDomain:OctagonErrorDomain code:-1 description:@"Error not actually returned from Clique API, this is to satisfy Swift BOOL/NSError convention"];
-        }
-        *error = localError;
-    }
-    return result;
+    return [OTClique isRecoveryKeySet:ctx error:error];
 }
 
 + (BOOL)recoverWithRecoveryKey:(OTConfigurationContext*)ctx
@@ -497,6 +489,11 @@ static int invocationCount = 0;
 + (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error
 {
     return [OTClique totalTrustedPeers:ctx error:error];
+}
+
++ (BOOL)areRecoveryKeysDistrusted:(OTConfigurationContext*)ctx error:(NSError* __autoreleasing *)error __attribute__((swift_error(nonnull_error)))
+{
+    return [OTClique areRecoveryKeysDistrusted:ctx error:error];
 }
 
 @end

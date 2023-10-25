@@ -308,6 +308,7 @@ platform/cocoa/SystemVersion.mm
 platform/cocoa/TelephoneNumberDetectorCocoa.cpp
 platform/cocoa/TextRecognitionResultCocoa.mm
 platform/cocoa/ThemeCocoa.mm
+platform/cocoa/ThermalMitigationNotifier.mm
 platform/cocoa/UserAgentCocoa.mm
 platform/cocoa/VideoFullscreenModelVideoElement.mm
 platform/cocoa/VideoToolboxSoftLink.cpp
@@ -505,7 +506,6 @@ platform/image-decoders/jpegxl/JPEGXLImageDecoder.cpp
 platform/image-decoders/ScalableImageDecoder.cpp
 platform/image-decoders/ScalableImageDecoderFrame.cpp
 platform/ios/ColorIOS.mm
-platform/ios/Device.cpp
 platform/ios/DeviceMotionClientIOS.mm
 platform/ios/DeviceOrientationClientIOS.mm
 platform/ios/DragImageIOS.mm
@@ -525,7 +525,6 @@ platform/ios/PlatformScreenIOS.mm
 platform/ios/PlaybackSessionInterfaceAVKit.mm @no-unify
 platform/ios/PreviewConverterIOS.mm
 platform/ios/QuickLook.mm
-platform/ios/ScreenOrientationProviderIOS.mm
 platform/ios/ScrollAnimatorIOS.mm
 platform/ios/ScrollViewIOS.mm
 platform/ios/ScrollbarThemeIOS.mm

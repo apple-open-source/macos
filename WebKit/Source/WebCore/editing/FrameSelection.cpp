@@ -1930,7 +1930,7 @@ Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* 
         return elementStyleToUse->colorByApplyingColorFilter(systemAccentColor);
     }
 
-    return elementStyle.visitedDependentColorWithColorFilter(CSSPropertyCaretColor);
+    return elementStyleToUse->colorByApplyingColorFilter(elementStyleToUse->colorResolvingCurrentColor(elementStyleToUse->caretColor()));
 #else
     UNUSED_PARAM(selection);
     RefPtr parentElement = node ? node->parentElement() : nullptr;

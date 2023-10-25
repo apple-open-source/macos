@@ -41,7 +41,7 @@ def checkTime(value, failureString):
     checkValue(value, basestring, failureString)
     pattern = re.compile("^[0-9]{4}-[0-1][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-6][0-9]Z$")
     if not pattern.match(value):
-        raise ValueError(failureString + ": incorrectly formatted time, expected \"YYYY-MM-DDTHH:mm:ssZ\"")
+        raise ValueError(failureString + ": incorrectly formatted time " + value + ", expected \"YYYY-MM-DDTHH:mm:ssZ\"")
 
 parser = argparse.ArgumentParser(description="Build the trusted logs plist from the log list json")
 parser.add_argument('-infile', help="The filename of the json log list", required=True)

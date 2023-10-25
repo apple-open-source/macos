@@ -88,6 +88,7 @@ IONotificationPortRef  gDAMediaPort                    = NULL;
 CFMutableArrayRef      gDAMountMapList1                = NULL;
 CFMutableArrayRef      gDAMountMapList2                = NULL;
 CFMutableDictionaryRef gDAPreferenceList               = NULL;
+CFMutableArrayRef      gDAMountPointList               = NULL;
 pid_t                  gDAProcessID                    = 0;
 char *                 gDAProcessName                  = NULL;
 char *                 gDAProcessNameID                = NULL;
@@ -406,6 +407,14 @@ static void __DAMain( void *__unused context )
     gDAPreferenceList = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 
     assert( gDAPreferenceList );
+    
+    /*
+     * Create the mount  list.
+     */
+
+    gDAMountPointList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+
+    assert( gDAMountPointList );
 
     /*
      * Create the request list.

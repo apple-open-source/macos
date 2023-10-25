@@ -160,6 +160,15 @@
                 complete(nil, nil, error);
                 return;
             }
+            if (response == nil) {
+                NSError *error = [NSError errorWithDomain:OctagonErrorDomain
+                                                     code:OctagonErrorBadAuthKitResponse
+                                              description:@"bad response from AuthKit"];
+                complete(nil, nil, error);
+                [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
+                return;
+            }
+
             NSMutableSet *mids = [[NSMutableSet alloc] init];
             NSString* version = response.deviceListVersion;
 

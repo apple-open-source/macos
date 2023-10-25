@@ -375,6 +375,105 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
     }
 
+    func testAddCustodianRecoveryKeyUUIDTwice() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.silentZoneDeletesAllowed = true
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
+
+        _ = try self.createClique()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
+
+        OctagonSetSOSFeatureEnabled(true)
+
+        let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
+        let uuid = UUID()
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { crk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(crk, "crk should be non-nil")
+            XCTAssertEqual(uuid, crk!.uuid)
+            createCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
+
+        let createCustodianRecoveryKeyExpectation2 = self.expectation(description: "createCustodianRecoveryKey2 returns")
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { crk, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.custodianRecoveryKeyUUIDExists.errorCode, "error code mismatch")
+            XCTAssertNil(crk, "crk should be nil")
+            createCustodianRecoveryKeyExpectation2.fulfill()
+        }
+        self.wait(for: [createCustodianRecoveryKeyExpectation2], timeout: 10)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+    }
+
+    func testAddRemoveAddCustodianRecoveryKeyUUID() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.silentZoneDeletesAllowed = true
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
+
+        _ = try self.createClique()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
+
+        OctagonSetSOSFeatureEnabled(true)
+
+        let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
+        let uuid = UUID()
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { crk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(crk, "crk should be non-nil")
+            XCTAssertEqual(uuid, crk!.uuid)
+            createCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
+
+        let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeCustodianRecoveryKeyExpectation], timeout: 20)
+
+        let createCustodianRecoveryKeyExpectation2 = self.expectation(description: "createCustodianRecoveryKey2 returns")
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { crk, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.custodianRecoveryKeyUUIDExists.errorCode, "error code mismatch")
+            XCTAssertNil(crk, "crk should be nil")
+            createCustodianRecoveryKeyExpectation2.fulfill()
+        }
+        self.wait(for: [createCustodianRecoveryKeyExpectation2], timeout: 10)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+    }
+
     func testCustodianRecoveryKeyTrust() throws {
         try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
@@ -863,7 +962,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         establishContext.preflightJoin(with: otcrk) { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
-            XCTAssertEqual((error! as NSError).code, ContainerError.recoveryKeysNotEnrolled.errorCode, "error code mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
             preflightJoinWithCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [preflightJoinWithCustodianRecoveryKeyExpectation], timeout: 20)
@@ -880,7 +979,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         recoveryContext.join(with: otcrk) { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
-            XCTAssertEqual((error! as NSError).code, ContainerError.recoveryKeysNotEnrolled.errorCode, "error code mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
             joinWithCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithCustodianRecoveryKeyExpectation], timeout: 20)
@@ -948,8 +1047,6 @@ class OctagonCustodianTests: OctagonTestsBase {
             return nil
         }
 
-        container.testIgnoreCustodianUpdates = false
-
         let restartedPeerContext = self.simulateRestart(context: peerContext)
         restartedPeerContext.notifyContainerChange(nil)
 
@@ -959,9 +1056,9 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: originalPeerID, opinion: .trusts, target: crk.peerID)),
                       "peer 1 should trust uuid of Custodian")
 
-        // The joining peer should trust the custodian key, but it currently does not
-        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: joinPeerID, opinion: .ignores, target: crk.peerID)),
-                      "peer 2 should have no opinion of uuid of Custodian")
+        // The joining peer should trust the custodian key
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: joinPeerID, opinion: .trusts, target: crk.peerID)),
+                      "peer 2 should trust uuid of Custodian")
 
         // Fetching again should have a change token
         do {
@@ -1029,10 +1126,13 @@ class OctagonCustodianTests: OctagonTestsBase {
             return nil
         }
 
-        // But, the refetch continues to not return the custodian peers. This is invalid server behavior.
         // After the first refetch, the client will think it should refetch, but won't, because it has already done so on an OS that knows
         // about custodians.
         let restartedPeerContext = self.simulateRestart(context: peerContext)
+
+        let container2 = try self.tphClient.getContainer(with: try XCTUnwrap(peerContext.activeAccount))
+        container2.testIgnoreCustodianUpdates = true
+
         restartedPeerContext.notifyContainerChange(nil)
 
         self.wait(for: [fetchExpectation], timeout: 10)
@@ -1041,7 +1141,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: originalPeerID, opinion: .trusts, target: crk.peerID)),
                       "peer 1 should trust uuid of Custodian")
 
-        // The joining peer should trust the custodian key, but it currently does not
+        // The joining peer should still not have an opinion on the custodian key
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: joinPeerID, opinion: .ignores, target: crk.peerID)),
                       "peer 2 should have no opinion of uuid of Custodian")
 
@@ -1509,6 +1609,8 @@ class OctagonCustodianTests: OctagonTestsBase {
         let preflightJoinWithCustodianRecoveryKeyExpectation = self.expectation(description: "preflightJoinWithCustodianRecoveryKey callback occurs")
         establishContext.preflightJoin(with: otcrk) { error in
             XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
             preflightJoinWithCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [preflightJoinWithCustodianRecoveryKeyExpectation], timeout: 20)
@@ -1516,6 +1618,8 @@ class OctagonCustodianTests: OctagonTestsBase {
         let joinWithCustodianRecoveryKeyExpectation = self.expectation(description: "joinWithCustodianRecoveryKey callback occurs")
         self.cuttlefishContext.join(with: otcrk) { error in
             XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
             joinWithCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithCustodianRecoveryKeyExpectation], timeout: 20)

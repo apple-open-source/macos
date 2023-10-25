@@ -6,14 +6,10 @@
 #include "keychain/SecureObjectSync/SOSAccountPriv.h"
 
 @interface SOSMessage : NSObject
-{
-    CFTypeRef engine;
-    SOSAccount *account;
-    NSString *circleName;
-}
-@property (atomic)  CFTypeRef engine;
-@property (strong, atomic)  SOSAccount* account;
-@property (strong, atomic)  NSString *circleName;
+
+@property (nonatomic) SOSEngineRef engine;
+@property (strong, nonatomic)  SOSAccount* account;
+@property (strong, nonatomic)  NSString* circleName;
 
 -(id) initWithAccount:(SOSAccount*)acct andName:(NSString*)name;
 

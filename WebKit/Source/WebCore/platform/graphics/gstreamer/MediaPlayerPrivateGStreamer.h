@@ -142,7 +142,7 @@ public:
     bool paused() const final;
     bool ended() const final;
     bool seeking() const override { return m_isSeeking; }
-    void seek(const MediaTime&) override;
+    void seekToTarget(const SeekTarget&) override;
     void setRate(float) override;
     double rate() const final;
     void setPreservesPitch(bool) final;
@@ -153,7 +153,7 @@ public:
     void setMuted(bool) final;
     MediaPlayer::NetworkState networkState() const final;
     MediaPlayer::ReadyState readyState() const final;
-    void setPageIsVisible(bool visible) final { m_visible = visible; }
+    void setPageIsVisible(bool visible, String&&) final { m_visible = visible; }
     void setVisibleInViewport(bool isVisible) final;
     void setPresentationSize(const IntSize&) final;
     // Prefer MediaTime based methods over float based.
@@ -164,8 +164,6 @@ public:
     double currentTimeDouble() const final { return currentMediaTime().toDouble(); }
     MediaTime currentMediaTime() const override;
     const PlatformTimeRanges& buffered() const override;
-    void seek(float time) final { seek(MediaTime::createWithFloat(time)); }
-    void seekDouble(double time) final { seek(MediaTime::createWithDouble(time)); }
     float maxTimeSeekable() const final { return maxMediaTimeSeekable().toFloat(); }
     MediaTime maxMediaTimeSeekable() const override;
     double minTimeSeekable() const final { return minMediaTimeSeekable().toFloat(); }
@@ -313,7 +311,7 @@ protected:
     void ensureAudioSourceProvider();
     void checkPlayingConsistency();
 
-    virtual bool doSeek(const MediaTime& position, float rate);
+    virtual bool doSeek(const SeekTarget& position, float rate);
     void invalidateCachedPosition() const;
     void ensureSeekFlags();
 
@@ -322,7 +320,7 @@ protected:
     static void audioChangedCallback(MediaPlayerPrivateGStreamer*);
     static void textChangedCallback(MediaPlayerPrivateGStreamer*);
 
-    void timeChanged();
+    void timeChanged(const MediaTime&); // If MediaTime is valid, indicates that a seek has completed.
     void loadingFailed(MediaPlayer::NetworkState, MediaPlayer::ReadyState = MediaPlayer::ReadyState::HaveNothing, bool forceNotifications = false);
     void loadStateChanged();
 
@@ -349,7 +347,7 @@ protected:
     bool m_shouldResetPipeline { false };
     bool m_isSeeking { false };
     bool m_isSeekPending { false };
-    MediaTime m_seekTime;
+    SeekTarget m_seekTarget;
     GRefPtr<GstElement> m_source { nullptr };
     bool m_areVolumeAndMuteInitialized { false };
 
@@ -442,7 +440,7 @@ private:
     bool isMediaStreamPlayer() const;
 
     friend class MediaPlayerFactoryGStreamer;
-    static void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>&);
+    static void getSupportedTypes(HashSet<String>&);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
 
     void syncOnClock(bool sync);

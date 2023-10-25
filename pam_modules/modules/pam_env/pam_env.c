@@ -109,8 +109,10 @@ static char quote='Z';
 #define PAM_ENV_SILENT      0x04
 #define PAM_NEW_ENV_FILE    0x10
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(env)
 #define PAM_LOG PAM_LOG_env()
+#endif
 
 static int _pam_parse(pam_handle_t *pamh, int flags, int argc, const char **argv, char **conffile,
 	char **envfile, int *readenv)
@@ -121,20 +123,20 @@ static int _pam_parse(pam_handle_t *pamh, int flags, int argc, const char **argv
 	/* generic options */
 
 	if (NULL != openpam_get_option(pamh, "debug")) {
-		os_log_debug(PAM_LOG, "debugging on");
+		_LOG_DEBUG("debugging on");
 		ctrl |= PAM_DEBUG_ARG;
 	}
 	if (NULL != (*conffile = (char *)openpam_get_option(pamh, "conffile"))) {
-		os_log_debug(PAM_LOG, "new Configuration File: %s", *conffile);
+		_LOG_DEBUG("new Configuration File: %s", *conffile);
 		ctrl |= PAM_NEW_CONF_FILE;
 	}
 	if (NULL != (*envfile = (char *)openpam_get_option(pamh, "conffile"))) {
-		os_log_debug(PAM_LOG, "new Env File: %s", *envfile);
+		_LOG_DEBUG("new Env File: %s", *envfile);
 		ctrl |= PAM_NEW_ENV_FILE;
 	}
 	readenvchar = (char *)openpam_get_option(pamh, "readenv");
 	if (NULL != readenvchar && 0 != (*readenv = atoi(readenvchar))) {
-		os_log_debug(PAM_LOG, "readenv: %d", *readenv);
+		_LOG_DEBUG("readenv: %d", *readenv);
 	}
 
     return ctrl;
@@ -149,7 +151,7 @@ static int _parse_config_file(pam_handle_t *pamh, int ctrl, char **conffile)
     VAR Var, *var=&Var;   
 
     var->name=NULL; var->defval=NULL; var->override=NULL;
-    os_log_debug(PAM_LOG, "Called.");
+    _LOG_DEBUG("Called.");
 
     if (ctrl & PAM_NEW_CONF_FILE) {
 	file = *conffile;
@@ -157,7 +159,7 @@ static int _parse_config_file(pam_handle_t *pamh, int ctrl, char **conffile)
 	file = DEFAULT_CONF_FILE;
     }
 
-    os_log_debug(PAM_LOG, "Config file name is: %s", file);
+    _LOG_DEBUG("Config file name is: %s", file);
 
     /* 
      * Lets try to open the config file, parse it and process 
@@ -165,7 +167,7 @@ static int _parse_config_file(pam_handle_t *pamh, int ctrl, char **conffile)
      */
 
     if ((conf = fopen(file,"r")) == NULL) {
-      os_log_error(PAM_LOG, "Unable to open config file: %s",
+      _LOG_ERROR("Unable to open config file: %s",
 	       strerror(errno));
       return PAM_IGNORE;
     }
@@ -175,7 +177,7 @@ static int _parse_config_file(pam_handle_t *pamh, int ctrl, char **conffile)
      */
 
     while (( retval = _assemble_line(pamh, conf, buffer, BUF_SIZE)) > 0) {
-      os_log_debug(PAM_LOG, "Read line: %s", buffer);
+      _LOG_DEBUG("Read line: %s", buffer);
 
       if ((retval = _parse_line(pamh, buffer, var)) == GOOD_LINE) {
 	retval = _check_var(pamh, var);
@@ -203,7 +205,7 @@ static int _parse_config_file(pam_handle_t *pamh, int ctrl, char **conffile)
         *conffile = NULL;
     }
     file = NULL;
-    os_log_debug(PAM_LOG, "Exit.");
+    _LOG_DEBUG("Exit.");
     return (retval<0?PAM_ABORT:PAM_SUCCESS);
 }
 
@@ -219,15 +221,15 @@ static int _parse_env_file(pam_handle_t *pamh, int ctrl, char **env_file)
     else
 	file = DEFAULT_ETC_ENVFILE;
 
-    os_log_debug(PAM_LOG, "Env file name is: %s", file);
+    _LOG_DEBUG("Env file name is: %s", file);
 
     if ((conf = fopen(file,"r")) == NULL) {
-      os_log_debug(PAM_LOG, "Unable to open env file: %s", strerror(errno));
+      _LOG_DEBUG("Unable to open env file: %s", strerror(errno));
       return PAM_ABORT;
     }
 
     while (_assemble_line(pamh, conf, buffer, BUF_SIZE) > 0) {
-	os_log_debug(PAM_LOG, "Read line: %s", buffer);
+	_LOG_DEBUG("Read line: %s", buffer);
 	key = buffer;
 
 	/* skip leading white space */
@@ -255,7 +257,7 @@ static int _parse_env_file(pam_handle_t *pamh, int ctrl, char **env_file)
 
 	for ( i = 0 ; key[i] != '=' && key[i] != '\0' ; i++ )
 	if (!isalnum(key[i]) && key[i] != '_') {
-		os_log_debug(PAM_LOG, "key is not alpha numeric - '%s', ignoring", key);
+		_LOG_DEBUG("key is not alpha numeric - '%s', ignoring", key);
 		continue;
 	    }
 
@@ -274,7 +276,7 @@ static int _parse_env_file(pam_handle_t *pamh, int ctrl, char **env_file)
 	/* set the env var, if it fails, we break out of the loop */
 	retval = pam_putenv(pamh, key);
 	if (retval != PAM_SUCCESS) {
-	    os_log_debug(PAM_LOG, "error setting env \"%s\"", key);
+	    _LOG_DEBUG("error setting env \"%s\"", key);
 	    break;
 	}
     }
@@ -287,7 +289,7 @@ static int _parse_env_file(pam_handle_t *pamh, int ctrl, char **env_file)
         *env_file = NULL;
     }
     file = NULL;
-    os_log_debug(PAM_LOG, "Exit.");
+    _LOG_DEBUG("Exit.");
     return (retval<0?PAM_IGNORE:PAM_SUCCESS);
 }
 
@@ -304,11 +306,11 @@ static int _assemble_line(pam_handle_t *pamh, FILE *f, char *buffer, int buf_len
 
     /* loop broken with a 'break' when a non-'\\n' ended line is read */
 
-    os_log_debug(PAM_LOG, "called.");
+    _LOG_DEBUG("called.");
     for (;;) {
 	if (used >= buf_len) {
 	    /* Overflow */
-	    os_log_debug(PAM_LOG, "_assemble_line: overflow");
+	    _LOG_DEBUG("_assemble_line: overflow");
 	    return -1;
 	}
 	if (fgets(p, buf_len - used, f) == NULL) {
@@ -386,12 +388,12 @@ static int _parse_line(pam_handle_t *pamh, char *buffer, VAR *var)
   long length, quoteflg=0;
   char *ptr, **valptr, *tmpptr; 
   
-  os_log_debug(PAM_LOG, "Called buffer = <%s>", buffer);
+  _LOG_DEBUG("Called buffer = <%s>", buffer);
 
   length = strcspn(buffer," \t\n");
   
   if ((var->name = malloc(length + 1)) == NULL) {
-      os_log_error(PAM_LOG, "Couldn't malloc %ld bytes", length+1);
+      _LOG_ERROR("Couldn't malloc %ld bytes", length+1);
     return PAM_BUF_ERR;
   }
   
@@ -401,7 +403,7 @@ static int _parse_line(pam_handle_t *pamh, char *buffer, VAR *var)
    */
   strncpy(var->name, buffer, length);
   var->name[length] = '\0';
-    os_log_debug(PAM_LOG, "var->name = <%s>, length = %ld", var->name, length);
+    _LOG_DEBUG("var->name = <%s>, length = %ld", var->name, length);
 
   /* 
    * Now we check for arguments, we only support two kinds and ('cause I am lazy)
@@ -411,17 +413,17 @@ static int _parse_line(pam_handle_t *pamh, char *buffer, VAR *var)
   ptr = buffer+length;
   while ((length = strspn(ptr, " \t")) > 0) { 
     ptr += length;                              /* remove leading whitespace */
-    os_log_debug(PAM_LOG, "ptr: %s", ptr);
+    _LOG_DEBUG("ptr: %s", ptr);
     if (strncmp(ptr,"DEFAULT=",8) == 0) {
       ptr+=8;
-      os_log_debug(PAM_LOG, "Default arg found: <%s>", ptr);
+      _LOG_DEBUG("Default arg found: <%s>", ptr);
       valptr=&(var->defval);
     } else if (strncmp(ptr, "OVERRIDE=", 9) == 0) {
       ptr+=9;
-      os_log_debug(PAM_LOG, "Override arg found: <%s>", ptr);
+      _LOG_DEBUG("Override arg found: <%s>", ptr);
       valptr=&(var->override);
     } else {
-      os_log_error(PAM_LOG, "Unrecognized option: %s - ignoring line", ptr);
+      _LOG_ERROR("Unrecognized option: %s - ignoring line", ptr);
       return BAD_LINE;
     }
     
@@ -431,19 +433,19 @@ static int _parse_line(pam_handle_t *pamh, char *buffer, VAR *var)
     } else {
       tmpptr = strchr(++ptr, '"');   
       if (!tmpptr) {
-	os_log_error(PAM_LOG, "Unterminated quoted string: %s", ptr-1);
+	_LOG_ERROR("Unterminated quoted string: %s", ptr-1);
 	return BAD_LINE;
       }
       length = tmpptr - ptr;        
       if (*++tmpptr && ' ' != *tmpptr && '\t' != *tmpptr && '\n' != *tmpptr) {
-	os_log_error(PAM_LOG, "Quotes must cover the entire string: <%s>", ptr);
+	_LOG_ERROR("Quotes must cover the entire string: <%s>", ptr);
 	return BAD_LINE;
       }
       quoteflg++;
     }
     if (length) {
       if ((*valptr = malloc(length + 1)) == NULL) {
-          os_log_error(PAM_LOG, "Couldn't malloc %ld bytes", length+1);
+          _LOG_ERROR("Couldn't malloc %ld bytes", length+1);
 	return PAM_BUF_ERR;
       }
       (void)strncpy(*valptr,ptr,length);
@@ -458,7 +460,7 @@ static int _parse_line(pam_handle_t *pamh, char *buffer, VAR *var)
    * The line is parsed, all is well.
    */
   
-  os_log_debug(PAM_LOG, "Exit.");
+  _LOG_DEBUG("Exit.");
   ptr = NULL; tmpptr = NULL; valptr = NULL;
   return GOOD_LINE;
 }
@@ -484,7 +486,7 @@ static int _check_var(pam_handle_t *pamh, VAR *var)
 
   int retval;
 
-  os_log_debug(PAM_LOG, "Called.");
+  _LOG_DEBUG("Called.");
 
   /*
    * First thing to do is to expand any arguments, but only
@@ -505,7 +507,7 @@ static int _check_var(pam_handle_t *pamh, VAR *var)
   
   if (var->override && *(var->override) && &quote != var->override) { 
     /* if there is a non-empty string in var->override, we use it */
-    os_log_debug(PAM_LOG, "OVERRIDE variable <%s> being used: <%s>", var->name, var->override);
+    _LOG_DEBUG("OVERRIDE variable <%s> being used: <%s>", var->name, var->override);
     var->value = var->override;
     retval = DEFINE_VAR;
   } else {
@@ -517,18 +519,18 @@ static int _check_var(pam_handle_t *pamh, VAR *var)
        * which indicates that a variable should be defined with no value
        */
       *var->defval = '\0';
-      os_log_debug(PAM_LOG, "An empty variable: <%s>", var->name);
+      _LOG_DEBUG("An empty variable: <%s>", var->name);
       retval = DEFINE_VAR;
     } else if (var->defval) {
-      os_log_debug(PAM_LOG, "DEFAULT variable <%s> being used: <%s>", var->name, var->defval);
+      _LOG_DEBUG("DEFAULT variable <%s> being used: <%s>", var->name, var->defval);
       retval = DEFINE_VAR;
     } else {
-      os_log_debug(PAM_LOG, "UNDEFINE variable <%s>", var->name);
+      _LOG_DEBUG("UNDEFINE variable <%s>", var->name);
       retval = UNDEFINE_VAR;
     }
   }
 
-  os_log_debug(PAM_LOG, "Exit.");
+  _LOG_DEBUG("Exit.");
   return retval;
 }
 
@@ -547,7 +549,7 @@ static int _expand_arg(pam_handle_t *pamh, char **value)
   /* I know this shouldn't be hard-coded but it's so much easier this way */
   char tmp[MAX_ENV];
 
-  os_log_debug(PAM_LOG, "Remember to initialize tmp!");
+  _LOG_DEBUG("Remember to initialize tmp!");
   memset(tmp, 0, MAX_ENV);
 
   /* 
@@ -557,37 +559,37 @@ static int _expand_arg(pam_handle_t *pamh, char **value)
    * by prepending a "@" and wrapping in {} (ie: @{PAM_RHOST}, can escape 
    *
    */
-  os_log_debug(PAM_LOG, "Expanding <%s>",orig);
+  _LOG_DEBUG("Expanding <%s>",orig);
   while (*orig) {     /* while there is some input to deal with */
     if ('\\' == *orig) {
       ++orig;
       if ('$' != *orig && '@' != *orig) {
-          os_log(PAM_LOG, "Unrecognized escaped character: <%c> - ignoring", *orig);
+          _LOG_DEFAULT("Unrecognized escaped character: <%c> - ignoring", *orig);
       } else if ((strlen(tmp) + 1) < MAX_ENV) {
 	tmp[strlen(tmp)] = *orig++;        /* Note the increment */
       } else {
           /* is it really a good idea to try to log this? */
-          os_log_debug(PAM_LOG, "Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
+          _LOG_DEBUG("Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
       }
       continue;
     } 
     if ('$' == *orig || '@' == *orig) {
       if ('{' != *(orig+1)) {
-	os_log(PAM_LOG, "Expandable variables must be wrapped in {}"
+	_LOG_DEFAULT("Expandable variables must be wrapped in {}"
 	   " <%s> - ignoring", orig);
 	if ((strlen(tmp) + 1) < MAX_ENV) {
 	  tmp[strlen(tmp)] = *orig++;        /* Note the increment */
 	}
 	continue;
       } else {
-	os_log_debug(PAM_LOG, "Expandable argument: <%s>", orig);
+	_LOG_DEBUG("Expandable argument: <%s>", orig);
 	type = *orig;
 	orig+=2;     /* skip the ${ or @{ characters */
 	ptr = strchr(orig, '}');
 	if (ptr) { 
 	  *ptr++ = '\0';
 	} else {
-	  os_log_error(PAM_LOG, "Unterminated expandable variable: <%s>", orig-2);
+	  _LOG_ERROR("Unterminated expandable variable: <%s>", orig-2);
 	  return PAM_ABORT;
 	}
 	strncpy(tmpval, orig, sizeof(tmpval));
@@ -600,26 +602,26 @@ static int _expand_arg(pam_handle_t *pamh, char **value)
 	switch (type) {
 	  
 	case '$':
-	  os_log_debug(PAM_LOG, "Expanding env var: <%s>",tmpval);
+	  _LOG_DEBUG("Expanding env var: <%s>",tmpval);
 	  tmpptr = pam_getenv(pamh, tmpval);
-	  os_log_debug(PAM_LOG, "Expanded to <%s>", tmpptr);
+	  _LOG_DEBUG("Expanded to <%s>", tmpptr);
 	  break;
 	  
 	case '@':
-	  os_log_debug(PAM_LOG, "Expanding pam item: <%s>",tmpval);
+	  _LOG_DEBUG("Expanding pam item: <%s>",tmpval);
 	  tmpptr = _pam_get_item_byname(pamh, tmpval);
-	  os_log_debug(PAM_LOG, "Expanded to <%s>", tmpptr);
+	  _LOG_DEBUG("Expanded to <%s>", tmpptr);
 	  break;
 
 	default:
-	  os_log_error(PAM_LOG, "Impossible error, type == <%c>", type);
+	  _LOG_ERROR("Impossible error, type == <%c>", type);
 	  return PAM_ABORT;
 	}         /* switch */
 	
 	if (tmpptr) {
 	  if (strlcat(tmp, tmpptr, MAX_ENV) >= MAX_ENV) {
 	    /* is it really a good idea to try to log this? */
-	    os_log_error(PAM_LOG, "Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
+	    _LOG_ERROR("Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
 	  }
 	}
       }           /* if ('{' != *orig++) */
@@ -628,7 +630,7 @@ static int _expand_arg(pam_handle_t *pamh, char **value)
 	tmp[strlen(tmp)] = *orig++;        /* Note the increment */
       } else {
 	/* is it really a good idea to try to log this? */
-	os_log_error(PAM_LOG, "Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
+	_LOG_ERROR("Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
       }
     }
   }              /* for (;*orig;) */
@@ -637,13 +639,13 @@ static int _expand_arg(pam_handle_t *pamh, char **value)
   if (tmp_len > strlen(*value)) {
     free(*value);
     if ((*value = malloc(tmp_len+1)) == NULL) {
-      os_log_error(PAM_LOG,"Couldn't malloc %lu bytes for expanded var",
+        _LOG_ERROR("Couldn't malloc %lu bytes for expanded var",
 	       tmp_len+1);
       return PAM_BUF_ERR;
     }
   }
   strlcpy(*value, tmp, tmp_len+1);
-  os_log_debug(PAM_LOG, "Exit.");
+  _LOG_DEBUG("Exit.");
 
   return PAM_SUCCESS;
 }
@@ -658,7 +660,7 @@ static const char * _pam_get_item_byname(pam_handle_t *pamh, const char *name)
   int item;
   const char *itemval;
 
-  os_log_debug(PAM_LOG, "Called.");
+  _LOG_DEBUG("Called.");
   if (strcmp(name, "PAM_USER") == 0) {
     item = PAM_USER;
   } else if (strcmp(name, "PAM_USER_PROMPT") == 0) {
@@ -670,15 +672,15 @@ static const char * _pam_get_item_byname(pam_handle_t *pamh, const char *name)
   } else if (strcmp(name, "PAM_RHOST") == 0) {
     item = PAM_RHOST;
   } else {
-    os_log_error(PAM_LOG, "Unknown PAM_ITEM: <%s>", name);
+    _LOG_ERROR("Unknown PAM_ITEM: <%s>", name);
     return NULL;
   }
   
   if (pam_get_item(pamh, item, (const void **)&itemval) != PAM_SUCCESS) {
-    os_log_debug(PAM_LOG, "pam_get_item failed");
+    _LOG_DEBUG("pam_get_item failed");
     return NULL;     /* let pam_get_item() log the error */
   }
-  os_log_debug(PAM_LOG, "Exit.");
+  _LOG_DEBUG("Exit.");
   return itemval;
 }
 
@@ -690,16 +692,16 @@ static int _define_var(pam_handle_t *pamh, VAR *var)
   long size;
   int retval=PAM_SUCCESS;
   
-  os_log_debug(PAM_LOG, "Called.");
+  _LOG_DEBUG("Called.");
   size = strlen(var->name)+strlen(var->value)+2;
   if ((envvar = malloc(size)) == NULL) {
-      os_log_error(PAM_LOG, "Malloc fail, size = %ld", size);
+      _LOG_ERROR("Malloc fail, size = %ld", size);
     return PAM_BUF_ERR;
   }
   (void) snprintf(envvar,size,"%s=%s",var->name,var->value);
   retval = pam_putenv(pamh, envvar);
   free(envvar); envvar=NULL;
-  os_log_debug(PAM_LOG, "Exit.");
+  _LOG_DEBUG("Exit.");
   return retval;
 }
 
@@ -707,7 +709,7 @@ static int _undefine_var(pam_handle_t *pamh, VAR *var)
 {
   /* We have a variable to undefine, this is a simple function */
   
-  os_log_debug(PAM_LOG, "Called and exit.");
+  _LOG_DEBUG("Called and exit.");
   return pam_putenv(pamh, var->name);
 }
 
@@ -751,7 +753,7 @@ int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc,
    * this module sets environment variables read in from a file
    */
   
-  os_log_debug(PAM_LOG, "Called.");
+  _LOG_DEBUG("Called.");
   ctrl = _pam_parse(pamh, flags, argc, argv, &conf_file, &env_file, &readenv);
 
   retval = _parse_config_file(pamh, ctrl, &conf_file);
@@ -761,7 +763,7 @@ int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc,
 
   /* indicate success or failure */
   
-  os_log_debug(PAM_LOG, "Exit.");
+  _LOG_DEBUG("Exit.");
   return retval;
 }
 
@@ -769,7 +771,7 @@ PAM_EXTERN
 int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, 
 		     const char **argv)
 {
-  os_log_error(PAM_LOG, "pam_sm_acct_mgmt called inappropriatly");
+  _LOG_ERROR("pam_sm_acct_mgmt called inappropriatly");
   return PAM_SERVICE_ERR;
 }
  
@@ -784,7 +786,7 @@ int pam_sm_open_session(pam_handle_t *pamh,int flags,int argc
    * this module sets environment variables read in from a file
    */
   
-  os_log_debug(PAM_LOG, "Called.");
+  _LOG_DEBUG("Called.");
   ctrl = _pam_parse(pamh, flags, argc, argv, &conf_file, &env_file, &readenv);
   
   retval = _parse_config_file(pamh, ctrl, &conf_file);
@@ -794,7 +796,7 @@ int pam_sm_open_session(pam_handle_t *pamh,int flags,int argc
 
   /* indicate success or failure */
   
-  os_log_debug(PAM_LOG, "Exit.");
+  _LOG_DEBUG("Exit.");
   return retval;
 }
 
@@ -802,7 +804,7 @@ PAM_EXTERN
 int pam_sm_close_session(pam_handle_t *pamh,int flags,int argc,
 			 const char **argv)
 {
-  os_log_debug(PAM_LOG, "Called and Exit");
+  _LOG_DEBUG("Called and Exit");
   return PAM_SUCCESS;
 }
 
@@ -810,7 +812,7 @@ PAM_EXTERN
 int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, 
 		     const char **argv)
 {
-  os_log_error(PAM_LOG, "pam_sm_chauthtok called inappropriatly");
+  _LOG_ERROR("pam_sm_chauthtok called inappropriatly");
   return PAM_SERVICE_ERR;
 }
 

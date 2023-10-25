@@ -468,7 +468,13 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
             CFReleaseNull(error);
             goto cancel;
         } else {
-            completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust: trust]);
+            /* avoid calling NSURLSessionAuthChallengeUseCredential inside trustd,
+             * as it can invoke a direct trust evaluation which might be blocked
+             * by a queued operation on the same trust reference: rdar://112939771
+             * i.e. don't do this:
+             * completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust: trust]);
+             */
+            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, NULL);
         }
         return;
 

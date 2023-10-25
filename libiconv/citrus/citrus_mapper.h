@@ -78,12 +78,22 @@ __END_DECLS
  *
  */
 static __inline int
+#ifdef __APPLE__
+_citrus_mapper_convert(struct _citrus_mapper * __restrict cm,
+    _citrus_index_t * __restrict dst, _citrus_index_t *src, int *cnt,
+    void * __restrict ps)
+#else
 _citrus_mapper_convert(struct _citrus_mapper * __restrict cm,
     _citrus_index_t * __restrict dst, _citrus_index_t src,
     void * __restrict ps)
+#endif
 {
 
+#ifdef __APPLE__
+	return ((*cm->cm_ops->mo_convert)(cm, dst, src, cnt, ps));
+#else
 	return ((*cm->cm_ops->mo_convert)(cm, dst, src, ps));
+#endif
 }
 
 /*

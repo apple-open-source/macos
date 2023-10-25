@@ -67,7 +67,7 @@ public:
         return m_manager.createRemoteMediaPlayer(player, m_remoteEngineIdentifier);
     }
 
-    void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types) const final
+    void getSupportedTypes(HashSet<String>& types) const final
     {
         return m_manager.getSupportedTypes(m_remoteEngineIdentifier, types);
     }
@@ -103,18 +103,14 @@ private:
     RemoteMediaPlayerManager& m_manager;
 };
 
-RemoteMediaPlayerManager::RemoteMediaPlayerManager(WebProcess&)
+Ref<RemoteMediaPlayerManager> RemoteMediaPlayerManager::create()
 {
+    return adoptRef(*new RemoteMediaPlayerManager);
 }
 
-RemoteMediaPlayerManager::~RemoteMediaPlayerManager()
-{
-}
+RemoteMediaPlayerManager::RemoteMediaPlayerManager() = default;
 
-const char* RemoteMediaPlayerManager::supplementName()
-{
-    return "RemoteMediaPlayerManager";
-}
+RemoteMediaPlayerManager::~RemoteMediaPlayerManager() = default;
 
 using RemotePlayerTypeCache = HashMap<MediaPlayerEnums::MediaEngineIdentifier, std::unique_ptr<RemoteMediaPlayerMIMETypeCache>, WTF::IntHash<MediaPlayerEnums::MediaEngineIdentifier>, WTF::StrongEnumHashTraits<MediaPlayerEnums::MediaEngineIdentifier>>;
 static RemotePlayerTypeCache& mimeCaches()
@@ -210,7 +206,7 @@ MediaPlayerIdentifier RemoteMediaPlayerManager::findRemotePlayerId(const MediaPl
     return { };
 }
 
-void RemoteMediaPlayerManager::getSupportedTypes(MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, HashSet<String, ASCIICaseInsensitiveHash>& result)
+void RemoteMediaPlayerManager::getSupportedTypes(MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, HashSet<String>& result)
 {
     result = typeCache(remoteEngineIdentifier).supportedTypes();
 }

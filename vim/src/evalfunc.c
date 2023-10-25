@@ -45,6 +45,7 @@ static void f_did_filetype(typval_T *argvars, typval_T *rettv);
 static void f_echoraw(typval_T *argvars, typval_T *rettv);
 static void f_empty(typval_T *argvars, typval_T *rettv);
 static void f_environ(typval_T *argvars, typval_T *rettv);
+static void f_err_teapot(typval_T *argvars, typval_T *rettv);
 static void f_escape(typval_T *argvars, typval_T *rettv);
 static void f_eval(typval_T *argvars, typval_T *rettv);
 static void f_eventhandler(typval_T *argvars, typval_T *rettv);
@@ -273,6 +274,19 @@ arg_float_or_nr(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 arg_number(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 {
     return check_arg_type(&t_number, type, context);
+}
+
+/*
+ * Check "type" is an object.
+ */
+    static int
+arg_object(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
+{
+    if (type->tt_type == VAR_OBJECT
+	    || type_any_or_unknown(type))
+	return OK;
+    arg_type_mismatch(&t_object, type, context->arg_idx + 1);
+    return FAIL;
 }
 
 /*
@@ -646,6 +660,7 @@ check_map_filter_arg2(type_T *type, argcontext_T *context, int is_map)
 	    t_func_exp.tt_argcount = -1;
 
 	where.wt_index = 2;
+	where.wt_kind = WT_ARGUMENT;
 	return check_type(&t_func_exp, type, TRUE, where);
     }
     return OK;
@@ -713,6 +728,7 @@ arg_sort_how(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
 	    if (type->tt_argcount == -1)
 		t_func_exp.tt_argcount = -1;
 	    where.wt_index = 2;
+	    where.wt_kind = WT_ARGUMENT;
 	    return check_type(&t_func_exp, type, TRUE, where);
 	}
 
@@ -738,6 +754,20 @@ arg_string_or_func(type_T *type, type_T *decl_type UNUSED, argcontext_T *context
 	    || type_any_or_unknown(type))
 	return OK;
     arg_type_mismatch(&t_func_any, type, context->arg_idx + 1);
+    return FAIL;
+}
+
+/*
+ * Check "type" is a list of 'any' or a class.
+ */
+    static int
+arg_class_or_list(type_T *type, type_T *decl_type UNUSED, argcontext_T *context)
+{
+    if (type->tt_type == VAR_CLASS
+	    || type->tt_type == VAR_LIST
+	    || type_any_or_unknown(type))
+	return OK;
+    arg_type_mismatch(&t_class, type, context->arg_idx + 1);
     return FAIL;
 }
 
@@ -1069,7 +1099,6 @@ static argcheck_T arg2_string_dict[] = {arg_string, arg_dict_any};
 static argcheck_T arg2_string_list_number[] = {arg_string, arg_list_number};
 static argcheck_T arg2_string_number[] = {arg_string, arg_number};
 static argcheck_T arg2_string_or_list_dict[] = {arg_string_or_list_any, arg_dict_any};
-static argcheck_T arg2_string_or_list_bool[] = {arg_string_or_list_any, arg_bool};
 static argcheck_T arg2_string_or_list_number[] = {arg_string_or_list_any, arg_number};
 static argcheck_T arg2_string_string_or_number[] = {arg_string, arg_string_or_nr};
 static argcheck_T arg3_any_list_dict[] = {NULL, arg_list_any, arg_dict_any};
@@ -1093,12 +1122,14 @@ static argcheck_T arg3_string_bool_bool[] = {arg_string, arg_bool, arg_bool};
 static argcheck_T arg3_string_number_bool[] = {arg_string, arg_number, arg_bool};
 static argcheck_T arg3_string_number_number[] = {arg_string, arg_number, arg_number};
 static argcheck_T arg3_string_or_dict_bool_dict[] = {arg_string_or_dict_any, arg_bool, arg_dict_any};
+static argcheck_T arg3_string_or_list_bool_number[] = {arg_string_or_list_any, arg_bool, arg_number};
 static argcheck_T arg3_string_string_bool[] = {arg_string, arg_string, arg_bool};
 static argcheck_T arg3_string_string_dict[] = {arg_string, arg_string, arg_dict_any};
 static argcheck_T arg3_string_string_number[] = {arg_string, arg_string, arg_number};
 static argcheck_T arg4_number_number_string_any[] = {arg_number, arg_number, arg_string, NULL};
 static argcheck_T arg4_string_string_any_string[] = {arg_string, arg_string, NULL, arg_string};
 static argcheck_T arg4_string_string_number_string[] = {arg_string, arg_string, arg_number, arg_string};
+static argcheck_T arg4_string_number_bool_bool[] = {arg_string, arg_number, arg_bool, arg_bool};
 /* Function specific argument types (not covered by the above) */
 static argcheck_T arg15_assert_fails[] = {arg_string_or_nr, arg_string_or_list_any, NULL, arg_number, arg_string};
 static argcheck_T arg34_assert_inrange[] = {arg_float_or_nr, arg_float_or_nr, arg_float_or_nr, arg_string};
@@ -1121,6 +1152,7 @@ static argcheck_T arg1_len[] = {arg_len1};
 static argcheck_T arg3_libcall[] = {arg_string, arg_string, arg_string_or_nr};
 static argcheck_T arg14_maparg[] = {arg_string, arg_string, arg_bool, arg_bool};
 static argcheck_T arg2_filter[] = {arg_list_or_dict_or_blob_or_string_mod, arg_filter_func};
+static argcheck_T arg2_instanceof[] = {arg_object, arg_class_or_list};
 static argcheck_T arg2_map[] = {arg_list_or_dict_or_blob_or_string_mod, arg_map_func};
 static argcheck_T arg2_mapnew[] = {arg_list_or_dict_or_blob_or_string, NULL};
 static argcheck_T arg25_matchadd[] = {arg_string, arg_string, arg_number, arg_number, arg_dict_any};
@@ -1567,7 +1599,7 @@ ret_virtcol(int argcount,
 	type_T	**decl_type)
 {
     // Assume that if the second argument is passed it's non-zero
-    if (argcount == 2)
+    if (argcount > 1)
     {
 	*decl_type = &t_list_any;
 	return &t_list_number;
@@ -1814,7 +1846,7 @@ static funcentry_T global_functions[] =
 			ret_number,	    f_charclass},
     {"charcol",		1, 2, FEARG_1,	    arg2_string_or_list_number,
 			ret_number,	    f_charcol},
-    {"charidx",		2, 4, FEARG_1,	    arg3_string_number_bool,
+    {"charidx",		2, 4, FEARG_1,	    arg4_string_number_bool_bool,
 			ret_number,	    f_charidx},
     {"chdir",		1, 1, FEARG_1,	    arg1_string,
 			ret_string,	    f_chdir},
@@ -1880,6 +1912,8 @@ static funcentry_T global_functions[] =
 			ret_number_bool,    f_empty},
     {"environ",		0, 0, 0,	    NULL,
 			ret_dict_string,    f_environ},
+    {"err_teapot",	0, 1, 0,	    NULL,
+			ret_number_bool,    f_err_teapot},
     {"escape",		2, 2, FEARG_1,	    arg2_string,
 			ret_string,	    f_escape},
     {"eval",		1, 1, FEARG_1,	    arg1_string,
@@ -2118,6 +2152,8 @@ static funcentry_T global_functions[] =
 			ret_string,	    f_inputsecret},
     {"insert",		2, 3, FEARG_1,	    arg23_insert,
 			ret_first_arg,	    f_insert},
+    {"instanceof",	2, 2, FEARG_1,	    arg2_instanceof,
+			ret_bool,	    f_instanceof},
     {"interrupt",	0, 0, 0,	    NULL,
 			ret_void,	    f_interrupt},
     {"invert",		1, 1, FEARG_1,	    arg1_number,
@@ -2223,7 +2259,7 @@ static funcentry_T global_functions[] =
     {"matchend",	2, 4, FEARG_1,	    arg24_match_func,
 			ret_number,	    f_matchend},
     {"matchfuzzy",	2, 3, FEARG_1,	    arg3_list_string_dict,
-			ret_list_string,    f_matchfuzzy},
+			ret_list_any,	    f_matchfuzzy},
     {"matchfuzzypos",	2, 3, FEARG_1,	    arg3_list_string_dict,
 			ret_list_any,	    f_matchfuzzypos},
     {"matchlist",	2, 4, FEARG_1,	    arg24_match_func,
@@ -2794,15 +2830,15 @@ static funcentry_T global_functions[] =
 			ret_string,	    f_typename},
     {"undofile",	1, 1, FEARG_1,	    arg1_string,
 			ret_string,	    f_undofile},
-    {"undotree",	0, 0, 0,	    NULL,
+    {"undotree",	0, 1, FEARG_1,	    arg1_buffer,
 			ret_dict_any,	    f_undotree},
     {"uniq",		1, 3, FEARG_1,	    arg13_sortuniq,
 			ret_first_arg,	    f_uniq},
-    {"utf16idx",	2, 4, FEARG_1,	    arg3_string_number_bool,
+    {"utf16idx",	2, 4, FEARG_1,	    arg4_string_number_bool_bool,
 			ret_number,	    f_utf16idx},
     {"values",		1, 1, FEARG_1,	    arg1_dict_any,
 			ret_list_member,    f_values},
-    {"virtcol",		1, 2, FEARG_1,	    arg2_string_or_list_bool,
+    {"virtcol",		1, 3, FEARG_1,	    arg3_string_or_list_bool_number,
 			ret_virtcol,	    f_virtcol},
     {"virtcol2col",	3, 3, FEARG_1,	    arg3_number,
 			ret_number,	    f_virtcol2col},
@@ -3630,7 +3666,7 @@ f_copy(typval_T *argvars, typval_T *rettv)
 
 /*
  * Set the cursor position.
- * If 'charcol' is TRUE, then use the column number as a character offset.
+ * If "charcol" is TRUE, then use the column number as a character offset.
  * Otherwise use the column number as a byte offset.
  */
     static void
@@ -3919,6 +3955,33 @@ f_environ(typval_T *argvars UNUSED, typval_T *rettv)
 	vim_free(entry);
     }
 #endif
+}
+
+/*
+ * "err_teapot()" function
+ */
+    static void
+f_err_teapot(typval_T *argvars, typval_T *rettv UNUSED)
+{
+    if (argvars[0].v_type != VAR_UNKNOWN)
+    {
+	if (argvars[0].v_type == VAR_STRING)
+	{
+	    char_u *s = tv_get_string_strict(&argvars[0]);
+	    if (*skipwhite(s) == NUL)
+		return;
+	}
+
+	int err = FALSE;
+	int do_503 = eval_expr_to_bool(&argvars[0], &err);
+	if (!err && do_503)
+	{
+	    emsg(_(e_coffee_currently_not_available));
+	    return;
+	}
+    }
+
+    emsg(_(e_im_a_teapot));
 }
 
 /*
@@ -6134,6 +6197,13 @@ f_has(typval_T *argvars, typval_T *rettv)
 		0
 #endif
 		},
+	{"python3_stable",
+#if defined(FEAT_PYTHON3) && defined(DYNAMIC_PYTHON3_STABLE_ABI)
+		1
+#else
+		0
+#endif
+		},
 	{"python3",
 #if defined(FEAT_PYTHON3) && !defined(DYNAMIC_PYTHON3)
 		1
@@ -6452,6 +6522,14 @@ f_has(typval_T *argvars, typval_T *rettv)
 		},
 	{"X11",
 #if defined(UNIX) && defined(FEAT_X11)
+		1
+#else
+		0
+#endif
+		},
+	{":tearoff",
+// same #ifdef as used for ex_tearoff().
+#if defined(FEAT_GUI_MSWIN) && defined(FEAT_MENU) && defined(FEAT_TEAROFF)
 		1
 #else
 		0
@@ -6899,7 +6977,7 @@ indexof_eval_expr(typval_T *expr)
     argv[1] = *get_vim_var_tv(VV_VAL);
     newtv.v_type = VAR_UNKNOWN;
 
-    if (eval_expr_typval(expr, argv, 2, NULL, &newtv) == FAIL)
+    if (eval_expr_typval(expr, FALSE, argv, 2, NULL, &newtv) == FAIL)
 	return FALSE;
 
     found = tv_get_bool_chk(&newtv, &error);
@@ -8934,7 +9012,6 @@ f_screenchar(typval_T *argvars, typval_T *rettv)
 {
     int		row;
     int		col;
-    int		off;
     int		c;
 
     if (in_vim9script()
@@ -8948,11 +9025,9 @@ f_screenchar(typval_T *argvars, typval_T *rettv)
 	c = -1;
     else
     {
-	off = LineOffset[row] + col;
-	if (enc_utf8 && ScreenLinesUC[off] != 0)
-	    c = ScreenLinesUC[off];
-	else
-	    c = ScreenLines[off];
+	char_u buf[MB_MAXBYTES + 1];
+	screen_getbytes(row, col, buf, NULL);
+	c = (*mb_ptr2char)(buf);
     }
     rettv->vval.v_number = c;
 }
@@ -8965,7 +9040,6 @@ f_screenchars(typval_T *argvars, typval_T *rettv)
 {
     int		row;
     int		col;
-    int		off;
     int		c;
     int		i;
 
@@ -8982,18 +9056,18 @@ f_screenchars(typval_T *argvars, typval_T *rettv)
     if (row < 0 || row >= screen_Rows || col < 0 || col >= screen_Columns)
 	return;
 
-    off = LineOffset[row] + col;
-    if (enc_utf8 && ScreenLinesUC[off] != 0)
-	c = ScreenLinesUC[off];
+    char_u buf[MB_MAXBYTES + 1];
+    screen_getbytes(row, col, buf, NULL);
+    int pcc[MAX_MCO];
+    if (enc_utf8)
+	c = utfc_ptr2char(buf, pcc);
     else
-	c = ScreenLines[off];
+	c = (*mb_ptr2char)(buf);
     list_append_number(rettv->vval.v_list, (varnumber_T)c);
 
     if (enc_utf8)
-
-	for (i = 0; i < Screen_mco && ScreenLinesC[i][off] != 0; ++i)
-	    list_append_number(rettv->vval.v_list,
-				       (varnumber_T)ScreenLinesC[i][off]);
+	for (i = 0; i < Screen_mco && pcc[i] != 0; ++i)
+	    list_append_number(rettv->vval.v_list, (varnumber_T)pcc[i]);
 }
 
 /*
@@ -9024,11 +9098,7 @@ f_screenstring(typval_T *argvars, typval_T *rettv)
 {
     int		row;
     int		col;
-    int		off;
-    int		c;
-    int		i;
     char_u	buf[MB_MAXBYTES + 1];
-    int		buflen = 0;
 
     rettv->vval.v_string = NULL;
     rettv->v_type = VAR_STRING;
@@ -9043,18 +9113,7 @@ f_screenstring(typval_T *argvars, typval_T *rettv)
     if (row < 0 || row >= screen_Rows || col < 0 || col >= screen_Columns)
 	return;
 
-    off = LineOffset[row] + col;
-    if (enc_utf8 && ScreenLinesUC[off] != 0)
-	c = ScreenLinesUC[off];
-    else
-	c = ScreenLines[off];
-    buflen += mb_char2bytes(c, buf);
-
-    if (enc_utf8 && ScreenLinesUC[off] != 0)
-	for (i = 0; i < Screen_mco && ScreenLinesC[i][off] != 0; ++i)
-	    buflen += mb_char2bytes(ScreenLinesC[i][off], buf + buflen);
-
-    buf[buflen] = NUL;
+    screen_getbytes(row, col, buf, NULL);
     rettv->vval.v_string = vim_strsave(buf);
 }
 
@@ -9433,7 +9492,7 @@ f_searchpos(typval_T *argvars, typval_T *rettv)
 
 /*
  * Set the cursor or mark position.
- * If 'charpos' is TRUE, then use the column number as a character offset.
+ * If "charpos" is TRUE, then use the column number as a character offset.
  * Otherwise use the column number as a byte offset.
  */
     static void
@@ -10717,7 +10776,7 @@ f_type(typval_T *argvars, typval_T *rettv)
 }
 
 /*
- * "virtcol(string, bool)" function
+ * "virtcol({expr}, [, {list} [, {winid}]])" function
  */
     static void
 f_virtcol(typval_T *argvars, typval_T *rettv)
@@ -10725,15 +10784,35 @@ f_virtcol(typval_T *argvars, typval_T *rettv)
     colnr_T	vcol_start = 0;
     colnr_T	vcol_end = 0;
     pos_T	*fp;
-    int		fnum = curbuf->b_fnum;
+    switchwin_T	switchwin;
+    int		winchanged = FALSE;
     int		len;
 
     if (in_vim9script()
 	    && (check_for_string_or_list_arg(argvars, 0) == FAIL
 		|| (argvars[1].v_type != VAR_UNKNOWN
-		    && check_for_bool_arg(argvars, 1) == FAIL)))
+		    && (check_for_bool_arg(argvars, 1) == FAIL
+			|| check_for_opt_number_arg(argvars, 2) == FAIL))))
 	return;
 
+    if (argvars[1].v_type != VAR_UNKNOWN && argvars[2].v_type != VAR_UNKNOWN)
+    {
+	tabpage_T	*tp;
+	win_T		*wp;
+
+	// use the window specified in the third argument
+	wp = win_id2wp_tp((int)tv_get_number(&argvars[2]), &tp);
+	if (wp == NULL || tp == NULL)
+	    goto theend;
+
+	if (switch_win_noblock(&switchwin, wp, tp, TRUE) != OK)
+	    goto theend;
+
+	check_cursor();
+	winchanged = TRUE;
+    }
+
+    int fnum = curbuf->b_fnum;
     fp = var2fpos(&argvars[0], FALSE, &fnum, FALSE);
     if (fp != NULL && fp->lnum <= curbuf->b_ml.ml_line_count
 	    && fnum == curbuf->b_fnum)
@@ -10752,6 +10831,7 @@ f_virtcol(typval_T *argvars, typval_T *rettv)
 	++vcol_end;
     }
 
+theend:
     if (argvars[1].v_type != VAR_UNKNOWN && tv_get_bool(&argvars[1]))
     {
 	if (rettv_list_alloc(rettv) == OK)
@@ -10764,6 +10844,9 @@ f_virtcol(typval_T *argvars, typval_T *rettv)
     }
     else
 	rettv->vval.v_number = vcol_end;
+
+    if (winchanged)
+	restore_win_noblock(&switchwin, TRUE);
 }
 
 /*

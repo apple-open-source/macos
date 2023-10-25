@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,6 +37,7 @@
 #include <sys/kern_event.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
+#include <sys/uio.h>
 #include <sys/utsname.h>
 #include <netinet/in.h>
 #include <net/if.h>
@@ -56,12 +57,6 @@
 #include "pcap-int.h"
 #include "pcap-util.h"
 #include "pcap-pktap.h"
-
-#ifdef BPF_WAKE_PKT
-#ifndef BPF_PKTFLAGS_WAKE_PKT
-#define BPF_PKTFLAGS_WAKE_PKT BPF_WAKE_PKT
-#endif /* BPF_PKTFLAGS_WAKE_PKT */
-#endif /* BPF_WAKE_PKT */
 
 static int pcap_cleanup_pktap_interface_internal(const char *ifname, char *ebuf);
 
@@ -458,6 +453,11 @@ pktap_cleanup(pcap_t *p)
 		p->cleanup_interface_op(p->opt.device, errbuf);
 
 	p->pktap_cleanup_op(p);
+
+	if (p->pktap_ifname != NULL) {
+		free(p->pktap_ifname);
+		p->pktap_ifname = NULL;
+	}
 }
 
 static int
@@ -955,11 +955,9 @@ pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
 	if (pktp_hdr->pth_flowid != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_FLOW_ID , &pktp_hdr->pth_flowid, 4);
 	}
-#ifdef PKTAP_HAS_TRACE_TAG
 	if (pktp_hdr->pth_trace_tag != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_TRACE_TAG , &pktp_hdr->pth_trace_tag, 2);
 	}
-#endif /* PKTAP_HAS_TRACE_TAG */
 	if (comment != NULL && *comment != 0) {
 		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
 	}
@@ -1035,7 +1033,6 @@ pcap_apple_set_exthdr(pcap_t *p, int v)
 {
 	int status = -1;
 
-#ifdef BIOCSEXTHDR
 	if (ioctl(p->fd, BIOCSEXTHDR, (caddr_t)&v) < 0) {
 		snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "BIOCSEXTHDR: %s",
 			 pcap_strerror(errno));
@@ -1044,7 +1041,6 @@ pcap_apple_set_exthdr(pcap_t *p, int v)
 		p->extendedhdr = v;
 		status = 0;
 	}
-#endif /* BIOCSEXTHDR */
 
 	return (status);
 }
@@ -1062,10 +1058,8 @@ pcap_set_truncation_mode(pcap_t *p, bool on)
 {
 	int status = PCAP_ERROR;
 
-#ifdef BIOCSTRUNCATE
 	p->truncation = on;
 	status = 0;
-#endif /* BIOCSTRUNCATE */
 
 	return (status);
 }
@@ -1075,10 +1069,8 @@ pcap_set_pktap_hdr_v2(pcap_t *p, bool on)
 {
 	int status = PCAP_ERROR;
 
-#ifdef BIOCSPKTHDRV2
 	p->pktaphdrv2 = on;
 	status = 0;
-#endif /* BIOCSPKTHDRV2 */
 
 	return (status);
 }
@@ -1114,7 +1106,6 @@ int
 pcap_get_compression_stats(pcap_t *p, void *bufp, size_t buflen)
 {
 	if (p->compression_mode == 1) {
-#ifdef HAS_BPF_HDR_COMP
 		struct bpf_comp_stats bcs;
 
 		if (ioctl(p->fd, BIOCGHDRCOMPSTATS, (caddr_t)&bcs) < 0) {
@@ -1133,7 +1124,6 @@ pcap_get_compression_stats(pcap_t *p, void *bufp, size_t buflen)
 					   bcs.bcs_total_compressed_prefix_size,
 					   bcs.bcs_max_compressed_prefix_size);
 		return 0;
-#endif /* HAS_BPF_HDR_COMP */
 	} else if (p->compression_mode == 2) {
 		(void)snprintf(bufp, buflen,
 					   "U tot_rd %llu tot_sz %llu tot_hdr_sz %llu no_prfx_cnt %llu prfx_cnt %llu tot_prfx_sz %llu max_prfx_sz %u",
@@ -1306,7 +1296,6 @@ pcap_read_bpf_header(pcap_t *p, u_char *bp, struct pcap_pkthdr *pkthdr)
 #endif /* BPF_HDR_EXT_HAS_TRACE_TAG */
 }
 
-#ifdef PTH_FLAG_V2_HDR
 /*
  * Returns zero if the packet doesn't match, non-zero if it matches
  */
@@ -1369,14 +1358,12 @@ pcap_filter_pktap_v2(pcap_t *pcap, pcap_dumper_t *dumper, struct pcap_if_info *i
 	
 	return (match);
 }
-#endif /* PTH_FLAG_V2_HDR */
 
 int
 pcap_ng_dump_pktap_v2(pcap_t *pcap, pcap_dumper_t *dumper,
 		      const struct pcap_pkthdr *h, const u_char *sp,
 		      const char *comment)
 {
-#ifdef PTH_FLAG_V2_HDR
 	pcapng_block_t block = NULL;
 	struct pktap_v2_hdr *pktap_v2_hdr;
 	const u_char *pkt_data;
@@ -1542,12 +1529,6 @@ pcap_ng_dump_pktap_v2(pcap_t *pcap, pcap_dumper_t *dumper,
 	(void) pcap_ng_dump_block(dumper, block);
 	
 	return (1);
-#else /* PTH_FLAG_V2_HDR */
-#pragma unused(dumper, h, sp, comment)
-	snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-		 "%s: Packet too short", __func__);
-	return (0);
-#endif /* PTH_FLAG_V2_HDR */
 }
 
 void
@@ -1556,4 +1537,234 @@ pcap_ng_dump_init_section_info(pcap_dumper_t *dumper)
 	dumper->shb_added = 0;
 	pcap_if_info_set_clear(&dumper->dump_if_info_set);
 	pcap_proc_info_set_clear(&dumper->dump_proc_info_set);
+}
+
+int
+pcap_set_max_write_size(pcap_t *pcap, u_int max_write_size)
+{
+#ifdef BIOCSWRITEMAX
+	if (ioctl(pcap->fd, BIOCSWRITEMAX, &max_write_size) != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: BIOCSWRITEMAX errno %d", __func__, errno);
+		return PCAP_ERROR;
+	}
+	return 0;
+#else
+#pragma unused(max_write_size)
+	snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+		 "%s: BIOCSWRITEMAX not defined", __func__);
+	return PCAP_ERROR;
+#endif /* BIOCSWRITEMAX */
+}
+
+int
+pcap_get_max_write_size(pcap_t *pcap, u_int *max_write_size_ptr)
+{
+#ifdef BIOCGWRITEMAX
+	if (ioctl(pcap->fd, BIOCGWRITEMAX, max_write_size_ptr) != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: BIOCGWRITEMAX errno %d", __func__, errno);
+		return PCAP_ERROR;
+	}
+	return 0;
+#else
+#pragma unused(max_write_size_ptr)
+	snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+		 "%s: BIOCGWRITEMAX not defined", __func__);
+	return PCAP_ERROR;
+#endif /* BIOCGWRITEMAX */
+}
+
+int
+pcap_set_send_multiple(pcap_t *pcap, int value)
+{
+#ifdef BIOCSBATCHWRITE
+	if (ioctl(pcap->fd, BIOCSBATCHWRITE, &value) != 0) {
+		if (errno != EINVAL) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+					 "%s: BIOCSBATCHWRITE errno %d", __func__, errno);
+			return PCAP_ERROR;
+		}
+	} else {
+		pcap->send_multiple = value == 0 ? 0 : 1;
+	}
+#endif /* BIOCSBATCHWRITE */
+
+	return 0;
+}
+
+int
+pcap_get_send_multiple(pcap_t *pcap, int *value_ptr)
+{
+#ifdef BIOCGBATCHWRITE
+	if (ioctl(pcap->fd, BIOCGBATCHWRITE, value_ptr) != 0) {
+		if (errno != EINVAL) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+					 "%s: BIOCGBATCHWRITE errno %d", __func__, errno);
+			return PCAP_ERROR;
+		}
+	}
+#else
+	*value_ptr = pcap->send_multiple;
+#endif /* BIOCGBATCHWRITE */
+
+	return 0;
+}
+
+#define PCAP_SEND_MULTIPLE_MAX 256
+#define PCAP_PRIV_IOVLEN_MAX 128
+
+static int
+send_packets_one_by_one(pcap_t *pcap, const u_int pkt_count, const struct pcap_pkt_hdr_priv *pcap_pkt_array)
+{
+	int num_send = 0;
+
+	for (u_int i = 0; i < pkt_count; i++) {
+		uint32_t n = pcap_pkt_array[i].pcap_priv_iov_count;
+
+		if (n > PCAP_PRIV_IOVLEN_MAX) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "pcap_sendpacket_multiple: pcap_priv_iov_count %u greater than max %d",
+				 n, PCAP_PRIV_IOVLEN_MAX);
+			return PCAP_ERROR;
+		}
+	}
+
+	for (u_int i = 0; i < pkt_count; i++) {
+		ssize_t ret = writev(pcap->fd, pcap_pkt_array[i].pcap_priv_iov_array, pcap_pkt_array[i].pcap_priv_iov_count);
+		if (ret < 0) {
+			pcap_fmt_errmsg_for_errno(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				errno, "pcap_sendpacket_multiple: writev %d failed: %s", i, pcap->errbuf);
+			break;
+		}
+		num_send++;
+	}
+	return num_send;
+}
+
+int
+pcap_sendpacket_multiple(pcap_t *pcap, const u_int pkt_count, const struct pcap_pkt_hdr_priv *pcap_pkt_array)
+{
+	if (pkt_count > PCAP_SEND_MULTIPLE_MAX) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "pcap_sendpacket_multiple: count %u greater than max %d",
+				 pkt_count, PCAP_SEND_MULTIPLE_MAX);
+		return PCAP_ERROR;
+	}
+
+#ifdef BIOCSBATCHWRITE
+	/*
+	 * Be lenient and allow the SPI to be called when send_multiple is not set
+	 */
+	if (pcap->send_multiple == 0) {
+		return send_packets_one_by_one(pcap, pkt_count, pcap_pkt_array);
+	}
+
+	/*
+	 * Allocate buffers large enough for the packet count
+	 */
+	if (pcap->send_bpfhdr_count < pkt_count) {
+		if (pcap->send_bpfhdr_array != NULL) {
+			free(pcap->send_bpfhdr_array);
+			pcap->send_bpfhdr_array = NULL;
+		}
+		pcap->send_bpfhdr_count = 0;
+
+		pcap->send_bpfhdr_array = calloc(pkt_count, sizeof(struct bpf_hdr));
+		if (pcap->send_bpfhdr_array == NULL) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "pcap_sendpacket_multiple: calloc bpf_hdr array errno %d", errno);
+			return PCAP_ERROR;
+		}
+		pcap->send_bpfhdr_count = pkt_count;
+	}
+
+	/*
+	 * Make sure we have enough iovecs
+	 */
+	u_int num_iov_needed = 0;
+	for (u_int i = 0; i < pkt_count; i++) {
+		uint32_t n = pcap_pkt_array[i].pcap_priv_iov_count;
+
+		if (n > PCAP_PRIV_IOVLEN_MAX) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "pcap_sendpacket_multiple: pcap_priv_iov_count %u greater that max %d",
+				 n, PCAP_PRIV_IOVLEN_MAX);
+			return PCAP_ERROR;
+		}
+		num_iov_needed += n;
+	}
+	/*
+	 * We need 2 more iovecs for each packet because of BPF word alignment:
+	 * - one iovec is for the BPF header
+	 * - another iovec is for padding if needed
+	 */
+	num_iov_needed += 2 * pkt_count;
+
+	if (pcap->send_iovec_count < num_iov_needed) {
+		if (pcap->send_iovec_array != NULL) {
+			free(pcap->send_iovec_array);
+			pcap->send_iovec_array = NULL;
+		}
+		pcap->send_iovec_count = 0;
+
+		pcap->send_iovec_array = calloc(3 * num_iov_needed, sizeof(struct iovec));
+		if (pcap->send_iovec_array == NULL) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+					 "pcap_sendpacket_multiple: calloc iovec array errno %d", errno);
+			free(pcap->send_bpfhdr_array);
+			pcap->send_bpfhdr_array = NULL;
+			pcap->send_bpfhdr_count = 0;
+			return PCAP_ERROR;
+		}
+		pcap->send_iovec_count = num_iov_needed;
+	}
+
+	/*
+	 * We use several iovecs for each packet:
+	 * - the first iovec is for the BPF header
+	 * - the followings iovecs are for the data
+	 * - the optional last iovec is for padding if needed
+	 */
+	int iovcnt = 0;
+	for (u_int i = 0; i < pkt_count; i++) {
+		size_t padding_len;
+		char padding[BPF_ALIGNMENT];
+		struct bpf_hdr *bpfhdr = &pcap->send_bpfhdr_array[i];
+
+		bpfhdr->bh_hdrlen = offsetof(struct bpf_hdr, bh_hdrlen) + sizeof(bpfhdr->bh_hdrlen);
+		bpfhdr->bh_caplen = pcap_pkt_array[i].pcap_priv_len;
+		bpfhdr->bh_datalen = bpfhdr->bh_caplen;
+
+		pcap->send_iovec_array[iovcnt].iov_base = bpfhdr;
+		pcap->send_iovec_array[iovcnt].iov_len = bpfhdr->bh_hdrlen;
+		iovcnt += 1;
+
+		for (uint32_t j = 0; j < pcap_pkt_array[i].pcap_priv_iov_count; j++) {
+			if (j >= pcap->send_iovec_count) {
+				snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+						 "pcap_sendpacket_multiple: calloc iovec array errno %d", errno);
+			}
+			pcap->send_iovec_array[iovcnt] = pcap_pkt_array[i].pcap_priv_iov_array[j];
+			iovcnt += 1;
+		}
+
+		padding_len = BPF_ALIGNMENT - (bpfhdr->bh_hdrlen + bpfhdr->bh_caplen) % BPF_ALIGNMENT;
+		if (padding_len < BPF_ALIGNMENT) {
+			pcap->send_iovec_array[iovcnt].iov_base = padding;
+			pcap->send_iovec_array[iovcnt].iov_len = padding_len;
+			iovcnt += 1;
+		}
+	}
+
+	ssize_t retval = writev(pcap->fd, pcap->send_iovec_array, iovcnt);
+	if (retval < 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "pcap_sendpacket_multiple: writev failed errno %d", errno);
+		return PCAP_ERROR;
+	}
+	return pkt_count;
+#else /* BIOCSBATCHWRITE */
+	return send_packets_one_by_one(pcap, pkt_count, pcap_pkt_array);
+#endif /* BIOCSBATCHWRITE */
 }

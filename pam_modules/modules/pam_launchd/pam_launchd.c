@@ -37,8 +37,10 @@
 #include <sys/syslimits.h>
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(launchd)
 #define PAM_LOG PAM_LOG_launchd()
+#endif
 
 #define SESSION_TYPE_OPT "launchd_session_type"
 #define DEFAULT_SESSION_TYPE VPROCMGR_SESSION_BACKGROUND
@@ -90,27 +92,27 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* Deterine the launchd session type. */
 	if (NULL == (default_session_type = openpam_get_option(pamh, SESSION_TYPE_OPT))) {
-		os_log_debug(PAM_LOG, "No session type specified.");
+		_LOG_DEBUG("No session type specified.");
 		default_session_type = DEFAULT_SESSION_TYPE;
 	}
 	if (NULL == session_type) {
 		session_type = default_session_type;
 	} else if (0 == strcmp(session_type, NULL_SESSION_TYPE)) {
-		os_log_debug(PAM_LOG, "Skipping due to NULL session type.");
+		_LOG_DEBUG("Skipping due to NULL session type.");
 		return PAM_IGNORE;
 	}
 	
 	/* Get the username (and UID). */
 	if (PAM_SUCCESS != pam_get_item(pamh, PAM_USER, (void *)&username) || NULL == username) {
-		os_log_debug(PAM_LOG, "The username could not be obtained.");
+		_LOG_DEBUG("The username could not be obtained.");
 		return PAM_IGNORE;
 	}
 	if (0 != getpwnam_r(username, &pwdbuf, buffer, sizeof(buffer), &pwd) || NULL == pwd) {
-		os_log_debug(PAM_LOG, "The pwd for %s could not be obtained.", username);
+		_LOG_DEBUG("The pwd for %s could not be obtained.", username);
 		return PAM_IGNORE;
 	}
 	uid = pwd->pw_uid;
-	os_log_debug(PAM_LOG, "Going to switch to (%s) %u's %s session", username, uid, session_type);
+	_LOG_DEBUG("Going to switch to (%s) %u's %s session", username, uid, session_type);
 	
 	/* If we're running as root, set the root Mach bootstrap as our bootstrap port. If not, we fail. */
 	if (geteuid() == 0) {
@@ -121,7 +123,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			bootstrap_port = rbs;
 		}
 	} else {
-		os_log_debug(PAM_LOG, "We are not running as root.");
+		_LOG_DEBUG("We are not running as root.");
 		return PAM_IGNORE;
 	}
 
@@ -132,10 +134,10 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	kern_return_t kr = bootstrap_look_up_per_user(bootstrap_port, NULL, uid, &puc);
 	setreuid(suid, 0);
 	if (BOOTSTRAP_SUCCESS != kr) {
-		os_log_error(PAM_LOG, "Could not look up per-user bootstrap for UID %u.", uid);
+		_LOG_ERROR("Could not look up per-user bootstrap for UID %u.", uid);
 		return PAM_IGNORE;
 	} else if (BOOTSTRAP_NOT_PRIVILEGED == kr) {
-		os_log_error(PAM_LOG, "Permission denied to look up per-user bootstrap for UID %u.", uid);
+		_LOG_ERROR("Permission denied to look up per-user bootstrap for UID %u.", uid);
 		/* If this happens, bootstrap_port is probably already set appropriately anyway. */
 		return PAM_IGNORE;
 	}
@@ -149,12 +151,12 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	if (strncmp(session_type, VPROCMGR_SESSION_BACKGROUND, sizeof(VPROCMGR_SESSION_BACKGROUND)) != 0) {
 		vproc_err_t verr = NULL;
 		if (NULL != (verr = _vprocmgr_switch_to_session(session_type, 0))) {
-			os_log_error(PAM_LOG, "Unable to switch to %u's %s session (0x%p).", uid, session_type, verr);
+			_LOG_ERROR("Unable to switch to %u's %s session (0x%p).", uid, session_type, verr);
 			return PAM_SESSION_ERR;
 		}
 	}
 	if (NULL != _vproc_post_fork_ping()) {
-		os_log_error(PAM_LOG, "Calling _vproc_post_fork_ping failed.");
+		_LOG_ERROR("Calling _vproc_post_fork_ping failed.");
 		return PAM_SESSION_ERR;
 	}
 	

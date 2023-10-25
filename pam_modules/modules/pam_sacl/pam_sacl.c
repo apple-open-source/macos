@@ -38,26 +38,18 @@
 #include <security/openpam.h>
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(sacl)
 #define PAM_LOG PAM_LOG_sacl()
+#endif
 
 #define MODULE_NAME "pam_sacl"
-
-/* Note to self: To enable debug logging, we also have to make the syslog
- * *.debug level go somewhere.
- */
-#define DEBUG_MESSAGE(format, ...) \
-    if (NULL != debug) { \
-	os_log_debug(PAM_LOG, format, __VA_ARGS__); \
-    }
-
 
 PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t * pamh, int flags,
 			int argc, const char ** argv)
 {
 	const char *	service = NULL;
 	const char *	username = NULL;
-	const char *	debug = NULL;
 	bool		allow_trustacct = false;
 
 	struct passwd *pwd = NULL;
@@ -70,20 +62,19 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t * pamh, int flags,
 
 	service = openpam_get_option(pamh, "sacl_service");
 	allow_trustacct = openpam_get_option(pamh, "allow_trustacct");
-	debug = openpam_get_option(pamh, "debug");
 
 	if (!service) {
-		DEBUG_MESSAGE("%s: missing service option", MODULE_NAME);
+		_LOG_ERROR("%s: missing service option", MODULE_NAME);
 		return PAM_IGNORE;
 	}
 
 	if (pam_get_user(pamh, &username, NULL) != PAM_SUCCESS ||
 	    username == NULL || *username == '\0') {
-		DEBUG_MESSAGE("%s: missing username", MODULE_NAME);
+        _LOG_ERROR("%s: missing username", MODULE_NAME);
 		return PAM_SYSTEM_ERR;
 	}
  
-	DEBUG_MESSAGE("%s: checking if account '%s' can access service '%s'",
+    _LOG_DEBUG("%s: checking if account '%s' can access service '%s'",
 		    MODULE_NAME, username, service);
 
 	/* Since computer trust accounts in OD are not user accounts, you can't
@@ -96,7 +87,7 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t * pamh, int flags,
 
 		c = strrchr(username, '$');
 		if (c && *(c + 1) == '\0' && getpwnam_r(username, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) == 0) {
-			DEBUG_MESSAGE("%s: allowing '%s' because it is a "
+			_LOG_VERBOSE("%s: allowing '%s' because it is a "
 				"computer trust account",
 				MODULE_NAME, username);
 			return PAM_SUCCESS;
@@ -122,7 +113,7 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t * pamh, int flags,
 		if (getgrnam(sacl_group) == NULL &&
 		    getgrnam("com.apple.access_all_services") == NULL) {
 
-			DEBUG_MESSAGE("%s: allowing '%s' "
+            _LOG_VERBOSE("%s: allowing '%s' "
 				    "due to absence of service ACL",
 				    MODULE_NAME, username);
 
@@ -130,7 +121,7 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t * pamh, int flags,
 			return PAM_SUCCESS;
 		}
 
-		DEBUG_MESSAGE("%s: denying '%s' due to missing UUID",
+        _LOG_VERBOSE("%s: denying '%s' due to missing UUID",
 			MODULE_NAME, username);
 
 		free(sacl_group);
@@ -141,13 +132,13 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t * pamh, int flags,
 	if (err) {
 	        if (err == ENOENT) {
 	                /* Service ACLs not configured. */
-			DEBUG_MESSAGE("%s: allowing '%s' "
+                _LOG_VERBOSE("%s: allowing '%s' "
 				"due to unconfigured service ACLs",
 				MODULE_NAME, username);
 	                return PAM_SUCCESS;
 	        }
 	
-		DEBUG_MESSAGE("%s: denying '%s' "
+        _LOG_VERBOSE("%s: denying '%s' "
 			"due to failed service ACL check (errno=%d)",
 			MODULE_NAME, username, err);
 
@@ -155,10 +146,10 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t * pamh, int flags,
 	}
 	
         if (ismember) {
-		DEBUG_MESSAGE("%s: allowing '%s'", MODULE_NAME, username);
+            _LOG_VERBOSE("%s: allowing '%s'", MODULE_NAME, username);
 		return PAM_SUCCESS;
 	} else {
-		DEBUG_MESSAGE("%s: denying '%s' "
+        _LOG_ERROR("%s: denying '%s' "
 			"due to failed service ACL check",
 			MODULE_NAME, username);
 		return PAM_PERM_DENIED;

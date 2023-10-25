@@ -177,6 +177,10 @@ public:
     bool shouldEnableCanvas2DAdvancedPrivacyProtectionQuirk() const;
     String advancedPrivacyProtectionSubstituteDataURLForText(const String&) const;
 
+    bool needsResettingTransitionCancelsRunningTransitionQuirk() const;
+
+    bool shouldDisableDataURLPaddingValidation() const;
+
 private:
     bool needsQuirks() const;
 
@@ -240,6 +244,7 @@ private:
 #endif
     bool m_needsConfigurableIndexedPropertiesQuirk { false };
     bool m_needsToCopyUserSelectNoneQuirk { false };
+    mutable std::optional<bool> m_shouldDisableDataURLPaddingValidation;
 };
 
 } // namespace WebCore

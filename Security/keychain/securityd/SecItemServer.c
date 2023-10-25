@@ -2350,7 +2350,6 @@ static bool queryHasValidAttributes(CFDictionaryRef attrs, QueryAttributesDescri
     return true;
 }
 
-
 static bool appClipHasAcceptableAccessGroups(SecurityClient* client) {
     if (!client || !client->applicationIdentifier || !client->accessGroups) {
         secerror("item: no app clip client or attributes not set, cannot verify restrictions");
@@ -3059,7 +3058,7 @@ _SecItemServerDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient 
                          ok = false;
                          SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedType, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("accessGroups not CFArray, got %@"), accessGroups));
 
-    // TODO: whitelist instead? look for dev IDs like 7123498YQX.com.somedev.app
+    // TODO: allowlist instead? look for dev IDs like 7123498YQX.com.somedev.app
 
     require_action(CFArrayGetCount(accessGroups) != 0, fail,
                    ok = false;

@@ -423,11 +423,11 @@ public:
 
         // Lexically sort for same length strings.
         for (unsigned i = 0; i < a.size(); ++i) {
-            if (a[i] < b[i])
-                return -1;
+            if (a[i] != b[i])
+                return (a[i] < b[i]) ? -1 : 1;
         }
 
-        return a[a.size() - 1] > b[a.size() - 1] ? 1 : 0;
+        return 0;
     }
 
     static void sort(Vector<Vector<UChar32>>& utf32Strings)
@@ -1068,12 +1068,15 @@ public:
 
     void assertionBOL()
     {
-        if (!m_alternative->m_terms.size() && !parenthesisInvert()) {
+        if (!m_alternative->m_terms.size() && !parenthesisInvert() && parenthesisMatchDirection() == Forward) {
             m_alternative->m_startsWithBOL = true;
             m_alternative->m_containsBOL = true;
             m_pattern.m_containsBOL = true;
         }
-        m_alternative->m_terms.append(PatternTerm::BOL());
+
+        auto bolTerm = PatternTerm::BOL();
+        bolTerm.setMatchDirection(parenthesisMatchDirection());
+        m_alternative->m_terms.append(bolTerm);
     }
     void assertionEOL()
     {
@@ -1475,7 +1478,7 @@ public:
         std::unique_ptr<PatternDisjunction> newDisjunction;
         for (unsigned alt = 0; alt < disjunction->m_alternatives.size(); ++alt) {
             PatternAlternative* alternative = disjunction->m_alternatives[alt].get();
-            if (!filterStartsWithBOL || !alternative->m_startsWithBOL) {
+            if (!filterStartsWithBOL || !alternative->m_startsWithBOL || alternative->m_direction == Backward) {
                 if (!newDisjunction) {
                     newDisjunction = makeUnique<PatternDisjunction>();
                     newDisjunction->m_parent = disjunction->m_parent;

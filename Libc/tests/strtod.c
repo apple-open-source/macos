@@ -3,6 +3,7 @@
 #include <locale.h>
 #include <math.h>
 #include <stdlib.h>
+#include <xlocale.h>
 
 #include <darwintest.h>
 
@@ -492,4 +493,56 @@ T_DECL(strtod_locale, "strtod(3) locale support")
   (void)setlocale(LC_ALL, "");
   (void)setlocale(LC_ALL, "POSIX");
   (void)setlocale(LC_ALL, "C");
+  (void)uselocale(LC_GLOBAL_LOCALE);
+}
+
+// Based on bug report from
+// https://stackoverflow.com/questions/76133503/strtod-does-not-respect-locale-on-macos-13-3-1
+// also see rdar://111449210 (SEED: Web: strtod() function does not respect locale in macOS 13)
+T_DECL(strtod_thread_locale, "strtod(3) thread-local locale support")
+{
+  if (setlocale(LC_ALL, "fr_FR") != NULL || setlocale(LC_ALL, "fr_FR.UTF-8") != NULL) {
+    // Skip these tests if "fr_FR" locale can't be found
+    double d1 = strtod("123.25", NULL);
+    if (d1 != 123.0) {
+      T_FAIL("\"123.25\" in fr_FR locale should parse to 123.0, not %g", d1);
+    } else {
+      T_PASS("fr_FR global locale ignores '.'");
+    }
+
+    double d2 = strtod("123,25", NULL);
+    if (d2 != 123.25) {
+      T_FAIL("\"123,25\" in fr_FR locale should parse to 123.25, not %g", d2);
+    } else {
+      T_PASS("fr_FR global locale recognizes ','");
+    }
+  }
+
+  locale_t c_locale = newlocale(LC_NUMERIC_MASK, "C", NULL);
+  if (c_locale != NULL) {
+    // Now set the thread-specific locale to use '.' and verify that works correctly
+    // Caveat:  These are less interesting if selecting the global "fr_FR" locale
+    // above failed, but they should still pass in that case.
+    uselocale(c_locale);
+    double d3 = strtod("123.25", NULL);
+    if (d3 != 123.25) {
+      T_FAIL("\"123.25\" in fr_FR global locale with C thread locale should parse to 123.25, not %g", d3);
+    } else {
+      T_PASS("fr_FR global locale with C thread locale recognizes '.'");
+    }
+    double d4 = strtod("123,25", NULL);
+    if (d4 != 123.0) {
+      T_FAIL("\"123,25\" in fr_FR global locale with C thread locale should parse to 123.0, not %g", d4);
+    } else {
+      T_PASS("fr_FR global locale with C thread locale ignores ','");
+    }
+    uselocale(LC_GLOBAL_LOCALE);
+    freelocale(c_locale);
+  }
+
+  // Try hard to restore a sane default locale after the above
+  (void)setlocale(LC_ALL, "");
+  (void)setlocale(LC_ALL, "POSIX");
+  (void)setlocale(LC_ALL, "C");
+  (void)uselocale(LC_GLOBAL_LOCALE);
 }

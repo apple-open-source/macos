@@ -56,8 +56,10 @@
 #include <security/pam_modules.h>
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(rootok)
 #define PAM_LOG PAM_LOG_rootok()
+#endif
 
 /* --- authentication management functions (only) --- */
 
@@ -70,7 +72,7 @@ int pam_sm_authenticate(pam_handle_t *pamh,int flags,int argc
     if (getuid() == 0)
 	retval = PAM_SUCCESS;
 
-	os_log_debug(PAM_LOG, "authentication %s", retval==PAM_SUCCESS ? "succeeded":"failed" );
+	_LOG_DEBUG("authentication %s", retval==PAM_SUCCESS ? "succeeded":"failed" );
 
     return retval;
 }

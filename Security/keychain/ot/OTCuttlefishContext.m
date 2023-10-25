@@ -137,6 +137,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     OTAccountSettings* _Nullable _accountSettings;
     BOOL _skipRateLimitingCheck;
     BOOL _repair;
+    BOOL _reportRateLimitingError;
+    TrustedPeersHelperHealthCheckResult* _healthCheckResults;
 }
 
 @property SecLaunchSequence* launchSequence;
@@ -1917,13 +1919,17 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                            errorState:OctagonStateBecomeReady
                                                                            deviceInfo:self.prepareInformation
                                                                  skipRateLimitedCheck:_skipRateLimitingCheck
+                                                              reportRateLimitingError:_reportRateLimitingError
                                                                                repair:_repair];
 
+    WEAKIFY(self);
     CKKSResultOperation* callback = [CKKSResultOperation named:@"rpcHealthCheck"
                                                      withBlock:^{
-                                                         secnotice("octagon-health", "Returning from cuttlefish trust check call: postRepairCFU(%d), postEscrowCFU(%d), resetOctagon(%d), leaveTrust(%d), moveRequest(%d)",
-                                                                   op.postRepairCFU, op.postEscrowCFU, op.resetOctagon, op.leaveTrust, op.moveRequest != nil);
-                                                         if(op.postRepairCFU) {
+                                                         STRONGIFY(self);
+                                                         secnotice("octagon-health", "Returning from cuttlefish trust check call: postRepairCFU(%d), postEscrowCFU(%d), resetOctagon(%d), leaveTrust(%d), moveRequest(%d), results=%@",
+                                                                   op.results.postRepairCFU, op.results.postEscrowCFU, op.results.resetOctagon, op.results.leaveTrust, op.results.moveRequest != nil, op.results);
+                                                         self->_healthCheckResults = op.results;
+                                                         if(op.results.postRepairCFU) {
                                                              secnotice("octagon-health", "Posting Repair CFU");
                                                              NSError* postRepairCFUError = nil;
                                                              [self postRepairCFU:&postRepairCFUError];
@@ -1931,7 +1937,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                  op.error = postRepairCFUError;
                                                              }
                                                          }
-                                                         if(op.postEscrowCFU) {
+                                                         if(op.results.postEscrowCFU) {
                                                              //hold up, perhaps we already are pending an upload.
                                                              NSError* shouldPostError = nil;
                                                              BOOL shouldPost = [self shouldPostConfirmPasscodeCFU:&shouldPostError];
@@ -1951,17 +1957,17 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                              }
 
                                                          }
-                                                        if(op.leaveTrust){
+                                                        if(op.results.leaveTrust){
                                                             secnotice("octagon-health", "Leaving Octagon and SOS trust");
                                                             NSError* leaveError = nil;
                                                             if(![self leaveTrust:&leaveError]) {
                                                                 op.error = leaveError;
                                                             }
                                                         }
-                                                        if(op.moveRequest) {
-                                                            secnotice("octagon-health", "Received escrow move request: %@", op.moveRequest);
+                                                        if(op.results.moveRequest) {
+                                                            secnotice("octagon-health", "Received escrow move request: %@", op.results.moveRequest);
                                                             NSError* moveError = nil;
-                                                            if(![self processMoveRequest:op.moveRequest error:&moveError]) {
+                                                            if(![self processMoveRequest:op.results.moveRequest error:&moveError]) {
                                                                 op.error = moveError;
                                                             }
                                                         }
@@ -3543,6 +3549,20 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     }];
 }
 
+- (void)areRecoveryKeysDistrusted:(void (^)(BOOL, NSError *_Nullable))reply
+{
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(NO, accountError);
+        return;
+    }
+    
+    [self.cuttlefishXPCWrapper octagonContainsDistrustedRecoveryKeysWithSpecificUser:self.activeAccount reply:^(BOOL containsDistrusted, NSError * _Nullable rkError) {
+        reply(containsDistrusted, rkError);
+    }];
+}
+
 - (void)rpcCreateCustodianRecoveryKeyWithUUID:(NSUUID *_Nullable)uuid
                                         reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply
 {
@@ -4529,7 +4549,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return YES;
 }
 
-- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck repair:(BOOL)repair reply:(void (^)(NSError * _Nullable error))reply
+- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck repair:(BOOL)repair reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError * _Nullable error))reply
 {
     secnotice("octagon-health", "Beginning checking overall Octagon Trust");
 
@@ -4538,18 +4558,21 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         if ([[self.stateMachine currentState] isEqualToString:OctagonStateWaitForClassCUnlock]) {
             secnotice("octagon-health", "currently waiting for class C unlock");
             NSError* localError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorClassCLocked description:@"Not performing health check, waiting for Class C Unlock"];
-            reply(localError);
+            reply(nil, localError);
             return;
         } else if ([[self.stateMachine currentState] isEqualToString:OctagonStateNoAccount]) {
             secnotice("octagon-health", "Not performing health check, not currently signed in");
             NSError* localError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNoAppleAccount description:@"Not performing health check, not currently signed in"];
-            reply(localError);
+            reply(nil, localError);
             return;
         }
     }
 
     _skipRateLimitingCheck = skipRateLimitingCheck;
     _repair = repair;
+    _reportRateLimitingError = YES;
+
+    WEAKIFY(self);
 
     // Ending in "waitforunlock" is okay for a health check
     [self.stateMachine doWatchedStateMachineRPC:@"octagon-trust-health-check"
@@ -4578,7 +4601,19 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                 OctagonStateWaitForCDPCapableSecurityLevel: [OctagonStateTransitionPathStep success],
                                             }
                                            }]
-                                          reply:reply];
+                                          reply:^(NSError *_Nullable error) {
+            STRONGIFY(self);
+            self->_skipRateLimitingCheck = NO;
+            self->_repair = NO;
+            self->_reportRateLimitingError = NO;
+            if (error) {
+                reply(nil, error);
+            } else {
+                secinfo("octagon-health", "results=%@", self->_healthCheckResults);
+                reply(self->_healthCheckResults, nil);
+                self->_healthCheckResults = nil;
+            }
+        }];
 }
 
 #pragma mark -
@@ -4737,9 +4772,11 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     _accountSettings = nil;
     _skipRateLimitingCheck = NO;
     _repair = NO;
+    _reportRateLimitingError = NO;
     self.recoveryKey = nil;
     self.inheritanceKey = nil;
     self.custodianRecoveryKey = nil;
+    _healthCheckResults = nil;
 }
 
 - (BOOL)checkAllStateCleared
@@ -4756,7 +4793,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         _notifyIdMS == false &&
         _accountSettings == nil &&
         _skipRateLimitingCheck == NO &&
-        _repair == NO;
+        _repair == NO &&
+        _reportRateLimitingError == NO &&
+        _healthCheckResults == nil;
 }
 
 - (void)setAccountSettings:(OTAccountSettings*_Nullable)accountSettings

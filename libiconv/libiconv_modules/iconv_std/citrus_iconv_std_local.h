@@ -32,6 +32,10 @@
 #ifndef _CITRUS_ICONV_STD_LOCAL_H_
 #define _CITRUS_ICONV_STD_LOCAL_H_
 
+#ifdef __APPLE__
+#define	_ICONV_STD_PERCVT	32
+#endif
+
 /*
  * encoding
  */
@@ -49,6 +53,9 @@ struct _citrus_iconv_std_dst {
 	struct _citrus_csmapper			*sd_mapper;
 	_citrus_csid_t				 sd_csid;
 	unsigned long				 sd_norm;
+#ifdef __APPLE__
+	bool					 sd_idmap;
+#endif
 };
 TAILQ_HEAD(_citrus_iconv_std_dst_list, _citrus_iconv_std_dst);
 
@@ -68,6 +75,11 @@ TAILQ_HEAD(_citrus_iconv_std_src_list, _citrus_iconv_std_src);
 struct _citrus_iconv_std_shared {
 	struct _citrus_stdenc			*is_dst_encoding;
 	struct _citrus_stdenc			*is_src_encoding;
+#ifdef __APPLE__
+	/* Optimization */
+	struct _citrus_iconv_std_dst		*is_lone_dst;
+	_csid_t					 is_lone_dst_csid;
+#endif
 	struct _citrus_iconv_std_src_list	 is_srcs;
 	_citrus_wc_t				 is_invalid;
 	int					 is_use_invalid;

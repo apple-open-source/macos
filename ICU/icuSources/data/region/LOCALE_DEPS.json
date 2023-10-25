@@ -66,6 +66,7 @@
     },
     "parents": {
         "az_Cyrl": "root",
+        "ber_Latn": "root",
         "bs_Cyrl": "root",
         "en_150": "en_001",
         "en_AG": "en_001",
@@ -243,6 +244,7 @@
         "pt_MZ": "pt_PT",
         "pt_ST": "pt_PT",
         "pt_TL": "pt_PT",
+        "rej_Rjng": "root",
         "sat_Deva": "root",
         "sd_Deva": "root",
         "shi_Latn": "root",

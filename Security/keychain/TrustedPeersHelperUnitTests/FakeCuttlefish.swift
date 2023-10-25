@@ -206,7 +206,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         var recoveryEncryptionPubKey: Data?
         var bottles: [Bottle] = []
         var escrowRecords: [EscrowInformation] = []
-        var custodianRecoveryKeys: [String:SignedCustodianRecoveryKey] = [:]
+        var custodianRecoveryKeys: [String: SignedCustodianRecoveryKey] = [:]
 
         var viewKeys: [CKRecordZone.ID: ViewKeys] = [:]
         var tlkShares: [CKRecordZone.ID: [TLKShare]] = [:]
@@ -745,7 +745,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 }
             }
 
-            if self.state.custodianRecoveryKeys.isEmpty == false && peer.hasCustodianRecoveryKeyAndSig{
+            if self.state.custodianRecoveryKeys.isEmpty == false && peer.hasCustodianRecoveryKeyAndSig {
                 for peerID in self.state.custodianRecoveryKeys.keys {
                     if model.isCustodianRecoveryKeyTrusted(peerID) == false {
                         guard model.untrustedPeerIDs().contains(peerID) else {
@@ -755,7 +755,6 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                     }
                 }
             }
-
         } catch {
             print("FakeCuttlefish: updateTrust failed to make model: ", String(describing: error))
         }
@@ -1068,16 +1067,11 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 $0.repairAction = .noAction
             }
             completion(.success(response))
-        } else if self.returnRepairErrorResponse != nil {
-            let response = GetRepairActionResponse.with {
-                $0.repairAction = .noAction
-            }
-            if let error = self.returnRepairErrorResponse {
-                completion(.failure(error))
-            } else {
-                completion(.success(response))
-            }
+        } else if let error = self.returnRepairErrorResponse {
+            print("FakeCuttlefish: GetRepairAction returning error \(error)")
+            completion(.failure(error))
         } else {
+            print("FakeCuttlefish: returning empty GetRepairActionResponse")
             completion(.success(GetRepairActionResponse()))
         }
     }

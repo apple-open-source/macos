@@ -32,7 +32,7 @@
 #include "SandboxExtension.h"
 #include "TextCheckerState.h"
 #include "UserData.h"
-#include "UserInterfaceIdiom.h"
+
 #include "WebProcessDataStoreParameters.h"
 #include <WebCore/CrossOriginMode.h>
 #include <wtf/HashMap.h>
@@ -50,6 +50,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 #include <WebCore/RenderThemeIOS.h>
+#include <pal/system/ios/UserInterfaceIdiom.h>
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -199,6 +200,11 @@ struct WebProcessCreationParameters {
     Vector<SandboxExtension::Handle> dynamicIOKitExtensionHandles;
 #endif
 
+#if PLATFORM(VISION)
+    // FIXME: Remove when GPU Process is fully enabled.
+    Vector<SandboxExtension::Handle> metalCacheDirectoryExtensionHandles;
+#endif
+
 #if PLATFORM(COCOA)
     bool systemHasBattery { false };
     bool systemHasAC { false };
@@ -206,7 +212,7 @@ struct WebProcessCreationParameters {
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    UserInterfaceIdiom currentUserInterfaceIdiom { UserInterfaceIdiom::Default };
+    PAL::UserInterfaceIdiom currentUserInterfaceIdiom { PAL::UserInterfaceIdiom::Default };
     bool supportsPictureInPicture { false };
     WebCore::RenderThemeIOS::CSSValueToSystemColorMap cssValueToSystemColorMap;
     WebCore::Color focusRingColor;

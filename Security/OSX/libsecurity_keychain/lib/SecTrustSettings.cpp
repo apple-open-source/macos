@@ -1033,19 +1033,17 @@ OSStatus SecTrustSettingsCopyCertificates(
     __block OSStatus result = 0;
     __block CFArrayRef localArray = NULL;
     __block bool mustReleaseArray = false;
-    __block dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-    dispatch_time_t interval = NSEC_PER_SEC * 5;
-    dispatch_async(sCopyCertificatesQueue, ^{
+    dispatch_block_t actuallyRunIt = dispatch_block_create((dispatch_block_flags_t) 0, ^{
         result = SecTrustSettingsCopyCertificates_internal(domain, &localArray);
         if (mustReleaseArray) {
             // we have timed out, so there is nobody to consume this array
             CFReleaseNull(localArray);
-        } else {
-            // we haven't timed out and released the semaphore yet
-            dispatch_semaphore_signal(semaphore);
         }
     });
-    if (dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, interval)) != 0) {
+
+    dispatch_time_t interval = NSEC_PER_SEC * 5;
+    dispatch_async(sCopyCertificatesQueue, actuallyRunIt);
+    if (dispatch_block_wait(actuallyRunIt, dispatch_time(DISPATCH_TIME_NOW, interval)) != 0) {
         secerror("SecTrustSettingsCopyCertificates: timed out!");
         mustReleaseArray = true;
         result = errSecIO;
@@ -1054,7 +1052,7 @@ OSStatus SecTrustSettingsCopyCertificates(
     } else {
         CFReleaseNull(localArray);
     }
-    dispatch_release_safe(semaphore);
+    Block_release(actuallyRunIt);
     return result;
 }
 

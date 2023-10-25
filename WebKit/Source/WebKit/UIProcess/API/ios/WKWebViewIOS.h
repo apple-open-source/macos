@@ -26,12 +26,18 @@
 #import "WKWebViewInternal.h"
 #import "_WKTapHandlingResult.h"
 
-@class UIScrollEvent;
-
 #if PLATFORM(IOS_FAMILY)
+
+#import "UIKitSPI.h"
+
+@class UIScrollEvent;
 
 namespace WebKit {
 enum class TapHandlingResult : uint8_t;
+}
+
+namespace WebKit {
+class VisibleContentRectUpdateInfo;
 }
 
 @interface WKWebView (WKViewInternalIOS)
@@ -92,6 +98,7 @@ enum class TapHandlingResult : uint8_t;
 - (void)_willInvokeUIScrollViewDelegateCallback;
 - (void)_didInvokeUIScrollViewDelegateCallback;
 
+- (std::optional<WebKit::VisibleContentRectUpdateInfo>)_createVisibleContentRectUpdateInfo;
 - (void)_scheduleVisibleContentRectUpdate;
 - (void)_scheduleForcedVisibleContentRectUpdate;
 
@@ -139,6 +146,9 @@ enum class TapHandlingResult : uint8_t;
 - (void)_findSelected:(id)sender;
 
 - (id<UITextSearching>)_searchableObject;
+
+- (void)_showFindOverlay;
+- (void)_hideFindOverlay;
 #endif
 
 - (void)_nextAccessoryTab:(id)sender;
@@ -156,6 +166,8 @@ enum class TapHandlingResult : uint8_t;
 
 - (BOOL)_effectiveAppearanceIsDark;
 - (BOOL)_effectiveUserInterfaceLevelIsElevated;
+
+- (_UIDataOwner)_effectiveDataOwner:(_UIDataOwner)clientSuppliedDataOwner;
 
 #if HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
 - (void)_beginLiveResize;

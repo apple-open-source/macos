@@ -355,13 +355,15 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
             ckkserror_global("ckksfetcher", "Interrogating clients about fetch error: %@", fetchAllChanges.error);
 
             // Check in with clients: should we keep fetching for them?
-            @synchronized(self.clientMap) {
-                for(CKRecordZoneID* zoneID in fetchAllChanges.fetchedZoneIDs) {
-                    id<CKKSChangeFetcherClient> client = [self.clientMap objectForKey:zoneID];
-                    if(client) {
-                        attemptAnotherFetch |= [client shouldRetryAfterFetchError:fetchAllChanges.error
-                                                                           zoneID:zoneID];
-                    }
+            // Copy the client map so we can iterate without thread-safety issues. We can't be on a serial queue when we upcall -shouldRetryAfterFetchError
+            // to the client, on pain of potential deadlock with -registerClient.
+            NSDictionary<CKRecordZoneID*, id<CKKSChangeFetcherClient>>* threadClientMap = [self strongClientMap];
+
+            for(CKRecordZoneID* zoneID in fetchAllChanges.fetchedZoneIDs) {
+                id<CKKSChangeFetcherClient> client = [threadClientMap objectForKey:zoneID];
+                if(client) {
+                    attemptAnotherFetch |= [client shouldRetryAfterFetchError:fetchAllChanges.error
+                                                                       zoneID:zoneID];
                 }
             }
         }

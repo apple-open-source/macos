@@ -4,8 +4,9 @@
 <dict>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)com.apple.GSSTestAppIOS</string>
-		<string>com.apple.identities</string>
+		<string>com.apple.ist.ds.appleconnect</string>
+		<string>apple</string>
+		<string>test</string>
 	</array>
 	<key>com.apple.private.security.container-required</key>
 	<true/>
@@ -17,18 +18,5 @@
 	<true/>
 	<key>com.apple.security.smartcard</key>
 	<true/>
-	<key>keychain-access-groups</key>
-	<array>
-		<string>apple</string>
-	</array>
-	<key>com.apple.security.smartcard</key>
-	<true/>
-	<key>keychain-access-groups</key>
-	<array>
-		<string>com.apple.ist.ds.appleconnect</string>
-                <string>apple</string>
-                <string>test</string>
-                <string>*</string>
-	</array>
 </dict>
 </plist>

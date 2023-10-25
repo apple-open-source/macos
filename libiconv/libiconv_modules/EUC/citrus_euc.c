@@ -163,6 +163,7 @@ _citrus_EUC_parse_variable(_EUCEncodingInfo *ei, const void *var,
 }
 
 
+#ifndef __APPLE__
 static __inline void
 /*ARGSUSED*/
 _citrus_EUC_init_state(_EUCEncodingInfo *ei __unused, _EUCState *s)
@@ -170,6 +171,7 @@ _citrus_EUC_init_state(_EUCEncodingInfo *ei __unused, _EUCState *s)
 
 	memset(s, 0, sizeof(*s));
 }
+#endif
 
 #if 0
 static __inline void
@@ -202,7 +204,11 @@ _citrus_EUC_mbrtowc_priv(_EUCEncodingInfo *ei, wchar_t *pwc, char **s,
 	s0 = *s;
 
 	if (s0 == NULL) {
+#ifdef __APPLE__
+		memset(psenc, 0, sizeof(*psenc));
+#else
 		_citrus_EUC_init_state(ei, psenc);
+#endif
 		*nresult = 0; /* state independent */
 		return (0);
 	}

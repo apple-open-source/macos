@@ -1615,7 +1615,7 @@ bool GeneratorHelpers::precision(const MacroProps& macros, UnicodeString& sb, UE
     } else if (macros.precision.fType == Precision::RND_SIGNIFICANT) {
         const Precision::FractionSignificantSettings& impl = macros.precision.fUnion.fracSig;
         blueprint_helpers::generateDigitsStem(impl.fMinSig, impl.fMaxSig, sb, status);
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://52538227 8e26bee05d.. New Precision type combining roundingIncr and sig digits; use when both are set
     } else if (macros.precision.fType == Precision::RND_INCREMENT_SIGNIFICANT) { // Apple rdar://52538227
         const Precision::IncrementSignificantSettings& impl = macros.precision.fUnion.incrSig;

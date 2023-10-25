@@ -33,13 +33,13 @@
 #import "keychain/SigninMetrics/OctagonSignPosts.h"
 
 #import "utilities/SecCFWrappers.h"
-#import "utilities/debugging.h"
 
 #import "keychain/SecureObjectSync/SOSCloudCircle.h"
 #import "KeychainCircle/PairingChannel.h"
 #import <Security/SecBase.h>
 #import "keychain/SecureObjectSync/SOSViews.h"
 #import "keychain/SecureObjectSync/SOSInternal.h"
+#import "utilities/SecTapToRadar.h"
 
 const NSString* kSecEntitlementPrivateOctagonEscrow = @"com.apple.private.octagon.escrow-content";
 const NSString* kSecEntitlementPrivateOctagonSecureElement = @"com.apple.private.octagon.secureelement";

@@ -266,7 +266,7 @@ class U_I18N_API PatternStringUtils {
      *            The current maximum fraction digits value.
      * @return true if roundIncr should be ignored for formatting.
      */
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
      static bool ignoreRoundingIncrement(double* roundIncrPtr, int32_t maxFrac);
 #else

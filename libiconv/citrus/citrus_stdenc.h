@@ -33,6 +33,10 @@
 #ifndef _CITRUS_STDENC_H_
 #define _CITRUS_STDENC_H_
 
+#ifdef __APPLE__
+#include <errno.h>
+#endif
+
 struct _citrus_stdenc;
 struct _citrus_stdenc_ops;
 struct _citrus_stdenc_traits;
@@ -62,6 +66,10 @@ __BEGIN_DECLS
 int	 _citrus_stdenc_open(struct _citrus_stdenc * __restrict * __restrict,
 	    char const * __restrict, const void * __restrict, size_t);
 void	 _citrus_stdenc_close(struct _citrus_stdenc *);
+
+#ifdef __APPLE__
+static __inline size_t _citrus_stdenc_get_state_size(struct _citrus_stdenc *);
+#endif
 __END_DECLS
 
 static __inline int
@@ -69,7 +77,15 @@ _citrus_stdenc_init_state(struct _citrus_stdenc * __restrict ce,
     void * __restrict ps)
 {
 
+#ifdef __APPLE__
+	memset(ps, 0, _stdenc_get_state_size(ce));
+	if (ce->ce_ops->eo_init_state != NULL)
+		return ((*ce->ce_ops->eo_init_state)(ce, ps));
+
+	return (0);
+#else
 	return ((*ce->ce_ops->eo_init_state)(ce, ps));
+#endif
 }
 
 static __inline int
@@ -93,6 +109,36 @@ _citrus_stdenc_cstomb(struct _citrus_stdenc * __restrict ce,
 	return ((*ce->ce_ops->eo_cstomb)(ce, s, n, csid, idx, ps, nresult,
 	    hooks));
 }
+
+#ifdef __APPLE__
+static __inline int
+_citrus_stdenc_mbtocsn(struct _citrus_stdenc * __restrict ce,
+    _citrus_csid_t * __restrict csid, _citrus_index_t * __restrict idx,
+    unsigned short * __restrict delta, int * __restrict cnt,
+    char ** __restrict s, size_t n, void * __restrict ps,
+    size_t * __restrict nresult, struct iconv_hooks *hooks)
+{
+
+	if (ce->ce_ops->eo_mbtocsn == NULL)
+		return (EOPNOTSUPP);
+	return ((*ce->ce_ops->eo_mbtocsn)(ce, csid, idx, delta, cnt, s, n, ps,
+	    nresult, hooks));
+}
+
+static __inline int
+_citrus_stdenc_cstombn(struct _citrus_stdenc * __restrict ce,
+    char * __restrict s, size_t n, _citrus_csid_t * __restrict csid,
+    _citrus_index_t * __restrict idx, int * __restrict cnt,
+    void * __restrict ps, size_t * __restrict nresult,
+    struct iconv_hooks *hooks)
+{
+
+	if (ce->ce_ops->eo_cstombn == NULL)
+		return (EOPNOTSUPP);
+	return ((*ce->ce_ops->eo_cstombn)(ce, s, n, csid, idx, cnt, ps, nresult,
+	    hooks));
+}
+#endif
 
 static __inline int
 _citrus_stdenc_wctomb(struct _citrus_stdenc * __restrict ce,

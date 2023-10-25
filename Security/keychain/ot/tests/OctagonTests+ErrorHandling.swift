@@ -662,8 +662,9 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: joiner, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(containerName: OTCKContainerName, contextID: "joiner", altDSID: OTMockPersonaAdapter.defaultMockPersonaString()), skipRateLimitingCheck: false, repair: false) { error in
+        self.manager.healthCheck(OTControlArguments(containerName: OTCKContainerName, contextID: "joiner", altDSID: OTMockPersonaAdapter.defaultMockPersonaString()), skipRateLimitingCheck: false, repair: false) { response, error in
             XCTAssertNil(error, "error should be nil")
+            XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
         }
 

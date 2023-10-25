@@ -21,12 +21,11 @@ jobs:
 
     env:
       CC: ${{ matrix.compiler }}
-      GCC_VER: 12
+      GCC_VER: 13
       CLANG_VER: 16
       TEST: test
       SRCDIR: ./src
       LEAK_CFLAGS: -DEXITFREE
-      CFLAGS: -Wno-deprecated-declarations
       LOG_DIR: ${{ github.workspace }}/logs
       TERM: xterm
       DISPLAY: ':99'
@@ -37,56 +36,76 @@ jobs:
       matrix:
         features: [tiny, normal, huge]
         compiler: [clang, gcc]
-        extra: [none]
+        extra: [[]]
+        # Only use non-native architecture when features != huge.
+        # features=huge tries to install python3-dev, which fails to install
+        # for the non-native architecture.
+        architecture: [native]
         include:
           - features: tiny
             compiler: clang
-            extra: nogui
+            extra: [nogui]
           - features: tiny
             compiler: gcc
-            extra: nogui
+            extra: [nogui]
           - features: normal
             shadow: ./src/shadow
-          - features: huge
-            coverage: true
-          - features: huge
             compiler: gcc
+            architecture: i386
+          - features: huge
             coverage: true
-            extra: testgui
-            uchar: true
           - features: huge
             compiler: clang
-            extra: asan
+            interface: dynamic
+            python3: stable-abi
           - features: huge
             compiler: gcc
             coverage: true
-            extra: unittests
+            interface: dynamic
+            extra: [uchar, testgui]
+          - features: huge
+            compiler: clang
+            # Lua5.1 is the most widely used version (since it's what LuaJIT is
+            # compatible with), so ensure it works
+            lua_ver: '5.1'
+            extra: [asan]
+          - features: huge
+            compiler: gcc
+            coverage: true
+            extra: [unittests]
           - features: normal
             compiler: gcc
-            extra: vimtags
+            extra: [vimtags]
 
     steps:
       - name: Checkout repository from github
         uses: actions/checkout@v3
 
+      - run: sudo dpkg --add-architecture i386
+        if: matrix.architecture == 'i386'
+
       - name: Install packages
         run: |
           PKGS=( \
             gettext \
-            libgtk2.0-dev \
+            libgtk2.0-dev:${{ matrix.architecture }} \
             desktop-file-utils \
             libtool-bin \
+            libncurses-dev:${{ matrix.architecture }} \
+            libxt-dev:${{ matrix.architecture }} \
           )
           if ${{ matrix.features == 'huge' }}; then
+            LUA_VER=${{ matrix.lua_ver || '5.4' }}
             PKGS+=( \
               autoconf \
+              gdb \
               lcov \
               libcanberra-dev \
               libperl-dev \
               python2-dev \
               python3-dev \
-              liblua5.4-dev \
-              lua5.4 \
+              liblua${LUA_VER}-dev \
+              lua${LUA_VER} \
               ruby-dev \
               tcl-dev \
               cscope \
@@ -98,7 +117,7 @@ jobs:
       - name: Install gcc-${{ env.GCC_VER }}
         if:  matrix.compiler == 'gcc'
         run: |
-          sudo apt-get install -y gcc-${{ env.GCC_VER }}
+          sudo apt-get install -y gcc-${{ env.GCC_VER }}:${{ matrix.architecture }}
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ env.GCC_VER }} 100
           sudo update-alternatives --set gcc /usr/bin/gcc-${{ env.GCC_VER }}
 
@@ -135,16 +154,20 @@ jobs:
             ;;
           huge)
             echo "TEST=scripttests test_libvterm"
-            echo "CONFOPT=--enable-perlinterp --enable-pythoninterp --enable-python3interp --enable-rubyinterp --enable-luainterp --enable-tclinterp"
+            INTERFACE=${{ matrix.interface || 'yes' }}
+            if ${{ matrix.python3 == 'stable-abi' }}; then
+              PYTHON3_CONFOPT="--with-python3-stable-abi=3.8"
+            fi
+            echo "CONFOPT=--enable-perlinterp=${INTERFACE} --enable-pythoninterp=${INTERFACE} --enable-python3interp=${INTERFACE} --enable-rubyinterp=${INTERFACE} --enable-luainterp=${INTERFACE} --enable-tclinterp=${INTERFACE} ${PYTHON3_CONFOPT}"
             ;;
           esac
 
           if ${{ matrix.coverage == true }}; then
-            CFLAGS="$CFLAGS --coverage -DUSE_GCOV_FLUSH"
+            CFLAGS="${CFLAGS} --coverage -DUSE_GCOV_FLUSH"
             echo "LDFLAGS=--coverage"
           fi
-          if ${{ matrix.uchar == true }}; then
-            CFLAGS="$CFLAGS -funsigned-char"
+          if ${{ contains(matrix.extra, 'uchar') }}; then
+            CFLAGS="${CFLAGS} -funsigned-char"
           fi
           if ${{ contains(matrix.extra, 'testgui') }}; then
             echo "TEST=-C src testgui"
@@ -161,7 +184,7 @@ jobs:
           if ${{ contains(matrix.extra, 'vimtags') }}; then
             echo "TEST=-C runtime/doc vimtags VIMEXE=../../${SRCDIR}/vim"
           fi
-          echo "CFLAGS=$CFLAGS"
+          echo "CFLAGS=${CFLAGS}"
           ) >> $GITHUB_ENV
 
       - name: Set up system
@@ -178,17 +201,16 @@ jobs:
         if: (!(contains(matrix.extra, 'unittests') || contains(matrix.extra, 'vimtags')))
         env:
           DEST_DIR: ${{ env.TMPDIR }}/linux-modules-extra-${{ env.LINUX_VERSION }}
+        uses: tecolicom/actions-use-apt-tools@main
+        with:
+          tools: linux-modules-extra-${{ env.LINUX_VERSION }}
+          path: "${DEST_DIR}"
+
+      - name: modprobe snd-dummy
+        if: (!(contains(matrix.extra, 'unittests') || contains(matrix.extra, 'vimtags')))
         run: |
-          cd /lib/modules/${{ env.LINUX_VERSION }}
-          if [ sudo apt-get install -d -y linux-modules-extra-${{ env.LINUX_VERSION }} 2>&1 | $(grep "Unable to locate package ") ]; then
-          echo "Download of " linux-modules-extra-${{ env.LINUX_VERSION }} "failed continue anyway" exit 0
-          else
-          sudo apt-get install -d -y linux-modules-extra-${{ env.LINUX_VERSION }}
-          sudo dpkg -x /var/cache/apt/archives/linux-modules-extra-${{ env.LINUX_VERSION }}*.deb "${DEST_DIR}"
-          tar -cvC "${DEST_DIR}"/lib/modules/${{ env.LINUX_VERSION }} kernel/sound | sudo tar -x
           sudo depmod --verbose
           sudo modprobe --verbose snd-dummy
-          fi
 
       - name: Check autoconf
         if: contains(matrix.extra, 'unittests')
@@ -226,23 +248,16 @@ jobs:
           "${SRCDIR}"/vim -u NONE -i NONE --not-a-term -esNX -V1 -S ci/if_ver-2.vim -c quit
 
       - name: Test
-        timeout-minutes: 20
+        timeout-minutes: 25
         run: |
           do_test() { sg audio "sg $(id -gn) '$*'"; }
           do_test make ${SHADOWOPT} ${TEST}
 
-      # - name: Coveralls
-      #   if: matrix.coverage && github.event_name != 'pull_request'
-      #   env:
-      #     COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-      #     COVERALLS_PARALLEL: true
-      #     TRAVIS_JOB_ID: ${{ github.run_id }}
-      #   run: |
-      #     sudo apt-get install -y python3-setuptools python3-wheel
-      #     sudo -H pip3 install pip -U
-      #     # needed for https support for coveralls building cffi only works with gcc, not with clang
-      #     CC=gcc pip3 install --user cpp-coveralls pyopenssl ndg-httpsclient pyasn1
-      #     ~/.local/bin/coveralls -b "${SRCDIR}" -x .xs -e "${SRCDIR}"/if_perl.c -e "${SRCDIR}"/xxd -e "${SRCDIR}"/libvterm --encodings utf-8
+      - name: Vim tags
+        if: contains(matrix.extra, 'vimtags')
+        run: |
+          # This will exit with an error code if the generated vim tags differs from source.
+          git diff --exit-code -- runtime/doc/tags
 
       - name: Generate gcov files
         if: matrix.coverage
@@ -251,6 +266,7 @@ jobs:
           find . -type f -name '*.gcno' -exec gcov -pb {} + || true
 
       - name: Codecov
+        timeout-minutes: 20
         if: matrix.coverage
         uses: codecov/codecov-action@v3
         with:
@@ -263,19 +279,6 @@ jobs:
             asan_symbolize -l "$f"
             false # in order to fail a job
           done
-
-  # coveralls:
-  #   runs-on: ubuntu-20.04
-  #
-  #   needs: linux
-  #   if: always() && github.event_name != 'pull_request'
-  #
-  #   steps:
-  #     - name: Parallel finished
-  #       env:
-  #         COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-  #       run: |
-  #         curl -k "https://coveralls.io/webhook?repo_token=${COVERALLS_REPO_TOKEN}" -d "payload[build_num]=${GITHUB_RUN_ID}&payload[status]=done"
 
   macos:
     runs-on: macos-latest
@@ -301,7 +304,6 @@ jobs:
         run: |
           brew install lua
           echo "LUA_PREFIX=/usr/local" >> $GITHUB_ENV
-          brew uninstall perl
 
       - name: Set up environment
         run: |
@@ -390,8 +392,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { features: HUGE,   toolchain: msvc,  VIMDLL: no,  GUI: no,  arch: x64 }
-          - { features: HUGE,   toolchain: mingw, VIMDLL: yes, GUI: yes, arch: x86, coverage: yes }
+          - { features: HUGE,   toolchain: msvc,  VIMDLL: no,  GUI: no,  arch: x64, python3: stable }
+          - { features: HUGE,   toolchain: mingw, VIMDLL: yes, GUI: yes, arch: x86, python3: stable, coverage: yes }
           - { features: HUGE,   toolchain: msvc,  VIMDLL: no,  GUI: yes, arch: x86 }
           - { features: HUGE,   toolchain: mingw, VIMDLL: yes, GUI: no,  arch: x64, coverage: yes }
           - { features: NORMAL, toolchain: msvc,  VIMDLL: yes, GUI: no,  arch: x86 }
@@ -522,6 +524,11 @@ jobs:
           ) else (
             set GUI=${{ matrix.GUI }}
           )
+          if "${{ matrix.python3 }}"=="stable" (
+            set PYTHON3_STABLE=yes
+          ) else (
+            set PYTHON3_STABLE=no
+          )
           if "${{ matrix.features }}"=="HUGE" (
             nmake -nologo -f Make_mvc.mak ^
               FEATURES=${{ matrix.features }} ^
@@ -529,6 +536,7 @@ jobs:
               DYNAMIC_LUA=yes LUA=%LUA_DIR% ^
               DYNAMIC_PYTHON=yes PYTHON=%PYTHON_DIR% ^
               DYNAMIC_PYTHON3=yes PYTHON3=%PYTHON3_DIR% ^
+              DYNAMIC_PYTHON3_STABLE_ABI=%PYTHON3_STABLE% ^
               DYNAMIC_SODIUM=yes SODIUM=%SODIUM_DIR%
           ) else (
             nmake -nologo -f Make_mvc.mak ^
@@ -546,6 +554,11 @@ jobs:
           else
             GUI=${{ matrix.GUI }}
           fi
+          if [ "${{ matrix.python3 }}" = "stable" ]; then
+            PYTHON3_STABLE=yes
+          else
+            PYTHON3_STABLE=no
+          fi
           if [ "${{ matrix.features }}" = "HUGE" ]; then
             mingw32-make -f Make_ming.mak -j2 \
               FEATURES=${{ matrix.features }} \
@@ -553,6 +566,7 @@ jobs:
               DYNAMIC_LUA=yes LUA=${LUA_DIR_SLASH} \
               DYNAMIC_PYTHON=yes PYTHON=${PYTHON_DIR} \
               DYNAMIC_PYTHON3=yes PYTHON3=${PYTHON3_DIR} \
+              DYNAMIC_PYTHON3_STABLE_ABI=${PYTHON3_STABLE} \
               DYNAMIC_SODIUM=yes SODIUM=${SODIUM_DIR} \
               STATIC_STDCPLUS=yes COVERAGE=${{ matrix.coverage }}
           else
@@ -636,6 +650,7 @@ jobs:
           find . -type f -name '*.gcno' -exec gcov -pb {} + || true
 
       - name: Codecov
+        timeout-minutes: 20
         if: matrix.coverage
         uses: codecov/codecov-action@v3
         with:

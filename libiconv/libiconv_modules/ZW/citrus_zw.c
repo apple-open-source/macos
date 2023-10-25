@@ -77,6 +77,7 @@ typedef struct {
 #define _ENCODING_IS_STATE_DEPENDENT		1
 #define _STATE_NEEDS_EXPLICIT_INIT(_ps_)	((_ps_)->charset != NONE)
 
+#ifndef __APPLE__
 static __inline void
 /*ARGSUSED*/
 _citrus_ZW_init_state(_ZWEncodingInfo * __restrict ei __unused,
@@ -86,6 +87,7 @@ _citrus_ZW_init_state(_ZWEncodingInfo * __restrict ei __unused,
 	psenc->chlen = 0;
 	psenc->charset = NONE;
 }
+#endif
 
 #if 0
 static __inline void
@@ -117,7 +119,12 @@ _citrus_ZW_mbrtowc_priv(_ZWEncodingInfo * __restrict ei,
 	int ch, len;
 
 	if (*s == NULL) {
+#ifdef __APPLE__
+		(void)ei;
+		memset(psenc, 0, sizeof(*psenc));
+#else
 		_citrus_ZW_init_state(ei, psenc);
+#endif
 		*nresult = (size_t)_ENCODING_IS_STATE_DEPENDENT;
 		return (0);
 	}

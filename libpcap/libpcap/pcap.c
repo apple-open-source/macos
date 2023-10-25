@@ -4077,6 +4077,9 @@ pcap_cleanup_live_common(pcap_t *p)
 	}
 	p->selectable_fd = -1;
 #endif
+#ifdef __APPLE__
+	pcap_darwin_cleanup(p);
+#endif /* __APPLE__ */
 }
 
 /*

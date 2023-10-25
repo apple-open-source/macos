@@ -30,7 +30,9 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef __APPLE__
+#ifdef __APPLE__
+#include <sys/param.h>
+#else
 #include <sys/endian.h>
 #endif /* __APPLE__ */
 #include <sys/queue.h>
@@ -56,6 +58,12 @@
 #include "citrus_memstream.h"
 #include "citrus_iconv_std.h"
 #include "citrus_esdb.h"
+
+#ifdef __APPLE__
+#ifndef nitems
+#define nitems(x)	(sizeof((x)) / sizeof((x)[0]))
+#endif
+#endif /* __APPLE__ */
 
 /* ---------------------------------------------------------------------- */
 
@@ -107,23 +115,110 @@ init_encoding_state(struct _citrus_iconv_std_encoding *se)
 }
 
 static __inline int
+#ifdef __APPLE__
+mbtocsx(struct _citrus_iconv_std_encoding *se,
+    _csid_t *csid, _index_t *idx, unsigned short *delta, int *cnt, char **s,
+    size_t n, size_t *nresult, struct iconv_hooks *hooks)
+#else
 mbtocsx(struct _citrus_iconv_std_encoding *se,
     _csid_t *csid, _index_t *idx, char **s, size_t n, size_t *nresult,
     struct iconv_hooks *hooks)
+#endif
 {
+#ifdef __APPLE__
+	int ret;
 
+	ret = _stdenc_mbtocsn(se->se_handle, csid, idx, delta, cnt, s, n,
+	    se->se_ps, nresult, hooks);
+
+	if (ret == EOPNOTSUPP) {
+		size_t accum;
+		char *start;
+		int i;
+
+		*nresult = 0;
+		accum = 0;
+		start = *s;
+		for (i = 0; i < *cnt && n > 0; i++) {
+			ret = _stdenc_mbtocs(se->se_handle, &csid[i], &idx[i],
+			    s, n, se->se_ps, &accum, hooks);
+			if (ret != 0)
+				break;
+			if (accum == (size_t)-2) {
+				*nresult = accum;
+				break;
+			}
+
+			/* The NUL byte takes one character. */
+			if (accum == 0)
+				accum = 1;
+			n -= accum;
+			*nresult += accum;
+			delta[i] = *s - start;
+		}
+
+		if (i < *cnt)
+			*cnt = i;
+	}
+
+	return (ret);
+#else
 	return (_stdenc_mbtocs(se->se_handle, csid, idx, s, n, se->se_ps,
 			      nresult, hooks));
+#endif
 }
 
 static __inline int
+#ifdef __APPLE__
+cstombx(struct _citrus_iconv_std_encoding *se,
+    char *s, size_t n, _csid_t *csid, _index_t *idx, int *cnt, size_t *nresult,
+    struct iconv_hooks *hooks)
+#else
 cstombx(struct _citrus_iconv_std_encoding *se,
     char *s, size_t n, _csid_t csid, _index_t idx, size_t *nresult,
     struct iconv_hooks *hooks)
+#endif
 {
+#ifdef __APPLE__
+	int ret;
 
+	ret = _stdenc_cstombn(se->se_handle, s, n, csid, idx, cnt, se->se_ps,
+	    nresult, hooks);
+	if (ret == EOPNOTSUPP) {
+		size_t acc, tmp;
+
+		acc = 0;
+		for (int i = 0; i < *cnt; i++) {
+			ret = _stdenc_cstomb(se->se_handle, s, n, csid[i],
+			    idx[i], se->se_ps, &tmp, hooks);
+			if (ret != 0) {
+				/*
+				 * Error hit after 'i' characters.
+				 */
+				*cnt = i;
+				break;
+			}
+
+			acc += tmp;
+			s += tmp;
+			n -= tmp;
+
+			if (n == 0 && i < *cnt - 1) {
+				/* Truncated */
+				*cnt = i + 1;
+				break;
+			}
+		}
+
+		if (ret == 0)
+			*nresult = acc;
+	}
+
+	return (ret);
+#else
 	return (_stdenc_cstomb(se->se_handle, s, n, csid, idx, se->se_ps,
 			      nresult, hooks));
+#endif
 }
 
 static __inline int
@@ -171,22 +266,39 @@ init_encoding(struct _citrus_iconv_std_encoding *se, struct _stdenc *cs,
 	se->se_ps = ps1;
 	se->se_pssaved = ps2;
 
+#ifdef __APPLE__
+	assert((se->se_ps == NULL && se->se_pssaved == NULL) ||
+	    (se->se_ps != NULL && se->se_pssaved != NULL));
+#endif
 	if (se->se_ps)
 		ret = _stdenc_init_state(cs, se->se_ps);
 	if (!ret && se->se_pssaved)
+#ifdef __APPLE__
+		save_encoding_state(se);
+#else
 		ret = _stdenc_init_state(cs, se->se_pssaved);
+#endif
 
 	return (ret);
 }
 
 static int
+#ifdef __APPLE__
+open_csmapper(struct _csmapper **rcm, const char *src, const char *dst,
+    unsigned long *rnorm, bool *idmap)
+#else
 open_csmapper(struct _csmapper **rcm, const char *src, const char *dst,
     unsigned long *rnorm)
+#endif
 {
 	struct _csmapper *cm;
 	int ret;
 
+#ifdef __APPLE__
+	ret = _csmapper_open(&cm, src, dst, 0, rnorm, idmap);
+#else
 	ret = _csmapper_open(&cm, src, dst, 0, rnorm);
+#endif
 	if (ret)
 		return (ret);
 	if (_csmapper_get_src_max(cm) != 1 || _csmapper_get_dst_max(cm) != 1 ||
@@ -219,17 +331,28 @@ open_dsts(struct _citrus_iconv_std_dst_list *dl,
 	struct _citrus_iconv_std_dst *sd, *sdtmp;
 	unsigned long norm;
 	int i, ret;
+#ifdef __APPLE__
+	bool idmap;
+#endif
 
 	sd = malloc(sizeof(*sd));
 	if (sd == NULL)
 		return (errno);
 
 	for (i = 0; i < dbdst->db_num_charsets; i++) {
+#ifdef __APPLE__
+		ret = open_csmapper(&sd->sd_mapper, ec->ec_csname,
+		    dbdst->db_charsets[i].ec_csname, &norm, &idmap);
+#else
 		ret = open_csmapper(&sd->sd_mapper, ec->ec_csname,
 		    dbdst->db_charsets[i].ec_csname, &norm);
+#endif
 		if (ret == 0) {
 			sd->sd_csid = dbdst->db_charsets[i].ec_csid;
 			sd->sd_norm = norm;
+#ifdef __APPLE__
+			sd->sd_idmap = idmap;
+#endif
 			/* insert this mapper by sorted order. */
 			TAILQ_FOREACH(sdtmp, dl, sd_entry) {
 				if (sdtmp->sd_norm > norm) {
@@ -270,8 +393,13 @@ close_srcs(struct _citrus_iconv_std_src_list *sl)
 }
 
 static int
+#ifdef __APPLE__
+open_srcs(struct _citrus_iconv_std_src_list *sl,
+    const struct _esdb *dbsrc, const struct _esdb *dbdst, int *ocount)
+#else
 open_srcs(struct _citrus_iconv_std_src_list *sl,
     const struct _esdb *dbsrc, const struct _esdb *dbdst)
+#endif
 {
 	struct _citrus_iconv_std_src *ss;
 	int count = 0, i, ret;
@@ -300,6 +428,10 @@ open_srcs(struct _citrus_iconv_std_src_list *sl,
 	}
 	free(ss);
 
+#ifdef __APPLE__
+	if (count && ocount != NULL)
+		*ocount = count;
+#endif
 	return (count ? 0 : ENOENT);
 
 err:
@@ -308,18 +440,158 @@ err:
 	return (ret);
 }
 
-/* do convert a character */
+#ifdef __APPLE__
+static __inline int
+do_conv_map_one(struct _citrus_iconv_std_dst *sd, _csid_t *csid, _index_t *idx,
+    int *cnt)
+{
+	_index_t tmpidx[_ICONV_STD_PERCVT];
+	int ret;
+
+	if (sd->sd_idmap) {
+		/*
+		 * With identity mapping (mapper_none), *idx just remains
+		 * untouched and we succeed quietly.
+		 */
+		for (int i = 0; i < *cnt; i++) {
+			csid[i] = sd->sd_csid;
+		}
+		return (0);
+	}
+
+	ret = _csmapper_convert(sd->sd_mapper, &tmpidx[0], idx, cnt, NULL);
+
+	/*
+	 * The mo_convert() implementation may fail part-way through the array,
+	 * we should still update csid/idx for the characters that *did*
+	 * succeed to match the behavior of the upstream implementation.
+	 */
+	for (int i = 0; i < *cnt; i++) {
+		csid[i] = sd->sd_csid;
+		idx[i] = tmpidx[i];
+	}
+
+	switch (ret) {
+	case _MAPPER_CONVERT_SUCCESS:
+		return (0);
+	case _MAPPER_CONVERT_NONIDENTICAL:
+		break;
+	case _MAPPER_CONVERT_SRC_MORE:
+		/*FALLTHROUGH*/
+	case _MAPPER_CONVERT_DST_MORE:
+		/*FALLTHROUGH*/
+	case _MAPPER_CONVERT_ILSEQ:
+		return (EILSEQ);
+	case _MAPPER_CONVERT_FATAL:
+		return (EINVAL);
+	}
+
+	return (ENOENT);
+}
+#endif
+
+/* do convert a series of characters */
 #define E_NO_CORRESPONDING_CHAR ENOENT /* XXX */
 static int
 /*ARGSUSED*/
+#ifdef __APPLE__
+do_conv(const struct _citrus_iconv_std_shared *is,
+	_csid_t *csid, _index_t *idx, int *cnt)
+#else
 do_conv(const struct _citrus_iconv_std_shared *is,
 	_csid_t *csid, _index_t *idx)
+#endif
 {
 	struct _citrus_iconv_std_dst *sd;
 	struct _citrus_iconv_std_src *ss;
+#ifndef __APPLE__
 	_index_t tmpidx;
+#endif
 	int ret;
 
+#ifdef __APPLE__
+	if (is->is_lone_dst != NULL) {
+		for (int i = 0; i < *cnt; i++) {
+			if (csid[i] != is->is_lone_dst_csid) {
+				*cnt = i;
+				if (i == 0)
+					return (E_NO_CORRESPONDING_CHAR);
+				break;
+			}
+		}
+
+		ret = do_conv_map_one(is->is_lone_dst, csid, idx, cnt);
+		if (ret == 0 || ret != ENOENT)
+			return (ret);
+	} else {
+		_csid_t checkid;
+		int elen = 0, len = 0, off = 0, tmpcnt = *cnt, total = 0;
+
+next:
+		if (tmpcnt == 0)
+			return (0);
+
+		/*
+		 * First grab a contiguous block; in the common case, the whole
+		 * block is of the same csid.
+		 */
+		checkid = csid[off];
+		len = 0;
+		for (int i = off; i < off + tmpcnt; i++) {
+			if (csid[i] == checkid)
+				len++;
+		}
+
+		TAILQ_FOREACH(ss, &is->is_srcs, ss_entry) {
+			if (ss->ss_csid == *csid) {
+				TAILQ_FOREACH(sd, &ss->ss_dsts, sd_entry) {
+					elen = len;
+					ret = do_conv_map_one(sd, &csid[off],
+					    &idx[off], &elen);
+					if (ret != 0 && ret != ENOENT) {
+						*cnt = total + elen;
+						return (ret);
+					}
+
+					/*
+					 * If we succeeded, we *have* to have
+					 * processed all of them.
+					 *
+					 * If we failed, we must not have;
+					 * hitting this particular assertion
+					 * will indicate that we failed to
+					 * update *cnt in a _csmapper_convert
+					 * somewhere.
+					 */
+					if (ret == 0)
+						assert(elen == len);
+					else
+						assert(elen < len);
+
+					/*
+					 * If we could convert at least one
+					 * character, we should advance that
+					 * many then start over.  We'll end up
+					 * hitting an ENOENT on the next
+					 * character *again*, but it's not worth
+					 * the complexity to skip just the
+					 * one dst.
+					 */
+					if (elen > 0) {
+						total += elen;
+						tmpcnt -= elen;
+						off += elen;
+						goto next;
+					}
+				}
+
+				break;
+			}
+		}
+
+		*cnt = total;
+	}
+#else
 	TAILQ_FOREACH(ss, &is->is_srcs, ss_entry) {
 		if (ss->ss_csid == *csid) {
 			TAILQ_FOREACH(sd, &ss->ss_dsts, sd_entry) {
@@ -345,6 +617,7 @@ do_conv(const struct _citrus_iconv_std_shared *is,
 			break;
 		}
 	}
+#endif
 
 	return (E_NO_CORRESPONDING_CHAR);
 }
@@ -357,6 +630,9 @@ _citrus_iconv_std_iconv_init_shared(struct _citrus_iconv_shared *ci,
 {
 	struct _citrus_esdb esdbdst, esdbsrc;
 	struct _citrus_iconv_std_shared *is;
+#ifdef __APPLE__
+	int count;
+#endif
 	int ret;
 
 	is = malloc(sizeof(*is));
@@ -381,10 +657,40 @@ _citrus_iconv_std_iconv_init_shared(struct _citrus_iconv_shared *ci,
 	is->is_use_invalid = esdbdst.db_use_invalid;
 	is->is_invalid = esdbdst.db_invalid;
 
+#ifdef __APPLE__
+	is->is_lone_dst = NULL;
+	is->is_lone_dst_csid = -1;
+#endif
+
 	TAILQ_INIT(&is->is_srcs);
+#ifdef __APPLE__
+	ret = open_srcs(&is->is_srcs, &esdbsrc, &esdbdst, &count);
+#else
 	ret = open_srcs(&is->is_srcs, &esdbsrc, &esdbdst);
+#endif
 	if (ret)
 		goto err5;
+
+#ifdef __APPLE__
+	if (count == 1) {
+		struct _citrus_iconv_std_dst *sd;
+		struct _citrus_iconv_std_src *ss;
+
+		count = 0;
+
+		ss = TAILQ_FIRST(&is->is_srcs);
+
+		/* Do we only have one dst? */
+		TAILQ_FOREACH(sd, &ss->ss_dsts, sd_entry) {
+			count++;
+		}
+
+		if (count == 1) {
+			is->is_lone_dst = TAILQ_FIRST(&ss->ss_dsts);
+			is->is_lone_dst_csid = ss->ss_csid;
+		}
+	}
+#endif
 
 	_esdb_close(&esdbsrc);
 	_esdb_close(&esdbdst);
@@ -469,13 +775,23 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
     char * __restrict * __restrict out, size_t * __restrict outbytes,
     uint32_t flags, size_t * __restrict invalids)
 {
+#ifdef __APPLE__
+	_csid_t csid[_ICONV_STD_PERCVT];
+	_index_t idx[_ICONV_STD_PERCVT];
+	unsigned short delta[_ICONV_STD_PERCVT];	/* Cumulative */
+#endif
 	const struct _citrus_iconv_std_shared *is = cv->cv_shared->ci_closure;
 	struct _citrus_iconv_std_context *sc = cv->cv_closure;
+#ifndef __APPLE__
 	_csid_t csid;
 	_index_t idx;
+#endif
 	char *tmpin;
 	size_t inval, in_mb_cur_min, szrin, szrout;
 	int ret, state = 0;
+#ifdef __APPLE__
+	int cnt, tmpcnt;
+#endif
 
 	inval = 0;
 	if (in == NULL || *in == NULL) {
@@ -524,6 +840,67 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 		/* mb -> csid/index */
 		tmpin = *in;
 		szrin = szrout = 0;
+
+#ifdef __APPLE__
+		tmpcnt = cnt = nitems(csid);
+		ret = mbtocsx(&sc->sc_src_encoding, &csid[0], &idx[0],
+		    &delta[0], &tmpcnt, &tmpin, *inbytes, &szrin,
+		    cv->cv_shared->ci_hooks);
+
+		if (szrin == (size_t)-2 && tmpcnt > 0) {
+			/*
+			 * We had a partial conversion, but it ended in a
+			 * sequence that's incomplete.  We can wipe out the
+			 * encoding state and tmpcnt/tmpin reflect the part of
+			 * the buffer that wasn't problematic; this loop will
+			 * restart because we still have more left, then we'll
+			 * hit the restart condition again with *no* characters
+			 * converted.
+			 *
+			 * If we don't reset the encoding state here, then the
+			 * encoding module will still think we're in the middle
+			 * of a multibyte sequence and likely error out with an
+			 * EILSEQ instead.
+			 */
+			init_encoding_state(&sc->sc_src_encoding);
+
+			szrin = delta[tmpcnt - 1];
+		}
+
+		if (ret == EILSEQ && cv->cv_shared->ci_discard_ilseq) {
+			/*
+			 * If //IGNORE was specified, we'll just keep crunching
+			 * through invalid characters.
+			 */
+			*in += in_mb_cur_min;
+			*inbytes -= in_mb_cur_min;
+
+			/* Discard the src shift state, we're starting over. */
+			init_encoding_state(&sc->sc_src_encoding);
+
+			/*
+			 * If there weren't any previous characters, we need to
+			 * re-mbtocsx() it now that we've potentially advanced
+			 * past the invalid sequence.  If there were previous
+			 * characters, we'll still process those and need
+			 * nothing further since we already did the above
+			 * update.
+			 */
+			if (tmpcnt == 0)
+				continue;
+
+			ret = 0;
+		}
+
+		/*
+		 * If we hit an error without converting any characters, we'll
+		 * bail out.  Otherwise, we still need to attempt output of what
+		 * we have and do our out-pointer accounting.
+		 */
+		if (ret != 0 && tmpcnt == 0) {
+			goto err;
+		}
+#else
 		ret = mbtocsx(&sc->sc_src_encoding, &csid, &idx, &tmpin,
 		    *inbytes, &szrin, cv->cv_shared->ci_hooks);
 		if (ret != 0 && (ret != EILSEQ ||
@@ -540,6 +917,7 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 			restore_encoding_state(&sc->sc_dst_encoding);
 			continue;
 		}
+#endif
 
 		if (szrin == (size_t)-2) {
 			/* incompleted character */
@@ -558,7 +936,19 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 			goto err;
 		}
 		/* convert the character */
+#ifdef __APPLE__
+		ret = do_conv(is, &csid[0], &idx[0], &tmpcnt);
+		if (ret && tmpcnt != 0) {
+			/*
+			 * Rewind tmpin so that we hit the invalid seq again in
+			 * the next iteration.  Simplifies our error handling...
+			 */
+			tmpin = *in + delta[tmpcnt - 1];
+			assert(tmpin > *in);
+		} else
+#else
 		ret = do_conv(is, &csid, &idx);
+#endif
 		if (ret) {
 			if (ret == E_NO_CORRESPONDING_CHAR) {
 				/*
@@ -569,7 +959,11 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 				 */
 				if (cv->cv_shared->ci_ilseq_invalid != 0) {
 					ret = EILSEQ;
+#ifdef __APPLE__
+					goto converr;
+#else
 					goto err;
+#endif
 				}
 				inval++;
 				szrout = 0;
@@ -580,50 +974,134 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 					    *out, *outbytes, is->is_invalid,
 					    &szrout, cv->cv_shared->ci_hooks);
 					if (ret)
+#ifdef __APPLE__
+						goto converr;
+#else
 						goto err;
+#endif
 				}
+
 				goto next;
 			} else
-				goto err;
-		}
-		/* csid/index -> mb */
-		ret = cstombx(&sc->sc_dst_encoding,
-		    *out, *outbytes, csid, idx, &szrout,
-		    cv->cv_shared->ci_hooks);
 #ifdef __APPLE__
+				goto converr;
+#else
+				goto err;
+#endif
+		}
+
+		/* csid/index -> mb */
+#ifdef __APPLE__
+		ret = cstombx(&sc->sc_dst_encoding,
+		    *out, *outbytes, &csid[0], &idx[0], &tmpcnt,
+		    &szrout, cv->cv_shared->ci_hooks);
+
 		/*
 		 * If we got an EILSEQ, replace that one character with the
 		 * invalid byte.
 		 */
 		if (ret == EILSEQ && is->is_use_invalid) {
+			size_t tmpout;
 
 			/*
-			 * szrout should be -1 here, so we'll just use this to
-			 * set it and avoid the need for post-call arithmetic.
+			 * Wipe out the encoding state, because cstombx() may
+			 * have left us somewhere bogus when we failed that
+			 * would cause bogus errors from the below wctombx().
 			 */
-			szrout = 0;
-			ret = wctombx(&sc->sc_dst_encoding, *out, *outbytes,
-			    is->is_invalid, &szrout, cv->cv_shared->ci_hooks);
+			init_encoding_state(&sc->sc_dst_encoding);
 
-			if (ret != 0) {
+			tmpout = 0;
+			ret = wctombx(&sc->sc_dst_encoding,
+			    *out + szrout, *outbytes - szrout, is->is_invalid,
+			    &tmpout, cv->cv_shared->ci_hooks);
+
+			if (ret == 0) {
 				/*
-				 * We shouldn't be able to get EILSEQ here
+				 * Here we want to eat the invalid character so
+				 * that we don't re-encounter it, then adjust
+				 * szrout for how much we wrote total.
+				 */
+				tmpcnt++;
+				szrout += tmpout;
+			} else {
+				/*
+				 * We shouldn't[0] be able to get EILSEQ here
 				 * because the invalid character is a property
 				 * of the destination encoding.  If we did get
 				 * it, then the esdb definition is inherently
 				 * broken and we need to fix that.
+				 *
+				 * [0] We actually can, so we have to relax this
+				 *     a little bit -- those using the
+				 *     citrus_none encoding may specify a bogus
+				 *     invalid character that sets more than
+				 *     just the lower 16 bits.  Barring a way to
+				 *     scope this to just citrus_none, we just
+				 *     make it a little more lenient.
 				 */
-				assert(ret == E2BIG);
+				assert(ret == E2BIG || ret == EILSEQ);
 			}
 		}
-#endif
+
+		/*
+		 * If we were able to fit *some* of the input
+		 * characters, we need to update our output pointer
+		 * accounting to accurately reflect the situation.
+		 */
+		if (ret && tmpcnt == 0)
+			goto converr;
+		if (tmpcnt < cnt) {
+			/*
+			 * Rewind in here because we shouldn't have eaten the
+			 * excess that doesn't fit in the buffer.
+			 */
+			tmpin = *in + delta[tmpcnt - 1];
+			assert(tmpin > *in);
+		} else {
+			assert(tmpin > *in);
+		}
+#else
+		ret = cstombx(&sc->sc_dst_encoding,
+		    *out, *outbytes, csid, idx, &szrout,
+		    cv->cv_shared->ci_hooks);
 		if (ret)
 			goto err;
+#endif
 next:
 		*inbytes -= tmpin-*in; /* szrin is insufficient on \0. */
 		*in = tmpin;
 		*outbytes -= szrout;
 		*out += szrout;
+#ifdef __APPLE__
+		if (ret != 0)
+			goto err;
+		continue;
+converr:
+
+		/*
+		 * Error out, but update our accounting first.  If we did any
+		 * output, we shouldn't have gotten to this label. and we should
+		 * instead be updating pointers above in the `next` label
+		 * instead.
+		 */
+		if (tmpcnt != 0) {
+			unsigned short diff;
+
+			/*
+			 * delta[n] is cumulative; it describes how many bytes
+			 * we need to skip in the input string at each
+			 * conversion.  So, if we managed to successfully
+			 * convert 5 characters, delta[4] represents the number
+			 * of input bytes that covers the first 5.
+			 */
+			diff = delta[tmpcnt - 1];
+			assert((signed short)diff > 0);
+			*inbytes -= diff;
+			*in += diff;
+		}
+
+		goto err;
+#endif
 	}
 	*invalids = inval;
 

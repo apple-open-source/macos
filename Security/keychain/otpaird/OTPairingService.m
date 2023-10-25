@@ -22,6 +22,7 @@
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 
 #define WAIT_FOR_UNLOCK_DURATION (120ull)
+#define SESSION_TIMEOUT (300ull)
 
 @interface OTPairingService ()
 @property dispatch_queue_t queue;
@@ -31,6 +32,7 @@
 @property int notifyToken;
 @property (nonatomic, strong) OTDeviceInformationActualAdapter *deviceInfo;
 @property OTPairingSession *session;
+@property dispatch_source_t sessionTimer;
 @end
 
 @implementation OTPairingService
@@ -93,12 +95,13 @@
 
     dispatch_async(self.queue, ^{
         if (self.session != nil) {
-            completionHandler(false, [NSError errorWithDomain:OTPairingErrorDomain code:OTPairingErrorTypeBusy description:@"pairing in progress"]);
+            [self.session addCompletionHandler:completionHandler];
             return;
         }
 
         self.session = [[OTPairingSession alloc] initAsInitiator:self.initiator deviceInfo:self.deviceInfo identifier:nil];
-        self.session.completionHandler = completionHandler;
+        [self scheduleSessionTimeout];
+        [self.session addCompletionHandler:completionHandler];
         [self sendReplyToPacket];
     });
 }
@@ -106,13 +109,13 @@
 // Should be a delegate method - future refactor
 - (void)session:(__unused OTPairingSession *)session didCompleteWithSuccess:(bool)success error:(NSError *)error
 {
+    dispatch_assert_queue(self.queue);
     os_assert(self.session == session);
 
-    if (self.session.completionHandler) {
-        self.session.completionHandler(success, error);
-    }
+    [self.session didCompleteWithSuccess:success error:error];
 
     self.session = nil;
+    self.sessionTimer = nil;
     self.unlockTimer = nil;
 }
 
@@ -357,6 +360,24 @@
         // On iOS, do nothing; watch will time out waiting for response.
         [self session:self.session didCompleteWithSuccess:false error:[NSError errorWithDomain:OTPairingErrorDomain code:OTPairingErrorTypeIDS description:@"IDS message failed to send" underlying:error]];
     }
+}
+
+#pragma mark session timeout scheduling
+
+- (void)scheduleSessionTimeout
+{
+    dispatch_assert_queue(self.queue);
+    os_assert(self.initiator);
+
+    self.sessionTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self.queue);
+    dispatch_source_set_timer(self.sessionTimer, dispatch_time(DISPATCH_TIME_NOW, SESSION_TIMEOUT * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+    dispatch_source_set_event_handler(self.sessionTimer, ^{
+        if (self.session) {
+            NSError* error = [NSError errorWithDomain:OTPairingErrorDomain code:OTPairingErrorTypeSessionTimeout description:@"pairing session timed out"];
+            [self session:self.session didCompleteWithSuccess:false error:error];
+        }
+    });
+    dispatch_activate(self.sessionTimer);
 }
 
 #pragma mark lock state handling

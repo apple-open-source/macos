@@ -176,8 +176,8 @@ extension Container {
 
                     // Dear model: if I were to use this custodian recovery key, what peers would I end up using?
                     guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
-                        logger.info("preflightCustodianRecoveryKey: custodian recovery Key is not enrolled")
-                        reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                        logger.info("preflightCustodianRecoveryKey: custodian recovery key is not trusted")
+                        reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                         return
                     }
 

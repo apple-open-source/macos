@@ -2,6 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 rej_Rjng{
+    %%Parent{"root"}
     ExemplarCharacters{
         "[ꤰ {ꤰ꥓} ꤱ ꤲ ꤳ ꤴ ꤵ ꤶ ꤷ ꤸ ꤹ ꤺ ꤻ ꤼ ꤽ ꤾ ꤿ ꥀ ꥁ ꥂ ꥃ ꥄ ꥅ ꥆ {ꥆꥇ} {ꥆꥈ} {ꥆꥉ} {ꥆꥊ} {ꥆꥋ}"
         " {ꥆꥌ} {ꥆꥍ} {ꥆꥎ} {ꥆꥏ} {ꥆꥐ} {ꥆꥑ} {ꥆꥒ}]"

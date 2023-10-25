@@ -451,27 +451,20 @@ extension Container {
         return (retentropy, retbottleID, retspki, reterror)
     }
 
-    func requestHealthCheckSync(requiresEscrowCheck: Bool, repair: Bool, test: XCTestCase) -> (Bool, Bool, Bool, Bool, Error?) {
+    func requestHealthCheckSync(requiresEscrowCheck: Bool, repair: Bool, test: XCTestCase) -> (TrustedPeersHelperHealthCheckResult?, Error?) {
         let expectation = XCTestExpectation(description: "requestHealthCheck replied")
-        var retrepairaccount: Bool = false
-        var retrepairescrow: Bool = false
-        var retresetoctagon: Bool = false
-        var retleavetrust: Bool = false
+        var retresponse: TrustedPeersHelperHealthCheckResult?
         var reterror: Error?
 
         self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck,
                                 repair: repair,
-                                knownFederations: []) { repairAccount, repairEscrow, resetOctagon, leaveTrust, _, error in
-            retrepairaccount = repairAccount
-            retrepairescrow = repairEscrow
-            retresetoctagon = resetOctagon
-            retleavetrust = leaveTrust
-            // moveRequest ignored
+                                knownFederations: []) { response, error in
+            retresponse = response
             reterror = error
 
             expectation.fulfill()
         }
         test.wait(for: [expectation], timeout: 10.0)
-        return (retrepairaccount, retrepairescrow, retresetoctagon, retleavetrust, reterror)
+        return (retresponse, reterror)
     }
 }

@@ -30,6 +30,7 @@
 #import "DrawingAreaProxyMessages.h"
 #import "Logging.h"
 #import "MessageSenderInlines.h"
+#import "PageClient.h"
 #import "RemoteLayerTreeDrawingAreaProxyMessages.h"
 #import "RemotePageProxy.h"
 #import "RemoteScrollingCoordinatorProxy.h"
@@ -129,7 +130,13 @@ void RemoteLayerTreeDrawingAreaProxy::sendUpdateGeometry()
     m_lastSentSizeToContentAutoSizeMaximumSize = m_webPageProxy.sizeToContentAutoSizeMaximumSize();
     m_lastSentSize = m_size;
     m_isWaitingForDidUpdateGeometry = true;
-    m_webPageProxy.sendWithAsyncReply(Messages::DrawingArea::UpdateGeometry(m_size, false /* flushSynchronously */, MachSendRight()), [weakThis = WeakPtr { this }] {
+
+    std::optional<VisibleContentRectUpdateInfo> visibleRectUpdateInfo;
+#if PLATFORM(IOS_FAMILY)
+    visibleRectUpdateInfo = m_webPageProxy.pageClient().createVisibleContentRectUpdateInfo();
+#endif
+
+    m_webPageProxy.sendWithAsyncReply(Messages::DrawingArea::UpdateGeometry(m_size, visibleRectUpdateInfo, false /* flushSynchronously */, MachSendRight()), [weakThis = WeakPtr { this }] {
         if (!weakThis)
             return;
         weakThis->didUpdateGeometry();
@@ -160,8 +167,27 @@ void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(TransactionID transact
 
 void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connection, const Vector<std::pair<RemoteLayerTreeTransaction, RemoteScrollingCoordinatorTransaction>>& transactions)
 {
+    Vector<MachSendRight> sendRights;
+    for (auto& transaction : transactions) {
+        // commitLayerTreeTransaction consumes the incoming buffers, so we need to grab them first.
+        for (auto& [layerID, properties] : transaction.first.changedLayerProperties()) {
+            const auto* backingStoreProperties = properties->backingStoreProperties.get();
+            if (!backingStoreProperties)
+                continue;
+            if (const auto& backendHandle = backingStoreProperties->bufferHandle()) {
+                if (const auto* sendRight = std::get_if<MachSendRight>(&backendHandle.value()))
+                    sendRights.append(*sendRight);
+            }
+        }
+    }
+
     for (auto& transaction : transactions)
         commitLayerTreeTransaction(connection, transaction.first, transaction.second);
+
+    // Keep IOSurface send rights alive until the transaction is commited, otherwise we will
+    // prematurely drop the only reference to them, and `inUse` will be wrong for a brief window.
+    if (!sendRights.isEmpty())
+        [CATransaction addCommitHandler:[sendRights = WTFMove(sendRights)]() { } forPhase:kCATransactionPhasePostCommit];
 }
 
 void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection& connection, const RemoteLayerTreeTransaction& layerTreeTransaction, const RemoteScrollingCoordinatorTransaction& scrollingTreeTransaction)

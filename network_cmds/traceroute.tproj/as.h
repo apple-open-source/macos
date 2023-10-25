@@ -38,5 +38,5 @@
  */
 
 void	*as_setup __P((char *));
-int	as_lookup __P((void *, struct in_addr *));
+unsigned int as_lookup(void *, char *, sa_family_t);
 void	as_shutdown __P((void *));

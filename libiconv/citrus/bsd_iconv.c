@@ -85,7 +85,16 @@ __bsd___iconv_open(const char *out, const char *in, struct _citrus_iconv *handle
 	errno = serrno;
 #endif
 	handle->cv_shared->ci_discard_ilseq = strcasestr(out, "//IGNORE");
+#ifdef __APPLE__
+	/*
+	 * Restore behavior with do_conv() failings to the GNU compatible one.
+	 * The old behavior isn't technically POSIX conformant, but a number of
+	 * high profile applications depend on it.
+	 */
+	handle->cv_shared->ci_ilseq_invalid = true;
+#else
 	handle->cv_shared->ci_ilseq_invalid = false;
+#endif
 	handle->cv_shared->ci_hooks = NULL;
 
 	return ((iconv_t)(void *)handle);

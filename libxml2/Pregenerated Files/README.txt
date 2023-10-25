@@ -16,7 +16,7 @@ Steps to rebuild files:
    autoheader
    automake --add-missing --force-missing
    autoconf
-   CC="xcrun -sdk macosx.internal cc" ./configure --prefix=/usr --without-iconv --with-icu --without-lzma --without-python --with-xptr-locs --with-zlib
+   CC="xcrun -sdk macosx.internal cc -target arm64e-apple-macos" ./configure --prefix=/usr --without-iconv --with-icu --without-lzma --without-python --with-xptr-locs --with-zlib
 4. Edit xml2-config.
    a. Fix prefix value:
 -prefix=/usr
@@ -30,7 +30,7 @@ Steps to rebuild files:
    make -j $(sysctl -n hw.ncpu)
    make check
    To run tests with AddressSanitizer enabled, re-run configure with this environment variable:
-     CC="xcrun -sdk macosx.internal cc -fsanitize=address"
+     CC="xcrun -sdk macosx.internal cc -target arm64e-apple-macos -fsanitize=address"
 6. Copy replacement files into place:
    cp -p config.h "../Pregenerated Files/include/"
    cp -p include/libxml/xmlversion.h "../Pregenerated Files/include/libxml/"

@@ -614,32 +614,18 @@ std::unique_ptr<WebGLRenderingContextBase> WebGLRenderingContextBase::create(Can
 
     std::unique_ptr<WebGLRenderingContextBase> renderingContext;
     if (type == WebGLVersion::WebGL2)
-        renderingContext = WebGL2RenderingContext::create(canvas, context.releaseNonNull(), attributes);
+        renderingContext = WebGL2RenderingContext::create(canvas, attributes);
     else
-        renderingContext = WebGLRenderingContext::create(canvas, context.releaseNonNull(), attributes);
+        renderingContext = WebGLRenderingContext::create(canvas, attributes);
+    renderingContext->initializeNewContext(context.releaseNonNull());
     renderingContext->suspendIfNeeded();
-
+    InspectorInstrumentation::didCreateCanvasRenderingContext(*renderingContext);
+    if (renderingContext->m_context->isContextLost())
+        renderingContext->forceContextLost();
     return renderingContext;
 }
 
 WebGLRenderingContextBase::WebGLRenderingContextBase(CanvasBase& canvas, WebGLContextAttributes attributes)
-    : GPUBasedCanvasRenderingContext(canvas)
-    , m_restoreTimer(canvas.scriptExecutionContext(), *this, &WebGLRenderingContextBase::maybeRestoreContext)
-    , m_attributes(attributes)
-    , m_numGLErrorsToConsoleAllowed(maxGLErrorsAllowedToConsole)
-    , m_checkForContextLossHandlingTimer(*this, &WebGLRenderingContextBase::checkForContextLossHandling)
-#if ENABLE(WEBXR)
-    , m_isXRCompatible(attributes.xrCompatible)
-#endif
-{
-    m_restoreTimer.suspendIfNeeded();
-
-    registerWithWebGLStateTracker();
-    if (canvas.isHTMLCanvasElement())
-        m_checkForContextLossHandlingTimer.startOneShot(checkContextLossHandlingDelay);
-}
-
-WebGLRenderingContextBase::WebGLRenderingContextBase(CanvasBase& canvas, Ref<GraphicsContextGL>&& context, WebGLContextAttributes attributes)
     : GPUBasedCanvasRenderingContext(canvas)
     , m_restoreTimer(canvas.scriptExecutionContext(), *this, &WebGLRenderingContextBase::maybeRestoreContext)
     , m_generatedImageCache(4)
@@ -650,22 +636,17 @@ WebGLRenderingContextBase::WebGLRenderingContextBase(CanvasBase& canvas, Ref<Gra
     , m_isXRCompatible(attributes.xrCompatible)
 #endif
 {
-    setGraphicsContextGL(WTFMove(context));
-
     m_restoreTimer.suspendIfNeeded();
 
     m_contextGroup = WebGLContextGroup::create();
     m_contextGroup->addContext(*this);
 
-    m_context->getIntegerv(GraphicsContextGL::MAX_VIEWPORT_DIMS, m_maxViewportDims);
-
-    setupFlags();
-
     registerWithWebGLStateTracker();
-    if (canvas.isHTMLCanvasElement())
+    if (auto* canvas = htmlCanvas()) {
         m_checkForContextLossHandlingTimer.startOneShot(checkContextLossHandlingDelay);
-
-    addActivityStateChangeObserverIfNecessary();
+        if (Page* page = canvas->document().page())
+            m_synthesizedErrorsToConsole = page->settings().webGLErrorsToConsoleEnabled();
+    }
 }
 
 WebGLCanvas WebGLRenderingContextBase::canvas()
@@ -692,7 +673,7 @@ OffscreenCanvas* WebGLRenderingContextBase::offscreenCanvas()
 // and to discard temporary GL contexts (e.g. feature detection).
 void WebGLRenderingContextBase::checkForContextLossHandling()
 {
-    auto canvas = htmlCanvas();
+    auto* canvas = htmlCanvas();
     if (!canvas)
         return;
 
@@ -709,7 +690,7 @@ void WebGLRenderingContextBase::checkForContextLossHandling()
 
 void WebGLRenderingContextBase::registerWithWebGLStateTracker()
 {
-    auto canvas = htmlCanvas();
+    auto* canvas = htmlCanvas();
     if (!canvas)
         return;
 
@@ -724,9 +705,26 @@ void WebGLRenderingContextBase::registerWithWebGLStateTracker()
     m_trackerToken = tracker->token(m_attributes.initialPowerPreference);
 }
 
-void WebGLRenderingContextBase::initializeNewContext()
+void WebGLRenderingContextBase::initializeNewContext(Ref<GraphicsContextGL> context)
 {
-    ASSERT(!isContextLost());
+    bool wasActive = m_context;
+    if (m_context) {
+        m_context->setClient(nullptr);
+        m_context = nullptr;
+    }
+    m_context = WTFMove(context);
+    updateActiveOrdinal();
+    if (!wasActive)
+        addActiveContext(*this);
+    addActivityStateChangeObserverIfNecessary();
+    initializeContextState();
+    initializeVertexArrayObjects();
+    // Next calls will receive the context lost callback.
+    m_context->setClient(this);
+}
+
+void WebGLRenderingContextBase::initializeContextState()
+{
     m_errors = { };
     m_needsUpdate = true;
     m_markedCanvasDirty = false;
@@ -760,25 +758,10 @@ void WebGLRenderingContextBase::initializeNewContext()
     m_colorMask[0] = m_colorMask[1] = m_colorMask[2] = m_colorMask[3] = true;
 
     GCGLint numCombinedTextureImageUnits = m_context->getInteger(GraphicsContextGL::MAX_COMBINED_TEXTURE_IMAGE_UNITS);
-    if (numCombinedTextureImageUnits < 8) {
-        // OpenGL ES 2.0 sets the minimum for
-        // GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS to 8. Receiving a value less than
-        // 8 means an error with the context. Signal that the context is lost.
-        forceContextLost();
-        return;
-    }
-
     m_textureUnits.clear();
     m_textureUnits.resize(numCombinedTextureImageUnits);
 
     GCGLint numVertexAttribs = m_context->getInteger(GraphicsContextGL::MAX_VERTEX_ATTRIBS);
-    if (numVertexAttribs < 8) {
-        // OpenGL ES 2.0 sets the minimum for GL_MAX_VERTEX_ATTRIBS to
-        // 8. Receiving a value less than 8 means an error with the
-        // context. Signal that the context is lost.
-        forceContextLost();
-        return;
-    }
     m_maxVertexAttribs = numVertexAttribs;
     m_vertexAttribValue.clear();
     m_vertexAttribValue.resize(m_maxVertexAttribs);
@@ -788,6 +771,8 @@ void WebGLRenderingContextBase::initializeNewContext()
     m_maxCubeMapTextureSize = m_context->getInteger(GraphicsContextGL::MAX_CUBE_MAP_TEXTURE_SIZE);
     m_maxCubeMapTextureLevel = WebGLTexture::computeLevelCount(m_maxCubeMapTextureSize, m_maxCubeMapTextureSize);
     m_maxRenderbufferSize = m_context->getInteger(GraphicsContextGL::MAX_RENDERBUFFER_SIZE);
+    m_context->getIntegerv(GraphicsContextGL::MAX_VIEWPORT_DIMS, m_maxViewportDims);
+    m_isDepthStencilSupported = m_context->isExtensionEnabled("GL_OES_packed_depth_stencil"_s) || m_context->isExtensionEnabled("GL_ANGLE_depth_texture"_s);
 
     // These two values from EXT_draw_buffers are lazily queried.
     m_maxDrawBuffers = 0;
@@ -814,31 +799,6 @@ void WebGLRenderingContextBase::initializeNewContext()
     ADD_VALUES_TO_SET(m_supportedTexImageSourceInternalFormats, supportedFormatsES2);
     ADD_VALUES_TO_SET(m_supportedTexImageSourceFormats, supportedFormatsES2);
     ADD_VALUES_TO_SET(m_supportedTexImageSourceTypes, supportedTypesES2);
-
-    initializeVertexArrayObjects();
-}
-
-void WebGLRenderingContextBase::setupFlags()
-{
-    ASSERT(m_context);
-
-    auto canvas = htmlCanvas();
-    if (canvas) {
-        if (Page* page = canvas->document().page())
-            m_synthesizedErrorsToConsole = page->settings().webGLErrorsToConsoleEnabled();
-    }
-
-    // FIXME: With ANGLE as a backend this probably isn't needed any more. Unfortunately
-    // turning it off causes problems.
-    m_isGLES2Compliant = m_context->isGLES2Compliant();
-    if (m_isGLES2Compliant) {
-        m_isGLES2NPOTStrict = !m_context->isExtensionEnabled("GL_OES_texture_npot"_s);
-        m_isDepthStencilSupported = m_context->isExtensionEnabled("GL_OES_packed_depth_stencil"_s) || m_context->isExtensionEnabled("GL_ANGLE_depth_texture"_s);
-    } else {
-        m_isGLES2NPOTStrict = true;
-        m_isDepthStencilSupported = m_context->isExtensionEnabled("GL_EXT_packed_depth_stencil"_s) || m_context->isExtensionEnabled("GL_ANGLE_depth_texture"_s);
-    }
-    m_isRobustnessEXTSupported = m_context->isExtensionEnabled("GL_EXT_robustness"_s);
 }
 
 void WebGLRenderingContextBase::addCompressedTextureFormat(GCGLenum format)
@@ -866,8 +826,7 @@ void WebGLRenderingContextBase::addActivityStateChangeObserverIfNecessary()
 
     // We won't get a state change right away, so
     // make sure the context knows if it visible or not.
-    if (m_context)
-        m_context->setContextVisibility(page->isVisible());
+    m_context->setContextVisibility(page->isVisible());
 }
 
 void WebGLRenderingContextBase::removeActivityStateChangeObserver()
@@ -915,19 +874,6 @@ WebGLRenderingContextBase::~WebGLRenderingContextBase()
     }
 }
 
-void WebGLRenderingContextBase::setGraphicsContextGL(Ref<GraphicsContextGL>&& context)
-{
-    bool wasActive = m_context;
-    if (m_context) {
-        m_context->setClient(nullptr);
-        m_context = nullptr;
-    }
-    m_context = WTFMove(context);
-    m_context->setClient(this);
-    updateActiveOrdinal();
-    if (!wasActive)
-        addActiveContext(*this);
-}
 
 void WebGLRenderingContextBase::destroyGraphicsContextGL()
 {
@@ -1738,6 +1684,7 @@ void WebGLRenderingContextBase::uncacheDeletedBuffer(const AbstractLocker& locke
 
 void WebGLRenderingContextBase::setBoundVertexArrayObject(const AbstractLocker&, WebGLVertexArrayObjectBase* arrayObject)
 {
+    ASSERT(m_defaultVertexArrayObject);
     m_boundVertexArrayObject = arrayObject ? arrayObject : m_defaultVertexArrayObject;
 }
 
@@ -2133,10 +2080,10 @@ RefPtr<WebGLActiveInfo> WebGLRenderingContextBase::getActiveUniform(WebGLProgram
     if (!m_context->getActiveUniform(program.object(), index, info))
         return nullptr;
     // FIXME: Do we still need this for the ANGLE backend?
-    if (!isGLES2Compliant())
+    if (!isWebGL2()) {
         if (info.size > 1 && !info.name.endsWith("[0]"_s))
             info.name = makeString(info.name, "[0]"_s);
-
+    }
     LOG(WebGL, "Returning active uniform %d: %s", index, info.name.utf8().data());
 
     return WebGLActiveInfo::create(info.name, info.type, info.size);
@@ -3236,7 +3183,7 @@ bool WebGLRenderingContextBase::linkProgramWithoutInvalidatingAttribLocations(We
 void WebGLRenderingContextBase::makeXRCompatible(MakeXRCompatiblePromise&& promise)
 {
     // Returning an exception in these two checks is not part of the spec.
-    auto canvas = htmlCanvas();
+    auto* canvas = htmlCanvas();
     if (!canvas) {
         m_isXRCompatible = false;
         promise.reject(Exception { InvalidStateError });
@@ -5094,7 +5041,6 @@ void WebGLRenderingContextBase::removeSharedObject(WebGLSharedObject& object)
 
 void WebGLRenderingContextBase::addSharedObject(WebGLSharedObject& object)
 {
-    ASSERT(!isContextLost());
     m_contextGroup->addObject(object);
 }
 
@@ -5739,27 +5685,30 @@ void WebGLRenderingContextBase::maybeRestoreContext()
     if (!graphicsClient)
         return;
 
-    RefPtr<GraphicsContextGL> context = graphicsClient->createGraphicsContextGL(m_attributes);
-    if (!context) {
-        if (m_contextLostState->mode == RealLostContext)
+    if (auto context = graphicsClient->createGraphicsContextGL(m_attributes)) {
+        initializeNewContext(context.releaseNonNull());
+        if (!m_context->isContextLost()) {
+            // Context lost state is reset only here: context creation succeeded
+            // and initialization calls did not observe context loss. This means
+            // that initialization itself cannot use any public function code
+            // path that checks for !isContextLost().
+            m_contextLostState = { };
+            canvasBase().dispatchEvent(WebGLContextEvent::create(eventNames().webglcontextrestoredEvent, Event::CanBubble::No, Event::IsCancelable::Yes, emptyString()));
+            // Notify the render layer to reconfigure the structure of the backing. This causes the backing to
+            // start using the new layer contents display delegate from the new context.
+            notifyCanvasContentChanged();
+            return;
+        }
+        // Remove the possible objects added during the initialization.
+        detachAndRemoveAllObjects();
+        m_contextGroup->detachAndRemoveAllObjects();
+    }
+
+    // Either we failed to create context or the context was lost during initialization.
+    if (m_contextLostState->mode == RealLostContext)
             m_restoreTimer.startOneShot(secondsBetweenRestoreAttempts);
-        else
-            printToConsole(MessageLevel::Error, "WebGL: error restoring lost context."_s);
-        return;
-    }
-
-    setGraphicsContextGL(context.releaseNonNull());
-    addActivityStateChangeObserverIfNecessary();
-    m_contextLostState = std::nullopt;
-    setupFlags();
-    initializeNewContext();
-
-    if (!isContextLost()) {
-        canvasBase().dispatchEvent(WebGLContextEvent::create(eventNames().webglcontextrestoredEvent, Event::CanBubble::No, Event::IsCancelable::Yes, emptyString()));
-        // Notify the render layer to reconfigure the structure of the backing. This causes the backing to
-        // start using the new layer contents display delegate from the new context.
-        notifyCanvasContentChanged();
-    }
+    else
+        printToConsole(MessageLevel::Error, "WebGL: error restoring lost context."_s);
 }
 
 void WebGLRenderingContextBase::simulateEventForTesting(SimulatedEventForTesting event)

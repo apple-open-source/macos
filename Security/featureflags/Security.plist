@@ -130,5 +130,10 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
+	<key>TTROnCRKRemoval</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

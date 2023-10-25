@@ -114,6 +114,9 @@ size_t zlib_decode_buffer(uint8_t* dst_buffer, size_t dst_size,
 size_t zlib_decode_torture(uint8_t* dst_buffer, size_t dst_size,
                            uint8_t* src_buffer, size_t src_size, int rfc1950) // OK
 {
+  const size_t tmp_size = 1000;
+  uint8_t tmp0[tmp_size];
+  uint8_t tmp1[tmp_size];
   z_stream z;
   int ok = 1;
   int status;
@@ -124,10 +127,6 @@ size_t zlib_decode_torture(uint8_t* dst_buffer, size_t dst_size,
   
   // Setup stream
   bzero(&z, sizeof(z));
-  z.next_in = src_buffer;
-  z.next_out = dst_buffer;
-  
-  // Decode buffer
   status = inflateInit2(&z, rfc1950 ? 15: -15);
   if (status != Z_OK) return 0; // Failed
   
@@ -137,11 +136,24 @@ size_t zlib_decode_torture(uint8_t* dst_buffer, size_t dst_size,
     // Use small random input/output buffers
     z.avail_in  = (uint32_t)(src_size - z.total_in);
     z.avail_out = (uint32_t)(dst_size - z.total_out);
-    z.avail_in  %= (rand() % 1000) + 1;
-    z.avail_out %= (rand() % 1000) + 1;
+    z.avail_in  %= (rand() % tmp_size) + 1;
+    z.avail_out %= (rand() % tmp_size) + 1;
+    z.next_in  = rand() & 1 ? tmp0 : tmp0 + tmp_size - z.avail_in;  // Randomly align the start/end
+    z.next_out = rand() & 1 ? tmp1 : tmp1 + tmp_size - z.avail_out; // Randomly align the start/end
     
+    // Copy input to small buffer
+    memcpy(z.next_in, src_buffer + z.total_in, z.avail_in);
+
     // Decode
+    size_t n_written = z.total_out;
     status = inflate(&z, Z_NO_FLUSH);
+    n_written = z.total_out - n_written;
+
+    // Copy small buffer to output
+    if (n_written)
+    {
+      memcpy(dst_buffer + z.total_out - n_written, z.next_out - n_written, n_written);
+    }
     
     // Continue?
     if (status == Z_OK) continue;

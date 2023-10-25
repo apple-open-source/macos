@@ -589,7 +589,8 @@ do_exmode(
 #ifdef FEAT_GUI
     --hold_gui_events;
 #endif
-    --RedrawingDisabled;
+    if (RedrawingDisabled > 0)
+	--RedrawingDisabled;
     --no_wait_return;
     update_screen(UPD_CLEAR);
     need_wait_return = FALSE;
@@ -670,7 +671,7 @@ do_cmdline(
     static int	recursive = 0;		// recursive depth
     int		msg_didout_before_start = 0;
     int		count = 0;		// line number count
-    int		did_inc = FALSE;	// incremented RedrawingDisabled
+    int		did_inc_RedrawingDisabled = FALSE;
     int		retval = OK;
 #ifdef FEAT_EVAL
     cstack_T	cstack;			// conditional stack
@@ -1016,7 +1017,7 @@ do_cmdline(
 		msg_scroll = TRUE;  // put messages below each other
 		++no_wait_return;   // don't wait for return until finished
 		++RedrawingDisabled;
-		did_inc = TRUE;
+		did_inc_RedrawingDisabled = TRUE;
 	    }
 	}
 
@@ -1375,9 +1376,10 @@ do_cmdline(
      * hit return before redrawing the screen. With the ":global" command we do
      * this only once after the command is finished.
      */
-    if (did_inc)
+    if (did_inc_RedrawingDisabled)
     {
-	--RedrawingDisabled;
+	if (RedrawingDisabled > 0)
+	    --RedrawingDisabled;
 	--no_wait_return;
 	msg_scroll = FALSE;
 
@@ -2617,8 +2619,8 @@ do_one_cmd(
 
 #ifdef FEAT_EVAL
     // A command will reset "is_export" when exporting an item.  If it is still
-    // set something went wrong.
-    if (is_export)
+    // set something went wrong or the command was never executed.
+    if (!ea.skip && is_export)
     {
 	if (errormsg == NULL)
 	    errormsg = _(e_export_with_invalid_argument);
@@ -3966,7 +3968,7 @@ find_ex_command(
 #ifdef FEAT_EVAL
     if (eap->cmdidx < CMD_SIZE
 	    && vim9
-	    && !IS_WHITE_OR_NUL(*p) && *p != '\n' && *p != '!' && *p != '|'
+	    && !IS_WHITE_NL_OR_NUL(*p) && *p != '!' && *p != '|'
 	    && (eap->cmdidx < 0 ||
 		(cmdnames[eap->cmdidx].cmd_argt & EX_NONWHITE_OK) == 0))
     {
@@ -4099,7 +4101,7 @@ f_fullcommand(typval_T *argvars, typval_T *rettv)
 		|| check_for_opt_bool_arg(argvars, 1) == FAIL))
 	return;
 
-    name = argvars[0].vval.v_string;
+    name = tv_get_string(&argvars[0]);
     if (name == NULL)
 	return;
 
@@ -4728,7 +4730,7 @@ address_default_all(exarg_T *eap)
 	case ADDR_NONE:
 	case ADDR_UNSIGNED:
 	case ADDR_QUICKFIX:
-	    iemsg(_("INTERNAL: Cannot use EX_DFLALL with ADDR_NONE, ADDR_UNSIGNED or ADDR_QUICKFIX"));
+	    iemsg("Cannot use EX_DFLALL with ADDR_NONE, ADDR_UNSIGNED or ADDR_QUICKFIX");
 	    break;
     }
 }
@@ -7186,7 +7188,7 @@ do_exedit(
 
 		if (exmode_was != EXMODE_VIM)
 		    settmode(TMODE_RAW);
-		int save_rd = RedrawingDisabled;
+		int save_RedrawingDisabled = RedrawingDisabled;
 		RedrawingDisabled = 0;
 		int save_nwr = no_wait_return;
 		no_wait_return = 0;
@@ -7203,7 +7205,7 @@ do_exedit(
 		main_loop(FALSE, TRUE);
 
 		pending_exmode_active = FALSE;
-		RedrawingDisabled = save_rd;
+		RedrawingDisabled = save_RedrawingDisabled;
 		no_wait_return = save_nwr;
 		msg_scroll = save_ms;
 #ifdef FEAT_GUI
@@ -8462,11 +8464,12 @@ ex_redraw(exarg_T *eap)
     void
 redraw_cmd(int clear)
 {
-    int		r = RedrawingDisabled;
-    int		p = p_lz;
-
+    int save_RedrawingDisabled = RedrawingDisabled;
     RedrawingDisabled = 0;
+
+    int save_p_lz = p_lz;
     p_lz = FALSE;
+
     validate_cursor();
     update_topline();
     update_screen(clear ? UPD_CLEAR : VIsual_active ? UPD_INVERTED : 0);
@@ -8478,8 +8481,8 @@ redraw_cmd(int clear)
 # endif
 	resize_console_buf();
 #endif
-    RedrawingDisabled = r;
-    p_lz = p;
+    RedrawingDisabled = save_RedrawingDisabled;
+    p_lz = save_p_lz;
 
     // After drawing the statusline screen_attr may still be set.
     screen_stop_highlight();
@@ -8504,9 +8507,6 @@ redraw_cmd(int clear)
     static void
 ex_redrawstatus(exarg_T *eap UNUSED)
 {
-    int		r = RedrawingDisabled;
-    int		p = p_lz;
-
     if (eap->forceit)
 	status_redraw_all();
     else
@@ -8514,14 +8514,18 @@ ex_redrawstatus(exarg_T *eap UNUSED)
     if (msg_scrolled && (State & MODE_CMDLINE))
 	return;  // redraw later
 
+    int save_RedrawingDisabled = RedrawingDisabled;
     RedrawingDisabled = 0;
+
+    int save_p_lz = p_lz;
     p_lz = FALSE;
+
     if (State & MODE_CMDLINE)
 	redraw_statuslines();
     else
 	update_screen(VIsual_active ? UPD_INVERTED : 0);
-    RedrawingDisabled = r;
-    p_lz = p;
+    RedrawingDisabled = save_RedrawingDisabled;
+    p_lz = save_p_lz;
     out_flush();
 }
 
@@ -8531,16 +8535,16 @@ ex_redrawstatus(exarg_T *eap UNUSED)
     static void
 ex_redrawtabline(exarg_T *eap UNUSED)
 {
-    int		r = RedrawingDisabled;
-    int		p = p_lz;
-
+    int save_RedrawingDisabled = RedrawingDisabled;
     RedrawingDisabled = 0;
+
+    int save_p_lz = p_lz;
     p_lz = FALSE;
 
     draw_tabline();
 
-    RedrawingDisabled = r;
-    p_lz = p;
+    RedrawingDisabled = save_RedrawingDisabled;
+    p_lz = save_p_lz;
     out_flush();
 }
 
@@ -9860,7 +9864,6 @@ is_loclist_cmd(int cmdidx)
 }
 #endif
 
-#if defined(FEAT_TIMERS) || defined(PROTO)
     int
 get_pressedreturn(void)
 {
@@ -9872,4 +9875,3 @@ set_pressedreturn(int val)
 {
      ex_pressedreturn = val;
 }
-#endif

@@ -2374,11 +2374,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
-        let (repairAccount, repairEscrow, resetOctagon, leaveTrust, healthError) = c.requestHealthCheckSync(requiresEscrowCheck: true, repair: false, test: self)
-        XCTAssertFalse(repairAccount, "")
-        XCTAssertFalse(repairEscrow, "")
-        XCTAssertFalse(resetOctagon, "")
-        XCTAssertFalse(leaveTrust, "")
+        let (response, healthError) = c.requestHealthCheckSync(requiresEscrowCheck: true, repair: false, test: self)
+        XCTAssertFalse(response!.postRepairCFU, "expected postRepairCFU")
+        XCTAssertFalse(response!.postEscrowCFU, "expected postEscrowCFU")
+        XCTAssertFalse(response!.resetOctagon, "expected resetOctagon")
+        XCTAssertFalse(response!.leaveTrust, "expected leaveTrust")
         XCTAssertNil(healthError)
     }
 

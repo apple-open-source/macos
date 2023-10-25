@@ -714,7 +714,7 @@ PatternParser::patternInfoToProperties(DecimalFormatProperties& properties, Pars
 // 0.005 is treated like 0.001 for significance). This is the reason for the
 // initial doubling below.
 // roundIncr must be non-zero.
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
 // Apple enhancement: Takes pointer to roundIncr; if function
 // returns false, roundIncr will be rounded as necessary given maxFrac value.
@@ -726,7 +726,7 @@ bool PatternStringUtils::ignoreRoundingIncrement(double roundIncr, int32_t maxFr
         return false;
     }
     int32_t frac = 0;
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
     double denom = 20.0;
     double roundIncr = *roundIncrPtr * 2.0;
@@ -793,7 +793,7 @@ UnicodeString PatternStringUtils::propertiesToPatternString(const DecimalFormatP
         while (digitsString.length() < maxSig) {
             digitsString.append(u'#');
         }
-#if 0 && APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
 // rdar://51452216 c4ce1b8d78.. Handle roundIncr with trailing digits way beyond maxFrac significance
     } else if (increment != 0.0 && !ignoreRoundingIncrement(&increment,maxFrac)) {
 #else

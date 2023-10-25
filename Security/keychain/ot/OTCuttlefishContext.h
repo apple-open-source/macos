@@ -294,6 +294,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)rpcIsRecoveryKeySet:(void (^)(BOOL isSet, NSError * _Nullable error))reply;
 - (void)rpcRemoveRecoveryKey:(void (^)(BOOL removed, NSError * _Nullable error))reply;
+- (void)areRecoveryKeysDistrusted:(void (^)(BOOL, NSError *_Nullable))reply;
 
 - (void)rpcFetchTotalCountOfTrustedPeers:(void (^)(NSNumber* count, NSError* replyError))reply;
 
@@ -313,7 +314,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) TPPolicyVersion* policyOverride;
 
 // Octagon Health Check Helpers
-- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck repair:(BOOL)repair reply:(void (^)(NSError * _Nullable error))reply;
+- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck repair:(BOOL)repair reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError * _Nullable error))reply;
 
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;

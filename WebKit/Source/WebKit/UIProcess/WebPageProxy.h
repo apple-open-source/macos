@@ -174,6 +174,7 @@ enum class PolicyAction : uint8_t;
 enum class ReasonForDismissingAlternativeText : uint8_t;
 enum class ReloadOption : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
+enum class ScreenOrientationType : uint8_t;
 enum class ScrollGranularity : uint8_t;
 enum class ScrollIsAnimated : bool;
 enum class ScrollPinningBehavior : uint8_t;
@@ -475,6 +476,7 @@ enum class ShouldDelayClosingUntilFirstLayerFlush : bool;
 enum class SyntheticEditingCommandType : uint8_t;
 enum class TextRecognitionUpdateResult : uint8_t;
 enum class UndoOrRedo : bool;
+enum class WasNavigationIntercepted : bool;
 enum class WebContentMode : uint8_t;
 enum class WebEventModifier : uint8_t;
 enum class WebEventType : int8_t;
@@ -899,6 +901,7 @@ public:
     void dynamicViewportSizeUpdate(const DynamicViewportSizeUpdate&);
 
     void setViewportConfigurationViewLayoutSize(const WebCore::FloatSize&, double scaleFactor, double minimumEffectiveDeviceWidth);
+    void setSceneIdentifier(String&&);
     void setDeviceOrientation(WebCore::IntDegrees);
     WebCore::IntDegrees deviceOrientation() const { return m_deviceOrientation; }
     void setOverrideViewportArguments(const std::optional<WebCore::ViewportArguments>&);
@@ -1324,7 +1327,6 @@ public:
     void scrollTextRangeToVisible(const WebFoundTextRange&);
     void clearAllDecoratedFoundText();
     void didBeginTextSearchOperation();
-    void didEndTextSearchOperation();
 
     void requestRectForFoundTextRange(const WebFoundTextRange&, CompletionHandler<void(WebCore::FloatRect)>&&);
     void addLayerForFindOverlay(CompletionHandler<void(WebCore::PlatformLayerIdentifier)>&&);
@@ -1366,7 +1368,7 @@ public:
     class PolicyDecisionSender;
     enum class WillContinueLoadInNewProcess : bool { No, Yes };
     void receivedPolicyDecision(WebCore::PolicyAction, API::Navigation*, RefPtr<API::WebsitePolicies>&&, std::variant<Ref<API::NavigationResponse>, Ref<API::NavigationAction>>&&, Ref<PolicyDecisionSender>&&, WillContinueLoadInNewProcess, std::optional<SandboxExtensionHandle>);
-    void receivedNavigationPolicyDecision(WebProcessProxy&, WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, Ref<PolicyDecisionSender>&&);
+    void receivedNavigationPolicyDecision(WebProcessProxy&, WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, WasNavigationIntercepted, Ref<PolicyDecisionSender>&&);
 
     void backForwardRemovedItem(const WebCore::BackForwardItemIdentifier&);
 
@@ -2252,6 +2254,7 @@ public:
 
 #if ENABLE(WEBXR) && !USE(OPENXR)
     PlatformXRSystem* xrSystem() const;
+    void restartXRSessionActivityOnProcessResumeIfNeeded();
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
@@ -2588,6 +2591,7 @@ private:
     bool isValidPerformActionOnElementAuthorizationToken(const String& authorizationToken) const;
     bool isDesktopClassBrowsingRecommended(const WebCore::ResourceRequest&) const;
     bool useDesktopClassBrowsing(const API::WebsitePolicies&, const WebCore::ResourceRequest&) const;
+    static WebCore::ScreenOrientationType toScreenOrientationType(WebCore::IntDegrees);
 #endif
 
     void focusedFrameChanged(const std::optional<WebCore::FrameIdentifier>&);

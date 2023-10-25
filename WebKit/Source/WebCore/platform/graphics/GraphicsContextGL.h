@@ -1585,8 +1585,6 @@ public:
 
     WEBCORE_EXPORT virtual void setDrawingBufferColorSpace(const DestinationColorSpace&);
 
-    virtual bool isGLES2Compliant() const = 0;
-
     virtual void prepareForDisplay() = 0;
 
     // FIXME: should be removed, caller should keep track of changed state.
@@ -1675,6 +1673,7 @@ public:
     WEBCORE_EXPORT static void paintToCanvas(NativeImage&, const IntSize& canvasSize, GraphicsContext&);
     WEBCORE_EXPORT static void paintToCanvas(const GraphicsContextGLAttributes&, Ref<PixelBuffer>&&, const IntSize& canvasSize, GraphicsContext&);
 
+    bool isContextLost() const { return m_contextLost; }
 protected:
     WEBCORE_EXPORT virtual void forceContextLost();
     WEBCORE_EXPORT void dispatchContextChangedNotification();
@@ -1687,6 +1686,7 @@ protected:
     // auto-cleared.
     GCGLbitfield m_buffersToAutoClear { 0 };
     bool m_layerComposited { false };
+    bool m_contextLost { false };
 
 private:
     GraphicsContextGLAttributes m_attrs;

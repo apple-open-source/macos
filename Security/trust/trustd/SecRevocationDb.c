@@ -3473,17 +3473,35 @@ static bool _SecRevocationDbSerialInGroup(SecRevocationDbConnectionRef dbc,
     __block bool result = false;
     __block bool ok = true;
     __block CFErrorRef localError = NULL;
-    require(dbc && serial && CFDataGetLength(serial) > 0, errOut);
+    __block uint8_t *serialPtr = (serial) ? (uint8_t *)CFDataGetBytePtr(serial) : NULL;
+    __block size_t serialLen = (serial) ?  (size_t)CFDataGetLength(serial) : 0;
+    require(dbc && serialPtr && serialLen > 0, errOut);
     ok &= SecDbWithSQL(dbc->dbconn, selectSerialRecordSQL, &localError, ^bool(sqlite3_stmt *selectSerial) {
         ok &= SecDbBindInt64(selectSerial, 1, groupId, &localError);
-        ok &= SecDbBindBlob(selectSerial, 2, CFDataGetBytePtr(serial),
-                            (size_t)CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
+        ok &= SecDbBindBlob(selectSerial, 2, serialPtr, serialLen,
+                            SQLITE_TRANSIENT, &localError);
         ok &= SecDbStep(dbc->dbconn, selectSerial, &localError, ^(bool *stop) {
             int64_t foundRowId = (int64_t)sqlite3_column_int64(selectSerial, 0);
             result = (foundRowId > 0);
         });
         return ok;
     });
+    if (!result && serialLen > 1 &&  *serialPtr == 0x00) {
+        // Our serial has a leading zero byte but the Valid db entry may not have one,
+        // so remove the leading zero and retry our query. (There is no case where a
+        // different serial would differ only in having a leading zero byte.)
+        ok &= SecDbWithSQL(dbc->dbconn, selectSerialRecordSQL, &localError, ^bool(sqlite3_stmt *selectSerial) {
+            ok &= SecDbBindInt64(selectSerial, 1, groupId, &localError);
+            ok &= SecDbBindBlob(selectSerial, 2, serialPtr+1, serialLen-1,
+                                SQLITE_TRANSIENT, &localError);
+            ok &= SecDbStep(dbc->dbconn, selectSerial, &localError, ^(bool *stop) {
+                int64_t foundRowId = (int64_t)sqlite3_column_int64(selectSerial, 0);
+                result = (foundRowId > 0);
+            });
+            return ok;
+        });
+
+    }
 
 errOut:
     if (!ok || localError) {

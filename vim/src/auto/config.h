@@ -158,7 +158,7 @@
 /* #undef TGETSTR_CHAR_P */
 
 /* Define if tgetent() returns zero for an error */
-/* #undef TGETENT_ZERO_ERR */
+#define TGETENT_ZERO_ERR 0
 
 /* Define if the getcwd() function should not be used.  */
 /* #undef BAD_GETCWD */

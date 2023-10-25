@@ -65,8 +65,6 @@
 #import "EAPBoringSSLSession.h"
 #import "EAPLog.h"
 
-#ifdef SEC_PROTOCOL_HAS_EAP_SUPPORT
-
 #define EAP_BORINGSSL_DUMMY_HOST "0.0.0.0"
 #define EAP_BORINGSSL_DUMMY_PORT "0"
 
@@ -314,7 +312,6 @@ __attribute__((visibility("hidden")))
 	    complete(false);
 	    return;
 	}
-	strongSelf.secProtocolMetadata = metadata;
 	strongSelf.serverSecTrust = sec_trust_copy_ref(trust_ref);
 	strongSelf.secTrustCompletionHandler = complete;
 	[strongSelf updateHandshakeStatus:errSSLServerAuthCompleted];
@@ -498,6 +495,19 @@ __attribute__((visibility("hidden")))
     return sec_protocol_options_get_eap_method(securityOptions);
 }
 
+- (void)setSecProtocolMetadata
+{
+    /* if necessary, we need to set the Sec Metadata before passing it to Sec API */
+    if (self.secProtocolMetadata == nil) {
+	nw_protocol_definition_t tls_proto_definition = nw_protocol_options_copy_definition(self.tlsProtocol);
+	if (tls_proto_definition != nil) {
+	    self.secProtocolMetadata =
+		(sec_protocol_metadata_t)nw_connection_copy_protocol_metadata(self.connection,
+									      tls_proto_definition);
+	}
+    }
+}
+
 - (NSData *)getEAPKeyMaterial
 {
     if (self.state != EAPBoringSSLSessionStateConnected) {
@@ -508,6 +518,7 @@ __attribute__((visibility("hidden")))
 	secEAPType > sec_protocol_options_eap_method_max) {
 	return nil;
     }
+    [self setSecProtocolMetadata];
     if (self.secProtocolMetadata == nil) {
 	return nil;
     }
@@ -522,6 +533,7 @@ __attribute__((visibility("hidden")))
 
 - (tls_protocol_version_t)getNegotiatedTLSVersion
 {
+    [self setSecProtocolMetadata];
     if (self.secProtocolMetadata != nil) {
 	return (sec_protocol_metadata_get_negotiated_tls_protocol_version(self.secProtocolMetadata));
     }
@@ -531,10 +543,29 @@ __attribute__((visibility("hidden")))
 - (BOOL)getSessionResumed
 {
     bool ret = false;
+
+    [self setSecProtocolMetadata];
     if (self.secProtocolMetadata != nil) {
 	ret = sec_protocol_metadata_get_session_resumed(self.secProtocolMetadata);
     }
     return (ret ? YES : NO);
+}
+
+- (NSArray *)copyPeerCertificateChain
+{
+    [self setSecProtocolMetadata];
+    if (self.secProtocolMetadata == nil) {
+	return nil;
+    }
+    __block NSMutableArray *certificates = [[NSMutableArray alloc] init];
+    bool hasCerts = sec_protocol_metadata_access_peer_certificate_chain(self.secProtocolMetadata, ^(sec_certificate_t certificate) {
+	SecCertificateRef certificateRef = sec_certificate_copy_ref(certificate);
+	[certificates addObject:(__bridge_transfer NSObject *)certificateRef];
+    });
+    if (hasCerts && certificates.count > 0) {
+	return certificates;
+    }
+    return nil;
 }
 
 - (EAPBoringSSLSessionState)state
@@ -843,8 +874,6 @@ EAPBoringSSLSessionHandshake(EAPBoringSSLSessionContextRef sessionContext)
     EAPBoringSSLSession *session = (__bridge EAPBoringSSLSession *)sessionContext;
     /* now block till the TLS protocol updates the handshake status */
     OSStatus status = [session handshake];
-    EAPLOG_FL(LOG_INFO, "[EAP-TLS]: received handshake status [%s]:[%d]",
-	      EAPSecurityErrorString(status), (int)status);
     return status;
 }
 
@@ -858,6 +887,12 @@ EAPBoringSSLSessionCopyServerCertificates(EAPBoringSSLSessionContextRef sessionC
 
     if (session.serverSecTrust != NULL) {
 	return SecTrustCopyInputCertificates(session.serverSecTrust, certs);
+    } else {
+	NSArray *peerCerts = [session copyPeerCertificateChain];
+	if (peerCerts.count > 0) {
+	    *certs = (__bridge_retained CFArrayRef)peerCerts;
+	    return errSecSuccess;
+	}
     }
     return errSecParam;
 }
@@ -914,85 +949,3 @@ EAPBoringSSLSessionGetSessionResumed(EAPBoringSSLSessionContextRef sessionContex
     *sessionResumed = [session getSessionResumed] ? true : false;
     return errSecSuccess;
 }
-
-#else
-
-EAPBoringSSLSessionContextRef
-EAPBoringSSLSessionContextCreate(__unused EAPBoringSSLSessionParametersRef sessionParameters, __unused EAPBoringSSLClientContextRef clientContext)
-{
-    return NULL;
-}
-
-void
-EAPBoringSSLSessionStart(__unused EAPBoringSSLSessionContextRef sessionContext)
-{
-    return;
-}
-
-void
-EAPBoringSSLSessionStop(__unused EAPBoringSSLSessionContextRef sessionContext)
-{
-    return;
-}
-
-void
-EAPBoringSSLSessionContextFree(__unused EAPBoringSSLSessionContextRef sessionContext)
-{
-    return;
-}
-
-OSStatus
-EAPBoringSSLSessionGetCurrentState(__unused EAPBoringSSLSessionContextRef sessionContext, __unused EAPBoringSSLSessionState *state)
-{
-    return errSecSuccess;
-}
-
-CFStringRef
-EAPBoringSSLSessionGetCurrentStateDescription(__unused EAPBoringSSLSessionState state)
-{
-    return NULL;
-}
-
-void
-EAPBoringSSLUtilGetPreferredTLSVersions(__unused CFDictionaryRef properties, __unused tls_protocol_version_t *min, __unused tls_protocol_version_t *max)
-{
-    return;
-}
-
-OSStatus
-EAPBoringSSLSessionHandshake(__unused EAPBoringSSLSessionContextRef sessionContext)
-{
-    return errSecSuccess;
-}
-
-OSStatus
-EAPBoringSSLSessionCopyServerCertificates(__unused EAPBoringSSLSessionContextRef sessionContext, __unused CFArrayRef *certs)
-{
-    return errSecSuccess;
-}
-
-SecTrustRef
-EAPBoringSSLSessionGetSecTrust(EAPBoringSSLSessionContextRef sessionContext)
-{
-    return NULL;
-}
-
-OSStatus
-EAPBoringSSLSessionComputeKeyData(__unused EAPBoringSSLSessionContextRef sessionContext, __unused void *key, __unused int key_length)
-{
-    return errSecSuccess;
-}
-
-OSStatus
-EAPBoringSSLSessionGetNegotiatedTLSVersion(__unused EAPBoringSSLSessionContextRef sessionContext, __unused tls_protocol_version_t *tlsVersion)
-{
-    return errSecSuccess;
-}
-
-OSStatus
-EAPBoringSSLSessionGetSessionResumed(__unused EAPBoringSSLSessionContextRef sessionContext, __unused bool *sessionResumed)
-{
-    return errSecSuccess;
-}
-
-#endif /* SEC_PROTOCOL_HAS_EAP_SUPPORT */

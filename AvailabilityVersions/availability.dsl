@@ -214,94 +214,114 @@ version     tvos                14.6
 version     tvos                14.7
 version     watchos             7.5
 version     watchos             7.6
-version 	macos               12.0
-version 	ios                 15.0
-version 	tvos                15.0
-version 	watchos             8.0
-version 	bridgeos            6.0
-version 	driverkit           21.0
-set     	fall_2021           2021.9.1	0.0
-version 	ios                 15.1
-version 	tvos                15.1
-version 	watchos             8.1
-set     	late_fall_2021      2021.16.21	0.0
-version 	macos               12.1
-version 	ios                 15.2
-version 	tvos                15.2
-version 	watchos             8.3
-version 	bridgeos            6.2
-set     	winter_2021         2021.18.01	0.0
-version 	macos               12.2
-version 	ios                 15.3
-version 	tvos                15.3
-version 	watchos             8.4
-set     	late_winter_2021    2021.18.21	0.0
-version 	macos               12.3
-version 	ios                 15.4
-version 	tvos                15.4
-version 	watchos             8.5
-version 	bridgeos            6.4
-set     	spring_2022         2022.3.1	0.0
-version 	macos               12.4
-version 	ios                 15.5
-version 	tvos                15.5
-version 	watchos             8.6
-version 	bridgeos            6.5
-set     	late_spring_2022    2022.4.15	0.0
-version 	macos               12.5
-version 	ios                 15.6
-version 	tvos                15.6
-version 	watchos             8.7
-version 	bridgeos            6.6
-set     	summer_2022         2022.6.1	0.0
-version 	macos               13.0
-version 	ios                 16.0
-version 	tvos                16.0
-version 	watchos             9.0
-version 	bridgeos            7.0
-version 	driverkit           22.0
-set     	fall_2022           2022.9.1	0.0
-version 	macos               13.1
-version 	ios                 16.1
-version 	tvos                16.1
-version 	watchos             9.1
-version 	bridgeos            7.1
-set     	late_fall_2022      2022.16.21	0.0
-version 	macos				13.1
-version 	watchos				9.2
-version 	tvos				16.2
-version 	ios					16.2
-version 	bridgeos			7.1
-set     	2022_SU_C      		2022.33.0 0.0
-version 	macos				13.2
-version 	watchos				9.3
-version 	tvos				16.3
-version 	ios					16.3
-version 	bridgeos			7.2
-set     	2022_SU_D      		2022.34.0 0.0
-version 	driverkit			22.4
-version 	macos               13.3
-version 	ios                 16.4
-version 	tvos                16.4
-version 	watchos             9.4
-version 	bridgeos            7.3
-set     	2022_SU_E           2022.35.0	22.4.0
-version 	driverkit			22.5
-version 	macos               13.4
-version 	ios                 16.5
-version 	tvos                16.5
-version 	watchos             9.5
-version 	bridgeos            7.4
-set     	2022_SU_F           2022.36.0	22.5.0
-platform    xros               	xrOS 		XROS		min_max_define_name=XR_OS	availability_aliases=visionos ios_implicit_min=17.0
-version 	xros               	1.0
-version 	macos               14.0
-version 	ios                 17.0
-version 	tvos                17.0
-version 	watchos             10.0
-version 	bridgeos            8.0
-version 	driverkit           23.0
-set     	fall_2023           2023.9.1	23.0.0
+version     macos               12.0
+version     ios                 15.0
+version     tvos                15.0
+version     watchos             8.0
+version     bridgeos            6.0
+version     driverkit           21.0
+set         fall_2021           2021.9.1    0.0
+version     ios                 15.1
+version     tvos                15.1
+version     watchos             8.1
+set         late_fall_2021      2021.16.21  0.0
+version     macos               12.1
+version     ios                 15.2
+version     tvos                15.2
+version     watchos             8.3
+version     bridgeos            6.2
+set         winter_2021         2021.18.01  0.0
+version     macos               12.2
+version     ios                 15.3
+version     tvos                15.3
+version     watchos             8.4
+set         late_winter_2021    2021.18.21  0.0
+version     macos               12.3
+version     ios                 15.4
+version     tvos                15.4
+version     watchos             8.5
+version     bridgeos            6.4
+set         spring_2022         2022.3.1    0.0
+version     macos               12.4
+version     ios                 15.5
+version     tvos                15.5
+version     watchos             8.6
+version     bridgeos            6.5
+set         late_spring_2022    2022.4.15   0.0
+version     macos               12.5
+version     ios                 15.6
+version     tvos                15.6
+version     watchos             8.7
+version     bridgeos            6.6
+set         summer_2022         2022.6.1    0.0
+# Security updates that shipped after final SU
+version     macos               12.6
+version     macos               12.7
+version     macos               13.0
+version     ios                 16.0
+version     tvos                16.0
+version     watchos             9.0
+version     bridgeos            7.0
+version     driverkit           22.0
+set         fall_2022           2022.9.1    0.0
+version     macos               13.1
+version     ios                 16.1
+version     tvos                16.1
+version     watchos             9.1
+version     bridgeos            7.1
+set         late_fall_2022      2022.16.21  0.0
+version     macos               13.1
+version     watchos             9.2
+version     tvos                16.2
+version     ios                 16.2
+version     bridgeos            7.1
+set         2022_SU_C           2022.33.0   0.0
+version     macos               13.2
+version     watchos             9.3
+version     tvos                16.3
+version     ios                 16.3
+version     bridgeos            7.2
+set         2022_SU_D           2022.34.0   0.0
+version     driverkit           22.4
+version     macos               13.3
+version     ios                 16.4
+version     tvos                16.4
+version     watchos             9.4
+version     bridgeos            7.3
+set         2022_SU_E           2022.35.0   22.4.0
+version     driverkit           22.5
+version     macos               13.4
+version     ios                 16.5
+version     tvos                16.5
+version     watchos             9.5
+version     bridgeos            7.4
+set         2022_SU_F           2022.36.0   22.5.0
+version     driverkit           22.6
+version     macos               13.5
+version     ios                 16.6
+version     tvos                16.6
+version     watchos             9.6
+version     bridgeos            7.6
+set         2022_SU_G           2022.37.0   22.6.0
+# Security updates shipped after 2022_SU_G
+version     macos               13.6
+version     ios                 16.7
+version     macos               14.0
+version     ios                 17.0
+version     tvos                17.0
+version     watchos             10.0
+version     bridgeos            8.0
+version     driverkit           23.0
+set         fall_2023           2023.9.1    23.0.0
+platform    xros                xrOS        XROS        min_max_define_name=XR_OS   availability_aliases=visionos ios_implicit_min=17.1
+version     xros                1.0
+version     macos               14.1
+version     ios                 17.1
+version     tvos                17.1
+version     watchos             10.1
+version     bridgeos            8.1
+version     driverkit           23.1
+set         2023_SU_B           2023.12.1    23.1.0
 #ifndef __OPENSOURCE__
 version 	xros               	1.1
 version 	macos               14.3

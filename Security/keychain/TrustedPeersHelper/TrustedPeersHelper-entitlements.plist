@@ -46,6 +46,7 @@
 		<string>com.apple.mobile.usermanagerd.xpc</string>
 		<string>com.apple.security.sfkeychainserver</string>
 		<string>com.apple.securityd</string>
+                <string>com.apple.SBUserNotification</string>
 	</array>
 	<key>com.apple.security.exception.shared-preference.read-write</key>
 	<array>
@@ -70,6 +71,10 @@
 		<string>temporary-sandbox</string>
 	</array>
 	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
+	<key>com.apple.TapToRadarKit.service-access</key>
+	<true/>
+	<key>com.apple.springboard.openurlinbackground</key>
 	<true/>
 </dict>
 </plist>

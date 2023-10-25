@@ -51,7 +51,8 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
 
 - (int)healthCheck:(OTControlArguments*)arguments
        skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
-                      repair:(BOOL)repair;
+                      repair:(BOOL)repair
+                        json:(BOOL)json;
 
 - (int)refetchCKKSPolicy:(OTControlArguments*)arguments;
 

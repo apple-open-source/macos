@@ -1434,6 +1434,7 @@ $quote	eval.txt	/*$quote*
 +python/dyn	various.txt	/*+python\/dyn*
 +python3	various.txt	/*+python3*
 +python3/dyn	various.txt	/*+python3\/dyn*
++python3/dyn-stable	various.txt	/*+python3\/dyn-stable*
 +quickfix	various.txt	/*+quickfix*
 +reltime	various.txt	/*+reltime*
 +rightleft	various.txt	/*+rightleft*
@@ -2084,10 +2085,12 @@ $quote	eval.txt	/*$quote*
 :Continue	terminal.txt	/*:Continue*
 :DiffOrig	diff.txt	/*:DiffOrig*
 :DoMatchParen	pi_paren.txt	/*:DoMatchParen*
+:Down	terminal.txt	/*:Down*
 :Evaluate	terminal.txt	/*:Evaluate*
 :Explore	pi_netrw.txt	/*:Explore*
 :Finish	terminal.txt	/*:Finish*
 :FixBeginfigs	ft_mp.txt	/*:FixBeginfigs*
+:Frame	terminal.txt	/*:Frame*
 :GLVS	pi_getscript.txt	/*:GLVS*
 :Gdb	terminal.txt	/*:Gdb*
 :GetLatestVimScripts_dat	pi_getscript.txt	/*:GetLatestVimScripts_dat*
@@ -2140,7 +2143,9 @@ $quote	eval.txt	/*$quote*
 :TermdebugCommand	terminal.txt	/*:TermdebugCommand*
 :Texplore	pi_netrw.txt	/*:Texplore*
 :Until	terminal.txt	/*:Until*
+:Up	terminal.txt	/*:Up*
 :UseVimball	pi_vimball.txt	/*:UseVimball*
+:Var	terminal.txt	/*:Var*
 :Vexplore	pi_netrw.txt	/*:Vexplore*
 :VimballList	pi_vimball.txt	/*:VimballList*
 :Vimuntar	pi_tar.txt	/*:Vimuntar*
@@ -3856,7 +3861,8 @@ BeOS	os_beos.txt	/*BeOS*
 Blob	eval.txt	/*Blob*
 Blobs	eval.txt	/*Blobs*
 Boolean	eval.txt	/*Boolean*
-Bram	intro.txt	/*Bram*
+Bram	version9.txt	/*Bram*
+Bram-Moolenaar	version9.txt	/*Bram-Moolenaar*
 BufAdd	autocmd.txt	/*BufAdd*
 BufCreate	autocmd.txt	/*BufCreate*
 BufDelete	autocmd.txt	/*BufDelete*
@@ -4186,7 +4192,6 @@ E1133	vim9.txt	/*E1133*
 E1134	vim9.txt	/*E1134*
 E1135	eval.txt	/*E1135*
 E1136	map.txt	/*E1136*
-E1137	map.txt	/*E1137*
 E1138	eval.txt	/*E1138*
 E1139	vim9.txt	/*E1139*
 E114	eval.txt	/*E114*
@@ -4437,9 +4442,16 @@ E1362	vim9class.txt	/*E1362*
 E1363	vim9class.txt	/*E1363*
 E1364	recover.txt	/*E1364*
 E137	starting.txt	/*E137*
+E1370	vim9class.txt	/*E1370*
 E138	starting.txt	/*E138*
 E139	message.txt	/*E139*
 E140	message.txt	/*E140*
+E1400	builtin.txt	/*E1400*
+E1401	builtin.txt	/*E1401*
+E1402	builtin.txt	/*E1402*
+E1403	builtin.txt	/*E1403*
+E1404	builtin.txt	/*E1404*
+E1405	builtin.txt	/*E1405*
 E141	message.txt	/*E141*
 E142	message.txt	/*E142*
 E143	autocmd.txt	/*E143*
@@ -4654,6 +4666,7 @@ E337	gui.txt	/*E337*
 E338	editing.txt	/*E338*
 E339	message.txt	/*E339*
 E34	various.txt	/*E34*
+E340	message.txt	/*E340*
 E341	message.txt	/*E341*
 E342	message.txt	/*E342*
 E343	options.txt	/*E343*
@@ -5458,7 +5471,7 @@ Mark	motion.txt	/*Mark*
 MenuPopup	autocmd.txt	/*MenuPopup*
 MiNT	os_mint.txt	/*MiNT*
 ModeChanged	autocmd.txt	/*ModeChanged*
-Moolenaar	intro.txt	/*Moolenaar*
+Moolenaar	version9.txt	/*Moolenaar*
 MorphOS	os_amiga.txt	/*MorphOS*
 Motif	gui_x11.txt	/*Motif*
 Myspell	spell.txt	/*Myspell*
@@ -5837,6 +5850,7 @@ abandon	editing.txt	/*abandon*
 abbreviations	map.txt	/*abbreviations*
 abel.vim	syntax.txt	/*abel.vim*
 abs()	builtin.txt	/*abs()*
+abstract-method	vim9class.txt	/*abstract-method*
 acos()	builtin.txt	/*acos()*
 active-buffer	windows.txt	/*active-buffer*
 ada#Create_Tags()	ft_ada.txt	/*ada#Create_Tags()*
@@ -6753,6 +6767,7 @@ err_mode	channel.txt	/*err_mode*
 err_modifiable	channel.txt	/*err_modifiable*
 err_msg	channel.txt	/*err_msg*
 err_name	channel.txt	/*err_name*
+err_teapot()	builtin.txt	/*err_teapot()*
 err_timeout	channel.txt	/*err_timeout*
 errmsg-variable	eval.txt	/*errmsg-variable*
 error-file-format	quickfix.txt	/*error-file-format*
@@ -7422,6 +7437,7 @@ g:netrw_localmkdir	pi_netrw.txt	/*g:netrw_localmkdir*
 g:netrw_localmkdiropt	pi_netrw.txt	/*g:netrw_localmkdiropt*
 g:netrw_localmovecmd	pi_netrw.txt	/*g:netrw_localmovecmd*
 g:netrw_localmovecmdopt	pi_netrw.txt	/*g:netrw_localmovecmdopt*
+g:netrw_localrmdir	pi_netrw.txt	/*g:netrw_localrmdir*
 g:netrw_maxfilenamelen	pi_netrw.txt	/*g:netrw_maxfilenamelen*
 g:netrw_menu	pi_netrw.txt	/*g:netrw_menu*
 g:netrw_mkdir_cmd	pi_netrw.txt	/*g:netrw_mkdir_cmd*
@@ -7467,6 +7483,7 @@ g:netrw_wiw	pi_netrw.txt	/*g:netrw_wiw*
 g:netrw_xstrlen	pi_netrw.txt	/*g:netrw_xstrlen*
 g:no_mail_maps	filetype.txt	/*g:no_mail_maps*
 g:no_plugin_maps	filetype.txt	/*g:no_plugin_maps*
+g:plugin_exec	filetype.txt	/*g:plugin_exec*
 g:rust_bang_comment_leader	ft_rust.txt	/*g:rust_bang_comment_leader*
 g:rust_conceal	ft_rust.txt	/*g:rust_conceal*
 g:rust_conceal_mod_path	ft_rust.txt	/*g:rust_conceal_mod_path*
@@ -7533,6 +7550,7 @@ g<LeftMouse>	tagsrch.txt	/*g<LeftMouse>*
 g<RightMouse>	tagsrch.txt	/*g<RightMouse>*
 g<Tab>	tabpage.txt	/*g<Tab>*
 g<Up>	motion.txt	/*g<Up>*
+g<kEnd>	motion.txt	/*g<kEnd>*
 g?	change.txt	/*g?*
 g??	change.txt	/*g??*
 g?g?	change.txt	/*g?g?*
@@ -8016,6 +8034,7 @@ i_CTRL-O	insert.txt	/*i_CTRL-O*
 i_CTRL-P	insert.txt	/*i_CTRL-P*
 i_CTRL-Q	insert.txt	/*i_CTRL-Q*
 i_CTRL-R	insert.txt	/*i_CTRL-R*
+i_CTRL-R_-	insert.txt	/*i_CTRL-R_-*
 i_CTRL-R_=	insert.txt	/*i_CTRL-R_=*
 i_CTRL-R_CTRL-O	insert.txt	/*i_CTRL-R_CTRL-O*
 i_CTRL-R_CTRL-P	insert.txt	/*i_CTRL-R_CTRL-P*
@@ -8154,10 +8173,12 @@ insertmode-variable	eval.txt	/*insertmode-variable*
 install	usr_90.txt	/*install*
 install-home	usr_90.txt	/*install-home*
 install-registry	gui_w32.txt	/*install-registry*
+instanceof()	builtin.txt	/*instanceof()*
 intel-itanium	syntax.txt	/*intel-itanium*
 intellimouse-wheel-problems	gui_w32.txt	/*intellimouse-wheel-problems*
 interactive-functions	usr_41.txt	/*interactive-functions*
 interfaces-5.2	version5.txt	/*interfaces-5.2*
+internal-error	message.txt	/*internal-error*
 internal-variables	eval.txt	/*internal-variables*
 internal-wordlist	spell.txt	/*internal-wordlist*
 internet	intro.txt	/*internet*
@@ -9123,6 +9144,7 @@ plugin	usr_05.txt	/*plugin*
 plugin-details	filetype.txt	/*plugin-details*
 plugin-filetype	usr_51.txt	/*plugin-filetype*
 plugin-special	usr_51.txt	/*plugin-special*
+plugin_exec	filetype.txt	/*plugin_exec*
 plugin_name.txt	helphelp.txt	/*plugin_name.txt*
 pmbcs-option	print.txt	/*pmbcs-option*
 pmbfn-option	print.txt	/*pmbfn-option*
@@ -9204,6 +9226,7 @@ print-intro	print.txt	/*print-intro*
 print-options	print.txt	/*print-options*
 print.txt	print.txt	/*print.txt*
 printf()	builtin.txt	/*printf()*
+printf-$	builtin.txt	/*printf-$*
 printf-%	builtin.txt	/*printf-%*
 printf-B	builtin.txt	/*printf-B*
 printf-E	builtin.txt	/*printf-E*
@@ -9291,6 +9314,8 @@ python-path_hook	if_pyth.txt	/*python-path_hook*
 python-pyeval	if_pyth.txt	/*python-pyeval*
 python-range	if_pyth.txt	/*python-range*
 python-special-path	if_pyth.txt	/*python-special-path*
+python-stable	if_pyth.txt	/*python-stable*
+python-stable-abi	if_pyth.txt	/*python-stable-abi*
 python-strwidth	if_pyth.txt	/*python-strwidth*
 python-tabpage	if_pyth.txt	/*python-tabpage*
 python-tabpages	if_pyth.txt	/*python-tabpages*
@@ -9303,6 +9328,8 @@ python.vim	syntax.txt	/*python.vim*
 python2-directory	if_pyth.txt	/*python2-directory*
 python3	if_pyth.txt	/*python3*
 python3-directory	if_pyth.txt	/*python3-directory*
+python3-stable-abi	if_pyth.txt	/*python3-stable-abi*
+python3-version-variable	eval.txt	/*python3-version-variable*
 python_x	if_pyth.txt	/*python_x*
 python_x-special-comments	if_pyth.txt	/*python_x-special-comments*
 pythonx	if_pyth.txt	/*pythonx*
@@ -9705,6 +9732,8 @@ spec_chglog_format	pi_spec.txt	/*spec_chglog_format*
 spec_chglog_prepend	pi_spec.txt	/*spec_chglog_prepend*
 spec_chglog_release_info	pi_spec.txt	/*spec_chglog_release_info*
 special-buffers	windows.txt	/*special-buffers*
+special-local-buffer-option	options.txt	/*special-local-buffer-option*
+special-local-window-option	options.txt	/*special-local-window-option*
 specifies	vim9class.txt	/*specifies*
 speed-up	tips.txt	/*speed-up*
 spell	spell.txt	/*spell*
@@ -9885,6 +9914,7 @@ string	eval.txt	/*string*
 string()	builtin.txt	/*string()*
 string-functions	usr_41.txt	/*string-functions*
 string-match	builtin.txt	/*string-match*
+string-offset-encoding	eval.txt	/*string-offset-encoding*
 strlen()	builtin.txt	/*strlen()*
 strpart()	builtin.txt	/*strpart()*
 strpbrk()	builtin.txt	/*strpbrk()*
@@ -9894,6 +9924,7 @@ strridx()	builtin.txt	/*strridx()*
 strspn()	builtin.txt	/*strspn()*
 strstr()	builtin.txt	/*strstr()*
 strtrans()	builtin.txt	/*strtrans()*
+strutf16len()	builtin.txt	/*strutf16len()*
 strwidth()	builtin.txt	/*strwidth()*
 style-changes	develop.txt	/*style-changes*
 style-compiler	develop.txt	/*style-compiler*
@@ -10312,15 +10343,20 @@ termdebug-communication	terminal.txt	/*termdebug-communication*
 termdebug-customizing	terminal.txt	/*termdebug-customizing*
 termdebug-events	terminal.txt	/*termdebug-events*
 termdebug-example	terminal.txt	/*termdebug-example*
+termdebug-frames	terminal.txt	/*termdebug-frames*
 termdebug-prompt	terminal.txt	/*termdebug-prompt*
 termdebug-starting	terminal.txt	/*termdebug-starting*
 termdebug-stepping	terminal.txt	/*termdebug-stepping*
 termdebug-variables	terminal.txt	/*termdebug-variables*
 termdebug_disasm_window	terminal.txt	/*termdebug_disasm_window*
 termdebug_map_K	terminal.txt	/*termdebug_map_K*
+termdebug_map_minus	terminal.txt	/*termdebug_map_minus*
+termdebug_map_plus	terminal.txt	/*termdebug_map_plus*
 termdebug_popup	terminal.txt	/*termdebug_popup*
 termdebug_shortcuts	terminal.txt	/*termdebug_shortcuts*
+termdebug_signs	terminal.txt	/*termdebug_signs*
 termdebug_use_prompt	terminal.txt	/*termdebug_use_prompt*
+termdebug_variables_window	terminal.txt	/*termdebug_variables_window*
 termdebug_wide	terminal.txt	/*termdebug_wide*
 termdebug_winbar	terminal.txt	/*termdebug_winbar*
 terminal	terminal.txt	/*terminal*
@@ -10556,6 +10592,7 @@ utf-8	mbyte.txt	/*utf-8*
 utf-8-char-arg	mbyte.txt	/*utf-8-char-arg*
 utf-8-in-xwindows	mbyte.txt	/*utf-8-in-xwindows*
 utf-8-typing	mbyte.txt	/*utf-8-typing*
+utf16idx()	builtin.txt	/*utf16idx()*
 utf8	mbyte.txt	/*utf8*
 v	visual.txt	/*v*
 v:	eval.txt	/*v:*
@@ -10624,6 +10661,7 @@ v:prevcount	eval.txt	/*v:prevcount*
 v:profiling	eval.txt	/*v:profiling*
 v:progname	eval.txt	/*v:progname*
 v:progpath	eval.txt	/*v:progpath*
+v:python3_version	eval.txt	/*v:python3_version*
 v:register	eval.txt	/*v:register*
 v:scrollstart	eval.txt	/*v:scrollstart*
 v:searchforward	eval.txt	/*v:searchforward*
@@ -10880,6 +10918,7 @@ vim9-declaration	vim9.txt	/*vim9-declaration*
 vim9-declarations	usr_41.txt	/*vim9-declarations*
 vim9-differences	vim9.txt	/*vim9-differences*
 vim9-export	vim9.txt	/*vim9-export*
+vim9-false-true	vim9.txt	/*vim9-false-true*
 vim9-final	vim9.txt	/*vim9-final*
 vim9-function-defined-later	vim9.txt	/*vim9-function-defined-later*
 vim9-gotchas	vim9.txt	/*vim9-gotchas*
@@ -10897,6 +10936,7 @@ vim9-rationale	vim9.txt	/*vim9-rationale*
 vim9-reload	vim9.txt	/*vim9-reload*
 vim9-s-namespace	vim9.txt	/*vim9-s-namespace*
 vim9-scopes	vim9.txt	/*vim9-scopes*
+vim9-string-index	vim9.txt	/*vim9-string-index*
 vim9-types	vim9.txt	/*vim9-types*
 vim9-unpack-ignore	vim9.txt	/*vim9-unpack-ignore*
 vim9-user-command	vim9.txt	/*vim9-user-command*

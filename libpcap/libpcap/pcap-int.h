@@ -209,7 +209,7 @@ typedef PAirpcapHandle	(*get_airpcap_handle_op_t)(pcap_t *);
 typedef void	(*cleanup_op_t)(pcap_t *);
 #ifdef __APPLE__
 typedef int	(*cleanup_interface_op_t)(const char *, char *);
-
+typedef int	(*send_multiple_op_t)(const char *, const struct pcap_pkthdr **, int);
 #endif /* __APPLE__ */
     
 /*
@@ -400,6 +400,13 @@ struct pcap {
 	activate_op_t pktap_activate_op;
 	cleanup_op_t pktap_cleanup_op;
 
+	send_multiple_op_t send_multiple_op;
+	int send_multiple;
+	uint32_t send_bpfhdr_count;
+	struct bpf_hdr *send_bpfhdr_array;
+	uint32_t send_iovec_count;
+	struct iovec *send_iovec_array;
+
 	char *filter_str;
 	int shb_added;
 
@@ -519,6 +526,7 @@ struct pcap_dumper {
 
 pcap_dumper_t *pcap_alloc_dumper(pcap_t *, FILE *);
 
+void pcap_darwin_cleanup(pcap_t *);
 #endif /* __APPLE__ */
 
 /*

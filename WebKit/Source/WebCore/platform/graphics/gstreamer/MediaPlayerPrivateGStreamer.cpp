@@ -144,7 +144,6 @@ MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
     , m_player(player)
     , m_referrer(player->referrer())
     , m_cachedDuration(MediaTime::invalidTime())
-    , m_seekTime(MediaTime::invalidTime())
     , m_timeOfOverlappingSeek(MediaTime::invalidTime())
     , m_fillTimer(*this, &MediaPlayerPrivateGStreamer::fillTimerFired)
     , m_maxTimeLoaded(MediaTime::zeroTime())
@@ -264,7 +263,7 @@ private:
         return makeUnique<MediaPlayerPrivateGStreamer>(player);
     }
 
-    void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types) const final
+    void getSupportedTypes(HashSet<String>& types) const final
     {
         return MediaPlayerPrivateGStreamer::getSupportedTypes(types);
     }
@@ -401,7 +400,7 @@ void MediaPlayerPrivateGStreamer::play()
         auto player = m_player.get();
         if (player && player->isLooping()) {
             GST_DEBUG_OBJECT(pipeline(), "Scheduling initial SEGMENT seek");
-            doSeek(playbackPosition(), m_playbackRate);
+            doSeek(SeekTarget { playbackPosition() }, m_playbackRate);
         }
     } else
         loadingFailed(MediaPlayer::NetworkState::Empty);
@@ -446,17 +445,17 @@ bool MediaPlayerPrivateGStreamer::paused() const
     return paused;
 }
 
-bool MediaPlayerPrivateGStreamer::doSeek(const MediaTime& position, float rate)
+bool MediaPlayerPrivateGStreamer::doSeek(const SeekTarget& target, float rate)
 {
     auto player = m_player.get();
 
     // Default values for rate >= 0.
-    MediaTime startTime = position, endTime = MediaTime::invalidTime();
+    MediaTime startTime = target.time, endTime = MediaTime::invalidTime();
 
     if (rate < 0) {
         startTime = MediaTime::zeroTime();
         // If we are at beginning of media, start from the end to avoid immediate EOS.
-        endTime = position <= MediaTime::zeroTime() ? durationMediaTime() : position;
+        endTime = target.time <= MediaTime::zeroTime() ? durationMediaTime() : target.time;
     }
 
     if (!rate)
@@ -483,16 +482,17 @@ bool MediaPlayerPrivateGStreamer::doSeek(const MediaTime& position, float rate)
     return gst_element_seek(m_pipeline.get(), rate, GST_FORMAT_TIME, m_seekFlags, GST_SEEK_TYPE_SET, seekStart, GST_SEEK_TYPE_SET, seekStop);
 }
 
-void MediaPlayerPrivateGStreamer::seek(const MediaTime& mediaTime)
+void MediaPlayerPrivateGStreamer::seekToTarget(const SeekTarget& inTarget)
 {
     if (!m_pipeline || m_didErrorOccur || isMediaStreamPlayer())
         return;
 
-    GST_INFO_OBJECT(pipeline(), "[Seek] seek attempt to %s", toString(mediaTime).utf8().data());
+    GST_INFO_OBJECT(pipeline(), "[Seek] seek attempt to %s", toString(inTarget.time).utf8().data());
 
     // Avoid useless seeking.
-    if (mediaTime == currentMediaTime()) {
+    if (inTarget.time == currentMediaTime()) {
         GST_DEBUG_OBJECT(pipeline(), "[Seek] Already at requested position. Aborting.");
+        timeChanged(inTarget.time);
         return;
     }
 
@@ -507,13 +507,14 @@ void MediaPlayerPrivateGStreamer::seek(const MediaTime& mediaTime)
         return;
     }
 
-    MediaTime time = std::min(mediaTime, durationMediaTime());
-    GST_INFO_OBJECT(pipeline(), "[Seek] seeking to %s", toString(time).utf8().data());
+    auto target = inTarget;
+    target.time = std::min(inTarget.time, durationMediaTime());
+    GST_INFO_OBJECT(pipeline(), "[Seek] seeking to %s", toString(target.time).utf8().data());
 
     if (m_isSeeking) {
-        m_timeOfOverlappingSeek = time;
+        m_timeOfOverlappingSeek = target.time;
         if (m_isSeekPending) {
-            m_seekTime = time;
+            m_seekTarget = target;
             return;
         }
     }
@@ -526,17 +527,17 @@ void MediaPlayerPrivateGStreamer::seek(const MediaTime& mediaTime)
     }
 
     if (player->isLooping() && isSeamlessSeekingEnabled() && state > GST_STATE_PAUSED) {
-        // Segment seeking is synchronous, the pipeline state is not changed, no flush is done.
+        // Segment seeking is synchronous, the pipeline state has not changed, no flush is done.
         GST_DEBUG_OBJECT(pipeline(), "Performing segment seek");
         m_isSeeking = true;
-        if (!doSeek(time, player->rate())) {
-            GST_DEBUG_OBJECT(pipeline(), "[Seek] seeking to %s failed", toString(time).utf8().data());
+        if (!doSeek(target, player->rate())) {
+            GST_DEBUG_OBJECT(pipeline(), "[Seek] seeking to %s failed", toString(target.time).utf8().data());
             return;
         }
         m_isEndReached = false;
         m_isSeeking = false;
         m_cachedPosition = MediaTime::zeroTime();
-        timeChanged();
+        timeChanged(target.time);
         return;
     }
 
@@ -550,14 +551,14 @@ void MediaPlayerPrivateGStreamer::seek(const MediaTime& mediaTime)
         }
     } else {
         // We can seek now.
-        if (!doSeek(time, player->rate())) {
-            GST_DEBUG_OBJECT(pipeline(), "[Seek] seeking to %s failed", toString(time).utf8().data());
+        if (!doSeek(target, player->rate())) {
+            GST_DEBUG_OBJECT(pipeline(), "[Seek] seeking to %s failed", toString(target.time).utf8().data());
             return;
         }
     }
 
     m_isSeeking = true;
-    m_seekTime = time;
+    m_seekTarget = target;
     m_isEndReached = false;
 }
 
@@ -574,7 +575,7 @@ void MediaPlayerPrivateGStreamer::updatePlaybackRate()
     GST_INFO_OBJECT(pipeline(), mute ? "Need to mute audio" : "Do not need to mute audio");
 
     if (m_lastPlaybackRate != m_playbackRate) {
-        if (doSeek(playbackPosition(), m_playbackRate)) {
+        if (doSeek(SeekTarget { playbackPosition() }, m_playbackRate)) {
             g_object_set(m_pipeline.get(), "mute", mute, nullptr);
             m_lastPlaybackRate = m_playbackRate;
         } else {
@@ -627,9 +628,9 @@ MediaTime MediaPlayerPrivateGStreamer::currentMediaTime() const
     if (!m_pipeline || m_didErrorOccur)
         return MediaTime::invalidTime();
 
-    GST_TRACE_OBJECT(pipeline(), "seeking: %s, seekTime: %s", boolForPrinting(m_isSeeking), m_seekTime.toString().utf8().data());
+    GST_TRACE_OBJECT(pipeline(), "seeking: %s, seekTarget: %s", boolForPrinting(m_isSeeking), m_seekTarget.toString().utf8().data());
     if (m_isSeeking)
-        return m_seekTime;
+        return m_seekTarget.time;
 
     return playbackPosition();
 }
@@ -1242,12 +1243,15 @@ void MediaPlayerPrivateGStreamer::loadStateChanged()
     updateStates();
 }
 
-void MediaPlayerPrivateGStreamer::timeChanged()
+void MediaPlayerPrivateGStreamer::timeChanged(const MediaTime& seekedTime)
 {
     updateStates();
-    GST_DEBUG_OBJECT(pipeline(), "Emitting timeChanged notification");
-    if (auto player = m_player.get())
+    GST_DEBUG_OBJECT(pipeline(), "Emitting timeChanged notification (seekCompleted:%d)", seekedTime.isValid());
+    if (auto player = m_player.get()) {
+        if (seekedTime.isValid())
+            player->seeked(seekedTime);
         player->timeChanged();
+    }
 }
 
 void MediaPlayerPrivateGStreamer::loadingFailed(MediaPlayer::NetworkState networkError, MediaPlayer::ReadyState readyState, bool forceNotifications)
@@ -1341,7 +1345,7 @@ GstClockTime MediaPlayerPrivateGStreamer::gstreamerPositionFromSinks() const
 
 MediaTime MediaPlayerPrivateGStreamer::playbackPosition() const
 {
-    GST_TRACE_OBJECT(pipeline(), "isEndReached: %s, seeking: %s, seekTime: %s", boolForPrinting(m_isEndReached), boolForPrinting(m_isSeeking), m_seekTime.toString().utf8().data());
+    GST_TRACE_OBJECT(pipeline(), "isEndReached: %s, seeking: %s, seekTime: %s", boolForPrinting(m_isEndReached), boolForPrinting(m_isSeeking), m_seekTarget.time.toString().utf8().data());
 
 #if ENABLE(MEDIA_STREAM)
     auto player = m_player.get();
@@ -1350,7 +1354,7 @@ MediaTime MediaPlayerPrivateGStreamer::playbackPosition() const
 #endif
 
     if (m_isSeeking)
-        return m_seekTime;
+        return m_seekTarget.time;
     if (m_isEndReached)
         return m_playbackRate > 0 ? durationMediaTime() : MediaTime::zeroTime();
 
@@ -1367,7 +1371,7 @@ MediaTime MediaPlayerPrivateGStreamer::playbackPosition() const
     if (GST_CLOCK_TIME_IS_VALID(gstreamerPosition))
         playbackPosition = MediaTime(gstreamerPosition, GST_SECOND);
     else if (m_canFallBackToLastFinishedSeekPosition)
-        playbackPosition = m_seekTime;
+        playbackPosition = m_seekTarget.time;
 
     m_cachedPosition = playbackPosition;
     invalidateCachedPositionOnNextIteration();
@@ -2428,20 +2432,20 @@ void MediaPlayerPrivateGStreamer::purgeOldDownloadFiles(const String& downloadFi
 
 void MediaPlayerPrivateGStreamer::finishSeek()
 {
-    GST_DEBUG_OBJECT(pipeline(), "[Seek] seeked to %s", toString(m_seekTime).utf8().data());
+    GST_DEBUG_OBJECT(pipeline(), "[Seek] seeked to %s", toString(m_seekTarget.time).utf8().data());
     m_isSeeking = false;
     invalidateCachedPosition();
-    if (m_timeOfOverlappingSeek != m_seekTime && m_timeOfOverlappingSeek.isValid()) {
-        seek(m_timeOfOverlappingSeek);
+    if (m_timeOfOverlappingSeek != m_seekTarget.time && m_timeOfOverlappingSeek.isValid()) {
+        seekToTarget(SeekTarget { m_timeOfOverlappingSeek });
         m_timeOfOverlappingSeek = MediaTime::invalidTime();
         return;
     }
     m_timeOfOverlappingSeek = MediaTime::invalidTime();
 
     // The pipeline can still have a pending state. In this case a position query will fail.
-    // Right now we can use m_seekTime as a fallback.
+    // Right now we can use m_seekTarget as a fallback.
     m_canFallBackToLastFinishedSeekPosition = true;
-    timeChanged();
+    timeChanged(m_seekTarget.time);
 }
 
 void MediaPlayerPrivateGStreamer::updateStates()
@@ -2618,12 +2622,12 @@ void MediaPlayerPrivateGStreamer::updateStates()
     if (getStateResult == GST_STATE_CHANGE_SUCCESS && m_currentState >= GST_STATE_PAUSED) {
         updatePlaybackRate();
         if (player && m_isSeekPending) {
-            GST_DEBUG_OBJECT(pipeline(), "[Seek] committing pending seek to %s", toString(m_seekTime).utf8().data());
+            GST_DEBUG_OBJECT(pipeline(), "[Seek] committing pending seek to %s", toString(m_seekTarget.time).utf8().data());
             m_isSeekPending = false;
-            m_isSeeking = doSeek(m_seekTime, player->rate());
+            m_isSeeking = doSeek(m_seekTarget, player->rate());
             if (!m_isSeeking) {
                 invalidateCachedPosition();
-                GST_DEBUG_OBJECT(pipeline(), "[Seek] seeking to %s failed", toString(m_seekTime).utf8().data());
+                GST_DEBUG_OBJECT(pipeline(), "[Seek] seeking to %s failed", toString(m_seekTarget.time).utf8().data());
             }
         } else if (m_isSeeking && !(state == GST_STATE_PLAYING && pending == GST_STATE_PAUSED))
             finishSeek();
@@ -2784,10 +2788,10 @@ void MediaPlayerPrivateGStreamer::didEnd()
         configureMediaStreamAudioTracks();
     }
 
-    timeChanged();
+    timeChanged(MediaTime::invalidTime());
 }
 
-void MediaPlayerPrivateGStreamer::getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types)
+void MediaPlayerPrivateGStreamer::getSupportedTypes(HashSet<String>& types)
 {
     GStreamerRegistryScanner::getSupportedDecodingTypes(types);
 }

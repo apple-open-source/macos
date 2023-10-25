@@ -20289,7 +20289,6 @@ supplementalData:table(nofallback){
             "en_GP",
             "en_GQ",
             "en_GT",
-            "en_GQ",
             "en_GY",
             "en_HK",
             "en_HN",
@@ -20588,6 +20587,8 @@ supplementalData:table(nofallback){
             "ur_Latn",
             "yi_Latn",
             "zh_Latn",
+            "ber_Latn",
+            "rej_Rjng",
         }
         zh_Hant_HK{"zh_Hant_MO"}
     }
@@ -28450,7 +28451,7 @@ supplementalData:table(nofallback){
             }
             yue_Hans{
                 populationShareF:int{48520000}
-                writingShareF:int{48520000}
+                writingShareF:int{48500000}
             }
             za{
                 officialStatus{"official_regional"}

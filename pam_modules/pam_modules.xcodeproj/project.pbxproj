@@ -151,6 +151,7 @@
 		F6D2E89326737AB2005D165D /* krb5principal.m in Sources */ = {isa = PBXBuildFile; fileRef = F6D2E89226737AB2005D165D /* krb5principal.m */; };
 		F6D2E89526737C8C005D165D /* ds_ops.h in Headers */ = {isa = PBXBuildFile; fileRef = F6D2E89426737C8C005D165D /* ds_ops.h */; };
 		F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.m in Sources */ = {isa = PBXBuildFile; fileRef = F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.m */; };
+		F6DF97902AB1B20300577C2B /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		F6EF67F01D1C308000342741 /* attribute_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67ED1D1C306100342741 /* attribute_matching.c */; };
 		F6EF67F11D1C308000342741 /* hash_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67EE1D1C306100342741 /* hash_matching.c */; };
 		F6EF67F21D1C308000342741 /* scmatch_evaluation.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67EF1D1C306100342741 /* scmatch_evaluation.c */; };
@@ -537,6 +538,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6DF97902AB1B20300577C2B /* libpam.2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -642,6 +644,7 @@
 				5FD7DF8E1C060053005DC226 /* test_pam_localauthentication */,
 				1CFF7DDD102116DB0097ADA4 /* Linked */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
+				F6DF978F2AB1B20300577C2B /* Frameworks */,
 			);
 			name = pam_modules;
 			sourceTree = "<group>";
@@ -778,6 +781,13 @@
 				1C23731B10290C600055216A /* pam_uwtmp.8 */,
 			);
 			name = Documentation;
+			sourceTree = "<group>";
+		};
+		F6DF978F2AB1B20300577C2B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

@@ -44,8 +44,11 @@
 #include "Logging.h"
 
 #define PM_DISPLAY_NAME "mount"
+
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(Mount)
 #define PAM_LOG PAM_LOG_Mount()
+#endif
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
@@ -54,11 +57,11 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	char *authenticator = NULL;
 
 	if (PAM_SUCCESS != pam_get_authtok(pamh, PAM_AUTHTOK, (void *)&authenticator, password_prompt)) {
-        os_log_debug(PAM_LOG, "Unable to obtain the authtok.");
+        _LOG_DEBUG("Unable to obtain the authtok.");
 		return PAM_IGNORE;
 	}
 	if (PAM_SUCCESS != pam_setenv(pamh, "mount_authenticator", authenticator, 1)) {
-        os_log_debug(PAM_LOG, "Unable to set the authtok in the environment.");
+        _LOG_DEBUG("Unable to set the authtok in the environment.");
 		return PAM_IGNORE;
 	}
 
@@ -91,50 +94,50 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* get the username */
 	if (PAM_SUCCESS != (retval = pam_get_user(pamh, &username, NULL))) {
-		os_log_error(PAM_LOG, "Unable to get the username: %s", pam_strerror(pamh, retval));
+		_LOG_ERROR("Unable to get the username: %s", pam_strerror(pamh, retval));
 		goto fin;
 	}
 	if (username == NULL || *username == '\0') {
-		os_log_error(PAM_LOG, "Username is invalid.");
+		_LOG_ERROR("Username is invalid.");
 		retval = PAM_PERM_DENIED;
 		goto fin;
 	}
 
 	/* get the uid */
 	if (0 != getpwnam_r(username, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) || NULL == pwd) {
-		os_log_error(PAM_LOG, "Unknown user \"%s\".", username);
+		_LOG_ERROR("Unknown user \"%s\".", username);
 		retval = PAM_SYSTEM_ERR;
 		goto fin;
 	}
 
 	/* get the authenticator */
 	if (NULL == (authenticator = pam_getenv(pamh, "mount_authenticator"))) {
-		os_log_debug(PAM_LOG, "Unable to retrieve the authenticator.");
+		_LOG_DEBUG("Unable to retrieve the authenticator.");
 		retval = PAM_IGNORE;
 		goto fin;
 	}
 
 	/* get the server_URL, path and homedir from OD */
 	if (PAM_SUCCESS != (retval = od_extract_home(pamh, username, &server_URL, &path, &homedir))) {
-		os_log_error(PAM_LOG, "Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
+		_LOG_ERROR("Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
 		goto fin;
 	}
 
-	os_log_debug(PAM_LOG, "           UID: %d", pwd->pw_uid);
-	os_log_debug(PAM_LOG, "    server_URL: %s", server_URL);
-	os_log_debug(PAM_LOG, "          path: %s", path);
-	os_log_debug(PAM_LOG, "       homedir: %s", homedir);
-	os_log_debug(PAM_LOG, "      username: %s", username);
-	//os_log_debug(PAM_LOG, " authenticator: %s", authenticator);  // We don't want to log user's passwords.
+	_LOG_DEBUG("           UID: %d", pwd->pw_uid);
+	_LOG_DEBUG("    server_URL: %s", server_URL);
+	_LOG_DEBUG("          path: %s", path);
+	_LOG_DEBUG("       homedir: %s", homedir);
+	_LOG_DEBUG("      username: %s", username);
+	//_LOG_DEBUG(" authenticator: %s", authenticator);  // We don't want to log user's passwords.
 
 
 	/* determine if we need to mount the home folder */
 	// this triggers the automounting for nfs
 	if (0 == access(homedir, F_OK) || EACCES == errno) {
-		os_log_debug(PAM_LOG, "The home folder share is already mounted.");
+		_LOG_DEBUG("The home folder share is already mounted.");
 	}
 	if (NULL == (mountdir = malloc(mountdirlen+1))) {
-		os_log_debug(PAM_LOG, "Failed to malloc the mountdir.");
+		_LOG_DEBUG("Failed to malloc the mountdir.");
 		retval = PAM_IGNORE;
 		goto fin;
 	}
@@ -153,16 +156,16 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 									   authenticator,
 									   kNetFSAllowKerberos,
 									   &was_remounted)) {
-				os_log_debug(PAM_LOG, "Unable to mount the home folder.");
+				_LOG_DEBUG("Unable to mount the home folder.");
 				retval = PAM_SESSION_ERR;
 				goto fin;
 			}
 			else {
 				if (0 != was_remounted) {
-					os_log_debug(PAM_LOG, "Remounted home folder.");
+					_LOG_DEBUG("Remounted home folder.");
 				}
 				else {
-					os_log_debug(PAM_LOG, "Mounted home folder.");
+					_LOG_DEBUG("Mounted home folder.");
 				}
 				/* cache the homedir and path for close_session */
 				pam_set_data(pamh, "homedir", homedir, openpam_free_data);
@@ -206,11 +209,11 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* get the username */
 	retval = pam_get_user(pamh, &username, NULL);
 	if (retval != PAM_SUCCESS) {
-		os_log_error(PAM_LOG, "Unable to get the username: %s", pam_strerror(pamh, retval));
+		_LOG_ERROR("Unable to get the username: %s", pam_strerror(pamh, retval));
 		return retval;
 	}
 	if (username == NULL || *username == '\0') {
-		os_log_error(PAM_LOG, "Username is invalid.");
+		_LOG_ERROR("Username is invalid.");
 		return PAM_PERM_DENIED;
 	}
 
@@ -219,7 +222,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	setutxent();
 	while (NULL != (x = getutxent())) {
 		if (USER_PROCESS == x->ut_type && 0 == strcmp(x->ut_user, username) && x->ut_pid != getpid()) {
-			os_log_debug(PAM_LOG, "User is still logged in elsewhere (%s), skipping home folder unmount.", x->ut_line);
+			_LOG_DEBUG("User is still logged in elsewhere (%s), skipping home folder unmount.", x->ut_line);
 			return PAM_IGNORE;
 		}
 	}
@@ -227,11 +230,11 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* try to retrieve the cached homedir */
 	if (PAM_SUCCESS != pam_get_data(pamh, "homedir", (void *)&homedir)) {
-		os_log_debug(PAM_LOG, "No cached homedir in the PAM context.");
+		_LOG_DEBUG("No cached homedir in the PAM context.");
 	}
 	if (NULL != homedir) {
 		if (NULL == (homedir = strdup(homedir))) {
-			os_log_error(PAM_LOG, "Failed to duplicate the homedir.");
+			_LOG_ERROR("Failed to duplicate the homedir.");
 			retval = PAM_BUF_ERR;
 			goto fin;
 		}
@@ -239,11 +242,11 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* try to retrieve the cached path */
 	if (PAM_SUCCESS != pam_get_data(pamh, "path", (void *)&path)) {
-		os_log_debug(PAM_LOG, "No cached path in the PAM context.");
+		_LOG_DEBUG("No cached path in the PAM context.");
 	}
 	if (NULL != path) {
 		if (NULL == (path = strdup(path))) {
-			os_log_error(PAM_LOG, "Failed to duplicate the path.");
+			_LOG_ERROR("Failed to duplicate the path.");
 			retval = PAM_BUF_ERR;
 			goto fin;
 		}
@@ -251,14 +254,14 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* skip unmount for local homes */
 	if (NULL != path && 0 == strcmp("", path)) {
-		os_log_debug(PAM_LOG, "Skipping unmount.");
+		_LOG_DEBUG("Skipping unmount.");
 		goto fin;
 	}
 
 	/* get the homedir and path or devicepath if needed */
 	if (NULL == homedir || NULL == path) {
 		if (PAM_SUCCESS != (retval = od_extract_home(pamh, username, &server_URL, &path, &homedir))) {
-			os_log_error(PAM_LOG, "Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
+			_LOG_ERROR("Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
 			goto fin;
 		}
 	}
@@ -267,21 +270,21 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	if (NULL != homedir && NULL != path) {
 		// not FileVault
 		if (0 != getpwnam_r(username, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) || NULL == pwd) {
-			os_log_error(PAM_LOG, "Unknown user \"%s\".", username);
+			_LOG_ERROR("Unknown user \"%s\".", username);
 			retval = PAM_SYSTEM_ERR;
 			goto fin;
 		}
 		if (0 != NetFSUnmountHomeDirectory(homedir, path, pwd->pw_uid, 0)) {
-			os_log_debug(PAM_LOG, "Unable to unmount the home folder: %s.", strerror(errno));
+			_LOG_DEBUG("Unable to unmount the home folder: %s.", strerror(errno));
 			retval = PAM_IGNORE;
 		}
 		else {
-			os_log_debug(PAM_LOG, "Unmounted home folder.");
+			_LOG_DEBUG("Unmounted home folder.");
 		}
 	}
 	else {
 		// nothing
-		os_log_debug(PAM_LOG, "There is nothing to unmount.");
+		_LOG_DEBUG("There is nothing to unmount.");
 		retval = PAM_IGNORE;
 	}
 

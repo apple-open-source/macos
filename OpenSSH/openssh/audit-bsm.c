@@ -346,13 +346,15 @@ bsm_audit_session_setup(void)
 	info.ai_termid = ssh_bsm_tid;
 
 	rc = SetAuditFunc(&info, sizeof(info));
-	if (rc < 0)
 #ifdef __APPLE__
-		fatal("BSM audit: %s: %s failed: %s", __func__,
-		    SetAuditFuncText, strerror(errno));
-#else
+	int e = errno;
+#endif
+	if (rc < 0)
 		error("BSM audit: %s: %s failed: %s", __func__,
 		    SetAuditFuncText, strerror(errno));
+#ifdef __APPLE__
+	if (rc < 0 && e != EPERM)
+		fatal("Could not create new audit session");
 #endif
 }
 

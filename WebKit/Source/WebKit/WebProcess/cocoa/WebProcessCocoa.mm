@@ -137,11 +137,11 @@
 
 #if PLATFORM(IOS_FAMILY)
 #import "RunningBoardServicesSPI.h"
-#import "UserInterfaceIdiom.h"
 #import "WKAccessibilityWebPageObjectIOS.h"
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <UIKit/UIAccessibility.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
+#import <pal/system/ios/UserInterfaceIdiom.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY) && USE(APPLE_INTERNAL_SDK)
@@ -209,6 +209,15 @@ void WebProcess::platformSetCacheModel(CacheModel)
 
 id WebProcess::accessibilityFocusedUIElement()
 {
+    auto retrieveFocusedUIElementFromMainThread = [] () {
+        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([] () -> RetainPtr<id> {
+            RefPtr page = WebProcess::singleton().focusedWebPage();
+            if (!page || !page->accessibilityRemoteObject())
+                return nil;
+            return [page->accessibilityRemoteObject() accessibilityFocusedUIElement];
+        });
+    };
+
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     if (!isMainRunLoop()) {
         // Avoid hitting the main thread by getting the focused object from the focused isolated tree.
@@ -223,23 +232,19 @@ id WebProcess::accessibilityFocusedUIElement()
             );
             return state.containsAll({ ActivityState::IsVisible, ActivityState::IsFocused, ActivityState::WindowIsActive });
         });
+        auto* isolatedTree = std::get_if<RefPtr<AXIsolatedTree>>(&tree);
+        if (!isolatedTree) {
+            // There is no isolated tree that has focus. This may be because none has been created yet, or because the one previously focused is being destroyed.
+            // In any case, get the focus from the main thread.
+            return retrieveFocusedUIElementFromMainThread();
+        }
 
-        RefPtr object = switchOn(tree,
-            [] (RefPtr<AXIsolatedTree>& typedTree) -> RefPtr<AXIsolatedObject> {
-                return typedTree ? typedTree->focusedNode() : nullptr;
-            }
-            , [] (auto&) -> RefPtr<AXIsolatedObject> {
-                return nullptr;
-            }
-        );
+        RefPtr object = (*isolatedTree)->focusedNode();
         return object ? object->wrapper() : nil;
     }
 #endif
 
-    WebPage* page = WebProcess::singleton().focusedWebPage();
-    if (!page || !page->accessibilityRemoteObject())
-        return nil;
-    return [page->accessibilityRemoteObject() accessibilityFocusedUIElement];
+    return retrieveFocusedUIElementFromMainThread();
 }
 
 #if USE(APPKIT)
@@ -376,8 +381,11 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
 #if HAVE(CGIMAGESOURCE_ENABLE_RESTRICTED_DECODING)
     if (parameters.enableDecodingHEIC || parameters.enableDecodingAVIF) {
-        OSStatus ok = CGImageSourceEnableRestrictedDecoding();
-        ASSERT_UNUSED(ok, ok == noErr);
+        static std::once_flag onceFlag;
+        std::call_once(onceFlag, [] {
+            OSStatus ok = CGImageSourceEnableRestrictedDecoding();
+            ASSERT_UNUSED(ok, ok == noErr);
+        });
     }
 #endif
 
@@ -496,7 +504,11 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #if PLATFORM(IOS_FAMILY)
     SandboxExtension::consumePermanently(parameters.dynamicIOKitExtensionHandles);
 #endif
-    
+
+#if PLATFORM(VISION)
+    SandboxExtension::consumePermanently(parameters.metalCacheDirectoryExtensionHandles);
+#endif
+
     setSystemHasBattery(parameters.systemHasBattery);
     setSystemHasAC(parameters.systemHasAC);
     IPC::setStrictSecureDecodingForAllObjCEnabled(parameters.strictSecureDecodingForAllObjCEnabled);
@@ -750,7 +762,12 @@ static void registerLogHook()
     if (os_trace_get_mode() != OS_TRACE_MODE_DISABLE && os_trace_get_mode() != OS_TRACE_MODE_OFF)
         return;
 
-    os_log_set_hook(OS_LOG_TYPE_DEFAULT, ^(os_log_type_t type, os_log_message_t msg) {
+    static os_log_hook_t prevHook = nullptr;
+
+    prevHook = os_log_set_hook(OS_LOG_TYPE_DEFAULT, ^(os_log_type_t type, os_log_message_t msg) {
+        if (prevHook)
+            prevHook(type, msg);
+
         if (msg->buffer_sz > 1024)
             return;
 
@@ -1128,9 +1145,9 @@ void WebProcess::releaseSystemMallocMemory()
 
 #if PLATFORM(IOS_FAMILY)
 
-void WebProcess::userInterfaceIdiomDidChange(UserInterfaceIdiom idiom)
+void WebProcess::userInterfaceIdiomDidChange(PAL::UserInterfaceIdiom idiom)
 {
-    WebKit::setCurrentUserInterfaceIdiom(idiom);
+    PAL::setCurrentUserInterfaceIdiom(idiom);
 }
 
 bool WebProcess::shouldFreezeOnSuspension() const

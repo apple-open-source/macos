@@ -44,6 +44,10 @@
 #include <string.h>
 #include <wchar.h>
 
+#ifdef __APPLE__
+#define	_ENCODING_NEED_INIT_STATE	1
+#endif
+
 #include "citrus_namespace.h"
 #include "citrus_types.h"
 #include "citrus_module.h"
@@ -437,7 +441,9 @@ _citrus_ISO2022_init_state(_ISO2022EncodingInfo * __restrict ei,
 {
 	int i;
 
+#ifndef __APPLE__
 	memset(s, 0, sizeof(*s));
+#endif
 	s->gl = 0;
 	s->gr = (ei->flags & F_8BIT) ? 1 : -1;
 
@@ -858,6 +864,9 @@ _citrus_ISO2022_mbrtowc_priv(_ISO2022EncodingInfo * __restrict ei,
 	int c, chlenbak;
 
 	if (*s == NULL) {
+#ifdef __APPLE__
+		memset(psenc, 0, sizeof(*psenc));
+#endif
 		_citrus_ISO2022_init_state(ei, psenc);
 		*nresult = _ENCODING_IS_STATE_DEPENDENT;
 		return (0);
@@ -872,6 +881,9 @@ _citrus_ISO2022_mbrtowc_priv(_ISO2022EncodingInfo * __restrict ei,
 	 */
 	if (psenc->chlen > sizeof(psenc->ch)) {
 		/* illgeal state */
+#ifdef __APPLE__
+		memset(psenc, 0, sizeof(*psenc));
+#endif
 		_citrus_ISO2022_init_state(ei, psenc);
 		goto encoding_error;
 	}

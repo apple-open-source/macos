@@ -61,7 +61,8 @@
 		NSArray *list;
 		NSMutableArray *subTestArray;
 
-		if ([className isEqualToString:thisClass] ) {
+		if ([className isEqualToString:thisClass] ||
+		    [className isEqualToString:@"SCTestRankAssertion"]) {
 			continue;
 		}
 
@@ -94,8 +95,7 @@
 						options:NSJSONWritingPrettyPrinted
 						error:nil];
 	jsonString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-	//SCTestLog("%@", jsonString);
-	SCPrint(TRUE, stderr, CFSTR("%@"), jsonString);
+	SCPrint(TRUE, stdout, CFSTR("%@"), jsonString);
 }
 
 - (void)start
@@ -114,7 +114,7 @@
 			Class testClass;
 			NSArray *list;
 
-			if ([className isEqualToString:thisClass] ) {
+			if ([className isEqualToString:thisClass]) {
 				continue;
 			}
 
@@ -139,7 +139,7 @@
 			Class testClass;
 			NSArray *list;
 
-			if ([className isEqualToString:thisClass] ) {
+			if ([className isEqualToString:thisClass]) {
 				continue;
 			}
 
@@ -186,7 +186,7 @@
 			Class testClass;
 			id obj;
 
-			if ([className isEqualToString:thisClass] ) {
+			if ([className isEqualToString:thisClass]) {
 				continue;
 			}
 

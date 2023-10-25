@@ -2969,12 +2969,13 @@ f_complete_add(typval_T *argvars, typval_T *rettv)
     void
 f_complete_check(typval_T *argvars UNUSED, typval_T *rettv)
 {
-    int		saved = RedrawingDisabled;
-
+    int save_RedrawingDisabled = RedrawingDisabled;
     RedrawingDisabled = 0;
+
     ins_compl_check_keys(0, TRUE);
     rettv->vval.v_number = ins_compl_interrupted();
-    RedrawingDisabled = saved;
+
+    RedrawingDisabled = save_RedrawingDisabled;
 }
 
 /*
@@ -3788,7 +3789,7 @@ ins_compl_get_exp(pos_T *ini)
 	st.found_all = FALSE;
 	st.ins_buf = curbuf;
 	vim_free(st.e_cpt_copy);
-	// Make a copy of 'complete', if case the buffer is wiped out.
+	// Make a copy of 'complete', in case the buffer is wiped out.
 	st.e_cpt_copy = vim_strsave((compl_cont_status & CONT_LOCAL)
 					    ? (char_u *)"." : curbuf->b_p_cpt);
 	st.e_cpt = st.e_cpt_copy == NULL ? (char_u *)"" : st.e_cpt_copy;
@@ -3849,7 +3850,7 @@ ins_compl_get_exp(pos_T *ini)
 	else
 	{
 	    // Mark a buffer scanned when it has been scanned completely
-	    if (type == 0 || type == CTRL_X_PATH_PATTERNS)
+	    if (buf_valid(st.ins_buf) && (type == 0 || type == CTRL_X_PATH_PATTERNS))
 		st.ins_buf->b_scanned = TRUE;
 
 	    compl_started = FALSE;
@@ -5079,8 +5080,7 @@ ins_complete(int c, int enable_pum)
 show_pum(int prev_w_wrow, int prev_w_leftcol)
 {
     // RedrawingDisabled may be set when invoked through complete().
-    int n = RedrawingDisabled;
-
+    int save_RedrawingDisabled = RedrawingDisabled;
     RedrawingDisabled = 0;
 
     // If the cursor moved or the display scrolled we need to remove the pum
@@ -5091,7 +5091,8 @@ show_pum(int prev_w_wrow, int prev_w_leftcol)
 
     ins_compl_show_pum();
     setcursor();
-    RedrawingDisabled = n;
+
+    RedrawingDisabled = save_RedrawingDisabled;
 }
 
 /*

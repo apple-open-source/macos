@@ -444,7 +444,12 @@ resize_func(int check_only)
     if (check_only)
 	return do_resize;
     while (do_resize)
+    {
+#ifdef FEAT_EVAL
+	ch_log(NULL, "calling handle_resize() in resize_func()");
+#endif
 	handle_resize();
+    }
     return FALSE;
 }
 
@@ -4192,6 +4197,9 @@ mch_get_shellsize(void)
 	{
 	    columns = ws.ws_col;
 	    rows = ws.ws_row;
+#  ifdef FEAT_EVAL
+	    ch_log(NULL, "Got size with TIOCGWINSZ: %ld x %ld", columns, rows);
+#  endif
 	}
     }
 # else // TIOCGWINSZ
@@ -4207,6 +4215,9 @@ mch_get_shellsize(void)
 	{
 	    columns = ts.ts_cols;
 	    rows = ts.ts_lines;
+#  ifdef FEAT_EVAL
+	    ch_log(NULL, "Got size with TIOCGSIZE: %ld x %ld", columns, rows);
+#  endif
 	}
     }
 #  endif // TIOCGSIZE
@@ -4220,9 +4231,19 @@ mch_get_shellsize(void)
     if (columns == 0 || rows == 0 || vim_strchr(p_cpo, CPO_TSIZE) != NULL)
     {
 	if ((p = (char_u *)getenv("LINES")))
+	{
 	    rows = atoi((char *)p);
+#  ifdef FEAT_EVAL
+	    ch_log(NULL, "Got 'lines' from $LINES: %ld", rows);
+#  endif
+	}
 	if ((p = (char_u *)getenv("COLUMNS")))
+	{
 	    columns = atoi((char *)p);
+#  ifdef FEAT_EVAL
+	    ch_log(NULL, "Got 'columns' from $COLUMNS: %ld", columns);
+#  endif
+	}
     }
 
 #ifdef HAVE_TGETENT
@@ -4230,7 +4251,12 @@ mch_get_shellsize(void)
      * 3. try reading "co" and "li" entries from termcap
      */
     if (columns == 0 || rows == 0)
+    {
 	getlinecol(&columns, &rows);
+# ifdef FEAT_EVAL
+	ch_log(NULL, "Got size from termcap: %ld x %ld", columns, rows);
+# endif
+    }
 #endif
 
     /*
@@ -4271,16 +4297,14 @@ mch_report_winsize(int fd, int rows, int cols)
     ws.ws_xpixel = cols * 5;
     ws.ws_ypixel = rows * 10;
     retval = ioctl(tty_fd, TIOCSWINSZ, &ws);
-    ch_log(NULL, "ioctl(TIOCSWINSZ) %s",
-	    retval == 0 ? "success" : "failed");
+    ch_log(NULL, "ioctl(TIOCSWINSZ) %s", retval == 0 ? "success" : "failed");
 # elif defined(TIOCSSIZE)
     struct ttysize ts;
 
     ts.ts_cols = cols;
     ts.ts_lines = rows;
     retval = ioctl(tty_fd, TIOCSSIZE, &ts);
-    ch_log(NULL, "ioctl(TIOCSSIZE) %s",
-	    retval == 0 ? "success" : "failed");
+    ch_log(NULL, "ioctl(TIOCSSIZE) %s", retval == 0 ? "success" : "failed");
 # endif
     if (tty_fd != fd)
 	close(tty_fd);
@@ -4624,7 +4648,7 @@ mch_call_shell_terminal(
 
     // Only require pressing Enter when redrawing, to avoid that system() gets
     // the hit-enter prompt even though it didn't output anything.
-    if (!RedrawingDisabled)
+    if (RedrawingDisabled == 0)
 	wait_return(TRUE);
     do_buffer(DOBUF_WIPE, DOBUF_FIRST, FORWARD, buf->b_fnum, TRUE);
 
@@ -6536,7 +6560,12 @@ select_eintr:
 	    // Check whether window has been resized, EINTR may be caused by
 	    // SIGWINCH.
 	    if (do_resize)
+	    {
+#  ifdef FEAT_EVAL
+		ch_log(NULL, "calling handle_resize() in RealWaitForChar()");
+#  endif
 		handle_resize();
+	    }
 
 	    // Interrupted by a signal, need to try again.  We ignore msec
 	    // here, because we do want to check even after a timeout if
@@ -7735,7 +7764,7 @@ mch_libcall(
 	    for (i = 0; signal_info[i].sig != -1; i++)
 		if (lc_signal == signal_info[i].sig)
 		    break;
-	    semsg(e_got_sig_str_in_libcall, signal_info[i].name);
+	    semsg(_(e_got_sig_str_in_libcall), signal_info[i].name);
 	}
 #  endif
 # endif

@@ -476,6 +476,7 @@ bck_word(long count, int bigword, int stop)
 finished:
 	stop = FALSE;
     }
+    adjust_skipcol();
     return OK;
 }
 
@@ -602,6 +603,7 @@ bckend_word(
 		return OK;
 	}
     }
+    adjust_skipcol();
     return OK;
 }
 

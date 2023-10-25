@@ -4498,7 +4498,7 @@ const char* const full_data[][3] = {
     "pa_Guru_IN",
     "pa"
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://50687287 #20 add names for ks/pa/ur_Arab using script Naskh, force their use, remove redundant parens
   }, {
     "pa_Arab",
     "pa_Arab_PK",
@@ -4509,7 +4509,7 @@ const char* const full_data[][3] = {
     "pa_PK"
   }, {
     "pa_PK",
-    "pa_Aran_PK", // rdar://50687287
+    "pa_Aran_PK",
     "pa_PK"
 #else
   }, {
@@ -7454,7 +7454,8 @@ static const UldnItem en_StdMidLong[] = {
 	{ "mo",                     TEST_ULOC_LANGUAGE, u"Romanian" },
 #if APPLE_ICU_CHANGES
 // rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
-// rdar:// 
+// rdar://50687287 #20 add names for ks/pa/ur_Arab using script Naskh, force their use, remove redundant parens
+// rdar:
 	// Apple additions
 	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },                  // rdar://50750364
 	{ "zh_Hans_CN",             TEST_ULDN_LOCALE, u"Chinese, Simplified (China mainland)" }, // rdar://50750364
@@ -7597,7 +7598,7 @@ static const UldnItem en_StdMidLong[] = {
 	{ "nv",                     TEST_ULOC_LOCALE, u"Navajo" },
 	{ "rhg",                    TEST_ULOC_LOCALE, u"Rohingya" },
 	{ "rhg_Rohg",               TEST_ULOC_LOCALE, u"Rohingya (Hanifi)" },
-	{ "syr",                    TEST_ULOC_LOCALE, u"Assyrian" },
+	{ "syr",                    TEST_ULOC_LOCALE, u"Assyrian" }, // rdar://76764332 #220
 	{ "ti",                     TEST_ULOC_LOCALE, u"Tigrinya" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"Hanifi Rohingya" },
 	{ "apw",                    TEST_ULOC_LOCALE, u"Apache, Western" },
@@ -7633,8 +7634,8 @@ static const UldnItem en_StdMidShrt[] = {
 	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
 	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Portuguese (Brazil)" },
 	{ "pt_PT",                  TEST_ULDN_LOCALE, u"Portuguese (Portugal)" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" }, // rdar://50750364
+	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" }, // rdar://50750364
 	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
 	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
 	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
@@ -7686,8 +7687,8 @@ static const UldnItem en_DiaMidLong[] = {
 	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
 	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Brazilian Portuguese" },
 	{ "pt_PT",                  TEST_ULDN_LOCALE, u"European Portuguese" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" }, // rdar://50750364
+	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" }, //rdar://50750364
 	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
 	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
 	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },
@@ -7709,8 +7710,8 @@ static const UldnItem en_DiaMidShrt[] = {
 	{ "pt",                     TEST_ULDN_LOCALE, u"Portuguese" },
 	{ "pt_BR",                  TEST_ULDN_LOCALE, u"Brazilian Portuguese" },
 	{ "pt_PT",                  TEST_ULDN_LOCALE, u"European Portuguese" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
-	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" }, // rdar://50750364
+	{ "zh_Hant_HK",             TEST_ULDN_LOCALE, u"Chinese, Traditional (Hong Kong)" }, // rdar://50750364
 	{ "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
 	{ "Latn",                   TEST_ULDN_SCRIPT, u"Latin" },
 	{ "Hans",                   TEST_ULDN_SCRIPT, u"Simplified Han" },

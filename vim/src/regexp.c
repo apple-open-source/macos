@@ -1370,7 +1370,7 @@ prog_magic_wrong(void)
 
     if (UCHARAT(((bt_regprog_T *)prog)->program) != REGMAGIC)
     {
-	emsg(_(e_corrupted_regexp_program));
+	iemsg(e_corrupted_regexp_program);
 	return TRUE;
     }
     return FALSE;
@@ -2022,7 +2022,7 @@ vim_regsub_both(
     // Be paranoid...
     if ((source == NULL && expr == NULL) || dest == NULL)
     {
-	emsg(_(e_null_argument));
+	iemsg(e_null_argument);
 	return 0;
     }
     if (prog_magic_wrong())
@@ -2051,7 +2051,8 @@ vim_regsub_both(
 	// "flags & REGSUB_COPY" != 0.
 	if (copy)
 	{
-	    if (eval_result[nested] != NULL)
+	    if (eval_result[nested] != NULL &&
+		    (int)STRLEN(eval_result[nested]) < destlen)
 	    {
 		STRCPY(dest, eval_result[nested]);
 		dst += STRLEN(eval_result[nested]);
@@ -2389,7 +2390,7 @@ vim_regsub_both(
 		    else if (*s == NUL) // we hit NUL.
 		    {
 			if (copy)
-			    iemsg(_(e_damaged_match_string));
+			    iemsg(e_damaged_match_string);
 			goto exit;
 		    }
 		    else

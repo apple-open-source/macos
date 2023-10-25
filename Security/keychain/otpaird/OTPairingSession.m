@@ -10,6 +10,7 @@
 @interface OTPairingSession ()
 @property (readwrite) NSString *identifier;
 @property (readwrite) KCPairingChannel *channel;
+@property (readwrite) NSMutableArray<OTPairingCompletionHandler>* completionHandlers;
 @end
 
 @implementation OTPairingSession
@@ -48,6 +49,21 @@
         self.lockAssertion = NULL;
     }
 #endif /* !TARGET_OS_SIMULATOR */
+}
+
+- (void)addCompletionHandler:(OTPairingCompletionHandler)completionHandler
+{
+    if (self.completionHandlers == nil) {
+        self.completionHandlers = [[NSMutableArray alloc] init];
+    }
+    [self.completionHandlers addObject:completionHandler];
+}
+
+- (void)didCompleteWithSuccess:(bool)success error:(NSError *)error
+{
+    for (OTPairingCompletionHandler completionHandler in self.completionHandlers) {
+        completionHandler(success, error);
+    }
 }
 
 @end

@@ -296,8 +296,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__APPLE__)
+#if defined(__APPLE__) && (!defined(ENABLE_LOCALE_SUPPORT) || ENABLE_LOCALE_SUPPORT)
 #include <xlocale.h>
+#include <xlocale_private.h>
 #endif
 
 // #pragma STDC FENV_ACCESS ON
@@ -362,21 +363,55 @@
 
 // ================================================================
 // How to get locale-specific decimal point character
+// (This is more complicated than it should be, largely because
+// the standard functions are a lot slower than we'd like and
+// the standard mechanisms return an arbitrary-length string
+// for the decimal point.  So we go to some lengths to avoid
+// calling the standard functions:  We defer such calls until
+// we see a character that is not a digit or other known character,
+// and we handle the "C" locale specially.)
 
 // Enable locale support by default
 #ifndef ENABLE_LOCALE_SUPPORT
  #define ENABLE_LOCALE_SUPPORT 1
 #endif
 
+// Define macros used for locale information below:
+//
+// strtofp_locale_decimal_point(loc)
+//  - Return the decimal point string for the specified locale
+//
+// strtofp_locale_t
+//  - Type of locale info:  locale_t on systems that support locales, else void *
+//
+// strtofp_C_locale
+//  - Constant that defines the "C" locale, used to bypass other locale checks
+//
+// strtofp_current_locale()
+//  - Returns the default locale to use when no explicit locale is given
+//
 #if !ENABLE_LOCALE_SUPPORT
- #define locale_decimal_point(loc) ((const unsigned char *)("."))
+ // If no locale support, always use "." as the decimal point
+ #define strtofp_locale_t void *
+ #define strtofp_current_locale() (NULL)
+ #define strtofp_C_locale (NULL)
+ #define strtofp_locale_decimal_point(loc) ((const unsigned char *)("."))
 #elif defined(__linux__)
- #define locale_decimal_point(loc) \
+ #define strtofp_locale_t locale_t
+ #define strtofp_current_locale() (uselocale(NULL))
+ #define strtofp_C_locale (NULL)
+ #define strtofp_locale_decimal_point(loc) \
   ((const unsigned char *)((loc) == LC_GLOBAL_LOCALE ? nl_langinfo(RADIXCHAR) : nl_langinfo_l(RADIXCHAR, (loc))))
 #elif defined(__APPLE__)
- #define locale_decimal_point(loc) ((const unsigned char *)(localeconv_l((loc))->decimal_point))
+ #define strtofp_locale_t locale_t
+ #define strtofp_C_locale (NULL)
+ // For use inside of Libc: Use thread-specific locale if set, else global locale
+ #define strtofp_current_locale() (__current_locale())
+ // For use outside of libc
+ // #define strtofp_current_locale() (uselocale(NULL))
+ #define strtofp_locale_decimal_point(loc) ((const unsigned char *)(localeconv_l((loc))->decimal_point))
 #else
- #error Need definition for locale_decimal_point for this platform
+ #error Need definition for strtofp_locale_decimal_point and strtofp_current_locale for this platform
 #endif
 
 
@@ -1390,7 +1425,7 @@ struct parseInfo {
   // Where to put the address of the first unparsed character
   char **end;
   // Locale
-  locale_t loc;
+  strtofp_locale_t loc;
 
   // ================================================================
   // Outputs from the initial parse
@@ -1909,14 +1944,14 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
   int digitCount = (int)(p - firstDigit);
 
   // Try to match decimal point
-  if (info->loc == NULL) {
+  if (info->loc == strtofp_C_locale) {
     if (*p == '.') {
       p += 1;
     } else {
       goto possible_exponent;
     }
   } else {
-    const unsigned char *decimalPoint = locale_decimal_point(info->loc);
+    const unsigned char *decimalPoint = strtofp_locale_decimal_point(info->loc);
     const unsigned char *startOfPotentialDecimalPoint = p;
     for (const unsigned char *d = decimalPoint; *d; d++) {
       if (*p != *d) {
@@ -2349,7 +2384,7 @@ fastParse64(struct parseInfo *info) {
     // start with a digit, it must start with a decimal point,
     // and that decimal point must be immediately followed
     // by a digit.
-    if (info->loc == NULL) {
+    if (info->loc == strtofp_C_locale) {
       // Decimal point is '.' in C locale, avoid calling localeconv_l
       if (*p == '.') {
         p += 1;
@@ -2359,7 +2394,7 @@ fastParse64(struct parseInfo *info) {
       }
     } else {
       // Look up decimal point in locale
-      const unsigned char *decimalPoint = locale_decimal_point(info->loc);
+      const unsigned char *decimalPoint = strtofp_locale_decimal_point(info->loc);
       if (decimalPoint[1] == '\0') {
         if (decimalPoint[0] == *p) {
           p += 1;
@@ -2398,7 +2433,7 @@ fastParse64(struct parseInfo *info) {
   }
 
   // Try to match an optional decimal point
-  if (info->loc == NULL) {
+  if (info->loc == strtofp_C_locale) {
     // Decimal point is '.' in C locale, avoid calling localeconv_l
     if (*p == '.') {
       p += 1;
@@ -2411,7 +2446,7 @@ fastParse64(struct parseInfo *info) {
     goto maybeParseExponent;
   } else {
     // Look up decimal point in locale
-    const unsigned char *decimalPoint = locale_decimal_point(info->loc);
+    const unsigned char *decimalPoint = strtofp_locale_decimal_point(info->loc);
     if (decimalPoint[1] == '\0') {
       if (decimalPoint[0] == *p) {
         p += 1;
@@ -2581,7 +2616,7 @@ fastParse64(struct parseInfo *info) {
 // ================================================================
 
 #if ENABLE_BINARY16_SUPPORT
-static void _ffpp_strtoencf16_l(unsigned char *dest, const char *start, char **end, locale_t loc) {
+static void _ffpp_strtoencf16_l(unsigned char *dest, const char *start, char **end, strtofp_locale_t loc) {
   static const int bytes = 2;
   static const int sigBits = 11;
   static const int minBinaryExp = -14;
@@ -2630,7 +2665,7 @@ static void _ffpp_strtoencf16_l(unsigned char *dest, const char *start, char **e
 // ================================================================
 // ================================================================
 #if ENABLE_BINARY32_SUPPORT
-static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **end, locale_t loc) {
+static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **end, strtofp_locale_t loc) {
   static const int bytes = 4;
   static const int sigBits = 24;
   static const int minBinaryExp = -126;
@@ -2805,7 +2840,7 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
 // ================================================================
 
 #if ENABLE_BINARY64_SUPPORT
-static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **end, locale_t loc) {
+static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **end, strtofp_locale_t loc) {
   static const int bytes = 8;
   static const int sigBits = 53;
   static const int minBinaryExp = -1022;
@@ -3369,7 +3404,7 @@ static int highPrecisionIntervalPath(struct parseInfo *info, int roundingMode) {
 // ================================================================
 
 #if ENABLE_FLOAT80_SUPPORT
-static void _ffpp_strtoencf80_l(unsigned char *dest, const char *start, char **end, locale_t loc) {
+static void _ffpp_strtoencf80_l(unsigned char *dest, const char *start, char **end, strtofp_locale_t loc) {
   static const int bytes = 10;
   static const int sigBits = 64;
   static const int minBinaryExp = -16382;
@@ -3448,7 +3483,7 @@ static void _ffpp_strtoencf80_l(unsigned char *dest, const char *start, char **e
 // ================================================================
 
 #if ENABLE_BINARY128_SUPPORT
-static void _ffpp_strtoencf128_l(unsigned char *dest, const char *start, char **end, locale_t loc) {
+static void _ffpp_strtoencf128_l(unsigned char *dest, const char *start, char **end, strtofp_locale_t loc) {
   static const int bytes = 16;
   static const int sigBits = 113;
   static const int minBinaryExp = -16382;
@@ -3540,7 +3575,7 @@ static void _ffpp_strtoencf128_l(unsigned char *dest, const char *start, char **
 void strtoencf16(unsigned char * restrict encptr,
                       const char * restrict nptr,
                       char ** restrict endptr) {
- _ffpp_strtoencf16_l(encptr, nptr, endptr, LC_GLOBAL_LOCALE);
+ _ffpp_strtoencf16_l(encptr, nptr, endptr, strtofp_current_locale());
 }
 #endif
 
@@ -3553,7 +3588,7 @@ void strtoencf16(unsigned char * restrict encptr,
 void strtoencf32(unsigned char * restrict encptr,
                       const char * restrict nptr,
                       char ** restrict endptr) {
-  _ffpp_strtoencf32_l(encptr, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf32_l(encptr, nptr, endptr, strtofp_current_locale());
 }
 #endif
 
@@ -3562,7 +3597,7 @@ void strtoencf32(unsigned char * restrict encptr,
 float strtof(const char * restrict nptr,
                    char ** restrict endptr) {
   union { float d; unsigned char raw[4]; } result;
-  _ffpp_strtoencf32_l(result.raw, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf32_l(result.raw, nptr, endptr, strtofp_current_locale());
   return result.d;
 }
 #endif
@@ -3571,7 +3606,7 @@ float strtof(const char * restrict nptr,
 // ISO C17 `strtof_l` API
 float strtof_l(const char * restrict nptr,
                      char ** restrict endptr,
-                     locale_t loc) {
+                     strtofp_locale_t loc) {
   union { float d; unsigned char raw[4]; } result;
   _ffpp_strtoencf32_l(result.raw, nptr, endptr, loc);
   return result.d;
@@ -3587,7 +3622,7 @@ float strtof_l(const char * restrict nptr,
 void strtoencf64(unsigned char * restrict encptr,
                       const char * restrict nptr,
                       char ** restrict endptr) {
-  _ffpp_strtoencf64_l(encptr, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf64_l(encptr, nptr, endptr, strtofp_current_locale());
 }
 #endif
 
@@ -3597,7 +3632,7 @@ void strtoencf64(unsigned char * restrict encptr,
 void strtoencf64x(unsigned char *restrict encptr,
                        const char * restrict nptr,
                        char ** restrict endptr) {
-  _ffpp_strtoencf64_l(encptr, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf64_l(encptr, nptr, endptr, strtofp_current_locale());
 }
 #endif
 
@@ -3606,7 +3641,7 @@ void strtoencf64x(unsigned char *restrict encptr,
 double strtod(const char * restrict nptr,
                    char ** restrict endptr) {
   union { double d; unsigned char raw[8]; } result;
-  _ffpp_strtoencf64_l(result.raw, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf64_l(result.raw, nptr, endptr, strtofp_current_locale());
   return result.d;
 }
 #endif
@@ -3615,7 +3650,7 @@ double strtod(const char * restrict nptr,
 // ISO C17 `strtod_l` API
 double strtod_l(const char * restrict nptr,
                      char ** restrict endptr,
-                     locale_t loc) {
+                     strtofp_locale_t loc) {
   union { double d; unsigned char raw[8]; } result;
   _ffpp_strtoencf64_l(result.raw, nptr, endptr, loc);
   return result.d;
@@ -3627,7 +3662,7 @@ double strtod_l(const char * restrict nptr,
 long double strtold(const char * restrict nptr,
                          char ** restrict endptr) {
   union { long double d; unsigned char raw[8]; } result;
-  _ffpp_strtoencf64_l(result.raw, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf64_l(result.raw, nptr, endptr, strtofp_current_locale());
   return result.d;
 }
 #endif
@@ -3636,7 +3671,7 @@ long double strtold(const char * restrict nptr,
 // ISO C17 `strtold_l` API
 long double strtold_l(const char * restrict nptr,
                            char ** restrict endptr,
-                           locale_t loc) {
+                           strtofp_locale_t loc) {
   union { long double d; unsigned char raw[8]; } result;
   _ffpp_strtoencf64_l(result.raw, nptr, endptr, loc);
   return result.d;
@@ -3651,7 +3686,7 @@ long double strtold_l(const char * restrict nptr,
 void strtoencf80_l(unsigned char *restrict encptr,
                         const char * restrict nptr,
                         char ** restrict endptr,
-                        locale_t loc) {
+                        strtofp_locale_t loc) {
   _ffpp_strtoencf80_l(encptr, nptr, endptr, loc);
 }
 #endif
@@ -3662,7 +3697,7 @@ void strtoencf80_l(unsigned char *restrict encptr,
 void strtoencf64x(unsigned char *restrict encptr,
                        const char * restrict nptr,
                        char ** restrict endptr) {
-  _ffpp_strtoencf80_l(encptr, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf80_l(encptr, nptr, endptr, strtofp_current_locale());
 }
 #endif
 
@@ -3671,7 +3706,7 @@ void strtoencf64x(unsigned char *restrict encptr,
 long double strtold(const char * restrict nptr,
                          char ** restrict endptr) {
   union { long double d; unsigned char raw[10]; } result;
-  _ffpp_strtoencf80_l(result.raw, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf80_l(result.raw, nptr, endptr, strtofp_current_locale());
   return result.d;
 }
 #endif
@@ -3680,7 +3715,7 @@ long double strtold(const char * restrict nptr,
 // ISO C17 `strtold` API
 long double strtold_l(const char * restrict nptr,
                            char ** restrict endptr,
-                           locale_t loc) {
+                           strtofp_locale_t loc) {
   union { long double d; unsigned char raw[10]; } result;
   _ffpp_strtoencf80_l(result.raw, nptr, endptr, loc);
   return result.d;
@@ -3696,7 +3731,7 @@ long double strtold_l(const char * restrict nptr,
 void strtoencf128(unsigned char * restrict encptr,
                        const char * restrict nptr,
                        char ** restrict endptr) {
-  _ffpp_strtoencf128_l(encptr, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf128_l(encptr, nptr, endptr, strtofp_current_locale());
 }
 #endif
 
@@ -3705,7 +3740,7 @@ void strtoencf128(unsigned char * restrict encptr,
 long double strtold(const char * restrict nptr,
                          char ** restrict endptr) {
   union { long double d; unsigned char raw[16]; } result;
-  _ffpp_strtoencf128_l(result.raw, nptr, endptr, LC_GLOBAL_LOCALE);
+  _ffpp_strtoencf128_l(result.raw, nptr, endptr, strtofp_current_locale());
   return result.d;
 }
 #endif
@@ -3714,7 +3749,7 @@ long double strtold(const char * restrict nptr,
 // ISO C17 `strtold_l` API
 long double strtold_l(const char * restrict nptr,
                            char ** restrict endptr,
-                           locale_t loc) {
+                           strtofp_locale_t loc) {
   union { long double d; unsigned char raw[16]; } result;
   _ffpp_strtoencf128_l(result.raw, nptr, endptr, loc);
   return result.d;

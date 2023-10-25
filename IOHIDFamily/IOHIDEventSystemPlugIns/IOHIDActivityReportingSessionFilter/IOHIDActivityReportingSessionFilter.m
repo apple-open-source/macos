@@ -139,30 +139,20 @@ exit:
 
     dispatch_async(self.queue, ^{
         static IOPMAssertionID _AssertionID;
+        IOPMSystemState systemState;
         
-        IOReturn status = IOPMAssertionDeclareUserActivity((__bridge CFStringRef)assertionNameStr,
-                                                           kIOPMUserActiveLocal,
-                                                           &_AssertionID);
+        NSDictionary *properties = @{
+            (__bridge NSString *)kIOPMAssertionNameKey: assertionNameStr,
+            (__bridge NSString *)kIOPMAssertionTimeoutKey: @(USER_ACTIVE_ASSERTION_TIMEOUT_SECONDS),
+            (__bridge NSString *)kIOPMAssertionResourcesUsed: @[(__bridge NSString *)kIOPMAssertionResourceCamera],
+        };
+         
+        IOReturn status = IOPMAssertionDeclareSystemActivityWithProperties((__bridge CFMutableDictionaryRef)properties, &_AssertionID, &systemState);
+
         if (status) {
-            HIDLogError ("IOPMAssertionDeclareUserActivity status:0x%x", status);
+            HIDLogError ("IOPMAssertionDeclareSystemActivityWithProperties status:0x%x", status);
             return;
         }
-
-        CFNumberRef timeoutValue = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &USER_ACTIVE_ASSERTION_TIMEOUT_SECONDS);
-        status = IOPMAssertionSetProperty(_AssertionID, kIOPMAssertionTimeoutKey, timeoutValue);
-        if (status) {
-            HIDLogError ("IOPMAssertionSetProperty status:0x%x", status);
-        }
-        
-        if (timeoutValue) {
-            CFRelease(timeoutValue);
-        }
-        
-        IOReturn propertyStatus = IOPMAssertionSetProperty(_AssertionID, kIOPMAssertionResourcesUsed, (__bridge CFArrayRef)@[(__bridge NSString *)kIOPMAssertionResourceCamera]);
-        if (propertyStatus != kIOReturnSuccess) {
-            HIDLogError ("IOPMAssertionSetProperty for ResourceCamera status:0x%x", status);
-        }
-
     });
 }
 

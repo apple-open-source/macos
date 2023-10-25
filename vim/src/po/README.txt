@@ -41,7 +41,7 @@ You might have to do the commands manually.  Example:
 WHEN THERE IS A MISTAKE
 
 If you find there is a mistake in one of the translations, please report this
-to the maintainer of the translation.  His/her E-mail address is in the
+to the maintainer of the translation.  His/her e-mail address is in the
 comments at the start of the file.  You can also see this with the ":messages"
 command in Vim when the translation is being used.
 
@@ -90,7 +90,7 @@ language.
     Remove the "#, fuzzy" line after adding the translation.
 
     There is one special message:
-	msgid "Messages maintainer: Bram Moolenaar <Bram@vim.org>"
+	msgid "Messages maintainer: The Vim Project"
     You should include your name and E-mail address instead, for example:
 	msgstr "Berichten übersetzt bei: John Doe <john@doe.org>"
 

@@ -16,8 +16,10 @@
 #include "Common.h"
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(Common)
 #define PAM_LOG PAM_LOG_Common()
+#endif
 
 enum {
 	kWaitSeconds       =  1,
@@ -30,14 +32,14 @@ cstring_to_cfstring(const char *val, CFStringRef *buffer)
 	int retval = PAM_BUF_ERR;
 
 	if (NULL == val || NULL == buffer) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 
 	*buffer = CFStringCreateWithCString(kCFAllocatorDefault, val, kCFStringEncodingUTF8);
 	if (NULL == *buffer) {
-		os_log_debug(PAM_LOG, "CFStringCreateWithCString() failed");
+		_LOG_DEBUG("CFStringCreateWithCString() failed");
 		retval = PAM_BUF_ERR;
 		goto cleanup;
 	}
@@ -46,7 +48,7 @@ cstring_to_cfstring(const char *val, CFStringRef *buffer)
 
 cleanup:
 	if (PAM_SUCCESS != retval)
-		os_log_error(PAM_LOG, "failed: %d", retval);
+		_LOG_ERROR("failed: %d", retval);
 
 	return retval;
 }
@@ -58,7 +60,7 @@ cfstring_to_cstring(const CFStringRef val, char **buffer)
 	int retval = PAM_BUF_ERR;
 
 	if (NULL == val || NULL == buffer) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
@@ -66,7 +68,7 @@ cfstring_to_cstring(const CFStringRef val, char **buffer)
 	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(val), kCFStringEncodingUTF8);
 	*buffer = calloc(maxlen + 1, sizeof(char));
 	if (NULL == *buffer) {
-		os_log_debug(PAM_LOG, "malloc() failed");
+		_LOG_DEBUG("malloc() failed");
 		retval = PAM_BUF_ERR;
 		goto cleanup;
 	}
@@ -74,14 +76,14 @@ cfstring_to_cstring(const CFStringRef val, char **buffer)
 	if (CFStringGetCString(val, *buffer, maxlen + 1, kCFStringEncodingUTF8)) {
 		retval =  PAM_SUCCESS;
 	} else {
-		os_log_debug(PAM_LOG, "CFStringGetCString failed.");
+		_LOG_DEBUG("CFStringGetCString failed.");
 		free(*buffer);
 		*buffer = NULL;
 	}
 
 cleanup:
 	if (PAM_SUCCESS != retval)
-		os_log_error(PAM_LOG, "failed: %d", retval);
+		_LOG_ERROR("failed: %d", retval);
 
 	return retval;
 }
@@ -98,7 +100,7 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 	CFTypeRef cfVals[attr_num];
 
 	if (NULL == record || NULL == cfUser) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
@@ -110,7 +112,7 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 					  eDSAuthenticationSearchNodeName,
 					  &cferror);
 	if (NULL == cfNode || NULL != cferror) {
-		os_log_error(PAM_LOG, "ODNodeCreateWithNodeType failed.");
+		_LOG_ERROR("ODNodeCreateWithNodeType failed.");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
@@ -122,7 +124,7 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 	cfVals[4] = kODAttributeTypeUniqueID;
 	attrs = CFArrayCreate(kCFAllocatorDefault, cfVals, (CFIndex)attr_num, &kCFTypeArrayCallBacks);
 	if (NULL == attrs) {
-		os_log_debug(PAM_LOG, "CFArrayCreate() failed");
+		_LOG_DEBUG("CFArrayCreate() failed");
 		retval = PAM_BUF_ERR;
 		goto cleanup;
 	}
@@ -133,7 +135,7 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 		if (unreachable_nodes) {
 			unreachable_count = CFArrayGetCount(unreachable_nodes);
 			CFRelease(unreachable_nodes);
-			os_log_debug(PAM_LOG, "%lu OD nodes unreachable.", unreachable_count);
+			_LOG_DEBUG("%lu OD nodes unreachable.", unreachable_count);
 		}
 
 		*record = ODNodeCopyRecord(cfNode, kODRecordTypeUsers, cfUser, attrs, &cferror);
@@ -142,7 +144,7 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 		if (0 == unreachable_count)
 			break;
 
-		os_log_debug(PAM_LOG, "Waiting %d seconds for nodes to become reachable", kWaitSeconds);
+		_LOG_DEBUG("Waiting %d seconds for nodes to become reachable", kWaitSeconds);
 		sleep(kWaitSeconds);
 		++current_iterations;
 	}
@@ -159,7 +161,7 @@ cleanup:
 	CFReleaseSafe(cfNode);
 
 	if (PAM_SUCCESS != retval) {
-		os_log_error(PAM_LOG, "failed: %d", retval);
+		_LOG_ERROR("failed: %d", retval);
 		if (record != NULL)
 			CFReleaseNull(*record);
 	}
@@ -174,20 +176,20 @@ od_record_create_cstring(pam_handle_t *pamh, ODRecordRef *record, const char *us
 	CFStringRef cfUser = NULL;
 
 	if (NULL == record || NULL == user) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 
 	if (PAM_SUCCESS != (retval = cstring_to_cfstring(user, &cfUser)) ||
 	    PAM_SUCCESS != (retval = od_record_create(pamh, record, cfUser))) {
-		os_log_debug(PAM_LOG, "od_record_create() failed");
+		_LOG_DEBUG("od_record_create() failed");
 		goto cleanup;
 	}
 
 cleanup:
 	if (PAM_SUCCESS != retval) {
-		os_log_error(PAM_LOG, "failed: %d", retval);
+		_LOG_ERROR("failed: %d", retval);
 		if (record != NULL)
 			CFReleaseNull(*record);
 	}
@@ -204,7 +206,7 @@ od_record_attribute_create_cfarray(ODRecordRef record, CFStringRef attrib,  CFAr
 	int retval = PAM_SUCCESS;
 
 	if (NULL == record || NULL == attrib || NULL == out) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
@@ -228,7 +230,7 @@ od_record_attribute_create_cfstring(ODRecordRef record, CFStringRef attrib,  CFS
 	CFIndex i = 0, count = 0;
 
 	if (NULL == record || NULL == attrib || NULL == out) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
@@ -236,7 +238,7 @@ od_record_attribute_create_cfstring(ODRecordRef record, CFStringRef attrib,  CFS
 	*out = NULL;
 	retval = od_record_attribute_create_cfarray(record, attrib, &vals);
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "od_record_attribute_create_cfarray() failed");
+		_LOG_DEBUG("od_record_attribute_create_cfarray() failed");
 		goto cleanup;
 	}
 	if (NULL == vals) {
@@ -248,7 +250,7 @@ od_record_attribute_create_cfstring(ODRecordRef record, CFStringRef attrib,  CFS
 	if (1 != count) {
 		char *attr_cstr = NULL;
 		cfstring_to_cstring(attrib, &attr_cstr);
-		os_log_debug(PAM_LOG, "returned %lx attributes for %s", count, attr_cstr);
+		_LOG_DEBUG("returned %lx attributes for %s", count, attr_cstr);
 		free(attr_cstr);
 	}
 
@@ -260,13 +262,13 @@ od_record_attribute_create_cfstring(ODRecordRef record, CFStringRef attrib,  CFS
 		if (CFGetTypeID(cval) == CFStringGetTypeID()) {
 			*out = CFStringCreateCopy(kCFAllocatorDefault, cval);
 			if (NULL == *out) {
-				os_log_debug(PAM_LOG, "CFStringCreateCopy() failed");
+				_LOG_DEBUG("CFStringCreateCopy() failed");
 				retval = PAM_BUF_ERR;
 				goto cleanup;
 			}
 			break;
 		} else {
-			os_log_debug(PAM_LOG, "attribute is not a cfstring");
+			_LOG_DEBUG("attribute is not a cfstring");
 			retval = PAM_PERM_DENIED;
 			goto cleanup;
 		}
@@ -290,21 +292,21 @@ od_record_attribute_create_cstring(ODRecordRef record, CFStringRef attrib,  char
 	CFStringRef val = NULL;
 
 	if (NULL == record || NULL == attrib || NULL == out) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 
 	retval = od_record_attribute_create_cfstring(record, attrib, &val);
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "od_record_attribute_create_cfstring() failed");
+		_LOG_DEBUG("od_record_attribute_create_cfstring() failed");
 		goto cleanup;
 	}
 
 	if (NULL != val) {
 		retval = cfstring_to_cstring(val, out);
 		if (PAM_SUCCESS != retval) {
-			os_log_debug(PAM_LOG, "cfstring_to_cstring() failed");
+			_LOG_DEBUG("cfstring_to_cstring() failed");
 			goto cleanup;
 		}
 	}
@@ -326,7 +328,7 @@ od_record_check_pwpolicy(ODRecordRef record)
 	int retval = PAM_SERVICE_ERR;
 
 	if (NULL == record) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
@@ -363,7 +365,7 @@ od_record_check_pwpolicy(ODRecordRef record)
     }
 
 cleanup:
-	os_log_debug(PAM_LOG, "retval: %d", retval);
+	_LOG_DEBUG("retval: %d", retval);
 	return retval;
 }
 
@@ -374,14 +376,14 @@ od_record_check_authauthority(ODRecordRef record)
 	CFStringRef authauth = NULL;
 
 	if (NULL == record) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 
 	retval = od_record_attribute_create_cfstring(record, kODAttributeTypeAuthenticationAuthority, &authauth);
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "od_record_attribute_create_cfstring() failed");
+		_LOG_DEBUG("od_record_attribute_create_cfstring() failed");
 		goto cleanup;
 	}
 	if (NULL == authauth) {
@@ -394,7 +396,7 @@ od_record_check_authauthority(ODRecordRef record)
 
 cleanup:
 	if (PAM_SUCCESS != retval) {
-		os_log_error(PAM_LOG, "failed: %d", retval);
+		_LOG_ERROR("failed: %d", retval);
 	}
 
 	CFReleaseSafe(authauth);
@@ -409,14 +411,14 @@ od_record_check_homedir(ODRecordRef record)
 	CFStringRef tmp = NULL;
 
 	if (NULL == record) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 
 	retval = od_record_attribute_create_cfstring(record, kODAttributeTypeNFSHomeDirectory, &tmp);
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "od_record_attribute_create_cfstring() failed");
+		_LOG_DEBUG("od_record_attribute_create_cfstring() failed");
 		goto cleanup;
 	}
 
@@ -428,13 +430,13 @@ od_record_check_homedir(ODRecordRef record)
 
 	/* Do not allow login with '/dev/null' home */
 	if (kCFCompareEqualTo == CFStringCompare(tmp, CFSTR("/dev/null"), 0)) {
-		os_log_debug(PAM_LOG, "home directory is /dev/null");
+		_LOG_DEBUG("home directory is /dev/null");
 		retval = PAM_PERM_DENIED;
 		goto cleanup;
 	}
 
 	if (kCFCompareEqualTo == CFStringCompare(tmp, CFSTR("99"), 0)) {
-		os_log_debug(PAM_LOG, "home directory is 99");
+		_LOG_DEBUG("home directory is 99");
 		retval = PAM_PERM_DENIED;
 		goto cleanup;
 	}
@@ -443,7 +445,7 @@ od_record_check_homedir(ODRecordRef record)
 
 cleanup:
 	if (PAM_SUCCESS != retval)
-		os_log_error(PAM_LOG, "failed: %d", retval);
+		_LOG_ERROR("failed: %d", retval);
 
 	CFReleaseSafe(tmp);
 
@@ -457,14 +459,14 @@ od_record_check_shell(ODRecordRef record)
 	CFStringRef cfstr = NULL;
 
 	if (NULL == record) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 
 	retval = od_record_attribute_create_cfstring(record, kODAttributeTypeUserShell, &cfstr);
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "od_record_attribute_create_cfstring() failed");
+		_LOG_DEBUG("od_record_attribute_create_cfstring() failed");
 		goto cleanup;
 	}
 
@@ -474,13 +476,13 @@ od_record_check_shell(ODRecordRef record)
 	}
 
 	if (CFStringCompare(cfstr, CFSTR("/usr/bin/false"), 0) == kCFCompareEqualTo) {
-		os_log_debug(PAM_LOG, "user shell is /bin/false");
+		_LOG_DEBUG("user shell is /bin/false");
 		retval = PAM_PERM_DENIED;
 	}
 
 cleanup:
 	if (PAM_SUCCESS != retval)
-		os_log_error(PAM_LOG, "failed: %d", retval);
+		_LOG_ERROR("failed: %d", retval);
 
 	CFReleaseSafe(cfstr);
 
@@ -494,7 +496,7 @@ od_string_from_record(ODRecordRef record, CFStringRef attrib,  char **out)
 	CFStringRef val = NULL;
 
 	if (NULL == record) {
-		os_log_debug(PAM_LOG, "%s - NULL ODRecord passed.", __func__);
+		_LOG_DEBUG("%s - NULL ODRecord passed.", __func__);
 		goto cleanup;
 	}
 
@@ -587,16 +589,16 @@ od_extract_home(pam_handle_t *pamh, const char *username, char **server_URL, cha
 
 	retval = od_string_from_record(record, kODAttributeTypeHomeDirectory, &tmp);
 	if (retval) {
-		os_log_debug(PAM_LOG, "%s - get kODAttributeTypeHomeDirectory  : %d",
+		_LOG_DEBUG("%s - get kODAttributeTypeHomeDirectory  : %d",
 			    __func__, retval);
 		goto cleanup;
 	}
 	extract_homemount(tmp, server_URL, path);
-	os_log_debug(PAM_LOG, "%s - Server URL   : %s", __func__, *server_URL);
-	os_log_debug(PAM_LOG, "%s - Path to mount: %s", __func__, *path);
+	_LOG_DEBUG("%s - Server URL   : %s", __func__, *server_URL);
+	_LOG_DEBUG("%s - Path to mount: %s", __func__, *path);
 
 	retval = od_string_from_record(record, kODAttributeTypeNFSHomeDirectory, homedir);
-	os_log_debug(PAM_LOG, "%s - Home dir     : %s", __func__, *homedir);
+	_LOG_DEBUG("%s - Home dir     : %s", __func__, *homedir);
 	if (retval)
 		goto cleanup;
 
@@ -621,24 +623,24 @@ od_principal_for_user(pam_handle_t *pamh, const char *user, char **od_principal)
 	CFIndex i = 0, count = 0;
 
 	if (NULL == user || NULL == od_principal) {
-		os_log_debug(PAM_LOG, "NULL argument passed");
+		_LOG_DEBUG("NULL argument passed");
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
 
 	retval = od_record_create_cstring(pamh, &record, user);
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "od_record_attribute_create_cfstring() failed");
+		_LOG_DEBUG("od_record_attribute_create_cfstring() failed");
 		goto cleanup;
 	}
 
 	retval = od_record_attribute_create_cfarray(record, kODAttributeTypeAuthenticationAuthority, &vals);
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "od_record_attribute_create_cfarray() failed");
+		_LOG_DEBUG("od_record_attribute_create_cfarray() failed");
 		goto cleanup;
 	}
 	if (NULL == vals) {
-		os_log_debug(PAM_LOG, "no authauth availale for user.");
+		_LOG_DEBUG("no authauth availale for user.");
 		retval = PAM_PERM_DENIED;
 		goto cleanup;
 	}
@@ -668,28 +670,28 @@ od_principal_for_user(pam_handle_t *pamh, const char *user, char **od_principal)
 	}
 
 	if (NULL == authparts) {
-		os_log_debug(PAM_LOG, "No authentication authority returned");
+		_LOG_DEBUG("No authentication authority returned");
 		retval = PAM_PERM_DENIED;
 		goto cleanup;
 	}
 
 	principal = CFArrayGetValueAtIndex(authparts, 3);
 	if (NULL == principal) {
-		os_log_debug(PAM_LOG, "no principal found in authentication authority");
+		_LOG_DEBUG("no principal found in authentication authority");
 		retval = PAM_PERM_DENIED;
 		goto cleanup;
 	}
 
 	retval = cfstring_to_cstring(principal, od_principal);
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "cfstring_to_cstring() failed");
+		_LOG_DEBUG("cfstring_to_cstring() failed");
 		goto cleanup;
 	}
 
 
 cleanup:
 	if (PAM_SUCCESS != retval) {
-		os_log_debug(PAM_LOG, "failed: %d", retval);
+		_LOG_DEBUG("failed: %d", retval);
 	}
 
 	CFReleaseSafe(record);

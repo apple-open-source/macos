@@ -457,9 +457,9 @@ bool ScreenCaptureKitSharingSessionManager::promptWithSCContentSharingPicker(Dis
     }
 
     SCContentSharingPicker* picker = [PAL::getSCContentSharingPickerClass() sharedPicker];
-    picker.active = YES;
-    picker.maximumStreamCount = @(1);
     picker.defaultConfiguration = configuration.get();
+    picker.maximumStreamCount = @(std::numeric_limits<unsigned>::max());
+    picker.active = YES;
     [m_promptHelper startObservingPicker:picker];
 
     if (shareableContentStyle != SCShareableContentStyleNone && [picker respondsToSelector:@selector(presentPickerUsingContentStyle:)])
@@ -509,6 +509,19 @@ static bool operator==(const SCContentFilter* filter, const CaptureDevice& devic
 
     ASSERT_NOT_REACHED();
     return false;
+}
+
+void ScreenCaptureKitSharingSessionManager::cancelPendingSessionForDevice(const CaptureDevice& device)
+{
+    ASSERT(isMainThread());
+
+    if (m_pendingContentFilter.get() != device) {
+        RELEASE_LOG_ERROR(WebRTC, "ScreenCaptureKitSharingSessionManager::createSessionSourceForDevice - unknown capture device.");
+        return;
+    }
+
+    m_pendingContentFilter = nullptr;
+    cancelPicking();
 }
 
 RefPtr<ScreenCaptureSessionSource> ScreenCaptureKitSharingSessionManager::createSessionSourceForDevice(WeakPtr<ScreenCaptureSessionSource::Observer> observer, const CaptureDevice& device, SCStreamConfiguration* configuration, SCStreamDelegate* delegate)

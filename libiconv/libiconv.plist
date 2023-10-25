@@ -28,7 +28,12 @@
 			<string>bsd_iconv.c: don't clobber errno on successful iconv_open (105248919)</string>
 			<string>citrus_esdb.c: exclude @ filenames from listing (105868289)</string>
 			<string>citrus_mmap.c, citrus_module.c: prefix the simulator root as needed (111163759)</string>
+			<string>encoding modules: avoid init_state() that just zero out state (110883172)</string>
+			<string>citrus_iconv_std.c, citrus_iconv_std_local.h: optimize 1:1 conversions (110883172)</string>
+			<string>citrus_csmapper.c, citrus_csmapper.h, citrus_iconv_std.c, citrus_iconv_std_local.h: optimize mapper_none conversions (110883172)</string>
+			<string>many: process many characters at once (110883172)</string>
 			<string>citrus_iconv_std.c: handle EILSEQ on output (113828035)</string>
+			<string>mkcsmapper: support / TRANSLIT in mapping data (115429361)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

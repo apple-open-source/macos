@@ -43,6 +43,9 @@
 #define _CITRUS_MAPPER_STD_SYM_TYPE		"type"
 #define _CITRUS_MAPPER_STD_SYM_INFO		"info"
 #define _CITRUS_MAPPER_STD_SYM_TABLE		"table"
+#ifdef __APPLE__
+#define _CITRUS_MAPPER_STD_SYM_TRANSLIT_TABLE		"translit_table"
+#endif
 
 #define _CITRUS_MAPPER_STD_TYPE_ROWCOL		"rowcol"
 struct _citrus_mapper_std_rowcol_info_x {

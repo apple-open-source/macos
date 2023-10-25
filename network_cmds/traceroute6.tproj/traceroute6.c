@@ -269,6 +269,7 @@ __unused static char copyright[] =
 
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
+#include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip.h>
 
@@ -276,6 +277,8 @@ __unused static char copyright[] =
 #include <net/route.h>
 #include <netinet6/ipsec.h>
 #endif
+
+#include "as.h"
 
 #define DUMMY_PORT 10010
 
@@ -286,23 +289,8 @@ __unused static char copyright[] =
 #define freehostent(x)
 #endif
 
-/*
- * format of a (udp) probe packet.
- */
-struct tv32 {
-	u_int32_t tv32_sec;
-	u_int32_t tv32_usec;
-};
-
-struct opacket {
-	u_char seq;		/* sequence number of this packet */
-	u_char hops;		/* hop limit of the packet */
-	u_char pad[2];
-	struct tv32 tv;		/* time packet left */
-} __attribute__((__packed__));
-
-u_char	packet[512];		/* last inbound (icmp) packet */
-struct opacket	*outpacket;	/* last output (udp) packet */
+static u_char	packet[512];		/* last inbound (icmp) packet */
+static char 	*outpacket;		/* last output packet */
 
 int	main(int, char *[]);
 int	wait_for_reply(int, struct msghdr *);
@@ -315,10 +303,15 @@ void	send_probe(int, u_long);
 void	*get_uphdr(struct ip6_hdr *, u_char *);
 int	get_hoplim(struct msghdr *);
 double	deltaT(struct timeval *, struct timeval *);
-char	*pr_type(int);
-int	packet_ok(struct msghdr *, int, int);
+const char *pr_type(int);
+int	packet_ok(struct msghdr *, int, int, u_char *, u_char *);
 void	print(struct msghdr *, int);
 const char *inetname(struct sockaddr *);
+u_int16_t in_cksum(u_int16_t *addr, int);
+u_int16_t udp_cksum(struct sockaddr_in6 *, struct sockaddr_in6 *,
+    void *, u_int32_t);
+u_int16_t tcp_chksum(struct sockaddr_in6 *, struct sockaddr_in6 *,
+    void *, u_int32_t);
 void	usage(void);
 
 int rcvsock;			/* receive (icmp) socket file descriptor */
@@ -330,17 +323,17 @@ int rcvhlim;
 struct in6_pktinfo *rcvpktinfo;
 
 struct sockaddr_in6 Src, Dst, Rcv;
-u_long datalen;			/* How much data */
+u_long datalen = 20;			/* How much data */
 #define	ICMP6ECHOLEN	8
 /* XXX: 2064 = 127(max hops in type 0 rthdr) * sizeof(ip6_hdr) + 16(margin) */
 char rtbuf[2064];
 #ifdef USE_RFC2292BIS
 struct ip6_rthdr *rth;
 #endif
-struct cmsghdr *cmsg;
+static struct cmsghdr *cmsg;
 
-char *source = 0;
-char *hostname;
+static char *source = NULL;
+static char *hostname;
 
 u_long nprobes = 3;
 u_long first_hop = 1;
@@ -356,6 +349,9 @@ int nflag;			/* print addresses numerically */
 int useproto = IPPROTO_UDP;	/* protocol to use to send packet */
 int lflag;			/* print both numerical address & hostname */
 int ecn = 0;		/* set ECN bits */
+int as_path;		/* print as numbers for each hop */
+char *as_server = NULL;
+void *asn;
 
 int
 main(argc, argv)
@@ -364,12 +360,13 @@ main(argc, argv)
 {
 	int mib[4] = { CTL_NET, PF_INET6, IPPROTO_IPV6, IPV6CTL_DEFHLIM };
 	char hbuf[NI_MAXHOST], src0[NI_MAXHOST], *ep;
-	int ch, i, on = 1, seq, rcvcmsglen, error, minlen;
+	int ch, i, on = 1, seq, rcvcmsglen, error;
 	struct addrinfo hints, *res;
 	static u_char *rcvcmsgbuf;
-	u_long probe, hops, lport;
+	u_long probe, hops, lport, ltclass;
 	struct hostent *hp;
-	size_t size;
+	size_t size, minlen;
+	u_char type, code;
 
 	/*
 	 * Receive ICMP
@@ -406,9 +403,17 @@ main(argc, argv)
 #endif
 
 	seq = 0;
+	ident = htons(getpid() & 0xffff); /* same as ping6 */
 
-	while ((ch = getopt(argc, argv, "dEf:g:Ilm:nNp:q:rs:Uvw:")) != -1)
+	while ((ch = getopt(argc, argv, "aA:dEf:g:Ilm:nNp:q:rs:TUvw:")) != -1)
 		switch (ch) {
+		case 'a':
+			as_path = 1;
+			break;
+		case 'A':
+			as_path = 1;
+			as_server = optarg;
+			break;
 		case 'd':
 			options |= SO_DEBUG;
 			break;
@@ -463,7 +468,6 @@ main(argc, argv)
 			break;
 		case 'I':
 			useproto = IPPROTO_ICMPV6;
-			ident = htons(getpid() & 0xffff); /* same as ping6 */
 			break;
 		case 'l':
 			lflag++;
@@ -524,11 +528,25 @@ main(argc, argv)
 			 */
 			source = optarg;
 			break;
-		case 'v':
-			verbose++;
+		case 't':
+			ep = NULL;
+			errno = 0;
+			ltclass = strtoul(optarg, &ep, 0);
+			if (errno || !*optarg || *ep || ltclass > 255) {
+				fprintf(stderr,
+				    "traceroute6: invalid traffic class.\n");
+				exit(1);
+			}
+			tclass = (int)ltclass;
+			break;
+		case 'T':
+			useproto = IPPROTO_TCP;
 			break;
 		case 'U':
 			useproto = IPPROTO_UDP;
+			break;
+		case 'v':
+			verbose++;
 			break;
 		case 'w':
 			ep = NULL;
@@ -556,22 +574,16 @@ main(argc, argv)
 	 */
 	switch (useproto) {
 	case IPPROTO_ICMPV6:
-		sndsock = rcvsock;
-		break;
-	case IPPROTO_UDP:
-		if ((sndsock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
-			perror("socket(SOCK_DGRAM)");
-			exit(5);
-		}
-		break;
 	case IPPROTO_NONE:
-		if ((sndsock = socket(AF_INET6, SOCK_RAW, IPPROTO_NONE)) < 0) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+		if ((sndsock = socket(AF_INET6, SOCK_RAW, useproto)) < 0) {
 			perror("socket(SOCK_RAW)");
 			exit(5);
 		}
 		break;
 	default:
-		fprintf(stderr, "traceroute6: unknown probe protocol %d",
+		fprintf(stderr, "traceroute6: unknown probe protocol %d\n",
 		    useproto);
 		exit(5);
 	}
@@ -636,7 +648,7 @@ main(argc, argv)
 		fprintf(stderr, "traceroute6: Warning: %s has multiple "
 		    "addresses; using %s\n", hostname, hbuf);
 	}
-
+	freeaddrinfo(res);
 	if (*++argv) {
 		ep = NULL;
 		errno = 0;
@@ -649,14 +661,17 @@ main(argc, argv)
 	}
 	switch (useproto) {
 	case IPPROTO_ICMPV6:
-		minlen = ICMP6ECHOLEN + sizeof(struct tv32);
+		minlen = ICMP6ECHOLEN;
 		break;
 	case IPPROTO_UDP:
-		minlen = sizeof(struct opacket);
+		minlen = sizeof(struct udphdr);
 		break;
 	case IPPROTO_NONE:
 		minlen = 0;
 		datalen = 0;
+		break;
+	case IPPROTO_TCP:
+		minlen = sizeof(struct tcphdr);
 		break;
 	default:
 		fprintf(stderr, "traceroute6: unknown probe protocol %d.\n",
@@ -667,11 +682,11 @@ main(argc, argv)
 		datalen = minlen;
 	else if (datalen >= MAXPACKET) {
 		fprintf(stderr,
-		    "traceroute6: packet size must be %d <= s < %ld.\n",
-		    minlen, (long)MAXPACKET);
+		    "traceroute6: packet size must be %zu <= s < %d.\n",
+		    minlen, MAXPACKET);
 		exit(1);
 	}
-	outpacket = (struct opacket *)malloc((unsigned)datalen);
+	outpacket = malloc(datalen);
 	if (!outpacket) {
 		perror("malloc");
 		exit(1);
@@ -737,6 +752,8 @@ main(argc, argv)
 
 #ifdef SO_SNDBUF
 	i = datalen;
+	if (i == 0)
+		i = 1;
 	if (setsockopt(sndsock, SOL_SOCKET, SO_SNDBUF, (char *)&i,
 	    sizeof(i)) < 0 && useproto != IPPROTO_NONE) {
 		perror("setsockopt(SO_SNDBUF)");
@@ -877,6 +894,17 @@ main(argc, argv)
 		srcport = ntohs(Src.sin6_port);
 	}
 
+	if (as_path) {
+		asn = as_setup(as_server);
+		if (asn == NULL) {
+			fprintf(stderr,
+			    "traceroute6: as_setup failed, AS# lookups"
+			    " disabled\n");
+			(void)fflush(stderr);
+			as_path = 0;
+		}
+	}
+
 	/*
 	 * Message to users
 	 */
@@ -888,11 +916,18 @@ main(argc, argv)
 	if (source)
 		fprintf(stderr, " from %s", source);
 	fprintf(stderr, ", %lu hops max, %lu byte packets\n",
-	    max_hops, datalen);
+	    max_hops,
+	    datalen + ((useproto == IPPROTO_UDP) ? sizeof(struct udphdr) : 0));
 	(void) fflush(stderr);
 
 	if (first_hop > 1)
 		printf("Skipping %lu intermediate hops\n", first_hop - 1);
+
+	if (connect(sndsock, (struct sockaddr *)&Dst,
+	    sizeof(Dst)) != 0) {
+		fprintf(stderr, "connect: %s\n", strerror(errno));
+		exit(1);
+	}
 
 	/*
 	 * Main loop
@@ -912,7 +947,7 @@ main(argc, argv)
 			send_probe(++seq, hops);
 			while ((cc = wait_for_reply(rcvsock, &rcvmhdr))) {
 				(void) gettimeofday(&t2, NULL);
-				if ((i = packet_ok(&rcvmhdr, cc, seq))) {
+				if (packet_ok(&rcvmhdr, cc, seq, &type, &code)) {
 					if (!IN6_ARE_ADDR_EQUAL(&Rcv.sin6_addr,
 					    &lastaddr)) {
 						if (probe > 0)
@@ -921,30 +956,44 @@ main(argc, argv)
 						lastaddr = Rcv.sin6_addr;
 					}
 					printf("  %.3f ms", deltaT(&t1, &t2));
-					switch (i - 1) {
-					case ICMP6_DST_UNREACH_NOROUTE:
-						++unreachable;
-						printf(" !N");
-						break;
-					case ICMP6_DST_UNREACH_ADMIN:
-						++unreachable;
-						printf(" !P");
-						break;
-					case ICMP6_DST_UNREACH_NOTNEIGHBOR:
-						++unreachable;
-						printf(" !S");
-						break;
-					case ICMP6_DST_UNREACH_ADDR:
-						++unreachable;
-						printf(" !A");
-						break;
-					case ICMP6_DST_UNREACH_NOPORT:
+					if (type == ICMP6_DST_UNREACH) {
+						switch (code) {
+						case ICMP6_DST_UNREACH_NOROUTE:
+							++unreachable;
+							printf(" !N");
+							break;
+						case ICMP6_DST_UNREACH_ADMIN:
+							++unreachable;
+							printf(" !P");
+							break;
+						case ICMP6_DST_UNREACH_NOTNEIGHBOR:
+							++unreachable;
+							printf(" !S");
+							break;
+						case ICMP6_DST_UNREACH_ADDR:
+							++unreachable;
+							printf(" !A");
+							break;
+						case ICMP6_DST_UNREACH_NOPORT:
+							if (rcvhlim >= 0 &&
+							    rcvhlim <= 1)
+								printf(" !");
+							++got_there;
+							break;
+						}
+					} else if (type == ICMP6_PARAM_PROB &&
+					    code == ICMP6_PARAMPROB_NEXTHEADER) {
+						printf(" !H");
+						++got_there;
+					} else if (type == ICMP6_ECHO_REPLY) {
 						if (rcvhlim >= 0 &&
 						    rcvhlim <= 1)
 							printf(" !");
 						++got_there;
-						break;
 					}
+					break;
+				} else if (deltaT(&t1, &t2) > waittime * 1000) {
+					cc = 0;
 					break;
 				}
 			}
@@ -958,6 +1007,8 @@ main(argc, argv)
 			exit(0);
 		}
 	}
+	if (as_path)
+		as_shutdown(asn);
 
 	exit(0);
 }
@@ -1029,9 +1080,8 @@ send_probe(seq, hops)
 	u_long hops;
 {
 	struct icmp6_hdr *icp;
-	struct opacket *op;
-	struct timeval tv;
-	struct tv32 tv32;
+	struct udphdr *outudp;
+	struct tcphdr *tcp;
 	int i;
 
 	i = hops;
@@ -1041,9 +1091,6 @@ send_probe(seq, hops)
 	}
 
 	Dst.sin6_port = htons(port + seq);
-	(void) gettimeofday(&tv, NULL);
-	tv32.tv32_sec = htonl(tv.tv_sec);
-	tv32.tv32_usec = htonl(tv.tv_usec);
 
 	switch (useproto) {
 	case IPPROTO_ICMPV6:
@@ -1054,29 +1101,39 @@ send_probe(seq, hops)
 		icp->icmp6_cksum = 0;
 		icp->icmp6_id = ident;
 		icp->icmp6_seq = htons(seq);
-		bcopy(&tv32, ((u_int8_t *)outpacket + ICMP6ECHOLEN),
-		    sizeof(tv32));
 		break;
 	case IPPROTO_UDP:
-		op = outpacket;
-
-		op->seq = seq;
-		op->hops = hops;
-		bcopy(&tv32, &op->tv, sizeof tv32);
+		outudp = (struct udphdr *) outpacket;
+		outudp->uh_sport = htons(ident);
+		outudp->uh_dport = htons(port+seq);
+		outudp->uh_ulen = htons(datalen);
+		outudp->uh_sum = 0;
+		outudp->uh_sum = udp_cksum(&Src, &Dst, outpacket, datalen);
 		break;
 	case IPPROTO_NONE:
 		/* No space for anything. No harm as seq/tv32 are decorative. */
+		break;
+	case IPPROTO_TCP:
+		tcp = (struct tcphdr *)outpacket;
+
+		tcp->th_sport = htons(ident);
+		tcp->th_dport = htons(port + seq);
+		tcp->th_seq = (tcp->th_sport << 16) | tcp->th_dport;
+		tcp->th_ack = 0;
+		tcp->th_off = 5;
+		tcp->th_flags = TH_SYN;
+		tcp->th_sum = 0;
+		tcp->th_sum = tcp_chksum(&Src, &Dst, outpacket, datalen);
 		break;
 	default:
 		fprintf(stderr, "Unknown probe protocol %d.\n", useproto);
 		exit(1);
 	}
 
-	i = sendto(sndsock, (char *)outpacket, datalen, 0,
-	    (struct sockaddr *)&Dst, Dst.sin6_len);
+	i = send(sndsock, (char *)outpacket, datalen, 0);
 	if (i < 0 || i != datalen)  {
 		if (i < 0)
-			perror("sendto");
+			perror("send");
 		printf("traceroute6: wrote %s %lu chars, ret=%d\n",
 		    hostname, datalen, i);
 		(void) fflush(stdout);
@@ -1114,12 +1171,12 @@ deltaT(t1p, t2p)
 /*
  * Convert an ICMP "type" field to a printable string.
  */
-char *
+const char *
 pr_type(t0)
 	int t0;
 {
 	u_char t = t0 & 0xff;
-	char *cp;
+	const char *cp;
 
 	switch (t) {
 	case ICMP6_DST_UNREACH:
@@ -1172,14 +1229,10 @@ pr_type(t0)
 }
 
 int
-packet_ok(mhdr, cc, seq)
-	struct msghdr *mhdr;
-	int cc;
-	int seq;
+packet_ok(struct msghdr *mhdr, int cc, int seq, u_char *type, u_char *code)
 {
 	struct icmp6_hdr *icp;
 	struct sockaddr_in6 *from = (struct sockaddr_in6 *)mhdr->msg_name;
-	u_char type, code;
 	char *buf = (char *)mhdr->msg_iov[0].iov_base;
 	struct cmsghdr *cm;
 	int *hlimp;
@@ -1244,11 +1297,17 @@ packet_ok(mhdr, cc, seq)
 	else
 		rcvhlim = *hlimp;
 
-	type = icp->icmp6_type;
-	code = icp->icmp6_code;
-	if ((type == ICMP6_TIME_EXCEEDED && code == ICMP6_TIME_EXCEED_TRANSIT)
-	    || type == ICMP6_DST_UNREACH) {
+	*type = icp->icmp6_type;
+	*code = icp->icmp6_code;
+	if ((*type == ICMP6_TIME_EXCEEDED &&
+	    *code == ICMP6_TIME_EXCEED_TRANSIT) ||
+	    (*type == ICMP6_DST_UNREACH) ||
+	    (*type == ICMP6_PARAM_PROB &&
+	    *code == ICMP6_PARAMPROB_NEXTHEADER)) {
 		struct ip6_hdr *hip;
+		struct icmp6_hdr *icmp;
+		struct tcphdr *tcp;
+		struct udphdr *udp;
 		void *up;
 
 		hip = (struct ip6_hdr *)(icp + 1);
@@ -1272,27 +1331,35 @@ packet_ok(mhdr, cc, seq)
 
 		switch (useproto) {
 		case IPPROTO_ICMPV6:
-			if (((struct icmp6_hdr *)up)->icmp6_id == ident &&
-			    ((struct icmp6_hdr *)up)->icmp6_seq == htons(seq))
-				return (type == ICMP6_TIME_EXCEEDED ?
-				    -1 : code + 1);
+			icmp = (struct icmp6_hdr *)up;
+			if (icmp->icmp6_id == ident &&
+			    icmp->icmp6_seq == htons(seq))
+				return (1);
 			break;
 		case IPPROTO_UDP:
-			if (((struct udphdr *)up)->uh_sport == htons(srcport) &&
-			    ((struct udphdr *)up)->uh_dport == htons(port + seq))
-				return (type == ICMP6_TIME_EXCEEDED ?
-				    -1 : code + 1);
+	udp = (struct udphdr *)up;
+			if (udp->uh_sport == htons(ident) &&
+			    udp->uh_dport == htons(port + seq))
+				return (1);
+			break;
+	case IPPROTO_TCP:
+			tcp = (struct tcphdr *)up;
+			if (tcp->th_sport == htons(ident) &&
+			    tcp->th_dport == htons(port + seq) &&
+			    tcp->th_seq ==
+			    (tcp_seq)((tcp->th_sport << 16) | tcp->th_dport))
+				return (1);
 			break;
 		case IPPROTO_NONE:
-			return (type == ICMP6_TIME_EXCEEDED ?  -1 : code + 1);
+			return (1);
 		default:
 			fprintf(stderr, "Unknown probe proto %d.\n", useproto);
 			break;
 		}
-	} else if (useproto == IPPROTO_ICMPV6 && type == ICMP6_ECHO_REPLY) {
+	} else if (useproto == IPPROTO_ICMPV6 && *type == ICMP6_ECHO_REPLY) {
 		if (icp->icmp6_id == ident &&
 		    icp->icmp6_seq == htons(seq))
-			return (ICMP6_DST_UNREACH_NOPORT + 1);
+			return (1);
 	}
 	if (verbose) {
 		char sbuf[NI_MAXHOST+1], dbuf[INET6_ADDRSTRLEN];
@@ -1305,8 +1372,8 @@ packet_ok(mhdr, cc, seq)
 		printf("\n%d bytes from %s to %s", cc, sbuf,
 		    rcvpktinfo ? inet_ntop(AF_INET6, &rcvpktinfo->ipi6_addr,
 		    dbuf, sizeof(dbuf)) : "?");
-		printf(": icmp type %d (%s) code %d\n", type, pr_type(type),
-		    icp->icmp6_code);
+		printf(": icmp type %d (%s) code %d\n", *type, pr_type(*type),
+		    *code);
 		p = (u_int8_t *)(icp + 1);
 #define WIDTH	16
 		for (i = 0; i < cc; i++) {
@@ -1345,10 +1412,10 @@ get_uphdr(ip6, lim)
 	while (lim - cp >= (nh == IPPROTO_NONE ? 0 : 8)) {
 		switch (nh) {
 		case IPPROTO_ESP:
-		case IPPROTO_TCP:
 			return(NULL);
 		case IPPROTO_ICMPV6:
 			return(useproto == nh ? cp : NULL);
+		case IPPROTO_TCP:
 		case IPPROTO_UDP:
 			return(useproto == nh ? cp : NULL);
 		case IPPROTO_NONE:
@@ -1384,6 +1451,8 @@ print(mhdr, cc)
 	if (getnameinfo((struct sockaddr *)from, from->sin6_len,
 	    hbuf, sizeof(hbuf), NULL, 0, NI_NUMERICHOST) != 0)
 		strlcpy(hbuf, "invalid", sizeof(hbuf));
+	if (as_path)
+		printf(" [AS%u]", as_lookup(asn, hbuf, AF_INET6));
 	if (nflag)
 		printf(" %s", hbuf);
 	else if (lflag)
@@ -1444,12 +1513,99 @@ inetname(sa)
 	return line;
 }
 
+u_int16_t
+in_cksum(u_int16_t *addr, int len)
+{
+	int nleft = len;
+	u_int16_t *w = addr;
+	u_int16_t answer;
+	int sum = 0;
+
+	/*
+	 *  Our algorithm is simple, using a 32 bit accumulator (sum),
+	 *  we add sequential 16 bit words to it, and at the end, fold
+	 *  back all the carry bits from the top 16 bits into the lower
+	 *  16 bits.
+	 */
+	while (nleft > 1)  {
+		sum += *w++;
+		nleft -= 2;
+	}
+
+	/* mop up an odd byte, if necessary */
+	if (nleft == 1)
+		sum += *(u_char *)w;
+
+	/*
+	 * add back carry outs from top 16 bits to low 16 bits
+	 */
+	sum = (sum >> 16) + (sum & 0xffff);	/* add hi 16 to low 16 */
+	sum += (sum >> 16);			/* add carry */
+	answer = ~sum;				/* truncate to 16 bits */
+	return (answer);
+}
+
+u_int16_t
+udp_cksum(struct sockaddr_in6 *src, struct sockaddr_in6 *dst,
+    void *payload, u_int32_t len)
+{
+	struct {
+		struct in6_addr src;
+		struct in6_addr dst;
+		u_int32_t len;
+		u_int8_t zero[3];
+		u_int8_t next;
+	} pseudo_hdr;
+	u_int16_t sum[2];
+
+	pseudo_hdr.src = src->sin6_addr;
+	pseudo_hdr.dst = dst->sin6_addr;
+	pseudo_hdr.len = htonl(len);
+	pseudo_hdr.zero[0] = 0;
+	pseudo_hdr.zero[1] = 0;
+	pseudo_hdr.zero[2] = 0;
+	pseudo_hdr.next = IPPROTO_UDP;
+
+	sum[1] = in_cksum((u_int16_t *)&pseudo_hdr, sizeof(pseudo_hdr));
+	sum[0] = in_cksum(payload, len);
+
+	return (~in_cksum(sum, sizeof(sum)));
+}
+
+u_int16_t
+tcp_chksum(struct sockaddr_in6 *src, struct sockaddr_in6 *dst,
+    void *payload, u_int32_t len)
+{
+	struct {
+		struct in6_addr src;
+		struct in6_addr dst;
+		u_int32_t len;
+		u_int8_t zero[3];
+		u_int8_t next;
+	} pseudo_hdr;
+	u_int16_t sum[2];
+
+	pseudo_hdr.src = src->sin6_addr;
+	pseudo_hdr.dst = dst->sin6_addr;
+	pseudo_hdr.len = htonl(len);
+	pseudo_hdr.zero[0] = 0;
+	pseudo_hdr.zero[1] = 0;
+	pseudo_hdr.zero[2] = 0;
+	pseudo_hdr.next = IPPROTO_TCP;
+
+	sum[1] = in_cksum((u_int16_t *)&pseudo_hdr, sizeof(pseudo_hdr));
+	sum[0] = in_cksum(payload, len);
+
+	return (~in_cksum(sum, sizeof(sum)));
+}
+
 void
 usage()
 {
 
 	fprintf(stderr,
-"usage: traceroute6 [-dEIlnNrUv] [-f firsthop] [-g gateway] [-m hoplimit]\n"
-"       [-p port] [-q probes] [-s src] [-w waittime] target [datalen]\n");
+"usage: traceroute6 [-adEIlnNrTUv] [-A as_server] [-f firsthop] [-g gateway]\n"
+"       [-m hoplimit] [-p port] [-q probes] [-s src] [-w waittime] target\n"
+"       [datalen]\n");
 	exit(1);
 }

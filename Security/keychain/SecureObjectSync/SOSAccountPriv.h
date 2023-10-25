@@ -366,6 +366,8 @@ NSMutableArray * SOSAccountScanForDeletions(CFDictionaryRef keysAndValues, CFSet
 bool SOSAccountCleanupAllKVSKeys(SOSAccount* account, CFErrorRef* error);
 bool SOSAccountCleanupAllKVSKeysIfScheduled(SOSAccount* account, CFErrorRef* error);
 
+void SOSAccountWriteEmptyCircleToKVS(SOSAccount* account);
+
 @end
 
 @interface SOSAccount (Persistence)

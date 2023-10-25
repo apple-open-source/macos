@@ -3330,19 +3330,25 @@ errOut:
 
 /*!
  @function SecPolicyCreateAppleIDSService
- @abstract Ensure we're appropriately pinned to the IDS service (SSL + Apple restrictions)
+ @abstract Verify the IDS Configuration Bag signing cert
  */
 SecPolicyRef SecPolicyCreateAppleIDSService(CFStringRef hostname)
 {
-    return SecPolicyCreateAppleServerAuthCommon(hostname, NULL, kSecPolicyAppleIDSService,
+    SecPolicyRef policy = SecPolicyCreateAppleServerAuthCommon(hostname, NULL, kSecPolicyAppleIDSService,
                                                 kSecPolicyNameAppleIDSBag,
                                                 &oidAppleCertExtAppleServerAuthenticationIDSProd,
                                                 &oidAppleCertExtAppleServerAuthenticationIDSProdQA);
+
+    /* Remove the revocation check */
+    CFMutableDictionaryRef options = CFDictionaryCreateMutableCopy(NULL, 0, policy->_options);
+    CFDictionaryRemoveValue(options, kSecPolicyCheckRevocation);
+    CFAssignRetained(policy->_options, options);
+    return policy;
 }
 
 /*!
  @function SecPolicyCreateAppleIDSService
- @abstract Ensure we're appropriately pinned to the IDS service (SSL + Apple restrictions)
+ @abstract Ensure we're appropriately pinned to the IDS TLS endpoints
  */
 SecPolicyRef SecPolicyCreateAppleIDSServiceContext(CFStringRef hostname, CFDictionaryRef context)
 {

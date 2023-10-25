@@ -29,6 +29,11 @@
  * SUCH DAMAGE.
  */
 
+#ifdef __APPLE__
+#include <sys/param.h>
+
+#include <assert.h>
+#endif
 #include <iconv.h>
 
 /*
@@ -48,6 +53,19 @@
 #define _TO_EI(_cl_)	((_ENCODING_INFO*)(_cl_))
 #define _CE_TO_EI(_ce_)	(_TO_EI((_ce_)->ce_closure))
 #define _TO_STATE(_ps_)	((_ENCODING_STATE*)(_ps_))
+
+#ifdef __APPLE__
+#ifndef _ENCODING_HAVE_MBTOCSN
+#define _ENCODING_HAVE_MBTOCSN		0
+#endif
+
+#ifndef _ENCODING_NEED_INIT_STATE
+#define	_ENCODING_NEED_INIT_STATE	0
+#endif
+#else
+#define _ENCODING_HAVE_MBTOCSN		0
+#define	_ENCODING_NEED_INIT_STATE	1
+#endif
 
 #ifndef _ENCODING_MB_CUR_MIN
 /* Assume one byte minimum unless otherwise specified. */
@@ -107,6 +125,7 @@ _FUNCNAME(stdenc_uninit)(struct _citrus_stdenc * __restrict ce)
 	}
 }
 
+#if _ENCODING_NEED_INIT_STATE
 static int
 _FUNCNAME(stdenc_init_state)(struct _citrus_stdenc * __restrict ce,
     void * __restrict ps)
@@ -116,6 +135,7 @@ _FUNCNAME(stdenc_init_state)(struct _citrus_stdenc * __restrict ce,
 
 	return (0);
 }
+#endif
 
 static int
 _FUNCNAME(stdenc_mbtocs)(struct _citrus_stdenc * __restrict ce,
@@ -156,6 +176,104 @@ _FUNCNAME(stdenc_cstomb)(struct _citrus_stdenc * __restrict ce,
 		    _TO_STATE(ps), nresult);
 	return (ret);
 }
+
+#if _ENCODING_HAVE_MBTOCSN
+static int
+_FUNCNAME(stdenc_mbtocsn)(struct _citrus_stdenc * __restrict ce,
+    _citrus_csid_t * __restrict csid, _citrus_index_t * __restrict idx,
+    unsigned short * __restrict delta, int * __restrict cnt,
+    char ** __restrict s, size_t n, void * __restrict ps,
+    size_t * __restrict nresult, struct iconv_hooks *hooks)
+{
+	wchar_t wc;
+	size_t accum, i, upper;
+	int ret;
+	char *first, *last;
+
+	first = *s;
+	accum = *nresult = 0;
+	upper = MIN(n, (size_t)*cnt);
+	ret = 0;
+
+	for (i = 0; i < upper && n != 0; i++) {
+		last = *s;
+
+		ret = _FUNCNAME(mbrtowc_priv)(_CE_TO_EI(ce), &wc, s, n,
+		    _TO_STATE(ps), &accum);
+
+		if (ret != 0)
+			break;
+		if (accum == (size_t)-2) {
+			*nresult = accum;
+			break;
+		}
+
+		ret = _FUNCNAME(stdenc_wctocs)(_CE_TO_EI(ce), &csid[i],
+		    &idx[i], wc);
+		if (ret != 0)
+			break;
+
+		/* The NUL byte takes one character. */
+		if (accum == 0)
+			accum = 1;
+		assert(accum <= n);
+		n -= accum;
+		*nresult += accum;
+		delta[i] = *s - first;
+
+		if ((hooks != NULL) && (hooks->uc_hook != NULL))
+			hooks->uc_hook((unsigned int)idx[i], hooks->data);
+	}
+
+	*cnt = i;
+
+	return (ret);
+}
+
+static int
+_FUNCNAME(stdenc_cstombn)(struct _citrus_stdenc * __restrict ce,
+    char * __restrict s, size_t n, _citrus_csid_t * __restrict csid,
+    _citrus_index_t * __restrict idx, int * __restrict cnt,
+    void * __restrict ps, size_t * __restrict nresult,
+    struct iconv_hooks *hooks __unused)
+{
+	wchar_t wc;
+	size_t acc, tmp;
+	int done, ret;
+
+	acc = 0;
+	done = 0;
+	ret = 0;
+	for (int i = 0; i < *cnt; i++) {
+		wc = ret = 0;
+
+		if (csid[i] != _CITRUS_CSID_INVALID)
+			ret = _FUNCNAME(stdenc_cstowc)(_CE_TO_EI(ce), &wc,
+			     csid[i], idx[i]);
+
+		if (ret == 0) {
+			ret = _FUNCNAME(wcrtomb_priv)(_CE_TO_EI(ce), s, n, wc,
+			    _TO_STATE(ps), &tmp);
+
+			if (ret == 0) {
+				done++;
+
+				assert(tmp <= n);
+				s += tmp;
+				acc += tmp;
+				n -= tmp;
+			}
+		}
+
+		if (ret != 0 || n == 0)
+			break;
+	}
+
+	*cnt = done;
+	*nresult = acc;
+	return (ret);
+}
+#endif
 
 static int
 _FUNCNAME(stdenc_mbtowc)(struct _citrus_stdenc * __restrict ce,

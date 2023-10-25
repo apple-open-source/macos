@@ -1458,22 +1458,25 @@ enum class WebCore::DiagnosticLoggingDomain : uint8_t {
 };
 
 struct WebCore::WindowFeatures {
+    bool hasAdditionalFeatures;
+
     std::optional<float> x;
     std::optional<float> y;
     std::optional<float> width;
     std::optional<float> height;
 
-    bool menuBarVisible;
-    bool statusBarVisible;
-    bool toolBarVisible;
-    bool locationBarVisible;
-    bool scrollbarsVisible;
-    bool resizable;
+    std::optional<bool> popup;
+    std::optional<bool> menuBarVisible;
+    std::optional<bool> statusBarVisible;
+    std::optional<bool> toolBarVisible;
+    std::optional<bool> locationBarVisible;
+    std::optional<bool> scrollbarsVisible;
+    std::optional<bool> resizable;
 
-    bool fullscreen;
-    bool dialog;
-    [NotSerialized] bool noopener;
-    [NotSerialized] bool noreferrer;
+    std::optional<bool> fullscreen;
+    std::optional<bool> dialog;
+    [NotSerialized] std::optional<bool> noopener;
+    [NotSerialized] std::optional<bool> noreferrer;
 
     [NotSerialized] Vector<String> additionalFeatures;
 };
@@ -2160,7 +2163,7 @@ struct WebCore::GraphicsContextGLAttributes {
     bool xrCompatible;
 #endif
     bool failPlatformContextCreationForTesting;
-    [NotSerialized] unsigned remoteIPCBufferSizeLog2ForTesting;
+    [NotSerialized] WebCore::GraphicsContextGLSimulatedCreationFailure failContextCreationForTesting;
 };
 #endif // ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
 
@@ -3372,6 +3375,14 @@ header: <WebCore/MediaPlayer.h>
     std::optional<Vector<WebCore::FourCC>> allowedMediaAudioCodecIDs;
     std::optional<Vector<WebCore::FourCC>> allowedMediaCaptionFormatTypes;
 };
+
+header: <WebCore/MediaPlayer.h>
+[CustomHeader] struct WebCore::SeekTarget {
+    MediaTime time;
+    MediaTime negativeThreshold;
+    MediaTime positiveThreshold;
+};
+
 #endif
 
 enum class WebCore::MediaPlayerNetworkState : uint8_t {
@@ -4027,6 +4038,7 @@ enum class WebCore::ServiceWorkerClientFrameType : uint8_t {
     None
 };
 
+enum class WebCore::ServiceWorkerIsInspectable : bool
 enum class WebCore::ShouldNotifyWhenResolved : bool
 
 enum class WebCore::ServiceWorkerUpdateViaCache : uint8_t {
@@ -5284,6 +5296,26 @@ enum class WebCore::WebGPU::TextureFormat : uint8_t {
     Astc12x12Unorm,
     Astc12x12UnormSRGB,
 };
+
+#if ENABLE(MEDIA_STREAM)
+enum class WebCore::MediaAccessDenialReason : uint8_t {
+    NoReason,
+    NoConstraints,
+    UserMediaDisabled,
+    NoCaptureDevices,
+    InvalidConstraint,
+    HardwareError,
+    PermissionDenied,
+    InvalidAccess,
+    OtherFailure
+};
+
+header: <WebCore/RealtimeMediaSource.h>
+[CustomHeader] struct WebCore::CaptureSourceError {
+    String errorMessage;
+    WebCore::MediaAccessDenialReason denialReason;
+};
+#endif
 
 header: <WebCore/WebGPUTextureAspect.h>
 enum class WebCore::WebGPU::TextureAspect : uint8_t {

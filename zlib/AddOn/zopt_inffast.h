@@ -38,82 +38,95 @@ INFLATE_INLINE vector_uchar16 inflate_shuffle(vector_uchar16 x, vector_uchar16 p
 #endif
 }
 
-// Copy with overlap and distance < 16. Can overshoot by 47 bytes.
-INFLATE_INLINE uint8_t* inflate_copy_with_overlap_small(uint8_t* dst, const size_t distance, const size_t len) // OK
+// Copy 1-15 bytes from SRC to DST.
+INFLATE_INLINE void inflate_copy_tail(uint8_t* dst, const uint8_t* src, uint32_t len) // OK
 {
-  Assert((distance) && (distance < 16), "bad overlapping distance");
-  uint8_t* dst_end = dst + len;
+  if (len & 1) { *dst++ = *src++; }
+  if (len & 2) { *(packed_uint16_t*)dst = *(packed_uint16_t*)src; src += 2; dst += 2; }
+  if (len & 4) { *(packed_uint32_t*)dst = *(packed_uint32_t*)src; src += 4; dst += 4; }
+  if (len & 8) { *(packed_uint64_t*)dst = *(packed_uint64_t*)src; src += 8; dst += 8; }
+}
+
+// Copy LEN bytes from DST-DISTANCE to DST with overlap.
+INFLATE_INLINE void inflate_copy_with_overlap(uint8_t* dst, uint32_t distance, uint32_t len) // OK
+{
 #if defined(__SSE2__) || defined(__arm64__)
-  #define _ 0
-  const static vector_uchar16 repeat_perm[15] = {
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0, 0},
-    {0, 1, 0, 1, 0, 1, 0, 1, 0, 1,  0,  1,  0,  1,  0, 1},
-    {0, 1, 2, 0, 1, 2, 0, 1, 2, 0,  1,  2,  0,  1,  2, _},
-    {0, 1, 2, 3, 0, 1, 2, 3, 0, 1,  2,  3,  0,  1,  2, 3},
-    {0, 1, 2, 3, 4, 0, 1, 2, 3, 4,  0,  1,  2,  3,  4, _},
-    {0, 1, 2, 3, 4, 5, 0, 1, 2, 3,  4,  5,  _,  _,  _, _},
-    {0, 1, 2, 3, 4, 5, 6, 0, 1, 2,  3,  4,  5,  6,  _, _},
-    {0, 1, 2, 3, 4, 5, 6, 7, 0, 1,  2,  3,  4,  5,  6, 7},
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, _,  _,  _,  _,  _,  _, _},
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,  _,  _,  _,  _,  _, _},
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,  _,  _,  _,  _, _},
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,  _,  _,  _, _},
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,  _,  _, _},
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,  _, _},
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, _},
-  };
-  #undef _
-  const static uint8_t repeat_size[15] = {16, 16, 15, 16, 15, 12, 14, 16, 9, 10, 11, 12, 13, 14, 15};
-  const vector_uchar16 pattern = inflate_shuffle(*(packed_uchar16*)(dst - distance), repeat_perm[distance - 1]);
-  const size_t pattern_size = repeat_size[distance - 1];
-  const uint8_t* src = dst - distance;
+  const static vector_uchar16 repeat_perm[16] = {
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15},
+    {14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15},
+    {13,14,15,13,14,15,13,14,15,13,14,15,13,14,15,13},
+    {12,13,14,15,12,13,14,15,12,13,14,15,12,13,14,15},
+    {11,12,13,14,15,11,12,13,14,15,11,12,13,14,15,11},
+    {10,11,12,13,14,15,10,11,12,13,14,15,10,11,12,13},
+    { 9,10,11,12,13,14,15, 9,10,11,12,13,14,15, 9,10},
+    { 8, 9,10,11,12,13,14,15, 8, 9,10,11,12,13,14,15},
+    { 7, 8, 9,10,11,12,13,14,15, 7, 8, 9,10,11,12,13},
+    { 6, 7, 8, 9,10,11,12,13,14,15, 6, 7, 8, 9,10,11},
+    { 5, 6, 7, 8, 9,10,11,12,13,14,15, 5, 6, 7, 8, 9},
+    { 4, 5, 6, 7, 8, 9,10,11,12,13,14,15, 4, 5, 6, 7},
+    { 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15, 3, 4, 5},
+    { 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15, 2, 3},
+    { 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15, 1}
+    };
+  const static uint8_t repeat_distance[16] = {0,1+16,2+16,3+15,4+16,5+15,6+12,7+14,8+16,9+9,10+10,11+11,12+12,13+13,14+14,15+15};
 
-  *(packed_uchar16*)(dst                    ) = pattern;
-  *(packed_uchar16*)(dst + pattern_size     ) = *(packed_uchar16*)(src     ); // distance + pattern_size >= 16
-  *(packed_uchar16*)(dst + pattern_size + 16) = *(packed_uchar16*)(src + 16);
-  src -= pattern_size;
-  for (size_t i = pattern_size + 32; (i < len); i += 16)
+  // Small overlap?
+  if (distance < 16)
   {
-    *(packed_uchar16*)(dst + i) = *(packed_uchar16*)(src + i);
+    const vector_uchar16 pattern = inflate_shuffle(*(packed_uchar16*)(dst - 16), repeat_perm[distance]);
+
+    // Small length?
+    if (likely(len < 16))
+    {
+      inflate_copy_tail(dst, (const uint8_t*)&pattern, len);
+      return;
+    }
+    
+    // Copy pattern and transition to distance >= 16
+    *(packed_uchar16*)dst = pattern;
+    len -= 16;
+    dst += 16;
+    distance = repeat_distance[distance];
   }
+  
+  // Copy vectors with distance >= 16
+  for (; len >= 16; len -= 16)
+  {
+    *(packed_uchar16*)dst = *(packed_uchar16*)(dst - distance);
+    dst += 16;
+  }
+  // Copy tail
+  inflate_copy_tail(dst, dst - distance, len);
 #else
-  // No shuffle available, copy byte by byte.
-  do { *dst = *(dst - distance); } while (++dst < dst_end);
+  for (; len > 0; len--, dst++) *dst = *(dst - distance);
 #endif
-  return dst_end;
 }
 
-// Copy with overlap and distance >= 16. Can overshoot by 47 bytes.
-INFLATE_INLINE uint8_t* inflate_copy_with_overlap_large(uint8_t* dst, const size_t distance, uint32_t len) // OK
+// Copy w/o overlap with <= 15 bytes left excess. Does NEVER write beyond DST+LEN.
+INFLATE_INLINE void inflate_copy_without_overlap(uint8_t* dst, const uint8_t* src, uint32_t len) // OK
 {
-  Assert(distance >= 16, "bad overlapping distance");
-  const uint8_t* src = dst - distance;
-  uint8_t* dst_end = dst + len;
-  
-  *(packed_uchar16*)(dst     ) = *(packed_uchar16*)(src     );
-  *(packed_uchar16*)(dst + 16) = *(packed_uchar16*)(src + 16);
-  *(packed_uchar16*)(dst + 32) = *(packed_uchar16*)(src + 32);
-  for (size_t i = 48; (i < len); i += 16)
-  {
-    *(packed_uchar16*)(dst + i) = *(packed_uchar16*)(src + i);
-  }
-  return dst_end;
-}
+  const uint32_t left_excess = -len & 15;
+  uint8_t* left = dst - 16;
+  dst -= left_excess; // NEVER write beyond DST+LEN
+  src -= left_excess;
 
-// Copy without overlap. Can overshoot 63 bytes.
-INFLATE_INLINE uint8_t* inflate_copy_fast(uint8_t* dst, const uint8_t* restrict src, const uint32_t len) // OK
-{
-  uint8_t* dst_end = dst + len;
+  // Save context
+  const vector_uchar16 save_left = *(packed_uchar16*)left;
   
-  *(packed_uchar16*)(dst +  0) = *(packed_uchar16*)(src +  0);
-  *(packed_uchar16*)(dst + 16) = *(packed_uchar16*)(src + 16);
-  *(packed_uchar16*)(dst + 32) = *(packed_uchar16*)(src + 32);
-  *(packed_uchar16*)(dst + 48) = *(packed_uchar16*)(src + 48);
-  for (size_t i = 64; (i < len); i += 16)
+  // Copy first 16 bytes
+  *(packed_uchar16*)dst = *(packed_uchar16*)src;
+
+  // Copy remaining vectors
+  for (; len > 16; len -= 16)
   {
-    *(packed_uchar16*)(dst + i) = *(packed_uchar16*)(src + i);
+    dst += 16;
+    src += 16;
+    *(packed_uchar16*)dst = *(packed_uchar16*)src;
   }
-  return dst_end;
+  
+  // Restore context
+  *(packed_uchar16*)left = save_left;
 }
 
 #endif

@@ -47,6 +47,7 @@
 #import "PaymentAuthorizationViewController.h"
 #import "PrintInfo.h"
 #import "ProvisionalPageProxy.h"
+#import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeNode.h"
 #import "RemoteLayerTreeTransaction.h"
@@ -56,7 +57,6 @@
 #import "TapHandlingResult.h"
 #import "UIKitSPI.h"
 #import "UserData.h"
-#import "UserInterfaceIdiom.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewUpdateDispatcherMessages.h"
 #import "WKBrowsingContextControllerInternal.h"
@@ -68,6 +68,7 @@
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
 #import "WebProcessProxy.h"
+#import "WebScreenOrientationManagerProxy.h"
 #import <WebCore/AGXCompilerService.h>
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/NotImplemented.h>
@@ -77,6 +78,7 @@
 #import <WebCore/UserAgent.h>
 #import <WebCore/ValidationBubble.h>
 #import <pal/spi/ios/MobileGestaltSPI.h>
+#import <pal/system/ios/UserInterfaceIdiom.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/text/TextStream.h>
 
@@ -301,6 +303,12 @@ void WebPageProxy::setViewportConfigurationViewLayoutSize(const WebCore::FloatSi
         m_process->send(Messages::WebPage::SetViewportConfigurationViewLayoutSize(size, scaleFactor, minimumEffectiveDeviceWidth), webPageID());
 }
 
+void WebPageProxy::setSceneIdentifier(String&& sceneIdentifier)
+{
+    if (hasRunningProcess())
+        m_process->send(Messages::WebPage::SetSceneIdentifier(WTFMove(sceneIdentifier)), webPageID());
+}
+
 void WebPageProxy::setForceAlwaysUserScalable(bool userScalable)
 {
     if (m_forceAlwaysUserScalable == userScalable)
@@ -311,8 +319,22 @@ void WebPageProxy::setForceAlwaysUserScalable(bool userScalable)
         m_process->send(Messages::WebPage::SetForceAlwaysUserScalable(userScalable), webPageID());
 }
 
+WebCore::ScreenOrientationType WebPageProxy::toScreenOrientationType(IntDegrees angle)
+{
+    if (angle == -90)
+        return WebCore::ScreenOrientationType::LandscapeSecondary;
+    if (angle == 180)
+        return WebCore::ScreenOrientationType::PortraitSecondary;
+    if (angle == 90)
+        return WebCore::ScreenOrientationType::LandscapePrimary;
+    return WebCore::ScreenOrientationType::PortraitPrimary;
+}
+
 void WebPageProxy::setDeviceOrientation(IntDegrees deviceOrientation)
 {
+    if (m_screenOrientationManager)
+        m_screenOrientationManager->setCurrentOrientation(toScreenOrientationType(deviceOrientation));
+
     if (deviceOrientation != m_deviceOrientation) {
         m_deviceOrientation = deviceOrientation;
         if (hasRunningProcess())
@@ -857,19 +879,19 @@ static FloatSize fullscreenPreferencesScreenSize(CGFloat preferredWidth)
 FloatSize WebPageProxy::availableScreenSize()
 {
 #if PLATFORM(VISION)
-    return fullscreenPreferencesScreenSize(m_preferences->mediaPreferredFullscreenWidth());
-#else
-    return WebCore::availableScreenSize();
+    if (PAL::currentUserInterfaceIdiomIsVisionOrVisionLegacy())
+        return fullscreenPreferencesScreenSize(m_preferences->mediaPreferredFullscreenWidth());
 #endif
+    return WebCore::availableScreenSize();
 }
 
 FloatSize WebPageProxy::overrideScreenSize()
 {
 #if PLATFORM(VISION)
-    return fullscreenPreferencesScreenSize(m_preferences->mediaPreferredFullscreenWidth());
-#else
-    return WebCore::overrideScreenSize();
+    if (PAL::currentUserInterfaceIdiomIsVisionOrVisionLegacy())
+        return fullscreenPreferencesScreenSize(m_preferences->mediaPreferredFullscreenWidth());
 #endif
+    return WebCore::overrideScreenSize();
 }
 
 float WebPageProxy::textAutosizingWidth()
@@ -1308,7 +1330,7 @@ static bool desktopClassBrowsingSupported()
     static bool supportsDesktopClassBrowsing = false;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        supportsDesktopClassBrowsing = !currentUserInterfaceIdiomIsSmallScreen();
+        supportsDesktopClassBrowsing = !PAL::currentUserInterfaceIdiomIsSmallScreen();
     });
     return supportsDesktopClassBrowsing;
 }

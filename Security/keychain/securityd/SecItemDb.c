@@ -652,8 +652,10 @@ decode:
         item = key;
     }
 
-    if (!match_item(c->dbt, q, c->accessGroups, item))
+
+    if (!match_item(c->dbt, q, c->accessGroups, item)) {
         goto out;
+    }
 
     CFDataRef uuidData = CFDictionaryGetValue(item, kSecAttrPersistentReference);
     
@@ -1273,6 +1275,7 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
         return SecError(errSecItemIllegalQuery, error, CFSTR("attributes to update illegal; both token persistent ref and other attributes can't be updated at the same time"));
     }
 
+
     __block bool result = true;
     Query *u = query_create(q->q_class, NULL, attributesToUpdate, NULL, error);
     if (u == NULL) return false;
@@ -1291,6 +1294,8 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                 if (q->q_token_object_id != NULL && !checkTokenObjectID(q->q_token_object_id, valueData))
                     return;
             }
+
+
             // Cache the storedSHA1 digest so we use the one from the db not the recomputed one for notifications.
             const SecDbAttr *sha1attr = SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, NULL);
             CFDataRef storedSHA1 = CFRetainSafe(SecDbItemGetValue(item, sha1attr, NULL));
@@ -1380,6 +1385,8 @@ s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFE
             needAuth = true;
             return;
         }
+
+
         // Cache the storedSHA1 digest so we use the one from the db not the recomputed one for notifications.
         const SecDbAttr *sha1attr = SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, NULL);
         CFDataRef storedSHA1 = CFRetainSafe(SecDbItemGetValue(item, sha1attr, NULL));

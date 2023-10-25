@@ -48,8 +48,11 @@
 #include <string.h>
 #include "Logging.h"
 
+#ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(nologin)
 #define PAM_LOG PAM_LOG_nologin()
+#endif
+
 /*
  * here, we make a definition for the externally accessible function
  * in this file (this definition is required for static a module
@@ -86,21 +89,21 @@ int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc,
        /* root can still log in; lusers cannot */
        if ((pam_get_user(pamh, &username, NULL) != PAM_SUCCESS)
            || !username) {
-		   os_log_error(PAM_LOG, "Failed to obtain the username.");
+		   _LOG_ERROR("Failed to obtain the username.");
          return PAM_SERVICE_ERR;
        }
        if (getpwnam_r(username, &pwdbuf, pwbuffer, sizeof(pwbuffer), &user_pwd) != 0) {
-         os_log_error(PAM_LOG, "The getpwnam_r call failed.");
+         _LOG_ERROR("The getpwnam_r call failed.");
          user_pwd = NULL;
        }
        if (user_pwd && user_pwd->pw_uid == 0) {
          message.msg_style = PAM_TEXT_INFO;
        } else {
 	   if (!user_pwd) {
-		   os_log_error(PAM_LOG, "The user is invalid.");
+		   _LOG_ERROR("The user is invalid.");
 	       retval = PAM_USER_UNKNOWN;
 	   } else {
-		   os_log_error(PAM_LOG, "Denying non-root login.");
+		   _LOG_ERROR("Denying non-root login.");
 	       retval = PAM_AUTH_ERR;
 	   }
 	   message.msg_style = PAM_ERROR_MSG;
@@ -108,13 +111,13 @@ int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc,
 
        /* fill in message buffer with contents of /etc/nologin */
 	   if (fstat(fd, &st) < 0) {/* give up trying to display message */
-		   os_log_debug(PAM_LOG, "Failure displaying the message.");
+           _LOG_ERROR("Failure displaying the message.");
 		   return retval;
 	   }
        message.msg = mtmp = malloc(st.st_size+1);
        /* if malloc failed... */
 	   if (!message.msg){
-		   os_log_debug(PAM_LOG, "The message is empty.");
+           _LOG_ERROR("The message is empty.");
 		   return retval;
 	   }
        read(fd, mtmp, st.st_size);
